@@ -14,13 +14,13 @@ and the two emission paths the acceptance test rides on:
 
 from __future__ import annotations
 
-import json
 import os
 import tempfile
 import unittest
 from pathlib import Path
 
 import intergen.glass as glass
+from intergen.tests import glass_rows
 
 
 def _reset(tmp: str, disabled: bool = False) -> None:
@@ -35,11 +35,7 @@ def _reset(tmp: str, disabled: bool = False) -> None:
 
 
 def _rows(tmp: str) -> list[dict]:
-    p = Path(tmp) / "intergen" / "glass.jsonl"
-    if not p.exists():
-        return []
-    with open(p) as f:
-        return [json.loads(x) for x in f]
+    return glass_rows.read(tmp)
 
 
 def _turn_rows(tmp: str) -> list[dict]:
@@ -48,8 +44,13 @@ def _turn_rows(tmp: str) -> list[dict]:
     The writer records its own state in the "glass" phase — the rotation marker
     that explains a gap, and the sequence_resumed row that says where a new
     process picked the counter up (N-02/N-03). Those are real rows a reader
-    wants, but they are not the emissions these contract tests are about, and a
-    test that indexes row zero must not silently start measuring one of them.
+    wants, but they are not the emissions these contract tests are about.
+
+    Excluding one phase is NOT a substitute for naming the row wanted: the next
+    row the writer learns to emit need not be in the "glass" phase, and then
+    position zero moves again. Every case below names its row through
+    intergen/tests/glass_rows.py; this stays only for the cases that count what
+    a caller emitted, where the exclusion is the point.
     """
     return [r for r in _rows(tmp) if r.get("phase") != "glass"]
 
@@ -65,21 +66,30 @@ class GlassWriterContract(unittest.TestCase):
             self.assertEqual(glass.current_turn_id(), tid)
             glass.emit("route", "turn_start", detail={"user_msg": "hi"})
             glass.emit("delivery", "final", detail={"text": "yo"}, dur_ms=5.0)
-        rows = _turn_rows(self.tmp)
-        self.assertEqual(len(rows), 2)
+        # The count is of the rows this turn EMITTED, not of everything in the
+        # file: only() below fails unless there is exactly one of each, which is
+        # the count that used to be written as len(rows) == 2. That older form
+        # was a statement about the writer's bookkeeping as well, and it moved
+        # every time the writer learned to say something new. Whether a turn
+        # writes ONLY these rows is asserted where it belongs, in
+        # test_glass_turn_lifecycle's joinable-from-its-id-alone case.
+        rows = glass_rows.where(_rows(self.tmp), turn_id=tid)
+        start = glass_rows.only(rows, phase="route", event="turn_start")
+        final = glass_rows.only(rows, phase="delivery", event="final")
         self.assertTrue(all(r["turn_id"] == tid for r in rows))
         self.assertEqual([r["seq"] for r in rows],
                          sorted(r["seq"] for r in rows))
-        self.assertEqual(rows[0]["iface"], "web")
-        self.assertIsNotNone(rows[1]["t_rel_ms"])
-        self.assertEqual(rows[1]["dur_ms"], 5.0)
+        self.assertEqual(start["iface"], "web")
+        self.assertIsNotNone(final["t_rel_ms"])
+        self.assertEqual(final["dur_ms"], 5.0)
 
     def test_secret_redaction_is_in_place_and_attested(self) -> None:
         with glass.turn(glass.new_turn_id(), "dbus"):
             glass.emit("prompt", "assembled", detail={
                 "password": "hunter2", "api_key": "sk-xyz", "system": "ok",
                 "nested": {"bearer_token": "b", "keep": 1}})
-        d = _turn_rows(self.tmp)[0]["detail"]
+        d = glass_rows.only(_rows(self.tmp),
+                            phase="prompt", event="assembled")["detail"]
         # redacted VALUE, attested placeholder naming the key — never silent
         self.assertEqual(d["password"], "<redacted:password>")
         self.assertEqual(d["api_key"], "<redacted:api_key>")
@@ -101,7 +111,8 @@ class GlassWriterContract(unittest.TestCase):
 
     def test_warmup_override_turn_id_and_iface(self) -> None:
         glass.emit("warmup", "daemon_start", turn_id="boot-1", iface="daemon")
-        r = _turn_rows(self.tmp)[0]
+        r = glass_rows.only(_rows(self.tmp),
+                            phase="warmup", event="daemon_start")
         self.assertEqual(r["turn_id"], "boot-1")
         self.assertEqual(r["iface"], "daemon")
         self.assertIsNone(r["t_rel_ms"])  # no turn-start anchor for a boot row
@@ -123,17 +134,17 @@ class GlassWriterContract(unittest.TestCase):
             glass._ROTATE_BYTES = orig
         base = Path(self.tmp) / "intergen" / "glass.jsonl"
         self.assertTrue(base.with_name("glass.jsonl.1").exists())
-        markers = [r for r in _rows(self.tmp) if r.get("event") == "rotation"]
+        markers = glass_rows.where(_rows(self.tmp), event="rotation")
         self.assertTrue(markers, "a rotation marker must self-explain the gap")
 
     def test_reader_round_trips(self) -> None:
         tid = glass.new_turn_id()
         with glass.turn(tid, "web"):
             glass.emit("route", "turn_start", detail={"user_msg": "hello"})
-        rows = [r for r in glass.read_rows(
-            Path(self.tmp) / "intergen" / "glass.jsonl")
-            if r.get("phase") != "glass"]
-        self.assertEqual(rows[0]["turn_id"], tid)
+        row = glass_rows.only(
+            glass.read_rows(Path(self.tmp) / "intergen" / "glass.jsonl"),
+            phase="route", event="turn_start")
+        self.assertEqual(row["turn_id"], tid)
 
 
 class RouterHistoryWriteEmission(unittest.TestCase):
@@ -152,11 +163,12 @@ class RouterHistoryWriteEmission(unittest.TestCase):
         r._max_history = 20
         with glass.turn(glass.new_turn_id(), "web"):
             r._append_history("what is the capital of Brazil?", "Brasília.")
-        hw = [x for x in _rows(self.tmp) if x["event"] == "history_write"]
+        hw = glass_rows.where(_rows(self.tmp), event="history_write")
         self.assertEqual(len(hw), 1)
-        self.assertEqual(hw[0]["detail"]["store"], "conversation_history")
-        self.assertEqual(hw[0]["detail"]["response"], "Brasília.")
-        self.assertEqual(hw[0]["detail"]["len_after"], 2)
+        written = glass_rows.only(_rows(self.tmp), event="history_write")
+        self.assertEqual(written["detail"]["store"], "conversation_history")
+        self.assertEqual(written["detail"]["response"], "Brasília.")
+        self.assertEqual(written["detail"]["len_after"], 2)
 
 
 class DecomposerVerdictEmission(unittest.TestCase):
@@ -180,9 +192,9 @@ class DecomposerVerdictEmission(unittest.TestCase):
         from intergen.interfaces.types import HardwareTierLevel
         with glass.turn(glass.new_turn_id(), "web"):
             analyze_query("what is 2 plus 2", HardwareTierLevel.TIER_2)
-        dec = [r for r in _rows(self.tmp) if r["event"] == "decompose"]
+        dec = glass_rows.where(_rows(self.tmp), event="decompose")
         self.assertTrue(dec)                        # verdict EMITTED (visibility)
-        d = dec[-1]["detail"]
+        d = glass_rows.last(_rows(self.tmp), event="decompose")["detail"]
         self.assertFalse(d["is_compound"])          # arithmetic plus is NOT compound
         self.assertFalse(d["needs_decomposition"])
 

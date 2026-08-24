@@ -49,7 +49,6 @@ from __future__ import annotations
 
 import ast
 import asyncio
-import json
 import os
 import tempfile
 import threading
@@ -59,6 +58,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import intergen.glass as glass
+from intergen.tests import glass_rows
 
 
 def _reset(tmp: str) -> None:
@@ -68,11 +68,7 @@ def _reset(tmp: str) -> None:
 
 
 def _rows(tmp: str) -> list[dict]:
-    p = Path(tmp) / "intergen" / "glass.jsonl"
-    if not p.exists():
-        return []
-    with open(p) as f:
-        return [json.loads(x) for x in f]
+    return glass_rows.read(tmp)
 
 
 class EveryTurnReachesExactlyOneTerminalEvent(unittest.TestCase):
@@ -83,9 +79,10 @@ class EveryTurnReachesExactlyOneTerminalEvent(unittest.TestCase):
         _reset(self.tmp)
 
     def _terminals(self, turn_id: str) -> list[dict]:
-        return [r for r in _rows(self.tmp)
-                if r.get("turn_id") == turn_id
-                and glass.is_terminal_event(r.get("phase", ""), r.get("event", ""))]
+        return glass_rows.where(
+            _rows(self.tmp), turn_id=turn_id,
+            pred=lambda r: glass.is_terminal_event(r.get("phase", ""),
+                                                   r.get("event", "")))
 
     def test_a_turn_that_delivers_has_exactly_one_terminal(self) -> None:
         tid = glass.new_turn_id()
@@ -104,7 +101,7 @@ class EveryTurnReachesExactlyOneTerminalEvent(unittest.TestCase):
                 raise RuntimeError("turn blew up")
         terminals = self._terminals(tid)
         self.assertEqual(len(terminals), 1, _rows(self.tmp))
-        self.assertEqual(terminals[0]["event"], "error")
+        self.assertEqual(glass_rows.only(terminals)["event"], "error")
 
     def test_a_turn_that_is_cancelled_still_terminates(self) -> None:
         """A client that disappears mid-turn is an OUTCOME, not an absence of
@@ -116,7 +113,7 @@ class EveryTurnReachesExactlyOneTerminalEvent(unittest.TestCase):
                 raise asyncio.CancelledError()
         terminals = self._terminals(tid)
         self.assertEqual(len(terminals), 1)
-        self.assertEqual(terminals[0]["event"], "cancelled")
+        self.assertEqual(glass_rows.only(terminals)["event"], "cancelled")
 
     def test_a_turn_that_returns_early_still_terminates(self) -> None:
         """The empty-message and router-unavailable refusals: the turn ends
@@ -126,7 +123,7 @@ class EveryTurnReachesExactlyOneTerminalEvent(unittest.TestCase):
             glass.emit("route", "turn_start", detail={})
         terminals = self._terminals(tid)
         self.assertEqual(len(terminals), 1)
-        self.assertEqual(terminals[0]["event"], "unreported")
+        self.assertEqual(glass_rows.only(terminals)["event"], "unreported")
 
     def test_the_fallback_says_it_is_a_fallback(self) -> None:
         """A terminal nobody asked for must be distinguishable from one a call
@@ -134,7 +131,7 @@ class EveryTurnReachesExactlyOneTerminalEvent(unittest.TestCase):
         tid = glass.new_turn_id()
         with glass.turn(tid, "web"):
             glass.emit("route", "turn_start", detail={})
-        row = self._terminals(tid)[0]
+        row = glass_rows.only(self._terminals(tid))
         self.assertTrue(row["detail"].get("synthesized"), row)
 
     def test_a_second_terminal_for_one_turn_is_refused(self) -> None:
@@ -146,7 +143,7 @@ class EveryTurnReachesExactlyOneTerminalEvent(unittest.TestCase):
             glass.emit("delivery", "final", detail={"text": "second"})
         terminals = self._terminals(tid)
         self.assertEqual(len(terminals), 1, terminals)
-        self.assertEqual(terminals[0]["detail"].get("text"), "first")
+        self.assertEqual(glass_rows.only(terminals)["detail"].get("text"), "first")
 
     def test_a_refused_second_terminal_is_recorded_not_dropped(self) -> None:
         """Refusing it silently would hide a real defect in a call site. The
@@ -155,8 +152,8 @@ class EveryTurnReachesExactlyOneTerminalEvent(unittest.TestCase):
         with glass.turn(tid, "web"):
             glass.emit("delivery", "final", detail={"text": "first"})
             glass.emit("delivery", "final", detail={"text": "second"})
-        extra = [r for r in _rows(self.tmp)
-                 if r.get("event") == "terminal_after_terminal"]
+        extra = glass_rows.where(_rows(self.tmp),
+                                 event="terminal_after_terminal")
         self.assertEqual(len(extra), 1, _rows(self.tmp))
 
     def test_concurrent_turns_each_get_exactly_one_terminal(self) -> None:
@@ -198,11 +195,16 @@ class EveryTurnReachesExactlyOneTerminalEvent(unittest.TestCase):
             glass.emit("route", "turn_start", detail={})
             glass.emit("route", "verdict", detail={})
             glass.emit("delivery", "final", detail={})
-        mine = [r for r in _rows(self.tmp) if r.get("turn_id") == tid]
+        # DELIBERATELY EXHAUSTIVE, and deliberately not converted to naming
+        # each row: what this case asserts is that the turn's id recovers the
+        # WHOLE turn and nothing else, so the complete event sequence is the
+        # assertion. A row the writer adds to this turn must fail here — that
+        # is the point — while a row it adds outside the turn does not reach it.
+        mine = glass_rows.where(_rows(self.tmp), turn_id=tid)
         self.assertEqual([r["event"] for r in mine],
                          ["turn_start", "verdict", "final"])
         self.assertEqual(
-            [r for r in _rows(self.tmp) if r.get("turn_id") == "no-turn"], [],
+            glass_rows.where(_rows(self.tmp), turn_id="no-turn"), [],
             "a row of this turn was written outside it")
 
 
@@ -349,9 +351,9 @@ class EveryThreadHandoffCarriesTheTurn(unittest.TestCase):
             return tid
 
         tid = asyncio.run(run())
-        verdict = [r for r in _rows(tmp) if r.get("event") == "verdict"]
+        verdict = glass_rows.where(_rows(tmp), event="verdict")
         self.assertEqual(len(verdict), 1)
-        self.assertEqual(verdict[0]["turn_id"], tid)
+        self.assertEqual(glass_rows.only(verdict)["turn_id"], tid)
 
 
 class _RecordingWS:
@@ -436,9 +438,10 @@ class TheShippedWebPathTerminatesAndJoins(unittest.TestCase):
         self.web_server_module = web_server_module
 
     def _terminals(self, turn_id: str) -> list[dict]:
-        return [r for r in _rows(self.tmp)
-                if r.get("turn_id") == turn_id
-                and glass.is_terminal_event(r.get("phase", ""), r.get("event", ""))]
+        return glass_rows.where(
+            _rows(self.tmp), turn_id=turn_id,
+            pred=lambda r: glass.is_terminal_event(r.get("phase", ""),
+                                                   r.get("event", "")))
 
     def _turn(self, router, deadline_s: float | None = None,
               wait_s: float = 5.0) -> "_RecordingWS":
@@ -476,8 +479,8 @@ class TheShippedWebPathTerminatesAndJoins(unittest.TestCase):
         tid = ws.turn_id()
         terminals = self._terminals(tid)
         self.assertEqual(len(terminals), 1, _rows(self.tmp))
-        self.assertEqual(terminals[0]["event"], "timeout")
-        self.assertFalse(terminals[0]["detail"].get("synthesized"),
+        self.assertEqual(glass_rows.only(terminals)["event"], "timeout")
+        self.assertFalse(glass_rows.only(terminals)["detail"].get("synthesized"),
                          "the deadline is an accounted-for ending; a "
                          "synthesized row here means the site stayed silent")
 
@@ -487,10 +490,10 @@ class TheShippedWebPathTerminatesAndJoins(unittest.TestCase):
         ws = self._turn(_EmittingRouter(stall_s=3.0), deadline_s=0.2,
                         wait_s=2.0)
         tid = ws.turn_id()
-        verdicts = [r for r in _rows(self.tmp) if r.get("event") == "verdict"]
+        verdicts = glass_rows.where(_rows(self.tmp), event="verdict")
         self.assertEqual(len(verdicts), 1, _rows(self.tmp))
         self.assertEqual(
-            verdicts[0]["turn_id"], tid,
+            glass_rows.only(verdicts)["turn_id"], tid,
             "the router's row did not join the turn — the thread handoff is "
             "not carrying the context")
 
@@ -501,9 +504,9 @@ class TheShippedWebPathTerminatesAndJoins(unittest.TestCase):
         tid = ws.turn_id()
         terminals = self._terminals(tid)
         self.assertEqual(len(terminals), 1, _rows(self.tmp))
-        self.assertEqual(terminals[0]["event"], "final")
+        self.assertEqual(glass_rows.only(terminals)["event"], "final")
         self.assertEqual(
-            [r for r in _rows(self.tmp) if r.get("turn_id") == "no-turn"], [],
+            glass_rows.where(_rows(self.tmp), turn_id="no-turn"), [],
             "a row of this turn was written outside it")
 
     def test_a_crashing_turn_leaves_one_error_terminal(self) -> None:
@@ -529,8 +532,8 @@ class TheShippedWebPathTerminatesAndJoins(unittest.TestCase):
         tid = ws.turn_id()
         terminals = self._terminals(tid)
         self.assertEqual(len(terminals), 1, _rows(self.tmp))
-        self.assertEqual(terminals[0]["event"], "error")
-        self.assertEqual(terminals[0]["detail"].get("exception"),
+        self.assertEqual(glass_rows.only(terminals)["event"], "error")
+        self.assertEqual(glass_rows.only(terminals)["detail"].get("exception"),
                          "RuntimeError")
 
 
@@ -557,9 +560,10 @@ class TheTerminalHoldsAcrossTheThreadSeam(unittest.TestCase):
         _reset(self.tmp)
 
     def _terminals(self, turn_id: str) -> list[dict]:
-        return [r for r in _rows(self.tmp)
-                if r.get("turn_id") == turn_id
-                and glass.is_terminal_event(r.get("phase", ""), r.get("event", ""))]
+        return glass_rows.where(
+            _rows(self.tmp), turn_id=turn_id,
+            pred=lambda r: glass.is_terminal_event(r.get("phase", ""),
+                                                   r.get("event", "")))
 
     def test_a_terminal_written_in_a_worker_thread_counts_as_the_ending(self) -> None:
         tid = glass.new_turn_id()
@@ -571,9 +575,9 @@ class TheTerminalHoldsAcrossTheThreadSeam(unittest.TestCase):
                     detail={"text": "from the thread"})).result()
         terminals = self._terminals(tid)
         self.assertEqual(len(terminals), 1, _rows(self.tmp))
-        self.assertEqual(terminals[0]["event"], "final")
+        self.assertEqual(glass_rows.only(terminals)["event"], "final")
         self.assertFalse(
-            terminals[0]["detail"].get("synthesized"),
+            glass_rows.only(terminals)["detail"].get("synthesized"),
             "the turn's exit synthesized an ending over a terminal the worker "
             "thread had already written")
 
@@ -597,9 +601,9 @@ class TheTerminalHoldsAcrossTheThreadSeam(unittest.TestCase):
                             f.result()
                 terminals = self._terminals(tid)
                 self.assertEqual(len(terminals), 1, terminals)
-                refused = [r for r in _rows(self.tmp)
-                           if r.get("turn_id") == tid
-                           and r.get("event") == "terminal_after_terminal"]
+                refused = glass_rows.where(
+                    _rows(self.tmp), turn_id=tid,
+                    event="terminal_after_terminal")
                 self.assertEqual(
                     len(refused), 7,
                     "every attempt that lost the race must still be recorded, "

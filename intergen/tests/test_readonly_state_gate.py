@@ -15,7 +15,6 @@ leading-binary checks — never a silent trust-nothing no-op.
 
 from __future__ import annotations
 
-import json
 import os
 import tempfile
 import unittest
@@ -23,6 +22,7 @@ from pathlib import Path
 from unittest import mock
 
 import intergen.glass as glass
+from intergen.tests import glass_rows
 import intergen.router as router
 from intergen.router import ConversationRouter as R
 
@@ -34,11 +34,7 @@ def _glass_reset(tmp: str) -> None:
 
 
 def _glass_rows(tmp: str) -> list[dict]:
-    p = Path(tmp) / "intergen" / "glass.jsonl"
-    if not p.exists():
-        return []
-    with open(p) as f:
-        return [json.loads(x) for x in f]
+    return glass_rows.read(tmp)
 
 
 def _which_all_present(name: str) -> str | None:
@@ -92,8 +88,9 @@ class RequiredBinaryMissing(unittest.TestCase):
         gate = [x for x in _glass_rows(self.tmp)
                 if x.get("event") == "readonly_state_gate"]
         self.assertTrue(gate, "a suppression must emit a readonly_state_gate row")
-        self.assertEqual(gate[-1]["detail"]["verdict"], "suppressed_missing_binary")
-        self.assertEqual(gate[-1]["detail"]["missing"], ["lpstat"])
+        screened = glass_rows.last(gate)
+        self.assertEqual(screened["detail"]["verdict"], "suppressed_missing_binary")
+        self.assertEqual(screened["detail"]["missing"], ["lpstat"])
 
 
 class MapMissingDegradesLoud(unittest.TestCase):
@@ -124,7 +121,8 @@ class MapMissingDegradesLoud(unittest.TestCase):
         rows = [x for x in _glass_rows(self.tmp)
                 if x.get("event") == "readonly_state_map"]
         self.assertTrue(rows, "map-absent must emit a readonly_state_map row")
-        self.assertEqual(rows[-1]["detail"]["verdict"], "unavailable_no_map")
+        self.assertEqual(glass_rows.last(rows)["detail"]["verdict"],
+                         "unavailable_no_map")
 
     def test_map_absent_still_suppresses_a_genuinely_missing_binary(self) -> None:
         # Degraded ≠ trust-nothing: with the map gone, a missing leading binary is

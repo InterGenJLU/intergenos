@@ -27,13 +27,13 @@ capability_screen glass decision + the right fallback; the web path
 from __future__ import annotations
 
 import inspect
-import json
 import os
 import tempfile
 import unittest
 from pathlib import Path
 
 import intergen.glass as glass
+from intergen.tests import glass_rows
 import intergen.safety as safety
 from intergen.safety import (
     screen_capability_claim,
@@ -52,11 +52,7 @@ def _glass_reset(tmp: str) -> None:
 
 
 def _glass_rows(tmp: str) -> list[dict]:
-    p = Path(tmp) / "intergen" / "glass.jsonl"
-    if not p.exists():
-        return []
-    with open(p) as f:
-        return [json.loads(x) for x in f]
+    return glass_rows.read(tmp)
 
 
 class ScreenCapabilityClaimSurfacePresent(unittest.TestCase):
@@ -137,16 +133,16 @@ class RouterCapabilityWiring(unittest.TestCase):
         safety._pkm_surface.cache_clear()
 
     def _cap_rows(self) -> list[dict]:
-        return [x for x in _glass_rows(self.tmp)
-                if x.get("event") == "capability_screen"]
+        return glass_rows.where(_glass_rows(self.tmp),
+                                event="capability_screen")
 
     def test_clean_delivers_draft_and_logs_clean(self) -> None:
         draft = "run `pkm install firefox`"
         with glass.turn(glass.new_turn_id(), "test"):
             out = self.r._screen_and_correct_capability(draft, [], source="dbus")
         self.assertEqual(out, draft)
-        rows = self._cap_rows()
-        self.assertEqual(rows[-1]["detail"]["verdict"], "clean")
+        screened = glass_rows.last(self._cap_rows())
+        self.assertEqual(screened["detail"]["verdict"], "clean")
 
     def test_violation_regen_fails_serves_honest_fallback(self) -> None:
         # Stub regeneration to fail so the honest fallback path is exercised.
@@ -155,10 +151,10 @@ class RouterCapabilityWiring(unittest.TestCase):
             out = self.r._screen_and_correct_capability(
                 "run `pkm frobnicate x`", [], source="dbus")
         self.assertEqual(out, honest_capability_fallback("pkm frobnicate"))
-        rows = self._cap_rows()
-        self.assertEqual(rows[-1]["detail"]["verdict"],
+        screened = glass_rows.last(self._cap_rows())
+        self.assertEqual(screened["detail"]["verdict"],
                          "violation_regen_failed_fallback")
-        self.assertEqual(rows[-1]["detail"]["marker"], "pkm frobnicate")
+        self.assertEqual(screened["detail"]["marker"], "pkm frobnicate")
 
     def test_violation_regen_succeeds_delivers_correction(self) -> None:
         self.r._regenerate_with_capability_grounding = (
@@ -167,7 +163,7 @@ class RouterCapabilityWiring(unittest.TestCase):
             out = self.r._screen_and_correct_capability(
                 "run `pkm frobnicate x`", [], source="dbus")
         self.assertEqual(out, "Use `pkm install firefox` instead.")
-        self.assertEqual(self._cap_rows()[-1]["detail"]["verdict"],
+        self.assertEqual(glass_rows.last(self._cap_rows())["detail"]["verdict"],
                          "violation_regenerated")
 
 
@@ -187,15 +183,15 @@ class RouterCapabilityWiringSurfaceAbsent(unittest.TestCase):
         safety._pkm_surface.cache_clear()
 
     def _cap_rows(self) -> list[dict]:
-        return [x for x in _glass_rows(self.tmp)
-                if x.get("event") == "capability_screen"]
+        return glass_rows.where(_glass_rows(self.tmp),
+                                event="capability_screen")
 
     def test_unavailable_with_marker_serves_unverified_fallback(self) -> None:
         with glass.turn(glass.new_turn_id(), "test"):
             out = self.r._screen_and_correct_capability(
                 "run `pkm install firefox`", [], source="dbus")
         self.assertEqual(out, capability_unverified_fallback("pkm install"))
-        row = self._cap_rows()[-1]["detail"]
+        row = glass_rows.last(self._cap_rows())["detail"]
         self.assertEqual(row["verdict"], "unavailable_no_surface_fallback")
         self.assertEqual(row["marker"], "pkm install")
 
@@ -204,7 +200,7 @@ class RouterCapabilityWiringSurfaceAbsent(unittest.TestCase):
         with glass.turn(glass.new_turn_id(), "test"):
             out = self.r._screen_and_correct_capability(draft, [], source="dbus")
         self.assertEqual(out, draft)
-        self.assertEqual(self._cap_rows()[-1]["detail"]["verdict"],
+        self.assertEqual(glass_rows.last(self._cap_rows())["detail"]["verdict"],
                          "unavailable_no_surface")
 
 

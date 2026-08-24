@@ -32,13 +32,13 @@ between healthy, unavailable, and orthogonal-vector (below threshold).
 
 from __future__ import annotations
 
-import json
 import os
 import tempfile
 import unittest
 from pathlib import Path
 
 import intergen.glass as glass
+from intergen.tests import glass_rows
 from intergen.memory import MemoryManager, SessionTurnIndex
 from intergen.router import ConversationRouter, _lexical_fact_match
 
@@ -127,13 +127,8 @@ class _RecallBase(unittest.TestCase):
         return None
 
     def _glass_rows(self, phase: str, event: str) -> list[dict]:
-        path = Path(self.tmp) / "intergen" / "glass.jsonl"
-        if not path.exists():
-            return []
-        with open(path) as fh:
-            rows = [json.loads(x) for x in fh]
-        return [r for r in rows
-                if r.get("phase") == phase and r.get("event") == event]
+        return glass_rows.where(glass_rows.read(self.tmp),
+                                phase=phase, event=event)
 
 
 class EmbedderUnavailable(_RecallBase):
@@ -158,12 +153,13 @@ class EmbedderUnavailable(_RecallBase):
 
         lex = self._glass_rows("memory", "facts_inject_lexical")
         self.assertEqual(len(lex), 1, "the lexical fallback fired unlogged")
-        self.assertEqual(lex[0]["detail"]["count"], 1)
-        self.assertFalse(lex[0]["detail"]["embedder_available"])
+        matched = glass_rows.only(lex)
+        self.assertEqual(matched["detail"]["count"], 1)
+        self.assertFalse(matched["detail"]["embedder_available"])
 
         assembled = self._glass_rows("prompt", "assembled")
-        self.assertEqual(assembled[-1]["detail"]["memory_facts_injected"], 1)
-        self.assertEqual(assembled[-1]["detail"]["memory_facts_source"], "lexical")
+        self.assertEqual(glass_rows.last(assembled)["detail"]["memory_facts_injected"], 1)
+        self.assertEqual(glass_rows.last(assembled)["detail"]["memory_facts_source"], "lexical")
 
     def test_a_question_naming_nothing_stored_injects_nothing(self) -> None:
         self._store("your default editor", "neovim")
@@ -172,8 +168,8 @@ class EmbedderUnavailable(_RecallBase):
         self.assertIsNone(self._fact_block(msgs),
                           "an unrelated question pulled in a stored fact")
         assembled = self._glass_rows("prompt", "assembled")
-        self.assertEqual(assembled[-1]["detail"]["memory_facts_injected"], 0)
-        self.assertIsNone(assembled[-1]["detail"]["memory_facts_source"])
+        self.assertEqual(glass_rows.last(assembled)["detail"]["memory_facts_injected"], 0)
+        self.assertIsNone(glass_rows.last(assembled)["detail"]["memory_facts_source"])
 
 
 class TurnIndexAbsent(_RecallBase):
@@ -207,7 +203,7 @@ class BelowThresholdRanking(_RecallBase):
             block, "a below-threshold ranking dropped a fact the question named")
         self.assertIn("your timezone: Mountain", block)
         assembled = self._glass_rows("prompt", "assembled")
-        self.assertEqual(assembled[-1]["detail"]["memory_facts_source"], "lexical")
+        self.assertEqual(glass_rows.last(assembled)["detail"]["memory_facts_source"], "lexical")
 
 
 class _AlignedEmbedder:
@@ -233,7 +229,7 @@ class EmbeddingPathStaysPrimary(_RecallBase):
         self.assertIsNotNone(block)
         self.assertIn("your default editor: neovim", block)
         assembled = self._glass_rows("prompt", "assembled")
-        self.assertEqual(assembled[-1]["detail"]["memory_facts_source"], "embedding")
+        self.assertEqual(glass_rows.last(assembled)["detail"]["memory_facts_source"], "embedding")
 
     def test_the_fallback_does_not_also_fire(self) -> None:
         self._store("your default editor", "neovim")

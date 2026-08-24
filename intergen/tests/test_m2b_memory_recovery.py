@@ -35,14 +35,13 @@ relevant antecedent — verbatim, provenance-tagged, and observable").
 
 from __future__ import annotations
 
-import json
 import os
 import tempfile
 import time
 import unittest
-from pathlib import Path
 
 import intergen.glass as glass
+from intergen.tests import glass_rows
 from intergen.memory import SessionTurnIndex
 from intergen.router import ConversationRouter, Message
 
@@ -98,21 +97,15 @@ def _glass_reset(tmp: str) -> None:
 
 
 def _glass_rows(tmp: str) -> list[dict]:
-    p = Path(tmp) / "intergen" / "glass.jsonl"
-    if not p.exists():
-        return []
-    with open(p) as f:
-        return [json.loads(x) for x in f]
+    return glass_rows.read(tmp)
 
 
 def _mem_rows(tmp: str, event: str) -> list[dict]:
-    return [x for x in _glass_rows(tmp)
-            if x.get("phase") == "memory" and x.get("event") == event]
+    return glass_rows.where(_glass_rows(tmp), phase="memory", event=event)
 
 
 def _assembled_rows(tmp: str) -> list[dict]:
-    return [x for x in _glass_rows(tmp)
-            if x.get("phase") == "prompt" and x.get("event") == "assembled"]
+    return glass_rows.where(_glass_rows(tmp), phase="prompt", event="assembled")
 
 
 # The distinctive antecedent staged at turn 3 — a phrase no filler turn contains,
@@ -204,15 +197,17 @@ class NigeriaClassRecovery(_M2bBase):
         # at or above the 0.60 threshold (design D4: no unlogged byte).
         inj = _mem_rows(self.tmp, "inject")
         self.assertEqual(len(inj), 1, "expected exactly one memory/inject")
-        self.assertEqual(inj[0]["detail"]["turn_no"], self.ANTECEDENT_TURN_NO)
-        self.assertGreaterEqual(inj[0]["detail"]["score"],
-                                inj[0]["detail"]["threshold"])
+        injected = glass_rows.only(inj)
+        self.assertEqual(injected["detail"]["turn_no"], self.ANTECEDENT_TURN_NO)
+        self.assertGreaterEqual(injected["detail"]["score"],
+                                injected["detail"]["threshold"])
 
         # (c) the prompt-assembly chokepoint records the injection (router.py).
         asm = _assembled_rows(self.tmp)
         self.assertTrue(asm)
-        self.assertTrue(asm[-1]["detail"]["memory_injected"])
-        self.assertEqual(asm[-1]["detail"]["memory_turn_no"],
+        assembled = glass_rows.last(asm)
+        self.assertTrue(assembled["detail"]["memory_injected"])
+        self.assertEqual(assembled["detail"]["memory_turn_no"],
                          self.ANTECEDENT_TURN_NO)
 
     def test_same_antecedent_not_injected_twice_in_a_session(self) -> None:
@@ -235,14 +230,16 @@ class NigeriaClassWithhold(_M2bBase):
         skips = _mem_rows(self.tmp, "skip")
         self.assertTrue(skips, "expected a memory/skip on the unrelated query")
         # The top candidate scored below threshold (cross-topic cosine 0.0).
-        self.assertLess(skips[-1]["detail"]["top_score"],
-                        skips[-1]["detail"]["threshold"])
+        skipped = glass_rows.last(skips)
+        self.assertLess(skipped["detail"]["top_score"],
+                        skipped["detail"]["threshold"])
         self.assertEqual(_mem_rows(self.tmp, "inject"), [])
 
         asm = _assembled_rows(self.tmp)
         self.assertTrue(asm)
-        self.assertFalse(asm[-1]["detail"]["memory_injected"])
-        self.assertIsNone(asm[-1]["detail"]["memory_turn_no"])
+        assembled = glass_rows.last(asm)
+        self.assertFalse(assembled["detail"]["memory_injected"])
+        self.assertIsNone(assembled["detail"]["memory_turn_no"])
 
 
 class EmbedderDegrade(_M2bBase):
@@ -267,7 +264,7 @@ class EmbedderDegrade(_M2bBase):
 
         asm = _assembled_rows(self.tmp)
         self.assertTrue(asm)
-        self.assertFalse(asm[-1]["detail"]["memory_injected"])
+        self.assertFalse(glass_rows.last(asm)["detail"]["memory_injected"])
 
 
 if __name__ == "__main__":
