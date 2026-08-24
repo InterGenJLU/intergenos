@@ -198,6 +198,18 @@ landed is in the repository README, not here.
   dynamic linker while both providers sat on the mirror. A build-time check now
   fails a package whose linked library is not in its declared runtime closure,
   and an installed-system check asks the loader directly.
+- **A second package-manager operation waits for the first instead of failing.**
+  When two `pkm` commands that change the system overlap, the later one now
+  waits at a terminal for the earlier one to finish (announcing the holding
+  process every few seconds), refuses immediately when run from a script, and
+  honours `--wait`, `--no-wait` and `--wait-timeout` on every changing command.
+  The lock path can be redirected so a test never takes the machine-wide lock.
+- **Asking InterGen to forget a fact actually forgets it.** A forget was matched
+  against the words the user typed while the store held the extractor's
+  rewording, so nothing was removed and the reply claimed no such memory
+  existed. The subject is now matched in the forms the store can have written,
+  the reply states how many facts were removed, and the turn record carries a
+  row for the forget.
 - **The affected recipes now carry several installed-system corrections.** The
   fcron package stages the ownership and PAM configuration `fcrontab` needs for
   an ordinary user; the kernel recipes give images, maps and configuration
