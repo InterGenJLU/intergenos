@@ -1233,11 +1233,11 @@ class InterGenDaemon(InterGenDBusInterface):
                 # Resolve the EFFECTIVE gpu_layers before launch. The contract
                 # is simple and is the user's to set: an explicit integer in
                 # config is honoured verbatim (decided 2026-07-31), and the
-                # shipped "auto" default resolves to the detected hardware
-                # tier's serving posture — Tier-1 hardware serves over CPU
-                # only (the 2B model tier is sized for CPU serving), higher
-                # tiers offload every layer. There is no audition, no probe
-                # and no speed threshold (decided 2026-08-12).
+                # shipped "auto" default takes the MEASURED OFFLOAD PLAN —
+                # whether the resolved model fits the detected video memory
+                # (decided 2026-08-24). The tier chooses which model is served;
+                # it no longer decides whether the card is used to serve it.
+                # There is no audition, no probe and no speed threshold.
                 from intergen.llama_manager import resolve_gpu_layers
                 from intergen.serving_device import (select_serving_device,
                                                      select_serving_engine)
@@ -1272,13 +1272,36 @@ class InterGenDaemon(InterGenDBusInterface):
                     _device = None
                 _cfg_gpu_layers = self._config.get("llama_server.gpu_layers", "auto")
                 _tier_level = _hw.get("level") if isinstance(_hw.get("level"), int) else None
+                # The fit measurement: the card's detected memory, the model's
+                # and projector's sizes from the signed manifest, and the layer
+                # count read out of the model file's own header. Every input it
+                # cannot read is carried through as unknown, never guessed.
+                _vram_mb = _hw.get("gpu_vram_mb")
+                if not isinstance(_vram_mb, int):
+                    _vram_mb = None
+                from intergen.gpu_offload import plan_for_model
+                _plan = plan_for_model(vram_mb=_vram_mb, model_path=model_path,
+                                       mmproj_path=model_mmproj_path)
                 _eff_gpu_layers = resolve_gpu_layers(_cfg_gpu_layers,
-                                                     tier_level=_tier_level)
-                log.info("offload: llama_server.gpu_layers=%r (tier %s) -> %d "
-                         "layers, engine %s (%s)%s",
-                         _cfg_gpu_layers, _tier_level, _eff_gpu_layers,
-                         _engine, _server_path,
-                         f", device pin {_device}" if _device else "")
+                                                     tier_level=_tier_level,
+                                                     plan=_plan)
+                log.info("offload: llama_server.gpu_layers=%r (tier %s, card %s "
+                         "MiB) -> %d layers, engine %s (%s)%s; %s",
+                         _cfg_gpu_layers, _tier_level,
+                         _vram_mb if _vram_mb is not None else "unreadable",
+                         _eff_gpu_layers, _engine, _server_path,
+                         f", device pin {_device}" if _device else "",
+                         _plan.reason)
+                glass.emit("warmup", "offload_plan", turn_id=self._boot_turn,
+                           iface="daemon", detail={
+                               "configured": _cfg_gpu_layers,
+                               "tier_level": _tier_level,
+                               "vram_mb": _vram_mb,
+                               "required_mb": _plan.required_mb,
+                               "total_layers": _plan.total_layers,
+                               "fits": _plan.fits,
+                               "effective_gpu_layers": _eff_gpu_layers,
+                               "reason": _plan.reason})
                 _t_load = time.monotonic()
                 glass.emit("warmup", "model_load_start", turn_id=self._boot_turn,
                            iface="daemon", detail={

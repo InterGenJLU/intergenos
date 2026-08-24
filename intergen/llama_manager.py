@@ -68,25 +68,32 @@ AUTO_GPU_LAYERS = "auto"
 OFFLOAD_ALL_LAYERS = 999
 
 
-def resolve_gpu_layers(value, tier_level: int | None = None) -> int:
+def resolve_gpu_layers(value, tier_level: int | None = None, *,
+                       plan=None) -> int:
     """The effective ``--n-gpu-layers`` for a configured value.
 
-    The contract (decided 2026-07-31; tier clause decided 2026-08-12):
+    The contract (decided 2026-07-31; fit clause decided 2026-08-24):
 
-    * an explicit ``int`` is honoured VERBATIM — ``0`` pins the CPU, any other
-      number is used as written. The user's pin is the last word, on every
-      hardware tier;
-    * anything else, including the shipped ``"auto"``, resolves to the
-      detected hardware tier's default: Tier 1 serves over CPU ONLY (the
-      2B model tier is sized for CPU serving — a Tier-1 GPU is not an
-      inference device), every higher tier offloads every layer. No probe,
-      no speed threshold, no cached verdict decides this.
-    * an unknown tier (``None`` — detection failed or unavailable) offloads,
-      matching the daemon's existing assume-Tier-2 posture for absent
-      detection.
+    * an explicit ``int`` is honoured VERBATIM — ``0`` pins the processor, any
+      other number is used as written. The user's pin is the last word, on every
+      machine;
+    * anything else, including the shipped ``"auto"``, takes the offload plan
+      the caller measured: whether the RESOLVED MODEL FITS THE DETECTED VIDEO
+      MEMORY decides how many layers go on the card
+      (:func:`intergen.gpu_offload.plan_offload`);
+    * with no plan — a caller that has not measured anything — every layer is
+      offloaded. Unknown is not the same as absent, and serving on the processor
+      because nothing was measured is the silent failure this contract replaced.
 
     A string of digits is accepted as the integer it plainly is, so a value
     quoted in YAML behaves the way it reads.
+
+    ``tier_level`` no longer decides anything and is kept only because callers
+    pass it. Until 2026-08-24 a tier-1 machine resolved to 0 layers here, which
+    meant a discrete card between the 3072 MB discreteness floor and the 7168 MB
+    second-tier floor was detected, reported, and then never used. The tier
+    chooses which model is served; the card's measured capacity decides how much
+    of it is offloaded.
     """
     if isinstance(value, bool):
         # bool is an int subclass; treat it as "not a layer count" rather than
@@ -100,10 +107,9 @@ def resolve_gpu_layers(value, tier_level: int | None = None) -> int:
             return int(text)
         except ValueError:
             pass
-    if tier_level == 1:
-        return 0
+    if plan is not None:
+        return int(plan.layers)
     return OFFLOAD_ALL_LAYERS
-
 
 HEALTH_CHECK_TIMEOUT = 5      # seconds per health check request
 STARTUP_TIMEOUT = 60           # seconds: the FLOOR of the model-load budget (startup_budget_seconds)
@@ -1586,35 +1592,55 @@ class LlamaManager(LlamaManagerInterface):
                 "the DRM nodes (PI-Z28 sandbox) or VRAM is short. The model will "
                 "run on CPU (unusably slow for the big tiers).",
                 port, gpu_layers, off, tot, self._serving_backend)
-        glass.emit("engine", "offload_check", detail={
-            "port": port, "requested_layers": gpu_layers,
-            "offloaded_layers": off, "total_layers": tot,
-            "backend": self._serving_backend, "fully_offloaded": fully,
-            "expect_offload": expect_offload})
+        detail = self.describe_offload(requested_layers=gpu_layers, offloaded=off,
+                                       total=tot,
+                                       backend=self._serving_backend)
+        detail.update({"port": port, "expect_offload": expect_offload})
+        glass.emit("engine", "offload_check", detail=detail)
 
     @staticmethod
     def _fully_offloaded(gpu_layers: int, offloaded: int | None,
                          total: int | None) -> bool:
-        """True when the served reality matches the request: gpu_layers==0 is
-        CPU-by-design (the embedder/2B floor — satisfied); otherwise every layer
-        must be on the GPU (offloaded>0 and offloaded>=total)."""
-        if gpu_layers <= 0:
-            return True
+        """True only when EVERY layer actually reached the graphics card.
+
+        Corrected 2026-08-24. This used to answer True whenever zero layers were
+        requested, on the reasoning that processor-only serving had got what it
+        asked for. The field it feeds is read by a person diagnosing a slow
+        machine, and it told them the card was in use while nothing was on it —
+        the observability half of the offload defect. A deliberate
+        processor-only configuration now has its OWN field
+        (``cpu_only_by_request``) and no longer borrows this one.
+        """
         return (offloaded is not None and total is not None
-                and offloaded > 0 and offloaded >= total)
+                and total > 0 and offloaded > 0 and offloaded >= total)
+
+    @staticmethod
+    def describe_offload(*, requested_layers: int, offloaded: int | None,
+                         total: int | None, backend: str | None) -> dict:
+        """The offload half of the health surface, as one record.
+
+        One function builds it so the live report, the start-time record and any
+        gate all read the same fields decided the same way.
+        """
+        requested = int(requested_layers or 0)
+        return {
+            "backend": backend,
+            "requested_layers": requested_layers,
+            "offloaded_layers": offloaded,
+            "total_layers": total,
+            "fully_offloaded": LlamaManager._fully_offloaded(
+                requested, offloaded, total),
+            "cpu_only_by_request": requested <= 0,
+        }
 
     def offload_report(self) -> dict:
         """PI-Z26: the serving backend + requested/actual GPU offload, for Status.
         Makes a silent CPU fallback queryable (D-Bus Status) as well as logged."""
-        return {
-            "backend": self._serving_backend,
-            "requested_layers": self._offload_requested,
-            "offloaded_layers": self._offloaded_layers,
-            "total_layers": self._total_layers,
-            "fully_offloaded": self._fully_offloaded(
-                self._offload_requested, self._offloaded_layers,
-                self._total_layers),
-        }
+        return self.describe_offload(
+            requested_layers=self._offload_requested,
+            offloaded=self._offloaded_layers,
+            total=self._total_layers,
+            backend=self._serving_backend)
 
     @staticmethod
     def _offload_satisfied(offloaded_layers: int | None) -> bool:
