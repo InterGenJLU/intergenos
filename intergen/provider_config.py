@@ -19,6 +19,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from intergen.private_state import private_dir
+
 _USER_CONFIG = Path.home() / ".config" / "intergen" / "config.yml"
 
 # The adapters the factory knows (intergen/cloud/factory.py). Surfaced to the
@@ -78,7 +80,12 @@ def _load() -> dict[str, Any]:
 def _save(cfg: dict[str, Any]) -> None:
     import yaml
     path = _user_config_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
+    # On a fresh account the provider panel can be the FIRST thing to create
+    # ~/.config/intergen, and a bare mkdir lands it 0755 under the ordinary
+    # umask. The dispatch signing key and the web-auth token live in that
+    # directory, so its mode has to be right the moment it exists rather than
+    # at the next daemon start.
+    private_dir(path.parent)
     fd, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
     try:
         with os.fdopen(fd, "w") as f:

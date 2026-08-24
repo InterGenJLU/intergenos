@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from intergen import glass
+from intergen.private_state import private_dir, private_touch
 
 logger = logging.getLogger(__name__)
 
@@ -313,7 +314,12 @@ class MemoryManager:
 
     def _init_db(self) -> None:
         """Initialize the SQLite database."""
-        self._db_path.parent.mkdir(parents=True, exist_ok=True)
+        private_dir(self._db_path.parent)
+        # sqlite creates the database file itself, through a plain open, so it
+        # would land 0644. Pre-creating it owner-only means sqlite opens an
+        # EXISTING file and an ordinary open never changes a mode — the store
+        # this module's own docstring calls a per-user secret stays one.
+        private_touch(self._db_path)
         with self._db_lock:
             conn = self._get_conn()
             conn.execute("""

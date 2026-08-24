@@ -18,6 +18,12 @@ import os
 from pathlib import Path
 from typing import Any
 
+from intergen.private_state import (
+    PrivateFileHandler,
+    PrivateRotatingFileHandler,
+    private_dir,
+)
+
 logger = logging.getLogger(__name__)
 
 _SYSTEM_CONFIG = Path("/etc/intergen/config.yml")
@@ -387,11 +393,15 @@ class Config:
                     "XDG_STATE_HOME", Path.home() / ".local" / "state"))
                 log_path = state_home / "intergen" / log_path.name
             try:
-                log_path.parent.mkdir(parents=True, exist_ok=True)
-                from logging.handlers import RotatingFileHandler
+                private_dir(log_path.parent)
                 max_bytes = self.get("logging.max_file_size_mb", 50) * 1024 * 1024
                 backup_count = self.get("logging.backup_count", 5)
-                file_handler = RotatingFileHandler(
+                # The daemon log records web-search queries, so it is owner-only.
+                # The private handler covers the ROLLOVERS too: the stock
+                # RotatingFileHandler opens each fresh file through plain open(),
+                # which would leave every backup world-readable even if the live
+                # file were tightened once at startup.
+                file_handler = PrivateRotatingFileHandler(
                     log_path, maxBytes=max_bytes, backupCount=backup_count
                 )
                 file_handler.setFormatter(logging.Formatter(
@@ -401,8 +411,8 @@ class Config:
             except (PermissionError, OSError):
                 fallback = (Path.home() / ".local" / "state" / "intergen"
                             / log_path.name)
-                fallback.parent.mkdir(parents=True, exist_ok=True)
-                handlers.append(logging.FileHandler(fallback))
+                private_dir(fallback.parent)
+                handlers.append(PrivateFileHandler(fallback))
                 logger.info("Logging to user state dir: %s", fallback)
 
         logging.basicConfig(

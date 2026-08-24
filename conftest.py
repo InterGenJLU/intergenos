@@ -33,6 +33,47 @@ for _xdg_var, _xdg_sub in (("XDG_STATE_HOME", "state"), ("XDG_DATA_HOME", "data"
     os.makedirs(_xdg_dir, exist_ok=True)
     os.environ[_xdg_var] = _xdg_dir
 
+# HOME joins the same isolation, for the same reason and one more.
+#
+# Redirecting only the XDG_* variables leaves a gap: several modules resolve
+# their per-user paths through Path.home() DIRECTLY rather than through an
+# XDG base — session_manager.SESSIONS_DIR, console.shell.HISTORY_FILE and
+# mcp_client's pin directory all do — so a bare pytest run still reached the
+# real home through those.
+#
+# The gap became a state-changing one when the daemon entry point started
+# performing a one-time permission pass over the user's per-user trees at
+# startup: three cases in intergen/tests/test_eval_consent.py drive
+# dbus_daemon.main() to pin its argv contract, and main() runs that pass
+# before the daemon is constructed — so a test run adjusted the modes of the
+# invoking user's own conversation transcripts and fact database. Measured on
+# 2026-08-24: three directories and six files under the real home changed
+# during a suite run. The pass only ever removes group and other access, so
+# nothing was lost or widened, but a test run must not touch the real home at
+# all.
+#
+# Set here rather than per-test, for the same reason as the block above: it
+# covers any FUTURE test that reaches a per-user path, which is the seam the
+# defect actually lived in.
+#
+# ONE consumer legitimately needs the REAL home and is preserved explicitly:
+# scripts/check-public-content.py loads its private pattern groups from
+# ~/.config/intergenos/public-content-patterns and REFUSES fail-closed when it
+# cannot read them, which is correct behaviour — a scan missing a whole tier
+# that still reported PASS would be indistinguishable from a clean tree. Its
+# own documented override is pointed at the real file BEFORE HOME moves, so the
+# gate's tests keep exercising the real pattern set. Nothing else in the suite
+# was found to read a real home-relative file: the redirect was measured across
+# the full suite, and this was the only consumer it disturbed.
+_REAL_PATTERNS = os.path.join(
+    os.path.expanduser("~"), ".config", "intergenos", "public-content-patterns")
+if "IGOS_PUBLIC_CONTENT_PATTERNS" not in os.environ and os.path.exists(_REAL_PATTERNS):
+    os.environ["IGOS_PUBLIC_CONTENT_PATTERNS"] = _REAL_PATTERNS
+
+_HOME_TMP = os.path.join(_XDG_TMP, "home")
+os.makedirs(_HOME_TMP, exist_ok=True)
+os.environ["HOME"] = _HOME_TMP
+
 _PROJECT_ROOT = Path(__file__).resolve().parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))

@@ -58,6 +58,8 @@ from pathlib import Path
 from threading import Lock
 from typing import Any, Iterator
 
+from intergen.private_state import private_dir, private_open
+
 logger = logging.getLogger(__name__)
 
 _LOG_DIR = "/var/log/intergen"
@@ -188,12 +190,12 @@ class GlassLogger:
                 "XDG_STATE_HOME", Path.home() / ".local" / "state"))
             self._log_dir = state_home / "intergen"
         try:
-            self._log_dir.mkdir(parents=True, exist_ok=True)
+            private_dir(self._log_dir)
             self._log_file = self._create_log_file(self._log_dir / _LOG_FILE)
         except OSError as e:
             fallback = Path.home() / ".local" / "state" / "intergen"
             try:
-                fallback.mkdir(parents=True, exist_ok=True)
+                private_dir(fallback)
                 self._log_file = self._create_log_file(fallback / _LOG_FILE)
                 logger.warning("Cannot write glass to %s (%s); using %s",
                                self._log_dir, e, fallback)
@@ -246,7 +248,11 @@ class GlassLogger:
         with self._lock:
             try:
                 self._rotate_if_needed_locked(len(line))
-                with open(self._log_file, "a") as f:
+                # private_open, not open: if the file is rotated away or removed
+                # out from under us, a plain append RE-CREATES it at 0644 and
+                # the trace — prompt, model and delivered bytes — silently
+                # becomes world-readable with no signal to anyone.
+                with private_open(self._log_file, "a") as f:
                     f.write(line)
             except OSError as e:
                 logger.error("glass write failed: %s", e)
@@ -282,7 +288,7 @@ class GlassLogger:
                            "keep": _ROTATE_KEEP, "cap_bytes": _ROTATE_BYTES},
                 "dur_ms": None,
             }
-            with open(base, "a") as f:
+            with private_open(base, "a") as f:
                 f.write(json.dumps(marker) + "\n")
         except OSError as e:
             logger.error("glass rotation failed (continuing on current file): %s", e)

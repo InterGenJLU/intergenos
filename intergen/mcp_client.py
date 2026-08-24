@@ -25,6 +25,7 @@ from intergen.interfaces.mcp import (
 )
 from intergen.interfaces.types import ToolResult, ToolSchema, SafetyTier
 from intergen.tool_registry import ToolRegistry
+from intergen.private_state import private_dir, private_open, private_write_text
 
 logger = logging.getLogger(__name__)
 
@@ -447,8 +448,8 @@ class SentinelGuard(SentinelGuardInterface):
                 return False, f"Schema changed since pinning (rug pull detection)"
         else:
             try:
-                self._pin_dir.mkdir(parents=True, exist_ok=True)
-                pin_file.write_text(current_hash)
+                private_dir(self._pin_dir)
+                private_write_text(pin_file, current_hash)
             except OSError as exc:
                 # Do NOT swallow silently. A tool whose schema cannot be pinned
                 # has NO cross-session rug-pull (TOFU) protection on subsequent
@@ -495,13 +496,15 @@ class SentinelGuard(SentinelGuardInterface):
         }
         try:
             log_path = Path(_MCP_AUDIT_LOG)
-            log_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(log_path, "a") as f:
+            private_dir(log_path.parent)
+            # The entry carries the tool name and its arguments, so the log is
+            # owner-only wherever it lands.
+            with private_open(log_path, "a") as f:
                 f.write(json.dumps(entry) + "\n")
         except PermissionError:
             fallback = Path.home() / ".local" / "share" / "intergen" / "mcp-audit.log"
-            fallback.parent.mkdir(parents=True, exist_ok=True)
-            with open(fallback, "a") as f:
+            private_dir(fallback.parent)
+            with private_open(fallback, "a") as f:
                 f.write(json.dumps(entry) + "\n")
 
     @staticmethod

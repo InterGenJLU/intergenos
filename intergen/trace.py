@@ -50,6 +50,8 @@ from pathlib import Path
 from threading import Lock
 from typing import Any, Iterator
 
+from intergen.private_state import private_dir, private_open
+
 logger = logging.getLogger(__name__)
 
 _LOG_DIR = "/var/log/intergen"
@@ -211,12 +213,12 @@ class Tracer:
                 "XDG_STATE_HOME", Path.home() / ".local" / "state"))
             self._log_dir = state_home / "intergen"
         try:
-            self._log_dir.mkdir(parents=True, exist_ok=True)
+            private_dir(self._log_dir)
             self._log_file = self._create_log_file(self._log_dir / _LOG_FILE)
         except OSError as e:
             fallback = Path.home() / ".local" / "state" / "intergen"
             try:
-                fallback.mkdir(parents=True, exist_ok=True)
+                private_dir(fallback)
                 self._log_file = self._create_log_file(fallback / _LOG_FILE)
                 logger.warning("Cannot write trace to %s (%s); using %s",
                                self._log_dir, e, fallback)
@@ -301,7 +303,7 @@ class Tracer:
             return
         with self._lock:
             try:
-                with open(self._log_file, "a") as f:
+                with private_open(self._log_file, "a") as f:
                     f.write(line)
             except OSError as e:
                 logger.error("trace write failed: %s", e)
