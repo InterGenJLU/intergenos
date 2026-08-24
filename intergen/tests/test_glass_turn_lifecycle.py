@@ -51,8 +51,10 @@ import asyncio
 import json
 import os
 import tempfile
+import threading
 import time
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import intergen.glass as glass
@@ -526,6 +528,78 @@ class TheShippedWebPathTerminatesAndJoins(unittest.TestCase):
         self.assertEqual(terminals[0]["detail"].get("exception"),
                          "RuntimeError")
 
+
+
+class TheTerminalHoldsAcrossTheThreadSeam(unittest.TestCase):
+    """The seam the shared cell exists for, exercised rather than argued.
+
+    bind_context() copies the context for a worker thread, and a copy carries
+    VALUES. If the turn-ended flag were a plain bool, a terminal written in the
+    worker thread would set it in the copy only; the turn's own exit would still
+    read False and would synthesize a second ending — two endings for one turn,
+    in exactly the place the bind exists to hold together. These tests write the
+    terminal from the thread, and then from eight threads at once.
+
+    Each thread gets its OWN bind. A Context cannot be entered from two places
+    at once — contextvars refuses it — so sharing one snapshot across racing
+    threads would fail on that rather than on the property under test. The
+    turn-ended cell is shared between those snapshots regardless, because a
+    context copy copies the mapping and the cell is the same object in each.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.mkdtemp(prefix="glass-threadseam-")
+        _reset(self.tmp)
+
+    def _terminals(self, turn_id: str) -> list[dict]:
+        return [r for r in _rows(self.tmp)
+                if r.get("turn_id") == turn_id
+                and glass.is_terminal_event(r.get("phase", ""), r.get("event", ""))]
+
+    def test_a_terminal_written_in_a_worker_thread_counts_as_the_ending(self) -> None:
+        tid = glass.new_turn_id()
+        with glass.turn(tid, "web"):
+            bound = glass.bind_context()
+            with ThreadPoolExecutor(max_workers=1) as ex:
+                ex.submit(lambda: bound.run(
+                    glass.emit, "delivery", "final",
+                    detail={"text": "from the thread"})).result()
+        terminals = self._terminals(tid)
+        self.assertEqual(len(terminals), 1, _rows(self.tmp))
+        self.assertEqual(terminals[0]["event"], "final")
+        self.assertFalse(
+            terminals[0]["detail"].get("synthesized"),
+            "the turn's exit synthesized an ending over a terminal the worker "
+            "thread had already written")
+
+    def test_eight_threads_racing_to_end_one_turn_leave_one_terminal(self) -> None:
+        """Repeated, because a claim that is not atomic passes a single
+        attempt most of the time."""
+        for attempt in range(20):
+            with self.subTest(attempt=attempt):
+                tid = glass.new_turn_id()
+                gate = threading.Barrier(8)
+                with glass.turn(tid, "web"):
+                    bounds = [glass.bind_context() for _ in range(8)]
+
+                    def end(ctx) -> None:
+                        gate.wait(timeout=30)
+                        ctx.run(glass.emit, "delivery", "final",
+                                detail={"text": "race"})
+
+                    with ThreadPoolExecutor(max_workers=8) as ex:
+                        for f in [ex.submit(end, c) for c in bounds]:
+                            f.result()
+                terminals = self._terminals(tid)
+                self.assertEqual(len(terminals), 1, terminals)
+                refused = [r for r in _rows(self.tmp)
+                           if r.get("turn_id") == tid
+                           and r.get("event") == "terminal_after_terminal"]
+                self.assertEqual(
+                    len(refused), 7,
+                    "every attempt that lost the race must still be recorded, "
+                    "or a call site that ends an already-ended turn becomes "
+                    "invisible")
 
 if __name__ == "__main__":
     unittest.main()
