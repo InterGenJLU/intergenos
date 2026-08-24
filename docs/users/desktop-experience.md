@@ -27,7 +27,7 @@ given so the claim is verifiable rather than asserted.
 | `Super` | Open Activities overview | `org.gnome.mutter overlay-key` |
 | `Super + A` | Show all applications | `org.gnome.shell.keybindings toggle-application-view` |
 | `Super + Tab` / `Alt + Tab` | Switch between open **applications** | `org.gnome.desktop.wm.keybindings switch-applications` |
-| `Super + \`` / `Alt + \`` | Switch between windows of the same application | `org.gnome.desktop.wm.keybindings switch-group` |
+| `Super + backtick` / `Alt + backtick` | Switch between windows of the same application | `org.gnome.desktop.wm.keybindings switch-group` |
 | `Super + L` | Lock screen | `org.gnome.settings-daemon.plugins.media-keys screensaver` |
 | `Super + Left` / `Super + Right` | Tile window to the left or right half | `org.gnome.mutter.keybindings toggle-tiled-left` / `toggle-tiled-right` |
 | `Super + Up` | Maximize window | `org.gnome.desktop.wm.keybindings maximize` |
