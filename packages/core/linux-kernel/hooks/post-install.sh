@@ -16,10 +16,20 @@
 #   - Gracefully degrade (exit 0, no break) if ukify or MOK absent —
 #     grub-loads-vmlinuz path stays intact as fallback
 #
-# Phase B (TBD): explicit fallback grub menuentry + ESP-size enforcement.
-# Phase C (TBD): per-machine MOK keypair regen at install + MokManager UX.
-# Phase D (TBD): LUKS-case busybox+cryptsetup FDE initramfs + plain-install
-#                minimal initramfs (--initrd= bundling diverges by install type).
+# The D-005 phases this header used to list as still to be done have landed,
+# and saying otherwise above code that runs them sent readers away from it:
+#   Phase B — landed. The ESP-size pre-checks are in the installer
+#             (installer/backend/disks.py), and this hook repoints the ESP GRUB
+#             menu to the kernel it just installed, further down.
+#   Phase C — the per-machine MOK keypair is generated at install time
+#             (installer/backend/install.py calls mok.generate_mok_keypair for
+#             every EFI install), and this hook signs the UKI with it. The
+#             MokManager enrolment experience is not asserted here either way.
+#   Phase D — landed, and described where it happens: the LUKS-case
+#             busybox+cryptsetup unlock initramfs is regenerated per kernel and
+#             bundled into the unified kernel image, and the plain-install case
+#             bundles the minimal stub instead. See the activation-chain block
+#             below, which this hook then runs.
 #
 # B-041 cmdline drift: resolves via UKI .cmdline section bundling (sourced
 # from /etc/kernel/cmdline; falls back to /proc/cmdline if unset).

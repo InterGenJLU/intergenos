@@ -247,9 +247,19 @@ def stage_uki_prereqs(target):
          bytes). The kernel-builtin storage drivers + PARTUUID + rootwait
          handle the actual root mount on plain installs; the initramfs
          is a stub so ukify's --initrd= contract is satisfied and the
-         UKI gets a .initrd section. LUKS installs replace this stub
-         with the FDE initramfs at the kernel hook level (see
-         packages/core/linux-kernel/hooks/post-install.sh: Phase D).
+         UKI gets a .initrd section.
+
+         THE STUB STAYS A STUB, ON EVERY INSTALL. An encrypted install does
+         not replace this file — the kernel hook builds the unlock initramfs
+         at /usr/lib/intergen/fde-initramfs.cpio.gz and hands THAT to ukify
+         instead of this one, so the unlock code travels inside the signed
+         unified kernel image and nothing on the unencrypted /boot carries
+         it (packages/core/linux-kernel/hooks/post-install.sh, Phase D).
+         Measured on an encrypted R001.1 install, 2026-08-24:
+         /boot/initramfs.img is 50 bytes and the cpio beside it is ~9.9 MB.
+         An earlier version of this text said the stub was replaced, which
+         sent anyone debugging a failed unlock to a file that has nothing to
+         do with it.
     """
     target_path = Path(target)
     target_intergen_dir = target_path / "usr/lib/intergen"
