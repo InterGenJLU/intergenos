@@ -44,6 +44,7 @@ in a reconstructed timeline is self-explaining rather than mysterious.
 
 from __future__ import annotations
 
+import asyncio
 import contextvars
 import itertools
 import json
@@ -70,13 +71,86 @@ _SCHEMA_VERSION = 1
 
 # In-process size-based rotation (D2, ratified): a --user service's
 # ~/.local/state path is not reliably reached by system logrotate, so the writer
-# rolls its own files. Roll at 64 MB, keep 5 (~320 MB ceiling).
+# rolls its own files. Roll at 64 MiB, keep 5.
 _ROTATE_BYTES = 64 * 1024 * 1024
 _ROTATE_KEEP = 5
 
+# THE WORST CASE ON DISK (REC-18 C03). This used to be written in a comment as
+# "~320 MB ceiling", which is _ROTATE_KEEP * _ROTATE_BYTES and leaves out the
+# LIVE file — and the live file is on the same disk as the five kept ones. The
+# real worst case is six files, 384 MiB. It is derived here rather than written
+# down, so it cannot drift from the constants it describes the way the comment
+# did, and it is a function so a reader or a gate can ask the module what it
+# will cost instead of recomputing it and hoping the two agree.
+#
+# The largest a SINGLE row may be. Rotation is decided BEFORE a row is written,
+# so without this bound a row larger than _ROTATE_BYTES rotated the file away
+# and was then written whole into the fresh one: the cap meant nothing for that
+# row, and a run of such rows rolled the entire retained history out of the
+# record in a handful of writes (measured — one 24 KiB row against an 8 KiB cap
+# left a 25,051-byte live file). Keeping every row under this bound is what
+# makes the ceiling above a fact rather than a hope.
+_MAX_ROW_BYTES = _ROTATE_BYTES // 8
+
+
+def retention_ceiling_bytes() -> int:
+    """The most disk this writer's files can occupy at once."""
+    return (_ROTATE_KEEP + 1) * _ROTATE_BYTES
+
 # Process-wide monotonic sequence — a total replay order even for rows born in
 # the same millisecond (next() is atomic). Mirrors trace.py's _seq.
+#
+# N-02/N-03: created at import, this restarted at zero every time the daemon
+# started, and two runs writing the same file both wrote seq 0, 1, 2. A reader
+# ordering by seq then interleaved two runs into one plausible, wrong timeline.
+# The logger reseeds it above the highest number already in the file (see
+# GlassLogger._resume_sequence), so the order is total across restarts.
 _seq = itertools.count()
+
+# Identifies THIS process's rows. The reseed is the mechanism that keeps the
+# order total; this is what makes a FAILED reseed visible instead of silently
+# plausible — two rows sharing a sequence number can be told apart, and a reader
+# can see where one run stopped and the next began.
+_RUN_ID = secrets.token_hex(6)
+
+# How much of an existing glass file to read when resuming the counter. The
+# counter is monotonic within a run, so the largest number lives near the end,
+# and a bounded read means neither a very large file nor a partly corrupt one
+# can make startup slow or make it fail.
+_SEQ_SCAN_BYTES = 256 * 1024
+
+
+def _highest_seq_in(path: Path) -> int | None:
+    """The largest sequence number in the tail of an existing glass file.
+
+    None when the file is absent, empty, unreadable, or carries no parseable
+    sequence number — every one of which is a real state, and each is reported
+    to the reader in the ``glass/sequence_resumed`` row rather than guessed at.
+    """
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return None
+    if size == 0:
+        return None
+    highest: int | None = None
+    try:
+        with open(path, "rb") as f:
+            if size > _SEQ_SCAN_BYTES:
+                f.seek(size - _SEQ_SCAN_BYTES)
+                f.readline()  # discard the line this offset landed inside
+            for raw in f:
+                try:
+                    row = json.loads(raw)
+                except (ValueError, UnicodeDecodeError):
+                    continue  # a torn tail line must not stop the scan
+                seq = row.get("seq")
+                if isinstance(seq, int) and not isinstance(seq, bool):
+                    if highest is None or seq > highest:
+                        highest = seq
+    except OSError:
+        return None
+    return highest
 
 # Credential-shaped attribute keys whose VALUE must never be persisted. Matched
 # case-insensitively as a substring of the key; the value becomes an attested
@@ -89,11 +163,96 @@ _SECRET_KEY_RE = re.compile(
     re.IGNORECASE,
 )
 
+# THE TERMINAL VOCABULARY (REC-17). A turn ends exactly once, and these are the
+# ways it may end. Named in ONE place so every interface ends a turn the same
+# way and a reader can ask "how did this turn finish?" without knowing which
+# interface served it.
+#
+#   final      the turn produced an answer
+#   refused    the turn was declined — an empty message, an unavailable router,
+#              a denied tool. A refusal is an outcome, not an absence of one.
+#   error      the turn raised
+#   cancelled  the client went away mid-turn
+#   timeout    a deadline fired
+#   unreported the turn ended without any of the above; see _synthesize_terminal
+#
+# NOTE: "timeout" is what the web server's whole-turn route deadline ends a turn
+# with. The deadline decides the ending; this module only names it, so the two
+# stay in one vocabulary and a reader asking "how did this turn finish?" gets
+# the same answer whichever interface served it.
+_TERMINAL_PHASE = "delivery"
+_TERMINAL_EVENTS = ("final", "refused", "error", "cancelled", "timeout",
+                    "unreported")
+
+#: Written when a turn ends with no terminal event of its own.
+_TERMINAL_FALLBACK = "unreported"
+
+#: Written INSTEAD of a second terminal, so a call site that ends a turn twice
+#: stays findable rather than silently winning or silently losing.
+_TERMINAL_AFTER_TERMINAL = "terminal_after_terminal"
+
+
+def is_terminal_event(phase: str, event: str) -> bool:
+    """Whether a (phase, event) pair ends a turn.
+
+    One predicate, so the writer's enforcement and any reader's reconstruction
+    cannot drift apart — a gate and a reader disagreeing about what "the end"
+    means is how an exactly-once guarantee quietly stops holding.
+    """
+    return phase == _TERMINAL_PHASE and event in _TERMINAL_EVENTS
+
+
 # Per-context turn state. A ContextVar is per-Context, so concurrent turns on the
 # aiohttp event loop stay isolated and nested calls inherit the same turn id.
 _current_turn_id: ContextVar[str | None] = ContextVar("intergen_glass_turn", default=None)
 _current_turn_start: ContextVar[float | None] = ContextVar("intergen_glass_start", default=None)
 _current_iface: ContextVar[str | None] = ContextVar("intergen_glass_iface", default=None)
+
+# Whether the ACTIVE turn has already ended. A ContextVar and not a set keyed by
+# turn id: turns overlap on the event loop, and process-wide state would make one
+# turn's ending look like another's.
+#
+# The VALUE is a one-element list rather than a bool, and that is load-bearing.
+# :func:`bind_context` hands work to a worker thread through
+# ``contextvars.copy_context()``, which copies the MAPPING. A bool written in the
+# copy would be invisible to the turn that made the copy, so a terminal emitted
+# from the worker thread would not count as the turn's end — and the turn's own
+# exit would then synthesize a SECOND one, breaking the exactly-once guarantee in
+# precisely the seam the bind exists to hold together. A shared mutable cell is
+# seen from both sides. It stays per-turn because :func:`turn` installs a fresh
+# cell, and it is absent (None) outside any turn.
+_current_turn_ended: ContextVar[list[bool] | None] = ContextVar(
+    "intergen_glass_turn_ended", default=None)
+
+# Guards the claim below. A terminal can be attempted from the event loop and
+# from a worker thread bound into the same turn; without this both could read the
+# cell as unclaimed and both would write a terminal.
+_TURN_END_LOCK = Lock()
+
+
+def _claim_turn_end() -> bool:
+    """Claim the active turn's single terminal slot.
+
+    True when this caller may write the terminal; False when the turn has
+    already ended, in which case the caller records the ATTEMPT instead of
+    writing a second terminal. Outside a turn there is nothing to claim and
+    nothing to refuse, so an emission that carries its own turn id (startup,
+    warmup) is never affected.
+    """
+    cell = _current_turn_ended.get()
+    if cell is None:
+        return True
+    with _TURN_END_LOCK:
+        if cell[0]:
+            return False
+        cell[0] = True
+        return True
+
+
+def _turn_has_ended() -> bool:
+    """Whether the active turn already has its terminal row."""
+    cell = _current_turn_ended.get()
+    return bool(cell and cell[0])
 
 
 def _env_disabled() -> bool:
@@ -126,12 +285,52 @@ def turn(turn_id: str, iface: str) -> Iterator[str]:
     tok_id = _current_turn_id.set(turn_id)
     tok_start = _current_turn_start.set(t0)
     tok_iface = _current_iface.set(iface)
+    tok_ended = _current_turn_ended.set([False])
     try:
         yield turn_id
+    except asyncio.CancelledError:
+        # The client went away mid-turn. That is an OUTCOME and the record owes
+        # the reader the fact, not a record that simply stops.
+        _synthesize_terminal("cancelled")
+        raise
+    except BaseException as exc:
+        # Includes the crashes that reach web_server's no-wedge backstop, which
+        # answers the client and emits nothing of its own.
+        _synthesize_terminal("error", exc=exc)
+        raise
+    else:
+        # The turn ended without saying how: an early refusal (empty message,
+        # router unavailable) or a path that simply returns. Still an ending.
+        _synthesize_terminal(_TERMINAL_FALLBACK)
     finally:
+        _current_turn_ended.reset(tok_ended)
         _current_turn_id.reset(tok_id)
         _current_turn_start.reset(tok_start)
         _current_iface.reset(tok_iface)
+
+
+def _synthesize_terminal(event: str, exc: BaseException | None = None) -> None:
+    """Write the terminal row the call site did not write.
+
+    Marked ``synthesized`` in its detail so a reader can tell an ending an
+    interface MEANT from one this module supplied. Without that mark the
+    guarantee would convert a silent gap into a silent pass, which is the exact
+    failure it exists to remove.
+
+    Best effort by construction: recording how a turn ended must never change
+    how it ended, so a failure here is logged and swallowed and the original
+    exception, when there is one, propagates unchanged.
+    """
+    if _turn_has_ended():
+        return
+    detail: dict[str, Any] = {"synthesized": True}
+    if exc is not None:
+        detail["exception"] = type(exc).__name__
+    try:
+        emit(_TERMINAL_PHASE, event, detail=detail)
+    except Exception:  # the writer is best-effort; the turn's outcome is not ours
+        logger.debug("glass could not synthesize the %s terminal for turn %s",
+                     event, current_turn_id(), exc_info=True)
 
 
 def bind_context() -> contextvars.Context:
@@ -148,6 +347,72 @@ def bind_context() -> contextvars.Context:
     glass turn id and any trace.py span in flight.
     """
     return contextvars.copy_context()
+
+
+def _bound_row(record: dict[str, Any]) -> str:
+    """Re-serialize an oversized row so it fits under :data:`_MAX_ROW_BYTES`.
+
+    THE SHORTENING IS ATTESTED, NEVER SILENT. The row keeps its turn id, its
+    sequence number, its phase and its event, so it is still joinable and still
+    in order; its detail is replaced by a note saying how large the row was,
+    what the limit is, and how much of the original detail was kept — followed
+    by that kept prefix. A trace that quietly drops what it could not fit would
+    be deciding on its own what the record does not have to say, which is the
+    one thing this module exists not to do.
+
+    The kept prefix is halved until the whole row fits, because a prefix
+    re-embedded as a JSON string can grow when its quotes and backslashes are
+    escaped, so a single subtraction is not enough to guarantee the bound.
+    """
+    try:
+        original = json.dumps(record.get("detail", {}), default=str)
+    except (TypeError, ValueError):
+        original = "<detail could not be serialized>"
+    original_bytes = len(json.dumps(record, default=str)) + 1
+    budget = _MAX_ROW_BYTES // 2
+    while budget >= 0:
+        bounded = dict(record)
+        kept = original[:budget]
+        bounded["detail"] = {
+            "glass_oversized_row": {
+                "original_bytes": original_bytes,
+                "limit_bytes": _MAX_ROW_BYTES,
+                "kept_bytes": len(kept),
+                "reason": "a single row must stay smaller than the rotation "
+                          "size, or one row rolls the retained history out of "
+                          "the record",
+            },
+            "truncated_detail": kept,
+        }
+        try:
+            line = json.dumps(bounded, default=str) + "\n"
+        except (TypeError, ValueError):
+            budget = budget // 2 if budget else -1
+            continue
+        if len(line) <= _MAX_ROW_BYTES:
+            return line
+        budget = budget // 2 if budget else -1
+    # Nothing fit, which means the bound is smaller than the row's own skeleton.
+    # Say that, rather than write something larger than the module promised.
+    return json.dumps({
+        "v": _SCHEMA_VERSION,
+        "turn_id": record.get("turn_id", "no-turn"),
+        "seq": record.get("seq"),
+        "run": _RUN_ID,
+        "ts": record.get("ts"),
+        "t_rel_ms": None,
+        "iface": record.get("iface", "daemon"),
+        "phase": record.get("phase", "glass"),
+        "event": record.get("event", "unknown"),
+        "detail": {"glass_oversized_row": {
+            "original_bytes": original_bytes,
+            "limit_bytes": _MAX_ROW_BYTES,
+            "kept_bytes": 0,
+            "reason": "the row did not fit under the size bound even with its "
+                      "detail removed",
+        }},
+        "dur_ms": None,
+    }, default=str) + "\n"
 
 
 def _redact(value: Any, key: str = "") -> Any:
@@ -178,6 +443,46 @@ class GlassLogger:
         self._lock = Lock()
         if self.enabled:
             self._setup_log_dir()
+            self._resume_sequence()
+
+    def _resume_sequence(self) -> None:
+        """Continue the sequence above what the file already holds (N-02/N-03).
+
+        Called once, at construction, before any row of this run is written and
+        before any other thread can reach the logger — get_glass() serializes
+        construction for exactly that reason.
+
+        The reseed is ATTESTED: a ``glass/sequence_resumed`` row says what the
+        counter continued from, or says plainly that there was nothing to
+        continue from. A restart is a real discontinuity in the record, and a
+        reader is owed the boundary rather than left to infer it from a jump.
+        """
+        global _seq
+        if self._log_file is None:
+            return
+        highest = _highest_seq_in(self._log_file)
+        if highest is not None:
+            _seq = itertools.count(highest + 1)
+        self._write_row({
+            "v": _SCHEMA_VERSION,
+            "turn_id": "glass-sequence",
+            "seq": next(_seq),
+            "ts": _now_ms() / 1000.0,
+            "t_rel_ms": None,
+            "run": _RUN_ID,
+            "iface": "daemon",
+            "phase": "glass",
+            "event": "sequence_resumed",
+            "detail": {
+                "resumed_from": highest,
+                "reason": (
+                    "continued above the highest sequence number already in "
+                    "this file" if highest is not None else
+                    "nothing to continue from: this file holds no readable "
+                    "sequence number"),
+            },
+            "dur_ms": None,
+        })
 
     def _setup_log_dir(self) -> None:
         # Mirrors metrics.EventLogger / trace.Tracer: a `--user` service under
@@ -226,12 +531,25 @@ class GlassLogger:
         """
         if not self.enabled or self._log_file is None:
             return
+        # EXACTLY ONE TERMINAL PER TURN (REC-17). A second terminal is not
+        # dropped: it is written under a different event name, so a call site
+        # that ends an already-ended turn stays findable instead of silently
+        # winning or silently losing. Only turn-scoped emissions take part — one
+        # carrying its own turn_id runs outside the turn ContextVars (startup,
+        # warmup) and has no turn to end.
+        if (turn_id is None and _current_turn_id.get() is not None
+                and is_terminal_event(phase, event)):
+            if not _claim_turn_end():
+                detail = dict(detail or {})
+                detail["refused_terminal"] = event
+                event = _TERMINAL_AFTER_TERMINAL
         now = _now_ms()
         start = None if turn_id else _current_turn_start.get()
         record = {
             "v": _SCHEMA_VERSION,
             "turn_id": turn_id or _current_turn_id.get() or "no-turn",
             "seq": next(_seq),
+            "run": _RUN_ID,
             "ts": now / 1000.0,
             "t_rel_ms": round(now - start, 3) if start is not None else None,
             "iface": iface or _current_iface.get() or "daemon",
@@ -240,11 +558,23 @@ class GlassLogger:
             "detail": _redact(detail or {}),
             "dur_ms": round(dur_ms, 3) if dur_ms is not None else None,
         }
+        self._write_row(record)
+
+    def _write_row(self, record: dict[str, Any]) -> None:
+        """Append one already-built row. The single place bytes reach the file,
+        so every row — an ordinary emission, the rotation marker, the sequence
+        resume — gets the same locking, the same rotation check, the same size
+        bound and the same file mode."""
+        if self._log_file is None:
+            return
         try:
             line = json.dumps(record, default=str) + "\n"
         except (TypeError, ValueError) as e:  # never let a bad payload break a turn
-            logger.error("glass serialize failed for %s/%s: %s", phase, event, e)
+            logger.error("glass serialize failed for %s/%s: %s",
+                         record.get("phase"), record.get("event"), e)
             return
+        if len(line) > _MAX_ROW_BYTES:
+            line = _bound_row(record)
         with self._lock:
             try:
                 self._rotate_if_needed_locked(len(line))
@@ -282,7 +612,8 @@ class GlassLogger:
             self._create_log_file(base)
             marker = {
                 "v": _SCHEMA_VERSION, "turn_id": "glass-rotation",
-                "seq": next(_seq), "ts": _now_ms() / 1000.0, "t_rel_ms": None,
+                "seq": next(_seq), "run": _RUN_ID,
+                "ts": _now_ms() / 1000.0, "t_rel_ms": None,
                 "iface": "daemon", "phase": "glass", "event": "rotation",
                 "detail": {"rolled_prev_to": f"{base.name}.1",
                            "keep": _ROTATE_KEEP, "cap_bytes": _ROTATE_BYTES},
@@ -296,12 +627,20 @@ class GlassLogger:
 
 _glass: GlassLogger | None = None
 
+# Construction is serialized. Two threads reaching an unbuilt logger at once
+# would each construct one and each reseed the sequence counter, and the second
+# reseed would hand out numbers the first had already promised — the exact
+# collision the reseed exists to remove.
+_GLASS_INIT_LOCK = Lock()
+
 
 def get_glass() -> GlassLogger:
     """Process-wide GlassLogger singleton (constructed on first use)."""
     global _glass
     if _glass is None:
-        _glass = GlassLogger()
+        with _GLASS_INIT_LOCK:
+            if _glass is None:
+                _glass = GlassLogger()
     return _glass
 
 

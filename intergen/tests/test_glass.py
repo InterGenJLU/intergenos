@@ -42,6 +42,18 @@ def _rows(tmp: str) -> list[dict]:
         return [json.loads(x) for x in f]
 
 
+def _turn_rows(tmp: str) -> list[dict]:
+    """Rows a caller emitted, without the writer's own bookkeeping.
+
+    The writer records its own state in the "glass" phase — the rotation marker
+    that explains a gap, and the sequence_resumed row that says where a new
+    process picked the counter up (N-02/N-03). Those are real rows a reader
+    wants, but they are not the emissions these contract tests are about, and a
+    test that indexes row zero must not silently start measuring one of them.
+    """
+    return [r for r in _rows(tmp) if r.get("phase") != "glass"]
+
+
 class GlassWriterContract(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.mkdtemp()
@@ -53,7 +65,7 @@ class GlassWriterContract(unittest.TestCase):
             self.assertEqual(glass.current_turn_id(), tid)
             glass.emit("route", "turn_start", detail={"user_msg": "hi"})
             glass.emit("delivery", "final", detail={"text": "yo"}, dur_ms=5.0)
-        rows = _rows(self.tmp)
+        rows = _turn_rows(self.tmp)
         self.assertEqual(len(rows), 2)
         self.assertTrue(all(r["turn_id"] == tid for r in rows))
         self.assertEqual([r["seq"] for r in rows],
@@ -67,7 +79,7 @@ class GlassWriterContract(unittest.TestCase):
             glass.emit("prompt", "assembled", detail={
                 "password": "hunter2", "api_key": "sk-xyz", "system": "ok",
                 "nested": {"bearer_token": "b", "keep": 1}})
-        d = _rows(self.tmp)[0]["detail"]
+        d = _turn_rows(self.tmp)[0]["detail"]
         # redacted VALUE, attested placeholder naming the key — never silent
         self.assertEqual(d["password"], "<redacted:password>")
         self.assertEqual(d["api_key"], "<redacted:api_key>")
@@ -89,7 +101,7 @@ class GlassWriterContract(unittest.TestCase):
 
     def test_warmup_override_turn_id_and_iface(self) -> None:
         glass.emit("warmup", "daemon_start", turn_id="boot-1", iface="daemon")
-        r = _rows(self.tmp)[0]
+        r = _turn_rows(self.tmp)[0]
         self.assertEqual(r["turn_id"], "boot-1")
         self.assertEqual(r["iface"], "daemon")
         self.assertIsNone(r["t_rel_ms"])  # no turn-start anchor for a boot row
@@ -118,7 +130,9 @@ class GlassWriterContract(unittest.TestCase):
         tid = glass.new_turn_id()
         with glass.turn(tid, "web"):
             glass.emit("route", "turn_start", detail={"user_msg": "hello"})
-        rows = list(glass.read_rows(Path(self.tmp) / "intergen" / "glass.jsonl"))
+        rows = [r for r in glass.read_rows(
+            Path(self.tmp) / "intergen" / "glass.jsonl")
+            if r.get("phase") != "glass"]
         self.assertEqual(rows[0]["turn_id"], tid)
 
 
