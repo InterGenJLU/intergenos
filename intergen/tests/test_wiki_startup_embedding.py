@@ -225,6 +225,49 @@ class StartupBudgetTests(unittest.TestCase):
                 "startup time belongs to the daemon, not to the index.")
 
 
+    def test_the_budget_actually_stops_a_long_embedding_pass(self):
+        # The case above proves a budget is DECLARED and that construction is
+        # quick; it does not prove the budget is ENFORCED, because the corpus it
+        # uses is fast enough to finish either way. This one makes the corpus
+        # genuinely slower than the budget, so an unbounded pass and a bounded
+        # one take visibly different amounts of time and end in different
+        # states. 109 passages at 20 ms each is about 2.2 s of embedding
+        # against a 0.3 s budget.
+        with TemporaryDirectory() as tmp:
+            wiki = _BigWiki(tmp)
+            # Set the budget whether or not the module already honours one, so
+            # this case MEASURES construction rather than stopping at a missing
+            # attribute. Behaviour that ignores the budget is exactly what the
+            # timing assertion below is here to catch.
+            had = hasattr(wiki_module, "_STARTUP_EMBED_BUDGET_S")
+            original = getattr(wiki_module, "_STARTUP_EMBED_BUDGET_S", None)
+            wiki_module._STARTUP_EMBED_BUDGET_S = 0.3
+            try:
+                emb = _SingleSlotEmbedder(cost_per_input=0.02)
+                began = time.monotonic()
+                retrieval = wiki.retrieval(emb)
+                elapsed = time.monotonic() - began
+            finally:
+                if had:
+                    wiki_module._STARTUP_EMBED_BUDGET_S = original
+                else:
+                    delattr(wiki_module, "_STARTUP_EMBED_BUDGET_S")
+            self.assertLess(
+                elapsed, 1.5,
+                f"construction spent {elapsed:.2f}s embedding against a 0.3s "
+                "budget — the budget is declared but not enforced, so a large "
+                "wiki still holds daemon startup open for as long as the "
+                "embedding server takes.")
+            self.assertFalse(
+                _embeddings_ready(retrieval),
+                "the whole corpus was embedded despite a budget far smaller "
+                "than the work — nothing stopped the pass.")
+            self.assertTrue(
+                emb.calls,
+                "control: the budget must not prevent the FIRST request; a "
+                "small wiki has to embed however tight the budget is.")
+
+
 class RecoveryTests(unittest.TestCase):
     """Property 3 — a degraded start is not permanent."""
 
