@@ -879,6 +879,48 @@ def build_parser():
              "grows unbounded.",
     )
 
+    # The waiting options must work in BOTH spellings, `pkm --wait install foo`
+    # and `pkm install foo --wait`. MEASURED 2026-08-24 by driving the real
+    # command: with them only on the top-level parser, `pkm vacuum --wait`
+    # exited 2 with "unrecognized arguments: --wait" — the flag existed and the
+    # obvious way to type it did not work. -v/-q already solve this with a
+    # shared parent; these are added to every mutating subparser instead,
+    # because the set of mutating commands is already declared in one place and
+    # a parents= list would have to be threaded through every add_parser call.
+    #
+    # default=SUPPRESS is what makes the pair safe: without it, a subparser
+    # option with a default OVERWRITES the value the top-level parser already
+    # parsed, so `pkm --wait vacuum` would end up with wait=None. Suppressed,
+    # the attribute is only set when the flag is actually given after the
+    # subcommand, and the top-level value survives otherwise.
+    _seen = set()
+
+    def _add_waiting_options(sp):
+        """Add the three options to `sp`, and to its own subcommands if it has
+        any. `pkm cache clean` is why the recursion is here: argparse descends
+        into the leaf parser, so an option added only to `cache` is not
+        recognised after `clean`. Found by a test that walks EVERY mutating
+        command rather than spot-checking one — the spot check passed."""
+        if id(sp) in _seen:
+            return
+        _seen.add(id(sp))
+        sp.add_argument("--wait", dest="wait", action="store_true",
+                        default=argparse.SUPPRESS,
+                        help="Wait for an in-progress pkm operation to finish")
+        sp.add_argument("--no-wait", dest="wait", action="store_false",
+                        default=argparse.SUPPRESS,
+                        help="Refuse immediately if another operation holds the lock")
+        sp.add_argument("--wait-timeout", dest="wait_timeout", type=int,
+                        default=argparse.SUPPRESS, metavar="SECONDS",
+                        help="Give up waiting after this long")
+        for _action in sp._subparsers._group_actions if sp._subparsers else []:
+            for _child in getattr(_action, "choices", {}).values():
+                _add_waiting_options(_child)
+
+    for _name, _sp in sub.choices.items():
+        if _name in PKM_MUTATING_COMMANDS:
+            _add_waiting_options(_sp)
+
     return parser
 
 

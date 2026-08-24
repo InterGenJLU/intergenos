@@ -245,10 +245,23 @@ def test_the_default_wait_timeout_is_ten_minutes():
 # --------------------------------------------------------------------------
 
 @pytest.mark.parametrize("argv,expected_wait,expected_timeout", [
+    # before the subcommand
     (["vacuum"], None, 600),
     (["--wait", "vacuum"], True, 600),
     (["--no-wait", "vacuum"], False, 600),
     (["--wait-timeout", "45", "vacuum"], None, 45),
+    # AFTER the subcommand — the spelling a person actually types. MEASURED by
+    # driving the real command: with the options only on the top-level parser,
+    # `pkm vacuum --wait` exited 2 with "unrecognized arguments: --wait".
+    (["vacuum", "--wait"], True, 600),
+    (["vacuum", "--no-wait"], False, 600),
+    (["vacuum", "--wait-timeout", "45"], None, 45),
+    (["install", "somepkg", "--wait"], True, 600),
+    (["remove", "somepkg", "--no-wait"], False, 600),
+    (["upgrade", "--wait", "--wait-timeout", "30"], True, 30),
+    # both spellings at once: the one after the subcommand is the later word and
+    # wins, and neither is silently dropped
+    (["--no-wait", "vacuum", "--wait"], True, 600),
 ])
 def test_the_command_line_carries_the_waiting_options(argv, expected_wait,
                                                       expected_timeout):
@@ -256,6 +269,49 @@ def test_the_command_line_carries_the_waiting_options(argv, expected_wait,
     args = parser.parse_args(argv)
     assert getattr(args, "wait", "MISSING") == expected_wait
     assert getattr(args, "wait_timeout", "MISSING") == expected_timeout
+
+
+def test_a_read_only_subcommand_has_no_waiting_options():
+    """The options belong where a lock is taken. A read command that accepted
+    --wait would be advertising a behaviour it does not have."""
+    parser = cli.build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["list", "--wait"])
+
+
+def test_every_mutating_subcommand_accepts_the_options_after_its_name():
+    """The population is the point: a flag that works on some mutating commands
+    and not others is worse than one that works on none, because the ones it
+    misses look like they took it."""
+    # The extra words each command needs before it will parse at all. Written
+    # out rather than guessed, and asserted to cover the mutating set exactly,
+    # so a command added to that set later fails this test instead of quietly
+    # going unchecked.
+    EXTRA_WORDS = {
+        "install": ["somepkg"], "install-helper": ["somepkg"],
+        "remove": ["somepkg"], "reinstall": ["somepkg"],
+        "hold": ["somepkg"], "unhold": ["somepkg"], "mark": ["auto", "somepkg"],
+        "cache": ["clean"],
+        "update": [], "upgrade": [], "import": [], "restart-services": [],
+        "autoremove": [], "refresh-baseline": ["/dev/null"], "iso-prep": ["--packages-from", "/dev/null"],
+        "record-hook-changes": ["somepkg", "--baseline", "/dev/null"], "vacuum": [],
+    }
+    missing = cli.PKM_MUTATING_COMMANDS - set(EXTRA_WORDS)
+    assert not missing, (
+        f"these mutating commands are not covered by this test: {sorted(missing)}")
+
+    parser = cli.build_parser()
+    checked = []
+    for name in sorted(cli.PKM_MUTATING_COMMANDS):
+        argv = [name] + EXTRA_WORDS[name]
+        try:
+            args = parser.parse_args(argv + ["--no-wait"])
+        except SystemExit:
+            pytest.fail(f"`pkm {' '.join(argv)} --no-wait` was refused by the parser")
+        assert getattr(args, "wait", "MISSING") is False, (
+            f"`pkm {' '.join(argv)} --no-wait` parsed but did not set wait=False")
+        checked.append(name)
+    assert len(checked) == len(cli.PKM_MUTATING_COMMANDS)
 
 
 # --------------------------------------------------------------------------
