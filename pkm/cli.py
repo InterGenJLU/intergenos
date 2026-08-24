@@ -2269,10 +2269,15 @@ def cmd_upgrade(db, args):
                     seen_new.add(d)
                     new_deps_to_install.append(d)
         if dep_resolution_failed:
+            reason = "a dependency its new release introduces could not be resolved"
             emit_warn(
                 f"Skipping upgrade of {remote_pkg['name']}: new "
                 f"dependency resolution failed (see warning above)."
             )
+            # An abandoned upgrade is recorded like a failed one. It printed its
+            # reason and left the package at its old version; a caller reading
+            # only the exit code was told the upgrade happened.
+            failed_this_txn.append((remote_pkg["name"], reason))
             continue
 
         dep_install_failed = False
@@ -2299,11 +2304,16 @@ def cmd_upgrade(db, args):
                 f"Skipping upgrade of {remote_pkg['name']} due to new "
                 f"dependency install failure."
             )
+            failed_this_txn.append((
+                remote_pkg["name"],
+                "a dependency its new release introduces could not be installed"))
             continue
 
         dl_ok, dl_result = repo.download_package(remote_pkg["name"])
         if not dl_ok:
             emit_error(f"downloading {remote_pkg['name']}: {dl_result}")
+            failed_this_txn.append((
+                remote_pkg["name"], f"its archive could not be downloaded: {dl_result}"))
             continue
 
         # Q1 (O-007): save the old archive to the rollback cache BEFORE
