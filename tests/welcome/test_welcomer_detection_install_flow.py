@@ -356,14 +356,35 @@ class TestTheWordsOnScreen(unittest.TestCase):
         self.assertRegex(block, r"font-size:\s*[0-9.]+em",
                          "hint text must be sized relative to the user's font")
 
-    def test_the_switch_rows_inside_the_advisory_are_not_dimmed(self):
-        """Photographed on the reference machines: the switch rows sat in a
-        panel whose grey description text read as disabled, so live options
-        looked unselectable, and the panel's fill bled over the card. The
-        rows inside an advisory get their own readable treatment."""
-        self.assertIn(".intergen-advisory .offer-row", welcome.CUSTOM_CSS)
-        block = _css_block(welcome.CUSTOM_CSS, ".intergen-advisory .offer-row")
-        self.assertIn("background-color", block)
+    def test_the_switch_row_descriptions_are_not_dimmed(self):
+        """Photographed on the reference machines: the switch rows' grey
+        description text read as disabled, so live options looked
+        unselectable.
+
+        The colour is asserted on the mechanism that actually carries it. A
+        stylesheet rule does not: measured on GTK 4.20.3 / libadwaita 1.8.4,
+        a colour written for these labels from the application stylesheet is
+        not applied, because libadwaita styles them from inside the row. The
+        description is coloured as a Pango attribute on the text, and that is
+        what this pins.
+        """
+        source = WELCOME_PY.read_text()
+        self.assertRegex(welcome._OFFER_DETAIL_COLOR, r"^#[0-9a-fA-F]{6}$")
+        self.assertIn(f'<span foreground="{{_OFFER_DETAIL_COLOR}}">', source)
+        # Near-white, not the interface's secondary grey — this text is the
+        # whole description of what is about to be installed.
+        red, green, blue = (int(welcome._OFFER_DETAIL_COLOR[i:i + 2], 16)
+                            for i in (1, 3, 5))
+        self.assertGreater(min(red, green, blue), 190,
+                           "the description is still drawn in a dim colour")
+
+    def test_the_description_is_escaped_before_it_is_marked_up(self):
+        """Markup has to be ON for the colour attribute, and the driver
+        command contains a bare ampersand — unescaped, it aborts the Pango
+        parse and the whole row renders nothing but a GTK warning, so the
+        offer that matters most is the one that vanishes."""
+        source = WELCOME_PY.read_text()
+        self.assertIn("GLib.markup_escape_text(detail)", source)
 
     def test_the_offer_box_is_clamped_to_the_window_width(self):
         """The banner overflowed the window on the reference laptop, clipping

@@ -2224,7 +2224,12 @@ def _print_transaction_next_steps(db, package_names):
                 name, file_list, declared_reboot_required=declared
             ),
         ))
-    block = format_next_steps(classifications)
+    # Coloured only on a real terminal, decided by the same helper the
+    # severity prefixes use — so a piped or captured run cannot come out
+    # coloured by one and plain by the other.
+    from .output import _supports_color
+    block = format_next_steps(classifications,
+                              color=_supports_color(sys.stdout))
     if block:
         print(block)
 

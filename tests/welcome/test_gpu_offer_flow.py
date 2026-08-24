@@ -100,26 +100,27 @@ class ClosingLineTest(unittest.TestCase):
     in the source.
     """
 
-    def _script_for(self, command):
+    def _script_for(self, command, closing_note=None):
         """The script the Welcomer would run, with the read pause removed.
 
         The pause exists to keep the window open for a human; a test cannot
-        answer it. Everything else — the status capture, the branch and the
-        exit — is left exactly as shipped.
+        answer it. Everything else — the status capture, the closing note,
+        the branch and the exit — is left exactly as shipped.
         """
         src = _SCRIPT.read_text()
-        start = src.index("    script = (f'{command}; __rc=$?; echo; '")
+        start = src.index("    note = ''")
         end = src.index("for argv in (", start)
-        literal = src[start:end]
+        literal = "\n".join(ln[4:] if ln.startswith("    ") else ln
+                            for ln in src[start:end].splitlines())
         # Recover the composed shell text the same way Python does.
-        ns = {"command": command}
-        exec(literal.strip(), ns)
+        ns = {"command": command, "closing_note": closing_note}
+        exec(literal, ns)
         script = ns["script"]
         return script.replace(
             'read -r -p "Press Enter to close this window."; ', "")
 
-    def _run(self, command):
-        script = self._script_for(command)
+    def _run(self, command, closing_note=None):
+        script = self._script_for(command, closing_note)
         return subprocess.run(["bash", "-c", script],
                               capture_output=True, text=True, timeout=60)
 
@@ -156,6 +157,39 @@ class ClosingLineTest(unittest.TestCase):
         r = self._run(self._FAIL_1)
         self.assertIn("Nothing above this line was necessarily completed",
                       r.stdout)
+
+    # The closing note. The package manager prints its own advisory when the
+    # transaction ends, but the LAST line of the window is what the user
+    # carries away, and it read "Installation finished successfully." — so the
+    # impression a user left with was done, not reboot.
+
+    def test_the_closing_note_is_the_last_thing_a_successful_run_prints(self):
+        r = self._run("true", closing_note=">>> REBOOT REQUIRED: run sudo reboot")
+        self.assertIn("REBOOT REQUIRED", r.stdout)
+        lines = [ln for ln in r.stdout.splitlines() if ln.strip()]
+        self.assertIn("REBOOT REQUIRED", lines[-1],
+                      "the reboot requirement is not the last thing on screen")
+        self.assertLess(lines.index(next(l for l in lines
+                                         if "finished successfully" in l)),
+                        len(lines) - 1,
+                        "the finished line is still the last word")
+
+    def test_a_failed_run_is_not_told_to_reboot(self):
+        """Nothing installed, so there is nothing to activate."""
+        r = self._run(self._FAIL_7,
+                      closing_note=">>> REBOOT REQUIRED: run sudo reboot")
+        self.assertNotIn("REBOOT REQUIRED", r.stdout)
+        self.assertIn("FAILED", r.stdout)
+
+    def test_no_note_prints_nothing_extra(self):
+        r = self._run("true", closing_note=None)
+        self.assertIn("finished successfully", r.stdout)
+        self.assertNotIn(">>>", r.stdout)
+
+    def test_an_empty_note_prints_nothing_extra(self):
+        """_closing_note returns '' for a selection that needs no step."""
+        r = self._run("true", closing_note="")
+        self.assertNotIn(">>>", r.stdout)
 
     def test_a_failing_sync_stops_before_the_install(self):
         """The `&&` join, executed rather than pattern-matched.
@@ -236,32 +270,52 @@ class OutcomeDetectionTest(unittest.TestCase):
         finally:
             welcome.subprocess.run = real
 
+    # The eight fixed outcome strings these tests used to read were removed on
+    # 2026-08-24: each described a situation its author had in mind rather
+    # than the selection in front of the user. The messages are composed from
+    # the selection now, so the same intent is asserted against the composer.
+
+    def _nvidia_offers(self):
+        return welcome._gpu_offers(
+            {"version": welcome._GPU_RECORD_VERSION, "vendor": "nvidia",
+             "upgrade_engine": "cuda", "upgrade_outranks_shipped": False},
+            probe=lambda _n: False)
+
     def test_the_success_notice_names_the_reboot(self):
-        notice = welcome._DRIVER_INSTALLED_NOTICE
-        self.assertIn("REBOOT", notice.upper(),
+        outcome = welcome._install_outcome(
+            ["nvidia_driver"], self._nvidia_offers(), probe=lambda _n: True)
+        self.assertIn("REBOOT", outcome["message"].upper(),
                       "the success state does not tell the user to reboot, "
                       "which is the one thing the driver needs")
-        self.assertIn("again", notice,
+        self.assertIn("again", outcome["message"],
                       "it does not say the page comes back afterwards")
 
     def test_success_and_failure_notices_are_different_messages(self):
-        self.assertNotEqual(welcome._DRIVER_INSTALLED_NOTICE,
-                            welcome._DRIVER_NOT_INSTALLED_NOTICE)
+        offers = self._nvidia_offers()
+        ok = welcome._install_outcome(
+            ["nvidia_driver"], offers, probe=lambda _n: True)
+        no = welcome._install_outcome(
+            ["nvidia_driver"], offers, probe=lambda _n: False)
+        self.assertNotEqual(ok["message"], no["message"])
 
     def test_the_not_installed_notice_does_not_read_as_could_not_tell(self):
         """Three states, three messages — a user's next step differs."""
-        definite = welcome._DRIVER_NOT_INSTALLED_NOTICE
-        unknown = welcome._TERMINAL_CLOSED_NOTICE
+        offers = self._nvidia_offers()
+        definite = welcome._install_outcome(
+            ["nvidia_driver"], offers, probe=lambda _n: False)["message"]
+        unknown = welcome._install_outcome(
+            ["nvidia_driver"], offers, probe=lambda _n: None)["message"]
         self.assertNotEqual(definite, unknown)
         self.assertIn("still not installed", definite)
+        self.assertIn("could not be determined", unknown)
 
     def test_the_success_path_replaces_the_retry_rather_than_adding_to_it(self):
         src = _SCRIPT.read_text()
         code = "\n".join(ln for ln in src.splitlines()
                          if not ln.strip().startswith("#"))
-        block = code[code.index("def _watch_terminal"):]
-        block = block[:block.index("def _no_terminal")]
-        self.assertIn("_DRIVER_INSTALLED_NOTICE", block)
+        block = code[code.index("    def _watch(btn, proc, chosen):"):]
+        block = block[:block.index("install_btn.connect")]
+        self.assertIn("_install_outcome", block)
         self.assertIn("set_visible(False)", block,
                       "the retry button is still shown after a confirmed "
                       "successful install")
@@ -327,11 +381,21 @@ class NextActionTest(unittest.TestCase):
         """
         code = "\n".join(ln for ln in _SCRIPT.read_text().splitlines()
                          if not ln.strip().startswith("#"))
-        self.assertIn("reorder_child_after(setup_box, None)", code)
+        self.assertIn("reorder_child_after(setup_box, done_note)", code)
         self.assertEqual(
             code.count("setup_btn = "), 1,
             "there is more than one setup button, so two controls can "
             "disagree about the same action")
+
+    def test_the_card_is_moved_under_the_heading_and_never_above_it(self):
+        """The card used to be moved to position ZERO of the page box, which
+        put it and its accompanying line of text ABOVE the "Meet InterGen"
+        heading they belong under (corrected 2026-08-24)."""
+        code = "\n".join(ln for ln in _SCRIPT.read_text().splitlines()
+                         if not ln.strip().startswith("#"))
+        self.assertNotIn("reorder_child_after(setup_box, None)", code)
+        self.assertNotIn("reorder_child_after(done_note, None)", code)
+        self.assertIn("reorder_child_after(done_note, title)", code)
 
 
 if __name__ == "__main__":

@@ -59,6 +59,14 @@ AMD_UNSUPPORTED = _record("amd", "hip", True, supported=False)
 INTEL = _record("intel", None, False)
 UNKNOWN = _record(None, None, False)
 
+# These tests ask what a VENDOR is offered. Whether a machine already HAS the
+# software is a separate question, covered in
+# test_welcomer_detection_install_flow.py, and it is answered here by a stand-
+# in rather than by the machine running the suite: a test whose result depends
+# on what happens to be installed on the developer's box is not a test.
+def NOTHING_INSTALLED(_name):
+    return False
+
 
 class TestReadingTheRecord(unittest.TestCase):
     def _write(self, directory, text):
@@ -106,56 +114,56 @@ class TestReadingTheRecord(unittest.TestCase):
 
 class TestWhatIsOffered(unittest.TestCase):
     def test_nvidia_is_offered_the_driver_and_the_cuda_engine(self):
-        keys = [o["key"] for o in welcome._gpu_offers(NVIDIA)]
+        keys = [o["key"] for o in welcome._gpu_offers(NVIDIA, probe=NOTHING_INSTALLED)]
         self.assertEqual(keys, ["nvidia_driver", "compute_engine"])
 
     def test_the_driver_comes_first(self):
         # The CUDA engine links a library only the proprietary driver
         # provides, so the order shown is the order it must run in.
-        self.assertEqual(welcome._gpu_offers(NVIDIA)[0]["key"], "nvidia_driver")
+        self.assertEqual(welcome._gpu_offers(NVIDIA, probe=NOTHING_INSTALLED)[0]["key"], "nvidia_driver")
 
     def test_amd_is_offered_the_hip_engine_and_no_driver(self):
-        offers = welcome._gpu_offers(AMD)
+        offers = welcome._gpu_offers(AMD, probe=NOTHING_INSTALLED)
         self.assertEqual([o["key"] for o in offers], ["compute_engine"])
         self.assertIn("HIP", offers[0]["title"])
 
     def test_the_hip_engine_is_not_proprietary(self):
-        self.assertFalse(welcome._gpu_offers(AMD)[0]["proprietary"])
+        self.assertFalse(welcome._gpu_offers(AMD, probe=NOTHING_INSTALLED)[0]["proprietary"])
 
     def test_both_nvidia_offers_are_proprietary(self):
-        for offer in welcome._gpu_offers(NVIDIA):
+        for offer in welcome._gpu_offers(NVIDIA, probe=NOTHING_INSTALLED):
             self.assertTrue(offer["proprietary"], offer["key"])
 
     def test_intel_is_offered_nothing(self):
-        self.assertEqual(welcome._gpu_offers(INTEL), [])
+        self.assertEqual(welcome._gpu_offers(INTEL, probe=NOTHING_INSTALLED), [])
 
     def test_unidentified_hardware_is_offered_nothing(self):
-        self.assertEqual(welcome._gpu_offers(UNKNOWN), [])
+        self.assertEqual(welcome._gpu_offers(UNKNOWN, probe=NOTHING_INSTALLED), [])
 
     def test_no_record_is_offered_nothing(self):
         # A machine installed before the record existed, or one where writing
         # it failed. Silence is the correct outcome, never a guessed offer.
-        self.assertEqual(welcome._gpu_offers(None), [])
+        self.assertEqual(welcome._gpu_offers(None, probe=NOTHING_INSTALLED), [])
 
 
 class TestWhatTheOfferSays(unittest.TestCase):
     def test_the_cuda_offer_says_vulkan_keeps_serving(self):
         # The ratified table ranks Vulkan ahead of CUDA. Selling CUDA as a
         # speed-up would be selling a measured slow-down.
-        detail = welcome._gpu_offers(NVIDIA)[1]["detail"]
+        detail = welcome._gpu_offers(NVIDIA, probe=NOTHING_INSTALLED)[1]["detail"]
         self.assertIn("Vulkan stays the engine that serves", detail)
 
     def test_the_cuda_offer_follows_the_record_if_the_ranking_changes(self):
         # The sentence is read off the record, not asserted in the Welcomer,
         # so a re-ratified table changes what the user is told.
         flipped = _record("nvidia", "cuda", True)
-        detail = welcome._gpu_offers(flipped)[1]["detail"]
+        detail = welcome._gpu_offers(flipped, probe=NOTHING_INSTALLED)[1]["detail"]
         self.assertIn("takes over once installed", detail)
         self.assertNotIn("Vulkan stays the engine that serves", detail)
 
     def test_the_hip_offer_says_it_takes_over_when_support_is_confirmed(self):
         self.assertIn("takes over from Vulkan",
-                      welcome._gpu_offers(AMD_SUPPORTED)[0]["detail"])
+                      welcome._gpu_offers(AMD_SUPPORTED, probe=NOTHING_INSTALLED)[0]["detail"])
 
     def test_the_hip_offer_does_not_claim_takeover_when_support_is_unknown(self):
         """The claim is scoped to what was checked on THIS machine.
@@ -164,7 +172,7 @@ class TestWhatTheOfferSays(unittest.TestCase):
         for every AMD machine, which presented a measurement taken on one card
         as a fact about the card in front of the user.
         """
-        detail = welcome._gpu_offers(AMD)[0]["detail"]
+        detail = welcome._gpu_offers(AMD, probe=NOTHING_INSTALLED)[0]["detail"]
         self.assertIn("could not be determined here", detail)
         self.assertNotIn("This machine's GPU is one the HIP build supports",
                          detail)
@@ -172,30 +180,30 @@ class TestWhatTheOfferSays(unittest.TestCase):
     def test_the_measurement_is_attributed_rather_than_asserted(self):
         for record in (AMD, AMD_SUPPORTED):
             with self.subTest(record=record["upgrade_engine_supported"]):
-                detail = welcome._gpu_offers(record)[0]["detail"]
+                detail = welcome._gpu_offers(record, probe=NOTHING_INSTALLED)[0]["detail"]
                 self.assertIn("the AMD hardware this project measured", detail)
 
     def test_no_hip_offer_when_the_build_has_no_code_for_this_gpu(self):
         """Offering it would propose replacing a working setup with a crash."""
-        keys = [o["key"] for o in welcome._gpu_offers(AMD_UNSUPPORTED)]
+        keys = [o["key"] for o in welcome._gpu_offers(AMD_UNSUPPORTED, probe=NOTHING_INSTALLED)]
         self.assertNotIn("compute_engine", keys,
                          "the HIP engine was offered on hardware the build "
                          "segfaults on")
 
     def test_the_cuda_offer_states_it_needs_the_driver(self):
         self.assertIn("requires the proprietary driver",
-                      welcome._gpu_offers(NVIDIA)[1]["detail"])
+                      welcome._gpu_offers(NVIDIA, probe=NOTHING_INSTALLED)[1]["detail"])
 
 
 class TestTheDependencyRule(unittest.TestCase):
     def test_choosing_the_cuda_engine_chooses_the_driver(self):
-        offers = welcome._gpu_offers(NVIDIA)
+        offers = welcome._gpu_offers(NVIDIA, probe=NOTHING_INSTALLED)
         self.assertEqual(
             welcome._gpu_required_dependencies(["compute_engine"], offers),
             ["nvidia_driver", "compute_engine"])
 
     def test_choosing_the_driver_alone_adds_nothing(self):
-        offers = welcome._gpu_offers(NVIDIA)
+        offers = welcome._gpu_offers(NVIDIA, probe=NOTHING_INSTALLED)
         self.assertEqual(
             welcome._gpu_required_dependencies(["nvidia_driver"], offers),
             ["nvidia_driver"])
@@ -203,41 +211,51 @@ class TestTheDependencyRule(unittest.TestCase):
     def test_the_amd_engine_drags_in_no_driver(self):
         # There is no AMD driver offer — the open source one is already in use
         # — so the rule must not invent one.
-        offers = welcome._gpu_offers(AMD)
+        offers = welcome._gpu_offers(AMD, probe=NOTHING_INSTALLED)
         self.assertEqual(
             welcome._gpu_required_dependencies(["compute_engine"], offers),
             ["compute_engine"])
 
     def test_selecting_nothing_stays_nothing(self):
         self.assertEqual(
-            welcome._gpu_required_dependencies([], welcome._gpu_offers(NVIDIA)),
+            welcome._gpu_required_dependencies([], welcome._gpu_offers(NVIDIA, probe=NOTHING_INSTALLED)),
             [])
 
 
 class TestTheComposedCommand(unittest.TestCase):
     def test_nothing_selected_produces_no_command(self):
         self.assertIsNone(
-            welcome._gpu_install_command([], welcome._gpu_offers(NVIDIA)))
+            welcome._gpu_install_command([], welcome._gpu_offers(NVIDIA, probe=NOTHING_INSTALLED)))
 
     def test_the_driver_alone_runs_the_driver_command(self):
-        offers = welcome._gpu_offers(NVIDIA)
+        offers = welcome._gpu_offers(NVIDIA, probe=NOTHING_INSTALLED)
         self.assertEqual(
             welcome._gpu_install_command(["nvidia_driver"], offers),
             welcome._ADVISORY_COMMAND)
 
-    def test_both_run_driver_first_chained_so_a_failure_stops_it(self):
-        offers = welcome._gpu_offers(NVIDIA)
+    def test_both_run_driver_first_in_one_transaction(self):
+        """One selection, one package transaction.
+
+        This used to be two chained sync-and-install commands. The package
+        manager prints its closing "next steps" advisory at the end of each
+        transaction, so the driver transaction's REBOOT REQUIRED block was
+        scrolled off the screen by the engine transaction's output. One
+        install invocation, named in dependency order, prints one advisory
+        at the end (changed 2026-08-24).
+        """
+        offers = welcome._gpu_offers(NVIDIA, probe=NOTHING_INSTALLED)
         command = welcome._gpu_install_command(
             ["nvidia_driver", "compute_engine"], offers)
         self.assertEqual(
-            command,
-            welcome._ADVISORY_COMMAND + " && " + welcome._CUDA_ENGINE_COMMAND)
-        # `&&` and not `;`: a declined licence must stop the chain rather than
-        # let the next install run as though the first had succeeded.
+            command, "sudo pkm update && sudo pkm install nvidia llama-cpp-cuda")
+        self.assertEqual(command.count("pkm install"), 1)
+        # `&&` and not `;`: a failed index sync must stop the chain rather
+        # than let the install run against an index that was never updated.
         self.assertNotIn(";", command)
+        self.assertIn("&&", command)
 
     def test_the_amd_command_installs_the_hip_engine(self):
-        offers = welcome._gpu_offers(AMD)
+        offers = welcome._gpu_offers(AMD, probe=NOTHING_INSTALLED)
         self.assertEqual(
             welcome._gpu_install_command(["compute_engine"], offers),
             welcome._HIP_ENGINE_COMMAND)
@@ -247,7 +265,7 @@ class TestTheComposedCommand(unittest.TestCase):
         # own gate runs inside pkm, on the user's machine, with its text in
         # front of them. Nothing here may install by another route.
         for record in (NVIDIA, AMD):
-            for offer in welcome._gpu_offers(record):
+            for offer in welcome._gpu_offers(record, probe=NOTHING_INSTALLED):
                 self.assertIn("pkm install", offer["command"], offer["key"])
 
 
@@ -255,18 +273,18 @@ class TestTheDriverCommandIsSaidOnce(unittest.TestCase):
     def test_the_offer_reuses_the_advisory_command(self):
         # The banner tells the user to type it and the button runs it. One
         # definition means the sentence and the action cannot drift apart.
-        driver = welcome._gpu_offers(NVIDIA)[0]
+        driver = welcome._gpu_offers(NVIDIA, probe=NOTHING_INSTALLED)[0]
         self.assertEqual(driver["command"], welcome._ADVISORY_COMMAND)
 
 
 class TestTheLicenceIsNeverAcceptedHere(unittest.TestCase):
     def test_the_notice_says_the_package_manager_asks(self):
         self.assertIn("installs nothing until you accept",
-                      welcome._VENDOR_LICENCE_NOTICE)
+                      welcome._VENDOR_LICENSE_NOTICE)
 
     def test_no_offer_claims_a_licence_was_accepted(self):
         for record in (NVIDIA, AMD):
-            for offer in welcome._gpu_offers(record):
+            for offer in welcome._gpu_offers(record, probe=NOTHING_INSTALLED):
                 self.assertNotIn("you have accepted", offer["detail"].lower())
                 self.assertNotIn("licence accepted", offer["detail"].lower())
 
