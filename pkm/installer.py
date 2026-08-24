@@ -1065,6 +1065,13 @@ class PackageInstaller:
             # staging tree would carry the unremapped layout and the
             # downstream file_list / hash map / deploy step would all
             # see paths that don't match what actually lands on disk.
+            # Say what is happening. On a multi-gigabyte package this extract
+            # runs for a long time with no other output between the download
+            # line and the completion line, and silence that long is
+            # indistinguishable from a hang (pkm/progress.py states the rule;
+            # this path did not follow it).
+            if reporter:
+                reporter.phase("Extract", f"unpacking {name}")
             ok, err = _safe_extract_tar(
                 archive_path, staging, usrmerge_root=self.root,
             )
@@ -1183,6 +1190,10 @@ class PackageInstaller:
                 _ARCHIVE_METADATA_FILES | _ARCHIVE_METADATA_DIRS
                 | set(config_plan["protect"])
             )
+            # The second long part, and the one that writes to the live
+            # filesystem — named for the same reason as the extract above.
+            if reporter:
+                reporter.phase("Deploy", f"writing {name} into place")
             ok, err = _safe_extract_tar(
                 archive_path, self.root, exclude_paths=deploy_excludes,
             )

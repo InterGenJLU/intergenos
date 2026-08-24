@@ -372,7 +372,24 @@ def reboot_required_names(db, candidate_names):
     return out
 
 
-def format_next_steps(classifications, estimate=False):
+def _loud(text):
+    """Paint one line in the bold amber this project reserves for "act on me".
+
+    Same escape sequences pkm/output.py uses for its error and warning
+    prefixes, so a terminal that shows one shows the other. Applied ONLY to
+    the reboot section: colour is a severity signal and spending it on the
+    parts of the block that are not urgent is how it stops meaning anything.
+
+    The reason this exists: the REBOOT REQUIRED block printed in the same
+    monochrome as the thousands of lines of install output around it, and was
+    read straight past. The project's model for a message a user must not
+    miss is the coloured disk-unlock prompt.
+    """
+    from .output import _C_BOLD, _C_RESET, _C_YELLOW
+    return f"{_C_BOLD}{_C_YELLOW}{text}{_C_RESET}"
+
+
+def format_next_steps(classifications, estimate=False, color=False):
     """Render ONE consolidated "Next steps" block.
 
     Aggregates every package touched into a single, strongest-first advisory
@@ -435,11 +452,14 @@ def format_next_steps(classifications, estimate=False):
         lines = [rule, "  NEXT STEPS", rule]
 
     if reboot_names:
+        paint = _loud if color else (lambda text: text)
         lines.append("")
-        lines.append("  REBOOT REQUIRED — these package(s) ship a payload that")
-        lines.append("  cannot activate on the running system until you reboot:")
+        lines.append(paint(
+            "  REBOOT REQUIRED — these package(s) ship a payload that"))
+        lines.append(paint(
+            "  cannot activate on the running system until you reboot:"))
         lines.extend(f"    - {n}" for n in sorted(set(reboot_names)))
-        lines.append("  Run: sudo reboot")
+        lines.append(paint("  Run: sudo reboot"))
 
     if restart_services:
         # De-dupe unit names preserving discovery order across packages.

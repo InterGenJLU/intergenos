@@ -267,6 +267,26 @@ class Reporter:
         lab = (label + ":").ljust(_LABEL_WIDTH)
         self._out(f"  {lab}{detail}".rstrip())
 
+    def phase(self, label, detail=""):
+        """A line naming a part of a single package's install while it runs.
+
+        Between the download line and the completion line, a large package
+        spends its whole extract-and-deploy time printing nothing. On the
+        multi-gigabyte graphics packages that is a minute or more of silence,
+        and a user watching a terminal cannot tell that from a hang — one
+        nearly diagnosed it as one. pkm/progress.py already states the rule
+        ("a package manager that works for a minute while printing nothing is
+        indistinguishable from a package manager that has hung"); the install
+        path is the part of pkm that did not follow it.
+
+        Rendered exactly like ``step`` and suppressed at QUIET for the same
+        reason — a scripted caller wants the one completion line, not the
+        narration. It is a separate method rather than a bare ``step`` call so
+        the install phases can be recognised as a group by a caller, or a
+        test, that wants to ask which parts a long install announced.
+        """
+        self.step(label, detail)
+
     def step_continuation(self, detail):
         """A wrapped continuation of the previous step line.
 

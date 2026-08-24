@@ -181,8 +181,13 @@ window.welcome-window {
     border: 1px solid rgba(0, 153, 255, 0.22);
     border-radius: 12px; padding: 11px 20px; margin-top: 8px;
 }
-.intergen-summon-key { font-size: 13px; font-weight: 700; color: #0099FF; font-family: 'JetBrains Mono', monospace; }
-.intergen-summon-text { font-size: 12px; color: #7a8ba8; }
+.intergen-summon-key { font-size: 1.05em; font-weight: 700; color: #0099FF; }
+/* Body copy is sized RELATIVE to the user's font, never in physical pixels.
+   A fixed 12px ignored a raised text size entirely: the hint under the setup
+   heading stayed 12 pixels tall on a machine whose whole desktop had been
+   scaled up, which is the one place it needed to grow. Every size in this
+   stylesheet's prose is an em for that reason. */
+.intergen-summon-text { font-size: 0.92em; color: #a8b6c8; }
 /* Driver advisory — the ONE thing on this page that must not be missed.
    Deliberately loud: amber warning colour, a border, a filled background and a
    font two steps up from body copy. Guidance a user is meant to ACT on cannot
@@ -198,9 +203,31 @@ window.welcome-window {
     margin-top: 6px;
     margin-bottom: 2px;
 }
-.intergen-advisory-title { font-size: 19px; font-weight: 800; color: #ffc107; }
-.intergen-advisory-text { font-size: 15px; color: #f6e7bf; }
-.intergen-advisory-action { font-size: 15px; font-weight: 700; color: #ffd54f; }
+.intergen-advisory-title { font-size: 1.35em; font-weight: 800; color: #ffc107; }
+.intergen-advisory-text { font-size: 1.05em; color: #f6e7bf; }
+.intergen-advisory-action { font-size: 1.05em; font-weight: 700; color: #ffd54f; }
+
+/* ---- Switch rows INSIDE the advisory box ----
+   Photographed on both reference machines: the switch rows sat in a panel
+   whose grey description text read as DISABLED, and whose card looked as
+   though the amber banner were painted over it. Live options that look
+   unselectable are worse than absent ones — a user who believes a switch is
+   greyed out never touches it.
+
+   THERE IS NO RULE HERE FOR THE ROWS' OWN SURFACE OR THEIR LABEL COLOUR, and
+   that is deliberate rather than an omission. Measured on GTK 4.20.3 /
+   libadwaita 1.8.4, by rendering this page and reading the pixels back:
+   neither a background nor a colour written for these rows from the
+   application stylesheet reaches them — libadwaita styles a row's surface and
+   its labels from inside the row's own implementation, and the rules were
+   silently doing nothing. Writing them anyway would leave a stylesheet that
+   states an intention the interface does not carry out.
+
+   The description's colour is set as a Pango attribute on the text instead
+   (_OFFER_DETAIL_COLOR), which does take effect and is verified by measuring
+   the rendered pixels. The `offer-row` class stays on the rows as the handle
+   this comment is about. */
+.intergen-advisory row.offer-row { min-height: 46px; }
 /* Panel-icon preview — exactly what the user should hunt for in the top bar.
    Brand-blue (matches the live panel indicator), seated in a panel-like pill. */
 .intergen-icon-preview {
@@ -1794,7 +1821,17 @@ def build_dns_page():
         differs = picked != current['selection']
         if picked == 'custom':
             differs = True
+        was_live = apply_btn.get_sensitive()
         apply_btn.set_sensitive(differs)
+        # Choosing a different name server changes nothing until Apply is
+        # pressed, and Apply sits at the bottom of a scrolling page. On a
+        # short window a user picked a provider, saw nothing happen, and had
+        # no way to know a button below the fold had just become the required
+        # next step. Focusing it scrolls it into view — a focused widget
+        # inside a GtkScrolledWindow is brought into view by GTK itself — and
+        # puts the keyboard on the thing to press.
+        if _should_reveal_apply(was_live, differs):
+            apply_btn.grab_focus()
 
     for radio in radios.values():
         radio.connect('toggled', _sync_sensitivity)
@@ -2060,59 +2097,23 @@ _ADVISORY_BODY_AFTER_CMD = (
 _ADVISORY_BODY_PLAIN = (_ADVISORY_BODY_BEFORE_CMD + _ADVISORY_COMMAND
                         + _ADVISORY_BODY_AFTER_CMD)
 
-_INSTALL_BUTTON_LABEL = 'Open a terminal and install the NVIDIA driver'
-
-_INSTALL_RETRY_LABEL = 'Open the terminal again'
-
-# Shown once the terminal window has closed. It deliberately does not say the
-# install succeeded: the window wraps the command in a pause, so its exit status
-# belongs to the pause, not to the installer, and claiming an outcome we cannot
-# see would be a guess dressed as a result.
-_TERMINAL_CLOSED_NOTICE = (
-    'The terminal window has closed. If the driver did not finish installing — '
-    'for example if the password was mistyped — open it again with the button '
-    'above. Once it is installed, reboot; this page will be shown to you again '
-    'so you can finish setting InterGen up.'
-)
-
-# Shown the moment the install button is pressed, at the same size as the
-# advisory heading. It has to be readable in the few seconds before the
-# terminal window appears and takes the foreground — at body size it was
-# covered by that window before it could be read (decided 2026-07-31).
-_TERMINAL_NOTICE = (
-    'A TERMINAL WINDOW WILL OPEN MOMENTARILY - Enter your sudo password when '
-    'prompted, ACCEPT the Nvidia EULA when prompted (by pressing \'Enter\'), '
-    'and finally reboot the system once the driver is installed. You\'ll be '
-    'shown the Welcomer again after reboot, so you can return to this page and '
-    'continue InterGen\'s setup'
-)
-
-# How long the notice above is left alone on screen before the terminal opens.
+# How long the notice shown when the button is pressed is left alone on screen
+# before the terminal opens over it. It has to be readable in those seconds —
+# at body size it was covered by the terminal window before it could be read
+# (decided 2026-07-31).
 _TERMINAL_OPEN_DELAY_SECONDS = 6
 
 # The package the driver offer installs. Named once, so the command, the
 # outcome check and the message cannot drift apart.
 _DRIVER_PACKAGE = 'nvidia'
 
-# Shown when the package database confirms the driver IS installed. This
-# replaces the retry banner rather than sitting beside it: a user who has just
-# succeeded must not be shown a retry that implies they have not.
-_DRIVER_INSTALLED_NOTICE = (
-    'The NVIDIA driver is installed. REBOOT NOW to start using it — the '
-    'driver only takes effect after a restart. This page will be shown to you '
-    'again after the reboot so you can finish setting InterGen up.'
-)
-
-# Shown when the package database says the driver is NOT installed. Distinct
-# from the could-not-tell wording below, because a user who knows the install
-# did not complete needs a different next step from one who is being asked to
-# check.
-_DRIVER_NOT_INSTALLED_NOTICE = (
-    'The terminal window closed and the NVIDIA driver is still not installed. '
-    'The most common causes are a mistyped password and a declined licence. '
-    'Open the terminal again with the button above to retry; the output in '
-    'that window says which it was.'
-)
+# The sentences a user reads before and after an install are no longer fixed
+# strings. There were eight of them, one per situation, and each one described
+# a situation its author had in mind rather than the selection actually in
+# front of the user — which is how a machine installing only a compute engine
+# came to be told to reboot after "the driver", and how a promise that the
+# Welcomer would return survived onto a path where nothing arranged it.
+# _install_notice and _install_outcome compose them from the selection.
 
 
 def _driver_leg_is_done():
@@ -2238,8 +2239,11 @@ def _code_span(text):
             + GLib.markup_escape_text(text) + ' </span>')
 
 
-def _open_terminal_running(command):
+def _open_terminal_running(command, closing_note=None):
     """Open a terminal window running ``command``, leaving it open afterwards.
+
+    ``closing_note``, when given, is repeated at the very END of a successful
+    run, after the finished line — see the comment on the script below.
 
     The trailing pause is load-bearing: the NVIDIA install presents an EULA and
     then a summary, and a terminal that closes the instant the command returns
@@ -2251,13 +2255,26 @@ def _open_terminal_running(command):
     than leaving a dead button.
     """
     # The closing line reports the ACTUAL exit status. It used to say
-    # "Installation finished." unconditionally, so a refused licence, a failed
+    # "Installation finished." unconditionally, so a refused license, a failed
     # download or an unresolvable dependency ended with a sentence stating the
     # opposite of what happened — and the user closed the window believing the
     # package was installed.
+    #
+    # A successful install RE-ECHOES the next step beside that line. The
+    # package manager already prints its advisory when the transaction ends,
+    # but the last thing on the screen is what a user carries away, and the
+    # last thing on the screen was "Installation finished successfully.
+    # Press Enter to close this window." — so the impression was done, not
+    # reboot. The closing note is repeated here, at the very end, in the same
+    # bold amber the package manager paints the advisory in.
+    note = ''
+    if closing_note:
+        loud = '\033[1;33m' + closing_note.replace('"', "'") + '\033[0m'
+        note = f'  echo; echo "{loud}"; '
     script = (f'{command}; __rc=$?; echo; '
               'if [ "$__rc" -eq 0 ]; then '
               '  echo "Installation finished successfully."; '
+              + note +
               'else '
               '  echo "Installation FAILED (exit $__rc). Nothing above this '
               'line was necessarily completed — read the output for the '
@@ -2275,147 +2292,6 @@ def _open_terminal_running(command):
     return None
 
 
-def _build_driver_advisory():
-    """The advisory banner, shown at the top of the page the moment it opens.
-
-    Deliberately loud and placed first: a user deciding whether to install
-    graphics drivers needs to see this BEFORE they read anything else. The
-    first build set this text in the same 12px grey as the surrounding prose,
-    below the fold, and it was missed entirely on the hardware it was written
-    for (decided 2026-07-31).
-    """
-    banner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-    banner.add_css_class('intergen-advisory')
-    banner.set_halign(Gtk.Align.CENTER)
-
-    head = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-    head.set_halign(Gtk.Align.CENTER)
-    left_icon = Gtk.Image.new_from_icon_name('dialog-warning-symbolic')
-    left_icon.set_pixel_size(30)
-    head.append(left_icon)
-    title = Gtk.Label(label=_ADVISORY_HEADING)
-    title.add_css_class('intergen-advisory-title')
-    title.set_justify(Gtk.Justification.CENTER)
-    title.set_wrap(True)
-    title.set_max_width_chars(64)
-    head.append(title)
-    right_icon = Gtk.Image.new_from_icon_name('dialog-warning-symbolic')
-    right_icon.set_pixel_size(30)
-    head.append(right_icon)
-    banner.append(head)
-
-    banner.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
-
-    # The command is set in monospace inside the sentence, so it reads as
-    # something to type rather than as prose.
-    body = Gtk.Label()
-    body.set_markup(
-        GLib.markup_escape_text(_ADVISORY_BODY_BEFORE_CMD)
-        + _code_span(_ADVISORY_COMMAND)
-        + GLib.markup_escape_text(_ADVISORY_BODY_AFTER_CMD))
-    body.add_css_class('intergen-advisory-text')
-    body.set_justify(Gtk.Justification.LEFT)
-    body.set_xalign(0)
-    body.set_wrap(True)
-    body.set_max_width_chars(88)
-    banner.append(body)
-
-    banner.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
-
-    install_btn = Gtk.Button(label=_INSTALL_BUTTON_LABEL)
-    install_btn.add_css_class('suggested-action')
-    install_btn.set_halign(Gtk.Align.CENTER)
-    banner.append(install_btn)
-
-    # Heading-sized, not body-sized: this is the instruction the user has to
-    # carry into the terminal window, and the terminal takes the foreground a
-    # few seconds later.
-    install_status = Gtk.Label(label='')
-    install_status.add_css_class('intergen-advisory-title')
-    install_status.set_justify(Gtk.Justification.CENTER)
-    install_status.set_wrap(True)
-    install_status.set_max_width_chars(64)
-    install_status.set_visible(False)
-    install_status.set_margin_top(4)
-    banner.append(install_status)
-
-    def _on_install_clicked(btn):
-        # One install at a time — a second press would open a second terminal
-        # running a second privileged package transaction.
-        btn.set_sensitive(False)
-        install_status.set_visible(True)
-        install_status.set_text(_TERMINAL_NOTICE)
-        _request_welcomer_rearm()
-
-        def _open_terminal_after_delay():
-            proc = _open_terminal_running(_ADVISORY_COMMAND)
-            if proc is None:
-                _no_terminal(btn)
-            else:
-                _watch_terminal(btn, proc)
-            return GLib.SOURCE_REMOVE
-
-        # The delay is the point: the notice above needs to be read BEFORE the
-        # terminal window opens over it and takes the foreground.
-        GLib.timeout_add_seconds(_TERMINAL_OPEN_DELAY_SECONDS,
-                                 _open_terminal_after_delay)
-
-    def _watch_terminal(btn, proc):
-        """Report the OUTCOME when the terminal window closes.
-
-        The window closing is not the outcome. The earlier version could only
-        say the window had closed, and offered a retry regardless — so a user
-        whose driver installed correctly was shown a retry banner suggesting it
-        had not, and was told nothing about the reboot the driver needs.
-
-        The outcome is now ASKED OF THE MACHINE: is the package installed? That
-        is a fact the package database answers directly, and it is true whether
-        the install ran here, in another window, or on a previous attempt. When
-        it says yes, the retry banner is replaced by a success state naming the
-        reboot requirement and what happens after it. When it says no, or
-        cannot be determined, the retry stays — and the two are worded
-        differently, because "it failed" and "I could not tell" are not the
-        same thing to a user deciding what to do next.
-        """
-        def _poll():
-            if btn.get_root() is None:      # window closed; stop the timer
-                return GLib.SOURCE_REMOVE
-            if proc.poll() is None:
-                return GLib.SOURCE_CONTINUE
-            installed = _package_is_installed(_DRIVER_PACKAGE)
-            if installed is True:
-                btn.set_visible(False)
-                install_status.set_text(_DRIVER_INSTALLED_NOTICE)
-                return GLib.SOURCE_REMOVE
-            btn.set_sensitive(True)
-            btn.set_label(_INSTALL_RETRY_LABEL)
-            install_status.set_text(
-                _TERMINAL_CLOSED_NOTICE if installed is None
-                else _DRIVER_NOT_INSTALLED_NOTICE)
-            return GLib.SOURCE_REMOVE
-
-        GLib.timeout_add_seconds(2, _poll)
-
-    def _no_terminal(btn):
-        """No terminal could be started — say so, and give the command.
-
-        The button is handed back so the user can try again, and the notice is
-        replaced rather than left standing: a promise that a window is about to
-        open must not survive the discovery that none can. The re-arm request
-        is withdrawn too — no install was started, so there is no reboot for
-        the Welcomer to come back after.
-        """
-        _clear_welcomer_rearm()
-        install_status.set_markup(
-            GLib.markup_escape_text(
-                'A terminal could not be opened on this machine. Open one '
-                'yourself and run: ')
-            + _code_span(_ADVISORY_COMMAND))
-        btn.set_sensitive(True)
-
-    install_btn.connect('clicked', _on_install_clicked)
-    return banner
-
 
 
 # ---------------------------------------------------------------------------
@@ -2427,7 +2303,7 @@ def _build_driver_advisory():
 # and the per-vendor compute engines are mirror-only, the installer reaches no
 # network, and all that page could produce was a command the user had to
 # remember across a reboot. Here the package manager is present, the machine
-# is on a network, and the vendor's own licence gate can run with its full
+# is on a network, and the vendor's own license gate can run with its full
 # text on the user's own machine.
 #
 # The installer still runs the vendor probe and writes what it found to the
@@ -2476,12 +2352,15 @@ def _gpu_detection_record(path=_GPU_RECORD_PATH):
     return data
 
 
-# The commands. The driver command is _ADVISORY_COMMAND above — the same one
-# the banner tells the user to type — so the button and the sentence can never
-# disagree. The engine packages pull their own chains: the CUDA engine pulls
-# the driver and the toolkit's download helper, the HIP engine pulls the ROCm
-# runtime.
-#
+# The package names, stated once each. Every other thing this page says about
+# an offer — the command it runs, the question it asks the package database,
+# the outcome it reports afterwards — is derived from these names rather than
+# written again, so the offer, the install and the check cannot disagree about
+# which software is being talked about.
+_DRIVER_PACKAGES = ('nvidia',)
+_CUDA_ENGINE_PACKAGES = ('llama-cpp-cuda',)
+_HIP_ENGINE_PACKAGES = ('llama-cpp-hip',)
+
 # EVERY install here SYNCS THE PACKAGE INDEX FIRST. This page is shown during
 # first boot, which is precisely when the index cache is empty — nothing has
 # run `pkm update` on this machine yet — and an install against an empty index
@@ -2492,30 +2371,79 @@ def _gpu_detection_record(path=_GPU_RECORD_PATH):
 # `&&` rather than `;` so a failed sync stops the chain: installing against a
 # sync that just failed would produce the same confusing not-found error one
 # step later.
-_CUDA_ENGINE_COMMAND = 'sudo pkm update && sudo pkm install llama-cpp-cuda'
-_HIP_ENGINE_COMMAND = 'sudo pkm update && sudo pkm install llama-cpp-hip'
+_SYNC_COMMAND = 'sudo pkm update'
+
+
+def _install_command_for(packages):
+    """The one shell command that syncs the index and installs ``packages``.
+
+    ONE sync and ONE install, however many packages are named. The released
+    build composed a separate sync-and-install per offer and joined them with
+    `&&`, which made a two-item selection two package transactions — and the
+    package manager prints its closing "next steps" advisory at the end of
+    EACH transaction. So on the machine where a driver and a compute engine
+    were chosen together, the driver transaction's REBOOT REQUIRED block
+    printed and the engine transaction's several thousand lines of output
+    then scrolled it off the screen. One transaction prints one advisory,
+    last, where it is still on screen when the flow stops.
+    """
+    return f'{_SYNC_COMMAND} && sudo pkm install ' + ' '.join(packages)
+
+
+_CUDA_ENGINE_COMMAND = _install_command_for(_CUDA_ENGINE_PACKAGES)
+_HIP_ENGINE_COMMAND = _install_command_for(_HIP_ENGINE_PACKAGES)
 
 # Said on every proprietary offer. It promises only what is true of both: the
 # package manager runs the vendor's gate before it installs. The CUDA toolkit
 # is fetched from the vendor and asks first, before any download; the driver
 # comes from this project's mirror, so its archive is fetched and the gate runs
 # before the install. The weaker true sentence is the one that covers both.
-_VENDOR_LICENCE_NOTICE = (
-    'This is proprietary software under a vendor licence. The package manager '
-    'shows you the vendor\'s licence — its full text, on this machine — and '
+_VENDOR_LICENSE_NOTICE = (
+    'This is proprietary software under a vendor license. The package manager '
+    'shows you the vendor\'s license — its full text, on this machine — and '
     'installs nothing until you accept it in the terminal.'
 )
 
+# What has to happen before a just-installed package actually does anything.
+# Ranked strongest first; a selection takes the strongest step any of its
+# parts needs.
+#
+# 'reboot'          — the graphics driver. Its kernel modules install behind
+#                     the running kernel's already-loaded open source driver
+#                     and take over only at the next boot.
+# 'service-restart' — a compute engine. The assistant chooses which inference
+#                     engine to serve with when it starts a server, so a newly
+#                     installed engine is not used until that service
+#                     restarts. Nothing said this, on either graphics path.
+# 'none'            — nothing to do.
+_ACTIVATION_ORDER = ('reboot', 'service-restart', 'none')
 
-def _gpu_offers(record):
+
+def _gpu_offers(record, probe=None):
     """The offers for this machine, in the order they are shown.
+
+    An offer is a statement that this machine CAN ADD something. Software the
+    machine already has is therefore not an offer, and the released build's
+    failure to ask is the defect at the centre of this page: on a workstation
+    where the compute engine was installed, and on a laptop where the driver
+    and the engine were both installed and running, the page went on offering
+    all of it as available with the switches off — under a heading, on the
+    laptop, that had just said the driver was installed.
+
+    ``probe`` answers "is this package installed" — True, False, or None when
+    the question could not be answered. It defaults to asking the package
+    database. An offer is withdrawn ONLY on a confirmed True for every package
+    it installs: unknown is not installed, and withdrawing an offer because
+    the question could not be answered would hide a real upgrade path behind
+    something that looks exactly like hardware that has none.
 
     Every per-vendor decision comes from the record the installer wrote, which
     derived it from the ratified engine preference table. Nothing here ranks
     engines or reads hardware.
 
-    Each offer is a dict: key / title / detail / command / proprietary.
-    An empty list means there is nothing to offer and the section is not built.
+    Each offer is a dict: key / title / detail / command / packages /
+    activation / proprietary. An empty list means there is nothing to offer
+    and the section is not built.
     """
     if not record:
         return []
@@ -2535,6 +2463,8 @@ def _gpu_offers(record):
                 'much video memory the card has until it is installed. Needs '
                 'one reboot to take effect.'),
             'command': _ADVISORY_COMMAND,
+            'packages': _DRIVER_PACKAGES,
+            'activation': 'reboot',
             'proprietary': True,
         })
     if upgrade == 'cuda':
@@ -2548,6 +2478,8 @@ def _gpu_offers(record):
                 'proprietary driver above, so choosing it chooses that too. '
                 + _cuda_speed_sentence(outranks)),
             'command': _CUDA_ENGINE_COMMAND,
+            'packages': _CUDA_ENGINE_PACKAGES,
+            'activation': 'service-restart',
             'proprietary': True,
         })
     elif upgrade == 'hip':
@@ -2566,11 +2498,60 @@ def _gpu_offers(record):
                     'Adds AMD\'s HIP build of the inference engine and the '
                     'ROCm runtime it needs. '
                     + _hip_preference_sentence(supported)
-                    + ' Open source; no vendor licence to accept.'),
+                    + ' Open source; no vendor license to accept.'),
                 'command': _HIP_ENGINE_COMMAND,
+                'packages': _HIP_ENGINE_PACKAGES,
+                'activation': 'service-restart',
                 'proprietary': False,
             })
-    return offers
+    return [o for o in offers if not _offer_is_installed(o, probe)]
+
+
+def _offer_is_installed(offer, probe=None):
+    """Whether every package this offer installs is CONFIRMED present.
+
+    Confirmed, not assumed. ``probe`` answers True / False / None per package
+    and None means the question could not be answered — an offer is withdrawn
+    only when every one of its packages answered True, so a machine whose
+    package database could not be read keeps being offered its upgrade path
+    rather than silently losing it.
+    """
+    ask = probe or _package_is_installed
+    return all(ask(name) is True for name in offer.get('packages', ()))
+
+
+def _activation_required(selected, offers):
+    """What has to happen before the selection actually does anything.
+
+    The strongest step any selected offer needs: a reboot outranks a service
+    restart, which outranks nothing. One function answers this for the notice
+    shown before the install, for the re-arm decision, and for the outcome
+    reported afterwards — so those three cannot say different things about
+    the same selection, which is exactly what the released build did.
+    """
+    chosen = set(selected)
+    needed = {o.get('activation', 'none') for o in offers if o['key'] in chosen}
+    for step in _ACTIVATION_ORDER:
+        if step in needed:
+            return step
+    return 'none'
+
+
+def _welcomer_rearm_is_needed(selected, offers):
+    """Whether the launcher must be asked to show this page again.
+
+    True exactly when the selection ends in a reboot — which is the only case
+    in which the user leaves the session, and therefore the only case in
+    which anything has to arrange for their return.
+
+    The released build tied this to one offer key (the NVIDIA driver) while
+    the notice promised a return unconditionally. On the AMD path the user
+    was told the Welcomer would be back after the reboot, rebooted, and it
+    was not: nothing had written the request. Deriving both the promise and
+    the request from this one function is what makes that impossible.
+    """
+    return _activation_required(selected, offers) == 'reboot'
+
 
 
 def _hip_preference_sentence(supported):
@@ -2615,18 +2596,238 @@ def _cuda_speed_sentence(outranks):
             'available, not to make InterGen faster.')
 
 
+def _selected_packages(selected, offers):
+    """Every package the selection installs, in the order it is offered.
+
+    Order matters: the driver is offered first because the CUDA engine links
+    a library only the driver provides, and the package manager installs the
+    names in the order it is given them.
+    """
+    chosen = set(selected)
+    names = []
+    for offer in offers:
+        if offer['key'] in chosen:
+            for name in offer.get('packages', ()):
+                if name not in names:
+                    names.append(name)
+    return names
+
+
 def _gpu_install_command(selected, offers):
     """The one shell command that installs everything selected, in order.
 
-    Returns None when nothing is selected. The parts are joined with `&&` so a
-    refused licence or a failed step stops the chain instead of the next
-    install running as though the previous one had succeeded. The driver comes
-    first because the CUDA engine links a library only it provides.
+    Returns None when nothing is selected. ONE index sync and ONE install
+    invocation, however many packages were chosen — see _install_command_for
+    for why that matters: the package manager's closing advisory prints per
+    transaction, so more than one transaction buries the first one's advisory
+    under the second one's output.
     """
-    parts = [o['command'] for o in offers if o['key'] in selected]
-    if not parts:
+    names = _selected_packages(selected, offers)
+    if not names:
         return None
-    return ' && '.join(parts)
+    return _install_command_for(names)
+
+
+def _install_notice(selected, offers):
+    """What the user is told in the seconds before the terminal opens.
+
+    It describes THIS selection and nothing else. The released build showed
+    one fixed sentence for every selection: it named a vendor license gate on
+    a selection with no proprietary part, told the user to reboot after "the
+    driver" on a machine where no driver was being installed, and promised
+    the Welcomer would be shown again afterwards — a promise that on that
+    path nothing arranged (see _welcomer_rearm_is_needed).
+
+    The promise about coming back is emitted under exactly the condition that
+    writes the request, because both read the same function.
+    """
+    chosen = [o for o in offers if o['key'] in set(selected)]
+    parts = ['A TERMINAL WINDOW WILL OPEN MOMENTARILY - enter your password '
+             'when the package manager asks for it.']
+    if any(o.get('proprietary') for o in chosen):
+        parts.append(
+            'ACCEPT the vendor license when it is shown; nothing is '
+            'installed until you do.')
+    activation = _activation_required(selected, offers)
+    if activation == 'reboot':
+        parts.append(
+            'REBOOT once the installation finishes — what you are installing '
+            'does not take effect until you do. You\'ll be shown the '
+            'Welcomer again after the reboot, so you can carry on where you '
+            'left off.')
+    elif activation == 'service-restart':
+        parts.append(
+            'InterGen chooses which engine to run with when his service '
+            'starts, so once the installation finishes, restart InterGen — '
+            'or the whole machine — for the new engine to take over.')
+    return ' '.join(parts)
+
+
+def _install_outcome(selected, offers, probe=None):
+    """What actually happened, asked of the package database.
+
+    A terminal window closing is not an outcome. The released build's engine
+    path said only that the window had closed and offered a retry regardless,
+    so a user whose install had succeeded was shown a retry implying it had
+    not — and was told nothing about the step needed to make the new software
+    do anything.
+
+    Returns a dict:
+        installed  — True (everything selected is present), False (something
+                     is confirmed absent), or None (the question could not be
+                     answered for at least one package and none is confirmed
+                     absent). Three states, because "it failed" and "I could
+                     not tell" are not the same thing to a user deciding what
+                     to do next.
+        missing    — the packages confirmed absent.
+        unknown    — the packages whose state could not be read.
+        activation — the step this selection still needs, from
+                     _activation_required.
+        message    — the sentence to show.
+    """
+    ask = probe or _package_is_installed
+    names = _selected_packages(selected, offers)
+    missing, unknown = [], []
+    for name in names:
+        state = ask(name)
+        if state is False:
+            missing.append(name)
+        elif state is None:
+            unknown.append(name)
+
+    activation = _activation_required(selected, offers)
+    if missing:
+        installed = False
+        message = (
+            'The terminal window closed and ' + _and_list(missing) + ' '
+            + ('is' if len(missing) == 1 else 'are') + ' still not installed. '
+            'The most common causes are a mistyped password and a declined '
+            'license. Open the terminal again with the button above to retry; '
+            'the output in that window says which it was.')
+    elif unknown:
+        installed = None
+        message = (
+            'The terminal window closed. Whether ' + _and_list(unknown)
+            + ' installed could not be determined on this machine, so nothing '
+            'here claims it did. If the installation did not finish, open the '
+            'terminal again with the button above.')
+    else:
+        installed = True
+        done = _and_list(names) if names else 'the selection'
+        if activation == 'reboot':
+            message = (
+                done + ' installed. REBOOT NOW to start using it — it only '
+                'takes effect after a restart. You\'ll be shown this page '
+                'again after the reboot so you can finish setting InterGen '
+                'up.')
+        elif activation == 'service-restart':
+            message = (
+                done + ' installed. InterGen chooses which engine to run with '
+                'when his service starts, so restart InterGen — or the whole '
+                'machine — for the new engine to take over.')
+        else:
+            message = done + ' installed.'
+    return {
+        'installed': installed,
+        'missing': missing,
+        'unknown': unknown,
+        'activation': activation,
+        'message': message,
+    }
+
+
+def _closing_note(selected, offers):
+    """The one line repeated at the very end of the terminal's output.
+
+    A successful install of a multi-gigabyte package scrolls for thousands of
+    lines. The package manager's own advisory prints when its transaction
+    ends, and on the released build a SECOND transaction then ran and scrolled
+    it away — fixed by installing one selection as one transaction. Even so,
+    the final line of the window is what a user carries away from it, and that
+    line was "Installation finished successfully." So the step is said once
+    more, last.
+
+    Returns '' when the selection needs nothing, so nothing extra is printed.
+    """
+    activation = _activation_required(selected, offers)
+    if activation == 'reboot':
+        return ('>>> REBOOT REQUIRED: what you just installed does not take '
+                'effect until you restart. Run: sudo reboot')
+    if activation == 'service-restart':
+        return ('>>> RESTART INTERGEN: he chooses which engine to run with '
+                'when his service starts, so the new engine takes over after '
+                'a restart.')
+    return ''
+
+
+def _and_list(names):
+    """"a", "a and b", "a, b and c" — a list read as a sentence."""
+    names = list(names)
+    if not names:
+        return ''
+    if len(names) == 1:
+        return names[0]
+    return ', '.join(names[:-1]) + ' and ' + names[-1]
+
+
+def _driver_advisory_applies(record, probe=None):
+    """Whether the "install the proprietary driver" explanation still holds.
+
+    It is a statement about the machine's CURRENT state — "this machine is
+    currently running the open source driver" — so it must not be shown on a
+    machine where the proprietary driver is installed. The released build
+    showed it unconditionally: on the reference laptop, the page said the
+    driver was installed in one line and asserted the machine was still on
+    the open source driver a few centimetres below it.
+    """
+    if not record or record.get('vendor') != 'nvidia':
+        return False
+    ask = probe or _package_is_installed
+    return ask(_DRIVER_PACKAGE) is not True
+
+
+def _standalone_driver_banner_applies(record, probe=None):
+    """Whether the driver explanation needs a box of its OWN.
+
+    It does not when the offer box already carries the driver — and it always
+    does carry it when the advisory applies, so in practice the answer is
+    never yes. That is the point. The released page built both: a
+    "proprietary drivers are recommended" box with its own install button,
+    and directly beneath it an "optional software is available" box whose
+    first switch was that same driver. Two boxes, two buttons, one driver.
+
+    Decided 2026-08-22: one box. The explanation moves inside the box that
+    carries the switches, and this predicate is the rule that keeps a second
+    one from reappearing.
+    """
+    if not _driver_advisory_applies(record, probe):
+        return False
+    offers = _gpu_offers(record, probe=probe)
+    return not any(o['key'] == 'nvidia_driver' for o in offers)
+
+
+def _setup_card_placement(driver_leg_done):
+    """Where the "set InterGen up" card belongs on the Meet InterGen page.
+
+    After the driver leg, setting InterGen up is the next action, so the card
+    is lifted from below the fold to directly under the page's own heading —
+    'after-title'. The released build lifted it to position ZERO instead,
+    which put it, and a line of running text, ABOVE the "Meet InterGen"
+    heading they belong under. A page's heading stays at the top of it.
+    """
+    return 'after-title' if driver_leg_done else 'default'
+
+
+def _should_reveal_apply(was_live, is_live):
+    """Whether the Apply button has just become the next action.
+
+    On the name-server page the Apply button sits at the bottom of a
+    scrolling page and is inert until the choice differs from the machine's
+    current state. A user who picks a different name server on a short window
+    arms a button they cannot see, and nothing tells them the choice still
+    has to be applied. True here means "put it in front of them".
+    """
+    return bool(is_live) and not bool(was_live)
 
 
 def _gpu_required_dependencies(selected, offers):
@@ -2644,37 +2845,82 @@ def _gpu_required_dependencies(selected, offers):
 
 
 
-def _build_gpu_install_offer(record):
-    """The offer section: what was detected, and a switch per available item.
+# The widest the offer box may be drawn, in pixels, inside the 760-pixel
+# window. The released build centred the box at its natural width, and on the
+# reference laptop — where two switch rows carry long descriptions — that
+# natural width exceeded the window: the box was clipped at both edges and its
+# button row went with it. A bounded box wraps its text instead of growing.
+# 660 leaves a 50-pixel margin either side of the window's 760.
+_OFFER_BOX_MAX_WIDTH = 660
+
+# The colour a switch row's description is drawn in inside the advisory box.
+# Applied as a Pango attribute on the text rather than as a stylesheet rule —
+# see the comment at the call site for why the stylesheet cannot reach it.
+# Near-white on the box's dark card: this text is the whole description of
+# what is about to be installed, so it is body copy, not a caption.
+_OFFER_DETAIL_COLOR = '#dbe4ef'
+
+
+def _build_gpu_install_offer(record, probe=None):
+    """THE box: what was detected, why it matters, and a switch per item.
+
+    One box, not two. The released page built a "proprietary drivers are
+    recommended" banner with its own install button and, directly beneath it,
+    an "optional software is available" box whose first switch was that same
+    driver — the same install offered twice by two different controls. The
+    explanatory text now lives INSIDE this box, above the switches it
+    explains, and there is one button (decided 2026-08-22).
 
     Built only when the installer's record names something this machine can
-    add. The switches choose; ONE button performs the whole selection in a
-    terminal, where the vendor's own licence gate runs and the user answers it
-    with the vendor's text in front of them. Nothing here accepts a licence on
-    anyone's behalf, and the toggles cannot: the licence text ships inside the
-    download, so the only honest place to accept it is the terminal.
+    add and does not already have. The switches choose; ONE button performs
+    the whole selection as ONE package transaction in a terminal, where the
+    vendor's own license gate runs and the user answers it with the vendor's
+    text in front of them. Nothing here accepts a license on anyone's behalf,
+    and the toggles cannot: the license text ships inside the download, so the
+    only honest place to accept it is the terminal.
 
     Returns None when there is nothing to offer, so the caller appends
     nothing rather than an empty box.
     """
-    offers = _gpu_offers(record)
+    offers = _gpu_offers(record, probe=probe)
     if not offers:
         return None
 
     section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
     section.add_css_class('intergen-advisory')
-    section.set_halign(Gtk.Align.CENTER)
+    section.set_halign(Gtk.Align.FILL)
 
     heading = Gtk.Label(label=_gpu_offer_heading(record))
     heading.add_css_class('intergen-advisory-title')
     heading.set_justify(Gtk.Justification.CENTER)
     heading.set_wrap(True)
-    heading.set_max_width_chars(64)
+    heading.set_max_width_chars(48)
     section.append(heading)
     section.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
 
+    # The driver explanation, when it still describes this machine. It sits
+    # here, above the switches, because it is the reason the first switch
+    # exists — and it is WITHHELD once the driver is installed, because it
+    # opens by stating that the machine is running the open source one.
+    if _driver_advisory_applies(record, probe):
+        body = Gtk.Label()
+        body.set_markup(
+            GLib.markup_escape_text(_ADVISORY_BODY_BEFORE_CMD)
+            + _code_span(_ADVISORY_COMMAND)
+            + GLib.markup_escape_text(_ADVISORY_BODY_AFTER_CMD))
+        body.add_css_class('intergen-advisory-text')
+        body.set_justify(Gtk.Justification.LEFT)
+        body.set_xalign(0)
+        body.set_wrap(True)
+        body.set_max_width_chars(74)
+        section.append(body)
+        section.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
+
     rows = {}
     group = Adw.PreferencesGroup()
+    # Its own opaque card, so the amber banner behind it cannot show through
+    # and its description text is read as live prose rather than as a disabled
+    # control (see the .intergen-advisory .offer-row rules).
     for offer in offers:
         row = Adw.SwitchRow()
         # libadwaita parses row titles and subtitles as Pango markup, so a bare
@@ -2683,14 +2929,38 @@ def _build_gpu_install_offer(record):
         # (`sudo pkm update && sudo pkm install nvidia`), so the offer that
         # matters most is exactly the one that would silently vanish (measured
         # 2026-08-05). None of this copy wants markup.
-        row.set_use_markup(False)
         row.set_title(offer['title'])
         detail = offer['detail']
         if offer['proprietary']:
-            detail = detail + '\n\n' + _VENDOR_LICENCE_NOTICE
+            detail = detail + '\n\n' + _VENDOR_LICENSE_NOTICE
         detail = detail + '\n\nRuns: ' + offer['command']
-        row.set_subtitle(detail)
+        # THE DESCRIPTION'S COLOUR IS SET ON THE TEXT, NOT IN THE STYLESHEET.
+        #
+        # A row subtitle is drawn in the greyed-down secondary colour, and on
+        # the amber advisory panel that read as DISABLED: the operator's own
+        # words for the photographed frame were that the live options looked
+        # non-selectable. A user who believes a switch is greyed out never
+        # touches it, so this is not a cosmetic complaint.
+        #
+        # It could not be fixed from the stylesheet. Measured here on GTK
+        # 4.20.3 / libadwaita 1.8.4 by rendering the page and reading the
+        # pixels back: a CSS class on the row, and every descendant rule
+        # written from it, left the subtitle at exactly the secondary colour —
+        # libadwaita styles the label from inside the row's own implementation
+        # and the application stylesheet does not get to override it. A Pango
+        # attribute does, because it colours the text run itself.
+        #
+        # Markup therefore has to be ON, and the text has to be ESCAPED before
+        # it goes in: the driver command contains a bare ampersand
+        # (`sudo pkm update && sudo pkm install nvidia`), and an unescaped one
+        # aborts the parse so the WHOLE row renders nothing but a GTK warning
+        # — the offer that matters most would be exactly the one that silently
+        # vanished (measured 2026-08-05).
+        row.set_use_markup(True)
+        row.set_subtitle(f'<span foreground="{_OFFER_DETAIL_COLOR}">'
+                         + GLib.markup_escape_text(detail) + '</span>')
         row.set_active(False)
+        row.add_css_class('offer-row')
         group.add(row)
         rows[offer['key']] = row
     section.append(group)
@@ -2733,23 +3003,30 @@ def _build_gpu_install_offer(record):
         row.connect('notify::active', _on_toggled)
 
     def _on_install_clicked(btn):
-        command = _gpu_install_command(
-            _gpu_required_dependencies(_selected(), offers), offers)
+        chosen = _gpu_required_dependencies(_selected(), offers)
+        command = _gpu_install_command(chosen, offers)
         if command is None:
             return
         # One transaction at a time — a second press would open a second
         # terminal running a second privileged package transaction.
         btn.set_sensitive(False)
         status.set_visible(True)
-        status.set_text(_GPU_TERMINAL_NOTICE)
-        # A driver install needs a reboot, and the notice promises the
-        # Welcomer will be back afterwards. Requested only when the driver is
-        # actually part of what was selected.
-        if 'nvidia_driver' in _gpu_required_dependencies(_selected(), offers):
+        # The notice describes THIS selection, and the request to be shown
+        # again after a reboot is written under exactly the condition the
+        # notice promises it — both read _welcomer_rearm_is_needed, so the
+        # promise and the arrangement cannot disagree.
+        status.set_text(_install_notice(chosen, offers))
+        if _welcomer_rearm_is_needed(chosen, offers):
             _request_welcomer_rearm()
 
         def _open_after_delay():
-            proc = _open_terminal_running(command)
+            # The step this selection still needs is re-echoed at the very end
+            # of the terminal's output. The package manager already prints its
+            # advisory when the transaction ends, but the LAST line on the
+            # screen is what the user carries away, and that was "Installation
+            # finished successfully."
+            proc = _open_terminal_running(
+                command, closing_note=_closing_note(chosen, offers))
             if proc is None:
                 _clear_welcomer_rearm()
                 status.set_markup(
@@ -2759,7 +3036,7 @@ def _build_gpu_install_offer(record):
                     + _code_span(command))
                 btn.set_sensitive(True)
             else:
-                _watch(btn, proc)
+                _watch(btn, proc, chosen)
             return GLib.SOURCE_REMOVE
 
         # The delay is the point: the notice has to be read BEFORE the terminal
@@ -2767,28 +3044,46 @@ def _build_gpu_install_offer(record):
         GLib.timeout_add_seconds(_TERMINAL_OPEN_DELAY_SECONDS,
                                  _open_after_delay)
 
-    def _watch(btn, proc):
-        """Hand the button back when the terminal window closes.
+    def _watch(btn, proc, chosen):
+        """Report the OUTCOME when the terminal window closes.
 
-        Whether the packages actually installed is not knowable from here —
-        the window wraps the command in a pause, so its exit status belongs to
-        the pause, not to the package manager. This claims nothing about the
-        outcome; it reports the one fact it has and makes a retry possible.
+        The window closing is not the outcome, and the released build could
+        only say that it had closed — then offered a retry regardless, so a
+        user whose install had just succeeded was shown a retry banner
+        implying it had not, and was told nothing about the step that makes
+        the new software actually do anything.
+
+        The outcome is ASKED OF THE PACKAGE DATABASE, per package. Installed,
+        not installed and could-not-tell are three different messages, and a
+        successful install replaces the retry rather than sitting beside it.
         """
         def _poll():
-            if btn.get_root() is None:
+            if btn.get_root() is None:      # window closed; stop the timer
                 return GLib.SOURCE_REMOVE
             if proc.poll() is None:
                 return GLib.SOURCE_CONTINUE
-            btn.set_sensitive(True)
-            btn.set_label(_GPU_INSTALL_RETRY_LABEL)
-            status.set_text(_GPU_TERMINAL_CLOSED_NOTICE)
+            outcome = _install_outcome(chosen, offers)
+            status.set_text(outcome['message'])
+            if outcome['installed'] is True:
+                btn.set_visible(False)
+            else:
+                btn.set_sensitive(True)
+                btn.set_label(_GPU_INSTALL_RETRY_LABEL)
             return GLib.SOURCE_REMOVE
 
         GLib.timeout_add_seconds(2, _poll)
 
     install_btn.connect('clicked', _on_install_clicked)
-    return section
+
+    # Bounded to the window rather than centred at its natural width: two
+    # switch rows with long descriptions grew the box past the 760-pixel
+    # window on the reference laptop and its own button row was clipped off
+    # the edge. Clamped, the text wraps instead.
+    clamp = Adw.Clamp()
+    clamp.set_maximum_size(_OFFER_BOX_MAX_WIDTH)
+    clamp.set_tightening_threshold(_OFFER_BOX_MAX_WIDTH)
+    clamp.set_child(section)
+    return clamp
 
 
 def _gpu_offer_heading(record):
@@ -2803,19 +3098,6 @@ def _gpu_offer_heading(record):
 
 _GPU_INSTALL_BUTTON_LABEL = 'Open a terminal and install what I selected'
 _GPU_INSTALL_RETRY_LABEL = 'Open the terminal again'
-
-_GPU_TERMINAL_NOTICE = (
-    'A TERMINAL WINDOW WILL OPEN MOMENTARILY - Enter your sudo password when '
-    'prompted, and ACCEPT the vendor licence when the package manager shows '
-    'it. Reboot once the driver is installed; you\'ll be shown the Welcomer '
-    'again afterwards so you can continue InterGen\'s setup.'
-)
-
-_GPU_TERMINAL_CLOSED_NOTICE = (
-    'The terminal window has closed. If the installation did not finish — for '
-    'example if the password was mistyped or the licence was declined — open '
-    'it again with the button above.'
-)
 
 
 def _launch_intergen_setup(on_line, on_done, tier=None):
@@ -3133,22 +3415,26 @@ def build_intergen_page():
     subtitle.set_max_width_chars(82)
     box.append(subtitle)
 
-    # What this machine can run — asked ONCE, here, because the driver advisory
-    # it may carry belongs at the top of the page rather than beside the button
-    # at the bottom. A user who needs to install graphics drivers should learn
-    # that before reading anything else on the page, not after scrolling past
-    # the examples (decided 2026-07-31).
+    # What this machine can run — asked ONCE, here, because the model-size
+    # question below depends on it (decided 2026-07-31).
     offer = _model_offer()
-    if offer and offer.get('advisory'):
-        box.append(_build_driver_advisory())
 
-    # The vendor driver / compute-engine offer, from the record the installer
-    # wrote about this machine's display controller. It sits directly under the
-    # advisory because it is the same subject: the advisory says the machine
-    # would do better with the vendor's driver, and this is where that is
-    # actually installed. Absent record, or hardware with nothing to add,
-    # appends nothing.
-    gpu_section = _build_gpu_install_offer(_gpu_detection_record())
+    # ONE box for the graphics subject: what the installer detected, why the
+    # vendor driver is worth having (when it still is), and a switch per item
+    # this machine can add and does not already have.
+    #
+    # It used to be two. A standalone "proprietary drivers are recommended"
+    # banner with its own install button sat above a second box whose first
+    # switch installed the same driver — the same action offered twice by two
+    # controls that could disagree about state. The explanation now lives
+    # inside the box it explains (decided 2026-08-22), and
+    # _standalone_driver_banner_applies is the rule that keeps a second box
+    # from coming back.
+    #
+    # Absent record, hardware with nothing to add, or a machine that already
+    # has everything on offer: appends nothing.
+    record = _gpu_detection_record()
+    gpu_section = _build_gpu_install_offer(record)
     if gpu_section is not None:
         box.append(gpu_section)
 
@@ -3428,22 +3714,24 @@ def build_intergen_page():
     setup_btn.connect('clicked', _on_setup_clicked)
     box.append(setup_box)
 
-    # AFTER THE DRIVER LEG, SETTING INTERGEN UP IS THE NEXT ACTION — so it is
-    # put where the next action belongs, at the top of the page.
+    # AFTER THE DRIVER LEG, SETTING INTERGEN UP IS THE NEXT ACTION — so the
+    # card is lifted out of its default place near the bottom, where on a
+    # laptop screen it sits below the fold: a user who has just rebooted
+    # arrives, sees prose about a page they have already read, and has to
+    # scroll to find the one thing they came back to do. Moving the single
+    # existing card — rather than adding a second button — keeps one control
+    # for one action, so no two copies can disagree about state.
     #
-    # The driver install ends in a reboot, and this page is deliberately shown
-    # again afterwards so the user can carry on. But the setup card sits below
-    # the opt-in disclosure and the model-choice block, which on a laptop
-    # screen is below the fold: a user who has just rebooted arrives, sees
-    # prose about a page they have already read, and has to scroll or press
-    # Next to find the one thing they came back to do. Reordering it — rather
-    # than adding a second button — keeps one control for one action, so there
-    # is no way for two copies to disagree about state.
+    # It is lifted to directly UNDER THE PAGE'S HEADING, not above it. The
+    # released build moved it to position zero, which put the card and a line
+    # of running text above the "Meet InterGen" heading they belong under —
+    # a page introducing itself after its own contents (see
+    # _setup_card_placement).
     #
     # Only in that state. On a first visit, with no driver installed, the
     # existing order is correct: the disclosure is meant to be read before the
     # button that acts on it.
-    if _driver_leg_is_done():
+    if _setup_card_placement(_driver_leg_is_done()) == 'after-title':
         done_note = Gtk.Label(
             label='Your graphics driver is installed. The next step is to set '
                   'InterGen up.')
@@ -3452,9 +3740,11 @@ def build_intergen_page():
         done_note.set_wrap(True)
         done_note.set_max_width_chars(88)
         box.append(done_note)
-        # reorder_child_after(child, None) moves the child to first position.
-        box.reorder_child_after(setup_box, None)
-        box.reorder_child_after(done_note, None)
+        # reorder_child_after(child, sibling) places child immediately after
+        # sibling. The title stays first; these land between it and the
+        # introductory paragraph.
+        box.reorder_child_after(done_note, title)
+        box.reorder_child_after(setup_box, done_note)
 
     # Once enabled — where to find InterGen
     summon = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
