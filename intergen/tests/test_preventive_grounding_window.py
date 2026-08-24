@@ -177,7 +177,13 @@ class ResetClearsWindow(unittest.TestCase):
         r._pending_action_offer = ("pkm upgrade", "run_command", "q")
         r._pending_ipv6_offer = None
         r._pending_memory_offer = None
-        r._trust_state = None
+        # The consent record keeps its identity across a reset now (it is
+        # cleared, not replaced), so the stub answers reset() like the real one.
+        class _Trust:
+            def reset(self):
+                pass
+
+        r._trust_state = _Trust()
 
         class _Tracker:
             def reset_conversation(self):
@@ -204,9 +210,13 @@ class DaemonResetConversationMethod(unittest.TestCase):
     down — the contract the harness treats as a hard error."""
 
     def _daemon(self, router):
+        from intergen.conversation_state import new_conversation_state
         from intergen.dbus_daemon import InterGenDaemon
         d = InterGenDaemon.__new__(InterGenDaemon)
         d._router = router
+        # The desktop bus has a conversation of its own, and ResetConversation
+        # ends THAT one — never a browser conversation it does not own.
+        d._conversation = new_conversation_state()
         return d
 
     def test_reset_true_delegates_to_router(self) -> None:
@@ -214,13 +224,17 @@ class DaemonResetConversationMethod(unittest.TestCase):
             def __init__(self):
                 self.calls = 0
 
-            def reset_conversation_state(self):
+            def reset_conversation_state(self, state=None):
                 self.calls += 1
+                self.reset_state = state
 
         router = _Router()
         d = self._daemon(router)
         self.assertEqual(json.loads(d.reset_conversation()), {"reset": True})
         self.assertEqual(router.calls, 1)
+        self.assertIs(router.reset_state, d._conversation,
+                      "the bus reset must name its own conversation, or it "
+                      "ends whichever one happened to be bound")
 
     def test_reset_false_when_router_not_started(self) -> None:
         d = self._daemon(None)

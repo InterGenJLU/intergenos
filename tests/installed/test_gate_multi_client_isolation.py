@@ -18,6 +18,11 @@ earlier gate in this tier went green by reading source text and matching the wro
 expression; a code object carries the names the function really uses, and comments and
 strings cannot fake it.
 
+The readers live in _shape_detectors.py beside this file, and are proved BOTH ways by
+the ordinary source-tree suite: against a stand-in built to the R001.1 shape every
+reader must still report the defect, and against a fixed tree every reader must report
+it absent. A reader that cannot fail is not a reader.
+
 WHAT IS NOT MEASURED HERE, STATED PLAINLY: no two real WebSocket clients were
 connected and driven. That leg needs a running daemon under a test-owned instance and
 is named as unproven residue rather than implied.
@@ -27,25 +32,20 @@ EXPECTED TO FAIL ON R001.1 AS SHIPPED.
 
 from __future__ import annotations
 
+import importlib.util
 import inspect
+from pathlib import Path
 
 import pytest
 
-RESET = "reset_conversation_state"
+_spec = importlib.util.spec_from_file_location(
+    "_igos_shape_detectors", Path(__file__).resolve().parent / "_shape_detectors.py")
+shape = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(shape)
+
+RESET = shape.RESET
 HANDLERS = ["_handle_new_session", "_handle_switch_session"]
-
-
-def _names_used(func) -> set[str]:
-    """Every name the function's code object references, including nested code."""
-    seen: set[str] = set()
-    stack = [func.__code__]
-    while stack:
-        code = stack.pop()
-        seen.update(code.co_names)
-        for const in code.co_consts:
-            if hasattr(const, "co_names"):
-                stack.append(const)
-    return seen
+_names_used = shape.names_used
 
 
 @pytest.fixture(scope="module")
@@ -68,7 +68,7 @@ def test_starting_a_new_session_clears_the_context_the_model_is_shown(web_server
     handler = getattr(web_server_class, "_handle_new_session")
     names = _names_used(handler)
 
-    assert RESET in names, (
+    assert shape.handler_resets_the_conversation(handler), (
         "\nThe browser's new-session handler never asks the router to reset the "
         "conversation.\n"
         f"  names the shipped handler actually references: {sorted(names)}\n"
@@ -84,7 +84,7 @@ def test_starting_a_new_session_clears_the_context_the_model_is_shown(web_server
 def test_switching_sessions_clears_the_context_the_model_is_shown(web_server_class):
     handler = getattr(web_server_class, "_handle_switch_session")
     names = _names_used(handler)
-    assert RESET in names, (
+    assert shape.handler_resets_the_conversation(handler), (
         "\nThe browser's switch-session handler never asks the router to reset the "
         "conversation.\n"
         f"  names the shipped handler actually references: {sorted(names)}\n"
@@ -110,14 +110,9 @@ def test_each_connection_owns_the_conversation_the_model_is_shown(web_server_cla
         pytest.fail("The shipped web server has no per-connection context class; this "
                     "gate must be rewritten against the new shape.")
 
-    fields = set(getattr(ctx_cls, "__annotations__", {}))
-    owns_model_context = any(
-        f in fields for f in ("router", "_router", "conversation_history",
-                              "model_history"))
-
-    assert owns_model_context, (
+    assert shape.connection_owns_the_model_conversation(ctx_cls), (
         "\nA connection does not own the conversation the model reads.\n"
-        f"  per-connection fields: {sorted(fields)}\n"
+        f"  per-connection fields: {shape.connection_fields(ctx_cls)}\n"
         "  'session_history' is the display and persistence copy; the history built "
         "into the model's prompt is held on the shared router.\n"
         "Two browser tabs are one conversation as far as the model is concerned: each "
@@ -143,8 +138,8 @@ def test_the_consent_record_the_routed_path_uses_is_the_per_connection_one(
     router_text = (installed_intergen_dir / "router.py").read_text(
         encoding="utf-8", errors="replace")
 
-    per_connection_uses = web_text.count("trust_state=ctx.conversation_trust_state")
-    shared_uses = router_text.count("trust_state=self._trust_state")
+    per_connection_uses, shared_uses = shape.consent_record_sites(
+        web_text, router_text)
 
     assert not (per_connection_uses and shared_uses), (
         "\nThe conversation's consent decisions are kept in two separate records with "

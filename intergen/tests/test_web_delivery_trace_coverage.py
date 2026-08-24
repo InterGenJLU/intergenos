@@ -58,7 +58,10 @@ class _FakeRouter:
     def last_route_confidence(self):
         return None
 
-    def _append_history(self, user_msg: str, delivered: str) -> None:
+    def _append_history(self, user_msg: str, delivered: str, *,
+                        state=None) -> None:
+        # `state` names the conversation the exchange belongs to: the real
+        # server writes back after the route lock is released.
         self.appended.append((user_msg, delivered))
 
 

@@ -11,6 +11,11 @@ This is the consent half of the shared-router defect, and it is failed separatel
 the context half because it is a different severity: on a shared machine the person
 whose approval is still in force may not be the person now typing.
 
+THE READERS ARE SHARED WITH GATE 6 AND PROVED BOTH WAYS. They live in
+_shape_detectors.py beside this file, and the ordinary source-tree suite proves that
+each one still reports the defect against a stand-in built to the R001.1 shape and
+reports it absent against a fixed tree.
+
 THE GATE PROVES THE MECHANISM WORKS FIRST. A gate that only showed a missing call
 could not tell a real gap from a mechanism that never worked. The first test drives
 the shipped consent record end to end — record a grant, see the prompt skipped, reset,
@@ -22,23 +27,19 @@ EXPECTED TO FAIL ON R001.1 AS SHIPPED.
 
 from __future__ import annotations
 
+import importlib.util
 import inspect
+from pathlib import Path
 
 import pytest
 
-RESET_ROUTER = "reset_conversation_state"
+_spec = importlib.util.spec_from_file_location(
+    "_igos_shape_detectors", Path(__file__).resolve().parent / "_shape_detectors.py")
+shape = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(shape)
 
-
-def _names_used(func) -> set[str]:
-    seen: set[str] = set()
-    stack = [func.__code__]
-    while stack:
-        code = stack.pop()
-        seen.update(code.co_names)
-        for const in code.co_consts:
-            if hasattr(const, "co_names"):
-                stack.append(const)
-    return seen
+RESET_ROUTER = shape.RESET
+_names_used = shape.names_used
 
 
 def test_the_consent_record_itself_remembers_and_forgets_correctly(installed_intergen_dir):
@@ -67,8 +68,7 @@ def test_a_conversation_scoped_grant_does_not_survive_a_new_session(installed_in
     from intergen.router import ConversationRouter
 
     reset_source = inspect.getsource(getattr(ConversationRouter, RESET_ROUTER))
-    clears_trust = "_trust_state" in reset_source
-    if not clears_trust:
+    if not shape.reset_clears_the_consent_record(reset_source):
         pytest.fail(
             f"The router's {RESET_ROUTER} no longer clears the conversation trust "
             "state, so calling it would not settle this property. This gate must be "
@@ -79,11 +79,12 @@ def test_a_conversation_scoped_grant_does_not_survive_a_new_session(installed_in
     if cls is None:
         pytest.fail("Could not find the shipped web server class.")
 
-    names = _names_used(getattr(cls, "_handle_new_session"))
+    handler = getattr(cls, "_handle_new_session")
+    names = _names_used(handler)
     clears_directly = any(n in names for n in ("reset", "_trust_state",
                                                "ConversationTrustState"))
 
-    assert RESET_ROUTER in names or clears_directly, (
+    assert shape.handler_resets_the_conversation(handler) or clears_directly, (
         "\nA consent grant scoped to one conversation outlives that conversation on the "
         "browser path.\n"
         f"  the router's {RESET_ROUTER} does clear the conversation trust state;\n"

@@ -163,6 +163,8 @@ class InterGenDaemon(InterGenDBusInterface):
         # or when the failure was the ordinary "server didn't come up" class.
         self._model_server_integrity_failure: str | None = None
         self._router = None
+        # The desktop bus's own conversation, made once the router exists.
+        self._conversation = None
         self._llm = None
         self._tools = None
         self._matcher = None
@@ -329,7 +331,10 @@ class InterGenDaemon(InterGenDBusInterface):
             _gturn = glass.new_turn_id()
             with glass.turn(_gturn, "dbus"):
                 glass.emit("route", "turn_start", detail={"user_msg": message})
-                result = self._router.route(message, review_callback=review_cb)
+                result = self._router.route(
+                    message,
+                    conversation=self._conversation,
+                    review_callback=review_cb)
                 # Deterministic identity guard (last mile): InterGen is the
                 # assistant, never the OS. A 2B occasionally slips "I am
                 # InterGenOS" on ambiguous input despite the positive-framed
@@ -536,7 +541,10 @@ class InterGenDaemon(InterGenDBusInterface):
         if self._metrics:
             status["metrics"] = self._metrics.get_status()
         if self._router:
-            router_status = self._router.get_status()
+            # Bound so the conversation-scoped numbers (history length, session
+            # memory) are this conversation's rather than "none was named".
+            with self._router.bind_conversation(self._conversation):
+                router_status = self._router.get_status()
             status["router_status"] = router_status
             # M2b (design D5): lift the session-memory INDEX's serving reality to
             # a FIRST-CLASS top-level field — the same discipline as `offload`
@@ -990,7 +998,10 @@ class InterGenDaemon(InterGenDBusInterface):
         Returns a JSON status."""
         if self._router is None:
             return json.dumps({"reset": False, "reason": "router not started"})
-        self._router.reset_conversation_state()
+        # The desktop bus conversation, and only it: every browser conversation
+        # belongs to whoever is typing in that tab and is not this caller's to
+        # end.
+        self._router.reset_conversation_state(self._conversation)
         log.info("Conversation state reset (D-Bus ResetConversation)")
         return json.dumps({"reset": True})
 
@@ -1603,7 +1614,7 @@ class InterGenDaemon(InterGenDBusInterface):
                 # model-facing path forgets to check the lock. Code-owned
                 # dispatch (get_tool/execute) is unaffected.
                 self._tools.set_tool_offering_locked(_lock_dispatch)
-                self._router = ConversationRouter(
+                _router = ConversationRouter(
                     tool_registry=self._tools,
                     semantic_matcher=self._matcher,
                     llm=self._llm,
@@ -1619,6 +1630,17 @@ class InterGenDaemon(InterGenDBusInterface):
                     # when the embedding server is down → corpus keyword fallback.
                     embedder=(self._embed_llama.embed if self._embed_llama else None),
                 )
+                # The browser server is handed this same router, and it serves
+                # one conversation per connected client. So the router's own
+                # conversation is given up here and the desktop bus keeps one of
+                # its own: from this point every turn names the conversation it
+                # belongs to, and a turn that does not is refused rather than
+                # served from whatever was bound last. The router is published
+                # onto the daemon only once its conversation exists, so nothing
+                # can reach a router that has neither.
+                self._conversation = _router.new_conversation()
+                _router.detach_conversation()
+                self._router = _router
                 log.info("Conversation router initialized")
             except Exception as e:
                 log.warning("Router init failed: %s", e)
@@ -1842,12 +1864,15 @@ class InterGenDaemon(InterGenDBusInterface):
             try:
                 log.info("Warming model prompt cache (first query will be slow "
                          "until this finishes)…")
-                msgs = self._router._build_messages("hi", with_tools=False)
+                with self._router.bind_conversation(self._conversation):
+                    msgs = self._router._build_messages("hi", with_tools=False)
                 for _ in self._llm.stream(msgs, max_tokens=1):
                     pass
                 log.info("Conversational prompt cache warm.")
                 if self._tools:
-                    tmsgs = self._router._build_messages("hi", with_tools=True)
+                    with self._router.bind_conversation(self._conversation):
+                        tmsgs = self._router._build_messages(
+                            "hi", with_tools=True)
                     schemas = self._tools.get_tool_schemas()
                     for _ in self._llm.stream_with_tools(
                             tmsgs, tools=schemas, max_tokens=1):

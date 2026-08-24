@@ -132,7 +132,13 @@ class RouterStatusTest(unittest.TestCase):
         import inspect
         from intergen import router as _router
         src = inspect.getsource(_router)
-        self.assertIn("self._turn_index.verified", src)
+        # The index belongs to the conversation being served now, so the status
+        # reads it off that conversation rather than off the router.
+        self.assertIn("index.verified", src)
+        self.assertIn("conversation_bound", src,
+                      "the payload must say whether there was a conversation to "
+                      "report on, so a zero history length is never read as an "
+                      "empty conversation when it means none was named")
 
 
 class WarmupSkipReasonTest(unittest.TestCase):

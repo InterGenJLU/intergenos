@@ -148,8 +148,26 @@ def _tool_rows() -> list[InventoryRow]:
     return rows
 
 
+# Route sources a scenario turn cannot produce, with the reason. A scenario
+# drives UTTERANCES; a verdict that depends on how the daemon is wired rather
+# than on what was typed is annotated here rather than counted as an
+# un-annotated gap or quietly dropped from the denominator.
+_ROUTE_SOURCE_TESTABILITY: dict[str, tuple[str, str]] = {
+    "conversation_unbound": (
+        "requires-setup",
+        "produced only when a router serving several frontends is asked to "
+        "route a turn that did not name its conversation — a wiring fault, not "
+        "an utterance. Asserted in the unit suite "
+        "(intergen/tests/test_conversation_isolation.py)."),
+}
+
+
 def _route_rows() -> list[InventoryRow]:
-    return [InventoryRow("B", s) for s in sorted(ROUTE_SOURCES)]
+    rows: list[InventoryRow] = []
+    for s in sorted(ROUTE_SOURCES):
+        testable, note = _ROUTE_SOURCE_TESTABILITY.get(s, ("yes", ""))
+        rows.append(InventoryRow("B", s, testable, note))
+    return rows
 
 
 def _gate_outcome_rows() -> list[InventoryRow]:

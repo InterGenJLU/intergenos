@@ -44,6 +44,9 @@ from aiohttp import WSCloseCode, WSMsgType, web
 from intergen import glass, safety
 from intergen.governance import GovernanceEngine
 from intergen.session_manager import SessionManager
+from intergen.conversation_state import (
+    ConversationState, new_conversation_state,
+)
 from intergen.interfaces.types import (
     AnswerLinkage,
     Message,
@@ -144,13 +147,20 @@ class ConnectionContext:
     One instance per connected client. Web sessions and console sessions
     are independently namespaced — switching sessions in the browser does
     not affect the console and vice versa.
+
+    `conversation` is the connection's own conversation: the history the model
+    is prompted with, the consent decisions the person made here, the ingress
+    watermarks, the offers awaiting a yes or no. It is per connection because a
+    conversation is what a person is having, and two tabs are two conversations.
+    `session_history` is the same list seen from the transcript's side — the
+    pane and the model's prompt are one list, so they cannot drift.
     """
 
     client_id: str
     source_interface: str                      # "web" or "console"
     ws: web.WebSocketResponse
     connected_at: float = field(default_factory=time.monotonic)
-    session_history: list[Message] = field(default_factory=list)
+    conversation: ConversationState = None      # set in __post_init__
     cmd_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     pending_gate: str | None = None            # tool_call_id awaiting decision
     gate_future: asyncio.Future | None = None  # resolved when gate_decision arrives
@@ -163,10 +173,27 @@ class ConnectionContext:
     #                                            gate_decision — see _dispatch_loop)
     model_tier: str = "medium"                 # "small", "medium", "large"
     current_session_id: str = "default"
-    ingress_tracker: Any = None
-    conversation_trust_state: Any = None
     auth_token: str = ""
     user_agent: str = ""
+
+    def __post_init__(self) -> None:
+        # A connection without a conversation cannot be served, so one is made
+        # here when the caller did not supply the router-wired one. Never
+        # shared: the whole point of this field is that no two connections hold
+        # the same conversation.
+        if self.conversation is None:
+            self.conversation = new_conversation_state()
+
+    @property
+    def session_history(self) -> "list[Message]":
+        """The transcript — the SAME list the model's prompt is built from."""
+        return self.conversation.history
+
+    @session_history.setter
+    def session_history(self, value) -> None:
+        # Replaced in place rather than rebound, so the conversation and the
+        # transcript stay one object no matter which side writes.
+        self.conversation.history[:] = list(value or [])
 
 
 def _make_error(code: str, message: str, detail: dict | None = None) -> dict[str, Any]:
@@ -792,17 +819,21 @@ class WebServer:
         await ws.prepare(request)
 
         client_id = f"{source_interface}_{uuid.uuid4().hex[:12]}"
-        from intergen.interfaces.provenance import (
-            ConversationTrustState, IngressTracker,
-        )
+        # This connection's own conversation. Asked of the router so it carries
+        # a relevance index over ITS OWN turns; built plainly if no router is
+        # wired yet, because a connection without a conversation cannot be
+        # served at all.
+        conversation = (self._router.new_conversation()
+                        if self._router is not None
+                        and hasattr(self._router, "new_conversation")
+                        else new_conversation_state())
         ctx = ConnectionContext(
             client_id=client_id,
             source_interface=source_interface,
             ws=ws,
             auth_token=token,
             user_agent=request.headers.get("User-Agent", ""),
-            ingress_tracker=IngressTracker(),
-            conversation_trust_state=ConversationTrustState(),
+            conversation=conversation,
         )
         # Each connection is its own conversation (Claude-Code-style): every chat
         # is its own listed, persisted session — not a shared "default" that the
@@ -1113,6 +1144,12 @@ class WebServer:
         if self._route_lock is None:
             self._route_lock = asyncio.Lock()
         _route_review_cb = self._make_web_review_callback(ctx, turn_id, loop)
+        # The router is shared by every connection and by the desktop bus, so
+        # the turn names the conversation it belongs to. The binding is held
+        # only while route() runs, under the same lock that serializes route()
+        # across connections; everything the turn writes back afterwards names
+        # the conversation explicitly instead, because by then another
+        # connection may already be bound.
         async with self._route_lock:
             # A ContextVar does not cross a thread, so route() ran with no turn
             # bound and every row it wrote — every routing verdict, every
@@ -1125,6 +1162,7 @@ class WebServer:
                 lambda: _route_ctx.run(
                     self._router.route,
                     user_msg, decide_only=True,
+                    conversation=ctx.conversation,
                     review_callback=_route_review_cb,
                 ),
             )
@@ -1227,7 +1265,8 @@ class WebServer:
             # The "How much RAM? → Can I add any?" fast-path miss. Idempotent
             # against sub-paths that self-appended inside route().
             if _delivered.strip():
-                self._router._append_history(user_msg, _delivered)
+                self._router._append_history(user_msg, _delivered,
+                                            state=ctx.conversation)
             await self._persist_and_list(ctx)
             return
 
@@ -1280,7 +1319,8 @@ class WebServer:
         # M2a: the fallback (offer-resolution / IP / clarify) web turns too —
         # every web turn feeds the model-facing buffer (idempotent).
         if _delivered.strip():
-            self._router._append_history(user_msg, _delivered)
+            self._router._append_history(user_msg, _delivered,
+                                            state=ctx.conversation)
         await self._persist_and_list(ctx)
 
     async def _send_session_list(self, ctx: ConnectionContext) -> None:
@@ -1614,8 +1654,8 @@ class WebServer:
                 lambda: _tool_ctx.run(
                     self._tools.execute,
                     call,
-                    ingress_tracker=ctx.ingress_tracker,
-                    trust_state=ctx.conversation_trust_state,
+                    ingress_tracker=ctx.conversation.ingress_tracker,
+                    trust_state=ctx.conversation.trust_state,
                     review_callback=self._make_web_review_callback(
                         ctx, turn_id, loop),
                 ),
@@ -1679,6 +1719,14 @@ class WebServer:
                              exc_info=True)
 
         ctx.current_session_id = session_id
+        # The conversation the person is leaving ends here: its consent
+        # decisions, its ingress watermark, its staged offers and its model
+        # buffer belong to it and must not follow them into the next one. The
+        # transcript of the conversation they are switching TO is loaded back
+        # in afterwards, so the pane and the model's prompt are the same list.
+        if self._router is not None and hasattr(
+                self._router, "reset_conversation_state"):
+            self._router.reset_conversation_state(ctx.conversation)
         loaded = self._sessions.load(session_id)
         ctx.session_history = (loaded.get("messages")
                                if loaded and loaded.get("messages") else [])
@@ -1716,7 +1764,16 @@ class WebServer:
                 logger.debug("Failed to persist session on new_session",
                              exc_info=True)
         ctx.current_session_id = f"session_{uuid.uuid4().hex[:8]}"
-        ctx.session_history = []
+        # The old conversation ENDS. Emptying the pane is not enough: the model
+        # buffer, the consent decisions taken in it, the ingress watermark, the
+        # offers left awaiting a yes and the turn index all belong to the
+        # conversation that just finished, and a "yes" typed in the new one must
+        # not be able to reach back into it.
+        if self._router is not None and hasattr(
+                self._router, "reset_conversation_state"):
+            self._router.reset_conversation_state(ctx.conversation)
+        else:
+            ctx.session_history = []
         self._sessions.create(session_id=ctx.current_session_id,
                               source_interface=ctx.source_interface)
         await ctx.ws.send_json({
@@ -2038,7 +2095,8 @@ class WebServer:
         # the next turn's model sees what the user just saw (the streamed-web write
         # gap — idempotent; _append_history glass-logs decision/history_write).
         if full_response.strip():
-            self._router._append_history(user_msg, full_response)
+            self._router._append_history(user_msg, full_response,
+                                         state=ctx.conversation)
 
         # Send stream_end
         await ctx.ws.send_json({
@@ -2221,8 +2279,8 @@ class WebServer:
                         lambda: _exec_ctx.run(
                             self._tools.execute,
                             item,
-                            ingress_tracker=ctx.ingress_tracker,
-                            trust_state=ctx.conversation_trust_state,
+                            ingress_tracker=ctx.conversation.ingress_tracker,
+                            trust_state=ctx.conversation.trust_state,
                             review_callback=_review_cb,
                         ),
                     )
