@@ -171,40 +171,68 @@ def request_dir() -> str:
 
 
 def _ensure_request_dir() -> str:
-    """Create the request directory at mode 0700 and return it.
+    """Create the request directory at mode 0700, or REFUSE. Return its path.
 
-    An existing directory has its mode asserted rather than assumed: a
-    directory another process left group- or world-readable would let someone
+    A directory another process left group- or world-readable would let someone
     list which privileged actions are in flight, which is information we do not
     owe them even when they cannot read the requests themselves.
+
+    REFUSES RATHER THAN REPAIRS (2026-08-24). This used to chmod a wrong-mode
+    directory back into shape and carry on. An independent review named that,
+    and the reasoning behind the chmod is the part that does not hold: this
+    directory is where in-flight privileged requests live, so finding it in a
+    state we did not create is a fact about the machine rather than a
+    formatting error to tidy up. Correcting it silently leaves nothing to
+    record that it was ever wrong, which is masking a finding instead of
+    verifying one. Refusing is loud, and a refusal here costs one privileged
+    action rather than the evidence.
+
+    Three properties are established, and the last two were not checked at all
+    before: it is a real directory and not a symlink to one, it is owned by
+    this account, and its mode is exactly 0700. Ownership matters separately
+    from mode — a directory somebody else owns can be made group-writable again
+    the moment after we look.
     """
     path = request_dir()
     try:
         os.makedirs(path, mode=_DIR_MODE, exist_ok=True)
+    except FileExistsError:
+        # A symlink at that name satisfies makedirs' existence test and then
+        # fails every check below. Fall through and let them say so.
+        pass
     except OSError as exc:
         raise RequestError(
             f"cannot create the privileged-request directory {path}: {exc}"
         ) from exc
+
     try:
-        info = os.stat(path)
+        info = os.stat(path, follow_symlinks=False)
     except OSError as exc:
         raise RequestError(
             f"cannot stat the privileged-request directory {path}: {exc}"
         ) from exc
+
+    if stat.S_ISLNK(info.st_mode):
+        raise RequestError(
+            f"the privileged-request directory {path} is a symlink; refusing "
+            f"to write privileged requests through it"
+        )
     if not stat.S_ISDIR(info.st_mode):
         raise RequestError(
             f"the privileged-request directory {path} is not a directory"
         )
+    if info.st_uid != os.getuid():
+        raise RequestError(
+            f"the privileged-request directory {path} is owned by uid "
+            f"{info.st_uid}, not this account ({os.getuid()}); refusing"
+        )
     if stat.S_IMODE(info.st_mode) != _DIR_MODE:
-        # makedirs(exist_ok=True) does not re-apply the mode to a directory
-        # that already existed, so correct it rather than proceed into it.
-        try:
-            os.chmod(path, _DIR_MODE)
-        except OSError as exc:
-            raise RequestError(
-                f"the privileged-request directory {path} is mode "
-                f"{stat.S_IMODE(info.st_mode):o} and cannot be corrected: {exc}"
-            ) from exc
+        raise RequestError(
+            f"the privileged-request directory {path} is mode "
+            f"{stat.S_IMODE(info.st_mode):o}, not {_DIR_MODE:o}; refusing "
+            f"rather than correcting it, because a request directory in a "
+            f"state we did not create is a finding and not a formatting error"
+        )
     return path
 
 
@@ -344,21 +372,77 @@ def prune_stale_requests(*, max_age_seconds: int | None = None,
     return removed
 
 
-def discard_request(path: str) -> None:
+def discard_request(path: str, *,
+                    identity: tuple[int, int] | None = None) -> None:
     """Remove a request if it is still there. Never raises for an absent path.
 
     The unprivileged caller invokes this in a finally block, so it runs on the
     success path too — where the root side has usually removed the file
     already. Being silent about an absent path is what makes that safe.
+
+    REMOVES WHAT WAS READ, NOT WHAT IS NAMED (2026-08-24). read_request
+    establishes everything it needs about the file through a descriptor and
+    then has to remove it; removing it by name reopened the question the
+    descriptor had already closed. Between the validated read and the unlink the
+    same uid can repoint the name, so root would delete some other file and
+    leave the real request — an approval token — on disk. An independent review
+    named this as the gap in the module's own guarantee that a request does not
+    outlive its read.
+
+    Two things close it, and they answer different attacks:
+
+      * the DIRECTORY is opened once with O_DIRECTORY|O_NOFOLLOW and the name is
+        resolved relative to that descriptor, so swapping the directory instead
+        of the file does not redirect the removal either;
+      * the FILE's `identity` — the (st_dev, st_ino) the caller's own fstat
+        established — is compared before the unlink, and a mismatch means the
+        name no longer refers to what was read, so nothing is removed.
+
+    `identity` is optional because the unprivileged side calls this before any
+    fstat exists to compare against. There the name is the only thing anyone
+    has, and the O_NOFOLLOW directory is what the call still gets.
     """
+    directory = os.path.dirname(path) or "."
+    name = os.path.basename(path)
+    if not name:
+        return
     try:
-        os.unlink(path)
+        dir_fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY
+                         | os.O_NOFOLLOW)
     except FileNotFoundError:
         return
     except OSError as exc:
-        if exc.errno in (errno.ENOENT, errno.ENOTDIR):
+        if exc.errno in (errno.ENOENT, errno.ENOTDIR, errno.ELOOP):
+            # ELOOP is O_NOFOLLOW refusing a symlinked directory. Declining to
+            # remove anything is the correct outcome: the path we were given is
+            # not the directory we would have opened.
             return
         raise
+    try:
+        if identity is not None:
+            try:
+                info = os.stat(name, dir_fd=dir_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                return
+            except OSError as exc:
+                if exc.errno in (errno.ENOENT, errno.ENOTDIR):
+                    return
+                raise
+            if (info.st_dev, info.st_ino) != identity:
+                # The name refers to something other than the file that was
+                # read. Removing it would delete a file nobody asked us to
+                # touch AND leave the real request behind.
+                return
+        try:
+            os.unlink(name, dir_fd=dir_fd)
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            if exc.errno in (errno.ENOENT, errno.ENOTDIR):
+                return
+            raise
+    finally:
+        os.close(dir_fd)
 
 
 def request_id_for(path: str) -> str:
@@ -490,6 +574,11 @@ def read_request(path: str, *, expected_uid: int | None = None
 
     try:
         info = os.fstat(fd)
+        # The identity of the file we are ABOUT TO BELIEVE. Every removal below
+        # is made against this rather than against the path, so a name repointed
+        # between this fstat and the unlink cannot make root delete a different
+        # file and leave the real request behind.
+        identity = (info.st_dev, info.st_ino)
 
         if not stat.S_ISREG(info.st_mode):
             raise RequestError(
@@ -516,7 +605,7 @@ def read_request(path: str, *, expected_uid: int | None = None
             # The file is ours — owner, mode and link count are already
             # established — so this is a CONTENT refusal and the file goes,
             # rather than being left on disk carrying an approval token.
-            discard_request(path)
+            discard_request(path, identity=identity)
             raise RequestError(
                 f"privileged request {path} is {info.st_size} bytes, which is "
                 f"too large (the limit is {MAX_REQUEST_BYTES}); refusing rather "
@@ -527,14 +616,14 @@ def read_request(path: str, *, expected_uid: int | None = None
             with os.fdopen(fd, "r", encoding="utf-8", closefd=False) as fh:
                 body = fh.read()
         except (OSError, UnicodeDecodeError) as exc:
-            discard_request(path)
+            discard_request(path, identity=identity)
             raise RequestError(
                 f"cannot read privileged request {path}: {exc}"
             ) from exc
 
         # From here the file is ours and has been read: every remaining exit,
         # success or refusal, removes it.
-        discard_request(path)
+        discard_request(path, identity=identity)
 
         try:
             payload = json.loads(body)
