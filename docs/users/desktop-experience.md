@@ -76,14 +76,21 @@ System utilities are also included: disk usage analyzer, system monitor, screens
 
 The binary repository at [repo.intergenos.org](https://repo.intergenos.org) carries a curated selection of user-facing applications. Some of these are part of the default install; others are optional packages you add when you need them. The notes below mark which is which.
 
+Whether an application ships in the image is not an editorial choice made in
+this document: it is the `iso_include` field of the package's own recipe, which
+the build reads when it decides what goes into the squashfs. Each entry below
+names its package, and the preflight gate
+`tests/preflight/test_documented_application_labels_match_the_image.py`
+fails the build when a label here disagrees with that field.
+
 ### Audio and Video
 
-These are optional packages, installed on demand:
+These ship on the ISO and are installed by default:
 
-- **Audacity** — Multi-track audio editor
-- **Rhythmbox** — Music player with podcast support
-- **Transmission** — BitTorrent client
-- **Celluloid** — GTK4 frontend for mpv
+- **Audacity** (`audacity`) — Multi-track audio editor
+- **Rhythmbox** (`rhythmbox`) — Music player with podcast support
+- **Transmission** (`transmission`) — BitTorrent client
+- **Celluloid** (`celluloid`) — GTK4 frontend for mpv, also listed among the default applications above
 
 ### Development Tools
 
@@ -105,10 +112,13 @@ A set of modern command-line utilities ships by default in the base tier:
 - **ripgrep (rg)** — Recursive grep replacement
 - **fd** — `find` replacement
 
+These ship on the ISO and are installed by default:
+
+- **zoxide** (`zoxide`) — Smart `cd` command
+
 The following are optional, installed on demand:
 
-- **zoxide** — Smart `cd` command
-- **hyperfine** — Command-line benchmarking tool
+- **hyperfine** (`hyperfine`) — Command-line benchmarking tool
 
 ### Download-Helper Packages
 
