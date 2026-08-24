@@ -1,13 +1,18 @@
 # 05 — Creating the bootable ISO
 
-**Audience:** maintainers assembling the final hybrid UEFI+BIOS ISO from signed components.
+**Audience:** maintainers assembling the final hybrid ISO9660+GPT image from signed components. The image boots UEFI only.
 
 ## Goal
 
 Produce `intergenos-<version>.iso` — a single hybrid-bootable ISO image with:
 
 - **GPT + ESP partition** for the UEFI Secure Boot path.
-- **El Torito boot record** for the BIOS-legacy path (chainloads the same UEFI binary set).
+- **El Torito boot record** carrying the same UEFI binary set. This is what
+  makes the image bootable from a plain USB write (`-isohybrid-gpt-basdat`
+  writes the hybrid MBR); it is NOT a legacy-BIOS boot path. The only boot
+  payload in the image is a PE32+ UEFI binary, which a BIOS firmware cannot
+  execute, and no BIOS bootloader is staged. A machine without UEFI cannot boot
+  this image — the same statement the project README makes.
 - `/live/filesystem.squashfs` (the root filesystem the UKI's initramfs mounts).
 - `/live/filesystem.verity` (the dm-verity merkle hashtree — the **sole** integrity path the initramfs verifies against; see [Trust-gap closure](#trust-gap-closure) below).
 - `/live/filesystem.sha256` (a whole-file digest published as a **user-facing media diagnostic**. It is no longer a boot input; the boot path does not consult it.)
