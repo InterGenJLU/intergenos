@@ -1048,36 +1048,64 @@ class ToolRegistry:
                 success=True,
             )
 
-        # Non-zero from pkexec covers two distinct cases:
-        #   126 — user dismissed/denied the PolicyKit auth prompt
-        #   127 — runner not found at _PKEXEC_RUNNER_PATH
-        #   1   — runner-side dispatch failure (validation / refusal /
-        #         tool exception); runner emits human-readable message
-        #         on stdout per its contract
+        # Non-zero. pkexec's exit codes are ambiguous by design, and 127 is the
+        # ambiguous one: it covers "the program could not be executed", "the
+        # caller is not authorized", "an authorization could not be obtained",
+        # and internal errors. Exactly one of those is a missing runner.
+        #
+        # Decided 2026-08-24: name only what was MEASURED. The runner path is
+        # checked on the filesystem before anything is said about it, and
+        # pkexec's own stderr is carried out rather than replaced — an
+        # unmeasured cause in a diagnostic sends a person to repair a component
+        # that was never at fault, which is what happened in the field.
+        #
+        #   0   — success (returned above)
+        #   126 — the authentication prompt was dismissed or denied
+        #   127 — see above; disambiguated here by measurement, not assumption
+        #   1   — runner-side refusal or failure; the runner explains itself on
+        #         stdout per its contract, and that explanation leads
         #   2   — runner argv shape wrong (caller bug)
-        # We surface stdout (the runner's human-readable message) as the
-        # ToolResult content so the LLM sees what happened; the audit
-        # log preserves the exit code in result_summary downstream.
         stdout_message = completed.stdout.rstrip("\n")
         stderr_message = completed.stderr.rstrip("\n")
-        if completed.returncode == 126:
-            content = (
-                f"pkexec authentication denied or cancelled by user for "
-                f"{tool_name}"
+        runner_present = os.path.exists(_PKEXEC_RUNNER_PATH)
+
+        if stdout_message:
+            # The runner reached its own logic and said why it stopped. That is
+            # the most specific account anyone has; it leads.
+            headline = stdout_message
+        elif completed.returncode == 126:
+            headline = (
+                f"the authentication prompt for {tool_name} was dismissed or "
+                f"denied, so the action did not run"
+            )
+        elif completed.returncode == 127 and not runner_present:
+            headline = (
+                f"the privileged runner is missing from {_PKEXEC_RUNNER_PATH} "
+                f"(checked), so {tool_name} could not be dispatched"
             )
         elif completed.returncode == 127:
-            content = (
-                f"pkexec runner not found at {_PKEXEC_RUNNER_PATH}; "
-                f"intergen package may be misinstalled"
+            headline = (
+                f"pkexec exited 127 without running {tool_name}. The privileged "
+                f"runner IS present at {_PKEXEC_RUNNER_PATH} (checked), so the "
+                f"installed package is not at fault; pkexec stopped before "
+                f"reaching it"
             )
-        elif stdout_message:
-            content = stdout_message
-        elif stderr_message:
-            content = stderr_message
         else:
-            content = (
-                f"pkexec runner exited {completed.returncode} with no output"
-            )
+            headline = f"the privileged dispatch of {tool_name} did not complete"
+
+        measured = [
+            f"pkexec exit code: {completed.returncode}",
+            f"privileged runner at {_PKEXEC_RUNNER_PATH}: "
+            f"{'present' if runner_present else 'ABSENT'} (checked)",
+        ]
+        if stderr_message:
+            measured.append(f"pkexec said: {stderr_message}")
+        content = f"{headline} [{'; '.join(measured)}]"
+        logger.error(
+            "privileged dispatch of %s failed: rc=%s runner_present=%s "
+            "stderr=%r", tool_name, completed.returncode, runner_present,
+            stderr_message,
+        )
         return ToolResult(
             call_id=call.call_id,
             name=tool_name,
