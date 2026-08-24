@@ -161,6 +161,14 @@ class InstallResult:
                      Surface to user in install-complete summary.
     integrity_aborted_at: package name where user declined to override
                      during PHASE_VERIFY; None unless verify-phase abort.
+    integrity_manifest_entry_count / integrity_archives_checked: how many
+                     archives the signed manifest promised, and how many were
+                     actually found and hashed. Reported together, always:
+                     either number alone reads as a complete check.
+    integrity_missing_archives: manifest entries with no archive on the media.
+                     Non-empty only when the user explicitly overrode a short
+                     media; the install then carries a recorded gap and the
+                     done screen has to say so.
     warnings: list of human-readable non-fatal warning strings collected
                      during the install. Frontends should render these to
                      the user on the done screen even when success=True.
@@ -180,6 +188,9 @@ class InstallResult:
     package_fail_count: int = 0
     integrity_overrides_granted: int = 0
     integrity_aborted_at: Optional[str] = None
+    integrity_manifest_entry_count: int = 0
+    integrity_archives_checked: int = 0
+    integrity_missing_archives: list = field(default_factory=list)
     warnings: list = field(default_factory=list)
     cancelled: bool = False
 
@@ -490,6 +501,14 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
                 audit_log_path=Path(verify_config.audit_log_path),
             )
             result.integrity_overrides_granted = verify_result.overrides_granted
+            # Both counts travel onto the result whatever the outcome, because
+            # either one alone reads as a complete check.
+            result.integrity_manifest_entry_count = getattr(
+                verify_result, "manifest_entry_count", 0)
+            result.integrity_archives_checked = getattr(
+                verify_result, "archives_checked", 0)
+            result.integrity_missing_archives = list(
+                getattr(verify_result, "missing_archives", []) or [])
             if not verify_result.success:
                 # Verify-phase failure: set error + return without touching disk.
                 # phase_completed stays at VALIDATE — VERIFY itself didn't complete.
@@ -506,7 +525,24 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
                 f" ({verify_result.overrides_granted} override(s) granted)"
                 if verify_result.overrides_granted else ""
             )
-            _emit(PHASE_VERIFY, 2, f"archives verified{override_msg}")
+            _emit(PHASE_VERIFY, 2,
+                  f"archives verified: {result.integrity_archives_checked} of "
+                  f"{result.integrity_manifest_entry_count} manifest "
+                  f"entries{override_msg}")
+            if result.integrity_missing_archives:
+                # An install the user chose to take with a known gap. It must
+                # be on the done screen, not only in the log: nothing later
+                # will tell them which software is not there.
+                missing = result.integrity_missing_archives
+                shown = ", ".join(missing[:5])
+                more = (f" and {len(missing) - 5} more"
+                        if len(missing) > 5 else "")
+                result.warnings.append(
+                    f"{len(missing)} package archive(s) the signed manifest "
+                    f"promised were not on the install media and you chose to "
+                    f"install anyway: {shown}{more}. The full list is in the "
+                    f"integrity log copied onto this system."
+                )
         else:
             # Verify skipped — log a single event for observability.
             _emit(PHASE_VERIFY, 2, "verify phase skipped (no verify_config)")

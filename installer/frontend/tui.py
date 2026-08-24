@@ -973,22 +973,17 @@ def _luks_passphrase_warning(passphrase):
 
 
 def _tui_integrity_warning_callback(package_name, expected_sha256, actual_sha256):
-    """Render the hard-coded integrity-mismatch warning to stdout.
+    """Render the hard-coded integrity warning to stderr.
 
-    Called by integrity.verify_archives() when an archive's sha doesn't
-    match the manifest. The template is hard-coded in the integrity
-    module — the TUI just fills in the four placeholders and prints.
+    Called by integrity.verify_archives() for either decision it can raise: an
+    archive whose sha does not match the manifest, and the media that is short
+    of archives the manifest promised. The text is chosen and filled in by the
+    integrity module — this frontend only prints it, so a decision the module
+    learns to raise cannot reach one surface and miss the other.
     """
-    from installer.backend.integrity import (
-        INTEGRITY_WARNING_TEMPLATE,
-        expected_override_phrase,
-    )
-    print(INTEGRITY_WARNING_TEMPLATE.format(
-        package=package_name,
-        expected_sha256=expected_sha256,
-        actual_sha256=actual_sha256,
-        override_phrase=expected_override_phrase(package_name),
-    ), file=sys.stderr)
+    from installer.backend.integrity import render_integrity_warning
+    print(render_integrity_warning(package_name, expected_sha256,
+                                   actual_sha256), file=sys.stderr)
 
 
 def _tui_integrity_ack_callback(package_name):
