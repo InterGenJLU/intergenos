@@ -48,11 +48,33 @@ class ClassificationTests(unittest.TestCase):
         # block, protects them. (/etc/ssh/sshd_config is NO LONGER here: it is an
         # exact entry in the manifest's identity_auth_privilege never-list, so once
         # the signed manifest verifies — the PI-D fix — it is correctly BLOCKED, not
-        # CONFIRM. These two are not on the never-list, so they remain CONFIRM in
-        # every environment.)
-        for p in ("/usr/lib/systemd/system/x.service",
-                  "/usr/share/applications/x.desktop"):
+        # CONFIRM.)
+        #
+        # /usr/lib/systemd/system/x.service is NO LONGER here either, and for the
+        # same reason: the signed manifest's system_binaries category carries the
+        # prefix rule /usr/lib/, which covers it, so it is BLOCKED wherever that
+        # manifest verifies. The claim in this comment that both remaining paths
+        # were CONFIRM "in every environment" was true only where the manifest
+        # could not be loaded — a build host — and false on every installed
+        # system, which is where it matters. Measured 2026-08-24 on the R001.1
+        # image: policy.is_protected() returns a system_binaries /usr/lib/ prefix
+        # match for it and None for the .desktop path below.
+        for p in ("/usr/share/applications/x.desktop",):
             self.assertEqual(_classify_path(Path(p)), SafetyTier.CONFIRM, p)
+
+    def test_unit_file_is_blocked_by_the_signed_manifest(self):
+        # The other half of the correction above, asserted rather than assumed:
+        # where the signed manifest loads, its /usr/lib/ prefix blocks a unit
+        # file. Where it cannot load, the defense-in-depth floor decides and this
+        # path is CONFIRM — so the assertion is made against what the policy
+        # itself says, not against a fixed tier.
+        import intergen.tools.write_file as wf
+        policy = wf._manifest_policy()
+        path = "/usr/lib/systemd/system/x.service"
+        if policy is None or policy.is_protected(path) is None:
+            self.assertEqual(_classify_path(Path(path)), SafetyTier.CONFIRM, path)
+        else:
+            self.assertEqual(_classify_path(Path(path)), SafetyTier.BLOCKED, path)
 
     def test_ordinary_path_confirm(self):
         for p in ("/home/me/notes.txt", "/tmp/x"):
@@ -78,9 +100,11 @@ class ClassificationTests(unittest.TestCase):
         # A sensitive-but-not-never-listed path delegates to CONFIRM (env-independent:
         # this path is not on the signed never-list, so it is CONFIRM whether or not
         # the manifest is loaded). sshd_config is intentionally NOT used here — it is
-        # a never-list exact entry and is BLOCKED once the manifest verifies.
+        # a never-list exact entry and is BLOCKED once the manifest verifies, and
+        # neither is a unit file under /usr/lib/, which the manifest's
+        # system_binaries prefix rule covers; both were measured 2026-08-24.
         self.assertEqual(
-            tool.classify_safety({"path": "/usr/lib/systemd/system/x.service", "content": "x"}),
+            tool.classify_safety({"path": "/usr/share/applications/x.desktop", "content": "x"}),
             SafetyTier.CONFIRM,
         )
         self.assertEqual(
@@ -147,13 +171,18 @@ class ExecuteGuardTests(unittest.TestCase):
 
     def test_unprivileged_sensitive_write_refused(self):
         # Tests run unprivileged (euid != 0); a sensitive-prefix write must be
-        # refused rather than self-approved. Uses a sensitive-but-not-never-listed
-        # path (a systemd unit) so this exercises the euid backstop on the CONFIRM
-        # tier specifically — sshd_config would now hard-BLOCK via the never-list
-        # (a different, stronger refusal path) and is covered separately.
+        # refused rather than self-approved. This needs a path that is sensitive
+        # but NOT on the signed never-list, so the euid backstop on the CONFIRM
+        # tier is what refuses it. A systemd unit under /usr/lib/ used to be that
+        # path and no longer is: the signed manifest's system_binaries prefix
+        # rule covers /usr/lib/, so on any system where that manifest verifies
+        # the write is hard-BLOCKED instead — a different, stronger refusal that
+        # this test is not about, and one whose message says "blocked", not
+        # "sensitive". A .desktop file under /usr/share is sensitive by prefix
+        # and matches no never-list rule (both measured 2026-08-24).
         self.assertNotEqual(os.geteuid(), 0, "test assumes non-root runner")
         result = self.tool.execute(
-            {"path": "/usr/lib/systemd/system/evil.service", "content": "x"}
+            {"path": "/usr/share/applications/evil.desktop", "content": "x"}
         )
         self.assertFalse(result.success)
         self.assertIn("sensitive", result.content.lower())

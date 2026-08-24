@@ -319,7 +319,18 @@ class TestRun(unittest.TestCase):
 
 
 class TestCLI(unittest.TestCase):
-    """stdout redirected so CLI print() doesn't pollute test runner output."""
+    """stdout redirected so CLI print() doesn't pollute test runner output.
+
+    Every case below passes --intent-file explicitly, for the reason the
+    run()-level tests already state: these fixtures must behave the same
+    whether or not the machine running the suite is itself an installed
+    InterGenOS system carrying a real record. The CLI cases were the ones that
+    did not, so they read the real /etc/intergenos/boot-default.conf; on an
+    installed system that file says default_boot_target=yes, which makes
+    "the entry is first in BootOrder" a required check, and the good-path
+    fixture deliberately puts another entry first - so the good path exited 1
+    on exactly the machines the tool is written for.
+    """
 
     def test_cli_good_path_exits_zero(self):
         with mock.patch(
@@ -329,7 +340,8 @@ class TestCLI(unittest.TestCase):
             "installer.tests.class2b_boot_order.subprocess.run",
             _mock_efibootmgr(EFIBOOTMGR_GOOD),
         ), contextlib.redirect_stdout(io.StringIO()):
-            rc = c2b.main(["--label", "InterGenOS", "--json"])
+            rc = c2b.main(["--label", "InterGenOS", "--json",
+                           "--intent-file", _NO_INTENT_FILE])
         self.assertEqual(rc, 0)
 
     def test_cli_missing_entry_exits_nonzero(self):
@@ -340,7 +352,8 @@ class TestCLI(unittest.TestCase):
             "installer.tests.class2b_boot_order.subprocess.run",
             _mock_efibootmgr(EFIBOOTMGR_NO_INTERGENOS),
         ), contextlib.redirect_stdout(io.StringIO()):
-            rc = c2b.main(["--label", "InterGenOS", "--json"])
+            rc = c2b.main(["--label", "InterGenOS", "--json",
+                           "--intent-file", _NO_INTENT_FILE])
         self.assertEqual(rc, 1)
 
     def test_cli_report_only_returns_zero_even_on_fail(self):
@@ -350,6 +363,7 @@ class TestCLI(unittest.TestCase):
         ), contextlib.redirect_stdout(io.StringIO()):
             rc = c2b.main([
                 "--label", "InterGenOS", "--json", "--report-only",
+                "--intent-file", _NO_INTENT_FILE,
             ])
         self.assertEqual(rc, 0)
 
