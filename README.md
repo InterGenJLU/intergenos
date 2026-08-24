@@ -28,7 +28,7 @@ GNOME 49.4 on Wayland with the InterGenOS shell theme.
 
 ![Settings — Appearance](images/screenshots/appearance-wallpapers.png)
 
-Desktop ships with the **first-party InterGenOS icon theme** as default (promoted at 1.4; it inherits Adwaita and hicolor for full application coverage). **Papirus-Dark** and the **Cybernetic Blue** icon theme by [SethStormR](https://github.com/SethStormR/Cybernetic) ship as featured alternates, switchable via Settings → Appearance or the first-boot welcomer. Typography is **Inter** for the interface paired with **JetBrains Mono** on terminal and code surfaces, over a system-wide prefer-dark colour scheme.
+Desktop ships with the **first-party InterGenOS icon theme** as default (promoted at 1.4; it inherits Adwaita and hicolor for full application coverage). **Papirus-Dark** and the **Cybernetic Blue** icon theme by [SethStormR](https://github.com/SethStormR/Cybernetic) ship as featured alternates, switchable via Settings → Appearance or the first-boot welcomer. Typography is **Inter** for the interface — shipped as the variable family `Inter Variable`, which is the family name the desktop defaults request — paired with **JetBrains Mono** on terminal and code surfaces, over a system-wide prefer-dark colour scheme.
 
 ## Security-Only Alignment
 
