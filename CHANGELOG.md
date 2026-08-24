@@ -20,19 +20,25 @@ landed is in the repository README, not here.
 
 ## [Unreleased]
 
+### Known limits
+
+- If the full wiki embedding index does not finish during the bounded startup
+  pass, no current runtime path resumes it and wiki-grounded answering remains
+  on keyword matching for that daemon run.
+- Web-search requests remain phrasing-sensitive. Use `search the web for …` as
+  the current workaround.
+
 ### Added
 
 - **MariaDB gains NUMA memory placement, and PostgreSQL gains PL/Tcl and
-  io_uring asynchronous I/O.** All three features were switched off in their
-  recipes because the library each one needs was described as missing from the
-  project. Each library was in fact already part of the system — `numactl` for
-  MariaDB, Tcl and `liburing` for PostgreSQL — so the features are now built
-  in. MariaDB can use the `innodb-numa-interleave` setting on multi-socket
-  machines, PostgreSQL can run stored procedures written in Tcl, and
-  PostgreSQL's asynchronous I/O can use the kernel's io_uring interface. Each
-  is now a hard build requirement rather than an automatic probe, so a missing
-  library stops the build instead of quietly producing a server without the
-  feature.
+  io_uring asynchronous I/O.** The MariaDB NUMA and PostgreSQL PL/Tcl flags
+  incorrectly described their dependencies as absent. PostgreSQL's io_uring
+  support was deliberately left for a follow-up after `liburing` landed. All
+  three dependencies — `numactl`, Tcl and `liburing` — are now declared, and
+  the recipes hard-enable the features. This makes
+  `innodb-numa-interleave`, PL/Tcl stored procedures and PostgreSQL's io_uring
+  asynchronous I/O part of the next package builds. A missing library now
+  stops the build instead of quietly producing a server without the feature.
 - **`gst-plugin-gtk4` — the GTK4 video sink element (`gtk4paintablesink`).**
   The camera application's live preview requires this GStreamer element and
   the application aborted at launch without it. The element lives in the
@@ -40,6 +46,16 @@ landed is in the repository README, not here.
   it is packaged from there (version lockstep with the GStreamer stack),
   and the camera application now declares the dependency so the pairing
   cannot ship apart again.
+- **An opt-in tier of red-first installed-system fixtures is now part of the
+  tree.** It defines checks for privilege dispatch, per-user permissions,
+  web-turn lifecycle, conversation resets,
+  semantic selection, GPU offload, netfilter behavior, trace integrity,
+  install-manifest completeness, secret redaction, wiki startup indexing and
+  desktop keybindings. Publication refuses a staged package set whose bytes do
+  not match the evaluated build corpus in both directions. Boot-order and
+  write-policy test fixtures no longer inherit the machine running the tests,
+  and the public-content gates cover private and routable IPv4 addresses plus
+  additional identifier spellings.
 
 ### Fixed
 
@@ -62,30 +78,132 @@ landed is in the repository README, not here.
   its programming-interface tests and then stops because the printing-scheduler
   test plan refuses to run as the build user; the record now says so instead of
   naming an unrelated cause.
-- **The virtual-machine manager opens again.** Current glib releases
-  removed a compatibility alias the application's startup path still used,
-  so it failed before its window appeared. The startup call now resolves
-  the current name, with a fallback for systems whose glib still provides
-  the old one.
-- **The wiki's release-identity examples match what current images report.**
-  Four documentation pages still showed the original R001 image's
-  `1.0-dev (Revival)` system-identity string as the expected value, although
-  images since R001.1 report the release they were built from. The examples
-  now show the current shape, name the two fields that stay stable across
-  releases, and explain that a system installed from the original image
-  keeps its old string until the updated file is adopted as a configuration
-  update. The wiki's signed page manifest was regenerated and re-signed.
+- **The virtual-machine manager's startup path supports current glib.** Current
+  releases removed a compatibility alias the application still called, so it
+  failed before its window appeared. The startup call now resolves the legacy
+  name when it is present and falls back to the current `GLibUnix` namespace
+  when it is not.
+- **The wiki's release references and identity examples match what images
+  report.** Fifteen pages no longer use release-relative “current release”
+  wording that can go stale; they point readers to the current download and
+  describe how to read an installed system's own identity. Four examples that
+  still showed the original R001 image's `1.0-dev (Revival)` string now show
+  the current shape, name the two fields that stay stable across releases, and
+  explain that a system installed from the original image keeps its old string
+  until the updated file is adopted as a configuration update. The wiki's
+  signed page manifest was regenerated and re-signed after each content pass.
 - **Upgrade rollback copies are actually kept, and the upgrade output
-  tells the truth about rollback.** The package manager keeps a copy of
-  each package's outgoing archive before upgrading it, so a failed install
-  can restore the previous version — but the copy was looked up under a
-  filename shape the download cache never contains, so it was never found
-  and every upgrade of every package printed a per-package "rollback
-  unavailable" warning whose suggested remedy could not help. The lookup
-  now matches the cache's real naming. The per-package warning is replaced
-  by one line before the transaction stating the protection that actually
-  applies: a captured backup restore point, a kept rollback copy, or —
-  normal for the first upgrade after installation — neither.
+  tells the truth about rollback.** When an outgoing archive is present in the
+  package cache, the package manager keeps a rollback copy before upgrading so
+  a failed install can restore the previous version — but the copy was looked
+  up under a filename shape the cache never contains, so it was never found and
+  every upgrade printed a per-package "rollback unavailable" warning whose
+  suggested remedy could not help. The lookup now matches the cache's real
+  naming. The per-package warning is replaced by one line before the
+  transaction stating the protection that actually applies: a captured backup
+  restore point, a kept rollback copy, or — normal for the first upgrade after
+  installation — neither.
+- **GRUB images carry their menu font inside the signed image.** Both the live
+  and installed boot paths embed the font in GRUB's memdisk instead of asking
+  the Secure Boot verifier to approve an external font read from the EFI
+  system partition.
+- **InterGen's privileged-action path no longer inherits the daemon's
+  `NoNewPrivileges` setting.** The daemon now hands an approved action to a
+  short-lived unit launched through the user service manager instead of
+  starting `pkexec` as its own child. The request travels in an owner-only file
+  addressed by an opaque identifier, package operations build one privilege
+  transition, and failure messages name only conditions the path measured.
+- **InterGen creates per-user state with owner-only permissions and tightens
+  its existing state trees once.** Logs and their rotated copies, transcripts,
+  personal facts, decision records, tokens, keys and the answer cache are
+  created in mode 0700 directories as mode 0600 files. The migration is scoped
+  to the four InterGen-owned trees, refuses symbolic-link roots, stops at
+  mounted filesystems, reports unreadable paths and does not repeatedly undo
+  later sharing choices.
+- **Browser/server turn handling now sends an acknowledgement before routing
+  starts.** The client code disarms its whole-turn failsafe while a consent card
+  is open, and the server code returns a truthful timeout when routing exceeds
+  its deadline instead of closing the connection in silence.
+- **Semantic intent selection reports the candidate it actually selects.**
+  An ineligible higher score can no longer displace an eligible intent or lend
+  its score to a different candidate; the selected name, tool and score now
+  describe the same threshold-clearing result.
+- **The boot-order guard finds `efibootmgr` where the package installs it.** It
+  can measure a demoted InterGenOS entry instead of reporting that boot order
+  is indeterminate while the executable is present.
+- **Installer integrity checks include promised archives that are absent from
+  the medium.** Missing signed-manifest entries are presented as one explicit
+  decision before disk writes and are carried into the audit record and final
+  warning. On encrypted installs, the boot menu withholds fallback entries that
+  have no usable unlock initramfs, names the unified-kernel default instead of
+  relying on its row number, and adds the encrypted-root identifier when it can
+  resolve one.
+- **The installer seeds an extended monitor layout for a new user when it can
+  read the live display state.** It enables each connected output that reports
+  a current mode instead of copying the greeter's single-display layout and
+  marking every secondary output disabled.
+- **Each InterGen conversation owns its history, consent, pending offers and
+  turn state.** Browser tabs, the console and the desktop bus no longer share
+  one mutable conversation; starting or switching a session ends only the
+  conversation being left, and a shared daemon refuses a turn that names none.
+- **InterGen's decision trace is joinable across threads and process restarts.**
+  Every turn has exactly one terminal outcome, off-thread work keeps its turn
+  identity, sequence numbers continue across restarts with a per-run marker,
+  and the derived retention ceiling cannot be defeated by one oversized row.
+- **Desktop defaults match the files and actions the image ships.** The
+  configured family is `Inter Variable`; `Ctrl+Alt+T` is bound to the shipped
+  terminal; and `Super+D` is bound to show the desktop. Build-time and
+  installed-system checks hold the settings to the packaged executable and
+  installed configuration.
+- **The first-run software offers and package output report one coherent
+  transaction.** Offers already confirmed installed are withdrawn, a
+  multi-item selection runs as one package transaction, outcomes distinguish
+  installed, missing and unknown states, and reboot or restart guidance stays
+  visible. Model download sizes come from the shipped models manifest, package
+  install phases report progress, and `pkm info` reads the repository index for
+  an available package that is not installed. The provider page reveals its
+  Apply button after a changed selection, and the offer layout follows the
+  user's text size and stays inside the page width.
+- **Discrete graphics cards are used when the model fits their memory.** Offload
+  is decided by whether the resolved model, with its vision projector, fits the
+  detected video memory — every layer when it fits, as many layers as fit
+  otherwise, and zero only when not one layer fits or a needed value could not
+  be read. The hardware tier still chooses the model but no longer decides the
+  offload, which had left 3–7 GB cards serving on the processor.
+- **The plain-named `iptables` commands use the nftables backend the kernel
+  supports.** The package pointed `iptables`, `ip6tables` and their save and
+  restore commands at the legacy backend, which the shipped kernel does not
+  provide, so the mesh client's packet-filter chains could not be created.
+- **Secret-shaped content is redacted from the turn record and the decision
+  trace.** Private-key blocks, URLs carrying a password, `crypt(3)` hashes, JSON
+  web tokens and vendor-prefixed API tokens found inside prompts, commands, tool
+  results or file contents are replaced in place with a placeholder naming the
+  shape; both writers share one definition.
+- **The `/etc/cron.*` directories say what reads them.** A README beside the
+  four directories states that nothing runs their scripts until `fcron.service`
+  is enabled, gives the command, and states each directory's schedule. The
+  installer's post-install checks report a certificate directory they could not
+  read as unreadable rather than as absent.
+- **The affected recipes now carry several installed-system corrections.** The
+  fcron package stages the ownership and PAM configuration `fcrontab` needs for
+  an ordinary user; the kernel recipes give images, maps and configuration
+  files the same release-stamped name; kernel install messages point at the
+  paths and phases that exist; and base system files assign the PC-speaker
+  alias to one driver.
+
+### Changed
+
+- **Wiki embedding runs in bounded batches during startup.** Completed rows
+  remain in memory during the startup pass, but partial rows are not persisted
+  and no current runtime path resumes an incomplete index. If the full index
+  does not finish in that pass, keyword matching remains in use for the daemon
+  run.
+- **A documentation accuracy pass aligns the desktop, database,
+  package-management, ISO and operations pages with the packaged image and the
+  code paths that implement them.** Application labels are checked against
+  their recipe data, shortcut tables reflect the configured settings, and the
+  package and database pages distinguish installed state from repository
+  availability.
 
 ---
 
@@ -105,7 +223,7 @@ project mirror; verification instructions are unchanged from R001.
 - Privileged actions through InterGen do not work in R001.1. The message
   `runner not found / package may be misinstalled` is incorrect; do not
   reinstall packages in response.
-- Wiki-grounded answering currently uses keyword matching.
+- In R001.1, wiki-grounded answering uses keyword matching.
 - On machines with more than one local account, InterGen's activity log
   (`~/.local/state/intergen/intergen.log`, which records web-search queries)
   is readable by other local accounts on a standard install. The personal-facts
@@ -115,8 +233,8 @@ project mirror; verification instructions are unchanged from R001.
   `chmod 700 ~/.local/state/intergen ~/.local/share/intergen` now to close both.
 - Some discrete GPUs with 3–7 GB of VRAM are not yet used for inference; replies
   are slower than intended on that hardware.
-- Web-search requests are phrasing-sensitive. Use `search the web for …` until
-  R001.2.
+- Web-search requests are phrasing-sensitive. Use `search the web for …` as
+  the workaround in R001.1.
 
 ### Added
 
