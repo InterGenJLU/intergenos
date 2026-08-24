@@ -50,6 +50,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import tempfile
 from pathlib import Path
 import unittest
@@ -96,6 +97,7 @@ class _DispatchTestCase(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
         self.recorded_argv: list[list[str]] = []
+        self.recorded_kwargs: list[dict] = []
         self.recorded_manager_probes: list[list[str]] = []
         self.runner_path = tr._PKEXEC_RUNNER_PATH
         self.systemd_run_path = tr._SYSTEMD_RUN
@@ -128,6 +130,7 @@ class _DispatchTestCase(unittest.TestCase):
                     "running\n" if manager_present else "offline\n", "",
                 )
             self.recorded_argv.append(list(argv))
+            self.recorded_kwargs.append(dict(kwargs))
             if raises is not None:
                 raise raises
             return completed
@@ -578,3 +581,90 @@ class NoAutomaticRetryTests(_DispatchTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TheWaitIsBoundedAndAnUnknownOutcomeSaysSoTests(_DispatchTestCase):
+    """F-02 — nothing bounded a wait on a path whose whole job is to wait on a
+    person.
+
+    `subprocess.run(..., check=False)` carried no timeout, and the argv carried
+    no ceiling on the unit. pkexec's purpose here is to raise an authentication
+    dialog; while that dialog stands unanswered the call blocks. The same turn
+    is abandoned by the browser after thirty seconds, so the person is shown a
+    dead turn while a privileged action may still be pending behind it.
+
+    Both ends are bounded now, and the case that matters is what the dispatcher
+    SAYS when the bound fires. A timed-out dispatch does not know whether the
+    action ran: systemd-run was the client, the unit outlived it, and the
+    approval may already have been spent inside it. Reporting that as a plain
+    failure would be a claim the code cannot support, and it is the claim that
+    would make an automatic retry look safe.
+    """
+
+    def test_the_unit_carries_a_wall_clock_ceiling(self):
+        self._dispatch()
+        ceilings = [a for a in self.argv
+                    if a.startswith("--property=RuntimeMaxSec=")]
+        self.assertEqual(
+            len(ceilings), 1,
+            f"the unit has no single wall-clock ceiling: {self.argv}",
+        )
+
+    def test_the_wait_itself_is_bounded(self):
+        """The unit's ceiling does not bound the CLIENT. If systemd-run itself
+        wedges — a bus that never answers — the ceiling on the unit is not a
+        ceiling on this call."""
+        self._dispatch()
+        self.assertIn(
+            "timeout", self.recorded_kwargs[0],
+            "subprocess.run was called with no timeout, so the wait is "
+            "unbounded whatever the unit is told",
+        )
+        self.assertIsNotNone(self.recorded_kwargs[0]["timeout"])
+
+    def test_the_client_bound_is_not_shorter_than_the_unit_ceiling(self):
+        """Ordering matters: the unit's own ceiling should fire first, so the
+        ordinary slow case produces systemd's answer rather than the client
+        giving up on a unit that was about to report."""
+        self._dispatch()
+        self.assertGreaterEqual(
+            self.recorded_kwargs[0]["timeout"], tr._DISPATCH_UNIT_MAX_SECONDS,
+            "the client abandons the wait before the unit's own ceiling, so a "
+            "unit that would have reported is reported as unknown instead",
+        )
+
+    def test_a_timed_out_dispatch_is_reported_as_an_unknown_outcome(self):
+        result = self._dispatch(
+            raises=subprocess.TimeoutExpired(cmd="systemd-run", timeout=1))
+        self.assertFalse(result.success)
+        lowered = result.content.lower()
+        self.assertIn("not known", lowered, result.content)
+        self.assertIn("may have", lowered, result.content)
+
+    def test_a_timed_out_dispatch_never_claims_the_action_did_not_run(self):
+        """The false-comfort case. 'It failed' and 'I do not know' are
+        different findings, and only one of them is true here."""
+        result = self._dispatch(
+            raises=subprocess.TimeoutExpired(cmd="systemd-run", timeout=1))
+        lowered = result.content.lower()
+        for claim in ("did not run", "was not performed", "no changes were made",
+                      "nothing was changed"):
+            self.assertNotIn(claim, lowered, result.content)
+
+    def test_a_timed_out_dispatch_is_attempted_exactly_once(self):
+        """An unknown outcome is the one case where a retry is least safe, so
+        it must not be the case where the code retries by itself."""
+        self._dispatch(
+            raises=subprocess.TimeoutExpired(cmd="systemd-run", timeout=1))
+        self.assertEqual(
+            len(self.recorded_argv), 1,
+            f"a timed-out dispatch was attempted {len(self.recorded_argv)} "
+            f"times",
+        )
+
+    def test_a_timed_out_dispatch_names_the_unit_so_it_can_be_looked_up(self):
+        """The person is owed a way to find out what actually happened."""
+        result = self._dispatch(
+            raises=subprocess.TimeoutExpired(cmd="systemd-run", timeout=1))
+        unit = [a for a in self.argv if a.startswith("--unit=")][0]
+        self.assertIn(unit.split("=", 1)[1], result.content)
