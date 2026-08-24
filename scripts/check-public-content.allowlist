@@ -109,3 +109,16 @@ a7869c9a2d64d12bbb349bd24588ee02e7a61f1542458487297609c4bba74c36
 # intergenos-theme 1.0.0 — regenerated 2026-05-27 evening CDT for the
 # back-button OVAL → CIRCLE theme fix (image-as-leaf-widget pattern lift):
 3ad92cf1f93557889a6e69a3c7aac7ff2b8e67703369e630272f687dda98b734
+
+# --- Third-party addresses quoted inside archived model output (2026-08-24) ---
+# The GLOBAL-IPV4 tier refuses routable addresses. These two lines sit in
+# archived research logs and quote a model's own answer describing a ping to a
+# named public host; the address is the third party's, not this project's, and
+# the surrounding prose already names the host. They are allowlisted rather
+# than path-exempted so each remains a visible, single-line exception — the
+# ai_integration path exemption was removed on 2026-08-18 and is not reopened.
+# RECOMMENDED FOLLOW-ON: replace both addresses with the hostname already in
+# the sentence, the same correction made to the mirror design document, after
+# which these two entries should be deleted.
+The ping to google.com (142.250.9.139) was successful with 0% packet loss. The round-trip time was 13.469 ms (min) to 19.839 ms (avg).
+The ping test to `www.example.com` completed successfully with 0% packet loss. The results show successful replies from the target host at 172.66.147.243.

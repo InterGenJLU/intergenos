@@ -336,6 +336,21 @@ MACHINE_SPECIFICS = [
     ("GLOBAL-IPV6",
      r"(?<![0-9A-Fa-f:.])\b(?!2001:0?[Dd][Bb]8\b)(?!2606:4700\b)(?!2620:[Ff][Ee]\b)"
      r"[23][0-9A-Fa-f]{3}:[0-9A-Fa-f]{0,4}:[0-9A-Fa-f:]*[0-9A-Fa-f]\b"),
+    # Publicly routable IPv4 literals (added 2026-08-24, closing the hole this
+    # tier had carried since it was written: it blocked the three PRIVATE
+    # blocks and global-unicast IPv6, and had nothing at all for a routable
+    # IPv4 address — so a fixture carrying one reported PASS. An address that
+    # reaches the whole internet is the clearest case of the thing this tier
+    # keeps out of public text, not an exception to it.
+    #
+    # Built as "any valid dotted quad, MINUS the ranges that are not routable,
+    # MINUS a short carve-out list" rather than as an enumeration of routable
+    # space, because the non-routable ranges are a closed set written down in
+    # RFCs and routable space is everything else. _GLOBAL_IPV4 below composes
+    # it; the exclusions are listed there one per line with the RFC that
+    # defines each, so a reader can check the tier against the registry
+    # instead of against a wall of alternation.
+    ("GLOBAL-IPV4", None),  # replaced below by _GLOBAL_IPV4 (see _build_global_ipv4)
 ]
 # FLEET_HOST_BLOCK — coined identity tokens, blocked BARE and case-
 # insensitively. PRIVATE: group FLEET_HOST_BLOCK in the pattern file.
@@ -516,7 +531,139 @@ MACHINE_SPECIFICS_EXEMPT_PATHS = [
     #     networking docs; not a development-network address; an edit would flip the
     #     intergen template hash for zero leak reduction).
     "intergen/data/howto/networking.json",
+    #   The GLOBAL-IPV4 tier (2026-08-24) needs the surfaces that carry upstream
+    #   VERSION NUMBERS. A four-component version is textually indistinguishable
+    #   from an address — alsa-lib 1.2.15.3 is a valid routable quad — and the
+    #   measurement that preceded the tier found no lexical guard that separates
+    #   them: of 269 routable-looking quads in the tree, 123 are preceded by a
+    #   plain space, and that set holds both package versions and addresses in
+    #   prose. So the separation is recorded here, per path, with a reason, and
+    #   the residue goes through the allowlist. Each entry below is a surface
+    #   whose dotted quads are version numbers by construction:
+    #   - THIRD-PARTY-NOTICES.md — generated; every quad is a package version.
+    "THIRD-PARTY-NOTICES.md",
+    #   - packages/ — recipes and build scripts pin upstream versions, and the
+    #     versions change on every bump, so a per-line allowlist would trip
+    #     constantly and teach people to route around the gate.
+    "packages/",
+    #   - build/patches/ — patch headers and filenames carry the upstream
+    #     version the patch applies to.
+    "build/patches/",
+    #   - scripts/update-desktop-versions.py — compares upstream version
+    #     strings; its literals are the versions it compares.
+    "scripts/update-desktop-versions.py",
+    #   - tests/upstream-check/, tests/pkm/test_helper_weak_digest_verify.py —
+    #     version-parsing tests whose fixtures must BE version strings.
+    "tests/upstream-check/",
+    "tests/pkm/test_helper_weak_digest_verify.py",
+    #   - three archived research surfaces whose quads are dependency versions.
+    #     Named individually rather than exempting docs/research/ wholesale,
+    #     because the ai_integration entry that once stood on this list was
+    #     removed on 2026-08-18 and that decision is not reopened here: the two
+    #     third-party addresses under ai_integration are handled by allowlist
+    #     entries instead, and are recommended for redaction separately.
+    "docs/research/build_system/",
+    "docs/research/gnome_desktop_dependency_chain_2026-04-01.md",
+    "docs/research/2026-05-25-gnome49-wayland-regression/",
+    #   - tests/check-public-content/should-pass/private-ip-near-misses.txt —
+    #     the near-miss control fixture for the PRIVATE-IP patterns. Its whole
+    #     purpose is to hold addresses JUST OUTSIDE each private block so a
+    #     pattern that widened past its block fails this fixture; "just outside
+    #     a private block" is public space by definition, so the fixture cannot
+    #     both test that boundary and scan clean under GLOBAL-IPV4. Exempted
+    #     from this tier ONLY, and only this one file — its sibling
+    #     should-fail/private-ip-rfc1918.txt still depends on MACHINE_SPECIFICS
+    #     firing, so the directory is deliberately NOT exempted wholesale.
+    "tests/check-public-content/should-pass/private-ip-near-misses.txt",
 ]
+# ---------------------------------------------------------------------------
+# GLOBAL-IPV4 pattern construction.
+#
+# An octet is 0-255 spelled out, so 256.1.1.1 is not an address and does not
+# match. The leading and trailing guards are the SAME pair the private-block
+# patterns use, so the two tiers agree about what a dotted quad even is: no
+# digit/letter/dot before, no alphanumeric or further dotted octet after, but a
+# sentence-ending period is allowed.
+#
+# EXCLUDED BY RANGE — not routable, and each legitimate in public text:
+#   0.0.0.0/8          this network (RFC 1122)
+#   10.0.0.0/8         private (RFC 1918) — the PRIVATE-IP tier's business
+#   100.64.0.0/10      carrier-grade NAT (RFC 6598)
+#   127.0.0.0/8        loopback (RFC 1122)
+#   169.254.0.0/16     link-local (RFC 3927)
+#   172.16.0.0/12      private (RFC 1918) — PRIVATE-IP's business
+#   192.0.0.0/24       IETF protocol assignments (RFC 6890)
+#   192.0.2.0/24       documentation TEST-NET-1 (RFC 5737)
+#   192.88.99.0/24     6to4 relay anycast, deprecated (RFC 7526)
+#   192.168.0.0/16     private (RFC 1918) — PRIVATE-IP's business
+#   198.18.0.0/15      benchmarking (RFC 2544)
+#   198.51.100.0/24    documentation TEST-NET-2 (RFC 5737)
+#   203.0.113.0/24     documentation TEST-NET-3 (RFC 5737)
+#   224.0.0.0/4        multicast (RFC 5771)
+#   240.0.0.0/4        reserved, and 255.255.255.255 broadcast (RFC 1112)
+#
+# EXCLUDED BY CARVE-OUT — routable, but public infrastructure rather than a
+# machine-specific value, exactly the rationale the IPv6 tier uses for the
+# Cloudflare and Quad9 prefixes:
+#   1.1.1.1, 1.0.0.1              Cloudflare resolvers, shipped DNS defaults
+#   8.8.8.8, 8.8.4.4              Google resolvers, named in shipped docs
+#   9.9.9.9, 149.112.112.112      Quad9 resolvers, shipped DNS defaults
+#   93.184.216.34                 example.com's address, quoted in archived logs
+#   1.2.3.4                       the canonical placeholder quad, used in this
+#                                 tree's own comments and parser fixtures
+#
+# WHAT THIS PATTERN DELIBERATELY DOES NOT TRY TO DO. It does not attempt to
+# tell a version number from an address. Measured on this tree before the
+# pattern was written: of 269 routable-looking quads, 123 are preceded by a
+# plain space, and that set contains BOTH package versions ("Cabal 3.14.1.1")
+# and real addresses in prose. A lookbehind for a letter, a hyphen or a "v"
+# separates neither group cleanly — 1.2.15.3 is alsa-lib's version and a valid
+# routable address, spelled identically. So version-bearing surfaces are
+# handled by PATH EXEMPTION below, which is a judgement recorded per path with
+# a reason, and the residue is handled by the allowlist. A regex that guessed
+# at intent would fail silently in both directions.
+_OCTET = r"(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)"
+_IPV4_NOT_ROUTABLE = [
+    r"0\.",                       # 0.0.0.0/8
+    r"10\.",                      # 10.0.0.0/8
+    r"100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.",   # 100.64.0.0/10
+    r"127\.",                     # 127.0.0.0/8
+    r"169\.254\.",                # 169.254.0.0/16
+    r"172\.(?:1[6-9]|2\d|3[01])\.", # 172.16.0.0/12
+    r"192\.0\.0\.",               # 192.0.0.0/24
+    r"192\.0\.2\.",               # 192.0.2.0/24
+    r"192\.88\.99\.",             # 192.88.99.0/24
+    r"192\.168\.",                # 192.168.0.0/16
+    r"198\.1[89]\.",              # 198.18.0.0/15
+    r"198\.51\.100\.",            # 198.51.100.0/24
+    r"203\.0\.113\.",             # 203.0.113.0/24
+    r"2(?:2[4-9]|3\d)\.",          # 224.0.0.0/4
+    r"2(?:4\d|5[0-5])\.",          # 240.0.0.0/4 incl. 255.255.255.255
+]
+_IPV4_PUBLIC_INFRA = [
+    r"1\.1\.1\.1", r"1\.0\.0\.1",
+    r"8\.8\.8\.8", r"8\.8\.4\.4",
+    r"9\.9\.9\.9", r"149\.112\.112\.112",
+    r"93\.184\.216\.34",
+    r"1\.2\.3\.4",
+]
+
+
+def _build_global_ipv4():
+    """Compose the GLOBAL-IPV4 regex from the documented exclusion lists."""
+    negatives = "".join(f"(?!{r})" for r in _IPV4_NOT_ROUTABLE)
+    negatives += "".join(
+        f"(?!{r}" + r"(?![0-9A-Za-z])(?!\.\d))" for r in _IPV4_PUBLIC_INFRA)
+    return (_RFC1918_LEAD + negatives
+            + _OCTET + r"(?:\." + _OCTET + r"){3}" + _RFC1918_TAIL)
+
+
+_GLOBAL_IPV4 = _build_global_ipv4()
+MACHINE_SPECIFICS = [
+    (cat, _GLOBAL_IPV4 if cat == "GLOBAL-IPV4" else pat)
+    for cat, pat in MACHINE_SPECIFICS
+]
+
 MACHINE_SPECIFICS_CATS = {cat for cat, _ in MACHINE_SPECIFICS}
 
 # Session evals/analyses/runbooks are private-repo-only, wholesale
