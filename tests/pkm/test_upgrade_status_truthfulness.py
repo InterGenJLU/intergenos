@@ -32,6 +32,19 @@ did not pass it on.
   entirely by the critical-hook early return, so the one case where a user most
   needs to know what is pending was the case that said least.
 
+  SKIPPED-UPGRADE TRUTH (measured 2026-08-24, same shape, three more sites).
+  An upgrade can be abandoned before it starts: the new metadata introduces a
+  dependency that cannot be resolved, or cannot be downloaded or installed, or
+  the upgrade target's own archive cannot be downloaded. Each of those printed
+  its reason and moved to the next package WITHOUT recording anything, so the
+  closing summary named nothing and the command returned zero. Observed end to
+  end in a sandbox: with the package cache empty and no route to the mirror,
+  `pkm upgrade rocprofiler-register` printed "Skipping upgrade ... due to new
+  dependency install failure", left the package at its old release, and exited
+  0. It matters most in exactly the case it was added for — a release that
+  moves a machine onto a newly declared dependency: if the dependency cannot be
+  fetched, the upgrade does not happen and the exit code says it did.
+
 These cases drive the real handler with the repository and installer stubbed,
 because what is under test is the DECISION the upgrade path makes with the
 results it is handed — not the download or the extraction, which have their own
@@ -290,3 +303,104 @@ class DegradedInstallStillNamesItsSidecarsTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SkippedUpgradeTruthTest(UpgradeTruthTestBase):
+    """An upgrade that was ABANDONED must be reported like one that failed.
+
+    These three paths never reach the installer for the upgrade target at all,
+    so the failure classes above cannot see them. The package stays at its old
+    version, which is precisely the state a caller needs told.
+    """
+
+    def _repo(self, **overrides):
+        repo = FakeRepo(self.remote)
+        for name, value in overrides.items():
+            setattr(repo, name, value)
+        return repo
+
+    def _run_with_repo(self, repo, installer):
+        import argparse as _argparse
+        args = _argparse.Namespace(
+            packages=["kern"], upgrade_all=False, allow_downgrade=False,
+            ignore_holds=False, upgrade_security_only=False,
+            upgrade_allow_kernel_replace=True, assume_yes=True,
+            upgrade_dry_run=False, quiet=False, verbose=False,
+        )
+        buf = io.StringIO()
+        prior = output.process_level()
+        output.set_process_level(output.NORMAL)
+        output._process_reporter.stream = buf
+        output._process_reporter.err_stream = buf
+        try:
+            with redirect_stdout(buf), \
+                 patch.object(cli, "RepoManager", lambda *a, **k: repo), \
+                 patch.object(cli, "PackageInstaller", lambda *a, **k: installer), \
+                 patch("pkm.remover.PackageRemover", FakeRemover), \
+                 patch.object(cli, "_confirm_upgrade", lambda _a: True), \
+                 patch.object(cli, "_save_rollback_archive", lambda *a, **k: None), \
+                 patch.object(cli, "refresh_available_updates_after_transaction",
+                              lambda db, **k: None), \
+                 patch("pkm.pretxn.run_pre_transaction_hook", lambda *a, **k: None):
+                rc = cli.cmd_upgrade(self.db, args)
+        finally:
+            output.set_process_level(prior)
+            output._process_reporter.stream = None
+            output._process_reporter.err_stream = None
+        return rc, buf.getvalue()
+
+    def test_a_new_dependency_that_cannot_be_resolved_exits_non_zero(self):
+        self.remote["kern"]["depends"] = ["newdep"]
+        repo = self._repo(
+            resolve_dependencies=lambda name, db: (False, "not in any repository"))
+        rc, text = self._run_with_repo(repo, FakeInstaller())
+        self.assertEqual(rc, 1, text)
+        flat = _flat(text)
+        self.assertIn("did not upgrade: kern", flat)
+        self.assertEqual(self.db.get_installed("kern")["version"], "1.0")
+
+    def test_a_new_dependency_that_cannot_be_downloaded_exits_non_zero(self):
+        self.remote["kern"]["depends"] = ["newdep"]
+        self.remote["newdep"] = {"name": "newdep", "version": "1.0",
+                                 "release": 1, "sha256": "0" * 64,
+                                 "size": 1, "depends": []}
+
+        def dl(name, reporter=None):
+            if name == "newdep":
+                return False, "network is unreachable"
+            return True, f"/nonexistent/{name}.igos.tar.gz"
+
+        repo = self._repo(
+            resolve_dependencies=lambda name, db: (True, ["newdep"]),
+            download_package=dl)
+        rc, text = self._run_with_repo(repo, FakeInstaller())
+        self.assertEqual(rc, 1, text)
+        self.assertIn("did not upgrade: kern", _flat(text))
+        self.assertEqual(self.db.get_installed("kern")["version"], "1.0")
+
+    def test_a_new_dependency_that_cannot_be_installed_exits_non_zero(self):
+        self.remote["kern"]["depends"] = ["newdep"]
+        self.remote["newdep"] = {"name": "newdep", "version": "1.0",
+                                 "release": 1, "sha256": "0" * 64,
+                                 "size": 1, "depends": []}
+
+        class DepFailsInstaller(FakeInstaller):
+            def install(self, name, **kwargs):
+                self.calls.append(name)
+                if name == "newdep":
+                    return False, "extraction failed"
+                return True, f"Installed {name}"
+
+        repo = self._repo(resolve_dependencies=lambda name, db: (True, ["newdep"]))
+        rc, text = self._run_with_repo(repo, DepFailsInstaller())
+        self.assertEqual(rc, 1, text)
+        self.assertIn("did not upgrade: kern", _flat(text))
+        self.assertEqual(self.db.get_installed("kern")["version"], "1.0")
+
+    def test_a_target_whose_own_archive_cannot_be_downloaded_exits_non_zero(self):
+        repo = self._repo(
+            download_package=lambda name, reporter=None: (False, "404 not found"))
+        rc, text = self._run_with_repo(repo, FakeInstaller())
+        self.assertEqual(rc, 1, text)
+        self.assertIn("did not upgrade: kern", _flat(text))
+        self.assertEqual(self.db.get_installed("kern")["version"], "1.0")
