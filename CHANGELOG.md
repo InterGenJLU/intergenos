@@ -100,6 +100,24 @@ evaluated on real hardware before publication. The image, its checksum, the
 signature over that checksum, and the release key are published together on the
 project mirror; verification instructions are unchanged from R001.
 
+### Known limits in R001.1
+
+- Privileged actions through InterGen do not work in R001.1. The message
+  `runner not found / package may be misinstalled` is incorrect; do not
+  reinstall packages in response.
+- Wiki-grounded answering currently uses keyword matching.
+- On machines with more than one local account, InterGen's activity log
+  (`~/.local/state/intergen/intergen.log`, which records web-search queries)
+  is readable by other local accounts on a standard install. The personal-facts
+  database and transcripts are also created with loose permissions, but on a
+  standard install they sit behind a private `~/.local/share` directory and are
+  not reachable by other accounts. Run
+  `chmod 700 ~/.local/state/intergen ~/.local/share/intergen` now to close both.
+- Some discrete GPUs with 3–7 GB of VRAM are not yet used for inference; replies
+  are slower than intended on that hardware.
+- Web-search requests are phrasing-sensitive. Use `search the web for …` until
+  R001.2.
+
 ### Added
 
 - **Nineteen package recipes — the first post-release package additions.**
