@@ -1114,9 +1114,16 @@ class WebServer:
             self._route_lock = asyncio.Lock()
         _route_review_cb = self._make_web_review_callback(ctx, turn_id, loop)
         async with self._route_lock:
+            # A ContextVar does not cross a thread, so route() ran with no turn
+            # bound and every row it wrote — every routing verdict, every
+            # decision it made on the way — landed as "no-turn" and could not be
+            # joined to the turn that caused it. Bind the context here and run
+            # the callable through it (REC-17).
+            _route_ctx = glass.bind_context()
             _route_future = loop.run_in_executor(
                 None,
-                lambda: self._router.route(
+                lambda: _route_ctx.run(
+                    self._router.route,
                     user_msg, decide_only=True,
                     review_callback=_route_review_cb,
                 ),
@@ -1132,6 +1139,18 @@ class WebServer:
                 glass.emit("route", "deadline_exceeded", detail={
                     "iface": "web",
                     "deadline_s": SERVER_ROUTE_DEADLINE_S,
+                })
+                # The turn ends HERE, and the record says so in the vocabulary
+                # every other ending uses. Without this the turn would still
+                # terminate — glass.turn() synthesizes an ending for a block that
+                # simply returns — but it would read "unreported", which is the
+                # word for an ending nobody accounted for. This one is accounted
+                # for: the deadline fired.
+                glass.emit("delivery", "timeout", detail={
+                    "iface": "web",
+                    "deadline_s": SERVER_ROUTE_DEADLINE_S,
+                    "abandoned": "the routing thread runs on; its result is "
+                                 "discarded",
                 })
                 logger.warning(
                     "Routing exceeded the %.1fs server deadline for client=%s; "
@@ -1336,8 +1355,12 @@ class WebServer:
             return (True, resp.text)
 
         loop = asyncio.get_event_loop()
+        # Bind the turn across the thread hop, so the consent prompt and the
+        # escalation itself are joinable to the turn that asked for them.
+        _esc_ctx = glass.bind_context()
         try:
-            sent, text = await loop.run_in_executor(None, _run)
+            sent, text = await loop.run_in_executor(
+                None, lambda: _esc_ctx.run(_run))
         except Exception as exc:  # noqa: BLE001 — never crash the socket on escalation
             logger.error("frontier_escalate failed: %s", type(exc).__name__)
             sent, text = False, f"Escalation failed: {type(exc).__name__}"
@@ -1582,10 +1605,14 @@ class WebServer:
             return
 
         loop = asyncio.get_running_loop()
+        # Bind the turn across the thread hop: a tool execution's rows, including
+        # its gate decision, belong to the turn that invoked it.
+        _tool_ctx = glass.bind_context()
         try:
             tr = await loop.run_in_executor(
                 None,
-                lambda: self._tools.execute(
+                lambda: _tool_ctx.run(
+                    self._tools.execute,
                     call,
                     ingress_tracker=ctx.ingress_tracker,
                     trust_state=ctx.conversation_trust_state,
@@ -1920,8 +1947,11 @@ class WebServer:
                 "verdict": "clean", "marker": None, "dispatched": _dispatched,
                 "source": route_result.source})
         else:
+            _claim_ctx = glass.bind_context()
             _corrected = await loop.run_in_executor(
-                None, self._router._regenerate_without_claim, messages, _marker)
+                None,
+                lambda: _claim_ctx.run(
+                    self._router._regenerate_without_claim, messages, _marker))
             if _corrected is not None:
                 full_response = _corrected
                 _outcome = "violation_regenerated"
@@ -1944,8 +1974,11 @@ class WebServer:
             glass.emit("decision", "model_offer_screen", detail={
                 "verdict": "clean", "marker": None, "source": route_result.source})
         else:
+            _offer_ctx = glass.bind_context()
             _off_corrected = await loop.run_in_executor(
-                None, self._router._regenerate_without_selfoffer, messages)
+                None,
+                lambda: _offer_ctx.run(
+                    self._router._regenerate_without_selfoffer, messages))
             if _off_corrected is not None:
                 full_response = _off_corrected
                 _off_outcome = "violation_regenerated"
@@ -1979,9 +2012,12 @@ class WebServer:
                 "source": route_result.source,
                 "degraded": "capability-surface.json missing/unreadable"})
         else:
+            _cap_ctx = glass.bind_context()
             _cap_corrected = await loop.run_in_executor(
-                None, self._router._regenerate_with_capability_grounding,
-                messages, _cap_marker)
+                None,
+                lambda: _cap_ctx.run(
+                    self._router._regenerate_with_capability_grounding,
+                    messages, _cap_marker))
             if _cap_corrected is not None:
                 full_response = _cap_corrected
                 _cap_outcome = "violation_regenerated"
@@ -2179,9 +2215,11 @@ class WebServer:
                     _review_cb = self._make_web_review_callback(
                         ctx, turn_id, loop,
                     )
+                    _exec_ctx = glass.bind_context()
                     exec_future = loop.run_in_executor(
                         None,
-                        lambda: self._tools.execute(
+                        lambda: _exec_ctx.run(
+                            self._tools.execute,
                             item,
                             ingress_tracker=ctx.ingress_tracker,
                             trust_state=ctx.conversation_trust_state,

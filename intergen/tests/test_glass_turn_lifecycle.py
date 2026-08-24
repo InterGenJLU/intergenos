@@ -51,6 +51,7 @@ import asyncio
 import json
 import os
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -267,11 +268,28 @@ class EveryThreadHandoffCarriesTheTurn(unittest.TestCase):
 
     @staticmethod
     def _is_bound(node: ast.AST) -> bool:
+        """Two accepted shapes, and no others.
+
+        A call to ``<something>.run(...)`` anywhere inside the submitted
+        callable, or ``partial(<something>.run, ...)`` where the bound method is
+        handed over without being called yet. The second shape was named in this
+        class's docstring before it was implemented here, which would have made
+        the gate REFUSE a correctly bound handoff — a gate that rejects correct
+        code is as much a defect as one that accepts incorrect code, so both
+        shapes now have a control below.
+        """
         for inner in ast.walk(node):
-            if (isinstance(inner, ast.Call)
-                    and isinstance(inner.func, ast.Attribute)
-                    and inner.func.attr == "run"):
+            if not isinstance(inner, ast.Call):
+                continue
+            fn = inner.func
+            if isinstance(fn, ast.Attribute) and fn.attr == "run":
                 return True
+            name = (fn.attr if isinstance(fn, ast.Attribute)
+                    else fn.id if isinstance(fn, ast.Name) else "")
+            if name == "partial" and inner.args:
+                first = inner.args[0]
+                if isinstance(first, ast.Attribute) and first.attr == "run":
+                    return True
         return False
 
     def test_no_thread_handoff_loses_the_turn_context(self) -> None:
@@ -297,6 +315,19 @@ class EveryThreadHandoffCarriesTheTurn(unittest.TestCase):
             "loop.run_in_executor(None, lambda: ctx.run(router.route, msg))")
         self.assertEqual(self._unbound_handoffs(planted), [])
 
+    def test_the_scanner_accepts_a_partial_bound_handoff(self) -> None:
+        """The second shape the docstring names. A gate that refuses correctly
+        bound code would push authors toward working around it."""
+        planted = ast.parse(
+            "executor.submit(functools.partial(ctx.run, router.route, msg))")
+        self.assertEqual(self._unbound_handoffs(planted), [])
+
+    def test_the_scanner_rejects_a_partial_that_binds_nothing(self) -> None:
+        """The control for the control: partial alone is not a binding."""
+        planted = ast.parse(
+            "executor.submit(functools.partial(router.route, msg))")
+        self.assertEqual(self._unbound_handoffs(planted), [1])
+
     def test_a_bound_handoff_really_carries_the_turn_id(self) -> None:
         """The structural gate above asserts the SHAPE. This asserts the shape
         actually does the job, so the two together mean something."""
@@ -318,6 +349,182 @@ class EveryThreadHandoffCarriesTheTurn(unittest.TestCase):
         verdict = [r for r in _rows(tmp) if r.get("event") == "verdict"]
         self.assertEqual(len(verdict), 1)
         self.assertEqual(verdict[0]["turn_id"], tid)
+
+
+class _RecordingWS:
+    """A WebSocket stand-in that records the frames a turn sent."""
+
+    def __init__(self) -> None:
+        self.frames: list[dict] = []
+        self.closed = False
+
+    async def send_json(self, obj: dict) -> None:
+        self.frames.append(obj)
+
+    async def close(self, *a, **k) -> None:
+        self.closed = True
+
+    def turn_id(self) -> str:
+        for f in self.frames:
+            if f.get("type") == "turn_ack":
+                return f.get("turn_id", "")
+        raise AssertionError(f"no turn_ack frame was sent: {self.frames}")
+
+
+class _Result:
+    """The shape _handle_client_message expects back from route()."""
+
+    def __init__(self, source: str = "keyword", text: str = "an answer"):
+        self.source = source
+        self.text = text
+        self.handled = True
+        self.tool_results: list = []
+        self.full_output = ""
+        self.reoffer_reminder = None
+        self.answer_linkage = None
+
+
+class _EmittingRouter:
+    """A router that WRITES A GLASS ROW from inside the worker thread.
+
+    That row is the whole point: it is written where a ContextVar does not
+    reach, so whether it carries the turn id is a fact about the real handoff in
+    web_server, not about a fixture.
+    """
+
+    def __init__(self, stall_s: float = 0.0, source: str = "keyword"):
+        self._stall = stall_s
+        self._source = source
+        self.route_calls = 0
+
+    def route(self, user_msg, decide_only=True, review_callback=None):
+        self.route_calls += 1
+        glass.emit("route", "verdict", detail={"where": "worker thread"})
+        if self._stall:
+            time.sleep(self._stall)
+        return _Result(source=self._source)
+
+    def last_route_confidence(self):
+        return None
+
+    def _append_history(self, *a, **k):
+        return None
+
+
+class TheShippedWebPathTerminatesAndJoins(unittest.TestCase):
+    """The invariant driven through the REAL server, not a model of it.
+
+    Everything above this class tests glass and a parsed source file. These
+    tests run web_server's own turn, with its own deadline code, and read the
+    glass file it wrote. A fixture agreeing with itself is not evidence that the
+    shipped path holds.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.mkdtemp(prefix="glass-webpath-")
+        _reset(self.tmp)
+        # Imported here rather than at module scope: the modules above are pure,
+        # and a failure to import the web stack should name THESE tests.
+        from intergen import web_server as web_server_module
+        self.web_server_module = web_server_module
+
+    def _terminals(self, turn_id: str) -> list[dict]:
+        return [r for r in _rows(self.tmp)
+                if r.get("turn_id") == turn_id
+                and glass.is_terminal_event(r.get("phase", ""), r.get("event", ""))]
+
+    def _turn(self, router, deadline_s: float | None = None,
+              wait_s: float = 5.0) -> "_RecordingWS":
+        mod = self.web_server_module
+        ws = _RecordingWS()
+
+        async def scenario() -> None:
+            server = mod.WebServer()
+            server._router = router
+            ctx = mod.ConnectionContext(client_id="glass-lifecycle-test",
+                                        source_interface="web", ws=ws)
+            await asyncio.wait_for(
+                server._run_turn(ctx, {"type": "message",
+                                       "content": "how much memory is there"}),
+                timeout=wait_s)
+
+        original = getattr(mod, "SERVER_ROUTE_DEADLINE_S", None)
+        if deadline_s is not None:
+            mod.SERVER_ROUTE_DEADLINE_S = deadline_s
+        try:
+            asyncio.run(scenario())
+        finally:
+            if deadline_s is not None:
+                mod.SERVER_ROUTE_DEADLINE_S = original
+        return ws
+
+    def test_the_route_deadline_ends_the_turn_as_a_timeout(self) -> None:
+        """The one terminal kind the earlier vocabulary test could only assert
+        the NAME of. Its producer is in this tree now, so it is exercised: a
+        routing stall past the server's own deadline must leave exactly one
+        terminal row, and it must read "timeout" rather than the word for an
+        ending nobody accounted for."""
+        ws = self._turn(_EmittingRouter(stall_s=3.0), deadline_s=0.2,
+                        wait_s=2.0)
+        tid = ws.turn_id()
+        terminals = self._terminals(tid)
+        self.assertEqual(len(terminals), 1, _rows(self.tmp))
+        self.assertEqual(terminals[0]["event"], "timeout")
+        self.assertFalse(terminals[0]["detail"].get("synthesized"),
+                         "the deadline is an accounted-for ending; a "
+                         "synthesized row here means the site stayed silent")
+
+    def test_the_deadline_turn_is_still_joinable_to_its_router_row(self) -> None:
+        """The other half of REC-17 on the same real turn: the row the router
+        wrote from the worker thread carries the turn id."""
+        ws = self._turn(_EmittingRouter(stall_s=3.0), deadline_s=0.2,
+                        wait_s=2.0)
+        tid = ws.turn_id()
+        verdicts = [r for r in _rows(self.tmp) if r.get("event") == "verdict"]
+        self.assertEqual(len(verdicts), 1, _rows(self.tmp))
+        self.assertEqual(
+            verdicts[0]["turn_id"], tid,
+            "the router's row did not join the turn — the thread handoff is "
+            "not carrying the context")
+
+    def test_a_delivered_turn_has_one_terminal_and_a_joined_router_row(self) -> None:
+        """The happy path through the same shipped code, so the deadline test
+        above is not the only evidence the handoff bind works."""
+        ws = self._turn(_EmittingRouter())
+        tid = ws.turn_id()
+        terminals = self._terminals(tid)
+        self.assertEqual(len(terminals), 1, _rows(self.tmp))
+        self.assertEqual(terminals[0]["event"], "final")
+        self.assertEqual(
+            [r for r in _rows(self.tmp) if r.get("turn_id") == "no-turn"], [],
+            "a row of this turn was written outside it")
+
+    def test_a_crashing_turn_leaves_one_error_terminal(self) -> None:
+        """web_server's no-wedge backstop answers the client and emits nothing
+        of its own; the record must still say the turn failed."""
+        mod = self.web_server_module
+        ws = _RecordingWS()
+
+        async def scenario() -> None:
+            server = mod.WebServer()
+
+            async def exploding_body(c, data):
+                raise RuntimeError("turn body blew up")
+
+            server._handle_client_message = exploding_body
+            ctx = mod.ConnectionContext(client_id="glass-lifecycle-test",
+                                        source_interface="web", ws=ws)
+            await asyncio.wait_for(
+                server._run_turn(ctx, {"type": "message", "content": "x"}),
+                timeout=5.0)
+
+        asyncio.run(scenario())
+        tid = ws.turn_id()
+        terminals = self._terminals(tid)
+        self.assertEqual(len(terminals), 1, _rows(self.tmp))
+        self.assertEqual(terminals[0]["event"], "error")
+        self.assertEqual(terminals[0]["detail"].get("exception"),
+                         "RuntimeError")
 
 
 if __name__ == "__main__":
