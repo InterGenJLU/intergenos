@@ -53,6 +53,25 @@ def _intent_file(default_boot_target: bool):
 # intent and the entry-is-first probe reports instead of asserting.
 _NO_INTENT_FILE = "/nonexistent/intergenos/boot-default.conf"
 
+# A machine in the state the installer aims for: the InterGenOS entry is first
+# in BootOrder and is what the firmware booted. There was no such fixture, so
+# nothing could assert the good path end to end — every case had to use the
+# one below, which is a machine where another operating system boots first.
+EFIBOOTMGR_INTERGENOS_FIRST = """\
+BootCurrent: 0000
+Timeout: 0 seconds
+BootOrder: 0000,0001,0002
+Boot0000* InterGenOS  HD(1,GPT,abc,0x800,0x12345)/File(\\EFI\\InterGenOS\\shimx64.efi)
+Boot0001* Ubuntu  HD(1,GPT,def,0x800,0x54321)/File(\\EFI\\ubuntu\\shimx64.efi)
+Boot0002* UEFI Internal Disk  ACPI(a0341d0,0)/Pci(1f|2)/Sata(0,0,0)
+"""
+
+# NOT a healthy machine, despite the name it has carried since before the
+# entry-is-first probe existed: BootOrder starts with 0001 (Ubuntu) while the
+# InterGenOS entry is 0000. It is kept, and kept named this way, because the
+# parser cases below assert that exact order — but whether it is a FAULT
+# depends entirely on what the install recorded as the default boot target,
+# which is read from a file. See TestTheCLITestsDoNotReadTheHostMachine.
 EFIBOOTMGR_GOOD = """\
 BootCurrent: 0001
 Timeout: 0 seconds
@@ -342,17 +361,29 @@ class TestRun(unittest.TestCase):
 
 
 class TestCLI(unittest.TestCase):
-    """stdout redirected so CLI print() doesn't pollute test runner output."""
+    """stdout redirected so CLI print() doesn't pollute test runner output.
+
+    EVERY case here pins --intent-file. Left to its default, main() reads
+    /etc/intergenos/boot-default.conf — a real file on an installed InterGenOS
+    machine, absent on a development box — and that file decides whether the
+    entry-is-first probe is required. Without the pin these cases answered a
+    different question depending on where the suite ran.
+    """
 
     def test_cli_good_path_exits_zero(self):
+        """A healthy machine: InterGenOS first in BootOrder and booted from
+        it, under the strictest intent — the install recorded it as the
+        default, so entry-is-first is required and still passes."""
         with mock.patch(
             "installer.tests.class2b_boot_order.shutil.which",
             return_value="/usr/bin/efibootmgr",
         ), mock.patch(
             "installer.tests.class2b_boot_order.subprocess.run",
-            _mock_efibootmgr(EFIBOOTMGR_GOOD),
-        ), contextlib.redirect_stdout(io.StringIO()):
-            rc = c2b.main(["--label", "InterGenOS", "--json"])
+            _mock_efibootmgr(EFIBOOTMGR_INTERGENOS_FIRST),
+        ), contextlib.redirect_stdout(io.StringIO()), \
+                _intent_file(default_boot_target=True) as intent:
+            rc = c2b.main(["--label", "InterGenOS", "--json",
+                           "--intent-file", intent])
         self.assertEqual(rc, 0)
 
     def test_cli_missing_entry_exits_nonzero(self):
@@ -363,7 +394,8 @@ class TestCLI(unittest.TestCase):
             "installer.tests.class2b_boot_order.subprocess.run",
             _mock_efibootmgr(EFIBOOTMGR_NO_INTERGENOS),
         ), contextlib.redirect_stdout(io.StringIO()):
-            rc = c2b.main(["--label", "InterGenOS", "--json"])
+            rc = c2b.main(["--label", "InterGenOS", "--json",
+                           "--intent-file", _NO_INTENT_FILE])
         self.assertEqual(rc, 1)
 
     def test_cli_report_only_returns_zero_even_on_fail(self):
@@ -373,6 +405,7 @@ class TestCLI(unittest.TestCase):
         ), contextlib.redirect_stdout(io.StringIO()):
             rc = c2b.main([
                 "--label", "InterGenOS", "--json", "--report-only",
+                "--intent-file", _NO_INTENT_FILE,
             ])
         self.assertEqual(rc, 0)
 
@@ -408,16 +441,38 @@ class TestTheCLITestsDoNotReadTheHostMachine(unittest.TestCase):
     def test_every_cli_case_pins_the_intent_file(self):
         """Read from the source, because the point is that no case may fall
         back to the default path — a case that happens to pass today on the
-        machine at hand would still be reading the host."""
+        machine at hand would still be reading the host.
+
+        Each `c2b.main(...)` call's own argument list is examined, rather than
+        counting the flag across the whole block: a docstring that mentions
+        the flag must not be able to vouch for a call that omits it.
+        """
         source = Path(__file__).read_text()
         body = source[source.index("class TestCLI("):
                       source.index("class TestTheCLITestsDoNotReadTheHostMachine(")]
-        calls = body.count("c2b.main(")
-        pinned = body.count("--intent-file")
-        self.assertGreater(calls, 0)
+        unpinned, total = [], 0
+        cursor = 0
+        while True:
+            start = body.find("c2b.main(", cursor)
+            if start == -1:
+                break
+            index = start + len("c2b.main(")
+            depth = 1
+            while depth:
+                if body[index] in "([{":
+                    depth += 1
+                elif body[index] in ")]}":
+                    depth -= 1
+                index += 1
+            arguments = body[start:index]
+            total += 1
+            if "--intent-file" not in arguments:
+                unpinned.append(arguments.split("\n")[0])
+            cursor = index
+        self.assertGreater(total, 0, "no CLI calls found to check")
         self.assertEqual(
-            calls, pinned,
-            f"{calls - pinned} of {calls} CLI case(s) let --intent-file fall "
+            unpinned, [],
+            f"{len(unpinned)} of {total} CLI case(s) let --intent-file fall "
             "back to /etc/intergenos/boot-default.conf, so their result "
             "depends on whether the machine running the suite is an installed "
             "InterGenOS system")
