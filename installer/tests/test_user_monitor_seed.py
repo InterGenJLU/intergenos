@@ -138,5 +138,123 @@ class TestUserSeedWrite(unittest.TestCase):
                 ev.call_args.args[0], "user_monitor_seed_skipped")
 
 
+TRIPLE_HEAD = [
+    1,
+    [
+        _monitor(("DP-1", "ACR", "S271HL", "SERIALA"),
+                 [_mode("1920x1080@60", 1920, 1080, 60.0, current=True)]),
+        _monitor(("DP-2", "ACR", "S271HL", "SERIALB"),
+                 [_mode("1920x1080@60", 1920, 1080, 60.0, current=True)]),
+        _monitor(("HDMI-1", "ACR", "KA270H", "SERIALC"),
+                 [_mode("1920x1080@60", 1920, 1080, 60.0, current=True)]),
+    ],
+    [
+        _logical(0, 0, 1.0, True, [("DP-1", "ACR", "S271HL", "SERIALA")]),
+        _logical(1920, 0, 1.0, False, [("DP-2", "ACR", "S271HL", "SERIALB")]),
+        _logical(3840, 0, 1.0, False, [("HDMI-1", "ACR", "KA270H", "SERIALC")]),
+    ],
+    {},
+]
+
+
+class TestUserSeedKeepsEveryMonitorOn(unittest.TestCase):
+    """The user's seed must not switch the user's other monitors off.
+
+    WHY THIS CLASS EXISTS. The user seed was written to close a first-login
+    race, and it closed it by storing the GREETER's layout — one monitor
+    enabled, every other connected monitor in <disabled/>. mutter applies a
+    stored configuration that matches the connected set, so on a multi-head
+    machine the second and third monitors are lit by the kernel through the
+    whole boot scroll and then switched OFF the moment the session starts.
+    Measured on an installed three-head system on 2026-08-24: the seeded
+    configuration in the user's own monitors.xml listed DP-2 and HDMI-1 under
+    <disabled>, and the operator had to re-enable them by hand.
+
+    Closing the race does not require disabling anything: a layout that
+    ENABLES every connected monitor is just as stored, just as settled, and is
+    what the machine's owner actually has plugged in.
+    """
+
+    def _seeded_root(self, td, state):
+        _write_target_passwd(td, "tester", 1234, 5678)
+        with patch.object(display, "read_live_display_state",
+                          return_value=state), \
+             patch.object(users.trace, "trace_event"), \
+             patch.object(users.os, "chown"):
+            self.assertTrue(users.seed_user_monitor_layout(td, "tester"))
+        return ET.parse(Path(td) / "home/tester/.config/monitors.xml").getroot()
+
+    def test_no_monitor_is_disabled(self):
+        with TemporaryDirectory() as td:
+            root = self._seeded_root(td, TRIPLE_HEAD)
+            self.assertEqual(
+                root.findall("./configuration/disabled"), [],
+                "the user's seed disables a monitor the machine has plugged "
+                "in; that is the boot-scroll-lit/session-dark defect")
+
+    def test_every_connected_monitor_gets_a_logical_monitor(self):
+        with TemporaryDirectory() as td:
+            root = self._seeded_root(td, TRIPLE_HEAD)
+            connectors = sorted(
+                lm.findtext("./monitor/monitorspec/connector")
+                for lm in root.findall("./configuration/logicalmonitor"))
+            self.assertEqual(connectors, ["DP-1", "DP-2", "HDMI-1"])
+
+    def test_exactly_one_primary_and_it_is_the_live_primary(self):
+        with TemporaryDirectory() as td:
+            root = self._seeded_root(td, TRIPLE_HEAD)
+            primaries = [lm for lm in root.findall("./configuration/logicalmonitor")
+                         if lm.findtext("primary") == "yes"]
+            self.assertEqual(len(primaries), 1)
+            self.assertEqual(
+                primaries[0].findtext("./monitor/monitorspec/connector"), "DP-1")
+            self.assertEqual(primaries[0].findtext("x"), "0")
+
+    def test_the_logical_monitors_tile_without_overlapping(self):
+        with TemporaryDirectory() as td:
+            root = self._seeded_root(td, TRIPLE_HEAD)
+            spans = []
+            for lm in root.findall("./configuration/logicalmonitor"):
+                x = int(lm.findtext("x"))
+                w = int(lm.findtext("./monitor/mode/width"))
+                scale = float(lm.findtext("scale"))
+                spans.append((x, x + round(w / scale)))
+            spans.sort()
+            for (_, end), (start, _) in zip(spans, spans[1:]):
+                self.assertEqual(
+                    end, start,
+                    f"logical monitors do not tile: {spans} — mutter refuses a "
+                    "configuration whose logical monitors overlap or gap")
+
+    def test_a_single_head_install_still_gets_one_enabled_monitor(self):
+        single = [1, [TRIPLE_HEAD[1][0]],
+                  [_logical(0, 0, 1.0, True, [("DP-1", "ACR", "S271HL", "SERIALA")])],
+                  {}]
+        with TemporaryDirectory() as td:
+            root = self._seeded_root(td, single)
+            self.assertEqual(
+                len(root.findall("./configuration/logicalmonitor")), 1)
+            self.assertEqual(root.findall("./configuration/disabled"), [])
+
+
+class TestGreeterSeedStaysPrimaryOnly(unittest.TestCase):
+    """Guard against over-correcting: the GREETER seed is a different question.
+
+    The greeter is a login prompt on one screen; rendering it stretched across
+    every monitor is the fallback the greeter seed exists to avoid. Its
+    single-primary layout is deliberate and stays. This class fails if the fix
+    for the user seed is applied to the greeter as well.
+    """
+
+    def test_the_greeter_synthesis_still_disables_the_others(self):
+        xml = display.synthesize_primary_only_layout(TRIPLE_HEAD)
+        root = ET.fromstring(xml)
+        self.assertEqual(len(root.findall("./configuration/logicalmonitor")), 1)
+        disabled = root.findall("./configuration/disabled/monitorspec")
+        self.assertEqual(
+            sorted(d.findtext("connector") for d in disabled),
+            ["DP-2", "HDMI-1"])
+
+
 if __name__ == "__main__":
     unittest.main()
