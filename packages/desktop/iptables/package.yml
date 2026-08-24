@@ -1,6 +1,6 @@
 name: iptables
 version: "1.8.12"
-release: 2
+release: 3  # r3: the plain-named frontends — iptables, iptables-restore, iptables-save and their IPv6 twins — are repointed from the legacy multi-call binary to xtables-nft-multi after upstream's install, and the result is read back so a relink that silently did not happen fails the build. This distribution is nftables-only and the shipped kernel carries no ip_tables modules, so those six frontends failed at their first call with 'modprobe: FATAL: Module ip_tables not found' — measured on four installed machines, where the mesh networking daemon could create none of its packet-filter chains and container and virtual-machine tooling call the same binary. arptables and ebtables, installed by the same step, already resolved to the nftables backend. The frontends whose names say legacy are left pointing at the legacy binary, which is still installed. r2: prior release.
 description: iptables CLI compat shim — translates iptables syntax to nftables rules
 license: GPL-2.0-or-later
 homepage: https://www.netfilter.org/
@@ -19,10 +19,20 @@ dependencies:
   runtime:
   - libnftnl
   - libmnl
-# InterGenOS uses nftables exclusively. This package is built as the
-# iptables-nft compat shim only — the userspace iptables CLI translates
-# rules to nftables under the hood. The iptables-LEGACY backend is NOT
-# built because the kernel disables CONFIG_NETFILTER_XTABLES_LEGACY.
+# InterGenOS uses nftables exclusively. The userspace iptables CLI is shipped
+# as the nft compat shim: it translates iptables syntax to nftables rules, so
+# people and programs with iptables muscle memory keep working on a kernel that
+# has no legacy xtables interface.
+#
+# CORRECTED 2026-08-24. This comment used to say the legacy backend "is NOT
+# built because the kernel disables CONFIG_NETFILTER_XTABLES_LEGACY". A build of
+# this recipe DOES produce and install /usr/sbin/xtables-legacy-multi, and the
+# released image carries it — the kernel option governs the kernel, not this
+# userspace package. The claim being false is the reason nobody checked where
+# the symlinks pointed: upstream's install linked the plain-named frontends to
+# the legacy binary and they stayed there for a release. build.sh now repoints
+# them and reads the result back; the explicitly-named legacy frontends are left
+# as they are.
 # See: docs/research/networking/nftables_only_decision.md
 configure_flags:
 - --prefix=/usr

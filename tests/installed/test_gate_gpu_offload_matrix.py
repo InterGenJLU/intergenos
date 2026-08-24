@@ -110,10 +110,17 @@ def test_the_health_surface_does_not_report_a_failed_offload_as_complete(shipped
     tried to read the expression out of the source text and passed, because the field
     is assigned from a variable — a reminder that a gate reading source text can go
     green on a defect it was written to catch. It calls the function now.
-    """
-    from intergen.llama_manager import LlamaServerManager
 
-    verdict = LlamaServerManager._fully_offloaded(0, 0, 29)
+    Corrected 2026-08-24: this test named ``LlamaServerManager``, which is not
+    the shipped class (it is ``LlamaManager``), so it raised ImportError and had
+    never once reached the predicate. It was red, which read as the defect being
+    present, and it would have turned green the moment a class of that name
+    existed rather than when the defect was fixed. A gate that fails for the
+    wrong reason is not measuring anything.
+    """
+    from intergen.llama_manager import LlamaManager
+
+    verdict = LlamaManager._fully_offloaded(0, 0, 29)
     assert verdict is not True, (
         "\nThe health surface reports a complete offload when nothing was offloaded.\n"
         "  requested layers : 0\n"

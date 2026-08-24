@@ -488,12 +488,31 @@ class OffloadReportTests(unittest.TestCase):
         self.assertEqual(b("some backend", 33), "GPU")   # positive but unnamed
 
     def test_fully_offloaded(self):
+        """Corrected 2026-08-24: zero offloaded layers is never "fully offloaded".
+
+        This used to assert that a request for zero layers reported a complete
+        offload, on the reasoning that processor-only serving had got what it
+        asked for. The field is read by a person diagnosing a slow machine, and
+        it told them the graphics card was in use while nothing was on it.
+        Processor-only serving now has its own field.
+        """
         f = LlamaManager._fully_offloaded
         self.assertTrue(f(999, 33, 33))          # all layers on GPU
         self.assertFalse(f(999, 10, 33))         # partial => mismatch
         self.assertFalse(f(999, 0, 33))          # CPU fallback
         self.assertFalse(f(999, None, None))     # unreadable => unmet
-        self.assertTrue(f(0, None, None))        # CPU-by-design (embedder/2B)
+        self.assertFalse(f(0, None, None))       # nothing was offloaded
+        self.assertFalse(f(0, 0, 29))            # the field record's own values
+
+    def test_processor_only_serving_is_reported_in_its_own_field(self):
+        d = LlamaManager.describe_offload(requested_layers=0, offloaded=0,
+                                          total=29, backend="CPU")
+        self.assertFalse(d["fully_offloaded"])
+        self.assertTrue(d["cpu_only_by_request"])
+        d = LlamaManager.describe_offload(requested_layers=999, offloaded=33,
+                                          total=33, backend="Vulkan")
+        self.assertTrue(d["fully_offloaded"])
+        self.assertFalse(d["cpu_only_by_request"])
 
     def test_offload_report_shape(self):
         m = LlamaManager()
@@ -504,7 +523,8 @@ class OffloadReportTests(unittest.TestCase):
         r = m.offload_report()
         self.assertEqual(r, {"backend": "Vulkan", "requested_layers": 999,
                              "offloaded_layers": 33, "total_layers": 33,
-                             "fully_offloaded": True})
+                             "fully_offloaded": True,
+                             "cpu_only_by_request": False})
         # a silent CPU fallback is conspicuous in the report
         m._offloaded_layers = None
         m._serving_backend = "CPU"
