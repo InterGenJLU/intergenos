@@ -59,6 +59,13 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **An upgrade that was abandoned reports it.** Three paths in the package
+  manager's upgrade loop gave up on a package and moved on without recording
+  anything: a dependency the new release introduces that could not be resolved,
+  one that could not be downloaded or installed, and the upgrade target's own
+  archive failing to download. The closing summary named nothing and the command
+  exited zero while the package stayed at its old version. Each path is now
+  recorded, so the summary names the package and the exit code is non-zero.
 - **The system identity file survives the Chapter 8 build.** While building
   systemd, the test step overwrote `/etc/os-release` with a single line,
   discarding the `ID` field that the build stages beforehand and that
