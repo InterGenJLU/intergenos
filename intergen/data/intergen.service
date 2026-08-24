@@ -2,13 +2,100 @@
 Description=InterGen AI Assistant
 Documentation=https://github.com/InterGenJLU/intergenos
 After=graphical-session.target
+ConditionUser=!@system
+
+# Bounded restarts (panic-remediation wave, 2026-07-08). The interval MUST
+# exceed StartLimitBurst*RestartSec (5*5 = 25s) so a genuine crash-loop
+# accumulates its burst inside the window and trips into a loud failed
+# state; the systemd default 10s is SHORTER than 25s, so 5 RestartSec=5
+# restarts never fell inside one window, the limit never fired, and the
+# unit restart-looped unbounded (the 11,506-cycle greeter loop).
+StartLimitIntervalSec=30
+StartLimitBurst=5
 
 [Service]
-Type=simple
-ExecStart=/usr/bin/python3 -m intergen.dbus_daemon
+Type=dbus
+BusName=com.intergenos.InterGen
+# Session-class guard (see the SCOPING comment above the [Unit] section):
+# run only for a uid present in the local passwd files backend; SKIP (not
+# fail, so no restart is scheduled) for DynamicUser/greeter/transient
+# managers. `-s files` bypasses nss-systemd so a live DynamicUser scope
+# cannot resolve past it. `$(id -u)` is written literally into the unit
+# (the SERVICE heredoc delimiter is quoted) and expanded by sh at runtime.
+ExecCondition=/bin/sh -c 'getent -s files passwd "$(id -u)" >/dev/null'
+ExecStart=/usr/bin/intergen daemon
 Restart=on-failure
 RestartSec=5
-Environment=PYTHONPATH=/usr/lib/intergen
+Environment=PYTHONUNBUFFERED=1
+
+# Hardening — F-038 closure (T0-4-A Commit 2; matrix row 211 + line 1309).
+NoNewPrivileges=yes
+PrivateTmp=yes
+# PI-Z28 (2026-07-07, Zephyrus): PrivateDevices=yes gives the daemon a private
+# /dev of pseudo-devices only, hiding every GPU node from the daemon and its
+# llama-server children -> the Vulkan engine cannot see the RTX and silently
+# falls back to CPU (33 layers that belong on the GPU ran on the i9). Opening
+# ONLY char-drm was insufficient AND made it worse: on the NVIDIA proprietary
+# driver the Vulkan COMPUTE path runs through the nvidia character nodes, NOT the
+# DRM nodes (/dev/dri, char-drm major 226) — so char-drm alone still denied the
+# real devices, yet exposed enough of the GPU path that llama.cpp spun up its
+# compute threadpool and was SIGSYS-killed on a blocked scheduling syscall (see
+# the PI-Z10 block below), crash-looping without ever reaching the GPU. Correct
+# fix, metal-proved (33/33 offload, ~5.9 GiB VRAM, stable under this full unit):
+# open char-drm PLUS the four nvidia compute nodes, named BY PATH so systemd
+# re-resolves major:minor at each start (nvidia-uvm's major is dynamically
+# allocated — no hardcoded number). nvidia-modeset is a KMS/display node, not
+# needed for headless compute, so it stays OUT (a future KMS need is a separate
+# decision). DevicePolicy=closed still denies everything else; @raw-io stays
+# blocked by the @system-service allowlist and CAP_MKNOD stays dropped
+# (CapabilityBoundingSet= empty). Minimal-exposure — exactly the GPU compute
+# class opened, nothing more.
+PrivateDevices=no
+DevicePolicy=closed
+DeviceAllow=char-drm rw
+DeviceAllow=/dev/nvidiactl rw
+DeviceAllow=/dev/nvidia0 rw
+DeviceAllow=/dev/nvidia-uvm rw
+DeviceAllow=/dev/nvidia-uvm-tools rw
+ProtectSystem=strict
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallFilter=~@resources
+# PI-Z10 (2026-07-06) + PI-Z28 completion (2026-07-07, Zephyrus/i9-12900H):
+# llama.cpp's GGML threadpool tunes its worker threads' CPU scheduling at
+# startup — sched_setaffinity (203, pins threads by P/E-core topology) and,
+# once the GPU/Vulkan backend spins up, setpriority (141) + sched_setscheduler
+# (144). All three live in @resources/@privileged, which the filter above denies
+# -> the kernel SIGSYS-kills llama-server in a watchdog crash-loop. PI-Z10 first
+# hit sched_setaffinity on hybrid CPUs; the GPU path (PI-Z28) adds the other two.
+# Re-allow exactly these three measured syscalls; the rest of the @resources /
+# @privileged denial stands (RestrictRealtime=yes still arg-blocks any realtime
+# policy sched_setscheduler could request).
+SystemCallFilter=sched_setaffinity
+SystemCallFilter=sched_setscheduler
+SystemCallFilter=setpriority
+# Fourth measured re-allow (2026-08-06, AMD/ROCm serving): mbind (237) places
+# pages on a NUMA node, and the ROCm/HIP userspace calls it while bringing up
+# its memory pools. mbind is a member of @resources, denied above, so the kernel
+# SIGSYS-kills llama-server during backend initialisation on that hardware —
+# the same crash-loop shape as the three syscalls above, reached by a different
+# backend. Named individually, exactly like the others: @resources stays denied
+# as a set, and nothing else in it is re-opened.
+SystemCallFilter=mbind
+CapabilityBoundingSet=
+AmbientCapabilities=
 
 [Install]
 WantedBy=default.target
