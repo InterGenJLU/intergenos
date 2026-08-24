@@ -68,6 +68,7 @@ import subprocess
 import sys
 import time
 import unittest
+from xml.etree import ElementTree
 
 from intergen import tool_registry as tr
 from intergen.tool_registry import ToolRegistry
@@ -191,7 +192,39 @@ class Leg1TransitionInATransientUnitTests(unittest.TestCase):
         own effective uid is not root, and refuses. It never contacts PolicyKit,
         so no authentication agent is ever asked for anything. The command it is
         given is /bin/true, which is never reached.
+
+        SELF-GUARDING (2026-08-24). That safety argument rests on one premise —
+        the flag really applied — and the premise used to be proven by a
+        DIFFERENT test in this class, which unittest orders alphabetically and
+        therefore runs AFTER this one. The risky invocation happened first and
+        its premise was checked afterwards. If a future systemd, a manager
+        configuration or a drop-in ever declined that property, the first thing
+        to discover it would have been a real authentication dialog on somebody's
+        desktop — and this file SHIPS, so that somebody need not be a developer.
+        An independent review also measured that the file cannot be reliably
+        excluded from outside: its pytest node ID changes with the layout it is
+        run from, so a path-shaped --deselect silently matched nothing and the
+        test ran anyway.
+
+        So the premise is measured HERE, in the same unit shape, immediately
+        before the pkexec invocation, and the test skips loudly rather than
+        proceeding if it does not hold. Same call, no added risk, and the order
+        is no longer something an alphabet decides.
         """
+        premise = _run_in_transient_unit(
+            ["/bin/grep", "NoNewPrivs", "/proc/self/status"],
+            properties=("NoNewPrivileges=yes",),
+        )
+        if premise.returncode != 0 or "NoNewPrivs:\t1" not in premise.stdout:
+            self.skipTest(
+                "REFUSING TO RUN THE NEGATIVE CONTROL: a unit asked to carry "
+                "NoNewPrivileges=yes did not come back carrying it "
+                f"(rc={premise.returncode}, stdout={premise.stdout!r}, "
+                f"stderr={premise.stderr!r}). Under that condition invoking "
+                "setuid pkexec could reach a real authentication prompt, which "
+                "this gate must never be able to do."
+            )
+
         completed = _run_in_transient_unit(
             ["/usr/bin/pkexec", "/bin/true"],
             properties=("NoNewPrivileges=yes",),
@@ -324,19 +357,74 @@ class Leg2RealPolicyKitPathTests(unittest.TestCase):
             f"requirement, so the check above proves nothing: {combined!r}",
         )
 
-    def test_the_policy_binds_the_action_to_the_runner_path(self):
-        """What the user authenticates against is the narrow, purpose-built
-        action bound to this one executable — not a general 'run anything as
-        root' action. That narrowness is the design's whole argument."""
+    #: Where polkit records which program an action is allowed to run. The
+    #: annotation is the binding; the rest of the file is prose around it.
+    EXEC_PATH_ANNOTATION = "org.freedesktop.policykit.exec.path"
+
+    def _policy_action_element(self):
+        """Return the <action> element for THIS action, or skip if absent."""
         policy = f"/usr/share/polkit-1/actions/{POLICY_ACTION.rsplit('.', 1)[0]}.policy"
         if not os.path.exists(policy):
             self.skipTest(
                 f"the policy-binding leg was NOT measured: {policy} is absent"
             )
-        with open(policy, encoding="utf-8") as fh:
-            text = fh.read()
-        self.assertIn(POLICY_ACTION, text)
-        self.assertIn(tr._PKEXEC_RUNNER_PATH, text)
+        tree = ElementTree.parse(policy)
+        for action in tree.getroot().iter("action"):
+            if action.get("id") == POLICY_ACTION:
+                return action
+        self.fail(
+            f"{policy} contains no <action> whose id is {POLICY_ACTION}"
+        )
+
+    def test_the_policy_binds_the_action_to_the_runner_path(self):
+        """What the user authenticates against is the narrow, purpose-built
+        action bound to this one executable — not a general 'run anything as
+        root' action. That narrowness is the design's whole argument.
+
+        PARSED, NOT SEARCHED (2026-08-24). This used to assert that the action
+        id and the runner path each appeared SOMEWHERE in the file. An
+        independent review pointed out what that actually establishes: an XML
+        comment satisfies it, a different <action> block satisfies it, and the
+        runner path annotated onto some other action satisfies it. None of
+        those is the binding, and this is the leg that certifies the binding.
+
+        So the element is selected by id and its own exec.path annotation is
+        compared for EQUALITY with the runner path.
+        """
+        action = self._policy_action_element()
+        annotations = {
+            a.get("key"): (a.text or "").strip()
+            for a in action.iter("annotate")
+        }
+        self.assertIn(
+            self.EXEC_PATH_ANNOTATION, annotations,
+            f"the action carries no {self.EXEC_PATH_ANNOTATION} annotation, so "
+            f"it is not bound to any particular program: {annotations}",
+        )
+        self.assertEqual(
+            annotations[self.EXEC_PATH_ANNOTATION], tr._PKEXEC_RUNNER_PATH,
+            "the action is bound to a different program than the one this "
+            "code dispatches through",
+        )
+
+    def test_the_action_requires_an_administrator_for_an_active_session(self):
+        """The other half of the binding: what a person has to do to satisfy it.
+
+        Also parsed rather than searched, and asserted on THIS action's own
+        <defaults>, because a permissive default on the action that matters is
+        not made safe by a strict one elsewhere in the file.
+        """
+        action = self._policy_action_element()
+        defaults = action.find("defaults")
+        self.assertIsNotNone(defaults, "the action declares no <defaults>")
+        allow_active = defaults.find("allow_active")
+        self.assertIsNotNone(
+            allow_active, "the action declares no allow_active default")
+        self.assertEqual(
+            (allow_active.text or "").strip(), "auth_admin_keep",
+            "an active session does not have to authenticate as an "
+            "administrator for this action",
+        )
 
 
 def _long_lived_process_carrying(words):
