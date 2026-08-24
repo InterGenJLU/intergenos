@@ -480,3 +480,183 @@ class RootConstructsThePathTests(_RuntimeDirTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+REQUEST_PREFIX_FOR_TEST = pr.REQUEST_PREFIX
+
+
+class TheRemovalIsIdentityCheckedTests(unittest.TestCase):
+    """F-04 — the request was validated through a descriptor and removed by name.
+
+    read_request does everything right on the file descriptor: it fstats for a
+    regular file, the owner's uid, mode 0600 and a single link before believing
+    a byte of it. Then it removed the file with an unlink on the PATH the
+    caller supplied. Between the validated read and that unlink the name can be
+    repointed by the same uid, so root deletes some other file and the real
+    request — carrying an approval token — stays on disk.
+
+    Same-uid only, so this is not privilege escalation. It is the module
+    failing its own stated guarantee, which is that a request does not outlive
+    its read.
+
+    The correction is to remove what was READ rather than what is NAMED: the
+    directory is opened once, the name is resolved relative to that descriptor,
+    and the file's identity is compared against the one the fstat established
+    before anything is unlinked.
+    """
+
+    def setUp(self):
+        self._root = tempfile.TemporaryDirectory(prefix="removal-identity-")
+        self.addCleanup(self._root.cleanup)
+        env = mock.patch.dict(os.environ,
+                              {"XDG_RUNTIME_DIR": self._root.name},
+                              clear=False)
+        env.start()
+        self.addCleanup(env.stop)
+
+    def _identity(self, path):
+        info = os.stat(path, follow_symlinks=False)
+        return (info.st_dev, info.st_ino)
+
+    def test_a_repointed_name_is_not_the_file_that_gets_removed(self):
+        """The defect, directly: the name now refers to a different file, and
+        the removal must decline rather than delete a stranger's."""
+        path = pr.write_request("manage_packages", {"action": "list"}, "tok")
+        identity = self._identity(path)
+
+        os.unlink(path)
+        decoy = path
+        with open(decoy, "w", encoding="utf-8") as fh:
+            fh.write("not the request")
+
+        pr.discard_request(decoy, identity=identity)
+        self.assertTrue(
+            os.path.exists(decoy),
+            "the removal deleted whatever the name pointed at, rather than the "
+            "file that was actually read",
+        )
+
+    def test_the_file_that_was_read_is_still_removed(self):
+        """The identity check must not stop the ordinary case working."""
+        path = pr.write_request("manage_packages", {"action": "list"}, "tok")
+        pr.discard_request(path, identity=self._identity(path))
+        self.assertFalse(os.path.exists(path))
+
+    def test_removal_without_an_identity_still_works(self):
+        """The unprivileged side calls this in a finally block, before any
+        fstat exists to compare against."""
+        path = pr.write_request("manage_packages", {"action": "list"}, "tok")
+        pr.discard_request(path)
+        self.assertFalse(os.path.exists(path))
+
+    def test_an_absent_path_is_still_silent(self):
+        pr.discard_request(os.path.join(pr.request_dir(),
+                                        REQUEST_PREFIX_FOR_TEST + "0" * 32))
+
+    def test_a_symlinked_parent_directory_is_refused(self):
+        """The directory is opened O_NOFOLLOW, so the removal cannot be
+        redirected by swapping the directory rather than the file."""
+        real = os.path.join(self._root.name, "real")
+        os.makedirs(os.path.join(real, "intergen"), mode=0o700, exist_ok=True)
+        target = os.path.join(real, "intergen", "victim")
+        with open(target, "w", encoding="utf-8") as fh:
+            fh.write("someone else's file")
+
+        linked = os.path.join(self._root.name, "linked")
+        os.symlink(os.path.join(real, "intergen"), linked)
+
+        pr.discard_request(os.path.join(linked, "victim"))
+        self.assertTrue(
+            os.path.exists(target),
+            "the removal followed a symlinked directory to a file outside the "
+            "request directory",
+        )
+
+    def test_read_request_removes_by_identity_not_by_name(self):
+        """The caller that matters. read_request has the fstat; it must be the
+        one that hands the identity to the removal."""
+        path = pr.write_request("manage_packages", {"action": "list"}, "tok")
+        seen = {}
+        real = pr.discard_request
+
+        def _record(p, *, identity=None):
+            seen.setdefault("identities", []).append(identity)
+            return real(p, identity=identity)
+
+        with mock.patch.object(pr, "discard_request", side_effect=_record):
+            pr.read_request(path, expected_uid=os.getuid())
+        self.assertTrue(seen.get("identities"),
+                        "read_request removed the request without going "
+                        "through discard_request at all")
+        self.assertTrue(
+            any(i is not None for i in seen["identities"]),
+            "read_request removed the request by name, discarding the identity "
+            "its own fstat had already established",
+        )
+
+
+class TheRequestDirectoryIsRefusedNotRepairedTests(unittest.TestCase):
+    """F-09 — a wrong-mode directory was corrected instead of refused, and
+    neither its owner nor whether it was a symlink was ever checked.
+
+    Under an ordinary /run/user/<uid> none of this is reachable by another
+    account, and it becomes reachable only if XDG_RUNTIME_DIR names somewhere
+    else. That is a narrow door, but the reasoning behind chmod is the part
+    that does not hold: this directory is where in-flight privileged requests
+    live, and finding it in a state we did not create is a fact about the
+    machine, not a formatting error to tidy up. Silently making it look right
+    is the shape of masking a finding rather than verifying one.
+    """
+
+    def setUp(self):
+        self._root = tempfile.TemporaryDirectory(prefix="requestdir-")
+        self.addCleanup(self._root.cleanup)
+
+    def _with_runtime(self, runtime):
+        env = mock.patch.dict(os.environ, {"XDG_RUNTIME_DIR": runtime},
+                              clear=False)
+        env.start()
+        self.addCleanup(env.stop)
+
+    def test_a_group_readable_directory_is_refused_not_chmodded(self):
+        runtime = os.path.join(self._root.name, "runtime")
+        target = os.path.join(runtime, "intergen")
+        os.makedirs(target, mode=0o700, exist_ok=True)
+        os.chmod(target, 0o750)
+        self._with_runtime(runtime)
+
+        with self.assertRaises(pr.RequestError) as cm:
+            pr.write_request("manage_packages", {"action": "list"}, "tok")
+        self.assertIn("750", str(cm.exception))
+        self.assertEqual(
+            stat.S_IMODE(os.stat(target).st_mode), 0o750,
+            "the directory was quietly corrected, so nothing records that it "
+            "was ever wrong",
+        )
+
+    def test_a_symlinked_request_directory_is_refused(self):
+        runtime = os.path.join(self._root.name, "runtime2")
+        os.makedirs(runtime, mode=0o700, exist_ok=True)
+        elsewhere = os.path.join(self._root.name, "elsewhere")
+        os.makedirs(elsewhere, mode=0o700, exist_ok=True)
+        os.symlink(elsewhere, os.path.join(runtime, "intergen"))
+        self._with_runtime(runtime)
+
+        with self.assertRaises(pr.RequestError) as cm:
+            pr.write_request("manage_packages", {"action": "list"}, "tok")
+        self.assertIn("symlink", str(cm.exception).lower())
+
+    def test_a_correct_directory_is_accepted(self):
+        runtime = os.path.join(self._root.name, "runtime3")
+        os.makedirs(os.path.join(runtime, "intergen"), mode=0o700, exist_ok=True)
+        self._with_runtime(runtime)
+        path = pr.write_request("manage_packages", {"action": "list"}, "tok")
+        self.assertTrue(os.path.exists(path))
+
+    def test_a_directory_that_does_not_exist_yet_is_created(self):
+        runtime = os.path.join(self._root.name, "runtime4")
+        os.makedirs(runtime, mode=0o700, exist_ok=True)
+        self._with_runtime(runtime)
+        path = pr.write_request("manage_packages", {"action": "list"}, "tok")
+        self.assertEqual(
+            stat.S_IMODE(os.stat(os.path.dirname(path)).st_mode), 0o700)
