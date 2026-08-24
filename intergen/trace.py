@@ -86,6 +86,16 @@ _SECRET_KEY_RE = re.compile(
 )
 _REDACTED = "[REDACTED]"
 
+# The SAME secret-shape redaction the turn record uses, imported rather than
+# copied. A credential-shaped KEY NAME is caught by the pattern above; a secret
+# that arrives as CONTENT — inside a prompt, a command line, a tool result, or a
+# file the person asked about — is caught by this. The two writers were supposed
+# to be in lockstep and were not: the turn record grew this predicate and the
+# tracer kept a second, older copy of the key pattern only. Importing one
+# definition is what makes the lockstep true rather than intended, and it means a
+# shape added there is a shape caught here in the same commit.
+from intergen.glass import redact_secret_shapes  # noqa: E402
+
 # Active span + trace id for the current async/thread context. A ContextVar is
 # per-Context, so nested `with` blocks form a parent/child chain and concurrent
 # requests on the event loop stay isolated.
@@ -139,12 +149,23 @@ class Span:
         """Record raw content (prompt, tool args, model output).
 
         No-op unless content capture is on (``INTERGEN_TRACE_CONTENT=1`` AND not
-        running as root — see Tracer). Values under a credential-shaped key are
-        redacted even when capture is on: credentials must never reach the file.
+        running as root — see Tracer). Credentials must never reach the file
+        even when capture is on, and two predicates enforce that. By NAME: a
+        value under a credential-shaped key is replaced whole. By SHAPE: inside
+        any string value, a run matching a named secret format is replaced with
+        a placeholder saying what kind of thing was removed, and only that run,
+        because the bytes around it are the content this file exists to record.
+        The shape predicate is imported from the turn record rather than copied,
+        so the two writers cannot drift apart again.
         """
         if not self._capture_content:
             return
-        self.attributes[key] = _REDACTED if _SECRET_KEY_RE.search(key) else value
+        if _SECRET_KEY_RE.search(key):
+            self.attributes[key] = _REDACTED
+        elif isinstance(value, str):
+            self.attributes[key] = redact_secret_shapes(value)
+        else:
+            self.attributes[key] = value
 
     def set_status(self, status: str, message: str = "") -> None:
         self.status = status

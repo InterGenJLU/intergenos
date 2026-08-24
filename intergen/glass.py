@@ -196,7 +196,7 @@ _SECRET_KEY_RE = re.compile(
 # Order matters: a URL carrying inline credentials is matched as a URL before a
 # token prefix inside it can be matched on its own, so the placeholder names the
 # larger, more informative shape.
-_SECRET_SHAPES: tuple[tuple[str, "re.Pattern[str]"], ...] = (
+SECRET_SHAPES: tuple[tuple[str, "re.Pattern[str]"], ...] = (
     # A PEM private key of any flavour, header through footer.
     ("private-key-block", re.compile(
         r"-----BEGIN [A-Z0-9 ]{0,40}PRIVATE KEY-----"
@@ -228,6 +228,15 @@ _SECRET_SHAPES: tuple[tuple[str, "re.Pattern[str]"], ...] = (
 # scan entirely. Derived from the shortest possible match (AKIA plus sixteen
 # characters), not chosen — a wrong guess here would silently stop redacting.
 _MIN_SHAPE_LEN = 20
+
+# The names above are PUBLIC because intergen/trace.py imports them. The older
+# key-name pattern in this module was deliberately declared as a second copy of
+# trace.py's "so glass.py has no dependency on a private symbol in another
+# module", and that duplication is precisely what let the two writers drift: this
+# module grew a content predicate and the tracer did not. One definition, shared,
+# is the correction; the lockstep is now true by construction rather than by
+# comment. Anything added here changes BOTH writers, which is the point.
+_SECRET_SHAPES = SECRET_SHAPES  # the private name kept for readers of this file
 
 # THE TERMINAL VOCABULARY (REC-17). A turn ends exactly once, and these are the
 # ways it may end. Named in ONE place so every interface ends a turn the same
@@ -481,7 +490,7 @@ def _bound_row(record: dict[str, Any]) -> str:
     }, default=str) + "\n"
 
 
-def _redact_shapes(text: str) -> str:
+def redact_secret_shapes(text: str) -> str:
     """Replace each secret-SHAPED run inside ``text`` with a named placeholder.
 
     In place and only the match: the bytes around a secret are ordinary content
@@ -492,9 +501,13 @@ def _redact_shapes(text: str) -> str:
     """
     if len(text) < _MIN_SHAPE_LEN:
         return text
-    for name, pattern in _SECRET_SHAPES:
+    for name, pattern in SECRET_SHAPES:
         text = pattern.sub(f"<redacted:{name}>", text)
     return text
+
+
+# The private name this module used before the tracer needed to share it.
+_redact_shapes = redact_secret_shapes
 
 
 def _redact(value: Any, key: str = "") -> Any:
@@ -509,7 +522,7 @@ def _redact(value: Any, key: str = "") -> Any:
     if isinstance(value, (list, tuple)):
         return [_redact(v) for v in value]
     if isinstance(value, str):
-        return _redact_shapes(value)
+        return redact_secret_shapes(value)
     return value
 
 
