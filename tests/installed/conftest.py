@@ -121,3 +121,34 @@ def installed_intergen_dir() -> Path:
     """The SHIPPED assistant package directory — the thing that actually runs."""
     import sys
     return Path("/usr/lib") / f"python3.{sys.version_info.minor}" / "site-packages" / "intergen"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def refuse_to_measure_a_source_tree(installed_intergen_dir):
+    """The `intergen` these gates import MUST be the installed one.
+
+    Some gates in this tier read shipped files by path; others read the compiled
+    code objects of `intergen.web_server` and `intergen.router`, which resolve
+    through sys.path. Run from a checkout, those imports bind to the CHECKOUT,
+    so the gate reports on the tree the author is editing while every message it
+    prints says "the shipped modules". A checkout that already carries the fix
+    then reads as an installed system that carries the fix — the exact
+    silent-green this tier exists to prevent, and it is silent because a pass
+    looks the same either way.
+
+    Refusing here is a FAILURE, not a skip: "I measured the wrong thing" must
+    never read as "I checked".
+    """
+    import intergen
+    imported = Path(intergen.__file__).resolve().parent
+    if imported != installed_intergen_dir.resolve():
+        pytest.fail(
+            "This tier imported the assistant package from\n"
+            f"  {imported}\n"
+            "but the installed package is at\n"
+            f"  {installed_intergen_dir}\n"
+            "so the gates that read compiled code objects would report on that "
+            "directory instead of on what this machine actually runs. Run the "
+            "tier from a directory where `import intergen` resolves to the "
+            "installed package (a checkout on sys.path shadows it)."
+        )
