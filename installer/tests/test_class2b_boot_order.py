@@ -14,10 +14,33 @@ from __future__ import annotations
 
 import contextlib
 import io
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from installer.tests import class2b_boot_order as c2b
+
+
+@contextlib.contextmanager
+def _intent_file(default_boot_target: bool):
+    """A throwaway copy of the installer's recorded default-boot-target file.
+
+    The real one lives at /etc/intergenos/boot-default.conf and exists only on
+    an installed machine. Writing our own means a case can exercise BOTH
+    answers — the install recorded InterGenOS as the default, or it recorded
+    another operating system — on any host, and neither answer can be supplied
+    accidentally by the machine running the suite.
+    """
+    value = "yes" if default_boot_target else "no"
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "boot-default.conf"
+        path.write_text(
+            "# throwaway fixture, shaped as the installer writes it\n"
+            f"default_boot_target={value}\n"
+            "boot_entry_label=InterGenOS\n"
+        )
+        yield str(path)
 
 
 # --- Fixtures ---------------------------------------------------------------
@@ -352,6 +375,97 @@ class TestCLI(unittest.TestCase):
                 "--label", "InterGenOS", "--json", "--report-only",
             ])
         self.assertEqual(rc, 0)
+
+
+class TestTheCLITestsDoNotReadTheHostMachine(unittest.TestCase):
+    """The CLI cases must answer from their fixtures alone.
+
+    `main()` defaults --intent-file to /etc/intergenos/boot-default.conf, which
+    is a REAL FILE on an installed InterGenOS machine and absent on a
+    development box. That file decides whether the entry-is-first probe is
+    required, so the CLI cases above were answering a different question
+    depending on where the suite ran: on a development box no intent was found
+    and the probe only reported, while on an installed machine the intent said
+    InterGenOS is the default, the probe became required, and the fixture —
+    whose BootOrder starts with another operating system — correctly failed it.
+
+    Every case in TestRun already pins the path (_NO_INTENT_FILE) with a
+    comment saying exactly why. The CLI cases did not, and that is the defect
+    these tests pin. A test whose result depends on the machine running it is
+    not a test.
+    """
+
+    def _rc(self, output, argv_extra):
+        with mock.patch(
+            "installer.tests.class2b_boot_order.shutil.which",
+            return_value="/usr/bin/efibootmgr",
+        ), mock.patch(
+            "installer.tests.class2b_boot_order.subprocess.run",
+            _mock_efibootmgr(output),
+        ), contextlib.redirect_stdout(io.StringIO()):
+            return c2b.main(["--label", "InterGenOS", "--json"] + argv_extra)
+
+    def test_every_cli_case_pins_the_intent_file(self):
+        """Read from the source, because the point is that no case may fall
+        back to the default path — a case that happens to pass today on the
+        machine at hand would still be reading the host."""
+        source = Path(__file__).read_text()
+        body = source[source.index("class TestCLI("):
+                      source.index("class TestTheCLITestsDoNotReadTheHostMachine(")]
+        calls = body.count("c2b.main(")
+        pinned = body.count("--intent-file")
+        self.assertGreater(calls, 0)
+        self.assertEqual(
+            calls, pinned,
+            f"{calls - pinned} of {calls} CLI case(s) let --intent-file fall "
+            "back to /etc/intergenos/boot-default.conf, so their result "
+            "depends on whether the machine running the suite is an installed "
+            "InterGenOS system")
+
+    def test_a_healthy_machine_fixture_exists(self):
+        """There was no fixture for a machine that is actually in the state
+        the installer aims for — InterGenOS first in BootOrder and booted.
+        Without one, nothing could assert the good path end to end."""
+        entries, order, current = c2b._parse_efibootmgr(EFIBOOTMGR_INTERGENOS_FIRST)
+        intergenos = [e for e in entries if e.label == "InterGenOS"]
+        self.assertEqual(len(intergenos), 1)
+        self.assertEqual(order[0], intergenos[0].id,
+                         "the healthy fixture does not put InterGenOS first")
+        self.assertEqual(current, intergenos[0].id,
+                         "the healthy fixture is not booted from InterGenOS")
+
+    def test_the_healthy_machine_passes_even_when_it_is_the_recorded_default(self):
+        """The strictest case: the install recorded InterGenOS as the default,
+        so entry-is-first is REQUIRED — and a healthy machine still passes."""
+        with _intent_file(default_boot_target=True) as path:
+            self.assertEqual(
+                self._rc(EFIBOOTMGR_INTERGENOS_FIRST, ["--intent-file", path]), 0)
+
+    def test_a_demoted_entry_fails_when_intergenos_is_the_recorded_default(self):
+        """A positive control. This is the condition measured on a real
+        installation on 2026-08-24: the entry exists, it is in BootOrder, the
+        install recorded it as the default — and the firmware boots something
+        else. An instrument that never fails here could not have detected it.
+        """
+        with _intent_file(default_boot_target=True) as path:
+            self.assertEqual(
+                self._rc(EFIBOOTMGR_GOOD, ["--intent-file", path]), 1)
+
+    def test_a_demoted_entry_is_reported_not_judged_without_intent(self):
+        """Same firmware state, no recorded intent: nothing is asserted, so
+        the exit status is zero. The two cases above and this one differ ONLY
+        in the intent file, which is what makes reading the host's copy a
+        defect rather than a detail."""
+        self.assertEqual(
+            self._rc(EFIBOOTMGR_GOOD,
+                     ["--intent-file", _NO_INTENT_FILE]), 0)
+
+    def test_a_demoted_entry_passes_when_another_os_is_the_recorded_default(self):
+        """The user kept another operating system first and the install
+        recorded that. Being second is then correct, not a fault."""
+        with _intent_file(default_boot_target=False) as path:
+            self.assertEqual(
+                self._rc(EFIBOOTMGR_GOOD, ["--intent-file", path]), 0)
 
 
 if __name__ == "__main__":
