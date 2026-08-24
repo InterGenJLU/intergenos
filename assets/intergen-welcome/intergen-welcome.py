@@ -2026,13 +2026,62 @@ def _model_offer():
 # choice because it IS one — a smaller, faster model is a legitimate preference,
 # not a consolation prize (decided 2026-07-31).
 _TIER_CHOICE_LABELS = {
-    1: ('InterGen 2B — fastest replies, smallest download (about 1 GB)',
+    1: ('InterGen 2B — fastest replies, smallest download',
         'Runs well on any machine.'),
-    2: ('InterGen 9B — the full experience (about 5 GB)',
+    2: ('InterGen 9B — the full experience',
         'The model InterGen is designed around.'),
-    3: ('InterGen 35B — the largest model (about 21 GB)',
+    3: ('InterGen 35B — the largest model',
         'For graphics cards with the memory to hold it.'),
 }
+
+
+def _format_download_size(total_bytes):
+    """A download size in the units a person reads on their own connection."""
+    gib = total_bytes / (1024 ** 3)
+    return f'{gib:.1f} GB' if gib < 10 else f'{gib:.0f} GB'
+
+
+def _tier_label(tier, offer):
+    """The rung's title, with its real download size when the offer states one.
+
+    The size is NOT written into _TIER_CHOICE_LABELS any more. What setup
+    fetches for a rung is recorded in the signed models manifest — model file
+    plus multimodal projector — and `intergen setup --show-offer` now reports
+    that total per offered tier. A constant in this file was wrong on every
+    rung: it understated Tier 1 by about 0.6 GB by omitting the projector and
+    understated Tier 2 by about 1 GB.
+
+    When the offer carries no size (an early-install state, or a manifest this
+    box cannot read) the title simply carries no size. Saying nothing is
+    correct; carrying a number that came from nowhere is not.
+    """
+    title, note = _TIER_CHOICE_LABELS[tier]
+    sizes = (offer or {}).get('download_bytes') or {}
+    total = sizes.get(tier, sizes.get(str(tier)))
+    if total:
+        title = f'{title} (about {_format_download_size(total)})'
+    return title, note
+
+
+def _setup_size_phrase(offer):
+    """The parenthetical in the setup sentence, derived from the offer.
+
+    One offered rung gives one number; several give the range across exactly the
+    rungs THIS box is offered. No offer, or no sizes in it, gives an empty
+    string and the sentence is written without a size clause.
+    """
+    sizes = (offer or {}).get('download_bytes') or {}
+    tiers = [int(t) for t in (offer or {}).get('tiers', [])
+             if int(t) in _TIER_CHOICE_LABELS]
+    totals = sorted(sizes.get(t, sizes.get(str(t))) for t in tiers
+                    if sizes.get(t, sizes.get(str(t))))
+    if not totals:
+        return ''
+    if len(totals) == 1 or totals[0] == totals[-1]:
+        return f'about {_format_download_size(totals[0])}; '
+    return (f'about {_format_download_size(totals[0])} to '
+            f'{_format_download_size(totals[-1])} depending on the model you '
+            f'choose; ')
 
 
 # The driver advisory, in the two forms it is shown: a banner at the top of the
@@ -3289,9 +3338,14 @@ def build_intergen_page():
     setup_title.add_css_class('intergen-summon-key')
     setup_box.append(setup_title)
 
+    # The size comes from the offer, which reads it from the signed models
+    # manifest — not from a constant. The retired sentence said "about 4-5 GB"
+    # whatever the box was offered, and that was wrong on every rung once the
+    # multimodal projector each model pulls is counted.
+    _size_phrase = _setup_size_phrase(offer)
     setup_desc = Gtk.Label(
         label='One click downloads the local AI model that fits your hardware '
-              '(about 4–5 GB; 5–30 minutes) and gets InterGen ready — no '
+              f'({_size_phrase}5–30 minutes) and gets InterGen ready — no '
               'terminal needed. The model runs entirely on your machine; no '
               'conversation data ever leaves your computer. You\'ll be asked to '
               'authenticate once, and the model\'s license is shown as it installs.'
@@ -3319,7 +3373,7 @@ def build_intergen_page():
             choice_box.set_margin_top(6)
             first_radio = None
             for t in tiers:
-                title, note = _TIER_CHOICE_LABELS[t]
+                title, note = _tier_label(t, offer)
                 radio = Gtk.CheckButton(label=f'{title} — {note}')
                 if first_radio is None:
                     first_radio = radio
