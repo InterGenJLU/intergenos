@@ -5,8 +5,8 @@
 WHAT THIS GATE ASSERTS. On a brand-new home directory, under the ordinary
 ``umask 0022`` that a login shell and the user service manager both hand the
 daemon, every directory InterGen creates under ``~/.local/state/intergen``,
-``~/.local/share/intergen`` and ``~/.config/intergen`` is ``0700`` and every
-file inside them is ``0600``.
+``~/.local/share/intergen``, ``~/.config/intergen`` and ``~/.cache/intergen``
+is ``0700`` and every file inside them is ``0600``.
 
 WHY IT EXISTS. Those trees hold the conversation transcripts, the personal-fact
 database, the decision trace, the tool-dispatch ledger, the web-auth token and
@@ -50,13 +50,21 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _DIR_MODE = 0o700
 _FILE_MODE = 0o600
 
-# The three per-user trees InterGen owns end to end. Anything it creates inside
+# The four per-user trees InterGen owns end to end. Anything it creates inside
 # them is its own; the XDG parents above them (~/.local, ~/.local/share, …) are
 # shared with other applications and are deliberately NOT judged here.
+#
+# The cache tree is here because of what it holds, not because of where it
+# sits: ~/.cache/intergen/last-answer.json carries the last delivered answer
+# AND the raw model output behind it, which is the same class of material as a
+# session transcript. A gate that judged three trees would report a clean run
+# with that file world-readable, which is the failure this gate exists to
+# prevent.
 _OWNED_TREES = (
     Path(".local") / "state" / "intergen",
     Path(".local") / "share" / "intergen",
     Path(".config") / "intergen",
+    Path(".cache") / "intergen",
 )
 
 # Positive control. Each entry is an artefact a shipped initialiser must have
@@ -73,6 +81,7 @@ _REQUIRED_FILES = (
     Path(".local") / "share" / "intergen" / "model-tier-choice.json",
     Path(".config") / "intergen" / "dispatch-key",
     Path(".config") / "intergen" / "web-token",
+    Path(".cache") / "intergen" / "last-answer.json",
 )
 
 _REQUIRED_DIRS = (
@@ -80,6 +89,7 @@ _REQUIRED_DIRS = (
     Path(".local") / "share" / "intergen",
     Path(".local") / "share" / "intergen" / "sessions",
     Path(".config") / "intergen",
+    Path(".cache") / "intergen",
 )
 
 
@@ -205,6 +215,16 @@ def _web_token():
     setup._generate_auth_token()
 
 
+def _answer_cache():
+    # The command-line client caches the last answer so `intergen last` can
+    # reprint it, and caches the RAW model output beside it. Driven here
+    # through the shipped delivery function rather than by writing the file,
+    # so the gate measures the create path a real answer takes.
+    from intergen import cli
+    cli._deliver_answer({"response": "permission gate probe",
+                         "full_output": "permission gate raw output"})
+
+
 step("config_logging", _config_logging)
 step("glass", _glass)
 step("metrics", _metrics)
@@ -216,6 +236,7 @@ step("sessions", _sessions)
 step("model_choice", _model_choice)
 step("dispatch_key", _dispatch_key)
 step("web_token", _web_token)
+step("answer_cache", _answer_cache)
 
 # Read the umask back without leaving it changed, so the report proves the
 # whole run really executed under 0022 rather than asserting it.
