@@ -40,7 +40,7 @@ from intergen.conversation_state import (
 from intergen.dispatch_policy import is_system_category_conversation
 from intergen.decomposer import analyze_query, DecomposedQuery
 from intergen.intents import BOOT_PERF_COMPLAINT_PATTERN
-from intergen.memory import MemoryManager
+from intergen.memory import MemoryManager, fact_cache_text
 from intergen.interfaces.router import RouterInterface
 from intergen.state_cache import StateCache
 from intergen.reference import ReferenceIndex
@@ -6311,7 +6311,10 @@ class ConversationRouter(RouterInterface):
         _facts: list[tuple[str, str]] = []
         if self._memory is not None:
             try:
-                _facts = [(f.fact_id, f"{f.key}: {f.value}")
+                # fact_cache_text, not a second spelling of the same string:
+                # the index caches its vectors under this exact text and a
+                # forget clears them by it, so the three have to agree.
+                _facts = [(f.fact_id, fact_cache_text(f.key, f.value))
                           for f in self._memory.list_all()]
             except Exception:  # a memory-store hiccup must not fail a turn
                 _facts = []

@@ -25,6 +25,7 @@ import sqlite3
 import threading
 import time
 import uuid
+import weakref
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -34,6 +35,77 @@ from intergen import glass
 from intergen.private_state import private_dir, private_touch
 
 logger = logging.getLogger(__name__)
+
+
+def fact_cache_text(key: str, value: str) -> str:
+    """The one string a stored fact is known by wherever it is embedded.
+
+    The router builds the ranker's candidate list from this, and the relevance
+    index keys its fact-vector cache on it. Both used to spell it out
+    separately, which meant a forget could only clear the cache by spelling it a
+    third time and hoping all three agreed. One definition makes them agree by
+    construction.
+    """
+    return f"{key}: {value}"
+
+
+# ── Live relevance indexes ───────────────────────────────────────────────────
+#
+# A forget removes a fact from the store. The fact's verbatim text is also held
+# in RAM by every SessionTurnIndex that has ranked it, because fact vectors are
+# cached to avoid re-embedding a fact on every turn. Those indexes belong to
+# conversations, not to the store, and neither side holds a reference to the
+# other — so before this registry existed there was no path from a forget to
+# the copies, and they outlived the forget by the life of the daemon.
+#
+# The set is weak so an index that IS collected leaves nothing behind. In
+# practice an index is not collected while its background worker runs (the
+# worker's target is a bound method, which holds it), and that is exactly the
+# case this exists for: a conversation the user ended, whose cache they can no
+# longer reach and can no longer clear.
+#
+# Process-wide, deliberately. A daemon serves one user from one store across
+# every conversation, so "every live index" is the correct reach. A test process
+# holding two stores can have a forget in one drop a cached vector an index of
+# the other would have reused; the cost of that is one re-embed, never a wrong
+# answer, and erring wide is the right direction for removing something the user
+# asked to have removed.
+_LIVE_INDEXES: "weakref.WeakSet[SessionTurnIndex]" = weakref.WeakSet()
+_LIVE_INDEXES_LOCK = threading.Lock()
+
+
+def _register_live_index(index: "SessionTurnIndex") -> None:
+    """Record an index so a forget can reach the fact vectors it caches."""
+    with _LIVE_INDEXES_LOCK:
+        _LIVE_INDEXES.add(index)
+
+
+def _live_indexes() -> list["SessionTurnIndex"]:
+    """A snapshot, so an index built or collected mid-sweep cannot disturb it."""
+    with _LIVE_INDEXES_LOCK:
+        return list(_LIVE_INDEXES)
+
+
+def forget_fact_vectors(texts) -> int:
+    """Drop the cached vectors of named facts from every live index.
+
+    Returns the number of cache entries actually removed, across all indexes —
+    the number the turn record reports, so a reader can see that the in-memory
+    copies went with the stored rows.
+    """
+    texts = list(texts)
+    if not texts:
+        return 0
+    return sum(index.forget_facts(texts) for index in _live_indexes())
+
+
+def forget_all_fact_vectors() -> int:
+    """Empty every live index's fact-vector cache.
+
+    For "clear all my memories": no stored fact remains, so no cached fact
+    vector is legitimate.
+    """
+    return sum(index.forget_all_facts() for index in _live_indexes())
 
 
 def _default_db_path() -> Path:
@@ -481,9 +553,13 @@ class MemoryManager:
             return [self._row_to_fact(r) for r in rows]
 
     def delete(self, fact_id: str) -> bool:
-        """Soft delete a fact."""
+        """Soft delete a fact, and drop the copy any live index is holding."""
         with self._db_lock:
             conn = self._get_conn()
+            row = conn.execute(
+                "SELECT key, value FROM facts WHERE fact_id = ? AND deleted = 0",
+                (fact_id,)
+            ).fetchone()
             conn.execute(
                 "UPDATE facts SET deleted = 1, updated_at = ? "
                 "WHERE fact_id = ?",
@@ -491,7 +567,11 @@ class MemoryManager:
             )
             conn.commit()
             logger.info("Deleted fact: %s", fact_id)
-            return True
+        # Outside the store lock: the indexes take their own, and a forget must
+        # never be able to deadlock a turn that is ranking facts at that moment.
+        if row is not None:
+            forget_fact_vectors([fact_cache_text(row["key"], row["value"])])
+        return True
 
     def forget_forms(self, subject: str) -> list[str]:
         """The forms of a forget subject that must be matched against the store.
@@ -527,42 +607,58 @@ class MemoryManager:
         return forms
 
     def delete_by_key(self, key: str) -> int:
-        """Soft delete every fact the user's forget subject names.
+        """Soft delete every fact the user's forget subject names, and drop the
+        copies the running daemon is holding in memory.
 
         Soft, deliberately: whether a forgotten fact's bytes must leave the
         database file is a separate storage-contract question, scheduled for a
         later release and not settled here. What IS settled here is that the
-        fact stops being remembered — no active row, nothing recalled, and a
-        truthful reply.
+        fact stops being remembered — no active row, nothing recalled, nothing
+        left in any conversation's fact-vector cache, and a truthful reply.
         """
         forms = self.forget_forms(key)
         with self._db_lock:
             conn = self._get_conn()
             clause = " OR ".join(["key LIKE ? OR value LIKE ?"] * len(forms))
-            params: list[Any] = [time.time()]
+            match_params: list[Any] = []
             for form in forms:
-                params.extend([f"%{form}%", f"%{form}%"])
+                match_params.extend([f"%{form}%", f"%{form}%"])
+            # Read the rows BEFORE hiding them: once the flag is set they are
+            # not selectable by this clause any more, and their text is what
+            # names the cached vectors that have to go with them.
+            going = [fact_cache_text(r["key"], r["value"]) for r in conn.execute(
+                f"SELECT key, value FROM facts WHERE deleted = 0 AND ({clause})",
+                match_params
+            ).fetchall()]
             cursor = conn.execute(
                 "UPDATE facts SET deleted = 1, updated_at = ? "
                 f"WHERE deleted = 0 AND ({clause})",
-                params
+                [time.time(), *match_params]
             )
             conn.commit()
             count = cursor.rowcount
             if count:
                 logger.info("Deleted %d facts matching '%s' (forms: %s)",
                             count, key, ", ".join(repr(f) for f in forms))
-            # A deletion of the user's own data that the record does not mention
-            # is a hole in a writer whose mandate is that there are none. The
-            # subject is the user's own words, which the record already holds in
-            # the turn's prompt; the fact VALUES are not written here.
-            glass.emit("memory", "forget", detail={
-                "subject": key, "forms": forms, "removed": count,
-                "physical": False})
-            return count
+        # Outside the store lock: the indexes take their own, and a forget must
+        # never be able to deadlock a turn that is ranking facts at that moment.
+        cleared = forget_fact_vectors(going)
+        # A deletion of the user's own data that the record does not mention
+        # is a hole in a writer whose mandate is that there are none. The
+        # subject is the user's own words, which the record already holds in
+        # the turn's prompt; the fact VALUES are not written here.
+        glass.emit("memory", "forget", detail={
+            "subject": key, "forms": forms, "removed": count,
+            "session_vectors_cleared": cleared,
+            "physical": False})
+        return count
 
     def clear_all(self) -> int:
-        """Soft delete ALL facts. User-requested full reset."""
+        """Soft delete ALL facts. User-requested full reset.
+
+        Every live index's fact-vector cache goes with them: no stored fact
+        remains, so no cached fact vector is legitimate.
+        """
         with self._db_lock:
             conn = self._get_conn()
             cursor = conn.execute(
@@ -572,10 +668,13 @@ class MemoryManager:
             conn.commit()
             count = cursor.rowcount
             logger.info("Cleared all facts (%d)", count)
-            glass.emit("memory", "forget", detail={
-                "subject": "__ALL__", "forms": [], "removed": count,
-                "physical": False})
-            return count
+        # Outside the store lock, for the reason delete_by_key states.
+        cleared = forget_all_fact_vectors()
+        glass.emit("memory", "forget", detail={
+            "subject": "__ALL__", "forms": [], "removed": count,
+            "session_vectors_cleared": cleared,
+            "physical": False})
+        return count
 
     def clear_sessions(self) -> int:
         """Hard-delete ALL session rows. Used by the test harness to reset
@@ -995,12 +1094,19 @@ class SessionTurnIndex:
         self._turns: list[_IndexedTurn] = []
         self._surfaced: set[int] = set()   # dedup: never inject the same past turn twice
         self._turn_seq = 0                 # count of turns handed to index_turn()
-        # Cache of explicit-fact embeddings, keyed by verbatim "key: value" text.
-        # Facts change rarely and persist across conversations, so their vectors
-        # are embedded once and reused (a changed fact has new text -> a new key;
-        # stale entries are simply never queried). NOT cleared on conversation
-        # reset (facts are cross-session). Bounds a per-turn fact embed to a
-        # one-time cost the first time each fact is seen.
+        # Cache of explicit-fact embeddings, keyed by the verbatim "key: value"
+        # text (fact_cache_text — the same string the router builds the ranker's
+        # candidate list from). Facts change rarely and persist across
+        # conversations, so their vectors are embedded once and reused (a changed
+        # fact has new text -> a new key; stale entries are simply never
+        # queried). NOT cleared on conversation reset — facts are cross-session,
+        # and dropping them every reset would pay to embed them again.
+        #
+        # A FORGET IS THE EXCEPTION, and it is why this index registers itself
+        # below. The cache holds the fact in the user's own words, as the
+        # dictionary key; a fact the user has asked InterGen to forget must not
+        # still be sitting here, in this conversation or in any other, so the
+        # store reaches every live index through the module registry.
         self._fact_vecs: dict[str, Any] = {}
         self._degraded = False             # loud embedder-down flag (Status)
         # Whether the embedder has ever actually ANSWERED. Distinct from
@@ -1031,6 +1137,9 @@ class SessionTurnIndex:
         self._worker = threading.Thread(target=self._drain, name="m2b-index",
                                         daemon=True)
         self._worker.start()
+        # Last, so a half-built index is never handed a forget: everything the
+        # drop methods touch exists by this line.
+        _register_live_index(self)
 
     # Bounded backlog cap. Turns are human-paced (seconds apart) and the embed is
     # milliseconds, so the queue sits near-empty in practice; this only bounds a
@@ -1259,8 +1368,9 @@ class SessionTurnIndex:
         above threshold — relevance-selected + capped, never a standing dump (D8).
 
         `facts`: list of (fact_id, text) where text is the VERBATIM "key: value"
-        the user stored. Fact vectors are embedded lazily and cached; the query
-        vector is REUSED (no extra query embed). Returns list[str] of the verbatim
+        the user stored, spelled by fact_cache_text so the cache, the candidate
+        list and a forget all name a fact the same way. Fact vectors are embedded
+        lazily and cached; the query vector is REUSED (no extra query embed). Returns list[str] of the verbatim
         fact texts (<= max_facts), or [] on embedder-down / nothing relevant."""
         if query_vector is None or not facts:
             return []
@@ -1307,10 +1417,37 @@ class SessionTurnIndex:
                 "threshold": self._threshold})
         return chosen
 
+    def forget_facts(self, texts) -> int:
+        """Drop the cached vectors of facts the user asked InterGen to forget.
+
+        Named exactly, never by resemblance: `texts` are the "key: value"
+        strings of the rows the store just removed, so a fact the user did NOT
+        name keeps its vector and the next turn does not pay to embed it again.
+        Returns the number of entries this index actually held."""
+        dropped = 0
+        with self._lock:
+            for text in texts:
+                if self._fact_vecs.pop(text, None) is not None:
+                    dropped += 1
+        return dropped
+
+    def forget_all_facts(self) -> int:
+        """Drop every cached fact vector (the user cleared all their memories).
+        Returns the number of entries this index was holding."""
+        with self._lock:
+            count = len(self._fact_vecs)
+            self._fact_vecs.clear()
+        return count
+
     def clear(self) -> None:
         """Drop the whole session index + dedup set (ResetConversation). The
         worker thread stays alive across conversations; `degraded` resets and a
-        fresh turn re-evaluates it."""
+        fresh turn re-evaluates it.
+
+        The fact-vector cache is deliberately KEPT: facts are cross-session, so
+        ending a conversation is not a reason to pay to embed them again. What
+        the user forgets leaves through forget_facts(), which is a different
+        question from ending a conversation."""
         with self._lock:
             n = len(self._turns)
             self._turns.clear()
