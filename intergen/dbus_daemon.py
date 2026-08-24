@@ -2300,8 +2300,15 @@ def main(argv: list[str] | None = None) -> None:
     # only runs when a file does not yet exist — a home created by an earlier
     # release still holds 0755 directories and 0644 transcripts, and nothing
     # else would ever correct them. Runs before the daemon is constructed so
-    # the pass never races a writer, and it reports what it actually did:
-    # counts when it changed something, named failures when it could not.
+    # the pass never races a writer.
+    #
+    # ONCE PER HOME, not once per start: the call is made every time, and the
+    # function itself decides, from a marker it left in the state directory.
+    # After the first pass anything loose in those directories is something the
+    # user or another program put there since, and re-tightening it at every
+    # start would silently reverse a sharing decision that is theirs to make.
+    # It reports what it actually did — the paths it changed, by name, and
+    # named failures when it could not.
     private_state.harden_user_state_at_startup()
 
     daemon = InterGenDaemon(

@@ -28,6 +28,12 @@ import sys
 import threading
 from pathlib import Path
 
+from intergen.private_state import (
+    cache_dir_path,
+    private_dir,
+    private_write_text,
+)
+
 # Perceived-latency: the synchronous CLI `ask` blocks on the daemon's .Ask
 # (10-20s on the 2B). Show a client-side hop-1 acknowledgment immediately and a
 # hop-2 "still working" nudge if it runs long — to STDERR, and only when
@@ -171,9 +177,12 @@ def _last_answer_path() -> Path:
     """Cache file holding the last CLI answer + its raw original.
 
     XDG_CACHE_HOME (transient, regenerable) — a convenience cache for
-    `intergen last`, not durable state, so it lives under cache/, not state/."""
-    base = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
-    return Path(base) / "intergen" / "last-answer.json"
+    `intergen last`, not durable state, so it lives under cache/, not state/.
+
+    The directory comes from private_state so that this path, the trees the
+    one-time permission pass walks and the trees the fresh-home permission gate
+    judges cannot drift apart: they are the same resolution, called once."""
+    return cache_dir_path() / "last-answer.json"
 
 
 def _hint(text: str) -> None:
@@ -198,9 +207,15 @@ def _deliver_answer(data: dict) -> None:
     cached_raw = False
     try:
         path = _last_answer_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
+        # Owner-only, and the mode is set at creation: this file holds the
+        # answer AND the raw model output behind it, which is the same class of
+        # material as a session transcript. The temporary file is the one that
+        # is created, so it is the one that has to be private; the rename keeps
+        # the inode and therefore the mode.
+        private_dir(path.parent)
         tmp = path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps({"response": response, "full_output": full}))
+        private_write_text(
+            tmp, json.dumps({"response": response, "full_output": full}))
         tmp.replace(path)
         cached_raw = bool(full)
     except Exception:

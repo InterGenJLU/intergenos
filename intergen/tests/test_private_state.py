@@ -54,6 +54,14 @@ def home(tmp_path, monkeypatch) -> Path:
     monkeypatch.setenv("XDG_STATE_HOME", str(h / ".local" / "state"))
     monkeypatch.setenv("XDG_DATA_HOME", str(h / ".local" / "share"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(h / ".config"))
+    # The cache base belongs here too. The answer cache is one of the trees
+    # this module owns, so leaving XDG_CACHE_HOME pointed at the project
+    # conftest's shared directory made owned_roots() reach outside the
+    # throwaway home: any earlier test in the run that delivered a CLI answer
+    # created a real intergen cache tree there, and the absent-home case then
+    # measured it. Every base the module resolves has to be redirected, not
+    # only the three that existed when this fixture was written.
+    monkeypatch.setenv("XDG_CACHE_HOME", str(h / ".cache"))
     return h
 
 
@@ -229,6 +237,32 @@ def test_console_history_file_is_pre_created_owner_only(home):
 # ── the one-time migration ────────────────────────────────────────────────
 
 
+def _chmod_refusing(target: Path):
+    """A ``chmod`` that refuses one FILE, identified by inode rather than name.
+
+    The module applies a mode through the open descriptor's own entry in
+    /proc/self/fd, deliberately, so that the inode whose mode was measured is
+    the inode whose mode is written and nothing can be substituted in between.
+    A stand-in that matched on the path string would therefore never fire and
+    the test would prove nothing. Matching on the inode identifies the same
+    file whichever name it is reached by, which is what these two tests mean.
+    """
+    real_chmod = os.chmod
+    real_stat = os.stat
+    wanted = real_stat(target).st_ino
+
+    def refusing_chmod(path, mode, *args, **kwargs):
+        try:
+            same = real_stat(path).st_ino == wanted
+        except OSError:
+            same = False
+        if same:
+            raise PermissionError(13, "Operation not permitted")
+        return real_chmod(path, mode, *args, **kwargs)
+
+    return refusing_chmod
+
+
 def _legacy_tree(home: Path) -> dict[str, Path]:
     """Build a home the way a release without owner-only state left it."""
     state = home / ".local" / "state" / "intergen"
@@ -327,13 +361,7 @@ def test_migration_skips_and_reports_symlinks(home):
 def test_migration_records_a_failure_instead_of_raising(home, monkeypatch):
     made = _legacy_tree(home)
     target = str(made["memory"])
-
-    real_chmod = os.chmod
-
-    def refusing_chmod(path, mode, *args, **kwargs):
-        if str(path) == target:
-            raise PermissionError(13, "Operation not permitted")
-        return real_chmod(path, mode, *args, **kwargs)
+    refusing_chmod = _chmod_refusing(made["memory"])
 
     monkeypatch.setattr(private_state.os, "chmod", refusing_chmod)
     report = harden_user_state()
@@ -348,12 +376,7 @@ def test_startup_migration_names_failures_rather_than_reporting_success(
         home, monkeypatch, caplog):
     made = _legacy_tree(home)
     target = str(made["log"])
-    real_chmod = os.chmod
-
-    def refusing_chmod(path, mode, *args, **kwargs):
-        if str(path) == target:
-            raise PermissionError(13, "Operation not permitted")
-        return real_chmod(path, mode, *args, **kwargs)
+    refusing_chmod = _chmod_refusing(made["log"])
 
     monkeypatch.setattr(private_state.os, "chmod", refusing_chmod)
     with caplog.at_level(logging.INFO, logger="intergen.private_state"):
