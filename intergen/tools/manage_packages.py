@@ -14,6 +14,7 @@ Safety tiers:
 from __future__ import annotations
 
 import logging
+import os
 import re
 import shutil
 import subprocess
@@ -21,6 +22,18 @@ from typing import Any
 
 from intergen.interfaces.tool import BaseTool
 from intergen.interfaces.types import SafetyTier, ToolResult, ToolSchema
+
+#: The package manager as the system ships it. A MUTATION names this path
+#: rather than resolving "pkm" through PATH: this branch runs as root, and a
+#: root process that resolves a bare program name is trusting whatever PATH
+#: happens to say. Read-only actions run as the user and keep using the
+#: resolved path, because there is no privilege there to misplace.
+PKM_VENDOR_PATH = "/usr/bin/pkm"
+
+#: Actions that change the system. These are exactly the actions that reach
+#: this tool through the privileged dispatcher, and the only ones the root
+#: invariant below applies to.
+MUTATING_SUBCOMMANDS = ("install", "remove", "uninstall", "update", "upgrade")
 
 log = logging.getLogger(__name__)
 
@@ -152,22 +165,67 @@ class ManagePackagesTool(BaseTool):
         log.info("Package operation: %s %s", action, package or "(all)")
         query = arguments.get("query", "")
 
-        # Check if pkm is available
-        pkm_path = shutil.which("pkm")
-        if pkm_path is None:
+        # THE ROOT INVARIANT (added 2026-08-24).
+        #
+        # A mutating action arrives here only after the privileged dispatcher
+        # has carried it across the boundary once and verified the approval
+        # token, so this code is running as root. That used to be guaranteed by
+        # construction — the builder assembled ["pkexec", "pkm", ...] and the
+        # transition happened here. That construction was removed because it
+        # bought a second crossing with no PolicyKit action and no token; what
+        # it left behind was an ASSUMPTION stated in a comment.
+        #
+        # This is that assumption turned into a check. If a mutating action
+        # reaches this tool without root, the honest outcome is a refusal that
+        # says so — not an unprivileged `pkm install` whose failure the user has
+        # to decode. Read-only actions are deliberately outside the invariant:
+        # they classify AUTO, run as the user by design, and reading your own
+        # machine's state needs no privilege.
+        if action in MUTATING_SUBCOMMANDS and os.geteuid() != 0:
             return ToolResult(
                 call_id="", name=self.name,
                 content=(
-                    "pkm is not installed on this system yet. "
-                    "pkm is this system's native package manager — it needs to "
-                    "be promoted from build tool to system tool before package "
-                    "management is available."
+                    f"the package action '{action}' changes the system and must "
+                    f"run as root, but this process is running as uid "
+                    f"{os.geteuid()} (checked). It was not attempted. A "
+                    f"state-changing package action reaches this tool through "
+                    f"the privileged dispatcher, which is what makes it root; "
+                    f"arriving here without that means the dispatch path was "
+                    f"bypassed."
                 ),
                 success=False,
             )
 
+        # Which pkm to run. A mutation names the vendor path; a read-only action
+        # resolves it. See PKM_VENDOR_PATH.
+        if action in MUTATING_SUBCOMMANDS:
+            pkm_path = PKM_VENDOR_PATH
+            if not (os.path.isfile(pkm_path) and os.access(pkm_path, os.X_OK)):
+                return ToolResult(
+                    call_id="", name=self.name,
+                    content=(
+                        f"the package manager is not present as an executable "
+                        f"at {pkm_path} (checked), so '{action}' was not "
+                        f"attempted."
+                    ),
+                    success=False,
+                )
+        else:
+            pkm_path = shutil.which("pkm")
+            if pkm_path is None:
+                return ToolResult(
+                    call_id="", name=self.name,
+                    content=(
+                        "pkm is not installed on this system yet. "
+                        "pkm is this system's native package manager — it needs to "
+                        "be promoted from build tool to system tool before package "
+                        "management is available."
+                    ),
+                    success=False,
+                )
+
         # Build the pkm command
-        cmd = self._build_command(action, package, query)
+        cmd = self._build_command(action, package, query, pkm_path)
         if cmd is None:
             return ToolResult(
                 call_id="", name=self.name,
@@ -215,18 +273,25 @@ class ManagePackagesTool(BaseTool):
                 success=False,
             )
 
-    def _build_command(self, action: str, package: str, query: str) -> list[str] | None:
-        """Build the pkm command list."""
+    def _build_command(self, action: str, package: str, query: str,
+                       pkm: str = "pkm") -> list[str] | None:
+        """Build the pkm command list.
+
+        `pkm` is the program to invoke, resolved by the caller — absolute in
+        every case the caller produces. It is a parameter rather than a
+        constant so the mutating and read-only paths can differ in WHICH pkm
+        they name without this builder deciding privilege policy.
+        """
         if action == "list":
-            return ["pkm", "list"]
+            return [pkm, "list"]
         elif action == "search":
             if not query:
                 return None
-            return ["pkm", "search", query]
+            return [pkm, "search", query]
         elif action in ("info", "verify"):
             if not package:
                 return None
-            return ["pkm", action, package]
+            return [pkm, action, package]
         # State-changing package actions need root, and by the time this builder
         # runs they already HAVE it. manage_packages is on the privileged
         # allowlist and these actions classify CONFIRM, so the dispatcher routes
@@ -249,9 +314,9 @@ class ManagePackagesTool(BaseTool):
         elif action in ("install", "remove", "uninstall"):
             if not package:
                 return None
-            return ["pkm", action, package]
+            return [pkm, action, package]
         elif action in ("update", "upgrade"):
             if package:
-                return ["pkm", "update", package]
-            return ["pkm", "update"]
+                return [pkm, "update", package]
+            return [pkm, "update"]
         return None
