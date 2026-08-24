@@ -17,17 +17,40 @@ The Adwaita widget theme ships as the GTK4 baseline and is customized through a 
 
 ### Keyboard Shortcuts
 
-| Shortcut | Action |
-|---|---|
-| `Super` | Open Activities overview |
-| `Super + Tab` | Switch between open applications |
-| `Super + \`` | Switch between windows of the same application |
-| `Ctrl + Alt + T` | Open GNOME Terminal |
-| `Super + L` | Lock screen |
-| `Super + Arrow keys` | Snap window to half-screen or quadrant |
-| `Super + Shift + Arrow` | Move window to adjacent monitor |
-| `Ctrl + Alt + Del` | Power off / restart dialog |
-| `Alt + F2`, then `r`, then `Enter` | Restart GNOME Shell (without logging out) |
+Every row below is a binding that is active on an installed R001.1 system.
+Each was read back with `gsettings get` rather than taken from the GNOME
+defaults, and you can check any of them the same way — the schema and key are
+given so the claim is verifiable rather than asserted.
+
+| Shortcut | Action | Where the binding lives |
+|---|---|---|
+| `Super` | Open Activities overview | `org.gnome.mutter overlay-key` |
+| `Super + A` | Show all applications | `org.gnome.shell.keybindings toggle-application-view` |
+| `Super + Tab` / `Alt + Tab` | Switch between open **applications** | `org.gnome.desktop.wm.keybindings switch-applications` |
+| `Super + \`` / `Alt + \`` | Switch between windows of the same application | `org.gnome.desktop.wm.keybindings switch-group` |
+| `Super + L` | Lock screen | `org.gnome.settings-daemon.plugins.media-keys screensaver` |
+| `Super + Left` / `Super + Right` | Tile window to the left or right half | `org.gnome.mutter.keybindings toggle-tiled-left` / `toggle-tiled-right` |
+| `Super + Up` | Maximize window | `org.gnome.desktop.wm.keybindings maximize` |
+| `Super + Down` | Unmaximize window | `org.gnome.desktop.wm.keybindings unmaximize` |
+| `Super + H` | Minimize window | `org.gnome.desktop.wm.keybindings minimize` |
+| `Super + Shift + Left/Right` | Move window to adjacent monitor | `org.gnome.desktop.wm.keybindings move-to-monitor-left` / `move-to-monitor-right` |
+| `Super + Page Up` / `Page Down` | Switch workspace | `org.gnome.desktop.wm.keybindings switch-to-workspace-left` / `switch-to-workspace-right` |
+| `Ctrl + Alt + Del` | Log out | `org.gnome.settings-daemon.plugins.media-keys logout` |
+| `Alt + F2` | Open the run-a-command prompt | `org.gnome.desktop.wm.keybindings panel-run-dialog` |
+
+**Not bound in R001.1.** These are worth knowing because other distributions
+bind them and their absence is otherwise silent:
+
+- `Ctrl + Alt + T` does not open a terminal — `custom-keybindings` is empty, and
+  GNOME has no built-in terminal key to inherit. Launch the terminal from the
+  overview or the dock.
+- `Super + D` does not show the desktop — `show-desktop` has no binding.
+- There are no corner or quadrant tiling bindings; `Super + Arrow` tiles to
+  halves and maximizes or unmaximizes, as listed above.
+- `Ctrl + Alt + Del` logs out. It does not open a power-off or restart dialog;
+  use the system menu at the top right for those.
+- `Alt + F2`, then `r` restarts GNOME Shell on X11 only. R001.1 runs Wayland,
+  where the shell cannot restart in place and the command is unavailable.
 
 ## 2. What's Installed by Default
 

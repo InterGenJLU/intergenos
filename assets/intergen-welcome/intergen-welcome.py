@@ -1909,20 +1909,28 @@ def build_shortcuts_page():
     subtitle.set_margin_bottom(20)
     box.append(subtitle)
 
+    # Every pair below is a binding that is ACTIVE on the installed system.
+    # Read back with gsettings on 2026-08-24 rather than copied from GNOME's
+    # documented defaults, because four of the previous entries named bindings
+    # this release does not set: Ctrl+Alt+T (custom-keybindings is empty),
+    # Super+D (show-desktop is unbound), Super+Tab (bound to switch-
+    # applications, not workspaces) and Super+Down (unmaximize only, with
+    # minimize on Super+H). A first-run page that teaches a key combination
+    # which does nothing is worse than one that teaches fewer.
     shortcuts_left = [
         ('Super', 'Activities overview'),
         ('Super + A', 'All applications'),
-        ('Alt + Tab', 'Switch windows'),
-        ('Ctrl + Alt + T', 'Open terminal'),
+        ('Alt + Tab', 'Switch applications'),
+        ('Super + `', 'Switch windows of one app'),
         ('Super + L', 'Lock screen'),
     ]
 
     shortcuts_right = [
         ('Super + Left/Right', 'Tile to half screen'),
         ('Super + Up', 'Maximize window'),
-        ('Super + Down', 'Restore / minimize'),
-        ('Super + D', 'Show desktop'),
-        ('Super + Tab', 'Switch workspaces'),
+        ('Super + Down', 'Unmaximize window'),
+        ('Super + H', 'Minimize window'),
+        ('Super + Page Up/Down', 'Switch workspace'),
     ]
 
     columns = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
