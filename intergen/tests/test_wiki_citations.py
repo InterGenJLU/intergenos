@@ -153,8 +153,27 @@ class ManifestGeneratorTests(unittest.TestCase):
     """The scripts/build-wiki-page-manifest.py generator: correctness + determinism."""
 
     @staticmethod
+    def _generator_path():
+        return (Path(__file__).resolve().parents[2]
+                / "scripts" / "build-wiki-page-manifest.py")
+
+    def setUp(self):
+        """Skip when the repository's scripts/ is not beside us.
+
+        This file is SHIPPED into the installed package. The generator under
+        test is a repository tool that is not installed with it, so on a user's
+        machine the import below raises FileNotFoundError and the test fails
+        for a reason that has nothing to do with the code it covers. Same class
+        and same answer as the packaging-tree skips elsewhere in this suite; in
+        a checkout the script is present and the test runs in full.
+        """
+        if not self._generator_path().is_file():
+            self.skipTest("repository scripts/ not present (installed layout)")
+
+    @staticmethod
     def _load_generator():
-        path = Path(__file__).resolve().parents[2] / "scripts" / "build-wiki-page-manifest.py"
+        path = (Path(__file__).resolve().parents[2]
+                / "scripts" / "build-wiki-page-manifest.py")
         spec = importlib.util.spec_from_file_location("wiki_page_manifest", path)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
