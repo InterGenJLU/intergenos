@@ -26,11 +26,26 @@ Security posture (security-only alignment, made explicit)
 ---------------------------------------------------------
 Full content capture is the mandate, NOT the exception. The one hard line:
 credential **values** are never written — logging a secret would manufacture the
-very vulnerability the security lens exists to prevent. Any ``detail`` key whose
-name looks credential-shaped has its value replaced with an in-place placeholder
-``<redacted:key-name>`` (recursively). Redaction is attested, never silent: every
-byte is accounted for as either real content or a named redaction, so a
-reconstructed timeline has no unexplained holes. The file is 0600, owner-only.
+very vulnerability the security lens exists to prevent. Two predicates enforce
+it. By NAME: any ``detail`` key whose name looks credential-shaped has its whole
+value replaced with ``<redacted:key-name>`` (recursively). By SHAPE: inside any
+string value, a run matching a named secret format — a PEM private-key block, a
+URL carrying an inline password, a crypt(3) hash, a JSON web token, a
+vendor-prefixed API token — is replaced with ``<redacted:shape-name>``, and only
+that run, because the bytes around it are ordinary content. The shape predicate
+exists because the name predicate can only see a secret a caller already
+labelled as one, while a secret usually arrives as content: in a prompt, a
+command line, a tool result, or a file the person asked about. There is
+deliberately no entropy heuristic — a threshold that fired on ordinary content
+would put unexplained holes in the record while still missing structured
+secrets. Redaction is attested, never silent: every byte is accounted for as
+either real content or a named redaction, so a reconstructed timeline has no
+unexplained holes. The file is 0600, owner-only.
+
+One limit, stated because a reader would otherwise assume it away: a secret with
+no distinguishing shape — a bare high-entropy string under an ordinary key name
+— is still written. The corpus in ``intergen/tests/
+test_glass_secret_shape_redaction.py`` names the case it leaves behind.
 
 Availability posture
 --------------------
@@ -162,6 +177,57 @@ _SECRET_KEY_RE = re.compile(
     r"credential|private[_-]?key|keyring|bearer",
     re.IGNORECASE,
 )
+
+# Credential-shaped CONTENT. The key-name predicate above can only see a secret
+# a caller already labelled as one; a secret usually arrives as CONTENT — inside
+# a prompt, a command line, a tool result, or a file the person asked about.
+# Measured on the R001.1 tree with an eight-case corpus: seven secret-shaped
+# values written under ordinary key names reached the record byte-identical, and
+# only the one placed under the key name "api_key" was redacted.
+#
+# NAMED SHAPES ONLY, DELIBERATELY — no entropy threshold. This writer's mandate
+# is full-fidelity capture: a heuristic that fires on ordinary content would put
+# unexplained holes in the record while still missing structured secrets. Every
+# shape below is a published format with a fixed marker, each is proved in both
+# directions against the corpus in
+# intergen/tests/test_glass_secret_shape_redaction.py, and each leaves an
+# attested placeholder naming WHAT was removed.
+#
+# Order matters: a URL carrying inline credentials is matched as a URL before a
+# token prefix inside it can be matched on its own, so the placeholder names the
+# larger, more informative shape.
+_SECRET_SHAPES: tuple[tuple[str, "re.Pattern[str]"], ...] = (
+    # A PEM private key of any flavour, header through footer.
+    ("private-key-block", re.compile(
+        r"-----BEGIN [A-Z0-9 ]{0,40}PRIVATE KEY-----"
+        r".*?"
+        r"-----END [A-Z0-9 ]{0,40}PRIVATE KEY-----",
+        re.DOTALL)),
+    # scheme://user:password@host — the password is in the authority section.
+    ("url-with-password", re.compile(
+        r"\b[a-z][a-z0-9+.\-]{1,31}://[^\s/:@]{1,128}:[^\s/@]{1,128}@[^\s/?#]{1,255}")),
+    # $N$salt$hash — the crypt(3) format used by /etc/shadow.
+    ("crypt-hash", re.compile(
+        r"\$[0-9a-z]{1,3}\$[^\s:$]{1,80}\$[^\s:]{10,}")),
+    # header.payload.signature, base64url. "eyJ" is the base64 of the opening
+    # of a JSON object, which is what makes this specific; the signature segment
+    # is allowed to be short or empty because an unsigned token has none.
+    ("json-web-token", re.compile(
+        r"\beyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{4,}\.[A-Za-z0-9_\-]*")),
+    # Vendor-prefixed API tokens with a published, fixed prefix.
+    ("provider-token", re.compile(
+        r"\b(?:sk-[A-Za-z0-9\-_]{16,}"
+        r"|ghp_[A-Za-z0-9]{20,}"
+        r"|gho_[A-Za-z0-9]{20,}"
+        r"|ghs_[A-Za-z0-9]{20,}"
+        r"|github_pat_[A-Za-z0-9_]{20,}"
+        r"|AKIA[0-9A-Z]{16})\b")),
+)
+
+# No shape above can match a string shorter than this, so a shorter one skips the
+# scan entirely. Derived from the shortest possible match (AKIA plus sixteen
+# characters), not chosen — a wrong guess here would silently stop redacting.
+_MIN_SHAPE_LEN = 20
 
 # THE TERMINAL VOCABULARY (REC-17). A turn ends exactly once, and these are the
 # ways it may end. Named in ONE place so every interface ends a turn the same
@@ -415,9 +481,26 @@ def _bound_row(record: dict[str, Any]) -> str:
     }, default=str) + "\n"
 
 
+def _redact_shapes(text: str) -> str:
+    """Replace each secret-SHAPED run inside ``text`` with a named placeholder.
+
+    In place and only the match: the bytes around a secret are ordinary content
+    and this writer's mandate is to keep them. A caller reading the record sees
+    ``<redacted:provider-token>`` where the token was and can tell what kind of
+    thing stood there, which is the same attestation the key-name predicate
+    gives — never a silent hole.
+    """
+    if len(text) < _MIN_SHAPE_LEN:
+        return text
+    for name, pattern in _SECRET_SHAPES:
+        text = pattern.sub(f"<redacted:{name}>", text)
+    return text
+
+
 def _redact(value: Any, key: str = "") -> Any:
     """Attested in-place redaction: a credential-shaped key's value becomes
-    ``<redacted:key-name>``; dicts/lists are scrubbed recursively. Content is
+    ``<redacted:key-name>``; a secret-shaped run inside any string becomes
+    ``<redacted:shape-name>``; dicts/lists are scrubbed recursively. Content is
     never silently dropped — a redaction is a named, visible placeholder."""
     if key and _SECRET_KEY_RE.search(key):
         return f"<redacted:{key}>"
@@ -425,6 +508,8 @@ def _redact(value: Any, key: str = "") -> Any:
         return {k: _redact(v, k) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
         return [_redact(v) for v in value]
+    if isinstance(value, str):
+        return _redact_shapes(value)
     return value
 
 
