@@ -46,6 +46,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from typing import TYPE_CHECKING, Callable
@@ -117,6 +118,23 @@ MIN_SHARED_WORDS = 4
 # concept that straddles a boundary findable from either side.
 _CHUNK_WORDS = 140
 _CHUNK_OVERLAP = 30
+
+# STARTUP EMBEDDING. The installed wiki is large — 2 116 passages from 87 pages
+# on a shipped system — and the embedding server it is embedded against is
+# started with --parallel 1 and reached through a client with a 30 s timeout.
+# Sending the corpus as one request therefore fails every time, and fails
+# expensively: the client gives up while the server keeps working through the
+# batch, so the single slot is still occupied when the web server begins
+# accepting turns, and the first thing a user asks queues behind an answer
+# nobody is waiting for any more.
+#
+# So the corpus goes in bounded requests, and the work is bounded in time as
+# well as in size: startup belongs to the daemon, and an index that cannot be
+# finished now can be finished later rather than degrading to keyword matching
+# until the machine is rebooted.
+_EMBED_BATCH = 32          # passages per request to the embedding server
+_STARTUP_EMBED_BUDGET_S = 10.0   # how long index construction may spend embedding
+_RESUME_EMBED_BUDGET_S = 2.0     # how long one resume_embedding() pass may spend
 
 _WORD_RE = re.compile(r"[a-z0-9]+")
 # Same retrieval-noise stopwords as intergen.howto (kept local — the two indexes
@@ -299,6 +317,12 @@ class WikiRetrieval:
         self._embedder = embedder
         self._chunks: list[WikiChunk] = []
         self._embeddings: "np.ndarray | None" = None
+        # Partial embedding progress. _vectors holds one row per chunk already
+        # embedded, in chunk order, so a pass that runs out of budget or meets a
+        # server that is not up can be continued from where it stopped instead
+        # of starting the whole corpus again.
+        self._vectors: list[list[float]] = []
+        self._embed_failed_logged = False
         self._build_index()
 
     # ── index ────────────────────────────────────────────────────────────────
@@ -333,16 +357,72 @@ class WikiRetrieval:
         self._embed_chunks()
 
     def _embed_chunks(self) -> None:
+        """Embed as much of the corpus as the startup budget allows."""
+        self._embed_pass(_STARTUP_EMBED_BUDGET_S, at_startup=True)
+
+    def resume_embedding(self) -> bool:
+        """Continue embedding an index that started degraded. Returns True once
+        the whole corpus is embedded.
+
+        Safe to call repeatedly and cheap to call when there is nothing to do:
+        a fully embedded index sends no request at all. That matters — the
+        embedding server has one slot, and a recovery path that re-embedded on
+        every call would compete with live turns for it.
+        """
+        if self.embeddings_ready:
+            return True
+        self._embed_pass(_RESUME_EMBED_BUDGET_S, at_startup=False)
+        return self.embeddings_ready
+
+    @property
+    def embeddings_ready(self) -> bool:
+        """True when EVERY passage is embedded and the embedding retrieval path
+        is live. A partially embedded index still answers by keyword, so that a
+        query is never scored against a corpus that is only half present."""
+        return self._embeddings is not None
+
+    def _embed_pass(self, budget_s: float, *, at_startup: bool) -> None:
+        """Embed chunks in bounded requests until the corpus is done, the budget
+        is spent, or the embedding server stops answering.
+
+        Progress is kept either way. The first request of a pass is always
+        attempted, so a small wiki still embeds in exactly one call however
+        tight the budget is."""
         if not self._chunks or self._embedder is None:
             return
-        vectors = self._embedder([c.text for c in self._chunks])
-        if not vectors:
-            logger.warning("wiki-retrieval: embedder returned nothing; keyword "
-                           "fallback only")
-            return
+        began = time.monotonic()
+        total = len(self._chunks)
+        while len(self._vectors) < total:
+            if self._vectors and (time.monotonic() - began) >= budget_s:
+                logger.info(
+                    "wiki-retrieval: embedded %d of %d passage(s) within the "
+                    "%.1fs budget; the rest are pending and the keyword path "
+                    "serves until they are embedded",
+                    len(self._vectors), total, budget_s)
+                return
+            start = len(self._vectors)
+            batch = [c.text for c in self._chunks[start:start + _EMBED_BATCH]]
+            vectors = self._embedder(batch)
+            if not vectors or len(vectors) != len(batch):
+                # The server is down, or answered something unusable. Keep what
+                # is already embedded and stop; resume_embedding() picks it up.
+                if not self._embed_failed_logged:
+                    self._embed_failed_logged = True
+                    logger.warning(
+                        "wiki-retrieval: embedding request for passages %d-%d "
+                        "returned nothing usable; %d of %d embedded so far, "
+                        "keyword fallback serves until the rest are embedded",
+                        start, start + len(batch) - 1, len(self._vectors),
+                        total)
+                return
+            self._vectors.extend(vectors)
+        self._finalise_embeddings()
+
+    def _finalise_embeddings(self) -> None:
+        """Publish the completed vectors as the matrix retrieve() scores against."""
         try:
             np = _np()
-            arr = np.asarray(vectors, dtype=np.float32)
+            arr = np.asarray(self._vectors, dtype=np.float32)
             if arr.ndim != 2 or arr.shape[0] != len(self._chunks):
                 raise ValueError("shape mismatch")
             self._embeddings = arr
@@ -350,6 +430,7 @@ class WikiRetrieval:
             logger.warning("wiki-retrieval: malformed chunk embeddings (%s); "
                            "keyword fallback only", type(exc).__name__)
             self._embeddings = None
+            self._vectors = []
 
     @property
     def available(self) -> bool:
