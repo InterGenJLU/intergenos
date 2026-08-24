@@ -1,6 +1,6 @@
 name: rocsparse
 version: "7.2.4"
-release: 1
+release: 2  # r2: roctracer is declared, as a build AND a runtime dependency. librocsparse.so links libroctx64.so.4 — the annotation library roctracer ships — and nothing declared it, so on the R001.1 install of 2026-08-22 that library was absent and every consumer of the sparse linear-algebra library, the inference engine included, failed at the dynamic linker. r1: prior release.
 description: ROCm sparse linear algebra library (BLAS for sparse matrices on GPU)
 license: MIT
 homepage: https://github.com/ROCm/rocm-libraries
@@ -27,10 +27,15 @@ dependencies:
   - rocm-hip
   - rocprim
   - rocblas
+  # The marker/annotation library this one links against.
+  - roctracer
   host: []
   runtime:
   - rocm-hip
   - rocblas
+  # librocsparse.so records libroctx64.so.4 in DT_NEEDED, and roctracer is
+  # the package that ships it.
+  - roctracer
 verify_paths:
   - /opt/rocm/lib/librocsparse.so
   - /opt/rocm/lib/cmake/rocsparse
