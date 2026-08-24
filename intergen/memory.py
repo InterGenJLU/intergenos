@@ -493,19 +493,72 @@ class MemoryManager:
             logger.info("Deleted fact: %s", fact_id)
             return True
 
+    def forget_forms(self, subject: str) -> list[str]:
+        """The forms of a forget subject that must be matched against the store.
+
+        A forget arrives in the words the user typed — "my backup drive" — and
+        the store holds what the EXTRACTOR wrote. Those are not the same string:
+        :meth:`_shift_perspective` turns "my" into "your" on the way in, and the
+        same sentence also lands under the bare noun. Matching only the user's
+        literal words found neither, so nothing was deleted and InterGen replied
+        that it had no such memory while still holding it.
+
+        Three forms, in the order they are tried, each derived from what the
+        store side actually does rather than guessed at:
+          · the subject as the user said it;
+          · the subject with the same perspective shift the store applied;
+          · the subject with a leading possessive removed, which is the form the
+            extractor's bare-noun row is keyed under.
+        Duplicates are dropped so a subject that is already in one of these
+        forms is not matched three times.
+
+        The forms WIDEN what a forget matches, and that is the point — but only
+        as far as the store side widened what it wrote. A subject naming nothing
+        the user stored still matches nothing.
+        """
+        forms: list[str] = []
+        for candidate in (subject,
+                          self._shift_perspective(subject),
+                          re.sub(r"^(?:my|your|our|the)\s+", "", subject,
+                                 flags=re.IGNORECASE)):
+            candidate = candidate.strip()
+            if candidate and candidate not in forms:
+                forms.append(candidate)
+        return forms
+
     def delete_by_key(self, key: str) -> int:
-        """Soft delete all facts matching a key pattern."""
+        """Soft delete every fact the user's forget subject names.
+
+        Soft, deliberately: whether a forgotten fact's bytes must leave the
+        database file is a separate storage-contract question, scheduled for a
+        later release and not settled here. What IS settled here is that the
+        fact stops being remembered — no active row, nothing recalled, and a
+        truthful reply.
+        """
+        forms = self.forget_forms(key)
         with self._db_lock:
             conn = self._get_conn()
+            clause = " OR ".join(["key LIKE ? OR value LIKE ?"] * len(forms))
+            params: list[Any] = [time.time()]
+            for form in forms:
+                params.extend([f"%{form}%", f"%{form}%"])
             cursor = conn.execute(
                 "UPDATE facts SET deleted = 1, updated_at = ? "
-                "WHERE deleted = 0 AND (key LIKE ? OR value LIKE ?)",
-                (time.time(), f"%{key}%", f"%{key}%")
+                f"WHERE deleted = 0 AND ({clause})",
+                params
             )
             conn.commit()
             count = cursor.rowcount
             if count:
-                logger.info("Deleted %d facts matching '%s'", count, key)
+                logger.info("Deleted %d facts matching '%s' (forms: %s)",
+                            count, key, ", ".join(repr(f) for f in forms))
+            # A deletion of the user's own data that the record does not mention
+            # is a hole in a writer whose mandate is that there are none. The
+            # subject is the user's own words, which the record already holds in
+            # the turn's prompt; the fact VALUES are not written here.
+            glass.emit("memory", "forget", detail={
+                "subject": key, "forms": forms, "removed": count,
+                "physical": False})
             return count
 
     def clear_all(self) -> int:
@@ -519,6 +572,9 @@ class MemoryManager:
             conn.commit()
             count = cursor.rowcount
             logger.info("Cleared all facts (%d)", count)
+            glass.emit("memory", "forget", detail={
+                "subject": "__ALL__", "forms": [], "removed": count,
+                "physical": False})
             return count
 
     def clear_sessions(self) -> int:
