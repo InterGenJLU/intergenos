@@ -33,7 +33,7 @@ import threading
 import time
 from typing import Any, Callable
 
-from intergen import eval_consent, glass, safety
+from intergen import eval_consent, glass, private_state, safety
 from intergen.interfaces.dbus import InterGenDBusInterface
 from intergen.interfaces.types import (
     AnswerLinkage,
@@ -2294,6 +2294,15 @@ def main(argv: list[str] | None = None) -> None:
               "Never use on a production daemon."),
     )
     args = parser.parse_args(argv)
+
+    # Bring an EXISTING home up to owner-only before anything opens a file in
+    # it. New files are created 0600/0700 by intergen.private_state, but that
+    # only runs when a file does not yet exist — a home created by an earlier
+    # release still holds 0755 directories and 0644 transcripts, and nothing
+    # else would ever correct them. Runs before the daemon is constructed so
+    # the pass never races a writer, and it reports what it actually did:
+    # counts when it changed something, named failures when it could not.
+    private_state.harden_user_state_at_startup()
 
     daemon = InterGenDaemon(
         eval_consent_marker=(

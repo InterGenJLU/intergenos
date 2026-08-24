@@ -41,6 +41,7 @@ from typing import Any, Callable
 from intergen import net_diagnostics
 from intergen.interfaces.hardware import ModelManagerInterface
 from intergen.interfaces.types import HardwareTier, HardwareTierLevel, ModelInfo
+from intergen.private_state import private_dir, private_write_text
 
 log = logging.getLogger(__name__)
 
@@ -500,7 +501,7 @@ class ModelManager(ModelManagerInterface):
             return  # Apache models don't need acceptance records
         import datetime
         legal_dir = _user_legal_dir()
-        legal_dir.mkdir(parents=True, exist_ok=True)
+        private_dir(legal_dir)
         acceptance_filename = f"{model.filename}-accepted.json"
         record = {
             "model": model.name,
@@ -517,7 +518,7 @@ class ModelManager(ModelManagerInterface):
             "accepted_by": accepted_by or os.environ.get("USER", "unknown"),
         }
         target = legal_dir / acceptance_filename
-        target.write_text(json.dumps(record, indent=2) + "\n")
+        private_write_text(target, json.dumps(record, indent=2) + "\n")
         log.info("License acceptance recorded for %s at %s",
                  model.name, target)
 

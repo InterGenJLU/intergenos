@@ -64,6 +64,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from intergen.private_state import private_dir
+
 logger = logging.getLogger(__name__)
 
 # --- Wire-format + policy constants ------------------------------------------
@@ -216,7 +218,7 @@ def generate_dispatch_key(path: Path | None = None) -> str:
     if path is None:
         path = dispatch_key_path()
     key = secrets.token_hex(KEY_BYTES)
-    path.parent.mkdir(parents=True, exist_ok=True)
+    private_dir(path.parent)
     # Create with restrictive perms from the outset (avoid a brief world-readable
     # window between write and chmod): open via os.open with mode, then write.
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, KEY_MODE)

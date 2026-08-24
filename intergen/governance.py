@@ -57,6 +57,8 @@ from enum import IntEnum
 from pathlib import Path
 from typing import Any, Callable
 
+from intergen.private_state import private_dir, private_write_text
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -415,14 +417,14 @@ class GovernanceEngine:
         # tier reverts to the safe baseline (OBSERVE) on the next restart — the
         # conservative direction. We log + audit rather than propagate (G3-15).
         try:
-            self._tier_config_path.parent.mkdir(parents=True, exist_ok=True)
+            private_dir(self._tier_config_path.parent)
             payload = json.dumps({
                 "autonomy_tier": int(self._autonomy_tier),
                 "tier_name": self._autonomy_tier.name,
             }, indent=2)
             tmp = self._tier_config_path.with_suffix(
                 self._tier_config_path.suffix + ".tmp")
-            tmp.write_text(payload)
+            private_write_text(tmp, payload)
             os.replace(tmp, self._tier_config_path)
         except OSError as e:
             logger.warning("tier persist failed (%s): %s — tier %s is in effect "

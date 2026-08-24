@@ -42,6 +42,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from intergen.interfaces.types import HardwareTierLevel
+from intergen.private_state import private_dir, private_write_text
 
 log = logging.getLogger(__name__)
 
@@ -296,8 +297,8 @@ def record_choice(tier: HardwareTierLevel, *, home: Path | None = None,
         "advisory_shown": bool(advisory_shown),
     }
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(record, indent=2) + "\n")
+        private_dir(path.parent)
+        private_write_text(path, json.dumps(record, indent=2) + "\n")
         log.info("Model-tier choice recorded (tier %d) at %s", tier.value, path)
     except OSError as e:
         log.warning("Could not record the model-tier choice at %s: %s", path, e)

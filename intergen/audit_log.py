@@ -28,11 +28,11 @@ from __future__ import annotations
 import json
 import logging
 import os
-import stat
 from pathlib import Path
 from typing import Iterator
 
 from intergen.interfaces.provenance import AuditRecord
+from intergen.private_state import private_dir, private_open
 
 logger = logging.getLogger(__name__)
 
@@ -53,34 +53,17 @@ def write_record(record: AuditRecord, log_path: Path | None = None) -> bool:
     """
     path = log_path if log_path is not None else default_log_path()
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        # Lock down log directory to user-only (0o700) so other users on a
-        # shared system cannot read tool-dispatch history.
-        try:
-            os.chmod(
-                path.parent,
-                stat.S_IRWXU,  # 0o700
-            )
-        except OSError:
-            # Best-effort; if chmod fails on the parent (e.g. it's a symlink
-            # to a path the user does not own), keep going. The file itself
-            # gets 0o600 below.
-            pass
+        # The mode is set AT CREATION rather than chmod-ed afterwards. The
+        # previous create-then-chmod sequence left a window in which the file
+        # already held its first dispatch record and was still world-readable,
+        # and the chmod ran only on the FIRST write — a log that already
+        # existed at 0644 (rotated in by logrotate, restored from a backup)
+        # was never corrected.
+        private_dir(path.parent)
 
         line = json.dumps(record.to_jsonl_dict(), separators=(",", ":"))
-        first_write = not path.exists()
-        with open(path, "a", encoding="utf-8") as f:
+        with private_open(path, "a", encoding="utf-8") as f:
             f.write(line + "\n")
-
-        if first_write:
-            try:
-                os.chmod(
-                    path,
-                    stat.S_IRUSR | stat.S_IWUSR,  # 0o600
-                )
-            except OSError:
-                # Same best-effort posture as the directory chmod.
-                pass
         return True
     except Exception as exc:  # noqa: BLE001 — best-effort log writer
         logger.warning("audit_log: write_record best-effort failure: %s", exc)
@@ -129,7 +112,7 @@ def clear_log(log_path: Path | None = None) -> bool:
             return True
         # Truncate rather than unlink so the inode + 0o600 permissions
         # are preserved across user-data-wipe cycles.
-        with open(path, "w", encoding="utf-8") as f:
+        with private_open(path, "w", encoding="utf-8") as f:
             f.write("")
         return True
     except OSError as exc:

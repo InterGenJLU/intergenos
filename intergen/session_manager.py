@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from intergen.interfaces.types import Message, MessageRole
+from intergen.private_state import private_dir, private_open
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ class SessionManager:
 
     def __init__(self, sessions_dir: Path | None = None) -> None:
         self._dir = sessions_dir or SESSIONS_DIR
-        self._dir.mkdir(parents=True, exist_ok=True)
+        private_dir(self._dir)
 
     # -- Create -------------------------------------------------------------
 
@@ -254,7 +255,10 @@ class SessionManager:
     def _write(self, session_id: str, data: dict[str, Any]) -> None:
         path = self._path_for(session_id)
         tmp = path.with_suffix(".tmp")
-        with open(tmp, "w") as f:
+        # The temporary file carries the transcript too, and rename preserves
+        # whatever mode it was created with — so the mode has to be right on
+        # the temp file, not applied to the target afterwards.
+        with private_open(tmp, "w") as f:
             json.dump(data, f, indent=2, default=str)
         tmp.replace(path)
 

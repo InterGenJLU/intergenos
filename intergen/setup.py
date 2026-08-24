@@ -29,6 +29,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from intergen.private_state import private_dir, private_write_text
+
 logger = logging.getLogger(__name__)
 
 
@@ -96,9 +98,10 @@ def _generate_auth_token() -> str:
     home, uid, gid = _invoking_user()
     token_path = home / ".config" / "intergen" / "web-token"
     token = secrets.token_hex(32)
-    token_path.parent.mkdir(parents=True, exist_ok=True)
-    token_path.write_text(token)
-    token_path.chmod(0o600)
+    private_dir(token_path.parent)
+    # Created 0600 rather than written 0644 and chmod-ed after: the old order
+    # left the token on disk world-readable for the length of a write.
+    private_write_text(token_path, token)
     # Hand the per-user file (and the dirs we may have just created as root) to
     # the invoking user so their session daemon/panel can read it.
     _chown_user(token_path, uid, gid)
@@ -129,7 +132,7 @@ def _generate_dispatch_key() -> None:
 def _ensure_sessions_dir() -> None:
     home, uid, gid = _invoking_user()
     sessions = home / ".local" / "share" / "intergen" / "sessions"
-    sessions.mkdir(parents=True, exist_ok=True)
+    private_dir(sessions)
     _chown_user(sessions, uid, gid)
     _chown_user(sessions.parent, uid, gid)
     _chown_user(sessions.parent.parent, uid, gid)

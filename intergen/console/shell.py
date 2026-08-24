@@ -19,6 +19,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from intergen.private_state import private_touch
+
 from prompt_toolkit import Application
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.completion import WordCompleter
@@ -709,7 +711,11 @@ class ConsoleShell:
 
     async def run(self) -> None:
         """Connect to the InterGen web server and start the REPL."""
-        HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+        # The history file holds everything the user has typed at the
+        # console. FileHistory opens it with a plain append, which would
+        # create it 0644, so it is pre-created owner-only here — an ordinary
+        # open never changes the mode of a file that already exists.
+        private_touch(HISTORY_FILE)
 
         self._client = ConsoleClient(source_interface="console")
 
