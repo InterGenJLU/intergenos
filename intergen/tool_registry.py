@@ -26,6 +26,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+import secrets
+import shutil
 import subprocess
 import time
 from dataclasses import replace
@@ -39,6 +41,22 @@ from typing import Any, Callable
 # constant lives here so the runtime import contract is colocated with
 # the dispatcher that invokes it.
 _PKEXEC_RUNNER_PATH = "/usr/bin/intergen-privileged-runner"
+
+# The tool that asks this account's own systemd user manager to start a
+# short-lived unit. Decided 2026-08-24: the privileged runner is started this
+# way rather than as a direct child of the daemon. The daemon's unit sets
+# NoNewPrivileges=yes, which is inherited by every child and cannot be cleared,
+# and which makes the kernel ignore pkexec's setuid bit — pkexec then refuses
+# before PolicyKit is ever contacted. The user manager does not run under that
+# flag, so a unit it starts begins from the manager's own context. Nothing about
+# the daemon's hardening changes; only who starts the runner does.
+_SYSTEMD_RUN = "systemd-run"
+
+# The user manager's private socket. Its presence is a direct, cheap and
+# side-effect-free measurement of "a systemd user manager is running for this
+# account" — used so a dispatch that fails because no manager is reachable can
+# SAY so rather than blame the runner.
+_USER_MANAGER_SOCKET_RELPATH = os.path.join("systemd", "private")
 
 from intergen.interfaces.tool import BaseTool
 from intergen.interfaces.types import SafetyTier, ToolCall, ToolResult, ToolSchema
@@ -63,6 +81,7 @@ from intergen.dispatch_token import (
     mint_token,
 )
 from intergen.spotlighting import is_wrapped, wrap_ingress_content
+from intergen import privileged_request
 from intergen.interfaces.scanner import (
     ScanContext,
     ScanDirection,
@@ -961,30 +980,51 @@ class ToolRegistry:
     ) -> ToolResult:
         """Route a privileged tool call through the pkexec runner.
 
-        Per the build-system coordinator's 49a585ca T0-4-E integration
-        contract: PolicyKit (authentication) wraps a thin sh shim at
+        PolicyKit (authentication) wraps a thin sh shim at
         /usr/bin/intergen-privileged-runner that hands off to
-        `python3 -m intergen.privileged_dispatch <tool_name> <args_json>`
-        in root context. The privileged dispatcher re-validates against
-        the same _PRIVILEGED_TOOLS allowlist + per-tool argument schema
-        the gate consulted; defense-in-depth at the trust boundary.
+        `python3 -m intergen.privileged_dispatch --request <path>` in root
+        context. The privileged dispatcher re-validates against the same
+        _PRIVILEGED_TOOLS allowlist + per-tool argument schema the gate
+        consulted; defense-in-depth at the trust boundary.
 
-        AI-6 (option iii): a human-approval dispatch token is carried as the
-        runner's THIRD positional argument. The runner re-exports it into its
-        sanitized environment (intergen.dispatch_token.TOKEN_ENV_VAR) and hands
-        the Python dispatcher only <tool> <args> on argv — keeping the token off
-        the dispatcher's /proc/cmdline. privileged_dispatch verifies the token
-        binds a fresh human approval to THIS (tool, args, uid) before executing.
-        This argv-widening (pkexec argv -> runner -ne 3) is a CANONICAL PAIR with
-        the runner's re-export + privileged_dispatch's verify (root side); the
-        three land together. A None token here means a privileged dispatch was
-        reached without a minted approval — fail CLOSED rather than invoke the
-        runner tokenless (the runner/dispatcher will also refuse, but refusing
-        here avoids the pkexec round-trip + makes the invariant explicit).
+        TWO THINGS CHANGED HERE, 2026-08-24, and they share this one call.
 
-        Return shape: ToolResult constructed from the runner's stdout
-        and exit code. subprocess returncode 0 = success;
-        non-zero = failure (validation, refusal, or pkexec auth-deny).
+        1. WHO STARTS THE RUNNER. The daemon no longer starts pkexec as its own
+           child. Its unit sets NoNewPrivileges=yes, which every child inherits
+           and which cannot be cleared; under that flag the kernel ignores
+           pkexec's setuid bit, so pkexec starts unprivileged, sees its own
+           effective uid is not root, and refuses with exit 127 BEFORE PolicyKit
+           is contacted. That is why no install of R001.1 could perform any
+           privileged action. The daemon now asks its own systemd user manager
+           to start a short-lived unit that runs the same pkexec invocation. The
+           manager is not running under the flag, so the unit's process does not
+           carry it. Measured on real hardware: a caller carrying the flag asked
+           the manager to run a probe and the probe reported NoNewPrivs 0, with
+           the caller's own context reporting 1 in the same capture.
+
+           The daemon's hardening is not touched, and the PolicyKit action is
+           the same narrow, purpose-built one whose exec.path names this runner.
+           The unit is deliberately plain: imposing NoNewPrivileges on it would
+           reproduce the defect exactly.
+
+        2. WHAT IS ON THE COMMAND LINE. The tool arguments and the approval
+           token used to be argv words 3, 4 and 5, and a command line is
+           world-readable through /proc for the life of the process. They now
+           travel in an owner-only file (intergen.privileged_request) whose PATH
+           is the only thing passed. pkexec still scrubs the environment; this
+           does not fight that, it changes what needs to survive.
+
+        A None token means a privileged dispatch was reached without a minted
+        approval — fail CLOSED rather than invoke the runner tokenless (the
+        runner and dispatcher also refuse, but refusing here avoids the round
+        trip and makes the invariant explicit). A request that cannot be written
+        also fails closed: the only other way to carry those values is the
+        command line, and that is the exposure being closed.
+
+        Return shape: ToolResult constructed from the runner's stdout and exit
+        code. systemd-run --wait propagates the unit's exit status as its own
+        (measured), so 0 = success and non-zero = failure (validation, refusal,
+        an authentication denial, or the manager itself failing to start it).
         """
         if dispatch_token is None:
             logger.error(
@@ -1000,79 +1040,147 @@ class ToolRegistry:
                 ),
                 success=False,
             )
+
         try:
-            completed = subprocess.run(
-                [
-                    "pkexec",
-                    _PKEXEC_RUNNER_PATH,
-                    tool_name,
-                    json.dumps(arguments),
-                    dispatch_token,
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
+            request_path = privileged_request.write_request(
+                tool_name, arguments, dispatch_token,
             )
-        except FileNotFoundError as exc:
-            # pkexec binary itself missing — shipped by polkit; if absent
-            # the install is broken upstream of this point.
+        except privileged_request.RequestError as exc:
             logger.error(
-                "pkexec binary not found for %s dispatch: %s",
-                tool_name, exc,
+                "cannot stage the privileged request for %s: %s", tool_name, exc,
             )
             return ToolResult(
                 call_id=call.call_id,
                 name=tool_name,
                 content=(
-                    "pkexec binary not available; privileged tool "
-                    f"{tool_name} cannot be dispatched. Install polkit."
+                    f"the privileged request for {tool_name} could not be "
+                    f"written, so the action was not dispatched: {exc}"
                 ),
                 success=False,
             )
-        except OSError as exc:
-            logger.error(
-                "pkexec invocation failed for %s: %s", tool_name, exc,
-            )
-            return ToolResult(
-                call_id=call.call_id,
-                name=tool_name,
-                content=f"pkexec invocation error: {exc}",
-                success=False,
-            )
 
-        if completed.returncode == 0:
-            return ToolResult(
-                call_id=call.call_id,
-                name=tool_name,
-                content=completed.stdout.rstrip("\n"),
-                success=True,
-            )
+        # A recognisable unit name so the dispatch is findable in the journal
+        # afterwards; random so two dispatches in flight cannot collide.
+        unit_name = f"intergen-privileged-{secrets.token_hex(8)}"
+        argv = [
+            _SYSTEMD_RUN, "--user", "--quiet", "--collect", "--wait", "--pipe",
+            f"--unit={unit_name}",
+            # Everything after this is the command. A request path is generated
+            # by us and cannot begin with a dash, but separating explicitly
+            # means no future path shape can be read as an option.
+            "--",
+            "pkexec", _PKEXEC_RUNNER_PATH, request_path,
+        ]
 
-        # Non-zero. pkexec's exit codes are ambiguous by design, and 127 is the
-        # ambiguous one: it covers "the program could not be executed", "the
-        # caller is not authorized", "an authorization could not be obtained",
-        # and internal errors. Exactly one of those is a missing runner.
-        #
-        # Decided 2026-08-24: name only what was MEASURED. The runner path is
-        # checked on the filesystem before anything is said about it, and
-        # pkexec's own stderr is carried out rather than replaced — an
-        # unmeasured cause in a diagnostic sends a person to repair a component
-        # that was never at fault, which is what happened in the field.
-        #
-        #   0   — success (returned above)
-        #   126 — the authentication prompt was dismissed or denied
-        #   127 — see above; disambiguated here by measurement, not assumption
-        #   1   — runner-side refusal or failure; the runner explains itself on
-        #         stdout per its contract, and that explanation leads
-        #   2   — runner argv shape wrong (caller bug)
+        try:
+            try:
+                completed = subprocess.run(
+                    argv, capture_output=True, text=True, check=False,
+                )
+            except FileNotFoundError as exc:
+                logger.error(
+                    "cannot start the privileged runner for %s: %s",
+                    tool_name, exc,
+                )
+                return ToolResult(
+                    call_id=call.call_id,
+                    name=tool_name,
+                    content=(
+                        f"{_SYSTEMD_RUN} is not available, so the privileged "
+                        f"runner for {tool_name} could not be started. It is "
+                        f"part of systemd; if it is missing the installation is "
+                        f"broken upstream of this point."
+                    ),
+                    success=False,
+                )
+            except OSError as exc:
+                logger.error(
+                    "privileged dispatch invocation failed for %s: %s",
+                    tool_name, exc,
+                )
+                return ToolResult(
+                    call_id=call.call_id,
+                    name=tool_name,
+                    content=f"privileged dispatch invocation error: {exc}",
+                    success=False,
+                )
+
+            if completed.returncode == 0:
+                return ToolResult(
+                    call_id=call.call_id,
+                    name=tool_name,
+                    content=completed.stdout.rstrip("\n"),
+                    success=True,
+                )
+
+            return ToolRegistry._privileged_failure_result(
+                call, tool_name, completed,
+            )
+        finally:
+            # The runner removes the request as it reads it. This is the
+            # caller's side of that contract: on any path where the runner
+            # never got there — it was never started, it died early, the
+            # manager refused — the request must not be left on disk, because
+            # a request left behind is an approval token left behind.
+            privileged_request.discard_request(request_path)
+
+    @staticmethod
+    def _privileged_failure_result(
+        call: ToolCall,
+        tool_name: str,
+        completed: Any,
+    ) -> ToolResult:
+        """Build the failure ToolResult, naming only what was MEASURED.
+
+        Exit codes on this path are ambiguous by design. pkexec's 127 covers
+        "the program could not be executed", "the caller is not authorized",
+        "an authorization could not be obtained", and internal errors — exactly
+        one of which is a missing runner. Starting through the user manager adds
+        a second ambiguity: systemd-run reports its OWN failure to reach the
+        manager with a non-zero code too.
+
+        Decided 2026-08-24: name only what was measured. Every component this
+        dispatch depends on is CHECKED on the filesystem before anything is said
+        about it, and the real stderr is carried out rather than replaced. An
+        unmeasured cause in a diagnostic sends a person to repair a component
+        that was never at fault — which is what happened in the field, where a
+        127 was rendered as "runner not found / package may be misinstalled"
+        and people reinstalled a package that was perfectly healthy.
+
+        The headline picks the most specific account available:
+          the runner's own words, if it got far enough to speak;
+          then the two new dependencies, if either is measurably absent;
+          then pkexec's own codes (126 dismissed, 127 disambiguated by the
+          measured runner presence);
+          then a plain statement that it did not complete.
+        """
         stdout_message = completed.stdout.rstrip("\n")
         stderr_message = completed.stderr.rstrip("\n")
+
         runner_present = os.path.exists(_PKEXEC_RUNNER_PATH)
+        systemd_run_present = shutil.which(_SYSTEMD_RUN) is not None
+        manager_present = os.path.exists(
+            os.path.join(
+                os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"),
+                _USER_MANAGER_SOCKET_RELPATH,
+            )
+        )
 
         if stdout_message:
             # The runner reached its own logic and said why it stopped. That is
             # the most specific account anyone has; it leads.
             headline = stdout_message
+        elif not systemd_run_present:
+            headline = (
+                f"{_SYSTEMD_RUN} is not installed (checked), so the privileged "
+                f"runner for {tool_name} could not be started"
+            )
+        elif not manager_present:
+            headline = (
+                f"no systemd user manager is running for this account "
+                f"(checked), so the privileged runner for {tool_name} could not "
+                f"be started. This is not a fault in the installed package"
+            )
         elif completed.returncode == 126:
             headline = (
                 f"the authentication prompt for {tool_name} was dismissed or "
@@ -1094,17 +1202,22 @@ class ToolRegistry:
             headline = f"the privileged dispatch of {tool_name} did not complete"
 
         measured = [
-            f"pkexec exit code: {completed.returncode}",
+            f"exit code: {completed.returncode}",
             f"privileged runner at {_PKEXEC_RUNNER_PATH}: "
             f"{'present' if runner_present else 'ABSENT'} (checked)",
+            f"{_SYSTEMD_RUN}: "
+            f"{'present' if systemd_run_present else 'ABSENT'} (checked)",
+            f"systemd user manager: "
+            f"{'running' if manager_present else 'NOT RUNNING'} (checked)",
         ]
         if stderr_message:
-            measured.append(f"pkexec said: {stderr_message}")
+            measured.append(f"it said: {stderr_message}")
         content = f"{headline} [{'; '.join(measured)}]"
         logger.error(
             "privileged dispatch of %s failed: rc=%s runner_present=%s "
-            "stderr=%r", tool_name, completed.returncode, runner_present,
-            stderr_message,
+            "systemd_run_present=%s manager_present=%s stderr=%r",
+            tool_name, completed.returncode, runner_present,
+            systemd_run_present, manager_present, stderr_message,
         )
         return ToolResult(
             call_id=call.call_id,

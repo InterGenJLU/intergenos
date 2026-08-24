@@ -4,8 +4,9 @@
 
 Proves the root-side canonical-pair behavior in intergen.privileged_dispatch.main():
 
-  1. No INTERGEN_DISPATCH_TOKEN in the env -> refuse (the runner always
-     re-exports the token; its absence is a bypass attempt).
+  1. No request file where the runner said one would be -> refuse.
+  1b. A request carrying an empty token -> refuse (a request without an
+     approval is a bypass attempt).
   2. A token whose signature does not match this install's key -> refuse.
   3. A token bound to different (tool, args, uid) than dispatched -> refuse.
   4. An expired token -> refuse.
@@ -13,14 +14,21 @@ Proves the root-side canonical-pair behavior in intergen.privileged_dispatch.mai
   6. Replaying the SAME valid token a second time -> refuse (the persistent,
      file-locked consumed-nonce store rejects the spent approval-nonce).
 
+Updated 2026-08-24 for the request-file transport: the token no longer arrives
+in an environment variable. It arrives, with the tool name and the arguments,
+inside an owner-only request file whose path is main()'s only argument. These
+tests write that file the same way the unprivileged side does, so what they
+drive is the real contract rather than a convenient one.
+
 main() uses sys.exit() on refusal (via _fail) and returns 0/1 on the execute
 path. pkexec/the real registry are mocked; the signing key is injected; the
-consumed-nonce store is redirected to a tempdir so no real /var/lib path is
-touched.
+consumed-nonce store and the runtime directory are both redirected to tempdirs
+so no real /var/lib path and no real dispatch state are touched.
 """
 
 from __future__ import annotations
 
+import json
 import os
 import pwd
 import tempfile
@@ -30,8 +38,11 @@ from unittest import mock
 
 from intergen import dispatch_token as dt
 from intergen import privileged_dispatch as pd
+from intergen import privileged_request as pr
 from intergen.interfaces.types import SafetyTier, ToolResult
 
+
+_UNSET = object()
 
 _KEY = "ab" * dt.KEY_BYTES
 _TOOL = "manage_services"
@@ -67,6 +78,16 @@ class TokenVerifyGateTests(unittest.TestCase):
 
         # Redirect the consumed-nonce store to an isolated tempdir.
         self._tmp = tempfile.mkdtemp()
+        # And the runtime directory, so request files never land in the real one.
+        self._runtime = tempfile.TemporaryDirectory(prefix="privverify-")
+        self.addCleanup(self._runtime.cleanup)
+        self._runtime_patch = mock.patch.dict(
+            os.environ, {"XDG_RUNTIME_DIR": self._runtime.name}, clear=False,
+        )
+        self._runtime_patch.start()
+        self.addCleanup(self._runtime_patch.stop)
+        # The token the next _run() will put in the request file.
+        self._token = None
         self._dir_patch = mock.patch.object(
             pd, "_CONSUMED_NONCE_DIR", self._tmp,
         )
@@ -102,7 +123,6 @@ class TokenVerifyGateTests(unittest.TestCase):
             clear=False,
         )
         self._env.start()
-        os.environ.pop(dt.TOKEN_ENV_VAR, None)
 
     def tearDown(self):
         self._env.stop()
@@ -110,10 +130,14 @@ class TokenVerifyGateTests(unittest.TestCase):
         self._key_patch.stop()
         self._path_patch.stop()
         self._dir_patch.stop()
-        os.environ.pop(dt.TOKEN_ENV_VAR, None)
 
     def _set_token(self, token):
-        os.environ[dt.TOKEN_ENV_VAR] = token
+        """Stage the token the next dispatch will carry.
+
+        It goes into the request file at _run() time, exactly as the
+        unprivileged side would write it.
+        """
+        self._token = token
 
     def _mint(self, *, tool=_TOOL, args=None, uid=None, ttl=120, now=None):
         return dt.mint_token(
@@ -122,17 +146,65 @@ class TokenVerifyGateTests(unittest.TestCase):
             key=_KEY, ttl_seconds=ttl, now=now,
         )
 
-    def _run(self):
-        # main() may sys.exit() on refusal; capture that as a non-zero code.
-        return pd.main([_TOOL, __import__("json").dumps(_ARGS)])
+    def _run(self, *, token=_UNSET, tool=_TOOL, args=None):
+        """Write a request the way the unprivileged side does, then dispatch it.
+
+        main() may sys.exit() on refusal; the caller captures that as a
+        non-zero code.
+        """
+        payload_token = self._token if token is _UNSET else token
+        path = pr.write_request(
+            tool, args if args is not None else _ARGS,
+            "" if payload_token is None else payload_token,
+        )
+        return pd.main(["--request", path])
 
     # --- refusal paths -------------------------------------------------------
 
-    def test_missing_token_refuses(self):
+    def test_missing_request_refuses(self):
+        """The runner named a path; nothing is there. Refuse rather than
+        proceed on whatever the caller claimed."""
+        missing = os.path.join(self._runtime.name, "no-such-request")
         with self.assertRaises(SystemExit) as cm:
-            self._run()
+            pd.main(["--request", missing])
         self.assertNotEqual(cm.exception.code, 0)
         self.assertNotIn("executed", self._sink)
+
+    def test_empty_token_in_the_request_refuses(self):
+        """A request without an approval is a bypass attempt, whatever else it
+        carries."""
+        with self.assertRaises(SystemExit) as cm:
+            self._run(token=None)
+        self.assertNotEqual(cm.exception.code, 0)
+        self.assertNotIn("executed", self._sink)
+
+    def test_request_owned_by_another_user_refuses(self):
+        """Root is handed a path by the unprivileged side. A request that is
+        not the calling user's is refused before its contents matter."""
+        path = pr.write_request(_TOOL, _ARGS, self._mint())
+        with mock.patch.dict(
+            os.environ, {"PKEXEC_UID": str(self.uid + 1)}, clear=False,
+        ):
+            with self.assertRaises(SystemExit) as cm:
+                pd.main(["--request", path])
+        self.assertNotEqual(cm.exception.code, 0)
+        self.assertNotIn("executed", self._sink)
+
+    def test_wrong_argv_shape_refuses_with_code_two(self):
+        with self.assertRaises(SystemExit) as cm:
+            pd.main([_TOOL, json.dumps(_ARGS)])
+        self.assertEqual(cm.exception.code, 2)
+        self.assertNotIn("executed", self._sink)
+
+    def test_the_request_is_removed_by_the_dispatch(self):
+        """The approval token does not outlive the dispatch that consumed it."""
+        path = pr.write_request(_TOOL, _ARGS, self._mint())
+        rc = pd.main(["--request", path])
+        self.assertEqual(rc, 0)
+        self.assertFalse(
+            os.path.exists(path),
+            "the request survived the dispatch; an approval token was left on disk",
+        )
 
     def test_bad_signature_refuses(self):
         good = self._mint()
@@ -144,7 +216,7 @@ class TokenVerifyGateTests(unittest.TestCase):
         self.assertNotIn("executed", self._sink)
 
     def test_binding_mismatch_refuses(self):
-        # Token minted for a DIFFERENT args set than dispatched.
+        # Token minted for a DIFFERENT args set than the request carries.
         self._set_token(self._mint(args={"action": "stop", "unit": "sshd"}))
         with self.assertRaises(SystemExit) as cm:
             self._run()

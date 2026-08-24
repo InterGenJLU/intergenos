@@ -24,12 +24,25 @@ These tests pin the contract the diagnostic owes:
   5. The exit code reaches the user, so a report can be acted on without
      guesswork.
 
-Nothing here executes pkexec, the runner, or any tool: `subprocess.run` is
-replaced by a stub that returns canned results and records nothing else.
+Updated 2026-08-24 for the transient-unit dispatch. Starting the runner through
+the user manager adds two components the dispatch now depends on — systemd-run
+itself, and a running user manager — and each is MEASURED for the same reason
+the runner path is: a new failure mode reported as an old one is the same
+false-diagnostic class. The harness therefore controls all three environment
+facts, so a test can put the machine in a chosen state without changing the
+machine. The default for every test below is "everything present", which is what
+keeps these cases about pkexec's own codes.
+
+Nothing here executes systemd-run, pkexec, the runner, or any tool:
+`subprocess.run` is replaced by a stub that returns canned results and records
+nothing else, and the runtime directory is a temporary one so no real dispatch
+state is written.
 """
 
 from __future__ import annotations
 
+import os
+import tempfile
 import unittest
 from unittest import mock
 
@@ -64,22 +77,40 @@ def _call() -> ToolCall:
     )
 
 
-def _dispatch(returncode, stdout, stderr, *, runner_present):
-    """Run the released dispatcher against a canned result and a chosen
-    filesystem state for the runner path. Returns ToolResult.content."""
+def _dispatch(returncode, stdout, stderr, *, runner_present,
+              systemd_run_present=True, manager_present=True):
+    """Run the dispatcher against a canned result and a chosen environment.
+
+    The three *_present flags are the environment facts the diagnostic
+    MEASURES. They default to present so each test below isolates the one
+    condition it is about.
+
+    Returns ToolResult.content.
+    """
     completed = _Completed(returncode, stdout, stderr)
 
     def _fake_exists(path):
         if path == tr._PKEXEC_RUNNER_PATH:
             return runner_present
+        if path.endswith(os.path.join("systemd", "private")):
+            return manager_present
         return False
 
-    with mock.patch.object(tr.subprocess, "run", return_value=completed), \
-            mock.patch("os.path.exists", side_effect=_fake_exists), \
-            mock.patch("os.path.isfile", side_effect=_fake_exists):
-        result = ToolRegistry._dispatch_via_pkexec(
-            _call(), "manage_packages", {"action": "upgrade"}, "token-placeholder",
-        )
+    def _fake_which(name):
+        if name == "systemd-run":
+            return "/usr/bin/systemd-run" if systemd_run_present else None
+        return f"/usr/bin/{name}"
+
+    with tempfile.TemporaryDirectory(prefix="privdiag-") as runtime:
+        with mock.patch.dict(
+                os.environ, {"XDG_RUNTIME_DIR": runtime}, clear=False), \
+                mock.patch.object(tr.subprocess, "run", return_value=completed), \
+                mock.patch.object(tr.shutil, "which", side_effect=_fake_which), \
+                mock.patch.object(tr.os.path, "exists", side_effect=_fake_exists):
+            result = ToolRegistry._dispatch_via_pkexec(
+                _call(), "manage_packages", {"action": "upgrade"},
+                "token-placeholder",
+            )
     return result.content
 
 
@@ -115,8 +146,28 @@ class PrivilegedDiagnosticTruthTests(unittest.TestCase):
             f"a genuinely absent runner must still be reported as absent: {content}",
         )
 
+    def test_the_new_dependencies_are_measured_too(self):
+        """The transition through the user manager added two components. Each
+        is measured, and each measurably changes the message — the same
+        discriminator as the runner path above, applied to the new surface."""
+        both_present = _dispatch(1, "", "same stderr", runner_present=True)
+        no_manager = _dispatch(1, "", "same stderr", runner_present=True,
+                               manager_present=False)
+        no_systemd_run = _dispatch(1, "", "same stderr", runner_present=True,
+                                   systemd_run_present=False)
+        self.assertNotEqual(both_present, no_manager)
+        self.assertNotEqual(both_present, no_systemd_run)
+        self.assertNotEqual(no_manager, no_systemd_run)
+
+    def test_a_missing_user_manager_does_not_blame_the_installed_package(self):
+        content = _dispatch(1, "", "Failed to connect to user scope bus",
+                            runner_present=True, manager_present=False)
+        lowered = content.lower()
+        self.assertNotIn("misinstalled", lowered, content)
+        self.assertIn("not a fault in the installed package", lowered, content)
+
     def test_stderr_is_never_discarded(self):
-        """Every non-zero branch surfaces what pkexec actually said."""
+        """Every non-zero branch surfaces what the dispatch actually said."""
         cases = [
             (126, "", "Error executing command as another user: Request dismissed"),
             (127, "", SETUID_REFUSED),

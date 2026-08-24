@@ -92,11 +92,12 @@ KEY_MODE = 0o600
 #: is the secondary bound.
 DEFAULT_TTL_SECONDS = 120
 
-#: Environment variable the pkexec runner re-exports the token into, read by
-#: privileged_dispatch root-side. Kept off the Python dispatcher's argv (which is
-#: world-visible via /proc/cmdline for the process lifetime); the runner performs
-#: the argv->env handoff so the token lives only in the owner+root-readable env.
-TOKEN_ENV_VAR = "INTERGEN_DISPATCH_TOKEN"
+# The token used to travel to the root side in an environment variable, which
+# the runner re-exported from its own argv. That constant is gone as of
+# 2026-08-24: the token now travels with the tool name and the arguments inside
+# an owner-only request file (intergen.privileged_request), and the request
+# file's path is the only thing on any command line. Naming an environment
+# channel nothing reads would be a claim without a mechanism behind it.
 
 
 # --- Failure taxonomy --------------------------------------------------------
@@ -350,7 +351,7 @@ def verify_token(
     replay protection lives root-side where the persistent nonce store is).
 
     Args:
-        token: the token string from the pkexec runner's TOKEN_ENV_VAR.
+        token: the token string, read root-side out of the request file.
         tool / args / uid: what root actually received — the token must bind to
             exactly these.
         key: signing key hex. If None, resolve via `username` (root side) using

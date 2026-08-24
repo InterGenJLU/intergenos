@@ -13,17 +13,27 @@ boundary.
 
 Argv contract (from `intergen-privileged-runner`):
 
-    python3 -m intergen.privileged_dispatch <tool_name> <args_json>
+    python3 -m intergen.privileged_dispatch --request <request_path>
+
+That is the whole command line, and it is the point. The tool name, the
+arguments and the human-approval token are read from the request file, which is
+owner-only and is removed as it is read (intergen.privileged_request). They used
+to be argv words instead, and a command line is world-readable through
+/proc/<pid>/cmdline for the life of the process — on this image /proc carries no
+hidepid, so any local account could read the approval token and the tool
+arguments out of the process listing while a dispatch was in flight. Changed
+2026-08-24, together with the transport module and the runner shim; the three
+are one contract and move together.
+
+The request file is not trusted merely because its path was handed to us. Before
+its contents are believed it is checked: a regular file, opened without
+following symlinks, owned by PKEXEC_UID, mode exactly 0600, single-linked. A
+file that fails any of those is a refused dispatch, not a best-effort read.
 
 Environment (set by the runner from pkexec):
 
-    PKEXEC_UID                — calling user's uid
-    PKEXEC_USER               — calling user's username (resolved via getent passwd)
-    INTERGEN_DISPATCH_TOKEN   — AI-6 human-approval dispatch token (the runner
-                                re-exports it here from its argv[3] so it stays
-                                off this dispatcher's /proc/cmdline). Verified
-                                against (tool, args, uid) BEFORE execution; an
-                                absent or invalid token is a refused dispatch.
+    PKEXEC_UID   — calling user's uid
+    PKEXEC_USER  — calling user's username (resolved via getent passwd)
 
 Exit code:
 
@@ -51,12 +61,12 @@ args against the same allowlist + schema the gate consulted.
 from __future__ import annotations
 
 import fcntl
-import json
 import os
 import sys
 import time
 
 from intergen import dispatch_token
+from intergen import privileged_request
 from intergen.tool_registry import ToolRegistry, _PRIVILEGED_TOOLS
 from intergen.interfaces.types import SafetyTier
 
@@ -156,15 +166,14 @@ def main(argv: list[str] | None = None) -> int:
     """
     args = argv if argv is not None else sys.argv[1:]
 
-    if len(args) < 2:
+    if len(args) != 2 or args[0] != "--request":
         _fail(
             "privileged_dispatch: usage: python3 -m intergen.privileged_dispatch "
-            "<tool_name> <args_json>",
+            "--request <request_path>",
             exit_code=2,
         )
 
-    tool_name = args[0]
-    args_json = args[1]
+    request_path = args[1]
 
     # PKEXEC_UID + PKEXEC_USER are set by the runner shim. Their absence
     # means this module was invoked outside the runner — a bug or a
@@ -174,6 +183,31 @@ def main(argv: list[str] | None = None) -> int:
             "privileged_dispatch: PKEXEC_UID unset; refusing to run "
             "outside the pkexec runner context.",
         )
+
+    # PKEXEC_UID presence was checked above; read both identity vars here
+    # robustly (a non-int UID or a missing USER is a malformed runner context).
+    # This has to happen BEFORE the request is read, because the uid is what the
+    # request's ownership is checked against.
+    try:
+        uid = int(os.environ["PKEXEC_UID"])
+        user = os.environ["PKEXEC_USER"]
+    except (KeyError, ValueError) as exc:
+        _fail(
+            f"privileged_dispatch: PKEXEC identity unavailable/invalid "
+            f"({type(exc).__name__}: {exc}); refusing.",
+        )
+
+    # Read the request. We are root and the path came from the unprivileged
+    # side, so privileged_request checks what it is about to read rather than
+    # trusting it — regular file, no symlink, owned by the calling user, mode
+    # 0600, single-linked — and removes the file as it reads. A request we
+    # cannot fully trust is a privileged action we do not run.
+    try:
+        tool_name, arguments, token = privileged_request.read_request(
+            request_path, expected_uid=uid,
+        )
+    except privileged_request.RequestError as exc:
+        _fail(f"privileged_dispatch: {exc}; refusing dispatch.")
 
     # Re-validate tool_name against the PRIVILEGED_STATE_CHANGING
     # allowlist. The gate already filtered, but the privileged boundary
@@ -185,51 +219,19 @@ def main(argv: list[str] | None = None) -> int:
             f"(allowlist: {sorted(_PRIVILEGED_TOOLS)})",
         )
 
-    # Parse args_json. Malformed JSON is a caller bug — the gate
-    # validated upstream, so a bad payload here means tampering or a
-    # serialization mismatch. Refuse.
-    try:
-        arguments = json.loads(args_json)
-    except json.JSONDecodeError as exc:
-        _fail(
-            f"privileged_dispatch: args_json is not valid JSON: {exc}",
-        )
-
-    if not isinstance(arguments, dict):
-        _fail(
-            f"privileged_dispatch: args_json must decode to a JSON "
-            f"object; got {type(arguments).__name__}",
-        )
-
     # AI-6 (option iii) — HUMAN-APPROVAL TOKEN VERIFY, BEFORE execute.
     # The canonical-pair keystone: root stops *trusting* that the upstream
     # provenance gate fired (it is doubly inert and cannot be trusted to pick
     # which calls get human review) and instead *verifies* that a human
     # approved THIS exact (tool, args, uid) in the review modal. The token was
-    # minted on that approval and re-exported into our env by the runner. No
+    # minted on that approval and travelled here inside the request file. No
     # valid, fresh, single-use token ⇒ refuse. This is the independent backstop
     # at the privilege crossing that the allowlist/schema re-checks above
     # cannot provide (they re-derive from the same SOT the caller used; the
     # token proves a human, not the AI, authorized this).
-    token = os.environ.get(dispatch_token.TOKEN_ENV_VAR)
-    if not token:
-        _fail(
-            f"privileged_dispatch: no dispatch token "
-            f"({dispatch_token.TOKEN_ENV_VAR} unset); refusing. Every "
-            f"privileged action requires a human-approved, cryptographically "
-            f"bound token.",
-        )
-
-    # PKEXEC_UID presence was checked above; re-read both identity vars here
-    # robustly (a non-int UID or a missing USER is a malformed runner context).
-    try:
-        uid = int(os.environ["PKEXEC_UID"])
-        user = os.environ["PKEXEC_USER"]
-    except (KeyError, ValueError) as exc:
-        _fail(
-            f"privileged_dispatch: PKEXEC identity unavailable/invalid "
-            f"({type(exc).__name__}: {exc}); refusing.",
-        )
+    #
+    # read_request has already refused an empty or non-string token, so the
+    # only remaining question is whether it verifies.
 
     # verify_token resolves the signing key via PKEXEC_USER's home
     # (dispatch_key_path_for_user) — NOT HOME=/root, which the runner sets.

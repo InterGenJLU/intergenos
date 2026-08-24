@@ -1,10 +1,20 @@
 #!/bin/sh
 # /usr/bin/intergen-privileged-runner — pkexec target for InterGen privileged tools.
 #
-# Invoked by intergen via pkexec when a tool the provenance gate
-# classified PRIVILEGED_STATE_CHANGING (per RFC v0.1 §6) has been
-# authorized for execution. Runs as root after PolicyKit authentication
-# against org.intergenos.intergen.privileged-tool.
+# Invoked via pkexec when a tool the provenance gate classified
+# PRIVILEGED_STATE_CHANGING (per RFC v0.1 §6) has been authorized for
+# execution. Runs as root after PolicyKit authentication against
+# org.intergenos.intergen.privileged-tool.
+#
+# HOW IT IS STARTED (changed 2026-08-24). The assistant no longer runs pkexec
+# as its own child. Its systemd user unit sets NoNewPrivileges=yes, which every
+# child inherits and which cannot be cleared once set; under that flag the
+# kernel ignores pkexec's setuid bit, so pkexec starts unprivileged, sees its
+# own effective uid is not root, and refuses before PolicyKit is contacted at
+# all. The assistant now asks its own systemd user manager to start a
+# short-lived unit that runs the same pkexec invocation; that manager does not
+# carry the flag, so this runner is reached. Nothing in the assistant's own
+# hardening changed, and the PolicyKit action gating this path is unchanged.
 #
 # Two-layer security:
 #   1. PolicyKit (this runner is the exec.path target) — handles
@@ -12,34 +22,34 @@
 #      auth_admin_keep).
 #   2. intergen.privileged_dispatch (Python entry point) — handles
 #      AUTHORIZATION (validates tool name against allowlist + validates
-#      arguments per-tool + executes the underlying command). Argument
-#      validation lives in Python because the privileged-tool allowlist
-#      and per-tool argument schemas live with the intergen tool registry
-#      (intergen/tool_registry.py), and the runner must call back into
-#      that registry to enforce the same contract intergen enforced
-#      pre-pkexec.
+#      arguments per-tool + verifies the human-approval token + executes the
+#      underlying command). That validation lives in Python because the
+#      privileged-tool allowlist and the per-tool argument schemas live with the
+#      intergen tool registry (intergen/tool_registry.py), and the runner must
+#      call back into that registry to enforce the same contract intergen
+#      enforced before the privilege crossing.
 #
-# Argv contract (from the intergen caller via pkexec):
-#   $1 — tool name (one of the PRIVILEGED_STATE_CHANGING allowlist;
-#        validated by Python dispatcher against intergen.tool_registry)
-#   $2 — JSON arguments object (validated against the tool's schema
-#        by the Python dispatcher before execution)
-#   $3 — AI-6 dispatch token (per-install-key HMAC binding the human
-#        review-modal approval to this exact tool+args+uid; minted by the
-#        user daemon on approval, verified root-side by the Python
-#        dispatcher BEFORE execution).
+# ARGV CONTRACT (from the intergen caller, through pkexec):
+#   $1 — path to the request file.
 #
-# The runner is a thin shim — $1/$2 pass through to Python untouched
-# (Python does the validation). $3 (the token) does NOT pass through on
-# the Python dispatcher's argv: it is re-exported into the sanitized
-# environment as INTERGEN_DISPATCH_TOKEN, because the dispatcher's argv is
-# world-visible via /proc/<pid>/cmdline for the process lifetime, whereas
-# the environment is owner+root-readable only. pkexec scrubs the caller's
-# environment, so the runner's argv is the only channel that survives the
-# privilege crossing — the runner performs the argv->env handoff. The
-# runner's other job is to set up a clean root-context environment +
-# propagate the calling user's identity for downstream tools that care
-# about it (e.g. write_file's path-ownership semantics).
+# That is the whole command line, and it is the point. The request file holds
+# the tool name, the arguments, and the human-approval token; it is owner-only
+# and it is removed as it is read. Those three values used to be argv words
+# instead, and a command line is world-readable through /proc/<pid>/cmdline for
+# the life of the process — on this image /proc carries no hidepid, so any local
+# account could read the approval token and the tool arguments out of the
+# process listing while a dispatch was in flight. pkexec deliberately scrubs the
+# environment as it crosses the privilege boundary, which is why argv was used
+# in the first place; carrying a PATH rather than the values themselves keeps
+# that property and publishes nothing. The path is not a secret; the contents
+# are, and they are protected by file permissions.
+#
+# The runner stays a thin shim: $1 passes through to Python untouched, and
+# Python does every check — including verifying that the file it is about to
+# read is a regular file, owned by the calling user, mode 0600, unlinked and
+# not a symlink. The runner's other job is to set up a clean root-context
+# environment and propagate the calling user's identity for downstream tools
+# that care about it (e.g. write_file's path-ownership semantics).
 
 set -eu
 
@@ -54,23 +64,17 @@ if [ -z "${PKEXEC_UID}" ]; then
     exit 1
 fi
 
-# Argv strict equality: tool_name + args_json + dispatch_token, no extras.
-# Widened from `-ne 2` to `-ne 3` for the AI-6 token (the 3rd arg) while
-# keeping STRICT equality so a malicious caller still cannot smuggle extra
-# positional arguments past this entry point. The Python dispatcher
-# receives only $1 + $2 on argv by design (the token goes via env, below);
-# any further argv would either be silently ignored or could be exploited
-# via downstream argv-shaping. Reject early at the runner layer.
-if [ "$#" -ne 3 ]; then
-    printf 'intergen-privileged-runner: usage: intergen-privileged-runner <tool_name> <args_json> <dispatch_token> (exactly 3 args)\n' >&2
+# Argv strict equality: the request path, no extras. Narrowed from three
+# arguments to one when the tool name, arguments and token moved into the
+# request file. STRICT equality is kept so a caller still cannot smuggle extra
+# positional arguments past this entry point — any further argv would either be
+# silently ignored or could be exploited via downstream argv-shaping.
+if [ "$#" -ne 1 ]; then
+    printf 'intergen-privileged-runner: usage: intergen-privileged-runner <request_path> (exactly 1 arg)\n' >&2
     exit 2
 fi
 
-TOOL_NAME="$1"
-shift
-ARGS_JSON="$1"
-shift
-TOKEN="$1"
+REQUEST_PATH="$1"
 shift
 
 # Resolve the calling user's name (downstream tools may need
@@ -100,16 +104,10 @@ export HOME=/root
 export PKEXEC_UID
 export PKEXEC_USER
 
-# AI-6 token handoff: re-export the token into the sanitized environment so
-# the Python dispatcher reads it via INTERGEN_DISPATCH_TOKEN, NOT argv. This
-# keeps the token off /proc/<pid>/cmdline (world-visible) — it lives only in
-# the owner+root-readable environment. The dispatcher's argv stays exactly
-# tool_name + args_json (2 positional), unchanged from the pre-token shape.
-export INTERGEN_DISPATCH_TOKEN="${TOKEN}"
-
-# Hand off to the Python dispatcher. Argv stays positional + clean (2 args;
-# the token is in the env, above). python3 is guaranteed-present per
-# packages/core/python (the intergen Python module ships with the same
-# package set; if python3 disappears, intergen itself is broken upstream of
-# this point and the issue surfaces before any tool dispatch).
-exec /usr/bin/python3 -m intergen.privileged_dispatch "${TOOL_NAME}" "${ARGS_JSON}"
+# Hand off to the Python dispatcher. Its argv is the request path and nothing
+# else; the tool name, the arguments and the approval token are read from the
+# file, which the dispatcher removes as it reads. python3 is guaranteed-present
+# per packages/core/python (the intergen Python module ships with the same
+# package set; if python3 disappears, intergen itself is broken upstream of this
+# point and the issue surfaces before any tool dispatch).
+exec /usr/bin/python3 -m intergen.privileged_dispatch --request "${REQUEST_PATH}"
