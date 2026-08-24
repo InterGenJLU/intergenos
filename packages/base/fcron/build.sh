@@ -47,6 +47,67 @@ do_install() {
     # it as a real dir at install time (split-brain runtime dirs).
     rm -rf "$DESTDIR/var/run"
 
+    # PAM configuration ships as owned payload in /etc/pam.d/, one file per
+    # service name (hook-contract wave: hooks may not write package-ownable
+    # bytes; same shape as the `at` recipe's /etc/pam.d/atd).
+    #
+    # WHAT WAS WRONG. Upstream's `make install` writes its PAM configuration to
+    # ${DESTDIR}/etc/pam.conf — the monolithic file Linux-PAM reads ONLY when
+    # /etc/pam.d does not exist. This system always has /etc/pam.d, so those
+    # bytes have never had any effect on any installed system, and upstream's
+    # own install document warns that this is what happens. With no service
+    # file, PAM falls through to /etc/pam.d/other — pam_warn plus pam_deny —
+    # and refused every caller:
+    #     pam_warn(fcrontab:auth): ... user=[<the installed user>]
+    #     ERROR Could not authenticate user using PAM (7): Authentication failure
+    # (measured on the R001.1 installed system, 2026-08-24). A package also has
+    # no business owning a system-wide /etc/pam.conf, so it is removed from the
+    # staging tree rather than shipped.
+    #
+    # WHAT THE STACKS SAY. `auth required pam_permit.so` keeps upstream's own
+    # default and its reason: WHO MAY use fcron is decided by /etc/fcron.allow
+    # and /etc/fcron.deny, not by a password challenge — and there is nobody to
+    # challenge, because the daemon runs unattended and fcrontab is also run
+    # from scripts. A prompting module here would make this package able to
+    # block waiting for a person. The account stack is pam_unix, so a locked or
+    # expired account is still refused; that check needs no input from anyone.
+    rm -f "${DESTDIR}/etc/pam.conf"
+    install -dm755 "${DESTDIR}/etc/pam.d"
+    for _svc in fcron fcrontab; do
+        cat > "${DESTDIR}/etc/pam.d/${_svc}" << EOF
+# Begin /etc/pam.d/${_svc}
+auth     required pam_permit.so
+account  required pam_unix.so
+session  required pam_unix.so
+# End /etc/pam.d/${_svc}
+EOF
+        chmod 644 "${DESTDIR}/etc/pam.d/${_svc}"
+    done
+
+    # The authorization files decide who may edit a crontab, and fcrontab must
+    # be able to READ them. It is setuid root and setgid fcron, and it drops
+    # the root it was given before opening them, keeping only the fcron group
+    # the setgid bit grants — so root:root left them unopenable and fcrontab
+    # refused every user with
+    #     ERROR could not open /etc/fcron.allow: Permission denied
+    # (measured on the R001.1 installed system, 2026-08-24). The `fcron` group
+    # has no members by design: the setgid bit is how the grant travels, not
+    # membership. Mode stays 0640 — group-readable, never world-readable, since
+    # these files name who may schedule work. Group ownership is restored in
+    # post_install, because the deploy-extract path's data filter strips
+    # uid/gid, the same reason the binaries and the spool are repaired there.
+    #
+    # These two arrive from upstream's `make install`; asserting them here
+    # makes an upstream change that drops them a loud build failure instead of
+    # a package that silently denies every user.
+    for _authfile in fcron.allow fcron.deny; do
+        if [ ! -f "${DESTDIR}/etc/${_authfile}" ]; then
+            echo "ERROR: ${DESTDIR}/etc/${_authfile} absent after make install — upstream changed its install set; fcrontab authorizes nobody without it." >&2
+            exit 1
+        fi
+        chmod 640 "${DESTDIR}/etc/${_authfile}"
+    done
+
     # Set setuid + setgid bits — fcrontab needs setuid root + setgid fcron
     # for per-user crontab edit; fcrondyn needs setuid root for dynamic
     # tab manipulation. Modes 6755 + 4755 per BLFS 13.0 canonical. Must
@@ -146,7 +207,26 @@ post_install() {
     # path's data filter strips uid/gid and this hook did not restore it for
     # this one binary. With group root the 0710 permission bits grant execute
     # to nobody but root, so the fcron group cannot signal the daemon at all.
-    chown root:fcron /usr/bin/fcrontab /usr/bin/fcrondyn /usr/bin/fcronsighup
+    #
+    # fcrontab is owned by fcron, NOT by root, and that is the whole reason it
+    # can work. It runs setuid to its owner, drops to the invoking user to do
+    # the work, and then asks to become uid 22 to touch the spool. Dropping
+    # privilege that way also sets the SAVED uid, so the only uid it can ever
+    # return to is the one it started as. Owned by root it started as 0, could
+    # never reach 22, and refused every caller with
+    #     ERROR could not change euid to 22: Operation not permitted
+    # Owned by fcron it starts as 22, returns to 22, and the command succeeds —
+    # measured both ways on the R001.1 installed system, 2026-08-24. This also
+    # takes root out of the picture entirely for the user-facing tool, which is
+    # the lower privilege of the two.
+    #
+    # fcrondyn and fcronsighup keep root:fcron: their archive records that
+    # ownership, and neither was measured here (the daemon is not running on
+    # the machine this was measured on, so nothing that reaches its socket
+    # could be exercised). If either turns out to want the same treatment, it
+    # wants the same measurement first.
+    chown fcron:fcron /usr/bin/fcrontab
+    chown root:fcron  /usr/bin/fcrondyn /usr/bin/fcronsighup
     # The chown above clears setuid/setgid on a regular file (kernel behavior,
     # even for root) — so this hook has been shipping fcrontab/fcrondyn INERT
     # on every install to date. Restore the modes AFTER the chown. Package-local
@@ -155,6 +235,18 @@ post_install() {
     chmod 6755 /usr/bin/fcrontab
     chmod 4755 /usr/bin/fcrondyn
     chmod 4710 /usr/bin/fcronsighup
+
+    # The authorization files lose their group the same way everything else in
+    # this hook does — the deploy-extract path's data filter strips uid/gid, so
+    # they land root:root and fcrontab, which drops root before reading them,
+    # cannot open them at all. Restore root:fcron 0640; see do_install for the
+    # measurement.
+    for _authfile in /etc/fcron.allow /etc/fcron.deny; do
+        if [ -f "$_authfile" ]; then
+            chown root:fcron "$_authfile"
+            chmod 640        "$_authfile"
+        fi
+    done
 
     # fcron silently rejects /etc/fcron.conf if owner/perms are wrong.
     # Upstream installs it root:root mode 600; fcron expects root:fcron 644.

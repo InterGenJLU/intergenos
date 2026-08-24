@@ -27,6 +27,7 @@
 # menu-update failure as "the next boot may run the previous kernel."
 #
 # Usage: update-boot-menu.sh <new-kver>
+#        update-boot-menu.sh --print-menu-path
 # Env (test override): GRUB_CFG — menu path (default: resolved below).
 set -u
 
@@ -52,6 +53,18 @@ if [ -z "${GRUB_CFG:-}" ]; then
         fi
     fi
 fi
+
+# --print-menu-path: print the menu path resolved above and exit. The kernel
+# post-install hook calls this so its operator-facing messages name the path
+# THIS script resolved, instead of carrying a second copy that can drift from
+# it — which is exactly what had happened: the hook printed a lowercase
+# /boot/efi/EFI/intergenos/grub.cfg that exists on no installed system. Reads
+# nothing and writes nothing, so it is safe to call from a failure path.
+if [ "${1:-}" = "--print-menu-path" ]; then
+    echo "$GRUB_CFG"
+    exit 0
+fi
+
 NEW_KVER="${1:-}"
 
 _m() { echo "[update-boot-menu] $*"; }

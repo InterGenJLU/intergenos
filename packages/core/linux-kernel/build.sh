@@ -345,11 +345,29 @@ do_install() {
     # Kernel uses INSTALL_MOD_PATH, not DESTDIR
     make INSTALL_MOD_PATH="$DESTDIR" modules_install
 
-    # Install kernel image, System.map, and config
+    # Install kernel image, System.map, and config.
+    #
+    # ALL THREE ARE NAMED FROM ${KVER}, the release-stamped identity
+    # <version>-igos-<release>. System.map and .config used to carry a literal
+    # "6.18.10" — the version with no release — so an installed system had a
+    # release-stamped vmlinuz beside a map and a config that were not. Two
+    # consequences, both measured on the R001.1 install of 2026-08-22:
+    # /boot/config-$(uname -r) — the name the kernel's own documentation, every
+    # out-of-tree module build and `make oldconfig` look for — did not exist,
+    # so those tools saw a kernel with no configuration; and two releases of
+    # one version would overwrite each other's map and config while keep-N
+    # retention kept both images, silently giving a retained kernel the other
+    # one's symbol table.
+    #
+    # -v, not -iv. `cp -i` asks before overwriting, and a build has nobody to
+    # ask: with no terminal it declines the copy and still exits 0, so a
+    # rebuild into a populated staging root would keep the PREVIOUS artifact
+    # and report success. A build must never be able to block on a person, and
+    # it must never turn a refusal into a silent stale file.
     install -vm755 -d "${DESTDIR}/boot"
-    cp -iv arch/x86/boot/bzImage "${DESTDIR}/boot/vmlinuz-${KVER}"
-    cp -iv System.map "${DESTDIR}/boot/System.map-6.18.10"
-    cp -iv .config "${DESTDIR}/boot/config-6.18.10"
+    cp -v arch/x86/boot/bzImage "${DESTDIR}/boot/vmlinuz-${KVER}"
+    cp -v System.map "${DESTDIR}/boot/System.map-${KVER}"
+    cp -v .config "${DESTDIR}/boot/config-${KVER}"
 
     # Install kernel documentation
     install -v -dm755 "${DESTDIR}/usr/share/doc/linux-6.18.10"
