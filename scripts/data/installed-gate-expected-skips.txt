@@ -1,0 +1,16 @@
+# Installed-system gates that may SKIP without refusing a release.
+#
+# One entry per line: <test id><two spaces><the reason a person gave>.
+# Lines starting with # are comments.
+#
+# WHY THIS FILE IS EMPTY, and why an empty file is the right default. A skip
+# means a property was NOT MEASURED. Letting an undeclared skip pass is how a
+# tier reports green on gates that never ran, which is the failure the tier was
+# built to end. An entry here is a considered statement that a named gate cannot
+# apply on the validation machine and that shipping without it is accepted —
+# so it carries a reason, it is reviewed like any other change, and it is read
+# by scripts/check-release-validation.py, which refuses any skip not listed.
+#
+# An ABSENT or unreadable file does not mean "anything may skip": the gate
+# refuses outright, the same way the public-language gate refuses when its term
+# list cannot be read.
