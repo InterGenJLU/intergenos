@@ -2,13 +2,27 @@
 
 WHAT COMPOSITION PROPERTY THIS CATCHES. Two separately correct decisions compose into
 a boundary that cannot work. The shipped user service sets ``NoNewPrivileges=yes``,
-which is the right hardening for a daemon that talks to a language model. The shipped
-privileged-tool path invokes ``pkexec``, which is a setuid-root binary. Under
-``NoNewPrivileges`` the kernel ignores the setuid bit, so ``pkexec`` runs with the
-caller's euid, fails its own ``geteuid() != 0`` check and exits 127 — before PolicyKit
-is contacted at all. Neither half is wrong on its own. Nothing in the source tree
-tests them together, because the unit's hardening does not exist in a source-tree test
-and the dispatch tests stub the pkexec call out.
+which is the right hardening for a daemon that talks to a language model. If the
+privileged-tool path execs ``pkexec`` AS A CHILD OF THAT DAEMON, the kernel ignores
+the setuid bit, so ``pkexec`` runs with the caller's euid, fails its own
+``geteuid() != 0`` check and exits 127 — before PolicyKit is contacted at all.
+Neither half is wrong on its own. Nothing in the source tree tests them together,
+because the unit's hardening does not exist in a source-tree test and the dispatch
+tests stub the call out.
+
+WHO STARTS pkexec IS THE WHOLE QUESTION, AND IT MOVED. The shipped dispatch changed: the daemon no longer execs the helper itself, it asks the user manager to
+start a short-lived unit that does, and passes an opaque request identifier rather
+than the tool name and arguments. The daemon's own ``NoNewPrivileges`` does not reach
+that unit, so the composition above no longer bites.
+
+This gate used to decide it with a substring — ``'"pkexec",' in source`` — and that
+string is present in BOTH shapes, because the new one still names pkexec, just after
+the launcher and a ``--`` separator. Measured against both modules at once on
+2026-08-24: substring True on the R001.1 module, where the boundary really is broken,
+and True on the tree module, where it is fixed. The gate would have gone on reporting
+a defect that had been corrected. The question is now PARSED from the dispatch's argv
+by ``_shape_detectors.daemon_execs_the_setuid_helper_directly``, which is proved in
+both directions by the ordinary suite.
 
 ⛔ THIS GATE NEVER INVOKES pkexec, AND NO GATE IN THIS TIER MAY.
 There is no environment scrub that makes ``pkexec`` unattended-safe: it reaches
@@ -18,7 +32,8 @@ wait for a human is a defect in the test, not a scheduling problem. The boundary
 therefore asserted from three things that can all be read without crossing it:
 
   * the shipped unit's EFFECTIVE settings, read from the service manager;
-  * the mode of the binary the shipped code execs, read from the filesystem;
+  * WHO execs the setuid helper, parsed from the shipped dispatch's argv, and the
+    mode of that helper, read from the filesystem;
   * the shipped error-translation code, exercised with the subprocess call replaced.
 
 EXPECTED TO FAIL ON R001.1 AS SHIPPED.
@@ -26,6 +41,7 @@ EXPECTED TO FAIL ON R001.1 AS SHIPPED.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import stat
@@ -96,18 +112,43 @@ def test_the_shipped_daemon_can_actually_reach_its_authentication_boundary(unit_
     pk_setuid = bool(pk_mode & stat.S_ISUID)
     pk_root = pkexec.stat().st_uid == 0
 
-    # The shipped dispatch path — read from the installed module, not assumed.
+    # The shipped dispatch path — PARSED from the installed module, not assumed and
+    # not searched for a substring. A reader that cannot characterise the shape
+    # raises, and that is reported as a gate failure rather than swallowed: "I could
+    # not tell" must never read as "the boundary is fine".
     from intergen import tool_registry
-    source = Path(tool_registry.__file__).read_text(encoding="utf-8")
-    dispatches_via_pkexec = '"pkexec",' in source
 
-    assert not (nnp and dispatches_via_pkexec and pk_setuid and pk_root), (
+    # Loaded by path, the way this tier's other gates load it. A bare
+    # `from _shape_detectors import ...` depends on the tier directory being on
+    # sys.path, which it is under an ordinary rootdir-relative collection and is
+    # NOT when the tier is invoked the way the checklist invokes it — from
+    # outside any checkout, so the installed package is what resolves. That is
+    # how this import was found broken: by running the tier, not by reading it.
+    _spec = importlib.util.spec_from_file_location(
+        "_igos_shape_detectors", Path(__file__).resolve().parent / "_shape_detectors.py")
+    shape = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(shape)
+
+    source = Path(tool_registry.__file__).read_text(encoding="utf-8")
+    try:
+        daemon_execs_helper = shape.daemon_execs_the_setuid_helper_directly(source)
+    except ValueError as exc:
+        pytest.fail(
+            f"The shipped dispatch path could not be characterised: {exc}\n"
+            f"module: {tool_registry.__file__}\n"
+            "The privilege boundary is therefore unknown on this system, which this "
+            "gate reports as a failure rather than as a pass."
+        )
+
+    assert not (nnp and daemon_execs_helper and pk_setuid and pk_root), (
         "\nNo privileged action can complete from the shipped daemon, and nothing in "
         "the source tree can see it:\n"
         f"  the unit {UNIT} has NoNewPrivileges={unit_properties.get('NoNewPrivileges')} "
         f"in force (MainPID={unit_properties.get('MainPID')}, "
         f"ActiveState={unit_properties.get('ActiveState')});\n"
-        f"  intergen.tool_registry execs pkexec for the privileged-tool tier;\n"
+        f"  intergen.tool_registry execs pkexec AS A CHILD OF THE DAEMON for the\n"
+        f"  privileged-tool tier (parsed from the dispatch's argv, whose first element\n"
+        f"  is the helper itself rather than a transient-unit launcher);\n"
         f"  /usr/bin/pkexec is mode {pk_mode:04o} owned by uid {pkexec.stat().st_uid} — "
         "it depends on its setuid bit to become root.\n"
         "Under NoNewPrivileges the kernel ignores that setuid bit, so pkexec runs as "

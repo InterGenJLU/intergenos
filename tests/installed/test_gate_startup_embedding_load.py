@@ -155,12 +155,45 @@ def test_the_interface_does_not_accept_turns_while_an_embedding_backlog_drains(s
 
 def test_the_startup_submission_is_not_one_request_for_the_whole_corpus(
         installed_intergen_dir):
-    """The shape that makes the deadline unreachable, read from the shipped code."""
-    text = (installed_intergen_dir / "wiki_retrieval.py").read_text(encoding="utf-8")
-    whole_corpus = "self._embedder([c.text for c in self._chunks])" in text
-    assert not whole_corpus, (
+    """The shape that makes the deadline unreachable, PARSED from the shipped code.
+
+    This used to match one exact source line. It passes today because that line is
+    gone — and it would pass just as readily if the line had merely been wrapped,
+    renamed or reformatted with the shape intact, which is a check that reports the
+    defect's ABSENCE from the absence of a string. Measured 2026-08-24: the exact
+    line is present in the R001.1 module and absent from the tree module, and the
+    tree's builder now embeds in slices of _EMBED_BATCH, so the shape really did
+    move; the reader is changed so that it is the shape being read.
+
+    The defect is one request carrying the WHOLE corpus: a call whose first argument
+    comprehends over ``self._chunks`` with no slice. Batching comprehends over a
+    SLICE of the same attribute, so the two are distinguishable in the tree and the
+    assertion is not weakened by reading it there.
+    """
+    import ast
+
+    source = (installed_intergen_dir / "wiki_retrieval.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+
+    whole_corpus_calls = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or not node.args:
+            continue
+        first = node.args[0]
+        if not isinstance(first, (ast.ListComp, ast.GeneratorExp)):
+            continue
+        for gen in first.generators:
+            it = gen.iter
+            # `for c in self._chunks` — the whole corpus. A slice
+            # (`self._chunks[a:b]`) is an ast.Subscript and is NOT this shape.
+            if (isinstance(it, ast.Attribute) and it.attr == "_chunks"
+                    and isinstance(it.value, ast.Name) and it.value.id == "self"):
+                whole_corpus_calls.append((node.lineno, ast.unparse(node)[:120]))
+
+    assert not whole_corpus_calls, (
         "\nThe start-up index submits every passage in a single embedding request:\n"
-        "  wiki_retrieval.py: self._embedder([c.text for c in self._chunks])\n"
+        + "".join(f"  wiki_retrieval.py:{line}: {src}\n"
+                 for line, src in whole_corpus_calls) +
         "The server has one decode slot and the client deadline is thirty seconds. "
         "Corpus size is a property of the installed documentation, so this request "
         "grows with the product while the deadline does not."
