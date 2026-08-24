@@ -378,7 +378,24 @@ done
 # (parity with tracker.py:pkg_register_pkm_db). For now `pkm import`
 # closes the loop reliably.
 log "--- Reconciling pkm SQLite DB with on-disk package manifests ---"
-pkm import 2>&1 | sed 's/^/  /' || true
+# Single-flight asserted the same way pkg_install does it, so the build's premise
+# that exactly one pkm runs at a time is checked here too rather than assumed.
+for _sf_lib in /mnt/intergenos/scripts/lib/pkm-single-flight.sh \
+               "$(dirname "${BASH_SOURCE[0]}")/lib/pkm-single-flight.sh"; do
+    if [ -f "$_sf_lib" ]; then . "$_sf_lib"; break; fi
+done
+unset _sf_lib
+if declare -F pkg_run_pkm_single_flight >/dev/null 2>&1; then
+    pkg_run_pkm_single_flight import
+else
+    # No bare fallback here on purpose. Running pkm without the guard is exactly
+    # the unserialized write the guard exists to prevent, and a missing library
+    # in a tree that ships it means a broken checkout, not a normal condition.
+    log "error: scripts/lib/pkm-single-flight.sh was not found, so this phase cannot"
+    log "error: assert that only one pkm runs at a time. Refusing to invoke pkm"
+    log "error: unguarded rather than writing the package database unserialized."
+    exit 1
+fi
 
 # ============================================================================
 # 9.X — Dirty Frag / Fragnesia mitigation modprobe blacklist (2026-05-18)
