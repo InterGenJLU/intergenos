@@ -53,6 +53,8 @@ POST_INSTALL_TARGET = Path(os.environ.get(
     "POST_INSTALL_TARGET",
     os.environ.get("CLASS1_POST_INSTALL_TARGET", "/"),
 ))
+from installer.tests._target_state import MOK_PRESENT, mok_cert_state
+
 MOK_CERT_RELPATH = "var/lib/intergen/mok/mok.crt"
 MOK_CERT = POST_INSTALL_TARGET / MOK_CERT_RELPATH
 
@@ -74,10 +76,12 @@ def _common_prereqs() -> tuple[bool, str]:
             f"POST_INSTALL_TARGET={POST_INSTALL_TARGET} but runtime "
             "probes require target=/"
         )
-    if not MOK_CERT.exists():
-        return False, (
-            f"MOK cert {MOK_CERT} not found (not a Forge-installed target)"
-        )
+    state, reason = mok_cert_state(MOK_CERT)
+    if state is not MOK_PRESENT:
+        # The reason distinguishes "the certificate is not there" from "this
+        # run was not allowed to look at it". Both skip; only one of them is a
+        # statement about the target. See installer/tests/_target_state.py.
+        return False, reason
     return True, ""
 
 

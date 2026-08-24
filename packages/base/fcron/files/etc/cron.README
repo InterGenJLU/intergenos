@@ -1,0 +1,42 @@
+NOTHING RUNS THE SCRIPTS IN THE cron.* DIRECTORIES ON THIS SYSTEM YET.
+
+These four directories are installed and empty:
+
+    /etc/cron.hourly
+    /etc/cron.daily
+    /etc/cron.weekly
+    /etc/cron.monthly
+
+A script you put in one of them will not run. They are read by fcron, this
+system's periodical command scheduler, and fcron.service ships DISABLED, with
+no socket and no D-Bus activation — so nothing starts it and nothing reads
+these directories until you turn it on:
+
+    sudo systemctl enable --now fcron.service
+
+After that, the system fcrontab runs run-parts over each directory on its
+schedule: cron.hourly at 1 minute past every hour, cron.daily at 04:02,
+cron.weekly at 04:22 on Sunday, and cron.monthly at 04:42 on the first of the
+month. run-parts executes every file in the directory that is executable and
+whose name has no extension it is told to ignore, so a script needs chmod +x
+to run, and a leftover like backup.sh.bak is skipped rather than run twice.
+
+To check whether it is on:
+
+    systemctl is-enabled fcron.service
+
+WHY IT SHIPS OFF. A job scheduler runs arbitrary commands as root or as the
+submitting user on a timer, and this package also installs setuid binaries. A
+machine that has been given no jobs to run does not need that running by
+default. The decision is written down, with its full reasoning and the
+consequence of reverting it, in the preset file that carries it:
+
+    /usr/lib/systemd/system-preset/80-intergenos-enable.preset
+
+That file is the single place the default is decided; turning fcron on by
+default is a one-line change there. Enabling the unit on your own machine, as
+above, does not touch it.
+
+The other scheduler on this system, atd, ships off for the same reasons and is
+described in the same file. Log rotation does NOT depend on either one — it
+runs from logrotate.timer, which is enabled.

@@ -204,6 +204,8 @@ class TestClass1Integration(unittest.TestCase):
 POST_INSTALL_TARGET = Path(os.environ.get(
     "CLASS1_POST_INSTALL_TARGET", "/",
 ))
+from installer.tests._target_state import MOK_PRESENT, mok_cert_state
+
 POST_INSTALL_MOK_CERT = POST_INSTALL_TARGET / "var/lib/intergen/mok/mok.crt"
 
 
@@ -216,8 +218,11 @@ def _is_forge_installed_target(target: Path, mok_cert: Path) -> tuple[bool, str]
     """
     if not shutil.which("sbverify"):
         return False, "sbverify not in PATH"
-    if not mok_cert.exists():
-        return False, f"MOK cert {mok_cert} not found (not a Forge-installed target)"
+    state, reason = mok_cert_state(mok_cert)
+    if state is not MOK_PRESENT:
+        # "not there" and "not allowed to look" are different findings and the
+        # reason now says which. See installer/tests/_target_state.py.
+        return False, reason
     if not (target / "boot").is_dir():
         return False, f"{target}/boot missing"
     return True, ""
