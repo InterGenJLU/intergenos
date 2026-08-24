@@ -54,7 +54,10 @@ def register_all_intents(matcher: SemanticMatcher) -> None:
     # resolves to the app launch when X is a known app ("start the terminal"),
     # while a service name not in the list ("start the ssh service") falls
     # through to manage_services. P1 keyword returns the FIRST registered match,
-    # so the more-specific intent must register first; P2 is argmax (order-free).
+    # so the more-specific intent must register first. P2 is an argmax over the
+    # candidates that clear their own threshold, which is order-free — it was NOT
+    # order-free while a higher-scoring ineligible candidate could displace an
+    # eligible one; see intergen/tests/test_semantic_candidate_integrity.py.
     _register_open_application(matcher)
     _register_manage_services(matcher)
     _register_web_search(matcher)

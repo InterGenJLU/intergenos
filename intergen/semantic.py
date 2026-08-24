@@ -432,35 +432,70 @@ class SemanticMatcher(SemanticMatcherInterface):
         query_emb = query_arr[0]
 
         np = _np()
+        # SELECT THE BEST ELIGIBLE CANDIDATE, AND REPORT ITS OWN SCORE.
+        #
+        # These were once one running pair: `best_score` advanced for any candidate
+        # that beat it, while the intent name and tool advanced only for a candidate
+        # that ALSO cleared its own threshold. Per-intent thresholds differ across
+        # the shipped corpus, so a higher-scoring INELIGIBLE candidate could raise
+        # the reported score while the reported name and tool still belonged to a
+        # different, lower-scoring one. The caller's admission gate (score >= 0.85)
+        # was then satisfied by a number that did not belong to the intent being
+        # admitted, and — with the ineligible candidate registered first — an
+        # eligible candidate could be dropped entirely, which made this layer
+        # depend on registration order.
+        #
+        # Selection is now an argmax over the candidates that clear their OWN
+        # threshold, which is order-free, and the returned name, tool and score all
+        # describe that one candidate.
         best_intent = None
-        best_score = 0.0
         best_tool = None
-        # Runner-up (second-best intent) similarity → the top1-top2 ambiguity gap
-        # the decision trace records at the P2 seam. When a new best is found the
-        # old best demotes to runner-up; a non-winning intent that still beats the
-        # current runner-up updates it. Tracked per-intent-max (the same signal
-        # `score` is the max of), so gap = best_score - second_score.
-        second_score = 0.0
+        best_eligible_score = 0.0
+        # Observability, not selection. `top_score` is the highest similarity any
+        # candidate reached regardless of eligibility, so a near-miss under an
+        # intent's own bar stays visible; `runner_up_score` is the best score among
+        # the candidates that were NOT selected, which is the top1-top2 ambiguity
+        # gap the decision trace records at the P2 seam.
+        top_score = 0.0
+        scores: list[float] = []
 
         for intent in intents:
             sims = self._cosine_similarity(query_emb, intent.embeddings)
             max_sim = float(np.max(sims))
+            scores.append(max_sim)
+            if max_sim > top_score:
+                top_score = max_sim
+            if max_sim >= intent.threshold and max_sim > best_eligible_score:
+                best_eligible_score = max_sim
+                best_intent = intent.intent_id
+                best_tool = intent.tool_name
 
-            if max_sim > best_score:
-                second_score = best_score
-                best_score = max_sim
-                if max_sim >= intent.threshold:
-                    best_intent = intent.intent_id
-                    best_tool = intent.tool_name
-            elif max_sim > second_score:
-                second_score = max_sim
+        if best_intent is None:
+            # Nothing cleared its own threshold. Report no intent and no borrowed
+            # score; the near-miss remains visible in top_score.
+            return MatchResult(
+                intent_id=None,
+                score=0.0,
+                layer="embedding",
+                tool_name=None,
+                runner_up_score=0.0,
+                top_score=top_score,
+            )
+
+        others = sorted((s for s in scores if s != best_eligible_score),
+                        reverse=True)
+        # A tie on the winning score still leaves a genuine runner-up.
+        if scores.count(best_eligible_score) > 1:
+            others.insert(0, best_eligible_score)
+        runner_up = others[0] if others else 0.0
 
         return MatchResult(
             intent_id=best_intent,
-            score=best_score,
+            score=best_eligible_score,
             layer="embedding",
             tool_name=best_tool,
-            runner_up_score=second_score,
+            runner_up_score=runner_up,
+            top_score=top_score,
         )
 
     @staticmethod
