@@ -178,7 +178,10 @@ class TwoClientsAlternatingTurnsTests(unittest.TestCase):
         router = _bare_router()
         router._turn_index = None
         router._llm = mock.Mock()
-        router._llm.build_system_messages.return_value = []
+        # side_effect, not return_value: a Mock returns the SAME list on every
+        # call and _build_messages appends to it, so a shared list would make a
+        # second call look like it carried the first's turns.
+        router._llm.build_system_messages.side_effect = lambda **kw: []
         router._wiki_retrieval = None
         state_a, state_b = _new_state(), _new_state()
 
@@ -370,7 +373,10 @@ class SwitchSessionRestoresThatSessionTests(unittest.TestCase):
         router = _bare_router()
         router._turn_index = None
         router._llm = mock.Mock()
-        router._llm.build_system_messages.return_value = []
+        # side_effect, not return_value: a Mock returns the SAME list on every
+        # call and _build_messages appends to it, so a shared list would make a
+        # second call look like it carried the first's turns.
+        router._llm.build_system_messages.side_effect = lambda **kw: []
         router._wiki_retrieval = None
         with _bind(router, conv):
             built = router._build_messages("and what about sunsets",
