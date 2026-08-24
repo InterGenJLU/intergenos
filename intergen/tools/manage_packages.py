@@ -227,19 +227,31 @@ class ManagePackagesTool(BaseTool):
             if not package:
                 return None
             return ["pkm", action, package]
-        # State-changing package actions need root. We escalate via `pkexec`
-        # (NOT `sudo`: the daemon has no tty so sudo can't prompt and would just
-        # fail). pkexec raises PolicyKit's native authentication dialog in the
-        # session — the OS-enforced AUTH-PROMPT of the gating model
-        # (docs/security/intergen-gating-model.md §5): the consent block records
-        # the user's intent, polkit performs the actual privilege grant. The
-        # read-only actions above (list/search/info/verify) stay unprivileged.
+        # State-changing package actions need root, and by the time this builder
+        # runs they already HAVE it. manage_packages is on the privileged
+        # allowlist and these actions classify CONFIRM, so the dispatcher routes
+        # them through the transient unit -> pkexec -> the privileged runner ->
+        # the root-side dispatcher, which verifies the human-approval token
+        # before calling execute(). This code is running as root inside that
+        # dispatcher.
+        #
+        # Decided 2026-08-24: build no second privilege transition here. It used
+        # to construct ["pkexec", "pkm", ...], which bought nothing and cost a
+        # crossing that had no PolicyKit action of its own, carried no approval
+        # token binding it to what the person approved, and ran from the
+        # environment the runner deliberately scrubbed — so it could not have
+        # raised a prompt anyone could answer even if it tried. One approval,
+        # one crossing, one gate.
+        #
+        # The read-only actions above (list/search/info/verify) never reach the
+        # privileged path at all: they classify AUTO and run as the user, which
+        # is correct — reading your own machine's state changes nothing.
         elif action in ("install", "remove", "uninstall"):
             if not package:
                 return None
-            return ["pkexec", "pkm", action, package]
+            return ["pkm", action, package]
         elif action in ("update", "upgrade"):
             if package:
-                return ["pkexec", "pkm", "update", package]
-            return ["pkexec", "pkm", "update"]
+                return ["pkm", "update", package]
+            return ["pkm", "update"]
         return None
