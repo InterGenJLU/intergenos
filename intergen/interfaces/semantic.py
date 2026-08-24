@@ -19,6 +19,11 @@ class MatchResult:
     # can mis-route; the decision trace records it at the P2 seam (intent-routing
     # research 2026-06-22). 0.0 when there is no runner-up (single/zero intents).
     runner_up_score: float = 0.0
+    # Highest similarity ANY candidate reached, whether or not it cleared its own
+    # threshold. `score` describes the SELECTED candidate and is 0.0 when none was
+    # eligible, so without this the near-miss signal — "something scored 0.89 but
+    # its own bar is 0.90" — would be lost. Observability only; nothing gates on it.
+    top_score: float = 0.0
 
 
 class SemanticMatcherInterface(ABC):
