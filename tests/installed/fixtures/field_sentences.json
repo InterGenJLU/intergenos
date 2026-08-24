@@ -1,0 +1,141 @@
+{
+  "description": "The nineteen verbatim sentences the first outside user typed across two live sessions, with the routing verdict each one is owed. Extracted mechanically from the sealed field trace, never retyped.",
+  "source": "sealed field-session trace, two live sessions on 2026-08-22 and 2026-08-23",
+  "sentence_count": 19,
+  "corpus_sha256": "4341450ee4d2e3293b490d63e745a479194a035426443059cb6fb6322e8e4e0a",
+  "sentences": [
+    {
+      "index": 1,
+      "sentence": "Hey, what's the current time?",
+      "expected_verdict": "recognised",
+      "expected_tool": "system_info",
+      "rationale": "A live-data question about the machine's own clock. The keyword layer already catches it on R001.1; kept as a fixture so a corpus change cannot lose it."
+    },
+    {
+      "index": 2,
+      "sentence": "How do I update this system?",
+      "expected_verdict": "recognised",
+      "expected_tool": "manage_packages",
+      "rationale": "An explicit request for the update procedure. Field session 1: answered without reaching the package layer."
+    },
+    {
+      "index": 3,
+      "sentence": "yes",
+      "expected_verdict": "not_a_tool_turn",
+      "expected_tool": null,
+      "rationale": "A bare affirmative. Correct behaviour depends on a STAGED offer; with nothing staged this is not a tool turn. Field session 1 recorded 'affirmative_no_offer' after an offer had been made in words but never staged."
+    },
+    {
+      "index": 4,
+      "sentence": "can you update this system for me?",
+      "expected_verdict": "recognised",
+      "expected_tool": "manage_packages",
+      "rationale": "An imperative with a capability frame and a concrete target. Field session 1: routed to a capability answer instead of the action."
+    },
+    {
+      "index": 5,
+      "sentence": "What's the capital of Spain?",
+      "expected_verdict": "not_a_tool_turn",
+      "expected_tool": null,
+      "rationale": "Static general knowledge. The model should answer; no tool is needed."
+    },
+    {
+      "index": 6,
+      "sentence": "Can you recommend a good chocolate chip cookie recipe?",
+      "expected_verdict": "not_a_tool_turn",
+      "expected_tool": null,
+      "rationale": "A request the model can satisfy from its own knowledge. Included so the fixture set contains negatives and a matcher cannot pass by classifying everything."
+    },
+    {
+      "index": 7,
+      "sentence": "Can you web search and see how much a chippendale dining table sells for?",
+      "expected_verdict": "recognised",
+      "expected_tool": "web_search",
+      "rationale": "Capability frame plus a concrete target. Field session 1: answered by explaining that it CAN search and asking her to rephrase (defect F2/D3)."
+    },
+    {
+      "index": 8,
+      "sentence": "search the web for how much a chippendale dining table sells for?",
+      "expected_verdict": "recognised",
+      "expected_tool": "web_search",
+      "rationale": "The only phrasing that worked in the field, and it worked on a regex."
+    },
+    {
+      "index": 9,
+      "sentence": "web search for the average price of a trilogy mill hill bead kit",
+      "expected_verdict": "recognised",
+      "expected_tool": "web_search",
+      "rationale": "Same request, different word order. Field session 1: fell to the live-data offer, which staged nothing."
+    },
+    {
+      "index": 10,
+      "sentence": "yes",
+      "expected_verdict": "not_a_tool_turn",
+      "expected_tool": null,
+      "rationale": "The second bare affirmative of session 1, immediately after an unstaged offer."
+    },
+    {
+      "index": 11,
+      "sentence": "do a web search for the average price of a trilogy mill hill bead kit",
+      "expected_verdict": "recognised",
+      "expected_tool": "web_search",
+      "rationale": "Third phrasing of the same request; the offer fired again."
+    },
+    {
+      "index": 12,
+      "sentence": "yes, do a web search for the average price of a trilogy mill hill bead kit",
+      "expected_verdict": "recognised",
+      "expected_tool": "web_search",
+      "rationale": "A prefixed affirmative whose tail is a complete, explicit search request."
+    },
+    {
+      "index": 13,
+      "sentence": "can you show me a picture of a chippendale dining room table with ball and claw feet?",
+      "expected_verdict": "recognised",
+      "expected_tool": "web_search",
+      "rationale": "A request to find an image. Field session 2: a flat capability refusal."
+    },
+    {
+      "index": 14,
+      "sentence": "Can you websearch to find that picture for me?",
+      "expected_verdict": "recognised",
+      "expected_tool": "web_search",
+      "rationale": "Field session 2, defect G2: decided in zero milliseconds as a capability question, before any semantic layer."
+    },
+    {
+      "index": 15,
+      "sentence": "What is the value of a chippendale dining table with ball and claw feet?",
+      "expected_verdict": "recognised",
+      "expected_tool": "web_search",
+      "rationale": "A current-value question about an antique is a live-data question by definition. Field session 2, defect G3: answered from model memory with no offer to look."
+    },
+    {
+      "index": 16,
+      "sentence": "what year did babe ruth start playing baseball?",
+      "expected_verdict": "not_a_tool_turn",
+      "expected_tool": null,
+      "rationale": "Static historical fact the model can answer. Field session 2, defect G1: the turn started and died with no reply at all. The routing verdict is that no tool is needed; the delivery defect is covered by its own gate."
+    },
+    {
+      "index": 17,
+      "sentence": "Can I find a free egg apron sewing pattern?",
+      "expected_verdict": "recognised",
+      "expected_tool": "web_search",
+      "rationale": "An explicit request to find something on the internet. Field session 2, defect G1: the second turn that started and died."
+    },
+    {
+      "index": 18,
+      "sentence": "How can I locate my septic tank in my yard?",
+      "expected_verdict": "not_a_tool_turn",
+      "expected_tool": null,
+      "rationale": "General how-to the model can answer. A negative fixture from real field language."
+    },
+    {
+      "index": 19,
+      "sentence": "find a recipe for mediterranean breakfast ideas",
+      "expected_verdict": "recognised",
+      "expected_tool": "web_search",
+      "rationale": "'find' is an explicit request to go and look. Field session 2, defect G3: the model invented a recipe with grounding_present false."
+    }
+  ]
+}
