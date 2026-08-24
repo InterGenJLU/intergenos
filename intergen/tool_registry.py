@@ -26,6 +26,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+import secrets
+import shutil
+import stat as stat_module
 import subprocess
 import time
 from dataclasses import replace
@@ -39,6 +42,58 @@ from typing import Any, Callable
 # constant lives here so the runtime import contract is colocated with
 # the dispatcher that invokes it.
 _PKEXEC_RUNNER_PATH = "/usr/bin/intergen-privileged-runner"
+
+# The tool that asks this account's own systemd user manager to start a
+# short-lived unit. Decided 2026-08-24: the privileged runner is started this
+# way rather than as a direct child of the daemon. The daemon's unit sets
+# NoNewPrivileges=yes, which is inherited by every child and cannot be cleared,
+# and which makes the kernel ignore pkexec's setuid bit — pkexec then refuses
+# before PolicyKit is ever contacted. The user manager does not run under that
+# flag, so a unit it starts begins from the manager's own context. Nothing about
+# the daemon's hardening changes; only who starts the runner does.
+# ABSOLUTE, deliberately (2026-08-24). This is the privileged entry path: the
+# runner and the interpreter beyond it are both named absolutely, and resolving
+# the first word of that chain through PATH would make the way in the only link
+# whose identity depends on the environment the daemon happens to carry.
+_SYSTEMD_RUN = "/usr/bin/systemd-run"
+
+#: How the manager's state is measured, for the same reason and in the same
+#: place. `is-system-running` is the manager's own answer about itself.
+_SYSTEMCTL = "/usr/bin/systemctl"
+
+#: Wall-clock ceiling on one privileged dispatch, applied to the transient unit
+#: itself so a runner that never returns cannot hold the boundary open
+#: indefinitely. Generous: the slowest legitimate action here is a package
+#: transaction.
+_DISPATCH_UNIT_MAX_SECONDS = 900
+
+#: Ceiling on the CALL that waits for the unit, which is a different thing from
+#: the ceiling on the unit. With --wait, systemd-run is a client: if the unit
+#: reaches its own ceiling systemd reports that and the client returns, but a
+#: bus that never answers leaves the client waiting on a unit it can no longer
+#: hear from. DELIBERATELY LONGER than the unit's ceiling, so the unit's own
+#: bound fires first and the ordinary slow case ends in systemd's answer rather
+#: than in this backstop, which can only ever report that nothing is known.
+_DISPATCH_WAIT_MAX_SECONDS = _DISPATCH_UNIT_MAX_SECONDS + 60
+
+#: How long the manager probe may take before it is abandoned. It is a local
+#: query on a failure path; a bound stops a wedged bus turning a diagnostic
+#: into a second hang.
+_MANAGER_PROBE_TIMEOUT_SECONDS = 5
+
+#: The words `systemctl --user is-system-running` prints that mean no manager is
+#: there to run anything. Every other word it prints — running, degraded,
+#: starting, stopping, maintenance, initializing — describes a manager that
+#: exists, and "degraded" in particular is a RUNNING manager, so treating it as
+#: absence would reintroduce the defect this replaced.
+#:
+#: WHY THIS REPLACED A PATH CHECK (2026-08-24). The earlier probe answered the
+#: question by asking whether $XDG_RUNTIME_DIR/systemd/private exists. An
+#: independent review measured that probe reading false while the manager still
+#: started a unit — the variable can point elsewhere, and that socket is a
+#: systemd-internal detail rather than a supported presence interface. The old
+#: answer was evidence about a path, and the sentence it fed was about a manager.
+_MANAGER_ABSENT_ANSWERS = ("offline",)
 
 from intergen.interfaces.tool import BaseTool
 from intergen.interfaces.types import SafetyTier, ToolCall, ToolResult, ToolSchema
@@ -63,6 +118,7 @@ from intergen.dispatch_token import (
     mint_token,
 )
 from intergen.spotlighting import is_wrapped, wrap_ingress_content
+from intergen import privileged_request
 from intergen.interfaces.scanner import (
     ScanContext,
     ScanDirection,
@@ -961,30 +1017,51 @@ class ToolRegistry:
     ) -> ToolResult:
         """Route a privileged tool call through the pkexec runner.
 
-        Per the build-system coordinator's 49a585ca T0-4-E integration
-        contract: PolicyKit (authentication) wraps a thin sh shim at
+        PolicyKit (authentication) wraps a thin sh shim at
         /usr/bin/intergen-privileged-runner that hands off to
-        `python3 -m intergen.privileged_dispatch <tool_name> <args_json>`
-        in root context. The privileged dispatcher re-validates against
-        the same _PRIVILEGED_TOOLS allowlist + per-tool argument schema
-        the gate consulted; defense-in-depth at the trust boundary.
+        `python3 -m intergen.privileged_dispatch --request-id <request_id>` in
+        root context. The privileged dispatcher re-validates against the same
+        _PRIVILEGED_TOOLS allowlist + per-tool argument schema the gate
+        consulted; defense-in-depth at the trust boundary.
 
-        AI-6 (option iii): a human-approval dispatch token is carried as the
-        runner's THIRD positional argument. The runner re-exports it into its
-        sanitized environment (intergen.dispatch_token.TOKEN_ENV_VAR) and hands
-        the Python dispatcher only <tool> <args> on argv — keeping the token off
-        the dispatcher's /proc/cmdline. privileged_dispatch verifies the token
-        binds a fresh human approval to THIS (tool, args, uid) before executing.
-        This argv-widening (pkexec argv -> runner -ne 3) is a CANONICAL PAIR with
-        the runner's re-export + privileged_dispatch's verify (root side); the
-        three land together. A None token here means a privileged dispatch was
-        reached without a minted approval — fail CLOSED rather than invoke the
-        runner tokenless (the runner/dispatcher will also refuse, but refusing
-        here avoids the pkexec round-trip + makes the invariant explicit).
+        TWO THINGS CHANGED HERE, 2026-08-24, and they share this one call.
 
-        Return shape: ToolResult constructed from the runner's stdout
-        and exit code. subprocess returncode 0 = success;
-        non-zero = failure (validation, refusal, or pkexec auth-deny).
+        1. WHO STARTS THE RUNNER. The daemon no longer starts pkexec as its own
+           child. Its unit sets NoNewPrivileges=yes, which every child inherits
+           and which cannot be cleared; under that flag the kernel ignores
+           pkexec's setuid bit, so pkexec starts unprivileged, sees its own
+           effective uid is not root, and refuses with exit 127 BEFORE PolicyKit
+           is contacted. That is why no install of R001.1 could perform any
+           privileged action. The daemon now asks its own systemd user manager
+           to start a short-lived unit that runs the same pkexec invocation. The
+           manager is not running under the flag, so the unit's process does not
+           carry it. Measured on real hardware: a caller carrying the flag asked
+           the manager to run a probe and the probe reported NoNewPrivs 0, with
+           the caller's own context reporting 1 in the same capture.
+
+           The daemon's hardening is not touched, and the PolicyKit action is
+           the same narrow, purpose-built one whose exec.path names this runner.
+           The unit is deliberately plain: imposing NoNewPrivileges on it would
+           reproduce the defect exactly.
+
+        2. WHAT IS ON THE COMMAND LINE. The tool arguments and the approval
+           token used to be argv words 3, 4 and 5, and a command line is
+           world-readable through /proc for the life of the process. They now
+           travel in an owner-only file (intergen.privileged_request) whose PATH
+           is the only thing passed. pkexec still scrubs the environment; this
+           does not fight that, it changes what needs to survive.
+
+        A None token means a privileged dispatch was reached without a minted
+        approval — fail CLOSED rather than invoke the runner tokenless (the
+        runner and dispatcher also refuse, but refusing here avoids the round
+        trip and makes the invariant explicit). A request that cannot be written
+        also fails closed: the only other way to carry those values is the
+        command line, and that is the exposure being closed.
+
+        Return shape: ToolResult constructed from the runner's stdout and exit
+        code. systemd-run --wait propagates the unit's exit status as its own
+        (measured), so 0 = success and non-zero = failure (validation, refusal,
+        an authentication denial, or the manager itself failing to start it).
         """
         if dispatch_token is None:
             logger.error(
@@ -1000,84 +1077,450 @@ class ToolRegistry:
                 ),
                 success=False,
             )
+
         try:
-            completed = subprocess.run(
-                [
-                    "pkexec",
-                    _PKEXEC_RUNNER_PATH,
-                    tool_name,
-                    json.dumps(arguments),
-                    dispatch_token,
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
+            request_path = privileged_request.write_request(
+                tool_name, arguments, dispatch_token,
             )
-        except FileNotFoundError as exc:
-            # pkexec binary itself missing — shipped by polkit; if absent
-            # the install is broken upstream of this point.
+        except privileged_request.RequestError as exc:
             logger.error(
-                "pkexec binary not found for %s dispatch: %s",
-                tool_name, exc,
+                "cannot stage the privileged request for %s: %s", tool_name, exc,
             )
             return ToolResult(
                 call_id=call.call_id,
                 name=tool_name,
                 content=(
-                    "pkexec binary not available; privileged tool "
-                    f"{tool_name} cannot be dispatched. Install polkit."
+                    f"the privileged request for {tool_name} could not be "
+                    f"written, so the action was not dispatched: {exc}"
                 ),
                 success=False,
             )
+
+        # A recognisable unit name so the dispatch is findable in the journal
+        # afterwards; random so two dispatches in flight cannot collide.
+        unit_name = f"intergen-privileged-{secrets.token_hex(8)}"
+
+        # WHAT CROSSES THE BOUNDARY IS AN IDENTIFIER, NOT A PATH (2026-08-24).
+        # The runner used to receive the request file's full path and root
+        # defended itself by inspecting whatever it found there. Those checks
+        # remain, but the input class they defend against no longer needs to
+        # exist: the only thing on this command line is thirty-two hex
+        # characters, and the privileged side derives the path itself from the
+        # uid pkexec reports. A traversal, an absolute path or a symlinked
+        # parent is not rejected here — it cannot be written down.
+        request_id = privileged_request.request_id_for(request_path)
+
+        # Collect anything a previous dispatch left behind. The one path that
+        # deliberately leaves a request is the timeout below, where the unit
+        # outlives this client and may still be about to read it; the next
+        # dispatch is the natural moment to decide that a leftover has stopped
+        # being possibly-in-flight. Housekeeping only — it never refuses a
+        # dispatch, and the bound is far longer than the unit's own ceiling.
+        collected = privileged_request.prune_stale_requests()
+        if collected:
+            logger.info(
+                "collected %d stale privileged request(s) left by earlier "
+                "dispatches", len(collected),
+            )
+
+        # The transient unit's properties are FIXED and request-independent.
+        # The user manager is a launch mechanism, not an authenticity boundary,
+        # so nothing about the request may influence how the unit is
+        # configured.
+        #
+        # EXACTLY ONE property is set, and it is a bound rather than a policy:
+        # RuntimeMaxSec stops a runner that never returns from holding the
+        # boundary open forever. Killing this process would not do it — with
+        # --wait, systemd-run is a client, and the unit outlives it — so the
+        # ceiling has to be on the unit. NoNewPrivileges is deliberately NOT
+        # named, not even as "no": the default is already no, and a unit that
+        # mentions the flag at all is one edit away from reproducing the defect
+        # this whole design exists to correct.
+        argv = [
+            _SYSTEMD_RUN, "--user", "--quiet", "--collect", "--wait", "--pipe",
+            f"--unit={unit_name}",
+            f"--property=RuntimeMaxSec={_DISPATCH_UNIT_MAX_SECONDS}",
+            # Everything after this is the command. A request identifier is
+            # generated by us and is hex, but separating explicitly means no
+            # future argument shape can be read as an option.
+            "--",
+            "pkexec", _PKEXEC_RUNNER_PATH, request_id,
+        ]
+
+        leave_request = False
+        try:
+            try:
+                completed = subprocess.run(
+                    argv, capture_output=True, text=True, check=False,
+                    timeout=_DISPATCH_WAIT_MAX_SECONDS,
+                )
+            except subprocess.TimeoutExpired:
+                # LEAVE THE REQUEST. Every other failure here means the runner
+                # never got there, so removing it is this side's half of the
+                # contract. A timeout is the one case where that is false: the
+                # unit outlives this client by construction, so the runner may
+                # be about to read the very file this would delete. Removing it
+                # would not clean anything up — it would turn a dispatch that
+                # was going to complete into one that fails at the privilege
+                # boundary, and make an already-unknown outcome less knowable.
+                # prune_stale_requests above is what eventually collects it.
+                leave_request = True
+                # THE OUTCOME IS NOT KNOWN, and saying anything more definite
+                # would be a claim this code cannot support. systemd-run was a
+                # client; the unit outlives it. By the time this fires the
+                # runner may never have started, may be waiting on a dialog
+                # nobody answered, or may have spent the approval and completed
+                # the action. "It failed" would be false comfort, and it is the
+                # sentence that would make an automatic retry look safe, so it
+                # is not said. Nothing is retried here: a fresh approval proves
+                # a person authorized the action, not that the previous attempt
+                # did not perform it.
+                logger.error(
+                    "privileged dispatch of %s exceeded %ss with no answer; "
+                    "outcome unknown (unit %s)",
+                    tool_name, _DISPATCH_WAIT_MAX_SECONDS, unit_name,
+                )
+                return ToolResult(
+                    call_id=call.call_id,
+                    name=tool_name,
+                    content=(
+                        f"the outcome of {tool_name} is not known. The "
+                        f"privileged dispatch did not report within "
+                        f"{_DISPATCH_WAIT_MAX_SECONDS} seconds, so it was "
+                        f"abandoned here — but the unit that carries it runs "
+                        f"independently of this wait, and the action may have "
+                        f"been performed. It has NOT been attempted again, "
+                        f"because repeating an action that may already have "
+                        f"happened is a decision for you rather than for this "
+                        f"program. What ran is the transient unit "
+                        f"{unit_name}; its own record is the account of what "
+                        f"happened."
+                    ),
+                    success=False,
+                )
+            except FileNotFoundError as exc:
+                logger.error(
+                    "cannot start the privileged runner for %s: %s",
+                    tool_name, exc,
+                )
+                return ToolResult(
+                    call_id=call.call_id,
+                    name=tool_name,
+                    content=(
+                        f"{_SYSTEMD_RUN} is not available, so the privileged "
+                        f"runner for {tool_name} could not be started. It is "
+                        f"part of systemd; if it is missing the installation is "
+                        f"broken upstream of this point."
+                    ),
+                    success=False,
+                )
+            except OSError as exc:
+                logger.error(
+                    "privileged dispatch invocation failed for %s: %s",
+                    tool_name, exc,
+                )
+                return ToolResult(
+                    call_id=call.call_id,
+                    name=tool_name,
+                    content=f"privileged dispatch invocation error: {exc}",
+                    success=False,
+                )
+
+            if completed.returncode == 0:
+                return ToolResult(
+                    call_id=call.call_id,
+                    name=tool_name,
+                    content=completed.stdout.rstrip("\n"),
+                    success=True,
+                )
+
+            return ToolRegistry._privileged_failure_result(
+                call, tool_name, completed,
+            )
+        finally:
+            # The runner removes the request as it reads it. This is the
+            # caller's side of that contract: on any path where the runner
+            # never got there — it was never started, it died early, the
+            # manager refused — the request must not be left on disk, because
+            # a request left behind is an approval token left behind.
+            #
+            # The single exception is a timed-out wait, which sets
+            # leave_request: there the runner may still be holding it. See the
+            # TimeoutExpired branch.
+            if not leave_request:
+                privileged_request.discard_request(request_path)
+
+    #: What a path probe can establish. Each value is a MEASUREMENT, never a
+    #: cause: "absent" means stat() said ENOENT, not that anyone is at fault.
+    _PATH_ABSENT = "absent"
+    _PATH_PRESENT = "present"
+    _PATH_UNDETERMINED = "undetermined"
+
+    @staticmethod
+    def _probe_path(path: str) -> dict:
+        """Report what the filesystem says about `path`. Infer nothing.
+
+        `os.path.exists()` is a single boolean covering several different
+        findings, and the diagnostic used to speak as though it covered one:
+
+          * it answers False when the path is absent AND when a component of it
+            cannot be traversed — absence and "permission denied" are different
+            findings with different repairs;
+          * it answers True for a directory, a socket, a device, and for a
+            regular file that nothing on this system can execute.
+
+        So this returns the states separately:
+
+          absent        stat() reported ENOENT.
+          undetermined  stat() failed some other way; `detail` says how, and
+                        NOTHING about presence is claimed.
+          present       stat() succeeded; `regular` and `executable` carry the
+                        two further facts that decide whether it could run.
+
+        Decided 2026-08-24: none of these is a cause, and no caller may turn
+        one into a verdict about which component is at fault.
+        """
+        facts: dict[str, Any] = {
+            "state": ToolRegistry._PATH_UNDETERMINED,
+            "detail": "",
+            "regular": None,
+            "executable": None,
+        }
+        try:
+            info = os.stat(path)
+        except FileNotFoundError:
+            facts["state"] = ToolRegistry._PATH_ABSENT
+            return facts
+        except NotADirectoryError as exc:
+            facts["detail"] = (
+                f"a component of the path is not a directory "
+                f"({exc.strerror or exc})"
+            )
+            return facts
+        except PermissionError as exc:
+            facts["detail"] = (
+                f"permission denied while resolving it ({exc.strerror or exc})"
+            )
+            return facts
         except OSError as exc:
-            logger.error(
-                "pkexec invocation failed for %s: %s", tool_name, exc,
-            )
-            return ToolResult(
-                call_id=call.call_id,
-                name=tool_name,
-                content=f"pkexec invocation error: {exc}",
-                success=False,
-            )
+            facts["detail"] = f"the check itself failed ({exc.strerror or exc})"
+            return facts
 
-        if completed.returncode == 0:
-            return ToolResult(
-                call_id=call.call_id,
-                name=tool_name,
-                content=completed.stdout.rstrip("\n"),
-                success=True,
-            )
+        facts["state"] = ToolRegistry._PATH_PRESENT
+        facts["regular"] = stat_module.S_ISREG(info.st_mode)
+        try:
+            facts["executable"] = os.access(path, os.X_OK)
+        except OSError:
+            facts["executable"] = None
+        return facts
 
-        # Non-zero from pkexec covers two distinct cases:
-        #   126 — user dismissed/denied the PolicyKit auth prompt
-        #   127 — runner not found at _PKEXEC_RUNNER_PATH
-        #   1   — runner-side dispatch failure (validation / refusal /
-        #         tool exception); runner emits human-readable message
-        #         on stdout per its contract
-        #   2   — runner argv shape wrong (caller bug)
-        # We surface stdout (the runner's human-readable message) as the
-        # ToolResult content so the LLM sees what happened; the audit
-        # log preserves the exit code in result_summary downstream.
+    #: What the manager probe can establish, on the same terms as _probe_path:
+    #: each value is a MEASUREMENT and none of them is a cause.
+    _MANAGER_RUNNING = "running"
+    _MANAGER_ABSENT = "absent"
+    _MANAGER_UNDETERMINED = "undetermined"
+
+    @staticmethod
+    def _probe_user_manager() -> dict:
+        """Ask this account's systemd user manager about itself.
+
+        The question is put the way the dispatch reaches the manager — through
+        systemctl, over the same bus — rather than by looking for a file that
+        the manager happens to create. That is the whole correction: the old
+        probe read a path and the sentence it produced was about a manager, and
+        an independent review measured the two disagreeing.
+
+        `answer` carries the manager's own word whenever it gave one, so the
+        diagnostic can quote a measurement instead of paraphrasing it. Three
+        states, and the third is not a polite spelling of the second:
+
+          running       the manager answered with a word describing itself.
+                        "degraded" is in this state, because a degraded manager
+                        is a running one and will start a unit.
+          absent        the manager answered one of _MANAGER_ABSENT_ANSWERS.
+          undetermined  the question could not be put, or was not answered in
+                        time; `detail` says why and NOTHING about the manager
+                        is claimed.
+        """
+        facts: dict[str, Any] = {
+            "state": ToolRegistry._MANAGER_UNDETERMINED,
+            "answer": "",
+            "detail": "",
+        }
+        argv = [_SYSTEMCTL, "--user", "is-system-running"]
+        try:
+            completed = subprocess.run(
+                argv, capture_output=True, text=True, check=False,
+                timeout=_MANAGER_PROBE_TIMEOUT_SECONDS,
+            )
+        except FileNotFoundError:
+            facts["detail"] = f"{_SYSTEMCTL} is not present, so it was not asked"
+            return facts
+        except subprocess.TimeoutExpired:
+            facts["detail"] = (
+                f"{_SYSTEMCTL} did not answer within "
+                f"{_MANAGER_PROBE_TIMEOUT_SECONDS}s"
+            )
+            return facts
+        except OSError as exc:
+            facts["detail"] = f"the question could not be put ({exc})"
+            return facts
+
+        # is-system-running exits non-zero for every state except "running",
+        # so the EXIT CODE is not the answer — the word is. An empty answer
+        # with a non-zero code means it declined to say, which is undetermined.
+        answer = (completed.stdout or "").strip().splitlines()
+        answer = answer[0].strip() if answer else ""
+        facts["answer"] = answer
+        if not answer:
+            facts["detail"] = (
+                f"{_SYSTEMCTL} exited {completed.returncode} without naming a "
+                f"state"
+            )
+            return facts
+        if answer in _MANAGER_ABSENT_ANSWERS:
+            facts["state"] = ToolRegistry._MANAGER_ABSENT
+            return facts
+        if answer == "unknown":
+            facts["detail"] = f"{_SYSTEMCTL} answered {answer!r}"
+            return facts
+        facts["state"] = ToolRegistry._MANAGER_RUNNING
+        return facts
+
+    @staticmethod
+    def _describe_user_manager(facts: dict) -> str:
+        """One line of measured fact about the manager. No conclusion."""
+        state = facts["state"]
+        if state == ToolRegistry._MANAGER_RUNNING:
+            return (
+                f"systemd user manager: answered {facts['answer']!r} (checked "
+                f"with {_SYSTEMCTL} --user is-system-running)"
+            )
+        if state == ToolRegistry._MANAGER_ABSENT:
+            return (
+                f"systemd user manager: answered {facts['answer']!r} (checked "
+                f"with {_SYSTEMCTL} --user is-system-running)"
+            )
+        return f"systemd user manager: could not be determined ({facts['detail']})"
+
+    @staticmethod
+    def _describe_path(path: str, facts: dict) -> str:
+        """One line of measured fact about `path`. No conclusion."""
+        state = facts["state"]
+        if state == ToolRegistry._PATH_ABSENT:
+            return f"{path}: not present (checked)"
+        if state == ToolRegistry._PATH_UNDETERMINED:
+            return (
+                f"{path}: presence could not be determined — "
+                f"{facts['detail']} (checked)"
+            )
+        kind = "a regular file" if facts["regular"] else "NOT a regular file"
+        if facts["executable"] is None:
+            runnable = "executability could not be determined"
+        elif facts["executable"]:
+            runnable = "executable by this account"
+        else:
+            runnable = "NOT executable by this account"
+        return f"{path}: present, {kind}, {runnable} (checked)"
+
+    @staticmethod
+    def _privileged_failure_result(
+        call: ToolCall,
+        tool_name: str,
+        completed: Any,
+    ) -> ToolResult:
+        """Build the failure ToolResult, stating ONLY what was measured.
+
+        WHY THIS IS NARROWER THAN IT LOOKS. The exit codes on this path do not
+        identify a cause, and an earlier version of this function spoke as if
+        they did. Two claims in particular were inferences wearing a
+        measurement's clothes:
+
+          * "exit 126 means the authentication prompt was dismissed". pkexec(1)
+            propagates the exit status of a program it successfully executed,
+            and this runner ends in `exec python3 ...` — so a 126 can equally
+            come from the CHILD. Telling a person their prompt was dismissed
+            when the tool actually failed sends them to repeat an action that
+            already ran, or to hunt an authentication problem that never
+            happened.
+          * "exit 127 with the runner present means pkexec never reached it, so
+            the installed package is not at fault". Presence was read from
+            os.path.exists(), which proves neither a regular file nor
+            executability nor correct contents; and 127 can likewise be the
+            child's own status. An independent review drove three genuinely
+            different states — a directory, a regular file nothing can execute,
+            and a healthy executable whose program returned 127 — and every one
+            of them produced that same innocence verdict.
+
+        Decided 2026-08-24: this function reports the exit code, whatever the
+        boundary said on stderr, and a per-component probe of each thing the
+        dispatch depends on. Where a component is MEASURABLY absent, that is
+        stated, because it was established. Where it is not, the message says
+        the exit code does not identify a cause on its own — which is true, and
+        is more useful to someone repairing a system than a confident wrong
+        answer.
+
+        The runner's own words still lead when it got far enough to speak: that
+        is the one account in this whole path that was produced by something
+        which knew what it was doing.
+        """
         stdout_message = completed.stdout.rstrip("\n")
         stderr_message = completed.stderr.rstrip("\n")
-        if completed.returncode == 126:
-            content = (
-                f"pkexec authentication denied or cancelled by user for "
-                f"{tool_name}"
+
+        runner_facts = ToolRegistry._probe_path(_PKEXEC_RUNNER_PATH)
+        systemd_run_facts = ToolRegistry._probe_path(_SYSTEMD_RUN)
+        manager_facts = ToolRegistry._probe_user_manager()
+
+        if stdout_message:
+            # The runner reached its own logic and said why it stopped. That is
+            # the most specific account anyone has; it leads.
+            headline = stdout_message
+        elif systemd_run_facts["state"] == ToolRegistry._PATH_ABSENT:
+            headline = (
+                f"{_SYSTEMD_RUN} is not present (checked), so the privileged "
+                f"runner for {tool_name} could not be started"
             )
-        elif completed.returncode == 127:
-            content = (
-                f"pkexec runner not found at {_PKEXEC_RUNNER_PATH}; "
-                f"intergen package may be misinstalled"
+        elif manager_facts["state"] == ToolRegistry._MANAGER_ABSENT:
+            # ONLY the manager's own word produces this sentence. An
+            # undetermined probe deliberately falls through to the
+            # nothing-was-established headline below: reporting "I could not
+            # tell" as "it is not running" is the defect this branch corrects,
+            # and it would be a strange place to reintroduce it.
+            headline = (
+                f"this account's systemd user manager answered "
+                f"{manager_facts['answer']!r}, so the privileged runner for "
+                f"{tool_name} could not be started"
             )
-        elif stdout_message:
-            content = stdout_message
-        elif stderr_message:
-            content = stderr_message
+        elif runner_facts["state"] == ToolRegistry._PATH_ABSENT:
+            headline = (
+                f"the privileged runner is not present at "
+                f"{_PKEXEC_RUNNER_PATH} (checked), so {tool_name} could not be "
+                f"dispatched"
+            )
         else:
-            content = (
-                f"pkexec runner exited {completed.returncode} with no output"
+            headline = (
+                f"the privileged dispatch of {tool_name} did not complete "
+                f"(exit {completed.returncode}). This exit code does not "
+                f"identify a cause on its own — it is returned both by the "
+                f"privilege boundary and by the program it runs — so what was "
+                f"measured is listed rather than guessed at"
             )
+
+        measured = [
+            f"exit code: {completed.returncode}",
+            ToolRegistry._describe_path(_PKEXEC_RUNNER_PATH, runner_facts),
+            ToolRegistry._describe_path(_SYSTEMD_RUN, systemd_run_facts),
+            ToolRegistry._describe_user_manager(manager_facts),
+        ]
+        if stderr_message:
+            measured.append(f"it said: {stderr_message}")
+        content = f"{headline} [{'; '.join(measured)}]"
+        logger.error(
+            "privileged dispatch of %s failed: rc=%s runner=%s systemd_run=%s "
+            "manager=%s stderr=%r",
+            tool_name, completed.returncode, runner_facts,
+            systemd_run_facts, manager_facts, stderr_message,
+        )
         return ToolResult(
             call_id=call.call_id,
             name=tool_name,

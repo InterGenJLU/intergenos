@@ -95,6 +95,23 @@ def _group_members(group: str) -> set[str] | None:
 
 class UnitPresentTest(unittest.TestCase):
     def test_the_heredoc_is_locatable(self):
+        """Guards the tests below against passing vacuously.
+
+        Its siblings skip when the packaging tree is absent, so without this
+        check a checkout that stopped shipping the heredoc would turn the whole
+        class green by skipping rather than by passing. That is what this test
+        is for, and in a checkout it still does exactly that.
+
+        Added 2026-08-24: the same skip its siblings use. This file is SHIPPED
+        into the installed package, where there is no repository to read — and
+        an installed system that reports a failure here learns nothing from it,
+        while a suite that is red for a known uninteresting reason is a suite
+        whose real failures stop being read. The anti-vacuity guarantee is
+        unchanged where it can be evaluated.
+        """
+        build_sh = _repo_root() / "packages" / "ai" / "intergen" / "build.sh"
+        if not build_sh.is_file():
+            self.skipTest("packaging tree not present")
         self.assertIsNotNone(
             _extract_service_heredoc(),
             "the packaged intergen.service heredoc could not be found in "

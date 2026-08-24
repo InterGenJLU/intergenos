@@ -4,8 +4,9 @@
 
 Proves the root-side canonical-pair behavior in intergen.privileged_dispatch.main():
 
-  1. No INTERGEN_DISPATCH_TOKEN in the env -> refuse (the runner always
-     re-exports the token; its absence is a bypass attempt).
+  1. No request file where the runner said one would be -> refuse.
+  1b. A request carrying an empty token -> refuse (a request without an
+     approval is a bypass attempt).
   2. A token whose signature does not match this install's key -> refuse.
   3. A token bound to different (tool, args, uid) than dispatched -> refuse.
   4. An expired token -> refuse.
@@ -13,14 +14,28 @@ Proves the root-side canonical-pair behavior in intergen.privileged_dispatch.mai
   6. Replaying the SAME valid token a second time -> refuse (the persistent,
      file-locked consumed-nonce store rejects the spent approval-nonce).
 
+Updated 2026-08-24 for the request-file transport: the token no longer arrives
+in an environment variable. It arrives, with the tool name and the arguments,
+inside an owner-only request file. These tests write that file the same way the
+unprivileged side does, so what they drive is the real contract rather than a
+convenient one.
+
+main()'s only argument is the request IDENTIFIER — thirty-two hex characters —
+and main() derives the path from it and PKEXEC_UID. That is the whole argv
+contract; there is no path spelling. So the temporary runtime tree here is
+built the way the real one is, <root>/<uid>/intergen at mode 0700, with
+RUNTIME_ROOT pinned at that root and $XDG_RUNTIME_DIR pointed at the uid
+directory, and the derivation is exercised rather than bypassed.
+
 main() uses sys.exit() on refusal (via _fail) and returns 0/1 on the execute
 path. pkexec/the real registry are mocked; the signing key is injected; the
-consumed-nonce store is redirected to a tempdir so no real /var/lib path is
-touched.
+consumed-nonce store and the runtime directory are both redirected to tempdirs
+so no real /var/lib path and no real dispatch state are touched.
 """
 
 from __future__ import annotations
 
+import json
 import os
 import pwd
 import tempfile
@@ -30,8 +45,11 @@ from unittest import mock
 
 from intergen import dispatch_token as dt
 from intergen import privileged_dispatch as pd
+from intergen import privileged_request as pr
 from intergen.interfaces.types import SafetyTier, ToolResult
 
+
+_UNSET = object()
 
 _KEY = "ab" * dt.KEY_BYTES
 _TOOL = "manage_services"
@@ -67,6 +85,28 @@ class TokenVerifyGateTests(unittest.TestCase):
 
         # Redirect the consumed-nonce store to an isolated tempdir.
         self._tmp = tempfile.mkdtemp()
+        # And the runtime directory, so request files never land in the real
+        # one. Both views of it are lined up on the same temporary tree: the
+        # unprivileged side reads $XDG_RUNTIME_DIR, the privileged side DERIVES
+        # <RUNTIME_ROOT>/<uid>/intergen. In production those name one place; if
+        # only one were redirected here the derivation would be bypassed and
+        # these tests would drive a contract the runner does not use.
+        self._runtime = tempfile.TemporaryDirectory(prefix="privverify-")
+        self.addCleanup(self._runtime.cleanup)
+        self._uid_dir = os.path.join(self._runtime.name, str(self.uid))
+        os.makedirs(self._uid_dir, mode=0o700, exist_ok=True)
+        self._root_patch = mock.patch.object(
+            pr, "RUNTIME_ROOT", self._runtime.name,
+        )
+        self._root_patch.start()
+        self.addCleanup(self._root_patch.stop)
+        self._runtime_patch = mock.patch.dict(
+            os.environ, {"XDG_RUNTIME_DIR": self._uid_dir}, clear=False,
+        )
+        self._runtime_patch.start()
+        self.addCleanup(self._runtime_patch.stop)
+        # The token the next _run() will put in the request file.
+        self._token = None
         self._dir_patch = mock.patch.object(
             pd, "_CONSUMED_NONCE_DIR", self._tmp,
         )
@@ -102,7 +142,6 @@ class TokenVerifyGateTests(unittest.TestCase):
             clear=False,
         )
         self._env.start()
-        os.environ.pop(dt.TOKEN_ENV_VAR, None)
 
     def tearDown(self):
         self._env.stop()
@@ -110,10 +149,14 @@ class TokenVerifyGateTests(unittest.TestCase):
         self._key_patch.stop()
         self._path_patch.stop()
         self._dir_patch.stop()
-        os.environ.pop(dt.TOKEN_ENV_VAR, None)
 
     def _set_token(self, token):
-        os.environ[dt.TOKEN_ENV_VAR] = token
+        """Stage the token the next dispatch will carry.
+
+        It goes into the request file at _run() time, exactly as the
+        unprivileged side would write it.
+        """
+        self._token = token
 
     def _mint(self, *, tool=_TOOL, args=None, uid=None, ttl=120, now=None):
         return dt.mint_token(
@@ -122,17 +165,117 @@ class TokenVerifyGateTests(unittest.TestCase):
             key=_KEY, ttl_seconds=ttl, now=now,
         )
 
-    def _run(self):
-        # main() may sys.exit() on refusal; capture that as a non-zero code.
-        return pd.main([_TOOL, __import__("json").dumps(_ARGS)])
+    def _run(self, *, token=_UNSET, tool=_TOOL, args=None):
+        """Write a request the way the unprivileged side does, then dispatch it.
+
+        main() may sys.exit() on refusal; the caller captures that as a
+        non-zero code.
+        """
+        payload_token = self._token if token is _UNSET else token
+        path = pr.write_request(
+            tool, args if args is not None else _ARGS,
+            "" if payload_token is None else payload_token,
+        )
+        return pd.main(["--request-id", pr.request_id_for(path)])
 
     # --- refusal paths -------------------------------------------------------
 
-    def test_missing_token_refuses(self):
+    def test_missing_request_refuses(self):
+        """The identifier is the right shape and names nothing. Refuse rather
+        than proceed on whatever the caller claimed.
+
+        The identifier resolves — the directory is real, owned and 0700 — so
+        this reaches the FILE check rather than stopping at the shape check,
+        which is the case that would otherwise go untested.
+        """
+        os.makedirs(
+            os.path.join(self._uid_dir, pr.RUNTIME_SUBDIR),
+            mode=0o700, exist_ok=True,
+        )
         with self.assertRaises(SystemExit) as cm:
-            self._run()
+            pd.main(["--request-id", "0" * 32])
         self.assertNotEqual(cm.exception.code, 0)
         self.assertNotIn("executed", self._sink)
+
+    def test_an_identifier_that_is_not_plain_hex_refuses(self):
+        """A path, a traversal or a separator is not an identifier. The
+        boundary refuses the SHAPE, before any file is looked for.
+
+        This is what the removal of the older path-taking spelling is worth:
+        the strings below used to name a file the privileged side would then
+        go and examine; now they cannot be spelled at all.
+        """
+        for bad in (
+            "../../etc/shadow",
+            "/run/user/0/intergen/privileged-request-" + "0" * 32,
+            "0" * 31,
+            "0" * 33,
+            "0" * 31 + "G",
+            "0" * 32 + "\n" + "0" * 32,
+            "",
+        ):
+            with self.subTest(identifier=bad):
+                with self.assertRaises(SystemExit) as cm:
+                    pd.main(["--request-id", bad])
+                self.assertNotEqual(cm.exception.code, 0)
+                self.assertNotIn("executed", self._sink)
+
+    def test_empty_token_in_the_request_refuses(self):
+        """A request without an approval is a bypass attempt, whatever else it
+        carries."""
+        with self.assertRaises(SystemExit) as cm:
+            self._run(token=None)
+        self.assertNotEqual(cm.exception.code, 0)
+        self.assertNotIn("executed", self._sink)
+
+    def test_a_request_is_not_reachable_from_another_uid(self):
+        """One user's request cannot be dispatched as another user's.
+
+        Under the identifier contract this is refused a step earlier than it
+        used to be. The caller no longer names a file, so there is no borrowed
+        path to check the ownership of: root joins the identifier to the
+        directory it derives from PKEXEC_UID, and the request simply is not
+        there. The file's own ownership check still exists in read_request and
+        is exercised by the transport tests; what this asserts is that the
+        derivation, not the caller, decides which directory is read.
+        """
+        path = pr.write_request(_TOOL, _ARGS, self._mint())
+        request_id = pr.request_id_for(path)
+        other_uid = self.uid + 1
+        os.makedirs(
+            os.path.join(
+                self._runtime.name, str(other_uid), pr.RUNTIME_SUBDIR,
+            ),
+            mode=0o700, exist_ok=True,
+        )
+        with mock.patch.dict(
+            os.environ, {"PKEXEC_UID": str(other_uid)}, clear=False,
+        ):
+            with self.assertRaises(SystemExit) as cm:
+                pd.main(["--request-id", request_id])
+        self.assertNotEqual(cm.exception.code, 0)
+        self.assertNotIn("executed", self._sink)
+        self.assertTrue(
+            os.path.exists(path),
+            "the dispatch for another uid consumed this uid's request; the "
+            "path was not derived from PKEXEC_UID",
+        )
+
+    def test_wrong_argv_shape_refuses_with_code_two(self):
+        with self.assertRaises(SystemExit) as cm:
+            pd.main([_TOOL, json.dumps(_ARGS)])
+        self.assertEqual(cm.exception.code, 2)
+        self.assertNotIn("executed", self._sink)
+
+    def test_the_request_is_removed_by_the_dispatch(self):
+        """The approval token does not outlive the dispatch that consumed it."""
+        path = pr.write_request(_TOOL, _ARGS, self._mint())
+        rc = pd.main(["--request-id", pr.request_id_for(path)])
+        self.assertEqual(rc, 0)
+        self.assertFalse(
+            os.path.exists(path),
+            "the request survived the dispatch; an approval token was left on disk",
+        )
 
     def test_bad_signature_refuses(self):
         good = self._mint()
@@ -144,7 +287,7 @@ class TokenVerifyGateTests(unittest.TestCase):
         self.assertNotIn("executed", self._sink)
 
     def test_binding_mismatch_refuses(self):
-        # Token minted for a DIFFERENT args set than dispatched.
+        # Token minted for a DIFFERENT args set than the request carries.
         self._set_token(self._mint(args={"action": "stop", "unit": "sshd"}))
         with self.assertRaises(SystemExit) as cm:
             self._run()

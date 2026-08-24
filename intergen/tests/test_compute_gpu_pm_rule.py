@@ -39,7 +39,23 @@ class ComputeGpuPmRuleShips(unittest.TestCase):
                       "present-and-zero — never a bare boot_vga!=1, which would "
                       "also match devices lacking the attribute")
 
+    def _require_packaging_tree(self, path):
+        """Skip when the packaging tree is not beside us.
+
+        This file is SHIPPED: the recipe copies every top-level
+        intergen/tests/*.py into the installed package, where there is no
+        repository to read. Treating that absence as a failure makes a normal
+        installed system report a red suite for a reason that tells the user
+        nothing. The established answer in this tree is to skip — the same
+        thing test_intergen_unit_scoping.py and test_destructive_policy.py do.
+        In a checkout the file is present and the assertion below still runs,
+        so nothing about the check is weakened where it can be performed.
+        """
+        if not path.is_file():
+            self.skipTest(f"packaging tree not present ({path})")
+
     def test_the_recipe_routes_the_rule_to_the_udev_rules_dir(self):
+        self._require_packaging_tree(BUILD)
         body = BUILD.read_text()
         self.assertIn("70-intergen-compute-gpu-pm.rules", body)
         self.assertIn(SHIPPED, body, "install line targets the shipped path")
@@ -50,6 +66,7 @@ class ComputeGpuPmRuleShips(unittest.TestCase):
                       "unrouted data file is a FATAL at do_install")
 
     def test_the_package_declares_the_shipped_path_load_bearing(self):
+        self._require_packaging_tree(RECIPE)
         self.assertIn(SHIPPED, RECIPE.read_text(),
                       "verify_paths must carry the rule so the pre-squashfs "
                       "audit halts a build that failed to ship it")
