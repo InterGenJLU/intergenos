@@ -164,11 +164,45 @@ def test_the_documentation_index_has_a_rebuild_path(installed_intergen_dir):
 
 
 def test_the_computed_index_is_written_somewhere_a_restart_can_read(installed_intergen_dir):
-    """A cache would make a restart cheap and make a failed build survivable."""
-    text = (installed_intergen_dir / "wiki_retrieval.py").read_text(encoding="utf-8")
-    persists = any(marker in text for marker in
-                   ("np.save", "savez", "pickle.dump", "json.dump", "write_bytes",
-                    "write_text"))
+    """A cache would make a restart cheap and make a failed build survivable.
+
+    THE WRITE HAS TO BE IN THE CODE THAT BUILDS THE INDEX. This used to accept any
+    of a list of markers appearing ANYWHERE in the module, so an unrelated
+    ``json.dump`` — a log line, a debug dump, a settings write — would have reported
+    the index as cached while nothing about the index was written at all. That is a
+    check that can go green on the defect it exists to catch, so the region is now
+    located by parsing: the module's index-building functions, and the calls inside
+    them. Measured 2026-08-24: no marker appears anywhere in either the tree module
+    or the installed one, so this gate's VERDICT does not change here — only its
+    ability to be fooled later.
+    """
+    import ast
+
+    source = (installed_intergen_dir / "wiki_retrieval.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+
+    MARKERS = ("save", "savez", "dump", "write_bytes", "write_text", "to_file")
+    BUILDERS = ("_build_index", "_embed_chunks")
+
+    builder_bodies = [node for node in ast.walk(tree)
+                      if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                      and node.name in BUILDERS]
+    if not builder_bodies:
+        pytest.fail(
+            "None of the index-building functions "
+            f"{BUILDERS} exist in the shipped wiki_retrieval.py, so this gate cannot "
+            "say where a cache would be written. The shape has moved and the gate "
+            "must move with it — this is reported rather than passed over."
+        )
+
+    writes = []
+    for body in builder_bodies:
+        for node in ast.walk(body):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) \
+                    and node.func.attr in MARKERS:
+                writes.append((body.name, node.lineno, ast.unparse(node)[:100]))
+    persists = bool(writes)
+
     assert persists, (
         "\nThe computed documentation index is never written to disk.\n"
         "Every start re-embeds the whole corpus from scratch against a one-slot server "

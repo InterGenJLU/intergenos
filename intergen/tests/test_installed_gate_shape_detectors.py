@@ -109,8 +109,71 @@ def _tree_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+# The two dispatch shapes, written out rather than imported, so the control does
+# not depend on an R001.1 module still being installed on the machine running the
+# suite. Both are reduced to the one property the reader is about: what the argv
+# handed to subprocess.run begins with.
+_R0011_DISPATCH = '''
+_PKEXEC_RUNNER_PATH = "/usr/bin/intergen-privileged-runner"
+
+class ToolRegistry:
+    def _dispatch_via_pkexec(call, tool_name, arguments, dispatch_token=None):
+        completed = subprocess.run(
+            [
+                "pkexec",
+                _PKEXEC_RUNNER_PATH,
+                tool_name,
+                json.dumps(arguments),
+                dispatch_token,
+            ],
+            capture_output=True, text=True,
+        )
+'''
+
+_TRANSIENT_UNIT_DISPATCH = '''
+_SYSTEMD_RUN = "/usr/bin/systemd-run"
+_PKEXEC_RUNNER_PATH = "/usr/bin/intergen-privileged-runner"
+
+class ToolRegistry:
+    def _dispatch_via_pkexec(call, tool_name, arguments, dispatch_token=None):
+        argv = [
+            _SYSTEMD_RUN, "--user", "--quiet", "--collect", "--wait", "--pipe",
+            f"--unit={unit_name}",
+            "--",
+            "pkexec", _PKEXEC_RUNNER_PATH, request_id,
+        ]
+        completed = subprocess.run(argv, capture_output=True, text=True)
+'''
+
+
 class TruePositiveControlTests(unittest.TestCase):
     """Every reader must still fail the shape the release actually shipped."""
+
+    def test_the_dispatch_reader_reports_the_daemon_execing_the_helper(self):
+        """The R001.1 shape: pkexec is the first thing the daemon runs."""
+        d = _detectors()
+        self.assertTrue(
+            d.daemon_execs_the_setuid_helper_directly(_R0011_DISPATCH),
+            "the reader cannot see the shape whose boundary NoNewPrivileges kills")
+
+    def test_the_substring_this_replaced_cannot_tell_the_shapes_apart(self):
+        """Why the reader exists, asserted rather than asserted-about.
+
+        The gate used to decide with `'"pkexec",' in source`. Both shapes contain
+        it, so that check reported the boundary defect on a tree where the defect
+        was fixed. If this ever stops being true the reader has lost its reason.
+        """
+        self.assertIn('"pkexec",', _R0011_DISPATCH)
+        self.assertIn('"pkexec",', _TRANSIENT_UNIT_DISPATCH)
+
+    def test_the_reader_refuses_a_shape_it_cannot_characterise(self):
+        """"I could not tell" must not come back as a comfortable boolean."""
+        d = _detectors()
+        with self.assertRaises(ValueError):
+            d.daemon_execs_the_setuid_helper_directly(
+                "class ToolRegistry:\n"
+                "    def _dispatch_via_pkexec(call):\n"
+                "        return None\n")
 
     def test_the_reset_reader_finds_no_reset_in_the_shipped_handlers(self):
         d = _detectors()
@@ -139,6 +202,22 @@ class TruePositiveControlTests(unittest.TestCase):
 
 class ThisTreeTests(unittest.TestCase):
     """The same readers, against the modules this change ships."""
+
+    def test_the_dispatch_reader_reports_the_transient_unit_shape(self):
+        d = _detectors()
+        self.assertFalse(
+            d.daemon_execs_the_setuid_helper_directly(_TRANSIENT_UNIT_DISPATCH),
+            "the reader still calls the transient-unit shape a direct exec")
+
+    def test_the_dispatch_reader_reads_the_real_shipped_module_the_same_way(self):
+        """Against the module this tree actually ships, not a stand-in."""
+        d = _detectors()
+        from intergen import tool_registry
+        source = Path(tool_registry.__file__).read_text(encoding="utf-8")
+        self.assertFalse(
+            d.daemon_execs_the_setuid_helper_directly(source),
+            "this tree's dispatch is read as execing the setuid helper directly; "
+            "either the shape moved back or the reader is wrong, and both matter")
 
     def test_both_session_handlers_reset_the_conversation(self):
         d = _detectors()
