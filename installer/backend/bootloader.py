@@ -26,9 +26,11 @@ import logging
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
+from dataclasses import dataclass
 from pathlib import Path
 
 from . import trace
@@ -381,6 +383,140 @@ def stage_uki_prereqs(target):
             )
 
 
+# ── Which boot-menu entries an encrypted install may safely offer ─────────
+
+#: Written beside /etc/grub.d/10_linux when its entries are withheld, so the
+#: reason is on the machine rather than only in an install log.
+LINUX_GENERATOR_DISABLED_NOTE = "10_linux.disabled-by-intergenos"
+
+#: The name /etc/grub.d/06_uki gives the newest unified-kernel entry, and the
+#: name /etc/default/grub pins. Kept here and in config.generate_grub_defaults
+#: as one string so the pin and the entry cannot drift apart.
+STABLE_UKI_MENU_ID = "intergenos-uki"
+
+
+@dataclass
+class FdeMenuDecision:
+    """What was decided about the non-unified-kernel entries, and why.
+
+    suppressed:      True when /etc/grub.d/10_linux was made non-executable, so
+                     grub-mkconfig emits none of its entries.
+    reason:          one sentence, suitable for a log line and for the note file.
+    initramfs_bytes: the measured size of the target's /boot initramfs, which is
+                     what the decision turns on. 0 when there is none.
+    """
+
+    suppressed: bool
+    reason: str
+    initramfs_bytes: int = 0
+
+
+def apply_fde_menu_policy(target, partitions) -> FdeMenuDecision:
+    """Decide whether the stock Linux generator may run on this install.
+
+    THE PROBLEM THIS SOLVES. On an encrypted install the stock generator emits
+    entries that name the unlocked mapper device as the root filesystem and load
+    whatever /boot/initramfs.img happens to be. The installer writes a fifty-byte
+    placeholder there so the image builder has an --initrd input, and the real
+    unlock initramfs is bundled into the unified kernel image instead. When the
+    placeholder is still in place, those entries hand the kernel an encrypted
+    root, no way to ask for a passphrase and an empty early-userspace: not a
+    fallback, but a row in the menu that looks exactly like the one that works
+    and cannot ever boot.
+
+    THE RULE. On a plain install, nothing changes. On an encrypted install:
+
+      * an initramfs at least :data:`FDE_INITRD_MIN_BYTES` — the same threshold
+        this module already uses to decide whether an FDE initramfs was really
+        built — can plausibly unlock, so the entries are KEPT and
+        ``config.generate_grub_defaults`` gives them the device to unlock;
+      * anything smaller, or nothing at all, means they cannot, so the generator
+        is made non-executable and a note beside it records the measurement.
+
+    WHAT THIS COSTS, stated rather than hidden: a machine in the second case has
+    no non-unified-kernel entry to fall back to. That is the true state of it
+    either way — the difference is whether the menu says so. Producing a real
+    unlock initramfs on /boot is the fix that would restore a fallback, and it
+    belongs to whatever owns initramfs generation, not to the boot menu.
+
+    Returns the decision; never raises. A target whose generator is missing is
+    reported as not suppressed, because there is nothing to suppress.
+    """
+    target_path = Path(target)
+    generator = target_path / "etc" / "grub.d" / "10_linux"
+    note = generator.parent / LINUX_GENERATOR_DISABLED_NOTE
+
+    initramfs = target_path / "boot" / "initramfs.img"
+    try:
+        initramfs_bytes = initramfs.stat().st_size
+    except OSError:
+        initramfs_bytes = 0
+
+    if not partitions.get("luks_enabled"):
+        return FdeMenuDecision(
+            suppressed=False,
+            reason="plain install: the stock Linux menu entries boot without an "
+                   "initramfs and are left alone",
+            initramfs_bytes=initramfs_bytes,
+        )
+
+    if initramfs_bytes >= FDE_INITRD_MIN_BYTES:
+        return FdeMenuDecision(
+            suppressed=False,
+            reason=(f"encrypted install with a {initramfs_bytes}-byte "
+                    f"/boot/initramfs.img (at least the "
+                    f"{FDE_INITRD_MIN_BYTES}-byte floor for a real unlock "
+                    f"initramfs): the stock Linux menu entries are kept and are "
+                    f"given the device to unlock"),
+            initramfs_bytes=initramfs_bytes,
+        )
+
+    reason = (
+        f"encrypted install with a {initramfs_bytes}-byte /boot/initramfs.img, "
+        f"below the {FDE_INITRD_MIN_BYTES}-byte floor for an initramfs that can "
+        f"unlock a LUKS root. The stock Linux menu entries would name the "
+        f"encrypted root, carry no way to ask for a passphrase, and load an "
+        f"empty early-userspace, so they are not generated."
+    )
+    if not generator.exists():
+        return FdeMenuDecision(suppressed=False,
+                               reason=reason + " (generator not present)",
+                               initramfs_bytes=initramfs_bytes)
+    try:
+        mode = generator.stat().st_mode
+        generator.chmod(mode & ~(stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH))
+        note.write_text(
+            "# InterGenOS installer\n"
+            "#\n"
+            "# /etc/grub.d/10_linux was made non-executable on this machine, so\n"
+            "# grub-mkconfig emits none of its menu entries.\n"
+            "#\n"
+            f"# {reason}\n"
+            "#\n"
+            "# The unified kernel image on the EFI system partition carries the\n"
+            "# real unlock initramfs and is the entry this machine boots.\n"
+            "#\n"
+            "# To restore the entries, put a real unlock initramfs at\n"
+            "# /boot/initramfs.img, then:\n"
+            "#     chmod +x /etc/grub.d/10_linux && grub-mkconfig -o <grub.cfg>\n"
+            "# Entries generated without one cannot open an encrypted root.\n",
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        return FdeMenuDecision(
+            suppressed=False,
+            reason=f"{reason} — but the change could not be applied: {exc}",
+            initramfs_bytes=initramfs_bytes,
+        )
+
+    logger.warning(
+        "Boot menu: %s This machine has no menu entry other than the unified "
+        "kernel image; the reason is recorded at %s.", reason, note,
+    )
+    return FdeMenuDecision(suppressed=True, reason=reason,
+                           initramfs_bytes=initramfs_bytes)
+
+
 # Path on the target where the kernel post_install hook writes its
 # diagnostic log. ingest_kernel_hook_log() reads this after PHASE_PACKAGES
 # and emits its contents as structured trace events so the Forge install
@@ -599,6 +735,14 @@ def install_bootloader(target, disk, partitions, mok_keypair=None,
     grub_cfg_out = (
         "/boot/efi/EFI/InterGenOS/grub.cfg" if efi else "/boot/grub/grub.cfg"
     )
+    # Decide, BEFORE the menu is generated, whether the stock Linux generator
+    # may contribute entries at all. On an encrypted install whose /boot still
+    # holds the placeholder initramfs its entries cannot open the root
+    # filesystem, and a menu row that looks like the working one and cannot ever
+    # boot is worse than no row. See apply_fde_menu_policy for the measurement
+    # the decision turns on.
+    menu_decision = apply_fde_menu_policy(target, partitions)
+    logger.info("Boot menu policy: %s", menu_decision.reason)
     rc, _, stderr = trace.traced_run_chroot(target,
         f"GRUB_DISABLE_OS_PROBER={os_prober_value} grub-mkconfig -o {grub_cfg_out}"
     )

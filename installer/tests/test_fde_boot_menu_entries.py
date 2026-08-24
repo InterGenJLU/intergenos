@@ -258,3 +258,30 @@ class FallbackEntriesNameTheDeviceToUnlockTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NoUuidToNameTests(unittest.TestCase):
+    """The branch the happy-path tests never reach must not crash the install."""
+
+    def setUp(self):
+        self._tmp = TemporaryDirectory()
+        self.target = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+        (self.target / "boot").mkdir(parents=True)
+        (self.target / "boot" / "initramfs.img").write_bytes(b"\0" * (2 << 20))
+
+    def test_a_missing_uuid_writes_no_device_and_does_not_raise(self):
+        from installer.backend import config
+        original = config._get_uuid
+        config._get_uuid = lambda device: None
+        try:
+            config.generate_grub_defaults(
+                self.target,
+                {"efi": "/dev/sda1", "root": "/dev/sda2", "luks_enabled": True},
+                detect_other_oses=False)
+        finally:
+            config._get_uuid = original
+        text = (self.target / "etc" / "default" / "grub").read_text()
+        self.assertNotIn("cryptdev=", text,
+                         "a device reference with no uuid behind it was written")
+        self.assertIn(f"GRUB_DEFAULT={STABLE_UKI_ID}", text)
