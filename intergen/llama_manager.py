@@ -112,6 +112,17 @@ def resolve_gpu_layers(value, tier_level: int | None = None, *,
     return OFFLOAD_ALL_LAYERS
 
 HEALTH_CHECK_TIMEOUT = 5      # seconds per health check request
+# Tokens held back from an embedding input's budget for whatever the model adds
+# around it (a beginning-of-sequence marker and the like). Small on purpose: it
+# costs a few tokens of a long document and removes an off-by-a-token refusal.
+EMBED_TOKEN_MARGIN = 8
+# How long embed() will wait for a server that is up but not yet ready. Short on
+# purpose: this runs on the request path, and a caller that cannot have an
+# embedding right now degrades to keyword matching in milliseconds rather than
+# holding a user's turn. The LONG wait for a model to load belongs to the code
+# that starts the server (start() already waits out the model-load budget), not
+# to every caller that asks for a vector.
+EMBED_READY_GRACE_S = 2.0
 STARTUP_TIMEOUT = 60           # seconds: the FLOOR of the model-load budget (startup_budget_seconds)
 STARTUP_POLL_INTERVAL = 1.0    # seconds between health polls during startup
 SHUTDOWN_TIMEOUT = 10          # seconds to wait for graceful shutdown
@@ -332,6 +343,16 @@ class LlamaManager(LlamaManagerInterface):
         # first-boot/onboarding window (server deliberately held down), and
         # repeating it at ERROR each call was pure alarm fatigue.
         self._embed_notrunning_logged: bool = False
+        # READY is not RUNNING. Popen returns the instant the child exists, and
+        # is_running() has been true from that moment — so embed() used to post
+        # into a server that had not finished loading its model and sat for the
+        # whole request timeout. An installed machine showed three of those, 30
+        # seconds each, at every daemon start. This event is set only when
+        # /health has answered ok for OUR child, and cleared on every launch and
+        # every stop.
+        self._ready: threading.Event = threading.Event()
+        # One line per not-ready episode, like the not-running one above.
+        self._embed_notready_logged: bool = False
 
     def start(self, model_path: str, *,
               port: int = 8080,
@@ -548,6 +569,23 @@ class LlamaManager(LlamaManagerInterface):
             # Embedding-only instance: expose POST /embedding. (Pair with
             # gpu_layers=0 at the call site to keep it CPU-resident.)
             cmd.append("--embedding")
+            # An embedding request is not streamed: llama.cpp processes the
+            # whole input in ONE physical batch and refuses anything longer
+            # with "input (N tokens) is too large to process. increase the
+            # physical batch size". The default physical batch is 512 while
+            # this instance's context is larger, so every input between the two
+            # failed with HTTP 500 — measured on an installed machine on four
+            # ordinary questions in three days, and reproduced here against the
+            # real engine binary. Size the physical batch to the context, which
+            # is the largest input the server can hold at all.
+            #
+            # Both flags are passed on purpose. The engine clamps the LOGICAL
+            # batch down to the physical one for an embedding server and says so
+            # in its own startup log; passing both keeps the argv honest about
+            # what the server will run with instead of leaving a 2048/512 pair
+            # for a reader to reconcile.
+            cmd += ["--batch-size", str(context_size),
+                    "--ubatch-size", str(context_size)]
 
         # Save config for restart
         self._config = ServerConfig(
@@ -632,6 +670,9 @@ class LlamaManager(LlamaManagerInterface):
 
         log.info("Starting llama-server: %s", " ".join(cmd))
 
+        # Not ready until /health says so for this launch.
+        self._ready.clear()
+
         try:
             self._process = subprocess.Popen(
                 cmd,
@@ -646,6 +687,10 @@ class LlamaManager(LlamaManagerInterface):
 
             # Wait for server to become healthy
             if self._wait_for_healthy(port):
+                # The server has loaded its model and answered /health as our
+                # own child: callers waiting on readiness are released here.
+                self._ready.set()
+                self._embed_notready_logged = False
                 # New up-episode: the next embed()-while-down deserves its own
                 # single non-DEBUG line.
                 self._embed_notrunning_logged = False
@@ -761,6 +806,7 @@ class LlamaManager(LlamaManagerInterface):
         if self._process is None:
             return
 
+        self._ready.clear()
         log.info("Stopping llama-server (PID %d)", self._process.pid)
         pid = self._process.pid
 
@@ -1020,8 +1066,104 @@ class LlamaManager(LlamaManagerInterface):
         port = self._config.port if self._config else 8080
         return f"http://localhost:{port}/v1/embeddings"
 
+    def is_ready(self) -> bool:
+        """True when this launch has answered /health as our own child.
+
+        RUNNING means a process exists; READY means it has loaded its model and
+        will answer. The two are minutes apart for a cold model file, and the
+        gap is where the blind request timeouts lived.
+        """
+        return self._ready.is_set()
+
+    def _mark_ready(self) -> None:
+        """Declare readiness without a launch (the health wait's own callers and
+        tests that drive embed() with a mocked transport)."""
+        self._ready.set()
+
+    def _await_ready(self, budget: float) -> bool:
+        """Wait up to ``budget`` seconds for readiness. Never longer."""
+        if self._ready.is_set():
+            return True
+        if budget <= 0:
+            return False
+        return self._ready.wait(timeout=budget)
+
+    def wait_until_ready(self, timeout: float | None = None) -> bool:
+        """Block until this server is ready, or the timeout passes.
+
+        For a caller that legitimately has to wait out a model load — the
+        daemon's own startup and self-heal paths, which start the server and
+        then want its vectors — as opposed to embed(), which is on the request
+        path and degrades in milliseconds instead.
+        """
+        budget = self._startup_budget if timeout is None else timeout
+        return self._await_ready(budget)
+
+    def _post_json(self, path: str, obj: dict, timeout: float):
+        """POST a JSON body to one of this server's endpoints; None on failure."""
+        port = self._config.port if self._config else 8080
+        req = urllib.request.Request(
+            f"http://localhost:{port}{path}",
+            data=json.dumps(obj).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read())
+        except Exception as e:  # noqa: BLE001 — degrade, never crash a caller
+            log.debug("%s request failed: %s", path, e)
+            return None
+
+    def _fit_to_context(self, texts: list[str], timeout: float) -> list[str]:
+        """Shorten any input this server cannot process, and say so.
+
+        The server refuses an input longer than its physical batch, which this
+        manager sizes to the context. Anything longer has to be shortened by
+        SOMEONE: doing it here, deliberately and in the log, is the difference
+        between a shortened answer and an HTTP 500 that drops retrieval to
+        keyword-only without telling the user anything.
+
+        The cheap pre-filter is exact rather than a guess: a token is at least
+        one character, so a text shorter than the context IN CHARACTERS cannot
+        exceed it in tokens and is sent untouched. Only a text at or above that
+        length pays for a /tokenize round trip, and the server's own tokenizer —
+        not an estimate — decides. A small margin is left for whatever special
+        tokens the model adds.
+        """
+        limit = self._config.context_size if self._config else 0
+        if limit <= 0:
+            return texts
+        budget = max(1, limit - EMBED_TOKEN_MARGIN)
+        out: list[str] = []
+        for text in texts:
+            if len(text) < limit:
+                out.append(text)
+                continue
+            tok = self._post_json("/tokenize", {"content": text}, timeout)
+            tokens = tok.get("tokens") if isinstance(tok, dict) else None
+            if not isinstance(tokens, list) or len(tokens) <= budget:
+                # Either it fits, or the server would not tell us — send it as
+                # the author wrote it and let the server answer for itself.
+                out.append(text)
+                continue
+            back = self._post_json("/detokenize", {"tokens": tokens[:budget]},
+                                   timeout)
+            shortened = back.get("content") if isinstance(back, dict) else None
+            if not isinstance(shortened, str) or not shortened:
+                # Cannot shorten on token boundaries; fall back to a character
+                # cut at the budget, which is under the limit by construction.
+                shortened = text[:budget]
+            log.warning(
+                "embed(): an input of %d tokens is longer than this embedding "
+                "server's %d-token context — shortened to %d tokens (the tail "
+                "was dropped) so the request is answered instead of refused",
+                len(tokens), limit, budget)
+            out.append(shortened)
+        return out
+
     def embed(self, texts: list[str], *,
-              timeout: float = 30.0) -> list[list[float]] | None:
+              timeout: float = 30.0,
+              ready_timeout: float | None = None) -> list[list[float]] | None:
         """Embed a batch of texts via the local llama-server /v1/embeddings.
 
         AI-12: replaces the sentence-transformers/torch/huggingface stack — the
@@ -1056,6 +1198,24 @@ class LlamaManager(LlamaManagerInterface):
                 log.debug("embed() called but embedding server is not running")
             return None
 
+        # A running server that has not finished loading answers nothing: the
+        # request simply sits until it times out. Wait on readiness instead,
+        # bounded by this launch's own model-load budget, and degrade with one
+        # line if it does not arrive.
+        budget = EMBED_READY_GRACE_S if ready_timeout is None else ready_timeout
+        if not self._await_ready(budget):
+            if not self._embed_notready_logged:
+                self._embed_notready_logged = True
+                log.warning(
+                    "embed() skipped: the embedding server process is up but "
+                    "has not answered /health yet (waited %.1fs) — embeddings "
+                    "degrade until it is ready; repeats logged at DEBUG",
+                    budget)
+            else:
+                log.debug("embed() skipped: embedding server not ready yet")
+            return None
+
+        texts = self._fit_to_context(texts, timeout)
         payload = json.dumps({"input": texts, "model": "embedding"}).encode()
         req = urllib.request.Request(
             self.get_embedding_endpoint(),

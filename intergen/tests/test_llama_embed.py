@@ -43,6 +43,16 @@ class EmbedTests(unittest.TestCase):
         self.m = LlamaManager()
 
     def _running(self, val: bool = True):
+        """A server that is up AND has answered /health.
+
+        Readiness became a separate state on 2026-08-25: a process that exists
+        is not a server that will answer, and embed() no longer posts into one
+        that has not finished loading. These tests are about the response path,
+        so they declare readiness too — otherwise every one of them would take
+        the degrade path and pass for the wrong reason.
+        """
+        if val:
+            self.m._mark_ready()
         return mock.patch.object(self.m, "is_running", return_value=val)
 
     def test_empty_input_is_empty_list(self):
