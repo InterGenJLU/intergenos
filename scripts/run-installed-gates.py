@@ -63,6 +63,7 @@ EXIT_USAGE = 2
 
 GATE_ENV = "INTERGENOS_INSTALLED_GATES"
 SEAL_NAME = "SHA256SUMS"
+SIG_NAME = "SHA256SUMS.asc"
 PKM_DB = "/var/lib/igos/pkm.db"
 _INSTALLED_PREFIXES = ("/usr/lib/", "/usr/lib64/", "/usr/local/lib/")
 
@@ -167,7 +168,11 @@ def _parse_junit(path: Path) -> list[dict]:
 def _seal(record_dir: Path) -> str:
     lines = []
     for p in sorted(record_dir.rglob("*")):
-        if p.is_file() and p.name != SEAL_NAME:
+        # The signature sidecar signs SHA256SUMS, so it is produced after this
+        # file is final and can never be listed inside it. Excluded here and in
+        # check-release-validation.py's seal check, which must agree or a signed
+        # record would fail its own seal.
+        if p.is_file() and p.name not in (SEAL_NAME, SIG_NAME):
             digest = hashlib.sha256(p.read_bytes()).hexdigest()
             lines.append(f"{digest}  {p.relative_to(record_dir)}\n")
     seal = record_dir / SEAL_NAME
@@ -313,6 +318,22 @@ def main(argv: list[str] | None = None) -> int:
           f"{socket.gethostname()}; seal {SEAL_NAME} sha256 {seal_digest}")
     print("[run-installed-gates] This is a report, not a verdict on the "
           "release. scripts/check-release-validation.py decides.")
+
+    # THE RECORD IS NOT YET AN ATTESTATION. Sealing proves the record did not
+    # change; it does not say who stands behind it, and anyone who can run this
+    # script can produce a sealed record saying anything. The operator's
+    # signature over the seal is what a release path requires, and the exact
+    # command is printed here rather than left to a document, because the moment
+    # the record exists is the moment it is needed.
+    print()
+    print("[run-installed-gates] NEXT STEP — the operator signs this record, or "
+          "no release path will accept it:")
+    print(f"    bash scripts/sign-with-gpg.sh --file {out / SEAL_NAME} \\")
+    print(f"         --sha256 {seal_digest}")
+    print(f"  That writes {out / SIG_NAME}, using the release key on the "
+          f"hardware token (PIN, then touch).")
+    print("  Until it exists this record is unsigned, and "
+          "check-release-validation.py refuses it on every release path.")
     return EXIT_OK
 
 
