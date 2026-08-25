@@ -292,7 +292,9 @@ fi
 # naming the private path (absence is never a silent bypass). The predecessor
 # left short collision-prone tokens to contextual-only matching, which a bare
 # token evaded; this gate matches word-boundary with span-aware, in-code
-# exemptions. A missing SCRIPT (a branch predating it) warns + skips, matching
+# exemptions. Since 2026-08-25 the added lines of a file are matched in runs of
+# consecutive lines joined by one space, so a two-word term split by a line wrap
+# is caught; the report names the line the match starts on. A missing SCRIPT (a branch predating it) warns + skips, matching
 # the audit's posture — the security-critical input is the private list, which
 # the script itself fails closed on.
 if [ -f scripts/check-public-language.py ]; then
@@ -310,7 +312,9 @@ fi
 
 # ---- 1c. Writing-register gate (two tiers; decided 2026-08-16) ------------
 # Range-scoped like 1b: scans ONLY the prose zones of the lines this push
-# adds, plus the range's non-merge commit messages. The narrow tier refuses
+# adds (in runs of consecutive lines joined by one space, so a pattern split by
+# a line wrap is caught; the report names the line the match starts on), plus
+# the range's non-merge commit messages. The narrow tier refuses
 # (machine-assistant self-narration phrasing); the broad tier prints
 # advisory lines and never refuses on its own. Exclusion set is the
 # committed config/register-gate-exclusions.txt (the script fails loudly if
