@@ -314,6 +314,13 @@ _EXEMPT_SPAN_PATTERNS = [
 # a comment, an error message, a bare word -- still block. The pattern is
 # assembled from pieces so this definition never spells the name (same
 # self-reference discipline as the entries above).
+#
+# THE PATH PATTERN IS MATCHED WITH re.search, WHICH IS UNANCHORED. Write every
+# entry with ^ and $ or it will exempt any path that merely CONTAINS the
+# pattern: "scripts/x[.]sh" would also exempt "vendor/scripts/x.sh". An
+# exemption that widens itself silently is the wrong direction for this gate.
+# PathScopedExemptionShapeTests in tests/igos_build/test_public_language_gate.py
+# enforces the anchors; it is a checked gate, not a request.
 _EXEMPT_SPAN_PATTERNS_BY_PATH = [
     ("private-repo-dirname-in-shell-string",
      re.compile(r"^scripts/[^/]+\.sh$"),
