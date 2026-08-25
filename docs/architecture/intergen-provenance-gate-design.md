@@ -285,7 +285,7 @@ The injection-test corpus is its own deliverable — a set of webpages + files +
 
 ## 13 — Migration / rollout
 
-InterGen has not yet shipped to general users, so there is no migration concern: v1.0 ships with the gate built in from day one. The code paths that violated this design (audit findings I-027 and I-035) are rewritten as part of v1.0 work and do not ship to users in their prior form.
+The gate was built in before InterGen first shipped to general users, so no installed system has ever run without it and there is no migration concern. The code paths that violated this design (audit findings I-027 and I-035) are rewritten as part of v1.0 work and do not ship to users in their prior form.
 
 ## 14 — Resolved design questions
 

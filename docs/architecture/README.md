@@ -73,7 +73,9 @@ implementation files can stay focused on code.
 - **[intergen-icon-compiler-design.md](intergen-icon-compiler-design.md)** —
   InterGenOS Icon Compiler (IGIC) design. A deterministic build-time pipeline
   that compiles the icon theme from reusable primitives and per-icon recipes,
-  with embedded build provenance. Pre-RC001-arc; not yet built.
+  with embedded build provenance. The reference implementation is in the tree
+  at `assets/theming/igic/`; the design document's section 19 is the ledger of
+  which mechanisms it implements and which remain specification only.
 
 ## Cross-references
 
