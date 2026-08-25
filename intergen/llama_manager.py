@@ -123,6 +123,28 @@ EMBED_TOKEN_MARGIN = 8
 # that starts the server (start() already waits out the model-load budget), not
 # to every caller that asks for a vector.
 EMBED_READY_GRACE_S = 2.0
+# Texts per HTTP request to the embedding server.
+#
+# MEASURED, not chosen for tidiness. A seat machine's journal shows the wiki
+# index asking for 32 passages of about 140 words in ONE request and the client
+# giving up at its 30-second timeout — on every daemon start, with the whole
+# index falling back to keyword matching afterwards. The failure is expensive on
+# both sides: the client stops waiting while the server keeps working through
+# the batch, so the server's single slot is still busy when the first user turn
+# arrives.
+#
+# Two rates bracket the number. On a desktop with the model warm, 2116 passages
+# of ~123 tokens embed at 50 ms each, so 32 of them take about 1.6 s. On the
+# laptop whose journal carries the failure, the same 32 did not finish in 30 s
+# while the chat model was still loading beside them — at least 0.94 s per
+# passage, roughly nineteen times slower. A request therefore has to be sized
+# for the machine having its worst minute, not its best: at 8 texts the slow
+# case lands near 7.5 s, four times inside the timeout, while the fast case
+# pays four extra round trips of a few milliseconds each.
+#
+# Callers that ask for more are split across several requests; their own
+# batching and budgets are untouched.
+EMBED_TEXTS_PER_REQUEST = 8
 STARTUP_TIMEOUT = 60           # seconds: the FLOOR of the model-load budget (startup_budget_seconds)
 STARTUP_POLL_INTERVAL = 1.0    # seconds between health polls during startup
 SHUTDOWN_TIMEOUT = 10          # seconds to wait for graceful shutdown
@@ -1216,6 +1238,31 @@ class LlamaManager(LlamaManagerInterface):
             return None
 
         texts = self._fit_to_context(texts, timeout)
+
+        # One request per bounded slice, so no single request can outlive the
+        # timeout while the server is still working on it.
+        if len(texts) > EMBED_TEXTS_PER_REQUEST:
+            log.info("embed(): %d texts sent as %d requests of at most %d, so "
+                     "no single request outruns its %.0fs timeout",
+                     len(texts),
+                     -(-len(texts) // EMBED_TEXTS_PER_REQUEST),
+                     EMBED_TEXTS_PER_REQUEST, timeout)
+            out: list[list[float]] = []
+            for i in range(0, len(texts), EMBED_TEXTS_PER_REQUEST):
+                part = self._embed_one_request(
+                    texts[i:i + EMBED_TEXTS_PER_REQUEST], timeout)
+                if part is None:
+                    # Partial results are not returned: a caller that asked for
+                    # N vectors and gets fewer cannot line them up with its own
+                    # inputs. Degrade whole, as before.
+                    return None
+                out.extend(part)
+            return out
+        return self._embed_one_request(texts, timeout)
+
+    def _embed_one_request(self, texts: list[str],
+                           timeout: float) -> list[list[float]] | None:
+        """One POST to /v1/embeddings. Vectors in input order, or None."""
         payload = json.dumps({"input": texts, "model": "embedding"}).encode()
         req = urllib.request.Request(
             self.get_embedding_endpoint(),

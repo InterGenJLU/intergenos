@@ -229,5 +229,69 @@ class FitToContextTests(unittest.TestCase):
                          "a text that fits must be sent unchanged")
 
 
+class _CountingRouter:
+    """urlopen stand-in that records each embeddings request's input size."""
+
+    def __init__(self, *, fail_on: int | None = None) -> None:
+        self.sizes: list[int] = []
+        self._fail_on = fail_on
+
+    def __call__(self, req, *_a, **_k):
+        body = json.loads(req.data.decode())
+        n = len(body["input"])
+        self.sizes.append(n)
+        if self._fail_on is not None and len(self.sizes) == self._fail_on:
+            raise OSError("connection reset")
+        base = sum(self.sizes[:-1])
+        return _FakeResp({"data": [{"embedding": [float(base + i)], "index": i}
+                                   for i in range(n)]})
+
+
+class BoundedRequestTests(unittest.TestCase):
+    """A request has to be small enough to finish inside its own timeout.
+
+    A seat machine's journal shows the wiki index asking for 32 passages in one
+    request and the client giving up at 30 seconds, on every daemon start, with
+    the index falling back to keyword matching afterwards — and the server still
+    working on the abandoned batch while the first user turn queues behind it.
+    """
+
+    def setUp(self) -> None:
+        self.m = LlamaManager()
+        self.m._config = ServerConfig(
+            model_path="m", port=8081, context_size=2048, gpu_layers=0,
+            parallel=1, jinja=False, reasoning="off", embedding=True)
+        self.m._mark_ready()
+
+    def test_a_large_batch_is_split_into_bounded_requests(self):
+        router = _CountingRouter()
+        texts = [f"passage {i}" for i in range(20)]
+        with mock.patch.object(self.m, "is_running", return_value=True), \
+             mock.patch("intergen.llama_manager.urllib.request.urlopen",
+                        side_effect=router):
+            out = self.m.embed(texts)
+        self.assertEqual(router.sizes, [8, 8, 4])
+        self.assertEqual(len(out), 20)
+        self.assertEqual([v[0] for v in out], [float(i) for i in range(20)],
+                         "the vectors came back out of input order")
+
+    def test_a_batch_that_already_fits_is_one_request(self):
+        router = _CountingRouter()
+        with mock.patch.object(self.m, "is_running", return_value=True), \
+             mock.patch("intergen.llama_manager.urllib.request.urlopen",
+                        side_effect=router):
+            self.m.embed([f"passage {i}" for i in range(8)])
+        self.assertEqual(router.sizes, [8])
+
+    def test_one_failed_slice_degrades_the_whole_call(self):
+        # A caller that asked for 20 vectors cannot line up 8 with its inputs,
+        # so a partial answer is never returned.
+        router = _CountingRouter(fail_on=2)
+        with mock.patch.object(self.m, "is_running", return_value=True), \
+             mock.patch("intergen.llama_manager.urllib.request.urlopen",
+                        side_effect=router):
+            self.assertIsNone(self.m.embed([f"p{i}" for i in range(20)]))
+
+
 if __name__ == "__main__":
     unittest.main()
