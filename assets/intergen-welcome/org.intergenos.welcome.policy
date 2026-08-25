@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1.0/policyconfig.dtd">
+<!--
+  The Welcomer's privileged helper, authorized under its own action.
+
+  WHY THIS FILE EXISTS. Every privileged path in the Welcomer runs a bare
+  `pkexec <program>`. With no action registered for the program, polkit falls
+  back to its generic org.freedesktop.policykit.exec action, and the prompt the
+  user is shown says only that a program wants to run as another user. A first
+  boot on an installed machine recorded exactly that fallback being refused:
+
+    polkitd: Operator of unix-session:2 FAILED to authenticate to gain
+             authorization for action org.freedesktop.policykit.exec
+             for [the Welcomer]
+    pkexec:  Error executing command as another user: Request dismissed
+
+  Nothing was misconfigured — the prompt was dismissed. But a prompt that
+  cannot say what it is for is a prompt a person is right to dismiss, and the
+  generic action names neither the application nor the change.
+
+  WHAT IT CHANGES, and what it does not. One action covers the whole helper,
+  the same shape org.intergenos.intergen.policy uses for the privileged-tool
+  tier: the helper takes a fixed set of verbs and validates its own arguments,
+  so the authentication boundary is the helper, and the argument boundary is
+  inside it. The strength is unchanged — auth_admin, the same as the generic
+  exec action's own default — so this is a clearer prompt, not a weaker gate.
+
+  auth_admin, NOT auth_admin_keep, and deliberately so: unlike the assistant's
+  tool dispatch, these are a handful of one-off choices a person makes while
+  reading a page, so there is no run of calls for a cached credential to cover,
+  and each change to a system service or the machine's name servers is worth
+  its own authentication.
+-->
+<policyconfig>
+  <vendor>InterGenOS</vendor>
+  <vendor_url>https://github.com/InterGenJLU/intergenos</vendor_url>
+  <icon_name>preferences-system</icon_name>
+
+  <action id="org.intergenos.welcome.configure-system">
+    <description>Change a system service or the machine's name servers</description>
+    <description xml:lang="en_US">Change a system service or the machine's name servers</description>
+    <message>Authentication is required to apply the change you just chose in the InterGenOS Welcomer</message>
+    <message xml:lang="en_US">Authentication is required to apply the change you just chose in the InterGenOS Welcomer</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/intergen-welcome/intergen-welcome-privhelper</annotate>
+    <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
+  </action>
+</policyconfig>

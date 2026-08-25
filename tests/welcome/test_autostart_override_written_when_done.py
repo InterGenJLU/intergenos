@@ -76,7 +76,7 @@ def extract_wrapper() -> str:
 class WrapperHarness:
     """Run the real wrapper against a temporary HOME with a stubbed app."""
 
-    def __init__(self, tmp: Path, app_rc: int = 0):
+    def __init__(self, tmp: Path, app_rc: int = 0, app_writes_rearm: bool = False):
         self.home = tmp / "home"
         self.home.mkdir(parents=True, exist_ok=True)
         bindir = tmp / "bin"
@@ -86,9 +86,18 @@ class WrapperHarness:
         self.wrapper.chmod(self.wrapper.stat().st_mode | stat.S_IXUSR)
         # A python3 that stands in for the Welcomer itself: it must not be the
         # real GTK application, and its exit code is what the wrapper's
-        # bookkeeping keys on.
+        # bookkeeping keys on. When app_writes_rearm is set it also writes the
+        # re-arm sentinel the way the AI-assistant page does — DURING the run,
+        # which is the only time that can happen: the wrapper clears a stale
+        # sentinel before it decides anything, so one planted before the run is
+        # correctly discarded.
         stub = bindir / "python3"
-        stub.write_text("#!/bin/sh\nexit %d\n" % app_rc, encoding="utf-8")
+        body = "#!/bin/sh\n"
+        if app_writes_rearm:
+            body += ('mkdir -p "$HOME/.config/intergen-welcome"\n'
+                     'touch "$HOME/.config/intergen-welcome/rearm"\n')
+        body += "exit %d\n" % app_rc
+        stub.write_text(body, encoding="utf-8")
         stub.chmod(stub.stat().st_mode | stat.S_IXUSR)
         self.bindir = bindir
 
@@ -147,21 +156,44 @@ class AutostartOverrideTest(unittest.TestCase):
         """The driver-install path promises the Welcomer comes back.
 
         It clears the done-marker; if the override survived, the entry would
-        stay hidden and the promise would be false.
+        stay hidden and the promise would be false. The sentinel is written by
+        the application during its run — the wrapper discards one that was
+        already there when it started, so the harness writes it the same way
+        the AI-assistant page does.
         """
         with tempfile.TemporaryDirectory() as td:
-            h = WrapperHarness(Path(td), app_rc=0)
-            h.run()                                   # first clean run
-            self.assertTrue(h.path(OVERRIDE_REL).exists())
-            h.path(REARM_REL).parent.mkdir(parents=True, exist_ok=True)
-            h.path(REARM_REL).touch()                 # a driver install started
-            h.run()
+            h = WrapperHarness(Path(td), app_rc=0, app_writes_rearm=True)
+            r = h.run()
+            self.assertEqual(r.returncode, 0, r.stderr)
             self.assertFalse(h.path(MARKER_REL).exists(),
                              "re-arm must clear the marker (existing behaviour)")
+            self.assertFalse(
+                h.path(REARM_REL).exists(),
+                "the sentinel must be consumed (existing behaviour)")
             self.assertFalse(
                 h.path(OVERRIDE_REL).exists(),
                 "re-arm cleared the marker but left the Hidden override, so the "
                 "Welcomer would never come back after the driver reboot")
+
+    def test_a_stale_rearm_sentinel_is_still_discarded(self):
+        """Existing behaviour, pinned because the override now rides with it.
+
+        A sentinel left by a run that never reached its own bookkeeping is
+        cleared before anything is decided; it must not cause the override to
+        be removed on a machine that is legitimately done.
+        """
+        with tempfile.TemporaryDirectory() as td:
+            h = WrapperHarness(Path(td), app_rc=0)
+            h.run()
+            self.assertTrue(h.path(OVERRIDE_REL).exists())
+            h.path(REARM_REL).touch()                 # stale, from an earlier run
+            h.run()
+            self.assertFalse(h.path(REARM_REL).exists())
+            self.assertTrue(h.path(MARKER_REL).exists())
+            self.assertTrue(
+                h.path(OVERRIDE_REL).exists(),
+                "a stale sentinel un-hid the autostart entry on a machine that "
+                "is done")
 
     def test_a_failed_run_writes_neither(self):
         with tempfile.TemporaryDirectory() as td:
