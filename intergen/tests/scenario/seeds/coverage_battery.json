@@ -118,5 +118,30 @@
         ]
       }
     ]
+  },
+  {
+    "id": "COV-route-search-offer-declined-01",
+    "name": "declining an offered web search routes to search_offer_declined (route source: search_offer_declined)",
+    "axis": ["routing"],
+    "category": "conversational",
+    "capabilities": ["route:current_data_offer", "route:search_offer_declined"],
+    "tags": ["coverage:B", "class:routing"],
+    "turns": [
+      {
+        "user": "what is the price of gold right now?",
+        "description": "A live-data question is met with an honest offer to look it up, and the question the offer is about is remembered so the next turn can answer it. Closes Registry-B current_data_offer.",
+        "assertions": [
+          ["routes_via", "current_data_offer", "a live-data question gets the honest search offer"]
+        ]
+      },
+      {
+        "user": "no thanks",
+        "description": "Declining the offer clears it and says so plainly; no search runs. Closes Registry-B search_offer_declined.",
+        "assertions": [
+          ["routes_via", "search_offer_declined", "declining an offered search is answered by the decline handler"],
+          ["no_tool", "web_search", "a declined offer must NOT dispatch the search"]
+        ]
+      }
+    ]
   }
 ]

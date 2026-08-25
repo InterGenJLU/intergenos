@@ -169,9 +169,18 @@ class SayingNoStillMeansNo(_RoutedExchange):
     """The other half of consent. A declined offer must not search."""
 
     def test_a_bare_no_runs_nothing(self) -> None:
-        _, recorder = self._exchange([GENERATOR_ASK, "no thanks"])
+        results, recorder = self._exchange([GENERATOR_ASK, "no thanks"])
         self.assertNotIn("web_search", recorder.names,
                          "a declined offer ran the search anyway")
+        self.assertEqual(results[1].source, "search_offer_declined", (
+            "a declined offer should be answered by the decline handler, so "
+            "the refusal is the assistant's own words rather than whatever the "
+            f"model made of a bare 'no'. Got {results[1].source!r}"))
+
+    def test_the_decline_is_said_plainly(self) -> None:
+        results, _ = self._exchange([GENERATOR_ASK, "no thanks"])
+        self.assertTrue((results[1].text or "").strip(),
+                        "declining the offer produced no reply at all")
 
 
 class AnUnrelatedFollowUpIsNotConsent(_RoutedExchange):

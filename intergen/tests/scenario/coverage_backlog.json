@@ -1,12 +1,11 @@
 {
   "_comment": "WP-4.2 coverage burndown backlog: un-annotated (testable=yes) inventory cells not yet asserted by any scenario. The coverage gate fails if a NEW gap appears outside this set, and if a listed cell has since been covered (forcing removal). This ratchet can only shrink. Most remaining cells are live-capture-dependent (a route source / gate outcome needs a real daemon trace to grade) and close as the discovery->promotion engine (WP-3.3) + live runs feed recorded captures.",
-  "count": 74,
+  "count": 73,
   "cells": [
     "A:manage_packages",
     "A:write_file",
     "B:affirmative_no_offer",
     "B:cache",
-    "B:current_data_offer",
     "B:direct_answer",
     "B:direct_answer_external",
     "B:explain_offer_declined",
