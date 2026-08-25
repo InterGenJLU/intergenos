@@ -2,7 +2,7 @@ name: gst-plugin-gtk4
 # Version 1.28.1 = lockstep with the C gstreamer 1.28.1 stack
 # (gst-plugins-rs versions together with gstreamer since the 1.26 series).
 version: "1.28.1"
-release: 1
+release: 1  # r1: initial package for gst-plugins-rs' gtk4paintablesink, required by Snapshot's camera-preview pipeline. Both packages built in chroot; gst-inspect, a 60-buffer Wayland pipeline, and a live Snapshot camera preview passed on real hardware.
 description: "GStreamer GTK4 video sink plugin (gtk4paintablesink)"
 license: MPL-2.0
 homepage: https://gstreamer.freedesktop.org/

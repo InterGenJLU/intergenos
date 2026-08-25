@@ -48,14 +48,15 @@ landed is in the repository README, not here.
   cannot ship apart again.
 - **An opt-in tier of red-first installed-system fixtures is now part of the
   tree.** It defines checks for privilege dispatch, per-user permissions,
-  web-turn lifecycle, conversation resets,
-  semantic selection, GPU offload, netfilter behavior, trace integrity,
-  install-manifest completeness, secret redaction, wiki startup indexing and
-  desktop keybindings. Publication refuses a staged package set whose bytes do
-  not match the evaluated build corpus in both directions. Boot-order and
-  write-policy test fixtures no longer inherit the machine running the tests,
-  and the public-content gates cover private and routable IPv4 addresses plus
-  additional identifier spellings.
+  web-turn lifecycle, conversation resets, semantic selection, GPU offload,
+  netfilter behavior, trace integrity, install-manifest completeness, secret
+  redaction, wiki startup indexing and desktop keybindings. A signing publish
+  requires a SHA-256 manifest of the build-chroot archives and refuses any
+  difference between that supplied manifest and staging in either direction;
+  the correspondence gate does not independently attest where the manifest was
+  produced. Boot-order and write-policy fixtures no longer inherit the machine
+  running the tests, and the public-content gates cover private and routable
+  IPv4 addresses plus additional identifier spellings.
 
 ### Fixed
 
@@ -66,39 +67,31 @@ landed is in the repository README, not here.
   archive failing to download. The closing summary named nothing and the command
   exited zero while the package stayed at its old version. Each path is now
   recorded, so the summary names the package and the exit code is non-zero.
-- **The system identity file survives the Chapter 8 build.** While building
-  systemd, the test step overwrote `/etc/os-release` with a single line,
-  discarding the `ID` field that the build stages beforehand and that
-  systemd's own configuration step reads. Every package built after systemd in
-  that stage saw the reduced file, and the step that stages it only writes when
-  the file is absent, so nothing put the field back until much later in the
-  build. The test step now writes the file only when it is genuinely missing.
-- **Package test declarations describe what their test suites actually do.**
-  Three recipes carried a written policy stating that a suite ran and that its
-  failures were understood, when the suite had not run at all or had stopped
-  for a different reason than the one recorded. Samba's suite cannot run
-  without a build option that compiles test-only behaviour into the shipped
-  file server, so it is now declared as not run, with that reason stated.
-  Node.js's suite stopped while trying to fetch documentation tooling from the
-  network before reaching a single test; it now runs the test set the Node.js
-  project itself designates for a run with no network access. CUPS's suite runs
-  its programming-interface tests and then stops because the printing-scheduler
-  test plan refuses to run as the build user; the record now says so instead of
-  naming an unrelated cause.
-- **The virtual-machine manager's startup path supports current glib.** Current
-  releases removed a compatibility alias the application still called, so it
-  failed before its window appeared. The startup call now resolves the legacy
-  name when it is present and falls back to the current `GLibUnix` namespace
-  when it is not.
-- **The wiki's release references and identity examples match what images
-  report.** Fifteen pages no longer use release-relative “current release”
-  wording that can go stale; they point readers to the current download and
-  describe how to read an installed system's own identity. Four examples that
-  still showed the original R001 image's `1.0-dev (Revival)` string now show
-  the current shape, name the two fields that stay stable across releases, and
-  explain that a system installed from the original image keeps its old string
-  until the updated file is adopted as a configuration update. The wiki's
-  signed page manifest was regenerated and re-signed after each content pass.
+- **The systemd recipe's test step no longer overwrites the staged system
+  identity file.** It now creates a fallback `/etc/os-release` only when the
+  file is absent, preserving the staged `ID` field for systemd and later
+  packages. A focused recipe test covers the guard; a full Chapter 8 build has
+  not rerun this change.
+- **Package test declarations now match the observed suite behavior.**
+  Samba's suite is declared not run because enabling it compiles test-only
+  behavior into the shipped server. Node.js's recipe now invokes the offline
+  default test set instead of a target that stopped while fetching documentation
+  tooling. CUPS records that its programming-interface tests run before the
+  scheduler plan refuses the build user. Recipe-level tests pin these corrected
+  policies and invocations; the three packages' suites will be rerun in the next
+  build.
+- **The virtual-machine manager recipe carries a current-glib startup patch.**
+  Current releases removed a compatibility alias the application still called,
+  so the unpatched application failed before its window appeared. The patch
+  resolves the legacy name when it is present and falls back to the current
+  `GLibUnix` namespace when it is not. The pre-fix failure was measured on two
+  installed systems; a post-patch package build and GUI launch remain unproven.
+- **The packaged wiki render was refreshed after release-reference and
+  identity examples were updated in the separate wiki source repository.**
+  The package tree carries a regenerated and re-signed manifest for the updated
+  87-page render. The source-page diffs are not present in this repository, so
+  the earlier 15-page and four-example counts are not independently recoverable
+  here.
 - **Upgrade rollback copies are actually kept, and the upgrade output
   tells the truth about rollback.** When an outgoing archive is present in the
   package cache, the package manager keeps a rollback copy before upgrading so
@@ -110,16 +103,16 @@ landed is in the repository README, not here.
   transaction stating the protection that actually applies: a captured backup
   restore point, a kept rollback copy, or — normal for the first upgrade after
   installation — neither.
-- **GRUB images carry their menu font inside the signed image.** Both the live
-  and installed boot paths embed the font in GRUB's memdisk instead of asking
-  the Secure Boot verifier to approve an external font read from the EFI
-  system partition.
-- **InterGen's privileged-action path no longer inherits the daemon's
-  `NoNewPrivileges` setting.** The daemon now hands an approved action to a
-  short-lived unit launched through the user service manager instead of
-  starting `pkexec` as its own child. The request travels in an owner-only file
+- **The live and installed GRUB build paths embed the menu font in the
+  GRUB memdisk.** Scratch images and an unsigned OVMF boot validated the embedded
+  path; signed Secure Boot evaluation remains pending for the next point
+  release.
+- **InterGen's privileged-action path launches the approved runner through a
+  transient user-manager unit.** The request travels in an owner-only file
   addressed by an opaque identifier, package operations build one privilege
-  transition, and failure messages name only conditions the path measured.
+  transition, and failure messages name only measured conditions. Structural
+  gates and real negative controls validate the boundary; an attended
+  privileged action has not run end to end.
 - **InterGen creates per-user state with owner-only permissions and tightens
   its existing state trees once.** Logs and their rotated copies, transcripts,
   personal facts, decision records, tokens, keys and the answer cache are
@@ -127,14 +120,18 @@ landed is in the repository README, not here.
   to the four InterGen-owned trees, refuses symbolic-link roots, stops at
   mounted filesystems, reports unreadable paths and does not repeatedly undo
   later sharing choices.
-- **Browser/server turn handling now sends an acknowledgement before routing
-  starts.** The client code disarms its whole-turn failsafe while a consent card
-  is open, and the server code returns a truthful timeout when routing exceeds
-  its deadline instead of closing the connection in silence.
-- **Semantic intent selection reports the candidate it actually selects.**
-  An ineligible higher score can no longer displace an eligible intent or lend
-  its score to a different candidate; the selected name, tool and score now
-  describe the same threshold-clearing result.
+- **Browser/server turn handling acknowledges receipt before routing and
+  returns a timeout before the browser's failsafe.** The client disarms its
+  whole-turn failsafe while a consent card is open. The timed-out worker is not
+  cancelled; it may continue mutating state after the timeout and can overlap a
+  later turn. No real browser was driven against a genuinely starved embedding
+  server in this change.
+- **Semantic intent selection keeps an eligible candidate, tool and score
+  together.** An ineligible higher score can no longer displace an eligible
+  intent or lend its score to a different candidate. The arithmetic correction
+  is proved with supplied similarity values; semantic recall was 0/19 for the
+  measured real-language corpus, so the corrected selection was not reachable on that
+  measured corpus.
 - **The boot-order guard finds `efibootmgr` where the package installs it.** It
   can measure a demoted InterGenOS entry instead of reporting that boot order
   is indeterminate while the executable is present.
@@ -171,53 +168,66 @@ landed is in the repository README, not here.
   an available package that is not installed. The provider page reveals its
   Apply button after a changed selection, and the offer layout follows the
   user's text size and stays inside the page width.
-- **Discrete graphics cards are used when the model fits their memory.** Offload
-  is decided by whether the resolved model, with its vision projector, fits the
-  detected video memory — every layer when it fits, as many layers as fit
-  otherwise, and zero only when not one layer fits or a needed value could not
-  be read. The hardware tier still chooses the model but no longer decides the
-  offload, which had left 3–7 GB cards serving on the processor.
+- **Automatic GPU-layer requests are planned independently of hardware tier.**
+  The daemon derives a requested `--n-gpu-layers` value from reported video
+  memory and model metadata; the server's startup banner remains the authority
+  for how many layers actually reached the GPU. With readable inputs, the
+  planner requests every layer for a full fit, otherwise a bounded uniform-per-
+  layer estimate, or zero when that estimate leaves room for no layer. Unreadable
+  video memory or model size requests every layer so failure is loud; a known
+  non-fit with unreadable layer count requests zero. The package-shipped models
+  manifest is parsed without verifying its detached signature, file sizes are a
+  fallback, and an unreadable projector size currently contributes zero bytes.
+  Planner arithmetic and real model headers were proved; a post-change load on
+  an affected 3–7 GB card was not.
 - **The plain-named `iptables` commands use the nftables backend the kernel
   supports.** The package pointed `iptables`, `ip6tables` and their save and
   restore commands at the legacy backend, which the shipped kernel does not
   provide, so the mesh client's packet-filter chains could not be created.
-- **Secret-shaped content is redacted from the turn record and the decision
-  trace.** Private-key blocks, URLs carrying a password, `crypt(3)` hashes, JSON
-  web tokens and vendor-prefixed API tokens found inside prompts, commands, tool
-  results or file contents are replaced in place with a placeholder naming the
-  shape; both writers share one definition.
+- **Recognized secret formats are redacted from the turn record and decision
+  trace.** Private-key blocks, credential-bearing URLs, `crypt(3)` hashes, JSON
+  web tokens and supported vendor-prefixed tokens are replaced in place, and
+  both writers share one definition. Unstructured secrets without a recognized
+  format or credential-shaped field name remain outside this detector.
 - **The `/etc/cron.*` directories say what reads them.** A README beside the
   four directories states that nothing runs their scripts until `fcron.service`
   is enabled, gives the command, and states each directory's schedule. The
   installer's post-install checks report a certificate directory they could not
   read as unreadable rather than as absent.
-- **A release is refused without a sealed, green installed-system gate run on
-  real hardware.** A runner records the installed-system gate tier's results
-  as a sealed record; the image builder, the mirror publisher and the promotion
-  path refuse a release whose record is missing, belongs to another release,
-  carries failed gates, or was edited after sealing. The gate tier itself now
-  imports the installed package rather than the source checkout, so its
-  results describe the installed system.
-- **The ROCm serving engine's linked libraries are declared by the packages
-  that link them.** `rocm-hip`, `rocr-runtime` and `rocsparse` link
-  `librocprofiler-register` and `libroctx64` but did not declare their
-  providers as runtime dependencies, so an installed ROCm engine failed at the
-  dynamic linker while both providers sat on the mirror. A build-time check now
-  fails a package whose linked library is not in its declared runtime closure,
-  and an installed-system check asks the loader directly.
+- **Release tooling requires a sealed, green installed-system gate record.**
+  The runner records the installed-system tier and the checker requires a named
+  InterGenOS machine, an installed package path, matching installed InterGen release and
+  the caller-declared content hash, no failed gates and only declared skips. The image builder,
+  mirror publisher and promotion path refuse a missing, mismatched, failed or
+  edited record. The record's SHA256SUMS must also carry a detached signature
+  by the release key, which the checker verifies with gpgv against the pinned
+  fingerprint before it reads anything else; physical-hardware provenance
+  remains a release-process requirement rather than a fact the checker
+  authenticates.
+- **ROCm packages declare the providers of their linked libraries.**
+  `libamdhip64.so` and `libhiprtc.so` from `rocm-hip`, plus
+  `libhsa-runtime64.so` from `rocr-runtime`, need
+  `librocprofiler-register.so.0`; `librocsparse.so` needs `libroctx64.so.4`,
+  supplied by `roctracer`. Those providers were absent on the measured install
+  while their packages were available on the mirror. An installed-system gate
+  asks the loader directly. A companion authoring checker can audit a named
+  root, but it is not wired into the build; without a package database it skips
+  declaration checking, and a manual/base under-declaration is reported rather
+  than failed.
 - **A second package-manager operation waits for the first instead of failing.**
   When two `pkm` commands that change the system overlap, the later one now
   waits at a terminal for the earlier one to finish (announcing the holding
   process every few seconds), refuses immediately when run from a script, and
   honours `--wait`, `--no-wait` and `--wait-timeout` on every changing command.
   The lock path can be redirected so a test never takes the machine-wide lock.
-- **Asking InterGen to forget a fact actually forgets it.** A forget was matched
-  against the words the user typed while the store held the extractor's
-  rewording, so nothing was removed and the reply claimed no such memory
-  existed. The subject is now matched in the forms the store can have written,
-  the reply states how many facts were removed, and the turn record carries a
-  row for the forget. The running assistant's per-conversation relevance
-  caches drop the forgotten fact as well, in every live conversation.
+- **A forget stops active recall and clears live relevance caches.** The
+  subject is matched in the forms the store can have written, matching active
+  rows are soft-deleted, the reply states the count and the turn record records
+  `physical=false`. The database bytes remain pending the separate physical-
+  erasure contract. Every live conversation in the shipped one-store daemon
+  drops the matching cached vector; an atypical multi-store process may also
+  evict identical text from another store, causing a later re-embed rather than
+  a wrong recall.
 - **Three installed-system gates decide from the shape of the installed code,
   not from matching text.** The privilege-boundary gate reads how the setuid
   helper is launched, the start-up embedding gate reads what the embedding
@@ -233,17 +243,16 @@ landed is in the repository README, not here.
 
 ### Changed
 
-- **Wiki embedding runs in bounded batches during startup.** Completed rows
-  remain in memory during the startup pass, but partial rows are not persisted
-  and no current runtime path resumes an incomplete index. If the full index
-  does not finish in that pass, keyword matching remains in use for the daemon
-  run.
-- **A documentation accuracy pass aligns the desktop, database,
-  package-management, ISO and operations pages with the packaged image and the
-  code paths that implement them.** Application labels are checked against
-  their recipe data, shortcut tables reflect the configured settings, and the
+- **Wiki startup embedding now uses bounded batches.** Completed rows remain
+  in memory during the startup pass, but partial rows are not persisted. A
+  resume method exists without a production caller; see Known limits above for
+  the resulting incomplete-index behavior.
+- **A documentation accuracy pass updates selected desktop, database,
+  package-management, ISO and operations claims.** Application labels and
+  shortcut tables are checked against recipe or configuration data, and the
   package and database pages distinguish installed state from repository
-  availability.
+  availability. Firmware-path wording is derived from staged UEFI payloads; no
+  legacy-BIOS boot was performed in this pass.
 
 ---
 
