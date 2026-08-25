@@ -435,10 +435,28 @@ class TestApplyResolver(unittest.TestCase):
         self.assertIn("unknown selection", message)
 
     def test_a_dismissed_password_prompt_says_nothing_changed(self):
+        """The promise is unchanged; the words are the shared ones now.
+
+        This page used to answer pkexec 126 and 127 with a single sentence of
+        its own. Both codes now go through the mapping every privileged path in
+        the application shares, so a closed prompt and a refused authentication
+        are told apart here too. The assertion below still pins the promise the
+        page has always made — the user is told nothing was changed — and adds
+        the part that is new: the sentence says WHICH of the two happened.
+        """
         ok, message = welcome._apply_resolver(
             "cloudflare", run=_runner(returncode=126))
         self.assertFalse(ok)
-        self.assertIn("Nothing was changed", message)
+        self.assertIn("nothing was changed", message.lower())
+        self.assertIn("closed", message.lower())
+
+    def test_a_refused_authentication_is_told_apart_from_a_dismissal(self):
+        dismissed = welcome._apply_resolver(
+            "cloudflare", run=_runner(returncode=126))[1]
+        refused = welcome._apply_resolver(
+            "cloudflare", run=_runner(returncode=127))[1]
+        self.assertIn("nothing was changed", refused.lower())
+        self.assertNotEqual(dismissed, refused)
 
     def test_helper_error_text_is_passed_through(self):
         ok, message = welcome._apply_resolver(

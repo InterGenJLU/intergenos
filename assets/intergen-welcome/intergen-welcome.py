@@ -13,6 +13,7 @@ import subprocess
 import threading
 import json
 import os
+import sys
 
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
@@ -1129,16 +1130,98 @@ def _service_enabled(unit):
         return False
 
 
-def _apply_service(key, want_on):
-    """Run the privileged helper via pkexec. pkexec authenticates the caller as
-    an administrator (password prompt); a cancelled prompt or a helper error
-    yields a non-zero exit -> False, and the caller reverts the row."""
-    verb = ('enable-' if want_on else 'disable-') + key
+# pkexec's own exit codes, which are how a privileged action that did not
+# happen says WHY it did not happen. Naming them here rather than at each call
+# site is what lets every privileged path in this application give the user the
+# same three answers instead of one shrug.
+#
+# Written after a first boot on an installed machine recorded this pair:
+#   polkitd: ... FAILED to authenticate to gain authorization for action
+#            org.freedesktop.policykit.exec for [the Welcomer]
+#   pkexec:  Error executing command as another user: Request dismissed
+# Nothing was misconfigured — the person closed the prompt. The Welcomer showed
+# them a switch sliding back to off and said nothing at all, which is the same
+# thing it would have shown if the action were broken.
+PKEXEC_DISMISSED = 126        # the authentication dialog was closed
+PKEXEC_NOT_AUTHORIZED = 127   # authentication failed, or is not permitted
+
+
+class PrivilegedResult:
+    """What happened to one privileged action: whether it ran, and why not."""
+
+    __slots__ = ('ok', 'returncode', 'reason')
+
+    def __init__(self, ok, returncode, reason=None):
+        self.ok = ok
+        self.returncode = returncode
+        self.reason = reason
+
+    def __bool__(self):
+        return self.ok
+
+
+def _pkexec_failure_reason(returncode):
+    """One sentence for the user, chosen by what pkexec actually reported.
+
+    The three cases are genuinely different actions on the user's part, and
+    collapsing them loses the only one they can fix in the next second.
+    """
+    if returncode == PKEXEC_DISMISSED:
+        return ('The administrator password prompt was closed, so nothing was '
+                'changed. Try again and enter the password to continue.')
+    if returncode == PKEXEC_NOT_AUTHORIZED:
+        return ('Administrator authentication did not succeed, so nothing was '
+                'changed. Try again with an administrator password.')
+    return ('The change did not complete (the helper exited with code %d). '
+            'Nothing was changed.' % returncode)
+
+
+def _record_privileged_failure(action, returncode, reason):
+    """Put the same fact in the journal, beside polkit's own line.
+
+    The Welcomer runs under a session scope, so stderr is journalled. Without
+    this the record holds polkit's refusal and nothing that says WHICH of this
+    application's actions was refused.
+    """
     try:
-        r = subprocess.run(['pkexec', PRIVHELPER, verb], timeout=180)
-        return r.returncode == 0
+        sys.stderr.write(
+            'intergen-welcome: privileged action %r did not run '
+            '(pkexec exit %d): %s\n' % (action, returncode, reason))
+        sys.stderr.flush()
     except Exception:
-        return False
+        pass
+
+
+def _run_privileged(action, argv, timeout=180):
+    """Run one privileged argv through pkexec and report what happened.
+
+    Every privileged path in this application goes through here, so a refusal
+    is recorded and explained the same way wherever it happens.
+    """
+    try:
+        r = subprocess.run(argv, timeout=timeout)
+    except Exception as exc:
+        reason = ('The change could not be started (%s). Nothing was changed.'
+                  % exc)
+        _record_privileged_failure(action, -1, reason)
+        return PrivilegedResult(False, -1, reason)
+    if r.returncode == 0:
+        return PrivilegedResult(True, 0, None)
+    reason = _pkexec_failure_reason(r.returncode)
+    _record_privileged_failure(action, r.returncode, reason)
+    return PrivilegedResult(False, r.returncode, reason)
+
+
+def _apply_service(key, want_on):
+    """Run the privileged helper via pkexec and report the outcome.
+
+    pkexec authenticates the caller as an administrator (password prompt). A
+    closed prompt, a refused authentication and an error inside the helper are
+    three different outcomes; the returned result carries which one it was so
+    the caller can say it rather than silently putting the row back.
+    """
+    verb = ('enable-' if want_on else 'disable-') + key
+    return _run_privileged(key, ['pkexec', PRIVHELPER, verb], timeout=180)
 
 
 def build_services_page():
@@ -1196,13 +1279,17 @@ def build_services_page():
     # Guard so the revert-on-failure set_active() does not re-fire the handler.
     guard = {'busy': False}
 
+    # Kept so a row whose action failed can be put back to its own words once
+    # the user succeeds on a later attempt.
+    _row_descriptions = {k: d for k, _n, d in rows}
+
     for key, name, desc in rows:
         row = Adw.SwitchRow()
         row.set_title(name)
         row.set_subtitle(desc)
         row.set_active(_service_enabled(_SERVICE_UNITS[key]))
 
-        def on_active(sw, _pspec, k=key):
+        def on_active(sw, _pspec, k=key, r=row):
             if guard['busy']:
                 return
             want = sw.get_active()
@@ -1211,14 +1298,22 @@ def build_services_page():
             sw.set_sensitive(False)
 
             def worker():
-                ok = _apply_service(k, want)
+                result = _apply_service(k, want)
 
                 def finish():
                     sw.set_sensitive(True)
-                    if not ok:
-                        guard['busy'] = True
-                        sw.set_active(not want)
-                        guard['busy'] = False
+                    if result.ok:
+                        # Back to the row's own description once it worked.
+                        r.set_subtitle(_row_descriptions[k])
+                        return False
+                    guard['busy'] = True
+                    sw.set_active(not want)
+                    guard['busy'] = False
+                    # The switch going back to where it was is not an
+                    # explanation. Put the reason where the user is already
+                    # looking — on the row itself — so a closed password
+                    # prompt cannot read as a broken toggle.
+                    r.set_subtitle(result.reason)
                     return False
 
                 GLib.idle_add(finish)
@@ -1514,12 +1609,17 @@ def _apply_resolver(selection, addresses=(), encrypted=True, run=None):
     if proc.returncode == 0:
         return (True, '')
     detail = (proc.stderr or '').strip()
-    if proc.returncode == 126 or proc.returncode == 127:
-        # pkexec's own codes for "the user cancelled" / "authorisation was
-        # not given". Saying so is more use than repeating an exit number.
-        return (False, 'Nothing was changed — the password prompt was '
-                       'dismissed or the authorisation was refused.')
-    return (False, detail or f'the helper exited {proc.returncode}')
+    if proc.returncode in (PKEXEC_DISMISSED, PKEXEC_NOT_AUTHORIZED):
+        # pkexec's own codes. These used to share one sentence here; they are
+        # two different things the user did, and only one of them is fixed by
+        # entering the password. The same mapping every other privileged path
+        # in this file uses now answers it, and the journal gets the fact too.
+        reason = _pkexec_failure_reason(proc.returncode)
+        _record_privileged_failure('name servers', proc.returncode, reason)
+        return (False, reason)
+    reason = detail or f'the helper exited {proc.returncode}'
+    _record_privileged_failure('name servers', proc.returncode, reason)
+    return (False, reason)
 
 
 # What each choice does, and — the part that matters — what it does not do.
@@ -3216,6 +3316,17 @@ def _launch_intergen_setup(on_line, on_done, tier=None):
                     GLib.idle_add(on_line, line)
             proc.wait()
             ok = proc.returncode == 0
+            if not ok:
+                # A closed password prompt is not a failed download, and until
+                # this was told apart the user was offered "try again, or run
+                # intergen setup in a terminal" for an authentication they had
+                # simply dismissed. The same fact goes to the journal, beside
+                # polkit's own line about the refusal.
+                reason = _pkexec_failure_reason(proc.returncode)
+                _record_privileged_failure(
+                    'intergen setup', proc.returncode, reason)
+                GLib.idle_add(on_done, False, reason)
+                return
             if ok:
                 # Opt the user in for real — enable+start the user daemon so
                 # InterGen is usable immediately. Best-effort, non-fatal.

@@ -76,6 +76,26 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **A privileged action the Welcomer could not run now says what happened.**
+  A first boot recorded PolicyKit refusing the greeter's request and pkexec
+  reporting that the prompt had been dismissed; the greeter showed a switch
+  sliding back to off and said nothing, and the one-click assistant setup
+  answered a closed password prompt with the same sentence it uses for a
+  failed download. A closed prompt, a refused authentication and an error
+  from the helper are now three different sentences, shown where the user is
+  looking and written to the journal beside PolicyKit's own line. The greeter
+  also ships a PolicyKit action for its helper, so the prompt names the change
+  being authorized instead of saying only that a program wants to run as
+  another user; the strength of the check is unchanged.
+- **The greeter's autostart no longer reports a failure once its work is
+  done.** On an already-set-up machine the launcher exits within milliseconds
+  and the session manager could not place the finished process in a control
+  group, which surfaced as a resource failure in the journal on a normal
+  login. The launcher now writes a per-user autostart entry marked hidden
+  alongside its completion marker, so nothing is started at all on later
+  logins, and removes it with the marker when a driver install asks for the
+  greeter to return after a reboot.
+
 - **A graphics card waking up no longer rebuilds the desktop.** On a machine
   with a card that drives no display — a second card serving compute work — the
   card powers down when nothing is using it and wakes when something opens it.

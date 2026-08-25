@@ -91,6 +91,15 @@ do_install() {
     # Privileged helper for the "Enable Services" page (run via pkexec; the page
     # invokes it for print/discovery/SSH enable+disable). Root-owned, 0755.
     install -m755 intergen-welcome-privhelper "${libexec}/intergen-welcome-privhelper"
+    # The polkit action that authorizes that helper. Without it every prompt
+    # this application raises falls back to polkit's generic
+    # org.freedesktop.policykit.exec action, which can only tell the user that
+    # a program wants to run as another user — it names neither the
+    # application nor the change. The action annotates the helper's INSTALLED
+    # path, so it matches only the binary installed on the line above.
+    install -dm755 "${DESTDIR}/usr/share/polkit-1/actions"
+    install -m644 org.intergenos.welcome.policy \
+        "${DESTDIR}/usr/share/polkit-1/actions/org.intergenos.welcome.policy"
     # The shared name-lookup-failure module. The Welcomer loads it from beside
     # itself; `intergen setup` imports the same source file from its own
     # package. One file in the tree so the two surfaces cannot tell the same
@@ -141,6 +150,56 @@ esac
 done_marker="${HOME}/.config/intergen-welcome/done"
 rearm_marker="${HOME}/.config/intergen-welcome/rearm"
 
+# The per-user XDG autostart override, and why it exists ALONGSIDE the systemd
+# drop-in this package already ships.
+#
+# Two different things launch an /etc/xdg/autostart entry on this desktop.
+# systemd-xdg-autostart-generator turns it into a user service, and the
+# drop-in on that unit carries ConditionPathExists=! on the done-marker. That
+# drop-in works: on a machine whose marker is present the unit reports
+# ConditionResult=no and starts nothing.
+#
+# gnome-session-service reads /etc/xdg/autostart itself and honours no systemd
+# condition, so the drop-in cannot reach it. On an already-set-up machine it
+# launches this wrapper, the wrapper finds the marker and exits within
+# milliseconds, and the session manager loses the race to put a process that
+# has already gone into a scope. The journal of such a login reads:
+#
+#   gnome-session-service: Could not create transient scope for PID ...:
+#       UnixProcessIdUnknown: Failed to set unit properties: No such process
+#   systemd: app-gnome-intergen\x2dwelcome-<pid>.scope: No PIDs left to attach
+#       to the scope's control group, refusing.
+#   systemd: app-gnome-intergen\x2dwelcome-<pid>.scope: Failed with result
+#       'resources'.
+#   systemd: Failed to start Application launched by gnome-session-service.
+#
+# Hidden=true in a per-user entry of the same name is the Desktop-Entry-spec
+# instruction to treat the system entry as though it did not exist. BOTH
+# launchers read it, and both read it BEFORE starting anything — which is the
+# difference between removing the race and hiding it. Making the wrapper live
+# longer was the other candidate and was rejected: it would leave the race in
+# place and charge every user a delay at every login to paper over it.
+#
+# AutostartCondition= cannot do this job: the generator delegates that key to
+# gnome-systemd-autostart-condition, which this system does not ship.
+autostart_override="${HOME}/.config/autostart/intergen-welcome.desktop"
+
+write_autostart_override() {
+    mkdir -p "$(dirname "${autostart_override}")" || return 0
+    cat > "${autostart_override}" <<'OVERRIDE' || return 0
+[Desktop Entry]
+Type=Application
+Name=InterGenOS Welcomer
+Comment=First-boot setup and personalization for InterGenOS
+Exec=intergen-welcome
+Icon=intergen-welcome
+OnlyShowIn=GNOME;
+NoDisplay=true
+Hidden=true
+OVERRIDE
+    return 0
+}
+
 # Clear a re-arm request left over from a previous run before deciding
 # anything. The request is written when a driver install starts and is
 # meant to be consumed by the SAME run that wrote it; one can survive if
@@ -152,6 +211,11 @@ rearm_marker="${HOME}/.config/intergen-welcome/rearm"
 rm -f "${rearm_marker}"
 
 if [ "${force_run}" -eq 0 ] && [ -e "${done_marker}" ] ; then
+    # Repair an install that was set up before the override existed. This is
+    # the only code that runs on such a machine, so it is the only place the
+    # repair can happen; the login it runs on still races (nothing is started
+    # after it), and no login after that starts a process at all.
+    write_autostart_override
     exit 0
 fi
 
@@ -210,12 +274,16 @@ set -e
 # setting InterGen up on hardware the system can finally read.
 if [ -e "${rearm_marker}" ] ; then
     rm -f "${rearm_marker}" "${done_marker}"
+    # The page promised the Welcomer comes back after the driver reboot. A
+    # Hidden override left behind would make that promise false.
+    rm -f "${autostart_override}"
     exit "${rc}"
 fi
 
 if [ "${rc}" -eq 0 ] ; then
     mkdir -p "$(dirname "${done_marker}")"
     touch "${done_marker}"
+    write_autostart_override
 fi
 exit "${rc}"
 WRAPPER
