@@ -146,7 +146,9 @@ gnupg_lock_preflight() {
         return 0
     fi
 
-    local refuse=0 stale_paths=() lock pid node
+    # Stale entries are collected as "<pid> <path>": clearing needs the owning
+    # pid to name that lock's own record file, and nothing else's.
+    local refuse=0 stale_entries=() lock pid node
     while IFS= read -r lock; do
         [[ -n "${lock}" ]] || continue
         pid="$(__gnupg_lock_pid "${lock}")"
@@ -183,26 +185,30 @@ gnupg_lock_preflight() {
         else
             # Case 2: dead owner, this host. gpg clears these itself.
             __gnupg_lock_note "Stale lock from a previous run on this host (pid ${pid} is gone): ${lock}"
-            stale_paths+=("${lock}")
+            stale_entries+=("${pid} ${lock}")
         fi
     done <<< "${locks}"
 
-    if [[ ${#stale_paths[@]} -gt 0 ]]; then
+    if [[ ${#stale_entries[@]} -gt 0 ]]; then
         if [[ "${clear_stale}" == "1" ]]; then
-            local p magic
-            for p in "${stale_paths[@]}"; do
-                __gnupg_lock_info "Removing stale lock: ${p}"
-                rm -f "${p}"
-                # Remove the matching .#lk<hex>.<node>.<pid> half too, so the
-                # pair does not leave litter behind. Only the file naming this
-                # exact pid on this exact node is touched.
-                for magic in "$(dirname "${p}")"/.\#lk*."${this_node}".*; do
+            local entry dead_pid dead_lock magic
+            for entry in "${stale_entries[@]}"; do
+                dead_pid="${entry%% *}"
+                dead_lock="${entry#* }"
+                __gnupg_lock_info "Removing stale lock: ${dead_lock}"
+                rm -f "${dead_lock}"
+                # Remove the other half of THIS pair and nothing else. The
+                # record file is named for the machine and the owning pid, so
+                # both are required in the pattern: a directory can hold a
+                # second lock whose owner is still running, and matching on the
+                # machine name alone would take that owner's record file too.
+                for magic in "$(dirname "${dead_lock}")"/.\#lk*."${this_node}"."${dead_pid}"; do
                     [[ -e "${magic}" ]] || continue
                     __gnupg_lock_info "Removing its lock record: ${magic}"
                     rm -f "${magic}"
                 done
             done
-            __gnupg_lock_ok "Stale locks cleared (${#stale_paths[@]})."
+            __gnupg_lock_ok "Stale locks cleared (${#stale_entries[@]})."
         else
             __gnupg_lock_note "gpg removes stale locks of this shape by itself; nothing is blocking the run."
             __gnupg_lock_note "Pass --clear-stale-locks to remove them here instead, so the run starts from a clean home."
