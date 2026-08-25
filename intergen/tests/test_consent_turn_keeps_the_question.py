@@ -204,6 +204,34 @@ class TheSunsetQuestionIsNotAClockQuestion(_RoutedExchange):
             f"{results[0].source!r}, text={ (results[0].text or '')[:160]!r}"))
 
 
+class TwoWordsAreEnoughToClaimASentence(_RoutedExchange):
+    """The sunset capture is not one sentence's bad luck.
+
+    The time-of-day intent's pattern makes the verb optional, so the two words
+    "what time" claim any sentence that opens with them, whatever it goes on to
+    ask. Measured on this tree: three unrelated questions, three readings of
+    this machine's clock. Her sunset question is one member of the class."""
+
+    def test_a_gardening_question_is_not_answered_with_the_clock(self) -> None:
+        results, _ = self._exchange(["what time should I plant tomatoes?"])
+        self.assertNotIn("It's currently", results[0].text or "", (
+            "a question about when to plant was answered with the clock: "
+            f"{(results[0].text or '')[:120]!r}"))
+
+    def test_a_sunrise_question_is_not_answered_with_the_clock(self) -> None:
+        results, _ = self._exchange(["what time does the sun rise tomorrow?"])
+        self.assertNotIn("It's currently", results[0].text or "", (
+            "a sunrise question was answered with the clock: "
+            f"{(results[0].text or '')[:120]!r}"))
+
+    def test_a_time_of_day_advice_question_is_not_answered_with_the_clock(self) -> None:
+        results, _ = self._exchange(
+            ["what time of day is best to water plants?"])
+        self.assertNotIn("It's currently", results[0].text or "", (
+            "a question asking which part of the day is best was answered with "
+            f"the clock: {(results[0].text or '')[:120]!r}"))
+
+
 class TheClockStillAnswersClockQuestions(_RoutedExchange):
     """Control. The time-of-day intent exists because "what time is it" was
     falling to a fifty-second tool-selection detour; that must keep working."""
