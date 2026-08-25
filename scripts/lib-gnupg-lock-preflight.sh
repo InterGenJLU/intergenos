@@ -53,9 +53,10 @@
 #     returns 0  -> safe to proceed
 #     returns 1  -> refused; a reason has been printed to stderr
 #
-# Pairs with scripts/sign-with-gpg.sh. sign-manifest.sh and sign-release.sh
-# reach gpg directly rather than through a shared library; they can adopt this
-# with one source line and one call, which is recorded as follow-on work.
+# Used by scripts/sign-with-gpg.sh (Phase 0b, through the setup library's
+# neighbourhood) and, with one source line and one call each, by
+# scripts/sign-manifest.sh and scripts/sign-release.sh — both reach gpg
+# directly, so they call this immediately before their own token check.
 
 # ============================================================
 # CONSTANTS
