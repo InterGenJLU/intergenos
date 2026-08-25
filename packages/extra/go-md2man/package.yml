@@ -14,7 +14,14 @@ source:
   # Pre-vendored Go module deps (loupe-style two-tarball pattern). Generated
   # via `go mod vendor` against go-md2man v2.0.7's go.mod (Go 1.26.4).
   # Single direct dep: github.com/russross/blackfriday/v2 v2.1.0.
-  - url: https://intergenstudios.com/intergenos/sources/current/go-md2man-${version}-go-vendor.tar.gz
+  # Decided 2026-08-25: this URL moves to the project's own source mirror. The
+  # address it used to name answered 404, so a rebuild from this recipe alone
+  # could not obtain the file; the build only kept working because
+  # scripts/download-sources.py falls back to the mirror when an address fails,
+  # which turned an outage path into the everyday path. The mirror copy was
+  # fetched and hashed on the same day and is byte-identical to the pin below,
+  # so nothing about what gets built changes.
+  - url: https://repo.intergenos.org/sources/current/go-md2man-${version}-go-vendor.tar.gz
     filename: go-md2man-${version}-go-vendor.tar.gz
     sha256: 8daa8416b2873fa4cc218b8133a093aeec2553602b37cccb366c9ae22356e871
 dependencies:

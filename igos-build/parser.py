@@ -472,12 +472,38 @@ def _resolve_variables(text: str, variables: dict[str, str]) -> str:
 _SHA256_RE = re.compile(r"[0-9a-fA-F]{64}\Z")
 
 
+# Every key a source entry may carry. Keys NOT in this set are REJECTED at
+# parse time, the same way unknown TOP-LEVEL keys are (see KNOWN_FIELDS above
+# and the snappy verify_paths incident it records). Source entries were the
+# remaining silent-drop surface: a key nothing reads used to parse cleanly and
+# do nothing, so a recipe could state an availability or integrity property the
+# build never implemented. Measured 2026-08-25: one such key existed across
+# 1305 source entries.
+#
+# This set is asserted equal to the Source dataclass's own fields by
+# tests/igos_build/test_parser_unknown_source_keys.py, so adding a field to one
+# and not the other fails loudly instead of reopening the drop.
+KNOWN_SOURCE_FIELDS = frozenset(
+    {"url", "sha256", "filename", "generated", "extract", "redistributable"})
+
+
 def _parse_sources(raw: list, variables: dict, path: Path) -> list[Source]:
     """Parse and validate the source list."""
     sources = []
     for i, entry in enumerate(raw):
         if not isinstance(entry, dict):
             raise TemplateError(path, f"source[{i}]: must be a mapping with 'url' and 'sha256'")
+        # Reject unknown keys BEFORE any other check, so a typo is reported as
+        # the typo it is rather than as the consequence it causes: `sha256sum:`
+        # would otherwise surface as "missing sha256" on a recipe that plainly
+        # carries a hash, and `fallback_url:` surfaced as nothing at all.
+        unknown = sorted(set(entry) - KNOWN_SOURCE_FIELDS)
+        if unknown:
+            raise TemplateError(
+                path,
+                f"source[{i}]: unknown key(s) {', '.join(unknown)} — nothing "
+                f"reads them, so they would be silently dropped. Supported "
+                f"keys: {', '.join(sorted(KNOWN_SOURCE_FIELDS))}")
         url = entry.get("url")
         sha256 = entry.get("sha256")
         generated = entry.get("generated", False)
