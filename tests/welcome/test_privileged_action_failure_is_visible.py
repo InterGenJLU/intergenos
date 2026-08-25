@@ -62,9 +62,10 @@ _spec = importlib.util.spec_from_file_location("intergen_welcome", WELCOME_PY)
 welcome = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(welcome)
 
-# Corrected in AM4C-107: 126 is 'the authorization could not be obtained' and
-# 127 is 'the command could not be executed'. The first naming put an
-# authentication sentence on a code that is not about authentication.
+# Decided 2026-08-25: 126 is 'the authorization could not be obtained' and 127
+# is 'the command could not be executed', per pkexec's documented behaviour. The
+# first naming put an authentication sentence on 127, which is not an
+# authentication event at all.
 PKEXEC_NOT_AUTHORIZED = 126
 PKEXEC_COMMAND_NOT_EXECUTED = 127
 
