@@ -284,6 +284,42 @@ _EXEMPT_SPAN_PATTERNS = [
      re.compile(r'"GPL-3\.0-389-' + "d" "s" + r'-base-exception"')),
 ]
 
+# ---- Path-scoped exemptions --------------------------------------------------
+
+# Entries are (name, path pattern, span pattern). A match is exempt only when
+# BOTH the file path and the span match, and only for a FILE line: a commit
+# message, a ref name and a bare --text subject carry no path, so nothing in
+# this list can ever exempt them. The default is no exemption, which is the
+# fail-closed direction.
+#
+# WHY THIS LIST IS SEPARATE FROM THE ONE ABOVE. Every entry in
+# _EXEMPT_SPAN_PATTERNS is path-blind by construction: it carves a collision
+# that is legitimate wherever it appears. This one is not that. The private
+# repository's directory name is banned in prose everywhere in this tree and
+# stays banned; it is legitimate in exactly one position, the shell string
+# literal a script uses to FIND that directory. A path-blind carve would have
+# exempted the quoted form in every file, a document quoting a path included,
+# which is wider than the need.
+#
+# Decided 2026-08-25: a script whose job is to locate a directory has to name
+# the directory, and the name cannot be reworded without breaking the search.
+# The name is already present nine times in scripts/anchor-tracker.sh at the
+# base of the change that added this entry; the gate scores rewritten lines as
+# new additions, so consolidating the literal into ONE named constant blocked
+# while the nine loose occurrences it replaced did not.
+#
+# Narrow by construction, four ways: the path must be a shell script directly
+# under scripts/; the span must be the whole double-quoted string; a commit
+# message or ref name is never covered; and other uses in the same shell file --
+# a comment, an error message, a bare word -- still block. The pattern is
+# assembled from pieces so this definition never spells the name (same
+# self-reference discipline as the entries above).
+_EXEMPT_SPAN_PATTERNS_BY_PATH = [
+    ("private-repo-dirname-in-shell-string",
+     re.compile(r"^scripts/[^/]+\.sh$"),
+     re.compile('"' + "intergen" "os-" "private" + '"')),
+]
+
 
 def resolve_list_path(override: str | None = None) -> Path:
     """Private term-list path: explicit override, else env var, else default."""
@@ -389,15 +425,29 @@ def compile_terms(terms: list[str]):
     return compiled
 
 
-def _exempt_spans(line: str):
+def _exempt_spans(line: str, path: str | None = None):
+    """Spans on `line` that a term match may legitimately fall inside.
+
+    `path` is the repo-relative path of the file the line came from, or None
+    when the subject has no path -- a commit message, a ref name, a bare
+    --text string. Path-scoped entries are consulted ONLY when a path is given
+    and it matches, so a subject with no path gets exactly the path-blind
+    exemptions and nothing more.
+    """
     spans = []
     for _name, pat in _EXEMPT_SPAN_PATTERNS:
         for m in pat.finditer(line):
             spans.append(m.span())
+    if path:
+        for _name, path_pat, pat in _EXEMPT_SPAN_PATTERNS_BY_PATH:
+            if not path_pat.search(path):
+                continue
+            for m in pat.finditer(line):
+                spans.append(m.span())
     return spans
 
 
-def scan_run(run, compiled_terms):
+def scan_run(run, compiled_terms, path: str | None = None):
     """Scan one run of consecutive lines as a single joined string.
 
     `run` is [(lineno, text), ...] with consecutive line numbers. The lines are
@@ -420,7 +470,7 @@ def scan_run(run, compiled_terms):
     joined = JoinedText(run)
     exempt = []
     for start, _lineno, text in joined.iter_lines():
-        for a, b in _exempt_spans(text):
+        for a, b in _exempt_spans(text, path):
             exempt.append((start + a, start + b))
     found = []
     for _term, pat in compiled_terms:
@@ -434,7 +484,7 @@ def scan_run(run, compiled_terms):
     return [(ln, txt, hit) for _s0, ln, txt, hit in found]
 
 
-def scan_line(line: str, compiled_terms):
+def scan_line(line: str, compiled_terms, path: str | None = None):
     """Return the matched substrings on `line` that are real violations (a term
     hit not on a trailer line and not covered by an exemption span). The private
     TERM is never returned or printed — only the author's own offending text.
@@ -444,7 +494,8 @@ def scan_line(line: str, compiled_terms):
     """
     if _TRAILER_RE.search(line):
         return []
-    return [hit for _lineno, _text, hit in scan_run([(1, line)], compiled_terms)]
+    return [hit for _lineno, _text, hit in
+            scan_run([(1, line)], compiled_terms, path)]
 
 
 # ---- git range scanning ------------------------------------------------------
@@ -543,7 +594,7 @@ def scan_range(rng: str, compiled_terms, cwd: Path):
     violations = []
     for key, run in _runs_by_file(added_lines_from_range(rng, cwd)):
         reported = set()
-        for lineno, text, _hit in scan_run(run, compiled_terms):
+        for lineno, text, _hit in scan_run(run, compiled_terms, key):
             if lineno in reported:
                 continue
             reported.add(lineno)

@@ -105,11 +105,33 @@ if ! printf '%s' "$COAUTHOR" | grep -qE '^[^<>]+ <[^<>[:space:]]+@[^<>[:space:]]
     exit 2
 fi
 
+# ---- Is this path a git repository? --------------------------------------
+# ONE function, because the answer must not differ between the discovery chain
+# and the assertions that follow it — that split is exactly how this went wrong.
+#
+# NOT `[ -d "$path/.git" ]`. In a git WORKTREE, .git is a FILE holding a
+# `gitdir:` pointer, not a directory, so the directory test calls a real
+# repository "not a git repo". Measured 2026-08-25: it refused the ordinary
+# development worktree this project authors in, and the anchor gate then blocked
+# a push with a message that misstated the cause.
+#
+# `git rev-parse --git-dir` answers the question actually being asked, in every
+# shape git produces: a normal clone, a worktree, a bare repository, or a
+# subdirectory of any of them.
+is_git_repo() {
+    git -C "$1" rev-parse --git-dir >/dev/null 2>&1
+}
+
 # Public-repo path defaults to this script's parent dir (anchor-tracker.sh
 # lives in scripts/, so parent is the repo root). Override via env for
 # non-standard layouts.
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 PUBLIC_REPO="${INTERGENOS_PUBLIC_REPO:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+
+# The private repository's directory name, stated once. Two discovery arms below
+# look for it in different parents; naming it here keeps them from drifting apart
+# and keeps the literal to a single line.
+PRIVATE_REPO_DIRNAME="intergenos-private"
 
 # Private-repo discovery chain (first match wins):
 #   1. $INTERGENOS_PRIVATE_REPO env var (explicit override)
@@ -118,10 +140,10 @@ PUBLIC_REPO="${INTERGENOS_PUBLIC_REPO:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 # Fails with actionable error if none resolve to a git repo.
 if [ -n "${INTERGENOS_PRIVATE_REPO:-}" ]; then
     PRIVATE_REPO="$INTERGENOS_PRIVATE_REPO"
-elif [ -d "${HOME:-/nonexistent}/intergenos-private/.git" ]; then
-    PRIVATE_REPO="$HOME/intergenos-private"
-elif [ -d "$PUBLIC_REPO/../intergenos-private/.git" ]; then
-    PRIVATE_REPO="$(cd "$PUBLIC_REPO/.." && pwd)/intergenos-private"
+elif is_git_repo "${HOME:-/nonexistent}/$PRIVATE_REPO_DIRNAME"; then
+    PRIVATE_REPO="$HOME/$PRIVATE_REPO_DIRNAME"
+elif is_git_repo "$PUBLIC_REPO/../$PRIVATE_REPO_DIRNAME"; then
+    PRIVATE_REPO="$(cd "$PUBLIC_REPO/.." && pwd)/$PRIVATE_REPO_DIRNAME"
 else
     echo "ERROR: private repo not found via any of:" >&2
     echo "  - \$INTERGENOS_PRIVATE_REPO env var" >&2
@@ -132,8 +154,18 @@ else
 fi
 TRACKER="$PRIVATE_REPO/TRACKER.md"
 
-[ -d "$PUBLIC_REPO/.git" ] || { echo "ERROR: PUBLIC_REPO ($PUBLIC_REPO) not a git repo" >&2; exit 2; }
-[ -d "$PRIVATE_REPO/.git" ] || { echo "ERROR: PRIVATE_REPO ($PRIVATE_REPO) not a git repo" >&2; exit 2; }
+# The message names the test that failed, not just a conclusion. "not a git
+# repo" was flatly wrong about a worktree and gave the reader nothing to check.
+is_git_repo "$PUBLIC_REPO" || {
+    echo "ERROR: PUBLIC_REPO ($PUBLIC_REPO) is not a git repository" >&2
+    echo "  (git -C \"$PUBLIC_REPO\" rev-parse --git-dir failed there)" >&2
+    exit 2
+}
+is_git_repo "$PRIVATE_REPO" || {
+    echo "ERROR: PRIVATE_REPO ($PRIVATE_REPO) is not a git repository" >&2
+    echo "  (git -C \"$PRIVATE_REPO\" rev-parse --git-dir failed there)" >&2
+    exit 2
+}
 [ -f "$TRACKER" ] || { echo "ERROR: TRACKER not found at $TRACKER" >&2; exit 2; }
 
 # Determine target SHA.
