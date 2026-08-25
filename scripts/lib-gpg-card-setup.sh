@@ -87,6 +87,15 @@ EOF
 # Suffix appended to <conf-path> when backing up operator's existing file.
 __GPG_CARD_BACKUP_SUFFIX=".sign-with-gpg-backup"
 
+# The config paths THIS run actually swapped, in the order it swapped them.
+# The exit handler restores these and nothing else. Reasoning by looking for a
+# backup file instead was wrong in both directions a run can take without
+# writing anything: a dry run returns before writing, and a real run skips the
+# gpg-agent.conf swap when pinentry-tty is missing. In both cases there is no
+# backup, and the old handler read that as "this run created the file" and
+# deleted a config it had never touched.
+__GPG_CARD_SWAPPED_CONFIGS=()
+
 __gpg_card_debug() {
     [[ "${GPG_CARD_DEBUG}" == "1" ]] || return 0
     local msg
@@ -135,6 +144,8 @@ __gpg_card_swap_in_config() {
 
     if [[ "${GPG_CARD_DRY_RUN}" == "1" ]]; then
         __gpg_card_info "[DRY-RUN] would: back up ${original} (if present) + write temp content for this run"
+        # Deliberately NOT recorded as swapped: nothing was written, so there
+        # is nothing for the exit handler to undo.
         return 0
     fi
 
@@ -148,10 +159,19 @@ __gpg_card_swap_in_config() {
     echo "${content}" > "${original}"
     chmod 600 "${original}"
     __gpg_card_debug "Wrote temporary ${original}"
+
+    # Recorded only now, after the file is actually ours.
+    __GPG_CARD_SWAPPED_CONFIGS+=("${original}")
 }
 
 # Restore-one: remove our temp config, restore backup (if any), so the
 # original host state is reinstated. Idempotent.
+#
+# CALLED ONLY FOR A PATH THIS RUN ACTUALLY SWAPPED. That precondition is what
+# makes the second branch below safe: reaching it means this run wrote the file
+# at ${original} and found nothing there beforehand, so removing it is right.
+# The caller must never hand this function a path it did not write, which is
+# the defect this contract was written to close.
 __gpg_card_restore_one_config() {
     local original="$1"
     local backup="${original}${__GPG_CARD_BACKUP_SUFFIX}"
@@ -161,9 +181,8 @@ __gpg_card_restore_one_config() {
         rm -f "${original}"
         mv "${backup}" "${original}" 2>/dev/null || true
     elif [[ -f "${original}" ]]; then
-        # No backup -> the original wasn't there before we ran; the file
-        # currently at the path was written by us. Remove it so the host
-        # returns to "no file" state.
+        # No backup, and this run did write here -> the host had no file
+        # before. Remove ours so it returns to the "no file" state.
         rm -f "${original}"
     fi
 }
@@ -171,8 +190,16 @@ __gpg_card_restore_one_config() {
 # EXIT trap target: restore all configs + kill gpg-agent so the restored
 # state takes effect immediately on the next gpg invocation.
 __gpg_card_cleanup_on_exit() {
-    __gpg_card_restore_one_config "${HOME}/.gnupg/gpg-agent.conf"
-    __gpg_card_restore_one_config "${HOME}/.gnupg/scdaemon.conf"
+    # Nothing swapped means nothing to undo, and nothing to restart. A run that
+    # changed no file leaves the host exactly as it found it, including the
+    # running agent and whatever PIN it had cached.
+    [[ ${#__GPG_CARD_SWAPPED_CONFIGS[@]} -gt 0 ]] || return 0
+
+    local original
+    for original in "${__GPG_CARD_SWAPPED_CONFIGS[@]}"; do
+        __gpg_card_restore_one_config "${original}"
+    done
+    __GPG_CARD_SWAPPED_CONFIGS=()
     gpgconf --kill gpg-agent 2>/dev/null || true
 }
 
