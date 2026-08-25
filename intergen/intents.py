@@ -435,10 +435,23 @@ def _register_system_info(matcher: SemanticMatcher) -> None:
             # to the ~50s llm_tools path on the slow iGPU and mis-selected
             # take_screenshot / read_file(/usr/bin/time) (.218 trace). \btime\b has
             # no word boundary inside "uptime", so this never hijacks an uptime ask.
-            r"\bwhat(?:'s| is)?\s+(?:the\s+)?time\b",
+            #
+            # THE VERB IS REQUIRED. It used to be optional, which made the two
+            # words "what time" enough to claim any sentence they opened —
+            # measured on this tree: a question about when the sun would set in a
+            # named town, one about when to plant tomatoes, and one about which
+            # part of the day is best to water plants were each answered with
+            # this machine's clock. The genuine clock asks do not depend on this
+            # pattern: "what time is it" and "what's the time" are answered
+            # earlier by the direct-answer probe, and the sibling patterns below
+            # keep the rest.
+            r"\bwhat(?:'s| is)\s+(?:the\s+)?time\b",
             r"\btime is it\b",
             r"\bcurrent time\b",
-            r"\btime of day\b",
+            # "time of day" only as a CLOCK reading. "what time of day is best
+            # to water plants?" is asking for advice about part of the day, and
+            # the bare phrase was answering it with this machine's clock.
+            r"\btime\s+of\s+day\s+is\s+it\b",
             # Boot/startup performance complaints → real boot timing
             # (systemd-analyze), not a fabricated or deflected answer. These are
             # the deterministic gate; _natural_language_to_command picks the

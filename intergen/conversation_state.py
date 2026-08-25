@@ -50,6 +50,8 @@ class ConversationState:
     ``pending_action_offer``  an offered command awaiting a yes or no
     ``pending_ipv6_offer``    the follow-up IPv6 offer awaiting a yes or no
     ``pending_memory_offer``  an offered preference awaiting a yes or no
+    ``pending_search_offer``  the live-data question an offered web search would
+                              answer, awaiting a yes or no
     ``action_offer_ttl``      turns the preventive-grounding window stays open
     ``offer_in_recent_history`` whether that window is open for THIS turn
     ``offer_topic_terms``     the offered command's content words
@@ -66,6 +68,12 @@ class ConversationState:
     pending_action_offer: tuple[str, str, str] | None = None
     pending_ipv6_offer: str | None = None
     pending_memory_offer: tuple[str, str, str, str] | None = None
+    # The question a standing web-search offer would answer. Held because the
+    # offer and the acceptance are two different turns: without it the "yes"
+    # arrives with nothing behind it and is routed as a brand-new sentence,
+    # which is how three accepted offers in one person's first three days ran
+    # no search at all.
+    pending_search_offer: str | None = None
     action_offer_ttl: int = 0
     offer_in_recent_history: bool = False
     offer_topic_terms: frozenset[str] = frozenset()
@@ -108,6 +116,7 @@ class ConversationState:
         self.pending_action_offer = None
         self.pending_ipv6_offer = None
         self.pending_memory_offer = None
+        self.pending_search_offer = None
         # M3(ii) option B + PI-Z29: the preventive-grounding window is
         # per-conversation — a discarded conversation's offer must not inject a
         # no-dispatch note into a fresh one. Clear the TTL AND the topic terms.
