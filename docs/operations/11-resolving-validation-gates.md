@@ -400,6 +400,58 @@ a failing signature, a wrong key, or any page drift refuses in every mode;
 only a wholly absent wiki (a from-source dev image with no rendered book
 staged) downgrades to a warning, and only under `UNSIGNED_TEST=1`.
 
+## Gate — Release validation: "this release has no signed installed-gate run"
+
+Fires on every release path — a promotion to `master`, an installation image,
+and a mirror publish — and can be fired standalone:
+
+```sh
+python3 scripts/check-release-validation.py \
+    --record <record-dir> --candidate-release <N> --candidate-content-hash <hex>
+```
+
+A release is refused unless a run record exists for that exact candidate,
+produced by `scripts/run-installed-gates.py` on a real installed machine, with
+zero failed gates and zero skips nobody declared in advance. There is no
+override flag.
+
+Since 2026-08-25 the record must also be **signed**. Sealing (`SHA256SUMS`)
+shows the record did not change; it does not show who stands behind it, and
+anyone able to write the record directory can re-seal it. The seal therefore
+carries a detached signature made by the release key, verified with `gpgv`
+against the root's trust keyring (`etc/pkm/trusted.gpg`) and a pinned
+fingerprint — the same chain the wiki page manifest uses, for the same reason.
+
+The runner prints the exact command when it writes a record. It is one step,
+and it needs the hardware token:
+
+```sh
+bash scripts/sign-with-gpg.sh --file <record-dir>/SHA256SUMS \
+     --sha256 <the seal digest the runner printed>
+```
+
+That writes `<record-dir>/SHA256SUMS.asc` (PIN, then touch the token). The
+signature file is deliberately not listed inside `SHA256SUMS` — it signs that
+file, so it cannot be inside it — and both the runner and the gate exclude it
+from the seal for that reason.
+
+Resolve a refusal by reading which of the two tiers it is:
+
+- **Absent signature.** The record was never signed. Sign it with the command
+  above. On a development image that will never be released, `UNSIGNED_TEST=1`
+  downgrades this to a loud warning naming the missing signature — never a
+  silent pass, because a downgrade nobody can see in the output is
+  indistinguishable from a verified record.
+- **Present but not verifying** — a bad signature, the wrong key, or a
+  signature carried over from another record. Refused in every mode,
+  `UNSIGNED_TEST=1` included. Something is wrong with this record, which is a
+  different situation from never having signed it, and no marker waves it
+  through. Re-run the gates and sign the record that run produces; never move a
+  signature between records.
+
+A refusal exits 1 and a usage error exits 2, so a pipeline can tell "this
+release is not validated" from "the command was wrong".
+
 ## Gate — Build backend: "a recipe cannot supply the backend its pinned source demands"
 
 **What it checks.** `preflight-build-backend.py` asserts that every recipe which builds a
