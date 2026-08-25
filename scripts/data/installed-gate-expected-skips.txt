@@ -3,14 +3,32 @@
 # One entry per line: <test id><two spaces><the reason a person gave>.
 # Lines starting with # are comments.
 #
-# WHY THIS FILE IS EMPTY, and why an empty file is the right default. A skip
-# means a property was NOT MEASURED. Letting an undeclared skip pass is how a
+# WHY ENTRIES ARE RARE, and why EMPTY was the right starting point. A skip means
+# a property was NOT MEASURED. Letting an undeclared skip pass is how a
 # tier reports green on gates that never ran, which is the failure the tier was
 # built to end. An entry here is a considered statement that a named gate cannot
 # apply on the validation machine and that shipping without it is accepted —
 # so it carries a reason, it is reviewed like any other change, and it is read
 # by scripts/check-release-validation.py, which refuses any skip not listed.
 #
+# An entry is only ever correct for a gate that can establish, by measurement,
+# that it does not apply here. A gate that skips because it could not look does
+# not belong in this file; it belongs in a failure.
+#
 # An ABSENT or unreadable file does not mean "anything may skip": the gate
 # refuses outright, the same way the public-language gate refuses when its term
 # list cannot be read.
+
+# ── The opt-in ROCm engine, declared 2026-08-24 ──────────────────────────────
+# The ROCm inference engine is opt-in, mirror-only and needs an AMD graphics
+# card. On a machine that did not install it there is no /opt/rocm to read, and
+# these two gates skip rather than fail — the gate asks the package database
+# whether llama-cpp-hip is in the installed set, and only skips when it is NOT.
+# The case these gates exist for, the package installed with its files absent,
+# still FAILS and is not covered by these entries.
+#
+# What is accepted by declaring them: a release validated on a machine without
+# the ROCm engine carries NO evidence about that engine's linkage. Validate on a
+# machine that has it before shipping a change to the engine or its dependencies.
+tests.installed.test_gate_rocm_engine_links::test_every_rocm_object_resolves_every_library_it_links  the opt-in ROCm engine (llama-cpp-hip) is not installed on this validation machine, so its linkage was not measured
+tests.installed.test_gate_rocm_engine_links::test_the_inference_server_starts_far_enough_to_answer_for_its_version  the opt-in ROCm engine (llama-cpp-hip) is not installed on this validation machine, so its server was not started

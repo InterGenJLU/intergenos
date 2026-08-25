@@ -44,6 +44,7 @@ EXPECTED TO FAIL ON R001.1 AS SHIPPED.
 from __future__ import annotations
 
 import os
+import sqlite3
 import subprocess
 from pathlib import Path
 
@@ -51,6 +52,78 @@ import pytest
 
 ROCM_ROOT = Path("/opt/rocm")
 SCANNED = ("bin", "lib")
+
+#: The package database the rest of this tier's tooling reads.
+PKM_DB = Path("/var/lib/igos/pkm.db")
+
+#: The package whose recipe lists /opt/rocm/bin/llama-server among the paths it
+#: verifies. Its presence in the installed set is what makes this gate apply.
+ROCM_ENGINE_PACKAGE = "llama-cpp-hip"
+
+
+def _rocm_engine_is_installed() -> bool:
+    """Is the opt-in ROCm engine package recorded as installed on this machine?
+
+    ASKED OF THE PACKAGE DATABASE, not inferred from the filesystem, because the
+    filesystem is the thing under test: "/opt/rocm is missing" is the symptom
+    this gate exists to catch when the package IS installed, and the ordinary
+    state of a machine that never opted in when it is not.
+
+    A database that cannot be read raises. "I could not look" must not be able to
+    turn into "it is not installed here", which would let the gate skip on the
+    machine whose engine is broken.
+    """
+    if not PKM_DB.is_file():
+        raise OSError(f"{PKM_DB} is absent, so the installed package set cannot "
+                      f"be read and this gate cannot tell whether it applies")
+    con = sqlite3.connect(f"file:{PKM_DB}?immutable=1", uri=True)
+    try:
+        row = con.execute(
+            "SELECT 1 FROM installed WHERE name = ? AND superseded_by IS NULL",
+            (ROCM_ENGINE_PACKAGE,)).fetchone()
+    finally:
+        con.close()
+    return row is not None
+
+
+def _require_rocm_applies() -> None:
+    """FAIL when the engine is installed and its tree is gone; SKIP when it is not.
+
+    WHY THIS IS A SKIP AND NOT A FAILURE, added 2026-08-24. Both cases in this
+    file previously failed outright on any machine without /opt/rocm. The engine
+    is opt-in, mirror-only and needs an AMD card, so that is the ordinary state
+    of most machines — including the one this tier is run from. Because
+    scripts/check-release-validation.py refuses a release on ANY failing gate and
+    can only accept a DECLARED skip, a machine without the engine could never
+    produce a validating record at all: a gate about an optional component was
+    refusing every release on every machine that had not opted into it.
+
+    A skip is not a softening. It still says NOTHING WAS MEASURED, it still has
+    to be declared in scripts/data/installed-gate-expected-skips.txt before the
+    release gate will accept it, and the case where the property could really be
+    broken — the package installed and its files absent — still FAILS.
+    """
+    try:
+        installed = _rocm_engine_is_installed()
+    except (OSError, sqlite3.Error) as exc:
+        pytest.fail(
+            f"Whether the ROCm engine applies to this machine could not be "
+            f"determined ({exc}). This gate will not skip on an unanswered "
+            f"question: an unread package database is not an absent package.")
+    if ROCM_ROOT.is_dir():
+        return
+    if installed:
+        pytest.fail(
+            f"The package database records {ROCM_ENGINE_PACKAGE} as installed, "
+            f"but {ROCM_ROOT} does not exist. The engine this machine is "
+            f"supposed to have is not on it.")
+    pytest.skip(
+        f"NOT VERIFIED: {ROCM_ROOT} does not exist and {ROCM_ENGINE_PACKAGE} is "
+        f"not in this machine's installed package set, so the opt-in ROCm engine "
+        f"is not present here and its linkage was not checked. This is a SKIP, "
+        f"not a pass — nothing about the engine has been verified on this "
+        f"machine, and the release gate accepts it only because it is declared "
+        f"in scripts/data/installed-gate-expected-skips.txt.")
 
 #: `ldd` says this for a file that is not a dynamic executable at all.
 NOT_DYNAMIC = "not a dynamic executable"
@@ -63,10 +136,7 @@ def rocm_objects() -> list[Path]:
     Symlinks are skipped: the loader resolves them to the same real file, and
     counting both would report one defect three times.
     """
-    if not ROCM_ROOT.is_dir():
-        pytest.fail(
-            f"{ROCM_ROOT} does not exist on this machine. This gate covers the "
-            f"ROCm engine's linkage; a machine without it cannot report a pass.")
+    _require_rocm_applies()
     found: list[Path] = []
     for sub in SCANNED:
         base = ROCM_ROOT / sub
@@ -123,9 +193,12 @@ def test_the_inference_server_starts_far_enough_to_answer_for_its_version():
     """
     import subprocess
 
+    _require_rocm_applies()
     server = ROCM_ROOT / "bin" / "llama-server"
     if not server.exists():
-        pytest.fail(f"{server} is not installed; this gate cannot report a pass")
+        pytest.fail(
+            f"{ROCM_ROOT} is present on this machine but {server} is not in it; "
+            f"the engine is installed and its server binary is missing")
 
     res = subprocess.run([str(server), "--version"],
                          capture_output=True, text=True, timeout=120)

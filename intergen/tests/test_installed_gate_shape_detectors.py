@@ -256,3 +256,135 @@ class ThisTreeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ── The turn-path readers, proved both ways ───────────────────────────────────
+
+#: A web server in the shape R001.1 shipped: it routes with a direct call, and
+#: the only frames it puts on the socket before routing are errors.
+_R0011_TURN_PATH = '''
+class WebServer:
+    async def _handle_client_message(self, ctx, data):
+        if not data.get("content"):
+            await ctx.ws.send_json({"type": "error", "message": "empty"})
+            return
+        result = self._router.route(data["content"])
+        await ctx.ws.send_json({"type": "response", "content": result})
+'''
+
+#: The shape this tree ships: the acknowledgement is sent by the CALLER, above
+#: the call into the routing function, and routing is handed to an executor so
+#: the router's ``route`` never appears in callee position.
+_CURRENT_TURN_PATH = '''
+class WebServer:
+    async def _run_turn(self, ctx, data):
+        await ctx.ws.send_json({"type": "turn_ack", "turn_id": "t"})
+        await self._handle_client_message(ctx, data)
+
+    async def _handle_client_message(self, ctx, data):
+        if not data.get("content"):
+            await ctx.ws.send_json({"type": "error", "message": "empty"})
+            return
+        result = await loop.run_in_executor(None, self._router.route, data["content"])
+        await ctx.ws.send_json({"type": "response", "content": result})
+'''
+
+#: Neither shape: nothing here hands a turn to a router at all.
+_NO_ROUTING = '''
+class WebServer:
+    async def _handle_client_message(self, ctx, data):
+        await ctx.ws.send_json({"type": "turn_ack"})
+'''
+
+
+class TurnPathReaderTruePositiveTests(unittest.TestCase):
+    """Against the R001.1 shape, the readers must still report the defect."""
+
+    def test_the_direct_routing_call_is_found(self):
+        sites = _detectors().routing_call_sites(_R0011_TURN_PATH)
+        self.assertEqual([name for name, _line in sites],
+                         ["_handle_client_message"])
+
+    def test_no_acknowledgement_is_reported_before_routing(self):
+        self.assertEqual(
+            _detectors().acknowledgement_before_routing(_R0011_TURN_PATH), [],
+            "the R001.1 turn path sends only an error frame before routing; a "
+            "reader that reports an acknowledgement here would pass the gate on "
+            "the defect it exists to catch")
+
+    def test_the_response_frame_is_not_mistaken_for_an_acknowledgement(self):
+        """The response is sent AFTER routing and must not count.
+
+        The reader that shipped first filtered by the line of the enclosing
+        statement rather than of the send, so a function header — which precedes
+        every line in the function — carried the final response frame across the
+        cutoff and the R001.1 shape read as acknowledging its turns.
+        """
+        self.assertNotIn(
+            "response",
+            _detectors().acknowledgement_before_routing(_R0011_TURN_PATH))
+
+    def test_a_browser_without_an_arm_for_the_frame_is_reported(self):
+        self.assertFalse(
+            _detectors().client_dispatches("switch(m.type){case 'response': x();}",
+                                           "turn_ack"))
+
+
+class TurnPathReaderThisTreeTests(unittest.TestCase):
+    """Against the shape this tree ships, the readers must report it absent."""
+
+    def test_the_offloaded_routing_call_is_found(self):
+        sites = _detectors().routing_call_sites(_CURRENT_TURN_PATH)
+        self.assertEqual([name for name, _line in sites],
+                         ["_handle_client_message"],
+                         "the router's route is handed to an executor and never "
+                         "appears in callee position; a reader that misses it "
+                         "would report a routing-free turn path")
+
+    def test_the_acknowledgement_sent_by_the_caller_is_found(self):
+        self.assertEqual(
+            _detectors().acknowledgement_before_routing(_CURRENT_TURN_PATH),
+            ["turn_ack"])
+
+    def test_the_browsers_dispatch_arm_is_found(self):
+        self.assertTrue(
+            _detectors().client_dispatches(
+                "switch (msg.type) { case 'turn_ack': handleTurnAck(msg); break; }",
+                "turn_ack"))
+
+    def test_the_real_shipped_module_is_read_the_same_way(self):
+        """The readers are exercised against this tree's actual web server.
+
+        The stand-ins above are small enough to reason about; this is the one
+        that would notice the tree moving out from under them.
+        """
+        root = Path(__file__).resolve().parents[2]
+        source = (root / "intergen" / "web_server.py").read_text(encoding="utf-8")
+        detectors = _detectors()
+        self.assertTrue(detectors.routing_call_sites(source),
+                        "no routing call was found in the shipped web server")
+        self.assertIn("turn_ack",
+                      detectors.acknowledgement_before_routing(source))
+
+
+class TurnPathReaderRefusalTests(unittest.TestCase):
+    """A reader that cannot characterise the shape must say so, not answer."""
+
+    def test_a_module_with_no_routing_call_raises_rather_than_returning_empty(self):
+        detectors = _detectors()
+        with self.assertRaises(detectors.ShapeNotRecognised):
+            detectors.acknowledgement_before_routing(_NO_ROUTING)
+
+    def test_the_refusal_is_distinguishable_from_a_missing_acknowledgement(self):
+        """Both are "no acknowledgement" to a caller that only reads the list.
+
+        An empty list means the software does not acknowledge its turns. The
+        exception means this reader could not find the routing work to order an
+        acknowledgement against. Only the first is a defect in the software, and
+        a gate must not be able to print the second as though it were the first.
+        """
+        detectors = _detectors()
+        self.assertEqual(
+            detectors.acknowledgement_before_routing(_R0011_TURN_PATH), [])
+        with self.assertRaises(detectors.ShapeNotRecognised):
+            detectors.acknowledgement_before_routing(_NO_ROUTING)
