@@ -574,8 +574,84 @@ _EXTERNAL_LIVE_SUBJECT_RE = re.compile(
     r"forex|gold|silver|gas|oil|mortgage\s+rate|weather|wether|temperature|temp|"
     r"forecast|pollen|air\s+quality|headlines?|news|election|trending|scores?|"
     r"standings|super\s+bowl|world\s+cup|premier\s+league|f1\s+race|grammys|nba|nfl|"
+    r"sunset|sunrise|daylight|"
     r"packers|cubs|lakers|yankees|powerball|showtimes?|traffic|nvidia|tesla|"
     r"price\s+of)\b", re.IGNORECASE)
+# ── Consent-turn helpers (the accepted web-search offer) ─────────────────────
+# A "yes" to an offered search arrives as its own turn, and what it means has to
+# be read from the words after the yes. Three small, separately testable
+# questions: is the tail asking for the lookup, does it still concern the same
+# subject, and does it name a place the original question did not.
+_LOOKUP_REQUEST_RE = re.compile(
+    r"\b(?:look\s+(?:it\s+|that\s+|them\s+)?up|look\s+up|search|google|"
+    r"find\s+out|check\s+(?:on\s+)?(?:it|that)?|see\s+what|look\s+into)\b",
+    re.IGNORECASE)
+# A place named after a preposition: "in Gardendale, AL", "for Mount Olive",
+# "near Saint Paul". Capitalised words carry it, and an optional two-letter state
+# rides along so the search keeps the disambiguation the user supplied.
+_NAMED_PLACE_RE = re.compile(
+    r"\b(?:in|for|at|near|around)\s+"
+    r"([A-Z][a-zA-Z.'\-]*(?:\s+[A-Z][a-zA-Z.'\-]*)*"
+    r"(?:,\s*[A-Z]{2}\b)?)")
+# Words too common to prove two sentences are about the same thing.
+_SUBJECT_STOPWORDS = frozenset({
+    "the", "a", "an", "and", "or", "but", "for", "with", "about", "that", "this",
+    "there", "here", "what", "when", "where", "which", "who", "how", "why",
+    "is", "are", "was", "were", "be", "been", "will", "would", "can", "could",
+    "do", "does", "did", "should", "may", "might", "much", "many", "some", "any",
+    "please", "thanks", "thank", "you", "your", "my", "me", "it", "its", "i",
+    "up", "on", "in", "at", "to", "of", "off", "out", "now", "today", "tomorrow",
+    "look", "search", "find", "check", "see", "tell", "know", "get", "go",
+})
+
+
+def _content_words(text: str) -> set[str]:
+    """The words in a sentence that carry its subject, lowercased."""
+    return {w for w in re.findall(r"[a-zA-Z]{3,}", (text or "").lower())
+            if w not in _SUBJECT_STOPWORDS}
+
+
+def _looks_like_lookup_request(tail: str) -> bool:
+    """True when the tail after a "yes" is asking for the lookup itself
+    ("please look up the weather ...", "yes, search for it")."""
+    return bool(tail) and bool(_LOOKUP_REQUEST_RE.search(tail))
+
+
+def _shares_subject(tail: str, offered: str) -> bool:
+    """True when the tail is still about the question that was offered.
+
+    A word in common is enough and deliberately so: the alternative is demanding
+    a particular phrasing before consent counts, which is the failure this whole
+    change exists to end. An unrelated new question shares nothing but the
+    stopwords, which are excluded.
+    """
+    if not tail:
+        return False
+    return bool(_content_words(tail) & _content_words(offered))
+
+
+def _named_place(text: str) -> str:
+    """The place named after a preposition in this sentence, or ""."""
+    m = _NAMED_PLACE_RE.search(text or "")
+    return m.group(1).strip().rstrip(".,") if m else ""
+
+
+def _merge_named_place(offered: str, tail: str) -> str:
+    """The search query: the question that was offered, plus a place named only
+    in the accepting turn.
+
+    Usually the place is already in the original question and nothing is added.
+    It is added when the person answered the offer by supplying the place —
+    "yes, for Mount Olive AL" — which is the same information arriving one turn
+    later.
+    """
+    query = (offered or "").strip().rstrip("?").strip()
+    place = _named_place(tail)
+    if place and place.lower() not in query.lower():
+        query = f"{query} {place}".strip()
+    return query
+
+
 # Currency conversion — inherently live (needs the current rate).
 _CURRENCY_CONVERT_RE = re.compile(
     r"\bconvert\s+\d|\bin\s+usd\b|\bto\s+euros?\b|\byen\s+in\b|\bexchange\s+rate\b|"
@@ -584,6 +660,7 @@ _CURRENCY_CONVERT_RE = re.compile(
 # (weather / sports results + schedules / current officeholders / local availability
 # / current prices + deals / breaking news).
 _IMPLICIT_LIVE_RE = re.compile(
+    r"\bsun\s+(?:sets?|rises?|set|rise|goes?\s+down|comes?\s+up)\b|"
     r"\bwill\s+it\s+(?:rain|snow)\b|\bis\s+it\s+(?:gonna|going\s+to|supposed\s+to|"
     r"raining)\b|\bsupposed\s+to\s+rain\b|\bhow\s+(?:hot|cold|warm)\b|"
     r"\bhot\s+(?:today|outside)\b|\bclear\s+up\b|\bcloudy\b|\bumbrella\b|"
@@ -1179,7 +1256,8 @@ _DA_EXTERNAL_RE = re.compile(
     r"|\b(?:hot|cold|warm|nice|sunny|rainy|cloudy|chilly|freezing|humid)\s+"
     r"(?:out|outside|today|tonight|tomorrow)\b"
     r"|\bwill\s+it\s+(?:rain|snow)\b|\bchance\s+of\s+rain\b|\bneed\s+an?\s+umbrella\b"
-    r"|\b(?:sunset|sunrise)\b|\bstill\s+(?:light|dark)\s+(?:out|outside)\b"
+    r"|\b(?:sunset|sunrise)\b|\bsun\s+(?:sets?|rises?|set|rise|goes?\s+down|"
+    r"comes?\s+up)\b|\bstill\s+(?:light|dark)\s+(?:out|outside)\b"
     r"|\bget(?:ting)?\s+dark\b|\bhow\s+much\s+daylight\b|\bdaylight\s+(?:left|hours)\b"
     r"|\bnear\s+me\b|\baround\s+here\b",
     re.IGNORECASE)
@@ -1969,6 +2047,19 @@ class ConversationRouter(RouterInterface):
         if ipv6_offer_result is not None:
             return ipv6_offer_result
 
+        # A standing web-search offer is resolved here, before the bare-affirmative
+        # guard can call the turn unstaged and before any content route can read
+        # the acceptance as a fresh question. "yes" runs the search the user was
+        # offered; "no" declines it; anything else lets the offer lapse.
+        # Resolved on the ORIGINAL sentence, not the normalized one: normalization
+        # strips politeness, and "please do" — one of the two acceptances the
+        # field transcripts actually contain — becomes the bare word "do", which
+        # no affirmative vocabulary recognises. The words a person used to say
+        # yes are the words this has to read.
+        search_offer_result = self._resolve_pending_search_offer(original_input, t0)
+        if search_offer_result is not None:
+            return search_offer_result
+
         # F1 (offer/accept mis-bind fix, 2026-07-01): a bare affirmative/negative
         # with NOTHING staged must never fall through to the LLM, which would
         # free-associate the "yes" onto an earlier offer in the conversation
@@ -2585,6 +2676,13 @@ class ConversationRouter(RouterInterface):
         if has_web:
             answer = ("That's live data I can't know from memory — but I can search "
                       "the web for it right now. Want me to look it up?")
+            # Hold the question the offer is about. The offer and the acceptance
+            # are two different turns, and without this the "yes" arrives with
+            # nothing behind it: it gets routed as a brand-new sentence, which is
+            # why three accepted offers in one person's first three days ran no
+            # search. Only staged when web_search is actually registered — an
+            # offer that cannot be made must not leave something to accept.
+            self._conv.pending_search_offer = text.strip()
         else:
             answer = ("That's real-time information I don't have, and web search "
                       "isn't available on this system — so I can't look it up rather "
@@ -3357,7 +3455,8 @@ class ConversationRouter(RouterInterface):
             return None
         if (self._conv.pending_action_offer is not None
                 or self._conv.pending_ipv6_offer is not None
-                or self._conv.pending_memory_offer is not None):
+                or self._conv.pending_memory_offer is not None
+                or self._conv.pending_search_offer is not None):
             return None
         if is_grat:
             result = RouteResult(
@@ -3374,6 +3473,74 @@ class ConversationRouter(RouterInterface):
             answer_linkage=AnswerLinkage(
                 kind="code", renderer="no_offer_fallback"))
         self._record(result, t0, "affirmative_no_offer")
+        return result
+
+    def _resolve_pending_search_offer(self, user_input: str, t0: float
+                                     ) -> "RouteResult | None":
+        """Resolve a standing web-search offer on a yes/no reply.
+
+        The offer and the acceptance are two turns, and until this existed
+        nothing carried the question across the gap: the "yes" was routed as a
+        brand-new sentence. Measured in the field — three accepted offers in one
+        person's first three days, no search run for any of them, and one reply
+        that told her it did not know her location when she had just named her
+        town in the accepting sentence itself.
+
+        The offer-state x input table, mirroring the action-offer resolver:
+          yes (bare, or a tail that restates the acceptance, or a tail that asks
+              for the same lookup)   -> RUN the search, clear the offer
+          yes + a genuinely new ask  -> clear the offer, route the new ask
+          no                         -> decline, clear the offer
+          neither                    -> the offer lapses, route normally
+
+        A web search is read-only and goes out under the tool's own gate, so a
+        prefixed "yes" that restates the ask is consumed here rather than held
+        for a bare one — the caution the action-offer resolver applies exists
+        because that offer runs a command on the machine.
+        """
+        offered = self._conv.pending_search_offer
+        if not offered:
+            return None
+        if MemoryManager.is_bare_negative(user_input) or \
+                MemoryManager.is_negative(user_input):
+            self._conv.pending_search_offer = None
+            glass.emit("decision", "search_offer_decline", detail={
+                "offered_query": offered, "user_msg": user_input})
+            result = RouteResult(
+                text="All right — I won't look it up.",
+                source="search_offer_declined", handled=True,
+                answer_linkage=AnswerLinkage(
+                    kind="code", renderer="search_offer_declined"))
+            self._append_history(user_input, result.text)
+            self._record(result, t0, "search_offer_declined")
+            return result
+        if not MemoryManager.is_affirmative(user_input):
+            # Not an answer to the offer at all — it lapses and this turn routes
+            # on its own merits, exactly as the action offer does.
+            self._conv.pending_search_offer = None
+            glass.emit("decision", "search_offer_lapse", detail={
+                "offered_query": offered, "user_msg": user_input})
+            return None
+        tail = MemoryManager.strip_affirmative_prefix(user_input)
+        consented = (MemoryManager.is_acceptance_restating_tail(tail)
+                     or _looks_like_lookup_request(tail)
+                     or _shares_subject(tail, offered))
+        if not consented:
+            # "Yes, <a different question>" — the yes is politeness in front of a
+            # new ask. Clear the offer and let the new ask route itself; never
+            # search the old question on the strength of the word "yes".
+            self._conv.pending_search_offer = None
+            glass.emit("decision", "search_offer_lapse", detail={
+                "offered_query": offered, "user_msg": user_input,
+                "tail": tail, "reason": "new_ask"})
+            return None
+        query = _merge_named_place(offered, tail)
+        self._conv.pending_search_offer = None
+        glass.emit("decision", "search_offer_consume", detail={
+            "offered_query": offered, "user_msg": user_input, "query": query,
+            "dispatched": True})
+        result = self._run_staged_action(query, "web_search", {"query": query})
+        self._record(result, t0, "search_offer_run")
         return result
 
     def _resolve_pending_action_offer(self, user_input: str, t0: float
@@ -3583,6 +3750,14 @@ class ConversationRouter(RouterInterface):
             call = ToolCall(name="write_file", arguments=dict(args),
                             source_of_request=Provenance.USER_DIRECT)
             display = args.get("path", command)
+        elif tool == "web_search" and args:
+            # A search the user asked for and then accepted. It goes out through
+            # the same gate as every other dispatch; the query is the question
+            # they asked, carried verbatim rather than re-derived from the word
+            # "yes".
+            call = ToolCall(name="web_search", arguments=dict(args),
+                            source_of_request=Provenance.USER_DIRECT)
+            display = str(args.get("query", command))
         else:
             tool = "run_command"
             call = ToolCall(name="run_command",
@@ -3634,8 +3809,14 @@ class ConversationRouter(RouterInterface):
         # here" is honest there.
         if not tool_result.executed and not tool_result.success:
             self._note_handed_off(command if tool == "run_command" else display)
-            handoff = (self._handoff_line(command) if tool == "run_command"
-                       else "I'm not able to make that change from here.")
+            if tool == "run_command":
+                handoff = self._handoff_line(command)
+            elif tool == "web_search":
+                handoff = ("I couldn't run that search just now — the search "
+                           "didn't go through, so I have nothing to tell you "
+                           "about it rather than a guess.")
+            else:
+                handoff = "I'm not able to make that change from here."
             self._append_history(display, handoff)
             return RouteResult(text=handoff, source="explain_offer_run",
                                handled=True, tool_calls=[call],
