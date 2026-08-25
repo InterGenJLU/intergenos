@@ -76,6 +76,26 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **Setting the assistant up from the greeter no longer runs as the
+  administrator.** The one-click button escalated the entire setup run —
+  hardware detection, the license gate and a model download of up to about
+  22.9 GB — to the administrator account, under the general permission that
+  covers running any program as another user. Nothing in that run needs it: the
+  model is downloaded and checksum-verified as you, and only the step that
+  writes it into the system-wide model store asks for permission, through a
+  dedicated helper whose permission entry names what is being installed and
+  which re-checks the file before writing it. The button now runs setup as you,
+  so the one password prompt you see is that named one. Because the run is no
+  longer wrapped in a privileged process, a model that downloaded and was then
+  not installed — because the password prompt was closed, because the installer
+  program is missing, or because the installer refused the file — is now told
+  apart and given its own sentence, and the first of those says the download
+  does not have to be repeated. Before this, that case reported that the
+  download had not finished when the file was already on disk. The exit codes
+  the greeter reads from a permission prompt are also corrected: the code that
+  means the permission was not obtained was being reported as a failed
+  authentication, and the code that means the program could not be started was
+  being reported as an authentication problem, which it is not.
 - **A privileged action the Welcomer could not run now says what happened.**
   A first boot recorded PolicyKit refusing the greeter's request and pkexec
   reporting that the prompt had been dismissed; the greeter showed a switch

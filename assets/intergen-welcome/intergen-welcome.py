@@ -3290,8 +3290,10 @@ def _intergen_setup_argv(tier):
 
     This used to begin with pkexec, which escalated the whole of `intergen
     setup` — hardware detection, the license gate and a download of up to about
-    21 GB — to root, under polkit's generic exec action, because /usr/bin/intergen
-    has no action of its own and must never be given one: annotating a
+    22.9 GB (the largest model in the shipped pin manifest, 22,016,023,168 bytes,
+    plus its 899,283,648-byte vision projector) — to root, under polkit's generic
+    exec action, because /usr/bin/intergen has no action of its own and must
+    never be given one: annotating a
     general-purpose command-line tool as a pkexec target would make every one of
     its subcommands root-runnable under a single action.
 
