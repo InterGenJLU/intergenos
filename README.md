@@ -15,6 +15,8 @@ InterGenOS puts the user in control of their own machine. Every package is compi
 
 **InterGen**, the local AI assistant, doesn't just help you use your system — it helps you understand and secure it. It runs on everything from a laptop with no discrete graphics to a GPU workstation, fully offline, choosing its model tier from the graphics hardware it finds. Every tier is multimodal. **InterGen Sentinel** — its pluggable security-scanner architecture — routes MCP traffic through your choice of scanner before it reaches a tool. A local-only default (`Local-Rules` rule-based + `Local-Qwen` InterGen-LLM-backed via your local Qwen model) ships ready to go. Six cloud providers are opt-in: Claude-Anthropic, Gemini-Google, CoPilot-Microsoft, ChatGPT-OpenAI, Grok-xAI, and DeepSeek. Frontier AI models in 2026 routinely surface security-relevant findings at scale — pluggable cloud routing lets users opt into that capability through whichever vendor they trust. The user picks which (if any) reaches across the network.
 
+"Fully offline" means the local model: web search and the opt-in cloud scanners are the only paths that touch the network, and both are your choice.
+
 ![InterGenOS desktop — GNOME 49.4 on Wayland](images/screenshots/gnome-desktop.png)
 
 ## Screenshots
@@ -28,11 +30,11 @@ GNOME 49.4 on Wayland with the InterGenOS shell theme.
 
 ![Settings — Appearance](images/screenshots/appearance-wallpapers.png)
 
-Desktop ships with the **first-party InterGenOS icon theme** as default (promoted at 1.4; it inherits Adwaita and hicolor for full application coverage). **Papirus-Dark** and the **Cybernetic Blue** icon theme by [SethStormR](https://github.com/SethStormR/Cybernetic) ship as featured alternates, switchable via Settings → Appearance or the first-boot welcomer. Typography is **Inter** for the interface — shipped as the variable family `Inter Variable`, which is the family name the desktop defaults request — paired with **JetBrains Mono** on terminal and code surfaces, over a system-wide prefer-dark colour scheme.
+Desktop ships with the **first-party InterGenOS icon theme** as default (promoted at 1.4; it inherits Adwaita and hicolor for full application coverage). **Papirus-Dark** and the **Cybernetic Blue** icon theme by [SethStormR](https://github.com/SethStormR/Cybernetic) ship as featured alternates, switchable in the first-boot Welcomer or later with GNOME Tweaks. Typography is **Inter** for the interface — shipped as the variable family `Inter Variable`, which is the family name the desktop defaults request — paired with **JetBrains Mono** on terminal and code surfaces, over a system-wide prefer-dark colour scheme.
 
 ## Security-Only Alignment
 
-**InterGenOS is built for a world where AI-assisted vulnerability discovery is a foregone conclusion, not a theoretical threat.** Recent frontier-AI evaluations have demonstrated working-exploit yields two orders of magnitude above the previous generation, with broad benchmark coverage across major operating systems and browsers — and that capability will proliferate. We build this distribution assuming adversaries have superhuman vulnerability discovery and make every design decision with that in mind. Secure Boot is mandatory. Every package choice is a security choice. Nothing that hides how the system works gets shipped.
+**InterGenOS is built for a world where AI-assisted vulnerability discovery is a foregone conclusion, not a theoretical threat.** Recent frontier-AI evaluations have demonstrated working-exploit yields two orders of magnitude above the previous generation, with broad benchmark coverage across major operating systems and browsers — and that capability will proliferate. We build this distribution assuming adversaries have superhuman vulnerability discovery and make every design decision with that in mind. Secure Boot is available and strongly advised: every image ships a fully signed boot chain, and enabling Secure Boot with your machine's enrolled key makes the firmware enforce it. Every package choice is a security choice. Nothing that hides how the system works gets shipped.
 
 Security is not first. It is **only**.
 
@@ -85,9 +87,19 @@ The Prime Directive and the security-only alignment above are complementary: a m
 | Discrete GPU, VRAM ≥ ~22 GB | Tier 3 — a 35-billion-parameter mixture-of-experts model |
 | Discrete GPU, smaller or unreadable VRAM | Tier 1 — detection fails **down**, never up |
 
-No cloud, no accounts, no round-trip latency.
+The tier chooses the model; it does not decide whether the graphics card is
+used. With the shipped `auto` setting, InterGen separately compares the chosen
+model, its vision projector and serving headroom with the detected video
+memory. When those inputs are readable, it offloads every layer when the model
+fits, as many layers as fit when it does not, and reports a processor-only
+result when no layer fits. An explicit
+`llama_server.gpu_layers` setting remains the user's override.
 
-What separates InterGen from a generic local-LLM wrapper is the permission model. Every tool call is treated as privileged: the default escalation mode is `ask`, requiring user confirmation before any action that modifies system state. Tool signatures are pinned against drift between upgrades. A separate audit log captures every tool invocation for after-the-fact review. The AI is a system component, not a hole in it.
+The local model needs no cloud account or API key. Web search and optional
+cloud scanning or Phone-A-Friend requests use the network only when you choose
+those features.
+
+What separates InterGen from a generic local-LLM wrapper is the permission model. Every tool call is classified before dispatch: read-only operations may run automatically, state-changing operations require confirmation, and blocked operations are refused. Confirmed privileged operations cross PolicyKit through a short-lived runner rather than inheriting the assistant daemon's `NoNewPrivileges` setting. Tool signatures are pinned against drift between upgrades. A separate audit log captures every tool invocation for after-the-fact review. The AI is a system component, not a hole in it.
 
 **InterGen Sentinel** routes every MCP tool call through a security scanner of your choice before it executes. The default is local-only: `Local-Rules` (rule-based, deterministic) and `Local-Qwen` (your local Qwen model reviewing the call). For richer review, opt into any of six cloud providers: Claude-Anthropic, Gemini-Google, CoPilot-Microsoft, ChatGPT-OpenAI, Grok-xAI, and DeepSeek. The user picks which (if any) reaches across the network; everything else stays on the box.
 
@@ -98,7 +110,7 @@ flowchart TD
     SEN --> LR["Local-Rules<br/>(deterministic)"]
     SEN --> LQ["Local-Qwen<br/>(local model review)"]
     SEN -.-> T2["&nbsp;opt-in&nbsp;"] -.-> CL["Cloud scanner<br/>Claude · Gemini · CoPilot ·<br/>ChatGPT · Grok · DeepSeek"]
-    LR --> RUN["approved → tool runs<br/>(logged to the dispatch audit)"]
+    LR --> RUN["approved → tool dispatches<br/>(outcome logged to the dispatch audit)"]
     LQ --> RUN
     CL -.-> RUN
     classDef lab fill:#4b4b4b,color:#ffffff,stroke:none;
@@ -141,11 +153,19 @@ and keeps the rest of the model-tooling stack on the mirror.
 
 ## Build System
 
-Single command builds the entire system:
+Launch a full build as a transient systemd unit so it survives a disconnected
+shell and retains a named control and logging surface:
 
 ```bash
-sudo bash scripts/build-intergenos.sh --user <username> --checkpoint
+UNIT="igos-build-$(/usr/bin/date +%Y%m%d-%H%M%S)"
+/usr/bin/sudo /usr/bin/systemd-run \
+    --unit="$UNIT" --working-directory=/mnt/intergenos \
+    /usr/bin/bash /mnt/intergenos/scripts/build-intergenos.sh \
+    --user <username> --checkpoint --debug-verbose
 ```
+
+See [Running the builder](docs/operations/02-running-the-builder.md#full-build-invocation)
+for prerequisites, monitoring, signing pauses, and resume commands.
 
 Phases: `validate → verify-sources → setup → toolchain → chroot-prep → chroot-tools → core → config → core-extra → base → kernel → desktop → extra → compute → ai → bootloader → image → manifest → squashfs → ukis-verity → iso`
 
@@ -165,8 +185,8 @@ Resume from any phase with `--start-at`, stop with `--stop-after`. With `--check
 ## Quick Start
 
 ```bash
-# Build the OS (on Ubuntu 24.04 build VM)
-sudo bash scripts/build-intergenos.sh --user <username> --checkpoint
+# Build the OS on the Ubuntu 24.04 build VM using the canonical
+# transient-unit invocation in “Build System” above.
 
 # Query the BLFS package database
 python3 scripts/blfs-query.py info samba
@@ -179,16 +199,16 @@ python3 scripts/blfs-query.py meson-audit --tier desktop
 python3 scripts/blfs-query.py meson-impact shaderc
 
 # Package management (on a running InterGenOS system)
-pkm install alsa-utils
-pkm install chrome              # Proprietary: fetched from Google, installed via pkm
-pkm install vscode              # Proprietary: fetched from Microsoft, installed via pkm
-pkm install claude-code         # Proprietary: fetched from Anthropic, installed via pkm
-pkm remove htop
+sudo pkm install alsa-utils
+sudo pkm install chrome              # Proprietary: fetched from Google, installed via pkm
+sudo pkm install vscode              # Proprietary: fetched from Microsoft, installed via pkm
+sudo pkm install claude-code         # Proprietary: fetched from Anthropic, installed via pkm
+sudo pkm remove htop
 pkm list installed
 pkm search audio
 pkm info openssh
 pkm provides /usr/bin/bash
-pkm verify --all
+sudo pkm verify --all
 ```
 
 ## Try InterGenOS in a Virtual Machine
@@ -256,7 +276,7 @@ Active development, pre-1.0. Originally built 2015-2016 (build_001 through build
 
 **Local assistant.** InterGen ships with hardware-tiered local models — selected from discrete-GPU presence and VRAM, failing down to the entry tier when a card is absent or its VRAM cannot be read — and code-owned, permission-gated tool dispatch as the default posture: every tool call is gated, tool signatures are pinned against drift, and every invocation is logged.
 
-**Mirror and signing.** The public binary mirror is live at `repo.intergenos.org`, serving signed per-package archives and a signed `InterGenOS.db` index; the signing-key ceremony is complete (RSA-4096 master with hardware-token signing subkeys).
+**Mirror and signing.** The public binary mirror is live at `repo.intergenos.org`, serving package archives whose SHA-256 values are covered by a signed `InterGenOS.db` index; the archives are not individually signed. The signing-key ceremony is complete (RSA-4096 master with hardware-token signing subkeys).
 
 **Test harness.** over 400 tests in `installer/tests/` covering installer backend, MOK validation, install-integrity, and Class 1 signing-chain verification, plus over 1,400 tests across the repo-level suites under `tests/` (preflight, repo-publish, SBOM, upstream-check, download-sources, and more).
 

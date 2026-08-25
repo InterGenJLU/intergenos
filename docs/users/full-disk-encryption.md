@@ -18,10 +18,10 @@ It is written for users who want to understand the encryption model: what is bei
 
 - Full disk encryption is **opt-in**, not default. The Forge installer asks; you choose.
 - The format is **LUKS2** with a passphrase. TPM2-sealed unlock and FIDO2-token unlock are designed as **EXPERIMENTAL** sub-options that compose with the passphrase, but they are **not offered in this release** (see the status note above); the passphrase slot is always the unconditional fallback.
-- Your passphrase is **never written to disk** outside the LUKS header slot itself, never logged, and never sent anywhere. There is no InterGenOS-side recovery key escrow.
-- The encrypted volume holds the entire root filesystem. The ESP (the small boot partition) is not encrypted — it cannot be, because the firmware needs to read it before any operating system is running. Secure Boot signature verification on the UKI handles the integrity of that surface.
+- Forge passes the passphrase to `cryptsetup` over standard input and does not intentionally persist or log it. LUKS stores encrypted keyslot material and key-derivation metadata, not the passphrase itself. Mutable buffers are scrubbed on a best-effort basis; immutable Python string copies cannot be guaranteed erased immediately. There is no InterGenOS-side recovery-key escrow.
+- The encrypted volume holds the entire root filesystem. The ESP (the small boot partition) is not encrypted because firmware must read it before the operating system runs. When Secure Boot is enabled it authenticates signed EFI binaries and UKIs; it does not authenticate every file on the ESP.
 - At boot, a small InterGenOS-branded prompt asks for your passphrase. Three attempts, then a recovery shell.
-- If you forget your passphrase, your data is **gone**. This is by design. There is no master key.
+- If you lose every credential for every usable keyslot, your data is **gone**. This is by design. There is no project-held universal or recovery key.
 
 ## Why encrypt
 
@@ -35,25 +35,25 @@ InterGenOS uses **LUKS2** (Linux Unified Key Setup, version 2) as the on-disk en
 
 A LUKS2 volume has:
 
-- **A header**, at the start of the encrypted partition, that holds the encryption metadata: the cipher choice, the master-key wrapping, and up to eight **key slots**.
-- **Key slots**, each independently holding a wrapping of the master key by one passphrase (or by a TPM-sealed key, or by a FIDO2-derived key). You can have several unlock methods active at once; deleting one slot does not affect the others.
+- **A header**, at the start of the encrypted partition, that holds the encryption metadata, cipher choice, and encrypted volume-key material. LUKS2 supports up to 32 **key slots**, subject to keyslot-area and key-size limits.
+- **Key slots**, each independently holding an encrypted wrapping of the volume key protected by one passphrase (or by a TPM-sealed key, or by a FIDO2-derived key). You can have several unlock methods active at once; deleting one slot does not affect the others.
 - **The encrypted payload** — your root filesystem.
 
-The master key never leaves the LUKS header. Your passphrase unwraps a key slot, which yields the master key, which decrypts the payload. The passphrase itself is held only in volatile memory during the unlock, and the unlock prompt zeroes the buffer when it finishes. There is no on-disk copy of your passphrase.
+Your passphrase is run through the key-derivation function to unlock a keyslot; the passphrase itself is not stored in the header. Unlocking loads the volume key into the kernel's dm-crypt path while the mapping is active.
 
 ## The Forge install flow
 
-When you run the Forge installer (TUI or GUI), the partitioning stage offers an **Encrypt the root filesystem with LUKS2** checkbox under the "Full-disk encryption (LUKS)" heading. If you tick it:
+When you run Forge, the TUI presents **Full-disk encryption (LUKS)** and the GUI currently presents **Full-disk encryption (EXPERIMENTAL)**. Both offer **Encrypt the root filesystem with LUKS2**. If you enable it:
 
 1. **Forge prompts for a passphrase** with a confirmation field. Both frontends enforce a non-empty value and a confirm-field match. The GUI surfaces a live strength label as you type; the TUI surfaces the same guidance once you submit. The guidance is a *soft* warning: 8 characters is the floor below which the warning fires (with the explanation "short passphrases fall to dictionary attack quickly even with argon2id KDF cost"), and 12 characters with at least two character classes is the recommended baseline. You can accept a passphrase that fires a soft warning — the installer asks you to confirm, but does not block. You can paste, but most users type — a passphrase you cannot recall under stress is not a passphrase, it is a paperweight.
-2. **Forge formats the target partition with LUKS2** using `cryptsetup luksFormat`. The parameters (AES-256-XTS, argon2id with 1 GB memory cost, 4 iterations, 4 threads of parallelism) are *forced* by Forge per RFC 9106's recommendations for memory-hard KDFs, rather than relying on whatever defaults the host's `cryptsetup` happens to ship. They sit between RFC 9106's first-recommended (t=1, m=2 GB) and second-recommended (t=3, m=64 MB) profiles, calibrated to defeat GPU-accelerated brute-force without risking OOM on 4 GB systems.
+2. **Forge formats the target partition with LUKS2** using `cryptsetup luksFormat`. Forge forces argon2id with a 1 GiB memory cost, 4 iterations, and 4 threads. It does not pass `--cipher` or `--key-size`; the pinned cryptsetup 2.8.4 currently supplies its compiled-in AES-XTS default. The forced KDF parameters sit between RFC 9106's first-recommended (t=1, m=2 GiB) and second-recommended (t=3, m=64 MiB) profiles.
 3. **Forge writes `/etc/crypttab`** on the target system so the boot-time FDE initramfs knows what to unlock. The entry is named `cryptroot` and references the partition by `UUID=`.
-4. **Forge writes `/etc/fstab`** with the unlocked device mapper node (`/dev/mapper/cryptroot`) as the root mount source, not the raw partition.
+4. **Forge writes `/etc/fstab`** with the unlocked ext4 filesystem's UUID as the root mount source. It falls back to `/dev/mapper/cryptroot` only when that UUID cannot be read.
 5. **The kernel post-install hook bundles the FDE initramfs into the UKI.** Because of the composition with Secure Boot (see [below](#composition-with-secure-boot)), the unlock prompt lives inside the same signed envelope as the kernel.
 
-The passphrase you type is held only in memory while the install runs. It is piped to `cryptsetup` via stdin (never on the command line, never in argv), zeroized after use, and cleared from the installer's state on both the success and the failure path. No copy is written to disk except in the LUKS header slot itself.
+The passphrase is sent to `cryptsetup` over standard input, never as a command-line argument. Forge clears its stored value and scrubs mutable buffers on success and failure paths, but Python cannot guarantee immediate erasure of every immutable in-memory string copy. Forge does not intentionally persist the passphrase; the LUKS header stores derived, encrypted keyslot material rather than the passphrase text.
 
-Two EXPERIMENTAL unlock methods compose with the passphrase: **TPM2-sealed unlock** (sub-checkbox under the encryption opt-in) and **FIDO2-token unlock** (separate sub-checkbox). Both add an additional LUKS key slot at install time *alongside* the passphrase slot — the passphrase is never replaced, only augmented. The TPM2 sub-checkbox is greyed out with a tooltip if your hardware does not expose a TPM (`/dev/tpmrm0` absent) or if the live ISO is missing the static TPM2 tools. The FIDO2 sub-checkbox is always visible when LUKS is selected; the token does not need to be plugged in at the moment the checkbox appears, only when enrollment runs (you will be prompted to plug + touch it).
+The retained design includes TPM2- and FIDO2-backed keyslots alongside the passphrase. Their controls are hidden in this release; the sections below describe the disabled design, not choices the current installer displays.
 
 ### EXPERIMENTAL — TPM2-sealed unlock
 
@@ -123,7 +123,7 @@ If neither TPM2 nor FIDO2 was enrolled, the chain skips straight to the passphra
 ```
   InterGenOS — encrypted root unlock
 
-Enter passphrase for /dev/disk/by-uuid/<uuid>:
+Enter passphrase for /dev/<resolved-partition>:
 ```
 
 Three wrong attempts drops you into a recovery shell with `cryptsetup` available. From the recovery shell you can retry the unlock manually, inspect `/etc/crypttab`, or reboot.
@@ -140,7 +140,7 @@ The fde-init script emits journal-grep-friendly prefixes when running EXPERIMENT
 | `[fde-init][EXPERIMENTAL FIDO2]` | FIDO2 unlock attempt — outcomes include `skipping` (no tools or no metadata), `attempting unlock — plug your security token + touch when it blinks`, `no FIDO2 token detected within 30s`, a specific diagnostic from the fido2-assert + base64 + cryptsetup pipeline (4 possible variants: subprocess non-zero / output-line-6 empty / base64-decode-or-cryptsetup-open failed / stdin-build failed — see `installer/init/fde-init.sh` for the exact text), or `unlock succeeded`. |
 | `[fde-init]` (no `EXPERIMENTAL` suffix) | Passphrase prompt path, the recovery-shell drop, and root-mount errors. |
 
-These messages go to the console during early boot. After the system is up, they are also captured by systemd-journald and remain available via `journalctl -b | grep fde-init`.
+These messages go to the console during early boot. The current initramfs does not persist them into the post-boot systemd journal.
 
 ## Composition with Secure Boot
 
@@ -151,8 +151,8 @@ A UKI is a single signed file that bundles the kernel, the initramfs, and the ke
 The practical consequences:
 
 - **Where Secure Boot enforcement is on and your MOK is enrolled**, an attacker cannot substitute a fake unlock prompt that captures your passphrase: the prompt code is inside the signed UKI, and firmware refuses to load a tampered or resigned one. This protection depends on firmware enforcement, which is optional and ships off by default on current target hardware — with enforcement off, nothing in the firmware rejects a substituted UKI, so an attacker with write access to the EFI system partition can install one that captures the passphrase. Enrolling your MOK and turning Secure Boot on is what closes that path; see [Secure Boot and MOK](secure-boot-and-mok.md).
-- A kernel upgrade rebuilds the UKI with the new kernel and the same FDE initramfs, signed with your machine's MOK. The unlock UX is identical across kernel upgrades.
-- If UKI signing fails on a kernel upgrade (ESP full, MOK missing, signing key error), the system falls back to GRUB loading the bare vmlinuz directly. On an encrypted install you would need to supply an initramfs to that recovery path manually — see [Recovery](#recovery) below.
+- A kernel upgrade rebuilds the UKI with the new kernel and a freshly generated FDE initramfs, signed with your machine's MOK. The unlock experience is intended to remain the same.
+- On an encrypted R001.2 install, Forge withholds stock bare-vmlinuz entries while `/boot/initramfs.img` is only the placeholder; the MOK-signed UKI is then the only generated InterGenOS entry. Do not assume a UKI signing failure leaves a bootable fallback. Use live media to repair the installation and rebuild the UKI.
 
 For the full signed-boot model, see [Secure Boot and MOK](secure-boot-and-mok.md), particularly the "Composition with LUKS encryption" section there.
 
@@ -177,13 +177,13 @@ Most of the time you will never think about any of this. When something goes wro
 
 ### "I forgot my passphrase"
 
-Your data is gone. We are sorry. There is no master key, no recovery key escrow, no back door, and no service we can offer that will recover it. This is intentional — a recovery channel that we could use is a channel that an attacker could use.
+If no usable keyslot credential remains, your data is gone. We are sorry. LUKS has a volume key, but InterGenOS does not hold it or escrow a recovery credential; there is no back door or service we can offer that will recover it. This is intentional — a recovery channel that we could use is a channel that an attacker could use.
 
 If this happens, boot a live ISO and reinstall. **Back up early and often** is the only mitigation.
 
 ### "I want to add a second passphrase"
 
-LUKS2 supports up to eight key slots. From a running system, as root:
+LUKS2 supports up to 32 key slots, subject to keyslot-area and key-size limits. From a running system, as root:
 
 ```sh
 cryptsetup luksAddKey /dev/disk/by-uuid/<uuid>
@@ -219,17 +219,27 @@ cryptsetup luksHeaderRestore /dev/disk/by-uuid/<uuid> \
     --header-backup-file /path/to/external/header.bin
 ```
 
-### "UKI signing failed on a kernel upgrade and I cannot boot the encrypted root"
+### "A kernel upgrade did not leave a bootable UKI"
 
-The kernel post-install hook preserves the GRUB-loads-vmlinuz path as a recovery fallback. From the GRUB recovery entry, you can boot the bare vmlinuz, supply the FDE initramfs as an `initrd=` argument, and unlock as normal. Check `/var/log/intergen-kernel-postinstall.log` (and the troubleshooting table below) for the underlying signing-failure messages before retrying the post-install hook.
+R001.2 suppresses the stock bare-vmlinuz entries on an encrypted install when `/boot/initramfs.img` is only the placeholder. Boot live media, unlock and mount the root volume, inspect `/var/log/intergen-kernel-postinstall.log`, and rebuild the signed UKI. A regenerated bare fallback is not claimed bootable until it has passed a real cold boot.
 
 ### "Boot drops me to the FDE recovery shell"
 
 Three failed passphrase attempts (or a missing `/etc/crypttab`, or a missing LUKS volume) drop you to a small `busybox` shell with `cryptsetup` available. From there you can:
 
-- Retry the unlock manually: `cryptsetup open /dev/disk/by-uuid/<uuid> cryptroot`, then `mount /dev/mapper/cryptroot /newroot`, then `exec switch_root /newroot /sbin/init`.
-- Reboot: type `reboot -f` (the standard `reboot` command is not available pre-systemd).
-- Inspect the partition table: `ls /dev/disk/by-uuid/`.
+- Inspect available devices with `cat /proc/partitions` and `blkid`; this initramfs has no udev-created `/dev/disk/by-*` links.
+- Retry the unlock and handoff with the applets the initramfs carries:
+
+  ```sh
+  cryptsetup open /dev/<partition> cryptroot
+  mkdir -p /newroot
+  mount /dev/mapper/cryptroot /newroot
+  mount --move /proc /newroot/proc
+  mount --move /sys /newroot/sys
+  mount --move /dev /newroot/dev
+  exec switch_root /newroot /sbin/init
+  ```
+- Reboot with `/bin/busybox reboot -f`; no standalone `reboot` applet link is installed.
 
 The recovery shell has no network access and no logs. It is intentionally minimal.
 
@@ -239,11 +249,11 @@ The recovery shell has no network access and no logs. It is intentionally minima
 |---|---|---|
 | Boot prompt asks for passphrase but every attempt fails | Wrong passphrase, or keyboard layout differs at boot from inside the OS | Confirm the layout. The FDE initramfs uses the US-QWERTY layout by default; if your passphrase contains layout-sensitive characters, type the QWERTY equivalents. |
 | Boot drops straight to the FDE recovery shell with "no LUKS volume specified" | `/etc/crypttab` was not written, or the install did not complete the encryption stage | From the recovery shell, inspect `/etc/crypttab` (`cat /etc/crypttab`). If empty, the install did not enable encryption; boot a live ISO and reinstall. |
-| Boot drops to the FDE recovery shell with "LUKS volume not found after 30s wait" | The disk did not enumerate in time (failing drive, USB-attached storage, RAID controller slow init) | From the recovery shell, run `ls /dev/disk/by-uuid/` to see what is visible. If the volume appears, retry `cryptsetup open` manually. If not, the disk is the problem. |
-| TPM2-sealed unlock falls through to passphrase | PCR0 or PCR7 has changed (firmware update, Secure Boot reconfiguration, shim/MOK update) | Enter the passphrase to boot. The system continues to unlock normally with the passphrase slot; re-enrolling TPM2 against the new PCR state restores automatic unlock. Check journal: `journalctl -b | grep '\[EXPERIMENTAL TPM2\]'` for the specific outcome (`tpm2_load failed` vs `tpm2_unseal | cryptsetup failed (PCR drift?)`). |
-| FIDO2 unlock does not detect the token | Token not plugged in early enough, or token battery dead | The FDE initramfs waits up to 30 seconds for the device to enumerate. Plug the token in before boot. For battery-dead tokens, fall back to the passphrase. Check journal: `journalctl -b | grep '\[EXPERIMENTAL FIDO2\]'`. |
+| Boot reports that the LUKS volume could not be resolved after 30 seconds | Storage did not enumerate, a required storage driver is absent, or the configured UUID/path is wrong | Run `cat /proc/partitions` and `blkid`, then retry `cryptsetup open` with a concrete `/dev/...` partition. |
+| TPM2-sealed unlock falls through to passphrase | PCR0 or PCR7 has changed (firmware update, Secure Boot reconfiguration, shim/MOK update) | Enter the passphrase to boot. The early-boot console carries the specific outcome; the current initramfs does not persist it to the post-boot journal. |
+| FIDO2 unlock does not detect the token | Token not plugged in early enough, or token battery dead | The FDE initramfs waits up to 30 seconds for the device to enumerate. Plug the token in before boot. For battery-dead tokens, fall back to the passphrase. The early-boot console carries the outcome. |
 | `cryptsetup luksAddKey` says "No key available with this passphrase" | The passphrase you entered does not match any existing slot | Try other passphrases you have set. If none work, you are in the [forgot-passphrase](#i-forgot-my-passphrase) case. |
-| The ESP filled up on a kernel upgrade and the new UKI was not written | UKI generation logs ESP-full and skips; the previous kernel's UKI remains the default | `pkm remove linux-kernel-<old-version>` to free space, then re-run the post-install hook for the current kernel. See `/var/log/intergen-kernel-postinstall.log` for the underlying messages. |
+| The ESP filled up on a kernel upgrade and the new UKI was not written | UKI generation logs ESP-full and skips; the previous kernel's UKI remains the default | There is no version-suffixed kernel package to remove. The installed keep-two helper normally prunes superseded files. After verified old artifacts are safely removed, run `sudo pkm reinstall linux-kernel` and inspect `/var/log/intergen-kernel-postinstall.log`. |
 
 ## Further reading
 

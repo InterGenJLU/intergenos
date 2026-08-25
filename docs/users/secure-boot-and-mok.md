@@ -6,26 +6,26 @@ It is written for users who want to understand the boot-chain security model: wh
 
 ## The 30-second version
 
-- InterGenOS builds a fully signed boot chain and signs every kernel image it produces. Being precise about what that *buys* you matters more than a reassuring headline, so this page is exact about what is **signed** versus what is **enforced**.
+- InterGenOS ships a Microsoft-signed shim and signs the installed GRUB and UKIs it creates. Forge also signs the bare kernel images present during installation; later kernel upgrades MOK-sign the UKI, not the new bare vmlinuz. Being precise about what that *buys* you matters more than a reassuring headline, so this page is exact about what is **signed** versus what is **enforced**.
 - **On the current target hardware, UEFI Secure Boot is left disabled by default, and no Machine Owner Key (MOK) is enrolled.** The signatures are present and verifiable, but firmware does not enforce them on a default install today. Secure Boot is *opportunistic*: the chain is ready for hardware where you choose to turn it on.
 - The boot chain is: Microsoft CA → Fedora-signed shim → InterGenOS GRUB → InterGenOS kernel (or Unified Kernel Image).
-- Every kernel the system boots is signed. Old kernels and recovery kernels too.
+- With Secure Boot enabled, the verified path accepts only images trusted through shim and the enrolled MOK. With Secure Boot disabled, firmware does not reject an unsigned kernel selected manually.
 - The **release signing key never leaves our hardware**. We sign the live ISO and the install-mode images on our offline workstation; that key never touches your machine.
 - When you install InterGenOS to disk, the Forge installer generates a per-machine **Machine Owner Key (MOK)** that lives only on your machine.
 - Every kernel you install after the original ISO is rebuilt into a Unified Kernel Image and signed with your own MOK. The InterGenOS release key is never asked to sign anything you produce locally.
-- If a kernel signing step fails, GRUB still offers a known-good fallback so you never end up with a system that can't boot.
+- If UKI generation or signing fails, a previous UKI may remain, but a bootable fallback is not guaranteed. Encrypted installs whose `/boot/initramfs.img` is only the placeholder suppress the stock bare-kernel entries.
 
 ## What is signed, and what is enforced
 
 Security is not first. It is only — and "only" includes being honest about the current enforcement posture rather than implying a guarantee the shipped configuration does not yet provide. Two things are easy to conflate:
 
-- **Signed** — the artifact carries a cryptographic signature you (or the firmware) can verify. InterGenOS signs the shim chain, GRUB, and every kernel UKI.
+- **Signed** — the artifact carries a cryptographic signature you (or the firmware) can verify. InterGenOS ships an MS-signed shim and signs installed GRUB and kernel UKIs.
 - **Enforced** — the firmware refuses to run anything whose signature does not validate. Enforcement requires UEFI Secure Boot to be *on* and the relevant key (Microsoft's CA via shim, plus your MOK) to be trusted.
 
-On a default install of the current fleet, the chain is signed but **not** firmware-enforced, because Secure Boot is disabled and no MOK is enrolled. What that gives you today:
+On a default install on currently supported hardware, the chain is signed but **not** firmware-enforced, because Secure Boot is disabled and no MOK is enrolled. What that gives you today:
 
 - **Verifiable install media.** The live ISO and install images are signed offline; you can verify them before you ever install.
-- **A sealed live image.** dm-verity over the live ISO's read-only squashfs means a tampered install medium cannot present itself as genuine.
+- **A block-verified live image.** dm-verity checks squashfs blocks against the root hash embedded in the UKI. This detects corruption in every mode; it authenticates the medium against tampering only when Secure Boot enforces the UKI signature.
 - **A signing path that is ready to enforce.** Because every installed kernel is already built into a signed UKI, enabling Secure Boot on capable hardware (and enrolling the MOK) turns the existing signatures into enforced ones without re-architecting anything.
 
 What it does **not** give you on a default install is a hardware-rooted guarantee that only signed code boots — that is what enabling Secure Boot adds. The boot path is the most privileged code on any machine: if an attacker can substitute a kernel before the OS finishes starting, every other defense the OS provides is moot. The signed chain is what makes closing that gap a firmware-toggle away rather than a re-architecture.
@@ -61,14 +61,14 @@ The live ISO and install media use UKIs signed by our release subkey (held on a 
 
 ## What is a MOK?
 
-A Machine Owner Key is a per-machine signing key, generated on your own machine, that the firmware trusts because you enrolled it via MokManager at first boot.
+A Machine Owner Key is a per-machine signing key generated on your machine. MokManager enrolls its public certificate for shim, and the kernel imports it into the secondary trusted keyring.
 
 It exists for two reasons:
 
-1. **Your machine signs the kernels you install.** When you install a new kernel (`pkm install linux-kernel-X.Y.Z`), InterGenOS rebuilds the UKI and signs it with your MOK. The InterGenOS release key never sees the kernels you install; it only signs the live ISO and install media that ship from us.
+1. **Your machine signs the kernels you install.** Whenever pkm installs, reinstalls, or upgrades the `linux-kernel` package, InterGenOS rebuilds the UKI and signs it with your MOK. The InterGenOS release key never sees the kernels you install; it only signs the live ISO and install media that ship from us.
 2. **You can trust your own third-party drivers.** If you build out-of-tree modules (e.g., proprietary GPU drivers via DKMS), they can be signed by your MOK and load on a Secure Boot system without disabling enforcement.
 
-The MOK is yours. It lives at `/var/lib/intergen/mok/` on the installed system. If you reinstall, Forge generates a fresh MOK; if you migrate to a new machine, you generate a new MOK there.
+The MOK is yours. It lives at `/var/lib/intergen/mok/` on the installed system. If you reinstall, Forge generates a fresh MOK; if you migrate to a new machine, you generate a new MOK there. Reinstalling does not remove certificates enrolled by earlier installs, so review the enrolled list and remove an obsolete MOK through MokManager only after confirming which certificate belongs to the current installation.
 
 ## The Forge install flow
 
@@ -81,7 +81,7 @@ Forge asks you for exactly one thing on this subject — the enrollment password
 3. **Stages the MOK for enrollment** so MokManager picks it up on the next reboot.
 4. **Ensures the UKI tooling is present** — `ukify`, an ordinary installed package that ships with the systemd tooling, so the linux-kernel package's post-install hook can build and sign UKIs at kernel install or upgrade time.
 5. **Installs an initial UKI** built from the kernel the installer just dropped on the system, signed with the freshly-generated MOK.
-6. **Configures a recovery boot entry** that loads the bare vmlinuz with no UKI envelope, as a fallback path if a UKI ever fails to sign or boot.
+6. **Configures bare-vmlinuz entries only when they have a usable initramfs.** On an encrypted install with only the placeholder `/boot/initramfs.img`, R001.2 withholds those entries and pins the UKI by name.
 
 The password is the one **you chose** during install — Forge never generates one, never displays it back, and never writes it to any log. Remember it (or note it somewhere safe before you reboot); you will need it once, during MokManager enrollment at first boot.
 
@@ -111,30 +111,30 @@ On that boot, shim notices the pending MOK enrollment request and runs **MokMana
 
    ![MokManager menu after successful enrollment, ready to Reboot](images/mok-4-reboot-panel.png)
 
-After enrollment, MokManager exits and the system boots into InterGenOS normally. From that point on, the firmware trusts your MOK; UKIs signed with that key load without further prompts.
+After enrollment, MokManager exits and the system boots into InterGenOS normally. From that point on, shim trusts your MOK; UKIs signed with that key load without further prompts.
 
-If you are running with Secure Boot enabled and do not enroll the MOK at first boot (for example, you reboot during MokManager and skip the enrollment), the system will still boot using the InterGenOS-release-signed UKI that shipped with the installer image. But the next kernel install or upgrade — which produces a UKI signed with your MOK — will not be trusted by the firmware, and Secure Boot will refuse to load it; you will fall through to the recovery boot entry until you enroll the MOK. With Secure Boot disabled (the default), enrollment is not required and the locally signed UKIs load regardless.
+If Secure Boot is enabled and you skip the pending enrollment, shim cannot validate the installed MOK-signed GRUB and UKI chain. Complete enrollment or turn Secure Boot off; Forge does not stage a release-signed installed-system UKI fallback. With Secure Boot disabled (the default), enrollment is not required and the locally signed UKIs load regardless.
 
 ## Kernel install and upgrade
 
-When you install or upgrade a kernel via `pkm install linux-kernel-X.Y.Z` (or any package whose post-install hook touches the kernel), the linux-kernel package's `post_install` hook does the following on your machine, with no key material from the InterGenOS release infrastructure:
+When pkm installs, reinstalls, or upgrades `linux-kernel` (for example, `sudo pkm reinstall linux-kernel` to rerun the current package), its `post_install` hook does the following on your machine, with no key material from the InterGenOS release infrastructure:
 
 1. Reads the kernel, the standard initramfs (and an additional FDE initramfs if your system is LUKS-encrypted — see below), and the canonical command-line for your system.
 2. Runs `ukify` to bundle them into a single UKI in the systemd-stub envelope.
 3. Signs that UKI with your machine's MOK. `ukify` does the signing itself, in the same invocation, from `/var/lib/intergen/mok/mok.key` and the PEM certificate `/var/lib/intergen/mok/mok.crt`; the `.der` form generated alongside is for MokManager enrollment only, never for signing. If no MOK key pair is present the UKI is built unsigned and the hook records that in its log.
 4. Writes the signed UKI to `/boot/efi/EFI/Linux/intergenos-<kernel-version>.efi`.
 5. Updates the GRUB menu so the new kernel is the default boot entry.
-6. Retains a configurable number of old kernels (default: 2) and their UKIs as fallback entries.
+6. Runs a keep-two retention helper. An older UKI is exposed as a fallback only while its matching module tree remains usable; otherwise it is quarantined.
 
 The InterGenOS PIV slot 9c key, used for release signing on our offline workstation, is never asked. It physically does not exist on your machine.
 
-If signing fails (key file corrupt, ESP full, etc.), the linux-kernel post-install hook falls back to the GRUB-loads-vmlinuz path: the kernel and initramfs are written out separately and GRUB loads them directly. (When Secure Boot is enabled, the gate inside GRUB is the shim_lock verifier built into GRUB 2.14, which refuses to load anything the firmware's trust chain does not vouch for; the installer signs each `/boot/vmlinuz-*` with your MOK so that fallback path stays loadable. With Secure Boot off, that gating is not active, and the fallback path still gets you a bootable system either way.) You do not end up with a system that has a half-installed kernel.
+If UKI generation or signing fails, the hook records the failure and may leave the previous UKI selected. Plain installs may retain a usable bare-kernel entry; encrypted installs with only the placeholder initramfs do not. The failure does not prove that the next boot is usable.
 
 ## ESP sizing
 
 Because every kernel you install becomes a signed UKI in `/boot/efi`, the ESP needs enough headroom for several generations of kernel. A typical UKI is 80–150 MB depending on the initramfs payload. Forge creates a fixed **1 GiB** EFI System Partition during partitioning, which leaves room for several kernel generations plus their fallbacks.
 
-If your ESP fills up, kernel install will fail. The linux-kernel post-install hook prints a clear message; you can clean up old kernels with `pkm remove linux-kernel-<old-version>` to free space.
+If your ESP fills up, kernel install will fail. There is no version-suffixed kernel package to remove. The installed keep-two helper normally prunes superseded files; after verified old artifacts are safely removed, run `sudo pkm reinstall linux-kernel` and inspect `/var/log/intergen-kernel-postinstall.log`.
 
 ## Composition with LUKS encryption
 
@@ -162,7 +162,7 @@ You may have mistyped a character — firmware text prompts are often US-QWERTY 
 
 ### "Secure Boot is refusing my new kernel"
 
-This applies only with Secure Boot enabled. It usually means the MOK was not enrolled (or was un-enrolled) but the kernel post-install hook signed a UKI with it. Boot the recovery entry (load the bare vmlinuz directly via GRUB), then re-enroll the MOK via MokManager.
+This applies only with Secure Boot enabled. It usually means the MOK was not enrolled (or was un-enrolled) but the kernel post-install hook signed a UKI with it. Re-enter MokManager and enroll the current MOK. Do not rely on a bare-vmlinuz recovery entry on an encrypted install; it may be intentionally absent.
 
 ### "I want to run an unsigned kernel for testing"
 
@@ -173,10 +173,10 @@ On a default install (Secure Boot off) nothing stops you, but the supported path
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Boot stops at MokManager every time | MOK enrollment never completed; firmware re-prompts each boot | Complete enrollment; see [First-boot MOK enrollment](#first-boot-mok-enrollment) above. |
-| New kernel installs but won't boot, falls through to recovery | UKI signed with a MOK the firmware doesn't trust | Re-enroll the MOK, or re-run the kernel post-install hook after enrollment. |
-| GRUB menu shows only the recovery entry, no UKI entries | UKI signing has been failing silently | Inspect `/var/log/intergen-kernel-postinstall.log` for sign errors. ESP-full and missing MOK key file are the two common causes. |
-| `ukify` is missing on the installed system | The package providing it was removed | Reinstall the `systemd` tooling, which provides `ukify`, with `pkm`, then re-run the linux-kernel post-install hook for the current kernel. Without `ukify` the hook builds no UKI and says so in its log; the system stays bootable through the GRUB-loads-vmlinuz path. |
-| `sbsign` is missing on the installed system | `sbsigntool` was removed | Reinstall `sbsigntool` with `pkm`. It is what signs EFI binaries and kernel images with your MOK — the installer uses it, and so does the NVIDIA module-signing hook. |
+| A new UKI will not boot under Secure Boot | The UKI is signed with a MOK shim does not trust | Enroll the current MOK, or rebuild the UKI after enrollment. |
+| GRUB shows no usable InterGenOS UKI entry | UKI generation or signing failed | Inspect `/var/log/intergen-kernel-postinstall.log`. ESP-full and missing MOK material are two causes; do not assume a bare entry can unlock an encrypted root. |
+| `ukify` is missing on the installed system | The package providing it was removed | Reinstall the `systemd` tooling, which provides `ukify`, with `sudo pkm reinstall systemd`, then run `sudo pkm reinstall linux-kernel`. On an encrypted install, missing `ukify` does not guarantee a usable bare-kernel fallback. |
+| `sbsign` is missing on the installed system | `sbsigntool` was removed | Run `sudo pkm reinstall sbsigntool`. It is what signs EFI binaries and kernel images with your MOK — the installer uses it, and so does the NVIDIA module-signing hook. |
 | Secure Boot toggle in firmware is greyed out | Some firmware (especially OEM laptops) makes Secure Boot read-only outside Setup Mode | See your hardware vendor's documentation for entering Setup Mode. InterGenOS runs fine with Secure Boot off (the default); enabling it is optional. |
 
 ## Further reading

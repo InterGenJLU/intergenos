@@ -1,26 +1,26 @@
 # Desktop Experience on InterGenOS
 
-InterGenOS ships GNOME 49 on Wayland by default — a modern, fast, and privacy-respecting desktop. Hardware acceleration is handled through the Mesa stack for AMD and Intel GPUs. AppArmor and systemd isolation directives confine every system service from first boot. There is no telemetry, no app-store analytics, and nothing that downloads or installs updates in the background; the one background timer that ships enabled, `pkm-check-updates.timer`, reads the package index already cached on your machine, makes no network connection, and installs nothing (see [Package Management](package-management.md)). Switchable desktop environments (KDE, Xfce, Sway) are planned for future releases.
+InterGenOS ships GNOME 49 on Wayland by default — a modern, fast, and privacy-respecting desktop. Hardware acceleration is handled through the Mesa stack for AMD and Intel GPUs. InterGenOS-authored and packaged services carry service-appropriate AppArmor and systemd restrictions; the exact sandbox differs where a service such as SSH must create user sessions. There is no InterGenOS telemetry or app-store analytics, and nothing downloads or installs package updates in the background. The enabled package-update timer, `pkm-check-updates.timer`, reads the package index already cached on your machine, makes no network connection, and installs nothing (see [Package Management](package-management.md)); unrelated maintenance timers such as log rotation also ship. Switchable desktop environments (KDE, Xfce, Sway) are planned for future releases.
 
 ## 1. The Desktop Environment
 
-InterGenOS runs **GNOME 49** on the **Wayland** display protocol. The default visual experience is tuned with the first-party **InterGenOS** icon theme (default since 1.4; inherits Adwaita/hicolor for full application coverage), the **Bibata-Modern-Classic** cursor, and a system-wide prefer-dark color scheme. The **Papirus-Dark** and **Cybernetic Blue** icon themes ship as featured alternates — selectable via Settings → Appearance or the first-boot welcomer. System typography is **Inter** (clean geometric sans, used for UI + documents + titlebars) paired with **JetBrains Mono** (programming-ligature monospace, used for terminal + text editor + code surfaces). Inter ships as its variable release, so the family name the desktop defaults ask for is `Inter Variable`; `fc-match 'Inter Variable'` on an installed system resolves it to `InterVariable.ttf`. These choices reflect the InterGenOS visual language — clean, modern, and distinctly ours.
+InterGenOS runs **GNOME 49** on the **Wayland** display protocol. The default visual experience is tuned with the first-party **InterGenOS** icon theme (default since 1.4; inherits Adwaita/hicolor for full application coverage), the **Bibata-Modern-Classic** cursor, and a system-wide prefer-dark color scheme. The **Papirus-Dark** and **Cybernetic Blue** icon themes ship as featured alternates — selectable in the first-boot Welcomer or later with GNOME Tweaks. System typography is **Inter** (clean geometric sans, used for UI + documents + titlebars) paired with **JetBrains Mono** (programming-ligature monospace, used for terminal + text editor + code surfaces). Inter ships as its variable release, so the family name the desktop defaults ask for is `Inter Variable`; `fc-match 'Inter Variable'` on an installed system resolves it to `InterVariable.ttf`. These choices reflect the InterGenOS visual language — clean, modern, and distinctly ours.
 
 The Adwaita widget theme ships as the GTK4 baseline and is customized through a GSettings override file that applies at user-session start. This means the theme is consistent whether you are using core GNOME apps or third-party GTK4 applications installed through pkm.
 
 ### Key Desktop Features
 
 - **Activities Overview**: Press the Super key (Windows key) to open the overview. Your open windows, workspace thumbnails, and the application dash are all visible at once.
-- **Multi-monitor support**: GNOME 49 handles mixed-DPI and mixed-refresh-rate setups without configuration. Hot-plug a monitor and it immediately works.
+- **Multi-monitor support**: During installation, Forge attempts to read the live display state and seeds the new user's first-login layout with every connected output that reports a current mode. If that state cannot be read, Forge records a skipped seed and leaves GNOME to configure the displays normally. GNOME supports later hot-plug, mixed-DPI, and mixed-refresh-rate layouts through Settings → Displays.
 - **Touch and touchpad gestures**: Three-finger swipe to switch workspaces. Pinch-to-zoom in compatible applications. Touch scrolling works out of the box on touchscreen hardware.
 - **Accessibility**: On-screen keyboard, high-contrast theme, and large-text mode are built in and enabled from the Accessibility panel in GNOME Settings. The AT-SPI accessibility bus (the framework screen readers build on) ships as well.
 
 ### Keyboard Shortcuts
 
-Every row below is a binding that is active on an installed R001.1 system.
-Each was read back with `gsettings get` rather than taken from the GNOME
-defaults, and you can check any of them the same way — the schema and key are
-given so the claim is verifiable rather than asserted.
+Every row below is configured by the current source tree. The two
+InterGenOS-specific additions, `Ctrl + Alt + T` and `Super + D`, enter the
+installed defaults with R001.2. The schema and key are given so you can inspect
+the active value with `gsettings get`.
 
 | Shortcut | Action | Where the binding lives |
 |---|---|---|
@@ -40,13 +40,11 @@ given so the claim is verifiable rather than asserted.
 | `Ctrl + Alt + Del` | Log out | `org.gnome.settings-daemon.plugins.media-keys logout` |
 | `Alt + F2` | Open the run-a-command prompt | `org.gnome.desktop.wm.keybindings panel-run-dialog` |
 
-**Not bound in R001.1.** These are worth knowing because other distributions
-bind them and their absence is otherwise silent. `Ctrl + Alt + T` and
-`Super + D` were in this list until 2026-08-24 and are now bound — GNOME ships
-neither by default, so InterGenOS sets them: the terminal key through the
-system dconf defaults (a custom keybinding's schema is relocatable and a
-gschema override cannot carry one) and show-desktop through the desktop gschema
-override.
+**R001.1 note.** R001.1 did not bind `Ctrl + Alt + T` or `Super + D` even
+though its documentation listed them. R001.2 adds both: the terminal key
+through the system dconf defaults (a custom keybinding's schema is relocatable
+and a gschema override cannot carry one), and show-desktop through the desktop
+gschema override.
 
 - There are no corner or quadrant tiling bindings; `Super + Arrow` tiles to
   halves and maximizes or unmaximizes, as listed above.
@@ -66,7 +64,7 @@ The desktop installation provides a fully functional workstation out of the box 
 | **GNOME Text Editor** | Modern GTK4 text editor with syntax highlighting |
 | **GNOME Terminal** | Terminal emulator with Wayland-native rendering |
 | **Image Viewer (Loupe)** | Wayland-native image viewer with touch and gesture support |
-| **GNOME Software** | **Substituted by pkm.** The app-browser UI slot is served by pkm's CLI, not a GUI app store. Software updates happen through `sudo pkm sync` and `sudo pkm upgrade`. |
+| **GNOME Software** | **Substituted by pkm.** The app-browser UI slot is served by pkm's CLI, not a GUI app store. Refresh the index with `sudo pkm sync`, then install all available upgrades with `sudo pkm upgrade --all` (or name individual packages). |
 | **Settings** | Full GNOME Settings panel: Wi-Fi, Bluetooth, Displays, Power, Privacy, Accessibility, Sharing, and more |
 | **GNOME Calendar** | Local and online calendar with Nextcloud and Google integration |
 | **GNOME Contacts** | Address book with CardDAV sync |
@@ -125,23 +123,23 @@ The following are optional, installed on demand:
 
 ### Download-Helper Packages
 
-Some proprietary or distribution-restricted applications are available through download-helper packages. These do **not** bundle the actual binary — they fetch it from the vendor on first install after you accept the license:
+Some proprietary or distribution-restricted applications are available through download-helper packages. These do **not** bundle the vendor binary in the mirror archive — the helper fetches it from the vendor after you accept the license:
 
 - `brave` — Brave Browser
 - `chrome` — Google Chrome
 - `claude-code` — Claude Code CLI
 - `vscode` — Microsoft VS Code (proprietary build)
 
-The NVIDIA proprietary driver follows the same opt-in pattern under the package name `nvidia`. Installing it (`pkm install nvidia`) presents the NVIDIA license for acceptance before the driver is fetched and installed.
+The NVIDIA proprietary driver follows the same opt-in pattern under the package name `nvidia`. `sudo pkm install nvidia` downloads and verifies the signed helper archive, then presents the NVIDIA license before any vendor payload is fetched or installed.
 
 ## 4. The Wayland Posture
 
-Wayland is the default display protocol. Every GNOME application ships with native Wayland support. X11 compatibility is provided through **Xwayland** for applications that have not yet been ported — this translation layer runs automatically when needed.
+Wayland is the default display protocol. Applications with native Wayland support use it directly. X11-only applications run through **Xwayland**, which starts automatically when needed.
 
 **Why Wayland:**
 
 - **Per-window isolation**: Each Wayland-native application sees only its own input and pixel buffer, so one such application cannot key-log another or scrape another window's pixels. The exception is X11 applications: they run under the single Xwayland server described above, and the X protocol lets any client of that server read the input events and window contents of the others. Isolation holds between Wayland-native clients, and between Xwayland as a whole and the rest of the session — not among the X11 applications sharing it. Steam and most games are X11 clients.
-- **Modern input handling**: HiDPI, variable refresh rate, mixed-DPI multi-monitor, and touch/gesture input work correctly because the protocol was designed for them.
+- **Modern input handling**: The image enables Mutter fractional scaling and native Xwayland scaling. HiDPI, variable-refresh, multi-monitor, touch, and gesture behavior still depends on the hardware and application.
 - **No screen tearing**: Wayland composites every frame through the display server, eliminating tearing artifacts present in legacy X11 setups.
 - **Future-proof**: The GNOME ecosystem, Firefox, and the broader Linux desktop world are standardizing on Wayland. X11 maintenance is winding down.
 
@@ -154,13 +152,18 @@ InterGenOS ships the **Mesa** graphics stack for AMD (Radeon) and Intel (Arc, Ir
 - OpenGL and OpenGL ES through `radeonsi` (AMD) and `iris` / `crocus` (Intel)
 - Vulkan through `radv` (AMD) and `anv` (Intel)
 - VA-API hardware video decoding through `radeonsi` (AMD)
-- Compute (OpenCL) through `rusticl`
+- Compute (OpenCL) through packaged `rusticl`; enable it for a supported driver with `RUSTICL_ENABLE=radeonsi` or `RUSTICL_ENABLE=iris`
 
-All Mesa drivers are installed and enabled by default. Firefox uses VA-API for hardware-accelerated video playback. GNOME Shell renderers use OpenGL or Vulkan automatically.
+The OpenGL, Vulkan, and video drivers are installed and available by default.
+Rusticl is built and its ICD is installed, but it has zero runtime cost and no
+device enabled until `RUSTICL_ENABLE` names one. Firefox uses VA-API for
+hardware-accelerated video playback when the hardware and browser configuration
+support it. GNOME Shell renderers select OpenGL or Vulkan according to their
+runtime configuration.
 
 ### NVIDIA GPUs
 
-NVIDIA's proprietary driver is available as the `nvidia` package — an explicit, user-initiated opt-in. The base distribution does not ship proprietary firmware by default, and the driver is offered only on hardware with an NVIDIA GPU present. If you need CUDA or hardware-accelerated rendering on NVIDIA hardware, run `pkm install nvidia`, accept the NVIDIA license when prompted, and follow the post-install instructions for enrolling the NVIDIA kernel module with your Machine Owner Key.
+NVIDIA's proprietary driver is available as the `nvidia` package — an explicit, user-initiated opt-in. The base image does ship the redistributable vendor firmware blobs in `linux-firmware` and related firmware packages that common Wi-Fi, graphics, audio, and other devices require; it does not include NVIDIA's proprietary driver. The driver is offered only on hardware with an NVIDIA GPU present. If you need CUDA or hardware-accelerated rendering on NVIDIA hardware, run `sudo pkm install nvidia`, accept the NVIDIA license when prompted, and follow the post-install instructions for enrolling the NVIDIA kernel module with your Machine Owner Key.
 
 ## 6. Switchable Desktop Environments (Post-v1.0)
 
@@ -178,9 +181,9 @@ InterGenOS makes deliberate omissions in the interest of security and simplicity
 
 - **No Snap**: The Snap daemon (`snapd`) is not installed and not in the repository. Snap's auto-update model conflicts with the user-control posture, and its confinement model is redundant with AppArmor + systemd isolation already applied at the package level.
 - **No Flatpak by default**: Flatpak is not packaged in InterGenOS. The binary mirror's signed-index trust chain already provides equivalent integrity guarantees for the packages we build and sign ourselves, so the default system ships without a sandboxed third-party-app store.
-- **No telemetry**: No component of the desktop phones home — not GNOME, not Firefox (telemetry locked OFF via canonical Mozilla `policies.json` + 19 about:config Preferences locks shipped at `/usr/lib/firefox/distribution/policies.json`; the `Locked` semantics mean the browser's own settings interface cannot re-enable them — an administrator with root can still edit that file, which is your machine and your call), not the shell, not the package manager.
+- **No InterGenOS telemetry**: InterGenOS components do not send project usage or analytics. Network-capable applications still connect when you ask them to — for example, browsing, synchronization, package downloads, or web search. Firefox telemetry is locked OFF via the Mozilla `policies.json` and Preferences locks shipped at `/usr/lib/firefox/distribution/policies.json`; an administrator with root can still edit that file.
 - **No app-store analytics**: There is no usage tracking of any kind. `pkm` counts the packages you have installed for dependency resolution, but that data never leaves your machine.
-- **No auto-update**: No background service downloads or applies updates without your explicit action. Run `sudo pkm sync && sudo pkm upgrade` when you choose to update.
+- **No auto-update**: No background service downloads or applies updates without your explicit action. Run `sudo pkm sync && sudo pkm upgrade --all` when you choose to update every package with a newer version in the cached index.
 - **No Plymouth boot splash**: InterGenOS shows your boot. We don't paint a logo over the 5–10 seconds between GRUB and GDM. You see the kernel hand off to systemd, you see every service start with [OK] or [FAILED] markers, you see your network come up, you see AppArmor load. If anything fails — a broken mount, a weird module load, a hardware quirk — you see it immediately. This is a security signal, not a polish gap. Spotting odd output during boot is an actual practice for catching compromise or hardware change; we'd rather give you that surface than hide it behind a corporate logo.
 
 ## 8. Cross-References

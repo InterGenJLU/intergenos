@@ -1,9 +1,11 @@
 # Meet InterGen — the InterGenOS AI assistant
 
-InterGen is the AI assistant that ships with InterGenOS. It runs
-entirely on your machine, answers questions about your system, and
-helps with shell, configuration, and code tasks. It never sends your
-data anywhere outside the box.
+InterGen is the AI assistant that ships with InterGenOS. Its model runs
+on your machine, answers questions about your system, and helps with
+shell, configuration, and code tasks. Local questions stay on the box.
+Network tools are explicit exceptions: web search sends the query to the
+configured search provider, and an enabled Phone-A-Friend request sends the
+selected conversation content to the cloud provider you chose.
 
 This document is the introductory tour. The architecture deep-dive
 lives in the source tree at
@@ -26,8 +28,9 @@ things like:
   installing.
 - **"Why did sshd fail to start after I edited the config?"** — reads
   `journalctl -u sshd`, summarizes the error, and suggests a fix.
-- **"Install htop"** — recognizes the intent and asks you to confirm
-  before running `sudo pkm install htop`.
+- **"Install htop"** — recognizes the intent, shows `pkm install htop`,
+  asks you to confirm, and dispatches the approved package action through
+  the PolicyKit-backed privileged runner.
 - **"Explain what this Python error means."** — returns the traceback
   with context.
 
@@ -38,25 +41,31 @@ world.
 
 ## Why local
 
-Every model InterGen uses runs on your own CPU and GPU. Nothing about
-your prompts, your files, your configuration, or your machine identity
-ever leaves the local network. There is no cloud account, no API key,
-no telemetry, and no "we just send it to improve the service"
-loophole. The trade-offs are honest:
+Every model InterGen serves locally runs on your own CPU and GPU. The local
+path needs no cloud account or API key and sends no project telemetry. A
+network feature says what it contacts: web search sends its query to
+DuckDuckGo or configured Serper, and Phone-A-Friend sends a request to the
+provider you explicitly enable. The trade-offs are honest:
 
 - The local models are smaller than frontier cloud models, so InterGen's
   answers on hard tasks are less sharp.
 - First use downloads the model — roughly 1.8 GB for the current
   release (the ~1.2 GB Tier-1 model plus its paired vision projector).
-  After that, no network is needed.
-- If you ask about a brand-new piece of software the model has not
-  seen, it tells you so rather than guessing.
+  After that, local chat needs no network.
+- Answers about unfamiliar software can still be wrong. Use an explicit web
+  search or verify the answer against the software's own documentation instead
+  of treating generated prose as a package recipe.
 
-The trade-off you do not make is data exposure. For cases where you
-want the depth of a frontier model, the optional Phone-A-Friend
-(Frontier/Cloud Escalation) feature lets you opt in to a cloud
-provider of your choice on a per-request basis — off by default, never
-silent.
+For cases where you want the depth of a frontier model, the optional
+Phone-A-Friend (Frontier/Cloud Escalation) feature lets you configure a cloud
+provider of your choice. No provider is configured by default. The default
+`ask` mode requests approval before each send; the optional `fallback` and
+`auto` modes send according to the policy you deliberately select.
+
+Two current limits are worth stating plainly. If the full wiki embedding index
+does not finish during startup, wiki grounding stays on keyword matching for
+that daemon run. Web-search routing is phrasing-sensitive; `search the web for
+…` is the reliable form today.
 
 
 ## How it scales to your hardware
@@ -72,6 +81,13 @@ Unknown capability always fails *down*. A discrete card whose video
 memory cannot be read lands on the floor tier rather than on a tier it
 might not be able to run.
 
+Tier selection chooses **which model** to serve. GPU offload is a separate
+fit calculation: when the required inputs are readable, the automatic setting
+compares that model, its vision projector, and serving headroom with detected
+video memory, then requests all layers when it fits or as many layers as fit
+otherwise. A user-supplied
+`llama_server.gpu_layers` value overrides the automatic plan.
+
 - **Tier 1 — a 2-billion-parameter model, about 1.2 GB.** The universal
   floor: every machine with no discrete GPU, every discrete GPU with
   less than roughly 7 GB of video memory, and any card whose video
@@ -85,9 +101,10 @@ might not be able to run.
   memory or more: deep code analysis across several files and complex
   architectural questions.
 
-If the machine's model store holds only a smaller model than its tier
-calls for, InterGen serves that smaller model and says so, rather than
-failing with nothing.
+If the machine's model store holds only a smaller model than its tier calls
+for, InterGen serves the largest downloaded model below that tier rather than
+failing with nothing. `intergen status` shows the loaded model separately from
+the hardware recommendation.
 
 Every tier is vision-capable: InterGen can look at a screenshot or
 image you show it, not just the text you type. A model that declares
@@ -103,8 +120,9 @@ Every action InterGen takes is classified before it runs:
   Run immediately, with the result shown to you.
 - **CONFIRM** — anything that changes state, such as `systemctl
   restart`, `pkm install`, or editing a config file. InterGen pauses
-  and shows you exactly what it intends to do. Nothing runs until you
-  say yes.
+  and shows you exactly what it intends to do. Nothing dispatches until you
+  say yes; privileged actions then cross PolicyKit in a short-lived unit and
+  return the runner's reported outcome.
 - **BLOCKED** — destructive or security-bypass operations such as `rm
   -rf /`, formatting the root disk, or disabling Secure Boot from
   inside the running system. InterGen refuses and tells you why.
@@ -112,6 +130,14 @@ Every action InterGen takes is classified before it runs:
 The classifier is conservative by design. If a command looks dangerous,
 you will be asked. For a system assistant, the annoying-but-safe end of
 the spectrum is the right end.
+
+InterGen-owned per-user state lives below `~/.local/state/intergen`,
+`~/.local/share/intergen`, `~/.config/intergen`, and
+`~/.cache/intergen`. New directories are created mode 0700 and files mode
+0600. On its first R001.2 start in an existing home, the daemon removes group
+and other permission bits from existing files inside those four trees once,
+reports any path it could not inspect, and does not repeatedly undo later
+sharing choices.
 
 
 ## Other apps can talk to it
@@ -125,20 +151,27 @@ Apps that want to integrate can read the protocol in the
 
 ## How to turn it on or off
 
-InterGen is **off by default**. You opt in either at install time (the
-"Enable the InterGen AI assistant?" toggle in Forge's package-selection
-screen) or at any time later by running:
+InterGen is **off by default**. You can opt in at install time with Forge's
+"Enable the InterGen AI assistant?" toggle, from the first-run Welcomer's AI
+Assistant page, or later from the Enable InterGen AI application. The command
+line setup path is:
 
 ```
 intergen setup
 ```
 
-This downloads the model, enables the `intergen.service` user unit,
-and starts the assistant. To opt out:
+This downloads the model and starts or restarts `intergen.service` for the
+current user session. It does not make a disabled unit persistent by itself;
+use `systemctl --user enable --now intergen.service` when enabling from the
+command line. To opt out for your account even when Forge enabled the unit
+globally:
 
 ```
-systemctl --user disable --now intergen.service
+systemctl --user mask --now intergen.service
 ```
+
+To opt back in after masking, run `systemctl --user unmask intergen.service`,
+then the enable command above.
 
 The model files stay on disk in case you want to re-enable later
 without re-downloading. They live system-wide under
