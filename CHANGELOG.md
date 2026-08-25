@@ -30,6 +30,22 @@ landed is in the repository README, not here.
 
 ### Added
 
+- **The embedding server takes the input it is sent.** Its physical batch is
+  sized to its context, so an input between 512 tokens and the context no
+  longer fails with an HTTP 500; a longer input is shortened on token
+  boundaries using the server's own tokenizer, with a log line naming the
+  count. The daemon asks the server only once it has answered its health
+  check, and one request carries at most eight texts, so no request can
+  outlive its own timeout. The sustained-corruption alarm reports the count
+  that fired it, with its threshold and window, instead of the count after
+  the window was cleared. Proven against the real engine binary and model on
+  scratch ports; not yet run as the installed daemon.
+- **The ledger-anchor gate runs from a git worktree.** The pre-push anchor
+  step tested for a `.git` directory and refused a worktree, whose `.git` is
+  a file; it now asks git. The public-language gate exempts the private
+  repository's directory name only inside a double-quoted shell string in a
+  script directly under `scripts/`; the same string still blocks in prose,
+  comments, commit messages and ref names (controls in the suite).
 - **MariaDB gains NUMA memory placement, and PostgreSQL gains PL/Tcl and
   io_uring asynchronous I/O.** The MariaDB NUMA and PostgreSQL PL/Tcl flags
   incorrectly described their dependencies as absent. PostgreSQL's io_uring
