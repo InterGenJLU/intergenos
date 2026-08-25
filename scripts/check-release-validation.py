@@ -30,12 +30,35 @@ A refusal and a usage error must never share a code, or a caller cannot tell
 "this release is not validated" from "I typed the command wrong", and a pipeline
 that cannot tell them apart will eventually treat the second as the first.
 
-WHAT A SEAL PROVES HERE, stated plainly: SHA256SUMS makes a record
+WHAT A SEAL PROVES, AND WHAT THE SIGNATURE ADDS. SHA256SUMS makes a record
 tamper-EVIDENT against accident, drift and partial writes. It is not a
-signature, so it does not stand against someone who can write to the record
-directory and re-seal it. Signing a record with the release key is a separate
-step and is named as an open recommendation rather than implied by the word
-"sealed".
+signature: it does not stand against anyone who can write to the record
+directory, because they can re-seal it. That is not hypothetical — this gate
+was once satisfied by a synthetic green record minted by hand, sealed,
+internally consistent, and about nothing at all.
+
+Since 2026-08-25 the seal itself must carry a detached OpenPGP signature made by
+the release key on the operator's hardware token, and this gate verifies it
+before it reads anything else. That is what turns the record from a
+self-consistent artifact into the operator's attestation: anyone can still MAKE
+a record, but only the operator can make one this gate accepts.
+
+Verification mirrors check-wiki-manifest.py exactly, for the same reasons:
+gpgv with an explicit --keyring, never `gpg --verify` (gpg 2.5.x with
+use-keyboxd silently ignores --keyring, which would verify against the caller's
+own keyring instead of the root's), and the VALIDSIG primary-key fingerprint
+must equal the pinned fingerprint. The keyring is only the vehicle; trust
+derives from the in-code pin.
+
+TWO TIERS OF FAILURE, and only one of them can ever be relaxed:
+  * PRESENT but unverifiable — a bad signature, the wrong key, a signature
+    lifted from another record: REFUSED in every mode, always. Something is
+    wrong with THIS record and no marker waves that through.
+  * ABSENT — no signature at all: REFUSED on a release path; downgraded to a
+    LOUD warning under UNSIGNED_TEST=1, the established dev/test-image marker,
+    which is how an unsigned development image is built without weakening what
+    a release requires. Never silent: a downgrade nobody can see in the output
+    is indistinguishable from a verified record.
 """
 
 from __future__ import annotations
@@ -43,6 +66,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -51,7 +76,18 @@ EXIT_REFUSED = 1
 EXIT_USAGE = 2
 
 SEAL_NAME = "SHA256SUMS"
+SIG_NAME = "SHA256SUMS.asc"
 RECORD_NAME = "record.json"
+
+# Lockstep with check-wiki-manifest.py's OPERATOR_FINGERPRINT and the runtime's
+# pin in intergen/destructive_policy.py. Re-declared rather than imported so the
+# gate runs on a bare build host. Two gates disagreeing about the operator's key
+# is a condition nobody would notice until a release.
+OPERATOR_FINGERPRINT = "5597A3E0587B253006D0DD7B8C50826182083050"
+
+# The root's own shipped trust keyring, the same one the wiki-manifest chain
+# verifies against.
+DEFAULT_KEYRING = Path("/etc/pkm/trusted.gpg")
 
 # An installed package lives under the system library tree. A path anywhere else
 # — a home directory, a build tree, a worktree — describes source, and a record
@@ -92,6 +128,95 @@ def _read_expected_skips(path: Path) -> dict[str, str]:
     return out
 
 
+def _gpgv_verify(sig: Path, data: Path, keyring: Path,
+                 fingerprint: str) -> "tuple[bool, str]":
+    """Verify `data` against detached `sig` with gpgv; enforce the primary-key
+    fingerprint from the VALIDSIG status line. Returns (ok, detail).
+
+    gpgv, not `gpg --verify`: gpg 2.5.x with use-keyboxd silently IGNORES
+    --keyring, which would verify against whatever keyring the caller happens to
+    have — a check that passes for the wrong reason is worse than no check.
+    """
+    cmd = ["gpgv", "--keyring", str(keyring), "--status-fd", "1",
+           str(sig), str(data)]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    except FileNotFoundError:
+        return False, "gpgv is not on PATH, so the signature cannot be checked"
+    except subprocess.TimeoutExpired:
+        return False, "gpgv timed out"
+    validsig_primary = None
+    for line in proc.stdout.splitlines():
+        # [GNUPG:] VALIDSIG <sig-fpr> <date> ... <primary-key-fpr>
+        if line.startswith("[GNUPG:] VALIDSIG "):
+            fields = line.split()
+            if len(fields) >= 4:
+                validsig_primary = fields[-1]
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip().splitlines()
+        return False, f"gpgv rc={proc.returncode}: {detail[-1] if detail else 'no output'}"
+    if validsig_primary is None:
+        return False, "gpgv exited 0 but emitted no VALIDSIG status line"
+    if validsig_primary != fingerprint:
+        return False, (f"the signature is valid but its primary key fingerprint "
+                       f"is {validsig_primary}, not the pinned {fingerprint}")
+    return True, validsig_primary
+
+
+def _verify_signature(record_dir: Path, keyring: Path, fingerprint: str) -> None:
+    """The seal must be signed by the release key. Checked before anything else.
+
+    Reading the record before establishing who vouches for it would mean acting
+    on unattested content, so this runs first — ahead of the seal, ahead of the
+    identity match, ahead of the outcomes.
+    """
+    seal = record_dir / SEAL_NAME
+    sig = record_dir / SIG_NAME
+    unsigned_test = os.environ.get("UNSIGNED_TEST") == "1"
+
+    if not sig.is_file():
+        if unsigned_test:
+            # Loud, on both streams' worth of attention, and naming the marker.
+            # A downgrade nobody can see is the failure this branch exists to
+            # avoid, not the one it creates.
+            print(f"[check-release-validation] WARN: the record at {record_dir} "
+                  f"carries NO SIGNATURE ({SIG_NAME} is absent). Accepting it "
+                  f"ONLY because UNSIGNED_TEST=1 is set. This record is NOT the "
+                  f"operator's attestation and must never be used to justify a "
+                  f"release.", file=sys.stderr)
+            return
+        refuse(f"the record at {record_dir} carries no signature ({SIG_NAME} is "
+               f"absent). A seal shows the record did not change; it does not "
+               f"show who stands behind it, and anyone able to write this "
+               f"directory can re-seal it. The operator signs the seal with the "
+               f"release key:\n"
+               f"    bash scripts/sign-with-gpg.sh --file {seal}\n"
+               f"An unsigned record is not a validated record.")
+
+    if not keyring.is_file():
+        # Never downgraded, in any mode: the signature is PRESENT, so this is
+        # not the absent case. Without the keyring there is no verification at
+        # all, and no verification is not validation.
+        refuse(f"the record is signed but the trust keyring at {keyring} is "
+               f"absent, so the signature cannot be checked. An unverifiable "
+               f"signature is not a verified one.")
+
+    ok, detail = _gpgv_verify(sig, seal, keyring, fingerprint)
+    if not ok:
+        # PRESENT but bad — refused in every mode, UNSIGNED_TEST included.
+        refuse(f"the record's signature does not verify against the pinned "
+               f"release key: {detail}. UNSIGNED_TEST does not excuse this: a "
+               f"signature that is present and wrong means something is wrong "
+               f"with this record, not that it was never signed.")
+    # flush=True is load-bearing, not tidiness. Refusals go to stderr, which is
+    # unbuffered; this goes to stdout, which is block-buffered when redirected to
+    # a file. Without the flush, a capture of a refused-but-signed record shows
+    # the verification AFTER the refusal it preceded, and a reader reconstructing
+    # what happened from that capture reads the sequence backwards.
+    print(f"[check-release-validation] signature verified: {SIG_NAME} over "
+          f"{SEAL_NAME}, primary key {detail}", flush=True)
+
+
 def _verify_seal(record_dir: Path) -> None:
     """Every file present is listed, every listed file is present, all digests
     match. Both directions are checked: a seal that only verifies the files it
@@ -112,10 +237,14 @@ def _verify_seal(record_dir: Path) -> None:
             refuse(f"{SEAL_NAME} has a line this gate cannot parse: {line!r}")
         listed[name.strip()] = digest.strip()
 
+    # The signature sidecar is excluded, and cannot be otherwise: it signs
+    # SHA256SUMS, so it comes into being after SHA256SUMS is final and can never
+    # be listed inside it. Without this exclusion a signed record would fail its
+    # own seal check — refused for being signed.
     present = {
         str(p.relative_to(record_dir))
         for p in record_dir.rglob("*")
-        if p.is_file() and p.name != SEAL_NAME
+        if p.is_file() and p.name not in (SEAL_NAME, SIG_NAME)
     }
     missing = sorted(set(listed) - present)
     if missing:
@@ -151,6 +280,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--candidate-content-hash", required=True,
                         help="the candidate's recorded content_hash")
     parser.add_argument(
+        "--keyring", type=Path, default=DEFAULT_KEYRING,
+        help="trust keyring the signature is verified against "
+             f"(default: {DEFAULT_KEYRING})")
+    parser.add_argument(
+        "--fingerprint", default=OPERATOR_FINGERPRINT,
+        help="pinned primary-key fingerprint the signature must carry "
+             "(default: the project release key)")
+    parser.add_argument(
         "--expected-skips", type=Path,
         default=Path(__file__).resolve().parent / "data"
         / "installed-gate-expected-skips.txt",
@@ -163,6 +300,7 @@ def main(argv: list[str] | None = None) -> int:
                f"gates have not been run for this candidate, or their record "
                f"was not carried here. Absence is not validation.")
 
+    _verify_signature(record_dir, args.keyring, args.fingerprint)
     _verify_seal(record_dir)
     record = _load_record(record_dir)
 
