@@ -4,7 +4,7 @@
 
 WHAT THIS FIXES. The Welcomer launched the model setup as
 ``pkexec intergen setup --yes [--tier=N]``, which escalates the ENTIRE run —
-hardware detection, the licence gate, and a download of up to about 21 GB — to
+hardware detection, the license gate, and a download of up to about 21 GB — to
 root, under polkit's generic exec action because /usr/bin/intergen has no action
 of its own and must never be given one.
 
@@ -73,14 +73,33 @@ class SetupArgvIsUnprivileged(unittest.TestCase):
         self.assertEqual(welcome._intergen_setup_argv(2)[-1], "--tier=2")
         self.assertEqual(welcome._intergen_setup_argv(1)[-1], "--tier=1")
 
-    def test_no_pkexec_remains_on_the_setup_path_in_the_source(self):
+    def test_no_executable_line_of_the_launcher_names_pkexec(self):
+        """Comments may explain the absence; code may not reintroduce it.
+
+        The launcher's own comment says why there is no outer escalation any
+        more, and that explanation is worth keeping — so this reads only the
+        lines that RUN.
+        """
         src = WELCOME_PY.read_text(encoding="utf-8")
         m = re.search(r"def _launch_intergen_setup\(.*?\n(?=\ndef )", src,
                       re.DOTALL)
         self.assertIsNotNone(m, "the setup launcher moved; update this test")
-        self.assertNotIn(
-            "pkexec", m.group(0),
-            "the setup launcher still names pkexec somewhere in its body")
+        code = []
+        in_doc = False
+        for line in m.group(0).splitlines():
+            stripped = line.strip()
+            if stripped.startswith('"""') or stripped.endswith('"""'):
+                # The single docstring: one line opens it, one closes it.
+                in_doc = not in_doc
+                continue
+            if in_doc or stripped.startswith("#"):
+                continue
+            code.append(line)
+        offenders = [l for l in code if "pkexec" in l]
+        self.assertEqual(
+            offenders, [],
+            "an executable line of the setup launcher names pkexec: %r"
+            % (offenders,))
 
 
 class RefusedProvisioningReachesTheUser(unittest.TestCase):

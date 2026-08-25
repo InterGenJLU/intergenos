@@ -1142,8 +1142,15 @@ def _service_enabled(unit):
 # Nothing was misconfigured — the person closed the prompt. The Welcomer showed
 # them a switch sliding back to off and said nothing at all, which is the same
 # thing it would have shown if the action were broken.
-PKEXEC_DISMISSED = 126        # the authentication dialog was closed
-PKEXEC_NOT_AUTHORIZED = 127   # authentication failed, or is not permitted
+# CORRECTED. These were first named 126 "dismissed" and 127 "authentication
+# failed", which put the wrong sentence on 127. pkexec's documented behaviour is
+# 126 when the AUTHORIZATION COULD NOT BE OBTAINED — the prompt was closed, or
+# the password did not match, which the caller cannot tell apart and should not
+# pretend to — and 127 when the COMMAND COULD NOT BE EXECUTED, which is not an
+# authentication event at all. The tree's own record agrees: model_manager's
+# provisioning path reads 127 as "runner missing".
+PKEXEC_NOT_AUTHORIZED = 126        # the authorization was not obtained
+PKEXEC_COMMAND_NOT_EXECUTED = 127  # the program could not be run
 
 
 class PrivilegedResult:
@@ -1166,12 +1173,13 @@ def _pkexec_failure_reason(returncode):
     The three cases are genuinely different actions on the user's part, and
     collapsing them loses the only one they can fix in the next second.
     """
-    if returncode == PKEXEC_DISMISSED:
-        return ('The administrator password prompt was closed, so nothing was '
-                'changed. Try again and enter the password to continue.')
     if returncode == PKEXEC_NOT_AUTHORIZED:
-        return ('Administrator authentication did not succeed, so nothing was '
-                'changed. Try again with an administrator password.')
+        return ('Administrator authorization was not given — the password '
+                'prompt was closed, or the password did not match — so nothing '
+                'was changed. Try again and enter an administrator password.')
+    if returncode == PKEXEC_COMMAND_NOT_EXECUTED:
+        return ('The program that makes this change could not be run, so '
+                'nothing was changed. The system log names it.')
     return ('The change did not complete (the helper exited with code %d). '
             'Nothing was changed.' % returncode)
 
@@ -1609,7 +1617,7 @@ def _apply_resolver(selection, addresses=(), encrypted=True, run=None):
     if proc.returncode == 0:
         return (True, '')
     detail = (proc.stderr or '').strip()
-    if proc.returncode in (PKEXEC_DISMISSED, PKEXEC_NOT_AUTHORIZED):
+    if proc.returncode in (PKEXEC_NOT_AUTHORIZED, PKEXEC_COMMAND_NOT_EXECUTED):
         # pkexec's own codes. These used to share one sentence here; they are
         # two different things the user did, and only one of them is fixed by
         # entering the password. The same mapping every other privileged path
@@ -3259,18 +3267,87 @@ _GPU_INSTALL_BUTTON_LABEL = 'Open a terminal and install what I selected'
 _GPU_INSTALL_RETRY_LABEL = 'Open the terminal again'
 
 
+# The stable marker `intergen setup` prints on the line after it explains a
+# refused install. Matching a marker rather than a sentence is what lets the
+# wording on either side change without silently breaking this mapping.
+_SETUP_MARKER_PREFIX = 'intergen-setup: result='
+_SETUP_REFUSAL_MARKERS = {
+    'provisioning-refused': (
+        'The model downloaded, but the administrator password was not entered, '
+        'so it was not installed. Click "Set up InterGen now" again and enter '
+        'it — the download does not have to be repeated.'),
+    'provisioning-runner-missing': (
+        'The model downloaded, but the program that installs it is missing from '
+        'this system, so it was not installed. The system log names the file.'),
+    'provisioning-dispatcher-refused': (
+        'The model downloaded, but the installer refused to install it, so it '
+        'was not installed. The system log says why.'),
+}
+
+
+def _intergen_setup_argv(tier):
+    """The command the one-click setup runs. UNPRIVILEGED, deliberately.
+
+    This used to begin with pkexec, which escalated the whole of `intergen
+    setup` — hardware detection, the license gate and a download of up to about
+    21 GB — to root, under polkit's generic exec action, because /usr/bin/intergen
+    has no action of its own and must never be given one: annotating a
+    general-purpose command-line tool as a pkexec target would make every one of
+    its subcommands root-runnable under a single action.
+
+    Nothing was gained by it. `intergen setup` already does the privileged part
+    correctly on its own: it downloads and pin-verifies into a staging directory
+    as the user, then escalates ONCE through
+    /usr/bin/intergen-model-setup-runner under the registered action
+    org.intergenos.intergen.provision-model-storage, whose root side re-verifies
+    the staged file's checksum before writing it into the store. That is the one
+    prompt the user should see, and it is the one that can say which model is
+    being installed.
+    """
+    argv = ['intergen', 'setup', '--yes']
+    if tier is not None:
+        # The user picked a model on the card above; pass it through so setup
+        # installs THAT one rather than re-deciding.
+        argv.append(f'--tier={int(tier)}')
+    return argv
+
+
+def _setup_failure_reason(returncode, lines):
+    """The sentence for a setup run that did not finish, or None if it did.
+
+    With no outer pkexec there is no outer exit code to read: `intergen setup`
+    exits 1 for every failure. What tells the cases apart is the marker setup
+    prints, so this reads the marker and falls back to the general sentence when
+    there is none — a download that failed for a network reason has already been
+    explained line by line in the stream the user was watching.
+    """
+    if returncode == 0:
+        return None
+    for line in reversed(list(lines)):
+        text = line.strip()
+        if not text.startswith(_SETUP_MARKER_PREFIX):
+            continue
+        result = text[len(_SETUP_MARKER_PREFIX):].strip()
+        if result in _SETUP_REFUSAL_MARKERS:
+            return _SETUP_REFUSAL_MARKERS[result]
+    return ('Setup did not finish. The lines above say how far it got; you can '
+            'try again, or run "intergen setup" in a terminal.')
+
+
 def _launch_intergen_setup(on_line, on_done, tier=None):
     """Run the InterGen model setup as a one-click action (Issue #2).
 
-    Spawns `pkexec intergen setup --yes` in a background thread and streams its
-    stdout (hardware tier, the chosen model + its license URL, download
-    progress) line-by-line to on_line(text); calls on_done(success: bool) when
-    it exits. On success it also best-effort enables the user service so
-    InterGen is live without a reboot. `intergen setup` itself does the real
-    work — hardware detect, fit the model to the tier (the 2B on this class of
-    box), record license acceptance, download into the root-owned store, mint
-    the auth/dispatch tokens. Factored to module scope so the dev preview
-    harness can stub it (no real pkexec / no multi-GB download in a render).
+    Spawns the command _intergen_setup_argv builds — `intergen setup --yes`,
+    UNPRIVILEGED — in a background thread and streams its stdout (hardware tier,
+    the chosen model + its license URL, download progress) line-by-line to
+    on_line(text); calls on_done(success: bool, message=None) when it exits. On
+    success it also best-effort enables the user service so InterGen is live
+    without a reboot. `intergen setup` itself does the real work — hardware
+    detect, fit the model to the tier, record license acceptance, download and
+    pin-verify as the user, escalate once under the registered action to install
+    into the root-owned store, mint the auth/dispatch tokens. Factored to module
+    scope so the dev preview harness can stub it (no privileged call and no
+    multi-GB download in a render).
     """
     import threading
 
@@ -3300,29 +3377,30 @@ def _launch_intergen_setup(on_line, on_done, tier=None):
                     message += (' Then click "Set up InterGen now" again.')
                 GLib.idle_add(on_done, False, message)
                 return
-            argv = ['pkexec', 'intergen', 'setup', '--yes']
-            if tier is not None:
-                # The user picked a model on the card above; pass it through so
-                # setup installs THAT one rather than re-deciding.
-                argv.append(f'--tier={int(tier)}')
+            argv = _intergen_setup_argv(tier)
             proc = subprocess.Popen(
                 argv,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, bufsize=1,
             )
+            streamed = []
             for line in proc.stdout:
                 line = line.rstrip()
                 if line:
+                    # Kept as well as shown: the marker setup prints at the end
+                    # is what decides the sentence on a failure, and by then the
+                    # stream is gone.
+                    streamed.append(line)
                     GLib.idle_add(on_line, line)
             proc.wait()
             ok = proc.returncode == 0
             if not ok:
-                # A closed password prompt is not a failed download, and until
-                # this was told apart the user was offered "try again, or run
-                # intergen setup in a terminal" for an authentication they had
-                # simply dismissed. The same fact goes to the journal, beside
-                # polkit's own line about the refusal.
-                reason = _pkexec_failure_reason(proc.returncode)
+                # There is no outer pkexec any more, so there is no outer 126 or
+                # 127 to read: setup exits 1 for everything. What the user is
+                # told comes from the marker setup printed, which distinguishes
+                # an install the user did not authorize — the download already
+                # succeeded — from a run that failed for some other reason.
+                reason = _setup_failure_reason(proc.returncode, streamed)
                 _record_privileged_failure(
                     'intergen setup', proc.returncode, reason)
                 GLib.idle_add(on_done, False, reason)

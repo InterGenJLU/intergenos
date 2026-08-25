@@ -62,8 +62,11 @@ _spec = importlib.util.spec_from_file_location("intergen_welcome", WELCOME_PY)
 welcome = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(welcome)
 
-PKEXEC_DISMISSED = 126
-PKEXEC_NOT_AUTHORIZED = 127
+# Corrected in AM4C-107: 126 is 'the authorization could not be obtained' and
+# 127 is 'the command could not be executed'. The first naming put an
+# authentication sentence on a code that is not about authentication.
+PKEXEC_NOT_AUTHORIZED = 126
+PKEXEC_COMMAND_NOT_EXECUTED = 127
 
 
 class ServiceToggleFailureIsExplained(unittest.TestCase):
@@ -89,7 +92,7 @@ class ServiceToggleFailureIsExplained(unittest.TestCase):
         self.assertIsNone(result.reason)
 
     def test_a_dismissed_prompt_is_named_as_dismissed(self):
-        result = self._apply_with_rc(PKEXEC_DISMISSED)
+        result = self._apply_with_rc(PKEXEC_NOT_AUTHORIZED)
         self.assertFalse(result.ok)
         self.assertIsNotNone(
             result.reason,
@@ -101,14 +104,15 @@ class ServiceToggleFailureIsExplained(unittest.TestCase):
             "dismissed: %r" % (result.reason,))
 
     def test_a_failed_authentication_is_told_apart_from_a_dismissal(self):
-        dismissed = self._apply_with_rc(PKEXEC_DISMISSED)
-        refused = self._apply_with_rc(PKEXEC_NOT_AUTHORIZED)
-        self.assertFalse(refused.ok)
-        self.assertIsNotNone(refused.reason)
+        not_given = self._apply_with_rc(PKEXEC_NOT_AUTHORIZED)
+        not_run = self._apply_with_rc(PKEXEC_COMMAND_NOT_EXECUTED)
+        self.assertFalse(not_run.ok)
+        self.assertIsNotNone(not_run.reason)
         self.assertNotEqual(
-            dismissed.reason, refused.reason,
-            "a dismissed prompt and a refused authentication produce the same "
-            "sentence, so the user cannot tell which happened")
+            not_given.reason, not_run.reason,
+            "an authorization that was not given and a program that could not be "
+            "run produce the same sentence, so the user cannot tell which "
+            "happened")
 
     def test_a_helper_error_is_told_apart_from_both(self):
         helper = self._apply_with_rc(4)
@@ -116,8 +120,8 @@ class ServiceToggleFailureIsExplained(unittest.TestCase):
         self.assertIsNotNone(helper.reason)
         self.assertNotIn(
             helper.reason,
-            (self._apply_with_rc(PKEXEC_DISMISSED).reason,
-             self._apply_with_rc(PKEXEC_NOT_AUTHORIZED).reason),
+            (self._apply_with_rc(PKEXEC_NOT_AUTHORIZED).reason,
+             self._apply_with_rc(PKEXEC_COMMAND_NOT_EXECUTED).reason),
             "an error from the helper itself reads as an authentication problem")
 
 
@@ -154,12 +158,12 @@ class SetupFailureIsExplained(unittest.TestCase):
             hasattr(welcome, "_pkexec_failure_reason"),
             "there is no shared mapping from a pkexec exit code to a sentence, "
             "so the setup path cannot tell the user what happened")
-        dismissed = welcome._pkexec_failure_reason(PKEXEC_DISMISSED)
-        refused = welcome._pkexec_failure_reason(PKEXEC_NOT_AUTHORIZED)
+        not_given = welcome._pkexec_failure_reason(PKEXEC_NOT_AUTHORIZED)
+        not_run = welcome._pkexec_failure_reason(PKEXEC_COMMAND_NOT_EXECUTED)
         other = welcome._pkexec_failure_reason(1)
-        self.assertTrue(dismissed and refused)
-        self.assertNotEqual(dismissed, refused)
-        self.assertNotEqual(dismissed, other)
+        self.assertTrue(not_given and not_run)
+        self.assertNotEqual(not_given, not_run)
+        self.assertNotEqual(not_given, other)
 
     def test_the_setup_launcher_passes_the_reason_on(self):
         src = WELCOME_PY.read_text(encoding="utf-8")
@@ -168,9 +172,9 @@ class SetupFailureIsExplained(unittest.TestCase):
         self.assertIsNotNone(m, "the setup launcher moved; update this test")
         body = m.group(0)
         self.assertIn(
-            "_pkexec_failure_reason", body,
+            "_setup_failure_reason", body,
             "the setup launcher still reports every non-zero exit the same way, "
-            "so a dismissed authentication reads as a failed download")
+            "so a refused install reads as a failed download")
 
 
 class PolkitActionIsRegistered(unittest.TestCase):

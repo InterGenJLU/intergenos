@@ -37,9 +37,16 @@ logger = logging.getLogger(__name__)
 def _invoking_user() -> tuple[Path, int, int]:
     """Home dir + (uid, gid) of the user the PER-USER setup artifacts belong to.
 
-    `intergen setup` is routinely launched via pkexec/sudo (root) — the Welcomer
-    runs ``pkexec intergen setup --yes`` so the model can be written into the
-    system model dir. But the web-token, dispatch key and sessions are PER-USER:
+    `intergen setup` can be launched as root — the Forge installer runs it that
+    way, and so does ``sudo intergen setup``. The greeter does NOT: it runs setup
+    as the user, and only the model-store write escalates, through the runner
+    under org.intergenos.intergen.provision-model-storage. This function is what
+    keeps the ROOT case correct, and it is reached only when euid is 0; when
+    setup runs unprivileged it returns this user's own home and ids, and the
+    chown helper below is a no-op on files they already own.
+
+    The reason the root case needs it: the web-token, dispatch key and sessions
+    are PER-USER.
     the session daemon (intergen.service) and panel run AS THE USER and read
     ``$HOME/.config/intergen/web-token``. If setup writes them under root's home
     (``/root``), the user-side daemon/panel can never find them — the panel shows
@@ -369,6 +376,50 @@ def report_offer() -> int:
     return 0
 
 
+def report_provision_failure(reason: str | None) -> list[str]:
+    """The lines to print when the model DOWNLOADED but the install was refused.
+
+    Kept separate from the download-failure reporting because the two are
+    different events with different next steps. A refused install leaves a
+    verified file in a staging directory that is about to be discarded; what the
+    user needs to know is that nothing is wrong with the download and that
+    running setup again and authenticating finishes the job.
+
+    The last line is a stable marker rather than prose. The greeter reads this
+    process's output, and a caller that has to match sentences to know what
+    happened breaks the moment a sentence is reworded.
+    """
+    lines: list[str] = []
+    if reason == "runner-missing":
+        lines.append(
+            "The model downloaded, but the privileged installer could not be "
+            "run, so it was not installed.")
+        lines.append(
+            "The file /usr/bin/intergen-model-setup-runner is missing or not "
+            "executable; the intergen package installs it.")
+        lines.append("intergen-setup: result=provisioning-runner-missing")
+        return lines
+    if reason == "dispatcher-refused":
+        lines.append(
+            "The model downloaded, but the privileged installer refused to "
+            "install it, so it was not installed.")
+        lines.append(
+            "The reason it gave is in the lines above and in the system log; a "
+            "checksum that did not match on the root side is the usual one.")
+        lines.append("intergen-setup: result=provisioning-dispatcher-refused")
+        return lines
+    # "not-authorized", and anything unrecognised: the honest general case is
+    # still that the download succeeded and the install did not.
+    lines.append(
+        "The model downloaded, but the administrator authentication for "
+        "installing it was not given, so it was not installed.")
+    lines.append(
+        "Run setup again and enter the administrator password when it asks:")
+    lines.append("  intergen setup")
+    lines.append("intergen-setup: result=provisioning-refused")
+    return lines
+
+
 def run_setup(*, auto_yes: bool = False, tier_override: int | None = None) -> bool:
     """Run the interactive setup flow.
 
@@ -624,6 +675,18 @@ def run_setup(*, auto_yes: bool = False, tier_override: int | None = None) -> bo
     print()
 
     if not success:
+        # A refused INSTALL is not a failed download. The model manager records
+        # which happened; ask it first, because the download-failure reporting
+        # below has no answer for this case and used to fall through to its
+        # catch-all and tell the user the download had not finished when the
+        # file was already on disk.
+        provision_reason = getattr(mm, "last_provision_failure", None)
+        if provision_reason is not None:
+            print()
+            for line in report_provision_failure(provision_reason):
+                print(line)
+            return False
+
         # Say which failure it actually was. This printed "SHA256
         # verification did not pass" for every kind of failure, including the
         # ones where nothing was ever downloaded to verify — a user whose name
