@@ -36,6 +36,19 @@ else
     PY_BIN=""
 fi
 
+# Read the two positional arguments git passes a pre-push hook:
+#   $1 = the remote NAME being pushed to (e.g. "origin")
+#   $2 = the remote URL being pushed to  (e.g. git@github.com:owner/repo.git)
+# Nothing in this hook read either one until 2026-08-25, which is how gate 10
+# (the TRACKER anchor) came to write outward for a push at a throwaway local
+# remote: it decided on the ref name alone. The NAME is not evidence — any clone
+# may name any remote "origin", and the throwaway clone did. The URL is.
+# Both are captured here, beside the stdin read, because both are "what git told
+# this hook about the push". The multi-ref fan-out below re-invokes this script
+# with "$@", so a child invocation receives them unchanged.
+PUSH_REMOTE_NAME=${1:-}
+PUSH_REMOTE_URL=${2:-}
+
 # Read stdin (pre-push hook receives refs being pushed):
 #   <local_ref> <local_sha> <remote_ref> <remote_sha>
 # Captured into PUSH_REFS array so later gates can inspect for force-push to master.
@@ -1057,7 +1070,28 @@ fi
 # private repo; this gate only ensures the anchor-bookkeeping piece is
 # always in sync.
 #
-# Only fires when pushing to master (other branches don't anchor).
+# Only fires when pushing to master (other branches don't anchor), AND only
+# when the push is going to the real publication target.
+#
+# THE SECOND CONDITION IS NOT A REFINEMENT — it is the fix for a measured
+# incident (2026-08-24). This gate performs an OUTWARD, hard-to-reverse write:
+# it commits and pushes an anchor line into the private repository, asserting
+# that public master advanced. It used to decide that from the ref name alone.
+# A proof harness made a throwaway clone, gave it a local bare remote, and
+# pushed master at it to exercise a different gate; this gate could not tell the
+# difference and recorded a promotion that never happened. A correcting commit
+# was needed to undo it.
+#
+# The decision is made on the remote URL ($2 above), never the remote NAME: a
+# throwaway clone is free to call its local bare remote "origin". The URL
+# matching lives in scripts/anchor-remote-is-public-origin.sh, which compares
+# the normalised (host, owner, repository) triple for whole-value equality —
+# never a prefix (the private repository's path begins with the public one's)
+# and never a substring (a host can be suffixed to look like the real one).
+#
+# It fails CLOSED in the safe direction: an unrecognised or missing URL does NOT
+# anchor. Declining to anchor costs a manual anchor advance; anchoring wrongly
+# writes a false record into another repository.
 ANCHOR_NEEDED=0
 for refline in "${PUSH_REFS[@]}"; do
     read -r local_ref local_sha remote_ref remote_sha <<< "$refline"
@@ -1067,6 +1101,27 @@ for refline in "${PUSH_REFS[@]}"; do
         break
     fi
 done
+
+if [ "$ANCHOR_NEEDED" = "1" ]; then
+    _anchor_matcher="$REPO_ROOT/scripts/anchor-remote-is-public-origin.sh"
+    if [ ! -x "$_anchor_matcher" ]; then
+        # The gate cannot establish that this push is a real promotion, so it
+        # must not write outward. Loud, because a silently-skipped anchor is
+        # indistinguishable from an advanced one when read back from a capture.
+        echo "[pre-push] anchor: $_anchor_matcher missing or not executable — no anchor"
+        echo "  The anchor gate cannot confirm this push targets the public origin,"
+        echo "  so it declines to write to the private repository. Restore the"
+        echo "  script, or advance the anchor by hand."
+        ANCHOR_NEEDED=0
+    elif ! "$_anchor_matcher" "$PUSH_REMOTE_URL" >/dev/null 2>&1; then
+        echo "[pre-push] anchor: not the public origin — no anchor"
+        echo "  remote name: ${PUSH_REMOTE_NAME:-<none given>}"
+        echo "  remote URL:  ${PUSH_REMOTE_URL:-<none given>}"
+        echo "  Only a push to the project's public repository is a promotion."
+        echo "  The private repository is not touched for any other target."
+        ANCHOR_NEEDED=0
+    fi
+fi
 
 if [ "$ANCHOR_NEEDED" = "1" ]; then
     if [ -x "$REPO_ROOT/scripts/anchor-tracker.sh" ]; then
