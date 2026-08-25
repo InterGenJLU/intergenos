@@ -17,6 +17,15 @@ source:
 # Includes the workspace's five git-sourced crate families (gtk-rs-core,
 # gtk4-rs, gstreamer-rs, ffv1, flavors); configure() maps every declared
 # source to the vendor directory.
+# MEASURED 2026-08-25 and NOT YET FIXED, stated here rather than left silent:
+# this address answers 404, and the project's own source mirror does not carry
+# the file either. The three sibling vendor tarballs in this tree were moved to
+# the mirror on the same day because the mirror serves them byte-identically;
+# this one could not be moved, because no address reachable from here serves
+# the bytes the pin below names. Only the ORIGINAL tarball satisfies that pin —
+# a fresh `cargo vendor` produces different bytes — so the file has to be found
+# where it was generated (the build machine) and published, not regenerated.
+# Until then a rebuild from this recipe alone cannot obtain this source.
 - url: https://intergenstudios.com/intergenos/sources/current/gst-plugin-gtk4-${version}-vendor.tar.gz
   sha256: ac04ce412e3382cabfb2ccc237ba7eafc17221429bc1b1fbad3e96eae3df5e4f
 dependencies:

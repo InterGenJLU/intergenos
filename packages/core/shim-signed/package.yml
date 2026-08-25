@@ -41,9 +41,17 @@ install_func: do_install
 # (Confirmed under enforcing SB: -2 is rejected by current edk2/OVMF where
 # the dual-signed -8 boots; both validate the InterGenOS-signed chain
 # downstream.)
+# Decided 2026-08-25: the second URL that used to sit here as `fallback_url`
+# is gone. No code ever read that key, so it obtained nothing — and the
+# address it named (a Fedora build-system path) answers 404 today, because
+# that service rotates builds out. A recipe that states two ways to get a
+# file when the build implements one is worse than a recipe that states
+# one. Availability for this file was MEASURED on the same day: the URL
+# below answers 200 and serves exactly the pinned bytes. When an upstream
+# address does fail, scripts/download-sources.py already falls back to the
+# project's own source mirror and re-checks the pin there.
 source:
 - url: https://intergenstudios.com/intergenos/sources/current/shim-x64-${version}-8.x86_64.rpm
-  fallback_url: https://kojipkgs.fedoraproject.org/packages/shim/${version}/8/x86_64/shim-x64-${version}-8.x86_64.rpm
   sha256: ee8787bb9fbd13fcce73de0501938075c24efd78bc1a590826f0c01c7a10986b
 dependencies:
   build:

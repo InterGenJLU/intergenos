@@ -14,7 +14,14 @@ source:
   sha256: 3558f6f8e0d38b2950b6bad9b9eec238249bedfedce70fb58a28cad6945e6ce9
 # Pre-vendored Cargo crates (offline chroot, by security design). Generated
 # via `cargo vendor` on build VM with rustup cargo 1.95.
-- url: https://intergenstudios.com/intergenos/sources/current/snapshot-${version}-vendor.tar.gz
+# Decided 2026-08-25: this URL moves to the project's own source mirror. The
+# address it used to name answered 404, so a rebuild from this recipe alone
+# could not obtain the file; the build only kept working because
+# scripts/download-sources.py falls back to the mirror when an address fails,
+# which turned an outage path into the everyday path. The mirror copy was
+# fetched and hashed on the same day and is byte-identical to the pin below,
+# so nothing about what gets built changes.
+- url: https://repo.intergenos.org/sources/current/snapshot-${version}-vendor.tar.gz
   sha256: 5b3b6ae56d10370fadca8e7d02e723bf526263c9705ac2d97d81cc4e164402db
 dependencies:
   build:

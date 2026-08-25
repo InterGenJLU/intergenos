@@ -14,7 +14,14 @@ source:
 # access by security design, so cargo can't fetch from
 # index.crates.io at build time. Generated via `cargo vendor` against
 # loupe-49.2's Cargo.lock on the build VM (rustup cargo 1.95).
-- url: https://intergenstudios.com/intergenos/sources/current/loupe-${version}-vendor.tar.gz
+# Decided 2026-08-25: this URL moves to the project's own source mirror. The
+# address it used to name answered 404, so a rebuild from this recipe alone
+# could not obtain the file; the build only kept working because
+# scripts/download-sources.py falls back to the mirror when an address fails,
+# which turned an outage path into the everyday path. The mirror copy was
+# fetched and hashed on the same day and is byte-identical to the pin below,
+# so nothing about what gets built changes.
+- url: https://repo.intergenos.org/sources/current/loupe-${version}-vendor.tar.gz
   sha256: 58e44410e7896e9fa941db5b8d590a30eb5d300ccf5857a85043dcb7166d390d
 dependencies:
   build:
