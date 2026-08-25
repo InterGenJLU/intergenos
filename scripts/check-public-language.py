@@ -20,6 +20,13 @@ Design (why each choice):
   * RANGE-SCOPED. Only the ADDED lines of the push range and the range's commit
     messages are scanned — the bytes this push introduces — not the whole tree
     (pre-existing content is a separate remediation, not a per-push gate's job).
+  * JOINED ACROSS A WRAP. The added lines of one file are scanned in runs of
+    CONSECUTIVE lines joined by a single space, and each commit message is
+    scanned as one run, so a term whose spelling is two words is found when the
+    author's editor wrapped the line between them. Until 2026-08-25 the gate
+    matched each added line alone and every such term passed a wrap. The report
+    names the line the match STARTS on; single-line hits report as before. Only
+    consecutive lines join, so no adjacency the file does not have is invented.
   * WORD-BOUNDARY, SPAN-AWARE. A bare short token matched as a standalone word is
     a hit (this is the evasion class the contextual-only predecessor missed). A
     legitimate technical collision is exempted at ITS SPAN, so a real hit on the
@@ -42,6 +49,13 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+
+# The join lives in one module so this gate and the writing-register gate can
+# never disagree about what "the same run of added lines" means. sys.path[0] is
+# this script's own directory when it runs as a script; the insert keeps the
+# import working when a test loads this file by path instead.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from joined_lines import JoinedText, consecutive_runs  # noqa: E402
 
 # Default private location of the term list (override with the env var). Under
 # the runner's XDG-style config dir; NEVER inside any repo.
@@ -383,21 +397,54 @@ def _exempt_spans(line: str):
     return spans
 
 
-def scan_line(line: str, compiled_terms):
-    """Return the matched substrings on `line` that are real violations (a term
-    hit not on a trailer line and not covered by an exemption span). The private
-    TERM is never returned or printed — only the author's own offending text."""
-    if _TRAILER_RE.search(line):
-        return []
-    exempt = _exempt_spans(line)
-    hits = []
+def scan_run(run, compiled_terms):
+    """Scan one run of consecutive lines as a single joined string.
+
+    `run` is [(lineno, text), ...] with consecutive line numbers. The lines are
+    joined by one space and every term is matched against the JOINED text, so a
+    term whose spelling is two words is found even when the author's editor
+    wrapped the line between them — the class this gate missed entirely until
+    2026-08-25, measured against the real term list.
+
+    Returns [(lineno, line_text, matched_text)] for every non-exempt match, in
+    the order the matches occur, where `lineno` is THE LINE THE MATCH STARTS ON.
+    A match that begins and ends inside one line yields exactly what per-line
+    scanning yielded before, so single-line reporting is unchanged.
+
+    Exemption spans are computed per line, on the author's own bytes, and then
+    shifted into joined coordinates; an exemption therefore still covers only
+    what it covered before, and never reaches across a join.
+
+    The private TERM is never returned or printed — only the author's own text.
+    """
+    joined = JoinedText(run)
+    exempt = []
+    for start, _lineno, text in joined.iter_lines():
+        for a, b in _exempt_spans(text):
+            exempt.append((start + a, start + b))
+    found = []
     for _term, pat in compiled_terms:
-        for m in pat.finditer(line):
+        for m in pat.finditer(joined.text):
             s0, s1 = m.span()
             if any(a <= s0 and s1 <= b for (a, b) in exempt):
                 continue
-            hits.append(m.group(0))
-    return hits
+            lineno, line_text = joined.locate(s0)
+            found.append((s0, lineno, line_text, m.group(0)))
+    found.sort(key=lambda f: f[0])
+    return [(ln, txt, hit) for _s0, ln, txt, hit in found]
+
+
+def scan_line(line: str, compiled_terms):
+    """Return the matched substrings on `line` that are real violations (a term
+    hit not on a trailer line and not covered by an exemption span). The private
+    TERM is never returned or printed — only the author's own offending text.
+
+    A single line is a run of one, so this is scan_run with the run it names —
+    one definition of what counts as a violation, not two.
+    """
+    if _TRAILER_RE.search(line):
+        return []
+    return [hit for _lineno, _text, hit in scan_run([(1, line)], compiled_terms)]
 
 
 # ---- git range scanning ------------------------------------------------------
@@ -452,19 +499,75 @@ def commit_message_lines(rng: str, cwd: Path):
             yield (sha[:8], i, line)
 
 
+def _runs_by_file(pairs):
+    """Group (file, lineno, text) into per-file runs of consecutive lines.
+
+    Grouping by file first matters: two different files can carry consecutive
+    line numbers by coincidence, and joining across that boundary would invent
+    an adjacency neither file has.
+
+    A Co-Authored-By trailer is dropped here rather than inside the scan, which
+    leaves a gap in the line numbers and so BREAKS the run at that point. That
+    is the wanted behaviour — an authorized disclosure line does not become the
+    neighbour of the line after it.
+
+    A blank line is dropped for the same reason and with the same effect: a
+    paragraph break is not a line wrap, and joining across one would match text
+    the author never wrote as a phrase.
+    """
+    by_file: dict[str, list[tuple[int, str]]] = {}
+    order: list[str] = []
+    for cur_file, lineno, text in pairs:
+        key = cur_file or "?"
+        if key not in by_file:
+            by_file[key] = []
+            order.append(key)
+        if _TRAILER_RE.search(text) or not text.strip():
+            continue
+        by_file[key].append((lineno, text))
+    for key in order:
+        for run in consecutive_runs(by_file[key]):
+            yield key, run
+
+
 def scan_range(rng: str, compiled_terms, cwd: Path):
     """Scan a push range's added lines + commit messages. Returns a list of
-    (location, quoted_line) violations."""
+    (location, quoted_line) violations.
+
+    Added lines are scanned as runs of consecutive lines rather than one line at
+    a time, so a term split by a line wrap is found; the report names the line
+    the match STARTS on, which is where the author has to look. At most one
+    report per starting line, as before — a second hit on the same line adds
+    nothing a reader can act on.
+    """
     violations = []
-    for cur_file, lineno, text in added_lines_from_range(rng, cwd):
-        for _hit in scan_line(text, compiled_terms):
-            loc = f"{cur_file or '?'}:{lineno}"
-            violations.append((loc, text.strip()))
-            break  # one report per line is enough to act on
+    for key, run in _runs_by_file(added_lines_from_range(rng, cwd)):
+        reported = set()
+        for lineno, text, _hit in scan_run(run, compiled_terms):
+            if lineno in reported:
+                continue
+            reported.add(lineno)
+            violations.append((f"{key}:{lineno}", text.strip()))
+
+    # A commit message wraps for exactly the same reason a paragraph does, so
+    # each message is scanned as one run of its own lines.
+    by_commit: dict[str, list[tuple[int, str]]] = {}
+    order: list[str] = []
     for sha, lineno, text in commit_message_lines(rng, cwd):
-        for _hit in scan_line(text, compiled_terms):
-            violations.append((f"commit {sha} msg:{lineno}", text.strip()))
-            break
+        if sha not in by_commit:
+            by_commit[sha] = []
+            order.append(sha)
+        if _TRAILER_RE.search(text) or not text.strip():
+            continue
+        by_commit[sha].append((lineno, text))
+    for sha in order:
+        for run in consecutive_runs(by_commit[sha]):
+            reported = set()
+            for lineno, text, _hit in scan_run(run, compiled_terms):
+                if lineno in reported:
+                    continue
+                reported.add(lineno)
+                violations.append((f"commit {sha} msg:{lineno}", text.strip()))
     return violations
 
 

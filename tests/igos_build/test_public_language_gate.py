@@ -409,3 +409,193 @@ class DigitSuffixTests(unittest.TestCase):
                  "--label", "ref name", "--text", f"{TOK.lower()}093/topic"],
                 capture_output=True, text=True, timeout=120)
             self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+
+
+class WrappedTermTests(unittest.TestCase):
+    """A term split by a line wrap must be seen.
+
+    Measured 2026-08-25 against the real term list: the gate matched each added
+    line on its own, so a term whose spelling is two words passed whenever the
+    author's editor put the wrap between its words. A probe carrying the same
+    term twice — once wrapped, once on one line — reported one hit.
+
+    The synthetic term here is coined in this file and means nothing outside it.
+    The counterpart test over the REAL list is below and builds its fixtures
+    from that list at run time, so no term is ever written into this tree.
+    """
+
+    TWO_WORD = "ZQXSEAT" + " " + "ALPHA"
+
+    def test_term_wrapped_between_its_words_is_a_hit(self):
+        ct = _compiled(self.TWO_WORD)
+        run = [(10, "the change was reviewed by the ZQXSEAT"),
+               (11, "ALPHA lane before it landed")]
+        found = clg.scan_run(run, ct)
+        self.assertEqual(len(found), 1, found)
+        lineno, text, _hit = found[0]
+        self.assertEqual(lineno, 10, "the report names the line the match starts on")
+        self.assertIn("reviewed by", text)
+
+    def test_single_line_hit_is_unchanged(self):
+        ct = _compiled(self.TWO_WORD)
+        self.assertEqual(clg.scan_line(f"reviewed by {self.TWO_WORD} last week", ct),
+                         [self.TWO_WORD])
+
+    def test_two_innocent_words_wrapped_do_not_hit(self):
+        ct = _compiled(self.TWO_WORD)
+        run = [(4, "the loader reads the boot"), (5, "manifest before the mount")]
+        self.assertEqual(clg.scan_run(run, ct), [])
+
+    def test_non_consecutive_lines_are_not_joined(self):
+        # Line 10 and line 12 are not neighbours; joining them would invent an
+        # adjacency the file does not have and refuse text nobody wrote.
+        ct = _compiled(self.TWO_WORD)
+        runs = clg.consecutive_runs([(10, "reviewed by the ZQXSEAT"),
+                                     (12, "ALPHA lane")])
+        self.assertEqual(len(runs), 2, runs)
+        self.assertEqual([h for run in runs for h in clg.scan_run(run, ct)], [])
+
+    def test_an_indented_continuation_line_still_matches(self):
+        # The wrap's own whitespace is normalized into the single joining
+        # space, so an indented continuation reads as one space after the word
+        # before it.
+        ct = _compiled(self.TWO_WORD)
+        run = [(10, "the change was reviewed by the ZQXSEAT"),
+               (11, "        ALPHA lane before it landed")]
+        self.assertEqual(len(clg.scan_run(run, ct)), 1)
+
+    def test_a_match_may_not_span_a_joining_space_it_did_not_earn(self):
+        # The join adds exactly one space between lines. A single-token term
+        # broken mid-word by a wrap stays unmatched: the halves are two words.
+        ct = _compiled(TOK)
+        run = [(1, "see ZQXSE"), (2, "ATA here")]
+        self.assertEqual(clg.scan_run(run, ct), [])
+
+
+class WrappedTermRangeTests(unittest.TestCase):
+    """The wrap class end to end, through the range scanner the hook calls."""
+
+    TWO_WORD = "ZQXSEAT" + " " + "ALPHA"
+
+    def _git(self, *args):
+        return subprocess.run(["git", *args], cwd=self.repo, capture_output=True,
+                              text=True, check=True, timeout=120)
+
+    def setUp(self):
+        self._td = tempfile.TemporaryDirectory()
+        self.repo = Path(self._td.name)
+        self._git("init", "-q")
+        self._git("config", "user.email", "t@t")
+        self._git("config", "user.name", "t")
+        (self.repo / "f.txt").write_text("clean baseline line\n")
+        self._git("add", "f.txt")
+        self._git("commit", "-qm", "base")
+
+    def tearDown(self):
+        self._td.cleanup()
+
+    def test_added_lines_carrying_a_wrapped_term_are_refused(self):
+        (self.repo / "f.txt").write_text(
+            "clean baseline line\n"
+            "the change was reviewed by the ZQXSEAT\n"
+            "ALPHA lane before it landed\n")
+        self._git("add", "f.txt")
+        self._git("commit", "-qm", "docs: a neutral message")
+        violations = clg.scan_range("HEAD~1..HEAD", _compiled(self.TWO_WORD), self.repo)
+        self.assertEqual(len(violations), 1, violations)
+        self.assertEqual(violations[0][0], "f.txt:2",
+                         "the location names the line the match starts on")
+
+    def test_a_wrapped_term_in_a_commit_message_is_refused(self):
+        (self.repo / "f.txt").write_text("clean baseline line\nanother clean line\n")
+        self._git("add", "f.txt")
+        self._git("commit", "-qm",
+                  "docs: a change\n\nthe wording was settled with the ZQXSEAT\n"
+                  "ALPHA lane on Tuesday\n")
+        violations = clg.scan_range("HEAD~1..HEAD", _compiled(self.TWO_WORD), self.repo)
+        locs = [loc for loc, _ in violations]
+        self.assertEqual(len(violations), 1, violations)
+        self.assertTrue(locs[0].startswith("commit "), locs)
+
+    def test_a_trailer_breaks_the_run_instead_of_joining_across_it(self):
+        # A Co-Authored-By trailer is an authorized home. Dropping it must not
+        # make the line before it the neighbour of the line after it.
+        (self.repo / "f.txt").write_text("clean baseline line\nanother clean line\n")
+        self._git("add", "f.txt")
+        self._git("commit", "-qm",
+                  "docs: a change\n\nsettled with the ZQXSEAT\n"
+                  "Co-Authored-By: someone <x@y.z>\n"
+                  "ALPHA lane on Tuesday\n")
+        self.assertEqual(
+            clg.scan_range("HEAD~1..HEAD", _compiled(self.TWO_WORD), self.repo), [])
+
+    def test_lines_from_two_files_are_not_joined(self):
+        (self.repo / "a.txt").write_text("reviewed by the ZQXSEAT\n")
+        (self.repo / "b.txt").write_text("ALPHA lane signed off\n")
+        self._git("add", "-A")
+        self._git("commit", "-qm", "docs: two files")
+        self.assertEqual(
+            clg.scan_range("HEAD~1..HEAD", _compiled(self.TWO_WORD), self.repo), [])
+
+    def test_a_blank_line_breaks_the_run(self):
+        # A paragraph break is not a line wrap. Joining across one would match
+        # a phrase the author never wrote.
+        (self.repo / "f.txt").write_text(
+            "clean baseline line\nreviewed by the ZQXSEAT\n\nALPHA lane signed off\n")
+        self._git("add", "f.txt")
+        self._git("commit", "-qm", "docs: a neutral message")
+        self.assertEqual(
+            clg.scan_range("HEAD~1..HEAD", _compiled(self.TWO_WORD), self.repo), [])
+
+    def test_a_clean_wrapped_paragraph_still_passes(self):
+        (self.repo / "f.txt").write_text(
+            "clean baseline line\nthe loader reads the boot\nmanifest before the mount\n")
+        self._git("add", "f.txt")
+        self._git("commit", "-qm", "docs: a neutral message")
+        self.assertEqual(
+            clg.scan_range("HEAD~1..HEAD", _compiled(self.TWO_WORD), self.repo), [])
+
+
+class RealListWrappedTermTests(unittest.TestCase):
+    """Every multi-word entry of the REAL list, wrapped, must be refused.
+
+    The fixtures are built from the private list AT RUN TIME and are never
+    written into this tree — the term reaches the scanner as data, the way the
+    gate itself reads it. On a machine without the private list the test says so
+    and skips, matching the sibling scanner tests: the suite has to stay runnable
+    where the private file does not exist, and the gate's own fail-closed
+    behaviour when the list is missing is covered separately.
+    """
+
+    def setUp(self):
+        try:
+            path = clg.resolve_list_path(None)
+            self.terms = clg.load_terms(path)
+        except Exception as exc:                  # ListUnavailable and friends
+            raise unittest.SkipTest(
+                f"private term list not available on this machine: {exc}")
+        self.multi = [t for t in self.terms if re.search(r"[-\s]", t.rstrip("*"))]
+        if not self.multi:
+            raise unittest.SkipTest("the list carries no multi-token entry")
+
+    def test_every_multi_word_term_is_caught_across_a_wrap(self):
+        missed = []
+        for term in self.multi:
+            bare = term.rstrip("*")
+            head, _, tail = bare.partition(" " if " " in bare else "-")
+            ct = clg.compile_terms([term])
+            run = [(7, f"the note said {head}"), (8, f"{tail} was decided")]
+            if not clg.scan_run(run, ct):
+                missed.append(len(bare))          # a length, never the term
+        self.assertEqual(missed, [],
+                         f"{len(missed)} multi-token entries still pass a wrap "
+                         f"(lengths only, terms are never printed): {missed}")
+
+    def test_every_multi_word_term_is_still_caught_on_one_line(self):
+        missed = []
+        for term in self.multi:
+            bare = term.rstrip("*")
+            ct = clg.compile_terms([term])
+            if not clg.scan_line(f"the note said {bare} plainly", ct):
+                missed.append(len(bare))
+        self.assertEqual(missed, [], f"single-line hits lost: {missed}")

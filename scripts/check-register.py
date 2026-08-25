@@ -23,6 +23,16 @@ Range-scoped by design: text already in the tree was measured, dispositioned,
 and where kept, labeled (decided 2026-08-16) — a per-push gate guards new
 text, it does not re-litigate history.
 
+Joined across a wrap (decided 2026-08-25): the added prose-zone lines of a file
+are scanned in runs of CONSECUTIVE lines, each stripped of its leading and
+trailing whitespace and joined by a single space, and each
+commit message is scanned as one run, so a tier pattern spelled as two or more
+words is matched when a wrap falls between its words. The line reported is the
+one the match STARTS on, and a match that begins and ends inside one line
+reports as it always did. Lines outside the prose zone are dropped before the
+run is formed, so the drop breaks the run instead of joining two prose lines
+that have code between them.
+
 The tier patterns live below in code zones, written as ADJACENT SPLIT string
 literals (the established scanner-file discipline): this gate reads prose
 zones only, so it never flags its own table — and the split spelling keeps
@@ -50,6 +60,13 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+
+# The join lives in one module so this gate and the public-language gate can
+# never disagree about what "the same run of added lines" means. sys.path[0] is
+# this script's own directory when it runs as a script; the insert keeps the
+# import working when a test loads this file by path instead.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from joined_lines import JoinedText, consecutive_runs  # noqa: E402
 
 DOC_EXT = {".md", ".txt", ".rst"}
 CODE_EXT = {".py", ".sh", ".c", ".h", ".cpp", ".hpp", ".rs", ".js", ".css",
@@ -191,6 +208,38 @@ def added_lines(rng: str, cwd: Path) -> dict[str, list[tuple[int, str]]]:
     return out
 
 
+def run_hits(run, classes):
+    """[(lineno, line_text, class_name)] for each class match in one run.
+
+    `run` is [(lineno, text), ...] with consecutive line numbers. The lines are
+    joined by one space and each tier pattern is matched against the JOINED
+    text, so a pattern spelled as two or more words is found even when the
+    author's editor wrapped the line between them. The line reported is THE ONE
+    THE MATCH STARTS ON, which is where the author has to look.
+
+    At most one report per (starting line, class), which is what per-line
+    scanning produced before this changed: a line that hit a class once was
+    reported once. A match that begins and ends inside a single line therefore
+    yields exactly what it yielded before, and only a match crossing a join is
+    new.
+    """
+    joined = JoinedText(run)
+    found = []
+    for name, rx in classes.items():
+        for m in rx.finditer(joined.text):
+            lineno, text = joined.locate(m.start())
+            found.append((m.start(), lineno, text, name))
+    found.sort(key=lambda f: (f[0], f[3]))
+    out = []
+    seen = set()
+    for _offset, lineno, text, name in found:
+        if (lineno, name) in seen:
+            continue
+        seen.add((lineno, name))
+        out.append((lineno, text, name))
+    return out
+
+
 def scan(rng: str, cwd: Path, prefixes: list[str]) -> tuple[int, int]:
     tip = rng.split("..")[-1]
     blocks = warns = 0
@@ -205,17 +254,19 @@ def scan(rng: str, cwd: Path, prefixes: list[str]) -> tuple[int, int]:
         except RuntimeError:
             continue
         zone = prose_line_numbers(blob, ext)
-        for ln, text in additions:
-            if ln not in zone:
-                continue
-            for name, rx in BLOCK_CLASSES.items():
-                if rx.search(text):
-                    print(f"[register] BLOCK[{name}] {relpath}:{ln}: {text.strip()[:160]}")
-                    blocks += 1
-            for name, rx in WARN_CLASSES.items():
-                if rx.search(text):
-                    print(f"[register] WARN[{name}] {relpath}:{ln}: {text.strip()[:160]}")
-                    warns += 1
+        # Lines outside the prose zone are dropped BEFORE the run is formed, so
+        # the drop shows up as a break in the line numbers instead of joining
+        # two prose lines that have code between them. A blank line is dropped
+        # the same way: a paragraph break is not a line wrap.
+        in_zone = [(ln, text) for ln, text in additions
+                   if ln in zone and text.strip()]
+        for run in consecutive_runs(in_zone):
+            for ln, text, name in run_hits(run, BLOCK_CLASSES):
+                print(f"[register] BLOCK[{name}] {relpath}:{ln}: {text.strip()[:160]}")
+                blocks += 1
+            for ln, text, name in run_hits(run, WARN_CLASSES):
+                print(f"[register] WARN[{name}] {relpath}:{ln}: {text.strip()[:160]}")
+                warns += 1
     # Non-merge commit messages the range introduces.
     try:
         raw = _git(["log", "--no-merges", "--format=%H%x00%B%x01", rng], cwd)
@@ -227,16 +278,18 @@ def scan(rng: str, cwd: Path, prefixes: list[str]) -> tuple[int, int]:
         if not entry:
             continue
         sha, _, body = entry.partition("\x00")
-        for name, rx in BLOCK_CLASSES.items():
-            for line in body.splitlines():
-                if rx.search(line):
-                    print(f"[register] BLOCK[{name}] commit {sha[:12]}: {line.strip()[:160]}")
-                    blocks += 1
-        for name, rx in WARN_CLASSES.items():
-            for line in body.splitlines():
-                if rx.search(line):
-                    print(f"[register] WARN[{name}] commit {sha[:12]}: {line.strip()[:160]}")
-                    warns += 1
+        # A commit message wraps for the same reason a paragraph does, so the
+        # message is scanned as one run of its own lines — its blank lines
+        # dropped, which breaks the run between the subject and the body and
+        # between paragraphs.
+        msg_lines = [(i, t) for i, t in enumerate(body.splitlines(), 1) if t.strip()]
+        for run in consecutive_runs(msg_lines):
+            for _ln, text, name in run_hits(run, BLOCK_CLASSES):
+                print(f"[register] BLOCK[{name}] commit {sha[:12]}: {text.strip()[:160]}")
+                blocks += 1
+            for _ln, text, name in run_hits(run, WARN_CLASSES):
+                print(f"[register] WARN[{name}] commit {sha[:12]}: {text.strip()[:160]}")
+                warns += 1
     return blocks, warns
 
 

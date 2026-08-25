@@ -70,6 +70,20 @@ _REAL_PATTERNS = os.path.join(
 if "IGOS_PUBLIC_CONTENT_PATTERNS" not in os.environ and os.path.exists(_REAL_PATTERNS):
     os.environ["IGOS_PUBLIC_CONTENT_PATTERNS"] = _REAL_PATTERNS
 
+# The push-time language gate is the SECOND consumer of that shape, added
+# 2026-08-25: scripts/check-public-language.py loads its private term list from
+# ~/.config/intergenos/public-language-denylist and refuses fail-closed without
+# it, and its tests build wrapped-term fixtures FROM that list at run time so no
+# term is ever written into this tree. Its documented override is pointed at the
+# real file here, before HOME moves, for the same reason as the block above. A
+# machine without the private file sets nothing, and the tests that need it skip
+# with a reason that names the path — a test may not depend on a person
+# exporting a variable by hand.
+_REAL_DENYLIST = os.path.join(
+    os.path.expanduser("~"), ".config", "intergenos", "public-language-denylist")
+if "IGOS_PUBLIC_LANGUAGE_DENYLIST" not in os.environ and os.path.exists(_REAL_DENYLIST):
+    os.environ["IGOS_PUBLIC_LANGUAGE_DENYLIST"] = _REAL_DENYLIST
+
 _HOME_TMP = os.path.join(_XDG_TMP, "home")
 os.makedirs(_HOME_TMP, exist_ok=True)
 os.environ["HOME"] = _HOME_TMP

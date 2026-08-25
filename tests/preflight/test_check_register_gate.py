@@ -134,3 +134,134 @@ class TestExclusionsAndFailClosed:
         r = _scan(repo, rng)
         assert r.returncode == 0
         assert "PASS" in r.stdout
+
+
+class TestWrappedAcrossALine:
+    """A tier pattern split by a line wrap must be seen (decided 2026-08-25).
+
+    The gate matched each added line on its own, so any pattern spelled as two
+    or more words passed whenever the wrap fell between its words. The added
+    prose-zone lines of a file are now scanned in runs of consecutive lines
+    joined by one space, and each commit message as one run.
+
+    Probe strings stay ASSEMBLED at run time, as everywhere in this file.
+    """
+
+    # The block-tier probe with the wrap placed between its two words.
+    WRAP_HEAD = "we've"
+    WRAP_TAIL = "success" + "fully migrated the loader"
+
+    def test_block_phrase_wrapped_across_two_doc_lines_refused(self, tmp_path):
+        repo, rng = _repo_with_push_range(
+            tmp_path, "docs/notes.md",
+            f"the mount order changed and {self.WRAP_HEAD}\n{self.WRAP_TAIL}\n")
+        r = _scan(repo, rng)
+        assert r.returncode == 1, r.stdout
+        assert "BLOCK[ai-self-narration]" in r.stdout
+        assert "docs/notes.md:1:" in r.stdout, (
+            f"the report must name the line the match STARTS on:\n{r.stdout}")
+
+    def test_warn_phrase_wrapped_across_two_doc_lines_prints_and_passes(self, tmp_path):
+        # A WARN-tier entry spelled as three words, wrapped between the second
+        # and the third. A one-word entry broken mid-word is a different case
+        # and must NOT match — the join adds a space, so the halves are two
+        # words; that direction is pinned in the language gate's own tests.
+        head, tail = "keep in", "mind" + " that the mount runs first"
+        repo, rng = _repo_with_push_range(
+            tmp_path, "docs/notes.md", f"before the upgrade {head}\n{tail}\n")
+        r = _scan(repo, rng)
+        assert r.returncode == 0, r.stdout
+        assert "WARN[filler-phrase]" in r.stdout
+        assert "docs/notes.md:1:" in r.stdout
+
+    def test_block_phrase_wrapped_in_a_code_comment_is_not_joined(self, tmp_path):
+        repo, rng = _repo_with_push_range(
+            tmp_path, "scripts/x.sh",
+            f"# the mount order changed and {self.WRAP_HEAD}\n"
+            f"# {self.WRAP_TAIL}\n")
+        r = _scan(repo, rng)
+        # The comment marker of the second line sits between the two words, so
+        # this wrap is NOT joined into a match. Pinned as measured behaviour:
+        # the run is formed from the author's line text, markers included.
+        assert r.returncode == 0, r.stdout
+
+    def test_a_code_line_between_two_comment_lines_breaks_the_run(self, tmp_path):
+        # Non-prose lines are dropped BEFORE the run is formed, so the drop
+        # shows up as a break rather than joining two comments across code.
+        repo, rng = _repo_with_push_range(
+            tmp_path, "scripts/x.py",
+            f"# the loader changed and {self.WRAP_HEAD}\n"
+            "VALUE = 1\n"
+            f"# {self.WRAP_TAIL}\n")
+        r = _scan(repo, rng)
+        assert r.returncode == 0, r.stdout
+        assert "BLOCK" not in r.stdout
+
+    def test_block_phrase_wrapped_in_a_commit_message_refused(self, tmp_path):
+        repo, rng = _repo_with_push_range(tmp_path, "docs/clean.md",
+                                          CLEAN_LINE + "\n")
+        subprocess.run(
+            ["git", "commit", "-q", "--allow-empty", "-m",
+             f"chore: note\n\nthe mount order changed and {self.WRAP_HEAD}\n"
+             f"{self.WRAP_TAIL}\n"],
+            cwd=repo, check=True)
+        r = _scan(repo, rng.split("..")[0] + "..HEAD")
+        assert r.returncode == 1, r.stdout
+        assert "commit" in r.stdout
+
+    def test_single_line_hit_still_refused_after_the_change(self, tmp_path):
+        repo, rng = _repo_with_push_range(tmp_path, "docs/notes.md",
+                                          BLOCK_PROBE + "\n")
+        r = _scan(repo, rng)
+        assert r.returncode == 1, r.stdout
+        assert "docs/notes.md:1:" in r.stdout
+
+    def test_one_report_per_line_and_class(self, tmp_path):
+        # A line hitting one class twice was reported once before the run join
+        # and is reported once after it.
+        probe = BLOCK_PROBE + " and " + BLOCK_PROBE
+        repo, rng = _repo_with_push_range(tmp_path, "docs/notes.md", probe + "\n")
+        r = _scan(repo, rng)
+        assert r.returncode == 1, r.stdout
+        assert r.stdout.count("BLOCK[ai-self-narration]") == 1, r.stdout
+
+    def test_an_indented_continuation_line_is_still_a_hit(self, tmp_path):
+        # The tier patterns are spelled with one literal space, so the wrap's
+        # own whitespace has to be normalized into the join for an indented
+        # continuation line to read as the next word.
+        repo, rng = _repo_with_push_range(
+            tmp_path, "docs/notes.md",
+            f"the mount order changed and {self.WRAP_HEAD}\n"
+            f"      {self.WRAP_TAIL}\n")
+        r = _scan(repo, rng)
+        assert r.returncode == 1, r.stdout
+        assert "BLOCK[ai-self-narration]" in r.stdout
+
+    def test_a_blank_line_breaks_the_run(self, tmp_path):
+        repo, rng = _repo_with_push_range(
+            tmp_path, "docs/notes.md",
+            f"the mount order changed and {self.WRAP_HEAD}\n\n{self.WRAP_TAIL}\n")
+        r = _scan(repo, rng)
+        assert r.returncode == 0, r.stdout
+        assert "BLOCK" not in r.stdout
+
+    def test_a_commit_subject_does_not_join_its_body(self, tmp_path):
+        # The blank line between a subject and its body breaks the run, so a
+        # phrase spanning the two is not matched.
+        repo, rng = _repo_with_push_range(tmp_path, "docs/clean.md",
+                                          CLEAN_LINE + "\n")
+        subprocess.run(
+            ["git", "commit", "-q", "--allow-empty", "-m",
+             f"chore: the mount order changed and {self.WRAP_HEAD}\n\n"
+             f"{self.WRAP_TAIL}\n"],
+            cwd=repo, check=True)
+        r = _scan(repo, rng.split("..")[0] + "..HEAD")
+        assert r.returncode == 0, r.stdout
+
+    def test_two_innocent_words_wrapped_pass(self, tmp_path):
+        repo, rng = _repo_with_push_range(
+            tmp_path, "docs/notes.md",
+            "the loader reads the boot\nmanifest before the first mount\n")
+        r = _scan(repo, rng)
+        assert r.returncode == 0, r.stdout
+        assert "PASS" in r.stdout
