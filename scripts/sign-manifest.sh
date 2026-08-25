@@ -83,6 +83,23 @@ grep -qE '^SHA256 \(' "$MANIFEST" \
     || die "Manifest contains no SHA256 entries — refusing to sign empty manifest"
 ok "Manifest structurally valid (header + terminator + SHA256 entries present)"
 
+# Lock pre-flight BEFORE the card check, because a lock GnuPG will not break
+# makes every gpg call wait without a bound — including the card check below,
+# which then looks exactly like an absent token and sends the operator to the
+# USB port instead of to the lock file. Measured on this project's signing
+# workstation: a lock left by the machine's previous install, naming a host
+# name this machine no longer has, stalled a ceremony that way.
+SM_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$SM_SCRIPT_DIR/lib-gnupg-lock-preflight.sh" ]]; then
+    # shellcheck disable=SC1090
+    source "$SM_SCRIPT_DIR/lib-gnupg-lock-preflight.sh"
+    gnupg_lock_preflight "${GNUPGHOME:-$HOME/.gnupg}" 0 \
+        || die "GnuPG lock pre-flight refused — see the lock(s) named above. Nothing was signed and nothing was deleted."
+    ok "GnuPG lock pre-flight clear"
+else
+    echo "note: lib-gnupg-lock-preflight.sh not found beside this script; lock states are unchecked" >&2
+fi
+
 # GPG side: --card-status lists the OpenPGP card if connected + readable.
 if ! gpg --card-status >/dev/null 2>&1; then
     die "Nitrokey 3 OpenPGP applet not detected. Check USB. (gpg --card-status to debug.)"

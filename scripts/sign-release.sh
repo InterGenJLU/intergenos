@@ -142,6 +142,23 @@ if [[ ${#_uki_check[@]} -gt 0 ]] || [[ -f "$ARTIFACTS/grubx64.efi" ]]; then
 fi
 unset _uki_check
 
+# -------- GnuPG lock pre-flight --------
+# Runs before the token check on purpose. A lock GnuPG will not break makes
+# every gpg call wait without a bound, and the first gpg call here is the token
+# check — so the stall is reported as a missing token and the operator goes to
+# the USB port instead of to the lock file. Measured on this project's signing
+# workstation: a lock left by the machine's previous install, naming a host
+# name this machine no longer has, stalled a ceremony exactly that way.
+echo "[*] checking GnuPG lock state"
+if [ -f "$SR_SCRIPT_DIR/lib-gnupg-lock-preflight.sh" ]; then
+    # shellcheck disable=SC1090
+    . "$SR_SCRIPT_DIR/lib-gnupg-lock-preflight.sh"
+    gnupg_lock_preflight "${GNUPGHOME:-$HOME/.gnupg}" 0 \
+        || die "GnuPG lock pre-flight refused — see the lock(s) named above; nothing was signed and nothing was deleted" 1
+else
+    echo "note: lib-gnupg-lock-preflight.sh not found beside this script; lock states are unchecked" >&2
+fi
+
 # -------- token presence check --------
 # GPG side: gpg --card-status lists the token if connected + readable.
 # If the card is missing we want to fail before we touch any artifact.

@@ -141,7 +141,9 @@ H="$(new_home case1)"
 BIN="${WORK}/bin"
 mkdir -p "${BIN}"
 cp /bin/sh "${BIN}/keyboxd"
-DPID="$(start_bg "${BIN}/keyboxd" -c 'sleep 900' keyboxd --homedir "${H}" --daemon)"
+# Two commands, not one: a shell given a single command execs it and loses its
+# own command line, which is exactly the thing under test here.
+DPID="$(start_bg "${BIN}/keyboxd" -c 'sleep 900; true' keyboxd --homedir "${H}" --daemon)"
 sleep 0.3
 plant_lock "${H}" pubring.kbx "${DPID}" "${NODE}"
 RC="$(run_preflight "${H}" 0)"

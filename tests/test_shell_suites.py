@@ -99,6 +99,8 @@ KNOWN_SUITES = (
     "tests/build-logging/test_progress_and_stream.sh",
     "tests/check-aspirational-stubs/run-tests.sh",
     "tests/check-public-content/run-tests.sh",
+    "tests/gnupg-locks/test_lock_preflight.sh",
+    "tests/gpg-card-setup/test_config_save_restore.sh",
     "tests/kernel-retention/test_fallback_quarantine.sh",
     "tests/kernel-retention/test_prune_old_kernels.sh",
     "tests/kernel-retention/test_single_kernel_gate.sh",

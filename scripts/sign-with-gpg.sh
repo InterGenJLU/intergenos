@@ -7,6 +7,9 @@
 #
 # Phases:
 #   0. Pre-flight: target file present + sha256 matches expected (if given).
+#   0b. Lock pre-flight: classify the lock files in the GnuPG home before any
+#      daemon is touched, and refuse the shapes that would leave gpg waiting
+#      with the token in the operator's hand (see lib-gnupg-lock-preflight.sh).
 #   1. Daemon setup via sourced library (Class A/B detection: pcscd-based
 #      vs scdaemon built-in CCID; pinentry-tty config; pubkey import + own-
 #      ertrust + secret-key stub via gpg --card-status).
@@ -17,7 +20,8 @@
 #
 # Usage:
 #   bash sign-with-gpg.sh --file <path> [--sha256 <hex>] [--key <fpr>]
-#                         [--out <path>] [--dry-run] [--debug] [--help]
+#                         [--out <path>] [--clear-stale-locks] [--dry-run]
+#                         [--debug] [--help]
 #
 # --file <path>     REQUIRED. File to sign.
 # --sha256 <hex>    Optional. Expected SHA256 of the file; pre-flight rejects
@@ -26,6 +30,12 @@
 #                   spaces). Default: 5597A3E0587B253006D0DD7B8C50826182083050
 #                   (project master per docs/signing-key.md).
 # --out <path>      Optional. Output sig file path. Default: <file>.asc.
+# --clear-stale-locks
+#                   Optional. Remove lock files in the GnuPG home whose
+#                   owning process is dead AND which were recorded on this
+#                   same machine. Nothing else is ever removed: a lock held
+#                   by a running process, and a lock naming another machine,
+#                   are refused and left exactly where they are.
 # --dry-run         Pre-flight + library setup-init in DRY mode. No signing.
 #                   Use FIRST to validate before the real run.
 # --debug           Verbose tracing to ~/tmp/sign-with-gpg.debug.log
@@ -36,6 +46,8 @@
 # Pre-conditions (script refuses to run if any fail):
 #   - --file points at a readable regular file.
 #   - If --sha256 is given, it matches the file's sha256.
+#   - No lock in the GnuPG home is held by a live process other than that
+#     home's own GnuPG daemons, and none names a different machine.
 #   - Nitrokey (or other smartcard) present + master signing subkey in keyring
 #     (the library will fetch the pubkey + create the secret-key stub if not).
 #
@@ -50,6 +62,9 @@ set -euo pipefail
 DEFAULT_KEY_FINGERPRINT="5597A3E0587B253006D0DD7B8C50826182083050"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_PATH="${SCRIPT_DIR}/lib-gpg-card-setup.sh"
+LOCK_LIB_PATH="${SCRIPT_DIR}/lib-gnupg-lock-preflight.sh"
+# The home gpg will actually use, resolved the way gpg resolves it.
+GNUPG_HOME_PATH="${GNUPGHOME:-${HOME}/.gnupg}"
 DEBUG_LOG="${HOME}/tmp/sign-with-gpg.debug.log"
 
 # Per-invocation args (set during parsing)
@@ -61,6 +76,7 @@ OUT_PATH=""
 # Flags
 DRY_RUN=0
 DEBUG=0
+CLEAR_STALE_LOCKS=0
 
 # ============================================================
 # USAGE
@@ -68,7 +84,8 @@ DEBUG=0
 usage() {
     cat <<EOF
 Usage: $(basename "$0") --file <path> [--sha256 <hex>] [--key <fpr>]
-                       [--out <path>] [--dry-run] [--debug] [--help]
+                       [--out <path>] [--clear-stale-locks] [--dry-run]
+                       [--debug] [--help]
 
 Produces a detached OpenPGP signature over an arbitrary file using the
 operator's hardware-rooted master signing key.
@@ -80,6 +97,10 @@ operator's hardware-rooted master signing key.
                     Default: ${DEFAULT_KEY_FINGERPRINT}
                     (project master per docs/signing-key.md)
   --out <path>      Optional. Output sig file path. Default: <file>.asc
+  --clear-stale-locks
+                    Remove locks in the GnuPG home whose owning process is
+                    dead and which were recorded on this machine. A live
+                    lock, and another machine's lock, are never removed.
   --dry-run         Pre-flight + library setup-init in DRY mode. No signing.
   --debug           Verbose tracing to ${DEBUG_LOG}.
   --help            This usage text.
@@ -106,6 +127,7 @@ while [[ $# -gt 0 ]]; do
         --out)
             [[ $# -ge 2 ]] || { echo "Error: --out requires a path argument." >&2; exit 2; }
             OUT_PATH="${2}"; shift 2 ;;
+        --clear-stale-locks) CLEAR_STALE_LOCKS=1; shift ;;
         --dry-run) DRY_RUN=1; shift ;;
         --debug)   DEBUG=1; shift ;;
         --help|-h) usage; exit 0 ;;
@@ -163,6 +185,8 @@ if [[ "${DEBUG}" == "1" ]]; then
         echo "OUT_PATH=${OUT_PATH}"
         echo "KEY_FINGERPRINT=${KEY_FINGERPRINT}"
         echo "EXPECTED_SHA256=${EXPECTED_SHA256:-<unset>}"
+        echo "GNUPG_HOME_PATH=${GNUPG_HOME_PATH}"
+        echo "CLEAR_STALE_LOCKS=${CLEAR_STALE_LOCKS}"
     } > "${DEBUG_LOG}"
 fi
 
@@ -174,6 +198,8 @@ banner "Phase 0/5: Pre-flight (library presence / target file / sha256)"
 # Library file presence check
 [[ -f "${LIB_PATH}" ]] || die "Library missing at ${LIB_PATH}. Expected sibling of this script."
 ok "Library present: ${LIB_PATH}"
+[[ -f "${LOCK_LIB_PATH}" ]] || die "Lock pre-flight library missing at ${LOCK_LIB_PATH}. Expected sibling of this script."
+ok "Lock pre-flight library present: ${LOCK_LIB_PATH}"
 
 # Target file presence
 [[ -f "${FILE_PATH}" ]] || die "Target file does not exist or is not a regular file: ${FILE_PATH}"
@@ -189,6 +215,23 @@ if [[ -n "${EXPECTED_SHA256}" ]]; then
 else
     debug "no --sha256 given; skipping byte-fidelity check"
 fi
+
+# ============================================================
+# PHASE 0b/5: GNUPG LOCK PRE-FLIGHT
+# ============================================================
+# Runs BEFORE the setup library, because that library stops and restarts
+# gpg-agent and scdaemon. Whatever is holding a lock should be named while it
+# is still there to name, and the run should stop here rather than at a PIN
+# prompt that never arrives.
+banner "Phase 0b/5: GnuPG lock pre-flight (${GNUPG_HOME_PATH})"
+
+# shellcheck disable=SC1090
+source "${LOCK_LIB_PATH}"
+
+if ! gnupg_lock_preflight "${GNUPG_HOME_PATH}" "${CLEAR_STALE_LOCKS}"; then
+    die "GnuPG lock pre-flight refused. Resolve the lock(s) named above, then run again. Nothing was signed and nothing was deleted."
+fi
+ok "Lock pre-flight clear"
 
 # ============================================================
 # PHASE 1/5: GPG SMARTCARD SETUP (via library)
