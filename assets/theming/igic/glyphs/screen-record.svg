@@ -1,6 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
-  <!-- glyph: media-record (R7-2) — the screen+mark motif adopted at the R6-4 walk (the operator
-       ruled the bare solid dot out; a monitor makes "screen recording" legible). A stroked monitor
+  <!-- glyph: media-record (R7-2) — the screen+mark motif adopted at the R6-4 walk (decided
+       2026-07-22: a bare solid dot is not used; a monitor makes "screen recording" legible).
+       A stroked monitor
        (screen bezel + stand + base) with a FILLED record dot centred in the screen via
        <g class="fill">. Compositor strokes the monitor + fills the dot in the foreground NAME, so
        the shell's live-recording RED recolor still applies. Geometry from the R6-4 comparison sheet. -->
