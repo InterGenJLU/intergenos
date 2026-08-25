@@ -363,12 +363,10 @@ def find_orphan_hook_scripts(project_root: Path,
 # the specific filename is suspicious; the gate trusts the base-system
 # coverage here.
 #
-# Trade-off: a reference like /usr/bin/foo-nonexistent will be marked OK
-# if /usr/bin/ is a known-system prefix. The trade-off is intentional —
-# every package that ships a /usr/bin/* binary already declares it in
-# verify_paths (Rule 20), so the cross-check against verify_paths catches
-# the real cases. Known-system prefixes catch "kernel-side", "always-there"
-# paths that no single package owns.
+# These prefixes own what is beneath them. That is why /usr/bin, /usr/sbin,
+# /usr/lib and /lib64 are NOT here: a made-up binary under any of them is
+# precisely the class this gate exists to refuse, and a prefix rule would
+# resolve it. Only locations no single package owns belong in this set.
 # ---------------------------------------------------------------------------
 KNOWN_SYSTEM_PATHS: set[str] = {
     # Kernel + /proc + /sys + /dev — kernel-managed, never package-shipped.
@@ -380,7 +378,7 @@ KNOWN_SYSTEM_PATHS: set[str] = {
     # in linux kernel package's verify_paths but as version-suffixed paths.
     "/boot",
     # Mount points + chroot conventions.
-    "/mnt", "/media", "/srv", "/opt", "/home", "/root",
+    "/mnt", "/media", "/srv", "/home", "/root",
     # /etc subtrees that are runtime-populated (drop-ins, user config).
     "/etc/intergenos", "/etc/sudoers.d", "/etc/cron.d", "/etc/cron.daily",
     "/etc/cron.hourly", "/etc/cron.weekly", "/etc/cron.monthly",
@@ -400,6 +398,20 @@ KNOWN_SYSTEM_PATHS: set[str] = {
     # before handing off to systemd. Sibling /sysroot is the systemd-
     # standard equivalent path used by other initramfs flavors.
     "/newroot", "/sysroot",
+}
+
+# ---------------------------------------------------------------------------
+# Known system DIRECTORIES — known as themselves, owning nothing beneath them.
+#
+# /opt is FHS-standard and no package owns it, so a reference to /opt itself is
+# not a stub. What lives under it IS owned: /opt/rocm, /opt/cuda and the
+# vendor-exception packages install there and declare what they install. Treating
+# /opt as a prefix meant any invented vendor path resolved as "system-path" — a
+# whole tree the gate could not refuse anything in. A path under /opt now goes
+# through the same file-entry rule as everything else.
+# ---------------------------------------------------------------------------
+KNOWN_SYSTEM_DIRECTORIES: set[str] = {
+    "/opt",
 }
 
 # Base-system binaries shipped by core packages (bash-core, coreutils-core,
@@ -499,9 +511,18 @@ def normalize_path(raw: str) -> str:
 
 
 def is_known_system(path: str) -> bool:
-    """Return True if the path is under a known-system prefix or matches
-    a known-system binary."""
+    """Return True if the path is a known-system location.
+
+    Three ways, and the difference between them is the point:
+      * a known-system BINARY, matched exactly;
+      * a known-system DIRECTORY, matched exactly and owning nothing beneath
+        it (/opt is FHS-standard; /opt/vendor/thing is somebody's package);
+      * a known-system PREFIX, which does own what is beneath it — the
+        kernel-managed and runtime-created trees no package ships.
+    """
     if path in KNOWN_SYSTEM_BINARIES:
+        return True
+    if path in KNOWN_SYSTEM_DIRECTORIES:
         return True
     for prefix in KNOWN_SYSTEM_PATHS:
         if path == prefix or path.startswith(prefix + "/"):
@@ -753,18 +774,21 @@ def path_resolves(
     / allowlist / citing-package tag."""
     if path in allowlist:
         return (True, "allowlist")
-    # Direct + UsrMerge sibling matches.
+    # A verify_paths entry resolves the path it names, and its UsrMerge twin.
+    # It does NOT resolve what sits beneath it.
+    #
+    # It used to. Any entry was treated as a directory owning its whole subtree,
+    # and base-files legitimately declares the merged-usr compat directories
+    # /bin, /lib, /sbin and /lib64 — which through the sibling rule made those
+    # four entries the owners of everything in /usr/bin, /usr/sbin, /usr/lib and
+    # /lib64. An invented binary under any of them resolved as "base-files
+    # (parent dir)", so the gate could not refuse the single most likely shape
+    # of the thing it exists to refuse (Rule 21). A claim on a file is now
+    # answered by an entry naming that file, by the citing package's own build,
+    # or by an allowlist line with a reason — never by a directory above it.
     for candidate in usrmerge_siblings(path):
         if candidate in owners:
             return (True, owners[candidate])
-    # Match a verify_paths entry that is a directory ancestor of path.
-    # Some verify_paths declarations name a directory (e.g. /usr/lib/firmware/amdgpu);
-    # files under that directory are considered owned. Check UsrMerge siblings
-    # for the parent-dir case too.
-    for candidate in usrmerge_siblings(path):
-        for owned, pkg in owners.items():
-            if candidate.startswith(owned + "/"):
-                return (True, f"{pkg} (parent dir)")
     if is_known_system(path):
         return (True, "system-path")
     # Citing-package-owned check (USA-1 B17 walk, 2026-05-22): a cited
