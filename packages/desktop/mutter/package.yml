@@ -1,6 +1,6 @@
 name: mutter
 version: '49.4'
-release: 1
+release: 2  # r2: a failed device reopen no longer destroys the KMS state of a graphics card that drives no display. A card with nothing connected to it runtime suspends, and this compositor holds no file descriptor on an idle device it is not using, so it must reopen the device when the driver announces the resume. The session manager answered the first reopen with a refusal while it was still processing the same device event, and that refusal was being treated as evidence the device had changed: the device's planes, CRTCs and connectors were freed and a full resource change reported, which made the monitor manager rebuild every monitor configuration on the machine - windows moved to the primary monitor and monitor-bound backgrounds were re-created. A new declared patch, build/patches/mutter-49.4-headless_device_reopen_keeps_state-1.patch, retries the reopen in short steps for up to 100 ms - the retry that succeeded came 17.0 ms and 18.2 ms after the failure in two recorded occurrences - and, if it still fails, keeps the previous state and reports no change for a device with no connected connector. A device with a connected connector keeps today's behaviour, because a real hotplug on a card that drives a display must still be honoured. Proven: the patch applies to the pristine 49.4 source, the tree builds with it, and the patched file produces exactly the five compiler warnings the unpatched file produces and no others. Not proven: the behaviour on an installed system - that is an install away.
 description: GNOME window manager and Wayland compositor
 license: GPL-2.0-or-later
 homepage: https://gitlab.gnome.org/GNOME/mutter
@@ -64,6 +64,25 @@ dependencies:
   - glib2
   - gnome-settings-daemon
   - argcomplete
+# The display-wakeup patch, added 2026-08-25. A graphics card that drives no
+# display runtime suspends, and the compositor, which holds no file descriptor on
+# an idle device it is not using, must reopen it when the driver announces the
+# resume. A transient refusal from the session manager was being treated as
+# evidence that the device had changed, which rebuilt every monitor
+# configuration on the machine. The builder applies the declaration and verifies
+# this hash before it does.
+patches:
+  - file: mutter-49.4-headless_device_reopen_keeps_state-1.patch
+    sha256: d1e1c360cd67f32a6088103d1000e2c9fcd56f47d318c78e962a071b66dfe3de
+
+# The patch lives in the canonical build/patches directory, which
+# build-source-archives.py does not bundle on its own: it collects a recipe's
+# OWN patches/ directory. Without this entry the published corresponding source
+# would not carry the patch and could not rebuild the published binary. The
+# kernel recipes carry the same kind of entry for the same reason.
+sources_extra:
+- build/patches/mutter-49.4-headless_device_reopen_keeps_state-1.patch
+
 verify_paths:
   - /usr/bin/mutter
   - /usr/bin/gdctl

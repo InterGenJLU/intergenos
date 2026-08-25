@@ -1,0 +1,133 @@
+Subject: [PATCH] native: a failed device reopen must not destroy the KMS state of a headless device
+
+This is an InterGenOS patch. It is not an upstream commit and it is not
+carried by mutter 49.4.
+
+meta_kms_impl_device_update_states() reopens the device file when it has
+none, and treats a failure to reopen as a reason to free the device's
+planes, CRTCs and connectors and return META_KMS_RESOURCE_CHANGE_FULL. The
+monitor manager reads that as "everything about this device changed" and
+rebuilds the whole monitor configuration: windows are re-placed on the
+primary monitor and monitor-bound backgrounds are re-created.
+
+The reopen can fail for a reason that has nothing to do with the device.
+Measured on a workstation with three graphics cards, one of which drives no
+display and serves compute work: that card runtime suspends five seconds
+after its last client closes it, and the next client to open its render node
+resumes it. The driver announces the resume as a device change, so the
+compositor - which holds no file descriptor on an idle device it is not
+using - tries to reopen it. The session manager answered the first TakeDevice
+with "Permission denied" while it was still processing the same device event,
+and answered the next one, 17.0 ms and 18.2 ms later in two recorded
+occurrences, successfully. The first failure had already cost the user the
+desktop layout.
+
+Two changes, both narrow:
+
+  * retry the reopen in 10 ms steps for up to 100 ms, so a transient refusal
+    is waited out instead of being taken as fact. A reopen that works costs
+    nothing; the budget bounds the stall.
+
+  * if it still cannot be reopened, ask whether any connector on this device
+    is connected. If none is, there is no monitor configuration to rebuild:
+    keep the planes, CRTCs and connectors, say so in the warning, and return
+    META_KMS_RESOURCE_CHANGE_NONE. A device with a connected connector keeps
+    today's behaviour, because a real hotplug on a device that drives a
+    display must still be honoured.
+
+Signed-off-by: InterGenJLU <InterGenJLU@users.noreply.github.com>
+---
+--- a/src/backends/native/meta-kms-impl-device.c
++++ b/src/backends/native/meta-kms-impl-device.c
+@@ -332,6 +332,64 @@
+   return TRUE;
+ }
+ 
++/*
++ * The session manager can answer TakeDevice with "Permission denied" while it is
++ * still processing the same device event that made us reopen, and the next
++ * attempt succeeds. Measured on a reproduction of the runtime-resume path: the
++ * attempt that succeeded came 17.0 ms and 18.2 ms after the one that failed.
++ * Wait in short steps so a normal reopen costs nothing, and give up after the
++ * budget rather than block the KMS thread indefinitely.
++ */
++#define REOPEN_RETRY_INTERVAL_US (10 * 1000)
++#define REOPEN_RETRY_BUDGET_US (100 * 1000)
++
++static gboolean
++ensure_device_file_with_retry (MetaKmsImplDevice  *impl_device,
++                               GError            **error)
++{
++  MetaKmsImplDevicePrivate *priv =
++    meta_kms_impl_device_get_instance_private (impl_device);
++  unsigned int waited_us = 0;
++
++  if (ensure_device_file (impl_device, error))
++    return TRUE;
++
++  while (waited_us < REOPEN_RETRY_BUDGET_US)
++    {
++      g_clear_error (error);
++      g_usleep (REOPEN_RETRY_INTERVAL_US);
++      waited_us += REOPEN_RETRY_INTERVAL_US;
++
++      if (ensure_device_file (impl_device, error))
++        {
++          meta_topic (META_DEBUG_KMS,
++                      "Reopening '%s' succeeded after %u ms",
++                      priv->path, waited_us / 1000);
++          return TRUE;
++        }
++    }
++
++  return FALSE;
++}
++
++static gboolean
++has_connected_connector (MetaKmsImplDevice *impl_device)
++{
++  MetaKmsImplDevicePrivate *priv =
++    meta_kms_impl_device_get_instance_private (impl_device);
++  GList *l;
++
++  for (l = priv->connectors; l; l = l->next)
++    {
++      MetaKmsConnector *connector = l->data;
++
++      if (meta_kms_connector_get_current_state (connector))
++        return TRUE;
++    }
++
++  return FALSE;
++}
++
+ gboolean
+ meta_kms_impl_device_lease_objects (MetaKmsImplDevice  *impl_device,
+                                     GList              *connectors,
+@@ -1138,8 +1196,25 @@
+   meta_topic (META_DEBUG_KMS, "Updating device state for %s", priv->path);
+ 
+   had_fd_open = !!priv->device_file;
+-  if (!ensure_device_file (impl_device, &error))
++  if (!ensure_device_file_with_retry (impl_device, &error))
+     {
++      /*
++       * Losing the device file is not evidence that the device changed. Tearing
++       * the state down here returns META_KMS_RESOURCE_CHANGE_FULL, and the
++       * monitor manager then rebuilds every monitor configuration on the
++       * machine - windows move and backgrounds are re-created. A device with no
++       * connected connector has no configuration worth rebuilding, and a device
++       * that is resumed by a client that only renders on it produces exactly
++       * this event, so keep what is known and report no change.
++       */
++      if (!has_connected_connector (impl_device))
++        {
++          g_warning ("Failed to reopen '%s': %s; keeping the last known state "
++                     "because no connector on this device is connected",
++                     priv->path, error->message);
++          return META_KMS_RESOURCE_CHANGE_NONE;
++        }
++
+       g_warning ("Failed to reopen '%s': %s", priv->path, error->message);
+       goto err;
+     }

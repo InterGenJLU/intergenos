@@ -1,0 +1,116 @@
+Subject: [PATCH] drm/amdgpu: on a runtime resume, report a hotplug only if a connector changed
+
+This is an InterGenOS patch. It is not an upstream commit and it is not
+carried by linux-6.18.10.
+
+amdgpu_device_resume() sends a hotplug event unconditionally on the DC
+path. A runtime resume is not a hotplug: a graphics card that drives no
+display is resumed by whatever opens its render node, and the event that
+followed made every compositor on the machine re-probe its outputs and
+rebuild its monitor configuration although no connector had changed.
+Measured on a two-card workstation running 6.18.10: the card that serves
+compute work runtime-suspends five seconds after its last client closes
+it, and each subsequent open produced two change uevents carrying
+HOTPLUG=1 for a card with nothing connected to it. The compositor driving
+the other card then reopened its own device, and a transient failure in
+that reopen cost the user the whole desktop layout.
+
+Upstream posted a fix for this class in December 2021 - Alex Deucher,
+"drm/amdgpu: disable hotplug events on runtime pm resume", which skipped
+both calls when adev->in_runpm was set. It was never merged. What was
+merged instead is commit 4020c2280233 ("drm/amdgpu: don't runtime suspend
+if there are displays attached (v3)"), which refuses to runtime suspend a
+card that has a display connected, and says why in its own comment, still
+present in 6.18.10 in amdgpu_runtime_idle_check_display():
+
+	/* XXX: Return busy if any displays are connected to avoid
+	 * possible display wakeups after runtime resume due to
+	 * hotplug events in case any displays were connected while
+	 * the GPU was in suspend.  Remove this once that is fixed.
+	 */
+
+So the display-attached case is covered by not suspending at all, and the
+underlying behaviour was left in place with a note asking for it to be
+fixed. A card with no display attached is exactly the card that guard
+allows to suspend, and it is the case that still emits the spurious event.
+
+Suppressing the event outright would lose a real hotplug: a display
+connected while the card was suspended raises no interrupt, and the event
+on resume is what tells user space to look. So ask the connectors instead.
+On a runtime resume, probe each connector and send the event only when a
+connector's epoch counter moved, which is the same test
+drm_helper_hpd_irq_event() applies. A display connected during the suspend
+still produces an event, because the probe sees it.
+
+Only the DC path is changed. The non-DC path already calls
+drm_helper_hpd_irq_event(), which probes before it reports, so it never
+had this defect. drm_helper_hpd_irq_event() cannot be used for the DC path:
+it returns early unless dev->mode_config.poll_enabled is set, and the DC
+display block never calls drm_kms_helper_poll_init(), so on DC hardware it
+would report nothing at all - a silent suppression rather than a decision.
+
+The probe runs inside the existing power.disable_depth bracket, which the
+surrounding comment says exists so that connector probing from a runtime PM
+callback does not deadlock on runtime PM references.
+
+Signed-off-by: InterGenJLU <InterGenJLU@users.noreply.github.com>
+---
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -5283,6 +5283,47 @@
+ }
+ 
+ /**
++ * amdgpu_device_hotplug_event_if_changed - report a hotplug only when one happened
++ *
++ * @dev: drm dev pointer
++ *
++ * A runtime resume is not a hotplug. The device is woken by whatever opens it,
++ * which on a card that drives no display is any render client, and the
++ * unconditional hotplug event sent afterwards makes user space re-probe and
++ * rebuild the whole monitor configuration although no connector changed. The
++ * driver already carries this reading in amdgpu_runtime_idle_check_display(),
++ * which refuses to runtime suspend a GPU with a display attached "to avoid
++ * possible display wakeups after runtime resume due to hotplug events" and asks
++ * for the underlying behaviour to be fixed.
++ *
++ * Ask the connectors instead and report only a real change. A display connected
++ * while the device was suspended still produces an event, because the probe
++ * sees it. Only the DC path needs this; the non-DC path already goes through
++ * drm_helper_hpd_irq_event(), which probes before it reports.
++ */
++static void amdgpu_device_hotplug_event_if_changed(struct drm_device *dev)
++{
++	struct drm_connector_list_iter iter;
++	struct drm_connector *connector;
++	bool changed = false;
++
++	mutex_lock(&dev->mode_config.mutex);
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
++		u64 old_epoch_counter = connector->epoch_counter;
++
++		connector->status = drm_helper_probe_detect(connector, NULL, false);
++		if (connector->epoch_counter != old_epoch_counter)
++			changed = true;
++	}
++	drm_connector_list_iter_end(&iter);
++	mutex_unlock(&dev->mode_config.mutex);
++
++	if (changed)
++		drm_kms_helper_hotplug_event(dev);
++}
++
++/**
+  * amdgpu_device_resume - initiate device resume
+  *
+  * @dev: drm dev pointer
+@@ -5378,6 +5419,8 @@
+ #endif
+ 		if (!adev->dc_enabled)
+ 			drm_helper_hpd_irq_event(dev);
++		else if (adev->in_runpm)
++			amdgpu_device_hotplug_event_if_changed(dev);
+ 		else
+ 			drm_kms_helper_hotplug_event(dev);
+ #ifdef CONFIG_PM
