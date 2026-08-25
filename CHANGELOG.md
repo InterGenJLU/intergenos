@@ -76,6 +76,20 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **A graphics card waking up no longer rebuilds the desktop.** On a machine
+  with a card that drives no display — a second card serving compute work — the
+  card powers down when nothing is using it and wakes when something opens it.
+  Each wake was announced as a display hotplug even though nothing was plugged
+  in or out, and the compositor, which had released that card's device file,
+  could be refused once when it reopened it and treated the refusal as proof the
+  card had changed. Windows were moved to the primary monitor and desktop
+  backgrounds were re-created. Two patches fix it: the kernel now probes the
+  connectors on a wake and reports only a real change, so a display connected
+  while the card slept is still detected; and the compositor retries a refused
+  reopen and, if it still fails on a card with no display attached, keeps what it
+  knows instead of discarding the monitor configuration. Proven to apply and
+  build against the shipped sources; the behaviour is proven by an install.
+
 - **An upgrade that was abandoned reports it.** Three paths in the package
   manager's upgrade loop gave up on a package and moved on without recording
   anything: a dependency the new release introduces that could not be resolved,
