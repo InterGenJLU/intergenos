@@ -354,10 +354,6 @@ class RangeScanTests(unittest.TestCase):
         self.assertEqual(clg.scan_range("HEAD~1..HEAD", ct, self.repo), [])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class DigitSuffixTests(unittest.TestCase):
     """A coined seat identifier followed by digits escaped the gate.
 
@@ -599,3 +595,117 @@ class RealListWrappedTermTests(unittest.TestCase):
             if not clg.scan_line(f"the note said {bare} plainly", ct):
                 missed.append(len(bare))
         self.assertEqual(missed, [], f"single-line hits lost: {missed}")
+
+
+# --- guards on the file itself, and on the shape of the path-scoped list ------
+
+_DIRECT_RUN_PROBE_ENV = "IGOS_PUBLIC_LANGUAGE_DIRECT_RUN_PROBE"
+
+
+def _test_methods_declared_in_this_file():
+    """Every test method this file declares, found by reading the source.
+
+    Read with ``ast`` rather than by importing, so the count is what the FILE
+    contains and not what any particular runner happened to collect — which is
+    the whole point of the two tests below.
+    """
+    import ast
+
+    tree = ast.parse(Path(__file__).read_text(encoding="utf-8"))
+    names = []
+    for node in tree.body:
+        if not isinstance(node, ast.ClassDef):
+            continue
+        bases = {ast.unparse(b) for b in node.bases}
+        if not {"unittest.TestCase", "TestCase"} & bases:
+            continue
+        for item in node.body:
+            if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) \
+                    and item.name.startswith("test"):
+                names.append(f"{node.name}.{item.name}")
+    return names
+
+
+class DirectRunCollectionTests(unittest.TestCase):
+    """``python3 <this file>`` must run everything the file declares.
+
+    Measured 2026-08-25: it ran 26 of 46 and printed OK, because the
+    ``if __name__ == "__main__"`` block sat in the middle of the file and four
+    test classes were defined after it. ``unittest.main()`` collects what is
+    bound at the moment it is called, so anything below the block does not
+    exist yet. A partial run that reports success is worse than no run: it is a
+    green light for tests that were never executed.
+
+    These two tests fail if that block is ever moved back up, or if any code is
+    placed after it.
+    """
+
+    def _run_this_file_directly(self, *extra):
+        import os
+        import sys
+
+        env = dict(os.environ)
+        env[_DIRECT_RUN_PROBE_ENV] = "1"      # stops the child recursing
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+        return subprocess.run(
+            [sys.executable, str(Path(__file__).resolve()), *extra],
+            capture_output=True, text=True, env=env, timeout=300,
+        )
+
+    def _skip_if_child(self):
+        import os
+
+        if os.environ.get(_DIRECT_RUN_PROBE_ENV) == "1":
+            self.skipTest("child of the direct-run probe; it must not spawn another")
+
+    def test_a_direct_run_executes_every_test_declared_in_this_file(self):
+        self._skip_if_child()
+        declared = _test_methods_declared_in_this_file()
+        proc = self._run_this_file_directly()
+        m = re.search(r"^Ran (\d+) tests?", proc.stderr, re.MULTILINE)
+        self.assertIsNotNone(
+            m, f"a direct run printed no summary line.\nstderr:\n{proc.stderr}")
+        ran = int(m.group(1))
+        self.assertEqual(
+            ran, len(declared),
+            f"a direct run of this file executed {ran} of the {len(declared)} "
+            f"tests it declares. Anything defined after the "
+            f'if __name__ == "__main__" block is never collected.')
+
+    def test_a_direct_run_names_every_test_class_in_this_file(self):
+        self._skip_if_child()
+        declared = _test_methods_declared_in_this_file()
+        classes = sorted({name.split(".")[0] for name in declared})
+        proc = self._run_this_file_directly("-v")
+        missing = [c for c in classes if f".{c}." not in proc.stderr]
+        self.assertEqual(
+            missing, [],
+            f"a direct run never reached these classes: {missing}. They are "
+            f'defined after the if __name__ == "__main__" block.')
+
+
+class PathScopedExemptionShapeTests(unittest.TestCase):
+    """Every path pattern in the path-scoped exemption list must be anchored.
+
+    The list is consulted with ``path_pat.search(path)``, which is UNANCHORED:
+    a pattern written without ``^`` and ``$`` matches anywhere inside a path,
+    so ``scripts/x[.]sh`` would also exempt ``vendor/scripts/x.sh``. An
+    exemption that widens itself silently is the wrong direction for a
+    fail-closed gate, and nothing in the code forces the anchors. This test
+    does.
+    """
+
+    def test_every_path_pattern_is_anchored_at_both_ends(self):
+        unanchored = []
+        for name, path_pat, _span_pat in clg._EXEMPT_SPAN_PATTERNS_BY_PATH:
+            src = path_pat.pattern
+            if not (src.startswith("^") and src.endswith("$")):
+                unanchored.append(name)
+        self.assertEqual(
+            unanchored, [],
+            "these path-scoped exemptions are matched with an unanchored "
+            f"search and would exempt any path CONTAINING them: {unanchored}")
+
+
+if __name__ == "__main__":
+    unittest.main()
