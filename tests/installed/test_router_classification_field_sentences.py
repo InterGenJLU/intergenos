@@ -8,9 +8,9 @@ comes back as a refusal or an invented answer. Classification accuracy is theref
 not one quality measure among several — it bounds what the assistant can do at all.
 
 WHAT IS MEASURED. Each of the nineteen sentences is put through the SHIPPED
-deterministic layers, in the order the shipped matcher uses them: the keyword layer
-first, then the embedding layer against the SHIPPED intent corpus using the REAL
-embedding server this machine runs. For each sentence the gate records the verdict
+deterministic layers, in the order the shipped matcher uses them: Layer 0
+normalisation first, then the keyword layer, then the embedding layer against the
+SHIPPED intent corpus using the REAL embedding server this machine runs. For each sentence the gate records the verdict
 (recognised with a tool, or not a tool turn) and compares it with the verdict that
 sentence is owed.
 
@@ -100,11 +100,25 @@ def matcher(installed_intergen_dir):
 
 
 def _classify(m, sentence: str) -> tuple[str, str | None, str]:
-    """Return (verdict, tool, layer) using only the SHIPPED deterministic layers."""
-    kw = m._match_keywords(sentence)
+    """Return (verdict, tool, layer) using the SHIPPED deterministic layers.
+
+    LAYER 0 IS PART OF THE SHIPPED PATH AND WAS MISSING HERE. Corrected 2026-08-25.
+    ``SemanticMatcher.match`` normalises the query BEFORE the keyword layer sees it —
+    it strips bounded request-framing filler such as "can you" and "please" — and this
+    gate called ``_match_keywords`` on the RAW sentence, so it was measuring something
+    the product does not do. Measured on the released corpus: "can you update this
+    system for me?" normalises to "update this system for me?", which the shipped
+    manage_packages keyword takes; without normalisation the gate scored it as
+    unrecognised and reported 7/19 where the product path gives 8/19.
+
+    A gate that under-reports is as wrong as one that over-reports: it would have
+    credited a later change with a sentence the product already served.
+    """
+    query = m._normalize_input(sentence)
+    kw = m._match_keywords(query)
     if kw.intent_id:
         return "recognised", kw.tool_name, "keyword"
-    emb = m._match_embeddings(sentence)
+    emb = m._match_embeddings(query)
     if emb.intent_id:
         return "recognised", emb.tool_name, "embedding"
     return "not_a_tool_turn", None, "none"
@@ -154,9 +168,11 @@ def test_the_embedding_layer_recognises_at_least_one_field_sentence(matcher):
     sentences = _load_fixtures()
     recognised = []
     for entry in sentences:
-        if matcher._match_keywords(entry["sentence"]).intent_id:
+        # Layer 0 first, for the reason recorded in _classify above.
+        query = matcher._normalize_input(entry["sentence"])
+        if matcher._match_keywords(query).intent_id:
             continue  # the keyword layer took it; this gate is about the layer behind it
-        emb = matcher._match_embeddings(entry["sentence"])
+        emb = matcher._match_embeddings(query)
         if emb.intent_id:
             recognised.append((entry["index"], entry["sentence"], emb.intent_id, emb.score))
     assert recognised, (

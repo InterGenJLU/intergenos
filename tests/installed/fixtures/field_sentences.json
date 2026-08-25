@@ -8,8 +8,8 @@
       "index": 1,
       "sentence": "Hey, what's the current time?",
       "expected_verdict": "recognised",
-      "expected_tool": "system_info",
-      "rationale": "A live-data question about the machine's own clock. The keyword layer already catches it on R001.1; kept as a fixture so a corpus change cannot lose it."
+      "expected_tool": "run_command",
+      "rationale": "A live-data question about the machine's own clock. CORRECTED 2026-08-25: this entry previously declared expected_tool 'system_info', which is NOT A TOOL — the shipped tools are analyze_file, manage_packages, manage_services, open_application, read_file, run_command, take_screenshot, web_search and write_file. 'system_info' is an INTENT ID whose tool_name is deliberately run_command, with the command selector resolving this sentence to `date`. The gate compares against tool_name, so the old entry asked for something that could only be satisfied by inventing a tool. The keyword layer already routes this correctly; the fixture was wrong, not the product."
     },
     {
       "index": 2,
