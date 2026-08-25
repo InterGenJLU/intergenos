@@ -217,6 +217,43 @@ else
 fi
 
 # ------------------------------------------------------------
+# CASE 4b — clearing a stale lock must not damage a LIVE lock sitting in the
+# same directory. The two halves of a dotlock are matched by the pid in the
+# record file's name, so clearing "the record files in this directory" would
+# take a running daemon's record with it and leave that daemon's lock without
+# its other half.
+# ------------------------------------------------------------
+H="$(new_home case4b)"
+DPID2="$(start_bg "${BIN}/keyboxd" -c 'sleep 900; true' keyboxd --homedir "${H}" --daemon)"
+sleep 0.3
+plant_lock "${H}" pubring.kbx "${DPID2}" "${NODE}"
+XPID="$(dead_pid)"
+: > "${H}/trustdb.gpg"
+plant_lock "${H}" trustdb.gpg "${XPID}" "${NODE}"
+RC="$(run_preflight "${H}" 1)"
+check_rc 0 "${RC}" "clearing a stale lock beside a live one proceeds"
+if [[ -e "${H}/trustdb.gpg.lock" ]]; then
+    bad "the stale lock was not cleared"
+else
+    ok "the stale lock was cleared"
+fi
+if [[ -e "${H}/pubring.kbx.lock" ]]; then
+    ok "the live lock beside it was left in place"
+else
+    bad "the live lock beside it was removed"
+fi
+if [[ -e "${H}/.#lk0x00007f0000000000.${NODE}.${DPID2}" ]]; then
+    ok "the live lock's record file was left in place"
+else
+    bad "the live lock's record file was removed with the stale one"
+fi
+if [[ -e "${H}/.#lk0x00007f0000000000.${NODE}.${XPID}" ]]; then
+    bad "the stale lock's own record file was left behind"
+else
+    ok "the stale lock's own record file was removed"
+fi
+
+# ------------------------------------------------------------
 # CASE 5 — the clearing flag must NOT reach a live lock. This is the case that
 # separates "clear the stale ones" from "clear the lock files".
 # ------------------------------------------------------------
