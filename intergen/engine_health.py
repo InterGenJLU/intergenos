@@ -27,11 +27,30 @@ from __future__ import annotations
 import logging
 import threading
 from collections import deque
+from dataclasses import dataclass
 
 log = logging.getLogger(__name__)
 
 DEFAULT_WINDOW = 5
 DEFAULT_THRESHOLD = 3
+
+
+@dataclass(frozen=True)
+class TriggerSnapshot:
+    """What was true at the moment an escalation fired.
+
+    record() clears its rolling window when it triggers, and the handler runs
+    afterwards on another thread — so by the time anyone asks the monitor how
+    many flags are in the window, the honest answer is zero. An installed
+    machine printed exactly that: "sustained semantic-corruption flags (0 in the
+    recent five-generation window)", an alarm whose own number denies it. The
+    count that fired the alarm is kept here instead, with the threshold and
+    window it was measured against, so the report can state all three.
+    """
+
+    flagged: int
+    threshold: int
+    window: int
 
 
 def _thread_scheduler(fn) -> None:
@@ -54,6 +73,7 @@ class EngineHealthMonitor:
         self._recent: deque[bool] = deque(maxlen=window)
         self._cooldown = 0
         self._lock = threading.Lock()
+        self._last_trigger: TriggerSnapshot | None = None
 
     def record(self, flags) -> bool:
         """Record one served generation's flags (empty == clean). Returns True
@@ -68,6 +88,13 @@ class EngineHealthMonitor:
                 self._cooldown -= 1
             elif sum(self._recent) >= self._threshold:
                 trigger = True
+                # Captured BEFORE the clear below, which is what makes the
+                # report able to state the number that fired it.
+                self._last_trigger = TriggerSnapshot(
+                    flagged=sum(self._recent),
+                    threshold=self._threshold,
+                    window=self._window,
+                )
                 self._cooldown = self._window
                 self._recent.clear()
         if trigger:
@@ -79,5 +106,13 @@ class EngineHealthMonitor:
         return trigger
 
     def flagged_in_window(self) -> int:
+        """Flags in the window RIGHT NOW. Zero immediately after a trigger,
+        because the trigger clears the window — read last_trigger() for the
+        count that fired an escalation."""
         with self._lock:
             return sum(self._recent)
+
+    def last_trigger(self) -> TriggerSnapshot | None:
+        """The snapshot of the most recent escalation, or None if none fired."""
+        with self._lock:
+            return self._last_trigger

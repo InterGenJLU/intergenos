@@ -581,18 +581,34 @@ class InterGenDaemon(InterGenDBusInterface):
         if self._engine_health_flagged:
             # Already reported for this engine; do not re-emit on every window.
             return
-        flagged = (self._engine_health.flagged_in_window()
-                   if self._engine_health else -1)
-        msg = (f"sustained semantic-corruption flags ({flagged} in the recent "
-               f"five-generation window)")
+        # The count that FIRED this, not the count in the window now. The
+        # monitor clears its window on trigger and this handler runs afterwards
+        # on another thread, so asking for the live window printed "(0 in the
+        # recent five-generation window)" on a real user's machine — an alarm
+        # whose own number said nothing was wrong.
+        snap = (self._engine_health.last_trigger()
+                if self._engine_health else None)
+        if snap is None or snap.flagged < snap.threshold:
+            # Reached without a trigger at or above the threshold. Say so at
+            # WARNING and raise no alarm: a loud line that its own number
+            # contradicts costs the reader more than silence.
+            log.warning(
+                "engine-health escalation reached the daemon with no trigger "
+                "at or above its threshold (%s) — no alarm raised", snap)
+            return
+        msg = (f"{snap.flagged} of the last {snap.window} served generations "
+               f"were flagged (threshold {snap.threshold} of {snap.window})")
         self._engine_health_flagged = msg
-        log.error("ENGINE-HEALTH: %s — the served output is being flagged as "
-                  "incoherent. The engine has NOT been changed. If this box's "
-                  "GPU is the suspect, pin llama_server.gpu_layers to 0 to serve "
-                  "on the CPU, or re-run 'intergen setup' to choose a different "
-                  "model.", msg)
+        log.error("ENGINE-HEALTH: sustained semantic-corruption flags — %s. The "
+                  "served output is being flagged as incoherent. The engine has "
+                  "NOT been changed. If this box's GPU is the suspect, pin "
+                  "llama_server.gpu_layers to 0 to serve on the CPU, or re-run "
+                  "'intergen setup' to choose a different model.", msg)
         glass.emit("engine", "health_degraded", iface="daemon",
-                   detail={"flagged_in_window": flagged, "action": "reported"})
+                   detail={"flagged": snap.flagged,
+                           "threshold": snap.threshold,
+                           "window": snap.window,
+                           "action": "reported"})
 
     def _on_watchdog_giveup(self, msg: str) -> None:
         """Watchdog exhausted its restart budget for the chat server.
@@ -1508,6 +1524,19 @@ class InterGenDaemon(InterGenDBusInterface):
             self._matcher = SemanticMatcher(
                 embedder=(self._embed_llama.embed if self._embed_llama else None),
             )
+            # Registration embeds every intent, so it is one of the callers
+            # that legitimately waits for a model to load rather than degrading:
+            # a matcher that registers its intents as PENDING here needs a
+            # recovery pass later, and on an installed machine that window is
+            # where retrieval quietly fell back to keyword-only. embed() itself
+            # stays on its short request-path grace; this is the startup path
+            # asking, once, for the readiness the server is already working on.
+            if self._embed_llama is not None and self._embed_llama.is_running():
+                if not self._embed_llama.wait_until_ready():
+                    log.warning(
+                        "embedding server did not report ready within its "
+                        "model-load budget — intents register pending and the "
+                        "embed watchdog's recovery pass picks them up")
             from intergen.intents import register_all_intents
             register_all_intents(self._matcher)
             log.info("Semantic matcher: %d intents registered",
