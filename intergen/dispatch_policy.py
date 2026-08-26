@@ -62,13 +62,23 @@ class DispatchMode(str, Enum):
 #
 # This constant is the SOURCE OF TRUTH for "is the lane shipped in THIS build's
 # code" — landing a lane MEANS adding its tier here in the same change that adds
-# the code. Resolution WALKS DOWN: a detected/overridden tier resolves to the
-# LARGEST shipped lane at or below it. So the SAME build degrades gracefully — a
-# 35B-capable box whose 35B lane is unshipped runs the 9B (the largest shipped
-# lane at or below it) with native dispatch, and a 2B-only build floor-clamps
-# every box to the locked 2B because no lane sits at or below any tier — and it
-# picks up a bigger tier AUTOMATICALLY once that lane lands, with ZERO changes to
-# hardware detection. The roadmap falls out for free.
+# the code, and a lane picked up here is picked up AUTOMATICALLY with ZERO
+# changes to hardware detection.
+#
+# THE TWO RESOLVERS BELOW READ IT DIFFERENTLY, and the difference decides what a
+# 35B-capable box does:
+#   * resolve_dispatch(), from the RAW DETECTED tier, WALKS DOWN: it resolves to
+#     the largest shipped lane at or below the candidate, so a detected TIER_3
+#     lands on the 9B lane with native dispatch.
+#   * resolve_dispatch_for_model(), from the RESOLVED MODEL's tier, does NOT
+#     walk down: a candidate with no shipped lane goes straight to the locked 2B
+#     floor, because a model may not run in a posture it was not validated in.
+# THE DAEMON TAKES THE SECOND ONE. Measured on a live install 2026-08-25: a
+# TIER_3 box is served the 35B model — every catalog model is pinned, so the
+# model-side cap does not fire — and runs it on the TIER_1 LOCKED_DOWN lane,
+# fell_back_to_floor True, walked_down False. The same build still floor-clamps
+# every box in a 2B-only build, by the same rule.
+# Pinned by intergen/tests/test_tier3_dispatch_posture.py.
 SHIPPED_LOGIC_LANES: frozenset[HardwareTierLevel] = frozenset({HardwareTierLevel.TIER_2})
 
 # The verified-everywhere floor: the 2B locked-down tier. It is always available
@@ -90,7 +100,11 @@ class ResolvedDispatch:
     override_tier: HardwareTierLevel | None  # operator override, if any
     fell_back_to_floor: bool             # no shipped lane at/below candidate → floor
     walked_down: bool = False            # candidate resolved DOWN to a smaller
-                                         # shipped lane (e.g. TIER_3 → the shipped 9B)
+                                         # shipped lane. resolve_dispatch does
+                                         # this (detected TIER_3 → the shipped
+                                         # 9B); resolve_dispatch_for_model, the
+                                         # daemon's path, never does — it floors
+                                         # instead, so this stays False there
 
     @property
     def lock_dispatch(self) -> bool:

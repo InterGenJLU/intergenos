@@ -1123,8 +1123,13 @@ class InterGenDaemon(InterGenDBusInterface):
             # daemon loads exactly the model onboarding installed: an integrated-
             # GPU Tier-2 box (the detector recommends the 2B for latency) runs the
             # LOCKED 2B floor, NOT the native 9B lane it cannot serve and never
-            # downloaded (the ge9b-01 engine-never-starts defect). A dGPU 9B/35B
-            # box resolves the 9B (the 35B caps to it) + native. Hardware detection
+            # downloaded (the ge9b-01 engine-never-starts defect). A dGPU 9B box
+            # resolves the 9B + native. A 35B-capable box resolves the 35B — the
+            # shipped manifest pins it, so the unpinned->pinned cap does not fire
+            # — and runs it on the LOCKED 2B floor, because no 35B logic lane
+            # ships and resolve_dispatch_for_model floors a candidate that has
+            # none rather than walking down. Measured and pinned in
+            # intergen/tests/test_tier3_dispatch_posture.py. Hardware detection
             # above is UNCHANGED.
             from intergen.dispatch_policy import (
                 resolve_dispatch_for_model, FLOOR_TIER)
