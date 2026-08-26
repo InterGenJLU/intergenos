@@ -477,7 +477,12 @@ class LLMRouter(LLMInterface):
             response = urllib.request.urlopen(req, timeout=self._request_timeout)
         except Exception as e:
             logger.error("Local LLM request failed: %s", e)
+            # Record WHY there will be no tokens, so the last-resort text can say
+            # "the server isn't running" instead of "could you rephrase", and so
+            # status() can report the engine as down rather than healthy.
+            self.note_transport_failure(f"{type(e).__name__}: {e}")
             return
+        self.note_transport_ok()
 
         try:
             # M1 (bullet 5): the model call — TTFT (first token) + full output
@@ -789,6 +794,24 @@ class LLMRouter(LLMInterface):
         "Could you rephrase or give me a bit more detail about what you need?"
     )
 
+    # The text for a DIFFERENT situation that used to reach the line above.
+    #
+    # An unreachable endpoint yields no tokens, so an empty generation is what the
+    # quality ladder sees, and the person was told to rephrase — advice that
+    # cannot help, because rephrasing does not start a server. Measured on a
+    # dual-GPU workstation 2026-08-26: the chat model server exited at daemon
+    # start and for two and a half hours every question was answered with the line
+    # above while the journal recorded "Connection refused" behind each one and
+    # the unit reported itself active. A model that GENERATED something unservable
+    # and a model server that is not running are not the same state and must not
+    # read the same.
+    _MODEL_SERVER_DOWN_FALLBACK = (
+        "I can't answer that right now — my model server isn't running, so "
+        "nothing is generating replies. Rephrasing won't help; the assistant "
+        "service needs to be restarted. Run `intergen status` to see the "
+        "recorded reason."
+    )
+
     def _servable_text(self, response_text: str, quality_issue: str) -> str:
         """The text to serve once the retry ladder is exhausted.
 
@@ -807,8 +830,34 @@ class LLMRouter(LLMInterface):
         """
         text = self._strip_filler(response_text)
         if quality_issue or not text.strip():
+            # WHICH failure is this? A server we could not reach at all is a
+            # different situation from a model that answered badly, and the
+            # person can only act on one of them.
+            if self._transport_error:
+                return self._MODEL_SERVER_DOWN_FALLBACK
             return self._EMPTY_RESPONSE_FALLBACK
         return text
+
+    # ── whether the model endpoint is reachable at all ──────────────────────
+    #
+    # Recorded at the one place the request is made, read at the one place the
+    # last-resort text is chosen, and reported on the status surface. It is a
+    # statement about the CURRENT state, so a later successful request clears it
+    # — one blip must not mark the session forever.
+    _transport_error: str | None = None
+
+    def note_transport_failure(self, reason: str) -> None:
+        """The model endpoint could not be reached (connection refused, timeout)."""
+        self._transport_error = reason or "unreachable"
+
+    def note_transport_ok(self) -> None:
+        """A request reached the model endpoint — clear any recorded failure."""
+        self._transport_error = None
+
+    @property
+    def transport_error(self) -> "str | None":
+        """The reason the model endpoint was unreachable, or None when it is up."""
+        return self._transport_error
 
     def _gate_reason(self, response_text: str, user_msg: str) -> str:
         """THE quality gate. Returns the reason a reply must not be served, or "".

@@ -147,6 +147,35 @@ EMBED_READY_GRACE_S = 2.0
 EMBED_TEXTS_PER_REQUEST = 8
 STARTUP_TIMEOUT = 60           # seconds: the FLOOR of the model-load budget (startup_budget_seconds)
 STARTUP_POLL_INTERVAL = 1.0    # seconds between health polls during startup
+
+# How much of a dead child's stderr is recorded, and WHICH END of it.
+#
+# This used to be `[:500]`, and 500 characters is less than llama.cpp's startup
+# banner: a device list, build_info and system_info run past it before the server
+# has said anything about what went wrong. So the recorded error was always
+# banner and the reason was always in the part that was thrown away. Measured on
+# a dual-GPU workstation 2026-08-26: the journal line for a failed 35B start is
+# exactly 500 characters and ends mid-token at "8 | CPU : SS", and a real failing
+# launch (a bad --model path) prints 2165 bytes of which every line naming the
+# cause sits in the 1665 that were dropped. Two and a half hours of a dead
+# assistant could not be diagnosed from what was kept.
+#
+# The cap is not removed, because a runaway child must not be able to flood the
+# journal; it is raised far above any real failure's size and taken from the END,
+# because llama.cpp prints the banner first and the reason last. When the text is
+# longer than the cap the elision is stated in the record itself rather than
+# leaving a reader to wonder whether the beginning was ever there.
+FAILURE_STDERR_MAX_CHARS = 16384
+
+
+def _failure_tail(stderr: str) -> str:
+    """The part of a failed launch's stderr worth recording — the END."""
+    if len(stderr) <= FAILURE_STDERR_MAX_CHARS:
+        return stderr
+    dropped = len(stderr) - FAILURE_STDERR_MAX_CHARS
+    return (f"[{dropped} earlier characters elided; the last "
+            f"{FAILURE_STDERR_MAX_CHARS} follow]\n"
+            + stderr[-FAILURE_STDERR_MAX_CHARS:])
 SHUTDOWN_TIMEOUT = 10          # seconds to wait for graceful shutdown
 REAP_GRACE = 3                 # seconds a stale/orphaned own-server gets on SIGTERM before SIGKILL
 
@@ -983,6 +1012,54 @@ class LlamaManager(LlamaManagerInterface):
         # nothing. Clear it and let the new engine's own selection run.
         self._config = replace(self._config, server_path=path, device=None)
         return True
+
+    # The gaps between the attempts retry_transient_start makes, in seconds.
+    # Short enough that a daemon start is not visibly held open, long enough for
+    # the case this exists for: a device released by the process that just
+    # stopped, which is free within a couple of seconds. Two gaps for three
+    # attempts, seven seconds in total.
+    TRANSIENT_RETRY_BACKOFF_S = (2.0, 5.0, 10.0)
+
+    def retry_transient_start(self, *, attempts: int = 3,
+                              sleep=time.sleep) -> bool:
+        """Start from the saved configuration, retrying a TRANSIENT failure.
+
+        WHY THIS EXISTS. A chat model server that failed once used to be down for
+        the life of the daemon: the caller dropped the manager, which also removed
+        the watchdog that could have recovered it, and nothing tried again.
+        Measured on a dual-GPU workstation 2026-08-26 — a start eleven seconds
+        after a model re-drive released the same card recorded UNHEALTHY and the
+        assistant answered nothing for two and a half hours, while the identical
+        command run by hand later loaded and served normally.
+
+        Only a failure the taxonomy calls transient is retried (StartFailure.
+        is_transient); anything else returns immediately so an absent model file
+        or an integrity failure degrades honestly instead of spending the budget.
+        `sleep` is injected so a test can assert the back-off without waiting it
+        out.
+        """
+        for attempt in range(1, max(1, attempts) + 1):
+            if self.start_saved_config():
+                if attempt > 1:
+                    log.info("llama-server started on attempt %d/%d — the first "
+                             "failure was transient", attempt, attempts)
+                return True
+            failure = self._last_failure
+            if not failure.is_transient:
+                log.info("start failed with %s, which a retry cannot fix — "
+                         "not retrying", failure.name)
+                return False
+            if attempt >= attempts:
+                break
+            gap = self.TRANSIENT_RETRY_BACKOFF_S[
+                min(attempt - 1, len(self.TRANSIENT_RETRY_BACKOFF_S) - 1)]
+            log.warning("llama-server start attempt %d/%d failed with %s (%s); "
+                        "retrying in %.0fs", attempt, attempts, failure.name,
+                        self._last_error, gap)
+            sleep(gap)
+        log.error("llama-server did not start after %d attempts; last failure "
+                  "%s: %s", attempts, self._last_failure.name, self._last_error)
+        return False
 
     def restart(self) -> bool:
         """Stop and restart with the same configuration."""
@@ -1981,8 +2058,11 @@ class LlamaManager(LlamaManagerInterface):
             if self._process and self._process.poll() is not None:
                 stderr = ""
                 if self._process.stderr:
-                    stderr = self._process.stderr.read().decode(errors="replace")[:500]
-                self._last_error = f"Server exited with code {self._process.returncode}: {stderr}"
+                    stderr = self._process.stderr.read().decode(errors="replace")
+                self._last_error = (
+                    f"Server exited with code {self._process.returncode}: "
+                    f"{_failure_tail(stderr)}"
+                )
                 log.error(self._last_error)
                 return False
 

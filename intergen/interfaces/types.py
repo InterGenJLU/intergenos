@@ -345,10 +345,47 @@ class StartFailure(Enum):
         than the routine no-model degrade."""
         return self in _INTEGRITY_START_FAILURES
 
+    @property
+    def is_transient(self) -> bool:
+        """True when a second attempt can plausibly succeed, so the daemon retries
+        with a bounded back-off and keeps the manager (and therefore the watchdog)
+        instead of going down for the life of the process. Disjoint from
+        is_integrity by construction — see _TRANSIENT_START_FAILURES."""
+        return self in _TRANSIENT_START_FAILURES
+
 
 _INTEGRITY_START_FAILURES = frozenset({
     StartFailure.MMPROJ_MISSING,
     StartFailure.CHAT_TEMPLATE_MISSING,
     StartFailure.TOOLS_NOT_ADVERTISED,
     StartFailure.VISION_NOT_ADVERTISED,
+})
+
+# The failures a SECOND ATTEMPT can survive — the counterpart of the integrity
+# set above, and for the same reason: the daemon decides structurally, on the
+# reason, never by string-matching the error text.
+#
+# The daemon used to treat PORT_IN_USE as the only transient case and drop the
+# manager for every other failure, which also removed the watchdog (it is built
+# under `if self._llama:`), so a chat model that failed once was down for the
+# life of the process. Measured on a dual-GPU workstation 2026-08-26: a start
+# eleven seconds after a model re-drive released the same card recorded
+# UNHEALTHY, was dropped, and the assistant answered nothing for two and a half
+# hours — while the identical command run by hand later loaded and served
+# normally and a plain restart brought it up first try. A momentarily-busy
+# device is exactly what one attempt cannot survive.
+#
+#   UNHEALTHY   the child died or never answered /health — the measured case
+#   PORT_IN_USE the holder releases the port (the cold-boot greeter collision)
+#   SPAWN_ERROR an OSError launching the child (a transient resource limit)
+#
+# Deliberately NOT transient: MODEL_FILE_ABSENT and BINARY_ABSENT do not become
+# true by waiting, and retrying them only delays an honest degrade;
+# OFFLOAD_FAILED is a hardware-capability shortfall whose answer is the 2B floor,
+# not another attempt; and every INTEGRITY member reads as tamper or corruption,
+# where retrying is not recovery.
+_TRANSIENT_START_FAILURES = frozenset({
+    StartFailure.UNHEALTHY,
+    StartFailure.PORT_IN_USE,
+    StartFailure.SPAWN_ERROR,
 })
