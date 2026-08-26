@@ -32,6 +32,14 @@ patches:
   # changed. Declared identically in both passes for the reason the CVE set is.
   - file: linux-6.18.10-amdgpu-runtime-resume-hotplug-only-on-change-1.patch
     sha256: ba3f03613c56f0b209eab3696791185e20bb2726fcdd18f757dcdac1ac1721e5
+  # The hid-asus probe patch, added 2026-08-26. A BACKPORT of upstream commit
+  # 7253091766de, which fixes d3af6ca9a8c3 — a commit 6.18.10 carries while the
+  # fix for it is not. Without it, a HID interface that legitimately registers no
+  # input device fails its probe, so an ASUS N-KEY keyboard's vendor interface is
+  # left unbound with no hidraw node and reports -ENOMEM once per boot. Declared
+  # identically in both passes for the reason the CVE set is.
+  - file: linux-6.18.10-hid-asus-do-not-abort-probe-when-not-necessary-1.patch
+    sha256: d8efe4aa7e1aeef8609f010b07d6f16bc76bc544e326475f7651c4438654a532
 
 content_hash: 2fedffc0642d2800
 description: Linux kernel
