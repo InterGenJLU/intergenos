@@ -5565,6 +5565,31 @@ class ConversationRouter(RouterInterface):
         if tool_name == "read_file":
             return {"path": user_input.split()[-1] if user_input.split() else ""}
         if tool_name == "web_search":
+            # THE QUERY IS THE THING TO LOOK UP, NOT THE SENTENCE. This returned
+            # `user_input`, so "can you web search and see how much a chippendale
+            # dining table sells for?" searched for that entire sentence —
+            # politeness, framing, question mark and all — and a search engine
+            # given a sentence of framing returns results about the framing.
+            #
+            # The router already knows the answer and was discarding it:
+            # _recognised_web_dispatch decides this turn is a web search by asking
+            # _web_search_target what the sentence NAMES, and that extractor is
+            # exactly the one that strips a leading filler run, the search verb
+            # phrase, connective filler and trailing politeness.
+            #
+            # A sentence that names nothing keeps the sentence as its query. That
+            # is not a fallback nobody reaches: _extract_arguments is reachable
+            # independently of the web dispatch, and handing the tool an empty
+            # string would be worse than handing it the sentence.
+            try:
+                matcher = getattr(self, "_semantic", None)
+                if matcher is not None:
+                    target = _web_search_target(
+                        matcher._normalize_input(user_input or ""))
+                    if target:
+                        return {"query": target}
+            except Exception:  # noqa: BLE001 — never fail a turn over argument shaping
+                logger.debug("web-search target extraction failed", exc_info=True)
             return {"query": user_input}
         if tool_name == "manage_packages":
             low = user_input.lower()
