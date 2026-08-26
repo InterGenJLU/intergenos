@@ -47,7 +47,9 @@ class Tier3UncapTest(unittest.TestCase):
         self._tmp.cleanup()
 
     def test_unpinned_35b_caps_to_9b_control(self):
-        # Production truth today: 2B + 9B pinned, 35B unpinned -> Tier-3 caps down.
+        # The cap decision itself, driven by pin PRESENCE. This was production
+        # truth when the file was written; the shipped manifest now pins all
+        # three, so the case below is the one that matches a current install.
         self.mm._pins = {FILE_2B: "a" * 64, FILE_9B: "b" * 64}
         self.assertEqual(
             self.mm.get_model_for_tier(HardwareTierLevel.TIER_3).name, NAME_9B

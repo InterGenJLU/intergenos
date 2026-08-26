@@ -834,9 +834,12 @@ class ModelManager(ModelManagerInterface):
         A model with no shipped pin cannot be downloaded OR load-verified —
         both fail closed without a pin — so recommending it dead-ends the
         install at "no pin." This returns the model for the highest tier
-        at-or-below ``model.tier`` that DOES have a shipped pin. Today only
-        Tier-3 (the 35B) ships unpinned, so a 16GB+ discrete-GPU install caps
-        to the 9B instead of dead-ending. If NOTHING is pinned (e.g. an empty
+        at-or-below ``model.tier`` that DOES have a shipped pin. As of the
+        manifest this ships with, every catalog model is pinned — 2B, 9B and
+        35B — so this cap does not fire at all on a current install and a
+        Tier-3 box is served the 35B itself. It stays because a manifest that
+        drops a pin must degrade rather than dead-end. If NOTHING is pinned
+        (e.g. an empty
         manifest in a test/early-install state) the model is returned unchanged
         so the existing fail-closed download path still applies rather than
         silently swapping in a wrong model.
@@ -883,9 +886,13 @@ class ModelManager(ModelManagerInterface):
     def get_model_for_tier(self, tier: HardwareTierLevel) -> ModelInfo:
         """Return the recommended model for a hardware tier."""
         # Never recommend an unpinned model — cap to the highest pinned tier
-        # so a Tier-3 (unpinned 35B) install caps to the 9B rather than
-        # dead-ending at "no pin." replace() returns a COPY so the overlays
-        # below never mutate the shared MODEL_CATALOG singleton.
+        # rather than dead-ending at "no pin." With the shipped manifest, which
+        # pins all three catalog models, the cap does not fire and a Tier-3 box
+        # is served the 35B; the DISPATCH lane it runs in is a separate
+        # decision, and dispatch_policy floors it (see
+        # intergen/tests/test_tier3_dispatch_posture.py). replace() returns a
+        # COPY so the overlays below never mutate the shared MODEL_CATALOG
+        # singleton.
         model = replace(self._cap_unpinned_to_highest_pinned(MODEL_CATALOG[tier]))
 
         # T0-4-D — overlay the canonical pin from the package-shipped
@@ -913,10 +920,12 @@ class ModelManager(ModelManagerInterface):
         Resolve the model the DETECTOR RECOMMENDS: ``get_model_by_name(recommended)``,
         which (a) honors the within-tier CPU-only/iGPU latency adjustment — an
         integrated-GPU Tier-2 box recommends the 2B, not the 9B — and (b) applies
-        the unpinned->highest-pinned cap, so a Tier-3 35B recommendation resolves
-        to the pinned 9B (the PI-Z13 fix, now carried by ``get_model_by_name``
-        itself). Fall back to the bare tier lookup ONLY when the recommended name
-        is unknown to the catalog.
+        the unpinned->highest-pinned cap. That cap was what sent a Tier-3 35B
+        recommendation to the 9B (the PI-Z13 fix, now carried by
+        ``get_model_by_name`` itself); the shipped manifest pins the 35B, so the
+        cap no longer fires and a Tier-3 recommendation resolves to the 35B.
+        Fall back to the bare tier lookup ONLY when the recommended name is
+        unknown to the catalog.
 
         Onboarding (setup) and engine-start (daemon) MUST resolve through THIS one
         path or they drift: setup downloads the recommended model while the daemon
