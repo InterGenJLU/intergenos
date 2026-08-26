@@ -99,6 +99,30 @@ SECRET_CORPUS = [
     ("a github token in a git remote", "remote",
      "https://ghp_16C7e42F292c6912E7710c838347Ae178B4a@github.com/x/y.git",
      "provider-token"),
+    # ── Added by the command-line pass ──────────────────────────────────────
+    # The installed-system gate tests/installed/test_gate_secret_redaction.py
+    # measured these against the shipped release and they reached the record in
+    # full. They are how a person actually hands a credential to a machine: in
+    # a command they typed or pasted, under a key name that describes the
+    # command rather than the secret inside it.
+    ("a bearer token in a curl command", "command",
+     "curl -H 'Authorization: Bearer abc123secretvalue' https://example.invalid",
+     "bearer-token"),
+    ("a password given as an attached short option", "command",
+     "mysql -u admin -pHunter2Example --host db.example.invalid",
+     "password-option"),
+    ("a password given as a long option", "command",
+     "mysqldump --password=Hunter2Example --host db.example.invalid intergen",
+     "password-option"),
+    ("a password given as a separated long option", "command",
+     "curl --password Hunter2Example https://example.invalid/upload",
+     "password-option"),
+    ("a credential given as an environment assignment", "command",
+     "PGPASSWORD=Hunter2Example psql -h db.example.invalid -U intergen",
+     "credential-assignment"),
+    ("a token in a URL query string", "url",
+     "https://example.invalid/api/v1/things?api_key=Zx7RmL0pWvTbKcJdFg&page=2",
+     "credential-assignment"),
 ]
 
 # Ordinary content that must survive BYTE-IDENTICAL. A redactor that cannot be
@@ -119,6 +143,22 @@ INNOCENT_CORPUS = [
     ("a currency figure with dollar signs", "text",
      "the plan is $6 a month, or $60 a year"),
     ("a dotted sequence", "text", "3.14.1.2600 is the recorded version"),
+    # ── The controls the command-line shapes needed ────────────────────────
+    # Each of these is a string the new shapes come close to and must not take.
+    # They are here because a redactor that has never been shown to leave a
+    # near-miss alone has not been shown to be a redactor at all.
+    ("the word bearer followed by an ordinary word", "text",
+     "bearer authentication is the scheme name, not a credential"),
+    ("the -p option with its value in the next argument", "command",
+     "mkdir -p /srv/intergen && cp -pr assets backup"),
+    ("a published port that has no letter in it", "command",
+     "docker run -p8080:8080 --name intergen-web image:latest"),
+    ("an ssh port given with the attached short option", "command",
+     "ssh -p2222 intergen@host.example.invalid"),
+    ("the word password at the start of a sentence", "text",
+     "PASSWORD policy requires twelve characters and a symbol"),
+    ("a comparison that merely contains an equals sign", "text",
+     "the token budget was 4096 and usage=3877, which is under the cap"),
 ]
 
 
@@ -200,6 +240,67 @@ class SecretShapedContentIsRedacted(unittest.TestCase):
         self.assertIn("<redacted:url-with-password>", got)
 
 
+# One MINIMAL example per shape: the shortest string that shape can match. The
+# class below drives each through the redactor, which is what keeps
+# glass._MIN_SHAPE_LEN honest — that constant short-circuits the whole scan for
+# any string below it, so a value set too high stops redaction with no symptom
+# at all. It had happened: the constant was 20, derived from the provider token
+# alone, while the URL shape beside it matches at ten, and a ten-character URL
+# carrying a password was written verbatim.
+SHORTEST_PER_SHAPE = {
+    "private-key-block":
+        "-----BEGIN PRIVATE KEY----------END PRIVATE KEY-----",
+    "url-with-password": "ab://c:d@e",
+    "crypt-hash": "$a$b$0123456789",
+    "json-web-token": "eyJhbGciOiJ.eyJz.",
+    "provider-token": "AKIA0123456789ABCDEF",
+    "bearer-token": "bearer a123456789012345",
+    "password-option": "-pa2345678",
+    "credential-assignment": "token=a23456",
+}
+
+
+class TheLengthShortCircuitCannotSkipAShape(unittest.TestCase):
+    """glass._MIN_SHAPE_LEN must not be above any shape's shortest match."""
+
+    def test_every_shape_has_a_shortest_example(self):
+        """A shape added without an example fails here, not silently later."""
+        declared = {name for name, _pattern in glass.SECRET_SHAPES}
+        self.assertEqual(declared, set(SHORTEST_PER_SHAPE), (
+            "the shape table and the shortest-example table have drifted. Every "
+            "shape needs an example here, because this file is the only thing "
+            "that checks the length short-circuit against the shapes it is "
+            "supposed to be derived from."))
+
+    def test_each_shortest_example_is_still_redacted(self):
+        for name, example in SHORTEST_PER_SHAPE.items():
+            with self.subTest(shape=name):
+                out = glass.redact_secret_shapes(example)
+                self.assertNotEqual(out, example, (
+                    f"{name}: its shortest match ({len(example)} characters) "
+                    f"came back unchanged. glass._MIN_SHAPE_LEN is "
+                    f"{glass._MIN_SHAPE_LEN}, so any string shorter than that "
+                    f"skips the scan entirely and this shape stops redacting "
+                    f"with no symptom."))
+
+    def test_the_pattern_alone_agrees_with_the_redactor(self):
+        """The example really is a match, so a pass above means what it says."""
+        for name, pattern in glass.SECRET_SHAPES:
+            with self.subTest(shape=name):
+                self.assertIsNotNone(
+                    pattern.search(SHORTEST_PER_SHAPE[name]),
+                    f"{name}: the example in SHORTEST_PER_SHAPE is not a match "
+                    f"for the pattern, so it proves nothing about the length "
+                    f"short-circuit.")
+
+    def test_the_constant_is_at_or_below_the_shortest_example(self):
+        shortest = min(len(v) for v in SHORTEST_PER_SHAPE.values())
+        self.assertLessEqual(glass._MIN_SHAPE_LEN, shortest, (
+            f"glass._MIN_SHAPE_LEN is {glass._MIN_SHAPE_LEN} but the shortest "
+            f"match any shape accepts is {shortest} characters. Everything "
+            f"between the two is skipped without being scanned."))
+
+
 class OrdinaryContentIsUntouched(unittest.TestCase):
     """The other direction, and the reason there is no entropy heuristic."""
 
@@ -248,16 +349,25 @@ class TheShapesAreNamedAndBounded(unittest.TestCase):
 class TheKnownResidual(unittest.TestCase):
     """What this predicate does NOT catch, asserted so it cannot be forgotten.
 
-    The AWS pair in the corpus is one access key id, which carries the AKIA
-    prefix and is caught, plus one secret access key, which carries no
-    distinguishing shape at all. Catching the second one needs either an entropy
-    threshold (rejected: unexplained holes in a full-fidelity record) or a rule
-    about NAME=value assignments inside content, which is a widening this change
-    did not make. The limit is asserted here so that it is a stated, tested
-    property of the release rather than something a reader assumes is covered.
+    THE EARLIER RESIDUE IS CLOSED, and the case that recorded it is gone. It was
+    the AWS pair written as "AWS_ACCESS_KEY_ID=... AWS_SECRET=...": the first
+    half carries the AKIA prefix and was caught, the second half carries no
+    shape at all and was not. That case said, in its own failure message, that
+    closing it would need "a rule about NAME=value assignments inside content".
+    The command-line pass added exactly that rule, the case started failing the
+    way it said it would, and it has been replaced by the residue that is left.
+
+    WHAT IS LEFT. A high-entropy string with no marker of any kind in front of
+    it — no assignment, no option, no scheme word, no vendor prefix — is still
+    written. Catching that needs an entropy threshold, which stays rejected: it
+    would put holes in a full-fidelity record on ordinary content while still
+    missing structured secrets. The limit is asserted here so that it is a
+    stated, tested property of the release rather than something a reader
+    assumes is covered.
     """
 
-    def test_a_secret_with_no_shape_still_reaches_the_record(self):
+    def test_the_assignment_form_of_the_earlier_residue_is_now_caught(self):
+        """The case this class used to record, now the other way round."""
         tmp = tempfile.mkdtemp(prefix="glass-shape-residual-")
         _reset(tmp)
         value = ("AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE "
@@ -267,11 +377,27 @@ class TheKnownResidual(unittest.TestCase):
         written = _row(tmp, "prompt", "assembled")["detail"]["command"]
         self.assertIn("<redacted:provider-token>", written,
                       "the access key id must be caught by its AKIA prefix")
+        self.assertNotIn("wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", written, (
+            "the secret access key came back. It arrives under a name the "
+            "credential-assignment shape matches, so it must not."))
+        self.assertIn("<redacted:credential-assignment>", written,
+                      "and the record must say WHAT was removed")
+
+    def test_a_secret_with_no_marker_at_all_still_reaches_the_record(self):
+        """The residue that remains, asserted so nobody assumes it is covered."""
+        tmp = tempfile.mkdtemp(prefix="glass-shape-residual2-")
+        _reset(tmp)
+        value = "the value to use is wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+        with glass.turn(glass.new_turn_id(), "dbus"):
+            glass.emit("prompt", "assembled", detail={"note": value})
+        written = _row(tmp, "prompt", "assembled")["detail"]["note"]
         self.assertIn("wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", written, (
             "This assertion records a KNOWN LIMIT, and it failing is good news: "
-            "it would mean the paired secret access key is now caught too. If "
-            "that is deliberate, delete this case and say so in the release "
-            "note. If it is not, something is matching more than it should."))
+            "it would mean a bare high-entropy string with no marker in front "
+            "of it is now caught. If that is deliberate, delete this case and "
+            "say so in the release note, and say which predicate does it — if "
+            "the answer is an entropy threshold, that is a decision this "
+            "module's own documentation says must be argued, not slipped in."))
 
 
 class TheRowBoundDoesNotUndoTheRedaction(unittest.TestCase):

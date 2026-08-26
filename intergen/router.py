@@ -2451,8 +2451,15 @@ class ConversationRouter(RouterInterface):
             with get_tracer().span("router.llm_tools", kind="llm") as _llm_span:
                 result = self._try_llm_tools(user_input)
                 _llm_span.set_attribute("tool_calls", [tc.name for tc in result.tool_calls])
-                _llm_span.set_attribute("tokens_prompt", result.tokens_prompt)
-                _llm_span.set_attribute("tokens_completion", result.tokens_completion)
+                # Named without the substring "token": the trace record is
+                # redacted at as_record(), and its credential-key pattern
+                # matches "token" as a substring, so a key named
+                # "tokens_prompt" would have this integer count replaced by a
+                # placeholder. The same rule already applies to the turn
+                # record's detail keys (see intergen/llm.py). These are counts,
+                # not secrets. Do not rename them back.
+                _llm_span.set_attribute("prompt_tok_count", result.tokens_prompt)
+                _llm_span.set_attribute("completion_tok_count", result.tokens_completion)
                 _llm_span.set_attribute("used_llm", result.used_llm)
             if result.handled:
                 self._record(result, t0, "llm_tools")
@@ -2470,8 +2477,8 @@ class ConversationRouter(RouterInterface):
             return RouteResult(text="", source="llm_freeform", handled=False)
         with get_tracer().span("router.llm_freeform", kind="llm") as _llm_span:
             result = self._try_llm_freeform(user_input)
-            _llm_span.set_attribute("tokens_prompt", result.tokens_prompt)
-            _llm_span.set_attribute("tokens_completion", result.tokens_completion)
+            _llm_span.set_attribute("prompt_tok_count", result.tokens_prompt)
+            _llm_span.set_attribute("completion_tok_count", result.tokens_completion)
         self._record(result, t0, "llm_freeform")
         return result
 
@@ -4460,8 +4467,8 @@ class ConversationRouter(RouterInterface):
                 )
                 _synth_span.set_attribute("synthesis_ok", synthesis is not None)
                 if synthesis:
-                    _synth_span.set_attribute("tokens_prompt", synthesis.tokens_prompt)
-                    _synth_span.set_attribute("tokens_completion", synthesis.tokens_completion)
+                    _synth_span.set_attribute("prompt_tok_count", synthesis.tokens_prompt)
+                    _synth_span.set_attribute("completion_tok_count", synthesis.tokens_completion)
             if synthesis:
                 response_text = synthesis.text
                 tok_p = synthesis.tokens_prompt

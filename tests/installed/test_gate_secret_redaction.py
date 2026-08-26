@@ -1,22 +1,23 @@
-"""GATE 13 — secret and redaction fixtures (section 9 line 12; ADVISORY).
+"""GATE 13 — secret and redaction fixtures (section 9 line 12).
 
-ADVISORY IN R001.2 by the master plan's own wording — it becomes blocking once the
-redaction contract is decided. It is authored now, with the fixtures that will decide
-it, so the contract is chosen against real cases rather than in the abstract.
+THE CONTRACT IS DECIDED, AND THIS GATE NOW ENCODES IT. The fixtures below were
+authored as the contract QUESTION: five shapes a credential really takes when a
+person hands it to a machine, with the decision about which of them a persisted
+record must hide left open. Decided 2026-08-25: the record must hide all five. A
+credential is hidden by the SHAPE of the value as well as by the name of the
+field it arrived under, because a person types a credential into a command far
+more often than they place one in a field called ``api_key``. The redaction is
+applied to the whole row at the moment of writing, so a field added later is
+covered without its author knowing this gate exists.
 
-WHAT COMPOSITION PROPERTY THIS CATCHES. The shipped redaction decides what to hide by
-looking at the NAME of a field. A field called ``api_key`` has its value replaced; a
-field called ``command`` whose value happens to contain an interface token does not.
-The persisted record therefore protects a credential that arrives in a
-credential-shaped field and keeps one that arrives inside ordinary text — which is how
-a person actually types them.
+WHAT COMPOSITION PROPERTY THIS CATCHES. The redaction can only be measured on the
+package that is actually installed. A source-tree test would report on the tree
+the author is editing; this tier imports the shipped module, so a release that
+carries an older redaction than its own tests describe is caught here and nowhere
+else.
 
-THE FIXTURES BELOW ARE THE CONTRACT QUESTION, NOT THE ANSWER. Each is a shape a
-credential really takes in a shell command or a pasted block. Whoever decides the
-contract decides which of them the record must hide; this gate then encodes that
-decision. Reported, not softened.
-
-EXPECTED TO FAIL ON R001.1 AS SHIPPED.
+EXPECTED TO FAIL ON R001.1 AS SHIPPED (release 183), which has no shape predicate
+at all: all four non-control fixtures reach the record byte-identical.
 """
 
 from __future__ import annotations
@@ -42,6 +43,26 @@ FIXTURES = [
     ("a cloud access key in a free-text field",
      "user_message", "my key is AKIAIOSFODNN7EXAMPLE, can you set it up",
      "AKIAIOSFODNN7EXAMPLE"),
+]
+
+
+# Command text a person really types that carries NO credential. A redaction
+# that cannot be shown to leave these alone is not a redaction, it is a
+# shredder, and an unexplained hole in a full-fidelity record is its own
+# failure. Each is a near-miss for one of the shapes above.
+INNOCENT = [
+    ("an ordinary package command",
+     "command", "pkm install firefox && systemctl --user restart intergen"),
+    ("the -p option with its value in the next argument",
+     "command", "mkdir -p /srv/intergen && cp -pr assets backup"),
+    ("a published port with no letter in it",
+     "command", "docker run -p8080:8080 --name intergen-web image:latest"),
+    ("the scheme word followed by an ordinary word",
+     "user_message", "bearer authentication is the scheme name, not a secret"),
+    ("prose about credentials",
+     "user_message", "How do I store a password safely? I keep forgetting mine."),
+    ("a plain URL",
+     "url", "https://github.com/InterGenJLU/intergenos"),
 ]
 
 
@@ -71,14 +92,39 @@ def test_a_credential_carried_inside_ordinary_text_is_redacted(
     out = redact({key: value})
     rendered = json.dumps(out)
     assert fragment not in rendered, (
-        f"\nADVISORY — a credential survives into the persisted record: {label}\n"
+        f"\na credential survives into the persisted record: {label}\n"
         f"  field name : {key!r}\n"
         f"  value      : {value!r}\n"
         f"  persisted  : {rendered}\n"
-        "The redaction matches on the NAME of the field. This value arrived under a "
-        "name that is not credential-shaped, so it is written out in full and stays in "
-        "the record for as long as the record is kept.\n"
-        "This gate is advisory until the redaction contract is decided. The decision "
-        "this fixture asks for is whether the record must also inspect VALUES — and if "
-        "so, at what cost in false redactions of ordinary text."
+        "This value arrived under a field name that is not credential-shaped, so "
+        "only a predicate that reads the VALUE can hide it. On this machine that "
+        "predicate is missing or does not cover this shape, and the credential "
+        "stays in the record for as long as the record is kept.\n"
+        "Decided 2026-08-25: the record must hide every shape in this file. A "
+        "release whose installed package fails here is carrying an older "
+        "redaction than its own tests describe."
+    )
+
+
+@pytest.mark.parametrize(
+    "label,key,value",
+    INNOCENT,
+    ids=[f[0].replace(" ", "-") for f in INNOCENT],
+)
+def test_ordinary_command_text_survives_byte_identical(redact, label, key, value):
+    """The other direction, and the reason there is no entropy heuristic.
+
+    This is the control on the four assertions above. Without it, a redaction
+    that replaced everything would pass every one of them.
+    """
+    out = redact({key: value})
+    assert out[key] == value, (
+        f"\nordinary content was altered: {label}\n"
+        f"  field name : {key!r}\n"
+        f"  written    : {value!r}\n"
+        f"  persisted  : {out[key]!r}\n"
+        "A hole in a full-fidelity record with nothing behind it is worse than "
+        "the content it removed. Either a shape matches more than it should, or "
+        "an entropy threshold has been introduced — this module's own "
+        "documentation says that is a decision to be argued, not slipped in."
     )

@@ -187,8 +187,8 @@ class RouterTraceIntegrationTests(unittest.TestCase):
         self.assertEqual(child["kind"], "llm")
         self.assertEqual(child["parent_span_id"], root["span_id"])
         self.assertEqual(child["trace_id"], root["trace_id"])
-        self.assertEqual(child["attributes"]["tokens_prompt"], 10)
-        self.assertEqual(child["attributes"]["tokens_completion"], 5)
+        self.assertEqual(child["attributes"]["prompt_tok_count"], 10)
+        self.assertEqual(child["attributes"]["completion_tok_count"], 5)
         self.assertIsNotNone(child["duration_ms"])
 
     def test_p3_llm_tools_emits_child_span_under_root(self) -> None:
@@ -215,7 +215,7 @@ class RouterTraceIntegrationTests(unittest.TestCase):
         child = [s for s in recs if s["name"] == "router.llm_tools"][0]
         self.assertEqual(child["kind"], "llm")
         self.assertEqual(child["parent_span_id"], root["span_id"])
-        self.assertEqual(child["attributes"]["tokens_prompt"], 20)
+        self.assertEqual(child["attributes"]["prompt_tok_count"], 20)
         self.assertEqual(child["attributes"]["tool_calls"], [])
         self.assertTrue(root["attributes"]["eligible_for_tools"])
 

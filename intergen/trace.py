@@ -77,14 +77,15 @@ _seq = itertools.count()
 
 # Keys whose VALUE must never be written even under content capture — credentials
 # are never persisted to a trace (security-alignment rule: secrets stay out of
-# logs). Matched case-insensitively as a substring of the attribute key; the
-# value is replaced with _REDACTED at set_content().
+# logs). Matched case-insensitively as a substring of the attribute key. The
+# replacement no longer happens at set_content(): it happens once, in
+# as_record(), which is the only thing _write() serialises. See that method for
+# why the difference matters.
 _SECRET_KEY_RE = re.compile(
     r"pass(word|wd|phrase)|secret|token|api[_-]?key|authorization|"
     r"credential|private[_-]?key|keyring|bearer",
     re.IGNORECASE,
 )
-_REDACTED = "[REDACTED]"
 
 # The SAME secret-shape redaction the turn record uses, imported rather than
 # copied. A credential-shaped KEY NAME is caught by the pattern above; a secret
@@ -94,7 +95,14 @@ _REDACTED = "[REDACTED]"
 # tracer kept a second, older copy of the key pattern only. Importing one
 # definition is what makes the lockstep true rather than intended, and it means a
 # shape added there is a shape caught here in the same commit.
-from intergen.glass import redact_secret_shapes  # noqa: E402
+# redact_persisted is what as_record() calls. redact_secret_shapes is imported
+# beside it and deliberately kept even though this module does not call it
+# directly: it is the shared shape definition, and a test asserts that this
+# module names the SAME object the turn record does, so a future copy here fails
+# loudly instead of drifting quietly.
+from intergen.glass import (  # noqa: E402,F401
+    redact_persisted, redact_secret_shapes,
+)
 
 # Active span + trace id for the current async/thread context. A ContextVar is
 # per-Context, so nested `with` blocks form a parent/child chain and concurrent
@@ -149,29 +157,40 @@ class Span:
         """Record raw content (prompt, tool args, model output).
 
         No-op unless content capture is on (``INTERGEN_TRACE_CONTENT=1`` AND not
-        running as root — see Tracer). Credentials must never reach the file
-        even when capture is on, and two predicates enforce that. By NAME: a
-        value under a credential-shaped key is replaced whole. By SHAPE: inside
-        any string value, a run matching a named secret format is replaced with
-        a placeholder saying what kind of thing was removed, and only that run,
-        because the bytes around it are the content this file exists to record.
-        The shape predicate is imported from the turn record rather than copied,
-        so the two writers cannot drift apart again.
+        running as root — see Tracer). That gate is the only thing this method
+        decides. It does NOT redact: redaction is done once, in
+        :meth:`as_record`, for every attribute this span carries however it got
+        here. Redacting in this method protected only the callers who chose it —
+        :meth:`set_attribute` and :meth:`set_attributes` wrote straight through
+        — so the rule lived in the call sites instead of in the writer.
         """
         if not self._capture_content:
             return
-        if _SECRET_KEY_RE.search(key):
-            self.attributes[key] = _REDACTED
-        elif isinstance(value, str):
-            self.attributes[key] = redact_secret_shapes(value)
-        else:
-            self.attributes[key] = value
+        self.attributes[key] = value
 
     def set_status(self, status: str, message: str = "") -> None:
         self.status = status
         self.status_message = message
 
     def as_record(self) -> dict[str, Any]:
+        """The row this span becomes on disk, credentials already removed.
+
+        THE REDACTION CHOKEPOINT for decisions.jsonl. ``_write()`` serialises
+        exactly this dictionary and nothing else, so every attribute passes
+        through :func:`intergen.glass.redact_persisted` on its way out — the same
+        function, on the same shapes, that the turn record uses. Attributes set
+        by any of the three setters, and by any setter added later, are covered
+        without the setter knowing about it.
+
+        The predicates are the turn record's: by NAME, a value under a
+        credential-shaped key becomes ``<redacted:key-name>``; by SHAPE, a run
+        matching a named secret format inside any string becomes
+        ``<redacted:shape-name>`` and only that run. Attribute KEYS are chosen
+        so a plain count is not mistaken for a credential — the key pattern
+        matches "token" as a substring, so a count is named
+        ``prompt_tok_count`` rather than ``tokens_prompt``. A test enforces that
+        naming rather than a comment.
+        """
         return {
             "schema_version": _SCHEMA_VERSION,
             "trace_id": self.trace_id,
@@ -184,7 +203,7 @@ class Span:
             "duration_ms": self.duration_ms,
             "status": self.status,
             "status_message": self.status_message,
-            "attributes": self.attributes,
+            "attributes": redact_persisted(self.attributes),
         }
 
 

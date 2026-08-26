@@ -132,7 +132,14 @@ class TraceTests(unittest.TestCase):
         by_name = {r["name"]: r["seq"] for r in recs}
         self.assertLess(by_name["a"], by_name["b"])  # "a" created before "b"
 
-    def test_set_content_redacts_credential_shaped_keys(self) -> None:
+    def test_credential_shaped_keys_are_redacted_in_the_written_record(self) -> None:
+        """The placeholder NAMES the key it replaced.
+
+        It used to be a bare "[REDACTED]" written at set_content(). It is now
+        the same attested placeholder the turn record uses, written at
+        as_record(), so a reader of either file sees the same thing and a
+        caller that reaches the tracer by another setter gets it too.
+        """
         t = _make_tracer(self.state, content=True)
         with t.span("llm", kind="llm") as s:
             s.set_content("prompt", "hello world")           # ok — kept
@@ -142,10 +149,10 @@ class TraceTests(unittest.TestCase):
             s.set_content("user_token", "t0k3n")             # redacted (substring)
         a = _records(self.state)[-1]["attributes"]
         self.assertEqual(a["prompt"], "hello world")
-        self.assertEqual(a["password"], "[REDACTED]")
-        self.assertEqual(a["api_key"], "[REDACTED]")
-        self.assertEqual(a["authorization"], "[REDACTED]")
-        self.assertEqual(a["user_token"], "[REDACTED]")
+        self.assertEqual(a["password"], "<redacted:password>")
+        self.assertEqual(a["api_key"], "<redacted:api_key>")
+        self.assertEqual(a["authorization"], "<redacted:authorization>")
+        self.assertEqual(a["user_token"], "<redacted:user_token>")
 
     def test_content_capture_refused_as_root(self) -> None:
         log_dir = os.path.join(self.state, "intergen")
