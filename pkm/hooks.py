@@ -186,6 +186,24 @@ def _apparmor_parser_cmd(root, matched):
 
 
 def _update_ca_trust_cmd(root, matched):
+    if str(root) != "/":
+        # DECLINED for a foreign root, rather than run rootless.
+        #
+        # `update-ca-trust` takes no root argument that this machine can be
+        # asked about — the tool is not present here, and the framework's own
+        # rule is that a recipe's assumption about a tool is verified against
+        # the actual tool, never against memory or another distribution's
+        # manual page. What IS certain is that running it bare while installing
+        # into another root rebuilds the RUNNING system's trust store: a write
+        # outside the install root, touching the one store where a wrong write
+        # matters most, and it would still leave the target's store unbuilt.
+        #
+        # Declining leaves the target's trust store to be built where that can
+        # be done correctly — on a machine that has the tool, which is the
+        # target itself once it boots. The visible-skip gap this leaves (a
+        # declined hook is currently a silent `continue` in run_canonical_hooks)
+        # is real and is reported with this change rather than papered over.
+        return None
     return ["update-ca-trust"]
 
 
@@ -216,7 +234,19 @@ def _gtk_update_icon_cache_cmd(root, matched):
 
 
 def _fc_cache_cmd(root, matched):
-    return ["fc-cache", "-f"]
+    if str(root) == "/":
+        return ["fc-cache", "-f"]
+    # Scan the TARGET's font directories, not this machine's.
+    #
+    # Measured, not assumed: `pkm --root <dir> install font-alias` from the
+    # mirror printed `hook[font-cache] OK` while the command it ran was
+    # `fc-cache -f` — rebuilding the cache of the machine running pkm, writing
+    # outside the install root, and leaving the target's cache unbuilt.
+    #
+    # The option is fontconfig's own: `-y, --sysroot=SYSROOT  prepend SYSROOT
+    # to all paths for scanning`, read from `fc-cache --help` on fontconfig
+    # 2.17.1 rather than from memory.
+    return ["fc-cache", "-f", "--sysroot=" + str(root)]
 
 
 def _update_desktop_database_cmd(root, matched):

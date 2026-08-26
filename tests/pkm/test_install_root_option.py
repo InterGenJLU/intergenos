@@ -564,3 +564,50 @@ def test_a_proprietary_package_is_refused_for_another_root(rooted, monkeypatch):
     rc = cli.cmd_install(_DB(), _Args())
     assert rc == 1, "the proprietary path was not refused for an alternate root"
     assert not called, "the vendor helper flow ran for an alternate root"
+
+
+def test_the_anti_rollback_record_belongs_to_the_root(rooted):
+    """The newest-index-seen record is the ROOT's, not the machine's.
+
+    This one was found by running the real thing rather than by reading: a
+    rooted `pkm update` against the live mirror advanced
+    /var/lib/pkm/state on the machine running pkm and left the target with no
+    record at all. Both halves matter. The record is what refuses an index
+    older than one already accepted, so writing it on the wrong filesystem
+    both pollutes a machine that was not being changed and leaves the target
+    with no baseline to refuse a rollback against.
+    """
+    rootpaths = _rootpaths()
+    from pkm import repo as repo_mod
+
+    assert repo_mod._state_dir(rooted) == (
+        rooted / "var" / "lib" / "pkm" / "state"
+    )
+    assert repo_mod._state_dir(None) == repo_mod.PKM_STATE_DIR
+    assert repo_mod._state_dir("/") == repo_mod.PKM_STATE_DIR
+    assert Path(rootpaths.repo_state_dir(rooted)) == (
+        rooted / "var" / "lib" / "pkm" / "state"
+    )
+
+
+def test_every_state_path_is_named_in_one_table():
+    """The table is the contract; a path that is not in it is not derived.
+
+    Nine entries were the original set. The tenth — the anti-rollback record —
+    was missing and the reality proof caught it writing outside the root. This
+    asserts the count so that adding a state path without adding it here is a
+    test failure rather than a silent escape.
+    """
+    rootpaths = _rootpaths()
+    table = rootpaths.state_relpaths()
+    assert "repo_state_dir" in table
+    assert len(table) == 10, (
+        "the install-root state table changed size; every entry must have an "
+        "accessor and a consumer, and every consumer must use it: " + repr(sorted(table))
+    )
+    for name, rel in table.items():
+        assert not rel.startswith("/"), (
+            f"{name} is stored with a leading slash, which would discard the "
+            f"install root at the join"
+        )
+        assert hasattr(rootpaths, name), f"{name} has no accessor"

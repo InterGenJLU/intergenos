@@ -75,6 +75,13 @@ _STATE_RELPATHS = {
     # Pre-transaction restore-point handlers. Rooted so a target that has
     # registered none is a no-op rather than running the live system's.
     "pretxn_handler_dir": "usr/lib/pkm/pre-transaction.d",
+    # The anti-rollback record: the newest index generation this root has
+    # accepted. Rooted because it is a SECURITY record about one filesystem's
+    # history — a sync into a target must not advance the running system's
+    # record, and the target must end up with its own. Found by the reality
+    # proof: a rooted `pkm update` wrote /var/lib/pkm/state on the live machine
+    # while the target got none.
+    "repo_state_dir": "var/lib/pkm/state",
 }
 
 # Inputs read from the RUNNING system whatever root is named. See the module
@@ -160,6 +167,11 @@ def package_hooks_dir(root=None):
 def pretxn_handler_dir(root=None):
     """The pre-transaction handler drop-in directory under `root`."""
     return under(root, _STATE_RELPATHS["pretxn_handler_dir"])
+
+
+def repo_state_dir(root=None):
+    """The anti-rollback freshness record directory under `root`."""
+    return under(root, _STATE_RELPATHS["repo_state_dir"])
 
 
 def repo_config_path(root=None):

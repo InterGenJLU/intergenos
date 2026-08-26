@@ -546,12 +546,16 @@ class PackageDB:
             return
 
         if not create_if_missing and not self.db_path.exists():
+            # The manifest directory named here is the one belonging to THIS
+            # database's root, not the live system's: pointed at an install
+            # root, a message about /var/lib/igos/packages would send the
+            # reader to the wrong filesystem.
             raise FileNotFoundError(
                 f"pkm database does not exist at {self.db_path} and "
                 f"create_if_missing=False. This usually means pkm install "
                 f"has never run on this system (text manifests at "
-                f"/var/lib/igos/packages/ may still be present from an "
-                f"LFS-era bootstrap install)."
+                f"{self.root / 'var/lib/igos/packages'}/ may still be present "
+                f"from an LFS-era bootstrap install)."
             )
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(str(self.db_path))

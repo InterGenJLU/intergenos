@@ -429,6 +429,23 @@ PKM_MUTATING_COMMANDS = frozenset({
 # masked-diagnostic class the audit named).
 PKM_DB_INIT_COMMANDS = frozenset({"install", "install-helper", "import"})
 
+# The same question, answered differently for a named install root. On the
+# running system "the database does not exist" is a DIAGNOSTIC — pkm has never
+# installed anything here, and auto-creating an empty one would mask that. For
+# a target root the reading is inverted: an install root legitimately starts
+# with nothing in it, which is the whole reason to point pkm at one, so a
+# root-capable command that needs a database creates the ROOT's database rather
+# than refusing to begin.
+#
+# MEASURED, not assumed: `pkm --root <empty dir> update` refused on exactly
+# this, because update reads the database to report what is upgradable and is
+# not in the set above. Under a root that refusal has nothing to diagnose.
+def creates_database(command, root):
+    """Whether `command` may create the database for `root`."""
+    if str(root) != "/":
+        return command in PKM_ROOT_CAPABLE_COMMANDS
+    return command in PKM_DB_INIT_COMMANDS
+
 # Pure-read subcommands that issue only SELECTs. These open the DB read-only
 # (database.py read_only=True -> immutable open) so a regular user can inspect
 # their own installed system without root. Without this, every read command
@@ -1328,7 +1345,7 @@ def main():
     # other command surfaces FileNotFoundError with a diagnostic message
     # rather than silently auto-creating an empty DB. Prime Directive:
     # transparency over convenience for state inspection.
-    create_if_missing = args.command in PKM_DB_INIT_COMMANDS
+    create_if_missing = creates_database(args.command, install_root())
     # A dry-run preview opens the DB read-only (immutable) too, so an
     # unprivileged preview against the root-owned pkm.db cannot write and any
     # accidental write attempt in a preview path fails closed rather than

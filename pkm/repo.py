@@ -160,10 +160,25 @@ def _parse_iso8601(s):
         return None
 
 
-def _load_last_seen_state(repo_name):
+def _state_dir(root=None):
+    """Where the anti-rollback record lives for `root`.
+
+    PKM_STATE_DIR is the declared default and the environment override, and is
+    what this returns when no install root is named. With a root, the record is
+    the ROOT's: it says which index generation THAT filesystem has accepted, so
+    a sync into a target must neither advance the running system's record nor
+    leave the target without one. Both of those happened until this existed —
+    measured on a real rooted sync, not reasoned about.
+    """
+    if root is None or str(root) == "/":
+        return PKM_STATE_DIR
+    return rootpaths.repo_state_dir(root)
+
+
+def _load_last_seen_state(repo_name, root=None):
     """Return the persisted last-seen `generated` timestamp string for
     a repo, or None if no state file exists yet."""
-    state_path = PKM_STATE_DIR / f"{repo_name}.json"
+    state_path = _state_dir(root) / f"{repo_name}.json"
     try:
         data = json.loads(state_path.read_text())
         return data.get("last_seen_generated")
@@ -171,14 +186,15 @@ def _load_last_seen_state(repo_name):
         return None
 
 
-def _save_last_seen_state(repo_name, generated):
+def _save_last_seen_state(repo_name, generated, root=None):
     """Persist the `generated` timestamp for a repo. Atomic write via
     write-to-temp + rename to prevent torn-write windows."""
+    state_dir = _state_dir(root)
     try:
-        PKM_STATE_DIR.mkdir(parents=True, exist_ok=True)
+        state_dir.mkdir(parents=True, exist_ok=True)
     except OSError:
         return False
-    state_path = PKM_STATE_DIR / f"{repo_name}.json"
+    state_path = state_dir / f"{repo_name}.json"
     tmp_path = state_path.with_suffix(".json.tmp")
     payload = json.dumps({
         "last_seen_generated": generated,
@@ -943,7 +959,7 @@ class RepoManager:
                 f"freshness check requires ISO8601 timestamp."
             )
         now = datetime.now(timezone.utc)
-        last_seen = _load_last_seen_state(name)
+        last_seen = _load_last_seen_state(name, self._root_or_none())
         last_seen_dt = _parse_iso8601(last_seen)
         if last_seen_dt is not None and generated_dt < last_seen_dt:
             raise IndexFormatError(
@@ -989,7 +1005,7 @@ class RepoManager:
         # All envelope + freshness gates passed. Persist last-seen
         # state AFTER all checks succeed so a failed parse doesn't
         # poison subsequent runs.
-        _save_last_seen_state(name, generated_str)
+        _save_last_seen_state(name, generated_str, self._root_or_none())
 
         return RepoIndex(name, url, data)
 
