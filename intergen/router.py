@@ -689,6 +689,105 @@ _RECOMMENDATION_RE = re.compile(
     r"\bbest\s+.*\bunder\s+\d|\blaptop\s+for\s+video\s+editing\b", re.IGNORECASE)
 _WEB_DISPATCH_RE = re.compile(
     r"\bsearch\s+the\s+web\s+for\b|\brecipe\s+for\b", re.IGNORECASE)
+
+# ── A RECOGNISED SEARCH IS EXECUTED, NOT DESCRIBED (2026-08-25) ──────────────
+# The first outside user asked for a web search four times in three word orders and
+# was never given one. Two router gates decided those turns before any dispatch path
+# saw them: the web capability question answered "yes, I can search" and the
+# current-data offer answered "want me to look it up?", and neither staged anything.
+# The intent matcher recognises every one of those sentences as web_search — it was
+# simply never consulted, because both gates run ahead of the matcher on purpose and
+# for good reasons of their own.
+#
+# WHY RECOGNITION ALONE CANNOT BE THE CONDITION. Measured against the shipped corpus
+# on this machine's embedding server, the matcher returns web_search for a bare
+# capability QUESTION too: "can you search the web?" takes the web_search keyword, and
+# "are you able to search the web" reaches it on embeddings at 0.8216. Bypassing the
+# capability gate on recognition alone would answer "can you search the web?" by
+# searching the web for the words "search the web" — replacing an honest, grounded
+# answer with a nonsense dispatch. So the condition is recognition AND a TARGET: the
+# sentence has to name something to look up once its framing is removed.
+#
+# The two groups separate cleanly on exactly that test. After Layer-0 normalisation
+# the bare questions ARE the dispatch phrase and nothing else ("search the web?",
+# "web search?", "go online?"), while every sentence the field user typed carries a
+# residue that names the subject ("… the average price of a trilogy mill hill bead
+# kit", "… how much a chippendale dining table sells for").
+_WEB_SEARCH_LEAD_RE = re.compile(
+    r"^\s*(?:(?:yes|yeah|yep|yup|sure|ok|okay|alright|please)\b[\s,]*)*"
+    r"(?:(?:go\s+(?:ahead|on)|just|then|also|now|maybe|could\s+u|would\s+u)\b[\s,]*)*",
+    re.IGNORECASE)
+# The dispatch phrase itself — the words that say "go and look", in the orders cut 149
+# measured people actually typing them.
+_WEB_SEARCH_VERB_RE = re.compile(
+    r"^\s*(?:do\s+(?:a|an|the)\s+)?(?:"
+    r"web\s*search(?:es|ing)?"
+    r"|search(?:es|ing)?\s+(?:on\s+|in\s+)?(?:the\s+)?(?:web|internet|online|net)"
+    r"|search(?:es|ing)?\s+online"
+    r"|google(?:s|ing)?"
+    r"|look\s+(?:it\s+|that\s+|this\s+)?up\s+(?:on\s+(?:the\s+)?(?:web|internet|online))?"
+    r"|browse\s+(?:the\s+)?(?:web|internet)"
+    r"|go\s+online"
+    r")\b",
+    re.IGNORECASE)
+# Connective filler between the verb and the subject. Stripped one at a time from the
+# front, so "and see how much …" loses "and see" and keeps "how much …".
+_WEB_SEARCH_JOINER_RE = re.compile(
+    r"^\s*(?:and\s+(?:see|find|tell\s+me|show\s+me|check)"
+    r"|to\s+(?:see|find|find\s+out|tell\s+me|show\s+me|check|get)"
+    r"|and|to|for|about|on|up|me|it|that|this|please|then)\b",
+    re.IGNORECASE)
+# Trailing politeness and addressing, removed from the end.
+_WEB_SEARCH_TAIL_RE = re.compile(
+    r"(?:\s*(?:for\s+me|please|thanks|thank\s+you|ok|okay))*\s*[?!.,]*\s*$",
+    re.IGNORECASE)
+# Words that cannot be a search subject on their own. A residue made only of these
+# names nothing: "that picture for me" keeps "picture", "it for me" keeps nothing.
+_WEB_SEARCH_EMPTY_WORDS = frozenset({
+    "the", "a", "an", "it", "that", "this", "those", "these", "them", "there",
+    "me", "my", "mine", "you", "your", "yours", "i", "we", "us", "some", "any",
+    "thing", "things", "stuff", "something", "anything", "one", "ones",
+    "please", "thanks", "ok", "okay", "and", "or", "for", "of", "to", "on",
+    "up", "out", "about", "with", "in", "at", "by", "from", "if", "so", "then",
+    "web", "internet", "online", "net", "search", "searches", "searching",
+    "google", "browse", "look", "find", "see", "get", "go",
+})
+
+
+def _web_search_target(normalized: str) -> str | None:
+    """What a web-search sentence asks to look up, or None when it names nothing.
+
+    Takes a LAYER-0 NORMALISED sentence (the form the matcher matched on) and removes,
+    in order: a leading affirmative or filler run, the search verb phrase, any
+    connective filler that followed it, and trailing politeness. What is left is the
+    subject the person wants looked up.
+
+    Returns None when the residue names nothing — every word in it is framing. That is
+    the case that keeps a bare capability question ("can you search the web?", which
+    normalises to "search the web?") answered from the capability surface instead of
+    being dispatched as a search for its own wording.
+    """
+    if not normalized:
+        return None
+    text = _WEB_SEARCH_LEAD_RE.sub("", normalized, count=1)
+    verb = _WEB_SEARCH_VERB_RE.match(text)
+    if not verb:
+        return None
+    text = text[verb.end():]
+    # Peel the connectives one at a time — "and see how much …" is two of them.
+    while True:
+        stripped = _WEB_SEARCH_JOINER_RE.sub("", text, count=1)
+        if stripped == text:
+            break
+        text = stripped
+    text = _WEB_SEARCH_TAIL_RE.sub("", text).strip()
+    if not text:
+        return None
+    words = [w.strip(".,;:!?\"'") for w in text.lower().split()]
+    if not any(w and w not in _WEB_SEARCH_EMPTY_WORDS for w in words):
+        return None
+    return text
+
 _LIVE_ACTION_RE = re.compile(
     r"^\s*(?:restart|stop|start|enable|disable|open|launch|run|install|remove|"
     r"uninstall|delete|write|create|save|mount|unmount|kill)\b", re.IGNORECASE)
@@ -2586,6 +2685,62 @@ class ConversationRouter(RouterInterface):
                 return _answer(key)
         return None
 
+    def _recognised_web_dispatch(self, user_input: str) -> "str | None":
+        """The search target when this sentence is an EXPLICIT, recognised web search.
+
+        Returns the thing to look up when all three of these hold, and None otherwise:
+
+          1. the SHIPPED matcher — the same Layer-0 normalisation, keyword layer and
+             embedding layer the product routes on — resolves the sentence to the
+             ``web_search`` tool;
+          2. the sentence NAMES something to search for (``_web_search_target``), which
+             is what separates "web search for the average price of X" from the bare
+             capability question "can you search the web?"; and
+          3. ``web_search`` is actually registered.
+
+        CONDITION 3 IS NOT A FORMALITY. On a machine where web search is not available
+        the capability gate answers an honest "no". Routing on from that answer because
+        the sentence LOOKS like a dispatch would trade a true answer for a dispatch that
+        cannot happen — the user would be told nothing rather than told the truth. The
+        gate only steps aside when the search it is stepping aside FOR can really run.
+
+        This is the whole of the wiring: the two gates below ask this question and, when
+        the answer is a target, decline the turn so the dispatch paths execute it. No
+        precedence rule is added and no gate is reordered — each gate simply stops
+        answering for a sentence that was never a question.
+        """
+        reg = getattr(self, "_tools", None)
+        if reg is None or "web_search" not in reg.get_all_names():
+            return None
+        matcher = getattr(self, "_semantic", None)
+        if matcher is None:
+            return None
+        try:
+            normalized = matcher._normalize_input(user_input or "")
+            # THE FREE TEST RUNS FIRST, AND THE ORDER IS THE WHOLE POINT. Asking the
+            # matcher first would have put an embedding call in front of every
+            # capability question on the locked floor, and on the hardware this tier is
+            # built for that is not a rounding error: measured on this machine, whose
+            # embedding server runs on the CPU with no GPU layers, ONE embedding of one
+            # sentence takes 57 seconds. "Can you search the web?" answers today from a
+            # regex and the registry in about a millisecond, and it must keep doing so.
+            # _web_search_target is pure string work, it is the condition that rules
+            # most sentences out, and a sentence that names nothing can never be a
+            # dispatch however the matcher scores it — so nothing is lost by asking it
+            # first and a whole class of turns never touches the matcher at all.
+            target = _web_search_target(normalized)
+            if not target:
+                return None
+            match = matcher._match_keywords(normalized)
+            if match.intent_id is None:
+                match = matcher._match_embeddings(normalized)
+        except Exception:  # noqa: BLE001 — a matcher fault must never break a turn
+            logger.debug("web-dispatch recognition failed", exc_info=True)
+            return None
+        if match.intent_id is None or match.tool_name != "web_search":
+            return None
+        return target
+
     def _try_capability_question(self, user_input: str, t0: float
                                  ) -> "RouteResult | None":
         """M8-3: a capability QUESTION about web search ("can you search the
@@ -2608,6 +2763,17 @@ class ConversationRouter(RouterInterface):
                                and self._recent_topic_is_web_search()):
             is_web_cap = True
         if not is_web_cap:
+            return None
+        # AN EXPLICIT SEARCH IS RUN, NOT DESCRIBED. "Can you web search and see how
+        # much a chippendale dining table sells for?" wears a capability frame and is
+        # not a capability question — it names what to look up. Answering "yes, I can
+        # search" is what the first outside user was told, twice, instead of being
+        # given the search. Decline the turn so the dispatch paths execute it; a bare
+        # capability question names no target and is still answered here.
+        _target = self._recognised_web_dispatch(text)
+        if _target:
+            glass.emit("decision", "capability_question_declined_for_dispatch",
+                       detail={"topic": "web_search", "target": _target})
             return None
         reg = getattr(self, "_tools", None)
         has_web = bool(reg is not None and "web_search" in reg.get_all_names())
@@ -2668,6 +2834,17 @@ class ConversationRouter(RouterInterface):
         if (_STATIC_KNOWLEDGE_RE.search(text) or _RECOMMENDATION_RE.search(text)
                 or _WEB_DISPATCH_RE.search(text) or _LIVE_ACTION_RE.search(text)
                 or _SYSTEM_SCOPE_RE.search(text)):
+            return None
+        # AN EXPLICIT SEARCH IS RUN, NOT OFFERED. _WEB_DISPATCH_RE above fails out on
+        # two literal phrasings ("search the web for", "recipe for"); the field user's
+        # other three word orders — "web search for X", "do a web search for X", "yes,
+        # do a web search for X" — reached this gate and were answered with an offer to
+        # do the thing she had just asked for. The matcher recognises all of them.
+        # Asking it here replaces a two-phrase guess with the product's own recognition.
+        _target = self._recognised_web_dispatch(text)
+        if _target:
+            glass.emit("decision", "current_data_offer_declined_for_dispatch",
+                       detail={"target": _target})
             return None
         # OC-1: a definitional "what is <market subject>" with no value cue → the model
         # explains it; only the value form is live data (keeps the r59 "what's the dow at").
