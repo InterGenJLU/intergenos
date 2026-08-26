@@ -1592,6 +1592,96 @@ def screen_capability_claim(draft: str) -> tuple[str, str | None]:
     return ("clean", None)
 
 
+# ── GENERAL-PATH REFUSAL SCREEN (battery ids CNV-STEER-SCOPE-01 / ESC-02 / ESC-03) ──
+# The decided scope boundary (persona.SCOPE) tells the model to answer a harmless
+# everyday ask helpfully with one honest out-of-focus line and NEVER to refuse it.
+# The instruction rides every conversational prompt and the model still refuses:
+# measured 2026-08-26 on a whole-battery run, three ids, replies "I can't provide a
+# recipe for banana bread right now" and "I'm sorry, but I can't assist with that
+# request." Until this screen, nothing checked for it — the claim gate reads
+# execution claims, the capability gate reads pkm subcommands, the semantic screen
+# reads coherence, and a fluent refusal passes all three. So the refusal shipped.
+#
+# SCOPE OF THE MATCH, deliberately narrow. It fires on a FIRST-PERSON inability
+# statement about the request itself. It must not fire on an honest limit that is
+# TRUE and useful ("I don't have current data on that", "I can't verify InterGenOS's
+# exact pkm command surface right now"), because those are the honesty the rest of
+# this module exists to protect. The caller gates it to the conversational path, so
+# a safety-classified turn keeps its refusal — that refusal is correct.
+_APOS = r"(?:'|\u2019)"
+_GENERAL_REFUSAL_RE = re.compile(
+    r"\bi\s*" + _APOS + r"?\s*"
+    r"(?:m\s+(?:unable|not\s+able)\s+to"
+    r"|can\s*" + _APOS + r"?\s*t"
+    r"|cannot|can\s+not"
+    r"|am\s+(?:unable|not\s+able)\s+to)\s+"
+    r"(?:really\s+|actually\s+|currently\s+)?"
+    r"(?:help\s+(?:you\s+)?with|assist(?:\s+(?:you\s+)?with)?|provide|give|"
+    r"offer|answer|do|make|write|create|draft|generate|produce)\b",
+    re.IGNORECASE)
+
+# The one honest limit shape that must survive the screen: a statement about MISSING
+# LIVE DATA or an UNVERIFIABLE fact, which is not a refusal of the request.
+_HONEST_LIMIT_RE = re.compile(
+    r"\b(?:current\s+data|verify|confirm|up[- ]to[- ]date\s+information|"
+    r"real[- ]time|live\s+(?:state|data))\b", re.IGNORECASE)
+
+
+def screen_general_refusal(draft: str) -> tuple[str, str | None]:
+    """Conversational-path refusal gate. Two verdicts:
+      ("clean", None)          — no first-person refusal of the request.
+      ("refusal", phrase)      — the draft declines a benign general ask; `phrase`
+                                 is the matched text, carried into the glass row so
+                                 a reader sees WHAT tripped it, not just that
+                                 something did.
+    Caller-gated to the general path; a safety turn is never screened here."""
+    text = draft or ""
+    m = _GENERAL_REFUSAL_RE.search(text)
+    if not m:
+        return ("clean", None)
+    # An honest "I can't verify / I don't have current data" is not a refusal.
+    window = text[max(0, m.start() - 20):m.end() + 80]
+    if _HONEST_LIMIT_RE.search(window):
+        return ("clean", None)
+    return ("refusal", m.group(0).strip())
+
+
+def scope_grounding_note() -> str:
+    """Corrective note for the one regeneration after a refusal is detected. It
+    restates the decided boundary as a FACT about this turn and names the failure
+    mode explicitly, rather than repeating the same standing instruction the model
+    has already disregarded once."""
+    return (
+        "You just declined a harmless request. That was wrong: this ask is not "
+        "dangerous, not disallowed, and not about this machine's private state. "
+        "Answer it directly and genuinely from what you know, as fully as you "
+        "can, and add ONE short line that it is outside your system focus. Do "
+        "not apologize, do not say you cannot help, and do not redirect the user "
+        "back to system tasks. If the request is genuinely too large for you to "
+        "complete well, give what you honestly can and say plainly which part "
+        "exceeds you — that is still an answer, not a refusal.")
+
+
+def honest_scope_steer() -> str:
+    """The deterministic floor when the model refuses a benign general ask TWICE.
+
+    Delivered as the reply TEXT, not as side-channel metadata. The phone-a-friend
+    OFFER already exists (router._maybe_offer) but rides RouteResult.escalation_offer,
+    which only the web and D-Bus surfaces render — a console user never saw it, and
+    a user who has just been told "I can't help" is exactly the user who needs to
+    know where they CAN be helped. So the steer is in the sentence they read.
+
+    It states the limit without claiming an inability that is not real, names the
+    route onward, and never pretends the ask was improper."""
+    return (
+        "That one is not really a system query, so it sits outside my system "
+        "focus, and I did not manage a useful answer for it locally. It is not a "
+        "refusal — the ask is a perfectly reasonable one. I can reach out to your "
+        "designated frontier model for this if you would like: type 'ask my "
+        "frontier model' in chat, and you will see exactly what gets sent before "
+        "it goes.")
+
+
 def capability_grounding_note(marker: str | None = None) -> str:
     """Corrective note for regeneration: grounds the model in the REAL pkm
     subcommand surface so it drops the invented command. Derived from the surface

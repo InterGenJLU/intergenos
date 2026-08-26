@@ -64,6 +64,7 @@ from intergen.safety import (
     screen_capability_claim, capability_grounding_note, honest_capability_fallback,
     capability_unverified_fallback, answer_command_capability_question,
     screen_model_text_offer, model_offer_correction_note, honest_no_selfoffer_fallback,
+    screen_general_refusal, scope_grounding_note, honest_scope_steer,
 )
 from intergen.semantic import SemanticMatcher
 from intergen.tool_registry import ToolRegistry
@@ -4800,6 +4801,16 @@ class ConversationRouter(RouterInterface):
         text = self._screen_and_correct_claim(
             response.text, messages, dispatched=False, source="llm_freeform")
 
+        # The conversational path never refuses a benign ask. persona.SCOPE says so
+        # in the prompt and the model disregards it (measured 2026-08-26, battery
+        # ids CNV-STEER-SCOPE-01 / ESC-02 / ESC-03), so the boundary is enforced in
+        # code as well as asked for in the prompt. GATED TO THE GENERAL PATH: a
+        # safety-classified turn SHOULD refuse, and its refusal is left alone.
+        refused = False
+        if getattr(self, "_current_query_type", "") == "general":
+            text, refused = self._screen_and_correct_refusal(
+                text, messages, source="llm_freeform")
+
         # M7 follow-on: a single-turn "write <artifact> and save it" — the artifact
         # was just generated, so STAGE the save as a gated offer (branch 3 reused with
         # the fresh answer as the draft) rather than leaving the model to narrate a
@@ -4847,7 +4858,8 @@ class ConversationRouter(RouterInterface):
             confidence=confidence,
             tokens_prompt=response.tokens_prompt,
             tokens_completion=response.tokens_completion,
-            escalation_offer=self._maybe_offer(user_input, response, confidence),
+            escalation_offer=self._maybe_offer(
+                user_input, response, confidence, refused=refused),
         )
 
     def _semantic_flag_fallback(self, response, user_input: str
@@ -4865,9 +4877,23 @@ class ConversationRouter(RouterInterface):
         glass.emit("decision", "semantic_flags", detail={
             "flags": flags, "source": "llm_freeform",
             "action": "incoherence_fallback"})
-        self._append_history(user_input, _SEMANTIC_INCOHERENCE_FALLBACK)
+        # A discarded completion on the CONVERSATIONAL path leaves the user with a
+        # rephrase nudge and nowhere to go — and rephrasing does not help when the
+        # ask simply exceeded the local model (measured 2026-08-26, battery id
+        # CNV-STEER-ESC-03: "draft a complete 40-page legal contract" came back as
+        # "I didn't quite catch that"). Carry the steer in the TEXT, so it reaches
+        # a console user too, not only the surfaces that render the offer field.
+        text = _SEMANTIC_INCOHERENCE_FALLBACK
+        # Only an EXPLICITLY conversational turn is steered. The fallback is
+        # reachable before route() has classified anything, and a turn whose
+        # type is unknown is not known to be conversational — appending a
+        # scope line to it would assert something about the turn that has not
+        # been established. Unknown therefore behaves exactly as before.
+        if getattr(self, "_current_query_type", "") == "general":
+            text = text + "\n\n" + honest_scope_steer()
+        self._append_history(user_input, text)
         return RouteResult(
-            text=_SEMANTIC_INCOHERENCE_FALLBACK,
+            text=text,
             source="llm_freeform",
             handled=True,
             used_llm=True,
@@ -5037,6 +5063,46 @@ class ConversationRouter(RouterInterface):
         glass.emit("decision", "capability_screen", detail={
             "verdict": outcome, "marker": marker, "source": source})
         return text
+
+    def _regenerate_without_refusal(self, messages: "list[Message]") -> str | None:
+        """Regenerate a conversational draft ONCE after a refusal was detected, and
+        accept the result only if it no longer refuses. Returns the honest text, or
+        None if the second draft still declines (the caller then serves the
+        deterministic steer). Mirrors _regenerate_without_claim: one retry, never a
+        loop — a model that refuses twice is not going to answer on a third ask, and
+        a retry loop would spend the user's latency to reach the same floor."""
+        corrective = Message(role=MessageRole.USER, content=scope_grounding_note())
+        try:
+            regen = self._llm.chat(list(messages) + [corrective])
+        except Exception as e:  # noqa: BLE001 — a regen failure must not crash the turn
+            logger.error("refusal-screen regeneration failed: %s", e)
+            return None
+        verdict, _ = screen_general_refusal(regen.text)
+        return regen.text if verdict == "clean" else None
+
+    def _screen_and_correct_refusal(self, draft: str, messages: "list[Message]",
+                                    *, source: str) -> "tuple[str, bool]":
+        """The conversational scope boundary, enforced on the DRAFT.
+
+        Returns (text, refused). `refused` is True when the model declined and the
+        one regeneration did not recover it — the caller uses it to make sure the
+        turn still steers the user somewhere they can be helped. Glass-logs the
+        verdict on every general turn, clean ones included, so the screen's silence
+        is an observed measurement rather than an absence of evidence."""
+        verdict, phrase = screen_general_refusal(draft)
+        if verdict == "clean":
+            glass.emit("decision", "refusal_screen", detail={
+                "verdict": "clean", "phrase": None, "source": source})
+            return (draft, False)
+        corrected = self._regenerate_without_refusal(messages)
+        if corrected is not None:
+            outcome, text, refused = "refusal_regenerated", corrected, False
+        else:
+            outcome, text, refused = (
+                "refusal_regen_failed_steer", honest_scope_steer(), True)
+        glass.emit("decision", "refusal_screen", detail={
+            "verdict": outcome, "phrase": phrase, "source": source})
+        return (text, refused)
 
     # ── System Map (Goal-2 grounded retrieval) ──
 
@@ -5263,7 +5329,8 @@ class ConversationRouter(RouterInterface):
             tokens_completion=response.tokens_completion,
         )
 
-    def _maybe_offer(self, user_input: str, response, confidence: float) -> str | None:
+    def _maybe_offer(self, user_input: str, response, confidence: float,
+                     *, refused: bool = False) -> str | None:
         """Phone-a-friend OFFER (decision #4 heuristic half): when the local answer
         was kept but should_escalate() recommends help, return a short offer string
         for the frontend to surface. Returns None when there is nothing to offer.
@@ -5287,10 +5354,18 @@ class ConversationRouter(RouterInterface):
             dq = analyze_query(
                 user_input,
                 getattr(self, "_hardware_tier", HardwareTierLevel.TIER_2))
+            # A refusal the screen could not correct is a quality FAILURE of the
+            # local answer, whatever the gate scored it: the turn produced no
+            # answer at all. Saying so here is what makes the phone-a-friend
+            # offer fire on exactly the turns that need it.
+            if refused:
+                quality_check = "the local answer refused a benign request"
+            elif response.quality_passed:
+                quality_check = ""
+            else:
+                quality_check = "local quality gate failed"
             decision = self._escalation.should_escalate(
-                user_input, response.text,
-                "" if response.quality_passed else "local quality gate failed",
-                confidence,
+                user_input, response.text, quality_check, confidence,
                 multistep=dq.needs_decomposition,
             )
         except Exception as exc:  # noqa: BLE001 — an offer must never break a reply
