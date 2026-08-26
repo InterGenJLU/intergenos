@@ -481,6 +481,23 @@ class LLMRouter(LLMInterface):
             # "the server isn't running" instead of "could you rephrase", and so
             # status() can report the engine as down rather than healthy.
             self.note_transport_failure(f"{type(e).__name__}: {e}")
+            # A MODEL CALL THAT GOT NO RESPONSE IS NOW ON THE RECORD. Until this line
+            # the only trace of it was the log entry above, so a turn whose model call
+            # never happened was indistinguishable, downstream, from one the model
+            # answered — every reader of the decision trace saw a turn with no
+            # model/complete event and no reason for its absence. Measured 2026-08-26:
+            # an engine died mid-run, every subsequent call was refused, and the
+            # scenario harness graded four scenarios PASS with nothing behind them.
+            #
+            # Emitting here does not change what is served — the degraded fallback is
+            # unchanged and this returns exactly as before. It makes the failure
+            # VISIBLE, which is the whole difference between a system that fails and a
+            # system that fails silently.
+            glass.emit("model", "no_response", detail={
+                "endpoint": self._endpoint,
+                "error_type": type(e).__name__,
+                "error": str(e),
+            })
             return
         self.note_transport_ok()
 

@@ -44,7 +44,8 @@ from intergen.tests.scenario import isolation as iso
 from intergen.tests.scenario.grader import ScenarioGrade, grade_scenario
 from intergen.tests.scenario.schema import Scenario
 from intergen.tests.scenario.trace import TraceView
-from intergen.tests.scenario.transport import ScenarioTransport, TurnResult
+from intergen.tests.scenario.transport import (
+    ScenarioTransport, ScenarioUndriveable, TransportRefused, TurnResult)
 
 # A per-turn trace resolver: given a turn's transport result, return the joined
 # decision trace (by trace_id) or None. None everywhere degrades the grounding
@@ -222,7 +223,35 @@ def run_scenario(scenario: Scenario, transport: ScenarioTransport, *,
             applied = _apply_boundary(turn.session_marker, transport)
             if applied:
                 boundaries.append(applied)
-        res = transport.ask(turn.user)
+        # A TURN THAT MEASURED NOTHING MUST NOT BE GRADED. Two ways it can happen,
+        # and both abandon the scenario rather than let it reach grade_scenario:
+        #
+        #   1. The transport says outright that it got no response.
+        #   2. The transport answered, but the ENGINE behind it is not reachable and
+        #      this turn did not use the model. That pair is the measured outage of
+        #      2026-08-26: the daemon stayed up, every model call got connection
+        #      refused, intergen/llm.py logged one line and returned nothing, and the
+        #      router served a degraded reply that graded PASS four times over.
+        #      Neither half is sufficient alone — a turn a deterministic route served
+        #      legitimately does not use the model either, and an engine can be down
+        #      while a run is doing nothing that needs it — so both are required.
+        #
+        # This is deliberately CONSERVATIVE: it can abandon a scenario whose answer
+        # happened to be correct without the model. That trade is the right way round.
+        # A withheld verdict costs a re-run; a verdict awarded by a harness that could
+        # not reach the product is a false statement about the product, and it is the
+        # kind that gets believed.
+        try:
+            res = transport.ask(turn.user)
+        except TransportRefused as exc:
+            raise ScenarioUndriveable(scenario.id, i, str(exc)) from exc
+        if not res.used_llm:
+            reachable, why = transport.engine_reachable()
+            if not reachable:
+                raise ScenarioUndriveable(
+                    scenario.id, i,
+                    f"the turn was answered without the model and the engine is "
+                    f"unreachable, so nothing was measured: {why}")
         results.append(res)
         traces.append(trace_lookup(res) if trace_lookup else None)
 
