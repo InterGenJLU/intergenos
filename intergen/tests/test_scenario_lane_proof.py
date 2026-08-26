@@ -184,7 +184,7 @@ class TestRefusals(unittest.TestCase):
             corpus.write_text("[]", encoding="utf-8")
             rc = lane_proof.main([
                 "--run-id", "empty", "--out", d, "--corpus", str(corpus),
-                "--allow-installed"])
+                "--posture", "2B-locked", "--allow-installed"])
         self.assertEqual(rc, 4)
 
     def test_a_named_trace_that_is_absent_exits_four(self) -> None:
@@ -201,7 +201,7 @@ class TestRefusals(unittest.TestCase):
                 "--run-id", "no-trace", "--out", d,
                 "--corpus", str(real_corpus), "--limit", "1",
                 "--glass", str(Path(d) / "there-is-no-such-file.jsonl"),
-                "--allow-installed"])
+                "--posture", "2B-locked", "--allow-installed"])
         self.assertEqual(rc, 4)
 
 

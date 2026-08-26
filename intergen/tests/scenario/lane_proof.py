@@ -59,6 +59,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from intergen.tests.scenario.schema import POSTURES
+
 # The corpus that ships with the harness — the graded battery a lane must not
 # regress. seeds/ is the smaller cross-posture set live_run drives; it is not
 # this command's default because a lane's question is about the graded corpus.
@@ -155,6 +157,14 @@ def main(argv: list[str] | None = None) -> int:
                     help="stop after N scenarios (0 = all of them)")
     ap.add_argument("--mode", choices=("direct", "dbus"), default="direct",
                     help="direct = an in-process daemon; dbus = the live one")
+    ap.add_argument("--posture", required=True, choices=sorted(POSTURES),
+                    help="the tier this run actually drives. REQUIRED: a "
+                         "scenario turn can carry assertions written for "
+                         "different tiers that contradict each other, so a run "
+                         "that does not say which tier it drove grades some of "
+                         "them against a box that was never there. There is no "
+                         "default, because a default would be a guess about "
+                         "the machine")
     ap.add_argument("--ready-timeout", type=float, default=300.0,
                     help="seconds to wait for the daemon to be able to serve")
     ap.add_argument("--baseline",
@@ -187,6 +197,8 @@ def main(argv: list[str] | None = None) -> int:
         return 4
     turns = sum(len(s.turns) for s in scenarios)
     print(f"### selected: {len(scenarios)} scenarios / {turns} turns", flush=True)
+    print(f"### posture: {args.posture} — assertions written for another tier "
+          f"do not apply to this run", flush=True)
 
     out_dir = Path(args.out) / args.run_id
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -250,7 +262,8 @@ def main(argv: list[str] | None = None) -> int:
             detail = ""
             failed: list[dict[str, Any]] = []
             try:
-                res = run_scenario(sc, transport, trace_lookup=trace_lookup)
+                res = run_scenario(sc, transport, trace_lookup=trace_lookup,
+                                   posture=args.posture)
                 runs.append(res)
                 grade = res.grade.grade
                 failed = failed_assertions(res)

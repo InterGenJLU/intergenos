@@ -6,8 +6,18 @@ is offered as finished.**
 ```
 python3 -m intergen.tests.scenario.lane_proof \
     --out ./lane-proof-runs --run-id <short-name-for-this-work> \
+    --posture <the tier this box actually serves> \
     --baseline <the results.json from the same command on the unchanged tree>
 ```
+
+`--posture` is required and takes one of `2B-locked`, `9B-native`,
+`35B-native`. A scenario turn can carry assertions written for different tiers
+that contradict each other — the same sentence routing freeform on the locked
+tier and through tools on the native one — so a run that does not say which tier
+it drove grades some of its assertions against a machine that was never there. A
+run on a locked 2B box with no posture named once counted 31 such failures as
+product defects. There is no default, because a default would be a guess about
+the machine.
 
 It loads the graded corpus under `intergen/tests/scenario/corpus/`, drives every
 scenario against the tree it is run from, and writes three files under
@@ -52,8 +62,12 @@ at the commit the work is based on:
 ```
 git worktree add ../proof-base <base-commit>
 cd ../proof-base && python3 -m intergen.tests.scenario.lane_proof \
-    --out ./lane-proof-runs --run-id base
+    --out ./lane-proof-runs --run-id base --posture <the same tier>
 ```
+
+Use the SAME `--posture` for the base run and the change run: two runs graded
+under different tiers are not comparable, and the difference between them would
+be read as a regression.
 
 Then point `--baseline ../proof-base/lane-proof-runs/base/results.json` at it.
 
@@ -80,7 +94,8 @@ intend to close:
 
 ```
 systemd-run --user --unit=lane-proof --collect --working-directory="$PWD" \
-    python3 -m intergen.tests.scenario.lane_proof --out ./lane-proof-runs --run-id <name>
+    python3 -m intergen.tests.scenario.lane_proof --out ./lane-proof-runs \
+        --run-id <name> --posture <the tier this box actually serves>
 ```
 
 ## Which daemon answers
