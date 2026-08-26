@@ -108,8 +108,35 @@ def _spans_by_trace(decisions_rows: list[dict[str, Any]]) -> dict[str, list[dict
     return grouped
 
 
+# The glass phase/event pairs :meth:`TraceView.from_glass_rows` actually reads.
+# The always-on log holds every byte of a turn; the harness needs four rows per
+# turn out of it, so the fallback loader keeps only these. That is what makes
+# reading the canonical file affordable instead of a memory hazard.
+_GLASS_ROWS_THE_HARNESS_READS = frozenset({
+    ("route", "decided"),
+    ("delivery", "final"),
+    ("decision", "decompose"),
+    ("decision", "compound_route"),
+})
+
+
+def load_glass_rows(path: "Path | str | None" = None) -> list[dict[str, Any]]:
+    """The glass rows the harness reads, from ``path`` or the canonical file.
+
+    Streams the log and keeps only the four phase/event pairs the trace view
+    consumes, so the size of an always-on record does not decide whether a run
+    can afford to read it. A file that is not there yields an empty list.
+    """
+    from intergen.glass import default_glass_path, read_rows
+    p = Path(path) if path is not None else default_glass_path()
+    return [row for row in read_rows(p)
+            if (row.get("phase"), row.get("event"))
+            in _GLASS_ROWS_THE_HARNESS_READS]
+
+
 def build_trace_lookup(glass_rows: list[dict[str, Any]] | None = None,
-                       decisions_rows: list[dict[str, Any]] | None = None) -> TraceLookup:
+                       decisions_rows: list[dict[str, Any]] | None = None,
+                       *, glass_fallback: bool = True) -> TraceLookup:
     """A per-turn trace resolver for a live run, layering every available source.
 
     Base: the reply itself (``from_turn_result``) — always carries dispatched
@@ -120,14 +147,36 @@ def build_trace_lookup(glass_rows: list[dict[str, Any]] | None = None,
     (§5.2 primary source) supplies the decomposition ``sub_queries`` and
     corroborates the route source. A signal no source carries stays unresolved,
     so the grader fails closed on it — verify, don't mask.
+
+    THE GLASS SOURCE IS NOT OPTIONAL TO FIND. It is written on every turn whether
+    or not a run asks for it, so a caller that names no rows gets the canonical
+    file read for it (``load_glass_rows``) rather than a run that silently grades
+    every decomposition assertion against nothing. That is what a whole-corpus
+    run did once: ten scenarios reported as "no decomposition observed" while the
+    router had split four of them and written the split down. Pass
+    ``glass_fallback=False`` to drive a run deliberately without the file; the
+    grader then reports the turns as unread rather than as undecomposed.
     """
     spans = _spans_by_trace(decisions_rows) if decisions_rows else {}
+    # Resolved on first use so a run that needs no trace never reads the log.
+    _fallback: dict[str, list[dict[str, Any]]] = {}
+
+    def _rows() -> list[dict[str, Any]]:
+        if glass_rows is not None:
+            return glass_rows
+        if not glass_fallback:
+            return []
+        if "rows" not in _fallback:
+            _fallback["rows"] = load_glass_rows()
+        return _fallback["rows"]
 
     def lookup(tr: TurnResult) -> TraceView | None:
         turn_spans = spans.get(tr.trace_id) if tr.trace_id else None
         view = TraceView.from_turn_result(tr, spans=turn_spans)
-        if glass_rows and tr.trace_id:
-            g = TraceView.from_glass_rows(glass_rows, trace_id=tr.trace_id)
+        rows = _rows()
+        if rows and tr.trace_id:
+            g = TraceView.from_glass_rows(rows, trace_id=tr.trace_id)
+            view.decomposition_source_joined = g.decomposition_source_joined
             if g.sub_queries:
                 view.sub_queries = g.sub_queries
             if not view.route_source and g.route_source:

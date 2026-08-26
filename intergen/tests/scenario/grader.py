@@ -413,9 +413,20 @@ def _eval_decomposes_into(a: Assertion, trace: TraceView | None) -> AssertionRes
     # should split but did not (fail closed, never pass blind).
     subs = list(trace.sub_queries) if trace else []
     if not subs:
+        # Two different states, reported as two different sentences. An empty
+        # sub-query list means the router did not split the request ONLY when a
+        # source that carries the decomposer's verdict was actually joined for
+        # this turn. Without one, the run read nothing and must say so — it still
+        # fails, because an assertion nothing was read for is never a pass, but
+        # it does not report a product defect it did not measure.
+        joined = bool(trace and trace.decomposition_source_joined)
+        actual = ("no decomposition observed (the joined trace carries no "
+                  "sub_queries)" if joined else
+                  "no decomposition trace was joined for this turn, so nothing "
+                  "was read that could say whether the request was split")
         return _r("decomposes_into", a.value, False,
                   a.description or "compound request splits into sub-requests",
-                  actual="no decomposition observed (trace carries no sub_queries)")
+                  actual=actual)
     want = a.value.strip()
     if want.isdigit():
         n = int(want)

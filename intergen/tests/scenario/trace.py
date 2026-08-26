@@ -145,6 +145,15 @@ class TraceView:
     # compound_route event's ``sub_queries``. Empty when the turn did not
     # decompose — an assertion that expects decomposition then fails, correctly.
     sub_queries: list[str] = field(default_factory=list)
+    # Whether a source that CAN carry the decomposer's verdict was actually
+    # joined for this turn. Empty ``sub_queries`` means two completely different
+    # things and they must not be reported as one: the router did not split the
+    # request (this flag True), or nothing was read that could have said either
+    # way (this flag False). A whole-corpus run that supplied no glass source
+    # once reported ten scenarios as "no decomposition observed" when four of
+    # them did decompose — the flag exists so that report cannot be written
+    # again.
+    decomposition_source_joined: bool = False
 
     # ── the review-gate lifecycle (WP-3.4) ──
     # ``gate_held`` is True once a dispatch entered hold_for_review (the panel/WS
@@ -315,6 +324,9 @@ class TraceView:
                 view.delivered_text = detail.get("text", view.delivered_text)
                 view.route_source = detail.get("source", view.route_source)
             elif phase == "decision" and event in ("decompose", "compound_route"):
+                # The row itself is the attestation: this turn's decomposer
+                # verdict WAS read, whatever it says.
+                view.decomposition_source_joined = True
                 sq = detail.get("sub_queries")
                 if isinstance(sq, list) and sq:
                     view.sub_queries = [str(s) for s in sq]
@@ -356,6 +368,9 @@ class TraceView:
             dispatch_any_denied=d.get("denied"),
             dispatch_any_blocked=d.get("blocked"),
             sub_queries=[str(s) for s in (cap.get("sub_queries") or [])],
+            # A capture that names the key attests the verdict; one that omits it
+            # attests nothing, and the grader must be able to tell the two apart.
+            decomposition_source_joined="sub_queries" in cap,
             gate_held=bool(gate.get("held", False)),
             gate_outcome=gate.get("outcome", "") or "",
         )
