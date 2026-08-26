@@ -30,6 +30,26 @@ landed is in the repository README, not here.
 
 ### Added
 
+- **The package manager can install into a directory instead of into this
+  system.** `pkm --root DIR install <package>` puts the package, its database
+  record, its manifest and its caches under DIR, and writes nothing outside it.
+  The machinery has been there for a long time — it is how the graphical
+  installer installs a whole system onto a target disk — but it could only be
+  reached by writing Python. Repository settings and the keys used to check
+  signatures are still read from the running machine, because a directory being
+  built has no keys of its own to check against, and one that did would be
+  choosing what the package manager trusts while it is being filled. Anything
+  that cannot be done for another directory is refused by name, with the
+  reason, before anything is changed: a package that installs by running a
+  vendor's own installer, and a package whose own post-install step could not
+  run inside the directory, are both refused rather than half-installed.
+  Fixed in the same change, all three found by doing it for real against the
+  package mirror: rebuilding the font cache and rebuilding the certificate
+  trust store both acted on the machine running the command rather than on the
+  directory, and the record of the newest package index accepted — the thing
+  that refuses an older index replayed at you — was written to the machine
+  rather than to the directory.
+
 - **The embedding server takes the input it is sent.** Its physical batch is
   sized to its context, so an input between 512 tokens and the context no
   longer fails with an HTTP 500; a longer input is shortened on token

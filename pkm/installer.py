@@ -46,12 +46,11 @@ except ImportError:
 
 from .database import (
     PackageDB,
-    ARCHIVE_DIR,
-    MANIFEST_DIR,
     _sha256,
     _parse_manifest_line,
     _parse_manifest,
 )
+from . import rootpaths
 from .repo import _read_package_meta, ArchiveReadError
 from .hooks import (
     CANONICAL_HOOKS_PRE,
@@ -145,7 +144,7 @@ HELPER_MANIFEST_SCHEMA_VERSION = 1
 HELPER_BIN_DIR = Path("/usr/bin")
 
 
-def is_download_helper(name):
+def is_download_helper(name, root=None):
     """True if <name> is a proprietary-download helper package.
 
     Detection is the on-disk presence of its install-helper binary
@@ -154,11 +153,18 @@ def is_download_helper(name):
     ships in the default install set — is the reliable signal that <name> is
     a "run this to download the real proprietary app" package rather than a
     normally-installed one.
+
+    `root` names which filesystem is being asked. It defaults to the running
+    system, which is what every caller before the install-root option meant.
+    Asking the LIVE machine about a package being installed into another root
+    would answer for the wrong filesystem — the live machine's helper set has
+    nothing to do with the target's.
     """
-    return (HELPER_BIN_DIR / f"igos-install-{name}").is_file()
+    base = HELPER_BIN_DIR if root is None else Path(root) / "usr" / "bin"
+    return (base / f"igos-install-{name}").is_file()
 
 
-def payload_installed(name):
+def payload_installed(name, root=None):
     """True if the REAL proprietary app for <name> has actually been
     downloaded and installed.
 
@@ -168,8 +174,11 @@ def payload_installed(name):
     NOT create it — so this is what separates "the app is installed" from
     "only the helper that can install it is present." (PRIME DIRECTIVE: the
     system must never report the app as installed when it is not.)
+
+    `root` names which filesystem is being asked; see is_download_helper.
     """
-    return (HELPER_MANIFEST_DIR / f"{name}.manifest").is_file()
+    base = HELPER_MANIFEST_DIR if root is None else rootpaths.helper_manifest_dir(root)
+    return (Path(base) / f"{name}.manifest").is_file()
 
 
 # Where a download-helper records that a human read the vendor licence and
@@ -974,7 +983,8 @@ class PackageInstaller:
                     f"No local archive for '{name}', but an install helper exists.\n"
                     f"         Run: pkm install-helper {name}"
                 )
-            return False, f"No archive found for '{name}' in {ARCHIVE_DIR}"
+            return False, (f"No archive found for '{name}' in "
+                           f"{rootpaths.archive_dir(self.root)}")
 
         archive_path = Path(archive_path)
         if not archive_path.exists():
@@ -1975,15 +1985,21 @@ class PackageInstaller:
         after `<name>-` begins a version (a digit) — so a name that is a prefix of
         a longer package name never matches — then selects the highest version by
         pkm's own version.compare, never a lexical sort.
+
+        The directory searched is the INSTALL ROOT's archive directory, not the
+        running system's: resolving a package for a target out of the live
+        machine's archives would install whatever that machine happens to hold.
+        With the default root the path is unchanged.
         """
-        if not ARCHIVE_DIR.exists():
+        archive_dir = rootpaths.archive_dir(self.root)
+        if not archive_dir.exists():
             return None
         from .version import compare as _vcompare, VersionParseError
         prefix = f"{name}-"
         suffix = ".igos.tar.gz"
         best = None
         best_ver = None
-        for f in ARCHIVE_DIR.iterdir():
+        for f in archive_dir.iterdir():
             n = f.name
             if not (n.startswith(prefix) and n.endswith(suffix)):
                 continue

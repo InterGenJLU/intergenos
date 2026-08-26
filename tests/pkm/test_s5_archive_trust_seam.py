@@ -25,9 +25,21 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pkm.installer as inst_mod
 from pkm.installer import PackageInstaller
 from pkm import cli
+
+
+def _archives_under(root: Path) -> Path:
+    """The archive directory pkm resolves for an install root.
+
+    The seam these tests pin used to be the module constant ARCHIVE_DIR. It is
+    now derived from the installer's own root (pkm/rootpaths.py), so the
+    fixtures build the real layout under a temporary root and the tests
+    exercise the real resolution instead of a patched name.
+    """
+    d = root / "var" / "lib" / "igos" / "archives"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
 
 
 def _touch(d: Path, name: str) -> None:
@@ -37,82 +49,84 @@ def _touch(d: Path, name: str) -> None:
 class FindArchiveExactMatch(unittest.TestCase):
     """S5-2: exact name + highest-version selection, no prefix confusion."""
 
-    def _installer_over(self, d: Path) -> PackageInstaller:
+    def _installer_over(self, root: Path) -> PackageInstaller:
         inst = PackageInstaller.__new__(PackageInstaller)  # no DB needed here
+        inst.root = Path(root)
         return inst
 
     def test_name_prefix_confusion_is_rejected(self):
         with tempfile.TemporaryDirectory() as t:
-            d = Path(t)
+            root = Path(t)
+            d = _archives_under(root)
             for n in ("bash-5.2.37.igos.tar.gz",
                       "bash-completion-2.11.igos.tar.gz",
                       "go-1.26.4.igos.tar.gz",
                       "go-md2man-2.0.5.igos.tar.gz"):
                 _touch(d, n)
-            with patch.object(inst_mod, "ARCHIVE_DIR", d):
-                inst = self._installer_over(d)
-                self.assertEqual(inst._find_archive("bash").name,
-                                 "bash-5.2.37.igos.tar.gz")
-                self.assertEqual(inst._find_archive("go").name,
-                                 "go-1.26.4.igos.tar.gz")
-                # the longer names still resolve for their OWN exact name
-                self.assertEqual(inst._find_archive("bash-completion").name,
-                                 "bash-completion-2.11.igos.tar.gz")
-                self.assertEqual(inst._find_archive("go-md2man").name,
-                                 "go-md2man-2.0.5.igos.tar.gz")
+            inst = self._installer_over(root)
+            self.assertEqual(inst._find_archive("bash").name,
+                             "bash-5.2.37.igos.tar.gz")
+            self.assertEqual(inst._find_archive("go").name,
+                             "go-1.26.4.igos.tar.gz")
+            # the longer names still resolve for their OWN exact name
+            self.assertEqual(inst._find_archive("bash-completion").name,
+                             "bash-completion-2.11.igos.tar.gz")
+            self.assertEqual(inst._find_archive("go-md2man").name,
+                             "go-md2man-2.0.5.igos.tar.gz")
 
     def test_highest_version_by_compare_not_lexical(self):
         # Lexical reverse-sort would pick "5.2.9" over "5.2.37"; version.compare
         # (numeric) must pick 5.2.37.
         with tempfile.TemporaryDirectory() as t:
-            d = Path(t)
+            root = Path(t)
+            d = _archives_under(root)
             _touch(d, "bash-5.2.9.igos.tar.gz")
             _touch(d, "bash-5.2.37.igos.tar.gz")
-            with patch.object(inst_mod, "ARCHIVE_DIR", d):
-                inst = self._installer_over(d)
-                self.assertEqual(inst._find_archive("bash").name,
-                                 "bash-5.2.37.igos.tar.gz")
+            inst = self._installer_over(root)
+            self.assertEqual(inst._find_archive("bash").name,
+                             "bash-5.2.37.igos.tar.gz")
 
     def test_no_match_returns_none(self):
         with tempfile.TemporaryDirectory() as t:
-            d = Path(t)
+            root = Path(t)
+            d = _archives_under(root)
             _touch(d, "bash-5.2.37.igos.tar.gz")
-            with patch.object(inst_mod, "ARCHIVE_DIR", d):
-                inst = self._installer_over(d)
-                self.assertIsNone(inst._find_archive("zsh"))
-                # a name that is only a prefix (no version after it) never matches
-                self.assertIsNone(inst._find_archive("ba"))
+            inst = self._installer_over(root)
+            self.assertIsNone(inst._find_archive("zsh"))
+            # a name that is only a prefix (no version after it) never matches
+            self.assertIsNone(inst._find_archive("ba"))
 
 
 class InstallBackstopFailsClosed(unittest.TestCase):
     """S5-1: install() refuses a locally-resolved archive with no verification
     reference, and does NOT fire for a caller-provided archive_path."""
 
-    def _installer(self):
+    def _installer(self, root: Path):
         db = MagicMock()
         db.get_installed.return_value = None  # not already installed
         inst = PackageInstaller.__new__(PackageInstaller)
         inst.db = db
+        inst.root = Path(root)
         return inst
 
     def test_resolved_local_without_sha_is_refused(self):
         with tempfile.TemporaryDirectory() as t:
-            d = Path(t)
+            root = Path(t)
+            d = _archives_under(root)
             _touch(d, "foo-1.0.igos.tar.gz")
-            with patch.object(inst_mod, "ARCHIVE_DIR", d):
-                inst = self._installer()
-                ok, msg = inst.install("foo", archive_path=None,
-                                       expected_sha256=None)
+            inst = self._installer(root)
+            ok, msg = inst.install("foo", archive_path=None,
+                                   expected_sha256=None)
         self.assertFalse(ok)
         self.assertIn("no signed-index verification reference", msg)
 
     def test_no_local_archive_reports_not_found_not_backstop(self):
         with tempfile.TemporaryDirectory() as t:
-            d = Path(t)
-            with patch.object(inst_mod, "ARCHIVE_DIR", d):
-                inst = self._installer()
-                ok, msg = inst.install("foo", archive_path=None,
-                                       expected_sha256=None)
+            root = Path(t)
+            _archives_under(root)
+            inst = self._installer(root)
+            ok, msg = inst.install("foo", archive_path=None,
+                                   expected_sha256=None)
         self.assertFalse(ok)
         self.assertIn("No archive found", msg)
         self.assertNotIn("verification reference", msg)
@@ -122,13 +136,13 @@ class InstallBackstopFailsClosed(unittest.TestCase):
         # backstop must not fire — the install proceeds past it (and here fails
         # later on the dummy archive content, which is a DIFFERENT error).
         with tempfile.TemporaryDirectory() as t:
-            d = Path(t)
+            root = Path(t)
+            d = _archives_under(root)
             arch = d / "foo-1.0.igos.tar.gz"
             arch.write_bytes(b"not a real tar")
-            with patch.object(inst_mod, "ARCHIVE_DIR", d):
-                inst = self._installer()
-                ok, msg = inst.install("foo", archive_path=str(arch),
-                                       expected_sha256=None)
+            inst = self._installer(root)
+            ok, msg = inst.install("foo", archive_path=str(arch),
+                                   expected_sha256=None)
         self.assertFalse(ok)
         self.assertNotIn("no signed-index verification reference", msg)
 

@@ -68,6 +68,8 @@ import urllib.error
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from . import rootpaths
+
 # Forensic-trace shim — defensive import.
 try:
     from . import _trace
@@ -158,10 +160,25 @@ def _parse_iso8601(s):
         return None
 
 
-def _load_last_seen_state(repo_name):
+def _state_dir(root=None):
+    """Where the anti-rollback record lives for `root`.
+
+    PKM_STATE_DIR is the declared default and the environment override, and is
+    what this returns when no install root is named. With a root, the record is
+    the ROOT's: it says which index generation THAT filesystem has accepted, so
+    a sync into a target must neither advance the running system's record nor
+    leave the target without one. Both of those happened until this existed —
+    measured on a real rooted sync, not reasoned about.
+    """
+    if root is None or str(root) == "/":
+        return PKM_STATE_DIR
+    return rootpaths.repo_state_dir(root)
+
+
+def _load_last_seen_state(repo_name, root=None):
     """Return the persisted last-seen `generated` timestamp string for
     a repo, or None if no state file exists yet."""
-    state_path = PKM_STATE_DIR / f"{repo_name}.json"
+    state_path = _state_dir(root) / f"{repo_name}.json"
     try:
         data = json.loads(state_path.read_text())
         return data.get("last_seen_generated")
@@ -169,14 +186,15 @@ def _load_last_seen_state(repo_name):
         return None
 
 
-def _save_last_seen_state(repo_name, generated):
+def _save_last_seen_state(repo_name, generated, root=None):
     """Persist the `generated` timestamp for a repo. Atomic write via
     write-to-temp + rename to prevent torn-write windows."""
+    state_dir = _state_dir(root)
     try:
-        PKM_STATE_DIR.mkdir(parents=True, exist_ok=True)
+        state_dir.mkdir(parents=True, exist_ok=True)
     except OSError:
         return False
-    state_path = PKM_STATE_DIR / f"{repo_name}.json"
+    state_path = state_dir / f"{repo_name}.json"
     tmp_path = state_path.with_suffix(".json.tmp")
     payload = json.dumps({
         "last_seen_generated": generated,
@@ -365,10 +383,53 @@ class RepoIndex:
 class RepoManager:
     """Manages repository sync, caching, and package downloads."""
 
-    def __init__(self):
+    def __init__(self, root=None):
+        # The install root whose cache this manager reads and writes. None is
+        # the running system, which is what every caller meant before the
+        # install-root option existed, and the paths below are then identical
+        # to the module constants.
+        #
+        # The CACHE is the root's; the CONFIGURATION and the KEYRING are not.
+        # A target being bootstrapped has no keyring to verify its own packages
+        # against, and a target that has one would otherwise decide which
+        # signatures pkm accepts while pkm installs into it. See
+        # pkm/rootpaths.py, which holds that distinction in one place.
+        self.root = Path(root) if root is not None else None
         self.repos = self._load_repos()
         self.indexes = {}  # name -> RepoIndex
         self.cache_ready = self._ensure_cache_dirs()
+
+    # The cache paths, resolved at CALL time rather than captured in __init__.
+    # Two reasons, both load-bearing. An instance built without __init__ (the
+    # shape several tests use) still answers correctly, and with no install
+    # root named the module constants below ARE the answer — read as globals
+    # here, so the declared default stays the single place the live paths are
+    # stated rather than being copied into every instance at construction.
+    def _root_or_none(self):
+        root = getattr(self, "root", None)
+        if root is None or str(root) == "/":
+            return None
+        return root
+
+    def cache_dir(self):
+        """The repository cache directory for this manager's root."""
+        root = self._root_or_none()
+        return REPO_CACHE_DIR if root is None else rootpaths.repo_cache_dir(root)
+
+    def db_cache(self):
+        """Where the synced index and its signature live."""
+        root = self._root_or_none()
+        return REPO_DB_CACHE if root is None else self.cache_dir() / "db"
+
+    def pkg_cache(self):
+        """Where downloaded package archives live."""
+        root = self._root_or_none()
+        return REPO_PKG_CACHE if root is None else self.cache_dir() / "packages"
+
+    def rollback_dir(self):
+        """Where a pre-upgrade copy of an archive is kept for restore."""
+        root = self._root_or_none()
+        return REPO_ROLLBACK_DIR if root is None else self.cache_dir() / "rollback"
 
     def _ensure_cache_dirs(self):
         """Create the repo cache dirs; return True if the cache is usable.
@@ -389,14 +450,14 @@ class RepoManager:
         for update/install.
         """
         try:
-            REPO_DB_CACHE.mkdir(parents=True, exist_ok=True)
-            REPO_PKG_CACHE.mkdir(parents=True, exist_ok=True)
+            self.db_cache().mkdir(parents=True, exist_ok=True)
+            self.pkg_cache().mkdir(parents=True, exist_ok=True)
         except (PermissionError, FileNotFoundError):
             # Non-root with no initialized cache: nothing to create until an
             # update runs as root. Read paths degrade to "no index synced".
             return False
         try:
-            os.chmod(str(REPO_PKG_CACHE), 0o700)
+            os.chmod(str(self.pkg_cache()), 0o700)
         except OSError:
             # Non-fatal: chmod may fail on filesystems that don't support
             # POSIX modes (e.g. Windows test runs). Production pkm runs as
@@ -527,8 +588,8 @@ class RepoManager:
 
             try:
                 # Download index
-                db_path = REPO_DB_CACHE / f"{name}.db"
-                sig_path = REPO_DB_CACHE / f"{name}.db.sig"
+                db_path = self.db_cache() / f"{name}.db"
+                sig_path = self.db_cache() / f"{name}.db.sig"
 
                 if reporter:
                     reporter.step("Hit", f"{name}   {url}")
@@ -648,7 +709,7 @@ class RepoManager:
 
         dest = Path(dest)
         if partial_path is None:
-            partial_dir = REPO_CACHE_DIR / "partial"
+            partial_dir = self.cache_dir() / "partial"
             partial_dir.mkdir(parents=True, exist_ok=True)
             # PKM-A22: key the partial per-URL, not just per-filename. A
             # filename-only key let a mirror-failover Range-RESUME one mirror's
@@ -898,7 +959,7 @@ class RepoManager:
                 f"freshness check requires ISO8601 timestamp."
             )
         now = datetime.now(timezone.utc)
-        last_seen = _load_last_seen_state(name)
+        last_seen = _load_last_seen_state(name, self._root_or_none())
         last_seen_dt = _parse_iso8601(last_seen)
         if last_seen_dt is not None and generated_dt < last_seen_dt:
             raise IndexFormatError(
@@ -944,7 +1005,7 @@ class RepoManager:
         # All envelope + freshness gates passed. Persist last-seen
         # state AFTER all checks succeed so a failed parse doesn't
         # poison subsequent runs.
-        _save_last_seen_state(name, generated_str)
+        _save_last_seen_state(name, generated_str, self._root_or_none())
 
         return RepoIndex(name, url, data)
 
@@ -1030,8 +1091,8 @@ class RepoManager:
             return
 
         for name, config in self.repos.items():
-            db_path = REPO_DB_CACHE / f"{name}.db"
-            sig_path = REPO_DB_CACHE / f"{name}.db.sig"
+            db_path = self.db_cache() / f"{name}.db"
+            sig_path = self.db_cache() / f"{name}.db.sig"
             if db_path.exists() and sig_path.exists():
                 if GPG_KEYRING.exists() and self._verify_signature(db_path, sig_path):
                     try:
@@ -1104,7 +1165,7 @@ class RepoManager:
                 f"{pkg.get('repo')!r} has no url + no mirrors)"
             )
 
-        local_path = REPO_PKG_CACHE / filename
+        local_path = self.pkg_cache() / filename
 
         # Use cached if checksum matches
         if local_path.exists():
@@ -1216,7 +1277,7 @@ class RepoManager:
             # partial for this filename too, not just local_path — otherwise a
             # lingering corrupt .part would be Range-resumed on the next
             # attempt and keep failing. Start the next try from a clean slate.
-            partial_dir = REPO_CACHE_DIR / "partial"
+            partial_dir = self.cache_dir() / "partial"
             if partial_dir.is_dir():
                 for p in partial_dir.iterdir():
                     if p.name.startswith(filename + ".") and p.name.endswith(".part"):
