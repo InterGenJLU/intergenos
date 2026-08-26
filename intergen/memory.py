@@ -280,6 +280,30 @@ _INTERROGATIVE_LEAD_RE = re.compile(
     re.IGNORECASE)
 
 
+# A question ABOUT THE USER — "what's MY printer?", "what editor do I use?",
+# "which shell do I prefer?". Paired with _is_question below, this is what makes a
+# bare recall question recognisable.
+#
+# WHY IT EXISTS (measured 2026-08-26). "recall" was only ever returned from inside
+# the preference-verb branch, so a question was recognised as a recall solely when
+# it happened to carry prefer/like/use/want where _PREF_VERB_RE could see it. All
+# ten cross-session recall questions in the battery carry no such verb in that
+# position and classified (None, None, None), so the router's recall branch never
+# ran, its deterministic composer was never called, and the answer was left to the
+# model — which ignored the stored fact in seven of ten replies on the 9B tier.
+#
+# The test is deliberately about GRAMMAR, not about the store: whether anything is
+# actually remembered under the named key is the router's question, and it answers
+# it by declining the turn when the store holds nothing the question names. Keeping
+# the two apart is what lets this stay a cheap, deterministic string test.
+# NOT "me" or "mine": "what do you know about me?" is a TRANSPARENCY question
+# about what the assistant holds, which the memory route already claims by its
+# own shape, and reading it as a recall of one keyed fact would answer a
+# narrower question than the one asked. All ten battery recall questions carry
+# "my" or "I", so the narrower test loses none of them.
+_ABOUT_THE_USER_RE = re.compile(r"\b(?:my|i)\b", re.IGNORECASE)
+
+
 def _is_question(message: str) -> bool:
     """True when the turn is asking rather than stating."""
     stripped = message.strip()
@@ -768,6 +792,19 @@ class MemoryManager:
         which acknowledgement the router offers (the user owns memory).
         """
         msg = message.strip()
+
+        # A QUESTION IS NEVER A DECLARATIVE. This is checked first because the
+        # branches below read statement shapes, and every one of them has had to
+        # learn separately that an interrogative reaching it is a parse waiting to
+        # go wrong (see _INTERROGATIVE_LEAD_RE's own history: "which shell do I use
+        # again?" was once stored as the preference "again?").
+        #
+        # A question about the user's own affairs is a RECALL. Whether the store
+        # actually holds the named key is not decided here: the router's recall
+        # branch calls _answer_from_stored_facts and DECLINES the turn when nothing
+        # matches, so a question this cannot answer still reaches normal routing.
+        if _is_question(msg) and _ABOUT_THE_USER_RE.search(msg):
+            return ("recall", None, None)
 
         # Explicit preference verb — "I prefer/like/use/want X" — unambiguous,
         # unless what follows is itself a complaint ("I want X to stop crashing").

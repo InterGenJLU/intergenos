@@ -181,8 +181,7 @@
         "user": "what's my backup drive?",
         "description": "T2 — the referent from T1 must be honored without being restated by the user; this is the context_persistence invariant.",
         "assertions": [
-          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
-          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          {"type": "routes_via", "value": "memory", "description": "a bare recall question whose subject names a stored key is answered FROM THE STORE by code, on every tier. Until 2026-08-26 this asserted llm_freeform on the locked tier and llm_tools on the native one, because the memory route claimed store, forget, transparency and session-recall shapes but not a bare recall question. Measured on the 9B tier: the stored fact WAS retrieved and injected above the threshold, and the model then ignored it in seven replies of ten. A keyed recall has one correct answer and is no longer left to the model; the model path still serves any question no stored key answers."},
           ["contains", "/dev/sdb1", "the fact set in T1 is honored in T2"]
         ]
       }
@@ -210,8 +209,7 @@
         "user": "what editor do I use?",
         "description": "T2 — a rephrased recall (not the stored key's literal wording) must still surface the T1 fact.",
         "assertions": [
-          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
-          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          {"type": "routes_via", "value": "memory", "description": "a bare recall question whose subject names a stored key is answered FROM THE STORE by code, on every tier. Until 2026-08-26 this asserted llm_freeform on the locked tier and llm_tools on the native one, because the memory route claimed store, forget, transparency and session-recall shapes but not a bare recall question. Measured on the 9B tier: the stored fact WAS retrieved and injected above the threshold, and the model then ignored it in seven replies of ten. A keyed recall has one correct answer and is no longer left to the model; the model path still serves any question no stored key answers."},
           ["contains", "vim", "the fact set in T1 is honored in T2"]
         ]
       }
@@ -246,8 +244,7 @@
         "user": "remind me what timezone I'm in",
         "description": "T3 — the T1 referent must still be honored after the intervening T2 turn.",
         "assertions": [
-          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
-          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          {"type": "routes_via", "value": "memory", "description": "a bare recall question whose subject names a stored key is answered FROM THE STORE by code, on every tier. Until 2026-08-26 this asserted llm_freeform on the locked tier and llm_tools on the native one, because the memory route claimed store, forget, transparency and session-recall shapes but not a bare recall question. Measured on the 9B tier: the stored fact WAS retrieved and injected above the threshold, and the model then ignored it in seven replies of ten. A keyed recall has one correct answer and is no longer left to the model; the model path still serves any question no stored key answers."},
           ["contains", "Pacific", "the fact set in T1 survives the intervening turn"]
         ]
       }
@@ -275,8 +272,7 @@
         "user": "what's my name?",
         "description": "T2 — the referent from T1 must be honored.",
         "assertions": [
-          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
-          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          {"type": "routes_via", "value": "memory", "description": "a bare recall question whose subject names a stored key is answered FROM THE STORE by code, on every tier. Until 2026-08-26 this asserted llm_freeform on the locked tier and llm_tools on the native one, because the memory route claimed store, forget, transparency and session-recall shapes but not a bare recall question. Measured on the 9B tier: the stored fact WAS retrieved and injected above the threshold, and the model then ignored it in seven replies of ten. A keyed recall has one correct answer and is no longer left to the model; the model path still serves any question no stored key answers."},
           ["contains", "Morgan", "the fact set in T1 is honored in T2"]
         ]
       }
@@ -339,8 +335,7 @@
         "user": "what's my favorite color?",
         "description": "T2 — the referent from T1 must be honored.",
         "assertions": [
-          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
-          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          {"type": "routes_via", "value": "memory", "description": "a bare recall question whose subject names a stored key is answered FROM THE STORE by code, on every tier. Until 2026-08-26 this asserted llm_freeform on the locked tier and llm_tools on the native one, because the memory route claimed store, forget, transparency and session-recall shapes but not a bare recall question. Measured on the 9B tier: the stored fact WAS retrieved and injected above the threshold, and the model then ignored it in seven replies of ten. A keyed recall has one correct answer and is no longer left to the model; the model path still serves any question no stored key answers."},
           ["contains", "teal", "the fact set in T1 is honored in T2"]
         ]
       }
@@ -375,8 +370,7 @@
         "user": "what's my wifi network called?",
         "description": "T3 — the T1 referent must still be honored after the intervening T2 turn.",
         "assertions": [
-          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
-          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          {"type": "routes_via", "value": "memory", "description": "a bare recall question whose subject names a stored key is answered FROM THE STORE by code, on every tier. Until 2026-08-26 this asserted llm_freeform on the locked tier and llm_tools on the native one, because the memory route claimed store, forget, transparency and session-recall shapes but not a bare recall question. Measured on the 9B tier: the stored fact WAS retrieved and injected above the threshold, and the model then ignored it in seven replies of ten. A keyed recall has one correct answer and is no longer left to the model; the model path still serves any question no stored key answers."},
           ["contains", "HomeNet-5G", "the fact set in T1 survives the intervening turn"]
         ]
       }
@@ -404,8 +398,7 @@
         "user": "what's my printer?",
         "description": "T2 — the referent from T1 must be honored.",
         "assertions": [
-          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
-          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          {"type": "routes_via", "value": "memory", "description": "a bare recall question whose subject names a stored key is answered FROM THE STORE by code, on every tier. Until 2026-08-26 this asserted llm_freeform on the locked tier and llm_tools on the native one, because the memory route claimed store, forget, transparency and session-recall shapes but not a bare recall question. Measured on the 9B tier: the stored fact WAS retrieved and injected above the threshold, and the model then ignored it in seven replies of ten. A keyed recall has one correct answer and is no longer left to the model; the model path still serves any question no stored key answers."},
           ["contains", "office-printer-2", "the fact set in T1 is honored in T2"]
         ]
       }
@@ -440,8 +433,7 @@
         "user": "what font size do I prefer?",
         "description": "T3 — the T1 referent must still be honored after the intervening T2 turn.",
         "assertions": [
-          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
-          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          {"type": "routes_via", "value": "memory", "description": "a bare recall question whose subject names a stored key is answered FROM THE STORE by code, on every tier. Until 2026-08-26 this asserted llm_freeform on the locked tier and llm_tools on the native one, because the memory route claimed store, forget, transparency and session-recall shapes but not a bare recall question. Measured on the 9B tier: the stored fact WAS retrieved and injected above the threshold, and the model then ignored it in seven replies of ten. A keyed recall has one correct answer and is no longer left to the model; the model path still serves any question no stored key answers."},
           ["contains", "14", "the fact set in T1 survives the intervening turn"]
         ]
       }
@@ -469,8 +461,7 @@
         "user": "what keyboard layout do I use?",
         "description": "T2 — the referent from T1 must be honored.",
         "assertions": [
-          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
-          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          {"type": "routes_via", "value": "memory", "description": "a bare recall question whose subject names a stored key is answered FROM THE STORE by code, on every tier. Until 2026-08-26 this asserted llm_freeform on the locked tier and llm_tools on the native one, because the memory route claimed store, forget, transparency and session-recall shapes but not a bare recall question. Measured on the 9B tier: the stored fact WAS retrieved and injected above the threshold, and the model then ignored it in seven replies of ten. A keyed recall has one correct answer and is no longer left to the model; the model path still serves any question no stored key answers."},
           ["contains", "Dvorak", "the fact set in T1 is honored in T2"]
         ]
       }
@@ -499,8 +490,7 @@
         "session_marker": "restart-before",
         "description": "T2 (session B, after a real restart) — the fact from session A must be recalled without fabricating a different device path.",
         "assertions": [
-          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
-          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          {"type": "routes_via", "value": "memory", "description": "a bare recall question whose subject names a stored key is answered FROM THE STORE by code, on every tier. Until 2026-08-26 this asserted llm_freeform on the locked tier and llm_tools on the native one, because the memory route claimed store, forget, transparency and session-recall shapes but not a bare recall question. Measured on the 9B tier: the stored fact WAS retrieved and injected above the threshold, and the model then ignored it in seven replies of ten. A keyed recall has one correct answer and is no longer left to the model; the model path still serves any question no stored key answers."},
           ["contains", "/dev/sdb1", "the fact stored in session A survives the restart"],
           {"type": "no_invented_artifact", "description": "no fabricated device path in place of the real stored value"}
         ]
@@ -530,8 +520,7 @@
         "session_marker": "restart-before",
         "description": "T2 (session B, after a real restart) — the fact from session A must be recalled without inventing a different editor.",
         "assertions": [
-          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
-          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          {"type": "routes_via", "value": "memory", "description": "a bare recall question whose subject names a stored key is answered FROM THE STORE by code, on every tier. Until 2026-08-26 this asserted llm_freeform on the locked tier and llm_tools on the native one, because the memory route claimed store, forget, transparency and session-recall shapes but not a bare recall question. Measured on the 9B tier: the stored fact WAS retrieved and injected above the threshold, and the model then ignored it in seven replies of ten. A keyed recall has one correct answer and is no longer left to the model; the model path still serves any question no stored key answers."},
           ["contains", "neovim", "the fact stored in session A survives the restart"],
           {"type": "no_invented_artifact", "description": "no fabricated tool/value in place of the real stored value"}
         ]
@@ -561,8 +550,7 @@
         "session_marker": "restart-before",
         "description": "T2 (session B, after a real restart) — the fact from session A must be recalled without inventing a different timezone.",
         "assertions": [
-          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
-          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          {"type": "routes_via", "value": "memory", "description": "a bare recall question whose subject names a stored key is answered FROM THE STORE by code, on every tier. Until 2026-08-26 this asserted llm_freeform on the locked tier and llm_tools on the native one, because the memory route claimed store, forget, transparency and session-recall shapes but not a bare recall question. Measured on the 9B tier: the stored fact WAS retrieved and injected above the threshold, and the model then ignored it in seven replies of ten. A keyed recall has one correct answer and is no longer left to the model; the model path still serves any question no stored key answers."},
           ["contains", "Mountain", "the fact stored in session A survives the restart"],
           {"type": "no_invented_artifact", "description": "no fabricated value in place of the real stored value"}
         ]
@@ -592,8 +580,7 @@
         "session_marker": "restart-before",
         "description": "T2 (session B, after a real restart) — the fact from session A must be recalled without inventing a different name.",
         "assertions": [
-          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
-          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          {"type": "routes_via", "value": "memory", "description": "a bare recall question whose subject names a stored key is answered FROM THE STORE by code, on every tier. Until 2026-08-26 this asserted llm_freeform on the locked tier and llm_tools on the native one, because the memory route claimed store, forget, transparency and session-recall shapes but not a bare recall question. Measured on the 9B tier: the stored fact WAS retrieved and injected above the threshold, and the model then ignored it in seven replies of ten. A keyed recall has one correct answer and is no longer left to the model; the model path still serves any question no stored key answers."},
           ["contains", "Alex", "the fact stored in session A survives the restart"],
           {"type": "no_invented_artifact", "description": "no fabricated value in place of the real stored value"}
         ]
@@ -623,8 +610,7 @@
         "session_marker": "restart-before",
         "description": "T2 (session B, after a real restart) — the fact from session A must be recalled without inventing a different shell.",
         "assertions": [
-          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
-          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          {"type": "routes_via", "value": "memory", "description": "a bare recall question whose subject names a stored key is answered FROM THE STORE by code, on every tier. Until 2026-08-26 this asserted llm_freeform on the locked tier and llm_tools on the native one, because the memory route claimed store, forget, transparency and session-recall shapes but not a bare recall question. Measured on the 9B tier: the stored fact WAS retrieved and injected above the threshold, and the model then ignored it in seven replies of ten. A keyed recall has one correct answer and is no longer left to the model; the model path still serves any question no stored key answers."},
           ["contains", "fish", "the fact stored in session A survives the restart"],
           {"type": "no_invented_artifact", "description": "no fabricated value in place of the real stored value"}
         ]
@@ -654,8 +640,7 @@
         "session_marker": "restart-before",
         "description": "T2 (session B, after a real restart) — the fact from session A must be recalled without inventing a different color.",
         "assertions": [
-          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
-          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          {"type": "routes_via", "value": "memory", "description": "a bare recall question whose subject names a stored key is answered FROM THE STORE by code, on every tier. Until 2026-08-26 this asserted llm_freeform on the locked tier and llm_tools on the native one, because the memory route claimed store, forget, transparency and session-recall shapes but not a bare recall question. Measured on the 9B tier: the stored fact WAS retrieved and injected above the threshold, and the model then ignored it in seven replies of ten. A keyed recall has one correct answer and is no longer left to the model; the model path still serves any question no stored key answers."},
           ["contains", "coral", "the fact stored in session A survives the restart"],
           {"type": "no_invented_artifact", "description": "no fabricated value in place of the real stored value"}
         ]
@@ -685,8 +670,7 @@
         "session_marker": "restart-before",
         "description": "T2 (session B, after a real restart) — the fact from session A must be recalled without inventing a different network name.",
         "assertions": [
-          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
-          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          {"type": "routes_via", "value": "memory", "description": "a bare recall question whose subject names a stored key is answered FROM THE STORE by code, on every tier. Until 2026-08-26 this asserted llm_freeform on the locked tier and llm_tools on the native one, because the memory route claimed store, forget, transparency and session-recall shapes but not a bare recall question. Measured on the 9B tier: the stored fact WAS retrieved and injected above the threshold, and the model then ignored it in seven replies of ten. A keyed recall has one correct answer and is no longer left to the model; the model path still serves any question no stored key answers."},
           ["contains", "GuestNet-2.4", "the fact stored in session A survives the restart"],
           {"type": "no_invented_artifact", "description": "no fabricated value in place of the real stored value"}
         ]
@@ -716,8 +700,7 @@
         "session_marker": "restart-before",
         "description": "T2 (session B, after a real restart) — the fact from session A must be recalled without inventing a different printer name.",
         "assertions": [
-          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
-          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          {"type": "routes_via", "value": "memory", "description": "a bare recall question whose subject names a stored key is answered FROM THE STORE by code, on every tier. Until 2026-08-26 this asserted llm_freeform on the locked tier and llm_tools on the native one, because the memory route claimed store, forget, transparency and session-recall shapes but not a bare recall question. Measured on the 9B tier: the stored fact WAS retrieved and injected above the threshold, and the model then ignored it in seven replies of ten. A keyed recall has one correct answer and is no longer left to the model; the model path still serves any question no stored key answers."},
           ["contains", "lobby-printer-1", "the fact stored in session A survives the restart"],
           {"type": "no_invented_artifact", "description": "no fabricated value in place of the real stored value"}
         ]
@@ -747,8 +730,7 @@
         "session_marker": "restart-before",
         "description": "T2 (session B, after a real restart) — the fact from session A must be recalled without inventing a different size.",
         "assertions": [
-          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
-          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          {"type": "routes_via", "value": "memory", "description": "a bare recall question whose subject names a stored key is answered FROM THE STORE by code, on every tier. Until 2026-08-26 this asserted llm_freeform on the locked tier and llm_tools on the native one, because the memory route claimed store, forget, transparency and session-recall shapes but not a bare recall question. Measured on the 9B tier: the stored fact WAS retrieved and injected above the threshold, and the model then ignored it in seven replies of ten. A keyed recall has one correct answer and is no longer left to the model; the model path still serves any question no stored key answers."},
           ["contains", "16", "the fact stored in session A survives the restart"],
           {"type": "no_invented_artifact", "description": "no fabricated value in place of the real stored value"}
         ]
@@ -778,8 +760,7 @@
         "session_marker": "restart-before",
         "description": "T2 (session B, after a real restart) — the fact from session A must be recalled without inventing a different layout.",
         "assertions": [
-          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
-          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          {"type": "routes_via", "value": "memory", "description": "a bare recall question whose subject names a stored key is answered FROM THE STORE by code, on every tier. Until 2026-08-26 this asserted llm_freeform on the locked tier and llm_tools on the native one, because the memory route claimed store, forget, transparency and session-recall shapes but not a bare recall question. Measured on the 9B tier: the stored fact WAS retrieved and injected above the threshold, and the model then ignored it in seven replies of ten. A keyed recall has one correct answer and is no longer left to the model; the model path still serves any question no stored key answers."},
           ["contains", "Colemak", "the fact stored in session A survives the restart"],
           {"type": "no_invented_artifact", "description": "no fabricated value in place of the real stored value"}
         ]
