@@ -36,7 +36,7 @@ pass.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from intergen.tests.grader import (
     CAPABILITY_DENIAL_PHRASES,
@@ -54,6 +54,48 @@ from intergen.tests.scenario.responsiveness import answer_topic, responsiveness_
 from intergen.tests.scenario.schema import Assertion, Scenario, Turn, applicable_auto_assertions
 from intergen.tests.scenario.trace import READS_REALITY_TOOLS, TraceView
 from intergen.tests.scenario.transport import TurnResult
+
+# ── Capability wording is the PRODUCT's to own, never the corpus's ────────────
+# The user-facing phrase for a capability lives in intergen.capability_registry,
+# and the router answers a capability question in exactly that wording (its
+# answer table is built from capability_registry.phrase(tool)). A scenario that
+# writes the phrase out again is a second copy that drifts: four ids asserted
+# "manage packages" against a registry that says "install, remove, and update
+# software packages", and a correct answer graded red for a missing keyword.
+#
+# So an assertion value may NAME THE TOOL — "capability:manage_packages" — and
+# the wording is resolved here, at grade time, from the one place that owns it.
+# A reword of the registry then moves the corpus with it and cannot leave it
+# behind.
+#
+# FAIL CLOSED, NEVER FALL BACK. A reference naming a tool with no registered
+# phrase does NOT degrade to matching the literal text "capability:no_such_tool"
+# — that would fail the turn for absence and report a product defect for what is
+# a corpus typo. It fails with a result that says the reference is unresolvable.
+CAPABILITY_REF_PREFIX = "capability:"
+
+
+def resolve_capability_reference(value: str) -> tuple[str, str | None]:
+    """Expand a ``capability:<tool>`` assertion value to the registry's phrase.
+
+    Returns ``(resolved_value, error)``. A value that is not a reference is
+    returned unchanged with no error — ordinary assertion values are untouched,
+    including capability scenarios about a tool the registry has no phrase for
+    (web_search), which keep their own literal on purpose.
+    """
+    if not value.startswith(CAPABILITY_REF_PREFIX):
+        return value, None
+    tool = value[len(CAPABILITY_REF_PREFIX):].strip()
+    from intergen import capability_registry
+    phrase = capability_registry.phrase(tool)
+    if phrase is None:
+        return value, (
+            f"capability reference {value!r} could not be resolved: "
+            f"{tool!r} has no phrase in capability_registry."
+            f"TOOL_CAPABILITY_PHRASES. Name a registered tool, or assert the "
+            f"wording directly if the capability genuinely has no registry entry")
+    return phrase, None
+
 
 # Gate B is phrasing-only. Under the batch-1 auto set, the sole phrasing check is
 # no_filler; every other assertion — routing, tool, grounding, consistency,
@@ -638,6 +680,34 @@ def _eval_no_negation(a: Assertion, text: str) -> AssertionResult:
               actual=text[:200])
 
 
+def _eval_escalation_offered(a: Assertion, result: TurnResult) -> AssertionResult:
+    # The offer to consult a frontier model is a DECISION the router made, not a
+    # phrase in the answer: it rides its own reply field, so it is read from the
+    # field and never sniffed out of the text. With a value, that value must also
+    # appear in the offer — which is how a scenario pins the phrase the offer
+    # tells the user to type.
+    offer = (result.escalation_offer or "").strip()
+    if not offer:
+        return _r("escalation_offered", a.value, False,
+                  a.description or "an escalation offer was made",
+                  actual="no escalation offer on the reply")
+    passed = (not a.value) or a.value.lower() in offer.lower()
+    return _r("escalation_offered", a.value, passed,
+              a.description or "an escalation offer was made",
+              actual="" if passed else f"offer: {offer[:200]}")
+
+
+def _eval_no_escalation_offer(a: Assertion, result: TurnResult) -> AssertionResult:
+    # The negative half, and the one that has teeth: the offer was fixed to fire
+    # SELECTIVELY, so a scenario has to be able to say "not on this turn" and
+    # fail when it fires anyway.
+    offer = (result.escalation_offer or "").strip()
+    passed = not offer
+    return _r("no_escalation_offer", a.value, passed,
+              a.description or "no escalation offer was made",
+              actual="" if passed else f"offer: {offer[:200]}")
+
+
 def _eval_source(a: Assertion, text: str) -> AssertionResult:
     # New-schema `source` = a citation is present (not the route match). A value,
     # if given, must also appear.
@@ -724,6 +794,8 @@ _EXPLICIT_EVALUATORS = {
     "not_contains_any": lambda a, ctx: _eval_not_contains_any(a, ctx.text),
     "no_fabricated_citation": lambda a, ctx: _eval_no_fabricated_citation(a, ctx.text, ctx.context),
     "no_negation": lambda a, ctx: _eval_no_negation(a, ctx.text),
+    "escalation_offered": lambda a, ctx: _eval_escalation_offered(a, ctx.result),
+    "no_escalation_offer": lambda a, ctx: _eval_no_escalation_offer(a, ctx.result),
     "source": lambda a, ctx: _eval_source(a, ctx.text),
     "source_any": lambda a, ctx: _eval_source_any(a, ctx.text),
     "self_consistent": lambda a, ctx: _eval_self_consistent(a, ctx.text),
@@ -951,6 +1023,20 @@ def grade_turn(turn: Turn, result: TurnResult, trace: TraceView | None = None,
             results.append(_r(a.type, a.value, False,
                               f"unknown assertion type {a.type!r} (harness bug)"))
             continue
+        # ONE seam for value resolution, ahead of every evaluator: a
+        # `capability:<tool>` value becomes the registry's phrase for that tool,
+        # so the corpus names the capability and the product owns the wording.
+        # Reported as the RESOLVED phrase — that is the string actually matched,
+        # and a failure that quoted the reference would not say what was looked
+        # for. An unresolvable reference fails here rather than being matched as
+        # literal text (see resolve_capability_reference).
+        resolved, ref_error = resolve_capability_reference(a.value)
+        if ref_error is not None:
+            results.append(_r(a.type, a.value, False, ref_error,
+                              actual="the assertion was not evaluated"))
+            continue
+        if resolved != a.value:
+            a = replace(a, value=resolved)
         res = evaluator(a, ctx)
         # A per-assertion gate override re-scopes THIS assertion (e.g. a
         # contains_any that checks wording, not a decision). The loader already

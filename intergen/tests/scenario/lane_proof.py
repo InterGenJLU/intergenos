@@ -99,14 +99,36 @@ def _resolve_tree(allow_installed: bool) -> Path:
 
 
 def select(scenarios: list[Any], batches: list[str], tags: list[str],
-           limit: int) -> list[Any]:
-    """The scenarios a run covers: every filter must match (AND), not any."""
+           limit: int, *, posture: str) -> tuple[list[Any], list[Any]]:
+    """The scenarios a run covers, and the ones this tier does not apply to.
+
+    Every filter must match (AND), not any. Returns ``(selected, skipped)``:
+    ``skipped`` is the batch/tag-matching scenarios that do NOT declare
+    ``posture``, returned rather than dropped so the run can NAME them.
+
+    POSTURE IS A FILTER, NOT ONLY A GRADING ARGUMENT. It used to be neither
+    here: selection read batch, tag and limit, and every selected scenario was
+    then graded under the run's posture. A scenario declaring ``["2B-locked"]``
+    was therefore driven under ``--posture 35B-native``, where a correct
+    top-tier answer fails a locked-floor expectation — the run reported product
+    failures for scenarios that were never written for the box it ran on.
+    ``live_run`` already had the rule and this uses that same function, so the
+    two runners cannot drift into two answers to one question.
+
+    ORDER: batch, then tag, then POSTURE, then limit. Limiting before the
+    posture filter would take N scenarios and then discard some of them, so a
+    ``--limit 20`` run would measure fewer than twenty and say nothing about it.
+    """
+    from intergen.tests.scenario.live_run import scenarios_for_posture
     out = list(scenarios)
     for b in batches:
         out = [s for s in out if f"batch:{b}" in s.tags]
     for t in tags:
         out = [s for s in out if t in s.tags]
-    return out[:limit] if limit else out
+    applicable = scenarios_for_posture(out, posture)
+    applicable_ids = {id(s) for s in applicable}
+    skipped = [s for s in out if id(s) not in applicable_ids]
+    return (applicable[:limit] if limit else applicable), skipped
 
 
 def failed_assertions(run: Any) -> list[dict[str, Any]]:
@@ -189,16 +211,35 @@ def main(argv: list[str] | None = None) -> int:
     from intergen.tests.scenario.runner import run_scenario
     from intergen.tests.scenario.transport import ClientTransport
 
-    scenarios = select(load_scenarios(args.corpus), args.batch, args.tag,
-                       args.limit)
+    scenarios, not_applicable = select(load_scenarios(args.corpus), args.batch,
+                                       args.tag, args.limit,
+                                       posture=args.posture)
+    # NAMED, NEVER SILENT. A scenario left out because it targets another tier is
+    # not a failure and not a pass — it is coverage this run does not have, and a
+    # reader who is not told cannot tell the difference between "it passed" and
+    # "it never ran". Printed with each one's DECLARED postures so the reason is
+    # on the page rather than inferable.
+    if not_applicable:
+        print(f"### not applicable to {args.posture}: {len(not_applicable)} "
+              f"scenario(s) not driven, because they declare other tiers",
+              flush=True)
+        for s in not_applicable:
+            print(f"###   - {s.id} declares {', '.join(s.postures)}", flush=True)
     if not scenarios:
+        if not_applicable:
+            print(f"### REFUSING: every scenario the filters matched targets a "
+                  f"tier other than {args.posture}, so this run would measure "
+                  f"nothing. Name the posture these scenarios declare, or widen "
+                  f"the filters.", flush=True)
+            return 4
         print("### REFUSING: the selection is empty — a run that measures "
               "nothing must not report success.", flush=True)
         return 4
     turns = sum(len(s.turns) for s in scenarios)
     print(f"### selected: {len(scenarios)} scenarios / {turns} turns", flush=True)
-    print(f"### posture: {args.posture} — assertions written for another tier "
-          f"do not apply to this run", flush=True)
+    print(f"### posture: {args.posture} — only scenarios that DECLARE this tier "
+          f"are driven, and assertions written for another tier do not apply",
+          flush=True)
 
     out_dir = Path(args.out) / args.run_id
     out_dir.mkdir(parents=True, exist_ok=True)

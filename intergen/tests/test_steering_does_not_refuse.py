@@ -212,20 +212,27 @@ class SafetyPathStillRefusesTests(unittest.TestCase):
 
 
 class CapabilityAnswerAffirmsRegisteredToolsTests(unittest.TestCase):
-    """CNV-CAP-02 / 05 / 06 / 07 — these four battery ids FAIL, and the product is
-    not why. Pinned here so the divergence is visible in the tree instead of being
-    re-discovered at the next run, and so nobody "fixes" a correct answer to satisfy
+    """CNV-CAP-02 / 05 / 06 / 07 — the four ids whose failure was the harness's,
+    not the product's. Pinned here so nobody "fixes" a correct answer to satisfy
     an assertion.
 
     Each answer affirms the capability and names it in the wording owned by
     capability_registry.TOOL_CAPABILITY_PHRASES, e.g. "Yes — I can install, remove,
-    and update software packages …". The scenarios assert `no_negation` on a
-    DIFFERENT literal ("manage packages"), and that grader check
+    and update software packages …". The scenarios used to assert `no_negation` on
+    a DIFFERENT literal ("manage packages"), and that grader check
     (scenario/grader.py _eval_no_negation) fails when its keyword is ABSENT, which
-    that phrase deliberately is. The defect is in the scenario definitions, not in
-    the capability answer; the recommendation is on the outbound.
+    that phrase deliberately is.
 
-    These pass at base as well as on the branch — they are a pin, not a red test.
+    RECONCILED 2026-08-26, which is what the old note here asked for: the four
+    scenarios now name their TOOL ("capability:manage_packages") and the grader
+    resolves the wording from the registry at grade time, so the phrase has one
+    owner and the corpus cannot drift from it. The second test below still pins
+    that the old literal and the registry phrase are different strings — that
+    difference is exactly why a reference is needed rather than a copy, so it
+    stays a live check and not a historical note.
+
+    These pass on both sides — they are a pin, not a red test. The reconciliation
+    itself is proven in test_capability_scenarios_read_the_registry.py.
     """
 
     CASES = (
@@ -252,18 +259,20 @@ class CapabilityAnswerAffirmsRegisteredToolsTests(unittest.TestCase):
                 self.assertIn(phrase, result.text)
                 self.assertNotIn("I don't have that ability", result.text)
 
-    def test_the_scenario_literals_are_not_the_registry_wording(self):
-        # The exact reason the four ids fail: the asserted keyword never appears,
-        # because the canonical phrase says the same thing in other words.
+    def test_the_old_scenario_literals_are_not_the_registry_wording(self):
+        # The exact reason the four ids used to fail, and the reason a scenario
+        # now REFERENCES the registry instead of quoting it: these four literals
+        # are not in the phrase, so any copy of the wording is a copy that can be
+        # wrong. If one of these ever becomes a substring of its phrase, the
+        # registry has been reworded toward the old literal and the reference is
+        # doing its job silently — worth knowing, not worth changing.
         from intergen import capability_registry
         for tool, asserted in (("manage_packages", "manage packages"),
                                ("open_application", "open applications"),
                                ("manage_services", "manage services"),
                                ("write_file", "write files")):
             with self.subTest(tool=tool):
-                self.assertNotIn(asserted, capability_registry.phrase(tool),
-                                 "if this ever holds, the scenario assertion has "
-                                 "been reconciled and this pin should be revisited")
+                self.assertNotIn(asserted, capability_registry.phrase(tool))
 
 
 if __name__ == "__main__":

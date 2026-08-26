@@ -31,11 +31,14 @@ from intergen.tests.scenario import lane_proof
 
 
 class _Fake:
-    """The two fields the selector reads, and nothing else."""
+    """The three fields the selector reads, and nothing else. `postures` joined
+    them when selection stopped driving scenarios written for another tier."""
 
-    def __init__(self, sid: str, tags: list[str]) -> None:
+    def __init__(self, sid: str, tags: list[str],
+                 postures: list[str] | None = None) -> None:
         self.id = sid
         self.tags = tags
+        self.postures = postures if postures is not None else ["2B-locked"]
 
 
 _SET = [
@@ -44,33 +47,38 @@ _SET = [
     _Fake("c", ["batch:web_search", "shape:S1"]),
 ]
 
+# Every member of _SET declares the locked floor, so these batch/tag/limit cases
+# measure the filters they are about and nothing else. The posture filter has its
+# own tests in test_capability_scenarios_read_the_registry.py.
+_POSTURE = "2B-locked"
+
 
 class TestSelection(unittest.TestCase):
 
     def test_no_filter_selects_everything(self) -> None:
-        self.assertEqual([s.id for s in lane_proof.select(_SET, [], [], 0)],
+        self.assertEqual([s.id for s in lane_proof.select(_SET, [], [], 0, posture=_POSTURE)[0]],
                          ["a", "b", "c"])
 
     def test_batch_filter(self) -> None:
-        got = lane_proof.select(_SET, ["field_shapes"], [], 0)
+        got = lane_proof.select(_SET, ["field_shapes"], [], 0, posture=_POSTURE)[0]
         self.assertEqual([s.id for s in got], ["a", "b"])
 
     def test_tag_filter(self) -> None:
-        got = lane_proof.select(_SET, [], ["shape:S1"], 0)
+        got = lane_proof.select(_SET, [], ["shape:S1"], 0, posture=_POSTURE)[0]
         self.assertEqual([s.id for s in got], ["a", "c"])
 
     def test_filters_narrow_together_not_apart(self) -> None:
         """batch AND tag, never batch OR tag."""
-        got = lane_proof.select(_SET, ["field_shapes"], ["shape:S1"], 0)
+        got = lane_proof.select(_SET, ["field_shapes"], ["shape:S1"], 0, posture=_POSTURE)[0]
         self.assertEqual([s.id for s in got], ["a"],
                          "the filters widened the run instead of narrowing it")
 
     def test_limit_applies_after_the_filters(self) -> None:
-        got = lane_proof.select(_SET, ["field_shapes"], [], 1)
+        got = lane_proof.select(_SET, ["field_shapes"], [], 1, posture=_POSTURE)[0]
         self.assertEqual([s.id for s in got], ["a"])
 
     def test_a_filter_that_matches_nothing_selects_nothing(self) -> None:
-        self.assertEqual(lane_proof.select(_SET, ["no_such_batch"], [], 0), [])
+        self.assertEqual(lane_proof.select(_SET, ["no_such_batch"], [], 0, posture=_POSTURE)[0], [])
 
 
 class TestBaseline(unittest.TestCase):
