@@ -116,19 +116,51 @@ def validate_decomposition_cap(
 # the compound whenever a clause is fast-path-carriable
 # (_compound_has_fastpath_clause), routing whole only when every clause is pure
 # knowledge the model can answer without a fast-path.
-_IMPERATIVE_VERBS = (
+# ONE action-verb alternation, read by everything that needs one.
+#
+# It used to be three lists that drifted apart, and the drift was the defect:
+# _IMPERATIVE_VERBS (the conjunction signals + the split points) lacked
+# find|read|write|create|delete|update, which _ACTION_VERBS had counted as
+# distinct actions all along, and split_compound's comma fallback carried a
+# third, shorter literal list of its own. So "look up today's weather AND WRITE
+# me a note" scored two actions and still matched no conjunction signal: it was
+# never a compound, never split, and its second clause was answered only if the
+# model happened to hold both — the silent-drop class decomposition exists to
+# prevent. Ten whole-battery do-for-me scenarios failed exactly this way.
+#
+# save/use are new to every list: they are plain imperative actions the battery
+# asked for ("save a summary to a file", "use it to capture my screen") that no
+# list had. Widening DETECTION is safe by construction — the router still
+# decides whether a detected compound is actually split, handing a pure-knowledge
+# compound to the model whole (_compound_has_fastpath_clause), and the substance
+# guard still rejects a split whose clause carries no content word.
+_ACTION_VERB_ALT = (
     r"check|show|display|list|start|stop|restart|enable|disable|install|"
-    r"remove|uninstall|run|execute|open|launch|search|tell"
+    r"remove|uninstall|run|execute|open|launch|search|tell|"
+    r"find|read|write|create|delete|update|save|use"
 )
+# Kept as the name the signals and split points read, now sourced from the one
+# alternation above so it cannot drift from the counting list again.
+_IMPERATIVE_VERBS = _ACTION_VERB_ALT
 _INTERROGATIVES = r"what|how|is|are|which|when|where|who|why|does|do|can"
+# A conditional may sit between the conjunction and its verb — "check if docker
+# is installed AND IF NOT, INSTALL it" is two actions, and matching only a verb
+# immediately after "and" missed it. Kept narrow: the interposed form is the
+# explicit "if not" only, not any subordinate clause.
+_CONDITIONAL_JOIN = r"(?:if\s+not,?\s+)?"
 _COMPOUND_SIGNALS = [
     r"\band\s+then\b",
     r"\bafter\s+that\b",
     r"\bfirst\b.*\bthen\b",
     rf"\bthen\s+(?:also\s+)?(?:{_IMPERATIVE_VERBS})\b",
     rf"\b(?:and\s+)?also\s+(?:{_IMPERATIVE_VERBS})\b",
-    rf"\band\s+(?:{_IMPERATIVE_VERBS})\b",
+    rf"\band\s+{_CONDITIONAL_JOIN}(?:{_IMPERATIVE_VERBS})\b",
     rf"\band\s+(?:{_INTERROGATIVES})\b",
+    # A comma followed by an imperative verb is a multi-action signal in its own
+    # right ("search for a file manager app, install it, and open it"). The
+    # splitter already broke on this shape in its fallback; detection did not,
+    # so such a query was split only when some OTHER signal had already matched.
+    rf",\s*(?:and\s+)?{_CONDITIONAL_JOIN}(?:{_IMPERATIVE_VERBS})\b",
     r"\badditionally\b",
 ]
 
@@ -164,11 +196,12 @@ def _clause_has_content(clause: str) -> bool:
         return True
     return False
 
-# Action verbs that indicate distinct operations
+# Action verbs that indicate distinct operations. Built from the SAME
+# alternation the conjunction signals and split points read, plus the two
+# interrogatives that count as an action here — so counting can never again
+# recognise a verb that detection does not.
 _ACTION_VERBS = re.compile(
-    r"\b(?:check|show|display|list|start|stop|restart|enable|disable|"
-    r"install|remove|uninstall|run|execute|open|launch|search|find|"
-    r"read|write|create|delete|update|tell|what|how)\b",
+    rf"\b(?:{_ACTION_VERB_ALT}|what|how)\b",
     re.IGNORECASE,
 )
 
@@ -296,7 +329,7 @@ def split_compound(query: str) -> list[str]:
     split_pattern = re.compile(
         rf"\s*(?:and\s+then|after\s+that|then\s+also|additionally|"
         rf"(?:and\s+)?also\s+(?={_IMPERATIVE_VERBS}\b)|"
-        rf"and\s+(?={_IMPERATIVE_VERBS}\b)|"
+        rf"and\s+{_CONDITIONAL_JOIN}(?={_IMPERATIVE_VERBS}\b)|"
         rf"and\s+(?={_INTERROGATIVES}\b))\s*",
         re.IGNORECASE,
     )
@@ -309,12 +342,22 @@ def split_compound(query: str) -> list[str]:
         parts = re.split(r"\s*\bthen\b\s*", query, flags=re.IGNORECASE)
         parts = [p.strip().rstrip(".,;") for p in parts if p.strip()]
 
-    if len(parts) <= 1:
-        # Try splitting on commas followed by action verbs
-        parts = re.split(r",\s*(?=(?:check|show|start|stop|restart|install|"
-                          r"remove|run|open|list|display|tell|what|how)\b)",
-                          query, flags=re.IGNORECASE)
-        parts = [p.strip().rstrip(".,;") for p in parts if p.strip()]
+    # Commas followed by an action verb are a split point too — and this runs on
+    # EVERY part, not only as a fallback when nothing else matched. A three-part
+    # request ("search for a file manager app, install it, and open it") splits
+    # once on "and open" and would otherwise keep "search ..., install it" fused
+    # as a single clause, under-counting the actions the user asked for. Reads
+    # the one shared alternation; it used to carry a shorter literal list of its
+    # own, which is how save/find/write-joined clauses were missed here as well.
+    comma_split = re.compile(
+        rf",\s*(?:and\s+)?{_CONDITIONAL_JOIN}(?={_IMPERATIVE_VERBS}\b)",
+        re.IGNORECASE,
+    )
+    expanded: list[str] = []
+    for part in parts:
+        bits = [b.strip().rstrip(".,;") for b in comma_split.split(part) if b.strip()]
+        expanded.extend(bits if len(bits) > 1 else [part])
+    parts = expanded
 
     # Clean up: remove leading "and", "also", etc.
     cleaned = []
