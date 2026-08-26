@@ -309,8 +309,14 @@ else
     # We need the primary-key-fpr (last field of VALIDSIG) to match the
     # --key fingerprint. Human-readable output of gpg --verify only shows
     # the subkey that did the signing, never the primary.
-    VERIFY_STATUS="$(gpg --status-fd=1 --verify "${OUT_PATH}" "${FILE_PATH}" 2>>"${DEBUG_LOG:-/dev/null}")"
-    VERIFY_EXIT=$?
+    # `VAR="$(cmd)"` takes cmd's exit status as its own, so under the set -e
+    # at the top of this script a failing gpg ends the run ON THE ASSIGNMENT:
+    # the `VERIFY_EXIT=$?` that used to sit on the next line never ran, and the
+    # message below — the one that names the step and points at the debug log —
+    # could not be reached. Capturing the status through `|| VERIFY_EXIT=$?`
+    # keeps the failure in this script's hands.
+    VERIFY_EXIT=0
+    VERIFY_STATUS="$(gpg --status-fd=1 --verify "${OUT_PATH}" "${FILE_PATH}" 2>>"${DEBUG_LOG:-/dev/null}")" || VERIFY_EXIT=$?
     debug "verify status output: ${VERIFY_STATUS}"
     if [[ "${DEBUG}" == "1" ]]; then
         {
