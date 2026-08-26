@@ -822,6 +822,22 @@ class TurnGrade:
         return [r for r in self.results if not r.passed]
 
 
+class PostureNotNamed(ValueError):
+    """A turn carrying tier-specific assertions was graded without a tier.
+
+    A posture-gated assertion is written for one tier and can be the exact
+    opposite of the one written for another — the same sentence routing freeform
+    on a locked tier and through tools on a native one. Grading them all at once
+    fails whichever one does not describe the box that was driven, so the run
+    reports a defect the product does not have. Grading none of them would be
+    worse in a quieter way: the denominator shrinks and the run claims a
+    coverage it never had.
+
+    So neither. The caller says which tier it drove — a live run always knows —
+    and this is raised when it does not.
+    """
+
+
 def grade_turn(turn: Turn, result: TurnResult, trace: TraceView | None = None,
                category: str = "", posture: str | None = None,
                prior_context: str = "") -> TurnGrade:
@@ -832,8 +848,9 @@ def grade_turn(turn: Turn, result: TurnResult, trace: TraceView | None = None,
     pass blind. ``category`` selects which auto-assertions apply (a refusal
     scenario drops no_capability_denial). ``posture`` (WP-4.1) selects which
     posture-gated assertions apply: an assertion whose ``postures`` is non-empty
-    is evaluated ONLY under a listed posture; ``posture=None`` grades
-    posture-agnostically (every assertion, the historical behavior).
+    is evaluated ONLY under a listed posture. A turn that carries any such
+    assertion CANNOT be graded without one, and raises :class:`PostureNotNamed`
+    rather than grading tier-specific expectations against a tier nobody named.
     ``prior_context`` is the joined user text of every EARLIER turn in the
     scenario — the provenance source that lets the fabrication guards tell a
     correct recall from an invention (``grade_scenario`` supplies it; a
@@ -841,6 +858,15 @@ def grade_turn(turn: Turn, result: TurnResult, trace: TraceView | None = None,
     the tri-state grade and a self-diagnosing result per assertion (``actual`` is
     recorded on every failure).
     """
+    if posture is None:
+        gated = [a for a in turn.assertions if a.postures]
+        if gated:
+            described = "; ".join(
+                f"{a.type}={a.value!r} for {sorted(a.postures)}" for a in gated)
+            raise PostureNotNamed(
+                f"this turn carries {len(gated)} tier-specific assertion(s) and "
+                f"the run named no posture, so they cannot be graded: "
+                f"{described}. Pass the posture the run actually drove.")
     text = result.text or ""
     called = _tools_called(result, trace)
     # context = the turn's provided user text (no_fabricated_citation allow-lists
@@ -854,6 +880,8 @@ def grade_turn(turn: Turn, result: TurnResult, trace: TraceView | None = None,
     for a in turn.assertions:
         # Posture gating: a posture-restricted assertion is skipped when grading
         # under a different posture (it simply does not apply to this tier).
+        # A turn with such assertions and no posture never reaches here — it was
+        # refused above.
         if posture is not None and a.postures and posture not in a.postures:
             continue
         evaluator = _EXPLICIT_EVALUATORS.get(a.type)
@@ -902,8 +930,10 @@ def grade_scenario(scenario: Scenario, results: list[TurnResult],
     ``results`` is one TurnResult per scenario turn (in order); ``traces`` is the
     matching per-turn trace (or None per turn / None entirely). ``posture``
     (WP-4.1) is threaded to every turn so posture-gated assertions apply only
-    under the matching tier; None grades posture-agnostically. The scenario grade
-    is the worst turn grade (any FAIL → FAIL; else any MIXED → MIXED).
+    under the matching tier; a scenario whose turns carry tier-specific
+    assertions and a run that names no posture raises :class:`PostureNotNamed`
+    from the first such turn. The scenario grade is the worst turn grade (any
+    FAIL → FAIL; else any MIXED → MIXED).
     """
     if len(results) != len(scenario.turns):
         raise ValueError(
