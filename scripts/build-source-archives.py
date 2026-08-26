@@ -98,6 +98,61 @@ def upstream_tarball_name(src_entry: dict, name: str, version: str) -> str:
     return url.split("/")[-1]
 
 
+def archive_basename(meta: dict) -> str:
+    """The output filename this recipe claims.
+
+    A dual-name twin (`ships_as:`) publishes its binary under the ship name and
+    its corresponding-source archive must carry that same identity, because the
+    correspondence gate matches archives against the staged binary's .PKGINFO
+    name. That is why the ship name — not the recipe name — decides the file.
+
+    It is also why two recipes can claim one filename: a twin shipping as `m4`
+    and a plain recipe named `m4` resolve here to the same string. The caller
+    is responsible for refusing that before anything is written; see
+    check_output_collisions().
+    """
+    ship_name = meta.get("ships_as") or meta.get("name")
+    version = str(meta.get("version", ""))
+    release = meta.get("release", 1)
+    return f"{ship_name}-{version}-{release}.igos.src.tar.gz"
+
+
+def check_output_collisions(repo_root: Path) -> list[str]:
+    """Recipes that would write one another's archive. Empty list = safe.
+
+    Run over the WHOLE tree before any archive is emitted, and deliberately not
+    narrowed by --package: a filename claimed by two recipes is a property of
+    the tree, so generating "just one" out of a tree in that state would still
+    produce an archive whose identity is decided by which recipe was asked for.
+
+    Returns printable lines naming the contested filename and every recipe
+    claiming it, so the message says what to change rather than only that
+    something is wrong.
+    """
+    claims: dict[str, list[str]] = {}
+    for pkg_yml in sorted(repo_root.glob("packages/*/*/package.yml")):
+        try:
+            with open(pkg_yml) as fh:
+                meta = yaml.safe_load(fh) or {}
+        except yaml.YAMLError:
+            # Malformed YAML is reported by the main loop, which names the
+            # recipe and fails the run. Nothing to add here.
+            continue
+        if not (meta.get("source") or []):
+            # Emits nothing, so it claims nothing.
+            continue
+        rel = pkg_yml.parent.relative_to(repo_root).as_posix()
+        claims.setdefault(archive_basename(meta), []).append(rel)
+
+    lines = []
+    for archive, recipes in sorted(claims.items()):
+        if len(recipes) > 1:
+            lines.append(f"{archive} is claimed by {len(recipes)} recipes:")
+            for r in recipes:
+                lines.append(f"    {r}")
+    return lines
+
+
 def _withheld_note(name: str, version: str, withheld: list[dict]) -> str:
     """Text placed in a source archive in place of inputs we may not republish.
 
@@ -300,7 +355,7 @@ def build_source_archive(
                 f"upstream tarball(s) not in {sources_dir.name}/: "
                 f"{', '.join(absent)}")
 
-    archive_name = f"{ship_name}-{version}-{release}.igos.src.tar.gz"
+    archive_name = archive_basename(meta)
     archive_path = output_dir / archive_name
 
     # Verify every republishable input's bytes BEFORE anything is emitted. The
@@ -472,6 +527,23 @@ def main() -> int:
     if not sources.is_dir():
         print(f"ERROR: sources directory does not exist: {sources}", file=sys.stderr)
         return 2
+
+    # Before anything is written. Two recipes resolving to one filename means
+    # the archive that survives a full run is chosen by directory order, and a
+    # corresponding-source archive chosen that way can describe a recipe other
+    # than the one its name claims. Refuse the whole run rather than emit a
+    # set with one archive silently decided.
+    collisions = check_output_collisions(repo)
+    if collisions:
+        print("REFUSING: two or more recipes claim the same output archive.",
+              file=sys.stderr)
+        for line in collisions:
+            print(f"  {line}", file=sys.stderr)
+        print("Nothing was written. Give each recipe an archive identity of "
+              "its own — a twin's `ships_as:` name is the published one, so "
+              "the recipe that is not published is the one to rename.",
+              file=sys.stderr)
+        return 1
 
     ok = skip = fail = 0
     for pkg_yml in sorted(repo.glob("packages/*/*/package.yml")):
