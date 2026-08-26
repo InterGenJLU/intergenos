@@ -8,6 +8,23 @@ and writes them to packages/<tier>/<name>/auto-verify-paths.json. The
 pre-squashfs-audit.py script falls back to this sidecar when package.yml
 lacks a verify_paths field.
 
+The same file also carries `produced_paths`: the WHOLE install list, not a
+sample. scripts/check-aspirational-stubs.py reads it to answer "does this
+package produce the path this surface cites?" instead of guessing from the
+package's name — its rule (a) resolves any basename sharing a substring with
+the package name, so a surface owned by foo citing /usr/bin/foo-does-not-exist
+resolved (lane 13 finding c1, 2026-08-24). A sample cannot answer that
+question: refusing a path requires knowing the package installs nothing of
+that name, which only the complete list establishes.
+
+Size, measured 2026-08-25 against this workstation's pkm database: 782804
+non-directory file rows across 951 installed packages, 45.91 MB of raw path
+text, median 44 paths per package and a maximum of 119657 (linux-kernel). The
+file is written next to the recipe and is not tracked — no auto-verify-paths.json
+is committed anywhere in the tree today — so this changes the SIZE of an
+artifact the builder already writes per package, not whether it writes one.
+Only the records for packages that own a citing surface are worth committing.
+
 The sidecar is a JSON file (not YAML) to make the human-vs-machine
 distinction obvious — verify_paths in package.yml is hand-curated /
 book-derived; auto-verify-paths.json is filesystem-truth-derived.
@@ -139,12 +156,36 @@ def derive_verify_paths(file_list, pkg_name, max_paths=3):
     return picked
 
 
-def write_sidecar(pkg_dir, paths):
+def normalize_produced_paths(file_list):
+    """The complete install list, as absolute paths, deduplicated and sorted.
+
+    Sorted so a rebuild that installs the same files rewrites the same bytes:
+    the sidecar is compared before it is written, and an unstable order would
+    make every build report a change.
+    """
+    seen = set()
+    out = []
+    for p in file_list or ():
+        if not isinstance(p, str):
+            continue
+        n = p.lstrip('/')
+        if not n or n.endswith('/'):
+            continue  # directories are not produced FILES
+        if n in seen:
+            continue
+        seen.add(n)
+        out.append('/' + n)
+    out.sort()
+    return out
+
+
+def write_sidecar(pkg_dir, paths, produced_paths=None):
     """Write the auto-verify-paths sidecar next to package.yml.
 
     Args:
         pkg_dir: Path to packages/<tier>/<name>/
-        paths: list of absolute paths
+        paths: list of absolute paths (the 2-3 identity-signal sample)
+        produced_paths: the complete install list, or None to omit the key
 
     Returns:
         True if written/updated, False if unchanged.
@@ -159,9 +200,14 @@ def write_sidecar(pkg_dir, paths):
             'Auto-derived from build-time filesystem snapshot by '
             'igos-build/verify_paths_derive.py. Hand-edit verify_paths '
             'in package.yml to override; this sidecar is a fallback for '
-            'the pre-squashfs audit when package.yml lacks the field.'
+            'the pre-squashfs audit when package.yml lacks the field. '
+            'produced_paths, when present, is the COMPLETE list of files this '
+            'package installed at that build — the Rule 21 stub gate reads it '
+            'to answer a cited path instead of guessing from the package name.'
         ),
     }
+    if produced_paths:
+        new_payload['produced_paths'] = produced_paths
     new_json = json.dumps(new_payload, indent=2, sort_keys=True) + '\n'
     if sidecar.exists():
         try:
@@ -191,4 +237,4 @@ def derive_and_write_sidecar(pkg, file_list):
     paths = derive_verify_paths(file_list, pkg.name)
     if not paths:
         return False
-    return write_sidecar(pkg_dir, paths)
+    return write_sidecar(pkg_dir, paths, normalize_produced_paths(file_list))

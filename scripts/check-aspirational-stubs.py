@@ -53,6 +53,7 @@ Exit codes
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from dataclasses import dataclass
@@ -530,6 +531,85 @@ def is_known_system(path: str) -> bool:
     return False
 
 
+# The builder's per-recipe sidecar. igos-build/verify_paths_derive.py writes it
+# from the install list at build time; the `produced_paths` key inside it is the
+# WHOLE list, which is what lets this gate answer a claim instead of guessing.
+PRODUCED_SIDECAR_NAME = "auto-verify-paths.json"
+
+# Records are read once per package: this gate resolves many claims and most of
+# them come from a handful of packages.
+_PRODUCED_CACHE: dict[str, frozenset[str] | None] = {}
+
+
+def citing_owner(
+    source_file: Path,
+    project_root: Path,
+) -> tuple[str | None, str | None]:
+    """(tier, package) owning a surface file, or (None, None).
+
+    A surface at packages/<tier>/<pkg>/* is owned by <pkg>. Surfaces outside
+    the packages tree map through NON_PACKAGES_OWNERSHIP.
+    """
+    try:
+        rel = source_file.resolve().relative_to(project_root.resolve())
+    except ValueError:
+        return (None, None)
+    parts = rel.parts
+    if len(parts) >= 3 and parts[0] == "packages":
+        return (parts[1], parts[2])
+    rel_str = str(rel)
+    for prefix, (mapped_tier, mapped_pkg) in NON_PACKAGES_OWNERSHIP.items():
+        if rel_str.startswith(prefix + "/"):
+            return (mapped_tier, mapped_pkg)
+    return (None, None)
+
+
+def produced_paths_for(
+    tier: str,
+    pkg_name: str,
+    project_root: Path,
+) -> frozenset[str] | None:
+    """The paths a package's build-time record says it installs, or None.
+
+    None means NO RECORD — a different thing from an empty one, and the reason
+    this returns None rather than an empty set: a package with no record keeps
+    the pre-record behaviour, while a package whose record is empty produces
+    nothing and every claim on it is a stub.
+    """
+    key = f"{project_root}|{tier}/{pkg_name}"
+    if key in _PRODUCED_CACHE:
+        return _PRODUCED_CACHE[key]
+    sidecar = project_root / "packages" / tier / pkg_name / PRODUCED_SIDECAR_NAME
+    record: frozenset[str] | None = None
+    if sidecar.is_file():
+        try:
+            payload = json.loads(sidecar.read_text())
+        except (OSError, ValueError):
+            payload = None
+        if isinstance(payload, dict) and isinstance(
+                payload.get("produced_paths"), list):
+            record = frozenset(
+                str(p) for p in payload["produced_paths"] if isinstance(p, str))
+    _PRODUCED_CACHE[key] = record
+    return record
+
+
+def build_sh_installs(
+    claimed_path: str,
+    tier: str,
+    pkg_name: str,
+    project_root: Path,
+) -> bool:
+    """The cited path appears literally in the citing package's build.sh."""
+    build_sh = project_root / "packages" / tier / pkg_name / "build.sh"
+    if not build_sh.exists():
+        return False
+    try:
+        return claimed_path in build_sh.read_text(errors="replace")
+    except OSError:
+        return False
+
+
 def is_citing_package_owned(
     claimed_path: str,
     source_file: Path,
@@ -769,6 +849,7 @@ def path_resolves(
     owners: dict[str, str],
     allowlist: set[str],
     project_root: Path,
+    missing_records: set[str] | None = None,
 ) -> tuple[bool, str]:
     """Return (resolves, reason). reason is the matched owner / system-prefix
     / allowlist / citing-package tag."""
@@ -796,6 +877,32 @@ def path_resolves(
     # ships it, even if verify_paths (hand-curated identity-signal) does
     # not list it. The comprehensive enumeration lives at the pkm manifest
     # layer, captured from the full staging tree at build time.
+    #
+    # The record, where the citing package has one, ANSWERS the question the
+    # substring rule below only guesses at (lane 13 finding c1, 2026-08-24):
+    # rule (a) resolves any basename sharing a substring with the package name,
+    # so a surface owned by foo citing /usr/bin/foo-does-not-exist resolved. A
+    # package that HAS a record is judged by it — a cited path inside it
+    # resolves, a cited path outside it does not — and the guess is not
+    # consulted for that package at all. Rule (b), the path appearing literally
+    # in the citing package's build.sh, is independent evidence that the package
+    # installs it and still resolves: a record taken before that line was added
+    # must not overrule the line itself.
+    #
+    # A package with NO record keeps the pre-record behaviour, so this changes
+    # no verdict in a tree where no build has written one; the package is
+    # collected instead, and named by the caller.
+    tier, pkg_name = citing_owner(source_file, project_root)
+    if pkg_name:
+        record = produced_paths_for(tier, pkg_name, project_root) if tier else None
+        if record is not None:
+            if any(candidate in record for candidate in usrmerge_siblings(path)):
+                return (True, "produced-path")
+            if build_sh_installs(path, tier, pkg_name, project_root):
+                return (True, "citing-package")
+            return (False, "ASPIRATIONAL-STUB")
+        if missing_records is not None and tier:
+            missing_records.add(f"{tier}/{pkg_name}")
     if is_citing_package_owned(path, source_file, project_root):
         return (True, "citing-package")
     return (False, "ASPIRATIONAL-STUB")
@@ -964,6 +1071,15 @@ def main() -> int:
         action="store_true",
         help="Print only the summary counts; suppress per-stub table",
     )
+    parser.add_argument(
+        "--require-produced-paths",
+        action="store_true",
+        help="Refuse when a package whose surface cites a path has no "
+             "build-time produced-paths record. Off by default: no package "
+             "carries a record until a build writes one, so refusing on "
+             "absence before that would refuse every build. Turn it on in the "
+             "build driver once a from-scratch build has produced them.",
+    )
     args = parser.parse_args()
 
     project = Path(args.project)
@@ -986,8 +1102,10 @@ def main() -> int:
     ok_count = 0
     by_reason: dict[str, int] = {}
 
+    missing_records: set[str] = set()
     for claim in claims:
-        ok, reason = path_resolves(claim.path, claim.source_file, owners, allowlist, project)
+        ok, reason = path_resolves(claim.path, claim.source_file, owners,
+                                   allowlist, project, missing_records)
         if ok:
             ok_count += 1
             by_reason[reason] = by_reason.get(reason, 0) + 1
@@ -1024,6 +1142,22 @@ def main() -> int:
         for reason, count in sorted(by_reason.items(), key=lambda kv: -kv[1])[:10]:
             print(f"  {count:5d}  {reason}")
 
+    # Named, never silent: these are the packages whose claims fell through to
+    # the substring guess because no build has written them a record. The list
+    # is the coverage gap, and --require-produced-paths turns it into a refusal
+    # once a from-scratch build has closed it.
+    if missing_records:
+        print()
+        print(f"[Rule 21] {len(missing_records)} package(s) cite a path and "
+              f"have no produced-paths record, so their claims were answered "
+              f"by the citing-package name guess:")
+        for entry in sorted(missing_records):
+            print(f"    {entry}  (no produced-paths record: "
+                  f"packages/{entry}/{PRODUCED_SIDECAR_NAME} absent or "
+                  f"carries no produced_paths list)")
+        print("  A record is written by igos-build/verify_paths_derive.py when "
+              "the package is built.")
+
     doc_findings = scan_documentation(project)
     hook_allowlist_path = Path(args.hook_allowlist) if args.hook_allowlist \
         else project / "config" / "aspirational-stub-hook-allowlist.txt"
@@ -1056,6 +1190,17 @@ def main() -> int:
         f"[Rule 21] Documentation: {len(doc_findings)} claim(s) the tree does "
         f"not keep, {len(orphans)} orphan hook script(s)"
     )
+
+    if args.require_produced_paths and missing_records:
+        print()
+        print(
+            f"[Rule 21] BUILD BLOCKER — --require-produced-paths is set and "
+            f"{len(missing_records)} citing package(s) have no produced-paths "
+            f"record (named above). Build those packages so the record is "
+            f"written, or drop the flag until a from-scratch build has.",
+            file=sys.stderr,
+        )
+        return 1
 
     if stubs or doc_findings or orphans:
         print()
