@@ -178,6 +178,18 @@ def _register_write_file(matcher: SemanticMatcher) -> None:
     )
 
 
+# What a person calls a piece of SOFTWARE when they do not know its name.
+# Read by the "find me software" keyword patterns below and defined once here so
+# the two patterns cannot drift apart. Program kinds only: the document nouns
+# (recipe, pattern, instructions, tutorial, manual, template) belong to
+# web_search, which registers its own forms for them.
+_PROGRAM_KIND_NOUN = (
+    r"(?:editor|browser|player|viewer|reader|client|app|apps|application|"
+    r"applications|program|programs|tool|tools|manager|utility|ide|terminal|"
+    r"emulator|launcher|recorder)"
+)
+
+
 def _register_manage_packages(matcher: SemanticMatcher) -> None:
     matcher.register_keyword_pattern(
         "manage_packages",
@@ -195,12 +207,60 @@ def _register_manage_packages(matcher: SemanticMatcher) -> None:
             r"^list\s+(?:installed\s+)?packages?",
             r"^show\s+(?:me\s+)?(?:my\s+|all\s+)?(?:installed\s+)?packages?\b",
             r"^is\s+\w+\s+installed",
+            # The same question in the two other shapes the field uses. Only
+            # "is X installed" had a pattern, so "check if docker is installed"
+            # (the exact clause the whole-battery re-drive recorded) and "do I
+            # have docker installed" (a sentence this intent's own embedding
+            # examples list) reached the deterministic rung as nothing at all.
+            # On a box whose embedding server is down these are the ONLY route
+            # to the carrier, which is why they are patterns and not more
+            # examples.
+            r"^(?:check|see)\s+(?:if|whether)\s+(?:the\s+)?[\w.+-]+\s+"
+            r"(?:package\s+)?is\s+installed\b",
+            r"^do\s+(?:i|we|you)\s+have\s+(?:the\s+)?[\w.+-]+\s+"
+            r"(?:package\s+)?installed\b",
             r"^is\s+there\s+a\s+package",
             r"^do\s+(?:you|we|i)\s+have\s+a\s+package",
             # explicit "...package..." version/info queries belong to pkm, not
             # run_command's uname (which answers the kernel string, not the
             # package release) — anchored on the word "package" to stay narrow
             r"^what\s+version\s+of\s+.+\bpackage",
+            # ── FIND ME SOFTWARE (2026-08-26). "find a pdf editor" is how a
+            # person asks for a program, and no rung claimed it: no keyword
+            # pattern matched, and measured against the live embedding server on
+            # a dual-GPU workstation its best similarity across the ENTIRE intent
+            # corpus was 0.5968 — under every intent's own threshold, so the
+            # semantic rung had no candidate to admit. The clause landed in a
+            # freeform model turn built with_tools=False and the model invented
+            # system state ("You don't have a dedicated PDF editor installed,
+            # but qpdf is available") with no tool having run. Confirmed on the
+            # live daemon the same day: glass turn bca447f55988c2d4,
+            # semantic_score=0.5968062877655029, source=llm_freeform,
+            # tool_count=0. The extractor could already handle the clause —
+            # _extract_arguments returns {"action": "search", "query": "pdf
+            # editor"} for it — so only the recognition was missing.
+            #
+            # WHY DETERMINISTIC AND NOT MORE EMBEDDING EXAMPLES. Both were
+            # measured against the live embedder. Adding example sentences pulls
+            # the clause over the bar, and pulls three questions that must NOT
+            # dispatch over it too: "what is a pdf editor" reaches 0.8989, "how
+            # do I edit a pdf" 0.9136 and "tell me about pdf editors" 0.8870,
+            # all above the router's 0.85 admission bar, because the embedding
+            # is dominated by the OBJECT ("pdf editor") while the thing that
+            # separates a request from a question is the LEADING VERB. A keyword
+            # pattern reads exactly that. This is the same argument the
+            # web_search registration below already makes for its own forms.
+            #
+            # The noun list is program kinds only. It deliberately excludes the
+            # document nouns web_search owns (recipe/pattern/instructions/
+            # tutorial/manual/template) and does not touch run_command's
+            # "^find ... largest/biggest/hidden" file searches; both were held as
+            # controls in the measurement, along with "find my car keys" and
+            # "find a good movie to watch", which must reach no carrier at all.
+            r"^(?:find|get)\s+(?:me\s+)?(?:a|an)\s+(?:\w+\s+){0,2}?"
+            + _PROGRAM_KIND_NOUN + r"\b",
+            r"^is\s+there\s+(?:a|an)\s+(?:\w+\s+){0,2}?"
+            + _PROGRAM_KIND_NOUN + r"\b",
         ],
         tool_name="manage_packages",
     )
