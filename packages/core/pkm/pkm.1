@@ -5,6 +5,7 @@ pkm \- InterGenOS package manager
 .B pkm
 [\fB\-\-version\fR]
 [\fB\-\-db\fR \fIPATH\fR]
+[\fB\-\-root\fR \fIDIR\fR]
 .I command
 [\fIargs\fR]
 .SH DESCRIPTION
@@ -171,7 +172,78 @@ Print version and exit.
 .BR \-\-db " \fIPATH\fR"
 Override the default database path
 .RI ( /var/lib/igos/pkm.db ).
-Primarily useful in tests and rescue scenarios.
+Primarily useful in tests and rescue scenarios. An explicit
+.B \-\-db
+wins over the path
+.B \-\-root
+would derive.
+.TP
+.BR \-\-root " \fIDIR\fR"
+Install into
+.I DIR
+instead of this system. Every file the operation writes, and every piece of
+pkm's own state, lives under
+.IR DIR :
+the packages themselves, the package database, the text manifests, the archive
+directory, the helper footprint manifests, the mutation lock, the repository
+cache, the available\-updates report, the anti\-rollback record, the
+per\-package hook directory and the pre\-transaction handler directory. Nothing
+outside
+.I DIR
+is written.
+.IP
+.I DIR
+must already exist and must be an absolute path; pkm creates its own state
+directories underneath an install root but never the root itself, so a
+mistyped path is refused rather than silently becoming a new empty system.
+.IP
+Two things are deliberately NOT taken from
+.IR DIR :
+the repository configuration
+.RI ( /etc/pkm/repos.conf )
+and the keyring used to verify signatures
+.RI ( /etc/pkm/trusted.gpg )
+are read from the running system. A target being built has no keyring of its
+own to verify its packages against, and a target that had one would be
+deciding which signatures pkm accepts while pkm installs into it. Where
+packages are put is what this option controls; which signatures pkm believes
+is a property of the machine doing the installing.
+.IP
+A subcommand that cannot be honoured under another root is refused by name,
+with the reason, before anything is opened or changed \- rather than doing the
+part it can and staying quiet about the part it cannot. The commands that can
+be run under
+.B \-\-root
+are
+.BR install ,
+.BR remove ,
+.BR verify ,
+.BR import ,
+.BR update ,
+.BR cache ,
+.BR vacuum ,
+.BR hold ,
+.BR unhold ,
+.BR mark ,
+and the read\-only queries
+.RB ( list ,
+.BR search ,
+.BR info ,
+.BR files ,
+.BR provides ,
+.BR depends ,
+.BR history ).
+.IP
+Two further refusals belong to
+.BR install .
+A proprietary\-download package is refused for another root: it is installed by
+running the vendor's own installer with a person accepting the vendor's license
+at this machine's keyboard, which cannot be performed on behalf of a different
+filesystem. And a package whose own post\-install hook could not run inside
+.I DIR
+is refused before anything is deployed \- pkm runs such a hook inside the root
+it installs into, so a root with no interpreter for it would take the install
+to a reported success with the package's post\-install step never having run.
 .SH FILES
 .TP
 .I /etc/pkm/repos.conf
@@ -189,7 +261,32 @@ Per-package metadata directories.
 Cached
 .B .igos.tar.gz
 archives.
+.TP
+.I /var/lib/pkm/state/
+The anti\-rollback record: the newest index generation this system has
+accepted. An index older than the recorded one is refused.
+.PP
+Under
+.BR \-\-root " \fIDIR\fR"
+every path in this section is read and written under
+.I DIR
+instead, with the two exceptions named in
+.BR OPTIONS .
 .SH EXAMPLES
+Install into a directory rather than into this system \- the package, its
+database record, its manifest and its caches all land under the directory, and
+nothing outside it is written:
+.PP
+.RS
+.B pkm \-\-root /mnt/target install font\-alias
+.RE
+.PP
+Query what that root holds, without touching this system's database:
+.PP
+.RS
+.B pkm \-\-root /mnt/target list
+.RE
+.PP
 Install a single package from the default repository:
 .PP
 .RS
