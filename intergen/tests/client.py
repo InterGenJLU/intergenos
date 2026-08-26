@@ -212,7 +212,7 @@ class InterGenTestClient:
         the next and contaminate the honesty battery (the cross-conversation
         over-steer root-caused in PI-Z29).
 
-          - direct: call the in-process router's reset_conversation_state().
+          - direct: call the in-process daemon's reset_conversation().
           - dbus:   call com.intergenos.InterGen.ResetConversation() on the bus,
                     which runs the SAME reset inside the persistent daemon.
 
@@ -220,15 +220,32 @@ class InterGenTestClient:
         reset the persistent daemon's router between conversations (the old
         inline runner reset only ever reached the direct-mode in-process router),
         so the persistent daemon carried a prior conversation's state forward.
+
+        WHY DIRECT MODE GOES THROUGH THE DAEMON AND NOT THE ROUTER. It used to
+        reach past the daemon and call ``router.reset_conversation_state()``
+        with no conversation named. The router serves several frontends and
+        detaches its own conversation at wiring time, so a caller that does not
+        say which conversation it is ending is refused (ConversationUnbound) —
+        deliberately, because the alternative is one conversation's decisions
+        applied to another's turn. Measured 2026-08-26: a live direct-mode run
+        of the 64-scenario field_shapes class produced 64 ERROR results in 0.0s
+        each, every one of them that refusal raised before the scenario's first
+        turn, so the run measured nothing while looking like 64 product
+        failures. The daemon's own reset_conversation() names
+        ``self._conversation`` — the conversation direct-mode turns are actually
+        routed in — and it is the SAME method the bus surface runs, so this is
+        the both-modes parity the docstring above promises rather than a second
+        implementation of it.
         """
         if self._mode == "dbus":
             self._reset_conversation_dbus()
             return
-        # Direct mode: reset the in-process router. getattr-guarded for the
-        # partial-construction path (same convention as _isolate_memory_db).
-        router = getattr(self._daemon, "_router", None) if self._daemon else None
-        if router is not None and hasattr(router, "reset_conversation_state"):
-            router.reset_conversation_state()
+        # Direct mode: the daemon ends its OWN conversation. getattr-guarded for
+        # the partial-construction path (same convention as _isolate_memory_db);
+        # the daemon's method already reports a router that has not started.
+        reset = getattr(self._daemon, "reset_conversation", None) if self._daemon else None
+        if callable(reset):
+            reset()
 
     def memory_db_path(self) -> str | None:
         """Path to the memory DB the run's snapshot / delta-cleanup / leak /
