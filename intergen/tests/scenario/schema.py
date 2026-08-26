@@ -154,7 +154,23 @@ ASSERTION_TYPES: frozenset[str] = frozenset({
                              #   contains ANY of them — the negative mirror of
                              #   contains_any, one guard replacing N stacked
                              #   not_contains lines
-    "no_negation",           # value = keyword present but NOT inside a can't/unable negation
+    "no_negation",           # value = keyword present but NOT inside a can't/unable negation.
+                             #   The value may NAME A CAPABILITY instead of
+                             #   spelling its wording out — "capability:<tool>"
+                             #   resolves through capability_registry at grade
+                             #   time, so the product owns the phrase and the
+                             #   corpus cannot drift from it. Any text-matching
+                             #   assertion type accepts the same reference.
+    "escalation_offered",    # the reply carried an offer to consult the frontier
+                             #   model. Read from RouteResult.escalation_offer,
+                             #   never sniffed out of the answer text: the offer
+                             #   is a decision on its own field. An optional value
+                             #   must also appear IN the offer, which is how a
+                             #   scenario pins the phrase the offer tells the user
+                             #   to type.
+    "no_escalation_offer",   # the reply carried NO such offer. The half with
+                             #   teeth: the offer fires selectively, so a scenario
+                             #   has to be able to say "not on this turn".
     "source",                # a citation is present
     "source_any",            # value = comma-joined citation alternatives
     "self_consistent",       # must not enumerate results and also claim none were found

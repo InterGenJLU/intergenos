@@ -142,6 +142,11 @@ class TestResponse:
     trace_id: str = ""
     elapsed_ms: float = 0.0
     raw: dict[str, Any] = field(default_factory=dict)
+    # The router's offer to consult a frontier model, as both daemons publish it.
+    # It survived only inside `raw` before, which meant every consumer had to
+    # know the wire key to find it and the scenario harness did not — so a fired
+    # offer never reached the grader.
+    escalation_offer: str = ""
 
 
 class InterGenTestClient:
@@ -193,6 +198,7 @@ class InterGenTestClient:
             trace_id=raw.get("trace_id", ""),
             elapsed_ms=elapsed,
             raw=raw,
+            escalation_offer=raw.get("escalation_offer") or "",
         )
 
     def status(self) -> dict[str, Any]:

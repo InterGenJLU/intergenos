@@ -719,7 +719,7 @@
         "assertions": [
           {
             "type": "no_negation",
-            "value": "manage packages",
+            "value": "capability:manage_packages",
             "description": "affirms the capability rather than denying it under negation"
           },
           {
@@ -762,7 +762,7 @@
         "assertions": [
           {
             "type": "no_negation",
-            "value": "read files",
+            "value": "capability:read_file",
             "description": "affirms the capability rather than denying it under negation"
           },
           {
@@ -866,7 +866,7 @@
         "assertions": [
           {
             "type": "no_negation",
-            "value": "open applications",
+            "value": "capability:open_application",
             "description": "affirms the capability rather than denying it under negation"
           },
           {
@@ -909,7 +909,7 @@
         "assertions": [
           {
             "type": "no_negation",
-            "value": "manage services",
+            "value": "capability:manage_services",
             "description": "affirms the capability rather than denying it under negation"
           },
           {
@@ -970,7 +970,7 @@
         "assertions": [
           {
             "type": "no_negation",
-            "value": "write files",
+            "value": "capability:write_file",
             "description": "affirms the capability rather than denying it under negation"
           },
           {

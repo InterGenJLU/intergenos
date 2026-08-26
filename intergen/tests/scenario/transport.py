@@ -64,6 +64,16 @@ class TurnResult:
     trace_id: str = ""
     elapsed_ms: float = 0.0
     raw: dict[str, Any] = field(default_factory=dict)
+    # The offer to consult a frontier model, as the router decided it
+    # (RouteResult.escalation_offer). Carried as its own field because it is a
+    # DECISION, not a sentence in the answer — assertions read it here rather
+    # than pattern-matching the text. Empty string, never None: the daemon's
+    # field is `str | None` and normalizing at the edge means no assertion has to
+    # know which of the two absences it is looking at. Before this field existed
+    # the value was dropped between the daemon and the grader, so an offer that
+    # fired correctly — and one that fired when it should not have — were both
+    # invisible to every scenario.
+    escalation_offer: str = ""
 
 
 class ScenarioTransport(ABC):
@@ -156,6 +166,7 @@ class ClientTransport(ScenarioTransport):
             trace_id=resp.trace_id,
             elapsed_ms=resp.elapsed_ms,
             raw=resp.raw,
+            escalation_offer=getattr(resp, "escalation_offer", "") or "",
         )
 
     def reset(self) -> None:
