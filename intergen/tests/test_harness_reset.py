@@ -11,11 +11,24 @@ the honesty battery — the PI-Z29 cross-conversation over-steer, and the
 contaminated pkm-invention 'before' numbers a full-battery re-proof surfaced).
 
 The fix routes BOTH modes through `InterGenTestClient.reset_conversation()`:
-  - direct: calls the in-process router's `reset_conversation_state()`.
+  - direct: calls the in-process daemon's own `reset_conversation()`.
   - dbus:   calls `com.intergenos.InterGen.ResetConversation()` on the bus,
             which runs the SAME reset inside the persistent daemon, and treats a
             {"reset": false} reply (or any bus error) as a fatal harness error —
             never a silent skip.
+
+AMENDED 2026-08-26. The direct branch used to reach past the daemon and call
+`router.reset_conversation_state()` with NO conversation named, and the test
+below pinned exactly that call as the contract. It stopped being a correct
+contract once the router began serving several frontends and detaching its own
+conversation at wiring time: a caller that does not say which conversation it is
+ending is refused (ConversationUnbound), deliberately, because the alternative is
+one conversation's decisions applied to another's turn. A live direct-mode run of
+the field_shapes class returned 64 ERROR results in 0.0s each, all of them that
+refusal, before any scenario asked anything. The direct branch now calls the
+daemon's own reset_conversation(), which is the same method the bus surface runs
+and which names `self._conversation`; these tests pin THAT, and the stand-in
+daemon below runs the real shape of it rather than a router poke.
 """
 
 from __future__ import annotations
@@ -26,18 +39,39 @@ from intergen.tests.client import InterGenTestClient
 
 
 class _RecordingRouter:
-    """Stand-in in-process router that records reset_conversation_state calls."""
+    """Stand-in in-process router that records how it was asked to reset.
+
+    `reset_conversation_state` takes the conversation to end. Recording the
+    ARGUMENT and not merely the call count is the point: an unnamed reset is the
+    defect, and a test that counted calls could not tell the two apart.
+    """
 
     def __init__(self) -> None:
         self.reset_calls = 0
+        self.reset_with: list[object] = []
 
-    def reset_conversation_state(self) -> None:
+    def reset_conversation_state(self, state=None) -> None:
         self.reset_calls += 1
+        self.reset_with.append(state)
 
 
 class _FakeDaemon:
-    def __init__(self, router) -> None:
+    """A daemon that ends its OWN conversation, as the shipped one does.
+
+    `reset_conversation` mirrors InterGenDaemon.reset_conversation: it names
+    `self._conversation`, and it reports a router that has not started rather
+    than raising.
+    """
+
+    def __init__(self, router, conversation=None) -> None:
         self._router = router
+        self._conversation = conversation if conversation is not None else object()
+
+    def reset_conversation(self) -> str:
+        if self._router is None:
+            return '{"reset": false, "reason": "router not started"}'
+        self._router.reset_conversation_state(self._conversation)
+        return '{"reset": true}'
 
 
 class _FakeResult:
@@ -74,12 +108,25 @@ def _bare_client(mode: str) -> InterGenTestClient:
 
 
 class DirectModeReset(unittest.TestCase):
-    def test_direct_reset_calls_router_reset_state(self) -> None:
+    def test_direct_reset_goes_through_the_daemon(self) -> None:
+        """One reset reaches the router, via the daemon's own method."""
         router = _RecordingRouter()
         c = _bare_client("direct")
         c._daemon = _FakeDaemon(router)
         c.reset_conversation()
         self.assertEqual(router.reset_calls, 1)
+
+    def test_direct_reset_names_the_daemon_conversation(self) -> None:
+        """The regression: an unnamed reset is refused by a shared router."""
+        router = _RecordingRouter()
+        c = _bare_client("direct")
+        daemon = _FakeDaemon(router)
+        c._daemon = daemon
+        c.reset_conversation()
+        self.assertEqual(router.reset_with, [daemon._conversation],
+                         "the reset did not name the conversation it was "
+                         "ending; a router serving several frontends refuses "
+                         "that, and 64 scenarios died on it")
 
     def test_direct_reset_is_safe_without_a_daemon(self) -> None:
         # Partial construction / not-yet-ready: no daemon => no-op, no crash.
@@ -89,7 +136,7 @@ class DirectModeReset(unittest.TestCase):
     def test_direct_reset_is_safe_without_a_router(self) -> None:
         c = _bare_client("direct")
         c._daemon = _FakeDaemon(None)
-        c.reset_conversation()  # router None => no-op, no crash
+        c.reset_conversation()  # router not started => no-op, no crash
 
 
 class ResetResultContract(unittest.TestCase):
