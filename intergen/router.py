@@ -173,6 +173,33 @@ _RUN_DESCRIPTION_LEADERS = frozenset({
     "some", "any",
 })
 
+# A token that REFERS to something rather than NAMING it. The same fail-safe idea
+# as _RUN_DESCRIPTION_LEADERS above, applied to the other extractors: a package or
+# service argument taken as "the token after the verb" is a referent, not a name,
+# whenever it is a pronoun or a bare determiner.
+#
+# WHY THIS EXISTS. On the compound path the decomposer splits "find a pdf editor
+# and install it" into two clauses, and nothing carries the object of the first
+# into the second — so the second clause is the two words "install it" and the
+# extractor dispatched manage_packages(install, package="it"), which the consent
+# gate then denied. "restart the one that's stopped" is not even a split: it is
+# one clause whose object is a definite description, and the extractor dispatched
+# manage_services(restart, service="the"). Both measured on a real re-drive.
+#
+# The determiners are the same set as above and are reused rather than re-listed;
+# the pronouns are added here. A dispatch is never built on one of these: the
+# caller resolves the referent, falls back to a scan of the whole request, or
+# declines and lets the turn clarify — never guesses.
+_REFERENTIAL_ARGUMENT_TOKENS = _RUN_DESCRIPTION_LEADERS | frozenset({
+    "it", "them", "they", "those", "these", "one", "ones", "thing", "things",
+    "him", "her", "he", "she",
+})
+
+
+def _is_referential_argument(token: str) -> bool:
+    """True when a would-be argument REFERS instead of NAMING ("it", "the")."""
+    return (token or "").strip().strip(".,;:!?'\"").lower() in _REFERENTIAL_ARGUMENT_TOKENS
+
 
 def _is_pathlike(tok: str) -> bool:
     """A clean path-like token for the copy extractor — an absolute/relative path or
@@ -3412,11 +3439,23 @@ class ConversationRouter(RouterInterface):
         all_tool_calls = []
         all_tool_results = []
         used_llm = False
+        # The object an earlier clause named, carried forward for a later clause
+        # whose own object is a referent ("... and install it"). Reset per compound
+        # turn so one request's object can never leak into the next.
+        self._compound_referent = ""
 
         for i, sub_query in enumerate(decomposition.sub_queries, 1):
             _tsub = time.monotonic()
             sub_result = self._route_single(sub_query,
                                             trail_scope=f"sub_query:{i}")
+            # Record a concrete object this clause dispatched on, so the NEXT
+            # clause can resolve "it" against it instead of dispatching the
+            # pronoun. Only names, never search phrases (see _resolved_referent).
+            for _call in sub_result.tool_calls:
+                _name = self._referent_from_arguments(
+                    getattr(_call, "arguments", None))
+                if _name:
+                    self._compound_referent = _name
             # M1 (bullet 4): each decomposed sub-query and its individual
             # round-trip — the (f) misroute's cost is visible here.
             glass.emit("prompt", "subquery", detail={
@@ -5450,6 +5489,35 @@ class ConversationRouter(RouterInterface):
             logger.error("Tool %s execution failed: %s", tool_name, e)
             return call, None
 
+    def _resolved_referent(self) -> str:
+        """The object an EARLIER clause of this compound turn named, or "".
+
+        Set by :meth:`_handle_compound` as it walks the sub-queries, and read here
+        when a clause's own object is a referent ("install it"). Only a CONCRETE
+        name is ever carried — the package or service argument an earlier clause's
+        carrier actually accepted — never a free-text search phrase. "find a pdf
+        editor" names a description, not a package, and inventing a package name
+        out of it would trade a denied dispatch for a wrong one; with no concrete
+        name the caller declines and the turn asks which one, which is the honest
+        answer and the one a person can act on.
+        """
+        return getattr(self, "_compound_referent", "") or ""
+
+    @staticmethod
+    def _referent_from_arguments(arguments: "dict[str, Any] | None") -> str:
+        """A concrete object name out of a carrier's arguments, or "".
+
+        `package`/`service` are names. `query` is deliberately NOT read: it is
+        what the user was looking for, not something that exists yet.
+        """
+        if not arguments:
+            return ""
+        for key in ("package", "service"):
+            value = str(arguments.get(key) or "").strip()
+            if value and not _is_referential_argument(value):
+                return value
+        return ""
+
     def _extract_arguments(self, tool_name: str,
                            user_input: str) -> dict[str, Any] | None:
         """Extract tool arguments from user input.
@@ -5504,6 +5572,18 @@ class ConversationRouter(RouterInterface):
             if "install" in parts:
                 idx = parts.index("install")
                 pkg = parts[idx + 1] if idx + 1 < len(parts) else ""
+                # A REFERENT is not a package name. "install it" (the second half
+                # of "find a pdf editor and install it", after the decomposer
+                # splits it) used to dispatch package="it", which the consent gate
+                # denied — a real request answered with a denial for a word the
+                # user never meant as a name. Prefer the referent the CALLER
+                # resolved from the earlier clause; with none, decline so the turn
+                # asks which package rather than dispatching a pronoun.
+                if _is_referential_argument(pkg):
+                    resolved = self._resolved_referent()
+                    if not resolved:
+                        return None
+                    pkg = resolved
                 return {"action": "install", "package": pkg}
             if "remove" in parts or "uninstall" in parts:
                 return {"action": "remove", "package": parts[-1]}
@@ -5569,6 +5649,22 @@ class ConversationRouter(RouterInterface):
                 if action in parts:
                     idx = parts.index(action)
                     svc = parts[idx + 1] if idx + 1 < len(parts) else ""
+                    # The scan fallback below was already the right answer for
+                    # "restart the one that's stopped" and could never run: the
+                    # guard tested EMPTINESS, and "the" is a non-empty string, so
+                    # a determiner was dispatched as the service name. Treat a
+                    # referential token as no name at all, which is what it is,
+                    # and the existing scan gets its chance.
+                    if _is_referential_argument(svc):
+                        svc = self._scan_service_name(user_input) \
+                            or self._resolved_referent()
+                        if not svc:
+                            # Nothing in the request names a service. Declining
+                            # sends the turn to a clarify, which is the honest
+                            # answer to "restart the one that's stopped" when no
+                            # earlier clause said which one.
+                            return None
+                        return {"action": action, "service": svc}
                     return {"action": action,
                             "service": svc or self._scan_service_name(user_input)}
             # "Is X running?" / "Is X active?" pattern
