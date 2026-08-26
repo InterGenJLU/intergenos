@@ -192,6 +192,39 @@ _FORGET_PATTERNS = [
     ]
 ]
 
+# A negation standing immediately in front of a delete verb.
+#
+# WHY THIS EXISTS. The forget patterns above are applied with ``re.search``, so
+# they match anywhere in a sentence, and the first of them matches the four
+# words "forget my keyboard layout" inside "DON'T forget my keyboard layout".
+# Without this guard that sentence deleted the very fact the user asked to
+# keep — measured on the tree: both stored rows marked deleted and the reply
+# "Done. I've forgotten 2 things about 'my keyboard layout'."
+#
+# It is matched against the text BEFORE a pattern's match, anchored to the end
+# of that text, so it asks one question only: is the verb this pattern matched
+# negated? That leaves "don't remember X" — whose own pattern starts AT the
+# negation, with nothing before it — working as the delete request it is.
+_NEGATION_BEFORE_VERB_RE = re.compile(
+    r"\b(?:don['\u2019]?t|do\s+not|never|didn['\u2019]?t|won['\u2019]?t|"
+    r"can['\u2019]?t|cannot|shouldn['\u2019]?t|mustn['\u2019]?t|must\s+not|"
+    r"no\s+need\s+to)"
+    r"(?:\s+(?:ever|you|please|just|also|still|again))*\s*$",
+    re.IGNORECASE,
+)
+
+# "don't forget X" / "never forget X" — a request to KEEP something, wherever it
+# sits in the sentence. ``is_remember_request`` matches its triggers at the START
+# of the message, which misses "please don't forget that ..."; this catches the
+# same intent anywhere.
+_NEGATED_FORGET_RE = re.compile(
+    r"\b(?:don['\u2019]?t|do\s+not|never|didn['\u2019]?t|won['\u2019]?t|"
+    r"can['\u2019]?t|cannot|shouldn['\u2019]?t|mustn['\u2019]?t|must\s+not|"
+    r"no\s+need\s+to)"
+    r"(?:\s+(?:ever|you|please|just|also|still|again))*\s+forget\b",
+    re.IGNORECASE,
+)
+
 # ── Bare-declarative classification (no explicit "remember" trigger) ──
 #
 # A user can state a fact about themselves ("my editor is vim") or report a
@@ -703,12 +736,22 @@ class MemoryManager:
 
     @staticmethod
     def is_remember_request(message: str) -> bool:
-        """Check if the message is asking InterGen to remember something."""
+        """Check if the message is asking InterGen to remember something.
+
+        The trigger words are matched at the START of the message, which is
+        where a person usually puts them. A negated "forget" is also accepted
+        ANYWHERE in the sentence, because "please don't forget that my keyboard
+        layout is Colemak" asks to keep the fact just as plainly as the same
+        sentence without the "please" — and, before this, sentences of that
+        shape were served by the DELETE path instead.
+        """
         lower = message.lower()
-        return any(lower.startswith(p) for p in [
+        if any(lower.startswith(p) for p in [
             "remember", "save that", "store that", "note that",
             "don't forget", "keep in mind",
-        ])
+        ]):
+            return True
+        return _NEGATED_FORGET_RE.search(message) is not None
 
     @staticmethod
     def classify_declarative(message: str) -> tuple[str | None, str | None, str | None]:
@@ -841,10 +884,26 @@ class MemoryManager:
 
     @staticmethod
     def is_forget_request(message: str) -> str | None:
-        """Check if user is asking to forget something. Returns the subject or None."""
+        """Check if user is asking to forget something. Returns the subject or None.
+
+        Two guards stand in front of the patterns, both of them there because
+        deleting a fact the user asked to keep is not recoverable:
+
+        1. A sentence the STORE classifier already claims is never served here.
+           When two classifiers can claim the same sentence, the destructive one
+           must not be the one that answers it.
+        2. A pattern whose verb is NEGATED in this sentence does not count as a
+           match; the remaining patterns still get their turn. Without this,
+           ``re.search`` found "forget my keyboard layout" inside "don't forget
+           my keyboard layout" and deleted the fact.
+        """
+        if MemoryManager.is_remember_request(message):
+            return None
         for pattern in _FORGET_PATTERNS:
             match = pattern.search(message)
             if match:
+                if _NEGATION_BEFORE_VERB_RE.search(message[:match.start()]):
+                    continue
                 if "clear" in message.lower() and ("all" in message.lower()
                                                      or "memories" in message.lower()):
                     return "__ALL__"
