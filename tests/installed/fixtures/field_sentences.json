@@ -9,6 +9,9 @@
       "sentence": "Hey, what's the current time?",
       "expected_verdict": "recognised",
       "expected_tool": "run_command",
+      "router_owed": "served_without_a_named_tool",
+      "served_by": ["direct_answer"],
+      "router_rationale": "ROUTER LEVEL, RECORDED 2026-08-26. expected_verdict/expected_tool above describe the MATCHER: the keyword layer takes this sentence for the system_info intent, whose tool_name is run_command. The ROUTER never gets that far and should not: it answers the clock from a code-owned direct answer, dispatching no tool at all. What this sentence is owed at router level is therefore a SERVED turn, not a named tool, and a router-level gate that demanded run_command here would be demanding a regression.",
       "rationale": "A live-data question about the machine's own clock. CORRECTED 2026-08-25: this entry previously declared expected_tool 'system_info', which is NOT A TOOL — the shipped tools are analyze_file, manage_packages, manage_services, open_application, read_file, run_command, take_screenshot, web_search and write_file. 'system_info' is an INTENT ID whose tool_name is deliberately run_command, with the command selector resolving this sentence to `date`. The gate compares against tool_name, so the old entry asked for something that could only be satisfied by inventing a tool. The keyword layer already routes this correctly; the fixture was wrong, not the product."
     },
     {
@@ -16,6 +19,9 @@
       "sentence": "How do I update this system?",
       "expected_verdict": "recognised",
       "expected_tool": "manage_packages",
+      "router_owed": "served_without_a_named_tool",
+      "served_by": ["explain"],
+      "router_rationale": "ROUTER LEVEL, RECORDED 2026-08-26. The embedding layer selects manage_packages at 0.9954, so the matcher-level entry above is correct. The ROUTER answers the turn through the explain gate instead — 'how do I update this system' is a request for the PROCEDURE, and explaining it is the right service. What this sentence is owed at router level is a SERVED turn, not a named tool.",
       "rationale": "An explicit request for the update procedure. Field session 1: answered without reaching the package layer."
     },
     {
