@@ -169,6 +169,25 @@ KEYWORD_MIN_KNOWN_SHARE = 0.60
 # them. That is the honest cost of word overlap standing in for meaning.
 KEYWORD_STRONG_THRESHOLD = 0.68
 
+# STARTUP EMBEDDING BATCH SIZE. The trigger corpus is embedded when the router is
+# constructed, against an embedding server started with --parallel 1 and reached
+# through a client whose default timeout is 30 s. Sending the whole corpus as one
+# request makes the cost of that request grow with the corpus, and the failure is
+# not confined to the request: the client gives up while the server keeps working,
+# so the single slot is still occupied when the next embedding is asked for.
+# Measured on an installed system 2026-08-25, on the wiki index which had the same
+# shape: one gate run spent 609 s, of which 300 s was an abandoned whole-corpus
+# request and another 300 s was a ONE-TEXT query embedding queued behind it. The
+# wiki index was bounded into 32-passage requests then; this is the same bound for
+# the same reason, on the same server, through the same client.
+#
+# THE WORK IS NOT BOUNDED — only the request is. The wiki index also carries a time
+# budget and may finish later, because a wiki that is not yet embedded still answers
+# by keyword. Teaching does not have that latitude: intergen/router.py records that
+# it is an advertised feature that must always be on, and logs at CRITICAL when the
+# corpus fails to load. So this loop runs until every trigger is embedded.
+_EMBED_BATCH = 32
+
 _WORD_RE = re.compile(r"[a-z0-9]+")
 # High-frequency words that carry no retrieval signal — excluded from the keyword
 # fallback so "how do I ..." boilerplate doesn't inflate overlap with every entry.
@@ -300,15 +319,28 @@ class HowtoCorpus:
                 self._vocabulary |= trig_words
         if not self._trigger_texts or self._embedder is None:
             return
-        vectors = self._embedder(list(self._trigger_texts))
-        if not vectors:
-            logger.warning("howto: embedder returned nothing; falling back to keyword "
-                           "retrieval")
-            return
+        # Bounded requests, unbounded work: every trigger is embedded, no single
+        # request carries more than _EMBED_BATCH of them.
+        vectors: list[list[float]] = []
+        total = len(self._trigger_texts)
+        while len(vectors) < total:
+            start = len(vectors)
+            batch = self._trigger_texts[start:start + _EMBED_BATCH]
+            got = self._embedder(batch)
+            if not got or len(got) != len(batch):
+                # NOTHING PARTIAL IS PUBLISHED. A matrix covering only the triggers
+                # that happened to embed first would rank queries by corpus order
+                # rather than by meaning, and would do it silently.
+                logger.warning(
+                    "howto: embedding request for triggers %d-%d returned nothing "
+                    "usable (%d of %d embedded); falling back to keyword retrieval",
+                    start, start + len(batch) - 1, len(vectors), total)
+                return
+            vectors.extend(got)
         try:
             np = _np()
             arr = np.asarray(vectors, dtype=np.float32)
-            if arr.ndim != 2 or arr.shape[0] != len(self._trigger_texts):
+            if arr.ndim != 2 or arr.shape[0] != total:
                 raise ValueError("shape mismatch")
             self._embeddings = arr
         except (ValueError, TypeError) as exc:
