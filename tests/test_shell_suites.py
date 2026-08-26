@@ -108,6 +108,7 @@ KNOWN_SUITES = (
     "tests/manifest/test_manifest_phase.sh",
     "tests/pi12/test_pi12_gates.sh",
     "tests/sbat/test_check_sbat_generations.sh",
+    "tests/signing/test_verify_status_capture.sh",
 )
 
 
