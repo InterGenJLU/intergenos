@@ -26,7 +26,7 @@ dependencies:
     - cmake
     - perl-core
     - python
-    - m4
+    - m4-core
     - gmp  # USE_SYSTEM_GMP=1 — links the system lib (see build.sh)
   host: []
   runtime:

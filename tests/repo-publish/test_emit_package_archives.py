@@ -23,6 +23,7 @@ sys.modules["emit_package_archives"] = _epam
 spec.loader.exec_module(_epam)
 
 _read_manifest = _epam._read_manifest
+_read_pkg_yml_fields = _epam._read_pkg_yml_fields
 _resolve_package_yml = _epam._resolve_package_yml
 _resolve_root = _epam._resolve_root
 _sha256_file = _epam._sha256_file
@@ -51,9 +52,53 @@ class TestResolvePackageYml:
         assert "packages/" in str(path) and str(path).endswith("gimp/package.yml")
 
     def test_finds_package_in_core_tier(self):
-        path = _resolve_package_yml("glibc")
+        """A core-tier recipe resolves by its own directory name.
+
+        This case named "glibc" until 2026-08-25 and passed on
+        packages/toolchain/glibc — a TOOLCHAIN recipe, so it proved the
+        opposite of what its name claims. The core-tier recipe has always
+        been glibc-core.
+        """
+        path = _resolve_package_yml("glibc-core")
         assert path is not None
         assert path.exists()
+        assert str(path).endswith("packages/core/glibc-core/package.yml")
+
+    def test_a_ship_name_resolves_to_the_recipe_that_declares_it(self):
+        """A manifest carries the name a package SHIPS under, which for the
+        Chapter-8 dual-name packages is not any recipe directory's name.
+
+        Resolving by directory alone gave the wrong answer twice over. Before
+        2026-08-25 `glibc` found packages/toolchain/glibc, whose tier and
+        release describe the cross build rather than the archive being
+        emitted — the same class gen-pkginfo.py's find_ships_as_recipe()
+        closed on 2026-07-30. After those three recipes were renamed to -tmp
+        it found nothing at all, and the emitted .PKGINFO would have carried
+        no tier, license, release or description. The recipe that DECLARES
+        the ship name is the right answer in both states.
+        """
+        for ship, recipe in (("glibc", "core/glibc-core"),
+                             ("m4", "core/m4-core"),
+                             ("ncurses", "core/ncurses-core")):
+            path = _resolve_package_yml(ship)
+            assert path is not None, f"{ship} resolved to nothing"
+            assert str(path).endswith(f"packages/{recipe}/package.yml"), \
+                f"{ship} resolved to {path}"
+
+    def test_a_ship_name_match_is_checked_against_the_version(self):
+        """The ships_as match is accepted only at the recipe's own version,
+        the same checked contract gen-pkginfo.py applies. With a version that
+        matches nothing, the declarer is not accepted and no directory of that
+        name exists, so the answer is None rather than a wrong recipe."""
+        assert _resolve_package_yml("glibc", version="2.43") is not None
+        assert _resolve_package_yml("glibc", version="0.0.0") is None
+
+    def test_a_recipe_directory_still_resolves_by_its_own_name(self):
+        """The directory search is unchanged for every recipe that is named
+        what its manifest is called."""
+        path = _resolve_package_yml("glibc-tmp")
+        assert path is not None
+        assert str(path).endswith("packages/toolchain/glibc-tmp/package.yml")
 
     def test_finds_package_in_toolchain_tier(self):
         """Item 2 fix: toolchain tier must be searchable."""
@@ -69,6 +114,38 @@ class TestResolvePackageYml:
         """Item 3 fix: packages/config/ should not exist or be referenced."""
         config_dir = Path("packages/config")
         assert not config_dir.exists() or not config_dir.is_dir()
+
+class TestReadPkgYmlFields:
+    """The fields this parser lifts are stamped verbatim into the archive's
+    own .PKGINFO, which pkm reads at install time (pkm/repo.py:575)."""
+
+    def test_a_trailing_note_is_not_part_of_the_field(self):
+        """packages/core/glibc-core carries `release: 4  # r4: ...` — a note
+        of several sentences. A `#` after whitespace opens a YAML comment, so
+        the value is 4; without that rule the whole note is stamped into
+        pkgrel. Measured 2026-08-25: 294 recipes carry such a note on one of
+        the fields read here, and none of the 7063 values themselves contains
+        a space followed by a hash.
+        """
+        yml = _PROJECT_ROOT / "packages" / "core" / "glibc-core" / "package.yml"
+        fields = _read_pkg_yml_fields(yml)
+        assert fields["release"] == "4"
+        assert fields["ships_as"] == "glibc"
+        assert fields["description"] == "GNU C Library (final system)"
+
+    def test_a_quoted_value_keeps_its_content(self):
+        yml = _PROJECT_ROOT / "packages" / "core" / "m4-core" / "package.yml"
+        fields = _read_pkg_yml_fields(yml)
+        assert fields["version"] == "1.4.21"
+        assert fields["release"] == "1"
+        assert fields["tier"] == "core"
+
+    def test_a_value_with_no_note_is_untouched(self):
+        yml = _PROJECT_ROOT / "packages" / "toolchain" / "glibc-tmp" / "package.yml"
+        fields = _read_pkg_yml_fields(yml)
+        assert fields["name"] == "glibc-tmp"
+        assert fields["version"] == "2.43"
+        assert fields["tier"] == "toolchain"
 
 
 class TestReadManifest:

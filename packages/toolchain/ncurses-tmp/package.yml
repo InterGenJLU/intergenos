@@ -1,4 +1,4 @@
-name: ncurses
+name: ncurses-tmp
 version: "6.6"
 release: 1
 description: "Terminal-independent handling of character screens"
@@ -12,7 +12,7 @@ source:
 dependencies:
   build: []
   host:
-    - m4
+    - m4-tmp
   runtime: []
 
 tier: toolchain

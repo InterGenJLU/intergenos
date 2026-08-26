@@ -155,10 +155,12 @@ class DependencyGraph:
                         raise ValueError(
                             f"'{name}' runtime-depends on its own ship name '{dep}'")
                     if dep in self.packages:
-                        # e.g. runtime dep 'glibc': toolchain/glibc is a recipe
-                        # node, but the SHIPPED provider is glibc-core — the
-                        # shipped package is the semantic target of a runtime
-                        # contract. Noted loudly so the shadowing is auditable.
+                        # A recipe node carries the same name a shipped
+                        # package is declared under: the SHIPPED provider is
+                        # the semantic target of a runtime contract, so it
+                        # wins. Noted loudly so the shadowing is auditable.
+                        # It fired on runtime dep 'glibc' until 2026-08-25,
+                        # when packages/toolchain/glibc became glibc-tmp.
                         print(
                             f"note: runtime dep '{dep}' of {name}: shipped provider "
                             f"'{target}' wins over same-named recipe '{dep}'",

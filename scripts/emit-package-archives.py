@@ -38,11 +38,34 @@ DEFAULT_MANIFEST_DIR = "/var/lib/igos/packages"
 DEFAULT_CHROOT = "/mnt/igos"
 
 
+def _scalar_value(raw):
+    """The scalar to the right of `key:`, minus quoting and any trailing note.
+
+    A `#` opens a YAML comment only when whitespace precedes it, so a value
+    holding a hash of its own is left alone. Measured against the tree on
+    2026-08-25: 294 recipes carry a trailing note on one of the lines read
+    here and 422 list items carry one, while none of the 7063 field values or
+    7388 dependency names contains a space followed by a hash. Without this,
+    packages/core/glibc-core's `release: 4  # r4: ...` put a paragraph of note
+    text into the emitted pkgrel.
+    """
+    value = raw.strip()
+    if value[:1] in ('"', "'"):
+        quote = value[0]
+        end = value.find(quote, 1)
+        return value[1:end] if end != -1 else value[1:]
+    cut = value.find(" #")
+    if cut != -1:
+        value = value[:cut]
+    return value.rstrip()
+
+
 def _read_pkg_yml_fields(yml_path):
     """Extract flat top-level scalar fields + depends.runtime list from a
     package.yml for .PKGINFO emission.
 
-    Top-level scalar targets: tier, license, release, description, name, version.
+    Top-level scalar targets: tier, license, release, description, name,
+    version, ships_as.
     Block target: depends.runtime (list of dep names).
 
     Hand-parses the YAML rather than depending on PyYAML; only the field
@@ -56,7 +79,8 @@ def _read_pkg_yml_fields(yml_path):
     fields = {"runtime": []}
     if not yml_path or not yml_path.exists():
         return fields
-    targets = {"tier", "license", "release", "description", "name", "version"}
+    targets = {"tier", "license", "release", "description", "name", "version",
+               "ships_as"}
     in_depends = False
     in_runtime = False
     try:
@@ -74,7 +98,7 @@ def _read_pkg_yml_fields(yml_path):
                     continue
                 key, _, value = stripped.partition(":")
                 key = key.strip()
-                value = value.strip().strip('"').strip("'")
+                value = _scalar_value(value)
                 if key == "depends" and not value:
                     in_depends = True
                     continue
@@ -87,7 +111,7 @@ def _read_pkg_yml_fields(yml_path):
                 subkey = stripped[:-1].strip()
                 in_runtime = (subkey == "runtime")
             elif in_depends and in_runtime and stripped.startswith("- "):
-                dep = stripped[2:].strip().strip('"').strip("'")
+                dep = _scalar_value(stripped[2:])
                 if dep:
                     fields["runtime"].append(dep)
     except OSError:
@@ -221,16 +245,68 @@ def _resolve_root():
     return Path(__file__).resolve().parent.parent
 
 
-def _resolve_package_yml(manifest_name):
-    """Try to find the corresponding package.yml for a manifest name.
+_SHIPS_AS_INDEX = {}
 
-    Searches all known tiers under packages/. Tier list is derived
-    dynamically from directory listing rather than hardcoded.
+
+def _ships_as_index(packages_root):
+    """{ship name -> [(version, package.yml), ...]} for declaring recipes.
+
+    Built once per packages root and kept: this is consulted once per package
+    emitted, and rebuilding it each time would read the whole recipe tree once
+    for every package in it.
+    """
+    key = str(packages_root)
+    cached = _SHIPS_AS_INDEX.get(key)
+    if cached is not None:
+        return cached
+    index = {}
+    for tier_dir in sorted(packages_root.iterdir()):
+        if not tier_dir.is_dir():
+            continue
+        for pkg_dir in sorted(tier_dir.iterdir()):
+            yml = pkg_dir / "package.yml"
+            if not yml.is_file():
+                continue
+            fields = _read_pkg_yml_fields(yml)
+            ship = fields.get("ships_as")
+            if ship:
+                index.setdefault(ship, []).append(
+                    (fields.get("version", ""), yml))
+    _SHIPS_AS_INDEX[key] = index
+    return index
+
+
+def _resolve_package_yml(manifest_name, version=None):
+    """Find the package.yml that describes the archive being emitted.
+
+    A chroot manifest carries the name the package SHIPS under, and for the
+    Chapter-8 dual-name packages that is not any recipe directory's name:
+    glibc, m4 and ncurses are built by packages/core/glibc-core, m4-core and
+    ncurses-core, which declare `ships_as:`. So a recipe DECLARING the ship
+    name is preferred over a directory that merely carries it — the same
+    order gen-pkginfo.py's find_ships_as_recipe() applies (2026-07-30) and
+    the same rule derive-iso-exclusions.py and the SBOM generator use. When a
+    version is supplied the declaring recipe must be at that version, a
+    checked match rather than a name guess.
+
+    Until 2026-08-25 the directory search answered these three names with
+    packages/toolchain/{glibc,m4,ncurses}, whose tier and release describe the
+    cross build rather than the archive being emitted. Those recipes are now
+    named -tmp, so without this step the search would find nothing and the
+    emitted .PKGINFO would carry no tier, licence, release or description.
+
+    Everything else still resolves by directory name, across every tier,
+    discovered from the listing rather than hardcoded.
     """
     root = _resolve_root()
     packages_root = root / "packages"
     if not packages_root.is_dir():
         return None
+
+    for declared_version, yml in _ships_as_index(packages_root).get(
+            manifest_name, []):
+        if version is None or str(declared_version) == str(version):
+            return yml
 
     # Dynamically discover all tier directories under packages/
     for tier_dir in sorted(packages_root.iterdir()):
@@ -274,7 +350,7 @@ def emit_archive(manifest_path, chroot, output_dir):
     # pkm/repo.py:575 reads the resulting .PKGINFO at install time and
     # populates the installed table's tier/description/license/build_date
     # columns. Path A — lowercase Arch-style keys ratified 2026-05-19.
-    pkg_yml = _resolve_package_yml(name)
+    pkg_yml = _resolve_package_yml(name, version)
     yml_fields = _read_pkg_yml_fields(pkg_yml)
     pkginfo_content = _render_pkginfo(meta, yml_fields)
 

@@ -192,11 +192,14 @@ def main() -> int:
 
     # ships_as-first resolution (same rule the SBOM generator applies): a
     # ship-name claimed by a `ships_as:` declarer takes THAT recipe's
-    # iso_include — a bare-named twin recipe (toolchain glibc/m4/ncurses)
-    # must never contribute its tier default to the SHIP name. Without
-    # this, adding `toolchain` to NON_ISO_DEFAULT_TIERS put the ship-names
-    # glibc/m4/ncurses into the prune + archive-exclude sets, and iso-prep
-    # deleted the real installed payloads (RC001 squashfs leg, 2026-08-15).
+    # iso_include — a recipe carrying a ship name as its own name must never
+    # contribute its tier default to the SHIP name. Without this, adding
+    # `toolchain` to NON_ISO_DEFAULT_TIERS put the ship-names glibc/m4/ncurses
+    # into the prune + archive-exclude sets, and iso-prep deleted the real
+    # installed payloads (RC001 squashfs leg, 2026-08-15). Those three
+    # toolchain recipes were renamed to -tmp on 2026-08-25, so they now enter
+    # the MIRROR list under their own names alongside their 25 siblings; this
+    # rule stays as the general protection for every other ships_as pair.
     templates = []
     ships_declarers: dict[str, object] = {}
     for tier_dir in sorted(args.packages.iterdir()):

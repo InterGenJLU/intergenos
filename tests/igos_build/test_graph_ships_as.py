@@ -74,9 +74,12 @@ class TestRuntimeShipNameResolution(unittest.TestCase):
         self.assertIn("gcc-core", graph.depends_on["consumer"])
 
     def test_shipped_provider_shadows_same_named_recipe(self):
-        # The real glibc/ncurses shape: a toolchain recipe owns the bare
-        # name while the -core twin ships as it. The SHIPPED provider wins
-        # the runtime edge, with a loud stderr note.
+        # The glibc/ncurses shape as the tree carried it until 2026-08-25: a
+        # toolchain recipe owns the bare name while the -core twin ships as
+        # it. Those three were renamed to -tmp, so this fixture is now the
+        # only place the shape exists — which is the point, because the
+        # SHIPPED provider must still win the runtime edge, with a loud
+        # stderr note, for any pair that turns up later.
         glibc_toolchain = _pkg("glibc", tier="toolchain")
         glibc_core = _pkg("glibc-core", ships_as="glibc")
         consumer = _pkg("nvidia-x", tier="extra", runtime_deps=["glibc"])

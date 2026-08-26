@@ -179,7 +179,7 @@ GNU internationalization utilities (temporary tools)
 - License: `GPL-3.0-or-later`
 - Homepage: https://www.gnu.org/software/gettext/
 
-### glibc (2.43)
+### glibc-tmp (2.43)
 
 GNU C Library
 
@@ -214,7 +214,7 @@ Linux kernel API headers
 - License: `GPL-2.0-only`
 - Homepage: https://www.kernel.org/
 
-### m4 (1.4.21)
+### m4-tmp (1.4.21)
 
 GNU macro processor
 
@@ -228,7 +228,7 @@ GNU make (temporary tools)
 - License: `GPL-3.0-or-later`
 - Homepage: https://www.gnu.org/software/make/
 
-### ncurses (6.6)
+### ncurses-tmp (6.6)
 
 Terminal-independent handling of character screens
 

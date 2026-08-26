@@ -25,8 +25,9 @@ producing 1000+ by-design `*.PKGINFO not found` tar failures that camouflage rea
   `pkgname`/`pkgver`/`pkgrel`; an empty install set is itself refuse-to-seal (no vacuous PASS).
   The predicate + sweep are sourced from `scripts/lib/pi12-sweep.sh` — the single source of
   truth shared with `build-squashfs.sh`, so the test exercises the real function.
-- **dual-built `--force-tier`** (T2b): glibc/m4/ncurses ship a toolchain-tier recipe but their
-  staged archive is the final core build; `--force-tier core` corrects the emitted tier.
+- **dual-built `--force-tier`** (T2b): a toolchain-tier recipe matches while the staged archive
+  is the final core build; `--force-tier core` corrects the emitted tier. This was glibc/m4/ncurses
+  until their toolchain recipes were renamed to -tmp on 2026-08-25, so T2b now runs on a fixture.
 - **inject loud detector** (T6) + **drift guard** (T7): a non-empty inject is a reported gate
   escape; the canonical recipe-less core set must keep classifying as minimal-core.
 - **backfill** (T9/T9b): the in-chroot post-python backfill (`scripts/backfill-pkginfo.py`,

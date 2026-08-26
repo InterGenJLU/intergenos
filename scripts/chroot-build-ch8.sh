@@ -977,9 +977,10 @@ log "  Cleanup complete"
 # The recipe-less core packages built BEFORE core/python (above) were archived
 # while python3 was absent from this chroot, so pkg_archive's python3-guarded
 # gen-pkginfo emit was skipped and those archives carry no .PKGINFO. python3
-# now exists — stamp the MISSING ones (core tier; the dual-built glibc/m4/
-# ncurses, whose only recipe is toolchain-tier, are forced to core since the
-# staged archive is the FINAL core build) so every staged archive is self-
+# now exists — stamp the MISSING ones (core tier; an archive whose only recipe
+# is toolchain-tier is forced to core, since the staged archive is the FINAL
+# core build — that held for glibc/m4/ncurses until their toolchain recipes
+# were renamed to -tmp on 2026-08-25) so every staged archive is self-
 # describing before the build-squashfs Step 4.7 sweep. inject-pkginfo stays a
 # pure post-build loud detector; THIS is the in-build closure. Fail-loud.
 log ">>> 8.88: PI-12 .PKGINFO backfill (post-python)"
