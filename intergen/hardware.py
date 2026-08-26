@@ -325,7 +325,7 @@ class HardwareDetector(HardwareDetectorInterface):
           - NVIDIA: no nvidia iGPU exists on x86, so any nvidia part is a
             dedicated card. VRAM-gate it when the driver exports VRAM — a relic
             low-VRAM card (e.g. a 1 GB GT 710) cannot hold the 5.6 GB 9B (let
-            alone the 21 GB 35B), so it must select the 2B floor, not the 9B.
+            alone the 22 GB 35B), so it must select the 2B floor, not the 9B.
             The prior code returned True for ANY nvidia vendor ID, so that relic
             wrongly selected the 9B/35B; this closes that gate. BUT the nvidia
             proprietary driver frequently does NOT export mem_info_vram_total,
