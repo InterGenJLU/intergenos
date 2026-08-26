@@ -185,5 +185,77 @@ class AJoinedSourceThatShowsNoSplitStillReportsThat(unittest.TestCase):
         self.assertIn("no decomposition observed", res.actual)
 
 
+
+class TheHarvestKeepsUpWithTheRun(unittest.TestCase):
+    """Case 4 — the read is not a snapshot. A run grades each turn as it is
+    driven, and the daemon appends that turn's rows moments before the grade,
+    so a glass file read ONCE at the first lookup is blind to every turn that
+    follows it. The 2026-08-26 35B re-drive measured exactly that: the file
+    held every one of the ten decomposition rows, the offline join found all
+    ten, and the run reported all ten as "no decomposition trace was joined".
+    """
+
+    def test_rows_written_after_the_first_lookup_are_read(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="harvest-live-") as tmp:
+            state_home = Path(tmp) / "state"
+            state_home.mkdir(parents=True)
+            first, later = "harvestlive000001", "harvestlive000002"
+            with _glass_under(state_home) as glass:
+                _emit_real_glass_row(glass, first, _COMPOUND)
+                lookup = live_run.build_trace_lookup()
+                seen_first = lookup(TurnResult(text="ok", trace_id=first))
+                self.assertNotEqual(
+                    seen_first.sub_queries, [],
+                    "control: the first turn's decomposition was not read, so "
+                    "this case cannot tell a stale read from no read at all")
+                # The run moves on; the daemon writes the next turn's verdict.
+                _emit_real_glass_row(glass, later, _COMPOUND)
+                seen_later = lookup(TurnResult(text="ok", trace_id=later))
+            self.assertTrue(
+                seen_later.decomposition_source_joined,
+                "a decomposition row written after the first lookup was never "
+                "joined: the harness read the glass file once and graded every "
+                "later turn against that snapshot")
+            self.assertNotEqual(seen_later.sub_queries, [])
+
+    def test_a_named_glass_file_is_read_as_it_grows(self) -> None:
+        """A run that names the live file (``--glass``) must see the rows the
+        daemon appends during the run, not only the ones present at start."""
+        with tempfile.TemporaryDirectory(prefix="harvest-named-") as tmp:
+            state_home = Path(tmp) / "state"
+            state_home.mkdir(parents=True)
+            first, later = "harvestnamed00001", "harvestnamed00002"
+            with _glass_under(state_home) as glass:
+                _emit_real_glass_row(glass, first, _COMPOUND)
+                path = state_home / "intergen" / "glass.jsonl"
+                self.assertTrue(path.exists())
+                lookup = live_run.build_trace_lookup(glass_path=path)
+                self.assertNotEqual(
+                    lookup(TurnResult(text="ok", trace_id=first)).sub_queries,
+                    [], "control: the named file's first row was not read")
+                _emit_real_glass_row(glass, later, _COMPOUND)
+                seen_later = lookup(TurnResult(text="ok", trace_id=later))
+            self.assertTrue(seen_later.decomposition_source_joined)
+            self.assertNotEqual(seen_later.sub_queries, [])
+
+    def test_a_torn_tail_line_is_not_read_until_it_is_complete(self) -> None:
+        """The daemon may be mid-write when the harness reads: a partial last
+        line is neither parsed nor skipped past — it is read once complete."""
+        with tempfile.TemporaryDirectory(prefix="harvest-torn-") as tmp:
+            path = Path(tmp) / "glass.jsonl"
+            whole = json.dumps({"turn_id": "torn0000000000001", "phase": "decision",
+                                "event": "compound_route",
+                                "detail": {"sub_queries": ["a", "b"]}})
+            path.write_text(whole[:20], encoding="utf-8")  # mid-write
+            lookup = live_run.build_trace_lookup(glass_path=path)
+            self.assertFalse(
+                lookup(TurnResult(text="ok", trace_id="torn0000000000001"))
+                .decomposition_source_joined)
+            with path.open("a", encoding="utf-8") as fh:
+                fh.write(whole[20:] + "\n")
+            view = lookup(TurnResult(text="ok", trace_id="torn0000000000001"))
+            self.assertTrue(view.decomposition_source_joined)
+            self.assertEqual(view.sub_queries, ["a", "b"])
+
 if __name__ == "__main__":
     unittest.main()

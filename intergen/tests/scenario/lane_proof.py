@@ -222,8 +222,8 @@ def main(argv: list[str] | None = None) -> int:
                   flush=True)
             return 4
         glass_rows = _load_jsonl(glass_path)
-        print(f"### trace: {len(glass_rows)} glass rows from {glass_path}",
-              flush=True)
+        print(f"### trace: {len(glass_rows)} glass rows from {glass_path} at "
+              f"start; the file is read as the run appends to it", flush=True)
     decisions_rows = None
     if args.decisions:
         decisions_path = Path(args.decisions)
@@ -239,7 +239,9 @@ def main(argv: list[str] | None = None) -> int:
               "are emitted nowhere else (trace.OBSERVABILITY_GAPS), so an "
               "assertion that needs one fails closed rather than guessing",
               flush=True)
-    trace_lookup = live_run.build_trace_lookup(glass_rows, decisions_rows)
+    trace_lookup = live_run.build_trace_lookup(
+        None, decisions_rows,
+        glass_path=Path(args.glass) if args.glass else None)
 
     transport = ClientTransport(mode=args.mode)
     transport.await_ready(args.ready_timeout)

@@ -134,9 +134,52 @@ def load_glass_rows(path: "Path | str | None" = None) -> list[dict[str, Any]]:
             in _GLASS_ROWS_THE_HARNESS_READS]
 
 
+def read_glass_rows_since(path: "Path | str", rows: list[dict[str, Any]],
+                          pos: int) -> tuple[list[dict[str, Any]], int]:
+    """Extend ``rows`` with the harness-relevant glass rows appended to
+    ``path`` since byte offset ``pos``; return the rows and the new offset.
+
+    The daemon appends to the glass file while a run is being graded, so the
+    reader keeps its place and picks up what arrived. A file shorter than the
+    remembered offset was rotated or truncated: it is read again from the
+    start into a fresh list. A last line without its newline is a write in
+    progress — it is left for the next read, never parsed half-way and never
+    skipped past.
+    """
+    p = Path(path)
+    try:
+        size = p.stat().st_size
+    except OSError:
+        return rows, pos
+    if size < pos:
+        rows, pos = [], 0
+    if size == pos:
+        return rows, pos
+    with open(p, "rb") as fh:
+        fh.seek(pos)
+        chunk = fh.read(size - pos)
+    cut = chunk.rfind(b"\n")
+    if cut < 0:
+        return rows, pos
+    for raw in chunk[:cut].split(b"\n"):
+        raw = raw.strip()
+        if not raw:
+            continue
+        try:
+            row = json.loads(raw.decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            continue
+        if not isinstance(row, dict):
+            continue
+        if (row.get("phase"), row.get("event")) in _GLASS_ROWS_THE_HARNESS_READS:
+            rows.append(row)
+    return rows, pos + cut + 1
+
+
 def build_trace_lookup(glass_rows: list[dict[str, Any]] | None = None,
                        decisions_rows: list[dict[str, Any]] | None = None,
-                       *, glass_fallback: bool = True) -> TraceLookup:
+                       *, glass_fallback: bool = True,
+                       glass_path: "Path | str | None" = None) -> TraceLookup:
     """A per-turn trace resolver for a live run, layering every available source.
 
     Base: the reply itself (``from_turn_result``) — always carries dispatched
@@ -156,19 +199,34 @@ def build_trace_lookup(glass_rows: list[dict[str, Any]] | None = None,
     router had split four of them and written the split down. Pass
     ``glass_fallback=False`` to drive a run deliberately without the file; the
     grader then reports the turns as unread rather than as undecomposed.
+
+    THE FILE IS READ AS IT GROWS, NOT ONCE. A run grades each turn as it is
+    driven, and the daemon appends that turn's rows moments before the grade,
+    so a file read once at the first lookup is blind to every turn after it.
+    That is what the 2026-08-26 35B re-drive did: the file held all ten
+    decomposition rows, an offline join found all ten, and the run reported
+    all ten as "no decomposition trace was joined". Both the canonical file
+    (the fallback) and a file named by the caller (``glass_path``, the
+    ``--glass`` argument) are read incrementally from a remembered offset.
+    ``glass_rows`` is a finished, in-memory source and is used as given.
     """
     spans = _spans_by_trace(decisions_rows) if decisions_rows else {}
-    # Resolved on first use so a run that needs no trace never reads the log.
-    _fallback: dict[str, list[dict[str, Any]]] = {}
+    # Resolved on first use so a run that needs no trace never reads the log;
+    # then kept current by reading what the daemon appended since.
+    _live: dict[str, Any] = {"rows": [], "pos": 0, "path": None}
 
     def _rows() -> list[dict[str, Any]]:
         if glass_rows is not None:
             return glass_rows
-        if not glass_fallback:
+        if glass_path is None and not glass_fallback:
             return []
-        if "rows" not in _fallback:
-            _fallback["rows"] = load_glass_rows()
-        return _fallback["rows"]
+        if _live["path"] is None:
+            from intergen.glass import default_glass_path
+            _live["path"] = (Path(glass_path) if glass_path is not None
+                             else default_glass_path())
+        _live["rows"], _live["pos"] = read_glass_rows_since(
+            _live["path"], _live["rows"], _live["pos"])
+        return _live["rows"]
 
     def lookup(tr: TurnResult) -> TraceView | None:
         turn_spans = spans.get(tr.trace_id) if tr.trace_id else None
@@ -463,9 +521,9 @@ def main(argv: list[str] | None = None) -> int:
     scenarios = load_scenarios(args.seeds)
     postures = args.postures or _DEFAULT_POSTURES
 
-    glass_rows = _load_jsonl(args.glass) if args.glass else None
     decisions_rows = _load_jsonl(args.decisions) if args.decisions else None
-    trace_lookup = build_trace_lookup(glass_rows, decisions_rows)
+    # A named glass file is read AS THE RUN APPENDS TO IT, not once up front.
+    trace_lookup = build_trace_lookup(None, decisions_rows, glass_path=args.glass)
 
     factory = _dbus_transport_factory if args.mode == "dbus" else _direct_transport_factory
 
