@@ -346,7 +346,22 @@ fi
 # remote unreachable), block rather than silently pass against a cached ref;
 # explicit override env var for genuinely-offline scenarios.
 if [ -n "$PUSH_BRANCH" ] && [ -n "$PUSH_REMOTE" ] && [ "$PUSH_REMOTE" != "$ZERO" ]; then
-    if ! git fetch origin "$PUSH_BRANCH" --quiet 2>/dev/null; then
+    # Brand-new branch vs unreachable remote are DIFFERENT facts. `git fetch` returns
+    # 128 for both, so the block below used to fire on every first push of a new
+    # branch and pointed the pusher at network/auth (all fine) and at the offline
+    # override (a false premise when origin is reachable). Distinguish them first:
+    # ls-remote --exit-code returns 2 when origin answered and the ref is absent —
+    # that is the brand-new case the comment above describes, and the staleness
+    # check has nothing to compare against, so it is skipped with a named line.
+    # Any other non-zero (origin unreachable, auth) keeps the fail-closed BLOCK.
+    if git ls-remote --exit-code origin "refs/heads/$PUSH_BRANCH" >/dev/null 2>&1; then
+        LSREMOTE_RC=0
+    else
+        LSREMOTE_RC=$?   # 2 = origin answered, ref absent; anything else = unreachable/auth
+    fi
+    if [ "$LSREMOTE_RC" = "2" ]; then
+        echo "[pre-push] stale-branch check: origin has no $PUSH_BRANCH yet (brand-new branch) — nothing to be stale against; skipped."
+    elif ! git fetch origin "$PUSH_BRANCH" --quiet 2>/dev/null; then
         if [ "${GIT_PRE_PUSH_SKIP_FETCH:-0}" = "1" ]; then
             echo "[pre-push] WARN: git fetch failed; continuing with cached origin/$PUSH_BRANCH per GIT_PRE_PUSH_SKIP_FETCH=1 override."
         else
@@ -358,7 +373,11 @@ if [ -n "$PUSH_BRANCH" ] && [ -n "$PUSH_REMOTE" ] && [ "$PUSH_REMOTE" != "$ZERO"
             exit 1
         fi
     fi
-    REMOTE_HEAD=$(git rev-parse "origin/$PUSH_BRANCH" 2>/dev/null || echo "")
+    if [ "$LSREMOTE_RC" = "2" ]; then
+        REMOTE_HEAD=""
+    else
+        REMOTE_HEAD=$(git rev-parse "origin/$PUSH_BRANCH" 2>/dev/null || echo "")
+    fi
     if [ -n "$REMOTE_HEAD" ] && [ "$PUSH_LOCAL" != "$REMOTE_HEAD" ]; then
         BASE2=$(git merge-base "$PUSH_LOCAL" "$REMOTE_HEAD" 2>/dev/null || echo "")
         if [ "$BASE2" = "$PUSH_LOCAL" ]; then
