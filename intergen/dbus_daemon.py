@@ -354,21 +354,46 @@ class InterGenDaemon(InterGenDBusInterface):
                     # claim on the trace (and, for a non-serialisable stand-in,
                     # break the reply outright).
                     _link = None
+                # M8-2 RESULT DELIVERY INVARIANT: a dispatch that succeeded but whose
+                # value did not reach response_text is a NAMED, LOUD defect (never
+                # silent) — the dispatched-but-discarded class, asserted per turn.
+                #
+                # AND NOW REPAIRED, not merely named. Naming it left the user with
+                # the wrong answer and the truth in a log nobody reads. Where the
+                # value is genuinely missing, the tool's own output IS the answer and
+                # is carried into it (safety.carry_result_into_answer); where it
+                # cannot be — a substitution the linkage cannot distinguish from a
+                # summarizer answering off an authoritative live source, or an answer
+                # that already states the result — the row is emitted and the text is
+                # left exactly as composed.
+                #
+                # THIS RUNS BEFORE THE delivery/final ROW ON PURPOSE. M1 requires the
+                # bytes the user received to be reconstructible from the trace alone,
+                # so the row has to carry the repaired text, not the draft that was
+                # replaced.
+                for _tr, _reason in safety.find_unconsumed_dispatches(
+                        response_text, result.tool_results, _link):
+                    _carried = safety.carry_result_into_answer(
+                        response_text, _tr, _reason)
+                    glass.emit("delivery", "dispatch_unconsumed", detail={
+                        "tool": _tr.name, "reason": _reason, "iface": "dbus",
+                        "repaired": _carried is not None})
+                    if _carried is not None:
+                        log.warning(
+                            "M8-2: dispatch %s succeeded but its result did not reach "
+                            "the delivered answer (%s) — carried the result into the "
+                            "answer", _tr.name, _reason)
+                        response_text = _carried
+                    else:
+                        log.warning(
+                            "M8-2: dispatch %s succeeded and the delivered answer is "
+                            "wrong about it (%s) — not rewritten, see the glass row",
+                            _tr.name, _reason)
                 glass.emit("delivery", "final", detail={
                     "text": response_text, "source": result.source,
                     "handled": result.handled, "used_llm": result.used_llm,
                     "answer_linkage": (_link.as_detail() if _link is not None
                                        else {"kind": "undeclared"})})
-                # M8-2 RESULT DELIVERY INVARIANT: a dispatch that succeeded but whose
-                # value did not reach response_text is a NAMED, LOUD defect (never
-                # silent) — the dispatched-but-discarded class, asserted per turn.
-                for _tr, _reason in safety.find_unconsumed_dispatches(
-                        response_text, result.tool_results, _link):
-                    glass.emit("delivery", "dispatch_unconsumed", detail={
-                        "tool": _tr.name, "reason": _reason, "iface": "dbus"})
-                    log.warning(
-                        "M8-2: dispatch %s succeeded but its result did not reach "
-                        "the delivered answer (%s)", _tr.name, _reason)
                 return json.dumps({
                     "response": response_text,
                     # The unsummarised original behind response_text (raw tool

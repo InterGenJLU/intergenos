@@ -1968,9 +1968,15 @@ class WebServer:
         # above, a successful dispatch whose value STILL did not reach the delivered
         # answer — an empty delivery, or a deflection ("I don't have current data")
         # rendered ALONGSIDE a successful result (the compound sf_dispatch_run_command-20
-        # shape) — is a NAMED, LOUD defect, never silent. Observability only: it does
-        # not rewrite the answer (the recovery above already re-delivers the empty
-        # case), so an honest paraphrase is never disturbed.
+        # shape) — is a NAMED, LOUD defect, never silent, AND IS NOW REPAIRED where the
+        # value is genuinely missing: the tool's own output is carried into the answer
+        # (safety.carry_result_into_answer) rather than left in a log while the user
+        # keeps the wrong reply. An honest paraphrase is still never disturbed, because
+        # it is not flagged in the first place; a substitution and an answer that already
+        # states the result are named but NOT rewritten. Correcting full_response here is
+        # exactly what the user keeps — see the M3(ii) note below on stream_end — and it
+        # runs before both stream_end and the delivery/final row, so the trace carries
+        # the bytes the user actually received.
         # The streamed path composes `full_response` itself: from the model's
         # synthesis over the FIRST tool result when anything dispatched, else
         # from free model text. Declared here rather than inherited, because the
@@ -1984,12 +1990,23 @@ class WebServer:
             AnswerLinkage(kind="model", renderer="llm_stream"))
         for _tr, _reason in safety.find_unconsumed_dispatches(
                 full_response, tool_results, _stream_link):
+            _carried = safety.carry_result_into_answer(
+                full_response, _tr, _reason)
             glass.emit("delivery", "dispatch_unconsumed", detail={
                 "tool": _tr.name, "reason": _reason,
-                "source": route_result.source})
-            logger.warning(
-                "M8-2: dispatch %s succeeded but its result did not reach the "
-                "delivered answer (%s) — turn %s", _tr.name, _reason, turn_id)
+                "source": route_result.source,
+                "repaired": _carried is not None})
+            if _carried is not None:
+                logger.warning(
+                    "M8-2: dispatch %s succeeded but its result did not reach the "
+                    "delivered answer (%s) — carried the result into the answer, "
+                    "turn %s", _tr.name, _reason, turn_id)
+                full_response = _carried
+            else:
+                logger.warning(
+                    "M8-2: dispatch %s succeeded and the delivered answer is wrong "
+                    "about it (%s) — not rewritten, see the glass row, turn %s",
+                    _tr.name, _reason, turn_id)
 
         # M3(ii) honesty invariant: screen the model's DRAFT before delivery. On
         # the web path delivery == stream_end — the client REPLACES the streamed
