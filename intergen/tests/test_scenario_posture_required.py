@@ -30,9 +30,7 @@ intended, so this change updates that case rather than working around it.
 """
 from __future__ import annotations
 
-import json
 import unittest
-from pathlib import Path
 
 from intergen.tests.scenario.grader import (PostureNotNamed, grade_scenario,
                                             grade_turn)
@@ -40,18 +38,53 @@ from intergen.tests.scenario.loader import parse_scenario
 from intergen.tests.scenario.schema import Assertion, Turn
 from intergen.tests.scenario.transport import TurnResult
 
-_CORPUS = (Path(__file__).resolve().parent / "scenario" / "corpus"
-           / "memory_personal.json")
+# The turn this file is about, as MEM-cross-b01 carried it when the defect was
+# measured — kept HERE rather than read out of the live corpus.
+#
+# It used to be loaded from intergen/tests/scenario/corpus/memory_personal.json
+# by id. That coupling broke on 2026-08-26 for a reason that had nothing to do
+# with this file: a keyed recall question is now answered from the store by code
+# on every tier, so those two mutually exclusive per-tier assertions were
+# replaced in the corpus by a single ungated one, and this case's own control
+# fired — correctly — to say its fixture no longer had the property under test.
+#
+# What this file pins is the GRADER's behaviour on a turn carrying mutually
+# exclusive per-tier assertions. That shape is what matters, not whether one
+# particular scenario still happens to have it, and a corpus edit should not be
+# able to silently retire a grader test. The dict still goes through the REAL
+# loader, so parse_scenario stays in the path and a loader that stopped
+# understanding posture gating would still fail here.
+_HISTORICAL_SCENARIO = {
+    "id": "MEM-cross-b01",
+    "name": "cross-session recall — backup drive survives a restart",
+    "axis": ["memory_persistence"],
+    "category": "memory",
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-persistence", "batch:memory_personal"],
+    "session_policy": "multi-session",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "turns": [
+        {"user": "remember that my backup drive is /dev/sdb1",
+         "assertions": [
+             ["routes_via", "memory",
+              "an explicit remember-that routes to the memory store path"]]},
+        {"user": "what's my backup drive?",
+         "assertions": [
+             {"type": "routes_via", "value": "llm_freeform",
+              "postures": ["2B-locked"],
+              "description": "the locked tier answered it freeform"},
+             {"type": "routes_via", "value": "llm_tools",
+              "postures": ["9B-native"],
+              "description": "the native tier decided tools"},
+             ["contains", "/dev/sdb1",
+              "the fact stored in session A survives the restart"]]},
+    ],
+}
 
 
 def _mem_cross_b01():
-    """The real corpus scenario, loaded through the real loader."""
-    raw = json.loads(_CORPUS.read_text(encoding="utf-8"))
-    scenarios = raw if isinstance(raw, list) else raw.get("scenarios", [])
-    for s in scenarios:
-        if s.get("id") == "MEM-cross-b01":
-            return parse_scenario(s, source=str(_CORPUS))
-    raise AssertionError("MEM-cross-b01 is not in the corpus any more")
+    """The historical turn, through the real loader."""
+    return parse_scenario(_HISTORICAL_SCENARIO, source="test fixture")
 
 
 class GradingWithoutAPostureIsRefused(unittest.TestCase):
