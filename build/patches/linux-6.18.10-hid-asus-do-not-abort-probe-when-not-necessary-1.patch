@@ -1,0 +1,101 @@
+Subject: [PATCH] HID: asus: do not abort probe when not necessary
+
+This is a BACKPORT of an upstream commit. It is not new work:
+
+  commit 7253091766ded0fd81fe8d8be9b8b835495b06e8
+  "HID: asus: do not abort probe when not necessary"
+  Denis Benato <denis.benato@linux.dev>, 2026-02-28
+  Fixes: d3af6ca9a8c3 ("HID: asus: fix UAF via HID_CLAIMED_INPUT validation")
+
+The commit it fixes, d3af6ca9a8c3, IS carried by linux-6.18.10; the fix
+is not, so 6.18.10 ships the defect with none of the correction.
+
+WHAT GOES WRONG. asus_probe checks, after hid_hw_start, that an input
+device was registered, and treats its absence as a probe failure for the
+whole HID interface:
+
+	if (!drvdata->input || !(hdev->claimed & HID_CLAIMED_INPUT)) {
+		hid_err(hdev, "Asus input not registered\n");
+		ret = -ENOMEM;
+		goto err_stop_hw;
+	}
+
+That guard was added to prevent a use-after-free: when no usages are
+mapped, the input devices are freed during registration and
+drvdata->input is left pointing at freed memory. Not dereferencing that
+pointer is correct. Failing the probe is not.
+
+An ASUS N-KEY keyboard presents four HID interfaces. Three carry mappable
+usages and bind normally. The fourth declares a single vendor collection
+on usage page 0xFF82, and hid-asus maps only pages 0xFF31
+(HID_UP_ASUSVENDOR) and 0xFF00 (HID_UP_MSVENDOR), so every usage on that
+interface falls through asus_input_mapping's final "return 0" and the HID
+core creates no input device for it. Having no input device is the normal
+and expected state for a vendor-only interface, and the guard turns it
+into a failure.
+
+The consequences, measured on a laptop carrying this keyboard, on every
+boot in the journal:
+
+  * "probe with driver asus failed with error -12" once per boot, on the
+    vendor interface.
+  * err_stop_hw calls hid_hw_stop, which tears down the hiddev and hidraw
+    nodes hid_hw_start had just created. The interface is left with no
+    driver bound, no input device and no hidraw node, so the vendor
+    control channel the hardware offers is unreachable from user space.
+  * -12 is -ENOMEM. Nothing here allocated or failed to allocate, so the
+    reported cause is misleading as well as the outcome being wrong.
+
+WHAT THE UPSTREAM FIX DOES. It keeps the NULL/claimed check but uses it
+to guard the two places that USE drvdata->input, rather than to abort:
+an interface with no input device names nothing, starts no multitouch,
+and returns success, so it stays bound and keeps its hidraw node. The
+use-after-free the original guard existed to prevent remains impossible,
+because the pointer is still never dereferenced when it may be stale.
+
+The upstream hunk applies to 6.18.10 with a line offset only; upstream's
+hid-asus.c has since diverged substantially (roughly 300 lines of later
+work), so this backport carries that one hunk rather than the file.
+
+Decided 2026-08-26: adopt the upstream commit rather than author a local
+variant, so this diverges from 6.18.10 only where upstream already has,
+and the declaration drops out when the kernel moves to a version carrying
+the fix.
+
+diff --git a/drivers/hid/hid-asus.c b/drivers/hid/hid-asus.c
+index fa9a24f279f49..26047ccc8e7da 100644
+--- a/drivers/hid/hid-asus.c
++++ b/drivers/hid/hid-asus.c
+@@ -1324,22 +1324,17 @@ static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
+ 	 * were freed during registration due to no usages being mapped,
+ 	 * leaving drvdata->input pointing to freed memory.
+ 	 */
+-	if (!drvdata->input || !(hdev->claimed & HID_CLAIMED_INPUT)) {
+-		hid_err(hdev, "Asus input not registered\n");
+-		ret = -ENOMEM;
+-		goto err_stop_hw;
+-	}
+-
+-	if (drvdata->tp) {
+-		drvdata->input->name = "Asus TouchPad";
+-	} else {
+-		drvdata->input->name = "Asus Keyboard";
+-	}
++	if (drvdata->input && (hdev->claimed & HID_CLAIMED_INPUT)) {
++		if (drvdata->tp)
++			drvdata->input->name = "Asus TouchPad";
++		else
++			drvdata->input->name = "Asus Keyboard";
+ 
+-	if (drvdata->tp) {
+-		ret = asus_start_multitouch(hdev);
+-		if (ret)
+-			goto err_stop_hw;
++		if (drvdata->tp) {
++			ret = asus_start_multitouch(hdev);
++			if (ret)
++				goto err_stop_hw;
++		}
+ 	}
+ 
+ 	return 0;
