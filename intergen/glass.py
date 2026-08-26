@@ -27,25 +27,35 @@ Security posture (security-only alignment, made explicit)
 Full content capture is the mandate, NOT the exception. The one hard line:
 credential **values** are never written — logging a secret would manufacture the
 very vulnerability the security lens exists to prevent. Two predicates enforce
-it. By NAME: any ``detail`` key whose name looks credential-shaped has its whole
-value replaced with ``<redacted:key-name>`` (recursively). By SHAPE: inside any
-string value, a run matching a named secret format — a PEM private-key block, a
-URL carrying an inline password, a crypt(3) hash, a JSON web token, a
-vendor-prefixed API token — is replaced with ``<redacted:shape-name>``, and only
-that run, because the bytes around it are ordinary content. The shape predicate
-exists because the name predicate can only see a secret a caller already
-labelled as one, while a secret usually arrives as content: in a prompt, a
-command line, a tool result, or a file the person asked about. There is
-deliberately no entropy heuristic — a threshold that fired on ordinary content
-would put unexplained holes in the record while still missing structured
-secrets. Redaction is attested, never silent: every byte is accounted for as
-either real content or a named redaction, so a reconstructed timeline has no
-unexplained holes. The file is 0600, owner-only.
+it. By NAME: any key whose name looks credential-shaped has its whole value
+replaced with ``<redacted:key-name>`` (recursively). By SHAPE: inside any string
+value, a run matching a named secret format — a PEM private-key block, a URL
+carrying an inline password, a crypt(3) hash, a JSON web token, a
+vendor-prefixed API token, an HTTP bearer credential, a password given as a
+command-line option, a credential given as an assignment — is replaced with
+``<redacted:shape-name>``, and only that run, because the bytes around it are
+ordinary content. The shape predicate exists because the name predicate can only
+see a secret a caller already labelled as one, while a secret usually arrives as
+content: in a prompt, a command line, a tool result, or a file the person asked
+about. There is deliberately no entropy heuristic — a threshold that fired on
+ordinary content would put unexplained holes in the record while still missing
+structured secrets. Redaction is attested, never silent: every byte is accounted
+for as either real content or a named redaction, so a reconstructed timeline has
+no unexplained holes. The file is 0600, owner-only.
+
+WHERE the redaction happens is part of the rule. It happens ONCE, in
+:meth:`GlassLogger._write_row`, on the whole row, immediately before the bytes
+are built — not where a caller hands a value over. A rule applied at the call
+sites is a rule every future call site has to remember, and one of them did not:
+the decision tracer's ``set_attribute`` recorded whatever it was given while its
+``set_content`` redacted, so the same credential was hidden or kept depending on
+which method a caller happened to use. :func:`redact_persisted` is the single
+function both writers pass their rows through.
 
 One limit, stated because a reader would otherwise assume it away: a secret with
 no distinguishing shape — a bare high-entropy string under an ordinary key name
 — is still written. The corpus in ``intergen/tests/
-test_glass_secret_shape_redaction.py`` names the case it leaves behind.
+test_glass_secret_shape_redaction.py`` names the cases it leaves behind.
 
 Availability posture
 --------------------
@@ -222,12 +232,80 @@ SECRET_SHAPES: tuple[tuple[str, "re.Pattern[str]"], ...] = (
         r"|ghs_[A-Za-z0-9]{20,}"
         r"|github_pat_[A-Za-z0-9_]{20,}"
         r"|AKIA[0-9A-Z]{16})\b")),
+    # ── Credentials that arrive inside a COMMAND LINE ────────────────────────
+    # The three below were measured as still reaching the record after the
+    # shapes above were added: a person types a credential into a command far
+    # more often than they paste a PEM block, and a command line has no
+    # credential-shaped key name for the name predicate to see. Each keeps the
+    # MARKER that identified it and replaces only the credential, using the
+    # named group ``secret`` (see :func:`redact_secret_shapes`), because the
+    # marker is ordinary content and it is the part that tells a reader what
+    # the removed value was for.
+    #
+    # A bearer credential as RFC 6750 defines it: the scheme word, then the
+    # token. The token must be at least sixteen characters AND carry at least
+    # one character that is not a letter. That is what a b64token looks like
+    # and what an English word following "bearer" does not, so "bearer
+    # authentication" keeps its bytes while "Bearer abc123secretvalue" does
+    # not. A token already replaced by an earlier shape (a JWT, say) starts
+    # with "<", which is outside the class, so it is never redacted twice.
+    ("bearer-token", re.compile(
+        r"\bbearer\s+(?=[A-Za-z0-9\-._~+/]*[0-9\-._~+/])"
+        r"(?P<secret>[A-Za-z0-9\-._~+/]{16,}={0,2})",
+        re.IGNORECASE)),
+    # A password handed to a command as an option: --password=VALUE,
+    # --password VALUE, and the attached short form -pVALUE that the mysql
+    # client documents. The attached form is why the value must be at least
+    # eight characters and contain a letter: "mkdir -p /srv" puts a space after
+    # -p and cannot match at all, and "docker run -p8080:8080" is digits and a
+    # colon with no letter. Both keep their bytes; a password looks like
+    # neither.
+    ("password-option", re.compile(
+        r"(?<![^\s])(?:--(?:password|passwd|pass)(?:=|\s+)|-p)"
+        r"(?=[^\s'\"&]*[A-Za-z])(?P<secret>(?!<redacted:)[^\s'\"&]{8,})")),
+    # A credential handed over as an assignment: PGPASSWORD=..., AWS_SECRET=...,
+    # GITHUB_TOKEN=..., or the same names in a URL query. The NAME is kept
+    # because it says WHICH credential was used; the value after the "=" goes.
+    # The name vocabulary is the one _SECRET_KEY_RE already uses, spelled out
+    # here because a compiled pattern cannot be embedded inside another one.
+    #
+    # "&" ends the value in both shapes below and a placeholder is refused as a
+    # value. The ampersand is what separates one query parameter from the next,
+    # so without it "?api_key=X&page=2" would take the page number with it; an
+    # unquoted ampersand cannot appear inside a real shell argument anyway. The
+    # placeholder guard is what stops a second shape from redacting the first
+    # shape's output and renaming it — "--password=<redacted:password-option>"
+    # is otherwise an assignment whose value looks like six or more characters.
+    ("credential-assignment", re.compile(
+        r"(?<![A-Za-z0-9_])[A-Za-z0-9_]{0,40}"
+        r"(?:pass(?:word|wd|phrase)|secret|token|api[_-]?key|authorization"
+        r"|credentials?|private[_-]?key|keyring|bearer)"
+        r"[A-Za-z0-9_]{0,40}=(?P<secret>(?!<redacted:)[^\s'\"&]{6,})",
+        re.IGNORECASE)),
 )
 
-# No shape above can match a string shorter than this, so a shorter one skips the
-# scan entirely. Derived from the shortest possible match (AKIA plus sixteen
-# characters), not chosen — a wrong guess here would silently stop redacting.
-_MIN_SHAPE_LEN = 20
+# No shape above can match a string shorter than this, so a shorter one skips
+# the scan entirely. It is DERIVED from the shortest string each shape can
+# match, never chosen, because a value set too high silently stops redacting —
+# and that is not a hypothetical. It stood at 20, derived from the provider
+# token alone (AKIA plus sixteen characters), while the URL shape beside it
+# matches "ab://c:d@e" at ten. Measured on the tree before this change: that
+# ten-character URL, password and all, was written verbatim because the
+# short-circuit never let the scan run. The shortest match of each shape today:
+#
+#   url-with-password     10   ab://c:d@e
+#   password-option       10   -p plus an eight-character value
+#   credential-assignment 12   token= plus a six-character value
+#   crypt-hash            15   $a$b$ plus ten characters
+#   json-web-token        17   eyJ plus eight, a dot, four, a dot
+#   bearer-token          23   "bearer " plus a sixteen-character token
+#   private-key-block     55   the two markers with nothing between them
+#
+# The lowest of those is the constant. A test enforces this rather than a
+# comment: intergen/tests/test_glass_secret_shape_redaction.py drives one
+# minimal example per shape through the redactor and refuses to pass if any
+# shape has no example, so a shape added without one cannot slip past.
+_MIN_SHAPE_LEN = 10
 
 # The names above are PUBLIC because intergen/trace.py imports them. The older
 # key-name pattern in this module was deliberately declared as a second copy of
@@ -490,6 +568,30 @@ def _bound_row(record: dict[str, Any]) -> str:
     }, default=str) + "\n"
 
 
+def _placeholder_in_place(match: "re.Match[str]", name: str) -> str:
+    """What replaces one matched run of a secret shape.
+
+    A shape whose pattern carries a group named ``secret`` keeps the MARKER that
+    identified it — ``Bearer``, ``--password=``, ``PGPASSWORD=`` — and replaces
+    only the credential inside it. The marker is ordinary content, and it is the
+    part that tells a reader what the removed value was FOR; taking it out would
+    cost the record a fact while protecting nothing. A shape with no such group
+    is a credential end to end and is replaced whole.
+
+    A group that did not take part in the match falls back to replacing the
+    whole match: refusing to guess where the credential was is the safe
+    direction, and a partial replacement built from a negative offset would put
+    the credential back into the record.
+    """
+    if "secret" not in match.re.groupindex or match.start("secret") < 0:
+        return f"<redacted:{name}>"
+    whole = match.group()
+    base = match.start()
+    return (whole[:match.start("secret") - base]
+            + f"<redacted:{name}>"
+            + whole[match.end("secret") - base:])
+
+
 def redact_secret_shapes(text: str) -> str:
     """Replace each secret-SHAPED run inside ``text`` with a named placeholder.
 
@@ -502,7 +604,11 @@ def redact_secret_shapes(text: str) -> str:
     if len(text) < _MIN_SHAPE_LEN:
         return text
     for name, pattern in SECRET_SHAPES:
-        text = pattern.sub(f"<redacted:{name}>", text)
+        if "secret" in pattern.groupindex:
+            text = pattern.sub(
+                lambda m, n=name: _placeholder_in_place(m, n), text)
+        else:
+            text = pattern.sub(f"<redacted:{name}>", text)
     return text
 
 
@@ -510,11 +616,22 @@ def redact_secret_shapes(text: str) -> str:
 _redact_shapes = redact_secret_shapes
 
 
-def _redact(value: Any, key: str = "") -> Any:
+def redact_persisted(value: Any, key: str = "") -> Any:
     """Attested in-place redaction: a credential-shaped key's value becomes
     ``<redacted:key-name>``; a secret-shaped run inside any string becomes
     ``<redacted:shape-name>``; dicts/lists are scrubbed recursively. Content is
-    never silently dropped — a redaction is a named, visible placeholder."""
+    never silently dropped — a redaction is a named, visible placeholder.
+
+    THIS IS THE CHOKEPOINT. Both persisted records — this module's ``glass.jsonl``
+    and the decision tracer's ``decisions.jsonl`` — pass their whole row through
+    this function at the moment of writing, not at the moment a caller hands a
+    value over. That is the difference between a rule every call site has to
+    remember and a rule no call site can get past: the tracer's
+    ``set_attribute`` never redacted anything, so a command line recorded as a
+    decision attribute reached the file verbatim, and no amount of care at the
+    call sites would have found that. A writer that adds a field tomorrow gets
+    the same treatment without knowing this function exists.
+    """
     if key and _SECRET_KEY_RE.search(key):
         return f"<redacted:{key}>"
     if isinstance(value, dict):
@@ -524,6 +641,11 @@ def _redact(value: Any, key: str = "") -> Any:
     if isinstance(value, str):
         return redact_secret_shapes(value)
     return value
+
+
+# The private name this module used before the tracer needed to share it, and
+# before it was a chokepoint rather than a helper.
+_redact = redact_persisted
 
 
 class GlassLogger:
@@ -653,7 +775,9 @@ class GlassLogger:
             "iface": iface or _current_iface.get() or "daemon",
             "phase": phase,
             "event": event,
-            "detail": _redact(detail or {}),
+            # NOT redacted here. Redaction is done once, in _write_row, so a
+            # row that reaches the file by any other route gets it too.
+            "detail": detail or {},
             "dur_ms": round(dur_ms, 3) if dur_ms is not None else None,
         }
         self._write_row(record)
@@ -665,6 +789,11 @@ class GlassLogger:
         bound and the same file mode."""
         if self._log_file is None:
             return
+        # THE REDACTION CHOKEPOINT for this file. It runs on the WHOLE row and
+        # it runs here, immediately before the bytes are built, so no caller can
+        # reach the file with an unredacted field by adding a key, a nested
+        # structure, or a new emitter.
+        record = redact_persisted(record)
         try:
             line = json.dumps(record, default=str) + "\n"
         except (TypeError, ValueError) as e:  # never let a bad payload break a turn
@@ -717,8 +846,14 @@ class GlassLogger:
                            "keep": _ROTATE_KEEP, "cap_bytes": _ROTATE_BYTES},
                 "dur_ms": None,
             }
+            # This is the one row that cannot go through _write_row — it is
+            # written while the write lock is held and a re-entry would check
+            # rotation again. It is machine-built and carries no caller content,
+            # but it goes through the same redaction anyway, so "every row in
+            # this file is redacted" is true of the file rather than true of one
+            # code path.
             with private_open(base, "a") as f:
-                f.write(json.dumps(marker) + "\n")
+                f.write(json.dumps(redact_persisted(marker)) + "\n")
         except OSError as e:
             logger.error("glass rotation failed (continuing on current file): %s", e)
 
