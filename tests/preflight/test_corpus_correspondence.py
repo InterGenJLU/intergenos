@@ -97,8 +97,9 @@ class CorpusCorrespondenceTest(unittest.TestCase):
 
     def test_toolchain_twin_plain_archive_stays_publishable(self):
         """The Chapter-8 recipe-less class (first real firing, 2026-08-21):
-        glibc/m4/ncurses carry toolchain twin recipes but their plain
-        archives PUBLISH — a plain versioned name must demand correspondence."""
+        glibc/m4/ncurses carry toolchain twin recipes — named glibc-tmp,
+        m4-tmp and ncurses-tmp since 2026-08-25 — but their plain archives
+        PUBLISH, so a plain versioned name must demand correspondence."""
         self._build_archive("glibc-2.43.igos.tar.gz", "published glibc bytes")
         self._build_archive("m4-1.4.21.igos.tar.gz", "published m4 bytes")
         r = self._run()

@@ -59,17 +59,18 @@ def find_recipe(repo_root: Path, name: str) -> dict | None:
 def find_ships_as_recipe(repo_root: Path, name: str, version: str) -> dict | None:
     """Locate the recipe that declares `ships_as: <name>`, version-checked.
 
-    Resolved BEFORE the exact-name lookup: for glibc/m4/ncurses a plain-name
-    TOOLCHAIN recipe coexists with the ch8 `<name>-core` twin, so the
-    exact-name match returns the cross build's recipe and stamps ITS
-    release/tier onto an archive that is in fact the final ch8 build (every
-    archive this tool stamps is — the pre-PyYAML guard keeps the ch5/ch7
-    passes out of this path, and the toolchain temp-tools are never archived).
-    Found 2026-07-30: the glibc archive re-sealed as pkgrel=1/tier=toolchain
-    while the glibc-core recipe stood at release 4, masking the bump from
-    every downstream (version,release) comparison — the same class the
-    `-core` alias closed for recipes WITHOUT a plain-name collision. The
-    version equality is a checked match, same contract as that alias.
+    Resolved BEFORE the exact-name lookup, so a recipe that merely carries a
+    ship name as its own name can never win over the recipe that declares it.
+    Found 2026-07-30: `packages/toolchain/glibc` was then named plain `glibc`,
+    the exact-name match returned it, and the glibc archive re-sealed as
+    pkgrel=1/tier=toolchain while the glibc-core recipe stood at release 4 —
+    masking the bump from every downstream (version,release) comparison, the
+    same class the `-core` alias closed for recipes WITHOUT a plain-name
+    collision. Those three recipes were renamed to `-tmp` on 2026-08-25 and
+    `tests/preflight/test_toolchain_twin_naming.py` now refuses the shape, so
+    this ordering guards against a shape the tree no longer contains rather
+    than repairing one it does. The version equality is a checked match, same
+    contract as that alias.
     """
     for yml in sorted(repo_root.glob("packages/*/*/package.yml")):
         try:
@@ -165,12 +166,15 @@ def main() -> int:
                          "bash logic (binutils/gcc/coreutils/…).")
     ap.add_argument("--force-tier", default=None,
                     help="Override the tier of a MATCHED recipe (other recipe "
-                         "fields are kept). For dual-built LFS packages whose "
-                         "ONLY recipe is toolchain-tier (glibc/m4/ncurses) but "
-                         "whose STAGED archive is the FINAL core build — the "
-                         "recipe's toolchain tier describes the cross build, not "
-                         "the shipped artifact. Distinct from --fallback-tier "
-                         "(which applies only when NO recipe matches).")
+                         "fields are kept). For a package whose matched recipe "
+                         "is toolchain-tier while the STAGED archive is the "
+                         "FINAL core build — the recipe's toolchain tier then "
+                         "describes the cross build, not the shipped artifact. "
+                         "Held for glibc/m4/ncurses until their toolchain "
+                         "recipes were renamed to -tmp on 2026-08-25; no recipe "
+                         "in the tree needs it today. Distinct from "
+                         "--fallback-tier (which applies only when NO recipe "
+                         "matches).")
     args = ap.parse_args()
 
     repo_root = Path(args.repo_root)

@@ -194,7 +194,7 @@ dependencies:
     - gcc-core
     - gmp
     - libffi
-    - ncurses
+    - ncurses-core
     - perl-core
     - python
   host: []

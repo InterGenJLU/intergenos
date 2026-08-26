@@ -302,7 +302,7 @@ log "Log: $GLIBC_LOG"
 log "=========================================="
 
 export PKG_VERSION="2.43"
-source /mnt/intergenos/packages/toolchain/glibc/build.sh
+source /mnt/intergenos/packages/toolchain/glibc-tmp/build.sh
 
 GLIBC_START=$(date +%s)
 log "--- [CONFIGURE] ---"
@@ -342,7 +342,7 @@ fi
 log "  sanity check passed"
 
 GLIBC_END=$(date +%s)
-trace_pkg_capture --pkg glibc --version 2.43 --tier toolchain --phase all --rc 0 --duration-ms "$(( (GLIBC_END - GLIBC_START) * 1000 ))" --log "$GLIBC_LOG" --cmd-file /mnt/intergenos/packages/toolchain/glibc/build.sh
+trace_pkg_capture --pkg glibc --version 2.43 --tier toolchain --phase all --rc 0 --duration-ms "$(( (GLIBC_END - GLIBC_START) * 1000 ))" --log "$GLIBC_LOG" --cmd-file /mnt/intergenos/packages/toolchain/glibc-tmp/build.sh
 log "SUCCESS: glibc 2.43 ($((GLIBC_END - GLIBC_START))s)"
 cd /
 rm -rf "$GLIBC_WORK"

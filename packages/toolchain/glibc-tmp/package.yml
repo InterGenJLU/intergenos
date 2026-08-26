@@ -1,4 +1,4 @@
-name: glibc
+name: glibc-tmp
 version: "2.43"
 release: 1
 description: "GNU C Library"
@@ -6,7 +6,7 @@ license: LGPL-2.1-or-later
 homepage: https://www.gnu.org/software/libc/
 
 source:
-  - url: https://ftp.gnu.org/gnu/${name}/${name}-${version}.tar.xz
+  - url: https://ftp.gnu.org/gnu/glibc/glibc-${version}.tar.xz
     sha256: d9c86c6b5dbddb43a3e08270c5844fc5177d19442cf5b8df4be7c07cd5fa3831
 
 dependencies:

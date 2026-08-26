@@ -6,13 +6,13 @@ collapses onto the recipe whose name it ships as. Where a plain recipe of that
 name also exists, both write the same path and the loop's later visit silently
 overwrites the earlier one.
 
-Measured on the tree this test was written against: two pairs collide today.
-``packages/core/m4-core`` (ships_as m4) and ``packages/toolchain/m4`` both emit
-``m4-1.4.21-1.igos.src.tar.gz``, 2083095 and 2082852 bytes; ``ncurses-core``
-and ``packages/toolchain/ncurses`` both emit ``ncurses-6.6-1.igos.src.tar.gz``,
-3787218 and 3787005 bytes. The recipes are visited in sorted path order, so
-``packages/core/...`` is written first and ``packages/toolchain/...`` is the
-last writer.
+Measured on the tree this test was written against, 2026-08-25: two pairs
+collided. ``packages/core/m4-core`` (ships_as m4) and ``packages/toolchain/m4``
+both emitted ``m4-1.4.21-1.igos.src.tar.gz``, 2083095 and 2082852 bytes;
+``ncurses-core`` and ``packages/toolchain/ncurses`` both emitted
+``ncurses-6.6-1.igos.src.tar.gz``, 3787218 and 3787005 bytes. The recipes are
+visited in sorted path order, so ``packages/core/...`` was written first and
+``packages/toolchain/...`` was the last writer.
 
 What that costs is not a metadata detail. The published archive ends up holding
 the toolchain recipe's package.yml and no build.sh at all, while the binary
@@ -20,17 +20,19 @@ published under that name is built from the core recipe. A corresponding-source
 archive that describes a different recipe and omits the build script is the one
 thing this generator exists to prevent.
 
-A third pair, glibc, shares a ship name and is kept apart today only by a
-release number that happens to differ — nothing stops it colliding.
+A third pair, glibc, shared a ship name and was kept apart only by a release
+number that happened to differ — nothing stopped it colliding.
 
 THE PROPERTY. Overwriting is not something to detect after the fact; it must be
 impossible to complete a generation that would do it. The generator refuses,
 names both recipes, and exits non-zero, so a publish cannot be built on top of
 an archive whose contents were decided by directory ordering.
 
-The fix for WHICH recipe should have given way is a naming question about three
-toolchain recipes, decided separately. This test pins only that the generator
-never silently picks one.
+The fix for WHICH recipe should have given way was a naming question about
+three toolchain recipes, decided separately: they were renamed to m4-tmp,
+ncurses-tmp and glibc-tmp the same day, so the tree no longer contains a
+colliding pair. This test pins only that the generator never silently picks
+one, which is what has to stay true for every pair added later.
 """
 
 import subprocess

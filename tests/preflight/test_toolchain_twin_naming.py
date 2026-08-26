@@ -12,8 +12,11 @@ name-version-release write the same file and the last one wins. Measured on
 `packages/core/ncurses-core` (ships_as: ncurses) and
 `packages/toolchain/ncurses` both claimed `ncurses-6.6-1.igos.src.tar.gz`.
 The toolchain recipe sorted last, so the published archive described the
-toolchain recipe — and carried no `build.sh` — while the binary published
-under that name was built from the core recipe. A third pair, glibc, shared
+toolchain recipe rather than the one that built the binary: for m4 that meant
+an archive with no `build.sh` at all, because that recipe carries none — ten
+of the 28 toolchain recipes do not, their build steps living inline in
+`scripts/temp-tools-build.sh`; for ncurses it meant the toolchain recipe's
+build script standing in for the core recipe's. A third pair, glibc, shared
 the ship name and was kept apart only by release numbers that happened to
 differ.
 
@@ -40,8 +43,8 @@ Two claims:
      is not asked for one.
 
   2. A recipe whose name is deliberately NOT its upstream project's name --
-     it carries `ships_as:`, or it is one of those `-tmp` / `-pass<N>`
-     intermediates -- never substitutes `${name}` into a source url or
+     it carries `ships_as:`, or its name ends in `-tmp`, `-pass<N>` or
+     `-bootstrap` -- never substitutes `${name}` into a source url or
      filename. `${name}` expands to the RECIPE name (the builder caches
      downloads under it, and `upstream_tarball_name()` in the generator
      resolves the stored filename the same way), so a renamed recipe that

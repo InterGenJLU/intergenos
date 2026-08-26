@@ -113,11 +113,14 @@ def test_t2_recipeless_gets_core_fallback(tmp_path):
 
 # -------------------------------------------------------------------------- T2b
 def test_t2b_force_tier_overrides_toolchain_recipe(tmp_path):
-    """Dual-built finding (2026-06-16): glibc/m4/ncurses ship a toolchain-tier recipe,
-    so plain gen-pkginfo MATCHES it and emits tier=toolchain (--fallback-tier never applies —
-    a recipe matched). But the staged archive is the FINAL core build, so the emitted tier is
-    wrong. edit-5's --force-tier core is the fix. This is the emission check T7's inject
-    BUCKETING never performed. Skips until --force-tier lands (merges with edit-5)."""
+    """Dual-built finding (2026-06-16): glibc/m4/ncurses then carried a toolchain-tier
+    recipe under the plain ship name, so plain gen-pkginfo MATCHED it and emitted
+    tier=toolchain (--fallback-tier never applies — a recipe matched). But the staged
+    archive is the FINAL core build, so the emitted tier is wrong. edit-5's --force-tier
+    core is the fix. This is the emission check T7's inject BUCKETING never performed.
+    The three real recipes were renamed to -tmp on 2026-08-25; the fixture below keeps
+    the shape so the override stays proven for any recipe that takes it later.
+    Skips until --force-tier lands (merges with edit-5)."""
     if "--force-tier" not in GEN.read_text():
         pytest.skip("gen-pkginfo --force-tier not present yet (merges with edit-5)")
     repo = tmp_path / "repo"

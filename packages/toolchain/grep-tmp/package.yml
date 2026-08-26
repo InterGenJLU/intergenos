@@ -12,7 +12,7 @@ source:
 dependencies:
   build: []
   host:
-    - ncurses
+    - ncurses-tmp
   runtime: []
 
 tier: toolchain

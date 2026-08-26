@@ -112,10 +112,12 @@ def inject(archive: Path, name: str, version: str, repo_root: Path,
     Decompress -> tar --append the one new member -> recompress.
 
     force_tier overrides a matched recipe's tier: the INJECT_MIN bucket holds
-    the recipe-less core packages AND the dual-built toolchain-recipe packages
-    (glibc/m4/ncurses) whose STAGED archive is the final core build — both must
-    stamp core, but --fallback-tier alone leaves the dual-built three as
-    tier=toolchain (a recipe matched). force_tier='core' corrects that.
+    the recipe-less core packages AND any package whose matched recipe is
+    toolchain-tier while its STAGED archive is the final core build — both must
+    stamp core, but --fallback-tier alone leaves the second kind at
+    tier=toolchain (a recipe matched). force_tier='core' corrects that. That
+    second kind was glibc/m4/ncurses until their toolchain recipes were renamed
+    to -tmp on 2026-08-25; no name in the tree is in it today.
     """
     mtime = subprocess.run(
         ["date", "-u", "-d", f"@{int(archive.stat().st_mtime)}",

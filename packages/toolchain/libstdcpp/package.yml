@@ -12,7 +12,7 @@ source:
 dependencies:
   build: []
   host:
-    - glibc
+    - glibc-tmp
   runtime: []
 
 tier: toolchain

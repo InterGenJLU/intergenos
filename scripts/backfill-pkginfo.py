@@ -26,8 +26,11 @@ injection is the success path here, not a defect. Acceptance criteria:
 
 Tier handling matches inject-pkginfo's classification:
   - recipe-less archive  -> gen-pkginfo --fallback-tier core
-  - toolchain-tier recipe (dual-built glibc/m4/ncurses: the staged archive is
-    the FINAL core build, not the cross build) -> --force-tier core
+  - toolchain-tier recipe whose staged archive is the FINAL core build rather
+    than the cross build -> --force-tier core. This held for glibc/m4/ncurses
+    while their toolchain recipes carried the plain ship name; those were
+    renamed to -tmp on 2026-08-25, so no name in the tree takes this branch
+    today and the classification is left in place for a future one.
   - any other matched recipe -> use the recipe's real tier (no override)
 
 Usage:

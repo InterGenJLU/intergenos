@@ -24,10 +24,14 @@ exclusion set is DERIVED and PRINTED, never hidden: an archive is excluded
 iff its package name ends in -pass<N>, -tmp, or -bootstrap. Everything else
 must correspond. (The gate's first real firing, 2026-08-21, proved the name
 patterns match the built corpus's intermediate set exactly — 20/20 — and
-that a toolchain-tier recipe-directory derivation over-matches: glibc, m4,
-and ncurses carry toolchain twin recipes while their plain archives publish,
-the Chapter-8 recipe-less class. An unanticipated future intermediate shape
-fails loud as MISSING-from-staging rather than slipping through.)
+that a toolchain-tier recipe-directory derivation over-matched at the time:
+glibc, m4 and ncurses were then the NAMES of toolchain recipes while their
+plain archives publish, the Chapter-8 recipe-less class. Those three were
+renamed to glibc-tmp / m4-tmp / ncurses-tmp on 2026-08-25, so every toolchain
+recipe now carries one of these suffixes; the name-pattern rule here is
+unchanged, and it remains the derivation that does not depend on the recipe
+tree at all. An unanticipated future intermediate shape fails loud as
+MISSING-from-staging rather than slipping through.)
 
 Inputs:
   --staging DIR          the staging archive dir (the corpus about to be
