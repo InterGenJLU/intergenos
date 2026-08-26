@@ -2,18 +2,21 @@
 # Copyright (C) 2026 InterGenJLU
 """A decomposed clause must reach a carrier, and never dispatch a pronoun.
 
-Two defects measured on a real re-drive, both on the compound path. ONE OF THEM IS
-FIXED HERE AND ONE IS PINNED — read the split before reading the results:
+Two defects measured on a real re-drive, both on the compound path. ONE WAS FIXED
+HERE AND ONE WAS PINNED; the pin has since been retired — read the split before
+reading the results:
 
   * Defect 2, the pronoun argument, is FIXED and asserted. Nine of these tests
     fail at base and pass on the branch.
-  * Defect 1, the uncarried clause, is NOT fixed here. Its POLICY half is proven
-    (the locked lane really does refuse the tools path) and its ROUTING half is
-    recorded by a PIN that will fail the day it is fixed. Why it is not fixed is
-    stated in full on that pin: the rung that would carry the clause is hardwired
-    to run_command, and the rung that might already be claiming these clauses in
-    production is the semantic one, which needs an embedding backend this context
-    does not have. A carrier chosen without that measurement would be a guess.
+  * Defect 1, the uncarried clause, WAS pinned here rather than fixed, because the
+    rung that might already have been claiming those clauses in production is the
+    semantic one and no embedding backend runs in this context. That measurement
+    was taken on 2026-08-26 against the live embedding server on a dual-GPU
+    workstation, and the clauses were confirmed to reach a no-tool freeform turn
+    IN PRODUCTION as well — for two different reasons, neither of them the one the
+    pin assumed. THE PIN IS NOW RETIRED and the two tests that carried it assert
+    the fixed behaviour instead; the fix itself, its measurement and its controls
+    live in test_uncarried_clause_reaches_a_carrier.py.
 
 1. A CLAUSE NO DETERMINISTIC CARRIER CLAIMS IS ANSWERED BY A MODEL TURN WITH NO
    TOOLS. `_handle_compound` (router.py) routes each clause through
@@ -172,57 +175,66 @@ class TheTierPostureIsTheProductsOwn(unittest.TestCase):
         self.assertEqual(res.tier, HardwareTierLevel.TIER_1)
 
 
-class AnUncarriedActionClauseIsNotAnsweredWithoutTools(unittest.TestCase):
-    """Defect 1. RED at base on every tier that runs locked."""
+class AnUncarriedActionClauseReachesACarrier(unittest.TestCase):
+    """Defect 1, and the two tests that used to pin it rather than assert it.
 
-    def test_no_carrier_claims_these_clauses(self) -> None:
-        """The premise: these really are clauses no deterministic rung claims, so
-        the ladder's last rung is what answers them."""
+    Both were written as statements about the defect and both now state its
+    absence, so this file records what was measured at each step instead of
+    losing the history to a deletion."""
+
+    def test_a_deterministic_carrier_now_claims_these_clauses(self) -> None:
+        """RETIRED PIN, HALF ONE. This asserted the OPPOSITE while defect 1 stood:
+        that no deterministic rung claimed these clauses, which is what sent them
+        to the ladder's last rung. Both are now recognised by the package
+        carrier's keyword patterns, so the claim is inverted rather than deleted —
+        the file still says what it measured, and a regression that takes the
+        recognition away fails here."""
         for name, tier in TIERS:
             r = _router(tier)
             for clause in UNCARRIED_ACTION_CLAUSES:
                 with self.subTest(tier=name, clause=clause):
-                    self.assertFalse(r._try_keyword_match(clause).handled)
-                    self.assertFalse(r._try_deterministic_fallback(clause).handled)
+                    m = r._semantic._match_keywords(clause)
+                    self.assertEqual(
+                        m.intent_id, "manage_packages",
+                        f"[{name}] {clause!r} must be claimed by the package "
+                        f"carrier before any model turn sees it")
 
-    def test_an_action_clause_falls_to_the_no_tool_model_turn_TODAY(self) -> None:
-        """PIN, NOT A FIX — this records the defect exactly as it stands, so it is
-        visible in the tree instead of being re-discovered at the next re-drive,
-        and so nobody reads this file as proof that defect 1 was closed.
+    def test_an_action_clause_reaches_its_carrier_not_a_no_tool_model_turn(
+            self) -> None:
+        """RETIRED PIN, HALF TWO — this is the assertion the pin was written from.
 
-        WHY IT IS A PIN. The routing half is NOT fixed in this lane, and the
-        reason is a measurement this box cannot make. `_try_deterministic_fallback`
-        — the rung that would carry an uncarried clause — is hardwired to
-        `run_command` (router.py, `_execute_tool_for_intent("run_command", ...)`),
-        so it is the read-only state fast path, not a general carrier: it cannot
-        route "find a pdf editor" to manage_packages. Selecting the right carrier
-        for an ACTION clause needs either a new deterministic selector or the
-        SEMANTIC rung, and the semantic rung needs an embedding backend that does
-        not run in this context. Until that is measured against a live embedder,
-        whether these clauses reach freeform IN PRODUCTION is unknown: the daemon
-        has an embedder and its semantic rung may well claim them. Guessing a
-        carrier here would be a speculative fix to a defect whose reproduction is
-        unconfirmed on the machine that matters.
+        WHAT THE PIN SAID, and what the measurement found. The pin recorded that
+        both clauses fell to `_try_llm_freeform`, and said the reason could not be
+        established without a live embedder. Measured on 2026-08-26 against the
+        embedding server the daemon itself uses, the two clauses turned out to
+        fail for DIFFERENT reasons, which is why one explanation could not have
+        fixed both:
 
-        WHAT IS PROVEN. The POLICY half, in `TheTierPostureIsTheProductsOwn`: on
-        the 2B and the 35B the lane is locked, so `_try_llm_tools` refuses at its
-        entry and the tools path is genuinely unavailable to these clauses. That
-        is the mechanism the re-drive's answers are consistent with.
+          * "find a pdf editor" was never RECOGNISED — best similarity across the
+            whole intent corpus 0.5968, under every intent's own threshold, so the
+            semantic rung had no candidate at all. Its arguments already extracted
+            correctly; only the recognition was missing.
+          * "check if docker is installed" WAS recognised — 0.9387 against
+            manage_packages, over both that intent's threshold and the router's
+            0.85 admission bar — and was dropped anyway, because
+            `_extract_arguments` had no branch for the question and returned None,
+            which makes `_execute_tool_for_intent` return (None, None) and every
+            rung that recognised the clause report handled=False.
 
-        This test FAILS the day the routing is fixed, which is the point: it will
-        say so rather than silently keep passing."""
+        Both were confirmed on the live daemon (glass turns bca447f55988c2d4 and
+        43ac041305fde8d9: source=llm_freeform, tool_count=0 in both, with those
+        exact semantic scores recorded on the turn). Both are fixed, and the fix,
+        its live measurement and its eighteen controls are in
+        test_uncarried_clause_reaches_a_carrier.py."""
         for name, tier in TIERS:
-            if not locked_for(tier):
-                continue
             for clause in UNCARRIED_ACTION_CLAUSES:
                 with self.subTest(tier=name, clause=clause):
                     r = _router(tier, replies=[_Resp("qpdf is available.")])
                     result = _route_clause(r, clause)
-                    self.assertEqual(
+                    self.assertNotEqual(
                         result.source, "llm_freeform",
-                        f"[{name}] {clause!r} no longer falls to the no-tool model "
-                        f"turn — the routing half has been fixed and this PIN "
-                        f"should become the assertion it was written from")
+                        f"[{name}] {clause!r} fell to the no-tool model turn "
+                        f"again — this is the defect the retired pin recorded")
 
     def test_the_native_tier_has_a_tools_path_at_all(self) -> None:
         """The 9B's half of the per-tier answer: its clause is not refused at the

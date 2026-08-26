@@ -5665,6 +5665,56 @@ class ConversationRouter(RouterInterface):
             ver = re.search(r"version of (?:the )?([\w.+-]+)", low)
             if ver:
                 return {"action": "info", "package": ver.group(1)}
+            # IS IT INSTALLED — "is docker installed", "check if docker is
+            # installed", "do I have docker installed". The intent corpus has
+            # listed these exact sentences as manage_packages examples all along
+            # (intents.py, the manage_packages keyword pattern r"^is \w+
+            # installed" and the embedding examples "is docker installed" / "do I
+            # have docker installed" / "is this package installed"), so the clause
+            # was RECOGNISED and then dropped here: with no branch for the
+            # question this fell past LIST, past SEARCH, and returned None, which
+            # makes _execute_tool_for_intent return (None, None) and BOTH the
+            # keyword and the semantic rung report handled=False. The clause then
+            # landed in a no-tool freeform turn and the model hedged about data it
+            # had no way to read ("I don't have current data on whether Docker is
+            # installed") while pkm was one call away. Measured on the live daemon
+            # on 2026-08-26: glass turn 43ac041305fde8d9, semantic_score 0.9387 —
+            # well over the 0.85 admission bar — and source=llm_freeform,
+            # tool_count=0 regardless.
+            #
+            # manage_services already answers the mirror-image question one
+            # extractor below ("is X running" -> action=status); this is its
+            # counterpart. `info` is the read-only pkm action that ANSWERS the
+            # question either way: `pkm info docker` prints "Package 'docker' is
+            # not installed" and exits 0, `pkm info bash` prints the record with
+            # its install_date and exits 0, so the carrier reports the truth
+            # instead of failing back into the model's lap.
+            #
+            # MUST precede LIST: "is the docker package installed" carries both
+            # "installed" and "package", which LIST's loose co-occurrence test
+            # would otherwise swallow into a whole-corpus listing — the same
+            # ordering constraint the VERSION branch above was given, for the same
+            # reason. MUST follow VERSION so "what version of the X package is
+            # installed" stays a version answer.
+            installed_q = (
+                re.search(r"\bis\s+(?:the\s+)?([\w.+-]+)\s+(?:package\s+)?"
+                          r"installed\b", low)
+                or re.search(r"\bcheck\s+(?:if|whether)\s+(?:the\s+)?"
+                             r"([\w.+-]+)\s+(?:package\s+)?is\s+installed\b", low)
+                or re.search(r"\bdo\s+(?:i|we|you)\s+have\s+(?:the\s+)?"
+                             r"([\w.+-]+)\s+(?:package\s+)?installed\b", low)
+            )
+            if installed_q:
+                name = installed_q.group(1)
+                # A referent is not a package name (the referential-argument rule): "is it
+                # installed" and "is this package installed" name nothing, so
+                # prefer the object an earlier clause of the same turn named and
+                # otherwise decline, letting the turn ask which package.
+                if _is_referential_argument(name):
+                    name = self._resolved_referent()
+                    if not name:
+                        return None
+                return {"action": "info", "package": name}
             # LIST — "what packages are installed", "list (installed) packages",
             # "what packages do I have". MUST be detected before the search
             # fallback: searching for the literal phrase finds nothing and the
@@ -5684,6 +5734,22 @@ class ConversationRouter(RouterInterface):
             named = re.search(r"package (?:for|called|named) (?:the |a )?([\w.+-]+)", low)
             if named:
                 return {"action": "search", "query": named.group(1)}
+            # "IS THERE AN APP FOR X" — the same ask as the line above with the
+            # word the field actually uses. The line above only knows the word
+            # "package", so "is there an app for editing pdfs" was recognised by
+            # the keyword rung and then had no arguments to dispatch, which is the
+            # recognised-then-dropped shape this lane exists to close. The object
+            # is a DESCRIPTION of a job ("editing pdfs"), so it is a search term,
+            # capped at four words like every other search term here so a whole
+            # sentence can never become the pkm query.
+            for_job = re.search(
+                r"\bis\s+there\s+(?:a|an)\s+(?:\w+\s+){0,2}?"
+                r"(?:app|application|program|tool|utility|package)\s+"
+                r"(?:for|to)\s+(.+)", low)
+            if for_job:
+                job = for_job.group(1).strip().rstrip("?.!").strip()
+                if job and len(job.split()) <= 4:
+                    return {"action": "search", "query": job}
             # SEARCH fallback (2026-07-14): extract the actual search TERM
             # from an explicit search phrasing ("search for a markdown editor" ->
             # "markdown editor"); NEVER pass the raw user sentence as the query.
@@ -5817,7 +5883,12 @@ class ConversationRouter(RouterInterface):
         is no grounded term, so the caller declines to search: a raw sentence
         must never become the pkm query."""
         low = user_input.lower().strip().rstrip("?.!")
-        m = re.search(r"\b(?:search|find|look\s+for)\b\s+(?:for\s+)?"
+        # "find ME a photo editor" — the indirect object is part of the ASKING,
+        # not part of what to search for. Without this the term came out as
+        # "me a photo editor" and pkm was handed that as its query, which is the
+        # nonsense-query class this helper exists to prevent.
+        m = re.search(r"\b(?:search|find|look\s+for)\b\s+(?:me\s+|us\s+)?"
+                      r"(?:for\s+)?(?:me\s+|us\s+)?"
                       r"(?:a\s+|an\s+|the\s+|any\s+|some\s+)?"
                       r"(?:package[s]?\s+(?:for\s+|called\s+|named\s+)?)?(.+)", low)
         if not m:
