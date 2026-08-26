@@ -158,6 +158,17 @@ ASSERTION_TYPES: frozenset[str] = frozenset({
     "source",                # a citation is present
     "source_any",            # value = comma-joined citation alternatives
     "self_consistent",       # must not enumerate results and also claim none were found
+    "not_repeat_of_previous",  # the reply must not be a replay of the PREVIOUS turn's
+                             #   reply. The only assertion that compares a turn to the
+                             #   turn before it. Authored for the elliptical-reply shape
+                             #   ("wha?", "huh?"): a person who did not understand an
+                             #   answer is asking for a different one, and repeating the
+                             #   same words is the one response that cannot help them.
+                             #   Measured in the field 2026-08-24: "wha?" returned the
+                             #   preceding answer verbatim. `value` is an optional
+                             #   similarity ceiling as a percentage (default 90); a reply
+                             #   sharing more than that share of the previous reply's
+                             #   lines, or repeating its opening, is a replay.
 })
 
 # Auto-assertions appended to EVERY turn at grade time unless a named member of
