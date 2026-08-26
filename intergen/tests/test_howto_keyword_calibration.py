@@ -167,18 +167,25 @@ class KeywordFloorScaleTests(unittest.TestCase):
         nearly everything the corpus covers."""
         self._needs_numpy()
         calls = {"n": 0}
+        # The server goes away AFTER construction returns, which is what "lost after
+        # index build" means. Keyed on a flag flipped once the corpus exists rather
+        # than on a request count: the index is embedded in bounded batches, so the
+        # build is several requests and a count of one would kill the server part way
+        # through the build instead — a different shape, and not this one.
+        serving = {"up": True}
 
         def embedder(texts):
-            # Answers while the index is built, then stops — a server that dies
-            # after startup, which is the observed field shape.
             calls["n"] += 1
-            return self._bow(texts) if calls["n"] == 1 else None
+            return self._bow(texts) if serving["up"] else None
 
         corpus = HowtoCorpus(embedder=embedder)
         self.assertIsNotNone(corpus._embeddings,  # noqa: SLF001
                              "the embedding index must have been built first")
+        built_with = calls["n"]
+        serving["up"] = False
         entry, score = corpus.retrieve("verify package integrity")
-        self.assertGreater(calls["n"], 1, "the query must have asked the embedder")
+        self.assertGreater(calls["n"], built_with,
+                           "the query must have asked the embedder")
         self.assertLess(score, howto.DEFAULT_THRESHOLD,
                         "this query's keyword score is below the COSINE floor — "
                         "which is exactly why applying that floor here was wrong")
