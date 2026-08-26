@@ -106,7 +106,8 @@ class EscalationManagerInterface(ABC):
             user_message: What the user asked.
             local_response: What the local model produced (may be empty).
             quality_check: Result of quality gate (empty string = passed).
-            confidence: Local model's self-rated confidence (1-5, <3 triggers).
+            confidence: Local answer confidence on a 0-1 scale; at or below
+                escalation._LOW_CONFIDENCE this triggers an offer.
 
         Returns:
             EscalationDecision with recommendation and reasoning.

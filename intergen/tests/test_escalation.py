@@ -73,6 +73,20 @@ def _mgr(**kw):
 
 
 class RecognitionTests(unittest.TestCase):
+    """Confidence is on the 0-1 scale the live caller passes
+    (ConversationRouter._try_llm_freeform: 1.0 when the answer passed the quality
+    gate, 0.5 when it did not). These literals read 5.0 and 2.0 until 2026-08-26,
+    on a 1-5 scale escalation._LOW_CONFIDENCE claimed and no caller ever used.
+
+    TWO CALLS BELOW DELIBERATELY KEEP THEIR ORIGINAL 5.0 — the explicit-ask test
+    and the fallback-mode test. Rewriting those two lines would re-add the
+    provider names they type as NEW lines, which the public-language gate blocks
+    (rulebook Rule 22), and rewording the inputs would drop the only coverage the
+    provider-name alternatives of _EXPLICIT_ASK have. The value is inert in both:
+    one fires on the explicit ask and the other runs in FALLBACK mode, where only
+    the quality verdict is read. 5.0 is above the threshold either way, so both
+    read as CONFIDENT on the corrected scale, which is what those tests need."""
+
     def test_never_mode_never_escalates(self):
         m = _mgr(mode=EscalationMode.NEVER, providers=[_cfg()])
         d = m.should_escalate("ask claude please", "", "fail", 1.0)
@@ -89,7 +103,7 @@ class RecognitionTests(unittest.TestCase):
 
     def test_no_provider_untriggered_stays_local_only(self):
         m = _mgr(mode=EscalationMode.ASK, providers=[])
-        d = m.should_escalate("what time is it", "12:00", "", 5.0)
+        d = m.should_escalate("what time is it", "12:00", "", 1.0)
         self.assertFalse(d.should_escalate)
         self.assertIn("local-only", d.reason)
 
@@ -105,10 +119,10 @@ class RecognitionTests(unittest.TestCase):
         # The decomposer's structured verdict is the multi-step signal; the
         # retired text regex must NOT fire on phrasing alone.
         m = _mgr(mode=EscalationMode.ASK, providers=[_cfg()])
-        flagged = m.should_escalate("hello", "x", "", 5.0, multistep=True)
+        flagged = m.should_escalate("hello", "x", "", 1.0, multistep=True)
         self.assertTrue(flagged.should_escalate)
         self.assertIn("multi-step", flagged.reason)
-        by_text = m.should_escalate("do a then b step by step", "x", "", 5.0)
+        by_text = m.should_escalate("do a then b step by step", "x", "", 1.0)
         self.assertFalse(by_text.should_escalate)
 
     def test_ask_explicit_offers(self):
@@ -119,22 +133,22 @@ class RecognitionTests(unittest.TestCase):
 
     def test_ask_quality_fail_offers(self):
         m = _mgr(mode=EscalationMode.ASK, providers=[_cfg()])
-        d = m.should_escalate("hello", "", "quality gate failed", 5.0)
+        d = m.should_escalate("hello", "", "quality gate failed", 1.0)
         self.assertTrue(d.should_escalate)
 
     def test_ask_low_confidence_offers(self):
         m = _mgr(mode=EscalationMode.ASK, providers=[_cfg()])
-        d = m.should_escalate("hello", "maybe", "", 2.0)
+        d = m.should_escalate("hello", "maybe", "", 0.5)
         self.assertTrue(d.should_escalate)
 
     def test_ask_sufficient_no_offer(self):
         m = _mgr(mode=EscalationMode.ASK, providers=[_cfg()])
-        d = m.should_escalate("what time is it", "12:00", "", 5.0)
+        d = m.should_escalate("what time is it", "12:00", "", 1.0)
         self.assertFalse(d.should_escalate)
 
     def test_fallback_only_on_quality_fail(self):
         m = _mgr(mode=EscalationMode.FALLBACK, providers=[_cfg()])
-        self.assertTrue(m.should_escalate("hi", "", "failed", 5.0).should_escalate)
+        self.assertTrue(m.should_escalate("hi", "", "failed", 1.0).should_escalate)
         # explicit ask does NOT trigger FALLBACK (it is quality-gate-only)
         self.assertFalse(m.should_escalate("ask claude", "ok", "", 5.0).should_escalate)
 
@@ -299,9 +313,6 @@ class FromConfigTests(unittest.TestCase):
         self.assertFalse(resp.quality_passed)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class OfferedPhraseIsRecognisedTests(unittest.TestCase):
     """The offer text tells the user what to TYPE to reach the frontier model.
@@ -338,3 +349,7 @@ class OfferedPhraseIsRecognisedTests(unittest.TestCase):
                     or escalation._EXPLICIT_ASK_OWN.search(phrase),
                     f"the product tells the user to type {phrase!r} but the "
                     f"explicit-ask matcher does not recognise it")
+
+
+if __name__ == "__main__":
+    unittest.main()
