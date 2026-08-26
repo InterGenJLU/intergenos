@@ -69,6 +69,14 @@ _EXPLICIT_ASK = re.compile(
     r"(claude|gpt|chatgpt|gemini|your frontier|the cloud|a frontier model)\b",
     re.IGNORECASE,
 )
+# The product's own offers tell the user to type 'ask my frontier model'
+# (measured 2026-08-26: that exact sentence was not recognised above, which
+# accepts the "your" form only). The possessive the assistant suggests is
+# accepted alongside it.
+_EXPLICIT_ASK_OWN = re.compile(
+    r"\b(ask|check with|phone|consult|escalate to)\s+(?:my|the)\s+frontier\b",
+    re.IGNORECASE,
+)
 
 # The multi-step signal is the DECOMPOSER's structured verdict, supplied by the
 # caller via should_escalate(multistep=...). Decided 2026-07-23 (IG-S-12 sitting,
@@ -178,7 +186,8 @@ class EscalationManager(EscalationManagerInterface):
 
         quality_failed = bool(quality_check.strip())
         low_confidence = bool(confidence) and confidence <= _LOW_CONFIDENCE
-        explicit = bool(_EXPLICIT_ASK.search(user_message or ""))
+        explicit = bool(_EXPLICIT_ASK.search(user_message or "")
+                        or _EXPLICIT_ASK_OWN.search(user_message or ""))
 
         if provider is None:
             # Decided 2026-07-23 (IG-S-12 sitting, piece 2): in ASK mode, firing

@@ -301,3 +301,40 @@ class FromConfigTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OfferedPhraseIsRecognisedTests(unittest.TestCase):
+    """The offer text tells the user what to TYPE to reach the frontier model.
+    Measured 2026-08-26: the router's offer and the conversational steer both said
+    "type 'ask my frontier model'", and the explicit-ask matcher recognised only
+    "ask your frontier …" — a user who did exactly what the assistant asked was not
+    heard. Every phrase the product quotes in an offer must be one the matcher
+    accepts, and the phrases are read from the product's own strings so the two
+    cannot drift apart again."""
+
+    def test_ask_my_frontier_model_is_an_explicit_ask(self):
+        m = _mgr(mode=EscalationMode.ASK, providers=[_cfg()])
+        d = m.should_escalate("ask my frontier model", "fine", "", 1.0)
+        self.assertTrue(d.should_escalate)
+        self.assertEqual(d.reason, "you asked me to reach your frontier model")
+
+    def test_every_quoted_offer_phrase_matches_the_explicit_ask(self):
+        import re
+        from intergen import escalation, safety
+        from intergen.router import ConversationRouter  # noqa: F401 — module import
+        import intergen.router as router_mod
+        import inspect
+        quoted = set()
+        for mod in (router_mod, safety):
+            src = inspect.getsource(mod)
+            # adjacent string literals split over lines are one string
+            src = re.sub(r'"\s*\n\s*"', "", src)
+            quoted.update(re.findall(r"type '([^']+)' in", src))
+        self.assertTrue(quoted, "no offer phrase found in the product strings")
+        for phrase in sorted(quoted):
+            with self.subTest(phrase=phrase):
+                self.assertTrue(
+                    escalation._EXPLICIT_ASK.search(phrase)
+                    or escalation._EXPLICIT_ASK_OWN.search(phrase),
+                    f"the product tells the user to type {phrase!r} but the "
+                    f"explicit-ask matcher does not recognise it")
