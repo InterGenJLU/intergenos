@@ -60,8 +60,16 @@ from intergen.interfaces.types import (
 
 logger = logging.getLogger(__name__)
 
-# Local self-rated confidence (1-5) at or below which the heuristic offers help.
-_LOW_CONFIDENCE = 3.0
+# Confidence at or below which the heuristic offers help, ON THE 0-1 SCALE THE
+# LIVE CALLER USES. The one producer is ConversationRouter._try_llm_freeform:
+#     confidence = 1.0 if response.quality_passed else 0.5
+# This constant read 3.0 with a comment claiming a 1-5 scale that no caller has
+# ever passed (measured 2026-08-26). Both live values sat below it, so the
+# low-confidence signal was TRUE on every freeform turn and the offer fired on
+# all of them: a threshold that can never be false is a check that does not
+# check. 0.5 is the boundary on this scale because it is the point at which the
+# local answer is no better than even — below it there is a real reason to offer.
+_LOW_CONFIDENCE = 0.5
 
 # An explicit user ask for the frontier model — the heuristic always offers on these.
 _EXPLICIT_ASK = re.compile(
@@ -185,7 +193,10 @@ class EscalationManager(EscalationManagerInterface):
             return EscalationDecision(False, "escalation disabled (mode=never)", 0.0, None)
 
         quality_failed = bool(quality_check.strip())
-        low_confidence = bool(confidence) and confidence <= _LOW_CONFIDENCE
+        # No truthiness guard: `bool(confidence)` made 0.0 — the FLOOR of the
+        # 0-1 scale, the least confident value there is — read as NOT low
+        # confidence, silencing the one case that most needs the offer.
+        low_confidence = confidence <= _LOW_CONFIDENCE
         explicit = bool(_EXPLICIT_ASK.search(user_message or "")
                         or _EXPLICIT_ASK_OWN.search(user_message or ""))
 
