@@ -54,6 +54,12 @@ MANIFEST_PATH = Path("/var/lib/intergen/models/manifest.json")
 # org.intergenos.intergen.provision-model-storage. Used by the non-root
 # `intergen setup` path (see provision_model); the root path writes directly.
 PROVISION_RUNNER_PATH = "/usr/bin/intergen-model-setup-runner"
+# pkexec's own exit codes, per its documented behaviour: 126 when the
+# authorization could not be obtained, 127 when the command could not be
+# executed. Named here so the mapping below is readable and so no caller
+# has to re-derive what a bare number means.
+PKEXEC_NOT_AUTHORIZED = 126
+PKEXEC_COMMAND_NOT_EXECUTED = 127
 
 # Two-source model fetch (locked order 2026-06-09: MIRROR FIRST,
 # vendor fallback). MIRROR = the InterGenOS public mirror, which hosts the
@@ -403,6 +409,22 @@ class ModelManager(ModelManagerInterface):
         # things to tell a user, and only the code that saw the exception
         # knows which one happened.
         self.last_download_failure: str | None = None
+        # The same idea for the PRIVILEGED INSTALL step. A download that
+        # succeeded and an install the user did not authorize are two
+        # different events with two different next steps, and until this
+        # existed the second was logged here and thrown away — setup then
+        # read last_download_failure, found nothing, and told the user the
+        # download had not finished when the file was already on disk.
+        #   'not-authorized'     — pkexec 126: the authorization was not
+        #                          given (the prompt was dismissed or the
+        #                          authentication did not succeed)
+        #   'runner-missing'     — pkexec 127: the runner could not be
+        #                          executed
+        #   'dispatcher-refused' — any other code: the privileged
+        #                          dispatcher itself refused, e.g. the
+        #                          staged file failed its checksum
+        #                          re-verify on the root side
+        self.last_provision_failure: str | None = None
         self._load_manifest()
         # T0-4-D — load the package-shipped pin manifest. Empty dict
         # on missing/malformed manifest; downstream operations refuse
@@ -725,6 +747,7 @@ class ModelManager(ModelManagerInterface):
         staged file's sha256 against the shipped pin before installing it
         root-owned — the privilege boundary does not trust this side's check.
         """
+        self.last_provision_failure = None
         staging_root = Path(tempfile.mkdtemp(prefix="intergen-model-stage-"))
         try:
             staging_mm = ModelManager(
@@ -774,6 +797,7 @@ class ModelManager(ModelManagerInterface):
                 return False
 
             if completed.returncode == 0:
+                self.last_provision_failure = None
                 model.local_path = str(self._model_dir / model.filename)
                 model.downloaded = True
                 if model.has_vision and model.mmproj_filename:
@@ -783,12 +807,21 @@ class ModelManager(ModelManagerInterface):
                          model.name, completed.stdout.strip())
                 return True
 
-            # 126 = user dismissed the PolicyKit prompt; 127 = runner missing;
-            # 1 = dispatcher refusal (e.g. pin re-verify mismatch). The runner
-            # emits a human-readable reason on stdout/stderr.
+            # 126 = the authorization was not given; 127 = the runner could
+            # not be executed; anything else = the dispatcher refused (e.g. a
+            # pin re-verify mismatch). The runner emits a human-readable reason
+            # on stdout/stderr. The reason is RECORDED as well as logged: the
+            # caller turns it into the sentence the user reads, and a log line
+            # alone never reached them.
+            if completed.returncode == PKEXEC_NOT_AUTHORIZED:
+                self.last_provision_failure = "not-authorized"
+            elif completed.returncode == PKEXEC_COMMAND_NOT_EXECUTED:
+                self.last_provision_failure = "runner-missing"
+            else:
+                self.last_provision_failure = "dispatcher-refused"
             log.error(
-                "Model install via pkexec failed (rc=%d): %s%s",
-                completed.returncode,
+                "Model install via pkexec failed (rc=%d, %s): %s%s",
+                completed.returncode, self.last_provision_failure,
                 completed.stdout.strip(), completed.stderr.strip(),
             )
             return False
