@@ -4,16 +4,17 @@
 
 The locked-down 2B routes via the code dispatch path; the 9B decides tools
 natively, so the SAME turn asserts different route sources per tier. Pins that a
-posture-gated assertion applies only under its posture, that posture=None grades
-everything (back-compat), that the runner threads posture, and that the loader
-parses and validates assertion-level postures.
+posture-gated assertion applies only under its posture, that grading a turn with
+tier-specific assertions and no posture is REFUSED rather than graded against a
+tier nobody named, that the runner threads posture, and that the loader parses
+and validates assertion-level postures.
 """
 
 from __future__ import annotations
 
 import unittest
 
-from intergen.tests.scenario.grader import grade_turn
+from intergen.tests.scenario.grader import PostureNotNamed, grade_turn
 from intergen.tests.scenario.loader import ScenarioValidationError, parse_scenario
 from intergen.tests.scenario.runner import run_scenario
 from intergen.tests.scenario.schema import Assertion, Scenario, Turn
@@ -54,13 +55,18 @@ class PostureGatingTests(unittest.TestCase):
                         posture="2B-locked")
         self.assertEqual(tg.grade, "FAIL")
 
-    def test_posture_none_evaluates_every_assertion(self):
-        # Back-compat: with no posture, BOTH gated assertions apply; only one can
-        # match a single source, so the turn fails (as it should when ungated).
-        tg = grade_turn(_turn(), TurnResult(text="ok", source="llm_tools"),
-                        posture=None)
-        evaluated = [r for r in tg.results if r.type == "routes_via"]
-        self.assertEqual(len(evaluated), 2)
+    def test_posture_none_is_refused_on_a_gated_turn(self):
+        # CHANGED CONTRACT. This case used to pin that posture=None evaluates
+        # BOTH gated assertions, called back-compatibility. The two assertions
+        # are mutually exclusive — one source cannot be both — so that rule made
+        # every such turn fail on a real box no matter how the product behaved,
+        # and a whole-corpus run counted 31 such failures as product defects.
+        # A run that grades tier-specific expectations must name the tier it
+        # drove. Skipping them silently instead would shrink the denominator and
+        # claim a coverage the run never had, so it is refused, not skipped.
+        with self.assertRaises(PostureNotNamed):
+            grade_turn(_turn(), TurnResult(text="ok", source="llm_tools"),
+                       posture=None)
 
     def test_ungated_assertion_applies_under_any_posture(self):
         turn = Turn(user="q", assertions=[Assertion("contains", "ok")])
