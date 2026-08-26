@@ -129,6 +129,13 @@ class InterGenDaemon(InterGenDBusInterface):
         self._boot_turn = f"boot-{int(time.time())}"
         self._boot_t0 = time.monotonic()
         self._bus = None
+        # The two handles _export_dbus takes on that connection: the object
+        # registration and the bus-name ownership. Initialised HERE, not on
+        # first export, so the teardown below can run unconditionally instead of
+        # guessing with getattr — a teardown that must work whether or not the
+        # export happened cannot rest on an attribute that may not exist.
+        self._reg_id = None
+        self._owner_id = None
         # Set True by the early single-instance guard whenever this process did
         # NOT confirm sole ownership of the D-Bus name; start_service then binds
         # nothing and main() exits before the loop. Paired with
@@ -2075,6 +2082,8 @@ class InterGenDaemon(InterGenDBusInterface):
         if self._embed_llama:
             self._embed_llama.stop()
 
+        self._teardown_dbus()
+
         self._router = None
         self._llm = None
         self._matcher = None
@@ -2084,6 +2093,58 @@ class InterGenDaemon(InterGenDBusInterface):
         self._health_agg = None
 
         log.info("InterGen daemon stopped")
+
+    def _teardown_dbus(self) -> None:
+        """Release everything _export_dbus took, in the reverse order it took it.
+
+        WHY THIS EXISTS. Gio.bus_get_sync(SESSION) hands back the connection
+        SHARED BY THE PROCESS, so an object registered on it outlives any single
+        daemon lifetime. stop_service used to leave the registration and the name
+        in place, and the next in-process start met
+        "An object is already exported for the interface ... (2)", caught it, and
+        ran the whole of that life with self._bus = None — D-Bus silently gone,
+        one warning line the only trace. Measured x10 in a battery run and x10
+        again in a re-drive.
+
+        Every step is guarded independently: a teardown is the wrong place to
+        raise, and a failure to release one handle must not prevent releasing the
+        others. Failures are logged rather than swallowed, because a handle that
+        could not be released is exactly what will break the NEXT start.
+        """
+        try:
+            import gi
+            gi.require_version("Gio", "2.0")
+            from gi.repository import Gio
+        except Exception as e:  # noqa: BLE001 — no gi means nothing was exported
+            log.debug("D-Bus teardown skipped (Gio unavailable): %s", e)
+            self._reg_id = None
+            self._owner_id = None
+            self._bus = None
+            return
+
+        if self._owner_id is not None:
+            try:
+                Gio.bus_unown_name(self._owner_id)
+            except Exception as e:  # noqa: BLE001
+                log.warning("D-Bus name release failed: %s", e)
+            finally:
+                self._owner_id = None
+
+        if self._reg_id is not None:
+            if self._bus is not None:
+                try:
+                    self._bus.unregister_object(self._reg_id)
+                except Exception as e:  # noqa: BLE001
+                    log.warning(
+                        "D-Bus object unexport failed: %s. A later in-process "
+                        "start may find the path still exported.", e)
+            else:
+                log.warning(
+                    "D-Bus registration %s cannot be released: the connection "
+                    "is already gone.", self._reg_id)
+            self._reg_id = None
+
+        self._bus = None
 
     def _run_web_server(self) -> None:
         """Run the aiohttp web server in a dedicated thread, with a bind
@@ -2363,7 +2424,13 @@ class InterGenDaemon(InterGenDBusInterface):
 
         except Exception as e:
             log.warning("D-Bus export failed: %s. Running without D-Bus.", e)
-            self._bus = None
+            # Release whatever this attempt DID take before giving up. A partial
+            # export — object registered, then owning the name raised — leaves
+            # the path exported on the shared connection, and merely clearing
+            # the identifier here would strand it AND throw away the only handle
+            # that could release it, reproducing the already-exported failure on
+            # the next start with no way back.
+            self._teardown_dbus()
 
 
 def main(argv: list[str] | None = None) -> None:
