@@ -665,6 +665,58 @@ def _eval_self_consistent(a: Assertion, text: str) -> AssertionResult:
               else f"{enumerated} enumerated items AND a 'none found' claim")
 
 
+def _reply_lines(text: str) -> list[str]:
+    """The reply's non-empty lines, normalised for comparison."""
+    return [ln.strip().lower() for ln in (text or "").splitlines() if ln.strip()]
+
+
+def _eval_not_repeat_of_previous(a: Assertion, text: str,
+                                 prior_reply: str) -> AssertionResult:
+    """The reply must not replay the previous turn's reply.
+
+    TWO SIGNALS, because a replay does not have to be byte-identical to be
+    useless. A model asked "wha?" may return the same procedure behind a new
+    preamble, or the same procedure truncated; both leave the person exactly
+    where they were.
+
+      * SHARE OF LINES — what fraction of the previous reply's distinct lines
+        appear again in this one. Lines rather than words, because the field
+        case was a numbered procedure handed back intact, and a word-level
+        measure would call two different answers on one topic a repeat.
+      * THE OPENING — the previous reply's first line returned verbatim, which
+        is what a person actually notices before reading any further.
+
+    A turn with no previous reply passes: there is nothing to repeat, and
+    failing it would make this assertion untypable on any opening turn.
+    """
+    ceiling = 90.0
+    if a.value:
+        try:
+            ceiling = float(a.value)
+        except ValueError:
+            ceiling = 90.0
+    prev = _reply_lines(prior_reply)
+    now = _reply_lines(text)
+    if not prev:
+        return _r("not_repeat_of_previous", a.value, True,
+                  a.description or "no previous reply to repeat")
+    now_set = set(now)
+    prev_set = set(prev)
+    shared = sum(1 for ln in prev_set if ln in now_set)
+    share = 100.0 * shared / len(prev_set)
+    same_opening = bool(now and prev[0] == now[0])
+    passed = share <= ceiling and not same_opening
+    why = []
+    if share > ceiling:
+        why.append(f"{share:.0f}% of the previous reply's lines came back "
+                   f"(ceiling {ceiling:.0f}%)")
+    if same_opening:
+        why.append("the previous reply's opening line was repeated verbatim")
+    return _r("not_repeat_of_previous", a.value, passed,
+              a.description or "the reply is not a replay of the previous one",
+              actual="" if passed else "; ".join(why))
+
+
 _EXPLICIT_EVALUATORS = {
     "contains": lambda a, ctx: _eval_contains(a, ctx.text),
     "contains_any": lambda a, ctx: _eval_contains_any(a, ctx.text),
@@ -691,6 +743,8 @@ _EXPLICIT_EVALUATORS = {
     "no_invented_artifact": lambda a, ctx: _eval_no_invented_artifact(
         a, ctx.text, ctx.called, ctx.context, ctx.prior_context, ctx.route_source),
     "routes_via_any": lambda a, ctx: _eval_routes_via_any(a, ctx.result, ctx.trace),
+    "not_repeat_of_previous": lambda a, ctx: _eval_not_repeat_of_previous(
+        a, ctx.text, ctx.prior_reply),
 }
 
 
@@ -801,6 +855,10 @@ class _Ctx:
     # turn recalling it is sourced, not invented (see literal_provenance). Empty
     # on the first turn and whenever a turn is graded standalone.
     prior_context: str = ""
+    # The PREVIOUS turn's reply text. Every other field on this object describes
+    # THIS turn; this is the only backward look, and only not_repeat_of_previous
+    # reads it. Empty on the first turn, where nothing exists to repeat.
+    prior_reply: str = ""
     # The turn's observed route source, so a guard can tell "the durable-store
     # route answered this" from "the model produced it".
     route_source: str = ""
@@ -840,7 +898,8 @@ class PostureNotNamed(ValueError):
 
 def grade_turn(turn: Turn, result: TurnResult, trace: TraceView | None = None,
                category: str = "", posture: str | None = None,
-               prior_context: str = "") -> TurnGrade:
+               prior_context: str = "",
+               prior_reply: str = "") -> TurnGrade:
     """Grade one turn's response against its explicit + auto assertions.
 
     ``trace`` is the joined decision trace (:class:`TraceView`); pass None when no
@@ -874,6 +933,7 @@ def grade_turn(turn: Turn, result: TurnResult, trace: TraceView | None = None,
     # provided context). Other assertion types ignore it.
     ctx = _Ctx(text=text, result=result, trace=trace, called=called,
                context=turn.user or "", prior_context=prior_context,
+               prior_reply=prior_reply,
                route_source=result.source or (trace.route_source if trace else ""))
     results: list[AssertionResult] = []
 
@@ -946,10 +1006,15 @@ def grade_scenario(scenario: Scenario, results: list[TurnResult],
     # store, which is what lets a later recall turn be graded as recall rather
     # than as invention (see literal_provenance).
     seen_user_text: list[str] = []
+    # The reply the PREVIOUS turn produced — "" on the first turn, where there is
+    # nothing to repeat and not_repeat_of_previous is vacuously satisfied.
+    prior_reply = ""
     for turn, res, tr in zip(scenario.turns, results, traces):
         turn_grades.append(grade_turn(turn, res, tr, category=scenario.category,
                                       posture=posture,
-                                      prior_context="\n".join(seen_user_text)))
+                                      prior_context="\n".join(seen_user_text),
+                                      prior_reply=prior_reply))
+        prior_reply = (res.text or "") if res is not None else ""
         seen_user_text.append(turn.user or "")
     overall = compute_conversation_grade([tg.grade for tg in turn_grades])
     return ScenarioGrade(scenario_id=scenario.id, grade=overall, turns=turn_grades)

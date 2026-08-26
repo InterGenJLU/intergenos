@@ -1,0 +1,3302 @@
+[
+  {
+    "id": "FS-S1-bare-yes",
+    "name": "offer accepted with 'yes'",
+    "axis": [
+      "context_persistence",
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S1",
+      "branch:bare-yes"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how much does a whole house generator cost?",
+        "description": "T1: a live-data question. An offer is an honest answer here; what must NOT happen is a from-memory answer that neither offers nor searches.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named no location and asked for none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "no unbacked live-state claim"
+          ]
+        ]
+      },
+      {
+        "user": "yes",
+        "description": "T2: the acceptance. It carries no subject — the question from T1 is the only thing that can supply one. If nothing held it, this turn has nothing to act on.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the accepted offer runs the search it offered"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "generator",
+            "description": "the search that ran carries 'whole house generator', not an empty or generic query"
+          },
+          [
+            "no_fabricated_success",
+            "",
+            "does not claim to have looked something up unless the dispatch actually ran"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S1-please-do",
+    "name": "offer accepted with 'please do'",
+    "axis": [
+      "context_persistence",
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S1",
+      "branch:please-do"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how much does a whole house generator cost?",
+        "description": "T1: a live-data question. An offer is an honest answer here; what must NOT happen is a from-memory answer that neither offers nor searches.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named no location and asked for none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "no unbacked live-state claim"
+          ]
+        ]
+      },
+      {
+        "user": "please do",
+        "description": "T2: the acceptance. It carries no subject — the question from T1 is the only thing that can supply one. If nothing held it, this turn has nothing to act on.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the accepted offer runs the search it offered"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "generator",
+            "description": "the search that ran carries 'whole house generator', not an empty or generic query"
+          },
+          [
+            "no_fabricated_success",
+            "",
+            "does not claim to have looked something up unless the dispatch actually ran"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S1-sure",
+    "name": "offer accepted with 'sure'",
+    "axis": [
+      "context_persistence",
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S1",
+      "branch:sure"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how much does a whole house generator cost?",
+        "description": "T1: a live-data question. An offer is an honest answer here; what must NOT happen is a from-memory answer that neither offers nor searches.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named no location and asked for none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "no unbacked live-state claim"
+          ]
+        ]
+      },
+      {
+        "user": "sure",
+        "description": "T2: the acceptance. It carries no subject — the question from T1 is the only thing that can supply one. If nothing held it, this turn has nothing to act on.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the accepted offer runs the search it offered"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "generator",
+            "description": "the search that ran carries 'whole house generator', not an empty or generic query"
+          },
+          [
+            "no_fabricated_success",
+            "",
+            "does not claim to have looked something up unless the dispatch actually ran"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S1-ok",
+    "name": "offer accepted with 'ok'",
+    "axis": [
+      "context_persistence",
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S1",
+      "branch:ok"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how much does a whole house generator cost?",
+        "description": "T1: a live-data question. An offer is an honest answer here; what must NOT happen is a from-memory answer that neither offers nor searches.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named no location and asked for none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "no unbacked live-state claim"
+          ]
+        ]
+      },
+      {
+        "user": "ok",
+        "description": "T2: the acceptance. It carries no subject — the question from T1 is the only thing that can supply one. If nothing held it, this turn has nothing to act on.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the accepted offer runs the search it offered"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "generator",
+            "description": "the search that ran carries 'whole house generator', not an empty or generic query"
+          },
+          [
+            "no_fabricated_success",
+            "",
+            "does not claim to have looked something up unless the dispatch actually ran"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S1-yep",
+    "name": "offer accepted with 'yep'",
+    "axis": [
+      "context_persistence",
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S1",
+      "branch:yep"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how much does a whole house generator cost?",
+        "description": "T1: a live-data question. An offer is an honest answer here; what must NOT happen is a from-memory answer that neither offers nor searches.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named no location and asked for none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "no unbacked live-state claim"
+          ]
+        ]
+      },
+      {
+        "user": "yep",
+        "description": "T2: the acceptance. It carries no subject — the question from T1 is the only thing that can supply one. If nothing held it, this turn has nothing to act on.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the accepted offer runs the search it offered"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "generator",
+            "description": "the search that ran carries 'whole house generator', not an empty or generic query"
+          },
+          [
+            "no_fabricated_success",
+            "",
+            "does not claim to have looked something up unless the dispatch actually ran"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S1-go-ahead",
+    "name": "offer accepted with 'go ahead'",
+    "axis": [
+      "context_persistence",
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S1",
+      "branch:go-ahead"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how much does a whole house generator cost?",
+        "description": "T1: a live-data question. An offer is an honest answer here; what must NOT happen is a from-memory answer that neither offers nor searches.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named no location and asked for none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "no unbacked live-state claim"
+          ]
+        ]
+      },
+      {
+        "user": "go ahead",
+        "description": "T2: the acceptance. It carries no subject — the question from T1 is the only thing that can supply one. If nothing held it, this turn has nothing to act on.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the accepted offer runs the search it offered"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "generator",
+            "description": "the search that ran carries 'whole house generator', not an empty or generic query"
+          },
+          [
+            "no_fabricated_success",
+            "",
+            "does not claim to have looked something up unless the dispatch actually ran"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S1-do-it",
+    "name": "offer accepted with 'do it'",
+    "axis": [
+      "context_persistence",
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S1",
+      "branch:do-it"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how much does a whole house generator cost?",
+        "description": "T1: a live-data question. An offer is an honest answer here; what must NOT happen is a from-memory answer that neither offers nor searches.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named no location and asked for none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "no unbacked live-state claim"
+          ]
+        ]
+      },
+      {
+        "user": "do it",
+        "description": "T2: the acceptance. It carries no subject — the question from T1 is the only thing that can supply one. If nothing held it, this turn has nothing to act on.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the accepted offer runs the search it offered"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "generator",
+            "description": "the search that ran carries 'whole house generator', not an empty or generic query"
+          },
+          [
+            "no_fabricated_success",
+            "",
+            "does not claim to have looked something up unless the dispatch actually ran"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S1-yes-please",
+    "name": "offer accepted with 'yes please'",
+    "axis": [
+      "context_persistence",
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S1",
+      "branch:yes-please"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how much does a whole house generator cost?",
+        "description": "T1: a live-data question. An offer is an honest answer here; what must NOT happen is a from-memory answer that neither offers nor searches.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named no location and asked for none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "no unbacked live-state claim"
+          ]
+        ]
+      },
+      {
+        "user": "yes please",
+        "description": "T2: the acceptance. It carries no subject — the question from T1 is the only thing that can supply one. If nothing held it, this turn has nothing to act on.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the accepted offer runs the search it offered"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "generator",
+            "description": "the search that ran carries 'whole house generator', not an empty or generic query"
+          },
+          [
+            "no_fabricated_success",
+            "",
+            "does not claim to have looked something up unless the dispatch actually ran"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S1-yes-thanks",
+    "name": "offer accepted with 'yes, thank you'",
+    "axis": [
+      "context_persistence",
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S1",
+      "branch:yes-thanks"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how much does a whole house generator cost?",
+        "description": "T1: a live-data question. An offer is an honest answer here; what must NOT happen is a from-memory answer that neither offers nor searches.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named no location and asked for none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "no unbacked live-state claim"
+          ]
+        ]
+      },
+      {
+        "user": "yes, thank you",
+        "description": "T2: the acceptance. It carries no subject — the question from T1 is the only thing that can supply one. If nothing held it, this turn has nothing to act on.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the accepted offer runs the search it offered"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "generator",
+            "description": "the search that ran carries 'whole house generator', not an empty or generic query"
+          },
+          [
+            "no_fabricated_success",
+            "",
+            "does not claim to have looked something up unless the dispatch actually ran"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S1-that-would-be-great",
+    "name": "offer accepted with 'that would be great'",
+    "axis": [
+      "context_persistence",
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S1",
+      "branch:that-would-be-great"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how much does a whole house generator cost?",
+        "description": "T1: a live-data question. An offer is an honest answer here; what must NOT happen is a from-memory answer that neither offers nor searches.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named no location and asked for none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "no unbacked live-state claim"
+          ]
+        ]
+      },
+      {
+        "user": "that would be great",
+        "description": "T2: the acceptance. It carries no subject — the question from T1 is the only thing that can supply one. If nothing held it, this turn has nothing to act on.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the accepted offer runs the search it offered"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "generator",
+            "description": "the search that ran carries 'whole house generator', not an empty or generic query"
+          },
+          [
+            "no_fabricated_success",
+            "",
+            "does not claim to have looked something up unless the dispatch actually ran"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S1-no-thanks",
+    "name": "offer declined with 'no thanks'",
+    "axis": [
+      "context_persistence",
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S1",
+      "branch:no-thanks"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how much does a whole house generator cost?",
+        "description": "T1: a live-data question. An offer is an honest answer here; what must NOT happen is a from-memory answer that neither offers nor searches.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named no location and asked for none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "no unbacked live-state claim"
+          ]
+        ]
+      },
+      {
+        "user": "no thanks",
+        "description": "T2: the offer is DECLINED. A router that dispatched on any short reply after an offer would pass the acceptance cases and be wrong; this is the case that tells them apart.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a declined offer runs nothing"
+          ],
+          [
+            "no_fabricated_success",
+            "",
+            "does not claim a search happened"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S1-not-now",
+    "name": "offer declined with 'not now'",
+    "axis": [
+      "context_persistence",
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S1",
+      "branch:not-now"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how much does a whole house generator cost?",
+        "description": "T1: a live-data question. An offer is an honest answer here; what must NOT happen is a from-memory answer that neither offers nor searches.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named no location and asked for none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "no unbacked live-state claim"
+          ]
+        ]
+      },
+      {
+        "user": "not now",
+        "description": "T2: the offer is DECLINED. A router that dispatched on any short reply after an offer would pass the acceptance cases and be wrong; this is the case that tells them apart.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a declined offer runs nothing"
+          ],
+          [
+            "no_fabricated_success",
+            "",
+            "does not claim a search happened"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S1-never-mind",
+    "name": "offer declined with 'never mind'",
+    "axis": [
+      "context_persistence",
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S1",
+      "branch:never-mind"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how much does a whole house generator cost?",
+        "description": "T1: a live-data question. An offer is an honest answer here; what must NOT happen is a from-memory answer that neither offers nor searches.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named no location and asked for none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "no unbacked live-state claim"
+          ]
+        ]
+      },
+      {
+        "user": "never mind",
+        "description": "T2: the offer is DECLINED. A router that dispatched on any short reply after an offer would pass the acceptance cases and be wrong; this is the case that tells them apart.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a declined offer runs nothing"
+          ],
+          [
+            "no_fabricated_success",
+            "",
+            "does not claim a search happened"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S1-dont-bother",
+    "name": "offer declined with \"don't bother\"",
+    "axis": [
+      "context_persistence",
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S1",
+      "branch:dont-bother"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how much does a whole house generator cost?",
+        "description": "T1: a live-data question. An offer is an honest answer here; what must NOT happen is a from-memory answer that neither offers nor searches.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named no location and asked for none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "no unbacked live-state claim"
+          ]
+        ]
+      },
+      {
+        "user": "don't bother",
+        "description": "T2: the offer is DECLINED. A router that dispatched on any short reply after an offer would pass the acceptance cases and be wrong; this is the case that tells them apart.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a declined offer runs nothing"
+          ],
+          [
+            "no_fabricated_success",
+            "",
+            "does not claim a search happened"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S1-restated",
+    "name": "offer accepted with the request restated in full",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S1",
+      "branch:consent-restates-the-request"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how much does a whole house generator cost?",
+        "description": "T1: a live-data question. An offer is an honest answer here; what must NOT happen is a from-memory answer that neither offers nor searches.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named no location and asked for none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "no unbacked live-state claim"
+          ]
+        ]
+      },
+      {
+        "user": "yes, do a web search for how much a whole house generator costs",
+        "description": "T2: the acceptance restates the whole request, so even a router that kept nothing from T1 has the subject in front of it. A failure here cannot be blamed on lost context.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "an explicit restated request runs the search"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "generator",
+            "description": "the search that ran carries 'whole house generator', not an empty or generic query"
+          },
+          [
+            "no_fabricated_success",
+            "",
+            "does not claim to have looked something up unless the dispatch actually ran"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S1-redirect",
+    "name": "offer accepted but redirected to another subject",
+    "axis": [
+      "context_persistence",
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S1",
+      "branch:consent-redirected"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how much does a whole house generator cost?",
+        "description": "T1: a live-data question. An offer is an honest answer here; what must NOT happen is a from-memory answer that neither offers nor searches.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named no location and asked for none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "no unbacked live-state claim"
+          ]
+        ]
+      },
+      {
+        "user": "yes but for a chest freezer instead",
+        "description": "T2: consent AND a new subject in one breath. The search must run on the NEW subject; running the old one is worse than not running.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the redirected subject is what gets searched"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "freezer",
+            "description": "the search that ran carries 'chest freezer', not an empty or generic query"
+          },
+          [
+            "no_fabricated_success",
+            "",
+            "does not claim to have looked something up unless the dispatch actually ran"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S1-delayed-1",
+    "name": "offer accepted 1 turn(s) later",
+    "axis": [
+      "context_persistence",
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S1",
+      "branch:delayed-1"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how much does a whole house generator cost?",
+        "description": "T1: a live-data question. An offer is an honest answer here; what must NOT happen is a from-memory answer that neither offers nor searches.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named no location and asked for none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "no unbacked live-state claim"
+          ]
+        ]
+      },
+      {
+        "user": "what year did the Vietnam War end?",
+        "description": "an unrelated, answerable question between the offer and the acceptance — the offer must survive it without being consumed by it",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a timeless fact needs no search, and must not consume the pending offer"
+          ]
+        ]
+      },
+      {
+        "user": "yes",
+        "description": "T3: the acceptance arrives 1 turn(s) later than the offer. A slot that only survives one turn passes FS-S1-bare-yes and fails here.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "an offer accepted later still runs"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "generator",
+            "description": "the search that ran carries 'whole house generator', not an empty or generic query"
+          },
+          [
+            "no_fabricated_success",
+            "",
+            "does not claim to have looked something up unless the dispatch actually ran"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S1-delayed-3",
+    "name": "offer accepted 3 turn(s) later",
+    "axis": [
+      "context_persistence",
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S1",
+      "branch:delayed-3"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how much does a whole house generator cost?",
+        "description": "T1: a live-data question. An offer is an honest answer here; what must NOT happen is a from-memory answer that neither offers nor searches.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named no location and asked for none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "no unbacked live-state claim"
+          ]
+        ]
+      },
+      {
+        "user": "what year did the Vietnam War end?",
+        "description": "an unrelated, answerable question between the offer and the acceptance — the offer must survive it without being consumed by it",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a timeless fact needs no search, and must not consume the pending offer"
+          ]
+        ]
+      },
+      {
+        "user": "what is the capital of Spain?",
+        "description": "an unrelated, answerable question between the offer and the acceptance — the offer must survive it without being consumed by it",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a timeless fact needs no search, and must not consume the pending offer"
+          ]
+        ]
+      },
+      {
+        "user": "how many days are in a leap year?",
+        "description": "an unrelated, answerable question between the offer and the acceptance — the offer must survive it without being consumed by it",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a timeless fact needs no search, and must not consume the pending offer"
+          ]
+        ]
+      },
+      {
+        "user": "yes",
+        "description": "T5: the acceptance arrives 3 turn(s) later than the offer. A slot that only survives one turn passes FS-S1-bare-yes and fails here.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "an offer accepted later still runs"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "generator",
+            "description": "the search that ran carries 'whole house generator', not an empty or generic query"
+          },
+          [
+            "no_fabricated_success",
+            "",
+            "does not claim to have looked something up unless the dispatch actually ran"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S1-unprompted-yes",
+    "name": "an affirmative with no offer behind it",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S1",
+      "branch:consent-without-an-offer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what is the capital of Spain?",
+        "description": "T1: an ordinary answerable question. No offer is made, so nothing is pending.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a timeless fact needs no search"
+          ]
+        ]
+      },
+      {
+        "user": "yes",
+        "description": "T2: an affirmative with nothing to affirm. The honest reply asks what is meant; a search here would be a search for the word 'yes'.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "nothing was offered, so nothing is accepted"
+          ],
+          [
+            "no_fabricated_success",
+            "",
+            "does not claim a search happened"
+          ],
+          [
+            "contains_any",
+            "what would you like,not sure what,which,what do you mean,say more,clarify",
+            "asks what was meant rather than inventing an action"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S2-place-in-sentence",
+    "name": "the place is named in the question itself",
+    "axis": [
+      "context_persistence",
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S2",
+      "branch:subject-in-this-turn"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how much snow is Millbrook, AL forecast to get this winter?",
+        "description": "T1: the town is IN the sentence. A reply that says it does not know the location has not read the question it was asked.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the location is in the sentence"
+          ],
+          [
+            "not_contains",
+            "I don't have access to real-time",
+            "a flat refusal with no offer and no search is the failure shape, not an honest limit"
+          ]
+        ]
+      },
+      {
+        "user": "yes",
+        "description": "T2: whatever T1 offered is accepted; the search must carry the town from T1.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the search carries the town that was named"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "Millbrook",
+            "description": "the search that ran carries 'Millbrook', not an empty or generic query"
+          },
+          [
+            "no_fabricated_success",
+            "",
+            "does not claim to have looked something up unless the dispatch actually ran"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S2-place-at-minus-1",
+    "name": "the place was named one turn ago",
+    "axis": [
+      "context_persistence"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S2",
+      "branch:subject-at-minus-1"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "is there anything worth seeing in Millbrook, AL?",
+        "description": "T1: the town enters the conversation.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the town is in the sentence"
+          ]
+        ]
+      },
+      {
+        "user": "when is the weather supposed to cool off there?",
+        "description": "T2: 'there' refers to T1's town and nothing else. A reply that asks for a location has lost the only place it was given.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the place was given one turn ago"
+          ]
+        ]
+      },
+      {
+        "user": "yes",
+        "description": "T3: the offer is accepted; the search must carry the town from T1, two turns back.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the search carries the town from two turns back"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "Millbrook",
+            "description": "the search that ran carries 'Millbrook', not an empty or generic query"
+          },
+          [
+            "no_fabricated_success",
+            "",
+            "does not claim to have looked something up unless the dispatch actually ran"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S2-place-at-minus-3",
+    "name": "the place was named three turns ago",
+    "axis": [
+      "context_persistence"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S2",
+      "branch:subject-at-minus-3"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "is there anything worth seeing in Millbrook, AL?",
+        "description": "T1: the town enters the conversation.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the town is here"
+          ]
+        ]
+      },
+      {
+        "user": "what year did the Vietnam War end?",
+        "description": "T2: an unrelated turn.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a timeless fact needs no search"
+          ]
+        ]
+      },
+      {
+        "user": "how many days are in a leap year?",
+        "description": "T3: another unrelated turn.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a timeless fact needs no search"
+          ]
+        ]
+      },
+      {
+        "user": "when is the weather supposed to cool off there?",
+        "description": "T4: 'there' still means T1's town. Two unrelated turns must not have displaced it.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the place was given three turns ago and nothing replaced it"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S2-subject-cost-at-minus-1",
+    "name": "subject carried forward: 'how much does one cost?'",
+    "axis": [
+      "context_persistence"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S2",
+      "branch:subject-cost-at-minus-1"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "I am thinking about buying a chest freezer.",
+        "description": "T1: the subject enters the conversation as a statement, not a question — a shape the corpus had no row for.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a statement of intent is not a search request"
+          ]
+        ]
+      },
+      {
+        "user": "how much does one cost?",
+        "description": "T2: 'one' is the subject from the previous turn. The reply must be about that subject.",
+        "assertions": [
+          [
+            "contains_any",
+            "freezer,freezer",
+            "the answer is about the subject that was named"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S2-subject-where-at-minus-1",
+    "name": "subject carried forward: 'where can I buy one near me?'",
+    "axis": [
+      "context_persistence"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S2",
+      "branch:subject-where-at-minus-1"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "I am thinking about buying a chest freezer.",
+        "description": "T1: the subject enters the conversation as a statement, not a question — a shape the corpus had no row for.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a statement of intent is not a search request"
+          ]
+        ]
+      },
+      {
+        "user": "where can I buy one near me?",
+        "description": "T2: 'one' is the subject from the previous turn. The reply must be about that subject.",
+        "assertions": [
+          [
+            "contains_any",
+            "freezer,freezer",
+            "the answer is about the subject that was named"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S2-subject-which-at-minus-1",
+    "name": "subject carried forward: 'which brand is most reliable?'",
+    "axis": [
+      "context_persistence"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S2",
+      "branch:subject-which-at-minus-1"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "I am thinking about buying a chest freezer.",
+        "description": "T1: the subject enters the conversation as a statement, not a question — a shape the corpus had no row for.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a statement of intent is not a search request"
+          ]
+        ]
+      },
+      {
+        "user": "which brand is most reliable?",
+        "description": "T2: the question is about the subject from the previous turn. The reply must be about that subject.",
+        "assertions": [
+          [
+            "contains_any",
+            "freezer,freezer",
+            "the answer is about the subject that was named"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S2-pronoun-it",
+    "name": "a pronoun carries the subject forward",
+    "axis": [
+      "context_persistence"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S2",
+      "branch:referent-pronoun"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "tell me about the chest freezer as an appliance.",
+        "description": "T1: the subject enters.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a general question needs no search"
+          ]
+        ]
+      },
+      {
+        "user": "how long does it usually last?",
+        "description": "T2: 'it' is the subject and nothing else in the conversation competes for the pronoun.",
+        "assertions": [
+          [
+            "contains_any",
+            "freezer,years,lifespan",
+            "the answer is about the subject the pronoun names"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S2-same-place-new-topic",
+    "name": "the place holds while the topic changes",
+    "axis": [
+      "context_persistence"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S2",
+      "branch:subject-held-topic-changes"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what is there to do in Millbrook, AL?",
+        "description": "T1: the place enters.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "a place is named"
+          ]
+        ]
+      },
+      {
+        "user": "what about places to eat there?",
+        "description": "T2: a new topic, the same place. Surviving a topic change is a different thing from surviving an unrelated turn.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the place was given one turn ago; the topic changed, not the place"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S2-subject-inside-compound",
+    "name": "the subject arrives inside a compound question",
+    "axis": [
+      "context_persistence",
+      "decomposer"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S2",
+      "branch:subject-in-compound"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what is a chest freezer and how much does one usually cost?",
+        "description": "T1: two questions in one sentence. The corpus has decomposer rows for compounds, but none for a compound that also SETS the subject for what follows.",
+        "assertions": [
+          [
+            "contains_any",
+            "freezer",
+            "answers about the named subject"
+          ]
+        ]
+      },
+      {
+        "user": "where would I buy one?",
+        "description": "T2: 'one' refers to the subject the compound introduced.",
+        "assertions": [
+          [
+            "contains_any",
+            "freezer,appliance,store,retailer",
+            "the answer is about that subject"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S2-ambiguous-referent",
+    "name": "two places in play and the question names neither",
+    "axis": [
+      "context_persistence"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S2",
+      "branch:referent-ambiguous"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what is there to do in Millbrook, AL?",
+        "description": "T1: the first place.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "a place is named"
+          ]
+        ]
+      },
+      {
+        "user": "what about Cullman, AL?",
+        "description": "T2: a second place enters.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "a place is named"
+          ]
+        ]
+      },
+      {
+        "user": "which one has better weather?",
+        "description": "T3: the honest answer names BOTH places or asks which is meant. Silently picking one is the failure this row exists for.",
+        "assertions": [
+          [
+            "contains_any",
+            "Millbrook,Cullman,which",
+            "names the places in play, or asks which is meant"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S3-sunset",
+    "name": "reads like another intent: 'what time will the sun set today?'",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S3",
+      "branch:sunset"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what time will the sun set today?",
+        "description": "T1: 'what time' is the clock's phrase, but the answer is not on this machine's clock — it depends on the date and the place. Answering from the machine's clock, calendar or sensors is the failure; the reply must treat this as something to look up.",
+        "assertions": [
+          [
+            "no_tool",
+            "run_command",
+            "the machine's own clock does not answer this question"
+          ],
+          [
+            "not_contains",
+            "I don't have access to real-time",
+            "a flat refusal with no offer is not an answer"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S3-sunrise",
+    "name": "reads like another intent: 'what time does the sun come up tomorrow?'",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S3",
+      "branch:sunrise"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what time does the sun come up tomorrow?",
+        "description": "T1: same shape as the sunset case, a day forward. Answering from the machine's clock, calendar or sensors is the failure; the reply must treat this as something to look up.",
+        "assertions": [
+          [
+            "no_tool",
+            "run_command",
+            "the machine's own clock does not answer this question"
+          ],
+          [
+            "not_contains",
+            "I don't have access to real-time",
+            "a flat refusal with no offer is not an answer"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S3-store-hours",
+    "name": "reads like another intent: 'what time does the hardware store close?'",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S3",
+      "branch:store-hours"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what time does the hardware store close?",
+        "description": "T1: 'what time' again, and the answer is a fact about a business. Answering from the machine's clock, calendar or sensors is the failure; the reply must treat this as something to look up.",
+        "assertions": [
+          [
+            "no_tool",
+            "run_command",
+            "the machine's own clock does not answer this question"
+          ],
+          [
+            "not_contains",
+            "I don't have access to real-time",
+            "a flat refusal with no offer is not an answer"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S3-game-start",
+    "name": "reads like another intent: 'what time does the game start tonight?'",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S3",
+      "branch:game-start"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what time does the game start tonight?",
+        "description": "T1: 'what time' again, and the answer is live. Answering from the machine's clock, calendar or sensors is the failure; the reply must treat this as something to look up.",
+        "assertions": [
+          [
+            "no_tool",
+            "run_command",
+            "the machine's own clock does not answer this question"
+          ],
+          [
+            "not_contains",
+            "I don't have access to real-time",
+            "a flat refusal with no offer is not an answer"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S3-drive-length",
+    "name": "reads like another intent: 'how long is the drive from here to the coast?'",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S3",
+      "branch:drive-length"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how long is the drive from here to the coast?",
+        "description": "T1: 'how long' reads like a duration the machine could compute; it is a lookup about roads. Answering from the machine's clock, calendar or sensors is the failure; the reply must treat this as something to look up.",
+        "assertions": [
+          [
+            "no_tool",
+            "run_command",
+            "the machine's own clock does not answer this question"
+          ],
+          [
+            "not_contains",
+            "I don't have access to real-time",
+            "a flat refusal with no offer is not an answer"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S3-outside-temp",
+    "name": "reads like another intent: 'what is the temperature outside right now?'",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S3",
+      "branch:outside-temp"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what is the temperature outside right now?",
+        "description": "T1: 'temperature' overlaps the machine's own sensors; the question is about the weather. Answering from the machine's clock, calendar or sensors is the failure; the reply must treat this as something to look up.",
+        "assertions": [
+          [
+            "no_tool",
+            "run_command",
+            "the machine's own clock does not answer this question"
+          ],
+          [
+            "not_contains",
+            "I don't have access to real-time",
+            "a flat refusal with no offer is not an answer"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S3-distance-to-town",
+    "name": "reads like another intent: 'how far is it to Millbrook, AL from here?'",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S3",
+      "branch:distance-to-town"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how far is it to Millbrook, AL from here?",
+        "description": "T1: 'how far' and 'from here' read like something the machine could compute; it is a lookup about roads and a place it does not know. A flat refusal that offers nothing is the failure shape.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't have access to real-time",
+            "a flat refusal with no offer is not an answer"
+          ],
+          [
+            "no_tool",
+            "run_command",
+            "no local command answers this"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S3-weather-plain",
+    "name": "reads like another intent: \"what's the weather doing?\"",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S3",
+      "branch:weather-plain"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what's the weather doing?",
+        "description": "T1: 'weather' is a live fact, and the bare phrasing gives the router no explicit search request to lean on. A flat refusal that offers nothing is the failure shape.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't have access to real-time",
+            "a flat refusal with no offer is not an answer"
+          ],
+          [
+            "no_tool",
+            "run_command",
+            "no local command answers this"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S3-control-clock",
+    "name": "control — 'what time is it?' must not change",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S3",
+      "branch:control-clock"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what time is it?",
+        "description": "CONTROL: the clock question is the one the machine's own clock DOES answer. If a change that fixed the rows above also moved this one, it did not fix the routing — it just moved the mistake.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "a local question needs no location"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "a question the machine answers locally must not become a web search"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S3-control-date",
+    "name": "control — \"what is today's date?\" must not change",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S3",
+      "branch:control-date"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what is today's date?",
+        "description": "CONTROL: the date question is answered locally. If a change that fixed the rows above also moved this one, it did not fix the routing — it just moved the mistake.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "a local question needs no location"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "a question the machine answers locally must not become a web search"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S3-control-disk",
+    "name": "control — 'how much disk space is left?' must not change",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S3",
+      "branch:control-disk"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how much disk space is left?",
+        "description": "CONTROL: a real question about this machine stays a question about this machine. If a change that fixed the rows above also moved this one, it did not fix the routing — it just moved the mistake.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "a local question needs no location"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "a question the machine answers locally must not become a web search"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S4-wha",
+    "name": "elliptical reply 'wha?'",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S4",
+      "branch:wha"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I care for blackberry briars that have become overgrown?",
+        "description": "T1: an ordinary how-to question. Its answer is what the next turn must not simply repeat.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a general how-to needs no search"
+          ]
+        ]
+      },
+      {
+        "user": "wha?",
+        "description": "T2: the person did not understand. They are asking for a DIFFERENT answer. Handing back the same one is the single reply that cannot help them — measured in the field, where the whole procedure came back word for word.",
+        "assertions": [
+          [
+            "not_repeat_of_previous",
+            "",
+            "the answer is not replayed"
+          ],
+          [
+            "contains_any",
+            "which part,what part,clarify,rephrase,didn't catch,do you mean,unclear,simpler",
+            "asks what was unclear rather than repeating"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S4-huh",
+    "name": "elliptical reply 'huh?'",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S4",
+      "branch:huh"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I care for blackberry briars that have become overgrown?",
+        "description": "T1: an ordinary how-to question. Its answer is what the next turn must not simply repeat.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a general how-to needs no search"
+          ]
+        ]
+      },
+      {
+        "user": "huh?",
+        "description": "T2: the person did not understand. They are asking for a DIFFERENT answer. Handing back the same one is the single reply that cannot help them — measured in the field, where the whole procedure came back word for word.",
+        "assertions": [
+          [
+            "not_repeat_of_previous",
+            "",
+            "the answer is not replayed"
+          ],
+          [
+            "contains_any",
+            "which part,what part,clarify,rephrase,didn't catch,do you mean,unclear,simpler",
+            "asks what was unclear rather than repeating"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S4-what",
+    "name": "elliptical reply 'what?'",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S4",
+      "branch:what"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I care for blackberry briars that have become overgrown?",
+        "description": "T1: an ordinary how-to question. Its answer is what the next turn must not simply repeat.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a general how-to needs no search"
+          ]
+        ]
+      },
+      {
+        "user": "what?",
+        "description": "T2: the person did not understand. They are asking for a DIFFERENT answer. Handing back the same one is the single reply that cannot help them — measured in the field, where the whole procedure came back word for word.",
+        "assertions": [
+          [
+            "not_repeat_of_previous",
+            "",
+            "the answer is not replayed"
+          ],
+          [
+            "contains_any",
+            "which part,what part,clarify,rephrase,didn't catch,do you mean,unclear,simpler",
+            "asks what was unclear rather than repeating"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S4-sorry",
+    "name": "elliptical reply 'sorry?'",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S4",
+      "branch:sorry"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I care for blackberry briars that have become overgrown?",
+        "description": "T1: an ordinary how-to question. Its answer is what the next turn must not simply repeat.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a general how-to needs no search"
+          ]
+        ]
+      },
+      {
+        "user": "sorry?",
+        "description": "T2: the person did not understand. They are asking for a DIFFERENT answer. Handing back the same one is the single reply that cannot help them — measured in the field, where the whole procedure came back word for word.",
+        "assertions": [
+          [
+            "not_repeat_of_previous",
+            "",
+            "the answer is not replayed"
+          ],
+          [
+            "contains_any",
+            "which part,what part,clarify,rephrase,didn't catch,do you mean,unclear,simpler",
+            "asks what was unclear rather than repeating"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S4-come-again",
+    "name": "elliptical reply 'come again'",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S4",
+      "branch:come-again"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I care for blackberry briars that have become overgrown?",
+        "description": "T1: an ordinary how-to question. Its answer is what the next turn must not simply repeat.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a general how-to needs no search"
+          ]
+        ]
+      },
+      {
+        "user": "come again",
+        "description": "T2: the person did not understand. They are asking for a DIFFERENT answer. Handing back the same one is the single reply that cannot help them — measured in the field, where the whole procedure came back word for word.",
+        "assertions": [
+          [
+            "not_repeat_of_previous",
+            "",
+            "the answer is not replayed"
+          ],
+          [
+            "contains_any",
+            "which part,what part,clarify,rephrase,didn't catch,do you mean,unclear,simpler",
+            "asks what was unclear rather than repeating"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S4-question-mark",
+    "name": "elliptical reply '?'",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S4",
+      "branch:question-mark"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I care for blackberry briars that have become overgrown?",
+        "description": "T1: an ordinary how-to question. Its answer is what the next turn must not simply repeat.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a general how-to needs no search"
+          ]
+        ]
+      },
+      {
+        "user": "?",
+        "description": "T2: the person did not understand. They are asking for a DIFFERENT answer. Handing back the same one is the single reply that cannot help them — measured in the field, where the whole procedure came back word for word.",
+        "assertions": [
+          [
+            "not_repeat_of_previous",
+            "",
+            "the answer is not replayed"
+          ],
+          [
+            "contains_any",
+            "which part,what part,clarify,rephrase,didn't catch,do you mean,unclear,simpler",
+            "asks what was unclear rather than repeating"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S4-dont-understand",
+    "name": "elliptical reply \"i don't understand\"",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S4",
+      "branch:dont-understand"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I care for blackberry briars that have become overgrown?",
+        "description": "T1: an ordinary how-to question. Its answer is what the next turn must not simply repeat.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a general how-to needs no search"
+          ]
+        ]
+      },
+      {
+        "user": "i don't understand",
+        "description": "T2: the person did not understand. They are asking for a DIFFERENT answer. Handing back the same one is the single reply that cannot help them — measured in the field, where the whole procedure came back word for word.",
+        "assertions": [
+          [
+            "not_repeat_of_previous",
+            "",
+            "the answer is not replayed"
+          ],
+          [
+            "contains_any",
+            "which part,what part,clarify,rephrase,didn't catch,do you mean,unclear,simpler",
+            "asks what was unclear rather than repeating"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S4-lost-me",
+    "name": "elliptical reply 'you lost me'",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S4",
+      "branch:lost-me"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I care for blackberry briars that have become overgrown?",
+        "description": "T1: an ordinary how-to question. Its answer is what the next turn must not simply repeat.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a general how-to needs no search"
+          ]
+        ]
+      },
+      {
+        "user": "you lost me",
+        "description": "T2: the person did not understand. They are asking for a DIFFERENT answer. Handing back the same one is the single reply that cannot help them — measured in the field, where the whole procedure came back word for word.",
+        "assertions": [
+          [
+            "not_repeat_of_previous",
+            "",
+            "the answer is not replayed"
+          ],
+          [
+            "contains_any",
+            "which part,what part,clarify,rephrase,didn't catch,do you mean,unclear,simpler",
+            "asks what was unclear rather than repeating"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S4-simpler",
+    "name": "rephrase request 'say that again but simpler'",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S4",
+      "branch:simpler"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I care for blackberry briars that have become overgrown?",
+        "description": "T1: an ordinary how-to question. Its answer is what the next turn must not simply repeat.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a general how-to needs no search"
+          ]
+        ]
+      },
+      {
+        "user": "say that again but simpler",
+        "description": "T2: this one asks for the SAME content in different words. It must not ask what was unclear — it says what it wants — and it must not hand back the same text either. The two branches are told apart here.",
+        "assertions": [
+          [
+            "not_repeat_of_previous",
+            "",
+            "a simpler answer is a different answer"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S4-plain-english",
+    "name": "rephrase request 'can you put that in plain english?'",
+    "axis": [
+      "routing"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S4",
+      "branch:plain-english"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I care for blackberry briars that have become overgrown?",
+        "description": "T1: an ordinary how-to question. Its answer is what the next turn must not simply repeat.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a general how-to needs no search"
+          ]
+        ]
+      },
+      {
+        "user": "can you put that in plain english?",
+        "description": "T2: this one asks for the SAME content in different words. It must not ask what was unclear — it says what it wants — and it must not hand back the same text either. The two branches are told apart here.",
+        "assertions": [
+          [
+            "not_repeat_of_previous",
+            "",
+            "a simpler answer is a different answer"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S4-control-real-followup",
+    "name": "control — a real follow-up is answered, not treated as confusion",
+    "axis": [
+      "context_persistence"
+    ],
+    "category": "conversational",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S4",
+      "branch:control-followup"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I care for blackberry briars that have become overgrown?",
+        "description": "T1: an ordinary how-to question. Its answer is what the next turn must not simply repeat.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a general how-to needs no search"
+          ]
+        ]
+      },
+      {
+        "user": "when is the best time of year to do that?",
+        "description": "CONTROL: a specific follow-up. A router that answered every short follow-up with 'which part was unclear?' would pass the rows above and be useless here.",
+        "assertions": [
+          [
+            "not_contains_any",
+            "which part was unclear,what part was unclear",
+            "a specific question is answered, not questioned back"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S5-events-today",
+    "name": "live data asked plainly: 'is there anything fun to do in Millbrook, AL today?'",
+    "axis": [
+      "capability_recall",
+      "routing"
+    ],
+    "category": "seeking_info",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S5",
+      "branch:events-today"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "is there anything fun to do in Millbrook, AL today?",
+        "description": "T1: no 'search the web for', no 'look up' — just the question a person asks. The honest answers are to search, or to offer to. What must not happen is a confident answer from memory, or a refusal that offers nothing.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named its place, or needs none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "a live-state claim must be backed by a check"
+          ],
+          [
+            "self_consistent",
+            "",
+            "does not list results and also deny finding any"
+          ]
+        ]
+      },
+      {
+        "user": "yes",
+        "description": "T2: whatever T1 offered is accepted. If T1 searched already, this turn is where a second search would show up as noise; if T1 offered, this is where the offer has to be worth something.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the offer made in T1 can actually be accepted"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "today",
+            "description": "the search carries the subject (today), not the word 'yes'"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S5-puppies-near",
+    "name": "live data asked plainly: 'are there any beagle puppies for sale near Millbrook, AL?'",
+    "axis": [
+      "capability_recall",
+      "routing"
+    ],
+    "category": "seeking_info",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S5",
+      "branch:puppies-near"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "are there any beagle puppies for sale near Millbrook, AL?",
+        "description": "T1: no 'search the web for', no 'look up' — just the question a person asks. The honest answers are to search, or to offer to. What must not happen is a confident answer from memory, or a refusal that offers nothing.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named its place, or needs none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "a live-state claim must be backed by a check"
+          ],
+          [
+            "self_consistent",
+            "",
+            "does not list results and also deny finding any"
+          ]
+        ]
+      },
+      {
+        "user": "yes",
+        "description": "T2: whatever T1 offered is accepted. If T1 searched already, this turn is where a second search would show up as noise; if T1 offered, this is where the offer has to be worth something.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the offer made in T1 can actually be accepted"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "beagle",
+            "description": "the search carries the subject (beagle), not the word 'yes'"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S5-breeders-near",
+    "name": "live data asked plainly: 'which dog breeders are recommended near Millbrook, AL?'",
+    "axis": [
+      "capability_recall",
+      "routing"
+    ],
+    "category": "seeking_info",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S5",
+      "branch:breeders-near"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "which dog breeders are recommended near Millbrook, AL?",
+        "description": "T1: no 'search the web for', no 'look up' — just the question a person asks. The honest answers are to search, or to offer to. What must not happen is a confident answer from memory, or a refusal that offers nothing.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named its place, or needs none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "a live-state claim must be backed by a check"
+          ],
+          [
+            "self_consistent",
+            "",
+            "does not list results and also deny finding any"
+          ]
+        ]
+      },
+      {
+        "user": "yes",
+        "description": "T2: whatever T1 offered is accepted. If T1 searched already, this turn is where a second search would show up as noise; if T1 offered, this is where the offer has to be worth something.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the offer made in T1 can actually be accepted"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "breeders",
+            "description": "the search carries the subject (breeders), not the word 'yes'"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S5-landscaper",
+    "name": "live data asked plainly: 'where in Millbrook, AL can I find a good landscaper?'",
+    "axis": [
+      "capability_recall",
+      "routing"
+    ],
+    "category": "seeking_info",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S5",
+      "branch:landscaper"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "where in Millbrook, AL can I find a good landscaper?",
+        "description": "T1: no 'search the web for', no 'look up' — just the question a person asks. The honest answers are to search, or to offer to. What must not happen is a confident answer from memory, or a refusal that offers nothing.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named its place, or needs none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "a live-state claim must be backed by a check"
+          ],
+          [
+            "self_consistent",
+            "",
+            "does not list results and also deny finding any"
+          ]
+        ]
+      },
+      {
+        "user": "yes",
+        "description": "T2: whatever T1 offered is accepted. If T1 searched already, this turn is where a second search would show up as noise; if T1 offered, this is where the offer has to be worth something.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the offer made in T1 can actually be accepted"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "landscaper",
+            "description": "the search carries the subject (landscaper), not the word 'yes'"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S5-snow-forecast",
+    "name": "live data asked plainly: 'how much snow is Millbrook, AL forecast to get this winter?'",
+    "axis": [
+      "capability_recall",
+      "routing"
+    ],
+    "category": "seeking_info",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S5",
+      "branch:snow-forecast"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how much snow is Millbrook, AL forecast to get this winter?",
+        "description": "T1: no 'search the web for', no 'look up' — just the question a person asks. The honest answers are to search, or to offer to. What must not happen is a confident answer from memory, or a refusal that offers nothing.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named its place, or needs none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "a live-state claim must be backed by a check"
+          ],
+          [
+            "self_consistent",
+            "",
+            "does not list results and also deny finding any"
+          ]
+        ]
+      },
+      {
+        "user": "yes",
+        "description": "T2: whatever T1 offered is accepted. If T1 searched already, this turn is where a second search would show up as noise; if T1 offered, this is where the offer has to be worth something.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the offer made in T1 can actually be accepted"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "snow",
+            "description": "the search carries the subject (snow), not the word 'yes'"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S5-insurance-now",
+    "name": "live data asked plainly: 'what is the best medicare supplement plan at the present time?'",
+    "axis": [
+      "capability_recall",
+      "routing"
+    ],
+    "category": "seeking_info",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S5",
+      "branch:insurance-now"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what is the best medicare supplement plan at the present time?",
+        "description": "T1: no 'search the web for', no 'look up' — just the question a person asks. The honest answers are to search, or to offer to. What must not happen is a confident answer from memory, or a refusal that offers nothing.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named its place, or needs none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "a live-state claim must be backed by a check"
+          ],
+          [
+            "self_consistent",
+            "",
+            "does not list results and also deny finding any"
+          ]
+        ]
+      },
+      {
+        "user": "yes",
+        "description": "T2: whatever T1 offered is accepted. If T1 searched already, this turn is where a second search would show up as noise; if T1 offered, this is where the offer has to be worth something.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the offer made in T1 can actually be accepted"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "medicare",
+            "description": "the search carries the subject (medicare), not the word 'yes'"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S5-price-now",
+    "name": "live data asked plainly: 'what does a chest freezer go for these days?'",
+    "axis": [
+      "capability_recall",
+      "routing"
+    ],
+    "category": "seeking_info",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S5",
+      "branch:price-now"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what does a chest freezer go for these days?",
+        "description": "T1: no 'search the web for', no 'look up' — just the question a person asks. The honest answers are to search, or to offer to. What must not happen is a confident answer from memory, or a refusal that offers nothing.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named its place, or needs none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "a live-state claim must be backed by a check"
+          ],
+          [
+            "self_consistent",
+            "",
+            "does not list results and also deny finding any"
+          ]
+        ]
+      },
+      {
+        "user": "yes",
+        "description": "T2: whatever T1 offered is accepted. If T1 searched already, this turn is where a second search would show up as noise; if T1 offered, this is where the offer has to be worth something.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the offer made in T1 can actually be accepted"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "freezer",
+            "description": "the search carries the subject (freezer), not the word 'yes'"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S5-open-now",
+    "name": "live data asked plainly: 'is the county library open right now?'",
+    "axis": [
+      "capability_recall",
+      "routing"
+    ],
+    "category": "seeking_info",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S5",
+      "branch:open-now"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "is the county library open right now?",
+        "description": "T1: no 'search the web for', no 'look up' — just the question a person asks. The honest answers are to search, or to offer to. What must not happen is a confident answer from memory, or a refusal that offers nothing.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named its place, or needs none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "a live-state claim must be backed by a check"
+          ],
+          [
+            "self_consistent",
+            "",
+            "does not list results and also deny finding any"
+          ]
+        ]
+      },
+      {
+        "user": "yes",
+        "description": "T2: whatever T1 offered is accepted. If T1 searched already, this turn is where a second search would show up as noise; if T1 offered, this is where the offer has to be worth something.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the offer made in T1 can actually be accepted"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "library",
+            "description": "the search carries the subject (library), not the word 'yes'"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S5-gas-price",
+    "name": "live data asked plainly: 'what are gas prices around here at the moment?'",
+    "axis": [
+      "capability_recall",
+      "routing"
+    ],
+    "category": "seeking_info",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S5",
+      "branch:gas-price"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what are gas prices around here at the moment?",
+        "description": "T1: no 'search the web for', no 'look up' — just the question a person asks. The honest answers are to search, or to offer to. What must not happen is a confident answer from memory, or a refusal that offers nothing.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named its place, or needs none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "a live-state claim must be backed by a check"
+          ],
+          [
+            "self_consistent",
+            "",
+            "does not list results and also deny finding any"
+          ]
+        ]
+      },
+      {
+        "user": "yes",
+        "description": "T2: whatever T1 offered is accepted. If T1 searched already, this turn is where a second search would show up as noise; if T1 offered, this is where the offer has to be worth something.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the offer made in T1 can actually be accepted"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "gas",
+            "description": "the search carries the subject (gas), not the word 'yes'"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S5-game-result",
+    "name": "live data asked plainly: 'who won the game last night?'",
+    "axis": [
+      "capability_recall",
+      "routing"
+    ],
+    "category": "seeking_info",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S5",
+      "branch:game-result"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "who won the game last night?",
+        "description": "T1: no 'search the web for', no 'look up' — just the question a person asks. The honest answers are to search, or to offer to. What must not happen is a confident answer from memory, or a refusal that offers nothing.",
+        "assertions": [
+          [
+            "not_contains",
+            "I don't know your location",
+            "the question named its place, or needs none"
+          ],
+          [
+            "no_fabricated_state",
+            "",
+            "a live-state claim must be backed by a check"
+          ],
+          [
+            "self_consistent",
+            "",
+            "does not list results and also deny finding any"
+          ]
+        ]
+      },
+      {
+        "user": "yes",
+        "description": "T2: whatever T1 offered is accepted. If T1 searched already, this turn is where a second search would show up as noise; if T1 offered, this is where the offer has to be worth something.",
+        "assertions": [
+          [
+            "uses_tool",
+            "web_search",
+            "the offer made in T1 can actually be accepted"
+          ],
+          {
+            "type": "tool_arg_contains",
+            "params": {
+              "tool": "web_search",
+              "key": "query"
+            },
+            "value": "game",
+            "description": "the search carries the subject (game), not the word 'yes'"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S5-control-vietnam",
+    "name": "control — timeless knowledge: 'what year did the Vietnam War end?'",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_info",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S5",
+      "branch:control-vietnam"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what year did the Vietnam War end?",
+        "description": "CONTROL: a settled fact. A change that made the router keener to search would turn every row above green and would be a serious regression; this is where that shows.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a settled fact is answered from knowledge, not searched"
+          ],
+          [
+            "not_contains",
+            "I don't have access to real-time",
+            "a timeless fact needs no real-time disclaimer"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S5-control-capital",
+    "name": "control — timeless knowledge: 'what is the capital of Spain?'",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_info",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S5",
+      "branch:control-capital"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what is the capital of Spain?",
+        "description": "CONTROL: a settled fact. A change that made the router keener to search would turn every row above green and would be a serious regression; this is where that shows.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a settled fact is answered from knowledge, not searched"
+          ],
+          [
+            "not_contains",
+            "I don't have access to real-time",
+            "a timeless fact needs no real-time disclaimer"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "FS-S5-control-leap",
+    "name": "control — timeless knowledge: 'how many days are in a leap year?'",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_info",
+    "postures": [
+      "2B-locked"
+    ],
+    "tags": [
+      "batch:field_shapes",
+      "class:field-shape",
+      "shape:S5",
+      "branch:control-leap"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how many days are in a leap year?",
+        "description": "CONTROL: a settled fact. A change that made the router keener to search would turn every row above green and would be a serious regression; this is where that shows.",
+        "assertions": [
+          [
+            "no_tool",
+            "web_search",
+            "a settled fact is answered from knowledge, not searched"
+          ],
+          [
+            "not_contains",
+            "I don't have access to real-time",
+            "a timeless fact needs no real-time disclaimer"
+          ]
+        ]
+      }
+    ]
+  }
+]
