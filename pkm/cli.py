@@ -20,6 +20,7 @@ except ImportError:
 from . import __version__
 from . import preflight as preflight_module
 from . import progress
+from . import rootpaths
 from . import txn
 from .configprotect import summary_lines as configprotect_summary_lines
 from .database import PackageDB, _sha256
@@ -72,6 +73,257 @@ PKM_LOCK_WAIT_TIMEOUT_DEFAULT = 600
 PKM_LOCK_WAIT_REPORT_EVERY = 5
 
 
+# The install root THIS invocation acts on. None means the running system, which
+# is what every pkm invocation before `--root` existed meant and still means.
+# Process-level rather than threaded through forty call sites because it is a
+# property of the invocation, not of any one call: pkm resolves it once from
+# argv, before the database is opened, and nothing changes it afterwards.
+_INSTALL_ROOT = None
+
+
+def set_install_root(root):
+    """Fix the install root for this invocation. Called once, from main()."""
+    global _INSTALL_ROOT
+    _INSTALL_ROOT = Path(root) if root is not None else None
+
+
+def install_root():
+    """The install root for this invocation, or "/" when none was named."""
+    return _INSTALL_ROOT if _INSTALL_ROOT is not None else rootpaths.DEFAULT_ROOT
+
+
+def repo_manager():
+    """A RepoManager for this invocation's install root.
+
+    Constructed with NO root argument when none was named, so the call is
+    byte-for-byte the one pkm has always made — which matters beyond tidiness:
+    a caller that substitutes RepoManager keeps working, and nothing that
+    predates the install-root option has to learn a new signature.
+    """
+    root = install_root()
+    if str(root) == "/":
+        return RepoManager()
+    return RepoManager(root=root)
+
+
+def package_installer(db):
+    """A PackageInstaller over `db`, rooted where the database is rooted.
+
+    Same rule as repo_manager(): no extra argument when the root is "/". The
+    decision is made from the INVOCATION's root rather than from db.root,
+    because that is what actually determines it — the database was opened
+    against the same root a moment earlier — and because db.root on a
+    substituted database object is whatever that object returns.
+    """
+    root = install_root()
+    if str(root) == "/":
+        return PackageInstaller(db)
+    return PackageInstaller(db, root=str(root))
+
+
+def helper_is_present(name):
+    """Is `name` a proprietary-download helper package, on the root in play?
+
+    Wrapped for the same reason as repo_manager(): with no install root named
+    the underlying call is made exactly as it always was, one positional
+    argument, so nothing that substitutes it has to learn a new signature.
+    """
+    root = install_root()
+    if str(root) == "/":
+        return is_download_helper(name)
+    return is_download_helper(name, root=root)
+
+
+def helper_payload_present(name):
+    """Has the real proprietary app for `name` been installed on the root in play?"""
+    root = install_root()
+    if str(root) == "/":
+        return payload_installed(name)
+    return payload_installed(name, root=root)
+
+
+def repo_pkg_cache():
+    """The downloaded-package cache for the root this invocation acts on.
+
+    With no install root named, this is repo.REPO_PKG_CACHE — read from the
+    module at call time, so the declared default stays the single place the
+    live path is stated.
+    """
+    root = install_root()
+    if str(root) == "/":
+        from . import repo as _repo
+        return _repo.REPO_PKG_CACHE
+    return rootpaths.repo_cache_dir(root) / "packages"
+
+
+def repo_rollback_dir():
+    """The pre-upgrade rollback archive cache for this invocation's root.
+
+    Same default-root rule as repo_pkg_cache().
+    """
+    root = install_root()
+    if str(root) == "/":
+        from . import repo as _repo
+        return _repo.REPO_ROLLBACK_DIR
+    return rootpaths.repo_cache_dir(root) / "rollback"
+
+
+# Subcommands PROVEN to work against a root that is not the running system's.
+# The set is an allowlist and the default is refusal, deliberately: a command
+# whose behaviour under an alternate root has not been read and reasoned about
+# is a command that might do half its work in the target and half on the live
+# machine, and half-applying is the failure mode `--root` exists to remove.
+# Adding a name here means someone has traced what that command touches.
+#
+# What each member touches, and why it is honourable:
+#   install   — deploys into the root, records in the root's database and text
+#               manifests; canonical hooks already adapt or skip per root
+#               (pkm/hooks.py), and a package hook that cannot run under the
+#               root is refused before deploy by refuse_unrunnable_package_hook.
+#   remove    — PackageRemover takes its root from the database's.
+#   verify    — hashes the root's files against the root's database.
+#   import    — reads the root's text manifests into the root's database.
+#   list / search / info / files / provides / depends / history
+#             — SELECTs against the root's database, or the synced index in the
+#               root's cache.
+#   update    — writes the index into the root's cache. The signature is still
+#               checked against the RUNNING system's keyring (rootpaths).
+#   cache     — operates on the root's cache directory.
+#   vacuum    — maintenance on the root's database file.
+#   hold / unhold / mark
+#             — rows in the root's database, nothing on disk.
+PKM_ROOT_CAPABLE_COMMANDS = frozenset({
+    "install", "remove", "verify", "import",
+    "list", "search", "info", "files", "provides", "depends", "history",
+    "update", "cache", "vacuum",
+    "hold", "unhold", "mark",
+})
+
+# Why each refused command is refused, in the words the operator is shown. A
+# command absent from this map still refuses — the map only makes the reason
+# specific where a specific reason is known.
+PKM_ROOT_REFUSAL_REASONS = {
+    "install-helper":
+        "it downloads a vendor's own installer and runs it against the "
+        "running system, which has no meaning for another root",
+    "reinstall":
+        "it composes a remove and an install through the repository path, "
+        "which has not been traced under an alternate root",
+    "upgrade":
+        "it can restart services on the running system as part of the "
+        "transaction, and the root it would upgrade is not the system those "
+        "services belong to",
+    "restart-services":
+        "it asks the running system's service manager to restart units; a "
+        "target root has no running service manager",
+    "autoremove":
+        "its removal set is computed from the running system's dependency "
+        "state, which has not been traced under an alternate root",
+    "iso-prep":
+        "it already takes the tree it operates on from the database it is "
+        "given, and rooting it as well has not been traced",
+    "refresh-baseline":
+        "it re-hashes configuration files as the running system's baseline",
+    "hook-baseline":
+        "it records a baseline of the running system's files",
+    "record-hook-changes":
+        "it compares the running system's files against a baseline",
+    "check-updates":
+        "it reports what the running system could upgrade, for that system's "
+        "desktop notifier",
+}
+
+
+def refuse_unrooted_command(command, root):
+    """Refuse a subcommand that cannot be honoured under `root`.
+
+    Returns None when the command is honourable, or (exit_code, message) when
+    it is not. Returning rather than exiting keeps the decision testable
+    without running the program, and keeps the refusal ahead of every side
+    effect: main() calls this before it opens a database or takes a lock.
+    """
+    if command in PKM_ROOT_CAPABLE_COMMANDS:
+        return None
+    reason = PKM_ROOT_REFUSAL_REASONS.get(
+        command,
+        "it has not been traced against a root other than the running "
+        "system's, and pkm refuses what it cannot prove it can honour",
+    )
+    message = (
+        f"pkm: '{command}' cannot be run against the install root {root} "
+        f"because {reason}.\n"
+        f"     Nothing was changed. Run it without --root to act on this "
+        f"system, or use one of: "
+        f"{', '.join(sorted(PKM_ROOT_CAPABLE_COMMANDS))}."
+    )
+    return (1, message)
+
+
+def _hook_interpreter(hook_path):
+    """The interpreter a hook's shebang names, or None when it has none."""
+    try:
+        with open(str(hook_path), "rb") as fh:
+            first = fh.readline(256)
+    except OSError:
+        return None
+    if not first.startswith(b"#!"):
+        return None
+    text = first[2:].decode("utf-8", "replace").strip()
+    if not text:
+        return None
+    # `#!/usr/bin/env sh` names env as the program that must exist.
+    return text.split()[0]
+
+
+def refuse_unrunnable_package_hook(name, root):
+    """Refuse a package whose post-install hook cannot run under `root`.
+
+    pkm executes a per-package post-install hook under ``chroot(root)`` when the
+    root is not "/", and treats a failure to execute it as a non-fatal warning.
+    That is right where Forge uses it — the install pipeline has already
+    bind-mounted /dev, /proc and /sys into a fully populated target, so the hook
+    genuinely runs. It is wrong for a bare directory: the chroot exec fails
+    because the interpreter named by the hook's shebang does not exist inside
+    the root, the warning scrolls past, and the install reports success with the
+    package's own post-install step never having happened.
+
+    So the condition is checked HERE, before anything is deployed, and the
+    install is refused rather than half-applied. Returns None when there is no
+    hook or the hook can run, and (exit_code, message) when it cannot.
+    """
+    root = Path(root)
+    if str(root) == "/":
+        return None
+    hook = rootpaths.package_hooks_dir(root) / name / "post-install"
+    if not hook.is_file():
+        return None
+    interpreter = _hook_interpreter(hook)
+    if interpreter is None:
+        # No shebang: the kernel would run it with the caller's shell, which
+        # inside the chroot is again a program that has to exist there. There
+        # is nothing specific to name, so this reports the hook itself.
+        message = (
+            f"pkm: {name} ships a post-install hook at {hook} that names no "
+            f"interpreter, so pkm cannot tell whether it can run inside "
+            f"{root}.\n"
+            f"     Nothing was installed."
+        )
+        return (1, message)
+    candidate = root / interpreter.lstrip("/")
+    if candidate.exists():
+        return None
+    message = (
+        f"pkm: {name} ships a post-install hook that runs under {interpreter}, "
+        f"and {interpreter} does not exist inside the install root {root}.\n"
+        f"     pkm runs a package's post-install hook inside the root it "
+        f"installs into, so this hook could not run and the install would "
+        f"report success with the package's own post-install step skipped.\n"
+        f"     Nothing was installed. Populate {candidate} — a root that can "
+        f"run the package's hook — and run this again."
+    )
+    return (1, message)
+
+
 def resolve_lock_path():
     """Where the mutation lock lives for THIS invocation.
 
@@ -84,7 +336,14 @@ def resolve_lock_path():
     sets it after this module is already imported.
     """
     override = os.environ.get("IGOS_PKM_LOCK")
-    return Path(override) if override else PKM_LOCK_PATH
+    if override:
+        return Path(override)
+    # With no override, the lock belongs to the root being acted on. Two pkm
+    # runs against two different roots are genuinely independent transactions,
+    # and a single machine-wide lock would have made one wait on the other for
+    # no reason — while a shared lock across roots would still not have
+    # protected anything, because the state they contend for is per-root.
+    return rootpaths.lock_path(install_root())
 
 
 def _flock_holder_pids(lock_path):
@@ -449,6 +708,25 @@ def build_parser():
     )
     parser.add_argument("--version", action="version", version=f"pkm {__version__}")
     parser.add_argument("--db", help="Database path override")
+
+    # The install root. Every piece of pkm's own state derives from it — the
+    # database, the text manifests, the archive directory, the helper
+    # manifests, the lock, the repository cache, the available-updates file,
+    # the per-package hook directory and the pre-transaction handler directory
+    # (pkm/rootpaths.py holds the single table). Two things deliberately do
+    # NOT: the repository configuration and the verification keyring are read
+    # from the RUNNING system, because a target being bootstrapped has no
+    # keyring to verify against and a target that has one would otherwise be
+    # choosing which signatures pkm believes while pkm installs into it. The
+    # help text says so, because that is exactly the assumption a reader makes.
+    parser.add_argument(
+        "--root", metavar="DIR",
+        help="Install into DIR instead of this system: the packages, the "
+             "package database, the manifests, the archives, the lock and the "
+             "cache all live under DIR. Repository configuration and the "
+             "signature keys used to verify what is installed are still read "
+             "from this system. A subcommand that cannot be honoured under "
+             "another root refuses rather than doing part of its work.")
 
     # Waiting on the mutation lock. The DEFAULT is deliberately not a constant:
     # it is None here and resolved at acquisition from whether stdin is a
@@ -972,6 +1250,38 @@ def main():
         parser.print_help()
         return
 
+    # The install root is resolved BEFORE anything else looks at a path: the
+    # root gate below, the database open, the lock, the repository cache and
+    # every handler all ask install_root() for where they are working, so it
+    # has to be true by this line or some of them would answer for the running
+    # system and some for the target — the half-application this option exists
+    # to make impossible.
+    if getattr(args, "root", None):
+        root = Path(args.root)
+        if not root.is_absolute():
+            print(
+                f"pkm: --root {args.root} is not an absolute path. The install "
+                f"root has to be unambiguous, because every path pkm writes is "
+                f"resolved against it.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        if not root.is_dir():
+            print(
+                f"pkm: --root {root} is not a directory that exists. pkm will "
+                f"create its own state directories underneath an install root, "
+                f"but it will not create the root itself — a typo would "
+                f"otherwise silently become a new empty system.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        set_install_root(root)
+        refusal = refuse_unrooted_command(args.command, root)
+        if refusal is not None:
+            code, message = refusal
+            print(message, file=sys.stderr)
+            sys.exit(code)
+
     # Root gate. The mutating commands modify the system (the pkm DB under
     # /var/lib/igos, the live filesystem, the repo cache, the lock) and need
     # root. Run as a normal user they would otherwise blow up further down
@@ -1024,8 +1334,13 @@ def main():
     # accidental write attempt in a preview path fails closed rather than
     # mutating state.
     read_only = (args.command in PKM_READONLY_COMMANDS) or dry_run_preview
+    # An explicit --db still wins: it is the narrower statement, and a caller
+    # who names both is saying "this database, that root". With neither, the
+    # path is the shipped one, because install_root() is "/".
+    db_path = args.db if args.db else str(rootpaths.db_path(install_root()))
     try:
-        db = PackageDB(args.db, create_if_missing=create_if_missing,
+        db = PackageDB(db_path, root=str(install_root()),
+                       create_if_missing=create_if_missing,
                        read_only=read_only)
     except FileNotFoundError as e:
         if _TRACE_AVAILABLE:
@@ -1143,7 +1458,7 @@ def _proprietary_install(db, installer, repo, reporter, pkg_name, payload_licens
     # payload IS the requested operation.
     existing = db.get_installed(pkg_name)
     if (not replace and existing and not existing.get("superseded_by")
-            and payload_installed(pkg_name)):
+            and helper_payload_present(pkg_name)):
         reporter.info(
             f"{pkg_name} is already installed. Use `pkm reinstall {pkg_name}` "
             f"to replace."
@@ -1290,7 +1605,7 @@ def _continue_into_payload_if_helper(db, installer, repo, reporter, name):
     No-op for a package that is not a helper, and for one whose payload is
     already installed.
     """
-    if not is_download_helper(name) or payload_installed(name):
+    if not helper_is_present(name) or helper_payload_present(name):
         return
     rp = repo.get_package(name)
     payload_license = (rp or {}).get("payload_license") or \
@@ -1305,8 +1620,8 @@ def _continue_into_payload_if_helper(db, installer, repo, reporter, name):
 
 
 def cmd_install(db, args):
-    installer = PackageInstaller(db)
-    repo = RepoManager()
+    installer = package_installer(db)
+    repo = repo_manager()
     reporter = Reporter.from_args(args)
 
     if args.archive and len(args.packages) > 1:
@@ -1328,6 +1643,7 @@ def cmd_install(db, args):
         db, "install", args.packages,
         reason=f"pre-transaction install: {', '.join(args.packages)}",
         reporter=reporter,
+        handler_dir=rootpaths.pretxn_handler_dir(install_root()),
     )
 
     # 3.0-F28: names successfully installed in THIS transaction, so a single
@@ -1357,14 +1673,45 @@ def cmd_install(db, args):
             # per-vendor EULA is still shown by the helper's own "I ACCEPT"
             # gate; a generic label keeps the pre-download consent pause intact
             # when the index isn't present to supply the precise license name.
-            if not _payload_license and is_download_helper(pkg_name):
+            if not _payload_license and helper_is_present(pkg_name):
                 _payload_license = "a proprietary vendor license (shown during install)"
             if _payload_license:
+                # A proprietary-download package installs by running the
+                # vendor's own installer against the running system: it
+                # downloads a payload, shows the vendor's licence gate to a
+                # person at this machine's keyboard, and records the
+                # acceptance here. None of that is something pkm can perform
+                # on behalf of another root, and doing the pkm-package half
+                # while skipping the payload half is precisely the
+                # half-application the install root refuses.
+                if str(install_root()) != "/":
+                    reporter.error(
+                        f"{pkg_name} is a proprietary-download package: it is "
+                        f"installed by running the vendor's own installer on "
+                        f"this machine, with a person accepting the vendor's "
+                        f"licence. That cannot be done for the install root "
+                        f"{install_root()}. Nothing was changed."
+                    )
+                    return 1
                 _proprietary_install(
                     db, installer, repo, reporter, pkg_name,
                     _payload_license,
                 )
                 continue
+
+        # A package whose own post-install hook could not run inside this
+        # root is refused BEFORE anything is acquired or deployed. pkm runs
+        # that hook under chroot(root), and the shipped code treats a hook it
+        # cannot execute as a non-fatal warning — right for Forge, whose
+        # pipeline has already bind-mounted /dev, /proc and /sys into a fully
+        # populated target, and wrong for a bare directory, where it means the
+        # install reports success with the package's own post-install step
+        # never having happened.
+        _hook_refusal = refuse_unrunnable_package_hook(pkg_name, install_root())
+        if _hook_refusal is not None:
+            _code, _message = _hook_refusal
+            reporter.error(_message)
+            return _code
 
         # ALREADY-INSTALLED ROUTING, BY RELEASE (before any acquisition).
         #
@@ -1551,7 +1898,7 @@ def cmd_install(db, args):
 
             # Q6 (O-025): free-disk preflight across the resolved-dep queue.
             from . import preflight
-            from .repo import REPO_PKG_CACHE
+            REPO_PKG_CACHE = repo_pkg_cache()
             dep_sizes = []
             for d in deps:
                 dpkg = repo.get_package(d)
@@ -1623,7 +1970,7 @@ def cmd_install(db, args):
 
 
 def cmd_install_helper(db, args):
-    installer = PackageInstaller(db)
+    installer = package_installer(db)
     name = args.package
 
     # EULA install-helper hybrid-model resolution path (2026-05-28).
@@ -1713,9 +2060,9 @@ def cmd_reinstall(db, args):
     old copy and install the new one. If acquisition fails, the system is
     left exactly as it was — nothing is removed.
     """
-    installer = PackageInstaller(db)
+    installer = package_installer(db)
     remover = PackageRemover(db)
-    repo = RepoManager()
+    repo = repo_manager()
     reporter = Reporter.from_args(args)
 
     for pkg_name in args.packages:
@@ -1733,7 +2080,7 @@ def cmd_reinstall(db, args):
         # the stub archive, removes the package (deleting the downloaded
         # payload), and lays the stub back: the exact opposite of "replace",
         # and contradicting the advice _proprietary_install gives the user.
-        if is_download_helper(pkg_name):
+        if helper_is_present(pkg_name):
             _rp = repo.get_package(pkg_name)
             _payload_license = (_rp or {}).get("payload_license") or \
                 "a proprietary vendor license (shown during install)"
@@ -1862,6 +2209,7 @@ def cmd_remove(db, args):
         db, "remove", [args.package],
         reason=f"pre-transaction remove: {args.package}",
         reporter=reporter,
+        handler_dir=rootpaths.pretxn_handler_dir(install_root()),
     )
     # S3 — removing a large package unlinks its whole payload and then walks
     # the ancestor closure of every path it touched, all of it between the
@@ -1907,7 +2255,7 @@ def cmd_remove(db, args):
 
 
 def cmd_update(db, args):
-    repo = RepoManager()
+    repo = repo_manager()
     reporter = Reporter.from_args(args)
     results = repo.sync(reporter=reporter)
     # The reporter surfaces each repo's Hit/Index/Signature/count inline.
@@ -1998,8 +2346,8 @@ def cmd_upgrade(db, args):
         )
         sys.exit(1)
 
-    repo = RepoManager()
-    installer = PackageInstaller(db)
+    repo = repo_manager()
+    installer = package_installer(db)
     allow_downgrade = getattr(args, "allow_downgrade", False)
     ignore_holds = getattr(args, "ignore_holds", False)
     held_set = set(db.list_held())
@@ -2167,7 +2515,7 @@ def cmd_upgrade(db, args):
     # confirmation prompt so the user isn't asked to confirm an upgrade
     # that's going to fail mid-extraction.
     from . import preflight
-    from .repo import REPO_PKG_CACHE
+    REPO_PKG_CACHE = repo_pkg_cache()
     archive_sizes = [int(r.get("size") or 0) for _, r in upgradable]
     if any(s > 0 for s in archive_sizes):
         required = preflight.estimate_required_space(archive_sizes)
@@ -2193,6 +2541,7 @@ def cmd_upgrade(db, args):
     _pretxn_result = pretxn.run_pre_transaction_hook(
         db, "upgrade", _upgrade_names,
         reason=f"pre-transaction upgrade: {', '.join(_upgrade_names)}",
+        handler_dir=rootpaths.pretxn_handler_dir(install_root()),
     )
     # Tell the user what protection this transaction actually has, ONCE,
     # before anything is mutated. Three truthful states:
@@ -2517,8 +2866,8 @@ def _app_status(name, installed_names):
     whenever its DB row is present. (PRIME DIRECTIVE: never tell the user the
     app is installed when it is not.)
     """
-    if is_download_helper(name):
-        if payload_installed(name):
+    if helper_is_present(name):
+        if helper_payload_present(name):
             return "[installed]"
         return f"(available — run: pkm install {name})"
     return "[installed]" if name in installed_names else ""
@@ -2573,7 +2922,7 @@ def cmd_list(db, args):
                 pkg.get("description", ""), tag,
             )
     elif args.what == "available":
-        repo = RepoManager()
+        repo = repo_manager()
         packages = repo.list_available(tier=args.tier)
         if not packages:
             emit_info("No packages available. Run `pkm sync` first.")
@@ -2586,7 +2935,7 @@ def cmd_list(db, args):
             )
     elif args.what in ("upgradable", "upgradeable"):  # A29: accept both spellings
         from .version import is_upgradable, VersionParseError
-        repo = RepoManager()
+        repo = repo_manager()
         installed = db.list_installed()
         count = 0
         for pkg in installed:
@@ -2613,7 +2962,7 @@ def cmd_search(db, args):
     local = db.search(args.term)
 
     # Search repositories
-    repo = RepoManager()
+    repo = repo_manager()
     remote = repo.search(args.term)
 
     # Merge — mark installed packages
@@ -2661,7 +3010,7 @@ def cmd_info(db, args):
         # an error here; the answer degrades to the plain line it always was.
         available = None
         try:
-            available = RepoManager().get_package(args.package)
+            available = repo_manager().get_package(args.package)
         except Exception:  # noqa: BLE001 — an index fault must not break info
             available = None
         if not available:
@@ -3193,7 +3542,7 @@ def cmd_hook_baseline(db, args):
     if db.get_installed(args.package) is None:
         emit_error(f"{args.package} is not registered — no baseline to take")
         return 1
-    installer = PackageInstaller(db, root=str(db.root))
+    installer = package_installer(db)
     baseline = installer.hook_baseline(args.package)
     try:
         with open(args.out, "w") as fh:
@@ -3234,7 +3583,7 @@ def cmd_record_hook_changes(db, args):
         emit_error(f"cannot read baseline {args.baseline}: {e}")
         return 1
 
-    installer = PackageInstaller(db, root=str(db.root))
+    installer = package_installer(db)
     changed, messages = installer.record_hook_changes(args.package, baseline)
     for line in messages:
         emit(line)
@@ -3392,13 +3741,13 @@ def _save_rollback_archive(name, version, release):
         per package.
     """
     import shutil
-    from .repo import REPO_PKG_CACHE
+    REPO_PKG_CACHE = repo_pkg_cache()
 
     src = _cached_old_archive(name, version, release)
     if src is None:
         return None
     try:
-        from .repo import REPO_ROLLBACK_DIR
+        REPO_ROLLBACK_DIR = repo_rollback_dir()
         REPO_ROLLBACK_DIR.mkdir(parents=True, exist_ok=True)
         # Destination keeps the fully-qualified name regardless of which
         # cache shape matched, so `cache clean --rollback`'s
@@ -3423,7 +3772,7 @@ def _cached_old_archive(name, version, release):
     checked, most-specific first, so a future index that publishes
     release-qualified filenames keeps working too.
     """
-    from .repo import REPO_PKG_CACHE
+    REPO_PKG_CACHE = repo_pkg_cache()
 
     for archive_name in (
         f"{name}-{version}-{int(release or 1)}.igos.tar.gz",
@@ -4065,7 +4414,23 @@ def cmd_iso_prep(db, args):
 # Path is module-level for production use; cmd_check_updates accepts
 # an `output_path` kwarg so tests can target a temp directory without
 # touching system state.
+# Where `pkm check-updates` writes its report for the desktop notifier. Kept as
+# a module constant because that is the path the notifier unit reads; the
+# root-derived form is available_updates_path() below, and the two are the same
+# value whenever no install root is named.
 AVAILABLE_UPDATES_PATH = Path("/var/lib/pkm/available-updates.json")
+
+
+def available_updates_path():
+    """The available-updates report file for the root this invocation acts on.
+
+    AVAILABLE_UPDATES_PATH above is the declared default and is what this
+    returns when no install root is named.
+    """
+    root = install_root()
+    if str(root) == "/":
+        return AVAILABLE_UPDATES_PATH
+    return rootpaths.available_updates_path(root)
 
 
 def _compute_available_updates(db, repo, warn=None):
@@ -4158,13 +4523,13 @@ def refresh_available_updates_after_transaction(db, output_path=None):
     advisory, so the last-good file is left untouched and the reason is stated;
     an unwritable path is likewise reported and tolerated."""
     if output_path is None:
-        output_path = AVAILABLE_UPDATES_PATH
+        output_path = available_updates_path()
     # Best-effort by contract: the transaction has already committed, so a
     # cosmetic re-count must NEVER propagate an error and undo/abort it. A
     # deliberate single broad boundary (not bulk hardening) — every failure
     # mode degrades loudly-informationally, never silently.
     try:
-        repo = RepoManager()
+        repo = repo_manager()
         if not repo.has_synced_index():
             emit_warn(
                 "skipped refreshing the available-updates advisory: no synced "
@@ -4224,7 +4589,7 @@ def cmd_check_updates(db, args, output_path=None):
     the JSON is always written regardless of --quiet.
     """
     if output_path is None:
-        output_path = AVAILABLE_UPDATES_PATH
+        output_path = available_updates_path()
     output_path = Path(output_path)
 
     def _warn(name, _reason):
@@ -4234,7 +4599,7 @@ def cmd_check_updates(db, args, output_path=None):
                 file=sys.stderr,
             )
 
-    repo = RepoManager()
+    repo = repo_manager()
     packages, skipped = _compute_available_updates(db, repo, warn=_warn)
     summary = _available_updates_summary(packages, skipped)
 
@@ -4320,7 +4685,7 @@ def cmd_cache_clean(db, args):
         return _cache_clean_rollback(db)
 
     import re
-    from .repo import REPO_PKG_CACHE
+    REPO_PKG_CACHE = repo_pkg_cache()
 
     if not REPO_PKG_CACHE.exists():
         emit_info(f"Cache directory {REPO_PKG_CACHE} does not exist; nothing to clean.")
@@ -4446,7 +4811,7 @@ def _cache_clean_rollback(db):
     longest-prefix-match against each rollback file to assign it to a
     package. Files that match no installed name are orphans + removed.
     """
-    from .repo import REPO_ROLLBACK_DIR
+    REPO_ROLLBACK_DIR = repo_rollback_dir()
 
     if not REPO_ROLLBACK_DIR.exists():
         emit_info(f"Rollback directory {REPO_ROLLBACK_DIR} does not exist; "

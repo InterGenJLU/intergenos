@@ -376,9 +376,7 @@ def test_an_install_into_a_root_records_itself_under_that_root(tmp_path):
     db = PackageDB(str(db_path), root=str(target))
     try:
         installer = PackageInstaller(db, root=str(target))
-        ok, msg = installer.install(
-            "rootdemo", archive_path=str(archive), archive_trust="loose",
-        )
+        ok, msg = installer.install("rootdemo", archive_path=str(archive))
         assert ok, f"install into the root failed: {msg}"
     finally:
         db.close()
@@ -433,9 +431,7 @@ def test_an_install_into_a_root_writes_nothing_outside_it(tmp_path, monkeypatch)
     try:
         installer = PackageInstaller(db, root=str(target))
         monkeypatch.setattr(os, "open", watched_open)
-        installer.install(
-            "rootdemo", archive_path=str(archive), archive_trust="loose",
-        )
+        installer.install("rootdemo", archive_path=str(archive))
     finally:
         monkeypatch.undo()
         db.close()
@@ -444,3 +440,127 @@ def test_an_install_into_a_root_writes_nothing_outside_it(tmp_path, monkeypatch)
         "the install opened these paths for writing outside the install root:\n  "
         + "\n  ".join(sorted(set(escapes)))
     )
+
+
+# ---------------------------------------------------------------------------
+# 8 — the wiring: naming a root actually moves what the program uses
+# ---------------------------------------------------------------------------
+#
+# The accessors above are a table. These pin that the program reads it: that
+# setting the invocation's root moves the lock, the caches, the report file and
+# the helper questions, and that clearing it puts every one of them back. A
+# table nothing consults would satisfy every test before this point and still
+# be a lie.
+
+@pytest.fixture
+def rooted(tmp_path):
+    """Run the body with pkm's invocation root set to a scratch directory."""
+    from pkm import cli
+
+    target = tmp_path / "target"
+    target.mkdir()
+    cli.set_install_root(target)
+    try:
+        yield target
+    finally:
+        cli.set_install_root(None)
+
+
+def test_naming_a_root_moves_the_lock(rooted):
+    from pkm import cli
+
+    assert cli.resolve_lock_path() == rooted / "var" / "lock" / "pkm.lock"
+
+
+def test_clearing_the_root_puts_the_lock_back(tmp_path):
+    from pkm import cli
+
+    cli.set_install_root(tmp_path)
+    cli.set_install_root(None)
+    assert cli.resolve_lock_path() == cli.PKM_LOCK_PATH
+
+
+def test_naming_a_root_moves_the_caches_and_the_report(rooted):
+    from pkm import cli
+
+    assert cli.repo_pkg_cache() == rooted / "var" / "cache" / "pkm" / "packages"
+    assert cli.repo_rollback_dir() == rooted / "var" / "cache" / "pkm" / "rollback"
+    assert cli.available_updates_path() == (
+        rooted / "var" / "lib" / "pkm" / "available-updates.json"
+    )
+
+
+def test_the_repository_manager_reads_the_rooted_cache(rooted):
+    from pkm import cli
+
+    manager = cli.repo_manager()
+    assert manager.cache_dir() == rooted / "var" / "cache" / "pkm"
+    assert manager.db_cache() == rooted / "var" / "cache" / "pkm" / "db"
+    assert manager.pkg_cache() == rooted / "var" / "cache" / "pkm" / "packages"
+
+
+def test_the_helper_questions_are_asked_of_the_root_not_the_machine(rooted):
+    """A helper present on the LIVE machine must not answer for the target.
+
+    The failure this pins is quiet and specific: pkm decides whether a package
+    is a proprietary-download one by looking for /usr/bin/igos-install-<name>.
+    Asked of the running machine while installing into a target, it would route
+    a target install down the vendor-helper path because THIS machine happens to
+    have that helper.
+    """
+    from pkm import cli
+
+    (rooted / "usr" / "bin").mkdir(parents=True)
+    (rooted / "usr" / "bin" / "igos-install-demo").write_text("#!/bin/sh\n")
+    assert cli.helper_is_present("demo") is True
+    # A name present nowhere is absent, and the live machine is not consulted
+    # for either answer.
+    assert cli.helper_is_present("not-a-package-on-any-machine") is False
+
+    helpers = rooted / "var" / "lib" / "igos" / "helpers"
+    helpers.mkdir(parents=True)
+    assert cli.helper_payload_present("demo") is False
+    (helpers / "demo.manifest").write_text("{}\n")
+    assert cli.helper_payload_present("demo") is True
+
+
+def test_a_proprietary_package_is_refused_for_another_root(rooted, monkeypatch):
+    """The vendor-helper path cannot be performed on behalf of another root.
+
+    It downloads a payload and puts a vendor's licence in front of a person at
+    this machine's keyboard. Doing the pkm-package half and skipping the payload
+    half is the half-application the option refuses.
+    """
+    from pkm import cli
+
+    class _Args:
+        packages = ["demo"]
+        archive = None
+        verbose = False
+        quiet = False
+        assume_yes = True
+        allow_downgrade = False
+        archive_trust = "strict"
+
+    class _Repo:
+        def get_package(self, name):
+            return {"payload_license": "a vendor licence"}
+
+    called = []
+    monkeypatch.setattr(cli, "repo_manager", lambda: _Repo())
+    monkeypatch.setattr(cli, "_proprietary_install",
+                        lambda *a, **k: called.append(a))
+    monkeypatch.setattr(cli, "package_installer", lambda db: object())
+    from pkm import pretxn
+    monkeypatch.setattr(pretxn, "run_pre_transaction_hook",
+                        lambda *a, **k: None)
+
+    class _DB:
+        root = rooted
+
+        def get_installed(self, name):
+            return None
+
+    rc = cli.cmd_install(_DB(), _Args())
+    assert rc == 1, "the proprietary path was not refused for an alternate root"
+    assert not called, "the vendor helper flow ran for an alternate root"

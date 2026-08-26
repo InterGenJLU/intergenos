@@ -130,8 +130,12 @@ def list_handlers(handler_dir=None):
     """Return the executable pre-transaction handlers, sorted by name.
 
     Args:
-        handler_dir: override for PRETXN_HANDLER_DIR (tests). Defaults to the
-            live drop-in directory.
+        handler_dir: override for PRETXN_HANDLER_DIR. Defaults to the live
+            drop-in directory. pkm passes the install root's directory when a
+            root is named, so a transaction against another root runs THAT
+            root's registered handlers — a target that has registered none is
+            then a no-op, rather than the live system's backup engine being
+            handed a footprint that belongs to a different filesystem.
 
     Returns:
         list[Path] of executable regular files. Empty when the directory is
