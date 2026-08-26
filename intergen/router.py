@@ -2398,14 +2398,29 @@ class ConversationRouter(RouterInterface):
         self._last_semantic_score = p2_match.score if p2_match.score is not None else 0.0
         _span.set_attribute("semantic_score", self._last_semantic_score)
         _span.set_attribute("semantic_intent_id", p2_match.intent_id)
-        # Ambiguity-gap signal (top1 - top2): a small gap flags a near-miss the
-        # 0.85 cutoff alone can mis-route (intent-routing research 2026-06-22 —
-        # the Phase-1 trace extension). Observability only; the cutoff still gates.
+        # Ambiguity-gap signal (top1 - top2): a small gap flags a near-miss, which
+        # is worth seeing on the trace even when the match was admitted (intent-
+        # routing research 2026-06-22 — the Phase-1 trace extension). Observability
+        # only; nothing routes on it.
         _p2_runner_up = getattr(p2_match, "runner_up_score", 0.0)
         _span.set_attribute("semantic_runner_up", _p2_runner_up)
         _span.set_attribute("semantic_gap",
                             round(self._last_semantic_score - _p2_runner_up, 6))
-        if p2_match.intent_id is not None and p2_match.score >= 0.85 \
+        # ADMISSION IS THE MATCHER'S, NOT A SECOND FLOOR OF THE ROUTER'S. This gate
+        # also required `p2_match.score >= 0.85`. _match_embeddings has ALREADY applied
+        # each intent's own threshold — it is an argmax over the candidates that clear
+        # their OWN bar and returns no intent when none of them does — so a flat 0.85
+        # here made every intent whose threshold is below 0.85 unreachable through the
+        # router by exactly that difference, no matter what its corpus was tuned to do.
+        # The shipped corpus has one such intent and it is the one ordinary use needs
+        # most: web_search sits at 0.68, a number measured from the separation between
+        # real look-it-up requests and the highest-scoring non-request, not tuned until
+        # a fixture passed. Two sentences from the sealed field trace scored 0.7266 and
+        # 0.8241 against it, were SELECTED by the matcher, and were then refused here.
+        # Deleted with the twin re-check in _try_semantic_match; a match that gets past
+        # the matcher's own bar is admitted, and a turn where nothing cleared its bar
+        # still arrives with intent_id None and is still refused.
+        if p2_match.intent_id is not None \
                 and not route_compound_whole and not system_noun_teach:
             result = self._try_semantic_match(user_input)
             if result.handled:
@@ -4511,11 +4526,22 @@ class ConversationRouter(RouterInterface):
         Uses template synthesis first (instant), LLM fallback for complex output.
         Same pattern as P1 — no reason to call the LLM to format 'intergenos'
         into 'Your hostname is intergenos' when a template does it in 0ms.
+
+        ADMISSION IS THE MATCHER'S PER-INTENT BAR. This method also re-checked
+        `match.score < 0.85` on the way in. That number was not a second opinion about
+        the same question — it OVERRODE the per-intent thresholds the corpus is written
+        around, and it did so silently, because a refusal here is indistinguishable from
+        the matcher having found nothing. It is deleted; see the note at the route()
+        seam for the measurement. This method is also called UNGUARDED from
+        _route_single (the decomposed sub-query path), where the re-check was the only
+        bar, so the two seams had to move together for either to mean anything.
         """
         match = self._semantic._match_embeddings(user_input)
         # Store score for P3 skip decision
         self._last_semantic_score = match.score if match.score is not None else 0.0
-        if match.intent_id is None or match.score < 0.85:
+        # intent_id is None exactly when NO candidate cleared its own threshold, which
+        # is the matcher's way of saying it recognised nothing. That is still a refusal.
+        if match.intent_id is None:
             return RouteResult(handled=False)
 
         if match.tool_name:
