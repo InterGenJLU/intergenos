@@ -1307,6 +1307,100 @@ _DELIVERY_EXPLAIN_INSTEAD_RE = re.compile(
     re.IGNORECASE)
 
 
+# ── Is the result ACTUALLY in the answer? (the precision half) ────────────────
+# Measured on the whole-battery run at dev 601b2f790: both M8-2 warnings it
+# emitted were about answers that CARRIED the dispatch result. do-for-me-04
+# reported "441 active services are running." and then denied having the data;
+# do-for-me-06 reported all five search results and then added one "you can use
+# the `crontab` command" sentence. The text-shape tests above searched the whole
+# answer for a marker and never asked whether the result was also in it, so a
+# reported result plus one stray sentence read as a discarded result.
+#
+# WHY THIS TEST MAY ONLY EXCULPATE, NEVER ACCUSE. The docstring below records why
+# token overlap cannot be used to DECLARE a dropped result: the memory and disk
+# summarizers answer from an authoritative live source by ratified design and
+# share no token with the tool result beside them, so a low-overlap rule would
+# fire on correct answers. That argument is one-directional. HIGH overlap is
+# still sound evidence that the value reached the answer, and using it only to
+# withhold an accusation cannot manufacture a false one — the worst case is the
+# pre-existing behaviour for an honest paraphrase, which was never flagged
+# anyway.
+#
+# DELIBERATELY CONSERVATIVE. Whole-token matching only (so "printer" in a result
+# is not evidenced by the word "printers" in a run-it-yourself sentence — the M7
+# leg-4 fixtures depend on that), a distinctive-token floor of two, and a result
+# carrying fewer than two distinctive tokens can never exculpate.
+_RESULT_TOKEN_RE = re.compile(r"[A-Za-z]{5,}|\d{2,}")
+_EVIDENCE_MIN_TOKENS = 2      # below this the answer is not evidence of anything
+_EVIDENCE_MIN_RATIO = 0.25    # ... or a large absolute count, for long outputs
+_EVIDENCE_ABS_TOKENS = 6
+
+
+def _distinctive_tokens(text):
+    """Lower-cased words of 5+ letters and numbers of 2+ digits, de-duplicated.
+
+    Short words and single digits are dropped because they recur in ordinary
+    prose ("the", "1"), and a match on them would be coincidence rather than
+    evidence that a particular tool result reached a particular answer.
+    """
+    return {m.group(0).lower() for m in _RESULT_TOKEN_RE.finditer(text or "")}
+
+
+def result_reached_text(result, delivered_text) -> bool:
+    """True when the delivered answer demonstrably CARRIES this result's value.
+
+    Used only to withhold a "the result did not reach the answer" finding, never
+    to raise one — see the block comment above for why that direction is sound
+    in this codebase and the other is not.
+    """
+    payload = (getattr(result, "content", "") or "") + " " + \
+              (getattr(result, "model_summary", "") or "")
+    tokens = _distinctive_tokens(payload)
+    if len(tokens) < _EVIDENCE_MIN_TOKENS:
+        return False
+    present = tokens & _distinctive_tokens(delivered_text)
+    if len(present) < _EVIDENCE_MIN_TOKENS:
+        return False
+    return (len(present) >= _EVIDENCE_ABS_TOKENS
+            or len(present) / len(tokens) >= _EVIDENCE_MIN_RATIO)
+
+
+# Which findings can be repaired by stating the result, and which may not be.
+# "substituted" is absent on purpose: the linkage signal cannot separate a real
+# substitution from a summarizer answering off an authoritative live source, so
+# rewriting that class would overwrite correct answers. "contradicted_despite_
+# result" is absent because the value is already in the answer — there is
+# nothing to carry in, and the defect there is the denial beside it.
+_REPAIRABLE_REASONS = frozenset({
+    "empty_delivery", "deflection_despite_result", "explain_instead_of_result"})
+
+
+def carry_result_into_answer(delivered_text, result, reason):
+    """The answer a user should have received, or None to leave it alone.
+
+    A successful dispatch's value is never discarded: when the model returned
+    nothing, denied having the data, or taught the command instead of reporting
+    it, the tool's own output IS the answer and is stated as the tool produced
+    it.
+
+    A denial is REPLACED rather than annotated — leaving "I don't have current
+    data" above the data would manufacture exactly the self-contradiction that
+    do-for-me-04 was flagged for. A teaching answer KEEPS its instructions below
+    the result, because they are useful and are not a false statement about what
+    the system knows.
+    """
+    if reason not in _REPAIRABLE_REASONS:
+        return None
+    payload = (getattr(result, "model_summary", "")
+               or getattr(result, "content", "") or "").strip()
+    if not payload:
+        return None
+    text = (delivered_text or "").strip()
+    if reason == "explain_instead_of_result" and text:
+        return f"{payload}\n\n{text}"
+    return payload
+
+
 def find_unconsumed_dispatches(delivered_text, tool_results, linkage=None):
     """M8-2 (+ M7 leg 4): return [(result, reason)] for each executed+successful
     dispatch whose value did NOT reach the delivered answer. Empty list == invariant
@@ -1316,7 +1410,9 @@ def find_unconsumed_dispatches(delivered_text, tool_results, linkage=None):
     "deflection_despite_result" (the answer deflects/denies data while a successful
     dispatch carrying content is in hand), "explain_instead_of_result" (M7 leg 4:
     the answer teaches the user to run the command instead of reporting its result),
-    or "substituted" (below). All are the dispatched-but-discarded class; the caller
+    "contradicted_despite_result" (the answer STATES the result and then denies
+    having the data — the value reached the answer, so this one is not a drop and
+    is never repaired by restating it), or "substituted" (below). All are the dispatched-but-discarded class; the caller
     emits a named glass defect + a loud log line per problem.
 
     SUBSTITUTED (the fourth reason). The first three are TEXT SHAPES: they catch a
@@ -1349,12 +1445,24 @@ def find_unconsumed_dispatches(delivered_text, tool_results, linkage=None):
             continue
         if not (getattr(r, "content", "") or getattr(r, "model_summary", "")):
             continue
+        # Whether the value is in the answer decides which finding this is — a
+        # marker beside a result that IS reported is not a discarded result.
+        evidenced = result_reached_text(r, text)
         if not text:
             problems.append((r, "empty_delivery"))
         elif _DELIVERY_DEFLECTION_RE.search(text):
-            problems.append((r, "deflection_despite_result"))
+            # Evidenced: the answer states the result AND denies having it (the
+            # do-for-me-04 shape) — a real defect, but a contradiction, not a
+            # drop, and no repair can carry in what is already there.
+            problems.append((r, "contradicted_despite_result" if evidenced
+                             else "deflection_despite_result"))
         elif _DELIVERY_EXPLAIN_INSTEAD_RE.search(text):
-            problems.append((r, "explain_instead_of_result"))
+            # Evidenced: the result is reported and the answer then teaches the
+            # command as well (the do-for-me-06 shape). Nothing was discarded,
+            # so nothing is flagged; the substitution test below is moot for the
+            # same reason.
+            if not evidenced:
+                problems.append((r, "explain_instead_of_result"))
         elif _is_substituted(r, linkage):
             problems.append((r, "substituted"))
     return problems
