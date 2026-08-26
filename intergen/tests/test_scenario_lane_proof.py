@@ -121,6 +121,60 @@ class TestRegressionRule(unittest.TestCase):
         self.assertEqual(self._regressed({"a", "b"}, {"a", "b"}, {"a", "b"}), [])
 
 
+class _AR:
+    def __init__(self, passed, type_="uses_tool", value="web_search",
+                 description="why", actual="observed"):
+        self.passed = passed
+        self.type = type_
+        self.value = value
+        self.description = description
+        self.actual = actual
+
+
+class _Turn:
+    def __init__(self, results):
+        self.results = results
+
+
+class _Grade:
+    def __init__(self, turns):
+        self.turns = turns
+
+
+class _Run:
+    def __init__(self, turns):
+        self.grade = _Grade(turns)
+
+
+class TestFailedAssertions(unittest.TestCase):
+    """A streamed row must say WHAT failed, not only that something did."""
+
+    def test_only_the_failures_are_carried(self) -> None:
+        run = _Run([_Turn([_AR(True), _AR(False, "no_tool", "run_command")])])
+        got = lane_proof.failed_assertions(run)
+        self.assertEqual(len(got), 1)
+        self.assertEqual(got[0]["type"], "no_tool")
+        self.assertEqual(got[0]["value"], "run_command")
+        self.assertEqual(got[0]["turn"], 1)
+
+    def test_turns_are_numbered_from_one(self) -> None:
+        run = _Run([_Turn([_AR(True)]), _Turn([_AR(False)])])
+        self.assertEqual([f["turn"] for f in lane_proof.failed_assertions(run)],
+                         [2])
+
+    def test_a_clean_run_carries_nothing(self) -> None:
+        self.assertEqual(lane_proof.failed_assertions(_Run([_Turn([_AR(True)])])),
+                         [])
+
+    def test_the_observed_value_is_bounded(self) -> None:
+        """A row is a line in a stream, not a transcript dump."""
+        run = _Run([_Turn([_AR(False, actual="x" * 5000)])])
+        self.assertEqual(len(lane_proof.failed_assertions(run)[0]["actual"]), 200)
+
+    def test_a_run_with_no_turns_is_not_an_error(self) -> None:
+        self.assertEqual(lane_proof.failed_assertions(_Run([])), [])
+
+
 class TestRefusals(unittest.TestCase):
 
     def test_an_empty_selection_exits_four(self) -> None:

@@ -107,6 +107,29 @@ def select(scenarios: list[Any], batches: list[str], tags: list[str],
     return out[:limit] if limit else out
 
 
+def failed_assertions(run: Any) -> list[dict[str, Any]]:
+    """Every assertion this scenario did not satisfy, turn by turn.
+
+    Kept small on purpose: the assertion's type, the value it was checking, why
+    it exists, and a bounded slice of what was actually observed. The full
+    record is results.json; this is what a row has to carry so a run read while
+    it is still going says WHAT failed and not merely THAT something did.
+    """
+    out: list[dict[str, Any]] = []
+    for ti, turn in enumerate(getattr(run.grade, "turns", []) or [], 1):
+        for ar in getattr(turn, "results", []) or []:
+            if getattr(ar, "passed", True):
+                continue
+            out.append({
+                "turn": ti,
+                "type": getattr(ar, "type", ""),
+                "value": getattr(ar, "value", ""),
+                "why": getattr(ar, "description", ""),
+                "actual": (getattr(ar, "actual", "") or "")[:200],
+            })
+    return out
+
+
 def baseline_passes(path: str | Path) -> set[str]:
     """The scenario ids that PASSED in a prior ``results.json``."""
     data = json.loads(Path(path).read_text(encoding="utf-8"))
@@ -215,25 +238,32 @@ def main(argv: list[str] | None = None) -> int:
     t0 = time.monotonic()
     # Streamed as each scenario finishes: a run stopped part way still says
     # exactly what it measured, and the rate is readable from the first row
-    # rather than from the last.
+    # rather than from the last. Each row carries the FAILING ASSERTIONS and not
+    # only the grade — a stopped run whose rows said "FAIL" and nothing else
+    # would report that something is wrong while withholding what, which is the
+    # position results.json exists to avoid and which this stream exists to hold
+    # until results.json is written.
     with stream_path.open("w", encoding="utf-8") as fh:
         for i, sc in enumerate(scenarios, 1):
             s0 = time.monotonic()
             grade = "ERROR"
             detail = ""
+            failed: list[dict[str, Any]] = []
             try:
                 res = run_scenario(sc, transport, trace_lookup=trace_lookup)
                 runs.append(res)
                 grade = res.grade.grade
+                failed = failed_assertions(res)
             except Exception as exc:      # noqa: BLE001 — an error IS a result
                 errored.append(sc.id)
                 detail = f"{type(exc).__name__}: {exc}"
             dt = time.monotonic() - s0
             fh.write(json.dumps({"id": sc.id, "grade": grade,
                                  "seconds": round(dt, 1), "tags": sc.tags,
-                                 "error": detail}) + "\n")
+                                 "error": detail, "failed": failed}) + "\n")
             fh.flush()
             print(f"[{i:>4}/{len(scenarios)}] {sc.id:<38} {grade:<6} {dt:6.1f}s"
+                  + (f"  {len(failed)} failed assertion(s)" if failed else "")
                   + (f"  {detail}" if detail else ""), flush=True)
     elapsed = time.monotonic() - t0
     print(f"### drove {len(scenarios)} scenarios in {elapsed:.1f}s "
