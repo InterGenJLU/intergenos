@@ -165,3 +165,10 @@ etc/systemd/system/display-manager.service	systemctl enable/preset-generated Ali
 # halted earlier in the sequence, before this gate ran on a post-image chroot):
 usr/lib/intergen/fde-initramfs.cpio.gz	baked by phase_bootloader (chroot-build-bootloader.sh runs the archive-carried usr/lib/intergen/build-fde-initramfs.sh against the shipped kernel) — the LUKS-unlock initramfs the installer ships; generated per build, never archive payload
 etc/machine-id	written as the literal "uninitialized" by build-squashfs Step 3 so systemd generates a real id on first boot; no archive carries a machine id by design
+# The release trust triplet build-squashfs Step 4.8 stages into /install/ so the
+# installer can verify every archive offline; sealed into the squashfs by design
+# and carried by no archive. A resume after a squashfs pass sees it as unowned
+# (R001.2, fifth squashfs resume, measured 2026-08-27 15:02 CDT):
+install/intergenos-archive-manifest.txt	the operator-signed archive manifest staged by build-squashfs Step 4.8 for the installer's offline verify; pipeline product, never archive payload
+install/intergenos-archive-manifest.txt.sig	its detached signature, staged by the same step
+install/intergenos-release-key.asc	the release public key staged by the same step
