@@ -256,6 +256,23 @@ class RouteResult:
     # user-invoked affordance. None = no offer. Setting this NEVER sends anything; an
     # explicit human acceptance is always required first.
     escalation_offer: str | None = None
+    # WHY a keyword rung declined, when it did. Empty on every handled result
+    # and on every rung that is not the keyword rung.
+    #
+    # The keyword rung used to return a bare handled=False in three different
+    # situations — nothing matched the clause, an intent matched but carries no
+    # tool, and a tool matched whose dispatch did not succeed — and emit nothing
+    # to tell them apart. Downstream, a clause NOBODY claimed and a clause a
+    # carrier WANTED and could not serve looked identical, so a failed dispatch
+    # could only ever be read as "unrecognised". One of the three:
+    #   "no_intent"                — no keyword pattern claimed the clause
+    #   "intent_without_tool"      — an intent matched that dispatches nothing
+    #   "arguments_indeterminate"  — a carrier claimed it and could build no
+    #                                arguments, so nothing was dispatched
+    #   "dispatch_failed"          — a tool ran and did not succeed
+    # This is a WITNESS, not a route: `handled` is unchanged in every case and no
+    # caller is required to read it.
+    decline_reason: str = ""
     # Links this result to its decision trace (trace.py). Empty unless
     # INTERGEN_TRACE is enabled; populated in router.route from the active
     # root span so the harness can join a turn's result to its trace.
