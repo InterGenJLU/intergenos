@@ -8,7 +8,9 @@
     ],
     "category": "device_state",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -73,7 +75,9 @@
     ],
     "category": "device_state",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -120,7 +124,9 @@
     ],
     "category": "device_state",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -185,7 +191,9 @@
     ],
     "category": "device_state",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -232,7 +240,9 @@
     ],
     "category": "device_state",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -279,7 +289,9 @@
     ],
     "category": "device_state",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -344,7 +356,9 @@
     ],
     "category": "device_state",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -409,7 +423,9 @@
     ],
     "category": "device_state",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -456,7 +472,9 @@
     ],
     "category": "device_state",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -503,7 +521,9 @@
     ],
     "category": "device_state",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -568,7 +588,9 @@
     ],
     "category": "device_state",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -615,7 +637,9 @@
     ],
     "category": "device_state",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -662,7 +686,9 @@
     ],
     "category": "device_state",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -709,7 +735,9 @@
     ],
     "category": "device_state",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -774,7 +802,9 @@
     ],
     "category": "device_state",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -821,7 +851,9 @@
     ],
     "category": "device_state",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -868,7 +900,9 @@
     ],
     "category": "device_state",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -915,7 +949,9 @@
     ],
     "category": "device_state",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -962,7 +998,9 @@
     ],
     "category": "device_state",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -1027,7 +1065,9 @@
     ],
     "category": "device_state",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -1074,7 +1114,9 @@
     ],
     "category": "device_driver",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:manage_services",
@@ -1112,7 +1154,9 @@
     ],
     "category": "device_driver",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:manage_services",
@@ -1168,7 +1212,9 @@
     ],
     "category": "device_driver",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:manage_services",
@@ -1231,7 +1277,9 @@
     ],
     "category": "device_driver",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:manage_services",
@@ -1276,7 +1324,9 @@
     ],
     "category": "device_driver",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:manage_services",
@@ -1321,7 +1371,9 @@
     ],
     "category": "device_driver",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:manage_services",
@@ -1366,7 +1418,9 @@
     ],
     "category": "device_driver",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:manage_services",
@@ -1422,7 +1476,9 @@
     ],
     "category": "device_driver",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:manage_services",
@@ -1460,7 +1516,9 @@
     ],
     "category": "device_driver",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:manage_services",
@@ -1498,7 +1556,9 @@
     ],
     "category": "device_driver",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:manage_services",

@@ -8,7 +8,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -70,7 +72,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -132,7 +136,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -194,7 +200,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -256,7 +264,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -318,7 +328,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -380,7 +392,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -442,7 +456,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -504,7 +520,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -566,7 +584,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -628,7 +648,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -681,7 +703,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -734,7 +758,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -787,7 +813,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -839,7 +867,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -901,7 +931,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -963,7 +995,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -1036,7 +1070,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -1183,7 +1219,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -1244,7 +1282,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -1311,7 +1351,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -1543,7 +1585,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -1681,7 +1725,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -1717,7 +1763,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -1753,7 +1801,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -1789,7 +1839,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -1825,7 +1877,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -1861,7 +1915,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -1897,7 +1953,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -1933,7 +1991,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -1969,7 +2029,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -2005,7 +2067,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -2041,7 +2105,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -2537,7 +2603,9 @@
     ],
     "category": "conversational",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -2580,7 +2648,9 @@
     ],
     "category": "seeking_info",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -2642,7 +2712,9 @@
     ],
     "category": "seeking_info",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -2704,7 +2776,9 @@
     ],
     "category": "seeking_info",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -2766,7 +2840,9 @@
     ],
     "category": "seeking_info",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -2828,7 +2904,9 @@
     ],
     "category": "seeking_info",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -2890,7 +2968,9 @@
     ],
     "category": "seeking_info",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -2952,7 +3032,9 @@
     ],
     "category": "seeking_info",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -3014,7 +3096,9 @@
     ],
     "category": "seeking_info",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -3076,7 +3160,9 @@
     ],
     "category": "seeking_info",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -3138,7 +3224,9 @@
     ],
     "category": "seeking_info",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -3199,7 +3287,9 @@
     ],
     "category": "seeking_info",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -3235,7 +3325,9 @@
     ],
     "category": "seeking_info",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
@@ -3271,7 +3363,9 @@
     ],
     "category": "seeking_info",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "tags": [
       "batch:field_shapes",
