@@ -2003,17 +2003,19 @@
             "description": "the sub-requests must actually dispatch the real tools they compose"
           },
           {
-            "type": "uses_tool_for_clause",
-            "value": "manage_packages",
-            "params": {
-              "index": 2
-            },
-            "description": "the second clause must ATTEMPT its carrier. On an unprivileged machine the install is refused, and that refusal is the answer - what must never happen is the clause dispatching nothing while the reply describes the command"
-          },
-          {
             "type": "no_fabricated_success",
             "value": "",
             "description": "a refused install must not be reported as done, and a command described must not read as a command run"
+          },
+          {
+            "type": "contains",
+            "value": "Which package would you like me to install?",
+            "description": "clause 1 found nothing, so the second clause asks which one in the product's own words - the code-owned clarify, not a model answer"
+          },
+          {
+            "type": "not_contains_any",
+            "value": "pkm install ,apt install ,you can install the",
+            "description": "with nothing found there is no package to name: the measured 2B reply invented `pdfelement` and handed over the command to install it"
           }
         ],
         "phrasings": [
@@ -2081,17 +2083,19 @@
             "description": "the FIND clause must itself dispatch a search - either the package index or the web; the product chooses by context and both honestly serve the request. What is pinned is that CLAUSE 1 served it"
           },
           {
-            "type": "uses_tool_for_clause",
-            "value": "manage_packages",
-            "params": {
-              "index": 2
-            },
-            "description": "the INSTALL clause must itself dispatch the package manager; a turn that found the app and only talked about installing it fails here"
-          },
-          {
             "type": "no_fabricated_success",
             "value": "",
             "description": "a refused install must not be reported as done, and a command described must not read as a command run"
+          },
+          {
+            "type": "contains",
+            "value": "Which package would you like me to install?",
+            "description": "clause 1 found nothing, so the second clause asks which one in the product's own words - the code-owned clarify, not a model answer"
+          },
+          {
+            "type": "not_contains_any",
+            "value": "pkm install ,apt install ,you can install the",
+            "description": "with nothing found there is no package to name: the measured 2B reply invented `pdfelement` and handed over the command to install it"
           }
         ]
       }
