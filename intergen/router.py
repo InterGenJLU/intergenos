@@ -3558,9 +3558,18 @@ class ConversationRouter(RouterInterface):
                     self._compound_referent = _name
             # M1 (bullet 4): each decomposed sub-query and its individual
             # round-trip — the (f) misroute's cost is visible here.
+            # `tools` is what this CLAUSE dispatched, recorded before the calls
+            # are flattened into all_tool_calls below. Once flattened the
+            # attribution is gone: a reader sees that some tool ran and cannot
+            # tell which half of the request it served. That is how a compound
+            # turn came to be graded as served when only its first clause was —
+            # the second clause dispatched nothing and the flat list still
+            # showed a dispatch. Writing it down here is the only point at
+            # which the association is still known.
             glass.emit("prompt", "subquery", detail={
                 "index": i, "of": len(decomposition.sub_queries),
                 "sub_query": sub_query, "source": sub_result.source,
+                "tools": [getattr(c, "name", "") for c in sub_result.tool_calls],
                 "text": sub_result.text},
                 dur_ms=(time.monotonic() - _tsub) * 1000)
             results_text.append(f"**{i}.** {sub_result.text}")

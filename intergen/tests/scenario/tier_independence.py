@@ -68,6 +68,11 @@ TIER_INDEPENDENT: frozenset[str] = frozenset({
     "uses_tool",
     "uses_any_tool",
     "no_tool",
+    # Which clause of a compound request dispatched what, read from the
+    # router's own per-clause rows. Dispatch is code-owned on every tier, and
+    # the clause split is the decomposer's recorded verdict, so neither half of
+    # this assertion reads the model's wording.
+    "uses_tool_for_clause",
     "tool_arg_contains",
     "tool_result_nonempty",
     "tool_output_contains",
@@ -80,6 +85,11 @@ TIER_INDEPENDENT: frozenset[str] = frozenset({
     "no_fabricated_citation",
     "no_invented_artifact",
     "self_consistent",
+    # Stating a fact and its negation about one subject is not a matter of
+    # wording or of tier capability: no tier is permitted to do it, and a
+    # smaller model doing it more often is a reason to measure it everywhere,
+    # not to excuse it on the tier where it happens.
+    "no_self_contradiction",
     # negative wording: a phrase no tier may emit
     "not_contains",
     "not_contains_any",

@@ -154,6 +154,23 @@ class TraceView:
     # them did decompose — the flag exists so that report cannot be written
     # again.
     decomposition_source_joined: bool = False
+    # Which tools EACH clause of a compound turn dispatched, keyed by the
+    # decomposer's 1-based sub-query index, from the glass ``prompt``/``subquery``
+    # rows the router writes inside its per-clause loop.
+    #
+    # WHY THIS IS NOT DERIVABLE FROM ``dispatches``. That list is flat: the
+    # router extends one list with every clause's calls, so by the time a reader
+    # sees it, "which half of the request did this serve" is unanswerable. A
+    # compound turn was graded as served on the strength of a dispatch that
+    # belonged to its OTHER clause. Ordering is not a substitute — a clause may
+    # dispatch none, one or several, so position proves nothing.
+    sub_query_tools: dict[int, list[str]] = field(default_factory=dict)
+    # Whether a source carrying that per-clause attribution was actually joined.
+    # The same distinction ``decomposition_source_joined`` draws, for the same
+    # reason: "this clause dispatched nothing" and "nothing was read that could
+    # say what any clause dispatched" are different facts, and a grade that
+    # reports them as one is reporting a product defect it did not measure.
+    subquery_attribution_joined: bool = False
 
     # ── the review-gate lifecycle (WP-3.4) ──
     # ``gate_held`` is True once a dispatch entered hold_for_review (the panel/WS
@@ -330,6 +347,21 @@ class TraceView:
                 sq = detail.get("sub_queries")
                 if isinstance(sq, list) and sq:
                     view.sub_queries = [str(s) for s in sq]
+            elif phase == "prompt" and event == "subquery":
+                # One row per clause, written inside the router's per-clause
+                # loop. The presence of a `tools` key is the attestation: this
+                # run READ what that clause dispatched, even when the answer is
+                # "nothing". A row without the key is an older emission and must
+                # not be mistaken for an empty dispatch list.
+                if "tools" in detail:
+                    view.subquery_attribution_joined = True
+                    try:
+                        idx = int(detail.get("index"))
+                    except (TypeError, ValueError):
+                        continue
+                    tools = detail.get("tools")
+                    view.sub_query_tools[idx] = (
+                        [str(t) for t in tools] if isinstance(tools, list) else [])
         return view
 
     @classmethod
@@ -371,6 +403,13 @@ class TraceView:
             # A capture that names the key attests the verdict; one that omits it
             # attests nothing, and the grader must be able to tell the two apart.
             decomposition_source_joined="sub_queries" in cap,
+            # Per-clause dispatch attribution, same naming-the-key discipline:
+            # {"1": ["manage_packages"], "2": []} in a recorded fixture.
+            sub_query_tools={
+                int(k): [str(t) for t in (v or [])]
+                for k, v in (cap.get("sub_query_tools") or {}).items()
+            },
+            subquery_attribution_joined="sub_query_tools" in cap,
             gate_held=bool(gate.get("held", False)),
             gate_outcome=gate.get("outcome", "") or "",
         )

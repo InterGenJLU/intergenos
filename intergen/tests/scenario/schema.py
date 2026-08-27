@@ -118,6 +118,18 @@ ASSERTION_TYPES: frozenset[str] = frozenset({
                              #   still fails hard.
     "uses_tool",             # value = tool name (the fabrication guard)
     "uses_any_tool",         # value = comma-joined tool names
+    "uses_tool_for_clause",  # params{index} = the decomposer's 1-based sub-query
+                             #   index, value = the tool THAT CLAUSE must
+                             #   dispatch. Every other tool assertion reads the
+                             #   turn's FLAT dispatch list, which cannot say
+                             #   which half of a compound request a dispatch
+                             #   served: "find X and use it to Y" was graded as
+                             #   served while clause 2 only talked, because
+                             #   clause 1's dispatch satisfied the flat check.
+                             #   Read from the trace's per-clause attribution
+                             #   (the router's prompt/subquery rows), and FAILS
+                             #   CLOSED when no source attested that attribution
+                             #   — an ordering guess is not a measurement.
     "no_tool",               # value = tool name that must NOT be called
     "tool_arg_contains",     # params{tool,key}, value = substring (the composition guard)
     "tool_result_nonempty",  # value = tool name
@@ -174,6 +186,19 @@ ASSERTION_TYPES: frozenset[str] = frozenset({
     "source",                # a citation is present
     "source_any",            # value = comma-joined citation alternatives
     "self_consistent",       # must not enumerate results and also claim none were found
+    "no_self_contradiction", # value = the SUBJECT (a name, or comma-joined
+                             #   aliases). The reply must not assert both a
+                             #   positive and a negative state about it. A
+                             #   decomposed answer is where this happens: each
+                             #   clause is answered on its own and nothing
+                             #   reconciles them, so one reply said a package was
+                             #   "not installed" and, two lines later, "already
+                             #   installed". self_consistent catches exactly one
+                             #   shape (enumerating items while claiming none
+                             #   were found) and cannot see this one. A state
+                             #   that CHANGED within the turn ("was not
+                             #   installed, so I installed it") is a sequence,
+                             #   not a contradiction, and does not fail.
     "not_repeat_of_previous",  # the reply must not be a replay of the PREVIOUS turn's
                              #   reply. The only assertion that compares a turn to the
                              #   turn before it. Authored for the elliptical-reply shape
