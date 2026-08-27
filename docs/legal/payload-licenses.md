@@ -356,18 +356,34 @@ license with the following key provisions:
 - The acceptance record is stored at
   `~/.local/share/intergen/legal/qwen-3.5-accepted.json`
   (per-user, not system-wide, because the model is per-user data).
-- The "Powered by Qwen" attribution is rendered by
-  `intergen --version`, which names the Qwen-family model present
-  on the machine and the license it is used under. It is printed only when
-  such a model is on the machine: a Tier-1 box serves
-  InternVL3.5-2B, and the attribution would not be a true statement
-  about what powers it there.
-- Decided 2026-08-27: an earlier revision of this entry also stated
-  that the InterGen conversation view and the firstboot greeter
-  render the attribution. Neither does — the string appears in
-  neither surface — so the sentence above is corrected to describe
-  only the surface that renders it. The section 4 attribution
-  obligation for those two surfaces is open and unmet.
+- The "Powered by Qwen" attribution is rendered on four surfaces,
+  all from one helper (`intergen/attribution.py`), so they cannot
+  state the obligation differently from one another:
+  - `intergen --version` prints it under the version.
+  - The web conversation view prints it under the composer. The
+    GTK panel is a WebKit window onto that same view, so the panel
+    carries it without a second rendering. The server injects it
+    on every request for the page, not only an authenticated one.
+  - The terminal console (`intergen console`) seeds it into the
+    view before it connects.
+  - The first-boot greeter shows it on its InterGen page, on both
+    the "ready" and the "warming up" cards. The greeter is a GTK
+    application rather than part of the intergen package, so it
+    obtains the line by running `intergen --version` over a
+    process boundary, the same way it obtains the model offer.
+- Every one of those surfaces names the Qwen-family model actually
+  present and renders NOTHING when none is: a Tier-1 box serves
+  InternVL3.5-2B, and the attribution would not be a true
+  statement about what powers it there. A surface that cannot
+  determine the model renders nothing rather than a guess.
+- Decided 2026-08-27: an earlier revision of this entry stated
+  that the conversation view and the first-boot greeter rendered
+  the attribution while no source file in the tree contained the
+  string. The claim was corrected to name only `intergen
+  --version`, which had just been given the line, and the
+  remaining two surfaces were then implemented, together with the
+  terminal console, which this entry had never mentioned and which
+  is a third place a person converses with the model.
 
 ---
 
@@ -418,8 +434,10 @@ The mechanical implementation work — adding the
 `payload_license:` field to each helper's `package.yml`, the
 acceptance-gate code path in the helper install flow, the model-
 acceptance gate in `intergen/model_manager.py`, and the
-"Powered by Qwen" UI attribution — is tracked separately as part
-of this sprint's package-fix pass.
+"Powered by Qwen" UI attribution — was tracked separately as part
+of this sprint's package-fix pass. The UI attribution was the one
+piece of it that stayed unwritten; it was implemented on
+2026-08-27 across the four surfaces listed above.
 
 **License of this document.** This `payload-licenses.md` is
 licensed **CC0-1.0**.

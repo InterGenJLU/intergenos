@@ -83,6 +83,33 @@ STYLE = Style.from_dict({
 })
 
 
+def startup_messages() -> list[dict]:
+    """The messages the console seeds its view with before it connects.
+
+    Only one at present: the model attribution the payload license requires.
+    The console is its own renderer — it talks to the daemon over its own
+    WebSocket and never loads the web conversation view — so a line rendered
+    there does not reach a person working at the terminal.
+
+    Returns an empty list when no attribution is owed, so a machine serving a
+    non-Qwen model opens on a clean view rather than a blank system line.
+    """
+    from intergen.attribution import attribution_line
+    line = attribution_line()
+    if not line:
+        return []
+    # The same five keys _add_message writes. A seeded message that carried a
+    # different shape would render wrong or not at all, because _render_chat
+    # reads role, content, source and timestamp off every entry.
+    return [{
+        "role": "system",
+        "content": line,
+        "source": "",
+        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "telemetry": None,
+    }]
+
+
 class ConsoleShell:
     """prompt_toolkit Application wrapping the InterGen WebSocket client.
 
@@ -100,7 +127,10 @@ class ConsoleShell:
 
     def __init__(self) -> None:
         self._client: ConsoleClient | None = None
-        self._messages: list[dict[str, Any]] = []
+        # Seeded, not appended after connecting: the attribution belongs on the
+        # view from the moment it opens, including on a machine whose daemon
+        # never comes up.
+        self._messages: list[dict[str, Any]] = startup_messages()
         self._hud_text = "InterGen — connecting..."
         self._streaming_buffer: str = ""
         self._is_streaming = False

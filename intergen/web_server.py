@@ -35,8 +35,11 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from html import escape as html_escape
 from pathlib import Path
 from typing import Any, Callable
+
+from intergen import attribution
 
 import aiohttp
 from aiohttp import WSCloseCode, WSMsgType, web
@@ -114,7 +117,21 @@ SERVER_ROUTE_DEADLINE_S = 20.0
 _ROUTE_DEADLINE_TICK_S = 0.05
 
 TOKEN_PATH = Path.home() / ".config" / "intergen" / "web-token"
+
 STATIC_DIR = Path(__file__).parent / "web"
+
+
+def _attribution_html() -> str:
+    """The attribution as page text, HTML-escaped, or an empty string.
+
+    An empty string leaves the element empty, and the stylesheet collapses an
+    empty element to nothing — so a machine owing no attribution shows no gap
+    where a line would be, rather than an empty box.
+    """
+    line = attribution.attribution_line()
+    return html_escape(line) if line else ""
+
+
 _503_BODY = json.dumps({"type": "error", "code": "server_not_ready",
                          "message": "InterGen components not yet initialized."})
 
@@ -536,16 +553,27 @@ class WebServer:
         if not index_path.exists():
             return web.Response(text="InterGen web UI not installed.",
                                 status=404)
+        html = index_path.read_text()
+
+        # The model attribution the payload license requires, rendered into
+        # the page the user reads. It is injected on EVERY request, not only
+        # the token-carrying one: this handler used to return the file
+        # unmodified when no token was supplied, so an attribution injected on
+        # the token path alone would be present or absent depending on how the
+        # page was opened, which is not a property a license obligation may
+        # have. The cost of losing the FileResponse fast path is one read of a
+        # small file that the page load is already waiting on.
+        html = html.replace(attribution.HTML_PLACEHOLDER,
+                            _attribution_html())
+
         token = self._extract_auth_token(request)
         if token:
-            html = index_path.read_text()
             token_script = (
                 f'<script>window.__INTERGEN_TOKEN__ = '
                 f'{json.dumps(token)};</script>\n'
             )
             html = html.replace('<head>', '<head>\n' + token_script)
-            return web.Response(text=html, content_type="text/html")
-        return web.FileResponse(index_path)
+        return web.Response(text=html, content_type="text/html")
 
     def _auth_error(self) -> web.Response:
         return web.Response(text=json.dumps(_make_error(
