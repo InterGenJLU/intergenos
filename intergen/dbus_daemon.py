@@ -2027,6 +2027,12 @@ class InterGenDaemon(InterGenDBusInterface):
                 state_cache=self._state_cache,
                 memory=self._memory,
                 health_aggregator=self._health_agg,
+                # The web surface serves its own turns, so without this the
+                # wiki catch-up pass below was reachable only through D-Bus and
+                # a web-only machine never finished building its index. Handing
+                # over THIS bound method (rather than letting the web server
+                # start its own pass) keeps the single-pass guard one guard.
+                after_turn=self._resume_wiki_embedding_after_turn,
             )
             self._web_server.mark_ready()
             self._web_thread = threading.Thread(
