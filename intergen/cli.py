@@ -934,56 +934,31 @@ def cmd_glass(args: list[str]) -> None:
     print("\nReconstruct one:  intergen glass --turn <id>")
 
 
-# Tongyi Qianwen License section 4 requires an attribution wherever a
-# Qwen-family model powers the assistant, and docs/legal/payload-licenses.md
-# states that `intergen --version` renders it. It did not: `--version` was not
-# a command at all — it reached the final `else` in main() and printed
-# "Unknown command: --version" before exiting 1.
-QWEN_ATTRIBUTION = "Powered by Qwen"
+# The attribution sentence and the model lookup moved to intergen/attribution.py
+# when the web conversation view, the terminal console and the first-boot
+# greeter were given the same line: three surfaces writing their own wording is
+# how one license obligation becomes three different claims. The two names below
+# are re-exported so `intergen.cli.qwen_models_present` keeps working for anyone
+# who already reads it.
+from intergen.attribution import (  # noqa: E402
+    QWEN_ATTRIBUTION,
+    attribution_line,
+    qwen_models_present,
+)
 
-
-def qwen_models_present() -> list[str]:
-    """Names of the Qwen-family models whose files are on this machine.
-
-    Cheap and read-only by construction, the same property `intergen status`
-    had to be given: it reads the download manifest and the directory entries
-    that manifest names. It loads no model, hashes no model file and starts no
-    daemon.
-
-    Any failure yields an empty list, and the caller then prints no
-    attribution. That direction is deliberate. An attribution is a factual
-    claim about what is running, so an unreadable manifest must produce
-    silence rather than a guess — and on a Tier-1 box, which serves
-    InternVL3.5-2B, "Powered by Qwen" would simply be false.
-    """
-    try:
-        from intergen.model_manager import ModelManager
-        names: list[str] = []
-        for info in ModelManager().list_downloaded():
-            name = (getattr(info, "name", "") or "").strip()
-            # The paired projector rides the manifest as "<model> (mmproj)".
-            # It is the same model for attribution purposes, so it must not
-            # appear as a second name on the line.
-            base = name.split(" (mmproj)")[0]
-            if base.lower().startswith("qwen") and base not in names:
-                names.append(base)
-        return names
-    except Exception:  # noqa: BLE001 — printing a version must never fail
-        return []
+__all__ = ["QWEN_ATTRIBUTION", "attribution_line", "qwen_models_present"]
 
 
 def cmd_version() -> None:
     """`intergen --version` — the running package version, plus the model
     attribution when one is owed."""
     # Read through the module so the printed value is the package's own
-    # version at call time, not a second copy typed into this file that would
-    # drift the first time the release is bumped.
+    # version at call time, not a second copy typed into this file.
     import intergen
     print(f"InterGen {intergen.__version__}")
-    present = qwen_models_present()
-    if present:
-        print(f"{QWEN_ATTRIBUTION} — {', '.join(present)}, used under the "
-              f"Tongyi Qianwen License.")
+    line = attribution_line()
+    if line:
+        print(line)
 
 
 def main() -> None:

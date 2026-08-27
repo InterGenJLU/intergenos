@@ -730,3 +730,17 @@ body {
 }
 .frontier-offer-btn:hover { background: var(--accent-bright); }
 .frontier-offer-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* The model attribution the payload license requires, under the composer.
+   Quiet by design: it is a standing statement of fact, not a notice that
+   competes with the conversation. The element is empty and collapses to
+   nothing when no attribution is owed, so a machine that serves a non-Qwen
+   model shows no gap where a line would be. */
+#model-attribution {
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: center;
+  opacity: 0.55;
+  padding: 4px 8px 0;
+}
+#model-attribution:empty { display: none; }

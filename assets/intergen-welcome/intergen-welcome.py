@@ -2169,6 +2169,36 @@ def _model_offer():
     return data
 
 
+def _qwen_attribution():
+    """The model attribution line, or None when none is owed.
+
+    Runs `intergen --version`, which is the one command that renders this
+    sentence. Standalone by the same rule as _model_offer and
+    _probe_download_sources: the Welcomer is a GTK app, not part of the
+    intergen package, so it asks over a process boundary instead of importing
+    it — and asking the CLI means the greeter cannot drift into wording of its
+    own about someone else's license.
+
+    Returns None on any failure, and the caller then renders nothing. A
+    first-boot greeter must never block on a child process, so the call is
+    bounded; and only a line that IS the attribution is accepted, because
+    matching loosely would let any later line of version output be shown to
+    the user as a license statement.
+    """
+    try:
+        proc = subprocess.run(['intergen', '--version'],
+                              capture_output=True, text=True, timeout=20)
+        if proc.returncode != 0:
+            return None
+    except Exception:
+        return None
+    for raw in (proc.stdout or '').splitlines():
+        line = raw.strip()
+        if line.startswith('Powered by Qwen') and 'Tongyi Qianwen' in line:
+            return line
+    return None
+
+
 # What each rung means, in the user's terms. The 2B is described as a real
 # choice because it IS one — a smaller, faster model is a legitimate preference,
 # not a consolation prize (decided 2026-07-31).
@@ -3551,6 +3581,42 @@ def _intergen_engine_probe(on_state):
     threading.Thread(target=worker, daemon=True).start()
 
 
+def _attribution_label():
+    """An empty label that fills itself with the model attribution, or stays
+    empty and invisible when none is owed.
+
+    Built empty and filled from a worker thread on purpose. Determining the
+    attribution runs `intergen --version` as a child process, and a first-boot
+    greeter must never wait on one on the GTK main loop — the same threading
+    shape _intergen_engine_probe uses. An empty label is hidden, so a machine
+    owing no attribution shows no gap where a line would be.
+
+    The text is set with set_label, never set_markup: this string is not
+    markup, and a model name containing an ampersand would blank the whole
+    label if it were parsed as one.
+    """
+    label = Gtk.Label()
+    label.add_css_class('intergen-summon-text')
+    label.set_justify(Gtk.Justification.CENTER)
+    label.set_wrap(True)
+    label.set_max_width_chars(88)
+    label.set_margin_top(6)
+    label.set_visible(False)
+
+    def deliver(line):
+        if line:
+            label.set_label(line)
+            label.set_visible(True)
+        return False
+
+    def worker():
+        line = _qwen_attribution()
+        GLib.idle_add(deliver, line)
+
+    threading.Thread(target=worker, daemon=True).start()
+    return label
+
+
 def _build_intergen_ready_card():
     """The 'InterGen is ready' card — shown ONLY when the engine is definitively
     up. Points the user at the panel icon, which the panel extension shows on the
@@ -3592,6 +3658,9 @@ def _build_intergen_ready_card():
     ready_hint.append(ready_icon)
     ready_hint.append(ready_hint_label)
     ready.append(ready_hint)
+    # The model attribution the payload license requires, on the page that
+    # reports the assistant set up on this machine.
+    ready.append(_attribution_label())
     return ready
 
 
@@ -3625,6 +3694,9 @@ def _build_intergen_starting_card():
     starting_desc.set_wrap(True)
     starting_desc.set_max_width_chars(88)
     starting.append(starting_desc)
+    # The model is on the machine on this card too — the engine is warming up,
+    # not absent — so the attribution is owed here as well.
+    starting.append(_attribution_label())
     return starting
 
 
