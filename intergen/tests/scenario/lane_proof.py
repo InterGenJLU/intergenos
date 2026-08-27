@@ -48,6 +48,8 @@ Exit codes: 0 = every selected scenario was driven and none regressed.
             2 = at least one scenario that passed in the baseline no longer does.
             3 = at least one scenario could not be driven at all.
             4 = the selection was empty, or the tree under test is not the one asked for.
+            5 = the run ABORTED: too many consecutive turns could not be driven, so
+                the corpus was not measured and the artifacts say which part was not.
 """
 
 from __future__ import annotations
@@ -56,10 +58,14 @@ import argparse
 import json
 import sys
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from intergen.tests.scenario import report
+from intergen.tests.scenario import runner as _runner
 from intergen.tests.scenario.schema import POSTURES
+from intergen.tests.scenario.transport import ScenarioUndriveable
 
 # The corpus that ships with the harness — the graded battery a lane must not
 # regress. seeds/ is the smaller cross-posture set live_run drives; it is not
@@ -154,6 +160,119 @@ def failed_assertions(run: Any) -> list[dict[str, Any]]:
     return out
 
 
+#: How many CONSECUTIVE undriveable turns end the run. Two, not one: a single refused
+#: turn can be a restart or a blip, and a harness that aborts on one gets its abort
+#: switched off, which is how the defect it guards against comes back. Two in a row is
+#: not a blip — on the measured 2026-08-26 outage every turn after the engine died was
+#: refused, so two costs one extra scenario and stops the other hour.
+ABORT_AFTER_CONSECUTIVE_UNDRIVEABLE = 2
+
+
+@dataclass
+class DriveOutcome:
+    """What a run of scenarios actually did — the three outcomes kept apart.
+
+    ``graded`` are scenarios that were driven and produced a verdict. ``undriveable``
+    are scenarios abandoned because a turn measured nothing; they carry NO grade and
+    must never be counted among passes or failures. ``errored`` are scenarios that
+    raised for some other reason — the product misbehaving is a finding, not an
+    environment fault, and folding the two together is what let a dead engine read as
+    an ordinary run.
+    """
+
+    graded: list = field(default_factory=list)
+    undriveable: list[tuple[str, str]] = field(default_factory=list)
+    errored: list[tuple[str, str]] = field(default_factory=list)
+    consecutive_undriveable: int = 0
+    aborted: bool = False
+    abort_reason: str = ""
+    not_attempted: list[str] = field(default_factory=list)
+
+    @property
+    def exit_code(self) -> int:
+        # 5, NOT 4. Four already means "the selection was empty, or the tree under test
+        # is not the one asked for" — two conditions a caller reacts to completely
+        # differently from a dead engine. Reusing it would have made an aborted run
+        # indistinguishable from a mis-typed selector to anything reading the code.
+        if self.aborted:
+            return 5
+        if self.undriveable or self.errored:
+            return 3
+        return 0
+
+
+def drive_scenarios(scenarios, transport, *, out_dir, run_id,
+                    trace_lookup=None, posture=None, stream_path=None,
+                    echo=False) -> DriveOutcome:
+    """Drive a list of scenarios, keeping graded / undriveable / errored apart.
+
+    Extracted from ``main`` so it can be driven with no daemon, no bus and no model.
+    That it could NOT be before is not incidental: the run loop was the only place the
+    "could not be driven" bookkeeping lived, and code that cannot be tested without a
+    live engine is exactly the code that was wrong about a dead one.
+
+    Writes results.json and summary.txt through ``report.write_run`` before returning,
+    including on an abort — a run that stopped early must still leave the artifacts
+    that say what it measured and why it stopped.
+    """
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    outcome = DriveOutcome()
+    driven: list = []
+    stream = Path(stream_path) if stream_path else out / "stream.jsonl"
+
+    with stream.open("w", encoding="utf-8") as fh:
+        for i, sc in enumerate(scenarios, 1):
+            if outcome.aborted:
+                outcome.not_attempted.append(sc.id)
+                continue
+            s0 = time.monotonic()
+            grade, detail, failed, kind = "ERROR", "", [], "errored"
+            try:
+                # Resolved through the module on EVERY call, deliberately — see the
+                # import note above. Binding the name at import time silently detaches
+                # this call site from anything that patches it.
+                res = _runner.run_scenario(sc, transport, trace_lookup=trace_lookup,
+                                           posture=posture)
+                driven.append(res)
+                outcome.graded.append(res)
+                grade = res.grade.grade
+                failed = failed_assertions(res)
+                kind = "graded"
+                outcome.consecutive_undriveable = 0
+            except ScenarioUndriveable as exc:
+                kind = "undriveable"
+                grade = "UNDRIVEABLE"
+                detail = exc.reason
+                outcome.undriveable.append((sc.id, exc.reason))
+                outcome.consecutive_undriveable += 1
+                if (outcome.consecutive_undriveable
+                        >= ABORT_AFTER_CONSECUTIVE_UNDRIVEABLE):
+                    outcome.aborted = True
+                    outcome.abort_reason = (
+                        f"{outcome.consecutive_undriveable} consecutive turns could "
+                        f"not be driven; the last said: {exc.reason}")
+            except Exception as exc:      # noqa: BLE001 — an error IS a result
+                outcome.errored.append((sc.id, f"{type(exc).__name__}: {exc}"))
+                detail = f"{type(exc).__name__}: {exc}"
+                outcome.consecutive_undriveable = 0
+            dt = time.monotonic() - s0
+            fh.write(json.dumps({"id": sc.id, "grade": grade, "kind": kind,
+                                 "seconds": round(dt, 1), "tags": sc.tags,
+                                 "error": detail, "failed": failed}) + "\n")
+            fh.flush()
+            if echo:
+                print(f"[{i:>4}/{len(scenarios)}] {sc.id:<38} {grade:<12} {dt:6.1f}s"
+                      + (f"  {len(failed)} failed assertion(s)" if failed else "")
+                      + (f"  {detail}" if detail else ""), flush=True)
+
+    report.write_run(driven, list(scenarios), out, run_id,
+                     undriveable=outcome.undriveable,
+                     abort_reason=outcome.abort_reason,
+                     not_attempted=outcome.not_attempted)
+    return outcome
+
+
 def baseline_passes(path: str | Path) -> set[str]:
     """The scenario ids that PASSED in a prior ``results.json``."""
     data = json.loads(Path(path).read_text(encoding="utf-8"))
@@ -206,9 +325,8 @@ def main(argv: list[str] | None = None) -> int:
 
     _resolve_tree(args.allow_installed)
 
-    from intergen.tests.scenario import live_run, report
+    from intergen.tests.scenario import live_run
     from intergen.tests.scenario.loader import load_scenarios
-    from intergen.tests.scenario.runner import run_scenario
     from intergen.tests.scenario.transport import ClientTransport
 
     scenarios, not_applicable = select(load_scenarios(args.corpus), args.batch,
@@ -288,56 +406,41 @@ def main(argv: list[str] | None = None) -> int:
     transport.await_ready(args.ready_timeout)
     print("### transport ready", flush=True)
 
-    runs = []
-    errored: list[str] = []
     t0 = time.monotonic()
-    # Streamed as each scenario finishes: a run stopped part way still says
-    # exactly what it measured, and the rate is readable from the first row
-    # rather than from the last. Each row carries the FAILING ASSERTIONS and not
-    # only the grade — a stopped run whose rows said "FAIL" and nothing else
-    # would report that something is wrong while withholding what, which is the
-    # position results.json exists to avoid and which this stream exists to hold
-    # until results.json is written.
-    with stream_path.open("w", encoding="utf-8") as fh:
-        for i, sc in enumerate(scenarios, 1):
-            s0 = time.monotonic()
-            grade = "ERROR"
-            detail = ""
-            failed: list[dict[str, Any]] = []
-            try:
-                res = run_scenario(sc, transport, trace_lookup=trace_lookup,
-                                   posture=args.posture)
-                runs.append(res)
-                grade = res.grade.grade
-                failed = failed_assertions(res)
-            except Exception as exc:      # noqa: BLE001 — an error IS a result
-                errored.append(sc.id)
-                detail = f"{type(exc).__name__}: {exc}"
-            dt = time.monotonic() - s0
-            fh.write(json.dumps({"id": sc.id, "grade": grade,
-                                 "seconds": round(dt, 1), "tags": sc.tags,
-                                 "error": detail, "failed": failed}) + "\n")
-            fh.flush()
-            print(f"[{i:>4}/{len(scenarios)}] {sc.id:<38} {grade:<6} {dt:6.1f}s"
-                  + (f"  {len(failed)} failed assertion(s)" if failed else "")
-                  + (f"  {detail}" if detail else ""), flush=True)
+    # ONE run loop, shared with the harness's own self-tests. It used to live inline
+    # here, which meant the "could not be driven" bookkeeping could only ever be
+    # exercised against a live daemon — and code that cannot be tested without a live
+    # engine is exactly the code that was wrong about a dead one (2026-08-26: four
+    # scenarios graded PASS with no model behind them).
+    outcome = drive_scenarios(
+        scenarios, transport, out_dir=out_dir, run_id=args.run_id,
+        trace_lookup=trace_lookup, posture=args.posture,
+        stream_path=stream_path, echo=True)
     elapsed = time.monotonic() - t0
-    print(f"### drove {len(scenarios)} scenarios in {elapsed:.1f}s "
-          f"({elapsed / max(1, turns):.1f}s per turn)", flush=True)
+    print(f"### drove {len(outcome.graded)} of {len(scenarios)} scenarios in "
+          f"{elapsed:.1f}s ({elapsed / max(1, turns):.1f}s per turn)", flush=True)
 
-    results = report.write_run(runs, scenarios, out_dir, args.run_id)
+    results = report.build_results(outcome.graded, scenarios, args.run_id)
     print(f"### artifacts: {out_dir}/results.json, {out_dir}/summary.txt, "
           f"{stream_path}", flush=True)
     c = results["counts"]
     print(f"### {c['scenarios']} graded: {c['passed']} PASS  {c['mixed']} MIXED  "
-          f"{c['failed']} FAIL  |  {len(errored)} could not be driven", flush=True)
+          f"{c['failed']} FAIL  |  {len(outcome.undriveable)} could not be driven"
+          f"  |  {len(outcome.errored)} errored", flush=True)
 
-    if errored:
+    if outcome.aborted:
+        print(f"### ABORTED — {outcome.abort_reason}", flush=True)
+        print(f"### {len(outcome.not_attempted)} scenario(s) were never attempted. "
+              f"This run measured nothing about them and nothing about the "
+              f"{len(outcome.undriveable)} it could not drive.", flush=True)
+        return outcome.exit_code
+
+    if outcome.undriveable or outcome.errored:
         print("### FAILED — these scenarios could not be driven, so this run "
               "measured nothing about them:", flush=True)
-        for sid in errored:
-            print(f"###   {sid}", flush=True)
-        return 3
+        for sid, why in outcome.undriveable + outcome.errored:
+            print(f"###   {sid}: {why}", flush=True)
+        return outcome.exit_code
 
     if args.baseline:
         was_passing = baseline_passes(args.baseline)

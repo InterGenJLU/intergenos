@@ -43,6 +43,41 @@ def _tool_names(tool_calls: list[dict[str, Any]]) -> list[str]:
     return names
 
 
+class TransportRefused(Exception):
+    """The thing this transport drives gave NO RESPONSE AT ALL.
+
+    Not a bad answer, not a failed assertion, not an error inside the product — no
+    response: connection refused, the socket closed, the daemon gone, the model
+    endpoint not answering. A turn that hits this measured NOTHING about the product,
+    so nothing may be concluded from it in either direction.
+
+    It is a DISTINCT TYPE on purpose. The run loop used to catch a bare ``Exception``
+    around each scenario and file everything under "could not be driven", which sounds
+    right and is not: a scenario that raised because the PRODUCT misbehaved is a
+    finding, while a scenario that raised because the harness could not reach anything
+    is a fact about the harness's environment. Only the second should stop a run.
+    """
+
+
+class ScenarioUndriveable(Exception):
+    """A scenario was abandoned because one of its turns could not be driven.
+
+    Carries WHICH scenario and WHICH turn, because "the run could not be driven" with
+    no further detail is the report that sent someone to read a log by hand. It
+    deliberately carries NO grade: a grade would be a claim about the product from a
+    turn that never reached it, and inventing one is the defect this type exists to
+    end (2026-08-26: four scenarios were awarded PASS with no model behind them).
+    """
+
+    def __init__(self, scenario_id: str, turn_index: int, reason: str) -> None:
+        self.scenario_id = scenario_id
+        self.turn_index = turn_index
+        self.reason = reason
+        super().__init__(
+            f"scenario {scenario_id} could not be driven at turn "
+            f"{turn_index + 1}: {reason}")
+
+
 @dataclass
 class TurnResult:
     """The transport-level result of one turn.
@@ -103,6 +138,25 @@ class ScenarioTransport(ABC):
     def status(self) -> dict[str, Any]:
         raise NotImplementedError("this transport does not expose status")
 
+    def engine_reachable(self) -> tuple[bool, str]:
+        """Can the thing that actually produces answers respond right now?
+
+        Returns ``(reachable, reason)``; ``reason`` is empty when reachable and names
+        the failure otherwise. This exists because the interesting outage is NOT the
+        daemon going away — that raises, and always did. It is the daemon staying up
+        while the ENGINE behind it dies: every model call gets connection refused,
+        intergen/llm.py logs one line and returns nothing, the router serves a degraded
+        reply, and the turn looks ordinary. Measured 2026-08-26 on the 2B laptop, that
+        state graded four scenarios PASS.
+
+        The default is fail-OPEN — a transport that cannot answer the question is not
+        going to be treated as broken. That is deliberate and narrow: the mock has no
+        engine to be unreachable, and a transport that DOES drive a real engine
+        overrides this with a real probe. The check that consumes it is only ever an
+        additional reason to refuse a verdict, never a reason to award one.
+        """
+        return True, ""
+
     def memory_db_path(self) -> str | None:
         """Path to the isolated memory DB the run's snapshot / delta-cleanup /
         leak / memory-write-gap checks read, or None when no DB is available to
@@ -152,8 +206,64 @@ class ClientTransport(ScenarioTransport):
         self._mode = mode
         self._client = InterGenTestClient(mode=mode)
 
+    #: The chat endpoint the daemon's model calls go to. Same default as
+    #: intergen/llm.py; overridden from the daemon's own config when it exposes one,
+    #: so the probe asks the address that actually failed rather than a guess.
+    DEFAULT_CHAT_ENDPOINT = "http://127.0.0.1:8080/v1/chat/completions"
+
+    def _chat_endpoint(self) -> str:
+        getter = getattr(self._client, "chat_endpoint", None)
+        if callable(getter):
+            try:
+                url = getter()
+                if isinstance(url, str) and url:
+                    return url
+            except Exception:                       # noqa: BLE001 — fall back, never fail here
+                pass
+        return self.DEFAULT_CHAT_ENDPOINT
+
+    def engine_reachable(self) -> tuple[bool, str]:
+        """Probe the model endpoint itself: is there anything there to answer?
+
+        A REAL REQUEST, not a process check. ``llama_manager.is_running()`` polls the
+        child process, which answers a different question — a process can be alive and
+        not serving, and the state that matters is whether a call gets an HTTP
+        response. The health path is used rather than a completion so the probe costs
+        nothing and cannot perturb the run.
+
+        Any HTTP response at all counts as reachable, INCLUDING an error status: a 503
+        means something is there and answering, which is a different condition from
+        connection refused and must not be conflated with it. Only a transport-level
+        failure — refused, reset, timed out, DNS — reads as unreachable.
+        """
+        import urllib.error
+        import urllib.request
+
+        endpoint = self._chat_endpoint()
+        health = endpoint.split("/v1/", 1)[0] + "/health"
+        try:
+            with urllib.request.urlopen(health, timeout=5.0):
+                return True, ""
+        except urllib.error.HTTPError:
+            # It answered, just not with 200. Something is serving.
+            return True, ""
+        except Exception as exc:                    # noqa: BLE001 — the point of the probe
+            return False, (f"no HTTP response from the model engine at {health} "
+                           f"({type(exc).__name__}: {exc})")
+
     def ask(self, message: str) -> TurnResult:
-        resp = self._client.ask(message)
+        # A TRANSPORT-LEVEL FAILURE IS NOT A PRODUCT RESULT. If the call to the daemon
+        # itself cannot complete, this turn measured nothing; say so in the type rather
+        # than letting a generic exception reach a blanket handler that cannot tell the
+        # difference between "the product broke" and "we never reached the product".
+        try:
+            resp = self._client.ask(message)
+        except TransportRefused:
+            raise
+        except (ConnectionError, TimeoutError, OSError) as exc:
+            raise TransportRefused(
+                f"no response from the daemon for this turn "
+                f"({type(exc).__name__}: {exc})") from exc
         return TurnResult(
             text=resp.text,
             source=resp.source,
@@ -234,6 +344,10 @@ class MockTransport(ScenarioTransport):
         self._replies = replies or {}
         self._default = default or TurnResult(text="ok", source="mock")
         self._memory_db_path = memory_db_path
+        # Lets a self-test put the mock into the measured outage state without a
+        # daemon: set to a reason string and every engine_reachable() call reports
+        # unreachable with it. None = reachable.
+        self.engine_unreachable_reason: str | None = None
         self.asked: list[str] = []
         self.reset_count = 0
         self.ready_calls = 0
@@ -262,6 +376,11 @@ class MockTransport(ScenarioTransport):
 
     def status(self) -> dict[str, Any]:
         return {"components": {"router": True}, "mock": True}
+
+    def engine_reachable(self) -> tuple[bool, str]:
+        if self.engine_unreachable_reason:
+            return False, self.engine_unreachable_reason
+        return True, ""
 
     def memory_db_path(self) -> str | None:
         return self._memory_db_path

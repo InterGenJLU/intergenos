@@ -147,7 +147,10 @@ def axis_metrics(scenario_dicts: list[dict]) -> dict[str, dict]:
 
 
 def build_results(runs: list[ScenarioRun], scenarios: list[Scenario],
-                  run_id: str, judge_annotations: dict | None = None) -> dict:
+                  run_id: str, judge_annotations: dict | None = None, *,
+                  undriveable: list[tuple[str, str]] | None = None,
+                  abort_reason: str = "",
+                  not_attempted: list[str] | None = None) -> dict:
     """The full results.json object for a run (pure — no I/O).
 
     ``judge_annotations`` (opt-in, WP-3.2) maps scenario id -> the serialized
@@ -171,6 +174,15 @@ def build_results(runs: list[ScenarioRun], scenarios: list[Scenario],
         },
         "scenarios": scenario_dicts,
         "axis_metrics": axis_metrics(scenario_dicts),
+        # KEPT OUT OF "scenarios" AND OUT OF "counts" DELIBERATELY. A scenario that
+        # could not be driven has no grade, so counting it anywhere among passes,
+        # failures or mixed would be inventing one — which is the defect this record
+        # exists to end. Readers that only know about "scenarios" therefore see a
+        # SMALLER run, never a wrong one, and the fields below say what is missing.
+        "undriveable": [{"id": sid, "reason": why}
+                        for sid, why in (undriveable or [])],
+        "abort_reason": abort_reason,
+        "not_attempted": list(not_attempted or []),
     }
 
 
@@ -183,6 +195,25 @@ def format_summary(results: dict) -> str:
     lines.append("=" * 60)
     lines.append(f"  {c['scenarios']} scenarios: {c['passed']} PASS  "
                  f"{c['mixed']} MIXED  {c['failed']} FAIL")
+    # THE ABORT LEADS. A person opening summary.txt after a run that stopped early must
+    # not have to notice that the scenario count is smaller than they expected; the
+    # first thing under the counts says the run stopped and why.
+    undriveable = results.get("undriveable") or []
+    not_attempted = results.get("not_attempted") or []
+    abort_reason = results.get("abort_reason") or ""
+    if abort_reason:
+        lines.append("")
+        lines.append("*** RUN ABORTED — THIS RUN DID NOT MEASURE THE WHOLE CORPUS ***")
+        lines.append(f"  reason: {abort_reason}")
+        if not_attempted:
+            lines.append(f"  {len(not_attempted)} scenario(s) never attempted: "
+                         + ", ".join(not_attempted))
+    if undriveable:
+        lines.append("")
+        lines.append(f"COULD NOT BE DRIVEN ({len(undriveable)}) — no verdict was "
+                     f"reached for these, in either direction:")
+        for u in undriveable:
+            lines.append(f"  {u['id']}: {u['reason']}")
     lines.append("")
     lines.append("Per-axis pass-rate:")
     am = results.get("axis_metrics", {})
@@ -206,16 +237,35 @@ def format_summary(results: dict) -> str:
             wg = s.get("write_gap")
             if wg and wg.get("is_gap"):
                 lines.append("      MEMORY WRITE GAP (store left the facts store empty)")
-    else:
+    elif c["scenarios"]:
         lines.append("All scenarios PASS.")
+    else:
+        # NO SCENARIO WAS GRADED, SO THERE IS NOTHING TO CALL PASSING. Caught by
+        # reading a real artifact rather than by a test: an aborted run — zero graded,
+        # two undriveable, two never attempted — ended its summary with "All scenarios
+        # PASS.", because the old branch read "no non-PASS scenarios" as "everything
+        # passed". An empty set satisfies that, which makes the emptiest possible run
+        # produce the most reassuring possible sentence. That is the same false
+        # all-clear, one file further out, as the four graded PASSES this cut exists
+        # to stop.
+        lines.append("NO SCENARIO WAS GRADED. This run reached no verdict about "
+                     "anything — do not read the counts above as a pass.")
     return "\n".join(lines) + "\n"
 
 
 def write_run(runs: list[ScenarioRun], scenarios: list[Scenario],
-              out_dir: str | Path, run_id: str) -> dict:
+              out_dir: str | Path, run_id: str, *,
+              undriveable: list[tuple[str, str]] | None = None,
+              abort_reason: str = "",
+              not_attempted: list[str] | None = None) -> dict:
     """Write results.json + summary.txt under ``out_dir`` and return the results
-    dict. The directory is created if absent; ``run_id`` names the run."""
-    results = build_results(runs, scenarios, run_id)
+    dict. The directory is created if absent; ``run_id`` names the run.
+
+    ``undriveable`` / ``abort_reason`` / ``not_attempted`` record what the run could
+    NOT measure. They are written even when empty so their absence from an artifact is
+    a fact about the run rather than a fact about which version wrote it."""
+    results = build_results(runs, scenarios, run_id, undriveable=undriveable,
+                            abort_reason=abort_reason, not_attempted=not_attempted)
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     (out / "results.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
