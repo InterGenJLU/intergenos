@@ -91,14 +91,30 @@ def print_usage() -> None:
     print("  status           Show daemon status")
     print("  tier             Show hardware tier info")
     print("  tools            List available tools")
+    # These option lists are what the handlers below actually read. They said
+    # otherwise until 2026-08-26: all four of tool-log's options were printed
+    # under `glass`, which accepts none of them, and glass's own --tail and
+    # --turn were not printed at all. Found by generating the capability surface
+    # from the code and comparing it with what the tool says about itself. If a
+    # handler gains an option, add it here in the same change.
     print("  tool-log         Show the D-008 dispatch audit log")
-    print("  glass            Reconstruct turns from the M1 glass trace")
     print("                     --clear       wipe the log (user-data delete)")
     print("                     --json        emit raw JSONL")
     print("                     --count       print record count and exit")
     print("                     --limit N     show last N records (default 50)")
+    print("  glass            Reconstruct turns from the M1 glass trace")
+    print("                     --turn ID     the full causal chain for one turn")
+    print("                     --tail N      the last N rows (default 40)")
+    print("                     --json        emit raw JSONL")
     print("  test             Run self-test (hardware + tools)")
     print("  setup            Download and verify LLM model")
+    print("                     --tier=N      force a hardware tier "
+          "(default: auto-detect)")
+    print("                     --yes, -y     answer yes to every prompt")
+    print("                     --show-offer  report what this machine can run "
+          "and exit;")
+    print("                                   changes nothing and installs "
+          "nothing")
     print("  daemon           Start the InterGen daemon")
     print("  console          Start the InterGen terminal console")
     print("  panel            Start the InterGen GTK4 panel window")
