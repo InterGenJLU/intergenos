@@ -90,7 +90,11 @@ def test_the_users_own_data_survives_a_restart(real_home):
     conn = sqlite3.connect(f"file:{store}?mode=ro", uri=True)
     try:
         oldest = None
-        for table, column in (("facts", "created_at"), ("sessions", "created_at")):
+        # The sessions table dates its rows in started_at; an earlier draft asked
+        # for created_at, the error was swallowed, and on an account whose facts
+        # table was empty the gate skipped as "no dated record" while 46 dated
+        # sessions sat in the store (measured 2026-08-27).
+        for table, column in (("facts", "created_at"), ("sessions", "started_at")):
             try:
                 row = conn.execute(
                     f"SELECT MIN({column}) FROM {table}").fetchone()
