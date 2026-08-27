@@ -111,6 +111,8 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- Every trace row the assistant daemon writes while starting and warming up names the boot that produced it; the warm-up generations and the engine offload check no longer write placeholder-identified rows (intergen r245).
+
 - **The Welcomer's polkit action file ships in its source tarball.** The
   first-boot greeter installs `org.intergenos.welcome.policy` — the polkit action
   that names the application and the change in every privilege prompt — but the

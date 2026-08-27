@@ -1219,7 +1219,15 @@ class InterGenDaemon(InterGenDBusInterface):
           6. Connect MCP servers (future)
           7. Export D-Bus interface
           8. Signal ready
+
+        The whole sequence runs under the boot turn's glass scope: model work
+        done while starting (the engine's offload check, the warm-up
+        generations) is written under the boot id, not the placeholder.
         """
+        with glass.scope(self._boot_turn, "daemon"):
+            self._start_service_inner()
+
+    def _start_service_inner(self) -> None:
         log.info("InterGen daemon starting...")
 
         # M1: the glass pipeline is ALWAYS ON; a disabled glass must be LOUD,
@@ -2183,7 +2191,14 @@ class InterGenDaemon(InterGenDBusInterface):
                 glass.emit("warmup", "cache_warm_failed", turn_id=self._boot_turn,
                            iface="daemon", detail={"error": type(e).__name__})
 
-        threading.Thread(target=_warm, daemon=True,
+        def _warm_under_boot_scope() -> None:
+            # A new thread does not inherit the caller's ContextVars, so the
+            # boot scope start_service entered is re-entered here; every row
+            # the warm-up's generations write then carries the boot id.
+            with glass.scope(self._boot_turn, "daemon"):
+                _warm()
+
+        threading.Thread(target=_warm_under_boot_scope, daemon=True,
                          name="intergen-warmup").start()
 
     def _parse_dispatch_override(self):

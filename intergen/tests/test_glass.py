@@ -117,6 +117,18 @@ class GlassWriterContract(unittest.TestCase):
         self.assertEqual(r["iface"], "daemon")
         self.assertIsNone(r["t_rel_ms"])  # no turn-start anchor for a boot row
 
+    def test_scope_binds_boot_id_for_deep_emits_without_a_terminal(self) -> None:
+        """Deep code inside a boot scope names the boot, and the scope's exit
+        synthesizes nothing — a boot is not a served turn with one ending."""
+        with glass.scope("boot-2", "daemon"):
+            glass.emit("model", "first_token")
+        rows = _turn_rows(self.tmp)
+        self.assertEqual([(r["turn_id"], r["iface"], r["phase"], r["event"])
+                          for r in rows],
+                         [("boot-2", "daemon", "model", "first_token")])
+        self.assertIsNotNone(rows[0]["t_rel_ms"])  # anchored to the scope start
+        self.assertEqual(glass.current_turn_id(), "")  # binding released
+
     def test_file_is_owner_only(self) -> None:
         with glass.turn(glass.new_turn_id(), "web"):
             glass.emit("route", "x")

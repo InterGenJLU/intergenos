@@ -427,6 +427,36 @@ def current_turn_id() -> str:
 
 
 @contextmanager
+def scope(turn_id: str, iface: str) -> Iterator[str]:
+    """Bind a turn id + interface for a block that is NOT a served turn.
+
+    The daemon's start-up and warm-up run model work — a prompt is assembled,
+    the engine generates, the semantic screen runs — through the same deep
+    code a served turn uses, and that code names its turn by reading the
+    ContextVar. Outside any binding those rows were written with the literal
+    placeholder identifier and could not be joined to the boot that produced
+    them, while the boot's own bookkeeping rows carried an explicit boot id.
+    This binding gives the deep code the boot id to read.
+
+    It is deliberately not :func:`turn`: a boot has no single terminal event
+    (the ready row and the warm-done row each end their own part, and they
+    already carry the id explicitly), so nothing is synthesized at exit and
+    the one-terminal-per-turn accounting is not armed. A thread started inside
+    the block does not inherit ContextVars; enter this again in the thread.
+    """
+    t0 = _now_ms()
+    tok_id = _current_turn_id.set(turn_id)
+    tok_start = _current_turn_start.set(t0)
+    tok_iface = _current_iface.set(iface)
+    try:
+        yield turn_id
+    finally:
+        _current_turn_id.reset(tok_id)
+        _current_turn_start.reset(tok_start)
+        _current_iface.reset(tok_iface)
+
+
+@contextmanager
 def turn(turn_id: str, iface: str) -> Iterator[str]:
     """Bind a turn's id + interface for the duration of a block.
 
