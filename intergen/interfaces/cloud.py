@@ -99,8 +99,19 @@ class EscalationManagerInterface(ABC):
 
     @abstractmethod
     def should_escalate(self, user_message: str, local_response: str,
-                        quality_check: str, confidence: float) -> EscalationDecision:
+                        quality_check: str, confidence: float, *,
+                        multistep: bool = False,
+                        exceeds_scope: bool = False) -> EscalationDecision:
         """Decide whether to escalate to cloud.
+
+        THE KEYWORD SIGNALS ARE PART OF THIS CONTRACT. They were added to the
+        implementation and not to this declaration, and the cost showed up as a
+        regression: a stand-in that matched the DECLARED signature raised
+        TypeError when the router passed a keyword, and the router swallows that
+        (an offer must never break a reply) — so the offer silently stopped
+        appearing rather than failing loudly. Declared here with defaults so any
+        implementation is complete by matching this signature, and pinned by
+        intergen/tests/test_escalation_offer_is_decided_on_the_request.py.
 
         Args:
             user_message: What the user asked.
@@ -108,6 +119,11 @@ class EscalationManagerInterface(ABC):
             quality_check: Result of quality gate (empty string = passed).
             confidence: Local answer confidence on a 0-1 scale; at or below
                 escalation._LOW_CONFIDENCE this triggers an offer.
+            multistep: The decomposer's structured multi-part verdict for this
+                turn, computed by the caller.
+            exceeds_scope: The request asks for a whole professional artifact this
+                tier cannot produce, computed by the caller from the REQUEST
+                alone. The only trigger that does not read the answer.
 
         Returns:
             EscalationDecision with recommendation and reasoning.

@@ -844,6 +844,87 @@ _SYSTEM_SCOPE_RE = re.compile(
     r"\bmemory\s+usage\b|\bam\s+i\s+using\b", re.IGNORECASE)
 
 
+# ── Does the REQUEST exceed what this tier can do? ──────────────────────────
+#
+# WHY THIS EXISTS. Whether a person was offered a larger model used to depend on
+# whether the local model's second draft came back clean. Measured 2026-08-26:
+# the same scenario — "give me a complete, rigorous formal proof of the Riemann
+# Hypothesis" — graded FAIL and then PASS on the same tree and the same box
+# seventeen minutes apart. In both turns the model first refused and the refusal
+# screen tried one regeneration; when the regeneration SUCCEEDED a thin answer was
+# delivered and the person was never told a bigger model could be asked, and when
+# it FAILED the deterministic steer was delivered and that text carries the offer.
+# The escalation trigger set could not catch this because every member of it reads
+# the ANSWER: explicit / quality_failed / low_confidence / multistep, of which
+# low_confidence is arithmetically the same condition as quality_failed on this
+# path (the caller computes confidence as 1.0-or-0.5 from quality_passed). This is
+# the one trigger that reads the REQUEST, so the same question gets the same
+# answer every time.
+#
+# WHAT IT RECOGNISES. The class the five CNV-STEER-ESC scenarios are written
+# around: a request for a WHOLE professional artifact — "a complete … compiler",
+# "a complete, rigorous formal proof", "a complete 40-page legal contract", "a
+# full multi-year DCF valuation model", "this entire 300-page novel".
+#
+# HOW ITS SHAPE WAS CHOSEN — measured, not asserted. Read off those five, then
+# measured on the whole scenario corpus (5 of 5 claimed, 0 of 856 other asks) and
+# on a stress set written for the lane, of asks the corpus does NOT contain. The
+# first version passed the corpus cleanly and fired on SIX ordinary requests in
+# the stress set, which is how the corpus result was shown to be over-fitted to
+# five sentences by one hand. The two exclusions below come from reading what
+# those six had in common.
+#
+#   - A HOW-TO QUESTION is not a request to produce. "how do I write a complete
+#     backup script from scratch" wants to be taught, not handed an artifact.
+#   - AN OBJECT ON THIS MACHINE is the assistant's own job. "a complete backup of
+#     my documents folder", "a comprehensive comment for this function", "a
+#     complete picture of what's using my disk" need a tool, not a bigger model.
+#     The machine test reuses _SYSTEM_SCOPE_RE above rather than a second list.
+#
+# NAMED RESIDUE: "write a complete operating system kernel for me" does NOT fire,
+# because _SYSTEM_SCOPE_RE matches the bare word "kernel". The cost is silence —
+# the behaviour that already exists — not a wrong answer, and second-guessing the
+# product's system-scope test from inside a new consumer is a larger change than
+# this defect warrants. Asserted in the tests so the limit is visible in the tree.
+_PRODUCING_VERB = (r"(?:write|give|draft|build|translate|produce|generate|"
+                   r"create|compose|design|develop|prepare)")
+_WHOLENESS_MARKER = (r"(?:complete|comprehensive|full|entire|exhaustive|"
+                     r"production[- ]grade|rigorous|end[- ]to[- ]end|"
+                     r"from\s+scratch)")
+_PROFESSIONAL_SCALE = (r"(?:\d+[- ]page|\d+[- ]year|multi[- ]year|multi[- ]part|"
+                       r"book[- ]length)")
+_WHOLE_ARTIFACT_RE = re.compile(
+    rf"\b{_PRODUCING_VERB}\b(?:\W+\w+){{0,4}}?\W+"
+    rf"(?:{_WHOLENESS_MARKER}|{_PROFESSIONAL_SCALE})\b",
+    re.IGNORECASE)
+_HOWTO_QUESTION_RE = re.compile(
+    r"^\s*(?:so\s+|and\s+|but\s+|ok\s+|okay\s+)?"
+    r"(?:how\s+(?:do|can|could|would|should|might)\s+(?:i|we|you)\b"
+    r"|how\s+would\s+one\b"
+    r"|what(?:'?s|\s+is)\s+the\s+best\s+way\b)", re.IGNORECASE)
+# The file or thing in front of the user. Deliberately narrow: a possessive alone
+# is not enough, because "my business" and "my startup" are domain objects that
+# SHOULD reach the offer.
+_LOCAL_ARTIFACT_RE = re.compile(
+    r"\b(?:my|this|the)\s+(?:documents?|files?|file|folder|directory|home|"
+    r"desktop|downloads?|backups?|script|function|config(?:uration)?|log|logs|"
+    r"repo|repository|codebase|project\s+folder)\b", re.IGNORECASE)
+
+
+def _request_exceeds_local_scope(user_input: str) -> bool:
+    """True when the REQUEST asks for a whole professional artifact this tier is
+    not equipped to produce. Reads the request and nothing else — no answer, no
+    model, no quality verdict — which is what makes the decision repeatable."""
+    text = user_input or ""
+    if not _WHOLE_ARTIFACT_RE.search(text):
+        return False
+    if _HOWTO_QUESTION_RE.search(text):
+        return False
+    if _SYSTEM_SCOPE_RE.search(text) or _LOCAL_ARTIFACT_RE.search(text):
+        return False
+    return True
+
+
 # LEG 1 (wave-7): dual-reading SYSTEM NOUNS (kernel/memory/disk/cpu/service/driver/
 # process/...) read two ways — a DEFINITIONAL/how-to TEACH ask ("what is a kernel",
 # "how do kernels work", "what is memory") vs a LIVE-STATE ask ("what kernel am I
@@ -5432,6 +5513,11 @@ class ConversationRouter(RouterInterface):
             decision = self._escalation.should_escalate(
                 user_input, response.text, quality_check, confidence,
                 multistep=dq.needs_decomposition,
+                # The one signal that reads the REQUEST. Without it the offer
+                # depended on whether the local model's second draft came back
+                # clean, which made the same question answerable two different
+                # ways minutes apart.
+                exceeds_scope=_request_exceeds_local_scope(user_input),
             )
         except Exception as exc:  # noqa: BLE001 — an offer must never break a reply
             logger.debug("escalation offer check failed: %s", type(exc).__name__)
