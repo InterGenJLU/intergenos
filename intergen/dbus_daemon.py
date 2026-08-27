@@ -1457,7 +1457,8 @@ class InterGenDaemon(InterGenDBusInterface):
                 # it no longer decides whether the card is used to serve it.
                 # There is no audition, no probe and no speed threshold.
                 from intergen.llama_manager import resolve_gpu_layers
-                from intergen.serving_device import (select_serving_device,
+                from intergen.serving_device import (pci_for_device_name,
+                                                     select_serving_device_and_pci,
                                                      select_serving_engine)
                 _hw = self._hardware_tier or {}
                 _gpu_vendor = _hw.get("gpu_vendor")
@@ -1481,13 +1482,26 @@ class InterGenDaemon(InterGenDBusInterface):
                 # stays free (judge/eval co-residency), preferring a card that
                 # is not driving a display. None = no pin (single-GPU boxes,
                 # or selection unavailable).
+                #
+                # The card's PCI ADDRESS is resolved in the same breath as its
+                # name, because the serving card's runtime power is held ON for
+                # as long as a model is on it (llama_manager._hold_serving_card)
+                # and the hold needs an address to aim at. On the "auto" path
+                # both come out of ONE selection, so they can never describe
+                # different cards; on an operator pin the address is looked up
+                # by the pinned name EXACTLY, and an unresolvable name simply
+                # yields no hold rather than a guess.
                 _cfg_device = self._config.get("llama_server.device", "auto")
                 if isinstance(_cfg_device, str) and _cfg_device not in ("auto", ""):
                     _device = _cfg_device
+                    _device_pci = (pci_for_device_name(_device,
+                                                       server=_server_path)
+                                   if _vulkan_present else None)
                 elif _vulkan_present:
-                    _device = select_serving_device(server=_server_path)
+                    _device, _device_pci = select_serving_device_and_pci(
+                        server=_server_path)
                 else:
-                    _device = None
+                    _device, _device_pci = None, None
                 _cfg_gpu_layers = self._config.get("llama_server.gpu_layers", "auto")
                 _tier_level = _hw.get("level") if isinstance(_hw.get("level"), int) else None
                 # The fit measurement: the card's detected memory, the model's
@@ -1508,7 +1522,9 @@ class InterGenDaemon(InterGenDBusInterface):
                          _cfg_gpu_layers, _tier_level,
                          _vram_mb if _vram_mb is not None else "unreadable",
                          _eff_gpu_layers, _engine, _server_path,
-                         f", device pin {_device}" if _device else "",
+                         (f", device pin {_device}"
+                          f"{f' at PCI {_device_pci}' if _device_pci else ''}")
+                         if _device else "",
                          _plan.reason)
                 glass.emit("warmup", "offload_plan", turn_id=self._boot_turn,
                            iface="daemon", detail={
@@ -1553,6 +1569,7 @@ class InterGenDaemon(InterGenDBusInterface):
                     has_vision=model_has_vision,
                     expect_tools=True,  # the chat server's core contract
                     device=_device,
+                    device_pci=_device_pci,
                     server_path=_server_path,
                 )
                 glass.emit("warmup", "model_load_done", turn_id=self._boot_turn,

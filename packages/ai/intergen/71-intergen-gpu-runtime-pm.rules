@@ -1,0 +1,45 @@
+# InterGen: let the serving daemon hold its own card awake, and put it back.
+#
+# WHAT THIS GRANTS, AND TO WHOM. The runtime power policy of a PCI device lives
+# in one attribute — power/control — and the kernel ships it mode 0644 owned by
+# root, so an ordinary user process cannot change it. This rule gives the
+# "video" group write access to that ONE attribute, on DISPLAY-CONTROLLER
+# devices only (PCI class 0x0300xx), and only where the attribute exists.
+# Nothing else is granted, no other attribute is touched, no other device class
+# is matched, and the file never becomes writable by every user on the machine.
+# The group is "video" because that is the group InterGenOS already puts a
+# desktop user in for direct access to the DRM devices, and the assistant
+# daemon runs as the desktop user.
+#
+# WHY THE ASSISTANT NEEDS IT. A discrete GPU with nothing plugged into it sits
+# at power/control = "auto", so the kernel runtime-suspends it whenever it is
+# idle. Starting or stopping a served model touches that card, the kernel
+# runtime-RESUMES it, and the resume announces a hotplug on every connector —
+# which the compositor reads as "the device changed", frees its planes, CRTCs
+# and connectors, and rebuilds the desktop. The person watching sees their
+# windows move. With this grant the daemon holds the card it is actually
+# serving on at "on" for exactly as long as a model is loaded on it, and writes
+# back whatever value it found there when the model is unloaded — see
+# hold_runtime_pm_on/release_runtime_pm in intergen/serving_device.py and
+# _hold_serving_card/_release_serving_card in intergen/llama_manager.py. The
+# daemon does it in its own process, as itself: there is no helper binary and
+# no privilege escalation anywhere in the path.
+#
+# HOW THIS RELATES TO 70-intergen-compute-gpu-pm.rules, WHICH THIS PACKAGE ALSO
+# SHIPS. That rule SETS power/control to "on" permanently, and only for AMD
+# cards (DRIVER=="amdgpu") whose boot_vga attribute reads 0. It is a blunter
+# instrument with a wider reach: it holds cards the assistant never serves on,
+# it costs idle power on a machine that is doing nothing — its own header names
+# that as a stated trade-off — and it does not reach a serving card on any
+# other driver, which an NVIDIA or an Intel box is. The two do not fight. Where
+# the older rule has already set a card to "on", the daemon reads "on" as the
+# prior value, writes nothing, and leaves it on; the scoped hold only ever acts
+# where the older rule did not.
+#
+# The write is granted with two RUN programs rather than udev's own GROUP=/MODE=
+# because those apply to a device node under /dev, and power/control is a sysfs
+# attribute — chgrp and chmod are the only way to set its group and mode.
+ACTION=="add|change", SUBSYSTEM=="pci", ATTR{class}=="0x0300*", \
+    TEST=="power/control", \
+    RUN+="/usr/bin/chgrp video /sys%p/power/control", \
+    RUN+="/usr/bin/chmod g+w /sys%p/power/control"
