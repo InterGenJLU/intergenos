@@ -702,7 +702,9 @@
     ],
     "category": "capability",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:manage_packages",
@@ -745,7 +747,9 @@
     ],
     "category": "capability",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:read_file",
@@ -849,7 +853,9 @@
     ],
     "category": "capability",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:open_application",
@@ -892,7 +898,9 @@
     ],
     "category": "capability",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:manage_services",
@@ -953,7 +961,9 @@
     ],
     "category": "capability",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:write_file",

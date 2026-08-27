@@ -1100,7 +1100,9 @@
     ],
     "category": "file_management",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -1133,7 +1135,9 @@
     ],
     "category": "file_management",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -1166,7 +1170,9 @@
     ],
     "category": "file_management",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -1199,7 +1205,9 @@
     ],
     "category": "file_management",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -1247,7 +1255,9 @@
     ],
     "category": "file_management",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -1318,7 +1328,9 @@
     ],
     "category": "file_management",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -1356,7 +1368,9 @@
     ],
     "category": "file_management",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -1395,7 +1409,9 @@
     ],
     "category": "file_management",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -1455,7 +1471,9 @@
     ],
     "category": "file_management",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -1500,7 +1518,9 @@
     ],
     "category": "file_management",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -1545,7 +1565,9 @@
     ],
     "category": "file_management",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -1590,7 +1612,9 @@
     ],
     "category": "file_management",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -1650,7 +1674,9 @@
     ],
     "category": "file_management",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -1695,7 +1721,9 @@
     ],
     "category": "file_management",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -1740,7 +1768,9 @@
     ],
     "category": "file_management",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -1785,7 +1815,9 @@
     ],
     "category": "file_management",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -1830,7 +1862,9 @@
     ],
     "category": "file_management",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -1890,7 +1924,9 @@
     ],
     "category": "file_management",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "tool:run_command",
@@ -1935,7 +1971,9 @@
     ],
     "category": "do_for_me",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "cross:decomposer-tree",
@@ -1991,7 +2029,9 @@
     ],
     "category": "do_for_me",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "cross:decomposer-tree",
@@ -2032,7 +2072,9 @@
     ],
     "category": "do_for_me",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "cross:decomposer-tree",
@@ -2073,7 +2115,9 @@
     ],
     "category": "do_for_me",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "cross:decomposer-tree",
@@ -2129,7 +2173,9 @@
     ],
     "category": "do_for_me",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "cross:decomposer-tree",
@@ -2170,7 +2216,9 @@
     ],
     "category": "do_for_me",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "cross:decomposer-tree",
@@ -2211,7 +2259,9 @@
     ],
     "category": "do_for_me",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "cross:decomposer-tree",
@@ -2252,7 +2302,9 @@
     ],
     "category": "do_for_me",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "cross:decomposer-tree",
@@ -2309,7 +2361,9 @@
     ],
     "category": "do_for_me",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "cross:decomposer-tree",
@@ -2350,7 +2404,9 @@
     ],
     "category": "do_for_me",
     "postures": [
-      "2B-locked"
+      "2B-locked",
+      "9B-native",
+      "35B-native"
     ],
     "capabilities": [
       "cross:decomposer-tree",
