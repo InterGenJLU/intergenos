@@ -250,6 +250,17 @@ def build_trace_lookup(glass_rows: list[dict[str, Any]] | None = None,
             view.decomposition_source_joined = g.decomposition_source_joined
             if g.sub_queries:
                 view.sub_queries = g.sub_queries
+            # Per-clause dispatch attribution. THIS MERGE IS THE THIRD PLACE A
+            # NEW TRACE FIELD HAS TO BE ADDED, and the easiest to forget: the
+            # base view comes from the REPLY, which cannot carry it, so a field
+            # left out here is silently absent no matter how correctly it was
+            # emitted, filtered and parsed. Measured 2026-08-27: the rows were
+            # emitted with their tools and reached from_glass_rows, and six
+            # per-clause assertions still failed closed because this function
+            # copied three fields and not these two.
+            view.subquery_attribution_joined = g.subquery_attribution_joined
+            if g.sub_query_tools:
+                view.sub_query_tools = g.sub_query_tools
             if not view.route_source and g.route_source:
                 view.route_source = g.route_source
         return view

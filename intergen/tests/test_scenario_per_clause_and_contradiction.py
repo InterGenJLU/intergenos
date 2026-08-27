@@ -397,5 +397,57 @@ class TheHarnessActuallyLoadsTheRow(unittest.TestCase):
         self.assertEqual(view.sub_query_tools, {1: ["web_search"], 2: []})
 
 
+class TheLiveLookupCarriesTheAttribution(unittest.TestCase):
+    """The last place the attribution can be lost, and the easiest to miss.
+
+    MEASURED 2026-08-27, on the SECOND live re-drive of this cut — after the
+    loader filter was already fixed. build_trace_lookup builds its base view
+    from the REPLY, which cannot carry a per-clause attribution, then copies a
+    named handful of fields across from the glass view. It copied three, and
+    not these two. So the rows were emitted correctly, survived the filter, and
+    were parsed correctly, and six per-clause assertions still failed closed.
+
+    Three separate places have to agree for a trace field to reach the grader:
+    the loader's phase/event filter, from_glass_rows, and this merge. Two tests
+    above cover the first two. This is the third.
+    """
+
+    def test_the_lookup_copies_the_attribution_onto_the_reply_view(self):
+        from intergen.tests.scenario import live_run
+
+        rows = [
+            {"turn_id": "t9", "phase": "decision", "event": "compound_route",
+             "detail": {"sub_queries": ["check if docker is installed",
+                                        "install it"]}},
+            {"turn_id": "t9", "phase": "prompt", "event": "subquery",
+             "detail": {"index": 1, "of": 2,
+                        "sub_query": "check if docker is installed",
+                        "tools": ["manage_packages"]}},
+            {"turn_id": "t9", "phase": "prompt", "event": "subquery",
+             "detail": {"index": 2, "of": 2, "sub_query": "install it",
+                        "tools": []}},
+        ]
+        lookup = live_run.build_trace_lookup(glass_rows=rows,
+                                             glass_fallback=False)
+        view = lookup(TurnResult(text="ok", source="decomposed", trace_id="t9"))
+
+        self.assertIsNotNone(view)
+        self.assertTrue(
+            view.subquery_attribution_joined,
+            "the live trace lookup dropped the per-clause attribution while "
+            "merging the glass view onto the reply view, so every per-clause "
+            "assertion fails closed on a real run")
+        self.assertEqual(view.sub_query_tools,
+                         {1: ["manage_packages"], 2: []})
+
+    def test_a_turn_with_no_rows_reports_no_attribution(self):
+        """The other direction: absence must stay absence, not become an empty pass."""
+        from intergen.tests.scenario import live_run
+
+        lookup = live_run.build_trace_lookup(glass_rows=[], glass_fallback=False)
+        view = lookup(TurnResult(text="ok", source="llm", trace_id="t0"))
+        self.assertFalse(view.subquery_attribution_joined)
+
+
 if __name__ == "__main__":
     unittest.main()
