@@ -50,9 +50,9 @@ class RedeployBankedArchivesTest(unittest.TestCase):
         self.chroot = base / "chroot"
         self.archives = self.chroot / "var/lib/igos/archives"
         self.manifests = self.chroot / "var/lib/igos/packages"
-        self.dbdir = self.chroot / "var/lib/pkm"
+        self.dbdir = self.chroot / "var/lib/igos"  # pkm/database.py DB_PATH
         for d in (self.archives, self.manifests, self.dbdir):
-            d.mkdir(parents=True)
+            d.mkdir(parents=True, exist_ok=True)
         db = sqlite3.connect(self.dbdir / "pkm.db")
         db.execute("CREATE TABLE installed (id INTEGER PRIMARY KEY, name TEXT, "
                    "version TEXT, release INTEGER DEFAULT 1, superseded_by TEXT)")
@@ -104,6 +104,42 @@ class RedeployBankedArchivesTest(unittest.TestCase):
         rc, out = self.run_main()
         self.assertEqual(rc, 2, out)
         self.assertIn("BANKED-NOT-DEPLOYED (current, healable): lib32-wayland", out)
+
+    def test_deployed_letter_led_version_is_recognised_from_the_manifest(self):
+        # llama-cpp versions are upstream build numbers ("b8796"); a manifest
+        # glob that requires a digit after "<name>-" reported all three llama
+        # packages BANKED-NOT-DEPLOYED on the R001.2 substrate (2026-08-27)
+        # while their manifests, rows and files were all present.
+        self.add_recipe("ai", "llama-cpp", "b8796", 8)
+        make_archive(self.archives, "llama-cpp", "b8796", 8)
+        (self.manifests / "llama-cpp-b8796").write_text("")   # manifest only
+        rc, out = self.run_main()
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("BANKED-NOT-DEPLOYED", out)
+
+    def test_sibling_prefix_manifest_does_not_count_as_deployed(self):
+        # llama-cpp-hip's manifest must not satisfy llama-cpp's deployment check.
+        self.add_recipe("ai", "llama-cpp", "b8796", 8)
+        self.add_recipe("compute", "llama-cpp-hip", "b8796", 4)
+        make_archive(self.archives, "llama-cpp", "b8796", 8)
+        make_archive(self.archives, "llama-cpp-hip", "b8796", 4)
+        self.mark_installed("llama-cpp-hip", "b8796", 4)
+        rc, out = self.run_main()
+        self.assertEqual(rc, 2, out)
+        self.assertIn("BANKED-NOT-DEPLOYED (current, healable): llama-cpp ", out)
+        self.assertNotIn("healable): llama-cpp-hip", out)
+
+    def test_db_row_is_read_from_pkm_database_path(self):
+        # A DB row alone (no text manifest) proves deployment — only when the
+        # tool reads the database pkm actually writes (/var/lib/igos/pkm.db).
+        self.add_recipe("core", "zlib", "1.3.1", 2)
+        make_archive(self.archives, "zlib", "1.3.1", 2)
+        db = sqlite3.connect(self.dbdir / "pkm.db")
+        db.execute("INSERT INTO installed (name, version, release) VALUES (?,?,?)",
+                   ("zlib", "1.3.1", 2))
+        db.commit(); db.close()
+        rc, out = self.run_main()
+        self.assertEqual(rc, 0, out)
 
     def test_banked_not_deployed_tree_ahead_joins_rebuild(self):
         self.add_recipe("core", "attr", "2.5.2", 3)
