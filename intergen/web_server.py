@@ -2063,9 +2063,10 @@ class WebServer:
                 "verdict": _off_outcome, "marker": _off_marker,
                 "source": route_result.source})
 
-        # M4 capability-claim gate — web-path parity with the router's
-        # _screen_and_correct_capability. Screen the delivered draft for a fabricated
-        # pkm-subcommand claim; regenerate once grounded (off-thread), else serve the
+        # M4 capability gate — web-path parity with the router's
+        # _screen_and_correct_capability. Screen the delivered draft for a first-party
+        # command with an invented subcommand or flag; regenerate once grounded
+        # (off-thread), else serve the
         # honest capability fallback. Runs on the (possibly execution-corrected)
         # full_response so ONE delivered answer clears both gates. Ruling 2: a missing
         # ground-truth surface is LOUD ("unavailable" — WARN + honest-under-
@@ -2085,6 +2086,15 @@ class WebServer:
                 "verdict": _cap_outcome, "marker": _cap_marker,
                 "source": route_result.source,
                 "degraded": "capability-surface.json missing/unreadable"})
+        elif _cap_verdict == "unverifiable":
+            # Web-path parity with the router: a REAL command whose option
+            # surface cannot be introspected is stated honestly, not
+            # regenerated — there is nothing proven wrong to correct.
+            full_response = safety.capability_unintrospectable_fallback(_cap_marker)
+            glass.emit("decision", "capability_screen", detail={
+                "verdict": "unverifiable_tool_surface", "marker": _cap_marker,
+                "source": route_result.source,
+                "degraded": "tool argument surface is not introspectable"})
         else:
             _cap_ctx = glass.bind_context()
             _cap_corrected = await loop.run_in_executor(

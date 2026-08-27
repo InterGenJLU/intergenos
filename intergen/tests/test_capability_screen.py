@@ -63,7 +63,7 @@ class ScreenCapabilityClaimSurfacePresent(unittest.TestCase):
         # it): reset the path to the shipped artifact and drop the lru_cache.
         safety._CAP_SURFACE_PATH = (
             Path(safety.__file__).with_name("data") / "capability-surface.json")
-        safety._pkm_surface.cache_clear()
+        safety.reset_surface_cache()
         # Guard: the shipped artifact must actually load, else these assertions
         # would silently test the degraded path.
         valid, _ = safety._pkm_surface()
@@ -102,16 +102,23 @@ class ScreenCapabilityClaimSurfaceAbsent(unittest.TestCase):
     def setUp(self) -> None:
         self._orig = safety._CAP_SURFACE_PATH
         safety._CAP_SURFACE_PATH = Path(tempfile.gettempdir()) / "no-such-cap-surface.json"
-        safety._pkm_surface.cache_clear()
+        safety.reset_surface_cache()
 
     def tearDown(self) -> None:
         safety._CAP_SURFACE_PATH = self._orig
-        safety._pkm_surface.cache_clear()
+        safety.reset_surface_cache()
 
     def test_invocation_is_unavailable_with_marker(self) -> None:
+        # The marker is the WHOLE command line, not the tool-plus-subcommand
+        # fragment it used to be. On this verdict nothing is known to be wrong,
+        # and the marker is quoted straight back to the user ("I won't claim
+        # `...` works without checking"), so quoting the command they were
+        # actually given is the honest thing to show them. The violation verdict
+        # still marks the offending FRAGMENT, which is what a corrective note
+        # needs — the two markers answer different questions.
         self.assertEqual(
             screen_capability_claim("run `pkm install firefox`"),
-            ("unavailable", "pkm install"))
+            ("unavailable", "pkm install firefox"))
 
     def test_no_invocation_is_unavailable_without_marker(self) -> None:
         self.assertEqual(
@@ -130,7 +137,7 @@ class RouterCapabilityWiring(unittest.TestCase):
         # Restore the shipped surface for the clean/violation cases.
         safety._CAP_SURFACE_PATH = (
             Path(safety.__file__).with_name("data") / "capability-surface.json")
-        safety._pkm_surface.cache_clear()
+        safety.reset_surface_cache()
 
     def _cap_rows(self) -> list[dict]:
         return glass_rows.where(_glass_rows(self.tmp),
@@ -176,11 +183,11 @@ class RouterCapabilityWiringSurfaceAbsent(unittest.TestCase):
         self.r = ConversationRouter.__new__(ConversationRouter)
         self._orig = safety._CAP_SURFACE_PATH
         safety._CAP_SURFACE_PATH = Path(tempfile.gettempdir()) / "no-such-cap-surface.json"
-        safety._pkm_surface.cache_clear()
+        safety.reset_surface_cache()
 
     def tearDown(self) -> None:
         safety._CAP_SURFACE_PATH = self._orig
-        safety._pkm_surface.cache_clear()
+        safety.reset_surface_cache()
 
     def _cap_rows(self) -> list[dict]:
         return glass_rows.where(_glass_rows(self.tmp),
@@ -190,10 +197,10 @@ class RouterCapabilityWiringSurfaceAbsent(unittest.TestCase):
         with glass.turn(glass.new_turn_id(), "test"):
             out = self.r._screen_and_correct_capability(
                 "run `pkm install firefox`", [], source="dbus")
-        self.assertEqual(out, capability_unverified_fallback("pkm install"))
+        self.assertEqual(out, capability_unverified_fallback("pkm install firefox"))
         row = glass_rows.last(self._cap_rows())["detail"]
         self.assertEqual(row["verdict"], "unavailable_no_surface_fallback")
-        self.assertEqual(row["marker"], "pkm install")
+        self.assertEqual(row["marker"], "pkm install firefox")
 
     def test_unavailable_without_marker_delivers_draft(self) -> None:
         draft = "the weather is nice today"

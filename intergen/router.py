@@ -62,7 +62,8 @@ from intergen.safety import (
     is_destructive_execution, is_destructive_intent, sanitize_output,
     screen_execution_claim,
     screen_capability_claim, capability_grounding_note, honest_capability_fallback,
-    capability_unverified_fallback, answer_command_capability_question,
+    capability_unverified_fallback, capability_unintrospectable_fallback,
+    answer_command_capability_question,
     screen_model_text_offer, model_offer_correction_note, honest_no_selfoffer_fallback,
     screen_general_refusal, scope_grounding_note, honest_scope_steer,
 )
@@ -5178,9 +5179,10 @@ class ConversationRouter(RouterInterface):
 
     def _screen_and_correct_capability(self, draft: str, messages: "list[Message]",
                                        *, source: str) -> str:
-        """M4 capability-claim gate: verify checkable pkm-subcommand claims against
-        the real parser surface before delivery; regenerate once grounded, else
-        serve the honest capability fallback. Glass-log the verdict every turn.
+        """M4 capability gate: verify every first-party command the draft names —
+        tool, subcommand and flags — against that tool's real derived interface
+        before delivery; regenerate once grounded, else serve the honest
+        capability fallback. Glass-log the verdict every turn.
         Fail-loud rule (2026-07-07): if the ground-truth surface is absent the verdict is
         "unavailable" — the gate is DEGRADED, never silent; WARN-log every turn and
         serve the honest-under-uncertainty fallback for an unverifiable claim."""
@@ -5204,6 +5206,19 @@ class ConversationRouter(RouterInterface):
                 "verdict": outcome, "marker": marker, "source": source,
                 "degraded": "capability-surface.json missing/unreadable"})
             return text
+        if verdict == "unverifiable":
+            # The command is REAL but its option surface is not introspectable
+            # (a shell command, or a name in our own namespace the derived
+            # surface does not hold). There is nothing for the model to correct
+            # — it did not necessarily invent anything — so this does NOT
+            # regenerate. It serves the honest statement of exactly what could
+            # not be checked, which is a different and narrower thing to say
+            # than "that command does not exist".
+            glass.emit("decision", "capability_screen", detail={
+                "verdict": "unverifiable_tool_surface", "marker": marker,
+                "source": source,
+                "degraded": "tool argument surface is not introspectable"})
+            return capability_unintrospectable_fallback(marker)
         corrected = self._regenerate_with_capability_grounding(messages, marker)
         if corrected is not None:
             outcome, text = "violation_regenerated", corrected
