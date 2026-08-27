@@ -158,3 +158,10 @@ etc/dconf/db/gdm	dconf-update-compiled binary database, built from the archive-c
 etc/dconf/db/ibus	dconf-update-compiled binary database, built from the archive-carried etc/dconf/db/ibus.d/ fragments by the same `dconf update`; never archive payload — measured 2026-08-27
 etc/dconf/db/local	dconf-update-compiled binary database, built from the archive-carried etc/dconf/db/local.d/ fragments by the same `dconf update`; never archive payload — measured 2026-08-27
 etc/systemd/system/display-manager.service	systemctl enable/preset-generated Alias= link to the archive-carried usr/lib/systemd/system/gdm.service (gdm.service declares Alias=display-manager.service); the same mechanism class as the *.wants/** farm above, at the top level — measured 2026-08-27
+# Two pipeline products that exist in the chroot only AFTER the last archive is
+# sealed, so a resume gate that fires after phase_bootloader / a squashfs pass
+# sees them as unowned. Neither is archive payload; both measured 2026-08-27
+# 14:39 CDT at the third squashfs resume of R001.2 (the first two resumes
+# halted earlier in the sequence, before this gate ran on a post-image chroot):
+usr/lib/intergen/fde-initramfs.cpio.gz	baked by phase_bootloader (chroot-build-bootloader.sh runs the archive-carried usr/lib/intergen/build-fde-initramfs.sh against the shipped kernel) — the LUKS-unlock initramfs the installer ships; generated per build, never archive payload
+etc/machine-id	written as the literal "uninitialized" by build-squashfs Step 3 so systemd generates a real id on first boot; no archive carries a machine id by design
