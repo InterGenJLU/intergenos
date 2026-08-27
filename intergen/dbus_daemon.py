@@ -169,6 +169,11 @@ class InterGenDaemon(InterGenDBusInterface):
         # distinct from the benign no-model-downloaded degrade. None when healthy
         # or when the failure was the ordinary "server didn't come up" class.
         self._model_server_integrity_failure: str | None = None
+        # The chat model server is not running, and why. Distinct from the
+        # integrity failure above (a declared capability the server did not
+        # honor) and from the no-model-downloaded degrade: this is "the model
+        # server was supposed to be up and is not". None = it is up.
+        self._model_server_down: str | None = None
         self._router = None
         # The desktop bus's own conversation, made once the router exists.
         self._conversation = None
@@ -513,6 +518,36 @@ class InterGenDaemon(InterGenDBusInterface):
                 "source": "error", "sent": False,
             })
 
+    def _model_server_down_now(self) -> "str | None":
+        """Why the chat model cannot answer right now, or None when it can.
+
+        Reads the CURRENT state rather than only the startup record, so a server
+        that died after a healthy start is reported too — the startup record
+        alone would say "up" for the rest of the session. Deliberately silent
+        while InterGen is paused for a game: the server is down on purpose there
+        and calling that a failure would be a lie in the other direction.
+        """
+        # Read every field through getattr: status() is called on daemons that
+        # were only partially constructed (the status tests build one with
+        # __new__ and set the handful of fields they care about, and start_service
+        # can fail part-way through), and a status read that raises turns a
+        # degraded daemon into an unqueryable one — the opposite of what this
+        # field is for. The router makes the same choice at its own lockdown gate.
+        if getattr(self, "_paused", False):
+            return None
+        recorded = getattr(self, "_model_server_down", None)
+        llama = getattr(self, "_llama", None)
+        if llama is None:
+            return recorded
+        try:
+            if llama.is_running():
+                return None
+        except Exception:  # noqa: BLE001 — a status read never raises
+            pass
+        return (recorded
+                or f"the chat model server is not running: "
+                   f"{getattr(llama, 'last_error', '') or 'no reason recorded'}")
+
     def status(self) -> str:
         """Return JSON-encoded status."""
         status = {
@@ -525,6 +560,11 @@ class InterGenDaemon(InterGenDBusInterface):
             # chat server refused to start over a declared-but-unhonored
             # capability (see _model_server_integrity_failure). None = healthy.
             "model_server_integrity_failure": self._model_server_integrity_failure,
+            # The chat model server is down, and why — the failure class and the
+            # server's own last words. None when it is up. A unit that reports
+            # itself active while nothing can generate a reply is the state this
+            # field exists to end.
+            "model_server_down": self._model_server_down_now(),
             "version": "0.1.0",
             # Game-launch pause: True while the model servers are deliberately
             # stopped so a running game has the machine's memory. Reported as a
@@ -1376,6 +1416,14 @@ class InterGenDaemon(InterGenDBusInterface):
                                "parallel": self._config.get("llama_server.parallel", 1),
                                "reasoning": self._config.get("llama_server.reasoning", "off"),
                                "jinja": self._config.get("llama_server.jinja", True)})
+                # ONE ATTEMPT USED TO BE THE WHOLE STORY. A transient failure —
+                # a device the previous model server released moments ago, a port
+                # a departing session still holds — ended the chat model for the
+                # life of the process. Retry the transient class with a bounded
+                # back-off before deciding anything (llama_manager.
+                # retry_transient_start); a non-transient failure returns on the
+                # first attempt exactly as before, so an absent model or an
+                # integrity failure still degrades immediately.
                 started = self._llama.start(
                     model_path,
                     port=self._config.get("llama_server.port", 8080),
@@ -1396,9 +1444,17 @@ class InterGenDaemon(InterGenDBusInterface):
                 glass.emit("warmup", "model_load_done", turn_id=self._boot_turn,
                            iface="daemon", detail={"started": bool(started)},
                            dur_ms=(time.monotonic() - _t_load) * 1000)
+                if not started and self._llama.last_failure.is_transient:
+                    log.warning(
+                        "chat llama-server start failed with %s (%s) — retrying, "
+                        "because that failure class can succeed on a second "
+                        "attempt", self._llama.last_failure.name,
+                        self._llama.last_error)
+                    started = self._llama.retry_transient_start()
                 if started:
                     log.info("llama-server started")
                     self._model_server_integrity_failure = None
+                    self._model_server_down = None
                 else:
                     # Classify the failure STRUCTURALLY — not by string-matching
                     # the error text: a declared-but-unhonored
@@ -1431,12 +1487,24 @@ class InterGenDaemon(InterGenDBusInterface):
                     # binary, or a declared-capability integrity failure) is NOT
                     # transient — drop to None and degrade. (_config is set before
                     # the pre-launch check, so restart() has the config to retry.)
-                    if failure is not StartFailure.PORT_IN_USE:
+                    # RECORD THAT THE CHAT MODEL IS DOWN, as a first-class
+                    # state. The unit reports itself active either way, and
+                    # without this the only evidence a person got was a reply
+                    # asking them to rephrase.
+                    self._model_server_down = f"{failure.name}: {detail}"
+                    # Retain the manager — and therefore the watchdog, which is
+                    # built under `if self._llama:` — for every TRANSIENT failure,
+                    # not for PORT_IN_USE alone. Dropping it removed the only
+                    # thing that could recover the server, so a chat model that
+                    # failed once stayed down until the daemon was restarted by
+                    # hand. Anything non-transient still drops to None and
+                    # degrades, unchanged.
+                    if not failure.is_transient:
                         self._llama = None
                     else:
-                        log.info("chat llama-server port held at startup "
-                                 "(PORT_IN_USE) — retaining manager; the watchdog "
-                                 "will bind once the port is free")
+                        log.info("chat llama-server failed with %s — retaining "
+                                 "the manager so the watchdog can recover it",
+                                 failure.name)
             except Exception as e:
                 log.warning("llama-server init failed: %s", e)
                 self._llama = None
