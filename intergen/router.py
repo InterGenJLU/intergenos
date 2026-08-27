@@ -40,7 +40,7 @@ from intergen.conversation_state import (
 from intergen.dispatch_policy import is_system_category_conversation
 from intergen.decomposer import analyze_query, DecomposedQuery
 from intergen.intents import BOOT_PERF_COMPLAINT_PATTERN
-from intergen.memory import MemoryManager, fact_cache_text
+from intergen.memory import MemoryManager, fact_cache_text, fact_key
 from intergen.interfaces.router import RouterInterface
 from intergen.state_cache import StateCache
 from intergen.reference import ReferenceIndex
@@ -1509,8 +1509,8 @@ _SEMANTIC_INCOHERENCE_FALLBACK = (
 # sidecar being reachable or on a cosine clearing a threshold.
 #
 # Precision comes from the overlap being computed against the fact's KEY (the
-# noun phrase the user themselves named — "your default editor", "your backup
-# drive"), never its value, and from the stoplist below: the words that carry no
+# noun phrase the user themselves named — "default editor", "backup drive"),
+# never its value, and from the stoplist below: the words that carry no
 # subject ("your", "what", "is", …) can never be the shared word that selects a
 # fact. A question that names nothing stored selects nothing.
 _FACT_MATCH_STOPWORDS = frozenset({
@@ -3375,7 +3375,10 @@ class ConversationRouter(RouterInterface):
             if MemoryManager.is_affirmative(user_input):
                 self._conv.pending_memory_offer = None
                 if kind == "preference":
-                    stored_key = self._memory._shift_perspective(key)
+                    # One spelling of the key, shared with the extractor: two
+                    # writers naming the same subject differently is what made
+                    # twin rows for one fact across two turns.
+                    stored_key = fact_key(key)
                     fact = self._memory.store(stored_key, value)
                     if fact:
                         phrase = (f"you prefer {value}" if key == "preference"

@@ -18,9 +18,15 @@ the same behaviour a live 9B run recorded on 2026-07-17 — "forget that" follow
 by a restart, the fact still recalled, deleted=0 in the store — and it is still
 here.
 
-Saying the exact stored words does not close it either: "forget about your
-backup drive" deletes the row under that key and leaves the row under "backup
-drive", so the same fact is still returned under its other name.
+Saying the exact stored words did not close it either: "forget about your
+backup drive" deleted the row under that key and left the row under "backup
+drive", so the same fact was still returned under its other name.
+
+SINCE 2026-08-26 THE STORE SIDE NO LONGER WRITES THE TWIN. One stated fact
+makes one row, keyed "backup drive" (test_one_fact_one_key.py). The forget
+defect this file is about is unchanged by that and these cases still measure it:
+the subject still arrives in the user's words ("my backup drive"), and it still
+has to reach a row keyed something else.
 
 WHAT THIS FILE DOES NOT ASSERT. Whether a forgotten fact's BYTES must leave the
 database file is a separate question, and it is settled for this release
@@ -96,7 +102,14 @@ class TheUsersOwnPhrasingForgets(unittest.TestCase):
 
 
 class SayingTheStoredWordsForgetsAllOfIt(unittest.TestCase):
-    """The other half: an exactly-matching subject must not leave a twin."""
+    """The other half: an exactly-matching subject must not leave a twin.
+
+    The twin rows this case was written against are gone at the store side —
+    one stated fact now makes one row (test_one_fact_one_key.py). The case is
+    kept because the forget path must still reach a fact by a name that is not
+    the stored key: a person who says "forget about your backup drive" is using
+    InterGen's own words for it, and the row is keyed "backup drive".
+    """
 
     def test_the_bare_noun_row_goes_too(self) -> None:
         mm = _fresh_store()
@@ -104,8 +117,8 @@ class SayingTheStoredWordsForgetsAllOfIt(unittest.TestCase):
         mm.format_forget_response(
             MemoryManager.is_forget_request("forget about your backup drive"))
         self.assertIsNone(mm.get("backup drive"), (
-            "the same sentence stored the fact under two keys; forgetting one "
-            "leaves InterGen able to answer with the other"))
+            "a forget phrased in InterGen's own words for the fact left "
+            "InterGen able to answer with it"))
 
 
 class ForgettingIsNotTooGreedy(unittest.TestCase):
@@ -117,7 +130,7 @@ class ForgettingIsNotTooGreedy(unittest.TestCase):
         mm.extract_and_store("remember that my editor is vim")
         mm.format_forget_response(
             MemoryManager.is_forget_request("forget about my backup drive"))
-        self.assertEqual(mm.get("your editor"), "vim",
+        self.assertEqual(mm.get("editor"), "vim",
                          "a forget took a fact the user did not name")
 
     def test_a_subject_that_matches_nothing_says_so(self) -> None:
