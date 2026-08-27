@@ -363,6 +363,7 @@ class ServerConfig:
     expect_tools: bool = False  # chat server → assert /props advertises tool support
     expect_offload: bool = False  # discrete/GPU tier → assert the model actually offloaded to the GPU, else OFFLOAD_FAILED (fall to the 2B floor); FALSE for the CPU-pinned embedder and the 2B floor
     device: str | None = None  # ggml device pin (e.g. "Vulkan1") — multi-GPU boxes pin the serving model to ONE card so the other stays free (judge/eval co-residency); None = llama.cpp default (all devices)
+    device_pci: str | None = None  # PCI address of the card `device` names (select_serving_device_pci) — the card whose runtime power is held ON while a model is on it; None = no hold
     server_path: str | None = None  # the engine's server binary (from select_serving_engine) — the binary that ENUMERATED devices must be the binary that LAUNCHES (device names are backend-local); None = engine-aware _find_server()
 
 
@@ -405,6 +406,18 @@ class LlamaManager(LlamaManagerInterface):
         self._ready: threading.Event = threading.Event()
         # One line per not-ready episode, like the not-running one above.
         self._embed_notready_logged: bool = False
+        # RUNTIME POWER OF THE CARD THAT SERVES. While a model is held on a
+        # discrete card, that card's power/control is held at "on" so the
+        # kernel never runtime-suspends it and the engine never has to wake it
+        # — a wake announces a hotplug on every connector and the compositor
+        # rebuilds the desktop under the person using it. _held_card_prior is
+        # the value found before the hold, and it is what release puts back;
+        # None in either field means nothing is held and nothing is owed.
+        # _sysfs_root is injectable so the whole path is provable against a
+        # temporary directory.
+        self._sysfs_root: str = "/sys"
+        self._held_card_pci: str | None = None
+        self._held_card_prior: str | None = None
 
     def start(self, model_path: str, *,
               port: int = 8080,
@@ -422,6 +435,7 @@ class LlamaManager(LlamaManagerInterface):
               expect_tools: bool = False,
               expect_offload: bool = False,
               device: str | None = None,
+              device_pci: str | None = None,
               server_path: str | None = None) -> bool:
         """Start llama-server with the given model.
 
@@ -430,6 +444,13 @@ class LlamaManager(LlamaManagerInterface):
         takes its assigned card and leaves the other free (judge/eval
         co-residency). Ignored for CPU-pinned instances (gpu_layers=0 always
         wins with --device none). None = llama.cpp's default device set.
+
+        device_pci: the PCI address of the very card `device` names, from
+        select_serving_device_pci — ONE selection read two ways, so the name
+        and the address can never describe different cards. While this launch
+        holds a model, that card's power/control is held at "on" and restored
+        to whatever was there when the server stops. None (the default) holds
+        nothing and is today's behaviour exactly.
 
         server_path: the engine's server binary, when the caller already
         resolved the engine (select_serving_engine) — required whenever a
@@ -657,6 +678,7 @@ class LlamaManager(LlamaManagerInterface):
             expect_tools=expect_tools,
             expect_offload=expect_offload,
             device=device,
+            device_pci=device_pci,
             server_path=server_path,
         )
 
@@ -724,6 +746,17 @@ class LlamaManager(LlamaManagerInterface):
 
         # Not ready until /health says so for this launch.
         self._ready.clear()
+
+        # Hold the serving card's runtime power BEFORE the engine opens it, so
+        # a suspended card is never woken by this launch. Quiet when the write
+        # is refused, which is every box until this package's udev rule has
+        # been applied. Any earlier hold was already let go by the stop() above.
+        #
+        # NOT for a CPU-pinned instance: gpu_layers=0 launches with
+        # --device none (above), so no card is touched by this server at all
+        # and holding one awake would spend idle power on a card that is doing
+        # nothing — the very cost this scoped hold exists to avoid.
+        self._hold_serving_card(device_pci if gpu_layers > 0 else None)
 
         try:
             self._process = subprocess.Popen(
@@ -830,6 +863,10 @@ class LlamaManager(LlamaManagerInterface):
             self._last_error = f"Failed to start llama-server: {e}"
             self._last_failure = StartFailure.SPAWN_ERROR
             log.error(self._last_error)
+            # Nothing was ever launched onto the card, and stop() returns at
+            # once when there is no child, so the hold is let go here — a card
+            # held on for a model that does not exist would never be released.
+            self._release_serving_card()
             return False
 
     def stop(self) -> None:
@@ -856,6 +893,9 @@ class LlamaManager(LlamaManagerInterface):
             98-second teardown never learned anything before declaring failure.
         """
         if self._process is None:
+            # No child to stop. A hold can still be outstanding if a launch
+            # failed before Popen returned, so let the card go here too.
+            self._release_serving_card()
             return
 
         self._ready.clear()
@@ -904,6 +944,62 @@ class LlamaManager(LlamaManagerInterface):
                 if self._process.stderr:
                     self._process.stderr.close()
             self._process = None
+            # The child is gone, so nothing is holding the card open any more:
+            # put power/control back exactly as it was found. Released AFTER
+            # the teardown and never before — the teardown itself touches the
+            # card, and releasing first would hand it back to the kernel in
+            # the middle of the close path this whole hold exists to avoid.
+            self._release_serving_card()
+
+    def _hold_serving_card(self, pci_id: str | None) -> None:
+        """Hold the named card's runtime power ON until _release_serving_card.
+
+        `pci_id` of None means no card was resolved — a single-GPU box, an
+        engine build whose --list-devices carries no PCI address, or a
+        CPU-pinned instance — and then nothing at all is touched.
+
+        A refused write is an ORDINARY outcome, not a failure: power/control
+        ships mode 0644 owned by root, so until this package's udev rule has
+        been applied the daemon cannot write it, and that is the state of every
+        box between installs. It is recorded at debug level and the launch goes
+        on exactly as it does today.
+        """
+        self._release_serving_card()
+        if not pci_id:
+            return
+        from intergen.serving_device import hold_runtime_pm_on
+        prior = hold_runtime_pm_on(pci_id, sysfs_root=self._sysfs_root)
+        if prior is None:
+            log.debug(
+                "runtime power of the serving card %s was not held (the "
+                "control file is absent or not writable by this user; the "
+                "udev rule this package installs grants it) — the launch is "
+                "unaffected", pci_id)
+            return
+        self._held_card_pci = pci_id
+        self._held_card_prior = prior
+        log.info("holding runtime power of the serving card %s at \"on\" "
+                 "(was %r) for as long as a model is on it", pci_id, prior)
+
+    def _release_serving_card(self) -> None:
+        """Put the held card's power/control back exactly as it was found.
+
+        Does nothing at all when nothing is held, so calling it twice — stop()
+        can be reached more than once — writes nothing the second time.
+        """
+        pci_id, prior = self._held_card_pci, self._held_card_prior
+        self._held_card_pci = None
+        self._held_card_prior = None
+        if pci_id is None or prior is None:
+            return
+        from intergen.serving_device import release_runtime_pm
+        if release_runtime_pm(pci_id, prior, sysfs_root=self._sysfs_root):
+            log.info("released runtime power of the serving card %s back to "
+                     "%r", pci_id, prior)
+        else:
+            log.debug("runtime power of the serving card %s could not be put "
+                      "back to %r (the control file is no longer writable)",
+                      pci_id, prior)
 
     def start_saved_config(self) -> bool:
         """Launch again with the configuration the last successful start used.
@@ -952,6 +1048,9 @@ class LlamaManager(LlamaManagerInterface):
             # the fatal offload gate never fired on the watchdog's restarts).
             expect_offload=self._config.expect_offload,
             device=self._config.device,
+            # The card the pin names is the card whose runtime power is held,
+            # so a relaunch re-takes the hold the stop released.
+            device_pci=self._config.device_pci,
             # The device pin was computed against THIS engine binary's device
             # namespace — a restart must relaunch the same binary.
             server_path=self._config.server_path,

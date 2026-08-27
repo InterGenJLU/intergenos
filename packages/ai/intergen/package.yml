@@ -60,6 +60,10 @@ verify_paths:
   # Secondary-AMD-GPU runtime-PM pin (desktop monitor-layout integrity on
   # multi-GPU systems; the rule file documents the measured mechanism).
   - /usr/lib/udev/rules.d/70-intergen-compute-gpu-pm.rules
+  # Scoped runtime-PM grant: the "video" group may write power/control on
+  # display-controller PCI devices, so the daemon can hold its serving card
+  # awake while a model is on it and restore the setting afterwards.
+  - /usr/lib/udev/rules.d/71-intergen-gpu-runtime-pm.rules
   - /usr/lib/python3.14/site-packages/intergen/web
   - /usr/lib/python3.14/site-packages/intergen/console
   - /usr/lib/python3.14/site-packages/intergen/panel

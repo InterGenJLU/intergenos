@@ -467,6 +467,15 @@ DBUS
     install -Dm644 /mnt/intergenos/intergen/data/70-intergen-compute-gpu-pm.rules \
         "${DESTDIR}/usr/lib/udev/rules.d/70-intergen-compute-gpu-pm.rules"
 
+    # Scoped runtime-PM grant: gives the "video" group write access to
+    # power/control on display-controller PCI devices, so the daemon can hold
+    # the card it is SERVING on awake for exactly as long as a model is on it
+    # and put the setting back afterwards. The rule file carries the full
+    # reasoning and its relationship to the blunt 70- rule above. Shipped with
+    # the serving stack because the serving stack is what holds the card.
+    install -Dm644 /mnt/intergenos/packages/ai/intergen/71-intergen-gpu-runtime-pm.rules \
+        "${DESTDIR}/usr/lib/udev/rules.d/71-intergen-gpu-runtime-pm.rules"
+
     # T0-4-D — model SHA256 pinning manifest + release-key-PIV-signed
     # armored detached signature. The consumer (intergen.model_manager._load_pins)
     # reads PINS_MANIFEST_PATH = /usr/share/intergen/models-manifest.json

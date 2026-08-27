@@ -344,10 +344,16 @@ def _pci_drives_display(pci_id: str, sysfs_root: str = "/sys") -> bool | None:
     return False
 
 
-def select_serving_device(list_output: str | None = None,
-                          discrete_vram_mb: int | None = None,
-                          server: str | None = None) -> str | None:
+def _select_serving_candidate(list_output: str | None = None,
+                              discrete_vram_mb: int | None = None,
+                              server: str | None = None
+                              ) -> tuple[str, str | None] | None:
     """Pick the ggml device the SERVING model should pin on a multi-GPU box.
+
+    Returns ``(ggml name, PCI address or None)`` — ONE selection, read two ways
+    by the two public wrappers below, so the name and the address can never
+    come from different cards. It used to return the name alone and throw the
+    address away, which left the power hold with nothing to aim at.
 
     Policy: the hardware detector's most-capable DISCRETE card serves (its
     dedicated-VRAM size is the ground truth); the --list-devices entries whose
@@ -405,5 +411,166 @@ def select_serving_device(list_output: str | None = None,
 
     for name, pci in candidates:
         if pci is not None and _pci_drives_display(pci) is False:
-            return name
-    return candidates[0][0]
+            return (name, pci)
+    return candidates[0]
+
+
+def select_serving_device(list_output: str | None = None,
+                          discrete_vram_mb: int | None = None,
+                          server: str | None = None) -> str | None:
+    """The ggml device NAME the serving model should pin to, or None.
+
+    See :func:`_select_serving_candidate` for the policy. This and
+    :func:`select_serving_device_pci` are two readings of ONE selection, so the
+    name and the address can never describe different cards.
+    """
+    chosen = _select_serving_candidate(list_output, discrete_vram_mb, server)
+    return chosen[0] if chosen else None
+
+
+def select_serving_device_pci(list_output: str | None = None,
+                              discrete_vram_mb: int | None = None,
+                              server: str | None = None) -> str | None:
+    """The PCI address of the card :func:`select_serving_device` picked.
+
+    Returns None when there is no pin, and ALSO when the chosen card carries no
+    PCI suffix — an engine build without the in-tree list-devices patch names
+    devices but not addresses, and a guess at which card is which would hold
+    the wrong card's power on. None is the fail-safe: no hold, today's
+    behaviour exactly.
+    """
+    chosen = _select_serving_candidate(list_output, discrete_vram_mb, server)
+    return chosen[1] if chosen else None
+
+
+def select_serving_device_and_pci(list_output: str | None = None,
+                                  discrete_vram_mb: int | None = None,
+                                  server: str | None = None
+                                  ) -> tuple[str | None, str | None]:
+    """Both readings of ONE selection: ``(ggml name, PCI address)``.
+
+    This is what a caller that needs both should use. Calling the two
+    single-value wrappers in turn would run the engine's ``--list-devices``
+    TWICE — a second llama-server launch on the daemon's boot path for an
+    answer it already had — and would also let two independent selections
+    disagree. Either element is None when it is unavailable; ``(None, None)``
+    is no pin at all, which is llama.cpp's own default behaviour.
+    """
+    chosen = _select_serving_candidate(list_output, discrete_vram_mb, server)
+    return chosen if chosen else (None, None)
+
+
+def pci_for_device_name(device_name: str, list_output: str | None = None,
+                        server: str | None = None) -> str | None:
+    """The PCI address of the device the engine calls ``device_name``.
+
+    This exists for the OPERATOR PIN: ``llama_server.device`` set to a literal
+    ggml name is supreme over the selector, so the selector never runs and its
+    address is never computed — and without an address that box gets no power
+    hold, which is the very machine class the hold was written for (a
+    multi-GPU box, pinned by hand).
+
+    The match is the ggml name EXACTLY as the engine prints it, and nothing
+    else: no prefix match, no case folding, no ordinal arithmetic. A name that
+    is not in the output, or a line that carries no PCI suffix, yields None —
+    no hold, today's behaviour exactly. Holding a card resolved by a guess
+    would suspend or wake the wrong one.
+
+    ``server`` names the binary to enumerate with, and it must be the same
+    engine binary that will launch, because device names are backend-local.
+    """
+    if list_output is None:
+        if server is None:
+            server = shutil.which("llama-server") or ENGINE_SERVER_PATHS["vulkan"]
+        try:
+            proc = subprocess.run([server, "--list-devices"],
+                                  capture_output=True, text=True, timeout=30)
+            list_output = (proc.stdout or "") + (proc.stderr or "")
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+    for m in _DEVICE_LINE_RE.finditer(list_output):
+        if m.group("name") == device_name:
+            return m.group("pci")
+    return None
+
+
+# ── Runtime power management of the card that is serving ────────────────────
+#
+# WHY THIS IS HERE AT ALL. A discrete GPU with nothing plugged into it is left
+# at power/control = "auto", so the kernel runtime-suspends it whenever it is
+# idle. Starting or stopping a served model touches that card, the kernel
+# runtime-RESUMES it, and the resume announces a hotplug on every connector —
+# which the compositor reads as "the device changed", frees its planes, CRTCs
+# and connectors, and rebuilds the desktop. The person watching sees their
+# windows move. Holding the card ON for exactly as long as a model is on it
+# means the wake never has to happen.
+#
+# THE PATH IS THE PCI DEVICE NODE, measured: runtime_status reads "unsupported"
+# on every drm/cardN node and "active" on the PCI device node, so
+# <sysfs>/bus/pci/devices/<id>/power/control is the file that means anything.
+#
+# EVERY FUNCTION BELOW IS QUIET ON REFUSAL. power/control ships mode 0644 owned
+# by root, and the daemon runs as an ordinary user, so until the udev rule this
+# package installs has been applied the write simply does not land. That is the
+# state of every box between installs — an ordinary outcome, never an error and
+# never an exception. sysfs_root is injectable so the whole path is provable
+# against a temporary directory, exactly like the display check above.
+
+
+def runtime_pm_control_path(pci_id: str, sysfs_root: str = "/sys") -> str:
+    """The file whose contents decide whether the kernel may suspend a card."""
+    return os.path.join(sysfs_root, "bus", "pci", "devices", pci_id,
+                        "power", "control")
+
+
+def read_runtime_pm(pci_id: str, sysfs_root: str = "/sys") -> str | None:
+    """The card's current power/control value, or None if it cannot be read."""
+    try:
+        with open(runtime_pm_control_path(pci_id, sysfs_root),
+                  encoding="utf-8") as fh:
+            return fh.read().strip()
+    except OSError:
+        return None
+
+
+def hold_runtime_pm_on(pci_id: str, sysfs_root: str = "/sys") -> str | None:
+    """Hold the card ON, and return the value that was there to put back.
+
+    Returns None when nothing was changed — the card is absent, the value
+    cannot be read, or the write was refused — and in that case the caller has
+    nothing to restore. A card already at "on" returns "on", so releasing it
+    later leaves it on rather than handing the machine a worse state than it
+    started in.
+    """
+    prior = read_runtime_pm(pci_id, sysfs_root)
+    if prior is None:
+        return None
+    if prior == "on":
+        return prior
+    try:
+        with open(runtime_pm_control_path(pci_id, sysfs_root), "w",
+                  encoding="utf-8") as fh:
+            fh.write("on")
+    except OSError:
+        return None
+    return prior
+
+
+def release_runtime_pm(pci_id: str, prior: str | None,
+                       sysfs_root: str = "/sys") -> bool:
+    """Put ``prior`` back, verbatim. True if it was written.
+
+    ``prior`` of None means the hold never happened, so nothing is written —
+    inventing a value here would set a card to a state no one asked for. A
+    value this code does not recognise is restored AS IT WAS FOUND for the
+    same reason.
+    """
+    if prior is None:
+        return False
+    try:
+        with open(runtime_pm_control_path(pci_id, sysfs_root), "w",
+                  encoding="utf-8") as fh:
+            fh.write(prior)
+    except OSError:
+        return False
+    return True
