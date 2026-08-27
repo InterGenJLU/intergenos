@@ -157,6 +157,14 @@ build_intergen_welcome() {
     # Privileged helper for the "Enable Services" page (pkexec'd; exec bit set
     # at install). Required — the page's toggles invoke it.
     install -m755 "$src/intergen-welcome-privhelper" "$stage/iw-pkg/intergen-welcome-privhelper"
+    # The polkit action that authorizes that helper. build.sh do_install
+    # installs it from the extracted tree, so it MUST be staged here — the
+    # same class as org.intergenos.Wiki.svg below: the file joined the asset
+    # dir and do_install (2026-08-25) without joining this stage list, and the
+    # tarball-membership gate refused the next build pre-flight. Guarded so a
+    # missing asset fails the generator loudly.
+    [ -f "$src/org.intergenos.welcome.policy" ] || { emit_log "ERROR intergen-welcome: org.intergenos.welcome.policy missing"; return 1; }
+    install -m644 "$src/org.intergenos.welcome.policy" "$stage/iw-pkg/org.intergenos.welcome.policy"
     # App icon (Icon=intergen-welcome) — framed glass squircle + pulse + welcome
     # sparkle (operator branding §F; replaces the generic preferences avatar).
     [ -f "$src/intergen-welcome.svg" ] || { emit_log "ERROR intergen-welcome: intergen-welcome.svg missing"; return 1; }

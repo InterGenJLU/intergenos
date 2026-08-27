@@ -111,6 +111,15 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **The Welcomer's polkit action file ships in its source tarball.** The
+  first-boot greeter installs `org.intergenos.welcome.policy` — the polkit action
+  that names the application and the change in every privilege prompt — but the
+  script that generates the greeter's source tarball never staged it, so the
+  tarball-membership check refused the build. The generator stages it, and a
+  commit-time test now checks that every file the greeter's install step takes
+  from its tarball is staged by the generator. (intergen-welcome r41; the eight
+  other packages that declare the shared generator as an input re-fingerprint
+  with no change to their own content.)
 - **The assistant runs a web search it was explicitly asked for.** Asked, in
   three wordings, to look something up on the internet, it answered that it
   could search and stopped, or offered to search and did not; two of its own
