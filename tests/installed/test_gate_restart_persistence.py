@@ -2,16 +2,22 @@
 
 WHAT COMPOSITION PROPERTY THIS CATCHES. Two questions that a source-tree test cannot
 ask: does what the user owns survive a restart, and does what the daemon computed at
-start-up survive one? On the released system the answers are yes and no. Conversations
-and stored facts persist correctly. The documentation index does not: it is computed
-once in the retrieval object's constructor, written nowhere, and never rebuilt — so
-every restart re-pays a cost that has never once succeeded on this machine, and a
-restart is not a recovery from a failed index.
+start-up survive one? On R001.1 the answers were yes and no. Conversations and stored
+facts persisted correctly. The documentation index did not: it was computed once in the
+retrieval object's constructor, written nowhere, and never rebuilt — so every restart
+re-paid a cost that had never once succeeded on that machine, and a restart was not a
+recovery from a failed index.
 
-That second half is why "restart persistence" is a gate and not a formality. When the
-start-up index fails there is no path back: no watchdog, no refresh, no cache to fall
-back on. The comparable intent corpus DOES have a refresh path, which is the evidence
-that the missing one here is an omission rather than a design.
+WHAT RECOVERY LOOKS LIKE NOW, and what this gate measures since 2026-08-27. The shipped
+index embeds within a start-up budget and keeps a resume path: the daemon continues
+embedding between turns and on web-page turns until the corpus is complete, and logs
+when it finishes. So the property is no longer "the constructor is not the only
+builder" read from the source shape alone; it is measured twice — the resume path must
+exist in the shipped module AND be wired by the daemon, and every start of the release
+under test that began incomplete must reach complete without another restart, read from
+this machine's journal. An on-disk cache of the computed index would make a restart
+cheap; it is a development item (gating R001.3 notes), not a silent-failure class, and
+this gate no longer demands it.
 
 EXPECTED TO FAIL ON R001.1 AS SHIPPED.
 """
@@ -27,6 +33,12 @@ from pathlib import Path
 import pytest
 
 UNIT = "intergen.service"
+
+# The functions that build or continue building the documentation index. Any call to
+# one of them outside the constructor is a rebuild path.
+BUILDERS = ("_build_index", "_embed_chunks", "_embed_pass")
+INCOMPLETE = "the rest are pending"          # a start whose index is not yet complete
+RESUMED = "Wiki index finished embedding between turns"
 
 
 def _journal_lines() -> list[str]:
@@ -144,16 +156,22 @@ def test_the_documentation_index_has_a_rebuild_path(installed_intergen_dir):
         for inner in ast.walk(node):
             if (isinstance(inner, ast.Call)
                     and isinstance(inner.func, ast.Attribute)
-                    and inner.func.attr == "_build_index"):
-                builder_calls.append((node.name, inner.lineno))
+                    and inner.func.attr in BUILDERS):
+                builder_calls.append((node.name, inner.lineno, inner.func.attr))
 
     outside_constructor = [c for c in builder_calls if c[0] != "__init__"]
+
+    # The path must also be reachable: the daemon has to call it. A resume method
+    # nothing invokes is the omission wearing a new name.
+    daemon = (installed_intergen_dir / "dbus_daemon.py").read_text(encoding="utf-8")
+    wired = "resume_embedding" in daemon
 
     from intergen.semantic import SemanticMatcher
     comparable = hasattr(SemanticMatcher, "refresh_pending_intents")
 
-    assert outside_constructor, (
+    assert outside_constructor and wired, (
         "\nThe documentation index can only ever be built once, in the constructor.\n"
+        f"  the daemon wires the resume path: {wired}\n"
         f"  every call site of the index builder: {builder_calls}\n"
         f"  the comparable intent corpus has a refresh path: {comparable}\n"
         "There is no watchdog, no refresh and no cache. If the embedding server is not "
@@ -163,50 +181,67 @@ def test_the_documentation_index_has_a_rebuild_path(installed_intergen_dir):
     )
 
 
-def test_the_computed_index_is_written_somewhere_a_restart_can_read(installed_intergen_dir):
-    """A cache would make a restart cheap and make a failed build survivable.
+def test_an_incomplete_index_reaches_complete_without_a_restart():
+    """Every start of the release under test that began incomplete must finish.
 
-    THE WRITE HAS TO BE IN THE CODE THAT BUILDS THE INDEX. This used to accept any
-    of a list of markers appearing ANYWHERE in the module, so an unrelated
-    ``json.dump`` — a log line, a debug dump, a settings write — would have reported
-    the index as cached while nothing about the index was written at all. That is a
-    check that can go green on the defect it exists to catch, so the region is now
-    located by parsing: the module's index-building functions, and the calls inside
-    them. Measured 2026-08-24: no marker appears anywhere in either the tree module
-    or the installed one, so this gate's VERDICT does not change here — only its
-    ability to be fooled later.
+    Read from this machine's journal, bounded to the release under test by its
+    install date (the trace-integrity gate's bound, loaded from its file — this
+    tier keeps the checkout off sys.path, so a sibling cannot be imported by name).
+    A start that embedded the whole corpus within its budget has nothing to
+    recover and is counted as measured. A start that was still pending and never
+    logged completion is the defect: the machine would answer by keyword for the
+    life of that daemon, and only a restart — the thing this gate says must not be
+    the recovery — would change it. The running daemon is given a short grace
+    period, since its resume passes run between turns.
     """
-    import ast
+    import importlib.util
+    from datetime import datetime
 
-    source = (installed_intergen_dir / "wiki_retrieval.py").read_text(encoding="utf-8")
-    tree = ast.parse(source)
+    src = Path(__file__).with_name("test_gate_glass_trace_integrity.py")
+    spec = importlib.util.spec_from_file_location("_trace_integrity_gate", src)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    since = datetime.fromtimestamp(module.installed_release_install_date())
 
-    MARKERS = ("save", "savez", "dump", "write_bytes", "write_text", "to_file")
-    BUILDERS = ("_build_index", "_embed_chunks")
+    ts = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})")
+    pid_re = re.compile(r"intergen\[(\d+)\]")
+    by_pid: dict[str, list[str]] = {}
+    for ln in _journal_lines():
+        m = ts.match(ln)
+        if not m or datetime.fromisoformat(m.group(1)) < since:
+            continue
+        p = pid_re.search(ln)
+        if p:
+            by_pid.setdefault(p.group(1), []).append(ln)
 
-    builder_bodies = [node for node in ast.walk(tree)
-                      if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-                      and node.name in BUILDERS]
-    if not builder_bodies:
-        pytest.fail(
-            "None of the index-building functions "
-            f"{BUILDERS} exist in the shipped wiki_retrieval.py, so this gate cannot "
-            "say where a cache would be written. The shape has moved and the gate "
-            "must move with it — this is reported rather than passed over."
-        )
+    starts = {pid: block for pid, block in by_pid.items()
+              if any("wiki-retrieval: indexed" in ln for ln in block)}
+    if not starts:
+        pytest.fail(f"This machine's journal records no daemon start since the release "
+                    f"under test was installed ({since}); this gate measured nothing.")
 
-    writes = []
-    for body in builder_bodies:
-        for node in ast.walk(body):
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) \
-                    and node.func.attr in MARKERS:
-                writes.append((body.name, node.lineno, ast.unparse(node)[:100]))
-    persists = bool(writes)
+    current = subprocess.run(
+        ["systemctl", "--user", "show", "-p", "MainPID", "--value", UNIT],
+        capture_output=True, text=True).stdout.strip()
+    if current in starts and any(INCOMPLETE in ln for ln in starts[current]) \
+            and not any(RESUMED in ln for ln in starts[current]):
+        time.sleep(30)                      # one more resume pass for the live daemon
+        starts[current] = by_pid[current] = [
+            ln for ln in _journal_lines() if pid_re.search(ln)
+            and pid_re.search(ln).group(1) == current]
 
-    assert persists, (
-        "\nThe computed documentation index is never written to disk.\n"
-        "Every start re-embeds the whole corpus from scratch against a one-slot server "
-        "under a thirty second deadline. A cache keyed on the documentation's own "
-        "verified hashes would make a restart cheap and would let a machine that "
-        "succeeded once keep working; there is none."
-    )
+    report = ["", f"DAEMON STARTS SINCE {since}: {len(starts)}", ""]
+    stuck = []
+    for pid, block in starts.items():
+        incomplete = any(INCOMPLETE in ln for ln in block)
+        resumed = any(RESUMED in ln for ln in block)
+        state = ("complete at start-up" if not incomplete
+                 else "incomplete, then finished between turns" if resumed
+                 else "INCOMPLETE AND NEVER FINISHED")
+        report.append(f"  pid {pid:>8}  {state}")
+        if incomplete and not resumed:
+            stuck.append(pid)
+    report.append("")
+    report.append("A start that never finishes embedding answers by keyword for the life "
+                  "of that daemon; a restart is not a recovery.")
+    assert not stuck, "\n".join(report)
