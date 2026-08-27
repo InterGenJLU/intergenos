@@ -122,10 +122,27 @@ def load_recipes(packages_dir: Path) -> "dict[str, dict]":
     return recipes
 
 
-def installed_state(chroot: Path, name: str) -> "dict | None":
+# The database pkm itself writes (pkm/database.py DB_PATH). The tool read
+# var/lib/pkm/pkm.db until 2026-08-27 — a path nothing writes — so the DB leg
+# of the deployment check was silently dead on every substrate and only the
+# manifest glob decided.
+PKM_DB_REL = "var/lib/igos/pkm.db"
+
+
+def installed_state(chroot: Path, name: str,
+                    version: "str | None" = None) -> "dict | None":
     """Installed (version, release) for a ship name from the chroot pkm DB,
-    cross-checked against the text-manifest dir. None = not deployed."""
-    db_path = chroot / "var/lib/pkm/pkm.db"
+    cross-checked against the text-manifest dir. None = not deployed.
+
+    `version` is the banked archive's version: the manifest for exactly
+    `<name>-<version>` counts as deployed whatever the version looks like.
+    The digit-led glob is kept for other releases of the same name; it must
+    stay digit-led so a sibling's manifest (llama-cpp-hip-b8796) never
+    satisfies llama-cpp. Versions that begin with a letter (llama-cpp's
+    upstream build numbers, "b8796") were invisible to the glob alone and
+    reported BANKED-NOT-DEPLOYED with everything present (R001.2 pre-flight,
+    2026-08-27)."""
+    db_path = chroot / PKM_DB_REL
     row = None
     if db_path.is_file():
         try:
@@ -137,7 +154,12 @@ def installed_state(chroot: Path, name: str) -> "dict | None":
         except sqlite3.Error:
             row = None
     manifest_dir = chroot / "var/lib/igos/packages"
-    manifests = list(manifest_dir.glob(f"{name}-[0-9]*")) if manifest_dir.is_dir() else []
+    manifests: "list[Path]" = []
+    if manifest_dir.is_dir():
+        if version is not None and (manifest_dir / f"{name}-{version}").exists():
+            manifests.append(manifest_dir / f"{name}-{version}")
+        manifests += [p for p in manifest_dir.glob(f"{name}-[0-9]*")
+                      if p not in manifests]
     if row is None and not manifests:
         return None
     return {"version": row[0] if row else None,
@@ -209,7 +231,7 @@ def main() -> int:
         arc_vr = f"{arc['version']}-{arc['release']}"
         tree_ahead = vcompare((arc["version"], arc["release"]),
                               (recipe["version"], recipe["release"])) < 0
-        state = installed_state(chroot, name)
+        state = installed_state(chroot, name, arc["version"])
         if state is None:
             entry = {"name": name, "archive": arc["archive"].name,
                      "archive_vr": arc_vr, "tree_vr": tree_vr}
