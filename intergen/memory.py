@@ -1281,12 +1281,43 @@ class MemoryManager:
 
 # ── M2b: retrieval-over-verbatim session memory ──────────────────────────────
 
+# Headroom left below the embedding server's reported context, in CHARACTERS.
+#
+# The comparison is sound one-sided without any margin at all: a token is at
+# least one character, so a text of N characters is at most N tokens and a text
+# shorter than the context in characters cannot exceed it in tokens. The margin
+# exists for the special tokens the model adds around the input, which are not
+# in the text being measured. It mirrors llama_manager.EMBED_TOKEN_MARGIN and is
+# declared here rather than imported: memory.py does not depend on the manager
+# module, and this path must keep working for any embedder callable, including
+# one that is not a LlamaManager at all.
+EMBED_CHUNK_MARGIN = 8
+
+# How much each chunk repeats of the one before it, in characters.
+#
+# A hard split can land in the middle of the very sentence a later question is
+# about, leaving its two halves in different chunks and its meaning in neither.
+# Overlapping the boundary means any span shorter than the overlap survives
+# whole in at least one chunk. The cost is bounded and small: one extra chunk
+# per ~30 chunks of text at the default budget.
+EMBED_CHUNK_OVERLAP = 128
+
+
 @dataclass
 class _IndexedTurn:
-    """One completed exchange, embedded for relevance retrieval. `vector` is a
-    1-D float32 numpy array; `user_input`/`response` are the VERBATIM turn."""
+    """One completed exchange, embedded for relevance retrieval.
+
+    `vectors` is a LIST of 1-D float32 numpy arrays — one per chunk the exchange
+    was split into for embedding. A short exchange has exactly one. A turn is
+    scored by its BEST chunk (see retrieve), so a long exchange stays findable by
+    anything it said, not only by its opening.
+
+    `user_input`/`response` are the VERBATIM turn and are never chunked,
+    shortened or otherwise altered: chunking governs what is EMBEDDED, and the
+    verbatim-only invariant (design D2) governs what is stored and quoted back.
+    """
     turn_no: int
-    vector: Any  # np.ndarray (dim,), float32
+    vectors: Any  # list[np.ndarray (dim,), float32] — one per embedded chunk
     user_input: str
     response: str
 
@@ -1437,6 +1468,90 @@ class SessionTurnIndex:
             return None
         return arr[0]
 
+    def _embed_budget(self) -> int:
+        """Characters this embedding server can take, or 0 for 'do not bound'.
+
+        The number comes from the SERVER, not from this module: the router is
+        wired with a LlamaManager's bound `.embed` method (dbus_daemon.py passes
+        `self._embed_llama.embed`), so the manager — and its `context_size`, the
+        value it started llama-server with — is reachable through the callable's
+        `__self__`. Asking it is the difference between a bound that is true of
+        the machine in front of us and a constant that happens to be right.
+
+        Returns 0 when there is nothing to ask (a plain function embedder, a
+        manager that has never started, a non-integer answer). 0 means the text
+        is handed over whole, which is the behaviour that shipped: this method
+        can make the path stricter, never more fragile than it was.
+        """
+        owner = getattr(self._embedder, "__self__", None)
+        if owner is None:
+            return 0
+        try:
+            limit = owner.context_size
+        except Exception:  # noqa: BLE001 — a property that raises is 'no answer'
+            return 0
+        if not isinstance(limit, int) or isinstance(limit, bool) or limit <= 0:
+            return 0
+        return max(1, limit - EMBED_CHUNK_MARGIN)
+
+    @staticmethod
+    def _chunks(text: str, budget: int) -> list[str]:
+        """Split `text` into overlapping pieces that each fit `budget`.
+
+        `budget <= 0` means no bound was available, so the text is returned as
+        one piece exactly as it was handed in. A text already inside the budget
+        is likewise returned untouched — the common case, and it must stay a
+        single embed of the exact string the shipped code sent.
+        """
+        if budget <= 0 or len(text) <= budget:
+            return [text]
+        # Overlap can never consume the whole budget, or the window would stop
+        # advancing and this would not terminate.
+        overlap = min(EMBED_CHUNK_OVERLAP, budget // 2)
+        step = budget - overlap
+        out: list[str] = []
+        start = 0
+        while start < len(text):
+            out.append(text[start:start + budget])
+            start += step
+        return out
+
+    def _embed_chunks(self, texts: list[str]) -> list | None:
+        """Embed several texts in ONE call -> list of 1-D float32 arrays, or None.
+
+        Same fail-to-None discipline as _embed_one: a down or malformed embedder
+        degrades this whole path rather than raising into a turn. One call rather
+        than one per chunk keeps a long exchange at the same single round trip a
+        short one costs.
+        """
+        if self._embedder is None or not texts:
+            return None
+        try:
+            vectors = self._embedder(list(texts))
+        except Exception as e:  # transient conn error / malformed server response
+            logger.warning("SessionTurnIndex: embedder raised (%s); degrading",
+                           type(e).__name__)
+            return None
+        if not vectors:
+            return None
+        try:
+            import numpy as np
+            arr = np.asarray(vectors, dtype=np.float32)
+        except (ValueError, TypeError) as e:
+            logger.warning("SessionTurnIndex: malformed embedding shape (%s); "
+                           "degrading", type(e).__name__)
+            return None
+        # Distrust the shape as _embed_one does, and additionally require one
+        # vector per text: a server that answered a 6-chunk request with 2
+        # vectors has not embedded this turn, and silently indexing the two would
+        # make part of the exchange unfindable without saying so.
+        if arr.ndim != 2 or arr.shape[0] != len(texts) or arr.shape[1] < 1:
+            logger.warning("SessionTurnIndex: embedder returned %s vectors for "
+                           "%d chunks; degrading",
+                           getattr(arr, "shape", "?"), len(texts))
+            return None
+        return [arr[i] for i in range(arr.shape[0])]
+
     def index_turn(self, user_input: str, response: str) -> None:
         """Stage B: queue a completed exchange for background embedding.
 
@@ -1478,9 +1593,19 @@ class SessionTurnIndex:
             # Embed OUTSIDE the lock (the :8081 round-trip must not block
             # index_turn / retrieve). Index user + response together so a turn is
             # retrievable by either side of the exchange.
-            vec = self._embed_one(f"{user_input}\n{response}")
+            #
+            # Bounded by what the SERVER said it can take. Handing over more than
+            # that does not fail loudly: the embedding client shortens it and
+            # drops the tail, so everything past the context becomes unfindable
+            # while the turn still reports as indexed — the truncation-lottery
+            # this index exists to close, one layer down. Splitting here instead
+            # keeps every part of a long exchange retrievable, and the verbatim
+            # text stored below is untouched by the split (design D2).
+            combined = f"{user_input}\n{response}"
+            pieces = self._chunks(combined, self._embed_budget())
+            vecs = self._embed_chunks(pieces)
             with self._lock:
-                if vec is None:
+                if not vecs:
                     self._degraded = True
                     glass.emit("memory", "index_degraded", detail={
                         "turn_no": turn_no,
@@ -1491,9 +1616,13 @@ class SessionTurnIndex:
                 # A success here is the only proof the embedder is actually up.
                 self._verified = True
                 self._turns.append(_IndexedTurn(
-                    turn_no=turn_no, vector=vec,
+                    turn_no=turn_no, vectors=vecs,
                     user_input=user_input, response=response))
                 indexed = len(self._turns)
+            if len(pieces) > 1:
+                glass.emit("memory", "index_chunked", detail={
+                    "turn_no": turn_no, "chars": len(combined),
+                    "chunks": len(pieces), "budget": self._embed_budget()})
             if was_degraded:
                 glass.emit("memory", "recovered", detail={
                     "reason": "embed succeeded after a degraded window",
@@ -1548,13 +1677,20 @@ class SessionTurnIndex:
             best = None
             best_score = -1.0
             for t in candidates:
-                v = t.vector
-                vn = float(np.linalg.norm(v))
-                if vn == 0.0:
-                    continue
-                score = float(np.dot(q, v) / (qn * vn))
-                if score > best_score:
-                    best_score, best = score, t
+                # A turn is scored by its BEST chunk. A long exchange was split
+                # to fit the embedding server, and the part that answers this
+                # question may live in any one piece; taking the maximum makes
+                # the turn findable by anything it said. It does NOT make it
+                # easier to match overall — each chunk is compared on its own
+                # merits against the same threshold, so a turn that never
+                # discussed the subject still has no chunk that scores.
+                for v in t.vectors:
+                    vn = float(np.linalg.norm(v))
+                    if vn == 0.0:
+                        continue
+                    score = float(np.dot(q, v) / (qn * vn))
+                    if score > best_score:
+                        best_score, best = score, t
         except Exception as e:
             # Numpy math must never take down a turn — degrade to raw window.
             logger.warning("SessionTurnIndex.retrieve: scoring failed (%s); "
