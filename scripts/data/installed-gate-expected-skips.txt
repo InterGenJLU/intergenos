@@ -32,3 +32,4 @@
 # machine that has it before shipping a change to the engine or its dependencies.
 tests.installed.test_gate_rocm_engine_links::test_every_rocm_object_resolves_every_library_it_links  the opt-in ROCm engine (llama-cpp-hip) is not installed on this validation machine, so its linkage was not measured
 tests.installed.test_gate_rocm_engine_links::test_the_inference_server_starts_far_enough_to_answer_for_its_version  the opt-in ROCm engine (llama-cpp-hip) is not installed on this validation machine, so its server was not started
+tests.installed.test_gate_netfilter_smoke::test_a_consumer_of_the_firewall_tooling_reports_its_own_health  the mesh networking client is installed but its service is not enabled on this validation machine, so its health surface was not read; the packet-filter fix it predicts is measured by the two gates beside it
