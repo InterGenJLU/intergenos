@@ -13,9 +13,14 @@ None of the three ingredients is visible to a source-tree test: corpus size come
 the installed documentation, the single slot comes from the shipped server arguments,
 and the deadline is a default in a third module.
 
-WHAT THIS GATE READS. This machine's own service journal, one record per daemon start.
-A machine with no recorded start is a FAILURE here, not a skip — an unmeasured
-start-up must not read as a healthy one.
+WHAT THIS GATE READS. This machine's own service journal, one record per daemon start
+MADE SINCE THE RELEASE UNDER TEST WAS INSTALLED. The bound is the install date the
+package database records for the assistant — the same fact the run record reports and
+the trace-integrity gate bounds by. Starts of an earlier release are that release's
+behaviour: on 2026-08-27 fifteen starts of the previous release, back to its install
+five days earlier, kept this gate red against a candidate whose own starts were clean.
+A machine with no recorded start since the install is a FAILURE here, not a skip — an
+unmeasured start-up must not read as a healthy one.
 
 EXPECTED TO FAIL ON R001.1 AS SHIPPED.
 """
@@ -27,6 +32,8 @@ import subprocess
 from datetime import datetime
 
 import pytest
+
+from test_gate_glass_trace_integrity import installed_release_install_date
 
 UNIT = "intergen.service"
 
@@ -70,7 +77,9 @@ def startups() -> list[dict]:
     can be five hundred lines apart, so three of the four starts on this machine were
     reported as healthy when the journal says they were not. A process id is exact.
     """
-    lines = _journal()
+    since = datetime.fromtimestamp(installed_release_install_date())
+    lines = [ln for ln in _journal()
+             if (_when(ln) is not None and _when(ln) >= since)]
     by_pid: dict[str, list[str]] = {}
     order: list[str] = []
     for line in lines:
@@ -101,9 +110,9 @@ def startups() -> list[dict]:
     if not starts:
         pytest.fail(
             "This machine's journal records no daemon start that indexed the "
-            "documentation, so this gate measured nothing. An unmeasured start-up is "
-            "not a healthy start-up; extend the journal retention or start the daemon "
-            "and re-run.")
+            f"documentation since the release under test was installed ({since}), so "
+            "this gate measured nothing. An unmeasured start-up is not a healthy "
+            "start-up; start the daemon and re-run.")
     return starts
 
 
