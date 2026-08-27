@@ -199,6 +199,33 @@ class TheHiddenSearchResolvesABoundedReadOnlyFind(unittest.TestCase):
             R._natural_language_to_command("find the hidden files in /tmp"))
 
 
+class AClauseThatIsNotAboutFilesResolvesNothing(unittest.TestCase):
+    """The keyword pattern is anchored at "^find" and says nothing about files,
+    so it also claims "find the hidden meaning". At base that clause resolved
+    nothing and fell to the freeform path; resolving a hidden-FILE search for
+    it would be a REGRESSION, so the resolver requires the clause to name
+    files. Measured against the unguarded first implementation before the guard
+    was written (step 2 in the lane's evidence), where
+    "find the hidden meaning" DID resolve to a find command."""
+
+    NOT_ABOUT_FILES = (
+        "find the hidden meaning",
+        "find the hidden meaning in this poem",
+        "find the hidden message",
+        "find all hidden assumptions",
+    )
+
+    def test_a_clause_about_something_else_resolves_nothing(self) -> None:
+        for phrase in self.NOT_ABOUT_FILES:
+            self.assertIsNone(R._natural_language_to_command(phrase), phrase)
+
+    def test_the_control_that_keeps_that_honest(self) -> None:
+        """The same shape, about files, does resolve — so "resolves nothing"
+        above is a decision about the subject and not a dead code path."""
+        self.assertIsNotNone(R._natural_language_to_command(
+            "find the hidden files"))
+
+
 class TheBigArmMeansWhatItsSynonymsMean(unittest.TestCase):
     """RED at base: 'big' resolves to None while 'largest' and 'biggest'
     resolve to the disk-usage breakdown."""

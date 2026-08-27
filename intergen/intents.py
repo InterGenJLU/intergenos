@@ -48,6 +48,19 @@ BOOT_PERF_COMPLAINT_PATTERN = (
     r"|\bboot\s+time\b"
 )
 
+# The file-search clause the run_command keyword gate claims, shared with the
+# selector for the same reason the boot-performance pattern above is shared: the
+# gate that CLAIMS a clause and the selector that RESOLVES it must not be able
+# to drift apart. They had drifted here too, and it cost more than a deflection:
+# two of the four arms below — "big" and "hidden" — were claimed by this gate
+# and resolved to nothing, so the clause was recognised and then dropped to the
+# freeform path. The selector now reads this very constant and answers every arm
+# of it, and a test walks the alternation so a fifth word cannot be added
+# without an answer to go with it.
+FILE_SEARCH_PATTERN = (
+    r"^find\s+(?:the\s+|all\s+|my\s+)?(?:largest|biggest|big|hidden)\b"
+)
+
 
 def register_all_intents(matcher: SemanticMatcher) -> None:
     """Register all keyword and semantic intents for core tools."""
@@ -84,7 +97,7 @@ def _register_run_command(matcher: SemanticMatcher) -> None:
             r"^shell\s+",
             r"^\$\s+",
             r"^kill\s+",
-            r"^find\s+(?:the\s+|all\s+|my\s+)?(?:largest|biggest|big|hidden)\b",
+            FILE_SEARCH_PATTERN,
             # File COPY -> run_command(cp ...): "put/copy/move the contents of X
             # into/to Y", "copy X to /Y". Routed here (the extractor builds a
             # CONFIRM-tier `cp src dst`, or clarifies if src/dst aren't clean paths)
