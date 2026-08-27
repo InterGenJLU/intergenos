@@ -322,5 +322,80 @@ class TheTraceCarriesTheAttribution(unittest.TestCase):
         self.assertEqual(view.sub_query_tools, {1: ["manage_packages"], 2: []})
 
 
+class TheHarnessActuallyLoadsTheRow(unittest.TestCase):
+    """The emission and the trace are not enough: the loader has to keep the row.
+
+    MEASURED 2026-08-27, on the first live re-drive of this cut. The router
+    emitted the per-clause rows and the TraceView knew how to read them, but
+    live_run's glass loader keeps only a fixed set of phase/event pairs and that
+    set did not list this one. The rows were dropped before the trace was built,
+    so six per-clause assertions failed closed — each reporting that nothing had
+    been read that could say what a clause dispatched, about an attribution the
+    product had in fact written down.
+
+    That is the honest behaviour of a fail-closed assertion and it is exactly why
+    the failure was legible rather than a false pass. It is also a coupling that
+    nothing checked, which is what this class is.
+    """
+
+    def test_the_loader_keeps_the_per_clause_row(self):
+        import json
+        import tempfile
+        from pathlib import Path
+
+        from intergen.tests.scenario import live_run
+
+        rows = [
+            {"turn_id": "t1", "phase": "route", "event": "decided",
+             "detail": {"source": "decomposed"}},
+            {"turn_id": "t1", "phase": "prompt", "event": "subquery",
+             "detail": {"index": 1, "of": 2, "sub_query": "find one",
+                        "tools": ["web_search"]}},
+            {"turn_id": "t1", "phase": "prompt", "event": "token",
+             "detail": {"noise": "a row the harness does not read"}},
+        ]
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "glass.jsonl"
+            p.write_text("".join(json.dumps(r) + "\n" for r in rows))
+            kept = live_run.load_glass_rows(p)
+
+        pairs = {(r.get("phase"), r.get("event")) for r in kept}
+        self.assertIn(
+            ("prompt", "subquery"), pairs,
+            "the glass loader dropped the per-clause dispatch row, so the "
+            "attribution never reaches the trace and every per-clause assertion "
+            "fails closed on a live run")
+        self.assertNotIn(("prompt", "token"), pairs,
+                         "the loader stopped filtering; reading every row of an "
+                         "always-on log is the memory hazard the filter exists for")
+
+    def test_a_loaded_row_reaches_the_trace(self):
+        """End to end: rows the loader keeps must populate the attribution."""
+        import json
+        import tempfile
+        from pathlib import Path
+
+        from intergen.tests.scenario import live_run
+
+        rows = [
+            {"turn_id": "t1", "phase": "decision", "event": "compound_route",
+             "detail": {"sub_queries": ["find one", "use it"]}},
+            {"turn_id": "t1", "phase": "prompt", "event": "subquery",
+             "detail": {"index": 1, "of": 2, "sub_query": "find one",
+                        "tools": ["web_search"]}},
+            {"turn_id": "t1", "phase": "prompt", "event": "subquery",
+             "detail": {"index": 2, "of": 2, "sub_query": "use it",
+                        "tools": []}},
+        ]
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "glass.jsonl"
+            p.write_text("".join(json.dumps(r) + "\n" for r in rows))
+            view = TraceView.from_glass_rows(live_run.load_glass_rows(p),
+                                             trace_id="t1")
+
+        self.assertTrue(view.subquery_attribution_joined)
+        self.assertEqual(view.sub_query_tools, {1: ["web_search"], 2: []})
+
+
 if __name__ == "__main__":
     unittest.main()
