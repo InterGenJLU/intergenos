@@ -227,16 +227,26 @@ def run_scenario(scenario: Scenario, transport: ScenarioTransport, *,
         # and both abandon the scenario rather than let it reach grade_scenario:
         #
         #   1. The transport says outright that it got no response.
-        #   2. The transport answered, but the ENGINE behind it is not reachable and
-        #      this turn did not use the model. That pair is the measured outage of
-        #      2026-08-26: the daemon stayed up, every model call got connection
-        #      refused, intergen/llm.py logged one line and returned nothing, and the
-        #      router served a degraded reply that graded PASS four times over.
-        #      Neither half is sufficient alone — a turn a deterministic route served
-        #      legitimately does not use the model either, and an engine can be down
-        #      while a run is doing nothing that needs it — so both are required.
+        #   2. The ENGINE behind the transport is not reachable at this turn.
         #
-        # This is deliberately CONSERVATIVE: it can abandon a scenario whose answer
+        # CONDITION 2 USED TO CARRY A SECOND HALF — `and this turn did not use the
+        # model` — AND THAT MADE THE WHOLE GUARD INERT ON A REAL BOX. Measured
+        # 2026-08-26 by SIGKILLing this machine's 9B mid-run: with the endpoint
+        # confirmed refusing, the daemon still returns `used_llm=True` in 0.09 s with a
+        # degraded "I didn't manage to put together a response" reply. `used_llm`
+        # records that the model path was TAKEN, not that the model ANSWERED. So
+        # `not used_llm` was False, the engine was never probed, and all four scenarios
+        # were graded — the exact outcome this code exists to prevent, in the code that
+        # exists to prevent it. The pair only ever fired against a stub that had been
+        # written to the same wrong belief about the field.
+        #
+        # The reason the pair looked necessary was a worry that a deterministic turn
+        # uses no model either, so keyword-routed scenarios would stop being
+        # measurable. That worry was misplaced: this probe only bites when the engine is
+        # GENUINELY DOWN, and a run whose engine is down has no trustworthy verdict to
+        # give about anything, deterministic or not.
+        #
+        # It stays deliberately CONSERVATIVE: it can abandon a scenario whose answer
         # happened to be correct without the model. That trade is the right way round.
         # A withheld verdict costs a re-run; a verdict awarded by a harness that could
         # not reach the product is a false statement about the product, and it is the
@@ -245,13 +255,12 @@ def run_scenario(scenario: Scenario, transport: ScenarioTransport, *,
             res = transport.ask(turn.user)
         except TransportRefused as exc:
             raise ScenarioUndriveable(scenario.id, i, str(exc)) from exc
-        if not res.used_llm:
-            reachable, why = transport.engine_reachable()
-            if not reachable:
-                raise ScenarioUndriveable(
-                    scenario.id, i,
-                    f"the turn was answered without the model and the engine is "
-                    f"unreachable, so nothing was measured: {why}")
+        reachable, why = transport.engine_reachable()
+        if not reachable:
+            raise ScenarioUndriveable(
+                scenario.id, i,
+                f"the engine was not reachable for this turn, so nothing about the "
+                f"product was measured by it: {why}")
         results.append(res)
         traces.append(trace_lookup(res) if trace_lookup else None)
 

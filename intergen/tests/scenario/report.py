@@ -237,8 +237,25 @@ def format_summary(results: dict) -> str:
             wg = s.get("write_gap")
             if wg and wg.get("is_gap"):
                 lines.append("      MEMORY WRITE GAP (store left the facts store empty)")
-    elif c["scenarios"]:
+    elif c["scenarios"] and not (undriveable or not_attempted or abort_reason):
         lines.append("All scenarios PASS.")
+    elif c["scenarios"]:
+        # SOMETHING PASSED, BUT NOT EVERYTHING WAS MEASURED, SO "ALL" IS A LIE.
+        # Caught 2026-08-26 by reading a real artifact for the second time, on the live
+        # engine-kill run: one scenario graded PASS, two could not be driven and one was
+        # never attempted, and the summary still ended "All scenarios PASS." The first
+        # correction only silenced that line when NOTHING was graded, which fixed the
+        # empty corner and left this one — a run can abort with a passing scenario
+        # behind it, and that is the report a reader is most likely to skim.
+        #
+        # The word doing the damage is "All". It is a claim about the SELECTED set, and
+        # the selected set is larger than the graded set whenever anything was
+        # undriveable or never attempted.
+        missing = len(undriveable) + len(not_attempted)
+        lines.append(
+            f"Every scenario this run GRADED passed ({c['scenarios']}). That is not "
+            f"the whole selection: {missing} more were selected and never reached a "
+            f"verdict. Do not read this as a clean run.")
     else:
         # NO SCENARIO WAS GRADED, SO THERE IS NOTHING TO CALL PASSING. Caught by
         # reading a real artifact rather than by a test: an aborted run — zero graded,
