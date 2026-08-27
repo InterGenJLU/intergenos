@@ -394,6 +394,7 @@ class LlamaManager(LlamaManagerInterface):
         # first-boot/onboarding window (server deliberately held down), and
         # repeating it at ERROR each call was pure alarm fatigue.
         self._embed_notrunning_logged: bool = False
+        self._init_embed_slot()
         # READY is not RUNNING. Popen returns the instant the child exists, and
         # is_running() has been true from that moment — so embed() used to post
         # into a server that had not finished loading its model and sat for the
@@ -1326,7 +1327,7 @@ class LlamaManager(LlamaManagerInterface):
                      EMBED_TEXTS_PER_REQUEST, timeout)
             out: list[list[float]] = []
             for i in range(0, len(texts), EMBED_TEXTS_PER_REQUEST):
-                part = self._embed_one_request(
+                part = self._embed_one_request_tracked(
                     texts[i:i + EMBED_TEXTS_PER_REQUEST], timeout)
                 if part is None:
                     # Partial results are not returned: a caller that asked for
@@ -1335,7 +1336,75 @@ class LlamaManager(LlamaManagerInterface):
                     return None
                 out.extend(part)
             return out
-        return self._embed_one_request(texts, timeout)
+        return self._embed_one_request_tracked(texts, timeout)
+
+    # ---- the one embedding slot, made observable ---------------------------
+    #
+    # WHY THIS EXISTS. The embedding server ships started with ``--parallel 1``
+    # (see the ServerConfig comment above): it serves exactly one request at a
+    # time. A second consumer that posts while the first request is in flight
+    # is not served concurrently — it sits in the server's queue and spends its
+    # own client timeout waiting, and if that timeout expires first the client
+    # walks away while the server keeps working, leaving the slot busy for
+    # whatever is asked next. That is the failure this module already documents
+    # at the startup-batching comment, and it is the reason a BACKGROUND
+    # consumer must be able to ask "is anything using the slot right now?"
+    # before it starts.
+    #
+    # WHAT THIS IS NOT. It is not a serializer. Live callers are never made to
+    # wait on it: they mark the slot as occupied if they can and post
+    # regardless, so no user-facing path gains a lock it did not have before.
+    # It is an honest occupancy MARKER for callers whose work is optional and
+    # deferrable — today, the wiki index catching up between turns.
+    #
+    # WHAT IT CANNOT DO, stated rather than implied: a pass that has already
+    # started can still overlap a live request that begins a moment later. The
+    # check removes the case a background pass can control (do not START on a
+    # busy slot); it cannot reserve the future. Background passes are bounded
+    # in size and time for exactly that reason.
+    def _init_embed_slot(self) -> None:
+        """Create the embedding-slot occupancy marker.
+
+        Separate from __init__ so a partially constructed manager — the shape
+        several tests and recovery paths build with object.__new__ — can obtain
+        this state without running full construction.
+        """
+        self._embed_slot = threading.Lock()
+
+    @property
+    def embedding_slot_free(self) -> bool:
+        """True when no embedding request of ours is in flight.
+
+        Answers False while a request is being made. A manager that never had
+        its slot state initialised answers True: an unknown slot must not
+        permanently block a deferrable caller, and the marker is created in
+        __init__ for every manager the daemon builds.
+        """
+        slot = getattr(self, "_embed_slot", None)
+        if slot is None:
+            return True
+        return not slot.locked()
+
+    def _embed_one_request_tracked(self, texts: list[str],
+                                   timeout: float) -> list[list[float]] | None:
+        """``_embed_one_request`` with the slot marked occupied for its duration.
+
+        Every request this manager makes goes through here, so
+        ``embedding_slot_free`` reports on all of them and not merely on the
+        ones a particular caller remembered to mark.
+        """
+        slot = getattr(self, "_embed_slot", None)
+        if slot is None:
+            return self._embed_one_request(texts, timeout)
+        # Non-blocking on purpose: a live caller is never delayed by this
+        # marker. If the slot is already marked, post anyway — the server, not
+        # this lock, is the thing that serialises.
+        marked = slot.acquire(blocking=False)
+        try:
+            return self._embed_one_request(texts, timeout)
+        finally:
+            if marked:
+                slot.release()
 
     def _embed_one_request(self, texts: list[str],
                            timeout: float) -> list[list[float]] | None:

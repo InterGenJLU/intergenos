@@ -95,6 +95,12 @@ INTROSPECTION_XML = f"""
 """
 
 
+# Guards the lazy creation of each daemon's wiki-resume lock; see
+# InterGenDaemon._wiki_resume_lock for why creating a lock under no lock is a
+# guard that does not guard.
+_WIKI_RESUME_LOCK_CREATION = threading.Lock()
+
+
 class InterGenDaemon(InterGenDBusInterface):
     """D-Bus service skeleton for InterGen.
 
@@ -406,6 +412,11 @@ class InterGenDaemon(InterGenDBusInterface):
                     "handled": result.handled, "used_llm": result.used_llm,
                     "answer_linkage": (_link.as_detail() if _link is not None
                                        else {"kind": "undeclared"})})
+                # THE TURN IS DONE. Everything the user is waiting for has
+                # been composed; give the wiki index one bounded pass before
+                # returning. It starts a short-lived thread and returns
+                # immediately, so the reply below is not delayed by it.
+                self._resume_wiki_embedding_after_turn()
                 return json.dumps({
                     "response": response_text,
                     # The unsummarised original behind response_text (raw tool
@@ -460,6 +471,109 @@ class InterGenDaemon(InterGenDBusInterface):
                 "source": "error",
                 "handled": False,
             })
+
+    # ---- the wiki index catches up between turns ---------------------------
+    #
+    # WHY THIS IS HERE AND NOT IN THE INDEX. WikiRetrieval.resume_embedding()
+    # is bounded, idempotent and correct, and until this method existed NOTHING
+    # IN THE SHIPPED PRODUCT CALLED IT — every reference to the name outside
+    # wiki_retrieval.py was in a test file. So the recovery path existed on
+    # paper and not in practice.
+    #
+    # WHAT THAT COST. The installed wiki is 2 116 passages from 87 pages and
+    # index construction is allowed ten seconds (_STARTUP_EMBED_BUDGET_S). On a
+    # machine where the embedding server is slow to arrive — the greeter
+    # cold-boot collision, the provisioning window, a first boot before the
+    # model is downloaded — that budget expires with the corpus part-embedded,
+    # embeddings_ready stays False, and the wiki answers by keyword match for
+    # the entire life of the daemon. The only cure was a reboot, and a reboot
+    # into the same cold-start window was not a cure either.
+    #
+    # WHY AFTER A TURN. A turn ending is the one moment the daemon knows the
+    # model server has just finished work and the user is reading rather than
+    # waiting. It needs no timer, no extra thread of its own to keep alive, and
+    # no policy: it is exactly the "idle" this daemon has.
+    #
+    # THE THREE THINGS THAT KEEP IT CHEAP:
+    #   * nothing to do  — a complete index returns immediately and sends no
+    #                      request, so a healthy machine pays nothing per turn;
+    #   * slot busy      — if an embedding request is already in flight the
+    #                      pass is not started at all, because the server is
+    #                      --parallel 1 and a second consumer only waits out
+    #                      its own timeout;
+    #   * off the turn   — the pass runs on a short-lived thread, so the reply
+    #                      the user is waiting for never waits for the index.
+    #
+    # One pass at a time: _wiki_resume_running is checked and set under a lock,
+    # so a burst of turns cannot stack passes onto the one slot.
+    def _resume_wiki_embedding_after_turn(self) -> None:
+        """Give the wiki index one bounded embedding pass, if it needs one.
+
+        Best-effort throughout: this is index maintenance, and no failure in it
+        may reach the turn that triggered it.
+        """
+        try:
+            router = self._router
+            retrieval = getattr(router, "_wiki_retrieval", None) if router else None
+            if retrieval is None:
+                return
+            resume = getattr(retrieval, "resume_embedding", None)
+            if resume is None:
+                return
+            if getattr(retrieval, "embeddings_ready", False):
+                return              # nothing to do; send no request
+
+            embed_llama = getattr(self, "_embed_llama", None)
+            if embed_llama is not None and not getattr(
+                    embed_llama, "embedding_slot_free", True):
+                return              # a request is in flight; do not compete
+
+            lock = self._wiki_resume_lock()
+            with lock:
+                if getattr(self, "_wiki_resume_running", False):
+                    return          # a pass is already under way
+                self._wiki_resume_running = True
+
+            def _pass() -> None:
+                try:
+                    done = resume()
+                    if done:
+                        log.info(
+                            "Wiki index finished embedding between turns — "
+                            "wiki answers are grounded again without a restart.")
+                except Exception as e:  # noqa: BLE001 — maintenance never breaks a turn
+                    log.debug("Wiki index resume pass failed (retried after a "
+                              "later turn): %s", e)
+                finally:
+                    self._wiki_resume_running = False
+
+            threading.Thread(target=_pass, daemon=True,
+                             name="intergen-wiki-resume").start()
+        except Exception as e:  # noqa: BLE001 — maintenance never breaks a turn
+            log.debug("Wiki index resume could not be scheduled: %s", e)
+
+    def _wiki_resume_lock(self) -> "threading.Lock":
+        """The one-pass-at-a-time guard, created on first use.
+
+        Created lazily rather than in __init__ so a daemon built by
+        object.__new__ — the partial-construction shape several tests and
+        recovery paths use — reaches this path with the same guarantee a fully
+        constructed one has, instead of raising for a missing attribute.
+
+        Creation itself is guarded by a module-level lock. Lazily creating a
+        lock under no lock is the classic way to end up with TWO of them, one
+        per racing caller, at which point the guard guards nothing — and a
+        guard that silently does not guard is precisely what must not be
+        shipped.
+        """
+        lock = getattr(self, "_wiki_resume_lock_obj", None)
+        if lock is None:
+            with _WIKI_RESUME_LOCK_CREATION:
+                lock = getattr(self, "_wiki_resume_lock_obj", None)
+                if lock is None:
+                    lock = threading.Lock()
+                    self._wiki_resume_lock_obj = lock
+        return lock
 
     def escalate(self, message: str) -> str:
         """Phone-a-friend: send a message to the configured frontier model after
