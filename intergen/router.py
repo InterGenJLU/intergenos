@@ -40,7 +40,7 @@ from intergen.conversation_state import (
 )
 from intergen.dispatch_policy import is_system_category_conversation
 from intergen.decomposer import analyze_query, DecomposedQuery
-from intergen.intents import BOOT_PERF_COMPLAINT_PATTERN
+from intergen.intents import BOOT_PERF_COMPLAINT_PATTERN, FILE_SEARCH_PATTERN
 from intergen.memory import MemoryManager, fact_cache_text, fact_key
 from intergen.interfaces.router import RouterInterface
 from intergen.state_cache import StateCache
@@ -1333,6 +1333,79 @@ def _readonly_command_available(cmd: str) -> bool:
                 "command": cmd, "missing": missing})
             return False
     return True
+
+
+# ── "where are my hidden files" -> one bounded, read-only find ───────────────
+#
+# The directory the person named, when they named one they can be understood to
+# have named, and their own home directory when they did not. Three shapes and
+# nothing else:
+#
+#   named nothing                  -> ~
+#   said "home" in words           -> ~   ("in my home", "in the home folder")
+#   gave a path                    -> that path, verbatim
+#
+# ANYTHING ELSE RESOLVES TO NOTHING, and that is deliberate twice over.
+#
+#   * "the downloads folder" is a HUMAN NAME for a place. Turning it into a path
+#     is a judgement — whose downloads, under which locale's directory name, on
+#     a machine that may not have one — and this selector is the rung that does
+#     lookups, not judgements. Returning nothing hands the clause to the
+#     freeform rung, which can make that judgement. Silently searching the home
+#     directory instead would answer a question nobody asked.
+#   * The result is a COMMAND STRING that runs on the AUTO tier, without the
+#     person confirming it. So a directory is accepted only when it is a plain
+#     path: a leading "/" or "~", then path characters. A semicolon, a
+#     backtick, "$(", "&&", a space — anything that is not a path — resolves to
+#     nothing rather than to a command nobody inspected.
+#
+# The search is DEPTH-LIMITED. "What is hidden in my home" is a question about
+# one directory; walking an entire filesystem to answer it is a different and
+# far slower question, and this path is meant to be the fast, certain answer.
+_HIDDEN_SEARCH_IN_RE = re.compile(
+    r"\b(?:in|inside|under|within)\s+(?P<where>.+?)\s*[.?!]*\s*$",
+    re.IGNORECASE)
+# "my home", "the home directory", "home folder", "my home dir", "~".
+_HIDDEN_SEARCH_HOME_RE = re.compile(
+    r"^(?:(?:my|the)\s+)?home(?:\s+(?:directory|folder|dir))?$|^~$",
+    re.IGNORECASE)
+# A plain path and nothing else. No spaces, no shell metacharacters.
+_HIDDEN_SEARCH_PATH_RE = re.compile(r"^[~/][A-Za-z0-9._/~+-]*$")
+# The clause has to be about FILES. The keyword pattern is anchored at "^find"
+# and says nothing about what is being found, so it claims "find the hidden
+# meaning" as readily as "find the hidden files" — and answering the first with
+# a directory listing would be worse than the deflection it replaces. Measured
+# on the first implementation of this function, before this line existed: "find
+# the hidden meaning" resolved to a find over the home directory. A clause that
+# does not name files resolves to nothing and goes to the freeform rung, which
+# is exactly where it went before this lane.
+_HIDDEN_SEARCH_SUBJECT_RE = re.compile(
+    r"\bhidden\s+(?:dot\s?)?(?:files?|directories|director(?:y|ies)|dirs?|"
+    r"folders?|dotfiles?)\b", re.IGNORECASE)
+
+
+def _hidden_file_search_command(user_input: str) -> str | None:
+    """The bounded read-only find for a hidden-file clause, or None.
+
+    Reads the ORIGINAL input rather than the lowercased copy the selector works
+    from, because a directory name is case-sensitive: "~/Documents" is not
+    "~/documents", and searching the second would report an absent directory on
+    a machine that has the first.
+    """
+    if not _HIDDEN_SEARCH_SUBJECT_RE.search(user_input):
+        return None
+    m = _HIDDEN_SEARCH_IN_RE.search(user_input.strip())
+    if m is None:
+        where = "~"
+    else:
+        named = m.group("where").strip()
+        if _HIDDEN_SEARCH_HOME_RE.fullmatch(named):
+            where = "~"
+        elif _HIDDEN_SEARCH_PATH_RE.fullmatch(named):
+            where = named
+        else:
+            return None
+    return f'find {where} -maxdepth 1 -name ".*"'
 
 
 # ── DIRECT-ANSWER intent class (ge9b finding #3) ──────────────────────────────
@@ -6653,6 +6726,20 @@ class ConversationRouter(RouterInterface):
             cmd = "systemd-analyze time"
             return cmd if _readonly_command_available(cmd) else None
 
+        # "find the hidden files [in <somewhere>]" -> a bounded, read-only find.
+        # Checked before the phrase map because the command depends on WHICH
+        # directory was named, which a fixed phrase table cannot express. Gated
+        # on the SAME pattern that claims the clause for run_command
+        # (intents.FILE_SEARCH_PATTERN), so the gate and this resolver cannot
+        # drift apart, and so a bare mention of the word "hidden" in ordinary
+        # conversation never resolves to a command.
+        arm = re.search(FILE_SEARCH_PATTERN, lower)
+        if arm is not None and "hidden" in arm.group(0):
+            cmd = _hidden_file_search_command(user_input)
+            if cmd is None:
+                return None
+            return cmd if _readonly_command_available(cmd) else None
+
         _QUERY_MAP = {
             "hostname": "hostname",
             "host name": "hostname",
@@ -6787,6 +6874,12 @@ class ConversationRouter(RouterInterface):
             "processes": "ps aux",
             "largest files": "du -ah ~ 2>/dev/null | sort -rh | head -20",
             "biggest files": "du -ah ~ 2>/dev/null | sort -rh | head -20",
+            # "big files" is the third word for the same request, and the
+            # run_command keyword gate has always claimed it — without this key
+            # the clause was recognised and then resolved to nothing. Placed
+            # after its two synonyms; it cannot steal from them, because
+            # "big files" is not a substring of "biggest files".
+            "big files": "du -ah ~ 2>/dev/null | sort -rh | head -20",
             "eating my disk": "du -ah ~ 2>/dev/null | sort -rh | head -20",
             "eating up my disk": "du -ah ~ 2>/dev/null | sort -rh | head -20",
             "using my disk": "du -ah ~ 2>/dev/null | sort -rh | head -20",
