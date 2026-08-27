@@ -109,14 +109,27 @@ def _spans_by_trace(decisions_rows: list[dict[str, Any]]) -> dict[str, list[dict
 
 
 # The glass phase/event pairs :meth:`TraceView.from_glass_rows` actually reads.
-# The always-on log holds every byte of a turn; the harness needs four rows per
-# turn out of it, so the fallback loader keeps only these. That is what makes
-# reading the canonical file affordable instead of a memory hazard.
+# The always-on log holds every byte of a turn; the harness needs a handful of
+# rows per turn out of it, so the fallback loader keeps only these. That is what
+# makes reading the canonical file affordable instead of a memory hazard.
+#
+# THIS SET IS PART OF THE TRACE CONTRACT, NOT AN OPTIMISATION DETAIL. A row the
+# TraceView knows how to read but this filter drops never reaches the grader, and
+# the assertion that needed it fails closed — reporting "nothing was read that
+# could say" about a fact the product did in fact record. Measured 2026-08-27:
+# the per-clause dispatch rows were emitted by the router and dropped here, so
+# six per-clause assertions failed closed on a live re-drive while the attribution
+# they needed sat in the log. Anything added to from_glass_rows must be added
+# here in the same change.
+#
+# `prompt`/`subquery` is one row PER CLAUSE, so a compound turn contributes
+# several; every other pair contributes at most one.
 _GLASS_ROWS_THE_HARNESS_READS = frozenset({
     ("route", "decided"),
     ("delivery", "final"),
     ("decision", "decompose"),
     ("decision", "compound_route"),
+    ("prompt", "subquery"),
 })
 
 
@@ -237,6 +250,17 @@ def build_trace_lookup(glass_rows: list[dict[str, Any]] | None = None,
             view.decomposition_source_joined = g.decomposition_source_joined
             if g.sub_queries:
                 view.sub_queries = g.sub_queries
+            # Per-clause dispatch attribution. THIS MERGE IS THE THIRD PLACE A
+            # NEW TRACE FIELD HAS TO BE ADDED, and the easiest to forget: the
+            # base view comes from the REPLY, which cannot carry it, so a field
+            # left out here is silently absent no matter how correctly it was
+            # emitted, filtered and parsed. Measured 2026-08-27: the rows were
+            # emitted with their tools and reached from_glass_rows, and six
+            # per-clause assertions still failed closed because this function
+            # copied three fields and not these two.
+            view.subquery_attribution_joined = g.subquery_attribution_joined
+            if g.sub_query_tools:
+                view.sub_query_tools = g.sub_query_tools
             if not view.route_source and g.route_source:
                 view.route_source = g.route_source
         return view

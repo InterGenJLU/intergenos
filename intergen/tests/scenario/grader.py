@@ -350,6 +350,65 @@ def _eval_uses_any_tool(a: Assertion, called: list[str]) -> AssertionResult:
               actual="" if passed else f"tools_called={called}")
 
 
+def _eval_uses_tool_for_clause(a: Assertion,
+                               trace: TraceView | None) -> AssertionResult:
+    """The named clause of a compound turn must itself have dispatched the tool.
+
+    Read from the per-clause attribution the router emits, never from the flat
+    dispatch list: the flat list is what let a turn that served clause 1 and
+    narrated clause 2 be graded as served. Three distinct states, three distinct
+    sentences, and only one of them passes:
+
+      * no attribution was joined  -> fail, and say nothing was read
+      * the clause is not in the attributed set -> fail, naming the index
+      * the clause dispatched, but not this tool -> fail, naming what it did
+    """
+    want_index = a.params.get("index")
+    try:
+        idx = int(want_index)
+    except (TypeError, ValueError):
+        return _r("uses_tool_for_clause", a.value, False,
+                  a.description or "a clause dispatches its tool",
+                  actual=f"params.index is {want_index!r}, not a clause number")
+
+    desc = a.description or f"clause {idx} dispatches {a.value}"
+    if trace is None or not trace.subquery_attribution_joined:
+        return _r("uses_tool_for_clause", a.value, False, desc,
+                  actual=("no per-clause dispatch attribution was joined for "
+                          "this turn, so nothing was read that could say what "
+                          "clause %d dispatched" % idx))
+
+    def _clause_text(i: int) -> str:
+        subs = trace.sub_queries
+        return subs[i - 1] if 0 < i <= len(subs) else ""
+
+    if idx not in trace.sub_query_tools:
+        known = sorted(trace.sub_query_tools)
+        return _r("uses_tool_for_clause", a.value, False, desc,
+                  actual=(f"clause {idx} is not in this turn's decomposition; "
+                          f"clauses attributed: {known}"))
+
+    got = trace.sub_query_tools[idx]
+    # The value may name SEVERAL acceptable tools, comma-joined, exactly as
+    # uses_any_tool does. Measured 2026-08-27: asserting a single tool for a
+    # "find me an X" clause reddened a correct answer, because searching the
+    # package index and searching the web are both honest ways to serve it and
+    # the product picks by context. An assertion that pins one is asserting an
+    # implementation choice, not the behaviour — and a Gate-A failure on correct
+    # behaviour is worse than the gap it was meant to close. What must not be
+    # loosened is WHICH CLAUSE served it; that is the whole point.
+    wanted = [w.strip() for w in a.value.split(",") if w.strip()]
+    passed = any(w in got for w in wanted)
+    actual = ""
+    if not passed:
+        text = _clause_text(idx)
+        served = ", ".join(got) if got else "nothing"
+        expected = " or ".join(wanted) if wanted else a.value
+        actual = (f"clause {idx} ({text!r}) dispatched {served}; "
+                  f"expected {expected}")
+    return _r("uses_tool_for_clause", a.value, passed, desc, actual=actual)
+
+
 def _eval_no_tool(a: Assertion, called: list[str]) -> AssertionResult:
     # value set → that specific tool must be absent; value empty → NO tool ran.
     if a.value:
@@ -735,6 +794,102 @@ def _eval_self_consistent(a: Assertion, text: str) -> AssertionResult:
               else f"{enumerated} enumerated items AND a 'none found' claim")
 
 
+# ── self-contradiction over a decomposed answer ─────────────────────────────
+#
+# Gate A is HARD, so these patterns are chosen for PRECISION over recall: a
+# false failure here would redden a correct answer, which costs more than
+# missing a contradiction this pass does not yet name. Each family pairs the two
+# polarities of ONE state, so "not installed" versus "installed" is a
+# contradiction and "not installed" versus "not running" is simply two facts.
+_CONTRADICTION_FAMILIES: dict[str, tuple[re.Pattern, re.Pattern]] = {
+    # presence / installation / existence
+    "presence": (
+        re.compile(
+            r"is not installed|isn't installed|not installed|is not present"
+            r"|does not exist|doesn't exist|is not available|isn't available"
+            r"|were not found|was not found|none were found|no matching"
+            r"|is missing|could not be found|couldn't be found"
+            # "No printers were found" / "no printer found" — the negative
+            # existence claim written as a quantifier rather than a negation.
+            r"|\bno\s+\w+\s+(?:were|was|are|is)?\s*found\b",
+            re.IGNORECASE),
+        re.compile(
+            r"is installed|already installed|is present|is available"
+            r"|was found|were found|exists|is ready",
+            re.IGNORECASE),
+    ),
+    # execution state
+    "running": (
+        re.compile(
+            r"is not running|isn't running|is not active|isn't active"
+            r"|is stopped|is inactive|is not enabled|is disabled",
+            re.IGNORECASE),
+        re.compile(r"is running|is active|is enabled|running normally",
+                   re.IGNORECASE),
+    ),
+}
+
+# A state that CHANGED inside the turn is a sequence, not a contradiction:
+# "it was not installed, so I installed it; it is now installed" is a correct
+# and useful answer, and a grader that reddened it would fail every successful
+# install. The marker has to be an explicit completed action or an explicit
+# "now", not merely past tense.
+_STATE_TRANSITION_RE = re.compile(
+    r"\b(?:i(?:'ve| have)? (?:just )?(?:installed|started|enabled|removed)\b"
+    r"|installed it\b|started it\b|enabled it\b"
+    r"|now (?:installed|running|available|active|enabled|present)\b"
+    r"|has (?:now )?been (?:installed|started|enabled|removed)\b"
+    r"|after install)",
+    re.IGNORECASE)
+
+# Segment boundaries: sentence ends AND line breaks, so a numbered decomposed
+# answer ("**1.** … \n\n **2.** …") is read as the separate claims it is.
+_SEGMENT_SPLIT_RE = re.compile(r"(?<=[.!?])\s+|\n+")
+
+
+def _eval_no_self_contradiction(a: Assertion, text: str) -> AssertionResult:
+    """The reply must not assert a state and its negation about one subject.
+
+    Measured on the 2B, 2026-08-26: one reply said a package was "not installed"
+    and, two lines further down, "already installed". Both halves came from
+    different clauses of a decomposed answer, and nothing reconciled them.
+    """
+    desc = a.description or "the reply does not contradict itself"
+    body = text or ""
+    if not body.strip():
+        return _r("no_self_contradiction", a.value, True, desc)
+
+    aliases = [s.strip().lower() for s in (a.value or "").split(",") if s.strip()]
+    if not aliases:
+        return _r("no_self_contradiction", a.value, False, desc,
+                  actual="no subject was named, so nothing could be checked")
+
+    if _STATE_TRANSITION_RE.search(body):
+        # The turn says the state changed within it. Two polarities are then the
+        # before and the after, not a contradiction.
+        return _r("no_self_contradiction", a.value, True, desc)
+
+    segments = [s.strip() for s in _SEGMENT_SPLIT_RE.split(body) if s.strip()]
+    mine = [s for s in segments if any(al in s.lower() for al in aliases)]
+
+    for family, (negative_re, positive_re) in _CONTRADICTION_FAMILIES.items():
+        neg_hit = pos_hit = ""
+        for seg in mine:
+            negated = bool(negative_re.search(seg))
+            if negated and not neg_hit:
+                neg_hit = seg
+            # A segment carrying a negative phrase must not also be read as the
+            # positive one it contains ("is not installed" contains "installed").
+            if not pos_hit and not negated and positive_re.search(seg):
+                pos_hit = seg
+        if neg_hit and pos_hit:
+            return _r("no_self_contradiction", a.value, False, desc,
+                      actual=(f"the reply states both about {aliases[0]!r} "
+                              f"({family}): {neg_hit!r} AND {pos_hit!r}"))
+
+    return _r("no_self_contradiction", a.value, True, desc)
+
+
 def _reply_lines(text: str) -> list[str]:
     """The reply's non-empty lines, normalised for comparison."""
     return [ln.strip().lower() for ln in (text or "").splitlines() if ln.strip()]
@@ -799,9 +954,11 @@ _EXPLICIT_EVALUATORS = {
     "source": lambda a, ctx: _eval_source(a, ctx.text),
     "source_any": lambda a, ctx: _eval_source_any(a, ctx.text),
     "self_consistent": lambda a, ctx: _eval_self_consistent(a, ctx.text),
+    "no_self_contradiction": lambda a, ctx: _eval_no_self_contradiction(a, ctx.text),
     "routes_via": lambda a, ctx: _eval_routes_via(a, ctx.result, ctx.trace),
     "uses_tool": lambda a, ctx: _eval_uses_tool(a, ctx.called),
     "uses_any_tool": lambda a, ctx: _eval_uses_any_tool(a, ctx.called),
+    "uses_tool_for_clause": lambda a, ctx: _eval_uses_tool_for_clause(a, ctx.trace),
     "no_tool": lambda a, ctx: _eval_no_tool(a, ctx.called),
     "tool_arg_contains": lambda a, ctx: _eval_tool_arg_contains(a, ctx.result, ctx.trace),
     "tool_result_nonempty": lambda a, ctx: _eval_tool_result_nonempty(a, ctx.trace),

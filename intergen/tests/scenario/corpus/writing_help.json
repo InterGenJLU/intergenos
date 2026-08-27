@@ -2058,6 +2058,22 @@
             "type": "uses_any_tool",
             "value": "web_search,manage_packages",
             "description": "the sub-requests must actually dispatch the real tools they compose"
+          },
+          {
+            "type": "uses_tool_for_clause",
+            "value": "web_search,manage_packages",
+            "params": {
+              "index": 1
+            },
+            "description": "the FIND clause must itself dispatch a search - either the package index or the web; the product chooses by context and both honestly serve the request. What is pinned is that CLAUSE 1 served it"
+          },
+          {
+            "type": "uses_tool_for_clause",
+            "value": "manage_packages",
+            "params": {
+              "index": 2
+            },
+            "description": "the INSTALL clause must itself dispatch the package manager; a turn that found the app and only talked about installing it fails here"
           }
         ]
       }
@@ -2288,6 +2304,22 @@
             "type": "uses_any_tool",
             "value": "web_search,take_screenshot",
             "description": "the sub-requests must actually dispatch the real tools they compose"
+          },
+          {
+            "type": "uses_tool_for_clause",
+            "value": "web_search,manage_packages",
+            "params": {
+              "index": 1
+            },
+            "description": "the FIND clause must itself dispatch a search - either the package index or the web; what is pinned is that CLAUSE 1 served it"
+          },
+          {
+            "type": "uses_tool_for_clause",
+            "value": "take_screenshot",
+            "params": {
+              "index": 2
+            },
+            "description": "the CAPTURE clause must itself dispatch the screenshot tool; measured 2026-08-26, this clause never dispatched and the turn still graded PASS"
           }
         ]
       }
@@ -2390,6 +2422,19 @@
             "type": "uses_any_tool",
             "value": "manage_packages,run_command",
             "description": "the sub-requests must actually dispatch the real tools they compose"
+          },
+          {
+            "type": "uses_tool_for_clause",
+            "value": "manage_packages",
+            "params": {
+              "index": 2
+            },
+            "description": "the INSTALL clause must itself dispatch the package manager; the CHECK clause is left unpinned because a check may legitimately be answered by either tool"
+          },
+          {
+            "type": "no_self_contradiction",
+            "value": "docker",
+            "description": "measured 2026-08-26: the reply said docker was not installed and, two lines down, already installed - each clause answered on its own with nothing reconciling them"
           }
         ]
       }
