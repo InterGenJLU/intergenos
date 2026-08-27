@@ -147,6 +147,17 @@ class TheClauseAssertionFails(unittest.TestCase):
             "clause 2 with it — this is the flat-list defect the assertion exists "
             "to close")
 
+    def test_an_any_of_value_still_fails_when_the_clause_dispatched_nothing(self):
+        """Widening WHICH tool must not widen WHETHER the clause was served."""
+        tr = _trace(
+            sub_queries=["find a note-taking app", "use it to capture my screen"],
+            clause_tools={1: ["manage_packages"], 2: []},
+            dispatches=["manage_packages"])
+        res = _only(_grade_clause(2, "web_search,take_screenshot", tr),
+                    "uses_tool_for_clause")
+        self.assertFalse(res.passed)
+        self.assertIn("nothing", res.actual)
+
     def test_an_index_past_the_end_fails_rather_than_passing_vacuously(self):
         tr = _trace(sub_queries=["only one clause"], clause_tools={1: ["x"]})
         res = _only(_grade_clause(2, "x", tr), "uses_tool_for_clause")
@@ -179,6 +190,22 @@ class TheClauseAssertionPasses(unittest.TestCase):
             dispatches=["manage_packages", "screen_capture"])
         self.assertTrue(
             _only(_grade_clause(2, "screen_capture", tr), "uses_tool_for_clause").passed)
+
+    def test_an_any_of_value_passes_on_either_tool(self):
+        """A clause a scenario is willing to see served two ways.
+
+        "find me a note-taking app" is honestly served by searching the package
+        index or by searching the web, and the product chooses by context.
+        Pinning one would fail a correct answer.
+        """
+        for tool in ("manage_packages", "web_search"):
+            with self.subTest(tool=tool):
+                tr = _trace(sub_queries=["find a note-taking app", "install it"],
+                            clause_tools={1: [tool], 2: ["manage_packages"]},
+                            dispatches=[tool, "manage_packages"])
+                self.assertTrue(
+                    _only(_grade_clause(1, "web_search,manage_packages", tr),
+                          "uses_tool_for_clause").passed)
 
     def test_both_clauses_can_be_asserted_on_one_turn(self):
         """The reason the assertion is indexed: a compound turn asserts BOTH."""

@@ -2061,11 +2061,11 @@
           },
           {
             "type": "uses_tool_for_clause",
-            "value": "web_search",
+            "value": "web_search,manage_packages",
             "params": {
               "index": 1
             },
-            "description": "the FIND clause must itself dispatch the search - a flat tool list cannot say which half of the request was served"
+            "description": "the FIND clause must itself dispatch a search - either the package index or the web; the product chooses by context and both honestly serve the request. What is pinned is that CLAUSE 1 served it"
           },
           {
             "type": "uses_tool_for_clause",
@@ -2307,11 +2307,11 @@
           },
           {
             "type": "uses_tool_for_clause",
-            "value": "web_search",
+            "value": "web_search,manage_packages",
             "params": {
               "index": 1
             },
-            "description": "the FIND clause must itself dispatch the search"
+            "description": "the FIND clause must itself dispatch a search - either the package index or the web; what is pinned is that CLAUSE 1 served it"
           },
           {
             "type": "uses_tool_for_clause",

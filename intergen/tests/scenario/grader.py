@@ -389,13 +389,23 @@ def _eval_uses_tool_for_clause(a: Assertion,
                           f"clauses attributed: {known}"))
 
     got = trace.sub_query_tools[idx]
-    passed = a.value in got
+    # The value may name SEVERAL acceptable tools, comma-joined, exactly as
+    # uses_any_tool does. Measured 2026-08-27: asserting a single tool for a
+    # "find me an X" clause reddened a correct answer, because searching the
+    # package index and searching the web are both honest ways to serve it and
+    # the product picks by context. An assertion that pins one is asserting an
+    # implementation choice, not the behaviour — and a Gate-A failure on correct
+    # behaviour is worse than the gap it was meant to close. What must not be
+    # loosened is WHICH CLAUSE served it; that is the whole point.
+    wanted = [w.strip() for w in a.value.split(",") if w.strip()]
+    passed = any(w in got for w in wanted)
     actual = ""
     if not passed:
         text = _clause_text(idx)
         served = ", ".join(got) if got else "nothing"
+        expected = " or ".join(wanted) if wanted else a.value
         actual = (f"clause {idx} ({text!r}) dispatched {served}; "
-                  f"expected {a.value}")
+                  f"expected {expected}")
     return _r("uses_tool_for_clause", a.value, passed, desc, actual=actual)
 
 
