@@ -94,6 +94,30 @@ _WORD = re.compile(r"\S+")
 _LATIN_ALPHA_CEILING = 0x024F        # matches coherence's Latin block ceiling
 _WELD_SYMBOLS = set("${}|\\^~")      # shell/structural symbols welded mid-token = corruption
 
+# MATHEMATICS IS NOT A DECODE WELD. LaTeX is built from the same symbols the weld
+# scan reads as corruption — backslashes, braces, carets — so an ordinary English
+# answer carrying \(\zeta(s)\) or \sum_{n=1}^{\infty} scores a fusion per
+# maths token. Measured 2026-08-26: a coherent answer about the Riemann
+# Hypothesis flagged charset_sanity and helped raise a false engine-degradation
+# alarm, whose remedy invites the user to downgrade a working machine.
+#
+# The exemption is deliberately keyed on LaTeX CONTROL SEQUENCES, not on the
+# symbols: a run must contain a backslash command to be removed. So "$5 and $10"
+# is never exempted, and the corruption this check exists for — a weld with no
+# command in it, "TOPMk${conskomland" — is untouched and still flags. It is
+# applied to the weld scan alone; a replacement character or a control byte
+# inside mathematics is still broken bytes.
+_LATEX_SPAN = re.compile(
+    r"\\[a-zA-Z]+(?:\s*(?:\{[^{}]*\}|\[[^\[\]]*\]|[_^]\s*\{[^{}]*\}|[_^]\S))*"
+    r"|\\[()\[\]]"
+    r"|[_^]\s*\{[^{}]*\}")
+
+
+def _strip_math(text: str) -> str:
+    """The text with LaTeX control sequences and their argument groups removed,
+    for the weld scan only."""
+    return _LATEX_SPAN.sub(" ", text)
+
 
 @dataclass
 class SemanticHealthResult:
@@ -195,7 +219,11 @@ def _check_charset(unfenced: str) -> tuple[bool, dict]:
     #   * symbol weld: a structural symbol ({ } $ | \ ^ ~ < >) embedded between
     #     alphanumerics inside a token ("TOPMk${conskomland").
     fusion = 0
-    for tok in _tokens(unfenced):
+    # The weld scan reads the text with mathematics removed (see _strip_math):
+    # LaTeX is made of the same symbols a decode weld is, and counting it as
+    # corruption called a correct answer incoherent. The replacement and control
+    # counts above deliberately still read the WHOLE text.
+    for tok in _tokens(_strip_math(unfenced)):
         for a, b in zip(tok, tok[1:]):
             latin_a = a.isalpha() and ord(a) <= _LATIN_ALPHA_CEILING
             latin_b = b.isalpha() and ord(b) <= _LATIN_ALPHA_CEILING

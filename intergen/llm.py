@@ -433,8 +433,27 @@ class LLMRouter(LLMInterface):
                 # G9: preserve the RAW response + which check fired.
                 glass.emit("model", "semantic_health", detail={
                     "flags": res.flags, "checks": res.detail, "raw": response_text})
+            # ONLY A SERVED ANSWER ENTERS THE HEALTH WINDOW. The engine-health
+            # alarm counts "served generations", and a readiness probe's reply is
+            # not one — it is the transport proving it can answer at all, outside
+            # any turn. Measured 2026-08-26: two probe replies of the single word
+            # "Hello" flagged short_nonsense (correctly — a bare greeting has no
+            # sentence spine) and filled two of the five slots in the window, so
+            # ONE flagged real answer was enough to tell a person their machine
+            # was serving garbage and invite them to downgrade it. The turn test
+            # is the product's own: glass.current_turn_id() is empty outside a
+            # turn. The screen itself still runs and its verdict is still
+            # recorded — only the COUNTING is withheld, and the withholding is
+            # emitted rather than silent.
             if self._semantic_sink is not None:
-                self._semantic_sink(res.flags)
+                if glass.current_turn_id():
+                    self._semantic_sink(res.flags)
+                elif res.flags:
+                    glass.emit("model", "semantic_health_not_counted", detail={
+                        "flags": res.flags,
+                        "why": "no turn context — this generation is not a "
+                               "served answer, so it does not enter the "
+                               "engine-health window"})
         except Exception as e:  # a screen failure must never break a turn
             logger.warning("semantic-health screen error: %s", e)
             self._last_semantic_flags = []
