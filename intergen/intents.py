@@ -64,6 +64,10 @@ def register_all_intents(matcher: SemanticMatcher) -> None:
     # candidates that clear their own threshold, which is order-free — it was NOT
     # order-free while a higher-scoring ineligible candidate could displace an
     # eligible one; see intergen/tests/test_semantic_candidate_integrity.py.
+    # take_screenshot AFTER manage_packages, for the same first-match reason:
+    # "find a screenshot tool" is an ask for SOFTWARE and must keep the package
+    # carrier, while "take a screenshot" is an instruction to capture.
+    _register_take_screenshot(matcher)
     _register_open_application(matcher)
     _register_manage_services(matcher)
     _register_web_search(matcher)
@@ -189,6 +193,36 @@ _PROGRAM_KIND_NOUN = (
     r"emulator|launcher|recorder)"
 )
 
+# The words a person puts between "a" and the kind of program: none, an
+# adjective, or a compound describing what it does. `\w` is NOT the right class
+# for them, and that single character is a whole recall hole: `\w` is
+# [A-Za-z0-9_], so it cannot cross the hyphen in "note-taking", and
+# "find a note-taking app" reached no carrier while "find a pdf editor"
+# dispatched. Hyphens and apostrophes are ordinary inside the name of a kind of
+# program ("note-taking", "screen-recording", "e-book"), so the class admits
+# them; the two-token cap is unchanged, and a hyphenated compound is ONE token,
+# which is what leaves room for an adjective beside it in "find a good
+# note-taking app". Defined once and read by every pattern and by the argument
+# extractor, so recognition and extraction cannot drift apart.
+_PROGRAM_KIND_FILLER = r"(?:[\w'-]+\s+){0,2}?"
+
+# The whole object of a "find me software" ask, capturing the kind asked for:
+# "a good note-taking app" -> "good note-taking app". The router's argument
+# extractor imports this so the shape it reads is the shape that was matched.
+PROGRAM_KIND_OBJECT = (
+    r"(?:a|an)\s+(" + _PROGRAM_KIND_FILLER + _PROGRAM_KIND_NOUN + r")\b"
+)
+
+# The verbs that open an ask for software. "find" and "look for" are search
+# verbs; "get" and "is there" are not, which is why the argument extractor's
+# search-term helper — which requires a search verb by design, so a raw sentence
+# can never become the package query — cannot read them. All three phrasings are
+# recognised, so all three must extract.
+PROGRAM_KIND_REQUEST = (
+    r"^(?:(?:find|get|look\s+for)\s+(?:me\s+|us\s+)?|is\s+there\s+)"
+    + PROGRAM_KIND_OBJECT
+)
+
 
 def _register_manage_packages(matcher: SemanticMatcher) -> None:
     matcher.register_keyword_pattern(
@@ -257,10 +291,8 @@ def _register_manage_packages(matcher: SemanticMatcher) -> None:
             # "^find ... largest/biggest/hidden" file searches; both were held as
             # controls in the measurement, along with "find my car keys" and
             # "find a good movie to watch", which must reach no carrier at all.
-            r"^(?:find|get)\s+(?:me\s+)?(?:a|an)\s+(?:\w+\s+){0,2}?"
-            + _PROGRAM_KIND_NOUN + r"\b",
-            r"^is\s+there\s+(?:a|an)\s+(?:\w+\s+){0,2}?"
-            + _PROGRAM_KIND_NOUN + r"\b",
+            r"^(?:find|get)\s+(?:me\s+)?" + PROGRAM_KIND_OBJECT,
+            r"^is\s+there\s+" + PROGRAM_KIND_OBJECT,
         ],
         tool_name="manage_packages",
     )
@@ -308,6 +340,62 @@ def _register_manage_packages(matcher: SemanticMatcher) -> None:
         ],
         threshold=0.85,
         tool_name="manage_packages",
+    )
+
+
+def _register_take_screenshot(matcher: SemanticMatcher) -> None:
+    """The capture tool had NO keyword patterns at all.
+
+    `take_screenshot` is discovered and registered in the tool registry beside
+    manage_packages and web_search, and every phrasing of it returned no intent:
+    "take a screenshot", "capture my screen", "use it to capture my screen".
+    So the second clause of "find a screenshot tool and use it to capture my
+    screen" reached no carrier while the FIRST clause dispatched
+    manage_packages — measured on a live re-drive as tools_called
+    ['manage_packages'] only.
+
+    THESE ARE INSTRUCTIONS, NOT QUESTIONS. Every pattern is verb-led and
+    anchored, so "how do I take a screenshot", "what is the screenshot key",
+    "can you take screenshots" and "where do my screenshots go" reach no
+    carrier here — a question about capturing must never capture. The two
+    "use it to …" forms are deliberately unanchored, because they arrive as the
+    SECOND clause of a decomposed compound, where the referent was named in the
+    first clause.
+
+    CAPTURING IS STILL GATED. The tool classifies itself SafetyTier.CONFIRM, so
+    recognising the clause routes it to the review gate; it does not make the
+    machine capture the screen unasked.
+    """
+    matcher.register_keyword_pattern(
+        "take_screenshot",
+        [
+            r"^(?:take|grab|capture|get)\s+(?:me\s+)?(?:a\s+|an\s+|another\s+)?"
+            r"(?:screen\s?shot|screen\s+capture)\b",
+            r"^(?:take|grab|capture)\s+(?:a\s+|an\s+)?"
+            r"(?:picture|image|photo)\s+of\s+(?:my|the)\s+screen\b",
+            r"^(?:capture|screenshot)\s+(?:my|the)\s+screen\b",
+            # The second clause of a decomposed compound: the referent ("it")
+            # was named in the first clause, so these are not anchored.
+            r"\buse\s+(?:it|that|this)\s+to\s+(?:take|grab|capture)\s+"
+            r"(?:a\s+|an\s+)?(?:screen\s?shot|screen\s+capture|picture|image|photo)\b",
+            r"\buse\s+(?:it|that|this)\s+to\s+capture\s+(?:my|the)\s+screen\b",
+        ],
+        tool_name="take_screenshot",
+    )
+    matcher.register_intent(
+        "take_screenshot",
+        [
+            "take a screenshot",
+            "capture my screen",
+            "grab a screenshot of the screen",
+            "take a picture of my screen",
+            "screenshot the screen",
+            "capture an image of the desktop",
+            "take a photo with the webcam",
+            "capture a webcam image",
+        ],
+        threshold=0.90,
+        tool_name="take_screenshot",
     )
 
 

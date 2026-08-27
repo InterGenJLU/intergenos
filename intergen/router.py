@@ -4514,7 +4514,7 @@ class ConversationRouter(RouterInterface):
         """
         match = self._semantic._match_keywords(user_input)
         if match.intent_id is None:
-            return RouteResult(handled=False)
+            return RouteResult(handled=False, decline_reason="no_intent")
 
         if match.tool_name:
             call, tool_result = self._execute_tool_for_intent(
@@ -4558,8 +4558,29 @@ class ConversationRouter(RouterInterface):
                         call_id=tool_result.call_id,
                         renderer=self._synth_renderer(used_llm)),
                 )
-
-        return RouteResult(handled=False)
+            # THE DISPATCH DID NOT HAPPEN, AND THAT MUST NOT LOOK LIKE SILENCE.
+            # _execute_tool_for_intent yields (None, None) when the argument
+            # extractor could build nothing — the deliberate fail-safe that stops
+            # an indeterminate write from truncating a file — and yields an
+            # unsuccessful ToolResult when the tool ran and failed. Both used to
+            # fall into the same bare handled=False as an unrecognised clause,
+            # so the fail-safe's own documented remedy (ask the person what to
+            # write) could never be reached: nothing recorded that a carrier had
+            # wanted this clause. The route is unchanged — handled is still
+            # False and the turn continues down the ladder exactly as before —
+            # but the reason is now on the result and in the turn record.
+            reason = ("dispatch_failed" if tool_result
+                      else "arguments_indeterminate")
+        else:
+            reason = "intent_without_tool"
+        glass.emit("decision", "keyword_dispatch_declined", detail={
+            "tool": match.tool_name or "",
+            "intent": match.intent_id,
+            "reason": reason,
+        })
+        self._trail_note("keyword", "rejected",
+                         tool=match.tool_name or "", reason=reason)
+        return RouteResult(handled=False, decline_reason=reason)
 
     def _try_deterministic_fallback(self, user_input: str) -> RouteResult:
         """Route-to-tools guard: resolve the query to a known read-only system
@@ -5846,6 +5867,15 @@ class ConversationRouter(RouterInterface):
             # is a DESCRIPTION of a job ("editing pdfs"), so it is a search term,
             # capped at four words like every other search term here so a whole
             # sentence can never become the pkm query.
+            # DELIBERATELY NOT WIDENED to cross a hyphen, although every other
+            # program-kind pattern in this lane was. Measured: widening it makes
+            # "is there a note-taking app for linux" read "linux" as the JOB and
+            # hand pkm that as its query, because "for linux" is a QUALIFIER
+            # here and not the job it is in "is there an app for editing pdfs".
+            # Left as it is, that clause falls through to the program-kind
+            # branch below and searches for "note-taking app", which is the
+            # answer the person asked for. The change was written, measured and
+            # backed out; this comment is what remains of it.
             for_job = re.search(
                 r"\bis\s+there\s+(?:a|an)\s+(?:\w+\s+){0,2}?"
                 r"(?:app|application|program|tool|utility|package)\s+"
@@ -5854,6 +5884,26 @@ class ConversationRouter(RouterInterface):
                 job = for_job.group(1).strip().rstrip("?.!").strip()
                 if job and len(job.split()) <= 4:
                     return {"action": "search", "query": job}
+            # A "FIND ME SOFTWARE" ASK, in any of the three phrasings the
+            # keyword patterns admit. The patterns recognise "find a …",
+            # "get [me] a …" and "is there a …"; the search-term helper below
+            # requires a search verb by design — so that a raw sentence can
+            # never become the package query — and therefore reads only the
+            # first of them. "get a pdf editor" and "is there a pdf editor"
+            # were recognised by the carrier and then dropped for want of
+            # arguments, which is the recognised-then-dropped shape the
+            # previous round closed for the "find" phrasing alone.
+            #
+            # The shape is imported from the module that REGISTERS it, so the
+            # thing extracted here is by construction the thing that matched.
+            # Imported inside the method because intents.py builds a matcher and
+            # importing it at module scope would close a cycle.
+            from intergen.intents import PROGRAM_KIND_REQUEST
+            kind = re.search(PROGRAM_KIND_REQUEST, low)
+            if kind:
+                term = kind.group(1).strip()
+                if term:
+                    return {"action": "search", "query": term}
             # SEARCH fallback (2026-07-14): extract the actual search TERM
             # from an explicit search phrasing ("search for a markdown editor" ->
             # "markdown editor"); NEVER pass the raw user sentence as the query.
@@ -5911,6 +5961,16 @@ class ConversationRouter(RouterInterface):
             m = re.search(r"(/\S+)", user_input)
             return {"path": m.group(1) if m
                     else (user_input.split()[-1] if user_input.split() else "")}
+        if tool_name == "take_screenshot":
+            # The tool's only parameter is the image SOURCE, and it is optional
+            # (schema "required": []), so the whole job here is to read which
+            # one the person asked for. Anything that is not clearly the webcam
+            # is the screen — the tool's own default — because a capture that
+            # picked the camera by accident is the worse mistake.
+            if re.search(r"\b(?:webcam|web\s+cam|camera|selfie)\b",
+                         user_input.lower()):
+                return {"source": "webcam"}
+            return {"source": "screenshot"}
         if tool_name == "write_file":
             # {path, content} — both required. path prefers the token after "to";
             # content is the span between the verb and "to <path>" ("write hello
