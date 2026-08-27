@@ -1591,6 +1591,52 @@ class ConversationUnbound(RuntimeError):
 _CONVERSATION_UNSET = object()
 
 
+# What a clause needed and could not get, and the sentence that asks for it.
+#
+# The wording is the PRODUCT's, deliberately. This is the sentence that tells a
+# person the machine found nothing and needs them to name something, and it must
+# be the same sentence every time. A model asked to produce it named a package
+# no search had found and offered a command to install it — measured on the 2B,
+# 2026-08-27, where "find a pdf editor and install it" came back recommending
+# `pdfelement` after the search returned nothing at all.
+_REFERENT_GAP_CLARIFY: dict[str, str] = {
+    "package": (
+        "I could not tell which package you meant. Nothing I found names one, "
+        "so I have not installed anything. Which package would you like me to "
+        "install?"
+    ),
+    "service": (
+        "I could not tell which service you meant, so I have not changed any of "
+        "them. Which service did you mean?"
+    ),
+}
+
+
+def _clarify_for_referent_gap(gap: str) -> "RouteResult | None":
+    """The question a clause should ask when its referent resolved to nothing.
+
+    ``gap`` names WHAT could not be resolved ("package", "service"), recorded at
+    the decline itself. An empty or unrecognised gap returns None and the turn
+    falls through exactly as before: a clarify invented for a state nobody named
+    would be a guess, and guessing is the thing this replaces.
+
+    The router already decides to decline in these cases and its comments
+    already say the remedy is to ask which one. Until this existed, nothing
+    asked — the clause fell to the model, which answered as if it knew.
+    """
+    text = _REFERENT_GAP_CLARIFY.get((gap or "").strip())
+    if not text:
+        return None
+    return RouteResult(
+        text=text,
+        source="keyword",
+        handled=True,
+        used_llm=False,
+        answer_linkage=AnswerLinkage(
+            kind="clarify", tool="", call_id="", renderer="referent_gap"),
+    )
+
+
 def _decline_answer(reason: str,
                     tool_result: "ToolResult | None") -> "RouteResult | None":
     """The answer a REFUSED dispatch already contains, or None to fall through.
@@ -1645,6 +1691,15 @@ def _decline_answer(reason: str,
 
 
 class ConversationRouter(RouterInterface):
+    # WHAT A DECLINE COULD NOT RESOLVE, when that is why it declined.
+    #
+    # Declared here rather than created on first use so the attribute always
+    # exists: a caller reading it through getattr with a default cannot tell
+    # "no gap this turn" from "this router never sets it", and those are
+    # different facts. _extract_arguments clears it on entry, so it can never
+    # describe a previous call.
+    _referent_gap: str = ""
+
     """Routes user input through a priority chain to produce a response."""
 
     def __init__(self, *,
@@ -4666,6 +4721,21 @@ class ConversationRouter(RouterInterface):
                 tool_calls=[call] if call else [],
                 tool_results=[tool_result] if tool_result else [],
             )
+        # A CLAUSE WHOSE REFERENT RESOLVED TO NOTHING HAS A KNOWN ANSWER, AND
+        # IT IS A QUESTION. The decline above already decided this case; its
+        # comments already said the remedy was to ask which one; nothing asked.
+        # The clause fell to the model, which on the measured run named a
+        # package no search had found and offered the command to install it.
+        # Asking is the honest answer and the one a person can act on.
+        clarify = _clarify_for_referent_gap(getattr(self, "_referent_gap", ""))
+        if clarify is not None:
+            glass.emit("decision", "referent_gap_clarify", detail={
+                "tool": match.tool_name or "",
+                "intent": match.intent_id,
+                "gap": self._referent_gap,
+            })
+            self._append_history(user_input, clarify.text)
+            return clarify
         # Not answerable here, but the ATTEMPT is still recorded. Carrying the
         # call and result on a declined result is what stops a dispatch that
         # genuinely happened from reading as tools=[] in the per-clause row.
@@ -5766,7 +5836,14 @@ class ConversationRouter(RouterInterface):
 
         For keyword/semantic matches, we build simple arguments.
         Complex argument extraction is deferred to LLM tool calling (P3).
+
+        Returning None means "nothing could be built". WHY it could not be built
+        matters downstream: a clause that declined because its referent resolved
+        to nothing has a known, code-owned answer (ask which one), while other
+        indeterminate cases do not. `_referent_gap` carries that distinction to
+        the caller and is cleared here so it can never describe a previous call.
         """
+        self._referent_gap = ""
         if tool_name == "run_command":
             # File COPY: "put/copy the contents of SRC into/to DST" / "copy SRC to
             # DST" -> a CONFIRM-tier `cp SRC DST`, checked BEFORE the selector. This
@@ -5849,6 +5926,7 @@ class ConversationRouter(RouterInterface):
                 if _is_referential_argument(pkg):
                     resolved = self._resolved_referent()
                     if not resolved:
+                        self._referent_gap = "package"
                         return None
                     pkg = resolved
                 return {"action": "install", "package": pkg}
@@ -5929,6 +6007,7 @@ class ConversationRouter(RouterInterface):
                 if _is_referential_argument(name):
                     name = self._resolved_referent()
                     if not name:
+                        self._referent_gap = "package"
                         return None
                 return {"action": "info", "package": name}
             # LIST — "what packages are installed", "list (installed) packages",
@@ -6025,6 +6104,7 @@ class ConversationRouter(RouterInterface):
                             # sends the turn to a clarify, which is the honest
                             # answer to "restart the one that's stopped" when no
                             # earlier clause said which one.
+                            self._referent_gap = "service"
                             return None
                         return {"action": action, "service": svc}
                     return {"action": action,
