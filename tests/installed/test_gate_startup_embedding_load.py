@@ -33,7 +33,23 @@ from datetime import datetime
 
 import pytest
 
-from test_gate_glass_trace_integrity import installed_release_install_date
+
+def installed_release_install_date() -> float:
+    """The trace-integrity gate's bound, loaded from its file by path.
+
+    This tier deliberately takes the source checkout off sys.path before any
+    import (conftest: the checkout must never shadow the installed package),
+    so a sibling gate cannot be imported by name; it is loaded from the file
+    beside this one. One definition of the bound, shared, not copied.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    src = Path(__file__).with_name("test_gate_glass_trace_integrity.py")
+    spec = importlib.util.spec_from_file_location("_trace_integrity_gate", src)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.installed_release_install_date()
 
 UNIT = "intergen.service"
 
