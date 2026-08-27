@@ -69,7 +69,10 @@
 /usr/bin/at                             4750 root atd
 /usr/sbin/atd                           4750 root atd
 /usr/bin/fcronsighup                    4710 root fcron
-/usr/bin/fcrontab                       6755 root fcron
+# fcrontab is owned by fcron since fcron r11 (2026-08-24): the program runs as the
+# fcron user, upstream's own shape; owned by root it refused every user's crontab
+# (measured on the R001.1 install). Less privilege than owner root, not more.
+/usr/bin/fcrontab                       6755 fcron fcron
 /usr/bin/fcrondyn                       4755 root fcron
 /usr/sbin/exim-*                        6755 root exim
 /usr/bin/screen-*                       4755 root root
