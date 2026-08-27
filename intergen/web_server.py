@@ -244,6 +244,7 @@ class WebServer:
                  state_cache: Any = None,
                  memory: Any = None,
                  health_aggregator: Any = None,
+                 after_turn: Any = None,
                  ) -> None:
         self._host = host
         self._port = port
@@ -265,6 +266,23 @@ class WebServer:
         self._state_cache = state_cache
         self._memory = memory
         self._health_agg = health_aggregator
+        # Called once after every turn this surface serves, with no arguments.
+        #
+        # WHAT IT IS FOR. Between-turn index maintenance — the daemon's bounded
+        # wiki catch-up pass. That pass was reachable only from the D-Bus turn
+        # path, so a machine driven through this web surface never finished
+        # building its wiki index and answered by keyword match for the life of
+        # the daemon. This is the hook that closes that door.
+        #
+        # WHY A HOOK RATHER THAN DOING IT HERE. The pass must stay ONE pass at a
+        # time: the embedding server runs --parallel 1, and a second caller
+        # starting its own pass only waits out the first one's timeout. The
+        # daemon owns that guard, so the web turn calls the DAEMON'S method and
+        # shares it, rather than growing a second copy with a second lock.
+        #
+        # None is the normal state for every other construction (tests, tools),
+        # and the turn path behaves exactly as it did without one.
+        self._after_turn = after_turn
 
         self._sessions = SessionManager()
 
@@ -1053,6 +1071,37 @@ class WebServer:
                 ))
             except _CLIENT_GONE:
                 pass
+        finally:
+            # THE TURN IS DONE, however it ended. Give the wiki index its one
+            # bounded catch-up pass, the same offer the D-Bus turn path makes.
+            #
+            # IN `finally`, NOT ON THE SUCCESS PATH. A turn whose client
+            # disconnected, or which crashed, has still just finished using the
+            # model server — and the abandoned turn is the case where the
+            # machine is MOST idle. Skipping maintenance there would leave the
+            # index unfinished on exactly the machines that had the spare time
+            # for it.
+            #
+            # Note this runs on the CancelledError path too, before the
+            # re-raise: the hook returns immediately when there is nothing to do
+            # or the embedding slot is busy, so teardown is not delayed.
+            self._run_after_turn()
+
+    def _run_after_turn(self) -> None:
+        """Offer the post-turn hook, swallowing anything it does.
+
+        Index maintenance may never break the turn that triggered it — the
+        daemon's own pass is best-effort throughout and this call site has to be
+        too, or a maintenance bug becomes a user-visible failed turn.
+        """
+        hook = self._after_turn
+        if hook is None:
+            return
+        try:
+            hook()
+        except Exception:  # noqa: BLE001 — maintenance never breaks a turn
+            logger.debug("Post-turn hook failed; the turn is unaffected.",
+                         exc_info=True)
 
     async def _await_route_within_deadline(
         self,
