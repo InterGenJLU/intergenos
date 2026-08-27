@@ -150,20 +150,48 @@ class TheMeasuredOutageWhereNothingRaises(unittest.TestCase):
     reports its engine unreachable. Measured at base first, and recorded because it is
     the whole reason the reply text matters: an EMPTY degraded reply grades FAIL, and a
     non-empty one grades PASS. The dangerous case is the one that looks like an answer.
+
+    THE STUB BELOW CARRIES ``used_llm=True``, WHICH IS THE MEASURED VALUE. The first
+    version of this class set it False, and the predicate it was testing was written to
+    the same wrong belief, so the whole class passed against a guard that could not fire
+    on a live box. That is why the stub now names its measurement.
     """
 
     class DeadEngine(MockTransport):
+        """The reply a REAL dead engine produces, copied from a measurement.
+
+        CORRECTED 2026-08-26 after the live engine-kill run. This stub previously
+        returned ``used_llm=False``, which was my BELIEF about the field, and the
+        predicate under test was written to match that belief — so the tests passed
+        while the guard could not fire on a real box. `used_llm` records that the model
+        path was TAKEN, not that the model ANSWERED.
+
+        Measured on this machine with the 9B SIGKILLed and the endpoint confirmed
+        refusing, the daemon returns, in 0.09 s:
+            source="llm_freeform"  used_llm=True  handled=True
+            text="I didn't manage to put together a response that time. Could you
+                  rephrase or give me a bit more detail about what you need?"
+        Those are the values below. A stub for a failure mode has to be copied from the
+        failure, not from what the failure ought to look like.
+        """
+
+        #: The daemon's own degraded-fallback text, verbatim from the live capture.
+        LIVE_FALLBACK_TEXT = ("I didn't manage to put together a response that time. "
+                              "Could you rephrase or give me a bit more detail about "
+                              "what you need?")
+
         def __init__(self):
             super().__init__()
             self.engine_unreachable_reason = (
                 "no HTTP response from the model engine at "
-                "http://127.0.0.1:8080/health (URLError: connection refused)")
+                "http://127.0.0.1:8080/health "
+                "(URLError: <urlopen error [Errno 111] Connection refused>)")
 
         def ask(self, message):
             self.asked.append(message)
-            return TurnResult(text="I can't reach the model right now.",
+            return TurnResult(text=self.LIVE_FALLBACK_TEXT,
                               source="llm_freeform", handled=True,
-                              used_llm=False, elapsed_ms=400.0)
+                              used_llm=True, elapsed_ms=90.0)
 
     def test_a_degraded_reply_with_a_dead_engine_is_undriveable_not_a_pass(self):
         from intergen.tests.scenario.runner import run_scenario
@@ -172,7 +200,14 @@ class TheMeasuredOutageWhereNothingRaises(unittest.TestCase):
         sc = _scenario("WRT-05", turns=1)
         with self.assertRaises(ScenarioUndriveable) as caught:
             run_scenario(sc, self.DeadEngine())
-        self.assertIn("engine is unreachable", str(caught.exception).lower())
+        # Pin the REASON, not merely the refusal, and pin a phrase distinctive enough
+        # that a differently-caused abandonment cannot satisfy it.
+        msg = str(caught.exception).lower()
+        self.assertIn("the engine was not reachable for this turn", msg)
+        self.assertIn("connection refused", msg)
+        self.assertNotIn("without the model", msg,
+                         "the reason must no longer speak about whether the turn used "
+                         "the model — that field is not what decides this")
 
     def test_the_four_scenarios_that_were_graded_are_now_all_undriveable(self):
         """The exact four ids from the sealed 2B evidence, driven as one run."""
@@ -287,6 +322,49 @@ class TwoConsecutiveUndriveableTurnsAbortTheRun(unittest.TestCase):
             summary = (out / "summary.txt").read_text(encoding="utf-8")
             self.assertNotIn("All scenarios PASS", summary)
             self.assertIn("NO SCENARIO WAS GRADED", summary.upper())
+
+    def test_summary_never_says_all_pass_when_the_run_aborted_with_a_pass_behind_it(self):
+        """The second false all-clear, found by reading a real artifact for the second time.
+
+        The live engine-kill run graded ONE scenario PASS, could not drive two, and never
+        attempted a fourth — and the summary still ended "All scenarios PASS." The first
+        correction only silenced that line when NOTHING was graded, which fixed the empty
+        corner and left this one. A run can abort with a passing scenario behind it, and
+        that is the report a reader is most likely to skim and believe.
+        """
+        import tempfile
+        from intergen.tests.scenario.lane_proof import drive_scenarios
+
+        class GoodThenDead(MockTransport):
+            """Answers the first scenario, then its engine is unreachable."""
+
+            def __init__(self):
+                super().__init__(default=TurnResult(
+                    text="an answer", source="llm_freeform", handled=True,
+                    used_llm=True))
+                self.scenarios_started = 0
+
+            def reset(self):
+                self.scenarios_started += 1
+                if self.scenarios_started >= 2:
+                    self.engine_unreachable_reason = (
+                        "no HTTP response from the model engine at "
+                        "http://127.0.0.1:8080/health (URLError: connection refused)")
+                return super().reset()
+
+        scenarios = [_scenario(f"AP-{i:02d}", turns=1) for i in range(1, 5)]
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d)
+            outcome = drive_scenarios(scenarios, GoodThenDead(), out_dir=out,
+                                      run_id="abort-with-a-pass")
+            self.assertTrue(outcome.aborted)
+            self.assertEqual(len(outcome.graded), 1)
+            summary = (out / "summary.txt").read_text(encoding="utf-8")
+            self.assertNotIn(
+                "All scenarios PASS", summary,
+                "the summary claimed ALL passed on a run that aborted having graded one")
+            self.assertIn("Every scenario this run GRADED passed", summary)
+            self.assertIn("never reached a verdict", summary)
 
     def test_summary_still_says_all_pass_when_everything_really_did(self):
         """THE CONTROL. The line must survive for the run it was written for."""
