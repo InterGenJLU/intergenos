@@ -378,6 +378,10 @@ class Config:
 
         log_file = self.get("logging.file")
         handlers = [logging.StreamHandler()]
+        # The file that will actually receive records, as opposed to the one
+        # the config asked for. The two differ on every non-root run — see the
+        # closing log line for why that mattered.
+        effective_path: Path | None = None
 
         if log_file:
             log_path = Path(log_file)
@@ -408,11 +412,13 @@ class Config:
                     "%(asctime)s %(name)s %(levelname)s %(message)s"
                 ))
                 handlers.append(file_handler)
+                effective_path = log_path
             except (PermissionError, OSError):
                 fallback = (Path.home() / ".local" / "state" / "intergen"
                             / log_path.name)
                 private_dir(fallback.parent)
                 handlers.append(PrivateFileHandler(fallback))
+                effective_path = fallback
                 logger.info("Logging to user state dir: %s", fallback)
 
         logging.basicConfig(
@@ -421,4 +427,13 @@ class Config:
             handlers=handlers,
             force=True,
         )
-        logger.info("Logging configured: level=%s, file=%s", level_name, log_file)
+        # Name the file records will actually reach. This line used to print
+        # the CONFIGURED path, which for any non-root process is not where
+        # anything is written: the redirect above sends a user process's log to
+        # the XDG state dir because /var/log/intergen is root-owned. Every
+        # `intergen` command therefore announced /var/log/intergen/intergen.log
+        # while writing to ~/.local/state/intergen/intergen.log, so anyone who
+        # followed the named file was reading one that nothing writes — a
+        # diagnostic pointing away from its own output.
+        logger.info("Logging configured: level=%s, file=%s", level_name,
+                    str(effective_path) if effective_path else "stderr only")

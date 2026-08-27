@@ -356,9 +356,18 @@ license with the following key provisions:
 - The acceptance record is stored at
   `~/.local/share/intergen/legal/qwen-3.5-accepted.json`
   (per-user, not system-wide, because the model is per-user data).
-- The "Powered by Qwen" attribution is rendered in the InterGen
-  conversation view, in `intergen --version`, and in the firstboot
-  greeter when InterGen is active.
+- The "Powered by Qwen" attribution is rendered by
+  `intergen --version`, which names the Qwen-family model present
+  on the machine and the license it is used under. It is printed only when
+  such a model is on the machine: a Tier-1 box serves
+  InternVL3.5-2B, and the attribution would not be a true statement
+  about what powers it there.
+- Decided 2026-08-27: an earlier revision of this entry also stated
+  that the InterGen conversation view and the firstboot greeter
+  render the attribution. Neither does — the string appears in
+  neither surface — so the sentence above is corrected to describe
+  only the surface that renders it. The section 4 attribution
+  obligation for those two surfaces is open and unmet.
 
 ---
 
