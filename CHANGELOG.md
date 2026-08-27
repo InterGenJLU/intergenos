@@ -22,11 +22,26 @@ landed is in the repository README, not here.
 
 ### Known limits
 
-- If the full wiki embedding index does not finish during the bounded startup
-  pass, no current runtime path resumes it and wiki-grounded answering remains
-  on keyword matching for that daemon run.
-- Web-search requests remain phrasing-sensitive. Use `search the web for …` as
-  the current workaround.
+- The wiki embedding index can stay keyword-only for a daemon run if neither
+  the between-turn pass nor a web-page turn completes it; rarer since this
+  release, not impossible.
+- A web-search request phrased without a search verb or a subject the assistant
+  can extract still goes to the model. `search the web for …` always reaches
+  the tool.
+- The small (2B) tier states wrong facts with confidence and answers some direct
+  questions with a template; the model's floor, not the tree's.
+- The greeter shows the Qwen attribution only when the installed `intergen`
+  carries `--version`; a machine upgraded package by package renders nothing
+  until intergen updates.
+- Stopping the assistant service by hand does not keep it stopped: the desktop
+  panel re-activates it over the desktop bus.
+- The older GPU power rule (`70-intergen-compute-gpu-pm.rules`) still holds
+  every secondary AMD card awake permanently; the scoped hold below makes it
+  unnecessary.
+- The NVIDIA driver helper's silent minute after the EULA is only partly fixed.
+- The scenario harness sits to its timeout when the assistant's bus name is
+  already owned (a test-instrument limit).
+- The canonical test suite cannot complete on an installed machine.
 
 ### Added
 
@@ -96,6 +111,110 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **The assistant runs a web search it was explicitly asked for.** Asked, in
+  three wordings, to look something up on the internet, it answered that it
+  could search and stopped, or offered to search and did not; two of its own
+  answering paths reached those turns first. Both step aside for an explicit
+  search request, and the search runs.
+- **A web search looks up what the sentence asked about, not the sentence
+  itself.** The query is the extracted subject; a sentence that names nothing
+  keeps the sentence as its query.
+- **A request reaches a tool when it clears that tool's own recognition bar.**
+  A second, flat 0.85 floor in the router kept any intent with a lower bar (in
+  the shipped corpus, web search) from being reached; such questions went to
+  the model with no tool.
+- **A request that asks for two things in one sentence is handled as two
+  things, and the second half is done.** The sentence is split and each part
+  reaches its tool. A hyphenated program kind (`note-taking app`), `get a …`,
+  `get me a …`, `is there a …`, and screen-capture phrasings reach their
+  carriers; a program named earlier in the sentence is what the second half
+  acts on; a pronoun or bare determiner (`install it`, `restart the one that's
+  stopped`) is never sent to a tool as a name.
+- **A refused action is reported in the tool's own words.** When a step of a
+  request is refused (an install that needs privilege, for instance), the
+  refusal is the answer for that step and is marked as the tool's words; it was
+  discarded and the model described a command as if it were the outcome.
+- **When nothing matched, the assistant asks which one.** If the first half of
+  `find me a pdf editor and install it` finds no candidate, the assistant says
+  nothing was installed and asks which package (or service) was meant; it names
+  no package and carries no command.
+- **`find the hidden files in …` and `find the big files` run a command.** A
+  recognised file-search request resolves to one bounded, depth-limited,
+  read-only listing instead of being recognised and then dropped; a human place
+  name or a path with shell characters is left to the model on purpose.
+- **An invented command never reaches the person.** The reply screen checks a
+  whole first-party command (tool, subcommand, every flag) for `pkm`, `forge`,
+  `intergen` and the `igos-*` tools against each tool's interface, which is
+  generated from the tools' own parsers; `pkm remove /tmp -s 80` is caught and
+  the real `pkm vacuum` is no longer accused.
+- **The assistant daemon holds its serving graphics card awake while a model
+  is loaded on it.** A discrete card with no display sits at runtime power
+  `auto` and is suspended when idle; each model start or stop woke it and the
+  desktop was rebuilt under the person using it. The daemon writes `on` to the
+  card it pins the model to before opening it and restores the previous value
+  when the model is gone; the udev rule `71-intergen-gpu-runtime-pm.rules`
+  grants the video group that write on display-controller devices only. With
+  the kernel and compositor changes below this closes the wallpaper and
+  windows-to-primary-monitor defect.
+- **What a tool found reaches the answer you see.** A tool result was dropped
+  from the reply, and the record of that problem could not be trusted; the
+  reply is measured for the result's presence before it is sent.
+- **The assistant no longer refuses an ordinary question.** A recipe, a long
+  formal proof and a long contract were refused; the instruction to answer
+  helpfully while noting that the question sits outside what this machine is
+  for is enforced.
+- **`don't forget X` keeps X.** A negated delete verb was executed as a delete
+  and both stored rows were marked deleted. A negated delete is not a delete,
+  and a sentence the keep check claims is never handed to the delete path.
+- **The offer to pass a question to the larger model appears only when there
+  is a reason to.** It was offered on every ordinary turn (a threshold written
+  for a one-to-five scale compared against a 0/0.5/1 value); it is decided from
+  the request itself.
+- **A remembered fact is answered from the stored fact, by code.** `what's my
+  printer?` reached the model with the fact beside it and the mid-size model
+  ignored it seven times in ten; a recall question is recognised as a recall
+  and answered from the store.
+- **One stated fact is remembered once.** `remember that my backup drive is
+  /dev/sdb1` stored two entries and counted twice in `what do you know about
+  me?`; one reading is stored, keyed on the subject named.
+- **A chat model server that fails to start says why, is tried again, and the
+  failure is admitted.** The daemon kept only the first 500 characters of the
+  dead server's output (less than its banner); it keeps the end; a transient
+  failure is retried three times; an absent model file or binary still
+  degrades at once; the person is told.
+- **The engine-health alarm counts only served answers.** Two of its five
+  window slots were filled by one-word replies to readiness pings, so one
+  flagged real answer fired the corrupt-output alarm on a healthy machine; a
+  coherent answer containing LaTeX no longer reads as corruption.
+- **Stopping the assistant's service releases its desktop-bus connection,** so
+  a restart inside the same process comes back reachable instead of running
+  with no bus interface and one warning line.
+- **A credential typed into a command no longer stays in the assistant's
+  records.** `Authorization: Bearer …`, `--password` in its three spellings, and
+  `PGPASSWORD=…` / `api_key=…` assignments are replaced in both records with the
+  marker kept; the decision record's second write path, which removed nothing,
+  is closed.
+- **The wiki index finishes building, and long turns stay findable.** The
+  daemon gave itself ten seconds at start-up to embed the installed wiki; on a
+  cold boot that ran out with the index part-built and the wiki answered by
+  keyword match for the daemon's life. Each composed turn, and each web-page
+  turn, gives the index one short bounded pass; the session index sizes its
+  inputs to the embedding server's reported context and scores a long exchange
+  by its best piece.
+- **Teaching answers are prepared in small batches,** so preparing them cannot
+  block the first thing a person asks.
+- **`intergen --version` is a command, and the Qwen attribution is shown where
+  a person converses.** The licence page said the command existed; typing it
+  printed `Unknown command`. It prints the package version and, only when a
+  Qwen-family model is on the machine, one line naming that model and the
+  Tongyi Qianwen License. The same line appears under the web conversation
+  view's composer (the desktop panel is a window onto it), in the terminal
+  console, and on the first-boot greeter's assistant cards. Every intergen
+  command names the log file it writes.
+- **An ASUS laptop keyboard keeps its driver.** The keyboard's vendor-control
+  USB interface carries no mappable usages; a use-after-free guard new in this
+  kernel version treated that as a failed probe, reported `-ENOMEM` once per
+  boot and tore the node down. The upstream fix is backported verbatim.
 - **Setting the assistant up from the greeter no longer runs as the
   administrator.** The one-click button escalated the entire setup run —
   hardware detection, the license gate and a model download of up to about
@@ -147,8 +266,9 @@ landed is in the repository README, not here.
   connectors on a wake and reports only a real change, so a display connected
   while the card slept is still detected; and the compositor retries a refused
   reopen and, if it still fails on a card with no display attached, keeps what it
-  knows instead of discarding the monitor configuration. Proven to apply and
-  build against the shipped sources; the behaviour is proven by an install.
+  knows instead of discarding the monitor configuration. The third part is the
+  daemon's card hold above. Proven to apply and build against the shipped
+  sources; the behaviour is proven by an install.
 
 - **An upgrade that was abandoned reports it.** Three paths in the package
   manager's upgrade loop gave up on a package and moved on without recording
@@ -333,6 +453,16 @@ landed is in the repository README, not here.
 
 ### Changed
 
+- **The scenario harness measures honestly; nothing a person uses behaves
+  differently.** It reads the assistant's turn record as the run adds to it; a
+  turn it could not drive is never graded and a dead engine stops the run; a
+  scenario that means the same thing on every hardware tier declares every
+  tier, so the mid-size and large tiers are tested by it; a two-part request is
+  graded clause by clause and a reply is checked against itself; sixty-four
+  scenarios written from the shapes of real first-use conversations were added;
+  four test wordings that had drifted from the assistant's own were corrected;
+  source comments that misdescribed model selection were corrected and pinned
+  by a test.
 - **Wiki startup embedding now uses bounded batches.** Completed rows remain
   in memory during the startup pass, but partial rows are not persisted. A
   resume method exists without a production caller; see Known limits above for
