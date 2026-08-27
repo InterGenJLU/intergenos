@@ -37,6 +37,46 @@ from intergen.private_state import private_dir, private_touch
 logger = logging.getLogger(__name__)
 
 
+# A possessive or article standing in front of the subject the user named. It
+# carries no part of WHICH fact this is — "my backup drive", "your backup drive"
+# and "backup drive" are one subject — so it is removed before the subject
+# becomes a key.
+_LEADING_DETERMINER_RE = re.compile(r"^(?:my|your|our|the)\s+", re.IGNORECASE)
+
+
+def fact_key(subject: str) -> str:
+    """The one spelling of the key a stated fact is stored under.
+
+    Every writer into the fact store names its key through here, so two writers
+    cannot disagree about what the same subject is called. They used to: the
+    extractor perspective-shifted "my backup drive" into "your backup drive"
+    while the offer-acceptance path wrote the bare noun, and the two of them
+    made twin rows for one fact across two turns.
+
+    The form is the subject with the leading possessive or article removed,
+    which is the form the recall matcher and the forget path already work in —
+    :data:`_FACT_MATCH_STOPWORDS` in the router discards "my"/"your"/"the" from
+    both sides of its overlap test, and :meth:`forget_forms` derives exactly
+    this form as one of the three it looks for. Storing it is what makes those
+    two agree with the store instead of compensating for it.
+
+    Returns "" for a subject that is nothing but a determiner; the callers
+    already decline an empty key.
+    """
+    key = MemoryManager._shift_perspective(subject or "")
+    key = _LEADING_DETERMINER_RE.sub("", key.strip()).strip()
+    return re.sub(r"\s+", " ", key)
+
+
+def _written_at(row: Any) -> float:
+    """When a stored row last had its value written.
+
+    ``updated_at`` is NULL until the first update, so a restated fact and a
+    never-restated one cannot be compared on that column alone.
+    """
+    return float(row["updated_at"] or row["created_at"] or 0.0)
+
+
 def fact_cache_text(key: str, value: str) -> str:
     """The one string a stored fact is known by wherever it is embedded.
 
@@ -440,6 +480,7 @@ class MemoryManager:
         self._db_lock = threading.Lock()
         self._conn: sqlite3.Connection | None = None
         self._init_db()
+        self._fold_duplicate_keys()
 
     def _init_db(self) -> None:
         """Initialize the SQLite database."""
@@ -486,6 +527,93 @@ class MemoryManager:
             conn.commit()
             logger.info("Memory database initialized at %s", self._db_path)
 
+    def _fold_duplicate_keys(self) -> int:
+        """Fold the twin rows an earlier release wrote for one stated fact.
+
+        Fixing the extractor stops NEW twins. It does nothing for a machine that
+        has been running since R001.1, whose store already holds them — that
+        person keeps being told the same fact twice and keeps being told their
+        machine remembers two things when they said one. So the twins already on
+        disk are folded the next time the store is opened.
+
+        WHAT COUNTS AS A TWIN: two active rows whose keys reduce to the same
+        :func:`fact_key` — one subject, stored twice. Rows about different
+        subjects are never touched, however much else they have in common: two
+        rows sharing a value under unrelated keys ("backup drive" and "spare
+        drive" both /dev/sdb1) are two facts and are left alone.
+
+        WHICH ONE SURVIVES, and why it is two rules and not one:
+
+        · TWINS THAT AGREE ABOUT THE VALUE — the ordinary case, one sentence
+          read twice — keep the row already keyed the way the extractor now
+          writes. Nothing is lost either way, so the choice is only about which
+          spelling of the key the person is shown from now on.
+
+        · TWINS THAT DISAGREE ABOUT THE VALUE keep the most recently written
+          row, because the user's latest statement about a subject is their
+          current answer. This case is not a person changing their mind — the
+          shipped extractor wrote both rows of an ordinary restatement with the
+          same value — it is the SAME sentence parsed two ways, and the parses
+          disagree: "remember that the server is at /srv/data" was stored as
+          "the server" = "at /srv/data", with the preposition swallowed, beside
+          "server" = "/srv/data". Left alone, that store holds a right answer
+          and a wrong one to one question and never heals, because the fixed
+          extractor writes only the canonical key and never touches the other
+          row again. Recency also settles the case the canonical-key rule would
+          get wrong: "remember my backup drive as /dev/sdc1" writes only the
+          possessive key, so the canonically-keyed row can be the stale one.
+
+        The rows that do not survive are SOFT deleted, like every other removal
+        in this store, so a fold can be undone by hand if it ever takes
+        something it should not have.
+
+        Returns the number of rows folded away.
+        """
+        with self._db_lock:
+            conn = self._get_conn()
+            groups: dict[str, list[Any]] = {}
+            for row in conn.execute(
+                "SELECT fact_id, key, value, created_at, updated_at "
+                "FROM facts WHERE deleted = 0"
+            ).fetchall():
+                canonical = fact_key(row["key"])
+                if not canonical:
+                    # A key that is nothing but a determiner reduces to the
+                    # empty string, and every such row would otherwise group
+                    # with every other one. Rows this fold cannot name are rows
+                    # it must not touch.
+                    continue
+                groups.setdefault(canonical, []).append(row)
+
+            doomed: list[str] = []
+            going: list[str] = []
+            for canonical, group in groups.items():
+                if len(group) < 2:
+                    continue
+                if len({row["value"] for row in group}) == 1:
+                    group.sort(key=lambda r: (r["key"] != canonical,
+                                              -_written_at(r)))
+                else:
+                    group.sort(key=lambda r: (-_written_at(r),
+                                              r["key"] != canonical))
+                for row in group[1:]:
+                    doomed.append(row["fact_id"])
+                    going.append(fact_cache_text(row["key"], row["value"]))
+            if not doomed:
+                return 0
+            conn.execute(
+                "UPDATE facts SET deleted = 1, updated_at = ? WHERE fact_id IN "
+                f"({','.join('?' * len(doomed))})",
+                [time.time(), *doomed])
+            conn.commit()
+            logger.info("Folded %d duplicate fact row(s) into their twins",
+                        len(doomed))
+        # Outside the store lock, as every other removal does it: the indexes
+        # take their own, and a fold must never be able to deadlock a turn that
+        # is ranking facts at that moment.
+        forget_fact_vectors(going)
+        return len(doomed)
+
     def _get_conn(self) -> sqlite3.Connection:
         if self._conn is None:
             self._conn = sqlite3.connect(str(self._db_path), check_same_thread=False)
@@ -512,18 +640,40 @@ class MemoryManager:
 
         Only extracts from explicit patterns — no inference, no LLM.
         Returns list of newly stored facts.
+
+        ONE STATED FACT MAKES ONE ROW. The patterns in :data:`_REMEMBER_PATTERNS`
+        are alternative readings of the same sentence, not independent sources of
+        independent facts. Storing every one that matched wrote two rows for
+        "remember that my backup drive is /dev/sdb1" — one under the
+        perspective-shifted key, one under the bare noun — and the user was told
+        their machine had remembered two things when they had said one. So the
+        readings are collected first, keyed through :func:`fact_key`, and one row
+        per distinct subject is written.
+
+        WHERE TWO READINGS DISAGREE ABOUT THE VALUE, THE LATER ONE WINS. The
+        pattern table runs general first and specific last, and the specific
+        patterns parse a value better: "remember that the server is at /srv/data"
+        is read by the general pattern as the value "at /srv/data", with the
+        preposition swallowed, and by the system-location pattern as "/srv/data".
+        Both used to be stored, so the store held a right answer and a wrong one
+        to the same question. Taking the last reading of a subject keeps the
+        specific pattern's parse.
         """
-        facts = []
+        readings: dict[str, str] = {}
         for pattern, extractor in _COMPILED_PATTERNS:
             match = pattern.search(message)
             if match:
                 key, value = extractor(match)
                 if key and value and len(key) < 200 and len(value) < 500:
-                    key = self._shift_perspective(key)
-                    fact = self.store(key, value)
-                    if fact:
-                        facts.append(fact)
-                        logger.info("Extracted fact: %s = %s", key, value)
+                    key = fact_key(key)
+                    if key:
+                        readings[key] = value
+        facts = []
+        for key, value in readings.items():
+            fact = self.store(key, value)
+            if fact:
+                facts.append(fact)
+                logger.info("Extracted fact: %s = %s", key, value)
         return facts
 
     # ── CRUD ──
@@ -634,18 +784,19 @@ class MemoryManager:
         """The forms of a forget subject that must be matched against the store.
 
         A forget arrives in the words the user typed — "my backup drive" — and
-        the store holds what the EXTRACTOR wrote. Those are not the same string:
-        :meth:`_shift_perspective` turns "my" into "your" on the way in, and the
-        same sentence also lands under the bare noun. Matching only the user's
-        literal words found neither, so nothing was deleted and InterGen replied
-        that it had no such memory while still holding it.
+        the store holds what the EXTRACTOR wrote. Those are not the same string.
+        Matching only the user's literal words found nothing, so nothing was
+        deleted and InterGen replied that it had no such memory while still
+        holding it.
 
         Three forms, in the order they are tried, each derived from what the
         store side actually does rather than guessed at:
           · the subject as the user said it;
-          · the subject with the same perspective shift the store applied;
-          · the subject with a leading possessive removed, which is the form the
-            extractor's bare-noun row is keyed under.
+          · the subject with the same perspective shift the store used to apply,
+            which is how the rows a pre-2026-08-26 release wrote are keyed;
+          · the subject with a leading possessive removed, which is the form
+            :func:`fact_key` writes and therefore the form every row written
+            since carries.
         Duplicates are dropped so a subject that is already in one of these
         forms is not matched three times.
 
