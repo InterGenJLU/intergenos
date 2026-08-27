@@ -145,3 +145,16 @@ usr/lib/libnvidia-ngx.so.1	ldconfig-generated soname link — its target libnvid
 # libvdpau_nvidia.so.580.159.04 is carried by the nvidia archive and named in
 # the nvidia package's manifest, and no recipe change is owed:
 usr/lib/libvdpau_nvidia.so.1	ldconfig-generated soname link — its target libvdpau_nvidia.so.580.159.04 is archive-carried (nvidia); measured 2026-08-20
+
+# ============================================================================
+# R001.2 PRE-FLIGHT DISPOSITIONS — 2026-08-27
+# ============================================================================
+# The gate auto-fired on the kernel→ai resume after the seven bash-tier
+# rebuilds and named five unowned paths. One was a stray (the old fcron
+# archive's monolithic /etc/pam.conf, which fcron r11 deliberately stopped
+# shipping; removed after a zero-owner, zero-carrier proof). The other four
+# are generated state, measured 2026-08-27 10:11 CDT:
+etc/dconf/db/gdm	dconf-update-compiled binary database, built from the archive-carried etc/dconf/db/gdm.d/ fragments by intergenos-default-settings post_install (`dconf update`); never archive payload — measured 2026-08-27
+etc/dconf/db/ibus	dconf-update-compiled binary database, built from the archive-carried etc/dconf/db/ibus.d/ fragments by the same `dconf update`; never archive payload — measured 2026-08-27
+etc/dconf/db/local	dconf-update-compiled binary database, built from the archive-carried etc/dconf/db/local.d/ fragments by the same `dconf update`; never archive payload — measured 2026-08-27
+etc/systemd/system/display-manager.service	systemctl enable/preset-generated Alias= link to the archive-carried usr/lib/systemd/system/gdm.service (gdm.service declares Alias=display-manager.service); the same mechanism class as the *.wants/** farm above, at the top level — measured 2026-08-27
