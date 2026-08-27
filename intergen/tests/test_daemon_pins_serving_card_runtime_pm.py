@@ -315,6 +315,20 @@ class TheUdevRuleIsShipped(unittest.TestCase):
     RULE = Path(__file__).resolve().parents[2] / "packages" / "ai" / "intergen"
 
     def _rule_text(self) -> str:
+        # THIS FILE IS SHIPPED. The recipe copies every top-level
+        # intergen/tests/*.py into the installed package, where there is no
+        # repository to read, so the packaging tree is absent BY DESIGN.
+        # Treating that absence as a failure makes an ordinary installed
+        # machine report a red suite for a reason that tells its owner
+        # nothing. The established answer in this tree is to skip — the same
+        # thing test_compute_gpu_pm_rule.py does for the very rule this one
+        # sits beside, and what tests/preflight/
+        # test_shipped_tests_survive_installed_layout.py enforces. In a
+        # checkout the directory is present and every assertion below still
+        # runs, so nothing about the check is weakened where it can be
+        # performed.
+        if not self.RULE.is_dir():
+            self.skipTest(f"packaging tree not present ({self.RULE})")
         hits = list(self.RULE.rglob("*gpu-runtime-pm*"))
         self.assertTrue(
             hits, f"no udev/tmpfiles rule granting power/control was found "
