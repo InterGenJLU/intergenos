@@ -22,10 +22,16 @@ class _FakeEscalation:
         self._decision = decision
         self.escalate_called = False
         self.multistep_seen: bool | None = None
+        self.exceeds_scope_seen: bool | None = None
 
     def should_escalate(self, user_message, local_response, quality_check,
-                        confidence, *, multistep=False):
+                        confidence, *, multistep=False, exceeds_scope=False):
+        # Mirrors EscalationManagerInterface.should_escalate exactly. A stand-in
+        # that omits a keyword the router passes raises TypeError, which the
+        # offer path swallows by design — so the offer stops appearing instead of
+        # failing loudly, and the test reads as a product regression.
         self.multistep_seen = multistep
+        self.exceeds_scope_seen = exceeds_scope
         return self._decision
 
     def escalate(self, *a, **k):  # must NEVER be called by the offer path

@@ -184,10 +184,24 @@ class EscalationManager(EscalationManagerInterface):
         confidence: float,
         *,
         multistep: bool = False,
+        exceeds_scope: bool = False,
     ) -> EscalationDecision:
         """`multistep` is the decomposer's structured multi-part verdict for this
         turn (DecomposedQuery.needs_decomposition), wired by the caller — the
-        heuristic carries no text fallback of its own (decided 2026-07-23)."""
+        heuristic carries no text fallback of its own (decided 2026-07-23).
+
+        `exceeds_scope` is the one trigger that reads the REQUEST rather than the
+        answer: the person asked for a whole professional artifact this tier is not
+        equipped to produce (router._request_exceeds_local_scope), wired by the
+        caller the same way multistep is. Every other member of this trigger set
+        is a property of what came back — and on the conversational path
+        `low_confidence` is arithmetically the same condition as `quality_failed`,
+        because the caller derives confidence from quality_passed — so before this
+        existed, whether a person learned a larger model could be asked depended on
+        whether the local model's second draft happened to come back clean.
+        Measured 2026-08-26: the same question graded FAIL then PASS seventeen
+        minutes apart on that difference alone. Defaults False, so a caller that
+        has not been taught the signal behaves exactly as before."""
         provider = self._primary_provider_name()
         if self._mode is EscalationMode.NEVER:
             return EscalationDecision(False, "escalation disabled (mode=never)", 0.0, None)
@@ -206,10 +220,12 @@ class EscalationManager(EscalationManagerInterface):
             # decision (provider=None) so the offer surface can point the user at
             # the provider-setup path instead of staying silent. AUTO/FALLBACK
             # have nothing to act on without a provider — unchanged early no.
-            triggered = explicit or quality_failed or low_confidence or multistep
+            triggered = (explicit or quality_failed or low_confidence
+                         or multistep or exceeds_scope)
             if self._mode is EscalationMode.ASK and triggered:
                 reason = self._trigger_reason(
-                    explicit, quality_failed, low_confidence, multistep)
+                    explicit, quality_failed, low_confidence, multistep,
+                    exceeds_scope)
                 return EscalationDecision(True, reason, 0.95 if explicit else 0.7, None)
             return EscalationDecision(
                 False, "no cloud provider configured (local-only)", 0.0, None
@@ -224,17 +240,25 @@ class EscalationManager(EscalationManagerInterface):
 
         # ASK (default) + AUTO share the same trigger set; ASK surfaces it as an
         # OFFER (the wiring prompts for consent), AUTO acts on it directly.
-        triggered = explicit or quality_failed or low_confidence or multistep
+        triggered = (explicit or quality_failed or low_confidence or multistep
+                     or exceeds_scope)
         if not triggered:
             return EscalationDecision(False, "local response is sufficient", 0.0, None)
-        reason = self._trigger_reason(explicit, quality_failed, low_confidence, multistep)
+        reason = self._trigger_reason(explicit, quality_failed, low_confidence,
+                                      multistep, exceeds_scope)
         confidence_score = 0.95 if explicit else 0.7
         return EscalationDecision(True, reason, confidence_score, provider)
 
     @staticmethod
-    def _trigger_reason(explicit, quality_failed, low_confidence, multistep) -> str:
+    def _trigger_reason(explicit, quality_failed, low_confidence, multistep,
+                        exceeds_scope=False) -> str:
         if explicit:
             return "you asked me to reach your frontier model"
+        # BEFORE the answer-shaped reasons: when the REQUEST is what exceeds this
+        # tier, saying "my answer did not pass the quality gate" describes the
+        # wrong thing, and it is the reason the person reads in the offer.
+        if exceeds_scope:
+            return ("this is a bigger piece of work than I can do well here")
         if quality_failed:
             return "my local answer did not pass the quality gate"
         if low_confidence:
