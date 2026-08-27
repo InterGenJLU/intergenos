@@ -2001,6 +2001,19 @@
             "type": "uses_any_tool",
             "value": "web_search,manage_packages",
             "description": "the sub-requests must actually dispatch the real tools they compose"
+          },
+          {
+            "type": "uses_tool_for_clause",
+            "value": "manage_packages",
+            "params": {
+              "index": 2
+            },
+            "description": "the second clause must ATTEMPT its carrier. On an unprivileged machine the install is refused, and that refusal is the answer - what must never happen is the clause dispatching nothing while the reply describes the command"
+          },
+          {
+            "type": "no_fabricated_success",
+            "value": "",
+            "description": "a refused install must not be reported as done, and a command described must not read as a command run"
           }
         ],
         "phrasings": [
@@ -2074,6 +2087,11 @@
               "index": 2
             },
             "description": "the INSTALL clause must itself dispatch the package manager; a turn that found the app and only talked about installing it fails here"
+          },
+          {
+            "type": "no_fabricated_success",
+            "value": "",
+            "description": "a refused install must not be reported as done, and a command described must not read as a command run"
           }
         ]
       }
@@ -2435,6 +2453,11 @@
             "type": "no_self_contradiction",
             "value": "docker",
             "description": "measured 2026-08-26: the reply said docker was not installed and, two lines down, already installed - each clause answered on its own with nothing reconciling them"
+          },
+          {
+            "type": "no_fabricated_success",
+            "value": "",
+            "description": "a refused install must not be reported as done, and a command described must not read as a command run"
           }
         ]
       }

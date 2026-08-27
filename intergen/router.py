@@ -27,6 +27,7 @@ import shlex
 import shutil
 import threading
 import time
+import dataclasses
 import uuid
 from pathlib import Path
 from typing import Any, Callable
@@ -1588,6 +1589,59 @@ class ConversationUnbound(RuntimeError):
 # from "its conversation was deliberately detached" (a shared router). The first
 # is answered by giving it one; the second must be refused.
 _CONVERSATION_UNSET = object()
+
+
+def _decline_answer(reason: str,
+                    tool_result: "ToolResult | None") -> "RouteResult | None":
+    """The answer a REFUSED dispatch already contains, or None to fall through.
+
+    A tool that ran and refused has said something specific and true — "this
+    changes the system and must run as root; it was not attempted" — and that is
+    the answer to the request. Discarding it and letting the model speak instead
+    produced the shape this exists to end: a clause whose dispatch was refused
+    came back as "you can use the following command: pkm install docker", which
+    reads like advice and hides the fact that the machine tried and could not.
+
+    None means fall through, and there are three ways to earn it:
+
+      * the clause was never claimed, or claimed by an intent with no tool
+        (``no_intent`` / ``intent_without_tool``) — nothing was attempted, so
+        there is nothing to report;
+      * a carrier claimed it and could build no arguments
+        (``arguments_indeterminate``) — nothing ran, and the documented remedy
+        is to ask WHICH one, which the fall-through provides;
+      * the tool ran and refused with nothing to say. Surfacing an empty string
+        would replace the model's attempt to help with silence, which is worse
+        than the fall-through it replaced.
+
+    A SUCCESSFUL result is never a decline. This is guarded rather than assumed,
+    because a helper that could turn a success into a refusal message would be a
+    fabrication in the one direction that matters most.
+    """
+    if reason != "dispatch_failed" or tool_result is None:
+        return None
+    if getattr(tool_result, "success", False):
+        return None
+    text = (getattr(tool_result, "content", "") or "").strip()
+    if not text:
+        return None
+    return RouteResult(
+        text=text,
+        source="keyword",
+        handled=True,
+        full_output=text,
+        used_llm=False,
+        # The words are the TOOL's, so the linkage says so. An answer composed
+        # here with no declared linkage would be recorded as an uninstrumented
+        # path by the delivery surfaces, which is exactly the blind spot the
+        # linkage field exists to remove.
+        answer_linkage=AnswerLinkage(
+            kind="dispatch",
+            tool=getattr(tool_result, "name", "") or "",
+            call_id=getattr(tool_result, "call_id", "") or "",
+            renderer="tool_refusal",
+        ),
+    )
 
 
 class ConversationRouter(RouterInterface):
@@ -4525,6 +4579,11 @@ class ConversationRouter(RouterInterface):
         if match.intent_id is None:
             return RouteResult(handled=False, decline_reason="no_intent")
 
+        # Bound on EVERY path, so the decline below can carry the attempt it made
+        # without depending on which branch got there. An intent that names no
+        # tool never dispatches, and these stay None.
+        call = None
+        tool_result = None
         if match.tool_name:
             call, tool_result = self._execute_tool_for_intent(
                 match.tool_name, user_input
@@ -4589,7 +4648,30 @@ class ConversationRouter(RouterInterface):
         })
         self._trail_note("keyword", "rejected",
                          tool=match.tool_name or "", reason=reason)
-        return RouteResult(handled=False, decline_reason=reason)
+        # A TOOL THAT RAN AND REFUSED HAS ALREADY ANSWERED. Falling through here
+        # sent the clause to the model, which described a command as though
+        # describing it were the answer — measured on the 2B, where "install it"
+        # became "you can use the following command: pkm install docker" while
+        # the tool had in fact refused, saying it must run as root and was not
+        # attempted. The refusal is concrete, true, and tells the person what to
+        # do next; the prose is none of those. Only a refusal with something to
+        # SAY is used: an empty one would replace the model's attempt to help
+        # with silence, and the argument-indeterminate path still falls through
+        # to the clarify that is its documented remedy.
+        answered = _decline_answer(reason, tool_result)
+        if answered is not None:
+            self._append_history(user_input, answered.text)
+            return dataclasses.replace(
+                answered,
+                tool_calls=[call] if call else [],
+                tool_results=[tool_result] if tool_result else [],
+            )
+        # Not answerable here, but the ATTEMPT is still recorded. Carrying the
+        # call and result on a declined result is what stops a dispatch that
+        # genuinely happened from reading as tools=[] in the per-clause row.
+        return RouteResult(handled=False, decline_reason=reason,
+                           tool_calls=[call] if call else [],
+                           tool_results=[tool_result] if tool_result else [])
 
     def _try_deterministic_fallback(self, user_input: str) -> RouteResult:
         """Route-to-tools guard: resolve the query to a known read-only system
