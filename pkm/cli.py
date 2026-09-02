@@ -1465,6 +1465,15 @@ def _proprietary_install(db, installer, repo, reporter, pkg_name, payload_licens
     "already installed" refusal so the helper RE-RUNS and re-fetches the
     proprietary payload. The stub infra is already present (existing row), so
     `laid_down` stays False and only the helper re-download happens.
+
+    Returns what happened, for the caller's exit status: "ok" (the payload is
+    present, or was already), "declined" (the person said no — a choice, not
+    an error; the command still exits 0), or "failed" (the download, the
+    package or the helper failed — the command must exit non-zero). The
+    released code returned nothing, so a helper that aborted after depositing
+    thousands of untracked files ended a `pkm install` that exited 0
+    (measured on the reference laptop 2026-09-02): the terminal the Welcomer
+    had opened printed "Installation finished successfully" over an error.
     """
     # The helper package ships in the default install set, so a DB row for
     # <app> is normally already present — that means the HELPER is there, not
@@ -1480,7 +1489,7 @@ def _proprietary_install(db, installer, repo, reporter, pkg_name, payload_licens
             f"{pkg_name} is already installed. Use `pkm reinstall {pkg_name}` "
             f"to replace."
         )
-        return
+        return "ok"
 
     # Non-interactive runs are refused unless this machine ALREADY holds an
     # acceptance record for the package. The property being protected is that
@@ -1524,7 +1533,7 @@ def _proprietary_install(db, installer, repo, reporter, pkg_name, payload_licens
             reply = ""
         if reply not in ("y", "yes"):
             reporter.info("Installation cancelled.")
-            return
+            return "declined"
     else:
         # Reached only with an acceptance record in hand. The pause exists to
         # warn a human before a proprietary download; with nobody at the
@@ -1554,11 +1563,11 @@ def _proprietary_install(db, installer, repo, reporter, pkg_name, payload_licens
                     f"'{pkg_name}' is not available locally or from any configured "
                     f"repository."
                 )
-                return
+                return "failed"
             dl_ok, dl_result = repo.download_package(pkg_name, reporter=reporter)
             if not dl_ok:
                 reporter.error(str(dl_result))
-                return
+                return "failed"
             archive = dl_result
             expected_sha = repo_pkg.get("sha256")
         inst_ok, inst_msg = installer.install(
@@ -1567,7 +1576,7 @@ def _proprietary_install(db, installer, repo, reporter, pkg_name, payload_licens
         )
         if not inst_ok:
             reporter.error(f"installing {pkg_name}: {inst_msg}")
-            return
+            return "failed"
 
     # 2. Run the helper — downloads the real app + its own "I ACCEPT" EULA and
     #    records the footprint manifest (which is what makes payload_installed
@@ -1580,11 +1589,11 @@ def _proprietary_install(db, installer, repo, reporter, pkg_name, payload_licens
         )
         if laid_down:
             _rollback_proprietary(db, pkg_name, reporter)
-        return
+        return "failed"
     ok, msg, declined = installer._run_helper(pkg_name, helper)
     if ok:
         reporter.info(msg)
-        return
+        return "ok"
 
     # 3. Declined or failed. Roll back only if WE laid the package down; a
     #    pre-shipped helper stays (the app footprint was never recorded, so
@@ -1596,8 +1605,9 @@ def _proprietary_install(db, installer, repo, reporter, pkg_name, payload_licens
         suffix = "."
     if declined:
         reporter.info(f"Installation cancelled ({msg}){suffix}")
-    else:
-        reporter.error(f"{msg}{suffix}")
+        return "declined"
+    reporter.error(f"{msg}{suffix}")
+    return "failed"
 
 
 def _continue_into_payload_if_helper(db, installer, repo, reporter, name):
@@ -1620,10 +1630,11 @@ def _continue_into_payload_if_helper(db, installer, repo, reporter, name):
     the silent-failure shape rather than a verified one.
 
     No-op for a package that is not a helper, and for one whose payload is
-    already installed.
+    already installed. Returns _proprietary_install's outcome ("ok",
+    "declined" or "failed"); "ok" for the no-op.
     """
     if not helper_is_present(name) or helper_payload_present(name):
-        return
+        return "ok"
     rp = repo.get_package(name)
     payload_license = (rp or {}).get("payload_license") or \
         "a proprietary vendor license (shown during install)"
@@ -1633,7 +1644,8 @@ def _continue_into_payload_if_helper(db, installer, repo, reporter, name):
         f"step now — the package just deployed is the installer for it, not "
         f"the application."
     )
-    _proprietary_install(db, installer, repo, reporter, name, payload_license)
+    return _proprietary_install(
+        db, installer, repo, reporter, name, payload_license)
 
 
 def cmd_install(db, args):
@@ -1710,10 +1722,10 @@ def cmd_install(db, args):
                         f"{install_root()}. Nothing was changed."
                     )
                     return 1
-                _proprietary_install(
-                    db, installer, repo, reporter, pkg_name,
-                    _payload_license,
-                )
+                if _proprietary_install(
+                        db, installer, repo, reporter, pkg_name,
+                        _payload_license) == "failed":
+                    sys.exit(1)
                 continue
 
         # A package whose own post-install hook could not run inside this
@@ -1861,8 +1873,9 @@ def cmd_install(db, args):
             # cache would deploy the helper, report success, and stop with the
             # payload absent, exactly as the repository path did. Fixed at the
             # mechanism, not at the one door where it was observed.
-            _continue_into_payload_if_helper(
-                db, installer, repo, reporter, pkg_name)
+            if _continue_into_payload_if_helper(
+                    db, installer, repo, reporter, pkg_name) == "failed":
+                sys.exit(1)
             continue
 
         # No usable local archive — either none is cached, or a cached one was
@@ -1976,9 +1989,17 @@ def cmd_install(db, args):
             # installed (the reference laptop, 2026-09-02). The queue is
             # walked in install order, so a helper lands its payload before
             # anything that was resolved after it.
+            # A failed download step is reported when it happens and walks
+            # on, so every helper in the queue gets its turn; the command
+            # then exits non-zero, because a transaction whose payload is
+            # missing did not succeed, whatever else landed.
+            payload_failed = False
             for dep_name in deps:
-                _continue_into_payload_if_helper(
-                    db, installer, repo, reporter, dep_name)
+                if _continue_into_payload_if_helper(
+                        db, installer, repo, reporter, dep_name) == "failed":
+                    payload_failed = True
+            if payload_failed:
+                sys.exit(1)
         else:
             reporter.error(msg)
             sys.exit(1)
@@ -2114,10 +2135,10 @@ def cmd_reinstall(db, args):
             _rp = repo.get_package(pkg_name)
             _payload_license = (_rp or {}).get("payload_license") or \
                 "a proprietary vendor license (shown during install)"
-            _proprietary_install(
-                db, installer, repo, reporter, pkg_name, _payload_license,
-                replace=True,
-            )
+            if _proprietary_install(
+                    db, installer, repo, reporter, pkg_name, _payload_license,
+                    replace=True) == "failed":
+                sys.exit(1)
             continue
 
         # --- THE DOWNGRADE GUARD, BEFORE ANYTHING IS ACQUIRED OR REMOVED ---

@@ -133,7 +133,12 @@ landed is in the repository README, not here.
   when a download has not run, the Welcomer names the toolkit on the command
   it runs, and the toolkit's installer takes the license answer from the
   terminal the person is at rather than from whatever is on its standard
-  input. (pkm r69, cuda-toolkit r4, intergen-welcome r42)
+  input. On the first full run, the installer then refused to record the
+  toolkit's eleven 32-bit objects (NVIDIA ships both widths) and left seven
+  gigabytes untracked while the package manager exited as if it had
+  succeeded; the installer now declares the mixed widths, and a failed
+  download step makes the command exit with an error. (pkm r69–r70,
+  cuda-toolkit r4–r5, intergen-welcome r42)
 - **A fresh installation passes `pkm verify`.** The step that clears stale
   compiled Python files on an upgrade ran after the package was written into
   place and deleted the compiled files the package itself ships; every

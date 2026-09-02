@@ -326,6 +326,17 @@ igos_helper_record_post_install_action "ldconfig (after adding ${LDCONF})"
 # Record what was deposited so pkm sees the real install rather than just this
 # script. Symlinks are recorded as files: pkm's remove unlinks the link itself,
 # which is what should happen.
+# The toolkit is not all 64-bit. Measured on the pinned 13.3.1 runfile as
+# laid into /opt/cuda on the reference laptop (2026-09-02): 11 of its 506 ELF
+# objects are 32-bit — six under compute-sanitizer/x86 and five under
+# target/linux-desktop-glibc_2_11_3-x86, the launcher payloads Nsight uses
+# for 32-bit targets. The recorder's default contract is "every deposited
+# binary is 64-bit", and it refused the first of those eleven, aborting the
+# record with 8,973 files already on disk and untracked. NVIDIA ships both
+# widths on purpose; say so. The declaration is recorded in the package's
+# manifest, so the fact stays with the install.
+export IGOS_HELPER_ELF_CLASS=mixed
+
 echo "  Recording the installed files with pkm..."
 while IFS= read -r f; do
     igos_helper_record_file "$f"
