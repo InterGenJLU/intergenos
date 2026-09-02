@@ -25,7 +25,7 @@
 #   intergenos-archive-manifest-iso.txt.sig   (ASCII-armored detached signature)
 #
 # ONE ceremony signs BOTH manifests (two gpg operations: the card asks for a
-# touch per signature; the PIN is cached by gpg-agent between them). The ISO
+# touch AND PIN entry per signature — the card policy asks each time). The ISO
 # manifest is what build-squashfs Step 4.8 seals into the squashfs at
 # /install/intergenos-archive-manifest.txt; the full one goes to the mirror
 # with publish-repo.sh. A release squashfs refuses to build without the
@@ -177,8 +177,8 @@ build VM filesystem (signed manifests stay in $MANIFEST_DIR; you'll
 explicitly copy them back to the build host).
 
 Each signature requires an on-card touch (UIF policy) — watch the
-Nitrokey's LED and touch once per file; the OpenPGP User PIN is asked
-once and cached by gpg-agent for the second signature.
+Nitrokey's LED — the card asks for the OpenPGP User PIN and a touch
+for EACH file: two PIN entries, two touches (measured 2026-09-02).
 
 Type 'sign manifest' to proceed:
 EOF

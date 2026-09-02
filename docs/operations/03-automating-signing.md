@@ -51,7 +51,7 @@ The two exist because the ISO ships a subset of the archives the build produces,
 cd /mnt/intergenos && bash scripts/sign-manifest.sh    # OpenPGP [S1], PIN + touch
 ```
 
-The pause's own printed hint may say `sudo bash …`; that generic hint is **wrong for the GPG card path** — do not relay it. Both manifests are staged in `/tmp/c6r2-manifest/` beforehand; the wrapper validates each manifest's BSD format + v1 header/terminator (and the `# Manifest-scope: iso` line on the ISO one), signs each (one on-card touch per file; the PIN is asked once), verifies each, and exports `intergenos-release-key.asc`, leaving the whole signed set in `/tmp/c6r2-manifest/`.
+The pause's own printed hint may say `sudo bash …`; that generic hint is **wrong for the GPG card path** — do not relay it. Both manifests are staged in `/tmp/c6r2-manifest/` beforehand; the wrapper validates each manifest's BSD format + v1 header/terminator (and the `# Manifest-scope: iso` line on the ISO one), signs each (the card asks for the PIN and a touch for each file: two PIN entries, two touches), verifies each, and exports `intergenos-release-key.asc`, leaving the whole signed set in `/tmp/c6r2-manifest/`.
 
 **Post-ceremony delivery (again, not the operator's step):** deliver all FIVE artifacts (two manifests, two signatures, the key) into `build/` (the directory Step 4.8 reads), then resume `--start-at squashfs`. Step 4.8 seals the ISO manifest, and its staging gate fail-closes unless the triplet is present + non-empty, the signature verifies against the staged key, and coverage holds in **both directions**: every shipped archive appears in the manifest, and every manifest entry has a shipped archive.
 
