@@ -1964,8 +1964,21 @@ def cmd_install(db, args):
                 count=len(deps), installed_bytes=_plan.installed_bytes,
             )
 
-            _continue_into_payload_if_helper(
-                db, installer, repo, reporter, pkg_name)
+            # EVERY package the resolution installed, not only the one that
+            # was asked for. The CUDA toolkit is a download-helper package and
+            # a dependency of the CUDA inference engine: `pkm install
+            # llama-cpp-cuda` deployed the toolkit's small installer package
+            # as a dependency, recorded it as installed, and asked only the
+            # engine whether it had a download step — so the toolkit's
+            # download never ran, the license was never shown, /opt/cuda was
+            # never created, and the engine could not start for want of the
+            # CUDA libraries while the package database showed the toolkit
+            # installed (the reference laptop, 2026-09-02). The queue is
+            # walked in install order, so a helper lands its payload before
+            # anything that was resolved after it.
+            for dep_name in deps:
+                _continue_into_payload_if_helper(
+                    db, installer, repo, reporter, dep_name)
         else:
             reporter.error(msg)
             sys.exit(1)
@@ -3070,6 +3083,15 @@ def cmd_info(db, args):
             if key == "uncompressed_size" and isinstance(val, int) and val > 0:
                 val = f"{val / 1024 / 1024:.1f} MB" if val > 1024*1024 else f"{val / 1024:.0f} KB"
             print(f"  {key:20s}: {val}")
+    # A download-helper package whose download has not run. The install
+    # record above is the small installer package's; the application it
+    # exists to fetch is not on this machine, and a report that stopped at
+    # the install record would say the opposite. Read by the Welcomer's
+    # installed-state check as well as by people.
+    if helper_is_present(pkg["name"]) and not helper_payload_present(pkg["name"]):
+        print(f"  {'payload':20s}: not installed — this package is the "
+              f"installer for a vendor download that has not run yet. "
+              f"Run: sudo pkm install {pkg['name']}")
 
     deps = db.get_depends(args.package)
     if deps:
@@ -3293,6 +3315,16 @@ def cmd_verify(db, args):
         if _degraded:
             emit_done(f"✗ {args.package}: DEGRADED — files ok, but critical "
                       f"hook(s) failed at install: {_degraded}; reinstall to retry.")
+            sys.exit(1)
+        # The same honesty as `pkm info`: a download-helper package whose
+        # files verify clean has only proven that its installer script is
+        # intact. When the download it exists to perform has not run, saying
+        # "ok" would certify an application that is not there.
+        if helper_is_present(args.package) and not helper_payload_present(args.package):
+            emit_done(f"✗ {args.package}: the installer package is intact "
+                      f"({result['total']} files), but the vendor download it "
+                      f"performs has not run — the application is not "
+                      f"installed. Run: sudo pkm install {args.package}")
             sys.exit(1)
         suffix = "files verified" if mode == "strict" else "files present (existence-only)"
         by_class = result.get("expected_absent_by_class", {})

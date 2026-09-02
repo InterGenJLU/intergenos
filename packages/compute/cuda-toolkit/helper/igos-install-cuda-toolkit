@@ -149,7 +149,27 @@ else
     echo ""
     echo "  Type 'I ACCEPT' (exact match, capitals) to proceed:"
     echo ""
-    read -r REPLY
+    # The answer is read from the TERMINAL, not from whatever happens to be
+    # on standard input. When this script is run by the package manager,
+    # standard input is the package manager's — and inside a transaction it
+    # is not always a terminal. Reading it anyway takes the answer from a
+    # pipe, or reads end-of-file and treats silence as a refusal, and neither
+    # is a person reading NVIDIA's terms. /dev/tty is the terminal the person
+    # is sitting at whatever the pipes look like; a run with no terminal at
+    # all cannot ask, says so, names the command to run, and stops.
+    if [ -t 0 ]; then
+        read -r REPLY
+    elif { true < /dev/tty; } 2>/dev/null; then
+        read -r REPLY < /dev/tty
+    else
+        echo "  ERROR: no terminal is attached, so the license cannot be"
+        echo "         accepted here — and nothing else accepts it on your"
+        echo "         behalf. Nothing was downloaded. In a terminal, run:"
+        echo ""
+        echo "             sudo pkm install cuda-toolkit"
+        echo ""
+        exit 4
+    fi
     if [ "$REPLY" != "I ACCEPT" ]; then
         echo "  Acceptance not given. Nothing was downloaded. Exiting."
         exit 10

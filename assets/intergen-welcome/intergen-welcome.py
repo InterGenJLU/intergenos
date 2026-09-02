@@ -229,6 +229,21 @@ window.welcome-window {
    the rendered pixels. The `offer-row` class stays on the rows as the handle
    this comment is about. */
 .intergen-advisory row.offer-row { min-height: 46px; }
+/* THE OPAQUE BASE UNDER THE ROWS. The rows' card is drawn by libadwaita with a
+   translucent fill, and this box's fill is translucent amber, so the card's
+   colour was the amber showing through it: measured by rendering this page,
+   the card read (27, 28, 24) — red and green above blue, an olive cast — on a
+   page whose own ground is (5, 8, 16). That is the "overwritten" look
+   photographed on the reference laptop (2026-09-02): live options on a
+   surface that looks like a stain. The card's own surface still cannot be
+   styled from here (see above), but the plain box the rows are placed IN can,
+   and an opaque ground under a translucent card gives the card that ground's
+   colour. Proven by rendering (dev/render_page.py, scenario nvidia-offer) and
+   reading the card's pixels back: blue at or above red. */
+.intergen-advisory .offer-card-base {
+    background-color: #0d1117;
+    border-radius: 12px;
+}
 /* Panel-icon preview — exactly what the user should hunt for in the top bar.
    Brand-blue (matches the live panel indicator), seated in a panel-like pill. */
 .intergen-icon-preview {
@@ -2300,6 +2315,17 @@ _ADVISORY_BODY_PLAIN = (_ADVISORY_BODY_BEFORE_CMD + _ADVISORY_COMMAND
 # (decided 2026-07-31).
 _TERMINAL_OPEN_DELAY_SECONDS = 6
 
+# The promise that the Welcomer comes back after the driver reboot, in ONE
+# place. It is made three times — in the notice before the terminal opens, in
+# the success verdict after it closes, and as the last line printed inside
+# the terminal — and the released build carried it in the first two only. The
+# last line of the terminal is what a user carries away, and on the reference
+# laptop that line said "Run: sudo reboot" and nothing about returning
+# (2026-09-02). The launcher keeps the promise (see _request_welcomer_rearm).
+_WELCOMER_RETURNS_AFTER_REBOOT = (
+    'You\'ll be shown the Welcomer again after the reboot, so you can carry '
+    'on where you left off.')
+
 # The package the driver offer installs. Named once, so the command, the
 # outcome check and the message cannot drift apart.
 _DRIVER_PACKAGE = 'nvidia'
@@ -2362,9 +2388,20 @@ def _package_is_installed(name):
     text = (proc.stdout or '') + (proc.stderr or '')
     if not text.strip():
         return None
+    has_install_record = False
     for line in text.splitlines():
-        if line.strip().startswith('install_date'):
-            return True
+        stripped = line.strip()
+        # A download-helper package (the CUDA toolkit is one) has an install
+        # record the moment its small installer package lands, before the
+        # vendor download it exists to perform has run. The package manager
+        # says so on a `payload` line; that line, not the install record, is
+        # the answer for such a package.
+        if stripped.startswith('payload ') and 'not installed' in stripped:
+            return False
+        if stripped.startswith('install_date'):
+            has_install_record = True
+    if has_install_record:
+        return True
     if 'is not installed' in text:
         return False
     # Output that matches neither shape means pkm answered something this code
@@ -2479,7 +2516,18 @@ def _open_terminal_running(command, closing_note=None):
               'fi; '
               'read -r -p "Press Enter to close this window."; '
               'exit "$__rc"')
-    for argv in (['gnome-terminal', '--', 'bash', '-lc', script],
+    # `--wait` IS THE OUTCOME MECHANISM, not an option. Without it the
+    # gnome-terminal process started here is only a client: it hands the
+    # command to the terminal server and exits at once, so the handle returned
+    # below reported "closed" two seconds after the window OPENED. The page
+    # then asked the package database while the install was still running and
+    # told the user the terminal had closed with nothing installed — the
+    # verdict photographed on the reference laptop at 16:16 on 2026-09-02,
+    # while the packages finished at 16:18. With --wait the client stays
+    # alive until the command's shell exits, and the handle means what the
+    # caller takes it to mean. xterm blocks by nature; xdg-terminal-exec
+    # delegates to whatever terminal it finds and is the last resort.
+    for argv in (['gnome-terminal', '--wait', '--', 'bash', '-lc', script],
                  ['xdg-terminal-exec', 'bash', '-lc', script],
                  ['xterm', '-e', 'bash', '-lc', script]):
         try:
@@ -2555,7 +2603,16 @@ def _gpu_detection_record(path=_GPU_RECORD_PATH):
 # written again, so the offer, the install and the check cannot disagree about
 # which software is being talked about.
 _DRIVER_PACKAGES = ('nvidia',)
-_CUDA_ENGINE_PACKAGES = ('llama-cpp-cuda',)
+# The toolkit is named explicitly, and FIRST. It is a download-helper package:
+# installing it means running its helper, which fetches NVIDIA's toolkit after
+# the person accepts NVIDIA's license. Named on the command line the package
+# manager routes it through that flow. Pulled in only as a dependency of the
+# engine it was deployed as a stub, recorded as installed, and its download
+# never ran — the engine then could not start for want of the CUDA libraries
+# (measured on the reference laptop 2026-09-02). The package manager now runs
+# the download step for helper dependencies too; naming the toolkit here means
+# the outcome check below asks about it by name as well.
+_CUDA_ENGINE_PACKAGES = ('cuda-toolkit', 'llama-cpp-cuda')
 _HIP_ENGINE_PACKAGES = ('llama-cpp-hip',)
 
 # EVERY install here SYNCS THE PACKAGE INDEX FIRST. This page is shown during
@@ -2849,9 +2906,8 @@ def _install_notice(selected, offers):
     if activation == 'reboot':
         parts.append(
             'REBOOT once the installation finishes — what you are installing '
-            'does not take effect until you do. You\'ll be shown the '
-            'Welcomer again after the reboot, so you can carry on where you '
-            'left off.')
+            'does not take effect until you do. '
+            + _WELCOMER_RETURNS_AFTER_REBOOT)
     elif activation == 'service-restart':
         parts.append(
             'InterGen chooses which engine to run with when his service '
@@ -2914,9 +2970,8 @@ def _install_outcome(selected, offers, probe=None):
         if activation == 'reboot':
             message = (
                 done + ' installed. REBOOT NOW to start using it — it only '
-                'takes effect after a restart. You\'ll be shown this page '
-                'again after the reboot so you can finish setting InterGen '
-                'up.')
+                'takes effect after a restart. '
+                + _WELCOMER_RETURNS_AFTER_REBOOT)
         elif activation == 'service-restart':
             message = (
                 done + ' installed. InterGen chooses which engine to run with '
@@ -2949,7 +3004,8 @@ def _closing_note(selected, offers):
     activation = _activation_required(selected, offers)
     if activation == 'reboot':
         return ('>>> REBOOT REQUIRED: what you just installed does not take '
-                'effect until you restart. Run: sudo reboot')
+                'effect until you restart. ' + _WELCOMER_RETURNS_AFTER_REBOOT
+                + ' Run: sudo reboot')
     if activation == 'service-restart':
         return ('>>> RESTART INTERGEN: he chooses which engine to run with '
                 'when his service starts, so the new engine takes over after '
@@ -3115,9 +3171,10 @@ def _build_gpu_install_offer(record, probe=None):
 
     rows = {}
     group = Adw.PreferencesGroup()
-    # Its own opaque card, so the amber banner behind it cannot show through
-    # and its description text is read as live prose rather than as a disabled
-    # control (see the .intergen-advisory .offer-row rules).
+    # The rows' card is translucent and this box's fill is amber, so the card
+    # took an amber cast and its description text read as disabled. The group
+    # is placed on a plain box painted opaque (the .offer-card-base rule): the
+    # card keeps its own look and gets a dark ground instead of amber.
     for offer in offers:
         row = Adw.SwitchRow()
         # libadwaita parses row titles and subtitles as Pango markup, so a bare
@@ -3160,7 +3217,10 @@ def _build_gpu_install_offer(record, probe=None):
         row.add_css_class('offer-row')
         group.add(row)
         rows[offer['key']] = row
-    section.append(group)
+    card_base = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+    card_base.add_css_class('offer-card-base')
+    card_base.append(group)
+    section.append(card_base)
 
     install_btn = Gtk.Button(label=_GPU_INSTALL_BUTTON_LABEL)
     install_btn.add_css_class('suggested-action')
@@ -3924,8 +3984,21 @@ def build_intergen_page():
             choice_box.set_margin_top(6)
             first_radio = None
             for t in tiers:
-                title, note = _tier_label(t, offer)
-                radio = Gtk.CheckButton(label=f'{title} — {note}')
+                # Distinct names, on purpose. This loop used to bind `title`
+                # and `note` — and `title` is also the page HEADING widget,
+                # bound at the top of this function. The loop runs only when
+                # more than one model size is offered, which on an NVIDIA
+                # machine is only once the vendor driver is installed; on
+                # exactly those machines the heading's name was left holding
+                # a string, and the driver-done branch further down passed it
+                # to reorder_child_after as the sibling widget. The Welcomer
+                # then crashed before it had a window, at the precise moment
+                # it came back to finish setting InterGen up (measured on the
+                # reference laptop 2026-09-02). tests/welcome/
+                # test_welcomer_after_the_driver_leg.py builds this page in
+                # that state.
+                rung_title, rung_note = _tier_label(t, offer)
+                radio = Gtk.CheckButton(label=f'{rung_title} — {rung_note}')
                 if first_radio is None:
                     first_radio = radio
                     radio.set_active(True)
@@ -4223,11 +4296,37 @@ def build_done_page():
 # Main application
 # ---------------------------------------------------------------------------
 
+# Exit status when the window could not be built. The launcher marks the
+# Welcomer as done — and hides it from every later login — on a clean exit,
+# so a run that never showed a window has to say so in its status. It did not:
+# an exception in do_activate is printed by the GTK bindings and swallowed,
+# the main loop ends with no window, and the process exited 0. On the reference
+# laptop that turned the crash above into a permanent state — the crashed run
+# was recorded as the user having finished, and the app-menu entry crashed the
+# same way (2026-09-02). Any non-zero value would do; this one is out of the
+# way of the codes the launcher passes through unchanged.
+_EXIT_ACTIVATION_FAILED = 70
+
+
 class WelcomeApp(Adw.Application):
     def __init__(self):
         super().__init__(application_id='com.intergenos.welcome')
+        self.activation_failed = False
 
     def do_activate(self):
+        try:
+            self._activate()
+        except Exception:
+            # The traceback still goes to the journal, as before; what is new
+            # is that the failure reaches the exit status. Nothing here tries
+            # to carry on: a page that could not be built is a wizard that
+            # would be missing a step.
+            import traceback
+            traceback.print_exc()
+            self.activation_failed = True
+            self.quit()
+
+    def _activate(self):
         load_css()
 
         win = Adw.ApplicationWindow(application=self)
@@ -4435,7 +4534,10 @@ class WelcomeApp(Adw.Application):
 
 def main():
     app = WelcomeApp()
-    app.run()
+    rc = app.run()
+    if app.activation_failed and rc == 0:
+        rc = _EXIT_ACTIVATION_FAILED
+    sys.exit(rc)
 
 
 if __name__ == '__main__':

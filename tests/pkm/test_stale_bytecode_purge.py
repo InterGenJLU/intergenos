@@ -221,15 +221,22 @@ class RealStaleBytecodeReproductionTest(unittest.TestCase):
     def test_the_deploy_path_calls_the_purge(self):
         """The mechanism above is only worth anything if the install path
         actually runs it. Located in the source rather than by mocking, so
-        this stays true of the deploy step itself."""
+        this stays true of the deploy step itself.
+
+        BEFORE the extract, not after it. This case used to require the call
+        after the extract, and there it deleted the compiled files the archive
+        had just deployed — every fresh installation then failed `pkm verify`
+        with thousands of the packages' own .pyc files missing (2026-09-02).
+        tests/pkm/test_stale_bytecode_purge_keeps_the_archives_own.py holds
+        the order and proves it against a real install."""
         from pkm import installer as installer_mod
         src = Path(installer_mod.__file__).read_text(encoding="utf-8")
         deploy_marker = "ok, err = _safe_extract_tar("
         self.assertIn(deploy_marker, src)
-        after_deploy = src.split(deploy_marker, 1)[1]
-        # The call must sit within the deploy block, before the install
-        # transaction that follows it.
-        window = after_deploy.split("version = self._version_from_archive", 1)[0]
+        # The LAST extract in the installer is the deploy (the first is the
+        # staging extract the file list is built from).
+        before_deploy = src.rsplit(deploy_marker, 1)[0]
+        window = before_deploy.rsplit("file_list = []", 1)[1]
         self.assertIn("_purge_stale_bytecode(self.root, file_list)", window)
 
 

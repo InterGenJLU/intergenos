@@ -25,3 +25,18 @@ clicking options previews without touching the live desktop / ~/.bashrc.
 
     WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 GDK_BACKEND=wayland \
       python3 assets/intergen-welcome/dev/preview_live.py
+
+## Rendering without Xvfb — the GTK broadway backend
+GTK ships a display server of its own (`gtk4-broadwayd`) that needs no screen
+and no X. On an InterGenOS machine with no Xvfb this is the headless route:
+
+    gtk4-broadwayd --port 8199 :97 &
+    GDK_BACKEND=broadway BROADWAY_DISPLAY=:97 GSK_RENDERER=cairo \
+      IGOS_WELCOMER_SCENARIO=nvidia-driver-done \
+      python3 assets/intergen-welcome/dev/render_page.py intergen /tmp/out.png
+
+`IGOS_WELCOMER_SCENARIO` makes the Meet InterGen page describe a chosen
+machine instead of the render host: `nvidia-offer` (open driver, the advisory
+box with its switches) or `nvidia-driver-done` (driver installed, two model
+sizes offered — the state the page crashed in on 2026-09-02). Unset, the page
+reads the render host as before.

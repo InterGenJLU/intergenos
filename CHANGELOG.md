@@ -111,6 +111,36 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **The Welcomer works after the NVIDIA driver reboot.** On an NVIDIA machine
+  the first-boot greeter installs the vendor driver, asks for a reboot, and
+  promises to come back so InterGen can be set up. It came back and crashed
+  before it had a window, and the crash was recorded as the person having
+  finished, so it never came back again; while the driver was still
+  installing, it had also reported the terminal closed with nothing installed.
+  All of that is fixed: the page builds, a run that cannot build its window
+  exits as a failure and is shown again, the outcome is read only when the
+  terminal's command has actually finished, the rows inside the amber
+  advisory box sit on an opaque ground instead of taking an amber cast, and
+  the last line in the terminal says the Welcomer returns after the reboot.
+  (intergen-welcome r42)
+- **The CUDA toolkit is downloaded when the CUDA engine is installed.** The
+  toolkit is fetched from NVIDIA by its own installer package after the
+  person accepts NVIDIA's license. Pulled in as a dependency of the engine,
+  that installer package was recorded as installed and its download step
+  never ran, so the engine could not start and the package database said the
+  toolkit was there. The package manager now runs the download step for every
+  such package a transaction installs, `pkm info` and `pkm verify` say plainly
+  when a download has not run, the Welcomer names the toolkit on the command
+  it runs, and the toolkit's installer takes the license answer from the
+  terminal the person is at rather than from whatever is on its standard
+  input. (pkm r69, cuda-toolkit r4, intergen-welcome r42)
+- **A fresh installation passes `pkm verify`.** The step that clears stale
+  compiled Python files on an upgrade ran after the package was written into
+  place and deleted the compiled files the package itself ships; every
+  installation then reported thousands of its own files missing. The step runs
+  before the package is written, so it clears only what a previous version
+  left behind. (pkm r69)
+
 - Every trace row the assistant daemon writes while starting and warming up names the boot that produced it; the warm-up generations and the engine offload check no longer write placeholder-identified rows (intergen r245).
 
 - **The Welcomer's polkit action file ships in its source tarball.** The

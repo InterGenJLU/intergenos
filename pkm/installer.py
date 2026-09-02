@@ -1200,18 +1200,8 @@ class PackageInstaller:
                 _ARCHIVE_METADATA_FILES | _ARCHIVE_METADATA_DIRS
                 | set(config_plan["protect"])
             )
-            # The second long part, and the one that writes to the live
-            # filesystem — named for the same reason as the extract above.
-            if reporter:
-                reporter.phase("Deploy", f"writing {name} into place")
-            ok, err = _safe_extract_tar(
-                archive_path, self.root, exclude_paths=deploy_excludes,
-            )
-            if not ok:
-                return False, f"Failed to deploy: {err}"
-
             # Drop stale compiled bytecode for every Python module this
-            # deploy just replaced.
+            # deploy is about to replace — BEFORE the archive lands.
             #
             # An upgrade that replaces a .py file leaves the __pycache__
             # entry compiled from the PREVIOUS source sitting beside it, and
@@ -1229,7 +1219,27 @@ class PackageInstaller:
             # regenerates it on the next import, an unwritable cache
             # directory simply means it was never ours to manage, and no
             # package records or installed source files are touched.
+            #
+            # ORDER IS LOAD-BEARING. This call used to sit AFTER the extract,
+            # where it deleted the compiled files the archive had just
+            # deployed — the package's own, recorded, checksummed .pyc files.
+            # Every install of a Python package then failed `pkm verify` with
+            # each of those files reported missing: thousands of entries on a
+            # fresh installation, on every machine (measured on two installs
+            # 2026-09-02). Purging first removes only what the previous
+            # version left behind; the archive then lays down its own
+            # compiled files and they stay.
             _purge_stale_bytecode(self.root, file_list)
+
+            # The second long part, and the one that writes to the live
+            # filesystem — named for the same reason as the extract above.
+            if reporter:
+                reporter.phase("Deploy", f"writing {name} into place")
+            ok, err = _safe_extract_tar(
+                archive_path, self.root, exclude_paths=deploy_excludes,
+            )
+            if not ok:
+                return False, f"Failed to deploy: {err}"
 
             # Restore setuid/setgid/sticky bits that hardened-tar dropped.
             try:

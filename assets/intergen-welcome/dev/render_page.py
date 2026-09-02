@@ -5,9 +5,11 @@ Loads the real intergen-welcome.py, applies its CUSTOM_CSS, builds one page
 in a 760x720 Adw window, and screenshots it under Xvfb. Lets us iterate the
 welcomer visual design with actual renders instead of guessing.
 
-Usage (under xvfb-run):
-  xvfb-run -s "-screen 0 1366x768x24" python3 welcomer_render.py <page> <out.png>
+Usage (under xvfb-run, or under the GTK broadway backend — see README.md):
+  xvfb-run -s "-screen 0 1366x768x24" python3 render_page.py <page> <out.png>
   <page> = welcome|appearance|extensions|prompt|shortcuts|intergen|community|done
+  IGOS_WELCOMER_SCENARIO=nvidia-offer|nvidia-driver-done renders the intergen
+  page as an NVIDIA machine before / after the driver leg (see below).
 """
 import os, sys, importlib.util
 import gi
@@ -35,6 +37,35 @@ spec.loader.exec_module(mod)  # __name__ != '__main__' -> main() guard does not 
 mod.get_enabled_extensions = lambda: set()
 mod.apply_theme = lambda *a, **k: None
 mod.apply_prompt = lambda *a, **k: None
+
+# A machine state to render the page IN, chosen by IGOS_WELCOMER_SCENARIO.
+# The Meet InterGen page reads the installer's graphics record, the package
+# database and the model offer; on the render host those describe the render
+# host. The scenarios below describe the machines the page was written for:
+#   nvidia-offer        NVIDIA card on the open driver, nothing installed yet —
+#                       the advisory box with its switches is built.
+#   nvidia-driver-done  the driver installed, the engine not, two model sizes
+#                       offered — the state after the driver reboot, in which
+#                       the page crashed on 2026-09-02.
+# Unset: the page reads the render host, as it always did.
+SCENARIO = os.environ.get('IGOS_WELCOMER_SCENARIO')
+if SCENARIO in ('nvidia-offer', 'nvidia-driver-done'):
+    driver_done = SCENARIO == 'nvidia-driver-done'
+    mod._gpu_detection_record = lambda *a, **k: {
+        'version': mod._GPU_RECORD_VERSION, 'vendor': 'nvidia',
+        'pci_vendors': ['10de'], 'shipped_engine': 'vulkan',
+        'upgrade_engine': 'cuda', 'upgrade_outranks_shipped': True,
+        'gfx_targets': [], 'upgrade_engine_supported': None}
+    mod._package_is_installed = lambda name: driver_done and name == 'nvidia'
+    mod._intergen_is_set_up = lambda *a, **k: False
+    mod._model_offer = (lambda *a, **k: {
+        'tiers': [1, 2],
+        'download_bytes': {'1': 2300000000, '2': 6100000000}}) if driver_done \
+        else (lambda *a, **k: None)
+    mod._qwen_attribution = lambda *a, **k: None
+    mod._probe_download_sources = lambda *a, **k: type('P', (), {'cause': None})()
+elif SCENARIO:
+    sys.exit(f'unknown IGOS_WELCOMER_SCENARIO {SCENARIO!r}')
 
 Adw.init()
 

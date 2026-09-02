@@ -93,13 +93,26 @@ class TestWhatIsOffered(unittest.TestCase):
         self.assertEqual([o["key"] for o in offers], ["compute_engine"])
 
     def test_an_installed_cuda_engine_is_not_offered_again(self):
+        """The engine AND the toolkit: the offer installs both, so both have
+        to be present for it to be withdrawn."""
         offers = welcome._gpu_offers(
-            NVIDIA, probe=_probe(**{"llama-cpp-cuda": True}))
+            NVIDIA, probe=_probe(**{"cuda-toolkit": True, "llama-cpp-cuda": True}))
         self.assertEqual([o["key"] for o in offers], ["nvidia_driver"])
+
+    def test_an_engine_whose_toolkit_never_downloaded_is_still_offered(self):
+        """The reference laptop, 2026-09-02: the engine package present, the
+        toolkit's installer package present but its download never run. The
+        package manager now answers "not installed" for the toolkit, and the
+        offer stays."""
+        offers = welcome._gpu_offers(
+            NVIDIA, probe=_probe(nvidia=True, **{"cuda-toolkit": False,
+                                                 "llama-cpp-cuda": True}))
+        self.assertEqual([o["key"] for o in offers], ["compute_engine"])
 
     def test_a_fully_equipped_machine_is_offered_nothing(self):
         offers = welcome._gpu_offers(
-            NVIDIA, probe=_probe(nvidia=True, **{"llama-cpp-cuda": True}))
+            NVIDIA, probe=_probe(nvidia=True, **{"cuda-toolkit": True,
+                                                 "llama-cpp-cuda": True}))
         self.assertEqual(offers, [])
 
     def test_a_package_whose_state_cannot_be_read_is_still_offered(self):
@@ -299,10 +312,22 @@ class TestWhatIsSaidAfterwards(unittest.TestCase):
         offers = welcome._gpu_offers(NVIDIA, probe=NOTHING_INSTALLED)
         outcome = welcome._install_outcome(
             ["nvidia_driver", "compute_engine"], offers,
-            probe=_probe(nvidia=True, **{"llama-cpp-cuda": False}))
+            probe=_probe(nvidia=True, **{"cuda-toolkit": True,
+                                         "llama-cpp-cuda": False}))
         self.assertFalse(outcome["installed"])
         self.assertEqual(outcome["missing"], ["llama-cpp-cuda"])
         self.assertIn("llama-cpp-cuda", outcome["message"])
+
+    def test_a_toolkit_that_never_downloaded_is_named_as_missing(self):
+        """The laptop's outcome, had the verdict been asked at the right
+        moment: the engine installed, the toolkit's download not run."""
+        offers = welcome._gpu_offers(NVIDIA, probe=NOTHING_INSTALLED)
+        outcome = welcome._install_outcome(
+            ["nvidia_driver", "compute_engine"], offers,
+            probe=_probe(nvidia=True, **{"cuda-toolkit": False,
+                                         "llama-cpp-cuda": True}))
+        self.assertFalse(outcome["installed"])
+        self.assertEqual(outcome["missing"], ["cuda-toolkit"])
 
 
 class TestThePageOrder(unittest.TestCase):

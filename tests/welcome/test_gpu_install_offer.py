@@ -246,8 +246,13 @@ class TestTheComposedCommand(unittest.TestCase):
         offers = welcome._gpu_offers(NVIDIA, probe=NOTHING_INSTALLED)
         command = welcome._gpu_install_command(
             ["nvidia_driver", "compute_engine"], offers)
+        # The toolkit is named, and before the engine that links against it:
+        # named on the command line, the package manager runs its download
+        # step; as a bare dependency it was deployed as an installer package
+        # and never downloaded (the reference laptop, 2026-09-02).
         self.assertEqual(
-            command, "sudo pkm update && sudo pkm install nvidia llama-cpp-cuda")
+            command,
+            "sudo pkm update && sudo pkm install nvidia cuda-toolkit llama-cpp-cuda")
         self.assertEqual(command.count("pkm install"), 1)
         # `&&` and not `;`: a failed index sync must stop the chain rather
         # than let the install run against an index that was never updated.
