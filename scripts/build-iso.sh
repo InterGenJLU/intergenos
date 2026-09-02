@@ -230,16 +230,23 @@ if [ "$UNSIGNED_TEST" = "1" ]; then
     echo "[build-iso] UNSIGNED-TEST output path: $OUTPUT" >&2
 fi
 
-GRUB_CFG="${GRUB_CFG:-installer/iso/grub/grub.cfg}"
+# Every in-tree default below resolves against THIS script's repo root, not
+# the caller's cwd. The orchestrator is launched as a transient unit whose
+# working directory is wherever the launcher put it: a resume at the iso
+# phase without --working-directory=/mnt/intergenos failed twice (2026-08-27
+# 15:23, 2026-09-02 12:45) on "GRUB_CFG not found: installer/iso/grub/grub.cfg"
+# while every other input had already resolved — the default was the only
+# cwd-relative path left on the release route. Callers may still override.
+_BUILD_ISO_REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+GRUB_CFG="${GRUB_CFG:-${_BUILD_ISO_REPO_ROOT}/installer/iso/grub/grub.cfg}"
 # K1 closure 2026-05-21: default THEME_DIR to the intergenos-grub-theme
 # package's theme source dir so the live-ISO GRUB menu ships with the
 # operator-authored resolution-aware background scaffold automatically.
 # Caller may still override THEME_DIR= explicitly. Resolved relative to
 # this script's location so the build doesn't depend on a particular cwd.
-_BUILD_ISO_REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 THEME_DIR="${THEME_DIR:-${_BUILD_ISO_REPO_ROOT}/packages/desktop/intergenos-grub-theme/assets/grub-theme/intergenos}"
 UNICODE_PF2="${UNICODE_PF2:-/usr/share/grub/unicode.pf2}"
-LOG_DIR="${LOG_DIR:-build/logs/iso}"
+LOG_DIR="${LOG_DIR:-${_BUILD_ISO_REPO_ROOT}/build/logs/iso}"
 ESP_HEADROOM_MB="${ESP_HEADROOM_MB:-16}"
 
 # SOURCE_DATE_EPOCH propagation. xorriso 1.5.6+ honours the env var directly;

@@ -100,7 +100,7 @@ HITS_C=$(grep -rn -E 'echo[[:space:]]+["'"'"'][^"'"'"']*:[^"'"'"' $][^"'"'"']*["
     packages/ scripts/ installer/ 2>/dev/null \
     | grep -v -E 'check-d007-compliance\.sh|\.md:|/research/|/audit/|/docs/' \
     | grep -v -E '\$\{[A-Z_]+\}|\$\{?[A-Z_]+_PASSWORD\}?|\$[A-Z_]+_PASSWORD' \
-    | grep -v -E "usermod[[:space:]]+-p[[:space:]]+['\"](\\!|\\*|\\!\\*|\\!\\!)['\"]")
+    | grep -v -E "usermod[[:space:]]+-p[[:space:]]+['\"](!|\\*|!\\*|!!)['\"]")
 if [ -n "$HITS_C" ]; then
     violation "hardcoded password literal in chpasswd/usermod path" \
               "All non-live credentials must come from env vars or installer-user-prompted input."
