@@ -2294,6 +2294,16 @@ phase_manifest() {
     local archives_dir="${IGOS}/var/lib/igos/archives"
     local out_dir="/mnt/intergenos/build"
     local manifest="${out_dir}/intergenos-archive-manifest.txt"
+    # TWO manifests from one census (decided 2026-09-02, after the R001.2
+    # install abort): the FULL manifest above lists every archive the chroot
+    # holds — correct for the mirror, which ships all of them — and the ISO
+    # manifest below lists only the archives the ISO carries (the full census
+    # minus the mirror-only set build-squashfs Step 2.6 keeps off the media,
+    # derived by the SAME script). The installer refuses a media whose signed
+    # manifest promises archives it does not hold; R001.2 shipped the full
+    # manifest over an 862-archive media and aborted on 284 missing entries.
+    local iso_manifest="${out_dir}/intergenos-archive-manifest-iso.txt"
+    local iso_excludes="${out_dir}/iso-mirror-archive-excludes.txt"
     local build_id="${INTERGENOS_BUILD_ID:-v1.0-dev1}"
     local built_on="${INTERGENOS_BUILD_HOST:-$(hostname -f 2>/dev/null || hostname)}"
     local built_at_iso
@@ -2320,6 +2330,7 @@ phase_manifest() {
         printf '# Built: %s\n' "$built_at_iso"
         printf '# Built-on: %s\n' "$built_on"
         printf '# Manifest-version: 1\n'
+        printf '# Manifest-scope: mirror\n'
     } > "$manifest"
 
     # Walk archives_dir; sort for deterministic output (cross-host
@@ -2370,6 +2381,36 @@ phase_manifest() {
         fi
     fi
 
+    # The ISO manifest: full census minus the mirror-only archives. The
+    # exclusion list is derived from the package tree by the same script and
+    # mode build-squashfs Step 2.6 uses for the squashfs itself, so the
+    # manifest the ISO carries and the archives the ISO carries come from one
+    # derivation. Written into build/ (host-visible, beside the manifests) so
+    # the ceremony coordinator and the staging gate can read the same list.
+    if [ "$archive_count" -gt 0 ]; then
+        log "Deriving the ISO archive manifest (full census minus mirror-only archives)..."
+        if ! python3 "${SCRIPTS}/derive-iso-exclusions.py" \
+                --mode=archive-excludes \
+                --packages /mnt/intergenos/packages \
+                --output "$iso_excludes" 2>&1 | tee -a "$BUILD_LOG"; then
+            log "  FATAL: archive-excludes derivation failed — cannot say which archives the ISO carries"
+            return 1
+        fi
+        if ! python3 "${SCRIPTS}/derive-iso-archive-manifest.py" \
+                --full-manifest "$manifest" \
+                --archive-excludes "$iso_excludes" \
+                --output "$iso_manifest" 2>&1 | tee -a "$BUILD_LOG"; then
+            log "  FATAL: ISO manifest derivation failed — refusing to hand the ceremony a manifest the media would not honour"
+            return 1
+        fi
+        log "  ISO manifest emitted: $iso_manifest"
+        log "  Archives on the ISO:  $(grep -c '^SHA256 (' "$iso_manifest")  (full census: $archive_count)"
+        log "  SHA256 of ISO manifest: $(sha256sum "$iso_manifest" | awk '{print $1}')"
+    else
+        rm -f "$iso_manifest" "$iso_excludes"
+        log "  ISO manifest NOT derived (0 archives) — a release squashfs will refuse without it."
+    fi
+
     log ""
     # Install-integrity Option 1: the signed trust triplet
     # {manifest, .sig, release-key} is verity-SEALED into the squashfs at
@@ -2395,7 +2436,7 @@ phase_manifest() {
         return 0
     fi
 
-    log ">>> Enforced pause: archive integrity manifest is unsigned"
+    log ">>> Enforced pause: archive integrity manifests are unsigned"
     log ""
     log "  Option 1 seals the signed trust triplet INTO the squashfs, so the"
     log "  manifest MUST be signed BEFORE mksquashfs runs. This stop is"
@@ -2403,11 +2444,19 @@ phase_manifest() {
     log "  operator-only and cannot be skipped via flag. See"
     log "  docs/research/security/install-integrity-verification.md."
     log ""
+    log "  TWO manifests, ONE ceremony:"
+    log "    $manifest"
+    log "        the full census (every archive in the chroot) — the MIRROR's manifest"
+    log "    $iso_manifest"
+    log "        the shipped subset (full minus mirror-only archives) — the ISO's manifest;"
+    log "        build-squashfs Step 4.8 seals THIS one into /install/"
+    log ""
     log "  Next step (Rule F — pick the lane that matches who is signing):"
-    log "    If operator driven:    /bin/bash scripts/sign-manifest.sh"
+    log "    If operator driven:    stage BOTH manifests in /tmp/c6r2-manifest/, then"
+    log "                           /bin/bash scripts/sign-manifest.sh"
     log "                           (NO sudo — OpenPGP card-signing runs AS the operator;"
     log "                           sudo hits root's empty keyring with no card stub and fails)"
-    log "                           (sign $manifest in place -> ${manifest}.sig)"
+    log "                           (signs each manifest in place -> <manifest>.sig; one touch per file)"
     log "    If automated/CI:       this pause is MANIFEST-ONLY. Stage the manifest in a CLEAN"
     log "                           manifest-only dir, then:"
     log "                           scripts/sign-release.sh --artifacts <clean-manifest-dir> --output <signed-dir> --manifest $manifest"
@@ -2416,12 +2465,16 @@ phase_manifest() {
     log "                           there are NOT verity-sealed yet — the full grub+UKI signing belongs at the POST-squashfs"
     log "                           ukis-verity pause. See docs/operations/03-automating-signing)"
     log ""
-    log "  After signing, place all THREE trust artifacts in $out_dir/:"
-    log "    intergenos-archive-manifest.txt       (this manifest)"
-    log "    intergenos-archive-manifest.txt.sig   (the detached signature)"
-    log "    intergenos-release-key.asc            (release public key: master + S1 only)"
-    log "  build-squashfs Step 4.8 copies them into \$CHROOT/install/ and"
-    log "  fail-closed asserts the set (signature + coverage) before sealing."
+    log "  After signing, place all FIVE trust artifacts in $out_dir/:"
+    log "    intergenos-archive-manifest.txt           (the full manifest — the mirror's)"
+    log "    intergenos-archive-manifest.txt.sig       (its detached signature)"
+    log "    intergenos-archive-manifest-iso.txt       (the ISO manifest — the shipped subset)"
+    log "    intergenos-archive-manifest-iso.txt.sig   (its detached signature)"
+    log "    intergenos-release-key.asc                (release public key: master + S1 only)"
+    log "  build-squashfs Step 4.8 copies the ISO manifest + .sig + key into"
+    log "  \$CHROOT/install/ (under the canonical installer name) and fail-closed"
+    log "  asserts the set — signature, and coverage in BOTH directions: every"
+    log "  shipped archive is in the manifest AND every manifest entry ships."
     log ""
     log "  Resume with: sudo bash $0 --user $BUILD_USER --start-at squashfs"
     log ""

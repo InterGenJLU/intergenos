@@ -130,9 +130,10 @@ Runs early (after `validate`, before `setup`). For every package YAML in `packag
 ### 5.2 New phase: `manifest`
 Runs after `image` (the existing terminal phase that produces the install ISO). For every `.igos.tar.gz` produced during the build (regardless of whether its source was `source:` or `build_artifacts:`):
 - Compute sha256
-- Append to `intergenos-archive-manifest.txt` in BSD format
-- Sign manifest with release key (master + S1)
-- Place signed manifest into the ISO at `/install/intergenos-archive-manifest.txt`
+- Append to `intergenos-archive-manifest.txt` in BSD format — the **full** manifest, every archive the chroot holds; the mirror's
+- Derive `intergenos-archive-manifest-iso.txt` — the **ISO** manifest: the full manifest minus the mirror-only archives the squashfs step keeps off the media (`scripts/derive-iso-archive-manifest.py`, using the same exclusion list as `build-squashfs.sh`). Amendment 2026-09-02: the ISO ships a subset of the build's archives, and the verifier's second question ("is every manifest entry on the media?", `installer/backend/integrity.py`) refuses a manifest that promises more than the media holds — R001.2 shipped the full manifest and aborted on 284 absent entries.
+- Sign both manifests with the release key (master + S1)
+- Place the signed **ISO** manifest into the ISO at `/install/intergenos-archive-manifest.txt`; the build-time staging gate (`scripts/check-install-integrity-staging.sh`) asserts coverage in both directions before the squashfs is sealed
 - Place the release-key public component at `/install/intergenos-release-key.asc` (also signed by master, so it's self-validating against the master fingerprint published at `docs/signing-key.md`)
 
 The `manifest` phase produces the unified install-time integrity surface — every archive is in the signed manifest, regardless of how its source was acquired. Install-time `PHASE_VERIFY` consumes this manifest only; it does not need to know the difference between `source:` and `build_artifacts:`.

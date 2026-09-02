@@ -31,12 +31,17 @@ The superset `scripts/sign-release.sh` (documented in the rest of this runbook) 
 
 ### Ceremony #1 — archive integrity manifest (`sign-manifest.sh`)
 
-`phase_manifest` emits `build/intergenos-archive-manifest.txt` (BSD-style `SHA256 (file) = hash` sums for every shipped `.igos.tar.gz`, wrapped in a `# Manifest-version: 1` header and `# End of manifest.` terminator) and **hard-exits**. The manifest MUST be signed *before* `mksquashfs`, because `build-squashfs.sh` **Step 4.8** seals the signed **trust triplet** INTO the squashfs so the installer's `PHASE_VERIFY` validates archive integrity offline.
+`phase_manifest` emits two manifests in `build/` (BSD-style `SHA256 (file) = hash` sums, each wrapped in a `# Manifest-version: 1` header and `# End of manifest.` terminator) and **hard-exits**:
 
-The triplet is three files (the wrapper emits all three from one command):
+- `intergenos-archive-manifest.txt` — the **full** manifest: every `.igos.tar.gz` the build chroot holds. The mirror's manifest.
+- `intergenos-archive-manifest-iso.txt` — the **ISO** manifest: the full census minus the mirror-only archives `build-squashfs.sh` keeps off the media; marked `# Manifest-scope: iso`. The manifest the ISO carries.
 
-- `intergenos-archive-manifest.txt` — the manifest
-- `intergenos-archive-manifest.txt.sig` — the detached [S1] ASCII-armored signature
+Both MUST be signed *before* `mksquashfs`, because `build-squashfs.sh` **Step 4.8** seals the signed **trust triplet** INTO the squashfs so the installer's `PHASE_VERIFY` validates archive integrity offline — and the installer refuses a manifest that promises archives the media does not hold, which is why the ISO gets its own (R001.2, 2026-08-27).
+
+The wrapper signs both manifests from one command (one on-card touch per file) and exports the key; Step 4.8 seals the ISO manifest under the canonical installer name:
+
+- `intergenos-archive-manifest.txt` — in `/install/`: the ISO manifest
+- `intergenos-archive-manifest.txt.sig` — its detached [S1] ASCII-armored signature
 - `intergenos-release-key.asc` — the exported release public key (so the target self-validates without network)
 
 **Maintainer pre-ceremony (never the key holder):**
@@ -57,7 +62,7 @@ cd /mnt/intergenos && bash scripts/sign-manifest.sh
 
 GPG card-signing runs **as the key holder**; `sudo` uses root's empty keyring with no card stub and fails. (The pause's own printed hint may say `sudo bash …` — that generic hint is **wrong** for the GPG path; do not relay it.) The wrapper sanity-gates the manifest's BSD format + v1 header + terminator (refusing to sign a malformed manifest that would later break `PHASE_VERIFY`'s parser), signs via `gpg --detach-sign --armor` against [S1], verifies with `gpg --verify`, and exports `intergenos-release-key.asc` — leaving the whole triplet in `/tmp/c6r2-manifest/`. Signing requires the OpenPGP **User PIN + an on-card touch** (UIF policy — watch the LED).
 
-**Maintainer post-ceremony:** deliver all THREE artifacts into `/mnt/intergenos/build/` (the directory Step 4.8 reads; the mount is shared host↔build-VM, so the `.sig` + `release-key.asc` just need copying in beside the manifest), then resume `sudo bash scripts/build-intergenos.sh --user <user> --debug-verbose --start-at squashfs`. Step 4.8's staging gate fail-closes unless the triplet is present + non-empty, the signature verifies against the staged key, and every staged archive appears in the manifest.
+**Maintainer post-ceremony:** deliver all FIVE artifacts (both manifests, both `.sig` files, `release-key.asc`) into `/mnt/intergenos/build/` (the directory Step 4.8 reads; the mount is shared host↔build-VM), then resume `sudo bash scripts/build-intergenos.sh --user <user> --debug-verbose --start-at squashfs`. Step 4.8 seals the ISO manifest; its staging gate fail-closes unless the triplet is present + non-empty, the signature verifies against the staged key, and coverage holds in both directions — every shipped archive appears in the manifest and every manifest entry has a shipped archive.
 
 > **⚠️ `build/` (and `build/bootloader/`) is root-owned AND may hold a PRIOR ceremony's stale triplet / `.efi.signed` set.** A plain `cp` from your user shell fails *permission-denied*, and even with privilege a stale prior copy can shadow the fresh one (same stale-input hazard as the bootloader stage). So the delivery is NOT a bare "just copy them in": **(1) clear the stale prior-ceremony artifacts first, then (2) copy the fresh set in, using privilege.** On the shared mount the build VM's NOPASSWD sudo is the clean privilege path: `scp` the fresh triplet to the VM's `/tmp`, then on the VM `sudo rm -f /mnt/intergenos/build/{intergenos-archive-manifest.txt,intergenos-archive-manifest.txt.sig,intergenos-release-key.asc}` (the stale set) → `sudo cp /tmp/<each> /mnt/intergenos/build/`. (Same shape for `build/bootloader/*.efi.signed` in ceremony #2.) Verify the delivered shas before resuming. (Documented 2026-06-19 after the bare-copy step failed on root-owned `build/` + stale files during GBC004.1.)
 

@@ -80,6 +80,7 @@ VENDOR_CERT="${INTERGENOS_VENDOR_CERT:-/etc/intergenos/signing/vendor-cert.pem}"
 PKCS11_MODULE="${INTERGENOS_PKCS11_MODULE:-/usr/local/lib/opensc-pkcs11.so}"
 STRICT=0
 MANIFEST_PATH=""
+ISO_MANIFEST_PATH=""
 
 # -------- arg parsing --------
 while [[ $# -gt 0 ]]; do
@@ -92,6 +93,7 @@ while [[ $# -gt 0 ]]; do
         --pkcs11-module)     PKCS11_MODULE="$2"; shift 2 ;;
         --vendor-cert)       VENDOR_CERT="$2"; shift 2 ;;
         --manifest)          MANIFEST_PATH="$2"; shift 2 ;;
+        --iso-manifest)      ISO_MANIFEST_PATH="$2"; shift 2 ;;
         --strict)            STRICT=1; shift ;;
         -h|--help)
             sed -n '2,45p' "$0"
@@ -442,6 +444,47 @@ elif [[ "$STRICT" == "1" ]]; then
     die "strict: missing manifest at $MANIFEST" 4
 else
     echo "[-] skipping archive manifest (not present at $MANIFEST)"
+fi
+
+# -------- step 4b: ISO archive manifest (the shipped subset) --------
+# phase_manifest emits a second manifest beside the full one:
+# intergenos-archive-manifest-iso.txt = the full census minus the mirror-only
+# archives build-squashfs keeps off the ISO. It is the manifest the ISO
+# carries (Step 4.8 stages it under the canonical installer name); the full
+# one is the mirror's. Same key, same detached-signature shape. Signed when
+# present (or named via --iso-manifest); a release squashfs refuses to build
+# without its signature.
+ISO_MANIFEST="${ISO_MANIFEST_PATH:-$ARTIFACTS/intergenos-archive-manifest-iso.txt}"
+if [[ -f "$ISO_MANIFEST" ]]; then
+    echo "[*] signing ISO archive manifest: $ISO_MANIFEST"
+    if ! grep -q '^# Manifest-version: 1$' "$ISO_MANIFEST"; then
+        die "ISO manifest missing 'Manifest-version: 1' header — refusing to sign" 5
+    fi
+    if ! grep -q '^# Manifest-scope: iso$' "$ISO_MANIFEST"; then
+        die "ISO manifest missing '# Manifest-scope: iso' header — not an ISO manifest; refusing to sign it under that name" 5
+    fi
+    if ! grep -q '^# End of manifest\.$' "$ISO_MANIFEST"; then
+        die "ISO manifest missing '# End of manifest.' terminator — refusing to sign" 5
+    fi
+    if ! grep -q '^SHA256 ' "$ISO_MANIFEST"; then
+        die "ISO manifest contains no SHA256 entries — refusing to sign empty manifest" 5
+    fi
+    cp "$ISO_MANIFEST" "$OUTPUT_STAGING/intergenos-archive-manifest-iso.txt"
+    iso_sign_args=(--batch --yes --detach-sign --armor
+                   --local-user "$GPG_KEY_ID")
+    if [[ -n "$GPG_MASTER_KEY_ID" ]]; then
+        iso_sign_args+=(--local-user "$GPG_MASTER_KEY_ID")
+    fi
+    iso_sign_args+=(--output "$OUTPUT_STAGING/intergenos-archive-manifest-iso.txt.sig"
+                    "$OUTPUT_STAGING/intergenos-archive-manifest-iso.txt")
+    gpg "${iso_sign_args[@]}"
+    gpg --verify "$OUTPUT_STAGING/intergenos-archive-manifest-iso.txt.sig" \
+                "$OUTPUT_STAGING/intergenos-archive-manifest-iso.txt" \
+        || die "GPG signature verification failed for ISO manifest" 3
+    echo "    -> $OUTPUT_STAGING/intergenos-archive-manifest-iso.txt"
+    echo "    -> $OUTPUT_STAGING/intergenos-archive-manifest-iso.txt.sig"
+else
+    echo "[-] skipping ISO archive manifest (not present at $ISO_MANIFEST)"
 fi
 
 # -------- B-025 (T0-2) cross-cutting .efi count assertion --------

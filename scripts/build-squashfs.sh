@@ -1073,11 +1073,23 @@ status_line "setuid/setgid inventory gate" PASS
 #
 # Release mode: copy the operator-signed {manifest, .sig, release-key} from
 # the host signing-staging dir (SIGNED_MANIFEST_DIR, default the build dir
-# where phase_manifest emitted the manifest + the phase_manifest ENFORCED
+# where phase_manifest emitted the manifests + the phase_manifest ENFORCED
 # PAUSE instructed the operator to place the signed set) into $CHROOT/install/,
 # then run the fail-closed §4B gate (check-install-integrity-staging.sh):
 # triplet present + non-empty, signature verifies against the staged key,
-# every staged archive appears in the manifest. Any failure => refuse to seal.
+# and coverage in BOTH directions — every shipped archive appears in the
+# manifest AND every manifest entry has a shipped archive. Any failure =>
+# refuse to seal.
+#
+# WHICH manifest ships (decided 2026-09-02, after the R001.2 install abort):
+# with ISO_PREP=1 (the release shape) Step 2.6 keeps the mirror-only archives
+# off the squashfs, so the manifest sealed here is the ISO manifest
+# (intergenos-archive-manifest-iso.txt — the full census minus that same
+# exclusion list, derived by phase_manifest), staged under the canonical
+# installer name. The full manifest (every archive in the chroot) is the
+# mirror's and never rides a subset media: R001.2 did exactly that and the
+# installer refused 284 promised-but-absent archives. ISO_PREP=0 (a
+# diagnostic squashfs carrying the full corpus) stages the full manifest.
 #
 # Dev mode (UNSIGNED_TEST=1): stage the explicit IGOS_DEV_ALLOW_UNVERIFIED
 # marker instead — the sanctioned, loud dev seam the installer keys its skip
@@ -1119,19 +1131,40 @@ if [ "${UNSIGNED_TEST:-0}" = "1" ]; then
     status_line "install-integrity staging (dev marker)" DONE
 else
     log "install-integrity: staging signed trust triplet into $INSTALL_STAGING..."
-    src_manifest="$SIGNED_MANIFEST_DIR/intergenos-archive-manifest.txt"
-    src_sig="$SIGNED_MANIFEST_DIR/intergenos-archive-manifest.txt.sig"
+    GATE_EXCLUDES_ARGS=()
+    if [ "$ISO_PREP" = "1" ]; then
+        src_manifest="$SIGNED_MANIFEST_DIR/intergenos-archive-manifest-iso.txt"
+        src_sig="$SIGNED_MANIFEST_DIR/intergenos-archive-manifest-iso.txt.sig"
+        detail "ISO_PREP=1: sealing the ISO manifest (shipped subset): $src_manifest"
+        if [ ! -s "$MIRROR_ARCHIVE_EXCLUDES_FILE" ]; then
+            status_line "install-integrity staging (signed triplet)" FAIL
+            die "archive-excludes list absent ($MIRROR_ARCHIVE_EXCLUDES_FILE) — Step 2.6 did not run; cannot say which archives ship"
+        fi
+        GATE_EXCLUDES_ARGS=(--archive-excludes "$MIRROR_ARCHIVE_EXCLUDES_FILE")
+    else
+        src_manifest="$SIGNED_MANIFEST_DIR/intergenos-archive-manifest.txt"
+        src_sig="$SIGNED_MANIFEST_DIR/intergenos-archive-manifest.txt.sig"
+        detail "ISO_PREP=0: full corpus squashfs — sealing the full manifest: $src_manifest"
+    fi
     src_key="$SIGNED_MANIFEST_DIR/intergenos-release-key.asc"
     for f in "$src_manifest" "$src_sig" "$src_key"; do
         if [ ! -s "$f" ]; then
             detail "signed trust artifact missing or empty: $f"
-            detail "a release build requires the operator-signed triplet in"
-            detail "$SIGNED_MANIFEST_DIR/ (see the phase_manifest enforced pause)."
+            detail "a release build requires the operator-signed set in"
+            detail "$SIGNED_MANIFEST_DIR/ (see the phase_manifest enforced pause:"
+            detail "BOTH manifests are signed in one ceremony; the ISO manifest"
+            detail "is the one a release squashfs seals)."
             detail "for a dev ISO, re-run with UNSIGNED_TEST=1."
             status_line "install-integrity staging (signed triplet)" FAIL
             die "signed trust triplet incomplete — refusing to build squashfs"
         fi
     done
+    if [ "$ISO_PREP" = "1" ] && ! grep -q '^# Manifest-scope: iso$' "$src_manifest"; then
+        detail "$src_manifest does not carry '# Manifest-scope: iso'"
+        detail "a full manifest under the ISO name would promise archives the media does not hold."
+        status_line "install-integrity staging (signed triplet)" FAIL
+        die "manifest staged for the ISO is not an ISO manifest — refusing to build squashfs"
+    fi
     mkdir -p "$INSTALL_STAGING"
     # Ensure no stale dev marker rides into a release squashfs.
     rm -f "$INSTALL_STAGING/IGOS_DEV_ALLOW_UNVERIFIED" 2>/dev/null || true
@@ -1149,12 +1182,14 @@ else
     gate_out="$(INTEGRITY_MARKER="$INTEGRITY_MARKER" bash "$STAGING_GATE" \
         --install-dir "$INSTALL_STAGING" \
         --archive-dir "$ARCHIVE_DIR" \
+        "${GATE_EXCLUDES_ARGS[@]}" \
         --repo-root "$REPO_ROOT_FOR_GATE" \
         --emit-marker "$INTEGRITY_MARKER" 2>&1)" && gate_rc=0 || gate_rc=$?
     [ -n "$gate_out" ] && printf '%s\n' "$gate_out" | logpipe "[integrity]"
     if [ "$gate_rc" -ne 0 ]; then
         detail "the release trust triplet is absent, the signature does not verify"
-        detail "against the staged release key, or a staged archive is unmanifested."
+        detail "against the staged release key, a shipped archive is unmanifested,"
+        detail "or the manifest promises an archive the media would not carry."
         status_line "install-integrity staging (signed triplet)" FAIL
         die "install-integrity staging gate failed — refusing to build squashfs"
     fi

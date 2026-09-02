@@ -11,13 +11,28 @@
 # recommended directly to the operator during a live ceremony.
 #
 # Inputs (in /tmp/c6r2-manifest/):
-#   intergenos-archive-manifest.txt   (unsigned, copied from build VM)
+#   intergenos-archive-manifest.txt       (unsigned FULL manifest — the mirror's
+#                                          census of every archive the build
+#                                          chroot holds; copied from build VM)
+#   intergenos-archive-manifest-iso.txt   (unsigned ISO manifest — the full
+#                                          census minus the mirror-only archives
+#                                          the ISO does not carry; emitted by
+#                                          phase_manifest beside the full one)
 #   PIN (prompted via read -s; OpenPGP User PIN, short)
 #
 # Outputs (in /tmp/c6r2-manifest/):
-#   intergenos-archive-manifest.txt.sig   (ASCII-armored detached signature)
+#   intergenos-archive-manifest.txt.sig       (ASCII-armored detached signature)
+#   intergenos-archive-manifest-iso.txt.sig   (ASCII-armored detached signature)
 #
-# Verifies the signature with `gpg --verify` before declaring success.
+# ONE ceremony signs BOTH manifests (two gpg operations: the card asks for a
+# touch per signature; the PIN is cached by gpg-agent between them). The ISO
+# manifest is what build-squashfs Step 4.8 seals into the squashfs at
+# /install/intergenos-archive-manifest.txt; the full one goes to the mirror
+# with publish-repo.sh. A release squashfs refuses to build without the
+# signed ISO manifest (the R001.2 install abort, 2026-08-27: the ISO carried
+# the full manifest and promised 284 archives the media did not hold).
+#
+# Verifies every signature with `gpg --verify` before declaring success.
 #
 # Companion to scripts/sign-bootloader.sh (bootloader EFI binaries via
 # PIV slot 9c). This is the FIRST of the build pipeline's two signing
@@ -35,7 +50,12 @@ gpgconf --kill scdaemon 2>&1
 # CONFIG
 # ============================================================
 MANIFEST_DIR="/tmp/c6r2-manifest"
-MANIFEST_BASENAME="intergenos-archive-manifest.txt"
+# The full manifest is REQUIRED (it has always been the ceremony's subject).
+# The ISO manifest is required too unless SIGN_MANIFEST_FULL_ONLY=1 names the
+# mirror-only re-sign case explicitly — a release squashfs cannot be built
+# from a ceremony that skipped it.
+FULL_MANIFEST_BASENAME="intergenos-archive-manifest.txt"
+ISO_MANIFEST_BASENAME="intergenos-archive-manifest-iso.txt"
 
 # Expected signing subkey fingerprint (InterGenJLU OpenPGP [S1] subkey
 # on Nitrokey #1). Set via env if a different signing key is in use.
@@ -67,21 +87,39 @@ for tool in gpg sha256sum; do
 done
 ok "Tools present: gpg sha256sum"
 
-[[ -d "$MANIFEST_DIR" ]] || die "Manifest dir not found at $MANIFEST_DIR — pre-stage the unsigned manifest before invoking this script"
-MANIFEST="$MANIFEST_DIR/$MANIFEST_BASENAME"
-[[ -f "$MANIFEST" ]] || die "Unsigned manifest not found at $MANIFEST"
-ok "Unsigned manifest present: $MANIFEST ($(stat -c %s "$MANIFEST") bytes)"
+[[ -d "$MANIFEST_DIR" ]] || die "Manifest dir not found at $MANIFEST_DIR — pre-stage the unsigned manifests before invoking this script"
+MANIFESTS=()
+FULL_MANIFEST="$MANIFEST_DIR/$FULL_MANIFEST_BASENAME"
+ISO_MANIFEST="$MANIFEST_DIR/$ISO_MANIFEST_BASENAME"
+[[ -f "$FULL_MANIFEST" ]] || die "Unsigned full manifest not found at $FULL_MANIFEST"
+MANIFESTS+=("$FULL_MANIFEST")
+if [[ -f "$ISO_MANIFEST" ]]; then
+    MANIFESTS+=("$ISO_MANIFEST")
+elif [[ "${SIGN_MANIFEST_FULL_ONLY:-0}" == "1" ]]; then
+    echo "note: SIGN_MANIFEST_FULL_ONLY=1 — signing the full manifest only; no release squashfs can be built from this ceremony" >&2
+else
+    die "Unsigned ISO manifest not found at $ISO_MANIFEST — phase_manifest emits it beside the full one; stage both (or set SIGN_MANIFEST_FULL_ONLY=1 for a mirror-only re-sign)"
+fi
 
-# Sanity-check the manifest looks well-formed before signing it (matches
+# Sanity-check each manifest looks well-formed before signing it (matches
 # scripts/sign-release.sh's checks). Refusing to sign garbage is the
 # whole point of an inline sanity gate.
-grep -q '^# Manifest-version: 1$' "$MANIFEST" \
-    || die "Manifest missing 'Manifest-version: 1' header — refusing to sign"
-grep -q '^# End of manifest\.$' "$MANIFEST" \
-    || die "Manifest missing '# End of manifest.' terminator — refusing to sign"
-grep -qE '^SHA256 \(' "$MANIFEST" \
-    || die "Manifest contains no SHA256 entries — refusing to sign empty manifest"
-ok "Manifest structurally valid (header + terminator + SHA256 entries present)"
+for MANIFEST in "${MANIFESTS[@]}"; do
+    ok "Unsigned manifest present: $MANIFEST ($(stat -c %s "$MANIFEST") bytes, $(grep -c '^SHA256 (' "$MANIFEST") entries)"
+    grep -q '^# Manifest-version: 1$' "$MANIFEST" \
+        || die "$MANIFEST missing 'Manifest-version: 1' header — refusing to sign"
+    grep -q '^# End of manifest\.$' "$MANIFEST" \
+        || die "$MANIFEST missing '# End of manifest.' terminator — refusing to sign"
+    grep -qE '^SHA256 \(' "$MANIFEST" \
+        || die "$MANIFEST contains no SHA256 entries — refusing to sign empty manifest"
+done
+# The ISO manifest must say so: a full manifest staged under the ISO name
+# would put the R001.2 abort back on the media.
+if [[ -f "$ISO_MANIFEST" ]]; then
+    grep -q '^# Manifest-scope: iso$' "$ISO_MANIFEST" \
+        || die "$ISO_MANIFEST lacks the '# Manifest-scope: iso' header — not an ISO manifest; refusing to sign it under that name"
+fi
+ok "Manifest(s) structurally valid (header + terminator + SHA256 entries present)"
 
 # Lock pre-flight BEFORE the card check, because a lock GnuPG will not break
 # makes every gpg call wait without a bound — including the card check below,
@@ -125,21 +163,22 @@ banner "FINAL CONFIRMATION"
 cat <<EOF
 
 This script will:
-  1. Sign the archive manifest at:
-       $MANIFEST
+  1. Sign ${#MANIFESTS[@]} archive manifest(s):
+$(for m in "${MANIFESTS[@]}"; do printf '       %s\n' "$m"; done)
      via Nitrokey #1's OpenPGP signing subkey [S1] using
-     gpg --detach-sign --armor.
-  2. Verify the resulting signature with gpg --verify against the
-     same manifest.
-  3. Stage signed output at:
-       $MANIFEST.sig (ASCII-armored detached signature)
+     gpg --detach-sign --armor (one signature per file).
+  2. Verify each resulting signature with gpg --verify against its
+     manifest.
+  3. Stage signed output beside each manifest as <manifest>.sig
+     (ASCII-armored detached signature).
 
 NOT touched: PIV applet (bootloader signing key), master keys, repo,
-build VM filesystem (signed manifest stays in $MANIFEST_DIR; you'll
-explicitly copy it back to the build host).
+build VM filesystem (signed manifests stay in $MANIFEST_DIR; you'll
+explicitly copy them back to the build host).
 
-The signing operation will require the OpenPGP User PIN AND an on-card
-touch (UIF policy) — watch the Nitrokey's LED.
+Each signature requires an on-card touch (UIF policy) — watch the
+Nitrokey's LED and touch once per file; the OpenPGP User PIN is asked
+once and cached by gpg-agent for the second signature.
 
 Type 'sign manifest' to proceed:
 EOF
@@ -149,39 +188,41 @@ read -r CONFIRM
 # ============================================================
 # SIGN
 # ============================================================
-banner "Signing manifest"
+for MANIFEST in "${MANIFESTS[@]}"; do
+    banner "Signing $(basename "$MANIFEST")"
 
-SIGNATURE="$MANIFEST.sig"
-rm -f "$SIGNATURE"
+    SIGNATURE="$MANIFEST.sig"
+    rm -f "$SIGNATURE"
 
-SIGN_ARGS=(
-    --batch --yes
-    --detach-sign --armor
-    --output "$SIGNATURE"
-)
-if [[ -n "$EXPECTED_SIGNING_KEY" ]]; then
-    SIGN_ARGS+=(--local-user "$EXPECTED_SIGNING_KEY")
-fi
-SIGN_ARGS+=("$MANIFEST")
+    SIGN_ARGS=(
+        --batch --yes
+        --detach-sign --armor
+        --output "$SIGNATURE"
+    )
+    if [[ -n "$EXPECTED_SIGNING_KEY" ]]; then
+        SIGN_ARGS+=(--local-user "$EXPECTED_SIGNING_KEY")
+    fi
+    SIGN_ARGS+=("$MANIFEST")
 
-info "Invoking gpg (you'll be prompted for the OpenPGP User PIN via pinentry, and the Nitrokey will request a touch)..."
+    info "Invoking gpg (OpenPGP User PIN via pinentry if not cached; the Nitrokey will request a touch)..."
 
-if ! gpg "${SIGN_ARGS[@]}"; then
-    die "gpg --detach-sign failed"
-fi
+    if ! gpg "${SIGN_ARGS[@]}"; then
+        die "gpg --detach-sign failed for $MANIFEST"
+    fi
 
-[[ -s "$SIGNATURE" ]] || die "gpg produced empty signature file"
-ok "Signature written: $SIGNATURE ($(stat -c %s "$SIGNATURE") bytes)"
+    [[ -s "$SIGNATURE" ]] || die "gpg produced empty signature file for $MANIFEST"
+    ok "Signature written: $SIGNATURE ($(stat -c %s "$SIGNATURE") bytes)"
 
-# ============================================================
-# VERIFY
-# ============================================================
-banner "Verifying signature"
+    # ========================================================
+    # VERIFY
+    # ========================================================
+    banner "Verifying $(basename "$SIGNATURE")"
 
-if ! gpg --verify "$SIGNATURE" "$MANIFEST" 2>&1; then
-    die "gpg --verify FAILED — signature does not validate against $MANIFEST"
-fi
-ok "gpg --verify PASSED"
+    if ! gpg --verify "$SIGNATURE" "$MANIFEST" 2>&1; then
+        die "gpg --verify FAILED — signature does not validate against $MANIFEST"
+    fi
+    ok "gpg --verify PASSED"
+done
 
 # ============================================================
 # RELEASE PUBLIC KEY — the third trust artifact for Step 4.8
@@ -207,29 +248,26 @@ ok "Release public key exported: $RELEASE_KEY ($(stat -c %s "$RELEASE_KEY") byte
 # ============================================================
 # SUMMARY
 # ============================================================
-banner "Manifest signing complete — signature staged + verified"
+banner "Manifest signing complete — signature(s) staged + verified"
 
 cat <<EOF
 
-Signed manifest staged at:
-  $SIGNATURE
+Signed and verified in $MANIFEST_DIR/:
+$(for m in "${MANIFESTS[@]}"; do
+    printf '  %-42s sha256 %s\n' "$(basename "$m")" "$(sha256sum "$m" | awk '{print $1}')"
+    printf '  %-42s sha256 %s\n' "$(basename "$m").sig" "$(sha256sum "$m.sig" | awk '{print $1}')"
+  done)
+  $(printf '%-42s' "$(basename "$RELEASE_KEY")") (release public key)
 
-SHAs:
-  manifest:  $(sha256sum "$MANIFEST" | awk '{print $1}')
-  signature: $(sha256sum "$SIGNATURE" | awk '{print $1}')
-
-The full release trust triplet is now staged in $MANIFEST_DIR/:
-  intergenos-archive-manifest.txt        (manifest)
-  intergenos-archive-manifest.txt.sig    (detached signature)
-  intergenos-release-key.asc             (release public key)
-
-All THREE must land in /mnt/intergenos/build/ for build-squashfs Step 4.8.
-The coordinator handles that copy and the --start-at squashfs resume.
+Every file above lands in /mnt/intergenos/build/ for build-squashfs Step 4.8,
+which seals the ISO manifest (+ .sig + key) into the squashfs and the mirror
+publish ships the full manifest. The coordinator handles that copy and the
+--start-at squashfs resume.
 
 Verification (any host with the release public key):
-  gpg --verify intergenos-archive-manifest.txt.sig intergenos-archive-manifest.txt
+  gpg --verify <manifest>.sig <manifest>
 
 EOF
 
-ok "Script complete. Manifest signed + verified."
+ok "Script complete. Manifest(s) signed + verified."
 exit 0
