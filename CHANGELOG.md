@@ -145,6 +145,16 @@ landed is in the repository README, not here.
   installation then reported thousands of its own files missing. The step runs
   before the package is written, so it clears only what a previous version
   left behind. (pkm r69)
+- **`pkm verify` no longer reports three existing systemd files as missing.**
+  Three slice units whose file names contain a backslash were recorded in the
+  build's manifest with a stray backslash before their hash, so every
+  installation registered them under a name that does not exist. The build's
+  manifest writer records the hash cleanly, and the package manager reads the
+  manifests already in the field. (pkm r71)
+- **The smoke harness's module-signing check no longer fails on a kernel that
+  enforces signing.** The check read the kernel config through a pipe that
+  broke under the harness's own shell options; it now reads the config
+  directly. (forge r240)
 
 - Every trace row the assistant daemon writes while starting and warming up names the boot that produced it; the warm-up generations and the engine offload check no longer write placeholder-identified rows (intergen r245).
 

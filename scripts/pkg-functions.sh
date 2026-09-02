@@ -1005,7 +1005,14 @@ pkg_manifest() {
                         printf '%s/\n' "$_path"
                         ;;
                     f)
-                        _hash=$(sha256sum -- "$_path" 2>/dev/null | cut -d' ' -f1)
+                        # Hash from standard input, never by name: given a
+                        # file name containing a backslash, sha256sum writes
+                        # its output line in escaped form (a leading "\"
+                        # before the digest), and the field cut below then
+                        # carried that backslash into the manifest —
+                        # systemd's three system-systemd\x2d*.slice units
+                        # verified as "missing" on every R001.2 install.
+                        _hash=$(sha256sum < "$_path" 2>/dev/null | cut -d' ' -f1)
                         if [ -n "$_hash" ]; then
                             printf '%s sha256:%s\n' "$_path" "$_hash"
                         else

@@ -319,7 +319,12 @@ def _is_expected_absent(package, path):
 # chars. This handles paths containing whitespace correctly (e.g.,
 # linux-firmware files like "brcmfmac43455-sdio.Raspberry Pi Foundation-...txt.xz")
 # where naive whitespace-split parsers truncate the path.
-_SHA256_SUFFIX_RE = re.compile(r' sha256:([0-9a-f]{64})$')
+# The optional backslash before the digest tolerates rows already in the
+# field: the bash lane's writer once carried sha256sum's escaped-output
+# backslash for file names containing a backslash (systemd's
+# system-systemd\x2d*.slice units), and installs made from those manifests
+# must still verify (tests/pkm/test_manifest_hash_backslash_names.py).
+_SHA256_SUFFIX_RE = re.compile(r' sha256:\\?([0-9a-f]{64})$')
 
 
 def _parse_manifest_line(line):

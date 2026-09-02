@@ -25,6 +25,12 @@ SMOKE_MOK_CERT="${SMOKE_MOK_CERT:-/var/lib/intergen/mok/mok.crt}"
 # package and GRUB install hooks stage binaries here at install time.
 SMOKE_SHIM_EFI="${SMOKE_SHIM_EFI:-/boot/efi/EFI/InterGenOS/shimx64.efi}"
 SMOKE_GRUB_EFI="${SMOKE_GRUB_EFI:-/boot/efi/EFI/InterGenOS/grubx64.efi}"
+# Module-signing enforcement inputs (overridable so the check can be driven
+# against a fixture: tests/test_smoke_module_sig_force_pipefail.py). An empty
+# SMOKE_KCONFIG means "the kernel's own config" (/proc/config.gz, then
+# /boot/config-<release>).
+SMOKE_MODULE_SIG_ENFORCE="${SMOKE_MODULE_SIG_ENFORCE:-/proc/sys/kernel/module_sig_enforce}"
+SMOKE_KCONFIG="${SMOKE_KCONFIG:-}"
 
 # Secure-Boot state probe shared by the venue-aware checks (3.0-F47): several
 # expectations differ BY DESIGN between an SB-on and an SB-off install, so
@@ -345,7 +351,7 @@ check_signing_secondary_keyring() {
 }
 
 check_signing_module_sig_force() {
-    local enforce="/proc/sys/kernel/module_sig_enforce"
+    local enforce="$SMOKE_MODULE_SIG_ENFORCE"
     local lockdown="/sys/kernel/security/lockdown"
 
     if [ ! -r "$enforce" ]; then
@@ -354,12 +360,19 @@ check_signing_module_sig_force() {
         # one. Distinguish "compiled-in enforcement" from "no module signing"
         # by reading the kernel config rather than emitting a misleading skip.
         local kconfig=""
-        if [ -r /proc/config.gz ]; then
+        if [ -n "$SMOKE_KCONFIG" ]; then
+            [ -r "$SMOKE_KCONFIG" ] && kconfig="$(cat "$SMOKE_KCONFIG" 2>/dev/null)"
+        elif [ -r /proc/config.gz ]; then
             kconfig="$(zcat /proc/config.gz 2>/dev/null)"
         elif [ -r "/boot/config-$(uname -r)" ]; then
             kconfig="$(cat "/boot/config-$(uname -r)" 2>/dev/null)"
         fi
-        if printf '%s\n' "$kconfig" | grep -qx "CONFIG_MODULE_SIG_FORCE=y"; then
+        # A here-string, not a pipe: the harness runs under pipefail, and
+        # piping ~300 KB of config into `grep -q` made the writer take
+        # SIGPIPE at grep's first-match exit — the pipeline then reported
+        # failure and a kernel with enforcement compiled in was called
+        # "not enforced" (R001.2 pre-install evaluations, 08-27 and 09-02).
+        if grep -qx "CONFIG_MODULE_SIG_FORCE=y" <<<"$kconfig"; then
             check_pass "sign/module-sig-force" "module_sig_enforce sysctl absent BY DESIGN — CONFIG_MODULE_SIG_FORCE=y compiles enforcement in unconditionally (strongest posture)"
         elif [ -n "$kconfig" ]; then
             check_fail "sign/module-sig-force" "$enforce unreadable AND CONFIG_MODULE_SIG_FORCE not =y — module signing is not enforced"
