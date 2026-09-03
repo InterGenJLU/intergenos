@@ -112,7 +112,8 @@ class FakeRemover:
         self.calls = []
 
     def remove(self, name, force=False, reporter=None, on_file=None,
-               run_pre_remove_hook=True):
+               run_pre_remove_hook=True, run_post_remove_hook=None,
+               keep_helper_payload=False):
         # Signature mirrors PackageRemover.remove exactly. A double whose
         # signature has drifted from the real one stops standing in for it —
         # it starts hiding whatever the caller now passes.
@@ -202,7 +203,8 @@ class ExitCodeTruthTest(UpgradeTruthTestBase):
         a package that was supposed to be gone."""
         class RefusingRemover(FakeRemover):
             def remove(self, name, force=False, reporter=None, on_file=None,
-                       run_pre_remove_hook=True):
+                       run_pre_remove_hook=True, run_post_remove_hook=None,
+                       keep_helper_payload=False):
                 return False, "another package depends on it"
 
         installer = FakeInstaller(result=(True, "Installed kern"))

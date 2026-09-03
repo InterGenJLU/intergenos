@@ -124,6 +124,20 @@ instructions are unchanged from R001.
 
 ### Fixed
 
+- **Upgrading a download-helper package no longer deletes the application it
+  installed.** A package such as the CUDA toolkit ships a small installer
+  script; the application itself is fetched from the vendor by that script
+  and recorded on the same package. Upgrading the package removed every file
+  the package owned — the application included, seven gigabytes in the
+  toolkit's case — installed the new script, and reported success, leaving
+  the CUDA engine unable to start. An upgrade now keeps the application and
+  its record in place and replaces only the script; when the application was
+  never installed, the upgrade says so and does not start a download nobody
+  asked for. (pkm r73)
+- The CUDA toolkit's installer script now records its own package release in
+  the footprint it leaves for the package manager, so the toolkit is recorded
+  at the release that was installed on every package-manager release,
+  including the one on the installed image. (cuda-toolkit r6)
 - The package manager no longer records a proprietary-download helper's
   package (the CUDA toolkit) at release 1 over the archive's release, which
   produced a phantom same-version upgrade offer after every such install.

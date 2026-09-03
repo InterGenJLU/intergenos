@@ -74,6 +74,17 @@ do_install() {
     fi
 
     install -d -m 755 "${DESTDIR}/usr/bin"
+    # Release lockstep. The helper writes its own release into the footprint
+    # manifest it leaves for the package manager; a helper carrying a release
+    # other than the one in package.yml would record the wrong release on
+    # every install. Fail-closed at build time, like the version check above.
+    local pkg_release
+    pkg_release="$(sed -nE 's/^release:[[:space:]]*([0-9]+).*/\1/p' "$BUILD_DIR/package.yml" | head -n 1)"
+    if ! grep -q "^HELPER_RELEASE=\"${pkg_release}\"$" "$BUILD_DIR/helper/igos-install-cuda-toolkit"; then
+        echo "ERROR: helper HELPER_RELEASE does not match package.yml release=${pkg_release}" >&2
+        exit 1
+    fi
+
     install -m 755 "$BUILD_DIR/helper/igos-install-cuda-toolkit" \
         "${DESTDIR}/usr/bin/igos-install-cuda-toolkit"
 

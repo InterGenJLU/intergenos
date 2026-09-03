@@ -341,8 +341,12 @@ def _read_partial_manifest_summary(name):
     }
 
 
-def _read_helper_manifest(name):
+def _read_helper_manifest(name, root=None):
     """Read + validate the helper manifest produced by helper-lib.sh.
+
+    `root` names the filesystem being asked (see payload_installed); None is
+    the running system, which is what every caller before the install-root
+    option meant.
 
     H-007. Returns (manifest_dict, None) on success or
     (None, error_message) on absent/malformed/disallowed manifest.
@@ -353,7 +357,8 @@ def _read_helper_manifest(name):
     manifest case to a hard failure once all bundled helpers have
     migrated to the helper-lib API.
     """
-    manifest_path = HELPER_MANIFEST_DIR / f"{name}.manifest"
+    base = HELPER_MANIFEST_DIR if root is None else Path(rootpaths.helper_manifest_dir(root))
+    manifest_path = base / f"{name}.manifest"
     if not manifest_path.is_file():
         return None, f"no manifest at {manifest_path}"
 
@@ -2367,6 +2372,45 @@ class PackageInstaller:
                 f"manually if you want a clean slate before re-running."
             ), False
 
+        return self._register_helper_footprint(name, manifest, helper_path)
+
+    def reattach_helper_payload(self, name):
+        """Re-record a download helper's application on a freshly installed row.
+
+        The upgrade of a download-helper package removes the package record
+        and the archive's own files but leaves the application the helper
+        fetched on disk, together with the helper's footprint manifest (see
+        PackageRemover.remove, keep_helper_payload). Once the new archive is
+        installed this reads that manifest and records the application on
+        the new row exactly as a fresh helper run would: file rows labelled
+        as the helper's, the recorded dependencies, install_method 'helper',
+        the payload version, and the text manifest. Nothing is downloaded and
+        nothing on disk changes.
+
+        Returns (ok, message).
+        """
+        manifest, err = _read_helper_manifest(
+            name, root=None if str(self.root) == "/" else str(self.root))
+        if manifest is None:
+            return False, (
+                f"the footprint manifest for {name} could not be read "
+                f"({err}). The application's files are still on disk but "
+                f"are no longer recorded — run `sudo pkm install {name}` "
+                f"to record them again."
+            )
+        helper_path = self.root / "usr" / "bin" / f"igos-install-{name}"
+        ok, msg, _declined = self._register_helper_footprint(
+            name, manifest, helper_path, verb="Re-recorded")
+        return ok, msg
+
+    def _register_helper_footprint(self, name, manifest, helper_path,
+                                   verb="Installed"):
+        """Record a validated helper footprint manifest on the package row.
+
+        Shared by the helper run (a fresh download) and by the upgrade path
+        (the application kept across a package upgrade). Returns the
+        (ok, message, declined) triple _run_helper returns.
+        """
         # Manifest present + validated: wire files + depends through the
         # DB inside a single BEGIN/COMMIT so the install record stays
         # atomic with the file/depend rows.
@@ -2551,7 +2595,7 @@ class PackageInstaller:
                 print(f"    - {action}")
 
         summary = (
-            f"Installed {name} {version} via helper "
+            f"{verb} {name} {version} via helper "
             f"({helper_path.name}) — {len(rel_paths)} files tracked"
         )
         if manifest_depends:

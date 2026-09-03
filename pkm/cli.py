@@ -2755,8 +2755,22 @@ def cmd_upgrade(db, args):
         # an uninstall. The old version's files are being replaced by the
         # new version's, and the new version's post-install hook is what
         # re-establishes runtime state.
+        # A download-helper package owns two things: the installer script its
+        # archive deposits, and the application that script fetched (the CUDA
+        # toolkit: seven gigabytes from NVIDIA, after a licence acceptance).
+        # An upgrade of the package replaces the script. The application
+        # stays on disk and is re-recorded on the new row below; removing it
+        # here — as every upgrade did until 2026-09-03, when `pkm upgrade
+        # cuda-toolkit` deleted the toolkit with exit 0 — would leave the
+        # person with a working package record and no application.
+        _row = db.get_installed(installed_pkg["name"]) or {}
+        payload_kept = (
+            _row.get("install_method") == "helper"
+            and helper_payload_present(installed_pkg["name"])
+        )
         remove_ok, remove_msg = remover.remove(
-            installed_pkg["name"], force=True, run_pre_remove_hook=False)
+            installed_pkg["name"], force=True, run_pre_remove_hook=False,
+            keep_helper_payload=payload_kept)
         if not remove_ok:
             # The return value was previously discarded outright. A remove
             # that refuses leaves the OLD package in place, and the install
@@ -2813,6 +2827,30 @@ def cmd_upgrade(db, args):
                     f"{installed_pkg['name']} --archive={rollback_archive}`",
                     err=True,
                 )
+            if rb_ok and payload_kept:
+                # The application never left the disk; put it back on the
+                # restored row so verify/remove see it again.
+                installer.reattach_helper_payload(installed_pkg["name"])
+        if ok and payload_kept:
+            # The new archive is installed and the application is still on
+            # disk; record it on the new row from the manifest the remove
+            # kept. The row then reads exactly as a fresh helper install does.
+            r_ok, r_msg = installer.reattach_helper_payload(remote_pkg["name"])
+            if not r_ok:
+                emit_error(f"upgrading {remote_pkg['name']}: {r_msg}")
+                failed_this_txn.append((remote_pkg["name"], r_msg))
+                continue
+        if ok and not payload_kept and helper_is_present(remote_pkg["name"]) \
+                and not helper_payload_present(remote_pkg["name"]):
+            # The installer script was upgraded; the application it installs
+            # is not on this machine and an upgrade does not start a vendor
+            # download nobody asked for. Say so once, plainly.
+            emit_info(
+                f"{remote_pkg['name']} installs its application by download, "
+                f"and that application is not installed on this machine, so "
+                f"only the installer was upgraded. To install the "
+                f"application: sudo pkm install {remote_pkg['name']}"
+            )
         if ok:
             # O-009: record the upgrade as its own history row with old/new
             # version linkage so `pkm history` shows the version transition

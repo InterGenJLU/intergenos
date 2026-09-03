@@ -38,6 +38,11 @@ source /usr/share/igos/helpers/helper-lib.sh
 # pin we cannot check against a vendor-published digest is exactly the
 # unverified assumption this project refuses to build on.
 CUDA_VERSION="13.3.1"
+# This package's own release number, written into the footprint manifest
+# after the files are recorded (see stamp_release_into_manifest below), so
+# the package manager records the toolkit at the release it actually
+# installed. It must equal `release:` in package.yml; the build checks that.
+HELPER_RELEASE="6"
 CUDA_RUN="cuda_13.3.1_610.43.02_linux.run"
 CUDA_URL="https://developer.download.nvidia.com/compute/cuda/13.3.1/local_installers/cuda_13.3.1_610.43.02_linux.run"
 CUDA_RUN_SHA256="9f98ec1f6c950401041d3f1308e221f0d5db8771a8e10569001b64caaee31a92"
@@ -346,6 +351,34 @@ igos_helper_record_dep nvidia
 igos_helper_record_dep glibc
 
 igos_helper_commit
+
+# ---- Release stamp -------------------------------------------------------------
+# The footprint manifest the library just wrote names the toolkit version but
+# not this package's release. The package manager fills a missing release
+# with 1 when it merges the manifest into the package record — measured on a
+# fresh R001.2 install 2026-09-03: the toolkit installed at release 5 was
+# recorded at release 1, `pkm list upgradable` offered a same-version
+# "upgrade" forever, and taking it deleted the toolkit. Writing the release
+# here closes that on every package manager release, including the one on
+# the installed image. Atomic: written beside the manifest, then moved over
+# it, so the manifest is never half-written.
+stamp_release_into_manifest() {
+    local manifest="${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/cuda-toolkit.manifest"
+    local release="$HELPER_RELEASE"
+    [ -f "$manifest" ] || { echo "  ERROR: the footprint manifest was not written; nothing to stamp."; return 1; }
+    python3 - "$manifest" "$release" <<'PY'
+import json, os, sys
+path, release = sys.argv[1], int(sys.argv[2])
+with open(path, "r", encoding="utf-8") as f:
+    manifest = json.load(f)
+manifest["release_installed"] = release
+tmp = path + ".tmp"
+with open(tmp, "w", encoding="utf-8") as f:
+    json.dump(manifest, f, indent=2)
+os.replace(tmp, path)
+PY
+}
+stamp_release_into_manifest
 
 cat <<DONE
 

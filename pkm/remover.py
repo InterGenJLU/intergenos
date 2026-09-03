@@ -469,12 +469,29 @@ class PackageRemover:
             )
 
     def remove(self, name, force=False, reporter=None, on_file=None,
-               run_pre_remove_hook=True, run_post_remove_hook=None):
+               run_pre_remove_hook=True, run_post_remove_hook=None,
+               keep_helper_payload=False):
         """Remove an installed package.
 
         Checks reverse dependencies unless force=True.
         Preserves modified config files. Never unlinks a path co-owned by
         another installed package (Component C), regardless of force.
+
+        ``keep_helper_payload`` (default False): leave on disk every file a
+        download helper recorded for this package (the rows labelled
+        source='helper') and the helper's footprint manifest under
+        /var/lib/igos/helpers/, removing only what the package archive
+        itself deposited. This is the upgrade case: a download-helper
+        package owns a small installer script from the archive AND the
+        application the script fetched (the CUDA toolkit is seven
+        gigabytes from NVIDIA), and an upgrade of the package replaces the
+        script, not the application. Measured 2026-09-03 on a fresh install:
+        `pkm upgrade cuda-toolkit` removed the whole row's files, so the
+        toolkit vanished and the engine that links it stopped starting,
+        with exit 0. The database rows still go with the package record;
+        the caller re-records the payload from the kept manifest after the
+        new archive is installed. A real `pkm remove` leaves this False and
+        removes the application too, which is what removal means.
 
         ``reporter`` (pkm.output.Reporter or None): when provided, the files
         actually removed are listed WITH their target paths (≤50 inline, else
@@ -555,8 +572,20 @@ class PackageRemover:
         # paths identically; a path on neither disk nor database is a no-op.
         files = self.db.get_files(name)
         db_recorded = {f["path"].strip("/") for f in files}
+        # The payload a download helper recorded stays on disk when the
+        # caller asks for it (see the docstring). Both lists are filtered:
+        # the text manifest names the payload paths too, and a path kept
+        # out of one list but reached through the other would still be
+        # unlinked.
+        kept_payload = set()
+        if keep_helper_payload:
+            kept_payload = {
+                f["path"].strip("/") for f in files
+                if f.get("source") == "helper"
+            }
+            files = [f for f in files if f.get("source") != "helper"]
         for rel in sorted(self._manifest_recorded_paths(name, pkg["version"])):
-            if rel and rel not in db_recorded:
+            if rel and rel not in db_recorded and rel not in kept_payload:
                 files.append({"path": rel, "is_dir": False})
         if not files:
             # No files tracked — just remove the DB entry
@@ -789,10 +818,12 @@ class PackageRemover:
         # `pkm install <name>` would route to the proprietary flow and no-op
         # "already installed" even though the payload was unlinked. Rebased
         # under self.root to mirror the MANIFEST_DIR handling above.
+        # When the payload is being kept, its footprint manifest is kept with
+        # it: that file is what the caller re-records the payload from.
         helper_manifest = (
             self.root / "var/lib/igos/helpers" / f"{name}.manifest"
         )
-        if helper_manifest.exists():
+        if helper_manifest.exists() and not keep_helper_payload:
             helper_manifest.unlink()
 
         # Remove from database

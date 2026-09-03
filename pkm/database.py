@@ -1601,10 +1601,15 @@ class PackageDB:
         if not pkg:
             return []
         rows = self.conn.execute(
-            "SELECT path, is_dir FROM files WHERE package_id = ? ORDER BY path",
+            "SELECT path, is_dir, source FROM files WHERE package_id = ? "
+            "ORDER BY path",
             (pkg["id"],)
         ).fetchall()
-        return [{"path": r[0], "is_dir": bool(r[1])} for r in rows]
+        # `source` names which install path deposited the row: 'helper' for a
+        # download helper's payload, 'archive' or None for the package
+        # archive. A remove that must keep a payload in place selects on it.
+        return [{"path": r[0], "is_dir": bool(r[1]), "source": r[2]}
+                for r in rows]
 
     def get_file_checksums(self, name):
         """Recorded checksum per owned file path: {path: sha256 or None}.
