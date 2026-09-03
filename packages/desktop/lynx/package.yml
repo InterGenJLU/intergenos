@@ -1,6 +1,6 @@
 name: lynx
 version: "2.9.2"
-release: 1
+release: 2  # r2: release-only bump. The package was rebuilt in the R001.2 cycle after the 2026-08-25 toolchain-recipe rename; the build inputs did not change, so the rebuilt archive carries the same version-release as the one the mirror already serves with different bytes, which the publish gate refuses (a changed package must strictly advance or installed systems never see it). No build change in this commit; the rebuild itself is proven by the chroot build and the mirror publish that follow.
 description: Text-mode web browser
 license: GPL-2.0-or-later
 homepage: ''

@@ -2,7 +2,7 @@ name: gst-plugin-gtk4
 # Version 1.28.1 = lockstep with the C gstreamer 1.28.1 stack
 # (gst-plugins-rs versions together with gstreamer since the 1.26 series).
 version: "1.28.1"
-release: 1  # r1: initial package for gst-plugins-rs' gtk4paintablesink, required by Snapshot's camera-preview pipeline. Both packages built in chroot; gst-inspect, a 60-buffer Wayland pipeline, and a live Snapshot camera preview passed on real hardware.
+release: 2  # r2: release-only bump. The package was rebuilt in the R001.2 cycle after the 2026-08-25 source-address corrections; the build inputs did not change, so the rebuilt archive carries the same version-release as the one the mirror already serves with different bytes, which the publish gate refuses (a changed package must strictly advance or installed systems never see it). No build change in this commit; the rebuild itself is proven by the chroot build and the mirror publish that follow.  # r1: initial package for gst-plugins-rs' gtk4paintablesink, required by Snapshot's camera-preview pipeline. Both packages built in chroot; gst-inspect, a 60-buffer Wayland pipeline, and a live Snapshot camera preview passed on real hardware.
 description: "GStreamer GTK4 video sink plugin (gtk4paintablesink)"
 license: MPL-2.0
 homepage: https://gstreamer.freedesktop.org/

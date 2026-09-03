@@ -1,10 +1,10 @@
 NAME="InterGenOS"
-VERSION="R001.1 (Revival)"
+VERSION="R001.2 (Revival)"
 ID=intergenos
 ID_LIKE=lfs
-VERSION_ID=r001.1
+VERSION_ID=r001.2
 VERSION_CODENAME=revival
-PRETTY_NAME="InterGenOS R001.1 (Revival)"
+PRETTY_NAME="InterGenOS R001.2 (Revival)"
 HOME_URL="https://github.com/InterGenJLU/intergenos"
 BUG_REPORT_URL="https://github.com/InterGenJLU/intergenos/issues"
 LOGO=intergenos

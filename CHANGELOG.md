@@ -20,7 +20,20 @@ landed is in the repository README, not here.
 
 ## [Unreleased]
 
-### Known limits
+Nothing yet.
+
+---
+
+## [R001.2] — 2026-09-03
+
+The second point release. R001.2 was produced as a targeted rebuild against
+R001's substrate — every changed package recompiled with the full validation
+gate set enforced — then installed and evaluated on real hardware before
+publication. The image, its checksum, the signature over that checksum, and the
+release key are published together on the project mirror; verification
+instructions are unchanged from R001.
+
+### Known limits in R001.2
 
 - The wiki embedding index can stay keyword-only for a daemon run if neither
   the between-turn pass nor a web-page turn completes it; rarer since this
@@ -509,6 +522,12 @@ landed is in the repository README, not here.
 
 ### Changed
 
+- The shipped release identity now states R001.2: `/etc/os-release`
+  (`VERSION`, `VERSION_ID`, `PRETTY_NAME`), `/etc/lsb-release`, `/etc/igos-release`
+  and the `/etc/issue` banner. The codename is unchanged. Systems installed
+  from the R001.2 images minted on 2026-09-02 report R001.1 until they upgrade
+  the base system files package; the image stamp (`IMAGE_VERSION`) was already
+  correct on those images.
 - **The scenario harness measures honestly; nothing a person uses behaves
   differently.** It reads the assistant's turn record as the run adds to it; a
   turn it could not drive is never graded and a dead engine stops the run; a
