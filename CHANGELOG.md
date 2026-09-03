@@ -124,6 +124,9 @@ instructions are unchanged from R001.
 
 ### Fixed
 
+- The package manager no longer records a proprietary-download helper's
+  package (the CUDA toolkit) at release 1 over the archive's release, which
+  produced a phantom same-version upgrade offer after every such install.
 - **The Welcomer works after the NVIDIA driver reboot.** On an NVIDIA machine
   the first-boot greeter installs the vendor driver, asks for a reboot, and
   promises to come back so InterGen can be set up. It came back and crashed

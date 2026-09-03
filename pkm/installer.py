@@ -2392,6 +2392,18 @@ class PackageInstaller:
             release = int(manifest.get("release_installed", 1))
         except (TypeError, ValueError):
             release = 1
+        # A helper manifest that carries no release_installed says nothing
+        # about the release; the archive install that preceded this merge
+        # recorded the .PKGINFO release, and that value must survive. Measured
+        # 2026-09-03: cuda-toolkit r5 was rewritten to r1 here, and
+        # `pkm list upgradable` then offered a phantom 13.3.1-1 -> 13.3.1-5.
+        if "release_installed" not in manifest:
+            prior = self.db.get_installed(name)
+            if prior is not None:
+                try:
+                    release = max(release, int(prior["release"] or 1))
+                except (TypeError, ValueError, KeyError):
+                    pass
         manifest_files = manifest.get("files", [])
         manifest_symlinks = manifest.get("symlinks", [])
         manifest_depends = manifest.get("depends", [])
