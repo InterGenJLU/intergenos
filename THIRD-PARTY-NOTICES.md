@@ -29,7 +29,7 @@ The aggregate ships on the installed system at
 ## Coverage summary
 
 
-**Total packages:** 1174
+**Total packages:** 1176
 
 **Distribution by tier:**
 
@@ -39,7 +39,7 @@ The aggregate ships on the installed system at
 | core | 315 |
 | base | 37 |
 | desktop | 471 |
-| extra | 213 |
+| extra | 215 |
 | ai | 58 |
 | compute | 52 |
 
@@ -48,7 +48,7 @@ The aggregate ships on the installed system at
 | License | Count |
 |---|---:|
 | `MIT` | 275 |
-| `GPL-3.0-or-later` | 153 |
+| `GPL-3.0-or-later` | 155 |
 | `LGPL-2.1-or-later` | 153 |
 | `GPL-2.0-or-later` | 145 |
 | `BSD-3-Clause` | 98 |
@@ -75,8 +75,10 @@ The aggregate ships on the installed system at
 | intergenos-grub-theme | `GPL-3.0-or-later` | `GPL-3.0-or-later` |
 | intergenos-wallpapers | `GPL-3.0-or-later` | `GPL-3.0-or-later` |
 | brave | `GPL-3.0-or-later` | `LicenseRef-Brave-EULA` |
+| chatgpt | `GPL-3.0-or-later` | `LicenseRef-OpenAI-Terms-of-Use` |
 | chrome | `GPL-3.0-or-later` | `LicenseRef-Google-Chrome-ToS` |
 | claude-code | `GPL-3.0-or-later` | `LicenseRef-Anthropic-Commercial-Terms` |
+| codex | `GPL-3.0-or-later` | `Apache-2.0 AND LicenseRef-OpenAI-Terms-of-Use` |
 | discord | `GPL-3.0-or-later` | `LicenseRef-Discord-ToS` |
 | edge | `GPL-3.0-or-later` | `LicenseRef-Microsoft-Edge-EULA` |
 | ffmpeg-nonfree | `GPL-3.0-or-later` | `GPL-3.0-or-later AND FDK-AAC` |
@@ -6020,6 +6022,14 @@ GTK4 frontend for mpv media player
 - License: `GPL-3.0-or-later`
 - Homepage: https://celluloid-player.github.io/
 
+### chatgpt (1.0)
+
+Helper to download and install the ChatGPT desktop app with Codex
+
+- License: `GPL-3.0-or-later`
+- Payload license: `LicenseRef-OpenAI-Terms-of-Use`
+- Homepage: https://developers.openai.com/codex/app
+
 ### chrome (1.0)
 
 Helper to download and install Google Chrome
@@ -6042,6 +6052,14 @@ C++ port of Lucene high performance text search engine
 
 - License: `LGPL-2.1-or-later OR Apache-2.0`
 - Homepage: https://clucene.sourceforge.net/
+
+### codex (1.0)
+
+Helper to install OpenAI Codex CLI and VS Code extension
+
+- License: `GPL-3.0-or-later`
+- Payload license: `Apache-2.0 AND LicenseRef-OpenAI-Terms-of-Use`
+- Homepage: https://developers.openai.com/codex/
 
 ### composer (2.10.2)
 
