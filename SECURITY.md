@@ -103,6 +103,12 @@ For full details on the key custody architecture that defends against compromise
 
 ---
 
+## AI-assisted security review
+
+InterGenOS is accepted into Anthropic's Cyber Verification Program (July 2026) and OpenAI's Daybreak Blue, its Trusted Access for Cyber program (September 2026). Both lift the default safeguard refusals that frontier AI models apply to security work, for vetted organizations working on systems they are authorized to protect. The project's AI seats use this access to review and remediate InterGenOS's own security-relevant code; every finding lands in this repository with its evidence. Program pages: [Anthropic](https://support.claude.com/en/articles/14604842-real-time-cyber-safeguards-on-claude-opus-and-sonnet) · [OpenAI](https://help.openai.com/en/articles/20001258-openai-daybreak-trusted-access-for-cyber-overview).
+
+---
+
 ## Scope
 
 This policy applies to:
