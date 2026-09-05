@@ -203,6 +203,8 @@ sudo pkm install alsa-utils
 sudo pkm install chrome              # Proprietary: fetched from Google, installed via pkm
 sudo pkm install vscode              # Proprietary: fetched from Microsoft, installed via pkm
 sudo pkm install claude-code         # Proprietary: fetched from Anthropic, installed via pkm
+sudo pkm install codex               # OpenAI Codex CLI + extension: fetched from OpenAI, installed via pkm
+sudo pkm install chatgpt             # Proprietary: ChatGPT desktop app with Codex, fetched from OpenAI
 sudo pkm remove htop
 pkm list installed
 pkm search audio

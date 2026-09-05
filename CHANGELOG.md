@@ -20,7 +20,16 @@ landed is in the repository README, not here.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- `codex`: a download helper that installs OpenAI's Codex command-line coding
+  agent from the npm registry (pinned version, registry signature, advisory
+  check) and the Codex VS Code extension from a pinned, sha256-verified
+  package, the same way the `claude-code` helper does. `sudo pkm install codex`.
+- `chatgpt`: a download helper that installs the ChatGPT desktop app for Linux
+  (ChatGPT, Work and Codex in one application) from OpenAI's signed Linux
+  package repository, verified through the repository's signed metadata the
+  same way the `chrome` and `vscode` helpers are. `sudo pkm install chatgpt`.
 
 ---
 

@@ -1,0 +1,23 @@
+name: chatgpt
+version: "1.0"
+release: 1
+content_hash: 2fe9995e0dbab9eb
+description: Helper to download and install the ChatGPT desktop app with Codex
+license: GPL-3.0-or-later
+payload_license: LicenseRef-OpenAI-Terms-of-Use
+homepage: https://developers.openai.com/codex/app
+tier: extra
+build_style: custom
+install_func: do_install
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  # chatgpt sources /usr/share/igos/helpers/helper-lib.sh at the top of the
+  # install-helper script; the library must be installed before it runs.
+  - intergenos-helper-lib
+  - nodejs
+verify_paths:
+  - /usr/bin/igos-install-chatgpt
+  - /usr/share/igos/helpers/keyrings/chatgpt-keyring.gpg

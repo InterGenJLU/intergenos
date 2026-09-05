@@ -1,0 +1,23 @@
+name: codex
+version: "1.0"
+release: 1
+content_hash: 078bf2958d785ff8
+description: Helper to install OpenAI Codex CLI and VS Code extension
+license: GPL-3.0-or-later
+payload_license: "Apache-2.0 AND LicenseRef-OpenAI-Terms-of-Use"
+homepage: https://developers.openai.com/codex/
+tier: extra
+build_style: custom
+install_func: do_install
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  # codex sources /usr/share/igos/helpers/helper-lib.sh at the top of the
+  # install-helper script; the library must be installed before it runs.
+  - intergenos-helper-lib
+  - nodejs
+verify_paths:
+  - /usr/bin/igos-install-codex
+  - /usr/share/licenses/codex/LICENSE-BY-SPDX

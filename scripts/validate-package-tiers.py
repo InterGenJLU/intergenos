@@ -404,6 +404,11 @@ USER_FACING_APPS = {
     # weak-digest posture, fail-closed 32-bit-closure launch wrapper).
     # Sibling of the *-helper wrappers + ge-proton above.
     "steam",
+    # 2026-09-05: the OpenAI seat helpers — codex (the Codex CLI from the npm
+    # registry + the Codex VS Code extension, the claude-code shape) and
+    # chatgpt (the ChatGPT desktop app with Codex, from OpenAI's signed
+    # Linux repository, the chrome/vscode shape).
+    "codex", "chatgpt",
     # 2026-07-02 GE arc: the gaming meta-package (RT-5 experimental-NVK
     # wording; RT-11 flat lib32 set as direct deps; amdgpu-meta
     # precedent, mirror-only).
