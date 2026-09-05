@@ -98,7 +98,13 @@ def _walk_into(base, store, entries, excludes):
         e = _manifest.capture_entry(dirpath, dirpath, store)
         if e is not None:
             entries.append(e)
-        for fn in filenames:
+        # os.walk lists directory symlinks in dirnames but does not visit
+        # them. Capture the links themselves alongside the file entries.
+        directory_links = [
+            name for name in dirnames
+            if os.path.islink(os.path.join(dirpath, name))
+        ]
+        for fn in filenames + directory_links:
             ap = os.path.join(dirpath, fn)
             if _excluded(ap, excludes):
                 continue

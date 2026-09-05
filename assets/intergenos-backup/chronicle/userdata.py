@@ -90,7 +90,13 @@ def capture(source_roots, target_root, prev_manifest, sequence, wall_clock,
                     if not is_excluded(os.path.join(dirpath, d) + "/")
                 ]
             _capture_dir(dirpath, staging, entries)
-            for fn in filenames:
+            # os.walk lists directory symlinks in dirnames but does not visit
+            # them. Capture the links themselves alongside the file entries.
+            directory_links = [
+                name for name in dirnames
+                if os.path.islink(os.path.join(dirpath, name))
+            ]
+            for fn in filenames + directory_links:
                 ap = os.path.join(dirpath, fn)
                 if is_excluded and is_excluded(ap):
                     continue
