@@ -58,6 +58,31 @@ class TestGenerateLocale(unittest.TestCase):
         )
 
     @patch("installer.backend.hooks.run_chroot")
+    def test_modifier_selects_locale_source_not_charmap(self, mock_chroot):
+        mock_chroot.return_value = (0, "", "")
+        for locale, source, charmap in (
+            ("sr_RS.UTF-8@latin", "sr_RS@latin", "UTF-8"),
+            ("ca_ES.UTF-8@valencia", "ca_ES@valencia", "UTF-8"),
+            ("de_DE.ISO-8859-15@euro", "de_DE@euro", "ISO-8859-15"),
+        ):
+            with self.subTest(locale=locale):
+                mock_chroot.reset_mock()
+                generate_locale(self.tmp, locale)
+                self.assertEqual(self._read_locale_conf(), f"LANG={locale}\n")
+                mock_chroot.assert_called_once_with(
+                    self.tmp, f"localedef -i {source} -f {charmap} {locale}")
+
+    @patch("installer.backend.hooks.run_chroot")
+    def test_modifier_localedef_failure_reports_parsed_source(self, mock_chroot):
+        mock_chroot.return_value = (4, "", "locale source unavailable\n")
+        with self.assertRaises(RuntimeError) as ctx:
+            generate_locale(self.tmp, "sr_RS.UTF-8@latin")
+        self.assertIn("base='sr_RS@latin'", str(ctx.exception))
+        self.assertIn("encoding='UTF-8'", str(ctx.exception))
+        self.assertIn("locale source unavailable", str(ctx.exception))
+        self.assertEqual(self._read_locale_conf(), "LANG=sr_RS.UTF-8@latin\n")
+
+    @patch("installer.backend.hooks.run_chroot")
     def test_C_locale_skips_localedef(self, mock_chroot):
         # C / POSIX / single-name locales are always-present in glibc-core
         # baked set; no localedef invocation.

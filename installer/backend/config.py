@@ -252,11 +252,16 @@ def generate_locale(target, locale="en_US.UTF-8"):
     if "." not in locale:
         return
 
-    base, _, encoding = locale.partition(".")
+    locale_name, modifier_sep, modifier = locale.partition("@")
+    base, _, encoding = locale_name.partition(".")
     if not base or not encoding:
         # Malformed locale string ("foo.", ".bar", ".") — locale.conf
         # already written; don't run localedef on garbage.
         return
+
+    # Modifiers select a locale source, never a character map.
+    if modifier_sep:
+        base = f"{base}@{modifier}"
 
     cmd = f"localedef -i {base} -f {encoding} {locale}"
     rc, stdout, stderr = run_chroot(str(target), cmd)
