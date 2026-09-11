@@ -29,7 +29,7 @@ The aggregate ships on the installed system at
 ## Coverage summary
 
 
-**Total packages:** 1176
+**Total packages:** 1180
 
 **Distribution by tier:**
 
@@ -39,7 +39,7 @@ The aggregate ships on the installed system at
 | core | 315 |
 | base | 37 |
 | desktop | 471 |
-| extra | 215 |
+| extra | 219 |
 | ai | 58 |
 | compute | 52 |
 
@@ -47,9 +47,9 @@ The aggregate ships on the installed system at
 
 | License | Count |
 |---|---:|
-| `MIT` | 275 |
-| `GPL-3.0-or-later` | 155 |
-| `LGPL-2.1-or-later` | 153 |
+| `MIT` | 276 |
+| `GPL-3.0-or-later` | 157 |
+| `LGPL-2.1-or-later` | 154 |
 | `GPL-2.0-or-later` | 145 |
 | `BSD-3-Clause` | 98 |
 | `Apache-2.0` | 74 |
@@ -6485,6 +6485,20 @@ BitTorrent Mainline DHT client library (jech/dht)
 - License: `MIT`
 - Homepage: https://github.com/jech/dht
 
+### libestr (0.1.11)
+
+String-handling library used by rsyslog and its companion libraries
+
+- License: `LGPL-2.1-or-later`
+- Homepage: https://libestr.adiscon.com/
+
+### libfastjson (1.2609.0)
+
+Fast JSON library for rsyslog (a performance-focused fork of json-c)
+
+- License: `MIT`
+- Homepage: https://github.com/rsyslog/libfastjson
+
 ### libid3tag (0.15.1b)
 
 ID3 tag manipulation library (MAD project)
@@ -6518,6 +6532,13 @@ GObject library for operating system and install-media metadata
 GObject plugin system
 
 - License: `LGPL-2.1-or-later`
+
+### librelp (1.13.0)
+
+Reliable Event Logging Protocol (RELP) library, the acknowledged log transport used by rsyslog
+
+- License: `GPL-3.0-or-later`
+- Homepage: https://www.rsyslog.com/librelp/
 
 ### libreoffice (26.2.1.2)
 
@@ -7022,6 +7043,13 @@ Facebook/Meta RocksDB — embedded high-performance persistent KV store (LSM-tre
 
 - License: `(Apache-2.0 OR GPL-2.0-only) AND BSD-3-Clause`
 - Homepage: https://github.com/facebook/rocksdb
+
+### rsyslog (8.2608.0)
+
+Rocket-fast system log processing with the RELP acknowledged-transport modules
+
+- License: `GPL-3.0-or-later`
+- Homepage: https://www.rsyslog.com/
 
 ### runc (1.3.5)
 
