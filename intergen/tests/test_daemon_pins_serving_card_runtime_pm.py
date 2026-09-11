@@ -47,9 +47,12 @@ THREE THINGS THE MEASUREMENT SETTLED, each of which shapes this file:
    which card gets held.
 
 EVERY TEST HERE RUNS AGAINST A FAKE SYSFS TREE built in a temporary directory,
-which is what the existing `sysfs_root` parameter on this module's display
-check exists for. No real card is touched, no real power state is changed, and
-the tests give the same answer on a box with no GPU at all.
+which is what the `sysfs_root` parameter on this module's display check and on
+the selection wrappers exists for. No real card is touched, no real power state
+is changed, and the tests give the same answer on a box with no GPU at all.
+(The two selection tests originally omitted the root and so read the live
+machine's connectors; they gave a different answer once the monitor moved to
+another card on the workstation that wrote them.)
 """
 
 from __future__ import annotations
@@ -115,8 +118,12 @@ class TheServedCardIsResolvedByItsPciId(unittest.TestCase):
     id away, so nothing downstream can say which card to hold."""
 
     def test_the_pci_id_of_the_served_card_is_available(self) -> None:
-        pci = serving_device.select_serving_device_pci(
-            list_output=LIST_DEVICES, discrete_vram_mb=32752)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            build_sysfs(root, TWIN_CARDS)
+            pci = serving_device.select_serving_device_pci(
+                list_output=LIST_DEVICES, discrete_vram_mb=32752,
+                sysfs_root=str(root))
         self.assertEqual(
             pci, "0000:07:00.0",
             "the card that serves is the one NOT painting the desktop, and its "
@@ -129,9 +136,11 @@ class TheServedCardIsResolvedByItsPciId(unittest.TestCase):
             root = Path(tmp)
             build_sysfs(root, TWIN_CARDS)
             name = serving_device.select_serving_device(
-                list_output=LIST_DEVICES, discrete_vram_mb=32752)
+                list_output=LIST_DEVICES, discrete_vram_mb=32752,
+                sysfs_root=str(root))
             pci = serving_device.select_serving_device_pci(
-                list_output=LIST_DEVICES, discrete_vram_mb=32752)
+                list_output=LIST_DEVICES, discrete_vram_mb=32752,
+                sysfs_root=str(root))
         self.assertEqual(name, "ROCm1")
         self.assertEqual(pci, "0000:07:00.0")
 

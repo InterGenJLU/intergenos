@@ -346,7 +346,8 @@ def _pci_drives_display(pci_id: str, sysfs_root: str = "/sys") -> bool | None:
 
 def _select_serving_candidate(list_output: str | None = None,
                               discrete_vram_mb: int | None = None,
-                              server: str | None = None
+                              server: str | None = None,
+                              sysfs_root: str = "/sys"
                               ) -> tuple[str, str | None] | None:
     """Pick the ggml device the SERVING model should pin on a multi-GPU box.
 
@@ -376,7 +377,11 @@ def _select_serving_candidate(list_output: str | None = None,
 
     Returns None (no pin — llama.cpp default behavior) when: no discrete card,
     enumeration fails, or nothing matches. Fail-safe: None is exactly today's
-    behavior. ``list_output``/``discrete_vram_mb`` are injectable for tests.
+    behavior. ``list_output``/``discrete_vram_mb`` are injectable for tests,
+    and so is ``sysfs_root``: the display-free check reads the kernel's
+    records under it, so a test hands in a fake tree and gets the same answer
+    on every machine, instead of an answer that depends on which connector of
+    the machine running the tests happens to have a monitor on it.
     """
     if discrete_vram_mb is None:
         try:
@@ -410,27 +415,30 @@ def _select_serving_candidate(list_output: str | None = None,
         return None
 
     for name, pci in candidates:
-        if pci is not None and _pci_drives_display(pci) is False:
+        if pci is not None and _pci_drives_display(pci, sysfs_root) is False:
             return (name, pci)
     return candidates[0]
 
 
 def select_serving_device(list_output: str | None = None,
                           discrete_vram_mb: int | None = None,
-                          server: str | None = None) -> str | None:
+                          server: str | None = None,
+                          sysfs_root: str = "/sys") -> str | None:
     """The ggml device NAME the serving model should pin to, or None.
 
     See :func:`_select_serving_candidate` for the policy. This and
     :func:`select_serving_device_pci` are two readings of ONE selection, so the
     name and the address can never describe different cards.
     """
-    chosen = _select_serving_candidate(list_output, discrete_vram_mb, server)
+    chosen = _select_serving_candidate(list_output, discrete_vram_mb, server,
+                                       sysfs_root)
     return chosen[0] if chosen else None
 
 
 def select_serving_device_pci(list_output: str | None = None,
                               discrete_vram_mb: int | None = None,
-                              server: str | None = None) -> str | None:
+                              server: str | None = None,
+                              sysfs_root: str = "/sys") -> str | None:
     """The PCI address of the card :func:`select_serving_device` picked.
 
     Returns None when there is no pin, and ALSO when the chosen card carries no
@@ -439,13 +447,15 @@ def select_serving_device_pci(list_output: str | None = None,
     the wrong card's power on. None is the fail-safe: no hold, today's
     behaviour exactly.
     """
-    chosen = _select_serving_candidate(list_output, discrete_vram_mb, server)
+    chosen = _select_serving_candidate(list_output, discrete_vram_mb, server,
+                                       sysfs_root)
     return chosen[1] if chosen else None
 
 
 def select_serving_device_and_pci(list_output: str | None = None,
                                   discrete_vram_mb: int | None = None,
-                                  server: str | None = None
+                                  server: str | None = None,
+                                  sysfs_root: str = "/sys"
                                   ) -> tuple[str | None, str | None]:
     """Both readings of ONE selection: ``(ggml name, PCI address)``.
 
@@ -456,7 +466,8 @@ def select_serving_device_and_pci(list_output: str | None = None,
     disagree. Either element is None when it is unavailable; ``(None, None)``
     is no pin at all, which is llama.cpp's own default behaviour.
     """
-    chosen = _select_serving_candidate(list_output, discrete_vram_mb, server)
+    chosen = _select_serving_candidate(list_output, discrete_vram_mb, server,
+                                       sysfs_root)
     return chosen if chosen else (None, None)
 
 
