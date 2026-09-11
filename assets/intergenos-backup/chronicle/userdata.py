@@ -181,10 +181,17 @@ def _capture_file_or_link(ap, staging, prev_index, prev_tree, entries):
         # Hardlink to the prior version's inode: O(0) bytes, and reuse its sha.
         os.link(_tree_path(prev_tree, ap), tp)
         sha = prev["sha256"]
+        captured_st = st
     else:
         shutil.copy2(ap, tp, follow_symlinks=False)
-        sha = _cas.sha256_file(ap)
-    e = {"path": ap, "type": _manifest.T_FILE, "size": st.st_size, "sha256": sha}
+        # The source may change as soon as copy2 returns. Describe and hash the
+        # staged version, which is the data this manifest actually commits.
+        captured_st = os.lstat(tp)
+        sha = _cas.sha256_file(tp)
+    e = {"path": ap, "type": _manifest.T_FILE,
+         "size": captured_st.st_size, "sha256": sha}
+    # Ownership describes the source to restore, not the daemon-owned staging
+    # file. copy2 preserves mode and timestamps but deliberately not uid/gid.
     e.update(_stat_meta(st))
     entries.append(e)
 

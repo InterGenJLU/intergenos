@@ -3,8 +3,10 @@
 
 import os
 import tempfile
+import types
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from chronicle import engine as _engine
 from chronicle import paths as _paths
@@ -64,6 +66,53 @@ class UserDataCaptureIntegrityTest(unittest.TestCase):
         self.assertTrue(self.engine.verify(_paths.LAYER_USER_DATA, first)["ok"])
         self.assertTrue(
             self.engine.verify(_paths.LAYER_USER_DATA, second_version)["ok"]
+        )
+
+    def test_manifest_hashes_staged_copy_when_source_changes_after_copy(self):
+        self.document.write_bytes(b"before")
+        source_stat = self.document.lstat()
+        real_copy = _userdata.shutil.copy2
+        real_lstat = _userdata.os.lstat
+
+        def copy_then_change(source, target, *args, **kwargs):
+            result = real_copy(source, target, *args, **kwargs)
+            if Path(source) == self.document:
+                self.document.write_bytes(b"after!")
+            return result
+
+        def staging_has_daemon_ownership(path):
+            result = real_lstat(path)
+            if Path(path) != self.document and Path(path).name == self.document.name:
+                return types.SimpleNamespace(
+                    st_mode=result.st_mode,
+                    st_uid=result.st_uid + 1,
+                    st_gid=result.st_gid + 1,
+                    st_mtime=result.st_mtime,
+                    st_mtime_ns=result.st_mtime_ns,
+                    st_size=result.st_size,
+                )
+            return result
+
+        with mock.patch.object(
+            _userdata.shutil, "copy2", side_effect=copy_then_change
+        ), mock.patch.object(
+            _userdata.os, "lstat", side_effect=staging_has_daemon_ownership
+        ):
+            version = self._capture("source changes after copy")
+
+        stored = self._stored_document(version)
+        captured = self.engine.get_manifest(_paths.LAYER_USER_DATA, version)
+        entry = next(
+            item for item in captured["entries"]
+            if item["path"] == str(self.document)
+        )
+        self.assertEqual(stored.read_bytes(), b"before")
+        self.assertEqual(self.document.read_bytes(), b"after!")
+        self.assertEqual(entry["uid"], source_stat.st_uid)
+        self.assertEqual(entry["gid"], source_stat.st_gid)
+        self.assertTrue(
+            self.engine.verify(_paths.LAYER_USER_DATA, version)["ok"],
+            "the manifest must describe the bytes stored in the version tree",
         )
 
 
