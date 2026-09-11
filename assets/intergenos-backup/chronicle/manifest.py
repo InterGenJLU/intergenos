@@ -6,10 +6,11 @@ A version manifest lists every file it captured with its metadata and sha256.
 The manifest itself is hashed to a **root hash**, and a version is *committed
 only when its root hash is written last* (spec §3, §14): the complete manifest
 — root hash included — is written to a temp file, fsynced, and atomically
-renamed into place under a name that embeds the root hash. The rename is the
-single commit point, so a version half-written when a volume vanishes or the
-machine shuts down has no committed manifest at all: list() never sees it, and
-its orphaned blobs are reclaimed by GC. The previous version is never touched.
+linked into place without replacement under a name that embeds the root hash.
+That no-clobber link is the single commit point, so a version half-written when
+a volume vanishes or the machine shuts down has no committed manifest at all:
+list() never sees it, and its orphaned blobs are reclaimed by GC. The previous
+version is never touched.
 
 Ordering across the timeline is by a **monotonic engine sequence number**, not
 wall-clock (spec §14.3): the sequence sorts the timeline; the wall-clock is
@@ -35,6 +36,10 @@ T_SYMLINK = "symlink"
 
 class ManifestInventoryError(Exception):
     """One or more committed manifests could not be read."""
+
+
+class ManifestCollision(Exception):
+    """A committed version already occupies the requested identity."""
 
 
 def capture_entry(abs_path, rel_path, store):
@@ -114,9 +119,11 @@ def version_id(manifest):
 
 
 def commit_manifest(store_root, manifest):
-    """Write a manifest commit-last (temp → fsync → atomic rename). Returns the
-    version_id. After this returns the version is durable and visible to
-    list_versions; before it, nothing is."""
+    """Write a manifest commit-last (temp → fsync → no-clobber link).
+
+    Returns the version_id. After this returns the version is durable and
+    visible to list_versions; before it, nothing is.
+    """
     layer = manifest["layer"]
     vdir = _paths.versions_dir(store_root, layer)
     vdir.mkdir(parents=True, exist_ok=True)
@@ -127,7 +134,20 @@ def commit_manifest(store_root, manifest):
             json.dump(manifest, f, sort_keys=True)
             f.flush()
             os.fsync(f.fileno())
-        os.replace(tmp, final)  # the commit point
+        try:
+            # link() is the no-replace commit point: unlike replace(), it
+            # atomically refuses an existing version instead of overwriting it.
+            os.link(tmp, final)
+        except FileExistsError as exc:
+            raise ManifestCollision(
+                f"version {manifest['version_id']} is already committed"
+            ) from exc
+        try:
+            os.unlink(tmp)
+        except OSError:
+            # A leftover .tmp file is ignored by every inventory. The final
+            # hardlink is already complete and committed.
+            pass
     except BaseException:
         try:
             os.unlink(tmp)

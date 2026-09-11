@@ -25,6 +25,7 @@ version.
 import os
 import shutil
 import stat
+import tempfile
 from pathlib import Path
 
 from . import cas as _cas
@@ -72,10 +73,11 @@ def capture(source_roots, target_root, prev_manifest, sequence, wall_clock,
     prev_id = prev_manifest["version_id"] if prev_manifest else None
     prev_tree = userdata_tree(target_root, prev_id) if prev_id else None
 
-    staging = target_root / "userdata" / f".staging-{int(sequence)}"
-    if staging.exists():
-        shutil.rmtree(staging, ignore_errors=True)
-    staging.mkdir(parents=True, exist_ok=True)
+    userdata_root = target_root / "userdata"
+    userdata_root.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(
+        prefix=f".staging-{int(sequence)}-", dir=str(userdata_root)
+    ))
 
     entries = []
     for root in source_roots:
@@ -109,9 +111,18 @@ def capture(source_roots, target_root, prev_manifest, sequence, wall_clock,
     )
     final_tree = userdata_tree(target_root, manifest["version_id"])
     if final_tree.exists():
-        shutil.rmtree(final_tree, ignore_errors=True)
-    os.replace(staging, final_tree)
-    _manifest.commit_manifest(target_root, manifest)
+        shutil.rmtree(staging, ignore_errors=True)
+        raise _manifest.ManifestCollision(
+            f"version {manifest['version_id']} already has a user-data tree"
+        )
+    moved = False
+    try:
+        os.rename(staging, final_tree)
+        moved = True
+        _manifest.commit_manifest(target_root, manifest)
+    except BaseException:
+        shutil.rmtree(final_tree if moved else staging, ignore_errors=True)
+        raise
     return manifest["version_id"]
 
 

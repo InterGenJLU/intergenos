@@ -12,9 +12,13 @@ Wall-clock is recorded for display only; a backward wall-clock jump is detected
 and flagged, never allowed to mis-order.
 """
 
+import contextlib
+import fcntl
+import functools
 import json
 import os
 import shutil
+import threading
 import time
 from pathlib import Path
 
@@ -31,6 +35,35 @@ from . import retention as _retention
 from . import userdata as _userdata
 
 
+class _StoreTransactionLock:
+    def __init__(self, root):
+        self.path = Path(root) / ".engine.lock"
+        self.thread_lock = threading.RLock()
+        self.local = threading.local()
+
+
+_STORE_LOCKS = {}
+_STORE_LOCKS_GUARD = threading.Lock()
+
+
+def _store_transaction_lock(root):
+    key = os.path.realpath(root)
+    with _STORE_LOCKS_GUARD:
+        lock = _STORE_LOCKS.get(key)
+        if lock is None:
+            lock = _StoreTransactionLock(key)
+            _STORE_LOCKS[key] = lock
+        return lock
+
+
+def _state_locked(method):
+    @functools.wraps(method)
+    def locked(self, *args, **kwargs):
+        with self._state_transaction():
+            return method(self, *args, **kwargs)
+    return locked
+
+
 class EngineError(Exception):
     pass
 
@@ -40,13 +73,52 @@ class Engine:
                  now_fn=None):
         self.local_root = Path(local_root) if local_root else _paths.LOCAL_ROOT
         _paths.ensure_store_skeleton(self.local_root)
+        self._transaction_lock = _store_transaction_lock(self.local_root)
+        self._transaction_depth = 0
         self.config = config if config is not None else _config.load(config_path)
         self.local_store = _cas.ContentStore(self.local_root)
         self.queue = _queue.Queue(self.local_root)
         self._now_fn = now_fn or time.time
-        self.state = self._load_state()
+        self.state = {}
+        with self._state_transaction(refresh=False):
+            self.state = self._load_state()
 
     # -- state ----------------------------------------------------------
+
+    @contextlib.contextmanager
+    def _state_transaction(self, refresh=True):
+        """Serialize one store operation across threads and processes."""
+        shared = self._transaction_lock
+        with shared.thread_lock:
+            shared_depth = getattr(shared.local, "depth", 0)
+            outer_store = shared_depth == 0
+            if outer_store:
+                fd = os.open(
+                    shared.path,
+                    os.O_CREAT | os.O_RDWR | getattr(os, "O_CLOEXEC", 0),
+                    0o600,
+                )
+                try:
+                    fcntl.flock(fd, fcntl.LOCK_EX)
+                except BaseException:
+                    os.close(fd)
+                    raise
+                shared.local.fd = fd
+            shared.local.depth = shared_depth + 1
+            outer_instance = self._transaction_depth == 0
+            self._transaction_depth += 1
+            try:
+                if refresh and outer_instance:
+                    self.state = self._load_state()
+                yield
+            finally:
+                self._transaction_depth -= 1
+                shared.local.depth -= 1
+                if outer_store:
+                    fd = shared.local.fd
+                    del shared.local.fd
+                    fcntl.flock(fd, fcntl.LOCK_UN)
+                    os.close(fd)
 
     def _load_state(self):
         p = _paths.state_path(self.local_root)
@@ -125,6 +197,7 @@ class Engine:
             _lsblk_json=_lsblk_json,
         )
 
+    @_state_locked
     def target_adopt(self, mountpoint, target_class="whole-volume",
                      device=None, cap_bytes=None):
         """Initialize a target and record it. Creates the store skeleton at the
@@ -144,6 +217,7 @@ class Engine:
 
     # -- capture --------------------------------------------------------
 
+    @_state_locked
     def capture(self, layer, scope=None, reason="", sync=True, estimate=None):
         """Take a version of a layer. sync=True blocks and returns the
         version-id; sync=False writes a durable queue intent for off-peak drain
@@ -154,7 +228,9 @@ class Engine:
             intent = {"layer": layer, "scope": scope, "reason": reason,
                       "trigger_time": self._wall_clock(),
                       "estimate": int(estimate or 0)}
-            return {"queued": self.queue.enqueue(intent)}
+            result = {"queued": self.queue.enqueue(intent)}
+            self._save_state()
+            return result
         return {"version_id": self._capture_now(layer, scope, reason)}
 
     def _capture_now(self, layer, scope, reason):
@@ -233,6 +309,7 @@ class Engine:
 
     # -- read verbs -----------------------------------------------------
 
+    @_state_locked
     def list_versions(self, layer, since=None, until=None):
         root = self._store_root_for(layer)
         if not root:
@@ -255,6 +332,7 @@ class Engine:
             })
         return out
 
+    @_state_locked
     def get_manifest(self, layer, version_id):
         root = self._store_root_for(layer)
         m = _manifest.find_version(root, layer, version_id) if root else None
@@ -262,6 +340,7 @@ class Engine:
             raise EngineError(f"version {version_id} not found in {layer}")
         return m
 
+    @_state_locked
     def diff(self, layer, version_id, path):
         """then-vs-now for a config path: compare the stored sha to the live
         file's sha (feeds config restore, spec §8)."""
@@ -276,6 +355,7 @@ class Engine:
 
     # -- verify / scrub -------------------------------------------------
 
+    @_state_locked
     def verify(self, layer, version_id):
         root = self._store_root_for(layer)
         m = _manifest.find_version(root, layer, version_id) if root else None
@@ -296,6 +376,7 @@ class Engine:
             ok, problems = _manifest.verify_version(root, m, store)
         return {"version_id": version_id, "ok": ok, "problems": problems}
 
+    @_state_locked
     def scrub(self):
         """Validate every manifest, reference, blob, and user-data file."""
         report = {"corrupt": [], "clean": True}
@@ -396,6 +477,7 @@ class Engine:
 
     # -- pins -----------------------------------------------------------
 
+    @_state_locked
     def pin(self, version_id):
         pins = self.state.setdefault("pins", [])
         if version_id not in pins:
@@ -403,6 +485,7 @@ class Engine:
             self._save_state()
         return {"pinned": version_id}
 
+    @_state_locked
     def unpin(self, version_id):
         pins = self.state.setdefault("pins", [])
         if version_id in pins:
@@ -412,6 +495,7 @@ class Engine:
 
     # -- retention ------------------------------------------------------
 
+    @_state_locked
     def retention_apply(self, layer):
         """Run graduated thinning for a layer, then GC unreferenced blobs. Pins
         are never pruned (spec §7)."""
@@ -440,6 +524,7 @@ class Engine:
             if m.get("version_id") not in prune_ids
         ]
         self._gc(root, inventories)
+        self._save_state()
         return {"pruned": prune_ids, "kept": sorted(keep)}
 
     def _complete_manifest_inventory(self, root):
@@ -480,6 +565,7 @@ class Engine:
 
     # -- restore --------------------------------------------------------
 
+    @_state_locked
     def restore_plan(self, layer, version_id, paths, mode="replace-confirm"):
         """Describe what a restore will change WITHOUT writing (spec §8: never
         a silent overwrite — the plan is shown and confirmed first)."""
@@ -518,6 +604,10 @@ class Engine:
         """
         if not _escalate.has_cap_chown():
             return _escalate.run_restore_via_unit(layer, version_id, paths, mode)
+        with self._state_transaction():
+            return self._restore_apply_direct(layer, version_id, paths, mode)
+
+    def _restore_apply_direct(self, layer, version_id, paths, mode):
         m = self.get_manifest(layer, version_id)
         by_path = {e["path"]: e for e in m["entries"]}
         root = self._store_root_for(layer)
@@ -585,12 +675,14 @@ class Engine:
 
     # -- queue / status -------------------------------------------------
 
+    @_state_locked
     def queue_status(self):
         window = f"{self.config.work_start}–{self.config.work_end}"
         return {"count": self.queue.count(),
                 "summary": self.queue.status_summary(window),
                 "intents": self.queue.list()}
 
+    @_state_locked
     def status(self):
         target_root = self.target_root()
         free = None
