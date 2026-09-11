@@ -37,7 +37,9 @@ same physical disk as the system is disqualified.
 .SH COMMANDS
 .TP
 .B status
-Show target health and per-layer capture recency.
+Show target health, per-layer capture recency, and the retention record:
+every prune plan is announced before it runs and its outcome (completed,
+stopped, or refused with nothing removed) is listed here.
 .TP
 .BR list " \fILAYER\fR [\fB\-\-since\fR \fIEPOCH\fR] [\fB\-\-until\fR \fIEPOCH\fR]"
 Browse a layer's timeline. \fILAYER\fR is

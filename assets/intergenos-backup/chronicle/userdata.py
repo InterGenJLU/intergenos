@@ -233,6 +233,58 @@ def read_file(target_root, version_id, entry):
     return _tree_path(userdata_tree(target_root, version_id), entry["path"])
 
 
+def _open_checked_userdata(target_root, version_id):
+    """Open the store's userdata directory bound to the checked object and
+    inspect the version entry relative to it, without changing anything.
+
+    Returns (fd, entry) where entry is the lstat of the version directory, or
+    (None, None) when the userdata directory or the version does not exist
+    (nothing to remove). Raises ValueError for every layout the removal
+    refuses: a non-canonical id, a symlinked userdata directory, a joined path
+    that escapes the store, a userdata directory that changed between the
+    check and the open, and a version entry that is a symlink or not a
+    directory. The caller owns the returned descriptor.
+    """
+    tree = userdata_tree(target_root, version_id)  # raises on a non-canonical, symlinked or escaping layout
+    base = tree.parent
+    try:
+        checked = os.lstat(base)
+    except FileNotFoundError:
+        return None, None
+    fd = os.open(base, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        opened = os.fstat(fd)
+        if (opened.st_dev, opened.st_ino) != (checked.st_dev, checked.st_ino):
+            raise ValueError("user-data directory changed between check and open; not removed")
+        try:
+            entry = os.lstat(version_id, dir_fd=fd)
+        except FileNotFoundError:
+            os.close(fd)
+            return None, None
+        if stat.S_ISLNK(entry.st_mode):
+            raise ValueError(f"user-data version path is a symlink, not removed: {version_id!r}")
+        if not stat.S_ISDIR(entry.st_mode):
+            raise ValueError(f"user-data version path is not a directory, not removed: {version_id!r}")
+    except BaseException:
+        os.close(fd)
+        raise
+    return fd, entry
+
+
+def check_version_removal(target_root, version_id):
+    """Perform every check remove_version_tree performs, touching nothing.
+
+    Raises ValueError for any layout the removal would refuse; returns
+    normally when the version's tree can be removed or is already absent.
+    Retention runs this over a whole prune plan before the first removal so
+    one refused version refuses the plan with nothing removed (all before
+    any), instead of stopping part-way with earlier versions already gone.
+    """
+    fd, _entry = _open_checked_userdata(target_root, version_id)
+    if fd is not None:
+        os.close(fd)
+
+
 def remove_version_tree(target_root, version_id):
     """Delete a pruned version's tree. Hardlinked inodes shared with surviving
     versions stay alive by refcount; only this version's links are dropped.
@@ -243,26 +295,25 @@ def remove_version_tree(target_root, version_id):
     relative to that descriptor, and the removal itself is descriptor-relative
     (``dir_fd``), so no path component between the store and the version can be
     swapped for a symlink between the check and the delete (review finding G1).
+
+    The removal is loud and verified: an error while deleting propagates as
+    OSError (nothing is suppressed), and the entry is re-checked relative to
+    the descriptor afterwards — a tree still present after the delete is an
+    OSError too. A removal that fails part-way leaves the version's manifest
+    untouched (the engine unlinks it last), so the version stays listed and is
+    planned again by the next retention pass.
     """
-    tree = userdata_tree(target_root, version_id)  # raises on a non-canonical, symlinked or escaping layout
-    base = tree.parent
-    try:
-        checked = os.lstat(base)
-    except FileNotFoundError:
+    fd, _entry = _open_checked_userdata(target_root, version_id)
+    if fd is None:
         return
-    fd = os.open(base, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
-        opened = os.fstat(fd)
-        if (opened.st_dev, opened.st_ino) != (checked.st_dev, checked.st_ino):
-            raise ValueError("user-data directory changed between check and open; not removed")
+        shutil.rmtree(version_id, dir_fd=fd)
         try:
-            entry = os.lstat(version_id, dir_fd=fd)
+            os.lstat(version_id, dir_fd=fd)
         except FileNotFoundError:
             return
-        if stat.S_ISLNK(entry.st_mode):
-            raise ValueError(f"user-data version path is a symlink, not removed: {version_id!r}")
-        if not stat.S_ISDIR(entry.st_mode):
-            raise ValueError(f"user-data version path is not a directory, not removed: {version_id!r}")
-        shutil.rmtree(version_id, ignore_errors=True, dir_fd=fd)
+        raise OSError(
+            f"user-data version tree still present after removal: {version_id!r}"
+        )
     finally:
         os.close(fd)

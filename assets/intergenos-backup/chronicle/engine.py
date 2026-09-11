@@ -124,7 +124,7 @@ class Engine:
         p = _paths.state_path(self.local_root)
         default = {"sequence": 0, "pins": [], "target": None,
                    "last_capture": {}, "clock_last_wall": 0,
-                   "clock_skew_events": []}
+                   "clock_skew_events": [], "retention_events": []}
         if not p.exists():
             return default
         try:
@@ -517,8 +517,10 @@ class Engine:
             keep = _retention.thin_keep_restore_points(vs)
         prune_ids = _retention.prune_set(vs, keep)
         manifests_by_id = {m["version_id"]: m for m in raw}
-        for vid in prune_ids:
-            self._drop_version(root, layer, manifests_by_id[vid])
+        self._prune_versions(
+            root, layer, [manifests_by_id[vid] for vid in prune_ids],
+            reason="thinning",
+        )
         inventories[layer] = [
             m for m in inventories[layer]
             if m.get("version_id") not in prune_ids
@@ -526,6 +528,66 @@ class Engine:
         self._gc(root, inventories)
         self._save_state()
         return {"pruned": prune_ids, "kept": sorted(keep)}
+
+    # The engine keeps the newest retention records in state; the timer task
+    # prints every run's result to the journal, which is the durable log.
+    _RETENTION_EVENTS_KEPT = 200
+
+    def _record_retention_event(self, kind, layer, reason, version_ids, **extra):
+        event = {"kind": kind, "layer": layer, "reason": reason,
+                 "version_ids": list(version_ids),
+                 "at_sequence": self.state.get("sequence", 0),
+                 "wall_clock": self._wall_clock()}
+        event.update(extra)
+        events = self.state.setdefault("retention_events", [])
+        events.append(event)
+        del events[:-self._RETENTION_EVENTS_KEPT]
+        self._save_state()
+
+    def _prune_versions(self, root, layer, manifests, reason):
+        """Remove a planned set of versions all-before-any, announced, and
+        fail-loud (spec §7: pruning is loud and announced before it runs).
+
+        Every candidate is checked with the non-mutating validator first; one
+        refused candidate refuses the whole plan and nothing is removed. The
+        plan is then recorded in persistent state (prune-announced) BEFORE the
+        first removal, and its outcome after (prune-completed, or prune-stopped
+        naming the error, what was removed and what remains). Every caller
+        that prunes — graduated thinning, the directory-class cap — goes
+        through here; nothing drops a version any other way.
+        """
+        version_ids = [m["version_id"] for m in manifests]
+        if not version_ids:
+            return []
+        problems = []
+        for m in manifests:
+            try:
+                self._check_drop(root, layer, m)
+            except EngineError as exc:
+                problems.append(str(exc))
+        if problems:
+            self._record_retention_event(
+                "prune-refused", layer, reason, version_ids, problems=problems
+            )
+            raise EngineError(
+                "retention refused, nothing removed: " + "; ".join(problems)
+            )
+        self._record_retention_event("prune-announced", layer, reason, version_ids)
+        removed = []
+        try:
+            for m in manifests:
+                self._drop_version(root, layer, m)
+                removed.append(m["version_id"])
+        except EngineError as exc:
+            self._record_retention_event(
+                "prune-stopped", layer, reason, version_ids,
+                removed=removed,
+                remaining=[v for v in version_ids if v not in removed],
+                error=str(exc),
+            )
+            raise
+        self._record_retention_event("prune-completed", layer, reason, version_ids)
+        return version_ids
 
     def _complete_manifest_inventory(self, root):
         try:
@@ -536,27 +598,37 @@ class Engine:
         except _manifest.ManifestInventoryError as exc:
             raise EngineError(f"retention stopped: {exc}") from exc
 
-    def _drop_version(self, root, layer, manifest):
+    def _check_drop(self, root, layer, manifest):
+        """Every check _drop_version performs, touching nothing."""
         version_id = manifest["version_id"]
-        path = manifest.get("_path")
-        if not path:
+        if not manifest.get("_path"):
             raise EngineError(
                 f"retention stopped: manifest path missing for {version_id}"
             )
         if layer == _paths.LAYER_USER_DATA:
-            # The tree path is validated BEFORE the manifest is unlinked: a
-            # version id that cannot name a direct child of userdata/ stops
-            # retention with nothing removed, instead of leaving an orphaned
-            # tree behind a deleted manifest.
             try:
-                tree = _userdata.userdata_tree(root, version_id)
+                _userdata.check_version_removal(root, version_id)
             except ValueError as exc:
                 raise EngineError(f"retention stopped: {exc}") from exc
-            if tree.is_symlink():
+
+    def _drop_version(self, root, layer, manifest):
+        """Remove one version: its tree FIRST, its manifest LAST.
+
+        A tree removal that fails stops retention loudly with the manifest
+        still in place, so the version stays listed and the next pass plans
+        it again — never an orphaned tree behind a deleted manifest.
+        """
+        version_id = manifest["version_id"]
+        self._check_drop(root, layer, manifest)
+        path = manifest["_path"]
+        if layer == _paths.LAYER_USER_DATA:
+            try:
+                _userdata.remove_version_tree(root, version_id)
+            except (OSError, ValueError) as exc:
                 raise EngineError(
-                    f"retention stopped: user-data version path is a symlink, "
-                    f"not removed: {version_id!r}"
-                )
+                    f"retention stopped: could not remove the user-data tree "
+                    f"of {version_id}: {exc}"
+                ) from exc
         try:
             os.unlink(path)
         except OSError as exc:
@@ -564,8 +636,6 @@ class Engine:
                 f"retention stopped: could not remove manifest "
                 f"{Path(path).name}: {exc}"
             ) from exc
-        if layer == _paths.LAYER_USER_DATA:
-            _userdata.remove_version_tree(root, version_id)
 
     def _gc(self, root, inventories=None):
         if inventories is None:
@@ -713,6 +783,7 @@ class Engine:
             "last_capture": self.state.get("last_capture", {}),
             "queue": self.queue_status(),
             "clock_skew_events": self.state.get("clock_skew_events", []),
+            "retention_events": self.state.get("retention_events", []),
             "pins": self.state.get("pins", []),
         }
 

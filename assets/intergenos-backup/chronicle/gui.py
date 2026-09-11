@@ -105,6 +105,26 @@ def _ts_verdict(epoch):
     return _ts(epoch)
 
 
+_RETENTION_TITLES = {
+    "prune-announced": "Pruning announced",
+    "prune-completed": "Pruning completed",
+    "prune-stopped": "Pruning stopped",
+    "prune-refused": "Pruning refused",
+}
+
+
+def _retention_event_subtitle(ev):
+    n = len(ev.get("version_ids", []))
+    head = f"{n} {ev.get('layer')} version(s), {ev.get('reason')}, {_ts(ev.get('wall_clock', 0))}"
+    kind = ev.get("kind")
+    if kind == "prune-stopped":
+        return (f"{head} — {len(ev.get('removed', []))} removed, "
+                f"{len(ev.get('remaining', []))} remaining: {ev.get('error')}")
+    if kind == "prune-refused":
+        return f"{head} — nothing removed: " + "; ".join(ev.get("problems", []))
+    return head
+
+
 class ChronicleWindow(Adw.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app, title="Chronicle")
@@ -325,6 +345,10 @@ class ChronicleWindow(Adw.ApplicationWindow):
             self._status_add(Adw.ActionRow(
                 title="Clock warning",
                 subtitle=f"system clock moved backward at sequence {ev['at_sequence']}"))
+        for ev in st.get("retention_events", []):
+            self._status_add(Adw.ActionRow(
+                title=_RETENTION_TITLES.get(ev.get("kind"), "Retention notice"),
+                subtitle=_retention_event_subtitle(ev)))
 
     def _add_service_down_rows(self):
         # The two things a non-expert needs to know, on the persistent card;

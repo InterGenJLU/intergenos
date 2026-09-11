@@ -122,6 +122,26 @@ def cmd_status(backend, args, rep):
         rep.info(f"  Pinned: {len(st['pins'])} version(s)")
     for ev in st.get("clock_skew_events", []):
         rep.warn(f"system clock moved backward at sequence {ev['at_sequence']}")
+    for ev in st.get("retention_events", []):
+        rep.warn(_retention_event_text(ev))
+
+
+def _retention_event_text(ev):
+    """One line per retention record: pruning is loud and announced before it
+    runs, and a stopped or refused plan is never silent."""
+    n = len(ev.get("version_ids", []))
+    head = f"{ev.get('layer')} pruning ({ev.get('reason')}), {n} version(s), at {_ts(ev.get('wall_clock', 0))}"
+    kind = ev.get("kind")
+    if kind == "prune-announced":
+        return f"{head}: announced"
+    if kind == "prune-completed":
+        return f"{head}: completed"
+    if kind == "prune-stopped":
+        return (f"{head}: STOPPED after {len(ev.get('removed', []))} removed, "
+                f"{len(ev.get('remaining', []))} remaining — {ev.get('error')}")
+    if kind == "prune-refused":
+        return f"{head}: REFUSED, nothing removed — " + "; ".join(ev.get("problems", []))
+    return f"{head}: {kind}"
 
 
 def cmd_list(backend, args, rep):
