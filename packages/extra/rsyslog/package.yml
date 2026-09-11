@@ -1,7 +1,7 @@
 name: rsyslog
 version: "8.2608.0"
-release: 1
-content_hash: 89e922e9dc689e03
+release: 2  # r2: the shipped default configuration sets compatibility.defaults.secure="strict" so an unclean configuration aborts start-up and network inputs default to their secure form; rsyslogd -N1 on r1 reported the backward-compatible insecure default.
+content_hash: ddcba3dba6470582
 description: Rocket-fast system log processing with the RELP acknowledged-transport modules
 license: GPL-3.0-or-later
 homepage: https://www.rsyslog.com/
