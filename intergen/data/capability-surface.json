@@ -1471,6 +1471,14 @@
       "positionals": null,
       "subcommands": {}
     },
+    "igos-install-chatgpt": {
+      "source": "packages/extra/chatgpt/package.yml:verify_paths",
+      "introspected": false,
+      "requires_subcommand": false,
+      "global_flags": [],
+      "positionals": null,
+      "subcommands": {}
+    },
     "igos-install-chrome": {
       "source": "packages/extra/chrome/package.yml:verify_paths",
       "introspected": false,
@@ -1481,6 +1489,14 @@
     },
     "igos-install-claude-code": {
       "source": "packages/extra/claude-code/package.yml:verify_paths",
+      "introspected": false,
+      "requires_subcommand": false,
+      "global_flags": [],
+      "positionals": null,
+      "subcommands": {}
+    },
+    "igos-install-codex": {
+      "source": "packages/extra/codex/package.yml:verify_paths",
       "introspected": false,
       "requires_subcommand": false,
       "global_flags": [],
