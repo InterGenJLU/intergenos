@@ -38,6 +38,26 @@ landed is in the repository README, not here.
   disabled by default and is enabled only where a host is deployed as a log
   receiver. Mirror-only (`sudo pkm install rsyslog`).
 
+### Changed
+
+- Linux kernel 6.18.10 → 6.18.51, the current release of the 6.18 long-term
+  series (`linux-kernel` and `linux-kernel-pass2`, release restarted at 1, so
+  the kernel release string becomes `6.18.51-igos-1`). Five backport patches
+  the recipes carried are retired because 6.18.51 carries each fix upstream:
+  CVE-2026-31431, CVE-2026-43284, CVE-2026-43500 (the locally authored backport
+  is replaced by upstream's own fix), CVE-2026-46300, and the ASUS keyboard
+  probe fix. The one remaining local patch, the graphics-card display-wakeup
+  patch, is re-based onto 6.18.51 with its hunks unchanged. The kernel updates
+  through `pkm upgrade` like any package and takes effect at the next reboot.
+
+### Security
+
+- CVE-2026-53362 (IPv6 send path, a local flaw listed in the CISA Known
+  Exploited Vulnerabilities catalogue): R001 through R001.2 ship an affected
+  kernel. Closed by the move to 6.18.51, which carries the upstream fix.
+  Advisory: `docs/security/advisories/CVE-2026-53362-ipv6-fraggap.md`. No
+  interim mitigation exists for installed systems; the fix is the kernel update.
+
 ---
 
 ## [R001.2] — 2026-09-03
