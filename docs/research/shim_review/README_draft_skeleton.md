@@ -219,7 +219,7 @@ The complete SBAT block on master across all signed binaries:
 | `shim.intergenos` | 1 | `docker/shim-build/sbat/sbat.intergenos.csv` (InterGenOS vendor entry) |
 | `grub` | 5 | upstream GNU GRUB 2.14 baked-in baseline |
 | `grub.intergenos` | 1 | `packages/core/grub/sbat.csv` (InterGenOS vendor entry) |
-| `linux` | 1 | upstream linux-kernel 6.18.10 baked-in baseline |
+| `linux` | 1 | upstream linux-kernel 6.18.51 baked-in baseline |
 
 Reviewer-runnable verification (post-Phase-1 GRUB build): `objcopy --dump-section .sbat=/dev/stdout grub2.efi` produces output that matches the union of upstream `SbatLevel_Variable.txt` entries plus the on-master CSV entries above. The pre-build content of `packages/core/grub/sbat.csv` is itself reviewable on master without needing the binary build to land.
 
@@ -245,9 +245,9 @@ __FILLED__ (per maintainer review item 6, 2026-04-29T17:31:35Z — kernel-lockdo
 
 **Specific upstream commits called out by rhboot/shim-review template (verification):**
 
-The shim-review submission template explicitly requires confirmation that 3 specific lockdown commits are applied. All 3 are mainline-merged in the Linux 5.4-5.6 era and are transitively included in InterGenOS's pinned Linux 6.18.10:
+The shim-review submission template explicitly requires confirmation that 3 specific lockdown commits are applied. All 3 are mainline-merged in the Linux 5.4-5.6 era and are transitively included in InterGenOS's pinned Linux 6.18.51:
 
-| Commit SHA | Title | Author | Files modified | Status in InterGenOS Linux 6.18.10 |
+| Commit SHA | Title | Author | Files modified | Status in InterGenOS Linux 6.18.51 |
 |---|---|---|---|---|
 | [`1957a85b`](https://github.com/torvalds/linux/commit/1957a85b0032a81e6482ca4aab883643b8dae06e) | efi: Restrict efivar_ssdt_load when the kernel is locked down | Matthew Garrett `<mjg59@google.com>` | `drivers/firmware/efi/efi.c` | ✓ included (mainline-merged via James Morris in the Linux 5.4 lockdown LSM patchset) |
 | [`75b0cea7`](https://github.com/torvalds/linux/commit/75b0cea7bf307f362057cc778efe89af4c615354) | ACPI: configfs: Disallow loading ACPI tables when locked down | Jason A. Donenfeld `<Jason@zx2c4.com>` | `drivers/acpi/acpi_configfs.c` | ✓ included (mainline-merged via Rafael J. Wysocki; commit message includes `Cc: 5.4+` for stable backport) |
@@ -255,7 +255,7 @@ The shim-review submission template explicitly requires confirmation that 3 spec
 
 Each commit can be independently verified against the InterGenOS-built kernel by:
 
-1. Cloning the upstream Linux source tree at the InterGenOS-pinned tag (`v6.18.10`)
+1. Cloning the upstream Linux source tree at the InterGenOS-pinned tag (`v6.18.51`)
 2. Running `git log <sha>^..<sha> -- <files>` to confirm the commit is in the tree
 3. Cross-checking against the InterGenOS kernel source tarball SHA256 (per `packages/core/linux-kernel/package.yml` source URL + checksum)
 
@@ -298,11 +298,17 @@ The override-config addition was discovered as a gap during this 39Q draft's pop
 
 ## 18. Do you build your signed kernel with additional local patches?
 
-__FILLED__: (verified against `packages/core/linux-kernel/package.yml` and `build.sh`)
+(verified against `packages/core/linux-kernel/package.yml`, `packages/core/linux-kernel-pass2/package.yml` and `build.sh`; revised 2026-09-11 for the move to Linux 6.18.51)
 
-**Yes — one upstream-CVE backport patch** applied via `packages/core/linux-kernel/patches/CVE-2026-31431-copy-fail.patch` (upstream commit `crypto: algif_aead - Revert to operating out-of-place`, Herbert Xu, 2026-03-26). The patch reverts an in-place AEAD optimization that introduced an exploitable use-after-free (CVE-2026-31431, root-from-unprivileged-local). Applied during `linux-kernel/build.sh:21-29` before configure; reviewer-runnable verification: `ls packages/core/linux-kernel/patches/` plus inspection of `build.sh` patch-application loop.
+**Yes — one local patch**, declared identically in both kernel recipes' `patches:` lists and applied — its `sha256sum` checked against the declaration first — by the loop in `packages/core/linux-kernel/build.sh` before configure (the second pass's driver applies the same declaration through `apply_package_patches`). A test (`tests/igos_build/test_kernel_patch_lockstep.py`) fails the suite the moment the two declarations differ, a declared file is absent, or a kernel patch file exists in `build/patches/` that neither recipe declares. Reviewer-runnable verification: `ls build/patches/linux-*` plus inspection of the `patches:` declarations and the patch-application loop.
 
-No other local patches. Kernel source is the upstream Linux 6.18.10 tarball (sha256 `d6d377161741ada2fab28eed69143277634a2aeb5e3883e50c031588ede48ede` per `packages/core/linux-kernel/package.yml`).
+| Patch file | Subject | Upstream status | Class |
+|---|---|---|---|
+| `linux-6.18.51-amdgpu-runtime-resume-hotplug-only-on-change-1.patch` | `drm/amdgpu`: on a runtime resume, report a hotplug only if a connector changed | InterGenOS patch, not upstream (an upstream patch for the class was posted in 2021 and not merged) | Desktop behaviour: a graphics card with no display attached announced every runtime resume as a hotplug and the desktop rebuilt its monitor layout. Not security-relevant. |
+
+**History of the declared set.** From 2026-04-29 to 2026-09-11 the pinned kernel was Linux 6.18.10 and the recipes declared upstream security backports beside the local patch: CVE-2026-31431 (`crypto: algif_aead`, landed `fa3feb9b`), then CVE-2026-43284, CVE-2026-43500 and CVE-2026-46300 (the Dirty Frag and Fragnesia cluster, landed `ed09604d`; the rxrpc one was a locally authored backport because the upstream fix targeted a later refactor), then a backport of the `hid-asus` probe fix (`7253091766de`). On 2026-09-11 the kernel moved to 6.18.51, whose source carries every one of those fixes from the stable branch (`fafe0fa2`, `71a1d9d9`, `3bd9e113`, `3eae0f4f` with its follow-up `46cb765e`, and `fb9364ba`), verified before the move by reverse-applying each backport against the pristine 6.18.51 tree. The backports were retired from the declaration at that point; the locally authored rxrpc backport is replaced by upstream's reviewed fix. The move also closed CVE-2026-53362 (fixed upstream in 6.18.38), which 6.18.10 did not carry — see `docs/security/advisories/CVE-2026-53362-ipv6-fraggap.md`.
+
+No other local patches. Kernel source is the upstream Linux 6.18.51 tarball (sha256 `ba2f60f858bf4d1f929101faa356c93dc8b925b17aaa9f95eabd4627758df613` per `packages/core/linux-kernel/package.yml`).
 
 ---
 
@@ -573,7 +579,7 @@ GRUB2 module list to be confirmed in Q30.
 
 ## 37. What kernel are you using? Which patches and configuration does it include?
 
-**Kernel:** Linux 6.18.10 (version pin in `packages/core/linux-kernel/package.yml`; sha256 `d6d377161741ada2fab28eed69143277634a2aeb5e3883e50c031588ede48ede`).
+**Kernel:** Linux 6.18.51 (version pin in `packages/core/linux-kernel/package.yml`; sha256 `ba2f60f858bf4d1f929101faa356c93dc8b925b17aaa9f95eabd4627758df613`; moved from 6.18.10 on 2026-09-11).
 
 **Configuration:** generated from `config/kernel/fragments/*.config` via the InterGenOS Forge kernel-config-merge pipeline. Key fragments:
 
