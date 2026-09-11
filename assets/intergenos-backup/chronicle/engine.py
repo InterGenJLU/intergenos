@@ -205,8 +205,18 @@ class Engine:
         tstore = _cas.ContentStore(target_root)
         for e in m.get("entries", []):
             if e.get("type") == _manifest.T_FILE and e.get("sha256"):
-                if not tstore.exists(e["sha256"]):
-                    tstore.put_bytes(self.local_store.read_bytes(e["sha256"]))
+                expected = e["sha256"]
+                if tstore.exists(expected):
+                    tstore.require_valid(expected)
+                else:
+                    stored = tstore.put_bytes(
+                        self.local_store.read_bytes(expected)
+                    )
+                    if stored != expected:
+                        raise _cas.CorruptBlob(
+                            f"source blob changed while mirroring: expected "
+                            f"{expected}, stored as {stored}"
+                        )
         _manifest.commit_manifest(target_root, m)
 
     def _store_root_for(self, layer):

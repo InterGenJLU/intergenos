@@ -55,6 +55,38 @@ class CasTest(unittest.TestCase):
         sha = self.store.put_file(p)
         self.assertEqual(self.store.read_bytes(sha), b"filedata")
 
+    def test_put_bytes_rejects_a_corrupt_existing_blob(self):
+        payload = b"deduplicated bytes"
+        sha = self.store.put_bytes(payload)
+        self.store.blob_path(sha).write_bytes(b"corrupt")
+
+        with self.assertRaises(_cas.CorruptBlob):
+            self.store.put_bytes(payload)
+        self.assertEqual(self.store.blob_path(sha).read_bytes(), b"corrupt")
+
+    def test_put_file_rejects_a_corrupt_existing_blob(self):
+        source = Path(self.tmp) / "source"
+        source.write_bytes(b"file payload")
+        sha = self.store.put_file(source)
+        self.store.blob_path(sha).write_bytes(b"corrupt")
+
+        with self.assertRaises(_cas.CorruptBlob):
+            self.store.put_file(source)
+        self.assertEqual(self.store.blob_path(sha).read_bytes(), b"corrupt")
+
+    def test_healthy_existing_blobs_remain_unchanged_during_dedup(self):
+        payload = b"healthy deduplication"
+        source = Path(self.tmp) / "healthy-source"
+        source.write_bytes(payload)
+        sha = self.store.put_bytes(payload)
+        before = self.store.blob_path(sha).stat()
+
+        self.assertEqual(self.store.put_bytes(payload), sha)
+        self.assertEqual(self.store.put_file(source), sha)
+        after = self.store.blob_path(sha).stat()
+        self.assertEqual(after.st_ino, before.st_ino)
+        self.assertEqual(self.store.read_bytes(sha), payload)
+
 
 if __name__ == "__main__":
     unittest.main()

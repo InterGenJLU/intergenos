@@ -60,7 +60,9 @@ class ContentStore:
     def _finalize(self, tmp_path, sha):
         dest = _paths.blob_path(self.root, sha)
         if dest.exists():
-            # Already stored (dedup) — drop the redundant temp copy.
+            # Dedup is valid only when the named object still has the bytes
+            # its content address promises.
+            self.require_valid(sha)
             os.unlink(tmp_path)
             return sha
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -98,7 +100,7 @@ class ContentStore:
         arbitrarily large files never load whole into memory."""
         sha = sha256_file(src_path)
         if self.exists(sha):
-            return sha  # dedup: identical content already stored
+            return self.require_valid(sha)
         shard = _paths.blob_path(self.root, sha).parent
         shard.mkdir(parents=True, exist_ok=True)
         fd, tmp = _mkstemp_in(shard)
@@ -135,6 +137,19 @@ class ContentStore:
         if not p.exists():
             return False
         return sha256_file(p) == sha.lower()
+
+    def require_valid(self, sha):
+        """Return sha only when its existing object matches the address."""
+        p = _paths.blob_path(self.root, sha)
+        if not p.exists():
+            raise FileNotFoundError(f"blob {sha} not in store {self.root}")
+        actual = sha256_file(p)
+        if actual != sha.lower():
+            raise CorruptBlob(
+                f"existing blob failed verification in {self.root}: "
+                f"expected {sha.lower()}, found {actual}"
+            )
+        return sha
 
     def iter_blobs(self):
         """Yield the sha256 of every stored blob (derived from its path)."""
