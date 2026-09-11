@@ -203,28 +203,31 @@ def cmd_verify(backend, args, rep):
     if args.scrub:
         res = backend.call("scrub")
         if args.json:
-            return _emit_json(res)
-        if res["clean"]:
-            rep.info("Scrub complete — every stored version verifies.")
+            _emit_json(res)
         else:
-            rep.error(f"Scrub found {len(res['corrupt'])} corrupt item(s):")
-            for c in res["corrupt"]:
-                where = c.get("sha256") or c.get("path")
-                rep.error(f"  {where} — affects versions: "
-                          f"{', '.join(c.get('versions', []))}")
-        return
+            if res["clean"]:
+                rep.info("Scrub complete — every stored version verifies.")
+            else:
+                rep.error(f"Scrub found {len(res['corrupt'])} corrupt item(s):")
+                for c in res["corrupt"]:
+                    where = c.get("sha256") or c.get("path")
+                    rep.error(f"  {where} — affects versions: "
+                              f"{', '.join(c.get('versions', []))}")
+        return 0 if res["clean"] else 1
     if not (args.layer and args.version):
         rep.error("verify needs <layer> <version>, or --scrub")
         sys.exit(1)
     res = backend.call("verify", layer=args.layer, version_id=args.version)
     if args.json:
-        return _emit_json(res)
-    if res["ok"]:
-        rep.info(f"{args.version} verifies intact.")
+        _emit_json(res)
     else:
-        rep.error(f"{args.version} FAILED verification:")
-        for p in res["problems"]:
-            rep.error(f"  {p}")
+        if res["ok"]:
+            rep.info(f"{args.version} verifies intact.")
+        else:
+            rep.error(f"{args.version} FAILED verification:")
+            for p in res["problems"]:
+                rep.error(f"  {p}")
+    return 0 if res["ok"] else 1
 
 
 def cmd_target(backend, args, rep):
@@ -375,8 +378,8 @@ def main(argv=None):
     backend = Backend(socket_path=args.socket, local_root=args.local_root,
                       config_path=args.config)
     try:
-        COMMANDS[args.command](backend, args, rep)
-        return 0
+        status = COMMANDS[args.command](backend, args, rep)
+        return 0 if status is None else status
     except RuntimeError as e:
         rep.error(str(e))
         return 1

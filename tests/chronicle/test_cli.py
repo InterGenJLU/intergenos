@@ -8,6 +8,7 @@ import os
 import tempfile
 import unittest
 from contextlib import redirect_stdout, redirect_stderr
+from unittest import mock
 
 from chronicle import api as _api
 from chronicle import cli as _cli
@@ -82,6 +83,66 @@ class GoldenOutputTest(unittest.TestCase):
     def test_no_command_prints_help_rc2(self):
         rc, _out, _err = self._run([])
         self.assertEqual(rc, 2)
+
+
+class IntegrityStatusTest(unittest.TestCase):
+    def _run(self, argv, result):
+        out, err = io.StringIO(), io.StringIO()
+        backend = mock.Mock()
+        backend.call.return_value = result
+        with mock.patch.object(_cli, "Backend", return_value=backend), \
+                redirect_stdout(out), redirect_stderr(err):
+            rc = _cli.main(argv)
+        return rc, out.getvalue(), err.getvalue()
+
+    def test_verify_plain_and_json_return_integrity_status(self):
+        for json_mode in (False, True):
+            suffix = ["--json"] if json_mode else []
+            with self.subTest(json=json_mode, intact=True):
+                rc, out, err = self._run(
+                    ["verify", "config-state", "v1", *suffix],
+                    {"version_id": "v1", "ok": True, "problems": []},
+                )
+                self.assertEqual(rc, 0)
+                self.assertFalse(err)
+                if json_mode:
+                    self.assertTrue(json.loads(out)["ok"])
+            with self.subTest(json=json_mode, intact=False):
+                rc, out, err = self._run(
+                    ["verify", "config-state", "v1", *suffix],
+                    {"version_id": "v1", "ok": False,
+                     "problems": ["missing blob"]},
+                )
+                self.assertEqual(rc, 1)
+                if json_mode:
+                    self.assertFalse(json.loads(out)["ok"])
+                else:
+                    self.assertIn("FAILED verification", err)
+
+    def test_scrub_plain_and_json_return_integrity_status(self):
+        corrupt = [{"kind": "missing-blob", "sha256": "abc",
+                    "versions": ["v1"]}]
+        for json_mode in (False, True):
+            suffix = ["--json"] if json_mode else []
+            with self.subTest(json=json_mode, clean=True):
+                rc, out, err = self._run(
+                    ["verify", "--scrub", *suffix],
+                    {"clean": True, "corrupt": []},
+                )
+                self.assertEqual(rc, 0)
+                self.assertFalse(err)
+                if json_mode:
+                    self.assertTrue(json.loads(out)["clean"])
+            with self.subTest(json=json_mode, clean=False):
+                rc, out, err = self._run(
+                    ["verify", "--scrub", *suffix],
+                    {"clean": False, "corrupt": corrupt},
+                )
+                self.assertEqual(rc, 1)
+                if json_mode:
+                    self.assertFalse(json.loads(out)["clean"])
+                else:
+                    self.assertIn("Scrub found 1 corrupt item", err)
 
 
 if __name__ == "__main__":
