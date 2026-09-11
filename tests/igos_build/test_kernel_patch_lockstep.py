@@ -24,7 +24,15 @@ install, which is exactly the class a virtual-machine evaluation cannot exhibit.
 The fix is one declared patch set, in package.yml, on both recipes, with the
 files in the canonical build/patches directory. These tests are the guard that
 keeps it that way: the moment the two declarations differ by one hash, or a
-declared hash stops matching the file on disk, the suite fails.
+declared hash stops matching the file on disk, or a kernel patch file sits in
+build/patches undeclared, the suite fails.
+
+The SIZE of the set is not asserted. It was, until 2026-09-11: three tests
+required at least four CVE-named patches, which was true of the 6.18.10
+declaration and false the day the kernel moved to 6.18.51 (which carries
+those fixes upstream, so the backports were retired). A count is a snapshot
+of one declaration; the invariants are identity between the passes, presence
+of every declared file, and no undeclared kernel patch on disk.
 """
 import hashlib
 import re
@@ -63,15 +71,18 @@ def declared(recipe_dir: Path) -> list:
 
 def test_pass1_declares_patches():
     """A parse yielding nothing would make the equality test below pass for the
-    wrong reason — two empty sets are equal."""
-    assert len(declared(PASS1)) >= 4, "linux-kernel declares fewer patches than expected"
+    wrong reason — two empty sets are equal. The COUNT is not an invariant: the
+    set shrank from six to one on 2026-09-11 when the kernel moved to a release
+    that carries five of the fixes upstream, and it will grow and shrink again.
+    What must hold is that the declaration is non-empty and readable."""
+    assert len(declared(PASS1)) >= 1, "linux-kernel declares no patches"
 
 
 def test_pass2_declares_patches():
-    assert len(declared(PASS2)) >= 4, (
+    assert len(declared(PASS2)) >= 1, (
         "linux-kernel-pass2 declares no patches. It supersedes pass 1 and its payload "
         "lands last on an installed system, so an undeclared patch set here means the "
-        "kernel the user boots is unpatched."
+        "kernel the user boots is missing whatever pass 1 applies."
     )
 
 
@@ -158,11 +169,42 @@ def test_pass2_driver_applies_declared_patches():
     )
 
 
-def test_the_declared_patches_are_the_cve_set():
-    """Names are not evidence, but a set that stops mentioning CVEs at all is
-    worth failing on: it means the security patches left without anyone saying so."""
-    names = [name for name, _ in declared(PASS2)]
-    cve = [n for n in names if re.search(r"CVE-\d{4}-\d+", n)]
-    assert len(cve) >= 4, (
-        f"only {len(cve)} of the {len(names)} declared patches name a CVE: {names}"
+def kernel_patch_files_on_disk() -> set:
+    """Every patch file in build/patches that belongs to the kernel: the
+    linux-<version>-* local patches and any CVE-named file whose body touches a
+    kernel source path. build/patches is shared by every package, so a name
+    alone does not say which package a CVE file is for; the body does."""
+    out = set()
+    for path in PATCH_DIR.iterdir():
+        if not path.is_file() or path.suffix != ".patch":
+            continue
+        if path.name.startswith("linux-"):
+            out.add(path.name)
+        elif re.search(r"CVE-\d{4}-\d+", path.name):
+            body = path.read_text(encoding="utf-8", errors="replace")
+            if re.search(r"^\+\+\+ b/(net|crypto|drivers|kernel|fs|mm|arch|include|lib|security|sound|block)/", body, re.M):
+                out.add(path.name)
+    return out
+
+
+def test_every_kernel_patch_on_disk_is_declared_and_every_declared_one_exists():
+    """The two directions of the same invariant. A kernel patch file that no
+    recipe declares is a fix that silently stopped being applied (the shape the
+    2026-08-11 measurement found); a declared file that is absent refuses the
+    build. Before 2026-09-11 this test asserted "at least four CVE-named
+    patches" — a count that encoded one moment's declaration. The kernel moved
+    to a release carrying those fixes upstream, the CVE patches were retired,
+    and the count became false without any fix having been lost. The invariant
+    that survives a version move is set equality, not a number."""
+    on_disk = kernel_patch_files_on_disk()
+    declared_names = {name for name, _ in declared(PASS2)}
+    undeclared = sorted(on_disk - declared_names)
+    assert not undeclared, (
+        "kernel patch files exist in build/patches that neither pass declares, so "
+        f"nothing applies them: {undeclared}. Either declare them in BOTH recipes or "
+        "remove them with a release note saying why the fix is no longer needed."
+    )
+    missing = sorted(declared_names - on_disk)
+    assert not missing, (
+        f"linux-kernel-pass2 declares patches that are not in build/patches: {missing}"
     )

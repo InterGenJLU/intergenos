@@ -249,8 +249,8 @@ done
 shopt -u nullglob
 unset _mod_tree _staged_kver
 
-build_ch10_package "linux-kernel" "linux-kernel" "6.18.10" \
-    "linux-6.18.10.tar.xz" \
+build_ch10_package "linux-kernel" "linux-kernel" "6.18.51" \
+    "linux-6.18.51.tar.xz" \
     "Linux kernel" || {
     log "error: kernel build failed"
     exit 1
@@ -274,7 +274,7 @@ log ""
 log ">>> Chapter 10 build complete"
 log ""
 log "    Kernel installed to /boot/vmlinuz-${version}-igos-<release> (release per linux-kernel/package.yml)"
-log "    Modules installed to /lib/modules/6.18.10"
+log "    Modules installed to /lib/modules/6.18.51-igos-<release>"
 log ""
 log "    note: /etc/fstab and GRUB configuration will be"
 log "    completed during image deployment to the target VM."

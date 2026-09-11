@@ -895,8 +895,8 @@ run_package "sof-firmware" "sof-firmware" "2025.12.2" \
     "sof-bin-2025.12.2.tar.gz" \
     "Sound Open Firmware binaries for Intel audio DSPs"
 
-run_package "linux-kernel-pass2" "linux-kernel-pass2" "6.18.10" \
-    "linux-6.18.10.tar.xz" \
+run_package "linux-kernel-pass2" "linux-kernel-pass2" "6.18.51" \
+    "linux-6.18.51.tar.xz" \
     "Linux kernel (pass 2 — rebuild with merged config fragments)"
 
 run_package "llvm" "llvm" "21.1.8" \

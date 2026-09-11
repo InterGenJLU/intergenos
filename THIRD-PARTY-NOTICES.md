@@ -1430,13 +1430,13 @@ Firmware files for Linux kernel drivers (WiFi, GPU, audio, etc.)
 - License: `LicenseRef-Various-Redistributable`
 - Homepage: https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git
 
-### linux-kernel (6.18.10)
+### linux-kernel (6.18.51)
 
 Linux kernel
 
 - License: `GPL-2.0-only`
 
-### linux-kernel-pass2 (6.18.10)
+### linux-kernel-pass2 (6.18.51)
 
 Linux kernel (pass 2 — rebuild with merged config fragments)
 

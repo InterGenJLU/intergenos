@@ -49,7 +49,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 PARSER = REPO_ROOT / "scripts/parse-package-yml-patches.py"
 PATCH_DIR = REPO_ROOT / "build/patches"
 
-KERNEL_PATCH = "linux-6.18.10-amdgpu-runtime-resume-hotplug-only-on-change-1.patch"
+KERNEL_PATCH = "linux-6.18.51-amdgpu-runtime-resume-hotplug-only-on-change-1.patch"
 MUTTER_PATCH = "mutter-49.4-headless_device_reopen_keeps_state-1.patch"
 
 KERNEL_RECIPES = [

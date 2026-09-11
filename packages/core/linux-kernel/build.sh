@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2015-2016, 2026 InterGenJLU
 #
-# Linux Kernel 6.18.10
+# Linux Kernel 6.18.51 (the toolchain's linux-headers package stays on the 6.18.10 tarball until the next from-scratch build)
 # LFS 13.0 Section 10.3
 #
 # DESTDIR exception: Kernel uses INSTALL_MOD_PATH and INSTALL_PATH,

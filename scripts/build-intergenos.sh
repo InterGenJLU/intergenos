@@ -1516,7 +1516,7 @@ phase_setup() {
     # Verify critical sources exist
     local missing=0
     for src in binutils-2.46.0.tar.xz gcc-15.2.0.tar.xz glibc-2.43.tar.xz \
-               linux-6.18.10.tar.xz gmp-6.3.0.tar.xz mpfr-4.2.2.tar.xz mpc-1.3.1.tar.gz; do
+               linux-6.18.10.tar.xz linux-6.18.51.tar.xz gmp-6.3.0.tar.xz mpfr-4.2.2.tar.xz mpc-1.3.1.tar.gz; do
         if [ ! -f "${SOURCES}/$src" ]; then
             log "  missing: $src"
             missing=$((missing + 1))

@@ -1,14 +1,15 @@
 Subject: [PATCH] drm/amdgpu: on a runtime resume, report a hotplug only if a connector changed
 
 This is an InterGenOS patch. It is not an upstream commit and it is not
-carried by linux-6.18.10.
+carried by linux-6.18.51.
 
 amdgpu_device_resume() sends a hotplug event unconditionally on the DC
 path. A runtime resume is not a hotplug: a graphics card that drives no
 display is resumed by whatever opens its render node, and the event that
 followed made every compositor on the machine re-probe its outputs and
 rebuild its monitor configuration although no connector had changed.
-Measured on a two-card workstation running 6.18.10: the card that serves
+Measured on a two-card workstation running 6.18.10 and carried forward
+to 6.18.51 (re-based 2026-09-11, hunks unchanged, offsets updated): the card that serves
 compute work runtime-suspends five seconds after its last client closes
 it, and each subsequent open produced two change uevents carrying
 HOTPLUG=1 for a card with nothing connected to it. The compositor driving
@@ -21,7 +22,7 @@ both calls when adev->in_runpm was set. It was never merged. What was
 merged instead is commit 4020c2280233 ("drm/amdgpu: don't runtime suspend
 if there are displays attached (v3)"), which refuses to runtime suspend a
 card that has a display connected, and says why in its own comment, still
-present in 6.18.10 in amdgpu_runtime_idle_check_display():
+present in 6.18.51 in amdgpu_runtime_idle_check_display():
 
 	/* XXX: Return busy if any displays are connected to avoid
 	 * possible display wakeups after runtime resume due to
@@ -57,7 +58,7 @@ Signed-off-by: InterGenJLU <InterGenJLU@users.noreply.github.com>
 ---
 --- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
 +++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
-@@ -5283,6 +5283,47 @@
+@@ -5371,6 +5371,47 @@
  }
  
  /**
@@ -105,7 +106,7 @@ Signed-off-by: InterGenJLU <InterGenJLU@users.noreply.github.com>
   * amdgpu_device_resume - initiate device resume
   *
   * @dev: drm dev pointer
-@@ -5378,6 +5419,8 @@
+@@ -5466,6 +5507,8 @@
  #endif
  		if (!adev->dc_enabled)
  			drm_helper_hpd_irq_event(dev);
