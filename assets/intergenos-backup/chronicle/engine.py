@@ -350,9 +350,10 @@ class Engine:
         root = self._store_root_for(layer)
         if not root:
             return {"pruned": [], "note": "layer store not present"}
+        inventories = self._complete_manifest_inventory(root)
         now = self._wall_clock()
         pins = set(self.state.get("pins", []))
-        raw = _manifest.list_versions(root, layer)
+        raw = inventories[layer]
         vs = [{"version_id": m["version_id"], "sequence": m["sequence"],
                "wall_clock": m.get("wall_clock", 0),
                "pinned": m["version_id"] in pins} for m in raw]
@@ -363,26 +364,49 @@ class Engine:
         else:
             keep = _retention.thin_keep_restore_points(vs)
         prune_ids = _retention.prune_set(vs, keep)
+        manifests_by_id = {m["version_id"]: m for m in raw}
         for vid in prune_ids:
-            self._drop_version(root, layer, vid)
-        self._gc(root)
+            self._drop_version(root, layer, manifests_by_id[vid])
+        inventories[layer] = [
+            m for m in inventories[layer]
+            if m.get("version_id") not in prune_ids
+        ]
+        self._gc(root, inventories)
         return {"pruned": prune_ids, "kept": sorted(keep)}
 
-    def _drop_version(self, root, layer, version_id):
-        m = _manifest.find_version(root, layer, version_id)
-        if m and m.get("_path"):
-            try:
-                os.unlink(m["_path"])
-            except OSError:
-                pass
+    def _complete_manifest_inventory(self, root):
+        try:
+            return {
+                layer: _manifest.list_versions_complete(root, layer)
+                for layer in _paths.LAYERS
+            }
+        except _manifest.ManifestInventoryError as exc:
+            raise EngineError(f"retention stopped: {exc}") from exc
+
+    def _drop_version(self, root, layer, manifest):
+        version_id = manifest["version_id"]
+        path = manifest.get("_path")
+        if not path:
+            raise EngineError(
+                f"retention stopped: manifest path missing for {version_id}"
+            )
+        try:
+            os.unlink(path)
+        except OSError as exc:
+            raise EngineError(
+                f"retention stopped: could not remove manifest "
+                f"{Path(path).name}: {exc}"
+            ) from exc
         if layer == _paths.LAYER_USER_DATA:
             _userdata.remove_version_tree(root, version_id)
 
-    def _gc(self, root):
+    def _gc(self, root, inventories=None):
+        if inventories is None:
+            inventories = self._complete_manifest_inventory(root)
         referenced = set()
         for layer in _paths.LAYERS:
             referenced |= _manifest.referenced_shas(
-                _manifest.list_versions(root, layer)
+                inventories[layer]
             )
         return _cas.ContentStore(root).gc(referenced)
 

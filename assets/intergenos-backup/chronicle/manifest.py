@@ -33,6 +33,10 @@ T_DIR = "dir"
 T_SYMLINK = "symlink"
 
 
+class ManifestInventoryError(Exception):
+    """One or more committed manifests could not be read."""
+
+
 def capture_entry(abs_path, rel_path, store):
     """Capture one path into a manifest entry, storing file bytes in the CAS.
 
@@ -138,24 +142,108 @@ def load_manifest(path):
         return json.load(f)
 
 
-def list_versions(store_root, layer):
-    """Return committed manifests for a layer, oldest first (by sequence).
-    Uncommitted temp files are ignored — only final `.json` names are read."""
+def _manifest_problem(path, layer, manifest):
+    """Return a structural/root-integrity problem, or None."""
+    if not isinstance(manifest, dict):
+        return "top level is not an object"
+    version = manifest.get("version_id")
+    if not isinstance(version, str) or not version:
+        return "version_id is missing or is not a string"
+    if manifest.get("layer") != layer:
+        return f"declares layer {manifest.get('layer')!r}, expected {layer!r}"
+    sequence = manifest.get("sequence")
+    if isinstance(sequence, bool) or not isinstance(sequence, int):
+        return "sequence is missing or is not an integer"
+    entries = manifest.get("entries")
+    if not isinstance(entries, list):
+        return "entries is missing or is not a list"
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            return f"entry {index} is not an object"
+        if not isinstance(entry.get("path"), str):
+            return f"entry {index} has no string path"
+        if entry.get("type") not in (T_FILE, T_DIR, T_SYMLINK):
+            return f"entry {index} has an unknown type"
+        if entry.get("type") == T_FILE and not isinstance(
+            entry.get("sha256"), str
+        ):
+            return f"file entry {index} has no string sha256"
+    try:
+        recomputed = compute_root_hash(entries)
+    except (TypeError, ValueError) as exc:
+        return f"entries cannot be hashed: {type(exc).__name__}: {exc}"
+    if recomputed != manifest.get("root_hash"):
+        return (
+            f"root hash mismatch: manifest claims {manifest.get('root_hash')}, "
+            f"entries recompute to {recomputed}"
+        )
+    return None
+
+
+def _load_versions(store_root, layer):
+    """Return (readable manifests, per-path integrity diagnostics)."""
     vdir = _paths.versions_dir(store_root, layer)
     if not vdir.exists():
-        return []
+        return [], []
     out = []
+    problems = []
     for p in vdir.iterdir():
         if p.is_file() and p.suffix == ".json" and not p.name.startswith(".tmp-"):
             try:
                 m = load_manifest(p)
-                m["_path"] = str(p)
-                out.append(m)
-            except (OSError, ValueError):
-                # A malformed manifest is surfaced by verify/scrub, not here;
-                # skip it for listing so one bad file does not hide the rest.
+            except (OSError, ValueError) as exc:
+                problems.append({
+                    "path": str(p),
+                    "version_id": None,
+                    "problem": f"{type(exc).__name__}: {exc}",
+                })
                 continue
-    out.sort(key=lambda m: m.get("sequence", 0))
+            problem = _manifest_problem(p, layer, m)
+            if problem:
+                problems.append({
+                    "path": str(p),
+                    "version_id": m.get("version_id")
+                    if isinstance(m, dict) else None,
+                    "problem": problem,
+                })
+                # Root-invalid manifests remain browseable and directly
+                # verifiable; wrong-shaped records cannot safely join a list.
+                if not isinstance(m, dict) or not isinstance(
+                    m.get("entries"), list
+                ) or not isinstance(m.get("sequence"), int):
+                    continue
+            m["_path"] = str(p)
+            out.append(m)
+    out.sort(key=lambda m: m["sequence"])
+    return out, problems
+
+
+def list_versions(store_root, layer):
+    """Return readable committed manifests, oldest first (by sequence).
+
+    This tolerant view is for browsing: one damaged manifest must not hide
+    every healthy version from the user interface. Destructive callers use
+    list_versions_complete() instead.
+    """
+    out, _problems = _load_versions(store_root, layer)
+    return out
+
+
+def list_versions_complete(store_root, layer):
+    """Return all committed manifests or fail before destructive work.
+
+    Garbage collection cannot prove that a blob is unreferenced while any
+    committed manifest is unreadable, so reclamation must use this view.
+    """
+    out, problems = _load_versions(store_root, layer)
+    if problems:
+        details = "; ".join(
+            f"{Path(problem['path']).name}: {problem['problem']}"
+            for problem in problems
+        )
+        raise ManifestInventoryError(
+            f"manifest inventory is incomplete for {layer}: {details}"
+        )
     return out
 
 
