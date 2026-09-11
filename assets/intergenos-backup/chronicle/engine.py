@@ -83,7 +83,8 @@ def _allocated_bytes(root, excluded_paths=()):
 
 def _cas_referenced_shas(inventories):
     referenced = set()
-    for layer in _paths.LAYERS:
+    # User-data hashes address files in version trees, not CAS objects.
+    for layer in _paths.LOCAL_LAYERS:
         referenced |= _manifest.referenced_shas(inventories[layer])
     return referenced
 

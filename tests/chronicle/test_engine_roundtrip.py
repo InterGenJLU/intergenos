@@ -10,6 +10,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from chronicle import cas as _cas
 from chronicle import engine as _engine
 from chronicle import escalate as _escalate
 from chronicle import paths as _paths
@@ -103,6 +104,82 @@ class EngineRoundTripTest(unittest.TestCase):
         st3 = os.stat(_userdata_file(troot, v3, e3))
         self.assertNotEqual(st2.st_ino, st3.st_ino,
                             "changed file must NOT share the prior inode")
+
+    def test_tree_backed_hash_does_not_retain_target_cas_alias(self):
+        config_root = Path(self.tmp) / "gc-config"
+        config_root.mkdir()
+        config_file = config_root / "setting"
+        config_file.write_bytes(b"CAS-backed configuration")
+        self.eng.target_adopt(self.target, target_class="directory")
+        config_id = self.eng.capture(
+            _paths.LAYER_CONFIG_STATE, scope=[str(config_root)]
+        )["version_id"]
+        config_manifest = self.eng.get_manifest(
+            _paths.LAYER_CONFIG_STATE, config_id
+        )
+        config_sha = next(
+            entry["sha256"] for entry in config_manifest["entries"]
+            if entry.get("type") == "file"
+        )
+
+        home = Path(self.tmp) / "gc-home"
+        home.mkdir()
+        document = home / "document"
+        user_bytes = b"tree-backed user data"
+        document.write_bytes(user_bytes)
+        self.eng.config.user_data_paths = [str(home)]
+        user_id = self.eng.capture(_paths.LAYER_USER_DATA)["version_id"]
+        user_manifest = self.eng.get_manifest(_paths.LAYER_USER_DATA, user_id)
+        user_sha = next(
+            entry["sha256"] for entry in user_manifest["entries"]
+            if entry.get("path") == str(document)
+        )
+
+        target_store = _cas.ContentStore(self.eng.target_root())
+        self.assertEqual(target_store.put_bytes(user_bytes), user_sha)
+        self.assertTrue(target_store.exists(user_sha))
+
+        result = self.eng.retention_apply(_paths.LAYER_USER_DATA)
+
+        self.assertEqual(result["pruned"], [])
+        self.assertFalse(target_store.exists(user_sha))
+        self.assertTrue(target_store.exists(config_sha))
+        self.assertTrue(self.eng.verify(_paths.LAYER_USER_DATA, user_id)["ok"])
+
+    def test_cap_collects_tree_hash_alias_before_pruning_user_history(self):
+        home = Path(self.tmp) / "cap-alias-home"
+        home.mkdir()
+        document = home / "document"
+        user_bytes = b"U" * (256 * 1024)
+        document.write_bytes(user_bytes)
+        self.eng.config.user_data_paths = [str(home)]
+        self.eng.target_adopt(self.target, target_class="directory")
+        user_id = self.eng.capture(_paths.LAYER_USER_DATA)["version_id"]
+        target_root = self.eng.target_root()
+        target_store = _cas.ContentStore(target_root)
+        alias = target_store.put_bytes(user_bytes)
+        self.eng.state["target"]["cap_bytes"] = _engine._allocated_bytes(
+            target_root
+        )
+        self.eng._save_state()
+
+        config_root = Path(self.tmp) / "cap-alias-config"
+        config_root.mkdir()
+        (config_root / "setting").write_bytes(b"x")
+        self.eng.capture(
+            _paths.LAYER_CONFIG_STATE, scope=[str(config_root)]
+        )
+
+        user_versions = self.eng.list_versions(_paths.LAYER_USER_DATA)
+        self.assertEqual(
+            [version["version_id"] for version in user_versions], [user_id]
+        )
+        self.assertFalse(target_store.exists(alias))
+        self.assertFalse(any(
+            event["reason"] == "cap"
+            and user_id in event["version_ids"]
+            for event in self.eng.status()["retention_events"]
+        ))
 
     # -- restore-point --------------------------------------------------
 
