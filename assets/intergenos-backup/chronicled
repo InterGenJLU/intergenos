@@ -56,11 +56,20 @@ def _config_watch_loop(engine, interval=30):
         try:
             fp = _sentinel.config_set_fingerprint(paths_set)
             if fp != last_fp:
-                last_fp = fp
                 engine.capture(_paths.LAYER_CONFIG_STATE,
                                reason="config-state changed on disk", sync=True)
-        except Exception:
+                # Advance only after the version commits. A failed capture is
+                # retried on the next poll, and a change during capture still
+                # differs from this pre-capture fingerprint.
+                last_fp = fp
+        except Exception as exc:
             # A watcher hiccup must never take the service down.
+            print(
+                f"configuration watcher capture failed: "
+                f"{type(exc).__name__}: {exc}",
+                file=sys.stderr,
+                flush=True,
+            )
             continue
 
 
