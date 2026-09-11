@@ -34,7 +34,17 @@ from . import paths as _paths
 
 
 def userdata_tree(target_root, version_id):
-    return Path(target_root) / "userdata" / version_id
+    """The version's tree directory. Refuses any id that is not in the canonical
+    shape or whose joined path does not resolve to a direct child of the
+    userdata directory — so a stored id can never name the store root or
+    anything outside it (remove_version_tree deletes what this returns)."""
+    if not _manifest.is_canonical_version_id(version_id):
+        raise ValueError(f"user-data version id is not canonical: {version_id!r}")
+    base = Path(target_root) / "userdata"
+    tree = base / version_id
+    if tree.resolve(strict=False).parent != base.resolve(strict=False):
+        raise ValueError(f"user-data version path escapes the store: {version_id!r}")
+    return tree
 
 
 def _tree_path(staging, abs_path):
@@ -216,6 +226,8 @@ def read_file(target_root, version_id, entry):
 def remove_version_tree(target_root, version_id):
     """Delete a pruned version's tree. Hardlinked inodes shared with surviving
     versions stay alive by refcount; only this version's links are dropped."""
-    tree = userdata_tree(target_root, version_id)
+    tree = userdata_tree(target_root, version_id)  # raises on a non-canonical or escaping id
+    if tree.is_symlink():
+        raise ValueError(f"user-data version path is a symlink, not removed: {version_id!r}")
     if tree.exists():
         shutil.rmtree(tree, ignore_errors=True)

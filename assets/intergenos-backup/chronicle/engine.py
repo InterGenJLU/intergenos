@@ -543,6 +543,20 @@ class Engine:
             raise EngineError(
                 f"retention stopped: manifest path missing for {version_id}"
             )
+        if layer == _paths.LAYER_USER_DATA:
+            # The tree path is validated BEFORE the manifest is unlinked: a
+            # version id that cannot name a direct child of userdata/ stops
+            # retention with nothing removed, instead of leaving an orphaned
+            # tree behind a deleted manifest.
+            try:
+                tree = _userdata.userdata_tree(root, version_id)
+            except ValueError as exc:
+                raise EngineError(f"retention stopped: {exc}") from exc
+            if tree.is_symlink():
+                raise EngineError(
+                    f"retention stopped: user-data version path is a symlink, "
+                    f"not removed: {version_id!r}"
+                )
         try:
             os.unlink(path)
         except OSError as exc:

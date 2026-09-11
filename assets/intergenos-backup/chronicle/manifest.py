@@ -19,6 +19,7 @@ allowed to mis-order or overwrite a version.
 """
 
 import json
+import re
 import os
 import stat
 import tempfile
@@ -110,8 +111,19 @@ def build_manifest(layer, sequence, wall_clock, reason, entries):
     }
 
 
+VERSION_ID_RE = re.compile(r"^[0-9]{10}-[0-9a-f]{12}$")
+
+
 def _version_id(sequence, root_hash):
     return f"{int(sequence):010d}-{root_hash[:12]}"
+
+
+def is_canonical_version_id(value):
+    """True only for the exact shape _version_id() produces. A version id is
+    joined to the store root as a path segment (userdata trees, manifest file
+    names), so any other string — a dot pair, a slash, an empty string — is
+    refused before it can name a path outside the version's own directory."""
+    return isinstance(value, str) and VERSION_ID_RE.fullmatch(value) is not None
 
 
 def version_id(manifest):
@@ -170,6 +182,16 @@ def _manifest_problem(path, layer, manifest):
     version = manifest.get("version_id")
     if not isinstance(version, str) or not version:
         return invalid("version_id is missing or is not a string")
+    if not is_canonical_version_id(version):
+        # A version id is joined to the store root as a path segment (user-data
+        # trees, manifest file names). Anything but the canonical shape — a dot
+        # pair, a slash, an empty string — is refused here, before any consumer
+        # (pruning, restore, scrub) can turn it into a path outside the store.
+        return invalid("version_id is not in the canonical shape")
+    if version != Path(path).stem:
+        return invalid(
+            f"version_id {version!r} does not name its own file {Path(path).name!r}"
+        )
     if manifest.get("layer") != layer:
         return invalid(
             f"declares layer {manifest.get('layer')!r}, expected {layer!r}"
