@@ -143,39 +143,45 @@ def load_manifest(path):
 
 
 def _manifest_problem(path, layer, manifest):
-    """Return a structural/root-integrity problem, or None."""
+    """Return (kind, detail) for a structural/root problem, or None."""
+    invalid = lambda detail: ("manifest-invalid", detail)
     if not isinstance(manifest, dict):
-        return "top level is not an object"
+        return invalid("top level is not an object")
     version = manifest.get("version_id")
     if not isinstance(version, str) or not version:
-        return "version_id is missing or is not a string"
+        return invalid("version_id is missing or is not a string")
     if manifest.get("layer") != layer:
-        return f"declares layer {manifest.get('layer')!r}, expected {layer!r}"
+        return invalid(
+            f"declares layer {manifest.get('layer')!r}, expected {layer!r}"
+        )
     sequence = manifest.get("sequence")
     if isinstance(sequence, bool) or not isinstance(sequence, int):
-        return "sequence is missing or is not an integer"
+        return invalid("sequence is missing or is not an integer")
     entries = manifest.get("entries")
     if not isinstance(entries, list):
-        return "entries is missing or is not a list"
+        return invalid("entries is missing or is not a list")
     for index, entry in enumerate(entries):
         if not isinstance(entry, dict):
-            return f"entry {index} is not an object"
+            return invalid(f"entry {index} is not an object")
         if not isinstance(entry.get("path"), str):
-            return f"entry {index} has no string path"
+            return invalid(f"entry {index} has no string path")
         if entry.get("type") not in (T_FILE, T_DIR, T_SYMLINK):
-            return f"entry {index} has an unknown type"
+            return invalid(f"entry {index} has an unknown type")
         if entry.get("type") == T_FILE and not isinstance(
             entry.get("sha256"), str
         ):
-            return f"file entry {index} has no string sha256"
+            return invalid(f"file entry {index} has no string sha256")
     try:
         recomputed = compute_root_hash(entries)
     except (TypeError, ValueError) as exc:
-        return f"entries cannot be hashed: {type(exc).__name__}: {exc}"
+        return invalid(
+            f"entries cannot be hashed: {type(exc).__name__}: {exc}"
+        )
     if recomputed != manifest.get("root_hash"):
         return (
-            f"root hash mismatch: manifest claims {manifest.get('root_hash')}, "
-            f"entries recompute to {recomputed}"
+            "manifest-root-hash",
+            f"manifest claims {manifest.get('root_hash')}, "
+            f"entries recompute to {recomputed}",
         )
     return None
 
@@ -193,6 +199,7 @@ def _load_versions(store_root, layer):
                 m = load_manifest(p)
             except (OSError, ValueError) as exc:
                 problems.append({
+                    "kind": "manifest-unreadable",
                     "path": str(p),
                     "version_id": None,
                     "problem": f"{type(exc).__name__}: {exc}",
@@ -200,22 +207,28 @@ def _load_versions(store_root, layer):
                 continue
             problem = _manifest_problem(p, layer, m)
             if problem:
+                kind, detail = problem
                 problems.append({
+                    "kind": kind,
                     "path": str(p),
                     "version_id": m.get("version_id")
                     if isinstance(m, dict) else None,
-                    "problem": problem,
+                    "problem": detail,
                 })
-                # Root-invalid manifests remain browseable and directly
-                # verifiable; wrong-shaped records cannot safely join a list.
-                if not isinstance(m, dict) or not isinstance(
-                    m.get("entries"), list
-                ) or not isinstance(m.get("sequence"), int):
+                # Root-invalid but structurally safe manifests remain
+                # browseable and directly verifiable. A structurally invalid
+                # record is reported but must not reach downstream consumers.
+                if kind == "manifest-invalid":
                     continue
             m["_path"] = str(p)
             out.append(m)
     out.sort(key=lambda m: m["sequence"])
     return out, problems
+
+
+def inspect_versions(store_root, layer):
+    """Return readable manifests and every committed-manifest diagnostic."""
+    return _load_versions(store_root, layer)
 
 
 def list_versions(store_root, layer):

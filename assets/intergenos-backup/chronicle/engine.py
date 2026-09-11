@@ -287,40 +287,98 @@ class Engine:
         return {"version_id": version_id, "ok": ok, "problems": problems}
 
     def scrub(self):
-        """Walk every store, re-hashing blobs; report each corrupt blob with
-        EVERY version that references it (spec §3)."""
+        """Validate every manifest, reference, blob, and user-data file."""
         report = {"corrupt": [], "clean": True}
-        for root in filter(None, [self.local_root, self.target_root()]):
-            # CAS-backed layers: re-hash every blob, map each corrupt one back
-            # to EVERY version that references it (spec §3 — true blast radius).
-            store = _cas.ContentStore(root)
-            corrupt = store.scrub()
-            if corrupt:
-                report["clean"] = False
-                refs = self._blob_to_versions(root)
-                for sha in corrupt:
-                    report["corrupt"].append(
-                        {"sha256": sha, "store": str(root),
-                         "versions": sorted(refs.get(sha, []))}
+        roots = []
+        seen_roots = set()
+        for candidate in filter(None, [self.local_root, self.target_root()]):
+            root = Path(candidate)
+            key = os.path.realpath(root)
+            if key not in seen_roots:
+                roots.append(root)
+                seen_roots.add(key)
+
+        for root in roots:
+            inventories = {}
+            for layer in _paths.LAYERS:
+                manifests, problems = _manifest.inspect_versions(root, layer)
+                inventories[layer] = manifests
+                for problem in problems:
+                    versions = (
+                        [problem["version_id"]]
+                        if problem.get("version_id") else []
                     )
+                    report["corrupt"].append({
+                        "kind": problem["kind"],
+                        "path": problem["path"],
+                        "store": str(root),
+                        "versions": versions,
+                        "problem": problem["problem"],
+                    })
+
+            # CAS-backed layers: check that every reference exists, then hash
+            # every object and report its full CAS-backed version blast radius.
+            store = _cas.ContentStore(root)
+            refs = self._blob_to_versions(inventories)
+            for sha, versions in sorted(refs.items()):
+                if not store.exists(sha):
+                    report["corrupt"].append({
+                        "kind": "missing-blob",
+                        "sha256": sha,
+                        "store": str(root),
+                        "versions": sorted(versions),
+                        "problem": "referenced content-addressed blob is missing",
+                    })
+            for sha in store.scrub():
+                report["corrupt"].append({
+                    "kind": "corrupt-blob",
+                    "sha256": sha,
+                    "store": str(root),
+                    "versions": sorted(refs.get(sha, [])),
+                    "problem": "blob bytes do not match its content address",
+                })
+
             # Tree-backed user-data: re-hash each version tree's files.
-            for m in _manifest.list_versions(root, _paths.LAYER_USER_DATA):
+            for m in inventories[_paths.LAYER_USER_DATA]:
                 for e in m.get("entries", []):
                     if e.get("type") != _manifest.T_FILE:
                         continue
                     src = _userdata.read_file(root, m["version_id"], e)
-                    if not src.exists() or _cas.sha256_file(src) != e.get("sha256"):
-                        report["clean"] = False
-                        report["corrupt"].append(
-                            {"path": e["path"], "store": str(root),
-                             "versions": [m["version_id"]]}
-                        )
+                    if not src.exists():
+                        report["corrupt"].append({
+                            "kind": "missing-user-data",
+                            "path": e["path"],
+                            "store": str(root),
+                            "versions": [m["version_id"]],
+                            "problem": "stored user-data file is missing",
+                        })
+                        continue
+                    try:
+                        actual = _cas.sha256_file(src)
+                    except OSError as exc:
+                        report["corrupt"].append({
+                            "kind": "unreadable-user-data",
+                            "path": e["path"],
+                            "store": str(root),
+                            "versions": [m["version_id"]],
+                            "problem": f"{type(exc).__name__}: {exc}",
+                        })
+                        continue
+                    if actual != e.get("sha256"):
+                        report["corrupt"].append({
+                            "kind": "corrupt-user-data",
+                            "path": e["path"],
+                            "store": str(root),
+                            "versions": [m["version_id"]],
+                            "problem": "stored bytes do not match the manifest",
+                        })
+        report["clean"] = not report["corrupt"]
         return report
 
-    def _blob_to_versions(self, root):
+    def _blob_to_versions(self, inventories):
         idx = {}
-        for layer in _paths.LAYERS:
-            for m in _manifest.list_versions(root, layer):
+        for layer in _paths.LOCAL_LAYERS:
+            for m in inventories[layer]:
                 for e in m.get("entries", []):
                     if e.get("type") == _manifest.T_FILE and e.get("sha256"):
                         idx.setdefault(e["sha256"], set()).add(m["version_id"])
