@@ -46,6 +46,48 @@ _STORE_LOCKS = {}
 _STORE_LOCKS_GUARD = threading.Lock()
 
 
+def _raise_walk_error(error):
+    raise error
+
+
+def _store_paths(root):
+    """Yield every allocated directory entry without following symlinks."""
+    for dirpath, dirnames, filenames in os.walk(
+        root, followlinks=False, onerror=_raise_walk_error
+    ):
+        yield dirpath
+        for name in dirnames:
+            path = os.path.join(dirpath, name)
+            if os.path.islink(path):
+                yield path
+        for name in filenames:
+            yield os.path.join(dirpath, name)
+
+
+def _allocated_bytes(root, excluded_paths=()):
+    """Physical bytes below root, counting each hardlinked inode once."""
+    excluded = {os.fspath(path) for path in excluded_paths}
+    seen = set()
+    total = 0
+    for path in _store_paths(root):
+        if os.fspath(path) in excluded:
+            continue
+        metadata = os.lstat(path)
+        identity = (metadata.st_dev, metadata.st_ino)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        total += metadata.st_blocks * 512
+    return total
+
+
+def _cas_referenced_shas(inventories):
+    referenced = set()
+    for layer in _paths.LAYERS:
+        referenced |= _manifest.referenced_shas(inventories[layer])
+    return referenced
+
+
 def _store_transaction_lock(root):
     key = os.path.realpath(root)
     with _STORE_LOCKS_GUARD:
@@ -257,16 +299,40 @@ class Engine:
                 raise EngineError(
                     "user-data capture needs the backup target attached"
                 )
+            self._cap_inventory_preflight(target_root)
             prev = self._latest(_paths.LAYER_USER_DATA, root=target_root)
             vid = _userdata.capture(
                 self.config.user_data_paths, target_root, prev, seq, wall,
                 reason, is_excluded=self.config.is_excluded,
             )
+            self._finalize_target_candidate(target_root, layer, vid)
         else:  # pragma: no cover - guarded above
             raise EngineError(f"unhandled layer: {layer}")
         self.state.setdefault("last_capture", {})[layer] = wall
         self._save_state()
         return vid
+
+    def _finalize_target_candidate(self, target_root, layer, version_id):
+        """Enforce the cap and roll back this candidate on any refusal."""
+        try:
+            self._enforce_directory_target_cap(
+                target_root, candidate=(layer, version_id)
+            )
+        except Exception as cap_error:
+            manifest = _manifest.find_version(target_root, layer, version_id)
+            if manifest is not None:
+                try:
+                    self._prune_versions(
+                        target_root, layer, [manifest], reason="cap"
+                    )
+                    self._gc(target_root)
+                except Exception as rollback_error:
+                    raise EngineError(
+                        f"directory target cap failed ({type(cap_error).__name__}: "
+                        f"{cap_error}) and candidate rollback failed "
+                        f"({type(rollback_error).__name__}: {rollback_error})"
+                    ) from cap_error
+            raise
 
     def _mirror_to_target(self, layer, version_id):
         """Copy a local-layer version (manifest + its blobs) to the target when
@@ -278,6 +344,7 @@ class Engine:
         m = _manifest.find_version(self.local_root, layer, version_id)
         if not m:
             return
+        self._cap_inventory_preflight(target_root)
         tstore = _cas.ContentStore(target_root)
         for e in m.get("entries", []):
             if e.get("type") == _manifest.T_FILE and e.get("sha256"):
@@ -294,6 +361,7 @@ class Engine:
                             f"{expected}, stored as {stored}"
                         )
         _manifest.commit_manifest(target_root, m)
+        self._finalize_target_candidate(target_root, layer, version_id)
 
     def _store_root_for(self, layer):
         if layer in _paths.TARGET_ONLY_LAYERS:
@@ -526,8 +594,210 @@ class Engine:
             if m.get("version_id") not in prune_ids
         ]
         self._gc(root, inventories)
+        cap_pruned = self._enforce_directory_target_cap(root)
+        cap_pruned_ids = set(cap_pruned)
         self._save_state()
-        return {"pruned": prune_ids, "kept": sorted(keep)}
+        return {
+            "pruned": prune_ids + [
+                version_id for version_id in cap_pruned
+                if version_id not in prune_ids
+            ],
+            "kept": sorted(set(keep) - cap_pruned_ids),
+        }
+
+    def _directory_target_cap(self, root):
+        target = self.state.get("target") or {}
+        cap = target.get("cap_bytes")
+        active_root = self.target_root()
+        if (
+            target.get("class") != "directory"
+            or cap is None
+            or active_root is None
+            or os.path.realpath(root) != os.path.realpath(active_root)
+        ):
+            return None
+        try:
+            cap = int(cap)
+        except (TypeError, ValueError) as exc:
+            raise EngineError(f"invalid directory target cap: {cap!r}") from exc
+        if cap < 0:
+            raise EngineError(f"invalid directory target cap: {cap}")
+        return cap
+
+    def _cap_inventory_preflight(self, root):
+        if self._directory_target_cap(root) is not None:
+            self._complete_manifest_inventory(root)
+
+    def _projected_target_usage(self, root, inventories, removed):
+        removed = set(removed)
+        excluded = set()
+        remaining = {}
+        for layer, manifests in inventories.items():
+            remaining[layer] = []
+            for manifest in manifests:
+                key = (layer, manifest["version_id"])
+                if key not in removed:
+                    remaining[layer].append(manifest)
+                    continue
+                excluded.add(manifest["_path"])
+                if layer == _paths.LAYER_USER_DATA:
+                    tree = _userdata.userdata_tree(root, manifest["version_id"])
+                    if tree.is_symlink():
+                        excluded.add(tree)
+                    elif tree.exists():
+                        excluded.update(_store_paths(tree))
+
+        referenced = _cas_referenced_shas(remaining)
+        store = _cas.ContentStore(root)
+        for sha in store.iter_blobs():
+            if sha not in referenced:
+                excluded.add(store.blob_path(sha))
+
+        if store.cas.exists():
+            excluded_text = {os.fspath(path) for path in excluded}
+            for shard in store.cas.iterdir():
+                if not shard.is_dir():
+                    continue
+                if not any(
+                    os.fspath(child) not in excluded_text
+                    for child in shard.iterdir()
+                ):
+                    excluded.add(shard)
+        return _allocated_bytes(root, excluded)
+
+    def _reject_cap_candidate(self, root, inventories, candidate, message):
+        if candidate is not None:
+            layer, version_id = candidate
+            manifest = next(
+                (m for m in inventories[layer]
+                 if m["version_id"] == version_id),
+                None,
+            )
+            if manifest is not None:
+                self._prune_versions(
+                    root, layer, [manifest], reason="cap"
+                )
+                inventories[layer] = [
+                    m for m in inventories[layer]
+                    if m["version_id"] != version_id
+                ]
+                self._gc(root, inventories)
+        raise EngineError(message)
+
+    def _collect_cap_orphans(self, root, inventories):
+        """Collect current CAS orphans before deciding version reclamation."""
+        self._gc(root, inventories)
+        referenced = _cas_referenced_shas(inventories)
+        store = _cas.ContentStore(root)
+        leftovers = sorted(
+            sha for sha in store.iter_blobs() if sha not in referenced
+        )
+        if leftovers:
+            raise EngineError(
+                "directory target cap cleanup could not remove unreferenced "
+                "blobs: " + ", ".join(leftovers)
+            )
+
+    def _enforce_directory_target_cap(self, root, candidate=None):
+        """Prune a directory target to its physical cap, or reject candidate.
+
+        The whole oldest-first plan is proven before its first unlink. A new
+        candidate is never counted as reclaimable: if prior unpinned history
+        cannot make it fit, only that candidate is rolled back.
+        """
+        cap = self._directory_target_cap(root)
+        if cap is None:
+            return []
+        if _allocated_bytes(root) <= cap:
+            return []
+        inventories = self._complete_manifest_inventory(root)
+        self._collect_cap_orphans(root, inventories)
+        if _allocated_bytes(root) <= cap:
+            return []
+        user_data = sorted(
+            inventories[_paths.LAYER_USER_DATA],
+            key=lambda manifest: int(manifest["sequence"]),
+        )
+        protected_id = (
+            candidate[1]
+            if candidate is not None
+            and candidate[0] == _paths.LAYER_USER_DATA
+            else None
+        )
+        history = [
+            manifest for manifest in user_data
+            if manifest["version_id"] != protected_id
+        ]
+        prior = {
+            (_paths.LAYER_USER_DATA, manifest["version_id"])
+            for manifest in history
+        }
+
+        minimum = self._projected_target_usage(root, inventories, prior)
+        if minimum > cap:
+            self._reject_cap_candidate(
+                root,
+                inventories,
+                candidate,
+                "directory target cap exceeded: minimum projected use "
+                f"is {minimum} bytes, above the {cap}-byte cap",
+            )
+
+        pins = set(self.state.get("pins", []))
+        current = _allocated_bytes(root)
+        need = current - cap
+        projected = current
+        projected_removed = set()
+        versions = []
+        for manifest in history:
+            version_id = manifest["version_id"]
+            pinned = version_id in pins
+            reclaimable = 0
+            if not pinned:
+                key = (_paths.LAYER_USER_DATA, version_id)
+                next_removed = projected_removed | {key}
+                next_projected = self._projected_target_usage(
+                    root, inventories, next_removed
+                )
+                reclaimable = max(0, projected - next_projected)
+                projected_removed = next_removed
+                projected = next_projected
+            versions.append({
+                "version_id": version_id,
+                "sequence": int(manifest["sequence"]),
+                "wall_clock": manifest.get("wall_clock", 0),
+                "pinned": pinned,
+                "size_bytes": reclaimable,
+            })
+        try:
+            order, _freed = _retention.volume_full_prune_plan(versions, need)
+        except _retention.PinsHoldingSpace:
+            self._reject_cap_candidate(
+                root,
+                inventories,
+                candidate,
+                "directory target cap exceeded: pinned versions are holding "
+                "space; unpin a version or raise the cap",
+            )
+
+        by_id = {manifest["version_id"]: manifest for manifest in history}
+        plan = [by_id[version_id] for version_id in order]
+        self._prune_versions(
+            root, _paths.LAYER_USER_DATA, plan, reason="cap"
+        )
+        inventories[_paths.LAYER_USER_DATA] = [
+            manifest for manifest in inventories[_paths.LAYER_USER_DATA]
+            if manifest["version_id"] not in set(order)
+        ]
+        self._gc(root, inventories)
+        actual = _allocated_bytes(root)
+        if actual > cap:
+            raise EngineError(
+                "directory target cap enforcement stopped: physical use is "
+                f"{actual} bytes after the planned prune, above the "
+                f"{cap}-byte cap"
+            )
+        return order
 
     # The engine keeps the newest retention records in state; the timer task
     # prints every run's result to the journal, which is the durable log.
@@ -640,12 +910,7 @@ class Engine:
     def _gc(self, root, inventories=None):
         if inventories is None:
             inventories = self._complete_manifest_inventory(root)
-        referenced = set()
-        for layer in _paths.LAYERS:
-            referenced |= _manifest.referenced_shas(
-                inventories[layer]
-            )
-        return _cas.ContentStore(root).gc(referenced)
+        return _cas.ContentStore(root).gc(_cas_referenced_shas(inventories))
 
     # -- restore --------------------------------------------------------
 
