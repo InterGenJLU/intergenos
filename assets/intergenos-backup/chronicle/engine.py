@@ -284,7 +284,6 @@ class Engine:
             vid = _configstate.capture(
                 paths_set, self.local_root, self.local_store, seq, wall, reason
             )
-            self._mirror_to_target(_paths.LAYER_CONFIG_STATE, vid)
         elif layer == _paths.LAYER_RESTORE_POINT:
             if not isinstance(scope, dict):
                 raise EngineError(
@@ -293,7 +292,6 @@ class Engine:
             vid = _restorepoint.capture_from_footprint(
                 scope, self.local_root, self.local_store, seq, wall
             )
-            self._mirror_to_target(_paths.LAYER_RESTORE_POINT, vid)
         elif layer == _paths.LAYER_USER_DATA:
             target_root = self.target_root()
             if not target_root:
@@ -309,12 +307,68 @@ class Engine:
             self._finalize_target_candidate(target_root, layer, vid)
         else:  # pragma: no cover - guarded above
             raise EngineError(f"unhandled layer: {layer}")
+        if layer in _paths.LOCAL_LAYERS:
+            try:
+                self._mirror_to_target(layer, vid)
+            except Exception as mirror_error:
+                try:
+                    self._rollback_local_capture(layer, vid)
+                except Exception as rollback_error:
+                    raise EngineError(
+                        f"mirror failed ({type(mirror_error).__name__}: "
+                        f"{mirror_error}) and local capture rollback failed "
+                        f"({type(rollback_error).__name__}: {rollback_error})"
+                    ) from mirror_error
+                raise
         self.state.setdefault("last_capture", {})[layer] = wall
         self._save_state()
         return vid
 
-    def _finalize_target_candidate(self, target_root, layer, version_id):
+    def _rollback_local_capture(self, layer, version_id):
+        """Remove one local version whose required target mirror failed."""
+        manifest = _manifest.find_version(self.local_root, layer, version_id)
+        if manifest is None:
+            raise EngineError(
+                f"local capture {version_id} is missing during mirror rollback"
+            )
+        candidate_shas = _manifest.referenced_shas([manifest])
+        self._drop_version(self.local_root, layer, manifest)
+        self._discard_unreferenced_blobs(self.local_root, candidate_shas)
+
+    def _discard_unreferenced_blobs(self, store_root, candidates):
+        """Remove named unreferenced blobs and verify each removal."""
+        candidates = set(candidates)
+        if not candidates:
+            return
+        inventories = self._complete_manifest_inventory(store_root)
+        referenced = _cas_referenced_shas(inventories)
+        store = _cas.ContentStore(store_root)
+        for sha in sorted(candidates):
+            if sha in referenced:
+                continue
+            path = store.blob_path(sha)
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                continue
+            shard = path.parent
+            if shard.exists() and not any(shard.iterdir()):
+                shard.rmdir()
+            if path.exists():
+                raise EngineError(
+                    f"unreferenced blob remains after rollback: {sha}"
+                )
+
+    def _finalize_target_candidate(
+        self, target_root, layer, version_id, created=()
+    ):
         """Enforce the cap and roll back this candidate on any refusal."""
+        candidate = _manifest.find_version(target_root, layer, version_id)
+        candidate_shas = (
+            _manifest.referenced_shas([candidate])
+            if candidate is not None and layer in _paths.LOCAL_LAYERS
+            else set()
+        )
         try:
             self._enforce_directory_target_cap(
                 target_root, candidate=(layer, version_id)
@@ -326,13 +380,22 @@ class Engine:
                     self._prune_versions(
                         target_root, layer, [manifest], reason="cap"
                     )
-                    self._gc(target_root)
                 except Exception as rollback_error:
                     raise EngineError(
                         f"directory target cap failed ({type(cap_error).__name__}: "
                         f"{cap_error}) and candidate rollback failed "
                         f"({type(rollback_error).__name__}: {rollback_error})"
                     ) from cap_error
+            try:
+                self._discard_unreferenced_blobs(
+                    target_root, set(created) | candidate_shas
+                )
+            except Exception as rollback_error:
+                raise EngineError(
+                    f"directory target cap failed ({type(cap_error).__name__}: "
+                    f"{cap_error}) and target blob rollback failed "
+                    f"({type(rollback_error).__name__}: {rollback_error})"
+                ) from cap_error
             raise
 
     def _mirror_to_target(self, layer, version_id):
@@ -347,22 +410,42 @@ class Engine:
             return
         self._cap_inventory_preflight(target_root)
         tstore = _cas.ContentStore(target_root)
-        for e in m.get("entries", []):
-            if e.get("type") == _manifest.T_FILE and e.get("sha256"):
-                expected = e["sha256"]
-                if tstore.exists(expected):
-                    tstore.require_valid(expected)
-                else:
-                    stored = tstore.put_bytes(
-                        self.local_store.read_bytes(expected)
-                    )
-                    if stored != expected:
-                        raise _cas.CorruptBlob(
-                            f"source blob changed while mirroring: expected "
-                            f"{expected}, stored as {stored}"
-                        )
-        _manifest.commit_manifest(target_root, m)
-        self._finalize_target_candidate(target_root, layer, version_id)
+        created = []
+        try:
+            for e in m.get("entries", []):
+                if e.get("type") == _manifest.T_FILE and e.get("sha256"):
+                    expected = e["sha256"]
+                    if tstore.exists(expected):
+                        tstore.require_valid(expected)
+                    else:
+                        data = self.local_store.read_bytes(expected)
+                        actual = _cas.sha256_bytes(data)
+                        if actual != expected:
+                            raise _cas.CorruptBlob(
+                                f"source blob changed while mirroring: expected "
+                                f"{expected}, found {actual}"
+                            )
+                        stored = tstore.put_bytes(data)
+                        created.append(stored)
+                        if stored != expected:
+                            raise _cas.CorruptBlob(
+                                f"target stored source blob as {stored}: expected "
+                                f"{expected}"
+                            )
+            _manifest.commit_manifest(target_root, m)
+        except Exception as mirror_error:
+            try:
+                self._discard_unreferenced_blobs(target_root, created)
+            except Exception as cleanup_error:
+                raise EngineError(
+                    f"target mirror failed ({type(mirror_error).__name__}: "
+                    f"{mirror_error}) and target cleanup failed "
+                    f"({type(cleanup_error).__name__}: {cleanup_error})"
+                ) from mirror_error
+            raise
+        self._finalize_target_candidate(
+            target_root, layer, version_id, created=created
+        )
 
     def _store_root_for(self, layer):
         if layer in _paths.TARGET_ONLY_LAYERS:
@@ -682,7 +765,6 @@ class Engine:
                     m for m in inventories[layer]
                     if m["version_id"] != version_id
                 ]
-                self._gc(root, inventories)
         raise EngineError(message)
 
     def _collect_cap_orphans(self, root, inventories):
