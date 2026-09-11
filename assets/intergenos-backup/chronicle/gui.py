@@ -21,6 +21,7 @@ suite; it is exercised by the installer smoke check on a real session.
 """
 
 import subprocess
+import threading
 import time
 
 import gi
@@ -108,6 +109,9 @@ class ChronicleWindow(Adw.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app, title="Chronicle")
         self.engine = EngineClient()
+        self._capture_active = False
+        self._capture_queue = []
+        self._capture_thread = None
         self.set_default_size(920, 680)
 
         self.toasts = Adw.ToastOverlay()
@@ -429,21 +433,60 @@ class ChronicleWindow(Adw.ApplicationWindow):
     def _on_capture_all(self, _btn):
         # "Capture now" from the not-protected-yet verdict: full protection —
         # both layers, the same verb the per-layer buttons issue.
-        for layer in (_paths.LAYER_CONFIG_STATE, _paths.LAYER_USER_DATA):
-            self._on_capture(None, layer)
+        self._queue_captures(
+            [_paths.LAYER_CONFIG_STATE, _paths.LAYER_USER_DATA]
+        )
 
     def _on_choose_drive(self, _btn):
         self.stack.set_visible_child_name("setup")
         self._reload_targets()
 
     def _on_capture(self, _btn, layer):
+        self._queue_captures([layer])
+
+    def _queue_captures(self, layers):
+        if self._capture_active:
+            self._toast("A capture is already in progress.")
+            return
+        self._capture_active = True
+        self._capture_queue = list(layers)
+        self._set_capture_enabled(False)
+        self._start_next_capture()
+
+    def _start_next_capture(self):
+        if not self._capture_queue:
+            self._capture_active = False
+            self._capture_thread = None
+            self._refresh_overview()
+            return
+        layer = self._capture_queue.pop(0)
+        self._capture_thread = threading.Thread(
+            target=self._capture_worker,
+            args=(layer,),
+            name=f"chronicle-capture-{layer}",
+            daemon=True,
+        )
+        self._capture_thread.start()
+
+    def _capture_worker(self, layer):
         try:
             res = self.engine.call("capture", layer=layer, sync=True,
                                    reason=f"manual {layer} capture")
-            self._toast(f"Captured {layer} {res.get('version_id','')}")
-            self._refresh_overview()
-        except RuntimeError as e:
-            self._toast(f"Capture failed: {e}")
+            error = None
+        except Exception as exc:
+            res = None
+            error = str(exc) or type(exc).__name__
+        GLib.idle_add(self._on_capture_finished, layer, res, error)
+
+    def _on_capture_finished(self, layer, result, error):
+        if error is not None:
+            self._toast(f"Capture failed: {error}")
+        else:
+            self._toast(
+                f"Captured {layer} {result.get('version_id', '')}"
+            )
+        self._start_next_capture()
+        return GLib.SOURCE_REMOVE
 
     # -- timeline -------------------------------------------------------
 
