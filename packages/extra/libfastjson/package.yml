@@ -1,0 +1,31 @@
+name: libfastjson
+version: "1.2609.0"
+release: 1
+description: Fast JSON library for rsyslog (a performance-focused fork of json-c)
+license: MIT
+homepage: https://github.com/rsyslog/libfastjson
+tier: extra
+build_style: autotools
+# Required by rsyslog (configure.ac:87 PKG_CHECK_MODULES LIBFASTJSON >= 0.99.9).
+# Upstream release tarball (generated ./configure); configure.ac declares no
+# PKG_CHECK_MODULES. Upstream publishes the tarball sha256 beside the release; the
+# recipe pin equals it (verified 2026-09-11).
+source:
+  - url: https://github.com/rsyslog/libfastjson/releases/download/v${version}/libfastjson-${version}.tar.gz
+    sha256: 7cd6f78c1c07f4140f6976a9a0e0048bcaa7292329c6ac2c0e070383d83d8edd
+configure_flags:
+  - --prefix=/usr
+  - --sysconfdir=/etc
+  - --localstatedir=/var
+  - --disable-static
+dependencies:
+  build:
+    - pkgconf
+  host: []
+  runtime: []
+tests:
+  enabled: true
+verify_paths:
+  - /usr/lib/libfastjson.so
+  - /usr/include/libfastjson/json.h
+  - /usr/lib/pkgconfig/libfastjson.pc

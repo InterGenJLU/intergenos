@@ -1059,6 +1059,10 @@ SERVER_APPS_EXTRA = {
     # 2026-06-23: network service daemon (user-installs-it, ships tailscaled.service,
     # disabled-by-default). Host-migration comms tooling.
     "tailscale",
+    # 2026-09-11: system log processor with the RELP acknowledged transport; the
+    # receiving end of the infrastructure log pipeline. Ships its unit
+    # disabled-by-default; a receiver is enabled per deployment record.
+    "rsyslog",
 }
 
 # Databases / kv stores — tier:extra. User-installed services.
@@ -1179,6 +1183,9 @@ AI_SUPPORT_LIBS_EXTRA = {
 USER_FACING_LIBS_EXTRA = {
     # Apache deps
     "apr", "apr-util",
+    # rsyslog's library family (2026-09-11): string handling, fast JSON, and the
+    # RELP transport library — consumed only by rsyslog (extra), so they sit with it.
+    "libestr", "libfastjson", "librelp",
     # Database-stack libraries
     # (liburing removed 2026-06-25: it is a low-level kernel io_uring I/O lib,
     # not a database lib — it was mis-grouped here because rocksdb consumes it.

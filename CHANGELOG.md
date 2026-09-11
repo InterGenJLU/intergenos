@@ -30,6 +30,13 @@ landed is in the repository README, not here.
   (ChatGPT, Work and Codex in one application) from OpenAI's signed Linux
   package repository, verified through the repository's signed metadata the
   same way the `chrome` and `vscode` helpers are. `sudo pkm install chatgpt`.
+- `rsyslog` 8.2608.0 with its library family `librelp` 1.13.0, `libestr` 0.1.11
+  and `libfastjson` 1.2609.0: the rsyslog log processor built with the RELP
+  acknowledged-delivery transport (input and output), file input, statistics,
+  systemd journal import and export, plain TCP input and JSON parsing. Ships a
+  hardened service unit and a local-only default configuration; the service is
+  disabled by default and is enabled only where a host is deployed as a log
+  receiver. Mirror-only (`sudo pkm install rsyslog`).
 
 ---
 

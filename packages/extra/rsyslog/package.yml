@@ -1,0 +1,52 @@
+name: rsyslog
+version: "8.2608.0"
+release: 1
+content_hash: 89e922e9dc689e03
+description: Rocket-fast system log processing with the RELP acknowledged-transport modules
+license: GPL-3.0-or-later
+homepage: https://www.rsyslog.com/
+tier: extra
+build_style: custom
+# Packaged as the receiving end of the infrastructure log pipeline (RELP over an SSH
+# tunnel; design decided 2026-09-11). The module set is chosen from that design, not from
+# a distro default: RELP in/out, file input, statistics, journal in/out, plain TCP input,
+# JSON parsing. Every enabled module's dependency exists in the tree. The daemon ships
+# DISABLED by default (the catch-all preset) — a log receiver is enabled by the
+# platform's deployment record, never by the package.
+source:
+  - url: https://github.com/rsyslog/rsyslog/releases/download/v${version}/rsyslog-${version}.tar.gz
+    sha256: 50f5b3bcd821bcd5cc292519c244523f7e7bb29a4d332ae7c72c446e9e46a8b8
+dependencies:
+  build:
+    - pkgconf
+    - libestr          # PKG_CHECK_MODULES(LIBESTR, libestr >= 0.1.9) — configure.ac:85
+    - libfastjson      # PKG_CHECK_MODULES(LIBFASTJSON >= 0.99.9) — :87
+    - librelp          # PKG_CHECK_MODULES(RELP, relp >= 1.2.14) — :2090 (--enable-relp)
+    - util-linux-core  # PKG_CHECK_MODULES(LIBUUID, uuid) — :1242 (--enable-uuid)
+    - systemd          # PKG_CHECK_MODULES(LIBSYSTEMD…) — :768/:800 (imjournal, omjournal, sd_notify)
+    - zlib
+    - libgcrypt        # --enable-libgcrypt (:1504) log-file encryption support, default on
+    - openssl          # PKG_CHECK_MODULES(OPENSSL) — :1394 (--enable-openssl network stream driver)
+  host: []
+  runtime:
+    - libestr
+    - libfastjson
+    - librelp
+    - util-linux       # the shipped name of the util-linux-core build recipe (libuuid); the ISO-closure gate requires the shipped name for runtime deps
+    - systemd
+    - zlib
+    - libgcrypt
+    - openssl
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "upstream's suite (tests/*.sh) spawns rsyslogd instances on loopback ports and, for several cases, needs valgrind, a Python 3 test helper server and outbound name resolution; the cases that cannot bind or resolve inside the chroot are environmental. The module load and basic ruleset cases prove the build."
+verify_paths:
+  # tools/Makefile.am:7 sbin_PROGRAMS += rsyslogd; plugins install to $(pkglibdir) =
+  # /usr/lib/rsyslog; the unit and default configuration are recipe-tracked files.
+  - /usr/sbin/rsyslogd
+  - /usr/lib/rsyslog/imrelp.so
+  - /usr/lib/rsyslog/omrelp.so
+  - /usr/lib/rsyslog/impstats.so
+  - /usr/lib/systemd/system/rsyslog.service
+  - /etc/rsyslog.conf

@@ -1,0 +1,33 @@
+name: libestr
+version: "0.1.11"
+release: 1
+description: String-handling library used by rsyslog and its companion libraries
+license: LGPL-2.1-or-later
+homepage: https://libestr.adiscon.com/
+tier: extra
+build_style: autotools
+# First of the rsyslog family (libestr → libfastjson → librelp → rsyslog), packaged
+# for the infrastructure log pipeline's RELP receiver (design decided 2026-09-11).
+# Upstream ships a generated ./configure; configure.ac declares no PKG_CHECK_MODULES
+# and no optional features, so the flag set is the tree's standard prefix trio only.
+source:
+  - url: https://libestr.adiscon.com/files/download/libestr-${version}.tar.gz
+    sha256: 46632b2785ff4a231dcf241eeb0dcb5fc0c7d4da8ee49cf5687722cdbe8b2024
+configure_flags:
+  - --prefix=/usr
+  - --sysconfdir=/etc
+  - --localstatedir=/var
+  - --disable-static
+dependencies:
+  build:
+    - pkgconf
+  host: []
+  runtime: []
+tests:
+  enabled: true
+verify_paths:
+  # Makefile.am installs lib_LTLIBRARIES libestr.la (→ libestr.so), include_HEADERS
+  # libestr.h and pkgconfig_DATA libestr.pc.
+  - /usr/lib/libestr.so
+  - /usr/include/libestr.h
+  - /usr/lib/pkgconfig/libestr.pc

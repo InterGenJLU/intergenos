@@ -1,0 +1,41 @@
+name: librelp
+version: "1.13.0"
+release: 1
+description: Reliable Event Logging Protocol (RELP) library, the acknowledged log transport used by rsyslog
+license: GPL-3.0-or-later
+homepage: https://www.rsyslog.com/librelp/
+tier: extra
+build_style: autotools
+# Required by rsyslog's imrelp/omrelp (configure.ac:2090 PKG_CHECK_MODULES RELP >= 1.2.14).
+# configure.ac: --enable-tls (GnuTLS, default yes, :147) and --enable-tls-openssl
+# (OpenSSL, default yes, :157); both libraries exist in the core tier, so both TLS
+# backends are built and stated explicitly — the observability design carries RELP
+# inside an SSH tunnel today and names RELP/TLS as the compensating control if that
+# transport is ever replaced (spec §4.3), so the capability ships now.
+source:
+  - url: https://download.rsyslog.com/librelp/librelp-${version}.tar.gz
+    sha256: 58e976e31795d7309cf2d9f37fdc93522daa4a322f5012d7879fed9ebfa40068
+configure_flags:
+  - --prefix=/usr
+  - --sysconfdir=/etc
+  - --localstatedir=/var
+  - --disable-static
+  - --enable-tls
+  - --enable-tls-openssl
+dependencies:
+  build:
+    - pkgconf
+    - gnutls     # PKG_CHECK_MODULES(GNUTLS, gnutls >= 2.0.0) — configure.ac:179
+    - openssl    # PKG_CHECK_MODULES(OPENSSL, openssl) — :168/:225
+  host: []
+  runtime:
+    - gnutls
+    - openssl
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "the suite opens loopback TCP listeners and, for the TLS cases, needs a writable certificate/session directory; cases that cannot bind a port inside the chroot are environmental, the plain RELP send/receive cases prove the library."
+verify_paths:
+  - /usr/lib/librelp.so
+  - /usr/include/librelp.h
+  - /usr/lib/pkgconfig/relp.pc
