@@ -121,6 +121,10 @@ def _stat_meta(st):
         "uid": st.st_uid,
         "gid": st.st_gid,
         "mtime": int(st.st_mtime),
+        # Retain the full filesystem timestamp for hardlink reuse. Older
+        # manifests lack this field and therefore take the conservative copy
+        # path on their first successor capture.
+        "mtime_ns": st.st_mtime_ns,
     }
 
 
@@ -169,7 +173,7 @@ def _capture_file_or_link(ap, staging, prev_index, prev_tree, entries):
         prev is not None
         and prev.get("type") == _manifest.T_FILE
         and prev.get("size") == st.st_size
-        and prev.get("mtime") == int(st.st_mtime)
+        and prev.get("mtime_ns") == st.st_mtime_ns
         and prev_tree is not None
         and _tree_path(prev_tree, ap).exists()
     )
