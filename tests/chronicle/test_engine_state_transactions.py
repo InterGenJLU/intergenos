@@ -2,6 +2,7 @@
 """Engine state and version commits serialize across instances and processes."""
 
 import multiprocessing
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,19 +12,13 @@ from chronicle import manifest as _manifest
 from chronicle import paths as _paths
 from chronicle import userdata as _userdata
 
-
-def _process_capture(local_root, source, barrier, results):
-    engine = _engine.Engine(local_root=local_root, now_fn=lambda: 1_000_000)
-    barrier.wait()
-    try:
-        version = engine.capture(
-            _paths.LAYER_CONFIG_STATE,
-            scope=[source],
-            reason=f"process-{multiprocessing.current_process().name}",
-        )["version_id"]
-        results.put(("ok", version))
-    except Exception as exc:
-        results.put(("error", f"{type(exc).__name__}: {exc}"))
+# The spawned-process worker lives in a module with a unique top-level name so
+# the child can import it regardless of which ``tests`` package the parent's
+# import path happens to resolve first (see the worker module's docstring).
+_HERE = str(Path(__file__).resolve().parent)
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+import chronicle_state_capture_worker as _worker  # noqa: E402
 
 
 class EngineStateTransactionTest(unittest.TestCase):
@@ -110,7 +105,7 @@ class EngineStateTransactionTest(unittest.TestCase):
         results = context.Queue()
         processes = [
             context.Process(
-                target=_process_capture,
+                target=_worker.process_capture,
                 args=(str(self.local), str(self.source), barrier, results),
                 name=f"capture-{index}",
             )
