@@ -9,7 +9,10 @@ quietly leave the intent queued because the target is absent. Kept pure-ish
 timers or a real disk.
 """
 
+import hashlib
+import json
 import os
+import stat
 import time
 
 from . import paths as _paths
@@ -94,29 +97,99 @@ def drain_offpeak(engine, now_min=None):
     return engine.queue.drain(_run)
 
 
-def config_set_fingerprint(config_paths):
-    """A cheap fingerprint of the config set's newest mtime + entry count, so a
-    poll-based watcher can detect a change without hashing all of /etc."""
-    newest = 0
-    count = 0
-    for base in config_paths:
-        if os.path.isfile(base):
+def config_set_fingerprint(config_paths, excludes=None):
+    """Hash a deterministic metadata record for every watched path.
+
+    This deliberately avoids reading file contents on every poll, but includes
+    each path's nanosecond timestamps, identity, type, size, ownership, mode,
+    and symlink target. It detects changes hidden beneath another file's future
+    timestamp and honors the same excluded subtrees as config-state capture.
+    A complete change-and-revert between polls remains outside a poller's
+    observation boundary.
+    """
+    if excludes is None:
+        from . import configstate as _configstate
+        excludes = _configstate.DEFAULT_EXCLUDES
+    excluded = tuple(str(path) for path in (excludes or ()))
+    records = {}
+
+    def is_excluded(path):
+        value = str(path)
+        return any(
+            value == prefix or value.startswith(prefix.rstrip("/") + "/")
+            for prefix in excluded
+        )
+
+    def record(path):
+        value = str(path)
+        if is_excluded(value):
+            return
+        try:
+            metadata = os.lstat(value)
+        except OSError as exc:
+            records[value] = [
+                value, "unreadable", type(exc).__name__, exc.errno
+            ]
+            return
+        mode = metadata.st_mode
+        if stat.S_ISDIR(mode):
+            kind = "directory"
+        elif stat.S_ISLNK(mode):
+            kind = "symlink"
+        elif stat.S_ISREG(mode):
+            kind = "file"
+        else:
+            kind = "other"
+        target = None
+        if kind == "symlink":
             try:
-                newest = max(newest, int(os.lstat(base).st_mtime))
-                count += 1
-            except OSError:
-                pass
+                target = os.readlink(value)
+            except OSError as exc:
+                target = f"unreadable:{type(exc).__name__}:{exc.errno}"
+        records[value] = [
+            value,
+            kind,
+            stat.S_IMODE(mode),
+            metadata.st_uid,
+            metadata.st_gid,
+            metadata.st_size,
+            metadata.st_mtime_ns,
+            metadata.st_ctime_ns,
+            metadata.st_dev,
+            metadata.st_ino,
+            target,
+        ]
+
+    for base in sorted(str(path) for path in config_paths):
+        if is_excluded(base):
             continue
-        for dirpath, _dirs, files in os.walk(base):
-            for fn in files + [os.path.basename(dirpath)]:
-                try:
-                    newest = max(newest, int(os.lstat(
-                        os.path.join(dirpath, fn) if fn in files else dirpath
-                    ).st_mtime))
-                    count += 1
-                except OSError:
-                    pass
-    return (newest, count)
+        if not os.path.lexists(base):
+            records[base] = [base, "missing"]
+            continue
+        if os.path.isdir(base) and not os.path.islink(base):
+            for dirpath, dirnames, filenames in os.walk(base, topdown=True):
+                dirnames[:] = sorted(
+                    name for name in dirnames
+                    if not is_excluded(os.path.join(dirpath, name))
+                )
+                record(dirpath)
+                for name in dirnames:
+                    candidate = os.path.join(dirpath, name)
+                    if os.path.islink(candidate):
+                        record(candidate)
+                for name in sorted(filenames):
+                    record(os.path.join(dirpath, name))
+        else:
+            record(base)
+
+    payload = json.dumps(
+        [records[path] for path in sorted(records)],
+        # ASCII escaping preserves surrogate-escaped filesystem bytes without
+        # requiring those surrogate code points to be UTF-8 encodable.
+        ensure_ascii=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def _free_bytes(path):
