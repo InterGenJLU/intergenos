@@ -70,6 +70,34 @@ class UserdataTreeContainmentTest(unittest.TestCase):
             _userdata.remove_version_tree(self.root, link_id)
         self.assertTrue((outside / "precious.txt").exists())
 
+    def test_symlinked_userdata_directory_is_refused(self):
+        # Review finding G1: when the store's own userdata directory is a
+        # symlink to an outside directory holding a canonical-id child, both
+        # sides of the resolved-parent comparison resolve outside the store.
+        # The layout is refused before any path is returned or removed.
+        outside = Path(self.tmp) / "outside-store"
+        (outside / CANON).mkdir(parents=True)
+        (outside / CANON / "precious.txt").write_text("p")
+        store = Path(self.tmp) / "store2"
+        store.mkdir()
+        os.symlink(outside, store / "userdata")
+        with self.assertRaises(ValueError):
+            _userdata.userdata_tree(store, CANON)
+        with self.assertRaises(ValueError):
+            _userdata.remove_version_tree(store, CANON)
+        self.assertTrue((outside / CANON / "precious.txt").exists())
+
+    def test_real_version_tree_is_removed_and_neighbours_survive(self):
+        other = "0000000008-fedcba987654"
+        (self.root / "userdata" / other).mkdir()
+        (self.root / "userdata" / other / "stay.txt").write_text("s")
+        _userdata.remove_version_tree(self.root, CANON)
+        self.assertFalse((self.root / "userdata" / CANON).exists())
+        self.assertTrue((self.root / "userdata" / other / "stay.txt").exists())
+        self.assertTrue((self.root / "sentinel.txt").exists())
+        # Removing an absent version is a no-op, not an error.
+        _userdata.remove_version_tree(self.root, CANON)
+
     def test_manifest_with_escaping_id_is_not_listed(self):
         vdir = _paths.versions_dir(self.root, _paths.LAYER_USER_DATA)
         vdir.mkdir(parents=True, exist_ok=True)

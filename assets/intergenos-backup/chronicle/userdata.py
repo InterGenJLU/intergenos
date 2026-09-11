@@ -35,12 +35,22 @@ from . import paths as _paths
 
 def userdata_tree(target_root, version_id):
     """The version's tree directory. Refuses any id that is not in the canonical
-    shape or whose joined path does not resolve to a direct child of the
+    shape, refuses a store whose ``userdata`` directory is itself a symlink, and
+    refuses a joined path that does not resolve to a direct child of the
     userdata directory — so a stored id can never name the store root or
-    anything outside it (remove_version_tree deletes what this returns)."""
+    anything outside it (remove_version_tree deletes what this returns).
+
+    The userdata directory is checked with lstat, not resolved: a symlink there
+    would make BOTH sides of the resolved-parent comparison point outside the
+    store and let the lexical path reach a deletion outside it (review finding
+    G1, 2026-09-11). The configured store root itself may be an alias; the
+    directory the engine created inside it may not.
+    """
     if not _manifest.is_canonical_version_id(version_id):
         raise ValueError(f"user-data version id is not canonical: {version_id!r}")
     base = Path(target_root) / "userdata"
+    if base.is_symlink():
+        raise ValueError("user-data directory of the store is a symlink; refused")
     tree = base / version_id
     if tree.resolve(strict=False).parent != base.resolve(strict=False):
         raise ValueError(f"user-data version path escapes the store: {version_id!r}")
@@ -225,9 +235,34 @@ def read_file(target_root, version_id, entry):
 
 def remove_version_tree(target_root, version_id):
     """Delete a pruned version's tree. Hardlinked inodes shared with surviving
-    versions stay alive by refcount; only this version's links are dropped."""
-    tree = userdata_tree(target_root, version_id)  # raises on a non-canonical or escaping id
-    if tree.is_symlink():
-        raise ValueError(f"user-data version path is a symlink, not removed: {version_id!r}")
-    if tree.exists():
-        shutil.rmtree(tree, ignore_errors=True)
+    versions stay alive by refcount; only this version's links are dropped.
+
+    The deletion is bound to a descriptor: the userdata directory is opened
+    without following a final symlink, the opened object must be the same
+    device and inode the path check saw, the version entry is inspected
+    relative to that descriptor, and the removal itself is descriptor-relative
+    (``dir_fd``), so no path component between the store and the version can be
+    swapped for a symlink between the check and the delete (review finding G1).
+    """
+    tree = userdata_tree(target_root, version_id)  # raises on a non-canonical, symlinked or escaping layout
+    base = tree.parent
+    try:
+        checked = os.lstat(base)
+    except FileNotFoundError:
+        return
+    fd = os.open(base, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        opened = os.fstat(fd)
+        if (opened.st_dev, opened.st_ino) != (checked.st_dev, checked.st_ino):
+            raise ValueError("user-data directory changed between check and open; not removed")
+        try:
+            entry = os.lstat(version_id, dir_fd=fd)
+        except FileNotFoundError:
+            return
+        if stat.S_ISLNK(entry.st_mode):
+            raise ValueError(f"user-data version path is a symlink, not removed: {version_id!r}")
+        if not stat.S_ISDIR(entry.st_mode):
+            raise ValueError(f"user-data version path is not a directory, not removed: {version_id!r}")
+        shutil.rmtree(version_id, ignore_errors=True, dir_fd=fd)
+    finally:
+        os.close(fd)
