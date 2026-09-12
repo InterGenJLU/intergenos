@@ -259,3 +259,45 @@ def refuse_to_measure_a_source_tree(installed_intergen_dir):
             "tier from a directory where `import intergen` resolves to the "
             "installed package (a checkout on sys.path shadows it)."
         )
+
+
+@pytest.fixture(scope="module", autouse=True)
+def router_gates_write_their_trace_rows_somewhere_else(request):
+    """The router gates route sentences IN THIS PROCESS, through the installed
+    ConversationRouter, and every routed sentence writes trace rows — route
+    decided, prompt assembled, memory enqueue — exactly as a served turn does.
+    Nothing binds a turn around those calls, so the rows land in the USER'S live
+    trace file (the same home, the same XDG state directory) with the placeholder
+    turn identifier.
+
+    The trace-integrity gate reads that live file and, by design, refuses any
+    row it cannot join to a turn. It runs before the router gates in collection
+    order, so the FIRST run on a machine passes and EVERY LATER RUN on the same
+    machine fails on the previous run's rows. Measured 2026-09-11 on the
+    validation laptop: run 1 green; run 2 refused with 126 orphaned rows, all
+    router events, all written during run 1's router gates. That also means a
+    validation run was leaving unjoinable rows in a user's record.
+
+    For the router gate modules only, the trace goes to a temporary directory
+    and the process-wide logger is reset around the module, the same way the
+    unit tests isolate it. Every other module keeps the real path: the
+    trace-integrity gate must read what the daemon actually wrote.
+    """
+    if not request.module.__name__.rsplit(".", 1)[-1].startswith("test_router_"):
+        yield
+        return
+    import tempfile
+    from intergen import glass
+    with tempfile.TemporaryDirectory(prefix="installed-gate-trace-") as tmp:
+        previous_env = os.environ.get("XDG_STATE_HOME")
+        os.environ["XDG_STATE_HOME"] = tmp
+        previous_logger = glass._glass
+        glass._glass = None          # the next emit builds a logger under tmp
+        try:
+            yield
+        finally:
+            glass._glass = previous_logger
+            if previous_env is None:
+                os.environ.pop("XDG_STATE_HOME", None)
+            else:
+                os.environ["XDG_STATE_HOME"] = previous_env
