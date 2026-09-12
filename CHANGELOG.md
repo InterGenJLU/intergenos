@@ -50,6 +50,20 @@ landed is in the repository README, not here.
   patch, is re-based onto 6.18.51 with its hunks unchanged. The kernel updates
   through `pkm upgrade` like any package and takes effect at the next reboot.
 
+### Fixed
+
+- `nvidia`: the driver's install hook could not find the kernel when re-run
+  by hand outside the package manager (its fallback looked for a module
+  directory name InterGenOS never produces), and its module-signing fallback
+  named a kernel source directory that does not exist. Both recovery paths now
+  derive the paths from the real `<version>-igos-<release>` string; the normal
+  kernel-upgrade path was never affected.
+- `intergenos-backup`: a storage error while validating a pruning plan no
+  longer leaves the plan's announcement in the record without an outcome; the
+  record never drops an announcement whose plan has no outcome, every event of
+  one plan shares an identifier and names its store, and every retention event
+  is also written to the daemon's journal.
+
 ### Security
 
 - CVE-2026-53362 (IPv6 send path, a local flaw listed in the CISA Known
