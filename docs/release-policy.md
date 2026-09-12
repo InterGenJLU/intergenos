@@ -2,6 +2,8 @@
 
 **Status:** Active. Decided 2026-08-18. First applies to the R001 release line.
 
+**The status sentence.** Every public surface that states the project's status (the repository README, the website, the wiki FAQ) carries this sentence verbatim, and no surface states a maturity claim in other words: *R001.x is the first public release line; the project is in active development. The current release is always stated at https://intergenos.org/news.html.* The news page is the one place a release is announced, so the sentence never goes stale.
+
 ## Release types
 
 InterGenOS publishes two kinds of releases:
