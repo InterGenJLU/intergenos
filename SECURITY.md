@@ -2,7 +2,7 @@
 
 InterGenOS takes security seriously. This document describes how to report vulnerabilities and how we respond.
 
-> **Project status:** the current release is **R001**, published 2026-08-16. InterGenOS keeps a single supported line — the latest release is the supported release, and fixes reach users by advancing that line rather than through maintenance branches or backports, so every user runs the package set the project evaluates. The full policy is in [docs/release-policy.md](docs/release-policy.md). This policy applies to all InterGenOS code and infrastructure from the date below onward. We are a small team; if we cannot meet a target, we will communicate openly and directly with the reporter.
+> **Project status:** the current release is the newest point release of the **R001.x** line, always stated at https://intergenos.org/news.html. InterGenOS keeps a single supported line — the latest release is the supported release, and fixes reach users by advancing that line rather than through maintenance branches or backports, so every user runs the package set the project evaluates. The full policy is in [docs/release-policy.md](docs/release-policy.md). This policy applies to all InterGenOS code and infrastructure from the date below onward. We are a small team; if we cannot meet a target, we will communicate openly and directly with the reporter.
 
 ## Reporting a vulnerability
 
@@ -135,7 +135,7 @@ them requires trusting this document:
 | Signature over that checksum | the same name with `.sha256.asc` |
 | Release public key | `https://repo.intergenos.org/keys/intergenos-release-key.asc` |
 | Signed package index | `https://repo.intergenos.org/x86_64/current/InterGenOS.db` and `.sig` |
-| Signed source tag | `R001` in this repository |
+| Signed source tag | the tag named after the release (`R001`, `R001.1`, `R001.2`, …) in this repository |
 
 Verification is two steps and the order matters: **check the signature on the
 checksum file first, then check the image against the checksum.** The signature
@@ -151,7 +151,7 @@ the one to check, and it is also published in
 
 The commands, with the same filenames, are in
 [docs/getting-started.md](docs/getting-started.md#2-verifying-the-iso-image).
-The signed source tag is verified with `git tag -v R001`.
+The signed source tag is verified with `git tag -v <release>`, for example `git tag -v R001.2`.
 
 If any of these checks fails, do not install the image, and report it to
 security@intergenstudios.com — a verification failure on a published artifact
