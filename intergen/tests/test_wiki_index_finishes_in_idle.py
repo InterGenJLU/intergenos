@@ -384,6 +384,64 @@ class TheSlotIsCheckedBeforeTheSlotIsUsed(_IdlePathCase):
                 "own timeout while the first request finishes, which is the "
                 "starvation this recovery path exists to avoid causing.")
 
+    def test_a_pass_deferred_by_a_busy_slot_runs_once_the_slot_frees(self):
+        """The slot is busy at the instant every turn ends — the router has just
+        queued that turn's exchange for background memory embedding — so a pass
+        that stood down on a busy slot never ran. Measured on the installed
+        gate tier 2026-09-11: 64 of 2182 passages at start-up, still 64 after a
+        turn, no embedding request in the thirty seconds that followed. The
+        pass must WAIT for the slot and then run, without another turn."""
+        with TemporaryDirectory() as tmp:
+            wiki = _ShippedSizeWiki(tmp)
+            emb = _SingleSlotEmbedder(available=False)
+            retrieval = wiki.retrieval(emb)
+            llama = _FakeEmbedLlama(free=False)         # busy, as at turn end
+            daemon = _daemon(retrieval, llama)
+            emb.available = True
+
+            calls_before = emb.call_count
+            daemon.ask("what does the manual say")      # ONE turn, no more
+            time.sleep(0.5)
+            self.assertEqual(
+                emb.call_count, calls_before,
+                "control: the pass posted a request while the slot was busy")
+
+            llama._free = True                          # the memory embed lands
+            deadline = time.monotonic() + 30.0
+            while emb.call_count == calls_before and time.monotonic() < deadline:
+                time.sleep(0.05)
+            self.assertGreater(
+                emb.call_count, calls_before,
+                "the slot freed and no embedding pass followed: a pass that "
+                "gives up on a busy slot never runs on a machine whose memory "
+                "embed is in flight whenever a turn ends, and the index stays "
+                "where start-up left it until someone speaks again — or forever.")
+            self._settle(retrieval, deadline_s=60.0)
+            self.assertTrue(
+                retrieval.embeddings_ready,
+                "the deferred pass ran but the index did not finish; one pass "
+                "should complete a corpus of this size once the slot is free.")
+
+    def test_a_pass_that_never_gets_the_slot_says_so(self):
+        """A pass that stands down must say so above DEBUG: maintenance that
+        gives up silently is indistinguishable from maintenance that does not
+        exist — which is exactly how the defect above hid."""
+        with TemporaryDirectory() as tmp:
+            wiki = _ShippedSizeWiki(tmp)
+            emb = _SingleSlotEmbedder(available=False)
+            retrieval = wiki.retrieval(emb)
+            daemon = _daemon(retrieval, _FakeEmbedLlama(free=False))
+            emb.available = True
+            daemon._WIKI_RESUME_SLOT_WAIT_S = 0.2
+            with self.assertLogs("intergen.dbus_daemon", level="INFO") as cm:
+                daemon.ask("what does the manual say")
+                deadline = time.monotonic() + 5.0
+                while daemon._wiki_resume_running and time.monotonic() < deadline:
+                    time.sleep(0.05)
+            self.assertTrue(
+                any("deferred" in line for line in cm.output),
+                f"no INFO line said the pass was deferred; logged: {cm.output}")
+
     def test_the_manager_reports_its_slot_and_the_report_moves(self):
         """The slot answer must be MEASURED, not assumed.
 

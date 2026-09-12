@@ -498,14 +498,36 @@ class InterGenDaemon(InterGenDBusInterface):
     #   * nothing to do  — a complete index returns immediately and sends no
     #                      request, so a healthy machine pays nothing per turn;
     #   * slot busy      — if an embedding request is already in flight the
-    #                      pass is not started at all, because the server is
-    #                      --parallel 1 and a second consumer only waits out
-    #                      its own timeout;
+    #                      pass WAITS for it (bounded) instead of competing:
+    #                      the server is --parallel 1 and a second consumer
+    #                      only waits out its own timeout. It waits rather than
+    #                      giving up because the slot is busy at this exact
+    #                      moment on EVERY turn — the router queues the
+    #                      exchange that just ended for background memory
+    #                      embedding (router: index_turn), and that request is
+    #                      in flight when this hook fires. A pass that stood
+    #                      down whenever the slot was busy never ran at all on
+    #                      a machine whose embedder is slower than the gap,
+    #                      and the index sat where its start-up budget left it
+    #                      for the daemon's whole life. Measured 2026-09-11 on
+    #                      the installed-system gate tier (a 4 GB-card laptop
+    #                      with the embedder on CPU): 64 of 2182 passages at
+    #                      start-up, still 64 after a turn, zero embedding
+    #                      requests in the thirty seconds that followed; the
+    #                      earlier machines had passed because their memory
+    #                      embed happened to finish first;
     #   * off the turn   — the pass runs on a short-lived thread, so the reply
-    #                      the user is waiting for never waits for the index.
+    #                      the user is waiting for never waits for the index,
+    #                      and neither does it wait for the slot.
     #
     # One pass at a time: _wiki_resume_running is checked and set under a lock,
-    # so a burst of turns cannot stack passes onto the one slot.
+    # so a burst of turns cannot stack passes onto the one slot. A pass that
+    # gives up on the slot, and a pass that fails, both say so at INFO/WARNING:
+    # index maintenance that stands down silently is indistinguishable from
+    # index maintenance that does not exist.
+    _WIKI_RESUME_SLOT_WAIT_S = 15.0   # how long a pass may wait for the embedding slot
+    _WIKI_RESUME_SLOT_POLL_S = 0.05
+
     def _resume_wiki_embedding_after_turn(self) -> None:
         """Give the wiki index one bounded embedding pass, if it needs one.
 
@@ -524,9 +546,6 @@ class InterGenDaemon(InterGenDBusInterface):
                 return              # nothing to do; send no request
 
             embed_llama = getattr(self, "_embed_llama", None)
-            if embed_llama is not None and not getattr(
-                    embed_llama, "embedding_slot_free", True):
-                return              # a request is in flight; do not compete
 
             lock = self._wiki_resume_lock()
             with lock:
@@ -534,23 +553,40 @@ class InterGenDaemon(InterGenDBusInterface):
                     return          # a pass is already under way
                 self._wiki_resume_running = True
 
+            def _slot_free() -> bool:
+                if embed_llama is None:
+                    return True
+                return bool(getattr(embed_llama, "embedding_slot_free", True))
+
             def _pass() -> None:
                 try:
+                    # Wait for the slot, never compete for it. The wait is
+                    # bounded so a slot that never frees cannot pin this thread
+                    # (and the one-pass guard with it) for the daemon's life.
+                    waited = 0.0
+                    while not _slot_free():
+                        if waited >= self._WIKI_RESUME_SLOT_WAIT_S:
+                            log.info(
+                                "Wiki index pass deferred to a later turn: the "
+                                "embedding slot stayed busy for %.0fs", waited)
+                            return
+                        time.sleep(self._WIKI_RESUME_SLOT_POLL_S)
+                        waited += self._WIKI_RESUME_SLOT_POLL_S
                     done = resume()
                     if done:
                         log.info(
                             "Wiki index finished embedding between turns — "
                             "wiki answers are grounded again without a restart.")
                 except Exception as e:  # noqa: BLE001 — maintenance never breaks a turn
-                    log.debug("Wiki index resume pass failed (retried after a "
-                              "later turn): %s", e)
+                    log.warning("Wiki index resume pass failed (retried after a "
+                                "later turn): %s", e)
                 finally:
                     self._wiki_resume_running = False
 
             threading.Thread(target=_pass, daemon=True,
                              name="intergen-wiki-resume").start()
         except Exception as e:  # noqa: BLE001 — maintenance never breaks a turn
-            log.debug("Wiki index resume could not be scheduled: %s", e)
+            log.warning("Wiki index resume could not be scheduled: %s", e)
 
     def _wiki_resume_lock(self) -> "threading.Lock":
         """The one-pass-at-a-time guard, created on first use.
