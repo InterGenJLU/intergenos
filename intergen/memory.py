@@ -22,6 +22,7 @@ import logging
 import os
 import re
 import sqlite3
+import contextlib
 import threading
 import time
 import uuid
@@ -1567,13 +1568,23 @@ class SessionTurnIndex:
         deviation recorded in the package.yml r33 changelog.)"""
         if self._embedder is None:
             return
+        # The worker thread does not inherit the turn's ContextVars, so the
+        # rows it writes for this exchange — indexed, index_chunked,
+        # index_degraded, recovered — carried the placeholder identifier and
+        # could not be joined to the turn that produced them: one unjoinable
+        # row per served turn in the user's record, refused by the installed
+        # trace-integrity gate (measured 2026-09-11 on the validation laptop
+        # on the run AFTER the one that wrote it). The turn is named HERE,
+        # where it is known, and carried with the exchange to the worker.
+        turn_id = glass.current_turn_id()
+        iface = glass._current_iface.get() or ""
         with self._cv:
             self._turn_seq += 1
             turn_no = self._turn_seq
             dropped = None
             if len(self._queue) >= self._QUEUE_MAX:
                 dropped = self._queue.popleft()  # drop OLDEST — favour recency
-            self._queue.append((turn_no, user_input, response))
+            self._queue.append((turn_no, user_input, response, turn_id, iface))
             self._cv.notify()
         if dropped is not None:
             glass.emit("memory", "index_drop_oldest", detail={
@@ -1589,46 +1600,53 @@ class SessionTurnIndex:
                     self._cv.wait()
                 if self._stopped:
                     return
-                turn_no, user_input, response = self._queue.popleft()
-            # Embed OUTSIDE the lock (the :8081 round-trip must not block
-            # index_turn / retrieve). Index user + response together so a turn is
-            # retrievable by either side of the exchange.
-            #
-            # Bounded by what the SERVER said it can take. Handing over more than
-            # that does not fail loudly: the embedding client shortens it and
-            # drops the tail, so everything past the context becomes unfindable
-            # while the turn still reports as indexed — the truncation-lottery
-            # this index exists to close, one layer down. Splitting here instead
-            # keeps every part of a long exchange retrievable, and the verbatim
-            # text stored below is untouched by the split (design D2).
-            combined = f"{user_input}\n{response}"
-            pieces = self._chunks(combined, self._embed_budget())
-            vecs = self._embed_chunks(pieces)
-            with self._lock:
-                if not vecs:
-                    self._degraded = True
-                    glass.emit("memory", "index_degraded", detail={
-                        "turn_no": turn_no,
-                        "reason": "embedder unavailable/malformed"})
-                    continue
-                was_degraded = self._degraded
-                self._degraded = False
-                # A success here is the only proof the embedder is actually up.
-                self._verified = True
-                self._turns.append(_IndexedTurn(
-                    turn_no=turn_no, vectors=vecs,
-                    user_input=user_input, response=response))
-                indexed = len(self._turns)
-            if len(pieces) > 1:
-                glass.emit("memory", "index_chunked", detail={
-                    "turn_no": turn_no, "chars": len(combined),
-                    "chunks": len(pieces), "budget": self._embed_budget()})
-            if was_degraded:
-                glass.emit("memory", "recovered", detail={
-                    "reason": "embed succeeded after a degraded window",
-                    "stage": "index"})
-            glass.emit("memory", "indexed", detail={
-                "turn_no": turn_no, "indexed_total": indexed})
+                turn_no, user_input, response, turn_id, iface = self._queue.popleft()
+            # Every row this exchange writes names the turn it came from (see
+            # index_turn). Outside any turn the scope is a no-op binding of "".
+            with glass.scope(turn_id, iface) if turn_id else contextlib.nullcontext():
+                self._index_one(turn_no, user_input, response)
+
+    def _index_one(self, turn_no: int, user_input: str, response: str) -> None:
+        """Embed one exchange and append it; the caller has bound the turn."""
+        # Embed OUTSIDE the lock (the :8081 round-trip must not block
+        # index_turn / retrieve). Index user + response together so a turn is
+        # retrievable by either side of the exchange.
+        #
+        # Bounded by what the SERVER said it can take. Handing over more than
+        # that does not fail loudly: the embedding client shortens it and
+        # drops the tail, so everything past the context becomes unfindable
+        # while the turn still reports as indexed — the truncation-lottery
+        # this index exists to close, one layer down. Splitting here instead
+        # keeps every part of a long exchange retrievable, and the verbatim
+        # text stored below is untouched by the split (design D2).
+        combined = f"{user_input}\n{response}"
+        pieces = self._chunks(combined, self._embed_budget())
+        vecs = self._embed_chunks(pieces)
+        with self._lock:
+            if not vecs:
+                self._degraded = True
+                glass.emit("memory", "index_degraded", detail={
+                    "turn_no": turn_no,
+                    "reason": "embedder unavailable/malformed"})
+                return
+            was_degraded = self._degraded
+            self._degraded = False
+            # A success here is the only proof the embedder is actually up.
+            self._verified = True
+            self._turns.append(_IndexedTurn(
+                turn_no=turn_no, vectors=vecs,
+                user_input=user_input, response=response))
+            indexed = len(self._turns)
+        if len(pieces) > 1:
+            glass.emit("memory", "index_chunked", detail={
+                "turn_no": turn_no, "chars": len(combined),
+                "chunks": len(pieces), "budget": self._embed_budget()})
+        if was_degraded:
+            glass.emit("memory", "recovered", detail={
+                "reason": "embed succeeded after a degraded window",
+                "stage": "index"})
+        glass.emit("memory", "indexed", detail={
+            "turn_no": turn_no, "indexed_total": indexed})
 
     def retrieve(self, query: str, query_vector=None):
         """Stage C: the single most relevant PAST exchange the raw window lost.
