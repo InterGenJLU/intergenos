@@ -28,16 +28,13 @@ KVER="${2:?kernel version required}"
 
 # scripts/sign-file ships with the kernel source tree at
 # /lib/modules/$KVER/build/scripts/sign-file (built by `make modules_prepare`
-# in linux-kernel-pass2 do_install). Fallback to /usr/src/linux-$KVER if
-# the symlink is broken.
-SIGN_FILE="/lib/modules/${KVER}/build/scripts/sign-file"
-if [ ! -x "$SIGN_FILE" ]; then
-    SIGN_FILE="/usr/src/linux-${KVER%-igos}/scripts/sign-file"
-fi
-if [ ! -x "$SIGN_FILE" ]; then
-    echo "[nvidia:sign-module] ERROR: scripts/sign-file not found for kernel $KVER" >&2
-    echo "[nvidia:sign-module]   Tried: /lib/modules/$KVER/build/scripts/sign-file" >&2
-    echo "[nvidia:sign-module]   Tried: /usr/src/linux-${KVER%-igos}/scripts/sign-file" >&2
+# in linux-kernel-pass2 do_install). Fallback: the staged source tree
+# /usr/src/linux-<bare version> when the build link is broken. The derivation
+# lives in the shared helper (the earlier fallback stripped only a trailing
+# -igos from the release string; independent review 2026-09-11).
+. "$(dirname "$(readlink -f "$0")")/kernel-paths.sh"
+if ! SIGN_FILE=$(nvidia_sign_file_path "$KVER"); then
+    echo "[nvidia:sign-module] ERROR: scripts/sign-file not found for kernel $KVER (both paths named above)" >&2
     exit 1
 fi
 

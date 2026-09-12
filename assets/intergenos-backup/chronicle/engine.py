@@ -16,10 +16,12 @@ import contextlib
 import fcntl
 import functools
 import json
+import logging
 import os
 import shutil
 import threading
 import time
+import uuid
 from pathlib import Path
 
 from . import cas as _cas
@@ -33,6 +35,11 @@ from . import queue as _queue
 from . import restorepoint as _restorepoint
 from . import retention as _retention
 from . import userdata as _userdata
+
+# Every retention event is emitted here at WARNING. The daemon runs under systemd,
+# whose journal carries the process's stderr — where an unconfigured logger's
+# warnings go — so the journal is the durable copy of the bounded state record.
+_LOG = logging.getLogger("chronicle.retention")
 
 
 class _StoreTransactionLock:
@@ -882,9 +889,14 @@ class Engine:
             )
         return order
 
-    # The engine keeps the newest retention records in state; the timer task
-    # prints every run's result to the journal, which is the durable log.
+    # The engine keeps the newest retention records in persistent state, and
+    # eviction never drops an announcement whose plan has no terminal record —
+    # an interrupted plan stays visible until it is resolved. Every event also
+    # goes to the module logger (see _LOG). Review finding R2, 2026-09-11: the
+    # earlier unconditional newest-200 eviction could erase an unresolved plan,
+    # and the comment here claimed a journal timer task that did not exist.
     _RETENTION_EVENTS_KEPT = 200
+    _RETENTION_TERMINAL = ("prune-completed", "prune-stopped", "prune-refused")
 
     def _record_retention_event(self, kind, layer, reason, version_ids, **extra):
         event = {"kind": kind, "layer": layer, "reason": reason,
@@ -894,8 +906,29 @@ class Engine:
         event.update(extra)
         events = self.state.setdefault("retention_events", [])
         events.append(event)
-        del events[:-self._RETENTION_EVENTS_KEPT]
+        events[:] = self._evict_retention_events(events)
         self._save_state()
+        _LOG.warning(
+            "retention %s layer=%s reason=%s plan=%s root=%s versions=%s%s",
+            kind, layer, reason, event.get("plan", "-"), event.get("root", "-"),
+            ",".join(event["version_ids"]) or "-",
+            f" error={extra['error']}" if "error" in extra else "",
+        )
+
+    def _evict_retention_events(self, events):
+        """Keep the newest records, plus every older announcement whose plan
+        has no terminal record (completed / stopped / refused). An announcement
+        without a plan id predates plan ids and is kept as unresolved."""
+        keep = self._RETENTION_EVENTS_KEPT
+        if len(events) <= keep:
+            return list(events)
+        old, recent = events[:-keep], events[-keep:]
+        resolved = {e.get("plan") for e in events
+                    if e.get("kind") in self._RETENTION_TERMINAL and e.get("plan")}
+        unresolved = [e for e in old
+                      if e.get("kind") == "prune-announced"
+                      and (not e.get("plan") or e["plan"] not in resolved)]
+        return unresolved + recent
 
     def _prune_versions(self, root, layer, manifests, reason):
         """Remove a planned set of versions all-before-any, announced, and
@@ -912,6 +945,9 @@ class Engine:
         version_ids = [m["version_id"] for m in manifests]
         if not version_ids:
             return []
+        # One plan id ties the announcement to its outcome, and the store root
+        # says which target the plan acted on (events outlive a target swap).
+        ident = {"plan": uuid.uuid4().hex, "root": str(root)}
         problems = []
         for m in manifests:
             try:
@@ -920,12 +956,12 @@ class Engine:
                 problems.append(str(exc))
         if problems:
             self._record_retention_event(
-                "prune-refused", layer, reason, version_ids, problems=problems
+                "prune-refused", layer, reason, version_ids, problems=problems, **ident
             )
             raise EngineError(
                 "retention refused, nothing removed: " + "; ".join(problems)
             )
-        self._record_retention_event("prune-announced", layer, reason, version_ids)
+        self._record_retention_event("prune-announced", layer, reason, version_ids, **ident)
         removed = []
         try:
             for m in manifests:
@@ -936,10 +972,10 @@ class Engine:
                 "prune-stopped", layer, reason, version_ids,
                 removed=removed,
                 remaining=[v for v in version_ids if v not in removed],
-                error=str(exc),
+                error=str(exc), **ident,
             )
             raise
-        self._record_retention_event("prune-completed", layer, reason, version_ids)
+        self._record_retention_event("prune-completed", layer, reason, version_ids, **ident)
         return version_ids
 
     def _complete_manifest_inventory(self, root):
@@ -959,9 +995,14 @@ class Engine:
                 f"retention stopped: manifest path missing for {version_id}"
             )
         if layer == _paths.LAYER_USER_DATA:
+            # ValueError = a layout the removal refuses; OSError = the store
+            # could not be inspected (lstat/open/fstat). Both are the engine's
+            # error so the plan records prune-refused (preflight) or
+            # prune-stopped (a later candidate) instead of escaping without a
+            # saved outcome (review finding R1, 2026-09-11).
             try:
                 _userdata.check_version_removal(root, version_id)
-            except ValueError as exc:
+            except (ValueError, OSError) as exc:
                 raise EngineError(f"retention stopped: {exc}") from exc
 
     def _drop_version(self, root, layer, manifest):

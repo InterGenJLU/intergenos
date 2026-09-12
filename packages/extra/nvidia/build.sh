@@ -589,6 +589,8 @@ EOF
         "$DESTDIR/var/lib/pkm/hooks/nvidia/rebuild-modules"
     install -m 755 "$BUILD_DIR/hooks/sign-module.sh" \
         "$DESTDIR/var/lib/pkm/hooks/nvidia/sign-module.sh"
+    install -m 644 "$BUILD_DIR/hooks/kernel-paths.sh" \
+        "$DESTDIR/var/lib/pkm/hooks/nvidia/kernel-paths.sh"
     install -m 755 "$BUILD_DIR/hooks/check-hardware.sh" \
         "$DESTDIR/var/lib/pkm/hooks/nvidia/check-hardware.sh"
     install -m 755 "$BUILD_DIR/hooks/pre-remove.sh" \

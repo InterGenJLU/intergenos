@@ -47,13 +47,17 @@ if [ -n "${PKM_PACKAGE_ROOT:-}" ] && [ "$PKM_PACKAGE_ROOT" = "/" ]; then
     # Live-system install — uname -r is reliable.
     KVER=$(uname -r)
 fi
-# Fallback: scan /lib/modules for the InterGenOS -igos suffix.
+# Fallback: the one staged InterGenOS kernel (<version>-igos-<release>) that
+# has a prepared build tree, through the shared helper — which refuses to guess
+# when more than one is staged. (The earlier glob *-igos matched no real
+# directory; independent review 2026-09-11.)
+. "$(dirname "$(readlink -f "$0")")/kernel-paths.sh"
 if [ -z "$KVER" ] || [ ! -d "/lib/modules/$KVER/build" ]; then
-    for candidate in /lib/modules/*-igos; do
-        [ -d "$candidate/build" ] || continue
-        KVER="${candidate##*/}"
-        break
-    done
+    if ! KVER=$(nvidia_kver_from_modules /lib/modules); then
+        log "FATAL: more than one staged kernel under /lib/modules has a build tree; refusing to guess."
+        log "Pass the kernel explicitly: /var/lib/pkm/hooks/nvidia/rebuild-modules <version>-igos-<release>"
+        exit 1
+    fi
 fi
 
 if [ -z "$KVER" ]; then
