@@ -50,7 +50,7 @@ gschema override.
   halves and maximizes or unmaximizes, as listed above.
 - `Ctrl + Alt + Del` logs out. It does not open a power-off or restart dialog;
   use the system menu at the top right for those.
-- `Alt + F2`, then `r` restarts GNOME Shell on X11 only. R001.1 runs Wayland,
+- `Alt + F2`, then `r` restarts GNOME Shell on X11 only. InterGenOS runs Wayland,
   where the shell cannot restart in place and the command is unavailable.
 
 ## 2. What's Installed by Default
