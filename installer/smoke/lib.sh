@@ -36,6 +36,14 @@ smoke_root_rerun() {
 smoke_path_state() {
     local path="$1" probe
 
+    # All production paths and supported test overrides are absolute. Reject a
+    # relative override explicitly; a slashless absent path otherwise never
+    # shortens in the ancestor walk below.
+    case "$path" in
+        /*) ;;
+        *) printf 'unreadable'; return ;;
+    esac
+
     if [ -e "$path" ]; then
         if [ -d "$path" ]; then
             if [ -r "$path" ] && [ -x "$path" ]; then

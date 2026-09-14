@@ -14,7 +14,7 @@ SMOKE_BOOT_EFI_DIR="${SMOKE_BOOT_EFI_DIR:-/boot/efi/EFI}"
 SMOKE_BOOT_DIR="${SMOKE_BOOT_DIR:-/boot}"
 
 check_boot_dmesg_clean() {
-    if ! command -v dmesg >/dev/null 2>&1; then
+    if ! command -v "$SMOKE_DMESG" >/dev/null 2>&1; then
         check_skip "boot/dmesg" "dmesg not in PATH"
         return
     fi

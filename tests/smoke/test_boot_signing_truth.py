@@ -28,6 +28,7 @@ class ShellCheckCase(unittest.TestCase):
         env_update: dict[str, str] | None = None,
         stubs: dict[str, str] | None = None,
         shell_setup: str = "",
+        include_system_path: bool = True,
     ) -> list[tuple[str, str, str]]:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -54,7 +55,9 @@ class ShellCheckCase(unittest.TestCase):
                 """
             )
             env = dict(os.environ)
-            env["PATH"] = f"{bin_dir}:/usr/bin:/bin"
+            env["PATH"] = (
+                f"{bin_dir}:/usr/bin:/bin" if include_system_path else str(bin_dir)
+            )
             env.update(env_update or {})
             result = subprocess.run(
                 ["/usr/bin/bash", "-c", script],
@@ -82,7 +85,9 @@ class BootTruthTests(ShellCheckCase):
         rows = self.run_check(
             BOOT_SH,
             "check_boot_dmesg_clean",
-            stubs={"dmesg": "printf '%s\\n' 'read denied' >&2\nexit 5\n"},
+            env_update={"SMOKE_DMESG": "custom-dmesg"},
+            stubs={"custom-dmesg": "printf '%s\\n' 'read denied' >&2\nexit 5\n"},
+            include_system_path=False,
         )
         status, _, message = self.one(rows, "boot/dmesg")
         self.assertEqual(status, "WARN")

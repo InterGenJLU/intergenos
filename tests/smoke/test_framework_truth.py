@@ -21,6 +21,25 @@ LIB_SH = SMOKE_DIR / "lib.sh"
 
 
 class FrameworkTruthTests(unittest.TestCase):
+    def test_relative_path_override_is_rejected_without_looping(self):
+        script = textwrap.dedent(
+            f"""
+            set -uo pipefail
+            . "{LIB_SH}"
+            smoke_path_state definitely-absent-relative-path
+            """
+        )
+        result = subprocess.run(
+            ["/usr/bin/bash", "-c", script],
+            capture_output=True,
+            text=True,
+            env=dict(os.environ),
+            timeout=1,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "unreadable")
+
     def test_missing_required_check_module_aborts_instead_of_green_summary(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
