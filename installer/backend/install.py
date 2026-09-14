@@ -952,13 +952,14 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
 
         # D-019 SSH server opt-in (amends D-007 sshd-default arm): the
         # SSH server is opt-in via the Forge UI. YES enables sshd.service
-        # AND adds a TCP/22 accept rule to /etc/nftables.conf so the
+        # AND writes the removable /etc/nftables.d/40-intergen-ssh.conf
+        # fragment (the same file the Welcomer's toggle manages) so the
         # server is actually reachable from the network (matching user
         # intent; the D-011 default-deny firewall would otherwise leave
         # an opt-in SSH server unreachable). NO leaves both the service
-        # disabled AND the firewall port closed. User can opt in later
-        # by running `systemctl enable --now sshd` + adding a TCP/22
-        # accept rule to /etc/nftables.conf.
+        # disabled AND the firewall port closed. The user can opt in or
+        # out later with the Welcomer's "Enable SSH Server" toggle; the
+        # shipped /etc/nftables.conf is never edited by either path.
         if install_io.get("ssh_server_enable"):
             _emit(PHASE_SERVICES, 11, "enabling SSH server (opt-in)")
             # Optional public-key + keys-only posture (decided

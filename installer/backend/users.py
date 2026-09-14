@@ -34,6 +34,28 @@ from pathlib import Path
 from . import trace
 from ._validators import validate_password
 
+# The SSH firewall rule has ONE shape and ONE home: a removable fragment under
+# /etc/nftables.d, which the shipped default-deny ruleset includes. The
+# Welcomer's privileged helper writes exactly these bytes when the user turns
+# SSH on after install and deletes the file when they turn it off, so the
+# installer's opt-in must land in the same file — never in /etc/nftables.conf.
+# Before 2026-09-14 the installer inserted the rule into the shipped file
+# itself; the Welcomer's "off" then deleted a fragment that did not exist and
+# tcp/22 stayed accepted on every interface while the page said it was off.
+# tests/welcome/test_ssh_fragment_one_shape.py holds the two copies byte-equal.
+SSH_FIREWALL_FRAGMENT_RELPATH = "etc/nftables.d/40-intergen-ssh.conf"
+SSH_FIREWALL_FRAGMENT = (
+    "#!/usr/sbin/nft -f\n"
+    "# Added by the InterGenOS Welcomer \"Enable SSH Server\" toggle.\n"
+    "# OpenSSH inbound on tcp/22 (key-only authentication per D-007). Delete this\n"
+    "# file (or toggle SSH off in the Welcomer) to revert.\n"
+    "table inet filter {\n"
+    "    chain input {\n"
+    "        tcp dport 22 accept\n"
+    "    }\n"
+    "}\n"
+)
+
 # C-006: orchestrator (install.py PHASE_VIRTUAL_FS) owns virtual_fs
 # lifecycle. set_root_password / create_user / enable_services all run
 # between PHASE_VIRTUAL_FS and PHASE_CLEANUP — virtual_fs is already
@@ -462,6 +484,15 @@ def enable_services(target):
                 svc, result.returncode, result.stdout, result.stderr,
             )
 
+    enable_serial_getty(target)
+
+
+@trace.trace_install_step("enable_greeter_monitor_sync")
+def enable_serial_getty(target):
+    """Enable serial-getty@ttyS0 on the target when — and only when — the
+    installer itself ran over a serial console AND the port answers the
+    ioctl agetty needs. Called from enable_services(); split out so the
+    decision is testable without the rest of the services phase."""
     # Enable serial console for VM/server use — but ONLY if ttyS0 is actually
     # functional. GBC002.4 (2026-06-08): on bare-metal laptops the serial port
     # is often present-but-dead (e.g. the HP A12), so agetty's TCGETS ioctl
@@ -471,8 +502,22 @@ def enable_services(target):
     # here with the exact TCGETS agetty needs: VMs + real serial ports pass and
     # keep the console; dead bare-metal ports are skipped. (Host-side os.symlink:
     # symlink creation needs no chroot context, just the right target path.)
+    # Decided 2026-09-14 (R001.3 row 13): a serial login prompt is enabled
+    # ONLY when the installer itself ran over a serial console — the one
+    # case in which someone demonstrably uses that port. A functional but
+    # unused port no longer gets a getty; the TCGETS probe below still
+    # guards the respawn-loop class on hardware that does ask for one.
+    serial_requested = installer_console_is_serial()
     serial_ok = False
+    if not serial_requested:
+        log.info("serial-getty@ttyS0 not enabled: the installer did not run "
+                 "over a serial console (no console=ttyS on the kernel "
+                 "command line, no serial standard stream)")
+        trace.trace_event("serial_getty_skipped",
+                          reason="installer console not serial")
     try:
+        if not serial_requested:
+            raise OSError("serial console not requested")
         _fd = os.open("/dev/ttyS0", os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
         try:
             termios.tcgetattr(_fd)
@@ -501,14 +546,13 @@ def enable_services(target):
                               path=str(serial_link), target=serial_target)
         except Exception as exc:
             log.warning("serial-getty@ttyS0 symlink creation failed: %s", exc)
-    else:
+    elif serial_requested:
         log.info("serial-getty@ttyS0 not enabled: /dev/ttyS0 absent or "
                  "non-functional (avoids the bare-metal agetty respawn loop)")
         trace.trace_event("serial_getty_skipped",
                           reason="ttyS0 absent or TCGETS-failed")
 
 
-@trace.trace_install_step("enable_greeter_monitor_sync")
 def enable_greeter_monitor_sync(target, username):
     """Enable the greeter monitor-layout sync for the primary user.
 
@@ -726,7 +770,7 @@ def seed_user_monitor_layout(target, username):
 
 
 def enable_ssh_server(target, username=None, public_key=None):
-    """Enable sshd.service AND open TCP/22 in /etc/nftables.conf.
+    """Enable sshd.service AND open tcp/22 through the removable fragment.
 
     Called by PHASE_SERVICES only when install_io["ssh_server_enable"]
     is True (D-019 opt-in path). Without the firewall rule, the
@@ -754,37 +798,13 @@ def enable_ssh_server(target, username=None, public_key=None):
             result.returncode, result.stdout, result.stderr,
         )
 
-    # Insert the TCP/22 accept rule into /etc/nftables.conf just above
-    # the "Everything else inbound DROPS" comment marker. The marker
-    # is a stable structural feature of the intergenos-firewall-defaults
-    # ruleset; insertion (vs. file rewrite) lets future ruleset updates
-    # from the package compose cleanly. Direct file I/O on the target's
-    # mounted filesystem is more robust than sed-via-chroot quoting.
-    nft_conf = Path(target) / "etc" / "nftables.conf"
-    if nft_conf.exists():
-        sshd_rule_block = (
-            "        # SSH server (opt-in via Forge install per D-019)\n"
-            "        tcp dport 22 accept\n\n"
-        )
-        marker = "        # Everything else inbound DROPS"
-        contents = nft_conf.read_text()
-
-        if "tcp dport 22 accept" not in contents and marker in contents:
-            new_contents = contents.replace(
-                marker, sshd_rule_block + marker, 1)
-            nft_conf.write_text(new_contents)
-        elif marker not in contents and "tcp dport 22 accept" not in contents:
-            log.warning(
-                "enable_ssh_server: marker '%s' not found in "
-                "nftables.conf; skipping insertion. User can manually "
-                "open TCP/22.", marker
-            )
-    else:
-        log.warning(
-            "enable_ssh_server: /etc/nftables.conf missing in target; "
-            "skipping firewall rule insertion. The sshd opt-in still "
-            "enabled the service; user can manually open TCP/22."
-        )
+    # Open tcp/22 by writing the SAME removable fragment the Welcomer's
+    # helper writes (SSH_FIREWALL_FRAGMENT above). The shipped
+    # /etc/nftables.conf is never edited: it stays byte-identical to the
+    # package's copy, so the Welcomer's "off" (delete the fragment, reload)
+    # closes the port, and the installed-system gate can prove the base file
+    # untouched (tests/installed/test_gate_ssh_posture_truth.py).
+    write_ssh_firewall_fragment(target)
 
     # Optional public-key install + keys-only sshd_config drop-in
     # (decided 2026-05-22 Option C). When the user pasted a
@@ -793,6 +813,53 @@ def enable_ssh_server(target, username=None, public_key=None):
     if public_key and username:
         _install_ssh_authorized_key(target, username, public_key)
         _ship_ssh_keys_only_dropin(target)
+
+
+def write_ssh_firewall_fragment(target):
+    """Write the removable tcp/22 accept fragment on the target.
+
+    Returns the fragment path. Idempotent: an existing identical fragment
+    is left alone. The directory is created if the firewall package's
+    empty /etc/nftables.d is somehow absent. The write is traced with the
+    path and the byte count so the installer's record shows WHERE the
+    port was opened, which a reader of /etc/nftables.conf alone cannot see.
+    """
+    frag = Path(target) / SSH_FIREWALL_FRAGMENT_RELPATH
+    frag.parent.mkdir(parents=True, exist_ok=True)
+    if frag.exists() and frag.read_text() == SSH_FIREWALL_FRAGMENT:
+        trace.trace_event("ssh_firewall_fragment", path=str(frag),
+                          size=len(SSH_FIREWALL_FRAGMENT), state="present")
+        return frag
+    frag.write_text(SSH_FIREWALL_FRAGMENT)
+    os.chmod(frag, 0o644)
+    trace.trace_event("ssh_firewall_fragment", path=str(frag),
+                      size=len(SSH_FIREWALL_FRAGMENT), state="written")
+    return frag
+
+
+def installer_console_is_serial(cmdline_path="/proc/cmdline", fds=(0, 1, 2)):
+    """True when the installer ITSELF is running on a serial console.
+
+    Two independent signals, either suffices: the live medium was booted
+    with a serial console (``console=ttyS...`` on the kernel command line),
+    or one of the installer's own standard streams is a serial terminal.
+    A machine that merely HAS a working serial port does not qualify: on
+    such hardware nobody asked for a login prompt on it, and enabling one
+    silently is the class the 2026-09-04 evaluations filed (row 13).
+    """
+    try:
+        cmdline = Path(cmdline_path).read_text()
+    except OSError:
+        cmdline = ""
+    if re.search(r"(^|\s)console=ttyS\d", cmdline):
+        return True
+    for fd in fds:
+        try:
+            if os.ttyname(fd).startswith("/dev/ttyS"):
+                return True
+        except OSError:
+            continue
+    return False
 
 
 def _install_ssh_authorized_key(target, username, public_key):

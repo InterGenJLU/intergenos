@@ -1247,6 +1247,41 @@ def _apply_service(key, want_on):
     return _run_privileged(key, ['pkexec', PRIVHELPER, verb], timeout=180)
 
 
+# The services page must say what is TRUE on this machine. The installer lets
+# the person turn the SSH server on during install (with their public key), so
+# a page that says "these ship OFF" while sshd is enabled and listening at first
+# boot contradicts the machine (filed 2026-09-04, R001.3 row 13). The sentence
+# names the services that are already on and why.
+_SERVICE_NAMES = {
+    'printing':  'Print Services',
+    'discovery': 'Network Discovery',
+    'ssh':       'the SSH Server',
+}
+
+
+def services_page_subtitle(enabled=None):
+    """The one sentence above the toggles, true for this machine.
+
+    ``enabled`` is the set of toggle keys already enabled (read live when
+    None). With nothing on, the sentence is the shipped promise; with
+    something on, it says which and that the person chose it at install."""
+    if enabled is None:
+        enabled = {k for k, unit in _SERVICE_UNITS.items()
+                   if _service_enabled(unit)}
+    tail = ('Turn on what you need — each is set up for you and can be turned '
+            'back off any time.')
+    if not enabled:
+        return 'These ship OFF for security. ' + tail
+    names = [_SERVICE_NAMES[k] for k in _SERVICE_UNITS if k in enabled]
+    if len(names) == 1:
+        who = names[0] + ' is'
+    else:
+        who = ', '.join(names[:-1]) + ' and ' + names[-1] + ' are'
+    who = who[0].upper() + who[1:]
+    return (f'These ship OFF for security. {who} already on because you '
+            f'turned it on during install. ' + tail)
+
+
 def build_services_page():
     """Enable Services: opt-in privileged toggles (print / discovery / SSH)."""
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
@@ -1259,9 +1294,7 @@ def build_services_page():
     title.add_css_class('page-title')
     box.append(title)
 
-    subtitle = Gtk.Label(
-        label='These ship OFF for security. Turn on what you need — each is '
-              'set up for you and can be turned back off any time.')
+    subtitle = Gtk.Label(label=services_page_subtitle())
     subtitle.add_css_class('page-subtitle')
     subtitle.set_wrap(True)
     subtitle.set_justify(Gtk.Justification.CENTER)

@@ -66,6 +66,27 @@ NSSWITCH=/etc/nsswitch.conf
 HOSTS_LINE_OFF='hosts: mymachines resolve [!UNAVAIL=return] files myhostname dns mdns4_minimal [NOTFOUND=return]'
 HOSTS_LINE_ON='hosts: mymachines mdns4_minimal [NOTFOUND=return] resolve [!UNAVAIL=return] files myhostname dns'
 
+# Installs made before 2026-09-14 carried the install-time SSH opt-in as an
+# inline rule in the shipped /etc/nftables.conf instead of the fragment above.
+# Turning SSH off must close the port on those machines too, so the exact
+# three-line block the old installer inserted is removed here (and nowhere
+# else: the shipped file is otherwise never edited). Matched by its full text,
+# so a hand-written rule with a different comment is left alone.
+strip_legacy_ssh_rule() {
+    local f="${1:-/etc/nftables.conf}"
+    [ -f "$f" ] || return 0
+    grep -qF '# SSH server (opt-in via Forge install per D-019)' "$f" || return 0
+    python3 - "$f" <<'PY'
+import sys
+p = sys.argv[1]
+block = ("        # SSH server (opt-in via Forge install per D-019)\n"
+         "        tcp dport 22 accept\n\n")
+t = open(p).read()
+if block in t:
+    open(p, "w").write(t.replace(block, "", 1))
+PY
+}
+
 reload_firewall() {
     mkdir -p "$NFTD"
     systemctl reload nftables 2>/dev/null \
@@ -365,6 +386,7 @@ NFT
     disable-ssh)
         systemctl disable --now sshd.service 2>/dev/null || true
         rm -f "$SSH_DROPIN"
+        strip_legacy_ssh_rule /etc/nftables.conf
         reload_firewall
         ;;
     dns-use-network-default)
