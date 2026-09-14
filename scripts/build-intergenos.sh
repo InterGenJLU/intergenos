@@ -312,6 +312,16 @@ if [ -n "$START_AT_PKG" ] && [ -z "$START_AT" ]; then
     exit 1
 fi
 
+# Only these phase functions forward the selector to a package driver.
+if [ -n "$START_AT_PKG" ]; then
+    case "$START_AT" in
+        core|core-extra|base) ;;
+        *)
+            echo "Error: --start-at-pkg is not supported for phase '$START_AT' (supported: core, core-extra, base)" >&2
+            exit 2 ;;
+    esac
+fi
+
 # Conditionally enable publish phase
 if $PUBLISH; then
     PHASES+=(publish)
