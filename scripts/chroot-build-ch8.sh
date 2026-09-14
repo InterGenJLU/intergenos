@@ -49,6 +49,23 @@ IGOS_PACKAGES=/mnt/intergenos/packages/core
 IGOS_START_AT="${IGOS_START_AT:-}"
 IGOS_STOP_AFTER="${IGOS_STOP_AFTER:-}"
 
+# Refuse a resume target absent from this driver's own package calls before
+# creating logs, loading package helpers, or changing the package database.
+if [ -n "$IGOS_START_AT" ]; then
+    _resume_found=false
+    while IFS='"' read -r _resume_call _resume_dir _resume_sep _resume_name _resume_rest; do
+        if [ "$_resume_call" = 'run_package ' ] && \
+                { [ "$_resume_dir" = "$IGOS_START_AT" ] || [ "$_resume_name" = "$IGOS_START_AT" ]; }; then
+            _resume_found=true
+            break
+        fi
+    done < "${BASH_SOURCE[0]}"
+    if [ "$_resume_found" != true ]; then
+        echo "error: unknown package resume target for ${0##*/}: $IGOS_START_AT" >&2
+        exit 2
+    fi
+fi
+
 export IGOS_SOURCES IGOS_PATCHES IGOS_LOGS IGOS_JOBS
 
 mkdir -p "$IGOS_LOGS"
