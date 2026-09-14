@@ -7,10 +7,13 @@
 # sign_index() library functions and rsyncs to the remote repo.
 #
 # Usage:
-#   scripts/publish-repo.sh                          # default archive dir + remote
-#   scripts/publish-repo.sh --dry-run                # check what WOULD be published
-#   scripts/publish-repo.sh --archive-dir /path/to/  # custom archive dir
-#   scripts/publish-repo.sh --gpg-key S2             # sign with backup key
+#   scripts/publish-repo.sh --iso-sha256 /abs/release.iso.sha256 \
+#       --wiki-switching-page /abs/wiki/src/start-here/switching.md
+#   scripts/publish-repo.sh --dry-run --iso-sha256 /abs/release.iso.sha256 \
+#       --wiki-switching-page /abs/wiki/src/start-here/switching.md
+#   scripts/publish-repo.sh --archive-dir /path/to/ --gpg-key S2 \
+#       --iso-sha256 /abs/release.iso.sha256 \
+#       --wiki-switching-page /abs/wiki/src/start-here/switching.md
 #
 # Environment overrides:
 #   PUBLISH_REMOTE_USER       (default: intergenos)
@@ -30,6 +33,10 @@
 #     these landing in <host>/x86_64/current/sources/ alongside the binaries)
 set -e -o pipefail
 
+ORIGINAL_ARGS=("$@")
+SCRIPT_PATH=$(readlink -f "$0")
+REPO_ROOT="${IGOS_REPO_ROOT:-$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)}"
+
 ARCHIVE_DIR="/var/lib/igos/archives"
 SOURCES_DIR="${PUBLISH_SOURCES_DIR:-build/sources-archives}"
 REMOTE_USER="${PUBLISH_REMOTE_USER:-intergenos}"
@@ -42,6 +49,12 @@ SKIP_SOURCES=false
 SKIP_TRANSPARENCY=false
 SKIP_SIGN=false
 CHROOT_MANIFEST=""
+ISO_SHA256_FILE=""
+WIKI_SWITCHING_PAGE=""
+SIGN_APPROVAL_FILE="${PUBLISH_SIGN_APPROVAL_FILE:-}"
+SIGN_HOLD_TIMEOUT="${PUBLISH_SIGN_HOLD_TIMEOUT:-1800}"
+LIVE_INDEX_SHA=""
+LIVE_INDEX_WAS_PRESENT=false
 
 # Retention: how many archived snapshots to keep under _previous/ after a
 # promote. The promote moves the outgoing current/ target into _previous/;
@@ -79,6 +92,7 @@ GPG_KEY_FPS[S2]="81DD223F9BA9B3F2AFBFFC5AFA24B042975F775E"
 usage() {
     cat <<EOF
 Usage: $0 [--dry-run] [--archive-dir DIR] [--gpg-key NK1|NK2] [--skip-sources]
+          --iso-sha256 FILE --wiki-switching-page FILE
 
   --dry-run        Show what would be uploaded; don't actually publish. Generates
                    the index locally for preview but SIGNS NOTHING and uploads
@@ -121,6 +135,21 @@ Usage: $0 [--dry-run] [--archive-dir DIR] [--gpg-key NK1|NK2] [--skip-sources]
                    corpus; the persistent-staging overlay is retired). No
                    bypass exists. --skip-sign resumes reuse the already-
                    gated index and skip the re-check.
+  --iso-sha256 FILE
+                   The release image's sha256sum file. Required when a new
+                   index is generated; the document-claims gate binds the
+                   README download block to these exact release bytes.
+  --wiki-switching-page FILE
+                   The rendered-source Markdown page that names packages in
+                   its switching guide. Required when a new index is
+                   generated; every named package must exist in that index.
+  --sign-approval-file FILE
+                   Override the one-use signing approval path printed by the
+                   signing hold. The path must be absolute and absent before
+                   the hold. Default: a unique file under XDG_RUNTIME_DIR.
+  --sign-hold-timeout SECONDS
+                   Bounded wait for the explicit word "sign" (default:
+                   $SIGN_HOLD_TIMEOUT). Timeout aborts before the key is used.
 EOF
     exit 1
 }
@@ -136,10 +165,50 @@ while [ $# -gt 0 ]; do
         --keep-previous)   KEEP_PREVIOUS="$2"; shift 2 ;;
         --accept-capacity-risk) ACCEPT_CAPACITY_RISK=true; shift ;;
         --chroot-manifest) CHROOT_MANIFEST="$2"; shift 2 ;;
+        --iso-sha256)      ISO_SHA256_FILE="$2"; shift 2 ;;
+        --wiki-switching-page) WIKI_SWITCHING_PAGE="$2"; shift 2 ;;
+        --sign-approval-file) SIGN_APPROVAL_FILE="$2"; shift 2 ;;
+        --sign-hold-timeout) SIGN_HOLD_TIMEOUT="$2"; shift 2 ;;
         -h|--help)         usage ;;
         *) echo "Unknown option: $1"; usage ;;
     esac
 done
+
+if ! [[ "$SIGN_HOLD_TIMEOUT" =~ ^[1-9][0-9]*$ ]]; then
+    echo "ERROR: --sign-hold-timeout must be a positive whole number of seconds." >&2
+    exit 1
+fi
+if [ -n "$SIGN_APPROVAL_FILE" ] && [[ "$SIGN_APPROVAL_FILE" != /* ]]; then
+    echo "ERROR: --sign-approval-file must be an absolute path." >&2
+    exit 1
+fi
+if [ "$SKIP_SIGN" != true ]; then
+    if [ -z "$ISO_SHA256_FILE" ] || [ -z "$WIKI_SWITCHING_PAGE" ]; then
+        echo "ERROR: --iso-sha256 and --wiki-switching-page are required when generating a new index." >&2
+        echo "  The publication-time document gate cannot verify omitted inputs." >&2
+        exit 1
+    fi
+    if [[ "$ISO_SHA256_FILE" != /* ]] || [[ "$WIKI_SWITCHING_PAGE" != /* ]]; then
+        echo "ERROR: --iso-sha256 and --wiki-switching-page must be absolute paths." >&2
+        exit 1
+    fi
+fi
+
+print_resume_command() {
+    echo "  Reuse the same environment variables."
+    printf '  Resume command:'
+    printf ' %q' "$SCRIPT_PATH" "${ORIGINAL_ARGS[@]}"
+    printf '\n'
+}
+
+abort_before_sign() {
+    local status="$1"
+    shift
+    echo "ERROR: $*" >&2
+    echo "  The archive staging directory and generated index were left intact." >&2
+    print_resume_command >&2
+    exit "$status"
+}
 
 if [ ! -d "$ARCHIVE_DIR" ]; then
     echo "ERROR: Archive directory does not exist: $ARCHIVE_DIR" >&2
@@ -230,11 +299,6 @@ ssh -p "$REMOTE_PORT" -o BatchMode=yes -o ConnectTimeout=10 \
     "${REMOTE_USER}@${REMOTE_HOST}" true \
     || { echo "ERROR: SSH auth to ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PORT} failed" >&2; exit 1; }
 echo "  OK — SSH reachable"
-
-echo "[preflight] Checking GPG key availability..."
-gpg --list-secret-keys "$GPG_FP" >/dev/null 2>&1 \
-    || { echo "ERROR: GPG key $GPG_KEY ($GPG_FP) not available" >&2; exit 1; }
-echo "  OK — GPG key available"
 
 # ---------------------------------------------------------------------------
 # Remote snapshot layout — resolved ONCE, consumed by both the capacity
@@ -395,6 +459,8 @@ if [ "$SKIP_SIGN" != true ]; then
     if ssh -p "$REMOTE_PORT" -o BatchMode=yes -o ConnectTimeout=10 \
            "${REMOTE_USER}@${REMOTE_HOST}" "cat '${REMOTE_PATH}/current/InterGenOS.db'" \
            > "$LIVE_INDEX_TMP" 2>/dev/null && [ -s "$LIVE_INDEX_TMP" ]; then
+        LIVE_INDEX_WAS_PRESENT=true
+        LIVE_INDEX_SHA=$(sha256sum "$LIVE_INDEX_TMP" | awk '{print $1}')
         python3 - "$ARCHIVE_DIR" "$LIVE_INDEX_TMP" <<'PYGATE' || { rm -f "$LIVE_INDEX_TMP"; echo "ERROR: version-release gate failed — bump release(s) and re-run" >&2; exit 1; }
 import sys, gzip, json, hashlib, tarfile, glob, os
 sys.path.insert(0, ".")
@@ -502,6 +568,169 @@ if [ "$SKIP_SIGN" != true ] && [ "$DRY_RUN" != true ]; then
              exit 1; }
 fi
 
+signing_hold() {
+    local index_path="$1"
+    local archive_count="$2"
+    local index_sha index_abs live_now live_now_sha current_arg
+    local approval_dir runtime_dir elapsed approval_rc
+
+    index_sha=$(sha256sum "$index_path" | awk '{print $1}')
+    index_abs=$(readlink -f "$index_path")
+    live_now=$(mktemp)
+    current_arg="-"
+    if ssh -p "$REMOTE_PORT" -o BatchMode=yes -o ConnectTimeout=10 \
+           "${REMOTE_USER}@${REMOTE_HOST}" "cat '${REMOTE_PATH}/current/InterGenOS.db'" \
+           > "$live_now" 2>/dev/null && [ -s "$live_now" ]; then
+        live_now_sha=$(sha256sum "$live_now" | awk '{print $1}')
+        if [ "$LIVE_INDEX_WAS_PRESENT" != true ]; then
+            rm -f "$live_now"
+            abort_before_sign 1 "the served index appeared after the advancement preflight; restart against the new state"
+        fi
+        if [ "$live_now_sha" != "$LIVE_INDEX_SHA" ]; then
+            rm -f "$live_now"
+            abort_before_sign 1 "the served index changed after the advancement preflight; restart against the new state"
+        fi
+        current_arg="$live_now"
+    elif [ "$LIVE_INDEX_WAS_PRESENT" = true ]; then
+        rm -f "$live_now"
+        abort_before_sign 1 "the served index became unreadable after the advancement preflight"
+    fi
+
+    echo ""
+    echo "=== SIGNING HOLD ==="
+    echo "  Index path: $index_abs"
+    echo "  Index sha256: $index_sha"
+    python3 - "$index_path" "$current_arg" "$archive_count" <<'PYBRIEF' || {
+import gzip
+import json
+import sys
+
+new_path, current_path, staged_count = sys.argv[1], sys.argv[2], int(sys.argv[3])
+with gzip.open(new_path, "rt", encoding="utf-8") as handle:
+    new_doc = json.load(handle)
+new = new_doc.get("packages")
+if not isinstance(new, dict):
+    print("ERROR: generated index has no packages mapping", file=sys.stderr)
+    raise SystemExit(2)
+declared_count = new_doc.get("package_count")
+if declared_count != len(new) or len(new) != staged_count:
+    print(
+        "ERROR: generated index count disagrees with its rows or staged archives: "
+        f"declared={declared_count!r} rows={len(new)} staged={staged_count}",
+        file=sys.stderr,
+    )
+    raise SystemExit(2)
+
+current = {}
+if current_path != "-":
+    with gzip.open(current_path, "rt", encoding="utf-8") as handle:
+        current_doc = json.load(handle)
+    current = current_doc.get("packages")
+    if not isinstance(current, dict):
+        print("ERROR: served index has no packages mapping", file=sys.stderr)
+        raise SystemExit(2)
+
+def version_release(row):
+    if row is None:
+        return "absent"
+    return f"{row.get('version', 'missing')}-{row.get('release', 1)}"
+
+changed = []
+for name in sorted(set(current) | set(new)):
+    old_row, new_row = current.get(name), new.get(name)
+    old_vr, new_vr = version_release(old_row), version_release(new_row)
+    if old_vr != new_vr:
+        changed.append((name, old_vr, new_vr))
+
+print(f"  Archive rows indexed: {len(new)}")
+print(f"  Release/version rows changed vs served index: {len(changed)}")
+for name, old_vr, new_vr in changed:
+    print(f"    {name}: {old_vr} -> {new_vr}")
+PYBRIEF
+        rm -f "$live_now"
+        abort_before_sign 1 "the signing brief could not be derived from the generated and served indexes"
+    }
+    rm -f "$live_now"
+    echo "  Signing key fingerprint: $GPG_FP"
+    echo "  Ceremony: exactly ONE PIN and ONE touch follow after approval."
+
+    if [ -z "$SIGN_APPROVAL_FILE" ]; then
+        runtime_dir="${XDG_RUNTIME_DIR:-/run/user/$(/usr/bin/id -u)}"
+        SIGN_APPROVAL_FILE="${runtime_dir}/intergenos-publish-sign-${index_sha:0:16}-${BASHPID}.approval"
+    fi
+    approval_dir=$(dirname "$SIGN_APPROVAL_FILE")
+    if [ ! -d "$approval_dir" ]; then
+        abort_before_sign 1 "signing approval directory is absent: $approval_dir"
+    fi
+    if [ -e "$SIGN_APPROVAL_FILE" ] || [ -L "$SIGN_APPROVAL_FILE" ]; then
+        abort_before_sign 1 "signing approval path already exists; remove it deliberately before retrying: $SIGN_APPROVAL_FILE"
+    fi
+
+    printf "  Approval path: %s\n" "$SIGN_APPROVAL_FILE"
+    printf "  Approval command: /usr/bin/printf '%%s\\n' sign | /usr/bin/install -m 600 /dev/stdin %q\n" "$SIGN_APPROVAL_FILE"
+    echo "  Waiting up to $SIGN_HOLD_TIMEOUT seconds. Any other content aborts before the key is used."
+
+    elapsed=0
+    while [ "$elapsed" -lt "$SIGN_HOLD_TIMEOUT" ]; do
+        if [ -e "$SIGN_APPROVAL_FILE" ] || [ -L "$SIGN_APPROVAL_FILE" ]; then
+            approval_rc=0
+            /usr/bin/python3 - "$SIGN_APPROVAL_FILE" "$(/usr/bin/id -u)" <<'PYAPPROVAL' || approval_rc=$?
+import os
+import stat
+import sys
+
+path, expected_uid = sys.argv[1], int(sys.argv[2])
+parent, name = os.path.dirname(path), os.path.basename(path)
+flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+try:
+    parent_fd = os.open(parent, os.O_RDONLY | os.O_DIRECTORY)
+    fd = os.open(name, flags, dir_fd=parent_fd)
+except OSError as exc:
+    print(f"approval file could not be opened without following links: {exc}", file=sys.stderr)
+    raise SystemExit(4)
+try:
+    opened = os.fstat(fd)
+    named = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    safe = (
+        stat.S_ISREG(opened.st_mode)
+        and (opened.st_dev, opened.st_ino) == (named.st_dev, named.st_ino)
+        and opened.st_uid == expected_uid
+        and stat.S_IMODE(opened.st_mode) == 0o600
+        and opened.st_size <= 64
+    )
+    if not safe:
+        print("approval file failed its regular-file, identity, owner, mode, or size check",
+              file=sys.stderr)
+        raise SystemExit(4)
+    content = os.read(fd, 65)
+    named = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    if (opened.st_dev, opened.st_ino) != (named.st_dev, named.st_ino):
+        print("approval path changed while it was being checked", file=sys.stderr)
+        raise SystemExit(4)
+    os.unlink(name, dir_fd=parent_fd)
+finally:
+    os.close(fd)
+    os.close(parent_fd)
+raise SystemExit(0 if content in (b"sign", b"sign\n") else 3)
+PYAPPROVAL
+            if [ "$approval_rc" -eq 0 ]; then
+                echo "  Signing approval received; the one-use response was consumed."
+                return 0
+            fi
+            if [ "$approval_rc" -eq 4 ]; then
+                abort_before_sign 3 "the signing approval file was unsafe and was not consumed"
+            fi
+            abort_before_sign 3 "Signing was not approved: expected exactly one line containing 'sign'"
+        fi
+        /usr/bin/sleep 1
+        elapsed=$((elapsed + 1))
+        if [ $((elapsed % 60)) -eq 0 ]; then
+            echo "  SIGNING HOLD: still waiting (${elapsed}/${SIGN_HOLD_TIMEOUT} seconds)."
+        fi
+    done
+    abort_before_sign 3 "signing approval timed out after $SIGN_HOLD_TIMEOUT seconds"
+}
+
 INDEX_PATH="$ARCHIVE_DIR/InterGenOS.db"
 SIG_PATH="${INDEX_PATH}.sig"
 
@@ -548,6 +777,22 @@ print(f'Index written: {path}')
     fi
     echo "  OK — $(stat -c%s "$INDEX_PATH") bytes"
 
+    # Publication-time document currency: bind release-facing prose to the
+    # exact image checksum record and to the index that would be signed. This
+    # runs after index generation (the mirror package set now exists) and
+    # before the signing hold (a stale claim costs no ceremony). --skip-sign
+    # reuses an index that already passed this gate with its signature.
+    DOC_CLAIMS_SCRIPT="$(dirname "$SCRIPT_PATH")/check-doc-claims.py"
+    echo "[pre-sign] Checking public document claims against release artifacts..."
+    [ -f "$DOC_CLAIMS_SCRIPT" ] \
+        || { echo "ERROR: document-claims gate is absent: $DOC_CLAIMS_SCRIPT" >&2; exit 1; }
+    /usr/bin/python3 "$DOC_CLAIMS_SCRIPT" \
+        --tree "$REPO_ROOT" \
+        --iso-sha256 "$ISO_SHA256_FILE" \
+        --mirror-index "$INDEX_PATH" \
+        --wiki-switching-page "$WIKI_SWITCHING_PAGE" \
+        || { echo "ERROR: document-claims currency gate refused the publish." >&2; exit 1; }
+
     if [ -n "$_DR_SAVED_INDEX" ]; then
         cp -p "$_DR_SAVED_INDEX" "$INDEX_PATH"
         rm -f "$_DR_SAVED_INDEX"
@@ -564,6 +809,12 @@ print(f'Index written: {path}')
     if [ "$DRY_RUN" = true ]; then
         echo "[2/4] (dry-run) skipping index signing — a real publish signs with $GPG_KEY (Nitrokey PIN + touch)"
     else
+        signing_hold "$INDEX_PATH" "$COUNT"
+        echo "[pre-sign] Checking GPG key availability..."
+        gpg --list-secret-keys "$GPG_FP" >/dev/null 2>&1 \
+            || abort_before_sign 1 "GPG key $GPG_KEY ($GPG_FP) not available"
+        echo "  OK — GPG key available"
+
         # Card hygiene: the OpenPGP/scdaemon path to the Nitrokey goes stale between
         # operations and throws "gpg: signing failed: Card error". Refresh scdaemon
         # immediately before signing so gpg opens a fresh card connection (operator-

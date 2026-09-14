@@ -179,11 +179,10 @@ as the publish phase.
 
 **Steps:**
 
-1. **Pre-checks.** The master GPG keyring is available; the release
-   subkey is present ([S1] on NK#1 by default, or [S2] on NK#2 via
-   `--gpg-key NK2`); SSH access to
-   `intergenos@origin.intergenstudios.com:2200` works; and the archives
-   directory exists and is non-empty.
+1. **Release and remote pre-checks.** The installed-release record, SSH
+   reachability, remote snapshot layout, capacity floor, source correspondence,
+   and evaluated-corpus byte identity are checked before the index is generated.
+   The archive directory must exist and be non-empty.
 2. **Release-monotonicity gate.** Every staged archive whose bytes differ
    from the live `current/` entry must be strictly newer in
    `(version, release)`. A same-version republish that did not bump
@@ -194,14 +193,21 @@ as the publish phase.
 3. **Generate index.** Calls `pkm.repo.generate_index(<archives_dir>)`
    to produce `InterGenOS.db` (gzipped JSON in the format
    `pkm/repo.py` parses).
-4. **Sign index.** `gpg --detach-sign --armor --output InterGenOS.db.sig
-   --local-user <SUBKEY_FP> InterGenOS.db`. The hardware token prompts
-   for its PIN and touch confirmation.
-5. **Capacity preflight.** Projects new-versus-hardlinkable bytes against
-   the remote's free space and fails **closed** if the post-publish free
-   space would drop below `--min-free-pct` (default 25%). This turns a
-   step that used to be a human pre-check into an enforced gate;
-   `--accept-capacity-risk` is the explicit override.
+4. **Public-document currency gate.** The four release-identity files and
+   image checksum record are checked against the README, SECURITY policy,
+   release-policy version rows and changelog. Every concrete package command
+   in the wiki switching page must name a package in the generated index. A
+   stale claim exits 2 with `file:line`, before a signing approval is requested;
+   the README's rounded size and changelog date remain human-review claims.
+5. **Explicit signing hold, then sign.** One brief prints the index path and
+   SHA-256, archive count, every changed version/release row, and the signing
+   fingerprint. A detached user unit waits for a one-use 0600 approval file
+   containing exactly `sign`; any other content or the bounded timeout aborts
+   with the staging intact and a resume command. Only then is the secret subkey
+   checked and `gpg --detach-sign --armor --output InterGenOS.db.sig --local-user
+   <SUBKEY_FP> InterGenOS.db` run. The hardware token prompts for exactly one
+   PIN and one touch. `--skip-sign` reuses the already-vetted signed index and
+   skips both the document gate and the hold.
 6. **Rsync staged tree to VPS, incrementally.** Stages into a per-publish
    `_staging-<TS>/` directory directly under
    `/home/intergenos/repo/x86_64/` on the VPS, with no intermediate

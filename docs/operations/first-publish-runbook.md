@@ -35,39 +35,75 @@ optional `publish` phase. This runbook documents running it.
   `https://repo.intergenos.org/sources/`). Populate/refresh via
   `scripts/download-sources.py --all --mirror-upload` before publishing if `--skip-sources`
   is not used.
+- **The release image checksum record** (`intergenos-<release>.iso.sha256`) and the
+  current Markdown source of the wiki switching page. A new index is not signed until
+  the public-document currency gate binds the README and changelog to the checksum
+  record, and every package named by that page to the generated mirror index.
 
 ---
 
 ## 2. Dry-run first (always)
 
 ```bash
-scripts/publish-repo.sh --dry-run
+/usr/bin/bash /mnt/intergenos/scripts/publish-repo.sh --dry-run \
+  --iso-sha256 /absolute/path/intergenos-r001.3.iso.sha256 \
+  --wiki-switching-page /absolute/path/wiki/src/start-here/switching.md
 ```
 
-This validates the key is available, generates the index in-place, and prints the rsync
-and promote it *would* perform — without writing to the mirror host. Confirm the archive count and
-the staging path look right before the real run.
+This runs the remote, capacity, advancement, source and public-document preflights,
+generates the index in-place, and prints the rsync and promote it *would* perform —
+without signing, touching the hardware token, entering the signing hold, or writing to
+the mirror host. The installed-release record and evaluated-corpus byte gate remain
+release-only checks and run on the real publish. Confirm the archive count and staging
+path before that run.
 
 ---
 
 ## 3. The publish (what `publish-repo.sh` does)
 
 ```bash
-scripts/publish-repo.sh                 # sign with NK1/S1 (default)
-scripts/publish-repo.sh --gpg-key NK2   # sign with the NK2/S2 backup
+/usr/bin/bash /mnt/intergenos/scripts/publish-repo.sh \
+  --iso-sha256 /absolute/path/intergenos-r001.3.iso.sha256 \
+  --wiki-switching-page /absolute/path/wiki/src/start-here/switching.md
+
+/usr/bin/bash /mnt/intergenos/scripts/publish-repo.sh --gpg-key NK2 \
+  --iso-sha256 /absolute/path/intergenos-r001.3.iso.sha256 \
+  --wiki-switching-page /absolute/path/wiki/src/start-here/switching.md
 ```
 
-1. **Pre-checks** — the chosen subkey is available in the local keyring; the archive
-   directory exists and is non-empty.
+1. **Pre-checks** — release validation, SSH reachability, remote snapshot layout,
+   capacity, strict version/release advancement, source correspondence, and evaluated-
+   corpus byte identity all run before the index or signing ceremony. The archive
+   directory must exist and be non-empty. The capacity calculation projects genuinely
+   new bytes against remote free space and fails closed if post-publish free space would
+   fall below 25 percent. `--accept-capacity-risk` is the explicit override; the estimate
+   is a documented lower bound because it matches candidates by name and size while
+   rsync later matches by content.
 2. **Generate index** — `pkm.repo.generate_index(<archive-dir>, arch='x86_64')` writes
    `InterGenOS.db` (gzipped JSON; the format `pkm/repo.py` parses), with each package's
    SHA-256.
-3. **Sign the index** — `gpg --yes --detach-sign --armor --local-user <subkey-fp>` over
-   `InterGenOS.db` → `InterGenOS.db.sig`. **The hardware token prompts for PIN + touch on
-   the workstation** — this is the human-in-the-loop step. The preflight (step 1) first
-   runs `gpg-connect-agent updatestartuptty /bye` to re-point the gpg-agent at the live
-   graphical session, so `pinentry-gnome3` reliably pops the GUI prompt; and `sign_index`
-   passes `--yes` so a re-publish overwrites the prior `InterGenOS.db.sig` non-interactively.
+3. **Public-document currency gate** — `scripts/check-doc-claims.py` checks the four
+   release-identity files, image checksum record, README download and Upcoming sections,
+   SECURITY status, release-policy version rows, changelog head, and the switching page's
+   package commands against the generated index. Every stale claim is printed as
+   `file:line`; any finding exits 2 before a signing approval is requested. The
+   README's human-rounded image size and the changelog date have no second truth
+   source in the tree and are stated as outside this mechanical gate.
+4. **Signing hold** — the script prints one brief: the absolute index path and SHA-256,
+   archive-row count, every version/release row changed from the served index, signing-key
+   fingerprint, and the fact that exactly one PIN and one token touch follow. It then
+   prints a one-use approval-file command and waits for the exact word `sign`. The path is
+   unique to this process and index, must be a 0600 regular file owned by the publisher,
+   and is consumed after a safe read. Any other content or the bounded timeout aborts
+   before the key is used, leaves the archive staging and generated index intact, and
+   prints the exact command to resume with the same environment.
+5. **Sign the index** — only after approval, the script verifies the chosen secret subkey
+   is available and runs `gpg --yes --detach-sign --armor --local-user <subkey-fp>` over
+   `InterGenOS.db` → `InterGenOS.db.sig`. **The hardware token prompts for exactly one PIN
+   and one touch on the workstation.** It first runs
+   `gpg-connect-agent updatestartuptty /bye` to re-point the agent at the live graphical
+   session, so `pinentry-gnome3` reliably opens; `sign_index` passes `--yes` so a
+   re-publish overwrites the prior signature without an extra terminal prompt.
 
    > **Troubleshooting — `gpg: cannot open '/dev/tty'` at signing.** Two distinct causes,
    > both now handled in code but worth knowing:
@@ -86,13 +122,7 @@ scripts/publish-repo.sh --gpg-key NK2   # sign with the NK2/S2 backup
    > directly with the subkey **fingerprint** (not the `NK1` alias) + `--yes`, then resume
    > with `--skip-sign` (no regenerate — index generation is not byte-stable, so a fresh
    > `InterGenOS.db` would void the signature).
-4. **Capacity preflight (fail-closed).** Before anything is uploaded, the script projects
-   how many bytes are genuinely new against the remote's free space and **halts** if the
-   post-publish free space would fall below `--min-free-pct` (default 25%, matching the
-   host's backup threshold). `--accept-capacity-risk` is the explicit override. The
-   projection is a documented *lower* bound on bytes moved — it matches candidates by name
-   and size while rsync matches by content — so it is deliberately conservative.
-5. **Rsync to staging, incrementally** — the signed tree rsyncs into a per-publish
+6. **Rsync to staging, incrementally** — the signed tree rsyncs into a per-publish
    `_staging-<UTC_ISO_TS>/` directory directly under `/home/intergenos/repo/x86_64/`
    (plus the source archives unless `--skip-sources`). The transfer is content-addressed
    (`rsync --checksum`) and hardlinks against **every** snapshot already on the volume —
@@ -100,18 +130,18 @@ scripts/publish-repo.sh --gpg-key NK2   # sign with the NK2/S2 backup
    left behind — so an archive that already exists anywhere on the volume is hardlinked
    rather than re-sent. The index and its signature always change, so they always transfer.
    A first publish, with no `current/` to link against, falls back to a full transfer.
-6. **Atomic promote** — `ln -sfn <staging> current.new` then `mv -T current.new current`
+7. **Atomic promote** — `ln -sfn <staging> current.new` then `mv -T current.new current`
    (a single atomic syscall on ext4). The prior target is archived to `_previous/`. No
    404 window; in-flight clients complete against the old target or restart against the
    new one. No httpd restart needed — Apache serves the swapped symlink on the next
    request.
-7. **Retention prune** — after the promote, `_previous/` is pruned to the most recent
+8. **Retention prune** — after the promote, `_previous/` is pruned to the most recent
    `--keep-previous N` generations (default **1**). Each retained generation costs roughly
    a full unshared copy of the source tree, so without the prune the volume leaks a
    generation per publish. The prune acts only inside `_previous/`, only on entries whose
    names match the archive-snapshot shape, and never on whatever `current/` resolves to.
    `--keep-previous 0` disables retention entirely.
-8. **Transparency-log append** — the publish appends the signed index to the append-only
+9. **Transparency-log append** — the publish appends the signed index to the append-only
    transparency log for cold-read auditability. `--skip-transparency` is an emergency
    override for a genuinely unavailable log substrate; the default is fail-closed so every
    published index is recorded.
@@ -120,13 +150,17 @@ scripts/publish-repo.sh --gpg-key NK2   # sign with the NK2/S2 backup
 gigabytes and runs for the better part of an hour; run it under `systemd-run --user` so a
 client or editor restart cannot kill it mid-transfer, carrying the session's
 `DISPLAY` / `DBUS_SESSION_BUS_ADDRESS` / `XDG_RUNTIME_DIR` into the unit with `--setenv` so
-the PIN dialog still appears. Note that a `--user` unit survives a client restart but not a
-logout or reboot unless lingering is enabled for the account.
+the PIN dialog still appears. The unit stops at the file-backed signing hold; the key holder
+runs the exact approval command printed in its journal from a separate terminal. Note that
+a `--user` unit survives a client restart but not a logout or reboot unless lingering is
+enabled for the account.
 
 **Full flag surface:** `--dry-run`, `--archive-dir`, `--gpg-key NK1|NK2` (the subkey
 aliases `S1`/`S2` are accepted too), `--skip-sources`, `--skip-transparency`, `--skip-sign`,
-`--keep-previous N`, `--accept-capacity-risk`. Run `scripts/publish-repo.sh --help` for the
-authoritative list.
+`--keep-previous N`, `--accept-capacity-risk`, `--iso-sha256 FILE`,
+`--wiki-switching-page FILE`, `--sign-approval-file FILE`, and
+`--sign-hold-timeout SECONDS`. Run `/usr/bin/bash
+/mnt/intergenos/scripts/publish-repo.sh --help` for the authoritative list.
 
 ---
 
