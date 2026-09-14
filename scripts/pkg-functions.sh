@@ -1035,7 +1035,7 @@ pkg_manifest() {
     fi
 
     # Write the manifest
-    cat > "$manifest" << EOF
+    if cat > "$manifest" << EOF
 PACKAGE NAME: ${name}-${version}
 PACKAGE VERSION: ${version}
 ${release_line}UNCOMPRESSED SIZE: ${uncompressed_human} (${uncompressed_size} bytes)
@@ -1047,8 +1047,13 @@ ${name}: ${description}
 FILE LIST:
 ${file_list}
 EOF
-
-    pkg_log "Manifest written: ${manifest} ($(echo "$file_list" | wc -l) entries)"
+    then
+        pkg_log "Manifest written: ${manifest} ($(echo "$file_list" | wc -l) entries)"
+    else
+        local manifest_rc=$?
+        pkg_error "Manifest write failed: ${manifest} (exit ${manifest_rc})"
+        return "$manifest_rc"
+    fi
     return 0
 }
 
