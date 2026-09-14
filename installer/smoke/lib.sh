@@ -29,6 +29,42 @@ smoke_root_rerun() {
     printf 're-run as root: /usr/bin/sudo /usr/bin/intergenos-smoke-test%s' "$strict"
 }
 
+# Report whether a path is usable by this process without turning a failed
+# traversal into an absence claim. `test -e` alone returns false when an
+# ancestor exists but cannot be searched (the normal 0700 ESP/MOK layout).
+# Echoes exactly one of: present | absent | unreadable.
+smoke_path_state() {
+    local path="$1" probe
+
+    if [ -e "$path" ]; then
+        if [ -d "$path" ]; then
+            if [ -r "$path" ] && [ -x "$path" ]; then
+                printf 'present'
+            else
+                printf 'unreadable'
+            fi
+        elif [ -r "$path" ]; then
+            printf 'present'
+        else
+            printf 'unreadable'
+        fi
+        return
+    fi
+
+    probe="${path%/*}"
+    [ -n "$probe" ] || probe="/"
+    while [ "$probe" != "/" ] && [ ! -e "$probe" ]; do
+        probe="${probe%/*}"
+        [ -n "$probe" ] || probe="/"
+    done
+
+    if [ -d "$probe" ] && { [ ! -r "$probe" ] || [ ! -x "$probe" ]; }; then
+        printf 'unreadable'
+    else
+        printf 'absent'
+    fi
+}
+
 # ---------------------------------------------------------------------------
 # emit functions — call these from check modules. Append to SMOKE_RESULTS
 # and (in non-JSON mode) print one line immediately so the user sees

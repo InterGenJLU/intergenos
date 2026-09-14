@@ -20,11 +20,18 @@ SMOKE_MASTER_FPR="${SMOKE_MASTER_FPR:-5597A3E0587B253006D0DD7B8C50826182083050}"
 # read by anything — an override that did nothing — so it is gone rather than
 # left standing as an affordance the file does not honour.)
 SMOKE_MOK_CERT="${SMOKE_MOK_CERT:-/var/lib/intergen/mok/mok.crt}"
+SMOKE_MOK_DIR="${SMOKE_MOK_DIR:-${SMOKE_MOK_CERT%/*}}"
 
 # Standard EFI binary paths under the system partition. The shim-signed
 # package and GRUB install hooks stage binaries here at install time.
 SMOKE_SHIM_EFI="${SMOKE_SHIM_EFI:-/boot/efi/EFI/InterGenOS/shimx64.efi}"
 SMOKE_GRUB_EFI="${SMOKE_GRUB_EFI:-/boot/efi/EFI/InterGenOS/grubx64.efi}"
+SMOKE_EFI_FIRMWARE="${SMOKE_EFI_FIRMWARE:-/sys/firmware/efi}"
+SMOKE_ESP_ROOT="${SMOKE_ESP_ROOT:-/boot/efi}"
+SMOKE_KEYCTL="${SMOKE_KEYCTL:-keyctl}"
+SMOKE_SBVERIFY="${SMOKE_SBVERIFY:-sbverify}"
+SMOKE_EUID="${SMOKE_EUID:-$(id -u)}"
+SMOKE_SB_STATE_OVERRIDE="${SMOKE_SB_STATE_OVERRIDE:-}"
 # Module-signing enforcement inputs (overridable so the check can be driven
 # against a fixture: tests/test_smoke_module_sig_force_pipefail.py). An empty
 # SMOKE_KCONFIG means "the kernel's own config" (/proc/config.gz, then
@@ -37,7 +44,11 @@ SMOKE_KCONFIG="${SMOKE_KCONFIG:-}"
 # those checks must know which venue they are reading before ruling FAIL.
 # Echoes exactly one of: enabled | disabled | noefi | unknown.
 _smoke_sb_state() {
-    if [ ! -d /sys/firmware/efi ]; then
+    if [ -n "$SMOKE_SB_STATE_OVERRIDE" ]; then
+        printf '%s\n' "$SMOKE_SB_STATE_OVERRIDE"
+        return
+    fi
+    if [ ! -d "$SMOKE_EFI_FIRMWARE" ]; then
         echo noefi
         return
     fi
@@ -170,9 +181,32 @@ check_signing_mok_enrolled() {
         return
     fi
 
-    # No point checking MOK enrollment if there's no local cert to enroll.
-    if [ ! -f "$SMOKE_MOK_CERT" ]; then
-        check_skip "sign/mok-enrolled" "$SMOKE_MOK_CERT not present (no Forge-provisioned MOK)"
+    # The installed MOK directory is 0700 by design. A regular user cannot
+    # traverse it, and `test -f` would misreport that access failure as an
+    # absent certificate. Keep absent, unreadable and present distinct.
+    local path_state
+    path_state="$(smoke_path_state "$SMOKE_MOK_DIR")"
+    if [ "$path_state" = "unreadable" ]; then
+        check_warn "sign/mok-enrolled" "$SMOKE_MOK_DIR is unreadable — $(smoke_root_rerun)"
+        return
+    fi
+    path_state="$(smoke_path_state "$SMOKE_MOK_CERT")"
+    if [ "$path_state" = "unreadable" ]; then
+        check_warn "sign/mok-enrolled" "$SMOKE_MOK_CERT is unreadable — $(smoke_root_rerun)"
+        return
+    fi
+    if [ "$path_state" = "absent" ]; then
+        case "$(_smoke_sb_state)" in
+            enabled)
+                check_fail "sign/mok-enrolled" "Secure Boot ENABLED but Forge-provisioned MOK certificate $SMOKE_MOK_CERT is absent"
+                ;;
+            disabled|noefi)
+                check_skip "sign/mok-enrolled" "$SMOKE_MOK_CERT absent; no enrolled MOK is required while Secure Boot is disabled or unavailable"
+                ;;
+            *)
+                check_warn "sign/mok-enrolled" "$SMOKE_MOK_CERT absent and Secure Boot state is unknown"
+                ;;
+        esac
         return
     fi
 
@@ -297,7 +331,7 @@ check_signing_mok_enrolled() {
 }
 
 check_signing_secondary_keyring() {
-    if ! command -v keyctl >/dev/null 2>&1; then
+    if ! command -v "$SMOKE_KEYCTL" >/dev/null 2>&1; then
         check_skip "sign/secondary-keyring" "keyctl not in PATH (install keyutils for module-signing validation)"
         return
     fi
@@ -308,20 +342,20 @@ check_signing_secondary_keyring() {
     # the keyring won't exist at all — keyctl emits "Can't find …" in that
     # case. Both are non-FAIL: WARN with a precise message.
     local out
-    out="$(keyctl list %:.secondary_trusted_keys 2>&1)"
+    out="$("$SMOKE_KEYCTL" list %:.secondary_trusted_keys 2>&1)"
     local rc=$?
     if [ $rc -ne 0 ]; then
         case "$out" in
-            *"Permission denied"*|*"permission denied"*|*"EACCES"*)
-                check_warn "sign/secondary-keyring" "needs root to read .secondary_trusted_keys; re-run as root"
+            *"Permission denied"*|*"permission denied"*|*"EACCES"*|*"Operation not permitted"*)
+                check_warn "sign/secondary-keyring" "cannot read .secondary_trusted_keys as this user — $(smoke_root_rerun)"
                 return
                 ;;
-            *"Required key not available"*|*"Operation not permitted"*)
-                check_warn "sign/secondary-keyring" "keyring access denied — likely needs root"
-                return
-                ;;
-            *"Can't find"*|*"can't find"*|*"No such key"*|*"Requested key not available"*)
-                check_warn "sign/secondary-keyring" "no .secondary_trusted_keys keyring (kernel built without CONFIG_SECONDARY_TRUSTED_KEYRING=y)"
+            *"Required key not available"*|*"Can't find"*|*"can't find"*|*"No such key"*|*"Requested key not available"*)
+                if [ "$SMOKE_EUID" -ne 0 ]; then
+                    check_warn "sign/secondary-keyring" "cannot distinguish an absent keyring from unprivileged lookup failure — $(smoke_root_rerun)"
+                else
+                    check_warn "sign/secondary-keyring" "no .secondary_trusted_keys keyring (kernel built without CONFIG_SECONDARY_TRUSTED_KEYRING=y)"
+                fi
                 return
                 ;;
             *)
@@ -413,52 +447,55 @@ check_signing_module_sig_force() {
 }
 
 check_signing_chain_root() {
-    if [ ! -d /sys/firmware/efi ]; then
+    if [ ! -d "$SMOKE_EFI_FIRMWARE" ]; then
         check_skip "sign/chain-root" "not booted via EFI (BIOS install — signing chain not applicable)"
         return
     fi
-    if ! command -v sbverify >/dev/null 2>&1; then
+    if ! command -v "$SMOKE_SBVERIFY" >/dev/null 2>&1; then
         check_skip "sign/chain-root" "sbverify not in PATH (install sbsigntool)"
         return
     fi
 
-    local shim_present=0 grub_present=0
-    [ -f "$SMOKE_SHIM_EFI" ] && shim_present=1
-    [ -f "$SMOKE_GRUB_EFI" ] && grub_present=1
+    local state shim_state grub_state
+    state="$(smoke_path_state "$SMOKE_ESP_ROOT")"
+    if [ "$state" = "unreadable" ]; then
+        check_warn "sign/chain-root" "$SMOKE_ESP_ROOT is unreadable — $(smoke_root_rerun)"
+        return
+    fi
+    if [ "$state" = "absent" ]; then
+        check_fail "sign/chain-root" "UEFI boot detected but ESP mount $SMOKE_ESP_ROOT is absent"
+        return
+    fi
 
-    if [ $shim_present -eq 0 ] && [ $grub_present -eq 0 ]; then
-        check_skip "sign/chain-root" "neither $SMOKE_SHIM_EFI nor $SMOKE_GRUB_EFI present"
+    shim_state="$(smoke_path_state "$SMOKE_SHIM_EFI")"
+    grub_state="$(smoke_path_state "$SMOKE_GRUB_EFI")"
+    if [ "$shim_state" = "unreadable" ] || [ "$grub_state" = "unreadable" ]; then
+        check_warn "sign/chain-root" "EFI boot binaries are unreadable (shim=$shim_state grub=$grub_state) — $(smoke_root_rerun)"
+        return
+    fi
+    if [ "$shim_state" != "present" ] || [ "$grub_state" != "present" ]; then
+        check_fail "sign/chain-root" "incomplete EFI chain: shim=$shim_state grub=$grub_state"
         return
     fi
 
     # sbverify --list reports the signers present on the binary without
-    # requiring the trust-root cert on disk. The presence of an InterGenOS-
-    # signed grubx64.efi and a Microsoft-signed shimx64.efi is the runtime
-    # truth-claim we validate here.
-    local shim_signer="" grub_signer=""
-    if [ $shim_present -eq 1 ]; then
-        shim_signer="$(sbverify --list "$SMOKE_SHIM_EFI" 2>/dev/null \
-            | grep -E "image signature issuer|Microsoft|CN=" | head -3 | tr '\n' ' | ')"
-        if [ -z "$shim_signer" ]; then
-            check_warn "sign/chain-root" "$SMOKE_SHIM_EFI present but no signers reported by sbverify --list"
-            return
-        fi
+    # requiring the trust-root cert on disk. Capture its status so a tool/read
+    # error cannot be folded into an unsigned/absent claim.
+    local shim_signer grub_signer shim_rc=0 grub_rc=0
+    shim_signer="$("$SMOKE_SBVERIFY" --list "$SMOKE_SHIM_EFI" 2>&1)" || shim_rc=$?
+    grub_signer="$("$SMOKE_SBVERIFY" --list "$SMOKE_GRUB_EFI" 2>&1)" || grub_rc=$?
+    if [ "$shim_rc" -ne 0 ] || ! grep -qiE 'signature|certificate|image signature issuer|CN=' <<<"$shim_signer"; then
+        check_fail "sign/chain-root" "$SMOKE_SHIM_EFI has no readable PE signature record"
+        return
     fi
-    if [ $grub_present -eq 1 ]; then
-        grub_signer="$(sbverify --list "$SMOKE_GRUB_EFI" 2>/dev/null \
-            | grep -E "image signature issuer|InterGenOS|CN=" | head -3 | tr '\n' ' | ')"
-        if [ -z "$grub_signer" ]; then
-            check_fail "sign/chain-root" "$SMOKE_GRUB_EFI present but unsigned (chain broken)"
-            return
-        fi
+    if [ "$grub_rc" -ne 0 ] || ! grep -qiE 'signature|certificate|image signature issuer|CN=' <<<"$grub_signer"; then
+        check_fail "sign/chain-root" "$SMOKE_GRUB_EFI has no readable PE signature record"
+        return
     fi
 
-    # Both signed (or only one binary present + signed) — pass.
-    local msg=""
-    [ $shim_present -eq 1 ] && msg="shim signed"
-    [ $shim_present -eq 1 ] && [ $grub_present -eq 1 ] && msg="$msg + grub signed"
-    [ $shim_present -eq 0 ] && [ $grub_present -eq 1 ] && msg="grub signed (shim path absent)"
-    check_pass "sign/chain-root" "$msg"
+    # `--list` proves the PE files carry signature records. It does not validate
+    # either signer against an expected certificate, so make that residue loud.
+    check_pass "sign/chain-root" "shim + grub carry PE signature records (trust roots not validated here)"
 }
 
 # ===========================================================================
