@@ -291,7 +291,7 @@ trace_init() {
         return 0
     fi
     # Open the sink in append mode + hold the fd
-    if ! exec {_TRACE_FD}>>"$_TRACE_SINK_PATH" 2>/dev/null; then
+    if ! { exec {_TRACE_FD}>>"$_TRACE_SINK_PATH"; } 2>/dev/null; then
         echo "trace.sh: could not open sink $_TRACE_SINK_PATH; trace disabled for this run" >&2
         _TRACE_VERBOSE=0
         _TRACE_FD=-1
@@ -312,7 +312,7 @@ trace_init() {
 trace_close() {
     if [ "$_TRACE_FD" -ge 0 ]; then
         # Closing the fd flushes any buffered writes
-        exec {_TRACE_FD}>&- 2>/dev/null || true
+        { exec {_TRACE_FD}>&-; } 2>/dev/null || true
         _TRACE_FD=-1
     fi
     _TRACE_SINK_PATH=""
