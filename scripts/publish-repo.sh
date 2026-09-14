@@ -53,6 +53,8 @@ ISO_SHA256_FILE=""
 WIKI_SWITCHING_PAGE=""
 SIGN_APPROVAL_FILE="${PUBLISH_SIGN_APPROVAL_FILE:-}"
 SIGN_HOLD_TIMEOUT="${PUBLISH_SIGN_HOLD_TIMEOUT:-1800}"
+CORRECTIVE_RECORD=""
+CORRECTIVE_SERVED_INDEX=""
 LIVE_INDEX_SHA=""
 LIVE_INDEX_WAS_PRESENT=false
 
@@ -150,6 +152,20 @@ Usage: $0 [--dry-run] [--archive-dir DIR] [--gpg-key NK1|NK2] [--skip-sources]
   --sign-hold-timeout SECONDS
                    Bounded wait for the explicit word "sign" (default:
                    $SIGN_HOLD_TIMEOUT). Timeout aborts before the key is used.
+  --corrective-republish-record FILE
+                   Admit a CORRECTIVE republish: staged archives that replace
+                   served bytes at the SAME version-release. FILE is an
+                   absolute path to record.json (schema 1) with record.json.asc
+                   beside it, signed by the release key this publish signs
+                   with. The publisher re-derives the same-version set with
+                   the advancement gate's own rule and refuses unless the
+                   record names exactly that set with the served and
+                   replacement archive digests and the served index digest;
+                   after index generation the generated rows must carry the
+                   replacement digests; the record and its signature are
+                   appended to the transparency-log entry. Refused together
+                   with --skip-sign. Without this option the advancement gate
+                   refuses exactly as before.
 EOF
     exit 1
 }
@@ -169,6 +185,7 @@ while [ $# -gt 0 ]; do
         --wiki-switching-page) WIKI_SWITCHING_PAGE="$2"; shift 2 ;;
         --sign-approval-file) SIGN_APPROVAL_FILE="$2"; shift 2 ;;
         --sign-hold-timeout) SIGN_HOLD_TIMEOUT="$2"; shift 2 ;;
+        --corrective-republish-record) CORRECTIVE_RECORD="$2"; shift 2 ;;
         -h|--help)         usage ;;
         *) echo "Unknown option: $1"; usage ;;
     esac
@@ -181,6 +198,21 @@ fi
 if [ -n "$SIGN_APPROVAL_FILE" ] && [[ "$SIGN_APPROVAL_FILE" != /* ]]; then
     echo "ERROR: --sign-approval-file must be an absolute path." >&2
     exit 1
+fi
+if [ -n "$CORRECTIVE_RECORD" ]; then
+    if [ "$SKIP_SIGN" = true ]; then
+        echo "ERROR: --corrective-republish-record cannot be combined with --skip-sign:" >&2
+        echo "  a corrective republish must generate and sign its index in the same run." >&2
+        exit 1
+    fi
+    if [[ "$CORRECTIVE_RECORD" != /* ]]; then
+        echo "ERROR: --corrective-republish-record must be an absolute path." >&2
+        exit 1
+    fi
+    if [ ! -f "$CORRECTIVE_RECORD" ] || [ ! -f "${CORRECTIVE_RECORD}.asc" ]; then
+        echo "ERROR: --corrective-republish-record needs both $CORRECTIVE_RECORD and ${CORRECTIVE_RECORD}.asc." >&2
+        exit 1
+    fi
 fi
 if [ "$SKIP_SIGN" != true ]; then
     if [ -z "$ISO_SHA256_FILE" ] || [ -z "$WIKI_SWITCHING_PAGE" ]; then
@@ -461,6 +493,24 @@ if [ "$SKIP_SIGN" != true ]; then
            > "$LIVE_INDEX_TMP" 2>/dev/null && [ -s "$LIVE_INDEX_TMP" ]; then
         LIVE_INDEX_WAS_PRESENT=true
         LIVE_INDEX_SHA=$(sha256sum "$LIVE_INDEX_TMP" | awk '{print $1}')
+        if [ -n "$CORRECTIVE_RECORD" ]; then
+            # Corrective republish (decided 2026-09-14): the same-version set is
+            # re-derived by scripts/check-corrective-record.py with this gate's
+            # own rule and must equal the signed record exactly. The served
+            # index is retained for the post-generation row binding below.
+            CORRECTIVE_CHECK="$(dirname "$SCRIPT_PATH")/check-corrective-record.py"
+            [ -f "$CORRECTIVE_CHECK" ] \
+                || { rm -f "$LIVE_INDEX_TMP"; echo "ERROR: corrective-record gate is absent: $CORRECTIVE_CHECK" >&2; exit 1; }
+            echo "  corrective republish requested: verifying the signed record against the staged set..."
+            /usr/bin/python3 "$CORRECTIVE_CHECK" \
+                --record "$CORRECTIVE_RECORD" \
+                --served-index "$LIVE_INDEX_TMP" \
+                --archive-dir "$ARCHIVE_DIR" \
+                --fingerprint "$GPG_FP" \
+                || { rm -f "$LIVE_INDEX_TMP"; echo "ERROR: the corrective-republish record does not authorize the staged set — nothing was signed or published" >&2; exit 1; }
+            CORRECTIVE_SERVED_INDEX=$(mktemp)
+            cp "$LIVE_INDEX_TMP" "$CORRECTIVE_SERVED_INDEX"
+        else
         python3 - "$ARCHIVE_DIR" "$LIVE_INDEX_TMP" <<'PYGATE' || { rm -f "$LIVE_INDEX_TMP"; echo "ERROR: version-release gate failed — bump release(s) and re-run" >&2; exit 1; }
 import sys, gzip, json, hashlib, tarfile, glob, os
 sys.path.insert(0, ".")
@@ -519,7 +569,14 @@ if problems:
     sys.exit(1)
 print(f"  OK — all changed packages strictly advance ({len(live)} live entries checked)")
 PYGATE
+        fi
     else
+        if [ -n "$CORRECTIVE_RECORD" ]; then
+            rm -f "$LIVE_INDEX_TMP"
+            echo "ERROR: --corrective-republish-record given but no served index is reachable;" >&2
+            echo "  a correction binds to served bytes and cannot be verified offline." >&2
+            exit 1
+        fi
         echo "  (no live current/ index reachable — first publish or offline; advance gate skipped)"
     fi
     rm -f "$LIVE_INDEX_TMP"
@@ -651,6 +708,10 @@ PYBRIEF
         abort_before_sign 1 "the signing brief could not be derived from the generated and served indexes"
     }
     rm -f "$live_now"
+    if [ -n "$CORRECTIVE_RECORD" ]; then
+        echo "  CORRECTIVE REPUBLISH under signed record: $CORRECTIVE_RECORD"
+        echo "    (same-version byte replacements named in the record; already verified twice this run)"
+    fi
     echo "  Signing key fingerprint: $GPG_FP"
     echo "  Ceremony: exactly ONE PIN and ONE touch follow after approval."
 
@@ -782,6 +843,17 @@ print(f'Index written: {path}')
     # runs after index generation (the mirror package set now exists) and
     # before the signing hold (a stale claim costs no ceremony). --skip-sign
     # reuses an index that already passed this gate with its signature.
+    if [ -n "$CORRECTIVE_RECORD" ]; then
+        echo "[pre-sign] Binding the generated index rows to the corrective-republish record..."
+        /usr/bin/python3 "$(dirname "$SCRIPT_PATH")/check-corrective-record.py" \
+            --record "$CORRECTIVE_RECORD" \
+            --served-index "$CORRECTIVE_SERVED_INDEX" \
+            --archive-dir "$ARCHIVE_DIR" \
+            --fingerprint "$GPG_FP" \
+            --generated-index "$INDEX_PATH" \
+            || { echo "ERROR: the generated index does not carry the recorded replacement digests." >&2; exit 1; }
+    fi
+
     DOC_CLAIMS_SCRIPT="$(dirname "$SCRIPT_PATH")/check-doc-claims.py"
     echo "[pre-sign] Checking public document claims against release artifacts..."
     [ -f "$DOC_CLAIMS_SCRIPT" ] \
@@ -852,6 +924,7 @@ print(f'Signature written: {path}')
 fi
 
 if [ "$DRY_RUN" = true ]; then
+    if [ -n "$CORRECTIVE_SERVED_INDEX" ]; then rm -f "$CORRECTIVE_SERVED_INDEX"; fi
     echo ""
     echo "=== DRY RUN — not publishing ==="
     echo "Would rsync:"
@@ -1153,6 +1226,31 @@ x86_64/current/intergenos-archive-manifest.txt.sig
         GIT_ADD_MANIFEST_ARGS="${GIT_ADD_MANIFEST_ARGS} x86_64/current/intergenos-archive-manifest.txt.sig"
     fi
 
+    CORRECTIVE_LOG_LINES=""
+    GIT_ADD_CORRECTIVE_ARGS=""
+    if [ -n "$CORRECTIVE_RECORD" ]; then
+        # The signed corrective record and its signature ride the same entry
+        # as the index they authorized, so the exception is public and
+        # externally auditable beside the bytes it changed.
+        CORRECTIVE_INCIDENT=$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["incident"])' "$CORRECTIVE_RECORD")
+        CORRECTIVE_LOG_NAME="corrective-republish-${CORRECTIVE_INCIDENT}.json"
+        cp "$CORRECTIVE_RECORD" "$LOG_DIR/$CORRECTIVE_LOG_NAME"
+        cp "${CORRECTIVE_RECORD}.asc" "$LOG_DIR/${CORRECTIVE_LOG_NAME}.asc"
+        CORRECTIVE_SHA=$(sha256sum "$CORRECTIVE_RECORD" | awk '{print $1}')
+        CORRECTIVE_SIG_SHA=$(sha256sum "${CORRECTIVE_RECORD}.asc" | awk '{print $1}')
+        CORRECTIVE_LOG_LINES="
+x86_64/current/${CORRECTIVE_LOG_NAME}
+  sha256 = ${CORRECTIVE_SHA}
+  size   = $(stat -c%s "$CORRECTIVE_RECORD")
+
+x86_64/current/${CORRECTIVE_LOG_NAME}.asc
+  sha256 = ${CORRECTIVE_SIG_SHA}
+  size   = $(stat -c%s "${CORRECTIVE_RECORD}.asc")
+corrective-republish  = ${CORRECTIVE_INCIDENT}
+"
+        GIT_ADD_CORRECTIVE_ARGS="x86_64/current/${CORRECTIVE_LOG_NAME} x86_64/current/${CORRECTIVE_LOG_NAME}.asc"
+    fi
+
     COMMIT_MSG=$(cat <<EOFCM
 publish: ${STAGING_DIR} InterGenOS.db transparency-log entry
 
@@ -1163,13 +1261,13 @@ x86_64/current/InterGenOS.db
 x86_64/current/InterGenOS.db.sig
   sha256 = ${SIG_SHA}
   size   = ${SIG_SIZE}
-${MANIFEST_LOG_LINES}
+${MANIFEST_LOG_LINES}${CORRECTIVE_LOG_LINES}
 signed-by-fingerprint = ${GPG_FP}
 prev-entry            = ${PREV_ENTRY}
 log-version           = 2
 EOFCM
 )
-    git -C "$TRANSPARENCY_LOCAL" add x86_64/current/InterGenOS.db x86_64/current/InterGenOS.db.sig $GIT_ADD_MANIFEST_ARGS
+    git -C "$TRANSPARENCY_LOCAL" add x86_64/current/InterGenOS.db x86_64/current/InterGenOS.db.sig $GIT_ADD_MANIFEST_ARGS $GIT_ADD_CORRECTIVE_ARGS
     if git -C "$TRANSPARENCY_LOCAL" diff --cached --quiet; then
         echo "  WARN — transparency-log working tree showed no changes; skipping commit"
         echo "         (this snapshot may have been previously logged — investigate)"
@@ -1183,6 +1281,7 @@ EOFCM
     fi
 fi
 
+if [ -n "$CORRECTIVE_SERVED_INDEX" ]; then rm -f "$CORRECTIVE_SERVED_INDEX"; fi
 echo ""
 echo "=== Publish Complete ==="
 echo "Repository:    https://repo.intergenos.org/x86_64/current/"

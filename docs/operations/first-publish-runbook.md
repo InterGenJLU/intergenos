@@ -158,9 +158,9 @@ enabled for the account.
 **Full flag surface:** `--dry-run`, `--archive-dir`, `--gpg-key NK1|NK2` (the subkey
 aliases `S1`/`S2` are accepted too), `--skip-sources`, `--skip-transparency`, `--skip-sign`,
 `--keep-previous N`, `--accept-capacity-risk`, `--iso-sha256 FILE`,
-`--wiki-switching-page FILE`, `--sign-approval-file FILE`, and
-`--sign-hold-timeout SECONDS`. Run `/usr/bin/bash
-/mnt/intergenos/scripts/publish-repo.sh --help` for the authoritative list.
+`--wiki-switching-page FILE`, `--sign-approval-file FILE`,
+`--sign-hold-timeout SECONDS`, and `--corrective-republish-record FILE` (§3b). Run
+`/usr/bin/bash /mnt/intergenos/scripts/publish-repo.sh --help` for the authoritative list.
 
 ---
 
@@ -183,6 +183,40 @@ newer** in `(version, release)`; otherwise the publish aborts with a "bump
 `--skip-sign`, which reuses an already-vetted index.) This depends on the index
 carrying `release` — `pkm/repo.py` emits it from each archive's `.PKGINFO`
 `pkgrel`.
+
+## 3b. Correcting served bytes at the SAME version-release — the signed record (designed 2026-09-14)
+
+Once in a while the served archive itself is wrong — the bytes under a correct
+`.PKGINFO` came from the wrong tree — and the honest remedy is to replace those
+bytes at the **same** `(version, release)` rather than advance a release for
+something that was never a new build. That is the one case the advancement gate
+admits, and only through a signed record:
+
+1. Compute the served index digest (`ssh -p 2200 … 'cat …/current/InterGenOS.db' | sha256sum`)
+   and, for every archive being corrected, the served archive's digest (its row in that
+   index) and the replacement archive's digest (the staged file).
+2. Write `record.json` (schema 1): `schema`, `incident` (an identifier), `reason` (one
+   bounded line), `served_index_sha256`, and `exceptions` — one entry per corrected
+   package with `name`, `version`, `release`, `served_sha256`, `replacement_sha256`.
+   No other keys.
+3. Sign it with the release key: `gpg --armor --detach-sign -u <release key> -o record.json.asc record.json`.
+4. Publish with `--corrective-republish-record /absolute/path/record.json` (never with
+   `--skip-sign`: a correction generates and signs its index in the same run).
+
+What the publisher does with it (`scripts/check-corrective-record.py`, fired twice): it
+verifies the signature against the pinned release-key fingerprint; re-derives the
+same-version set from the staged archives with the advancement gate's own rule and
+refuses unless the record names exactly that set — a package that advances normally, an
+unchanged package, an unstaged package, or a missing correction all refuse, and so does
+a record with nothing to authorize; checks the served index digest and every served and
+replacement digest; and, after the index is generated, checks that the generated rows
+carry the replacement digests (the index carries a generation time, so its rows are bound
+rather than its digest). The signing hold names the record; the transparency-log entry
+carries the record and its signature beside the index they authorized.
+
+The consequence the publisher prints is a fact, not a warning to dismiss: clients already
+at the corrected `(version, release)` will **not** receive the corrected bytes through
+`pkm upgrade`; only a fresh fetch (install or reinstall) does.
 
 ## 4. Post-publish — switch clients on
 
