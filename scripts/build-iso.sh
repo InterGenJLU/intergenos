@@ -497,8 +497,35 @@ LOG_TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
 LOG_FILE="${LOG_DIR}/build_${LOG_TIMESTAMP}.log"
 
 # Tee subsequent stdout+stderr to log file via process substitution.
-# (Subshell-on-exit copy would lose mid-run output if we crash.)
+# Save the original streams so finalization can close the writer, wait for
+# tee, and report a log failure without writing through the failed sink.
+STAGING=""
+_XORRISO_WORKDIR=""
+finish_iso() {
+    local rc=$? logger_rc=0 cleanup_failed="" path
+    trap - EXIT
+    for path in "$STAGING" "$_XORRISO_WORKDIR"; do
+        if [ -n "$path" ] && ! rm -rf -- "$path"; then
+            cleanup_failed+=" $path"
+        fi
+    done
+    exec 1>&"$_ISO_ORIGINAL_STDOUT" 2>&"$_ISO_ORIGINAL_STDERR"
+    exec {_ISO_ORIGINAL_STDOUT}>&- {_ISO_ORIGINAL_STDERR}>&-
+    if [ -n "$cleanup_failed" ]; then
+        printf 'error: ISO temporary cleanup failed:%s\n' "$cleanup_failed" >&2
+        if [ "$rc" -eq 0 ]; then rc=1; fi
+    fi
+    wait "$_ISO_LOGGER_PID" || logger_rc=$?
+    if [ "$logger_rc" -ne 0 ]; then
+        printf 'error: ISO log writer failed (exit %s): %s\n' "$logger_rc" "$LOG_FILE" >&2
+        if [ "$rc" -eq 0 ]; then rc="$logger_rc"; fi
+    fi
+    exit "$rc"
+}
+exec {_ISO_ORIGINAL_STDOUT}>&1 {_ISO_ORIGINAL_STDERR}>&2
 exec > >(tee -a "$LOG_FILE") 2>&1
+_ISO_LOGGER_PID=$!
+trap finish_iso EXIT
 
 # Source the forensic-trace bash companion (no-op when verbose unset).
 # Init AFTER the tee redirect so trace_init's own output lands in the log.
@@ -556,8 +583,6 @@ echo "[build-iso]   LOG:        $LOG_FILE"
 # --------------------------------------------------------------------------
 
 STAGING=$(mktemp -d -t build-iso-XXXXXX)
-_XORRISO_WORKDIR=""
-trap 'rm -rf "$STAGING"; if [ -n "$_XORRISO_WORKDIR" ]; then rm -rf "$_XORRISO_WORKDIR"; fi' EXIT
 
 ESP_TREE="${STAGING}/esp-tree"
 ESP_IMG="${STAGING}/efi.img"

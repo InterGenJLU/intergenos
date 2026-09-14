@@ -36,11 +36,15 @@ class IsoAuthoringFailure(unittest.TestCase):
                 output.write_bytes(b"existing artifact\n")
             text = source()
             staging = text[text.index('STAGING=$(mktemp'):text.index('ESP_TREE=')]
+            log_start = text.index('# Tee subsequent stdout+stderr')
+            log_end = text.index('# Source the forensic-trace bash companion', log_start)
+            logging = text[log_start:log_end]
             begin = text.index('echo "[build-iso] [4/6] running xorriso"')
             end = text.index('# Step 5: self-verify', begin)
             setup = "set -euo pipefail\n"
             for key, value in {"OUTPUT": output, "ISO_ROOT": iso_root, "ESP_IMG": esp,
-                               "TMPDIR": root, "VOLID": "TEST_MEDIA", "MODE": mode}.items():
+                               "TMPDIR": root, "VOLID": "TEST_MEDIA", "MODE": mode,
+                               "LOG_FILE": root / "build.log"}.items():
                 setup += f"export {key}={shlex.quote(str(value))}\n"
             setup += r'''
 IGOS_TRACE_LIB_LOADED=1
@@ -67,7 +71,7 @@ xorriso() {
 }
 '''
             script = root / "author.sh"
-            script.write_text(setup + staging + text[begin:end] + "printf 'CONTINUED\\n'\n")
+            script.write_text(setup + logging + staging + text[begin:end] + "printf 'CONTINUED\\n'\n")
             result = subprocess.run(
                 ["/usr/bin/bash", str(script)], cwd=root,
                 capture_output=True, text=True, timeout=20,
@@ -91,7 +95,7 @@ xorriso() {
         self.assertEqual(result.returncode, 52, result.stdout + result.stderr)
         self.assertIn("TRACE:xorriso_done", result.stdout)
         self.assertIn("rc::=52", result.stdout)
-        self.assertIn("authoring failed", result.stderr)
+        self.assertIn("authoring failed", result.stdout + result.stderr)
         self.assertNotIn("CONTINUED", result.stdout)
         self.assertEqual(data, b"existing artifact\n")
         self.assertEqual(leftovers, [])
