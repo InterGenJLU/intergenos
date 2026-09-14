@@ -20,6 +20,15 @@ SMOKE_VERBOSE="${SMOKE_VERBOSE:-0}"
 SMOKE_JSON="${SMOKE_JSON:-0}"
 SMOKE_STRICT="${SMOKE_STRICT:-0}"
 
+# The exact follow-up command used whenever an unprivileged run cannot prove a
+# root-only fact. Keeping it in one helper prevents checks from disagreeing on
+# what the user should run next.
+smoke_root_rerun() {
+    local strict=""
+    [ "$SMOKE_STRICT" = "1" ] && strict=" --strict"
+    printf 're-run as root: /usr/bin/sudo /usr/bin/intergenos-smoke-test%s' "$strict"
+}
+
 # ---------------------------------------------------------------------------
 # emit functions — call these from check modules. Append to SMOKE_RESULTS
 # and (in non-JSON mode) print one line immediately so the user sees
