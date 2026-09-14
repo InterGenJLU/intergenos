@@ -118,12 +118,53 @@ def _is_archive_metadata(rel: str) -> bool:
 # widens only for a demonstrated need. claude-code is currently the sole helper
 # reading SUDO_USER; any helper needing per-user context relies on this same
 # entry (there is ONE allowlist — do not fork a second).
+#
+# CLAUDE_CODE_INSTALL_CURRENT is the second and only other entry beyond the
+# base set (decided 2026-09-14): the claude-code helper reads it to choose
+# between its reviewed pin (absent or "0") and the registry's current release
+# ("1"). It is inert — a one-character mode flag, not a path, a URL or a
+# module search path — and it is the documented way to request the current
+# release: `sudo CLAUDE_CODE_INSTALL_CURRENT=1 pkm install claude-code`.
+# Without the entry that invocation silently installed the pin. The value is
+# checked HERE, before any helper or hook starts (`helper_environment`): only
+# "0" and "1" pass; anything else refuses the run with the variable and the
+# value named, so a helper never has to reject a value itself.
+CLAUDE_CODE_INSTALL_CURRENT_VAR = "CLAUDE_CODE_INSTALL_CURRENT"
+CLAUDE_CODE_INSTALL_CURRENT_VALUES = ("0", "1")
+
 HELPER_ENV_ALLOWLIST = frozenset({
     "PATH", "HOME", "USER", "LOGNAME",
     "LANG", "LC_ALL", "LC_CTYPE", "TERM",
     "TMPDIR", "SHELL",
     "SUDO_USER",
+    CLAUDE_CODE_INSTALL_CURRENT_VAR,
 })
+
+
+class HelperEnvironmentError(ValueError):
+    """The inherited environment carries a value a helper must not receive."""
+
+
+def helper_environment(source=None):
+    """Return the environment a helper, EULA helper or per-package hook runs
+    with: the process environment stripped to HELPER_ENV_ALLOWLIST (H-024).
+
+    Raises HelperEnvironmentError when CLAUDE_CODE_INSTALL_CURRENT is present
+    with a value other than "0" or "1". The check runs before the subprocess
+    is built, so a refused value never reaches a helper.
+    """
+    if source is None:
+        source = os.environ
+    env = {k: v for k, v in source.items() if k in HELPER_ENV_ALLOWLIST}
+    mode = env.get(CLAUDE_CODE_INSTALL_CURRENT_VAR)
+    if mode is not None and mode not in CLAUDE_CODE_INSTALL_CURRENT_VALUES:
+        raise HelperEnvironmentError(
+            f"{CLAUDE_CODE_INSTALL_CURRENT_VAR} is set to {mode!r}; the only "
+            f"accepted values are \"0\" (the reviewed release) and \"1\" (the "
+            f"registry's current release). Nothing was run. Unset it or set "
+            f"it to 0 or 1 and try again."
+        )
+    return env
 
 
 # H-007: install-helper manifest schema for footprint tracking.
@@ -1768,7 +1809,15 @@ class PackageInstaller:
         # HELPER_ENV_ALLOWLIST. Hook executes as the install process; inherited
         # LD_PRELOAD / *_PROXY / PYTHONPATH would let an attacker who can set
         # parent-env vars compromise hook execution.
-        env = {k: v for k, v in os.environ.items() if k in HELPER_ENV_ALLOWLIST}
+        try:
+            env = helper_environment()
+        except HelperEnvironmentError as e:
+            print(
+                f"  WARNING: post-install hook for {name} not run: {e} "
+                f"Re-run manually once the variable is corrected: {hook}",
+                file=sys.stderr,
+            )
+            return
         env["PKM_PACKAGE_NAME"] = name
         env["PKM_PACKAGE_VERSION"] = version
 
@@ -2185,7 +2234,15 @@ class PackageInstaller:
                 f"eula_helper declaration if it was set in error."
             )
 
-        env = {k: v for k, v in os.environ.items() if k in HELPER_ENV_ALLOWLIST}
+        try:
+            env = helper_environment()
+        except HelperEnvironmentError as e:
+            if helper_tmpdir is not None:
+                shutil.rmtree(helper_tmpdir, ignore_errors=True)
+            return False, (
+                f"EULA gate for '{package_name}' refused before the helper "
+                f"ran: {e}"
+            )
         env["PKM_PACKAGE_NAME"] = package_name
         env["PKM_EULA_HELPER_NAME"] = helper_name
 
@@ -2262,6 +2319,13 @@ class PackageInstaller:
         commit cluster) flips missing-manifest to a hard failure once
         all bundled helpers have migrated.
         """
+        # The environment is checked BEFORE the banner: a refused value is
+        # reported as the install's failure and the helper never starts.
+        try:
+            helper_env = helper_environment()
+        except HelperEnvironmentError as e:
+            return False, f"Install helper '{name}' not run: {e}", False
+
         print(f"  No local archive for '{name}' — using install helper")
         print(f"  Running: {helper_path}")
         print(f"  {'-' * 50}")
@@ -2271,7 +2335,6 @@ class PackageInstaller:
         # the helper's own output — making the order read backwards.
         sys.stdout.flush()
 
-        helper_env = {k: v for k, v in os.environ.items() if k in HELPER_ENV_ALLOWLIST}
         # Tell the helper it is running UNDER pkm. A helper run any other way
         # deposits files that pkm never ingests, so helper-lib prints an
         # advisory saying so — and stays quiet here, where the advisory would
