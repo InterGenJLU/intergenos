@@ -54,6 +54,7 @@ import sys
 from collections import namedtuple
 from pathlib import Path
 
+from . import rootpaths
 from .hooks import HOOK_ENV_ALLOWLIST
 
 # Forensic-trace shim — defensive import (mirrors hooks.py).
@@ -126,22 +127,38 @@ def transaction_footprint(db, verb, package_names, reason):
     }
 
 
+def handler_directory(root=None):
+    """Resolve handlers for this call, with an optional environment override.
+
+    ``PKM_PRETXN_HANDLER_DIR`` names an absolute directory. Reading it here
+    keeps command tests isolated across module reloads and child processes.
+    Without it, a selected install root retains its own registered handlers;
+    callers without a root retain the configurable default directory.
+    """
+    override = os.environ.get("PKM_PRETXN_HANDLER_DIR")
+    if override is not None:
+        directory = Path(override)
+        if not directory.is_absolute():
+            raise ValueError("PKM_PRETXN_HANDLER_DIR must be an absolute path")
+        return directory
+    if root is not None:
+        return rootpaths.pretxn_handler_dir(root)
+    return PRETXN_HANDLER_DIR
+
+
 def list_handlers(handler_dir=None):
     """Return the executable pre-transaction handlers, sorted by name.
 
     Args:
-        handler_dir: override for PRETXN_HANDLER_DIR. Defaults to the live
-            drop-in directory. pkm passes the install root's directory when a
-            root is named, so a transaction against another root runs THAT
-            root's registered handlers — a target that has registered none is
-            then a no-op, rather than the live system's backup engine being
-            handed a footprint that belongs to a different filesystem.
+        handler_dir: explicit directory, taking precedence over the environment
+            and default directory. Otherwise resolved by handler_directory().
+            Commands pass the directory resolved for their install root.
 
     Returns:
         list[Path] of executable regular files. Empty when the directory is
         absent or holds nothing executable — the no-op path.
     """
-    d = Path(handler_dir) if handler_dir is not None else PRETXN_HANDLER_DIR
+    d = Path(handler_dir) if handler_dir is not None else handler_directory()
     if not d.is_dir():
         return []
     return [

@@ -80,6 +80,15 @@ metadata still prints with status `1`; an unknown name or unreadable index
 keeps the plain not-installed message. This status describes package
 registration, not file integrity or completion of a vendor download.
 
+### Operation History
+
+`pkm history` shows the 50 most recent operations, newest first. Use
+`pkm history --limit 100` for a larger window or `pkm history --all` for the
+complete record, including the earlier entries from an installation.
+Add a package name to filter the record, for example
+`pkm history firefox --all`. `--limit` takes a positive integer and cannot
+be combined with `--all`. These commands only read the package database.
+
 ### Natural-Language Aliases
 
 pkm accepts the command names you'd naturally reach for from other distros. Whichever feels right works:

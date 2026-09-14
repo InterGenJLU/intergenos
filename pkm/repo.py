@@ -84,6 +84,7 @@ except ImportError:
 from . import __version__
 
 from .database import PackageDB
+from .version import compare
 
 
 # ---------------------------------------------------------------------------
@@ -1424,7 +1425,10 @@ def generate_index(package_dir, arch="x86_64", output=None,
             meta["filename"] = pkg_file.name
 
             name = meta.pop("name", pkg_file.stem.split("-")[0])
-            packages[name] = meta
+            # Filenames sort lexically; package versions and releases do not.
+            # Keep the existing filename tie order for identical versions.
+            if name not in packages or compare(meta, packages[name]) >= 0:
+                packages[name] = meta
 
     # Q7 (O-030): apply hand-curated security advisories. Match each
     # advisory key <name>-<version> against packages[name]["version"];

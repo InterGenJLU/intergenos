@@ -769,8 +769,10 @@ def build_parser():
     # default; -v lists every path/URL inline; -q collapses to summary lines.
     verbosity = argparse.ArgumentParser(add_help=False)
     verbosity.add_argument("-v", "--verbose", action="store_true",
+                           default=argparse.SUPPRESS,
                            help="Show every file path, URL, and hook line")
     verbosity.add_argument("-q", "--quiet", action="store_true",
+                           default=argparse.SUPPRESS,
                            help="Summary lines only (for scripts)")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Show every file path, URL, and hook line")
@@ -928,6 +930,23 @@ def build_parser():
     # -- history --
     p_history = sub.add_parser("history", help="Show operation history")
     p_history.add_argument("package", nargs="?")
+    history_range = p_history.add_mutually_exclusive_group()
+
+    def history_limit(value):
+        try:
+            limit = int(value)
+        except ValueError:
+            raise argparse.ArgumentTypeError("must be a positive integer") from None
+        if not 1 <= limit <= (1 << 63) - 1:
+            raise argparse.ArgumentTypeError("must be between 1 and 9223372036854775807")
+        return limit
+
+    history_range.add_argument(
+        "--limit", type=history_limit, default=50, dest="history_limit",
+        metavar="N", help="Show the N most recent entries (default: 50)")
+    history_range.add_argument(
+        "--all", action="store_true", dest="history_all",
+        help="Show all recorded entries")
 
     # -- import --
     p_import = sub.add_parser("import", help="Import existing text manifests into database")
@@ -1672,7 +1691,7 @@ def cmd_install(db, args):
         db, "install", args.packages,
         reason=f"pre-transaction install: {', '.join(args.packages)}",
         reporter=reporter,
-        handler_dir=rootpaths.pretxn_handler_dir(install_root()),
+        handler_dir=pretxn.handler_directory(install_root()),
     )
 
     # 3.0-F28: names successfully installed in THIS transaction, so a single
@@ -2260,7 +2279,7 @@ def cmd_remove(db, args):
         db, "remove", [args.package],
         reason=f"pre-transaction remove: {args.package}",
         reporter=reporter,
-        handler_dir=rootpaths.pretxn_handler_dir(install_root()),
+        handler_dir=pretxn.handler_directory(install_root()),
     )
     # S3 — removing a large package unlinks its whole payload and then walks
     # the ancestor closure of every path it touched, all of it between the
@@ -2592,7 +2611,7 @@ def cmd_upgrade(db, args):
     _pretxn_result = pretxn.run_pre_transaction_hook(
         db, "upgrade", _upgrade_names,
         reason=f"pre-transaction upgrade: {', '.join(_upgrade_names)}",
-        handler_dir=rootpaths.pretxn_handler_dir(install_root()),
+        handler_dir=pretxn.handler_directory(install_root()),
     )
     # Tell the user what protection this transaction actually has, ONCE,
     # before anything is mutated. Three truthful states:
@@ -3466,7 +3485,8 @@ def cmd_depends(db, args):
 
 
 def cmd_history(db, args):
-    entries = db.get_history(package_name=args.package)
+    limit = -1 if getattr(args, "history_all", False) else getattr(args, "history_limit", 50)
+    entries = db.get_history(package_name=args.package, limit=limit)
     if not entries:
         emit_info("No history recorded")
         return
@@ -4778,8 +4798,8 @@ def cmd_cache_clean(db, args):
     for packages no longer installed.
 
     --keep-current  Per package: keep the archive matching the installed
-                    version (the one that can serve `pkm reinstall`);
-                    remove all other versions. For packages NOT
+                    version and release (the one that can serve `pkm reinstall`);
+                    remove all other versions and releases. For packages NOT
                     currently installed, all cached archives are
                     removed (no rollback target to preserve).
     --keep N        Per package: keep the N most-recent archives by
@@ -4806,19 +4826,36 @@ def cmd_cache_clean(db, args):
         emit_info("Cache is empty; nothing to clean.")
         return 0
 
-    # Filename shape: <name>-<version>-<release>.igos.tar.gz.
-    # Name can contain dashes (e.g., glibc-core, linux-firmware); use a
-    # non-greedy first capture and anchor release as the trailing
-    # integer before .igos.tar.gz.
+    # Both package names and upstream versions can contain hyphens. Resolve
+    # the installed name/version before falling back to the filename split.
+    # A name prefix alone could mistake a different package for this one.
+    installed_by_name = {pkg["name"]: pkg for pkg in db.list_installed()}
+    installed_stems = {
+        f"{name}-{pkg['version']}": name
+        for name, pkg in installed_by_name.items()
+    }
+    installed_archives = {
+        f"{name}-{pkg['version']}-{pkg.get('release', 1)}.igos.tar.gz": name
+        for name, pkg in installed_by_name.items()
+    }
     pattern = re.compile(r"^(.+)-([^-]+)-(\d+)\.igos\.tar\.gz$")
     by_pkg = {}  # name -> list of (path, version, release, mtime)
     unmatched = []
     for path in archives:
-        m = pattern.match(path.name)
-        if not m:
-            unmatched.append(path)
-            continue
-        name, version, release = m.group(1), m.group(2), int(m.group(3))
+        body, _, release_text = path.name[:-len(".igos.tar.gz")].rpartition("-")
+        name = installed_archives.get(path.name, installed_stems.get(body))
+        if name is not None:
+            version = body[len(name) + 1:]
+            if not version or not release_text.isdigit():
+                unmatched.append(path)
+                continue
+            release = int(release_text)
+        else:
+            m = pattern.match(path.name)
+            if not m:
+                unmatched.append(path)
+                continue
+            name, version, release = m.group(1), m.group(2), int(m.group(3))
         by_pkg.setdefault(name, []).append(
             (path, version, release, path.stat().st_mtime),
         )
@@ -4851,10 +4888,12 @@ def cmd_cache_clean(db, args):
     else:
         # Default: --keep-current.
         for name, entries in by_pkg.items():
-            installed = db.get_installed(name)
+            installed = installed_by_name.get(name)
             if installed:
                 installed_ver = installed["version"]
-                matching = [e for e in entries if e[1] == installed_ver]
+                installed_release = int(installed.get("release", 1))
+                matching = [e for e in entries
+                            if e[1] == installed_ver and e[2] == installed_release]
                 if matching:
                     matching.sort(key=lambda e: e[3], reverse=True)
                     keep_path = matching[0][0]
@@ -4862,7 +4901,7 @@ def cmd_cache_clean(db, args):
                         e[0] for e in entries if e[0] != keep_path
                     )
                 else:
-                    # No archive matches installed version (installed
+                    # No archive matches installed version and release (installed
                     # via --archive then archive evicted, perhaps).
                     # Keep the most-recent archive in case the operator
                     # wants to roll forward to it.

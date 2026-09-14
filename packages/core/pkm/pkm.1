@@ -100,10 +100,15 @@ Show the dependencies of a package. With
 .B \-\-reverse
 show which installed packages depend on it.
 .TP
-.BR history " [\fIPACKAGE\fR]"
+.BR history " [\fIPACKAGE\fR] [\fB\-\-limit\fR \fIN\fR | \fB\-\-all\fR]"
 Show operation history (install/remove/upgrade). An optional
 .I PACKAGE
-argument filters to a single package.
+argument filters to a single package. Show the 50 most recent matching
+entries by default, newest first. Use
+.B \-\-limit N
+to select a positive number of entries, or
+.B \-\-all
+to show every matching entry. These options are mutually exclusive.
 .TP
 .B import
 Import pre-existing text-manifest records into the SQLite database.
@@ -253,6 +258,12 @@ filesystem. And a package whose own post\-install hook could not run inside
 is refused before anything is deployed \- pkm runs such a hook inside the root
 it installs into, so a root with no interpreter for it would take the install
 to a reported success with the package's post\-install step never having run.
+.SH ENVIRONMENT
+.TP
+.B PKM_PRETXN_HANDLER_DIR
+Override the pre-transaction handler directory with an absolute path.
+When unset, commands use the selected install root's registered handlers.
+An empty or relative value is rejected.
 .SH FILES
 .TP
 .I /etc/pkm/repos.conf

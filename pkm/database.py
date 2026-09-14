@@ -1151,12 +1151,13 @@ class PackageDB:
 
     def get_installed(self, name):
         """Get an installed package by name. Returns dict or None."""
-        row = self.conn.execute(
+        cursor = self.conn.execute(
             "SELECT * FROM installed WHERE name = ?", (name,)
-        ).fetchone()
+        )
+        row = cursor.fetchone()
         if not row:
             return None
-        cols = [d[0] for d in self.conn.execute("SELECT * FROM installed LIMIT 0").description]
+        cols = [d[0] for d in cursor.description]
         return dict(zip(cols, row))
 
     def list_installed(self, tier=None):
@@ -1600,8 +1601,11 @@ class PackageDB:
         pkg = self.get_installed(name)
         if not pkg:
             return []
+        # Read-only opens cannot migrate older databases. Their unlabelled
+        # files retain the same NULL source as rows created before this field.
+        source = "source" if "source" in self._files_cols else "NULL AS source"
         rows = self.conn.execute(
-            "SELECT path, is_dir, source FROM files WHERE package_id = ? "
+            f"SELECT path, is_dir, {source} FROM files WHERE package_id = ? "
             "ORDER BY path",
             (pkg["id"],)
         ).fetchall()
