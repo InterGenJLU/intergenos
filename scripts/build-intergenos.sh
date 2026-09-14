@@ -1387,24 +1387,40 @@ PYEOF
 # ==========================================================================
 
 tiers_for_start_at() {
-    # Echo the --tier flag set that download-sources.py needs, based on the
-    # current --start-at value. Walks forward only — backtracking to fetch
-    # sources for tiers that already completed is wasteful (their packages
-    # are already in chroot + pkm-tracked).
     case "$START_AT" in
-        ""|validate|verify-sources|setup)
-            echo "--all" ;;
-        toolchain|chroot-prep|chroot-tools|core|config|core-extra|base|kernel)
-            echo "--tier core --tier base --tier desktop --tier ai --tier extra" ;;
-        desktop)
-            echo "--tier desktop --tier ai --tier extra" ;;
-        ai)
-            echo "--tier ai --tier extra" ;;
-        extra|bootloader|image|manifest|publish)
-            echo "--tier extra" ;;
-        *)
-            echo "--all" ;;
+        ""|validate|verify-sources|setup) echo "--all"; return 0 ;;
     esac
+
+    # Read the actual run_phase calls below, not a second ordering. The map
+    # says which recipe tier each package-building phase consumes; duplicate
+    # tiers are emitted once at their first remaining phase.
+    local call phase rest tier seen="" found=false
+    local -a flags=()
+    while IFS='"' read -r call phase rest; do
+        [[ "$call" =~ ^[[:space:]]*run_phase[[:space:]]+$ ]] || continue
+        if [ "$phase" = "$START_AT" ]; then found=true; fi
+        if [ "$found" != true ]; then continue; fi
+        case "$phase" in
+            toolchain|chroot-tools) tier=toolchain ;;
+            core|core-extra|kernel) tier=core ;;
+            base|desktop|extra|compute|ai) tier="$phase" ;;
+            validate|verify-sources|setup|chroot-prep|config|bootloader|image|manifest|squashfs|ukis-verity|iso|publish)
+                continue ;;
+            *)
+                echo "error: no source-tier mapping for phase: $phase" >&2
+                return 2 ;;
+        esac
+        case " $seen " in
+            *" $tier "*) continue ;;
+        esac
+        flags+=(--tier "$tier")
+        seen+=" $tier"
+    done < "${BASH_SOURCE[0]}"
+    if [ "$found" != true ]; then
+        echo "error: source-staging start phase absent from run_phase calls: $START_AT" >&2
+        return 2
+    fi
+    printf '%s\n' "${flags[*]}"
 }
 
 ensure_sources_staged() {
@@ -1417,8 +1433,14 @@ ensure_sources_staged() {
     #
     # Tiers scoped to --start-at via tiers_for_start_at(): only fetch sources
     # for current + downstream tiers, not the entire tree.
-    local tier_flags
-    read -ra tier_flags <<< "$(tiers_for_start_at)"
+    local tier_selection
+    tier_selection=$(tiers_for_start_at) || return $?
+    if [ -z "$tier_selection" ]; then
+        log "  No package-building phases remain; source acquisition is not needed."
+        return 0
+    fi
+    local -a tier_flags=()
+    read -ra tier_flags <<< "$tier_selection"
 
     log "  Source-staging sweep (start-at=${START_AT:-<full-build>}, flags: ${tier_flags[*]})..."
 
