@@ -50,6 +50,7 @@ SMOKE_HW_UNCLAIMED_OK_CLASSES=(
     "0500"  # RAM memory (PCH shared SRAM and similar)
     "0880"  # Base system peripheral (neural accelerator, timers and similar)
     "1300"  # Non-Essential Instrumentation (dummy/reserved PCIe functions expose no device for a host driver)
+    "0806"  # IOMMU (the AMD IOMMU at 00:00.2 is driven by the kernel's iommu core, never by a PCI driver binding — measured on two AMD machines 2026-09-14)
 )
 
 # ---------------------------------------------------------------------------

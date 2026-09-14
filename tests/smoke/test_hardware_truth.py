@@ -100,6 +100,29 @@ class HardwareTruthTests(unittest.TestCase):
         self.assertIn("0000:03:00.0", message)
         self.assertNotIn("0000:00:08.0", message)
 
+    def test_class_0806_iommu_is_not_reported_unclaimed(self):
+        # The AMD IOMMU function (00:00.2, class 0806) has no PCI driver by
+        # design; the kernel's iommu core drives it. Measured on two AMD
+        # machines: it was the only "unclaimed" function on each.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.make_pci(root, "0000:00:00.2", "0x080600")
+            rows = self.run_check(root, "check_hardware_unclaimed_pci")
+        status, _, message = self.one(rows, "hw/unclaimed-pci")
+        self.assertEqual(status, "PASS")
+        self.assertNotIn("0000:00:00.2", message)
+
+    def test_class_0806_exclusion_does_not_hide_actionable_device(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.make_pci(root, "0000:00:00.2", "0x080600")
+            self.make_pci(root, "0000:03:00.0", "0x030000")
+            rows = self.run_check(root, "check_hardware_unclaimed_pci")
+        status, _, message = self.one(rows, "hw/unclaimed-pci")
+        self.assertEqual(status, "WARN")
+        self.assertIn("0000:03:00.0", message)
+        self.assertNotIn("0000:00:00.2", message)
+
     def test_desktop_day_one_inventory_skips_laptop_only_expectations(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

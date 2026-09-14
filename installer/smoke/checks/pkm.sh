@@ -68,8 +68,10 @@ check_pkm_info_marker() {
         return
     fi
 
-    # `pkm info <missing>` intentionally exits zero because it can describe an
-    # available package. Installed entries alone carry the numeric Files footer.
+    # Do not trust the exit status alone: pkm before r74 exited zero for a
+    # package it could describe but had not installed, and r74 exits 1 for
+    # that case. Installed entries alone carry the numeric Files footer, so
+    # the footer is the proof on either version.
     count="$(printf '%s\n' "$out" \
         | sed -nE 's/^[[:space:]]*Files:[[:space:]]*([0-9]+)[[:space:]]*$/\1/p')"
     if [[ ! "$count" =~ ^[0-9]+$ ]] || [ "$count" -eq 0 ]; then
