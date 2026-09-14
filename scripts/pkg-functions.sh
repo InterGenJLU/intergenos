@@ -1887,17 +1887,33 @@ pkg_files() {
 # ============================================================================
 
 pkg_owner() {
-    local target="$1"
+    local target="$1" manifest line path in_files
+    local digest_suffix='^(.*) sha256:[a-fA-F0-9]{64}$'
 
-    # Strip leading / for comparison against manifest paths
+    # Strip leading / for comparison against manifest paths.
     target="${target#/}"
 
     if [ -d "$IGOS_PKG_DB" ]; then
         for manifest in "$IGOS_PKG_DB"/*; do
             [ -f "$manifest" ] || continue
-            if sed -n '/^FILE LIST:$/,$ p' "$manifest" | grep -qx "$target"; then
-                basename "$manifest"
-            fi
+            in_files=false
+            while IFS= read -r line || [ -n "$line" ]; do
+                if [ "$in_files" != true ]; then
+                    if [ "$line" = 'FILE LIST:' ]; then in_files=true; fi
+                    continue
+                fi
+                [ -n "$line" ] || continue
+                path="$line"
+                if [[ "$path" =~ $digest_suffix ]]; then
+                    path="${BASH_REMATCH[1]}"
+                fi
+                # Directory rows carry a trailing slash; all other path
+                # bytes, including spaces and pattern characters, are literal.
+                if [ "$path" = "$target" ] || [ "$path" = "${target%/}/" ]; then
+                    basename "$manifest"
+                    break
+                fi
+            done < "$manifest" || return $?
         done
     fi
 }
