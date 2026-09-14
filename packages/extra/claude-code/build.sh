@@ -21,6 +21,11 @@ build() {
 
 do_install() {
     set -e
+    local recipe_dir
+    recipe_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    install -Dm644 \
+        "${recipe_dir}/claude-code-helper-functions.sh" \
+        "${DESTDIR}/usr/libexec/igos-install-claude-code-functions.sh"
     # Install the helper script
     mkdir -pv "${DESTDIR}/usr/bin"
     cat > "${DESTDIR}/usr/bin/igos-install-claude-code" << 'HELPEREOF'
@@ -30,10 +35,36 @@ do_install() {
 # Installs Claude Code CLI and VS Code extension from Anthropic.
 # License: https://code.claude.com/docs/en/legal-and-compliance
 #
+# The reviewed version is the default. To request the registry's current
+# stable CLI release explicitly, run:
+#   sudo CLAUDE_CODE_INSTALL_CURRENT=1 pkm install claude-code
+# The VS Code extension remains separately pinned and sha256-verified because
+# its gallery does not provide a package signature this helper can verify.
+# `--print-plan` shows the resolved mode and versions without installing.
+#
 # H-007 Phase B migration: records the install footprint via the
 # /usr/share/igos/helpers/helper-lib.sh API.
 
 set -e
+
+source /usr/libexec/igos-install-claude-code-functions.sh
+
+CLAUDE_CODE_PINNED_VERSION="2.1.270"
+CLAUDE_CODE_VSIX_VERSION="2.1.270"
+CLAUDE_CODE_VSIX_PLATFORM="linux-x64"
+CLAUDE_CODE_VSIX_SHA256="e33b1b88312302953857b0a09fa65dc13f72d58730e71107385a26a30ddd8640"
+
+if [ "${1:-}" = "--print-plan" ]; then
+    claude_code_select_install_version "$CLAUDE_CODE_PINNED_VERSION"
+    claude_code_print_plan \
+        "$CLAUDE_CODE_VSIX_VERSION" \
+        "$CLAUDE_CODE_VSIX_PLATFORM" \
+        "$CLAUDE_CODE_VSIX_SHA256"
+    exit 0
+elif [ "$#" -ne 0 ]; then
+    echo "  ERROR: unknown argument: $1" >&2
+    exit 2
+fi
 
 source /usr/share/igos/helpers/helper-lib.sh
 
@@ -65,6 +96,23 @@ if ! command -v npm >/dev/null 2>&1; then
     echo "  ERROR: npm not found. Install Node.js first."
     exit 1
 fi
+
+claude_code_select_install_version "$CLAUDE_CODE_PINNED_VERSION"
+echo "  CLI install mode: ${CLAUDE_CODE_SELECTED_MODE}"
+echo "  Reason: ${CLAUDE_CODE_SELECTED_REASON}"
+echo "  CLI release selected: ${CLAUDE_CODE_SELECTED_VERSION}"
+if [ "$CLAUDE_CODE_SELECTED_MODE" = "pinned" ]; then
+    echo "  To request the registry's current stable CLI release instead:"
+    echo "    sudo CLAUDE_CODE_INSTALL_CURRENT=1 pkm install claude-code"
+else
+    echo "  Current mode was explicitly requested with CLAUDE_CODE_INSTALL_CURRENT=1."
+fi
+echo "  VS Code extension: pinned ${CLAUDE_CODE_VSIX_VERSION} (${CLAUDE_CODE_VSIX_PLATFORM})"
+if [ "$CLAUDE_CODE_SELECTED_VERSION" != "$CLAUDE_CODE_VSIX_VERSION" ]; then
+    echo "  NOTE: CLI and extension versions differ. The extension remains pinned"
+    echo "  because the gallery provides no package signature this helper can verify."
+fi
+echo ""
 
 # EULA acceptance gate. The acceptance record at /var/lib/intergen/legal/
 # is intentionally NOT manifest-tracked: pkm remove leaves it in place
@@ -113,91 +161,41 @@ igos_helper_record_post_install_action \
 # brave/chrome/edge/vscode/spotify):
 #
 #   - npm registry is the trust boundary (Anthropic publishes signed
-#     packages to https://registry.npmjs.org/@anthropic-ai/claude-code/);
-#     npm 9+ auto-verifies the registry signature on each install. We
-#     don't replicate that chain manually; we anchor on the registry's
-#     existing trust + sharpen the install posture.
+#     packages to https://registry.npmjs.org/@anthropic-ai/claude-code/).
+#     `npm audit signatures` verifies each downloaded package against the
+#     registry's published signing keys before the global install proceeds.
 #
 #   - Anthropic's @anthropic-ai/claude-code publishes WITH npm registry
 #     signature (signatures[0].sig + keyid present in registry metadata)
-#     but WITHOUT npm provenance attestations (dist.attestations = none
-#     at clear-time 2026-05-21). Provenance is an upstream-side opt-in
+#     but WITHOUT npm provenance attestations (dist.attestations = none when
+#     the 2.1.270 pin was checked on 2026-09-14). Provenance is an upstream-side opt-in
 #     (npm publish --provenance) -- our helper cannot add it.
 #
-#   - PIN to a specific version rather than @latest. Reproducibility +
-#     defense against silent package-upgrade-attack on a future install.
-#     Bump the pin via a helper-version-bump commit when Anthropic
-#     publishes a new release.
+#   - PIN to a specific reviewed version by default. An explicit environment
+#     option resolves dist-tags.latest, validates it as a release version, and
+#     applies the same advisory and signature gates to the selected release.
 #
 #   - Run `npm audit --audit-level=critical` pre-install against the
-#     pinned version's dep tree; if a critical-severity advisory exists,
+#     selected version's dep tree; if a critical-severity advisory exists,
 #     refuse install with loud error per security-only-alignment rule #10 default-deny.
 
-# Pinned npm CLI version (bump via helper-version-bump commit on
-# Anthropic release). Bumped 2026-07-24 to 2.1.218 (npm
-# dist-tags.latest = 2.1.218, verified present on registry.npmjs.org;
-# registry dist.integrity sha512-BHV951ruIa6QXaZFDF1wRhwxAOkAiafB2AOW
-# G6wGRUJ4apaJ9mlzp1BFLAhGfG0SknwAyqBenqeT6nit6at4uQ==).
+# Pinned npm CLI version (bump in a reviewed helper change on an Anthropic
+# release). Bumped 2026-09-14 to 2.1.270: npm dist-tags.latest = 2.1.270;
+# registry dist.integrity =
+# sha512-0zMkfIWQu7/SG56VP8r780HZWvrNShzK28AbAnhKRK0ns+ToGXPT0W8UqyZmZCUKAkJDd5//TrwSOhk1+hysiw==.
 # This is the npm CLI pin ONLY; the VS Code extension is versioned
 # INDEPENDENTLY and pinned separately in the extension block below.
-CLAUDE_CODE_PINNED_VERSION="2.1.218"
 
-# K21.F: pre-install audit against critical-severity npm advisories.
-# This runs `npm audit` against a transient package.json in TMPDIR
-# (the pinned version's dep tree) and refuses install on critical
-# findings. --audit-level=critical means lower-severity advisories
-# (high / moderate / low) are reported informationally but do not
-# refuse install -- prevents over-blocking on transitive deps the
-# user can't easily fix while still hardening against critical-CVE
-# install paths.
-echo "  Checking the package tree for critical security advisories..."
-AUDIT_TMPDIR=$(mktemp -d -t igos-claude-audit-XXXXXX)
-cat > "$AUDIT_TMPDIR/package.json" << JSONEOF
-{
-  "name": "igos-claude-code-audit-shim",
-  "version": "0.0.0",
-  "private": true,
-  "dependencies": {
-    "@anthropic-ai/claude-code": "${CLAUDE_CODE_PINNED_VERSION}"
-  }
-}
-JSONEOF
-(cd "$AUDIT_TMPDIR" && npm install --package-lock-only --no-audit --no-fund --silent 2>/dev/null) || {
-    echo "  WARNING: the advisory check could not run. Continuing; the"
-    echo "  signature check on the install itself still applies."
-    AUDIT_SKIPPED=1
-}
-if [ "${AUDIT_SKIPPED:-0}" != "1" ]; then
-    if ! (cd "$AUDIT_TMPDIR" && npm audit --audit-level=critical 2>&1); then
-        echo ""
-        echo "  ERROR: npm audit found CRITICAL-severity advisories in the"
-        echo "  @anthropic-ai/claude-code@${CLAUDE_CODE_PINNED_VERSION} dep"
-        echo "  tree. Refusing to install. Nothing was installed."
-        echo "  The advisory is printed above; this needs a fixed upstream"
-        echo "  release before the package will install."
-        rm -rf "$AUDIT_TMPDIR"
-        exit 1
-    fi
-fi
-rm -rf "$AUDIT_TMPDIR"
-echo "  No critical security advisories."
-
-echo "  Installing Claude Code CLI via npm (pinned version ${CLAUDE_CODE_PINNED_VERSION})..."
-npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_PINNED_VERSION}"
-
-# K21.F: pinned version IS what was installed; record it directly
-# rather than re-parsing `npm list` output. Falls back to npm list
-# for defense if npm renamed the package under the hood.
-CLAUDE_VERSION="$CLAUDE_CODE_PINNED_VERSION"
-if [ -z "$CLAUDE_VERSION" ]; then
-    CLAUDE_VERSION=$(npm list -g @anthropic-ai/claude-code 2>/dev/null \
-                      | grep '@anthropic-ai/claude-code@' \
-                      | sed 's/.*@anthropic-ai\/claude-code@//' \
-                      | head -1)
-fi
-igos_helper_set_version "${CLAUDE_VERSION:-unknown}"
-
-NPM_GLOBAL_ROOT=$(npm root -g 2>/dev/null || echo "/usr/lib/node_modules")
+# This is the same function the unprivileged proof invokes with an isolated
+# npm prefix: dependency-tree preparation, advisory gate, registry-signature
+# gate, exact install, and executable version read-back are one code path.
+claude_code_install_selected_cli \
+    "$CLAUDE_CODE_SELECTED_MODE" "$CLAUDE_CODE_SELECTED_VERSION"
+CLAUDE_VERSION="$CLAUDE_CODE_INSTALLED_VERSION"
+CLAUDE_VERSION_OUTPUT="$CLAUDE_CODE_INSTALLED_VERSION_OUTPUT"
+CLAUDE_BIN="$CLAUDE_CODE_INSTALLED_BIN"
+NPM_GLOBAL_ROOT="$CLAUDE_CODE_INSTALLED_ROOT"
+igos_helper_set_version "${CLAUDE_VERSION}"
 CLAUDE_DIR="$NPM_GLOBAL_ROOT/@anthropic-ai/claude-code"
 
 # H-007: record every file under the npm-installed module dir. npm's
@@ -209,21 +207,13 @@ if [ -d "$CLAUDE_DIR" ]; then
     done < <(find "$CLAUDE_DIR" -type f -o -type l 2>/dev/null)
 fi
 
-# Verify installation
-if command -v claude >/dev/null 2>&1; then
-    echo "  Claude Code CLI installed: $(claude --version 2>/dev/null || echo 'OK')"
-    # npm creates a symlink at <prefix>/bin/claude pointing into the
-    # module dir. Record it so pkm remove unlinks the binary surface.
-    CLAUDE_BIN=$(command -v claude)
-    CLAUDE_TARGET=$(readlink -f "$CLAUDE_BIN" 2>/dev/null || echo "$CLAUDE_BIN")
-    if [ -L "$CLAUDE_BIN" ]; then
-        igos_helper_record_symlink "$CLAUDE_BIN" "$CLAUDE_TARGET"
-    elif [ -f "$CLAUDE_BIN" ]; then
-        igos_helper_record_file "$CLAUDE_BIN"
-    fi
-else
-    echo "  WARNING: claude command not found in PATH"
-    echo "  You may need to add npm's global bin directory to your PATH"
+# npm creates a symlink at <prefix>/bin/claude pointing into the module dir.
+# Record it so pkm remove unlinks the binary surface.
+CLAUDE_TARGET=$(readlink -f "$CLAUDE_BIN" 2>/dev/null || echo "$CLAUDE_BIN")
+if [ -L "$CLAUDE_BIN" ]; then
+    igos_helper_record_symlink "$CLAUDE_BIN" "$CLAUDE_TARGET"
+elif [ -f "$CLAUDE_BIN" ]; then
+    igos_helper_record_file "$CLAUDE_BIN"
 fi
 
 igos_helper_record_dep nodejs
@@ -252,10 +242,7 @@ igos_helper_record_dep nodejs
 # command. Bump on an extension release: update CLAUDE_CODE_VSIX_VERSION +
 # _SHA256 together (atomic provenance, the keyring pattern). The asset is
 # platform-specific, so _SHA256 is the sha of the ${CLAUDE_CODE_VSIX_PLATFORM}
-# asset.
-CLAUDE_CODE_VSIX_VERSION="2.1.218"
-CLAUDE_CODE_VSIX_PLATFORM="linux-x64"
-CLAUDE_CODE_VSIX_SHA256="63a3178c906684ccee40cc2190f2c72bfbed7224dd8ec1af9046e51f7a1f8eed"
+# asset. Version 2.1.270's linux-x64 bytes were pinned on 2026-09-14.
 
 ext_installed=0
 ext_vsix="/tmp/claude-code-${CLAUDE_CODE_VSIX_VERSION}-${CLAUDE_CODE_VSIX_PLATFORM}.vsix"
