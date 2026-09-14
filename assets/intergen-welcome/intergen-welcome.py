@@ -2404,14 +2404,11 @@ def _package_is_installed(name):
     successful install of having failed or claim success on a machine where
     nothing could be checked.
 
-    THE EXIT STATUS IS NOT THE ANSWER, and assuming it was would have made
-    this check useless. Measured 2026-08-06 against the shipped pkm: `pkm info`
-    exits 0 for an installed package, 0 for a known package that is not
-    installed, AND 0 for a package name that does not exist at all. Reading
-    "rc != 0" as "not installed" would therefore have reported every machine as
-    installed. What actually distinguishes the cases is the output: an
-    installed package prints an `install_date` record, and an absent one prints
-    "is not installed".
+    Read the output as well as the process result: older pkm versions return
+    zero even for an absent package, while a nonzero result can also mean the
+    database could not be read. An installed package prints an `install_date`
+    record, and an absent one prints "is not installed". A registered download
+    helper can still lack its application payload, which is reported separately.
     """
     try:
         proc = subprocess.run(['pkm', 'info', name],

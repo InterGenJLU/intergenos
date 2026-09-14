@@ -74,6 +74,15 @@ Installed matches are labelled inline.
 .BR info " \fIPACKAGE\fR"
 Show package details: version, tier, description, license, build and
 install dates, install method, dependencies, and reverse dependencies.
+For an available but uninstalled package, show the cached repository metadata
+and state that it is not installed.
+Exit status is 0 when the package is registered as installed, or 1 when it is
+not installed, including when available metadata is printed. An unknown name
+or unreadable index retains the plain not-installed message.
+This status describes package registration, not file integrity or completion
+of a vendor download. The alias
+.B show
+has the same behavior.
 .TP
 .BR files " \fIPACKAGE\fR"
 List files owned by an installed package.

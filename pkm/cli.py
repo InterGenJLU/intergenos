@@ -3083,6 +3083,7 @@ def cmd_search(db, args):
 
 
 def cmd_info(db, args):
+    """Describe a package; return 0 when registered as installed, otherwise 1."""
     pkg = db.get_installed(args.package)
     if not pkg:
         # Not installed is not the same as nothing to say. The repository index
@@ -3104,7 +3105,7 @@ def cmd_info(db, args):
             available = None
         if not available:
             emit_info(f"Package '{args.package}' is not installed")
-            return
+            return 1
         title = f"{available['name']} {_vr_str(available.get('version', ''), available.get('release', 1))}"
         rule = "=" * len(title)
         print(f"  {rule}")
@@ -3117,7 +3118,7 @@ def cmd_info(db, args):
                 print(f"  {key:20s}: {val}")
         print(f"\n  Install it with: sudo pkm install {available['name']}")
         print()
-        return
+        return 1
 
     # PKM-A30: show the full version-release identity (a same-version mirror
     # republish only advances release — version alone hides it, per A06), and
@@ -3168,6 +3169,7 @@ def cmd_info(db, args):
     file_count = len([f for f in files if not f["is_dir"]])
     print(f"\n  Files: {file_count}")
     print()
+    return 0
 
 
 def cmd_files(db, args):

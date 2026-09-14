@@ -74,6 +74,12 @@ version, tier, description, licence, download size and checksum — and says
 plainly that it is not installed, so you can read what a package is before
 deciding to add it.
 
+`info` (and its alias `show`) exits with status `0` when the package is
+registered as installed, or `1` when it is not installed. Available package
+metadata still prints with status `1`; an unknown name or unreadable index
+keeps the plain not-installed message. This status describes package
+registration, not file integrity or completion of a vendor download.
+
 ### Natural-Language Aliases
 
 pkm accepts the command names you'd naturally reach for from other distros. Whichever feels right works:

@@ -207,26 +207,20 @@ class ClosingLineTest(unittest.TestCase):
 class OutcomeDetectionTest(unittest.TestCase):
     """(c) The outcome comes from the package database, not the window."""
 
-    def test_the_exit_status_is_not_what_is_keyed_on(self):
-        """The trap that would have made this check useless.
+    def test_absent_package_output_is_understood_with_either_exit_status(self):
+        """Read both older pkm output and the explicit not-installed status."""
+        from unittest.mock import patch
 
-        Executed against the real pkm when present: an absent package exits 0
-        just like an installed one, so a returncode test would report every
-        machine as installed.
-        """
-        if not shutil.which("pkm"):
-            self.skipTest("pkm is not installed on this machine")
-        r = subprocess.run(["pkm", "info", "a-package-that-does-not-exist-xyz"],
-                           capture_output=True, text=True, timeout=60)
-        self.assertEqual(
-            r.returncode, 0,
-            "pkm now exits non-zero for an absent package; the comment in "
-            "_package_is_installed describing the measured contract is out of "
-            "date and must be re-measured")
-        self.assertIs(
-            welcome._package_is_installed("a-package-that-does-not-exist-xyz"),
-            False,
-            "an absent package was not reported as absent")
+        for returncode in (0, 1):
+            with self.subTest(returncode=returncode):
+                result = subprocess.CompletedProcess(
+                    ["pkm", "info", "example-missing"], returncode,
+                    stdout="Package 'example-missing' is not installed\n",
+                    stderr="",
+                )
+                with patch.object(welcome.subprocess, "run", return_value=result):
+                    self.assertIs(
+                        welcome._package_is_installed("example-missing"), False)
 
     def test_an_unreachable_package_manager_is_unknown_not_absent(self):
         """"I could not ask" must not be reported as "not installed"."""
