@@ -175,15 +175,20 @@ class Engine:
         default = {"sequence": 0, "pins": [], "target": None,
                    "last_capture": {}, "clock_last_wall": 0,
                    "clock_skew_events": [], "retention_events": []}
-        if not p.exists():
-            return default
         try:
             data = json.loads(p.read_text(encoding="utf-8"))
-            for k, v in default.items():
-                data.setdefault(k, v)
-            return data
-        except (OSError, ValueError):
+        except FileNotFoundError:
             return default
+        except (OSError, ValueError) as error:
+            raise EngineError(
+                f"cannot load Chronicle state {p}: "
+                f"{type(error).__name__}: {error}"
+            ) from error
+        if not isinstance(data, dict):
+            raise EngineError(f"invalid Chronicle state {p}: expected an object")
+        for k, v in default.items():
+            data.setdefault(k, v)
+        return data
 
     def _save_state(self):
         p = _paths.state_path(self.local_root)
