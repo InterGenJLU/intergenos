@@ -79,12 +79,25 @@ class EphemeralKey:
             check=True, capture_output=True, text=True, timeout=60).stdout
         self.fingerprint = next(line.split(":")[9] for line in listing.splitlines()
                                 if line.startswith("fpr:"))
+        # A signing SUBKEY under the primary, like the release key's card slot:
+        # the publisher pins that subkey's fingerprint, not the primary's.
+        subprocess.run(
+            ["gpg", "--homedir", str(self.home), "--batch", "--passphrase", "",
+             "--quick-add-key", self.fingerprint, "ed25519", "sign", "0"],
+            check=True, capture_output=True, timeout=120)
+        listing = subprocess.run(
+            ["gpg", "--homedir", str(self.home), "--list-keys", "--with-colons"],
+            check=True, capture_output=True, text=True, timeout=60).stdout
+        fprs = [line.split(":")[9] for line in listing.splitlines() if line.startswith("fpr:")]
+        self.subkey_fingerprint = next(f for f in fprs if f != self.fingerprint)
 
-    def sign(self, record: Path) -> Path:
+    def sign(self, record: Path, with_subkey: bool = False) -> Path:
         signature = record.with_name(record.name + ".asc")
+        # "!" pins the exact key: without it gpg picks a signing subkey for a primary id.
+        user = f"{self.subkey_fingerprint if with_subkey else self.fingerprint}!"
         subprocess.run(
             ["gpg", "--homedir", str(self.home), "--batch", "--yes", "--armor",
-             "--detach-sign", "-u", self.fingerprint, "-o", str(signature), str(record)],
+             "--detach-sign", "-u", user, "-o", str(signature), str(record)],
             check=True, capture_output=True, timeout=60)
         return signature
 
@@ -148,10 +161,10 @@ class CorrectiveRecordCheckerTest(unittest.TestCase):
             }],
         }
 
-    def write_signed(self, doc: dict) -> None:
+    def write_signed(self, doc: dict, with_subkey: bool = False) -> None:
         self.record.write_text(json.dumps(doc, indent=1) + "\n", encoding="utf-8")
         assert KEY is not None
-        KEY.sign(self.record)
+        KEY.sign(self.record, with_subkey=with_subkey)
 
     def run_checker(self, fingerprint: str | None = None, generated: Path | None = None,
                     record: Path | None = None) -> subprocess.CompletedProcess:
@@ -182,6 +195,24 @@ class CorrectiveRecordCheckerTest(unittest.TestCase):
         self.assertIn("will NOT receive the", proc.stdout)
         self.assertNotIn("other", proc.stdout.split("CONSEQUENCE")[0].split("reason:")[1])
 
+    def test_a_signing_subkey_matches_the_pin_as_subkey_or_as_primary(self):
+        """The release key signs on a SUBKEY (the card slot the publisher pins);
+        the pin may name that subkey or its primary — never a third key."""
+        assert KEY is not None
+        self.write_signed(self.exact_record(), with_subkey=True)
+        proc = self.run_checker(fingerprint=KEY.subkey_fingerprint)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn(f"signed by signing key {KEY.subkey_fingerprint} (the pinned key)", proc.stdout)
+        proc = self.run_checker(fingerprint=KEY.fingerprint)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn(f"under the pinned primary key {KEY.fingerprint}", proc.stdout)
+        self.assert_refused(self.run_checker(fingerprint=RELEASE_FINGERPRINT),
+                            "is the pinned release key")
+        # a primary-key signature is not accepted against a pin naming the subkey
+        self.write_signed(self.exact_record(), with_subkey=False)
+        self.assert_refused(self.run_checker(fingerprint=KEY.subkey_fingerprint),
+                            "is the pinned release key")
+
     def test_generated_index_rows_are_bound_to_the_replacement(self):
         self.write_signed(self.exact_record())
         sys.path.insert(0, str(REPO_ROOT))
@@ -204,7 +235,7 @@ class CorrectiveRecordCheckerTest(unittest.TestCase):
         self.record.write_text(json.dumps(doc) + "\n", encoding="utf-8")
         self.assert_refused(self.run_checker(), "record signature is absent")
         self.write_signed(doc)
-        self.assert_refused(self.run_checker(fingerprint=RELEASE_FINGERPRINT), "is not the pinned release key")
+        self.assert_refused(self.run_checker(fingerprint=RELEASE_FINGERPRINT), "is the pinned release key")
         # tamper after signing: the reason text changes, the signature no longer verifies
         doc["reason"] = "a different reason"
         self.record.write_text(json.dumps(doc, indent=1) + "\n", encoding="utf-8")
@@ -342,7 +373,7 @@ class CorrectiveRecordPublisherTest(_sign_hold.PublishSignHoldTest):
         out = proc.stdout + proc.stderr
         self.assertEqual(proc.returncode, 1, out)
         self.assertIn("corrective republish requested", out)
-        self.assertIn(f"is not the pinned release key {RELEASE_FINGERPRINT}", out)
+        self.assertIn(f"is the pinned release key {RELEASE_FINGERPRINT}", out)
         self.assertIn("does not authorize the staged set", out)
         self.assertNotIn("Generating InterGenOS.db", out)
         self.assertNotIn("SIGNING HOLD", out)

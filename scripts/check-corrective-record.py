@@ -104,7 +104,15 @@ def read_pkginfo(archive: Path) -> dict:
 
 
 def verify_signature(record: Path, signature: Path, fingerprint: str) -> str:
-    """Return the VALIDSIG primary fingerprint; refuse on any failure."""
+    """Return the fingerprint that matched the pin; refuse on any failure.
+
+    The publisher pins the fingerprint of the key it SIGNS with, which is a
+    signing SUBKEY of the release key (the card's [S1] slot); a caller may pin
+    the primary instead.  gpg's VALIDSIG line carries both — the signing-key
+    fingerprint first and the primary-key fingerprint last — so the pin is
+    accepted when it equals either one, and the match is named in the output.
+    Found by the real-key firing of 2026-09-14: a record signed on the token
+    verified with primary 5597… while the publisher pinned the subkey D7AA…."""
     try:
         proc = subprocess.run(
             ["gpg", "--batch", "--no-tty", "--status-fd", "1", "--verify",
@@ -114,19 +122,23 @@ def verify_signature(record: Path, signature: Path, fingerprint: str) -> str:
         refuse("gpg is not available; the record signature cannot be verified")
     except subprocess.TimeoutExpired:
         refuse("gpg timed out verifying the record signature")
-    primary = None
+    signing_key = primary = None
     for line in proc.stdout.splitlines():
         if line.startswith("[GNUPG:] VALIDSIG "):
-            primary = line.split()[-1]
+            fields = line.split()
+            signing_key, primary = fields[2], fields[-1]
     if proc.returncode != 0:
         tail = (proc.stderr.strip().splitlines() or ["no output"])[-1]
         refuse(f"record signature does not verify (gpg rc={proc.returncode}: {tail})")
-    if primary is None:
+    if primary is None or signing_key is None:
         refuse("gpg exited 0 but emitted no VALIDSIG status line")
-    if primary.upper() != fingerprint.upper():
-        refuse(f"record signature is valid but its primary key {primary} is not the "
-               f"pinned release key {fingerprint}")
-    return primary
+    pin = fingerprint.upper()
+    if signing_key.upper() == pin:
+        return f"signing key {signing_key} (the pinned key)"
+    if primary.upper() == pin:
+        return f"signing key {signing_key} under the pinned primary key {primary}"
+    refuse(f"record signature is valid but neither its signing key {signing_key} nor its "
+           f"primary key {primary} is the pinned release key {fingerprint}")
 
 
 def load_record(path: Path) -> dict:
