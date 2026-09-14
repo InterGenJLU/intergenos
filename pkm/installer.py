@@ -162,7 +162,7 @@ def helper_environment(source=None):
             f"{CLAUDE_CODE_INSTALL_CURRENT_VAR} is set to {mode!r}; the only "
             f"accepted values are \"0\" (the reviewed release) and \"1\" (the "
             f"registry's current release). Nothing was run. Unset it or set "
-            f"it to 0 or 1 and try again."
+            f"it to 0 or 1 and try again"
         )
     return env
 
