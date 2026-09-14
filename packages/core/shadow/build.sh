@@ -76,29 +76,19 @@ post_install() {
     # Set default group for new users
     useradd -D --gid 999
 
-    # D-007 — root is locked on shipped installed systems. No valid
-    # password, no SSH-as-root (enforced by sshd_config.d drop-in
-    # shipped by core/openssh), no console-as-root with a known
-    # credential. Privilege escalation happens via the user-chosen
-    # sudo-capable account created by Forge (TUI/GUI install) or via
-    # the `intergenos` sudo-capable user on the live ISO.
-    # The requirement is stated in scripts/check-d007-compliance.sh; the
-    # locked-root check itself is scripts/check-d007-runtime.sh Gate D.
-    #
-    # IMPORTANT: use `usermod -p '!' root`, NOT `passwd -l root`.
-    # Reason: scripts/chroot-build.sh ships an initial /etc/passwd that
-    # has `root:x:...` (the canonical "see /etc/shadow" placeholder).
-    # pwconv (called above) creates /etc/shadow by reading /etc/passwd
-    # and inheriting that `x` into the shadow file's password field —
-    # so /etc/shadow lands with `root:x:...`. `passwd -l` then PREFIXES
-    # `!` to whatever's there, yielding `root:!x:...` — neither `*`
-    # nor `!` nor `!*` nor `!!`, which is the set of canonical locked
-    # sentinels accepted by scripts/check-d007-runtime.sh Gate D.
-    # `usermod -p '!' root` writes the password field DIRECTLY to `!`
-    # (independent of whatever pwconv put there), which is the
-    # canonical locked sentinel + matches the gate's accepted set.
-    # Closes the D-007 runtime gate failure surfaced 2026-05-24.
-    usermod -p '!' root
+    # ROOT'S PASSWORD FIELD IS NOT TOUCHED HERE (decided 2026-09-14, R001.3
+    # row 5). This hook runs in two places: inside the build chroot, and ON
+    # EVERY INSTALLED TARGET after the installer has written the password the
+    # person chose (installer/backend/users.py set_root_password, phase
+    # "users"; this hook fires in the later "hooks" phase). Until 2026-09-14
+    # it ended with `usermod -p '!' root`, so every install landed with root
+    # locked and the rescue shell had no credential — proven on the Zephyrus
+    # 2026-09-04 and confirmed on three more machines. D-007 (root locked on
+    # shipped MEDIA) is now enforced where the media is assembled:
+    # scripts/build-intergenos.sh locks root in the chroot right before the
+    # D-007 runtime gate (scripts/check-d007-runtime.sh Gate D), and
+    # scripts/create-image.sh locks it in the image. The installer verifies
+    # after the hooks that root still carries the person's hash.
 
     # NOTE: do NOT create the LFS `tester` test-runner account here.
     # post_install is a canonical pkm hook that ALSO runs at INSTALL time on

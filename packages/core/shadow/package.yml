@@ -1,6 +1,6 @@
 name: shadow
 version: "4.19.3"
-release: 2  # L29: setuid-strip regression rebuild (staging-chokepoint chown)
+release: 3  # r3: post_install no longer locks root. The hook runs on every installed target AFTER the installer wrote the person's chosen root password, so every R001.2 install landed with root locked and no rescue credential (proven on the Zephyrus 2026-09-04; R001.3 row 5). D-007's locked root for shipped MEDIA is now written where the media is assembled (scripts/build-intergenos.sh right before the D-007 runtime gate; scripts/create-image.sh), and the installer reads the hash back and verifies it survived the hooks. pwconv/grpconv/useradd -D unchanged. r2: L29 setuid-strip regression rebuild (staging-chokepoint chown).
 description: Shadow password utilities
 license: BSD-3-Clause
 source:

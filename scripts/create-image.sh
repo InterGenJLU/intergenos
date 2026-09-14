@@ -496,7 +496,9 @@ ln -sf /run/systemd/resolve/stub-resolv.conf "${MOUNT_POINT}/etc/resolv.conf"
 # previously-required --root-password flag on build-intergenos.sh is
 # no longer used and can be removed in a follow-on cleanup.
 # The requirement is stated in scripts/check-d007-compliance.sh.
-chroot "$MOUNT_POINT" passwd -l root
+# `usermod -p '!'` writes the canonical locked sentinel directly; `passwd -l`
+# only prefixes `!` to whatever the field holds (decided 2026-09-14).
+chroot "$MOUNT_POINT" usermod -p '!' root
 log "  root: locked (D-007 — sudo-only escalation path)"
 
 # Create default user account — IMAGE_USER name can default; password CANNOT.

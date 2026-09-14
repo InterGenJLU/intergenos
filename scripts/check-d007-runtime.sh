@@ -125,8 +125,10 @@ else
 fi
 
 # Gate D — Root is locked in /etc/shadow.
-# packages/core/shadow/build.sh:79 (`passwd -l root`) locks root during the
-# chroot's core build phase, so by phase_squashfs the shadow file's root
+# scripts/build-intergenos.sh locks root (`usermod -p '!' root`) in the chroot
+# right before this gate runs (since 2026-09-14; the shadow recipe's hook no
+# longer does, because that hook also runs on installed targets after the
+# person's password is set), so by phase_squashfs the shadow file's root
 # entry must show a locked sentinel (* or !). Anything that looks like a
 # real crypt hash ($1$ / $5$ / $6$ / $y$ etc.) means some downstream step
 # silently unlocked root or wrote a hash — D-007 violation.

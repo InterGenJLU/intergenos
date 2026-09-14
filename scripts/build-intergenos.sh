@@ -2515,6 +2515,18 @@ phase_squashfs() {
     # the source-grep gate yet produce a chroot whose /etc/shadow root has a
     # real password hash, whose /etc/ssh/ has baked host keys, etc. — this
     # gate is the built-artifact second line of defense.
+    # D-007 — root is locked on shipped MEDIA, and this is where it happens
+    # (decided 2026-09-14, R001.3 row 5). The shadow recipe's post_install
+    # hook used to write the lock, but that hook also runs on every installed
+    # target AFTER the installer has written the person's chosen password,
+    # so every install landed with root locked. The lock now lives here, in
+    # the media path only, immediately before the gate that proves it.
+    # `usermod -p '!'` writes the canonical locked sentinel directly (Gate D
+    # accepts * ! !* !!); `passwd -l` would only prefix whatever pwconv left.
+    log "  Locking root in the chroot (D-007: shipped media carries no root credential)..."
+    chroot "$IGOS" usermod -p '!' root 2>&1 | tee -a "$BUILD_LOG"
+    log "  root password field: $(awk -F: '$1=="root"{print $2}' "${IGOS}/etc/shadow")"
+
     log "  Running SSH and credentials posture runtime gate..."
     if ! bash "${SCRIPTS}/check-d007-runtime.sh" "${IGOS}" 2>&1 | tee -a "$BUILD_LOG"; then
         log ""

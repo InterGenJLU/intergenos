@@ -167,6 +167,25 @@ def set_root_password(target, password):
             stdout=result.stdout, stderr=result.stderr,
         )
 
+    # READ IT BACK. On the Intel HP laptop (2026-09-05) this step entered
+    # with a password and returned 61 ms later with rc 0 and no hash on the
+    # target. A step that reports success without looking at the result is
+    # the class the whole trace exists to prevent, so the shadow field is
+    # read from the target and compared with the hash just written.
+    written = read_root_password_field(target)
+    if written != hashed:
+        raise trace.install_failure(
+            where="users.py:set_root_password / read-back of /etc/shadow",
+            why="chpasswd reported success but root's password field on the "
+                "target is not the hash that was written; the installed "
+                "system would have no usable root credential.",
+            cmd=cmd, rc=result.returncode,
+            stdout=result.stdout, stderr=result.stderr,
+            extra={"field_on_target": _describe_password_field(written)},
+        )
+    trace.trace_event("root_password_written",
+                      field=_describe_password_field(written))
+
     # passwd --root --maxdays 99999: disable password expiry for initial setup.
     result = trace.traced_run(
         ["passwd", "--root", target_str, "--maxdays", "99999", "root"],
@@ -179,6 +198,54 @@ def set_root_password(target, password):
             "have a default expiry. stdout=%r stderr=%r",
             result.returncode, result.stdout, result.stderr,
         )
+    return hashed
+
+
+def read_root_password_field(target):
+    """root's password field from <target>/etc/shadow, or None if absent."""
+    shadow = Path(target) / "etc" / "shadow"
+    try:
+        for line in shadow.read_text().splitlines():
+            parts = line.split(":")
+            if parts and parts[0] == "root":
+                return parts[1] if len(parts) > 1 else ""
+    except OSError:
+        return None
+    return None
+
+
+def _describe_password_field(field):
+    """A trace-safe description of a shadow password field: never the hash."""
+    if field is None:
+        return "absent"
+    if field == "":
+        return "empty"
+    if field in ("*", "!", "!*", "!!", "x"):
+        return f"locked-or-placeholder:{field}"
+    if field.startswith("$"):
+        return "hash:" + field.split("$")[1]
+    return "other"
+
+
+def verify_root_password_kept(target, expected_hash):
+    """The gate the R001.2 installs lacked: after the post-install hooks,
+    root's password field on the target must still be the hash the "users"
+    phase wrote. Until 2026-09-14 the shadow package's hook replaced it with
+    a lock on every install. Raises install_failure on any difference,
+    naming what the field holds (never the hash itself)."""
+    field = read_root_password_field(target)
+    if field == expected_hash:
+        trace.trace_event("root_password_kept",
+                          field=_describe_password_field(field))
+        return True
+    raise trace.install_failure(
+        where="users.py:verify_root_password_kept (after post-install hooks)",
+        why="root's password field on the target no longer holds the hash "
+            "the users phase wrote: a post-install hook replaced it. The "
+            "installed system would boot with no usable root credential.",
+        cmd=["read", "/etc/shadow"], rc=1, stdout="", stderr="",
+        extra={"field_on_target": _describe_password_field(field)},
+    )
 
 
 @trace.trace_install_step("create_user")

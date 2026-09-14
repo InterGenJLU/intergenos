@@ -768,7 +768,8 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         # Secrets passed by NAME so the trace redactor scrubs them at the
         # kwargs layer too — the positional-name redaction in igos_trace is
         # the enforcement; this is defense-in-depth (PI-ge9b04-D).
-        users.set_root_password(target, password=install_io["root_password"])
+        root_hash = users.set_root_password(
+            target, password=install_io["root_password"])
         users.create_user(
             target,
             install_io["username"],
@@ -847,8 +848,12 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
                 if progress_callback else None
             ),
         )
+        # The hooks run as root inside the target; one of them used to replace
+        # the root password the users phase wrote (R001.3 row 5). Prove the
+        # hash survived before this phase is called complete.
+        users.verify_root_password_kept(target, root_hash)
         result.phase_completed = PHASE_HOOKS
-        _emit(PHASE_HOOKS, 11, "post-install hooks complete")
+        _emit(PHASE_HOOKS, 11, "post-install hooks complete; root password kept")
 
         # PKM-E: signing (PHASE_BOOTLOADER) + post-install hooks have now mutated
         # some installed files AFTER pkm recorded their archive hashes — the
