@@ -301,6 +301,7 @@ def test_wireless_detected_via_phy80211(tmp_path):
     wlan.mkdir(parents=True)
     (wlan / "phy80211").mkdir()
     (tmp_path / "sys/class/net/lo").mkdir(parents=True)
+    _write_input_devices(tmp_path, INTERNAL_KB + TOUCHPAD)
 
     results = run_check("check_hardware_day_one", tmp_path)
     assert "wifi" not in message_of(results, "hw/day-one").split("| present")[0]
@@ -309,6 +310,7 @@ def test_wireless_detected_via_phy80211(tmp_path):
 def test_wireless_absent_is_reported(tmp_path):
     """Negative control for the guard above."""
     (tmp_path / "sys/class/net/eno1").mkdir(parents=True)
+    _write_input_devices(tmp_path, INTERNAL_KB + TOUCHPAD)
     results = run_check("check_hardware_day_one", tmp_path)
     assert "wifi" in message_of(results, "hw/day-one")
 
@@ -319,6 +321,7 @@ def test_day_one_all_present_passes(tmp_path):
                  "sys/class/net/wlp4s0/phy80211", "dev"):
         (tmp_path / path).mkdir(parents=True, exist_ok=True)
     (tmp_path / "dev/video0").write_text("")
+    _write_input_devices(tmp_path, INTERNAL_KB + TOUCHPAD)
     results = run_check("check_hardware_day_one", tmp_path)
     assert status_of(results, "hw/day-one") == "PASS"
 

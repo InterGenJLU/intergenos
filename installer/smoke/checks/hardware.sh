@@ -23,11 +23,10 @@
 #
 # THE PRINCIPLE
 # -------------
-# Absent hardware is not a defect; a desktop has no battery and no touchpad. The
-# defect is hardware that is PRESENT and UNUSABLE. So each check below asks two
-# questions in order — is the hardware here, and if so does it work — and only
-# the present-but-dead answer is a FAIL. Genuinely absent hardware is SKIP, so
-# the result stays readable on every form factor.
+# Absent hardware is not a defect; a desktop has no battery and no touchpad.
+# Capability checks therefore distinguish absent hardware from present-but-dead
+# hardware. The day-one inventory is a WARN-only laptop summary and first proves
+# that the machine matches the existing internal-keyboard/touchpad venue cue.
 #
 # THE HIGHEST-SIGNAL CHECK is the deferred-probe list. A device lands there when
 # the kernel WANTED to bind a driver and could not, then gave up. It is close to
@@ -50,6 +49,7 @@ SMOKE_HW_UNCLAIMED_OK_CLASSES=(
     "0604"  # PCI bridge
     "0500"  # RAM memory (PCH shared SRAM and similar)
     "0880"  # Base system peripheral (neural accelerator, timers and similar)
+    "1300"  # Non-Essential Instrumentation (dummy/reserved PCIe functions expose no device for a host driver)
 )
 
 # ---------------------------------------------------------------------------
@@ -111,8 +111,12 @@ check_hardware_deferred_probe() {
         return
     fi
 
-    local count entries
-    entries="$(cat "$node" 2>/dev/null)"
+    local count entries rc=0
+    entries="$(cat "$node" 2>&1)" || rc=$?
+    if [ "$rc" -ne 0 ]; then
+        check_warn "hw/deferred" "could not read $node (exit $rc)"
+        return
+    fi
     count="$(printf '%s' "$entries" | grep -c . || true)"
 
     if [ "$count" -eq 0 ]; then
@@ -158,7 +162,7 @@ check_hardware_unclaimed_pci() {
     done
 
     if [ "${#unclaimed[@]}" -eq 0 ]; then
-        check_pass "hw/unclaimed-pci" "every PCI function has a driver bound (bridges excepted)"
+        check_pass "hw/unclaimed-pci" "no unexpected unclaimed PCI functions (documented no-driver classes excepted)"
         return
     fi
     check_warn "hw/unclaimed-pci" "${#unclaimed[@]} unclaimed: ${unclaimed[*]}"
@@ -248,16 +252,23 @@ check_hardware_card_reader() {
 # Gated on the machine having an internal keyboard, which is what distinguishes
 # a laptop from a desktop that legitimately has no touchpad.
 # ---------------------------------------------------------------------------
-check_hardware_pointer() {
+smoke_hw_input_inventory() {
     local devices internal_kb touchpad
     devices="$(smoke_hw_p /proc/bus/input/devices)"
-    if [ ! -r "$devices" ]; then
+    [ -r "$devices" ] || return 1
+    internal_kb="$(grep -ci 'AT Translated Set 2 keyboard' "$devices" || true)"
+    touchpad="$(grep -ciE 'touchpad|trackpad|synaptics|elan.*(mouse|touch)' "$devices" || true)"
+    printf '%s %s\n' "$internal_kb" "$touchpad"
+}
+
+check_hardware_pointer() {
+    local devices inventory internal_kb touchpad
+    devices="$(smoke_hw_p /proc/bus/input/devices)"
+    if ! inventory="$(smoke_hw_input_inventory)"; then
         check_skip "hw/pointer" "$devices not readable"
         return
     fi
-
-    internal_kb="$(grep -ci 'AT Translated Set 2 keyboard' "$devices" || true)"
-    touchpad="$(grep -ciE 'touchpad|trackpad|synaptics|elan.*(mouse|touch)' "$devices" || true)"
+    read -r internal_kb touchpad <<<"$inventory"
 
     if [ "$touchpad" -gt 0 ]; then
         check_pass "hw/pointer" "touchpad present"
@@ -278,6 +289,18 @@ check_hardware_pointer() {
 # legitimately absent and a per-item FAIL would cry wolf.
 # ---------------------------------------------------------------------------
 check_hardware_day_one() {
+    local devices inventory internal_kb touchpad
+    devices="$(smoke_hw_p /proc/bus/input/devices)"
+    if ! inventory="$(smoke_hw_input_inventory)"; then
+        check_skip "hw/day-one" "cannot determine venue: $devices not readable"
+        return
+    fi
+    read -r internal_kb touchpad <<<"$inventory"
+    if [ "$internal_kb" -eq 0 ] && [ "$touchpad" -eq 0 ]; then
+        check_skip "hw/day-one" "non-laptop venue — laptop day-one inventory not applicable"
+        return
+    fi
+
     local missing=() present=()
 
     # Battery.
