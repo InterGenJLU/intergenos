@@ -177,11 +177,17 @@ check_hardware_unclaimed_pci() {
 # built. "Driver bound" is not "device works".
 # ---------------------------------------------------------------------------
 check_hardware_audio() {
-    local controller cards analog
-    controller=0
-    if command -v "$SMOKE_HW_LSPCI" >/dev/null 2>&1; then
-        controller="$("$SMOKE_HW_LSPCI" 2>/dev/null | grep -ciE 'audio device|audio controller|multimedia audio' || true)"
+    local controller cards analog pci_output pci_rc=0
+    if ! command -v "$SMOKE_HW_LSPCI" >/dev/null 2>&1; then
+        check_warn "hw/audio" "lspci not in PATH — audio-controller presence was not checked"
+        return
     fi
+    pci_output="$("$SMOKE_HW_LSPCI" 2>&1)" || pci_rc=$?
+    if [ "$pci_rc" -ne 0 ]; then
+        check_warn "hw/audio" "lspci failed (exit $pci_rc) — audio-controller presence is unknown"
+        return
+    fi
+    controller="$(grep -ciE 'audio device|audio controller|multimedia audio' <<<"$pci_output" || true)"
 
     if [ "$controller" -eq 0 ]; then
         check_skip "hw/audio" "no audio controller in this machine"
@@ -202,14 +208,18 @@ check_hardware_audio() {
     # A card that is HDMI-only means the machine can play sound through a monitor
     # and not through its own speakers. That is the exact half-working state the
     # laptop was in, and it must not read as healthy.
-    analog=0
-    if command -v "$SMOKE_HW_APLAY" >/dev/null 2>&1; then
-        analog="$("$SMOKE_HW_APLAY" -l 2>/dev/null | grep '^card' | grep -viE 'HDMI|DisplayPort' | grep -c . || true)"
-    else
+    if ! command -v "$SMOKE_HW_APLAY" >/dev/null 2>&1; then
         # No alsa-utils: fall back to the card list, and say the check was weaker.
         check_warn "hw/audio" "$cards card(s) registered; aplay absent so analog-vs-HDMI not distinguished"
         return
     fi
+    local aplay_output aplay_rc=0
+    aplay_output="$("$SMOKE_HW_APLAY" -l 2>&1)" || aplay_rc=$?
+    if [ "$aplay_rc" -ne 0 ]; then
+        check_warn "hw/audio" "aplay failed (exit $aplay_rc) — analog-vs-HDMI playback is unknown"
+        return
+    fi
+    analog="$(printf '%s\n' "$aplay_output" | grep '^card' | grep -viE 'HDMI|DisplayPort' | grep -c . || true)"
 
     if [ "$analog" -eq 0 ]; then
         check_fail "hw/audio" "$cards card(s) but NO analog playback device — built-in speakers cannot work"
@@ -225,11 +235,17 @@ check_hardware_audio() {
 # appear because the whole MMC subsystem was absent from the kernel.
 # ---------------------------------------------------------------------------
 check_hardware_card_reader() {
-    local reader hosts
-    reader=0
-    if command -v "$SMOKE_HW_LSPCI" >/dev/null 2>&1; then
-        reader="$("$SMOKE_HW_LSPCI" 2>/dev/null | grep -ciE 'sd host controller|mmc|card reader|rts5[0-9]' || true)"
+    local reader hosts pci_output pci_rc=0
+    if ! command -v "$SMOKE_HW_LSPCI" >/dev/null 2>&1; then
+        check_warn "hw/card-reader" "lspci not in PATH — card-reader presence was not checked"
+        return
     fi
+    pci_output="$("$SMOKE_HW_LSPCI" 2>&1)" || pci_rc=$?
+    if [ "$pci_rc" -ne 0 ]; then
+        check_warn "hw/card-reader" "lspci failed (exit $pci_rc) — card-reader presence is unknown"
+        return
+    fi
+    reader="$(grep -ciE 'sd host controller|mmc|card reader|rts5[0-9]' <<<"$pci_output" || true)"
 
     if [ "$reader" -eq 0 ]; then
         check_skip "hw/card-reader" "no card reader in this machine"

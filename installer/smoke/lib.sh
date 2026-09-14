@@ -174,6 +174,11 @@ emit_json() {
         local msg="${rest#*|}"
         msg="${msg//\\/\\\\}"
         msg="${msg//\"/\\\"}"
+        msg="${msg//$'\b'/\\b}"
+        msg="${msg//$'\f'/\\f}"
+        msg="${msg//$'\n'/\\n}"
+        msg="${msg//$'\r'/\\r}"
+        msg="${msg//$'\t'/\\t}"
         [ $first -eq 1 ] || printf ',\n'
         first=0
         printf '    {"status": "%s", "id": "%s", "message": "%s"}' \

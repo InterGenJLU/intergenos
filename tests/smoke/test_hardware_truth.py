@@ -19,12 +19,19 @@ HARDWARE_SH = SMOKE_DIR / "checks" / "hardware.sh"
 
 
 class HardwareTruthTests(unittest.TestCase):
-    def run_check(self, root: Path, function: str):
+    def run_check(
+        self,
+        root: Path,
+        function: str,
+        *,
+        lspci_body: str = "exit 0\n",
+        aplay_body: str = "exit 0\n",
+    ):
         bin_dir = root / "_stubs"
         bin_dir.mkdir(parents=True, exist_ok=True)
-        for name in ("lspci", "aplay"):
+        for name, body in (("lspci", lspci_body), ("aplay", aplay_body)):
             stub = bin_dir / name
-            stub.write_text("#!/usr/bin/bash\nexit 0\n")
+            stub.write_text("#!/usr/bin/bash\n" + body)
             stub.chmod(0o755)
         script = textwrap.dedent(
             f"""
@@ -135,6 +142,40 @@ class HardwareTruthTests(unittest.TestCase):
         status, _, message = self.one(rows, "hw/deferred")
         self.assertEqual(status, "WARN")
         self.assertIn("could not read", message)
+
+    def test_lspci_failure_is_not_reported_as_absent_hardware(self):
+        failing = "printf '%s\\n' 'PCI read failed' >&2\nexit 7\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rows = self.run_check(
+                root, "check_hardware_audio", lspci_body=failing
+            )
+            status, _, message = self.one(rows, "hw/audio")
+            self.assertEqual(status, "WARN")
+            self.assertIn("lspci failed", message)
+
+            rows = self.run_check(
+                root, "check_hardware_card_reader", lspci_body=failing
+            )
+        status, _, message = self.one(rows, "hw/card-reader")
+        self.assertEqual(status, "WARN")
+        self.assertIn("lspci failed", message)
+
+    def test_aplay_failure_is_not_reported_as_dead_analog_audio(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cards = root / "proc/asound/cards"
+            cards.parent.mkdir(parents=True)
+            cards.write_text(" 0 [Audio ]: HDA-Intel - Built-in Audio\n")
+            rows = self.run_check(
+                root,
+                "check_hardware_audio",
+                lspci_body="printf '%s\\n' '00:1f.3 Audio device: fixture'\n",
+                aplay_body="printf '%s\\n' 'ALSA query failed' >&2\nexit 8\n",
+            )
+        status, _, message = self.one(rows, "hw/audio")
+        self.assertEqual(status, "WARN")
+        self.assertIn("aplay failed", message)
 
 
 if __name__ == "__main__":

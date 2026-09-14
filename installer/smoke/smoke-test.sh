@@ -82,24 +82,45 @@ fi
 # ---------------------------------------------------------------------------
 # Source helpers + check modules
 # ---------------------------------------------------------------------------
+source_required() {
+    local path="$1"
+    if [ ! -r "$path" ]; then
+        printf 'smoke-test: required check module is unreadable: %s\n' "$path" >&2
+        exit 2
+    fi
+    if ! . "$path"; then
+        printf 'smoke-test: required check module failed to load: %s\n' "$path" >&2
+        exit 2
+    fi
+}
+
 # shellcheck source=lib.sh
-. "${SCRIPT_DIR}/lib.sh"
+source_required "${SCRIPT_DIR}/lib.sh"
 # shellcheck source=checks/pkm.sh
-. "${SCRIPT_DIR}/checks/pkm.sh"
+source_required "${SCRIPT_DIR}/checks/pkm.sh"
 # shellcheck source=checks/signing.sh
-. "${SCRIPT_DIR}/checks/signing.sh"
+source_required "${SCRIPT_DIR}/checks/signing.sh"
 # shellcheck source=checks/boot.sh
-. "${SCRIPT_DIR}/checks/boot.sh"
+source_required "${SCRIPT_DIR}/checks/boot.sh"
 # shellcheck source=checks/services.sh
-. "${SCRIPT_DIR}/checks/services.sh"
+source_required "${SCRIPT_DIR}/checks/services.sh"
 # shellcheck source=checks/gaming.sh
-. "${SCRIPT_DIR}/checks/gaming.sh"
+source_required "${SCRIPT_DIR}/checks/gaming.sh"
 # shellcheck source=checks/chronicle.sh
-. "${SCRIPT_DIR}/checks/chronicle.sh"
+source_required "${SCRIPT_DIR}/checks/chronicle.sh"
 # shellcheck source=checks/capture.sh
-. "${SCRIPT_DIR}/checks/capture.sh"
+source_required "${SCRIPT_DIR}/checks/capture.sh"
 # shellcheck source=checks/hardware.sh
-. "${SCRIPT_DIR}/checks/hardware.sh"
+source_required "${SCRIPT_DIR}/checks/hardware.sh"
+
+for required_runner in \
+    run_pkm_checks run_signing_checks run_boot_checks run_services_checks \
+    run_gaming_checks run_chronicle_checks run_capture_checks run_hardware_checks; do
+    if ! declare -F "$required_runner" >/dev/null 2>&1; then
+        printf 'smoke-test: required check runner was not loaded: %s\n' "$required_runner" >&2
+        exit 2
+    fi
+done
 
 # ---------------------------------------------------------------------------
 # Run the eight categories. Each run_*_checks function emits its own

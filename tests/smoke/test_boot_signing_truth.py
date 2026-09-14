@@ -309,7 +309,7 @@ class SigningTruthTests(ShellCheckCase):
                 stubs={"sbverify": "printf '%s\\n' 'image signature issuer: /CN=fixture/'\n"},
             )
         status, _, message = self.one(rows, "sign/chain-root")
-        self.assertEqual(status, "PASS")
+        self.assertEqual(status, "WARN")
         self.assertIn("PE signature records", message)
         self.assertIn("trust roots not validated here", message)
 
@@ -333,6 +333,44 @@ class SigningTruthTests(ShellCheckCase):
         status, _, message = self.one(rows, "sign/chain-root")
         self.assertEqual(status, "WARN")
         self.assertIn("re-run as root:", message)
+
+    def test_empty_audit_log_cannot_pass_as_an_unbroken_chain(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            audit = Path(tmp) / "audit.jsonl"
+            audit.write_text("")
+            rows = self.run_check(
+                SIGNING_SH,
+                "check_signing_audit_log",
+                env_update={"SMOKE_INTEGRITY_AUDIT_LOG": str(audit)},
+            )
+        self.assertEqual(self.one(rows, "sign/audit-log")[0], "FAIL")
+
+    def test_audit_log_requires_genesis_and_does_not_overclaim_hash_validation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            audit = Path(tmp) / "audit.jsonl"
+            audit.write_text(
+                '{"prev":"wrong","entry_sha256":"aaaa"}\n'
+                '{"prev":"aaaa","entry_sha256":"bbbb"}\n'
+            )
+            rows = self.run_check(
+                SIGNING_SH,
+                "check_signing_audit_log",
+                env_update={"SMOKE_INTEGRITY_AUDIT_LOG": str(audit)},
+            )
+            self.assertEqual(self.one(rows, "sign/audit-log")[0], "FAIL")
+
+            audit.write_text(
+                '{"prev":"GENESIS","entry_sha256":"aaaa"}\n'
+                '{"prev":"aaaa","entry_sha256":"bbbb"}\n'
+            )
+            rows = self.run_check(
+                SIGNING_SH,
+                "check_signing_audit_log",
+                env_update={"SMOKE_INTEGRITY_AUDIT_LOG": str(audit)},
+            )
+        status, _, message = self.one(rows, "sign/audit-log")
+        self.assertEqual(status, "WARN")
+        self.assertIn("entry hashes not recomputed", message)
 
 
 if __name__ == "__main__":

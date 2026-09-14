@@ -32,6 +32,7 @@ SMOKE_KEYCTL="${SMOKE_KEYCTL:-keyctl}"
 SMOKE_SBVERIFY="${SMOKE_SBVERIFY:-sbverify}"
 SMOKE_EUID="${SMOKE_EUID:-$(id -u)}"
 SMOKE_SB_STATE_OVERRIDE="${SMOKE_SB_STATE_OVERRIDE:-}"
+SMOKE_INTEGRITY_AUDIT_LOG="${SMOKE_INTEGRITY_AUDIT_LOG:-/var/log/igos-integrity-override.log}"
 # Module-signing enforcement inputs (overridable so the check can be driven
 # against a fixture: tests/test_smoke_module_sig_force_pipefail.py). An empty
 # SMOKE_KCONFIG means "the kernel's own config" (/proc/config.gz, then
@@ -130,10 +131,19 @@ check_signing_audit_log() {
     # and copied onto the installed target by integrity.copy_audit_log_to_target().
     # Path matches backend/integrity.py + frontend/{tui.py,gui/screens/progress.py}
     # INTEGRITY_AUDIT_LOG constants (single source of truth).
-    local log="/var/log/igos-integrity-override.log"
+    local log="$SMOKE_INTEGRITY_AUDIT_LOG" state
 
-    if [ ! -f "$log" ]; then
+    state="$(smoke_path_state "$log")"
+    if [ "$state" = "absent" ]; then
         check_skip "sign/audit-log" "$log not present (manifest verification didn't run on this install)"
+        return
+    fi
+    if [ "$state" = "unreadable" ]; then
+        check_warn "sign/audit-log" "$log is unreadable — $(smoke_root_rerun)"
+        return
+    fi
+    if [ ! -s "$log" ]; then
+        check_fail "sign/audit-log" "$log is present but empty"
         return
     fi
 
@@ -158,6 +168,10 @@ check_signing_audit_log() {
             check_fail "sign/audit-log" "line $lineno missing entry_sha256"
             return
         fi
+        if [ "$lineno" -eq 1 ] && [ "$ph" != "GENESIS" ]; then
+            check_fail "sign/audit-log" "line 1 prev is not GENESIS"
+            return
+        fi
         if [ -n "$expected" ] && [ "$ph" != "$expected" ]; then
             check_fail "sign/audit-log" "hash chain broken at line $lineno"
             return
@@ -165,7 +179,10 @@ check_signing_audit_log() {
         expected="$th"
     done < "$log"
 
-    check_pass "sign/audit-log" "$lineno events, chain unbroken"
+    # This shell check proves only genesis + link continuity. It does not
+    # canonicalize each event and recompute entry_sha256, so a full tamper
+    # verdict remains outside what it can honestly claim.
+    check_warn "sign/audit-log" "$lineno linked events; entry hashes not recomputed by this harness"
 }
 
 # ---------------------------------------------------------------------------
@@ -495,7 +512,7 @@ check_signing_chain_root() {
 
     # `--list` proves the PE files carry signature records. It does not validate
     # either signer against an expected certificate, so make that residue loud.
-    check_pass "sign/chain-root" "shim + grub carry PE signature records (trust roots not validated here)"
+    check_warn "sign/chain-root" "shim + grub carry PE signature records (trust roots not validated here)"
 }
 
 # ===========================================================================
@@ -511,7 +528,7 @@ check_signing_chain_root() {
 # re-dormancy this effort closes.
 # ===========================================================================
 
-_ii_audit_log="/var/log/igos-integrity-override.log"
+_ii_audit_log="$SMOKE_INTEGRITY_AUDIT_LOG"
 
 _ii_latest_forge_trace() {
     ls -1t /var/log/forge-install-*.log 2>/dev/null | head -1
