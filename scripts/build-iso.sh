@@ -556,7 +556,8 @@ echo "[build-iso]   LOG:        $LOG_FILE"
 # --------------------------------------------------------------------------
 
 STAGING=$(mktemp -d -t build-iso-XXXXXX)
-trap 'rm -rf "$STAGING"' EXIT
+_XORRISO_WORKDIR=""
+trap 'rm -rf "$STAGING"; if [ -n "$_XORRISO_WORKDIR" ]; then rm -rf "$_XORRISO_WORKDIR"; fi' EXIT
 
 ESP_TREE="${STAGING}/esp-tree"
 ESP_IMG="${STAGING}/efi.img"
@@ -774,7 +775,12 @@ mkdir -p "$(dirname "$OUTPUT")"
 #                                   from the same .iso file when burned
 #   --mbr-force-bootable          : force the MBR partition flag bootable
 #                                   (some BIOSes require this)
+# Write to an owned temporary directory on the output filesystem. A failed
+# authoring attempt must not destroy an artifact already at the final path.
+_XORRISO_WORKDIR=$(mktemp -d "${OUTPUT}.partial.XXXXXX")
+_XORRISO_OUTPUT="${_XORRISO_WORKDIR}/image.iso"
 _XORRISO_START_MS=$(date +%s%3N)
+_XORRISO_RC=0
 if [ "${IGOS_TRACE_LIB_LOADED:-0}" = "1" ]; then
     trace_event xorriso_invoke output="$OUTPUT" volid="$VOLID" esp_img="$ESP_IMG"
 fi
@@ -790,21 +796,27 @@ xorriso \
     -no-emul-boot \
     -isohybrid-gpt-basdat \
     --mbr-force-bootable \
-    -output "$OUTPUT" \
-    "$ISO_ROOT"
-_XORRISO_RC=$?
+    -output "$_XORRISO_OUTPUT" \
+    "$ISO_ROOT" || _XORRISO_RC=$?
 if [ "${IGOS_TRACE_LIB_LOADED:-0}" = "1" ]; then
     trace_event xorriso_done output="$OUTPUT" rc::=$_XORRISO_RC \
         duration_ms::=$(( $(date +%s%3N) - _XORRISO_START_MS ))
 fi
 
-if [ ! -f "$OUTPUT" ]; then
+if [ "$_XORRISO_RC" -ne 0 ]; then
+    echo "FAIL: xorriso failed for $OUTPUT (exit $_XORRISO_RC)" >&2
+    exit "$_XORRISO_RC"
+fi
+
+if [ ! -f "$_XORRISO_OUTPUT" ]; then
     echo "FAIL: xorriso did not produce $OUTPUT" >&2
     if [ "${IGOS_TRACE_LIB_LOADED:-0}" = "1" ]; then
         build_failure_emit --where build-iso.sh:xorriso --why "xorriso did not produce $OUTPUT" --phase iso
     fi
     exit 1
 fi
+
+mv -T -- "$_XORRISO_OUTPUT" "$OUTPUT"
 
 # --------------------------------------------------------------------------
 # Step 5: self-verify
