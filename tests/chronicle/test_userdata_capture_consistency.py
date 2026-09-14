@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from chronicle import config, engine, paths, userdata
+from chronicle import api, config, engine, paths, userdata
 
 
 @pytest.fixture
@@ -88,3 +88,28 @@ def test_source_change_refuses_capture_and_removes_staging(
 
     assert not eng.list_versions(paths.LAYER_USER_DATA)
     assert not list((eng.target_root() / "userdata").glob(".staging-*"))
+
+
+def test_cleanup_failure_is_visible_to_capture_clients(capture_store, monkeypatch):
+    eng, document = capture_store
+    real_copy = userdata.shutil.copy2
+
+    def copy_then_change(source, target, *args, **kwargs):
+        result = real_copy(source, target, *args, **kwargs)
+        if Path(source) == document:
+            document.write_bytes(b"BBBB")
+        return result
+
+    def fail_cleanup(_path):
+        raise OSError("cleanup could not remove staging")
+
+    monkeypatch.setattr(userdata.shutil, "copy2", copy_then_change)
+    monkeypatch.setattr(userdata.shutil, "rmtree", fail_cleanup)
+
+    response = api.dispatch(
+        eng, {"verb": "capture", "args": {"layer": paths.LAYER_USER_DATA}}
+    )
+
+    assert not response["ok"]
+    assert "source changed during capture" in response["error"]
+    assert "cleanup could not remove staging" in response["error"]

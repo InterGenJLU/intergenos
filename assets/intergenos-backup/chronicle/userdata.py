@@ -134,7 +134,10 @@ def capture(source_roots, target_root, prev_manifest, sequence, wall_clock,
         try:
             shutil.rmtree(staging)
         except OSError as cleanup_error:
-            error.add_note(f"staging cleanup failed: {cleanup_error}")
+            raise RuntimeError(
+                f"capture failed: {error}; "
+                f"staging cleanup failed: {cleanup_error}"
+            ) from error
         raise
 
     manifest = _manifest.build_manifest(
