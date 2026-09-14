@@ -795,6 +795,30 @@ phase_validate() {
     log "Running host requirements check..."
     python3 "${SCRIPTS}/host-check.py" 2>&1 | tee -a "$BUILD_LOG"
 
+    # Release-identity gate (R001.3 row 42, decided 2026-09-14): the release
+    # is declared ONCE (base-files' igos-release) and every other identity
+    # source must state it — the three files beside it here in the tree, and
+    # the ISO name of this launch chain (no `rc` prefix: since the first
+    # release there are no candidates). Re-fired against the BUILT chroot and
+    # the os-release stamp by build-squashfs Step 2.8, and against the final
+    # ISO name by phase_iso. UNSIGNED_TEST media keep the four-file check
+    # fatal and take the name as a warning (they carry the dev marker).
+    log "Running release-identity gate (one declared release, every source agrees)..."
+    local identity_args=()
+    if [ -n "$ISO_NAME" ]; then
+        identity_args+=(--iso-name "$ISO_NAME")
+    elif [ -s "$ISO_NAME_FILE" ]; then
+        identity_args+=(--iso-name-file "$ISO_NAME_FILE")
+    fi
+    if [ "${UNSIGNED_TEST:-0}" = "1" ]; then
+        identity_args+=(--mode test)
+    fi
+    python3 "${SCRIPTS}/check-release-identity.py" "${identity_args[@]}" 2>&1 | tee -a "$BUILD_LOG"
+    if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+        log "error: release-identity gate failed — the identity sources above disagree; fix the tree (scripts/set-release-identity.py) or the --iso-name, never the gate"
+        return 1
+    fi
+
     # Build Development Rulebook Rule 17: pre-flight tier-coverage check.
     # Halts the build if any tier-declared package is unreachable from its
     # phase's build invocation. This is the mechanical guard against the
@@ -2722,6 +2746,32 @@ phase_iso() {
     fi
     local iso_out="/mnt/intergenos/build/${iso_name}"
     log "  ISO name: ${iso_name} (source: ${iso_name_src})"
+
+    # Release-identity gate, final leg (R001.3 row 42): the ISO minted now
+    # must carry the tag the squashfs was stamped with (build/.image-version,
+    # written by build-squashfs Step 2.8) and the name must state the one
+    # declared release. A chain whose squashfs predates the stamp record
+    # cannot prove its identity and is refused in release mode.
+    local image_version_file="/mnt/intergenos/build/.image-version"
+    local identity_args=(--iso-name "$iso_name")
+    if [ "${UNSIGNED_TEST:-0}" = "1" ]; then
+        identity_args+=(--mode test)
+    fi
+    if [ -s "$image_version_file" ]; then
+        identity_args+=(--image-version-file "$image_version_file")
+    elif [ "${UNSIGNED_TEST:-0}" != "1" ]; then
+        log "  error: ${image_version_file} is absent — this squashfs was built before the identity stamp record;"
+        log "  re-run --start-at squashfs so the image carries a proven IMAGE_VERSION (release mode refuses)."
+        return 1
+    else
+        log "  warning: ${image_version_file} absent (UNSIGNED_TEST=1) — the name/stamp agreement is unproven for this dev ISO"
+    fi
+    log "  release-identity gate (final ISO name vs the squashfs stamp)..."
+    python3 "${SCRIPTS}/check-release-identity.py" "${identity_args[@]}" 2>&1 | tee -a "$BUILD_LOG"
+    if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+        log "  error: release-identity gate failed at phase_iso — the ISO name and the stamped image disagree; keep the launch name or rebuild squashfs"
+        return 1
+    fi
 
     if [ ! -d "$bootloader_dir" ]; then
         log "  error: bootloader dir missing: $bootloader_dir"

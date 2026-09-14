@@ -683,6 +683,30 @@ if [ -f "$ISO_NAME_FILE" ]; then
     BUILD_TAG="${_iso_base#intergenos-}"
     BUILD_TAG="${BUILD_TAG%.iso}"
 fi
+# Release-identity gate, chroot leg (R001.3 row 42, decided 2026-09-14): the
+# four identity files BUILT into the chroot must state the release the tree
+# declares (a chroot still carrying the previous intergenos-base-files is
+# refused here, before it ships), and the launch name must be a release name
+# (intergenos-<release>.iso, an optional re-mint ordinal, no `rc`). In release
+# mode a launch chain without a name is refused too: an `unnamed-<date>`
+# IMAGE_VERSION is not a release identity. UNSIGNED_TEST media keep the chroot
+# check fatal and take the name as a warning.
+IDENTITY_GATE="/mnt/intergenos/scripts/check-release-identity.py"
+if [ ! -f "$IDENTITY_GATE" ]; then
+    die "check-release-identity.py not found beside build-squashfs.sh — refusing to stamp an unproven identity"
+fi
+_identity_args=(--packages /mnt/intergenos/packages --chroot "$CHROOT" --require-iso-name)
+if [ -f "$ISO_NAME_FILE" ]; then
+    _identity_args+=(--iso-name-file "$ISO_NAME_FILE")
+fi
+if [ "${UNSIGNED_TEST:-0}" = "1" ]; then
+    _identity_args+=(--mode test)
+fi
+if ! python3 "$IDENTITY_GATE" "${_identity_args[@]}"; then
+    die "release-identity gate FAILED before the stamp — the chroot's identity files or the launch name disagree with the declared release (see the lines above)"
+fi
+status_line "release-identity gate (chroot + launch name)" PASS
+
 if [ -z "$BUILD_TAG" ]; then
     BUILD_TAG="unnamed-$(date -u -d "@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y%m%d)"
     warn "no build/.iso-name — stamping BUILD_ID=$BUILD_TAG (launch with --iso-name for a real candidate tag)"
@@ -695,6 +719,23 @@ if [ -f "$CHROOT/etc/os-release" ]; then
 else
     die "chroot /etc/os-release missing — cannot stamp build identity (base-files absent?)"
 fi
+
+# Re-fire the gate on the stamped file: BUILD_ID and IMAGE_VERSION must be the
+# launch name's tag in the os-release character set. Then record the tag
+# beside the build so phase_iso can prove the minted ISO carries it.
+_stamp_args=(--packages /mnt/intergenos/packages --os-release "$CHROOT/etc/os-release")
+if [ -f "$ISO_NAME_FILE" ]; then
+    _stamp_args+=(--iso-name-file "$ISO_NAME_FILE")
+fi
+if [ "${UNSIGNED_TEST:-0}" = "1" ]; then
+    _stamp_args+=(--mode test)
+fi
+if ! python3 "$IDENTITY_GATE" "${_stamp_args[@]}"; then
+    die "release-identity gate FAILED after the stamp — BUILD_ID/IMAGE_VERSION do not state the declared release"
+fi
+printf '%s\n' "$BUILD_TAG" > /mnt/intergenos/build/.image-version
+log "identity stamp recorded: /mnt/intergenos/build/.image-version = $BUILD_TAG"
+status_line "release-identity gate (os-release stamp)" PASS
 
 # ----------------------------------------------------------------------------
 # Step 3: Clean runtime trash

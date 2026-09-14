@@ -400,6 +400,21 @@ a failing signature, a wrong key, or any page drift refuses in every mode;
 only a wholly absent wiki (a from-source dev image with no rendered book
 staged) downgrades to a warning, and only under `UNSIGNED_TEST=1`.
 
+## Gate — Release identity: "identity disagreement(s) against the declared release"
+
+**What it checks.** The release is declared ONCE, in `packages/core/intergenos-base-files/files/etc/igos-release` (`R001.3`). `scripts/check-release-identity.py` requires every other identity source to state it: the three files beside it in the recipe (`os-release` VERSION/VERSION_ID/VERSION_CODENAME/PRETTY_NAME, `lsb-release` DISTRIB_RELEASE/DISTRIB_CODENAME/DISTRIB_DESCRIPTION, the `issue` banner); the same four files as built into the chroot; the ISO name of the launch chain (`intergenos-<release>.iso`, an optional re-mint ordinal such as `-02`, no `rc` prefix); the `BUILD_ID`/`IMAGE_VERSION` stamp; and the tag recorded at the stamp (`build/.image-version`) against the name the ISO is finally minted under. It fires in the validate phase (tree + launch name), before and after the squashfs identity stamp (chroot, stamp), and in the ISO phase (final name). The installed-system gate tier carries the same check for a real install (`tests/installed/test_gate_release_identity.py`).
+
+**Why it exists.** One installed system read R001.1 at the top of `cat /etc/*release` and `rc001.2` at the bottom: the recipe's identity had moved but the chroot had not rebuilt it, and the ISO name carried a candidate prefix from before the first release. Nothing compared the sources.
+
+**How to clear it — never by editing the gate.**
+
+- *The four recipe files disagree:* run `python3 scripts/set-release-identity.py <release>` (for example `R001.3`); it rewrites all four consistently and re-runs the gate. Commit with the recipe's ordinary release bump.
+- *The chroot disagrees with the tree:* the chroot carries the previous `intergenos-base-files`; rebuild that package into the chroot before squashfs (the targeted-build delta must include it whenever the identity moved).
+- *The ISO name disagrees:* relaunch with `--iso-name intergenos-<release>.iso` (a re-mint: `intergenos-<release>-02.iso`). A release build with no name at all is refused at squashfs.
+- *The final ISO name differs from the stamped tag:* keep the launch name, or re-run `--start-at squashfs` under the new name so the image is stamped with it.
+
+`UNSIGNED_TEST=1` (a development ISO, which carries the dev marker and can never be a release) keeps the four-file agreement fatal and reports the name and stamp disagreements as warnings.
+
 ## Gate — Release validation: "this release has no signed installed-gate run"
 
 Fires on every release path — a promotion to `master`, an installation image,
