@@ -53,7 +53,24 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
 
+from . import trace
+
 LOG = logging.getLogger("forge.disks")
+
+# Every command this module runs goes through the install trace (decided
+# 2026-09-14, R001.3 row S1-28). The 2026-09-05 hub install's trace held
+# `run_install_entry` and then nothing for 23 seconds until the target sink
+# attached: wipefs, parted, mkfs and cryptsetup — the one destructive step of
+# an install — were recorded nowhere, so the target was provable only from
+# the outcome. Now each command is a subprocess_start/subprocess_end pair
+# (argv, rc, output, duration; a passphrase fed on stdin is withheld by the
+# writer's credential rule with its byte count kept), the phase opens and
+# closes with a row that states the layout, and a failure is a row before it
+# is an exception. These phase labels match install.py's PHASE_* strings.
+TRACE_PHASE_PARTITION = "partition"
+TRACE_PHASE_MOUNT = "mount"
+TRACE_PHASE_CLEANUP = "cleanup"
+TRACE_PHASE_DETECT = "detect"
 
 
 # v1.x-prep — InstallMode is currently unused. The v1.0 fresh-install
@@ -201,9 +218,9 @@ def _lsblk_device_fields(dev_path):
     column, shifting TRAN into its place. Returns {} on any failure.
     """
     try:
-        result = subprocess.run(
-            ["lsblk", "-Pdno", "PKNAME,TRAN", dev_path],
-            capture_output=True, text=True, timeout=10,
+        result = trace.traced_run(
+            ["lsblk", "-Pdno", "PKNAME,TRAN", dev_path], timeout=10,
+            phase=TRACE_PHASE_DETECT, intent="read a device's parent and transport",
         )
     except (subprocess.TimeoutExpired, OSError):
         return {}
@@ -234,9 +251,9 @@ def live_media_kind():
     """
     for prefix in _LIVE_MEDIA_MOUNT_PREFIXES:
         try:
-            result = subprocess.run(
-                ["findmnt", "-rno", "SOURCE", prefix],
-                capture_output=True, text=True, timeout=10,
+            result = trace.traced_run(
+                ["findmnt", "-rno", "SOURCE", prefix], timeout=10,
+                phase=TRACE_PHASE_DETECT, intent="find the live medium's device",
             )
         except (subprocess.TimeoutExpired, OSError):
             return None
@@ -280,10 +297,10 @@ def detect_disks():
     # timeout we treat as no-disks-detected; the frontend then surfaces
     # an explicit error rather than an unbounded spinner.
     try:
-        result = subprocess.run(
+        result = trace.traced_run(
             ["lsblk", "-J", "-b", "-o",
              "NAME,SIZE,MODEL,RM,TYPE,FSTYPE,MOUNTPOINT,LABEL,UUID,PATH"],
-            capture_output=True, text=True, timeout=30,
+            timeout=30, phase=TRACE_PHASE_DETECT, intent="enumerate block devices",
         )
     except subprocess.TimeoutExpired:
         return []
@@ -389,7 +406,8 @@ def _release_disk(disk_path):
         # busy` gave no clue which holder was stuck. Debug-log the outcome so a
         # post-mortem can see it, without warning-noise on the benign cases.
         try:
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            r = trace.traced_run(cmd, timeout=60, phase=TRACE_PHASE_PARTITION,
+                                 intent=f"release a holder on {disk_path} (best effort)")
             if r.returncode != 0:
                 LOG.debug("release best-effort %s -> rc=%d (%s)",
                           cmd, r.returncode, (r.stderr or "").strip())
@@ -406,9 +424,9 @@ def _release_disk(disk_path):
 
     # Enumerate the disk's block tree: bare kernel name + type + mountpoint.
     try:
-        listing = subprocess.run(
-            ["lsblk", "-rno", "NAME,TYPE,MOUNTPOINT", disk_path],
-            capture_output=True, text=True, timeout=15).stdout
+        listing = trace.traced_run(
+            ["lsblk", "-rno", "NAME,TYPE,MOUNTPOINT", disk_path], timeout=15,
+            phase=TRACE_PHASE_PARTITION, intent="list the target's holders").stdout
     except Exception:
         listing = ""
     rows = []
@@ -432,9 +450,9 @@ def _release_disk(disk_path):
     vgs = []
     for name, _typ, _mnt in rows:
         try:
-            out = subprocess.run(
-                ["pvs", "--noheadings", "-o", "vg_name", _node(name)],
-                capture_output=True, text=True, timeout=15).stdout
+            out = trace.traced_run(
+                ["pvs", "--noheadings", "-o", "vg_name", _node(name)], timeout=15,
+                phase=TRACE_PHASE_PARTITION, intent="find volume groups on the target").stdout
         except Exception:
             out = ""
         for vg in out.split():
@@ -507,6 +525,30 @@ def partition_disk(disk_path, efi=False, luks_enabled=False, luks_passphrase=Non
     """
     # D-005 Phase B pre-check: disk size sufficient for ESP + meaningful root
     disk_size = _disk_size_bytes(disk_path)
+    trace.trace_event("disk_phase_begin", phase=TRACE_PHASE_PARTITION,
+                      disk=disk_path, disk_size_bytes=disk_size, efi=bool(efi),
+                      luks_enabled=bool(luks_enabled), tpm2_enabled=bool(tpm2_enabled),
+                      fido2_enabled=bool(fido2_enabled), dry_run=bool(_DRY_RUN))
+    try:
+        layout = _partition_disk(disk_path, disk_size, efi, luks_enabled,
+                                 luks_passphrase, tpm2_enabled, fido2_enabled,
+                                 fido2_progress_callback)
+    except BaseException as exc:
+        # The failure is a row before it is an exception: the command rows
+        # above it already carry the rc and stderr; this names the step's
+        # outcome. Messages from the LUKS helpers are scrubbed of the
+        # passphrase before they are raised (see _scrub_passphrase_from_text).
+        trace.trace_event("disk_phase_failed", phase=TRACE_PHASE_PARTITION,
+                          disk=disk_path, error=f"{type(exc).__name__}: {exc}"[:2000])
+        raise
+    trace.trace_event("disk_phase_end", phase=TRACE_PHASE_PARTITION,
+                      disk=disk_path, layout=dict(layout))
+    return layout
+
+
+def _partition_disk(disk_path, disk_size, efi, luks_enabled, luks_passphrase,
+                    tpm2_enabled, fido2_enabled, fido2_progress_callback):
+    """partition_disk's body; the wrapper above opens and closes the trace phase."""
     if disk_size < FRESH_INSTALL_MIN_DISK_BYTES:
         raise RuntimeError(
             f"target disk {disk_path} is {_human_size(disk_size)} — "
@@ -738,10 +780,13 @@ def luks2_format(partition_path, passphrase):
         return
 
     try:
-        result = subprocess.run(
+        # Through the trace: argv, rc, stderr and duration are recorded; the
+        # passphrase on stdin is withheld by the writer's credential rule
+        # (cryptsetup is a listed consumer), its byte count kept.
+        result = trace.traced_run(
             cmd,
             input=bytes(passphrase_bytes),
-            capture_output=True,
+            phase=TRACE_PHASE_PARTITION, intent=f"LUKS2-format {partition_path}",
         )
         if result.returncode != 0:
             # stderr is safe to surface (cryptsetup doesn't echo the
@@ -799,10 +844,10 @@ def luks_open(partition_path, passphrase, name=LUKS_MAPPER_NAME):
         return mapper_path
 
     try:
-        result = subprocess.run(
+        result = trace.traced_run(
             cmd,
             input=bytes(passphrase_bytes),
-            capture_output=True,
+            phase=TRACE_PHASE_PARTITION, intent=f"open {partition_path} as {name}",
         )
         if result.returncode != 0:
             stderr_text = _scrub_passphrase_from_text(
@@ -977,8 +1022,9 @@ def tpm2_seal_random_key(intergen_dir, luks_partition, luks_passphrase):
                    "--sealing-input=-",
                    f"--public={secret_pub}",
                    f"--private={secret_priv}"]
-            res = subprocess.run(cmd, input=bytes(random_secret),
-                                 capture_output=True)
+            res = trace.traced_run(cmd, input=bytes(random_secret),
+                                   phase=TRACE_PHASE_PARTITION,
+                                   intent="seal the TPM2 unlock secret")
             if res.returncode != 0:
                 raise RuntimeError(
                     f"tpm2_create failed (exit {res.returncode}): "
@@ -1110,7 +1156,8 @@ def _tpm2(argv, allow_fail=False):
     if _DRY_RUN:
         print(f"  [DRY-RUN] {' '.join(cmd)}")
         return
-    res = subprocess.run(cmd, capture_output=True)
+    res = trace.traced_run(cmd, input=b"", phase=TRACE_PHASE_PARTITION,
+                           intent=f"TPM2: {argv[0]}")
     if res.returncode != 0 and not allow_fail:
         raise RuntimeError(
             f"{argv[0]} failed (exit {res.returncode}): "
@@ -1121,8 +1168,8 @@ def _tpm2(argv, allow_fail=False):
 def _fido2_first_token():
     """Return the first FIDO2 token device path enumerated by
     fido2-token -L, or None if no token is plugged."""
-    res = subprocess.run([_fido2_path("fido2-token"), "-L"],
-                         capture_output=True, text=True)
+    res = trace.traced_run([_fido2_path("fido2-token"), "-L"],
+                           phase=TRACE_PHASE_PARTITION, intent="list FIDO2 tokens")
     if res.returncode != 0 or not res.stdout.strip():
         return None
     # fido2-token -L output format: "<device-path>: vendor=0x... product=0x..."
@@ -1147,9 +1194,9 @@ def _fido2_make_credential(token_dev):
         "intergenos-user\n"
         f"{user_id}\n"
     )
-    res = subprocess.run(
-        [_fido2_path("fido2-cred"), "-M", "-h", token_dev],
-        input=stdin_text, capture_output=True, text=True,
+    res = trace.traced_run(
+        [_fido2_path("fido2-cred"), "-M", "-h", token_dev], input=stdin_text,
+        phase=TRACE_PHASE_PARTITION, intent="enrol a FIDO2 credential (touch the token)",
     )
     if res.returncode != 0:
         raise RuntimeError(
@@ -1203,9 +1250,12 @@ def _fido2_assert_hmac(token_dev, cred_id, nonce):
         f"{cred_id_b64}\n"
         f"{nonce_b64}\n"
     )
-    res = subprocess.run(
+    # fido2-assert prints the hmac secret that becomes the LUKS slot key: the
+    # writer withholds its stdout by name (credential producer), count kept.
+    res = trace.traced_run(
         [_fido2_path("fido2-assert"), "-G", "--hmac-secret", "-h", token_dev],
-        input=stdin_text, capture_output=True, text=True,
+        input=stdin_text, phase=TRACE_PHASE_PARTITION,
+        intent="derive the FIDO2 unlock secret (touch the token)",
     )
     if res.returncode != 0:
         raise RuntimeError(
@@ -1265,7 +1315,8 @@ def _luks_add_key_with_existing(luks_partition, existing_key, new_key):
                "--key-file=-",
                luks_partition,
                new_key_path]
-        res = subprocess.run(cmd, input=existing_key, capture_output=True)
+        res = trace.traced_run(cmd, input=existing_key, phase=TRACE_PHASE_PARTITION,
+                               intent=f"add an unlock key slot on {luks_partition}")
         if res.returncode != 0:
             raise RuntimeError(
                 f"cryptsetup luksAddKey failed (exit {res.returncode}): "
@@ -1319,9 +1370,9 @@ def is_bitlocker_encrypted(partition_path):
     BitLocker volume — ntfsresize would either refuse or, worse, corrupt
     the encrypted data. Return True if encrypted (skip this partition).
     """
-    result = subprocess.run(
+    result = trace.traced_run(
         ["blkid", "-s", "TYPE", "-o", "value", partition_path],
-        capture_output=True, text=True
+        phase=TRACE_PHASE_DETECT, intent="read a partition's filesystem type",
     )
     if result.returncode != 0:
         return False
@@ -1363,9 +1414,9 @@ def detect_shrinkable_ntfs(disk, min_free_bytes=ALONGSIDE_MIN_ROOT_BYTES):
         if is_bitlocker_encrypted(p.path):
             continue
         # Probe used space via ntfsresize --info --no-action
-        result = subprocess.run(
+        result = trace.traced_run(
             ["ntfsresize", "--info", "--no-action", p.path],
-            capture_output=True, text=True
+            phase=TRACE_PHASE_DETECT, intent="measure an NTFS volume's used space",
         )
         if result.returncode != 0:
             continue
@@ -1489,13 +1540,15 @@ def mount_target(partitions, target="/mnt/target"):
 
     # Mount root — prefer the LUKS mapper if present, else the bare partition
     root_device = partitions.get("root_mapper") or partitions["root"]
-    _run(f"mount {root_device} {target}")
+    _run(f"mount {root_device} {target}", phase=TRACE_PHASE_MOUNT,
+         intent="mount the target root")
 
     # Mount ESP if EFI
     if partitions.get("efi"):
         esp_mount = f"{target}/boot/efi"
         os.makedirs(esp_mount, exist_ok=True)
-        _run(f"mount {partitions['esp']} {esp_mount}")
+        _run(f"mount {partitions['esp']} {esp_mount}", phase=TRACE_PHASE_MOUNT,
+             intent="mount the EFI system partition")
 
     return target
 
@@ -1503,10 +1556,13 @@ def mount_target(partitions, target="/mnt/target"):
 def unmount_target(target="/mnt/target"):
     """Unmount all filesystems under target."""
     # Unmount in reverse order
+    # Each result is recorded (rc, stderr) even though none is acted on here.
     for sub in ["boot/efi", "dev/pts", "dev", "proc", "sys", "run"]:
         path = f"{target}/{sub}"
-        subprocess.run(["umount", path], capture_output=True)
-    subprocess.run(["umount", target], capture_output=True)
+        trace.traced_run(["umount", path], phase=TRACE_PHASE_CLEANUP,
+                         intent=f"unmount {path}")
+    trace.traced_run(["umount", target], phase=TRACE_PHASE_CLEANUP,
+                     intent=f"unmount the target {target}")
 
 
 def is_efi():
@@ -1527,26 +1583,30 @@ def set_dry_run(enabled: bool):
     _DRY_RUN = enabled
 
 
-def _run(cmd):
+def _run(cmd, phase=TRACE_PHASE_PARTITION, intent=None):
     """Run a command as a list (no shell), raise on failure.
 
-    In dry-run mode, logs the command without executing it.
-    Accepts either a list ["parted", "-s", "/dev/sda", ...] or a string
-    that will be split with shlex. List form is preferred for safety —
-    no shell metacharacter interpretation.
+    Every run is a subprocess_start/subprocess_end pair in the install
+    trace. In dry-run mode, logs the command (and a trace row saying it was
+    skipped) without executing it. Accepts either a list ["parted", "-s",
+    "/dev/sda", ...] or a string that will be split with shlex. List form is
+    preferred for safety — no shell metacharacter interpretation.
     """
     import shlex
     if isinstance(cmd, str):
         cmd_list = shlex.split(cmd)
     else:
-        cmd_list = cmd
+        cmd_list = list(cmd)
 
     if _DRY_RUN:
         print(f"  [DRY-RUN] {' '.join(cmd_list)}")
+        trace.trace_event("subprocess_dry_run", phase=phase, intent=intent,
+                          cmd=cmd_list)
         import types
         result = types.SimpleNamespace(returncode=0, stdout="", stderr="")
         return result
-    result = subprocess.run(cmd_list, capture_output=True, text=True)
+    result = trace.traced_run(cmd_list, phase=phase,
+                              intent=intent or f"disk step: {cmd_list[0]}")
     if result.returncode != 0:
         raise RuntimeError(f"Command failed: {' '.join(cmd_list)}\n{result.stderr}")
     return result
@@ -1567,9 +1627,9 @@ def _disk_size_bytes(disk_path):
     treat 0 as below the minimum threshold and abort cleanly.
     """
     try:
-        result = subprocess.run(
-            ["lsblk", "-bdn", "-o", "SIZE", disk_path],
-            capture_output=True, text=True, timeout=10,
+        result = trace.traced_run(
+            ["lsblk", "-bdn", "-o", "SIZE", disk_path], timeout=10,
+            phase=TRACE_PHASE_PARTITION, intent=f"read the size of {disk_path}",
         )
         if result.returncode != 0:
             return 0

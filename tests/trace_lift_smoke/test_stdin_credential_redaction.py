@@ -142,3 +142,49 @@ def test_yaml_and_prose_are_not_mistaken_for_credentials():
             starts, _ = _starts(c.mod)
             assert starts[-1]["stdin_redacted"] is None, payload
             assert starts[-1]["stdin"] == payload
+
+
+# --- bytes stdin and credential producers (R001.3 row S1-28, 2026-09-14) ---
+# The installer's LUKS helpers feed cryptsetup a bytes passphrase and the
+# FIDO2 enrolment reads its unlock secret from fido2-assert's stdout; both now
+# run through the writer.
+
+def test_bytes_stdin_to_a_consumer_is_withheld_and_the_tool_still_gets_it():
+    with _Case() as c:
+        secret = b"correct horse battery staple\n"
+        # `cat` would echo it (and be caught as credential-shaped output only if
+        # it looked like a hash) — use the real cryptsetup so the CONSUMER rule
+        # is what fires; --version reads no stdin and needs no privilege.
+        res = c.mod.traced_run(["cryptsetup", "--version"], input=secret, phase="partition")
+        assert isinstance(res.stdout, bytes)          # binary mode round-trips bytes
+        starts, sink = _starts(c.mod)
+        ev = starts[-1]
+        assert ev["stdin"] == "<REDACTED>"
+        assert ev["stdin_redacted"] == "credential consumer: cryptsetup"
+        assert ev["stdin_bytes"] == len(secret)
+        assert "correct horse" not in sink.read_text()
+        # An ordinary bytes payload to an ordinary tool is recorded, as text.
+        c.mod.traced_run(["cat"], input=b"plain bytes\n")
+        starts, _ = _starts(c.mod)
+        assert starts[-1]["stdin"] == "plain bytes\n" and starts[-1]["stdin_bytes"] == 12
+        ends = [e for e in _events(c.mod) if e.get("type") == "subprocess_end"]
+        assert ends[-1]["stdout"] == "plain bytes\n" and ends[-1]["stdout_bytes"] == 12
+
+
+def test_a_credential_producer_has_its_stdout_withheld_by_name():
+    with _Case() as c:
+        # A stand-in named like the real tool: fido2-assert's sixth line is the
+        # hmac secret that becomes a LUKS key; it matches no hash pattern, so
+        # the shape rule alone would have recorded it.
+        tool = c.tmp / "fido2-assert"
+        tool.write_text("#!/bin/sh\nprintf 'cdh\\nrp\\nauth\\nsig\\nuid\\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\\n'\n")
+        tool.chmod(0o700)
+        res = c.mod.traced_run([str(tool), "-G", "--hmac-secret"], input="cdh\nrp\ncred\nsalt\n")
+        assert "AAAAAAAA" in res.stdout                 # the caller still gets the secret
+        ends = [e for e in _events(c.mod) if e.get("type") == "subprocess_end"]
+        assert ends[-1]["stdout"] == "<REDACTED>"
+        assert ends[-1]["stdout_redacted"] == "credential producer: fido2-assert"
+        assert ends[-1]["stdout_bytes"] == len(res.stdout.encode())
+        assert "AAAAAAAA" not in c.mod._test_sink.read_text()
+        # stderr of the same tool stays readable (an error line is not a key).
+        assert ends[-1]["stderr_redacted"] is None

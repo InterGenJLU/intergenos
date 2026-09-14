@@ -71,6 +71,19 @@ Secret hygiene:
     `stdin_redacted` reason and never the bytes (decided 2026-09-14: the
     installer's step layer redacted `password`, but the subprocess layer
     below it logged the full `chpasswd -e` line with both account hashes).
+    A `bytes` stdin (a LUKS passphrase, a sealing secret) is accepted and
+    treated the same way; the returned CompletedProcess then carries bytes
+    streams, exactly as subprocess.run would.
+  - A credential PRODUCER (a tool whose standard output IS a key — fido2-assert
+    prints the HMAC secret that becomes a LUKS slot key) has its stdout
+    withheld by name, byte count kept, whatever its shape.
+  - The installer's target-side sink is opened AFTER the target is mounted; at
+    that moment every event the live-session sink already holds (validate,
+    verify, partition, mount — the disk phase, the one destructive step) is
+    copied into the target file first, so the copy that survives the reboot
+    carries the whole install and not only what happened after the mount
+    (decided 2026-09-14: the 2026-09-05 hub install's durable trace began at
+    the mount step and the partition/LUKS/mkfs commands were recorded nowhere).
 """
 
 from __future__ import annotations
@@ -137,7 +150,15 @@ REDACT_KEYS = frozenset({
 STDIN_CREDENTIAL_CONSUMERS = frozenset({
     "chpasswd", "passwd", "cryptsetup", "openssl", "gpg", "gpg2", "gpgv",
     "ssh-keygen", "mokutil", "sbsign", "luksformat", "chage", "usermod",
+    "tpm2_create",   # --sealing-input=- : the secret being sealed
 })
+
+# Commands whose standard OUTPUT is, by their nature, a credential: the
+# installer's FIDO2 enrolment reads the token's hmac-secret line from
+# fido2-assert and adds those bytes as a LUKS key slot; tpm2_unseal prints the
+# sealed secret. Their stdout is withheld by name (byte count kept) whatever
+# its shape — a 32-byte base64 line matches no hash pattern.
+STDOUT_CREDENTIAL_PRODUCERS = frozenset({"fido2-assert", "tpm2_unseal"})
 
 # Defense in depth for a consumer the list does not name: a payload that
 # LOOKS like a credential is redacted too — a crypt hash ($1$/$5$/$6$/$y$/
@@ -153,18 +174,8 @@ _CREDENTIAL_SHAPE_RE = re.compile(
 _CHROOT_WRAPPERS = frozenset({"chroot", "sudo", "env", "nice", "ionice"})
 
 
-def _output_credential_reason(cmd, payload):
-    """Why a subprocess's stdout/stderr must not be recorded, or None.
-    A credential consumer's output is withheld only when it is
-    credential-shaped (its usage text and error lines stay readable);
-    any other command's output is withheld when credential-shaped."""
-    if payload and _CREDENTIAL_SHAPE_RE.search(payload):
-        return "credential-shaped output"
-    return None
-
-
-def _stdin_credential_reason(cmd, payload):
-    """Why this stdin must not be recorded, or None if it may be."""
+def _command_name(cmd):
+    """The basename of the real command in argv, wrappers skipped."""
     argv = list(cmd)
     i = 0
     # skip wrappers and their leading arguments (chroot <dir> <cmd> ...)
@@ -172,9 +183,29 @@ def _stdin_credential_reason(cmd, payload):
         i += 2 if os.path.basename(str(argv[i])) == "chroot" else 1
         while i < len(argv) and str(argv[i]).startswith("-"):
             i += 1
-    name = os.path.basename(str(argv[i])) if i < len(argv) else ""
+    return os.path.basename(str(argv[i])) if i < len(argv) else ""
+
+
+def _output_credential_reason(cmd, payload, stream="stdout"):
+    """Why a subprocess's stdout/stderr must not be recorded, or None.
+    A credential PRODUCER's stdout is withheld by name; otherwise output is
+    withheld when credential-shaped (a consumer's usage text and error lines
+    stay readable)."""
+    if stream == "stdout" and payload and _command_name(cmd) in STDOUT_CREDENTIAL_PRODUCERS:
+        return f"credential producer: {_command_name(cmd)}"
+    if payload and _CREDENTIAL_SHAPE_RE.search(payload):
+        return "credential-shaped output"
+    return None
+
+
+def _stdin_credential_reason(cmd, payload):
+    """Why this stdin must not be recorded, or None if it may be.
+    `payload` is text, or bytes (decoded here for the shape check only)."""
+    name = _command_name(cmd)
     if name in STDIN_CREDENTIAL_CONSUMERS:
         return f"credential consumer: {name}"
+    if isinstance(payload, (bytes, bytearray)):
+        payload = bytes(payload).decode("utf-8", errors="replace")
     if payload and _CREDENTIAL_SHAPE_RE.search(payload):
         return "credential-shaped payload"
     return None
@@ -323,9 +354,14 @@ def _open_600(path: Path) -> Any:
     permissions failure aborts the open (caller's best-effort handling
     applies): no trace beats a group/world-readable one.
     """
-    fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
-    os.fchmod(fd, 0o600)
-    return os.fdopen(fd, "a", encoding="utf-8")
+    def _opener(p, flags):
+        return os.open(p, flags, 0o600)
+    # Opened by path (not fdopen) so the handle's .name is the PATH: the
+    # target-sink replay reads the live sink back by that name, and the
+    # trace_init row lists the sinks by name.
+    handle = open(str(path), "a", encoding="utf-8", opener=_opener)
+    os.fchmod(handle.fileno(), 0o600)
+    return handle
 
 
 def _open_sink(path: Path) -> Optional[Any]:
@@ -432,9 +468,32 @@ def attach_target_sink(target: Path) -> None:
         target_log_dir.mkdir(parents=True, exist_ok=True)
         target_log = target_log_dir / fname
         sink = _open_600(target_log)
-        _SINKS.append(sink)
-        logger.info("trace: attached target sink at %s", target_log)
-        _emit({"type": "target_sink_attached", "path": str(target_log)})
+        # Replay what the live-session sink already holds: the validate,
+        # verify, partition and mount phases ran before the target existed,
+        # and the partition step is the one destructive act of the install.
+        # Without the replay the durable copy starts at this line and the
+        # disk phase is provable only from the outcome. The rows are copied
+        # byte-for-byte under the writer lock (so no event lands between the
+        # copy and the attach) and counted, so the replay itself is on record.
+        replayed = 0
+        with _LOCK:
+            for live in list(_SINKS):
+                try:
+                    live.flush()
+                    with open(live.name, encoding="utf-8") as fh:
+                        for line in fh:
+                            if line.strip():
+                                sink.write(line if line.endswith("\n") else line + "\n")
+                                replayed += 1
+                    sink.flush()
+                except Exception as exc:
+                    logger.warning("trace: could not replay %s into the target sink: %s",
+                                   getattr(live, "name", "?"), exc)
+            _SINKS.append(sink)
+        logger.info("trace: attached target sink at %s (%d rows replayed)",
+                    target_log, replayed)
+        _emit({"type": "target_sink_attached", "path": str(target_log),
+               "replayed_rows": replayed})
     except Exception as exc:
         logger.warning("trace: could not attach target sink: %s", exc)
 
@@ -612,7 +671,7 @@ def get_start_ts() -> Optional[str]:
 def traced_run(
     cmd: Sequence[str],
     *,
-    input: Optional[str] = None,
+    input: Optional[Any] = None,
     env: Optional[dict] = None,
     cwd: Optional[str] = None,
     check: bool = False,
@@ -635,19 +694,34 @@ def traced_run(
     exact UTF-8 byte counts of the three streams. The raw content for each
     is emitted verbatim — no truncation. This is the load-bearing operator
     requirement preserved from Forge's prior art.
+
+    `input` may be `str` (text mode, the default) or `bytes`/`bytearray`
+    (binary mode: the child gets the exact bytes, the returned
+    CompletedProcess carries bytes stdout/stderr). The credential rules
+    apply to both; the event's stdin field is text either way.
     """
     start = time.monotonic()
+    binary = isinstance(input, (bytes, bytearray))
+    stdin_arg = bytes(input) if binary else input
     _stdin_reason = _stdin_credential_reason(cmd, input) if input else None
     if _VERBOSE:
+        if not input:
+            stdin_text, stdin_len = None, 0
+        elif binary:
+            stdin_len = len(stdin_arg)
+            stdin_text = ("<REDACTED>" if _stdin_reason
+                          else stdin_arg.decode("utf-8", errors="replace"))
+        else:
+            stdin_len = len(input.encode("utf-8"))
+            stdin_text = "<REDACTED>" if _stdin_reason else input
         _emit({
             "type": "subprocess_start",
             "phase": phase,
             "intent": intent,
             "pkg": pkg,
             "cmd": list(cmd),
-            "stdin_bytes": len(input.encode("utf-8")) if input else 0,
-            "stdin": (None if not input
-                      else "<REDACTED>" if _stdin_reason else input),
+            "stdin_bytes": stdin_len,
+            "stdin": stdin_text,
             "stdin_redacted": _stdin_reason,
             "cwd": cwd,
             "env_extra": _redact_env(
@@ -658,17 +732,28 @@ def traced_run(
         })
 
     try:
-        result = subprocess.run(
-            list(cmd),
-            input=input,
-            env=env,
-            cwd=cwd,
-            check=False,                # we surface rc explicitly
-            timeout=timeout,
-            capture_output=True,
-            text=True,
-            errors="replace",           # honor docstring promise (line 54-55)
-        )
+        if binary:
+            result = subprocess.run(
+                list(cmd),
+                input=stdin_arg,
+                env=env,
+                cwd=cwd,
+                check=False,            # we surface rc explicitly
+                timeout=timeout,
+                capture_output=True,
+            )
+        else:
+            result = subprocess.run(
+                list(cmd),
+                input=input,
+                env=env,
+                cwd=cwd,
+                check=False,            # we surface rc explicitly
+                timeout=timeout,
+                capture_output=True,
+                text=True,
+                errors="replace",       # honor docstring promise (line 54-55)
+            )
     except Exception as exc:
         _emit({
             "type": "subprocess_exception",
@@ -682,11 +767,20 @@ def traced_run(
 
     duration_ms = int((time.monotonic() - start) * 1000)
 
-    # The same rule on the way OUT: a credential consumer's output (openssl
-    # passwd prints the hash it made; a password tool echoing its input) and
-    # any credential-shaped output are withheld, byte counts kept.
-    _out_reason = _output_credential_reason(cmd, result.stdout)
-    _err_reason = _output_credential_reason(cmd, result.stderr)
+    # The same rule on the way OUT: a credential producer's stdout, a
+    # credential consumer's output (openssl passwd prints the hash it made; a
+    # password tool echoing its input) and any credential-shaped output are
+    # withheld, byte counts kept.
+    if binary:
+        out_text = (result.stdout or b"").decode("utf-8", errors="replace")
+        err_text = (result.stderr or b"").decode("utf-8", errors="replace")
+        out_len, err_len = len(result.stdout or b""), len(result.stderr or b"")
+    else:
+        out_text, err_text = result.stdout, result.stderr
+        out_len = len(result.stdout.encode("utf-8")) if result.stdout else 0
+        err_len = len(result.stderr.encode("utf-8")) if result.stderr else 0
+    _out_reason = _output_credential_reason(cmd, out_text, "stdout")
+    _err_reason = _output_credential_reason(cmd, err_text, "stderr")
     _emit({
         "type": "subprocess_end",
         "phase": phase,
@@ -694,12 +788,12 @@ def traced_run(
         "pkg": pkg,
         "cmd": list(cmd),
         "rc": result.returncode,
-        "stdout": ("<REDACTED>" if _out_reason else result.stdout),
-        "stderr": ("<REDACTED>" if _err_reason else result.stderr),
+        "stdout": ("<REDACTED>" if _out_reason else out_text),
+        "stderr": ("<REDACTED>" if _err_reason else err_text),
         "stdout_redacted": _out_reason,
         "stderr_redacted": _err_reason,
-        "stdout_bytes": len(result.stdout.encode("utf-8")) if result.stdout else 0,
-        "stderr_bytes": len(result.stderr.encode("utf-8")) if result.stderr else 0,
+        "stdout_bytes": out_len,
+        "stderr_bytes": err_len,
         "duration_ms": duration_ms,
     })
 
@@ -1020,4 +1114,5 @@ __all__ = [
     "install_failure", "build_failure",
     # Module-level redact policy (callers may extend per-package)
     "REDACT_KEYS", "REDACT_ENV_SUBSTRINGS", "STDIN_CREDENTIAL_CONSUMERS",
+    "STDOUT_CREDENTIAL_PRODUCERS",
 ]
