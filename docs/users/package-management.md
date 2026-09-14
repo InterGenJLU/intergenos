@@ -37,6 +37,12 @@ sudo pkm upgrade --all
 ```
 Compares your installed packages against the synced index and installs newer versions for any packages that have them available. `pkm sync` (above) only refreshes the index; this is the command that actually changes what's on disk. A bare `pkm upgrade` with no package names and no `--all` refuses to run rather than silently mass-modifying the system — name specific packages instead if you only want to upgrade those (for example, `sudo pkm upgrade firefox`).
 
+To move an installed package forward from a local archive — a build the mirror does not serve yet — name the package and the file:
+```bash
+sudo pkm upgrade forge --archive /path/to/forge-1.0.igos.tar.gz --archive-trust loose
+```
+The archive's own metadata must name that package; an older build is refused unless you pass `--allow-downgrade`; every dependency the archive declares must already be installed (this command fetches nothing from the repository). The same restore point, rollback copy and configuration-file protection as a repository upgrade apply. `--archive-trust strict` (the default) requires the signed index to carry that exact archive, so a build ahead of the mirror needs `loose`, which says so in its output.
+
 ### Removing Software
 ```bash
 sudo pkm remove firefox

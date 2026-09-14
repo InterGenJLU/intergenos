@@ -61,10 +61,26 @@ Restrict to a tier with
 .B update
 Sync package indexes from every enabled repository.
 .TP
-.BR upgrade " [\fIPACKAGE...\fR]"
+.BR upgrade " [\fIPACKAGE...\fR] [\fB\-\-all\fR] [\fB\-\-archive\fR \fIPATH\fR [\fB\-\-archive\-trust\fR \fIMODE\fR]]"
 Upgrade installed packages to the latest versions available in the
-configured repositories. With no arguments, every installed package is
-considered.
+configured repositories. A bare
+.B upgrade
+refuses to act: name the packages, or pass
+.B \-\-all
+to consider every installed package (a plan summary and a confirmation
+prompt follow). With
+.BR \-\-archive ,
+exactly one named, installed package is moved forward from a local archive
+instead of the repository: the archive's own metadata must name that
+package, an older build refuses unless
+.B \-\-allow\-downgrade
+is given, every dependency the archive declares must already be installed,
+and the trust modes are those of
+.BR "install \-\-archive"
+(\fIstrict\fR, the default, requires the signed index to carry the exact
+archive; \fIloose\fR proceeds with a warning, which a build the mirror does
+not serve yet needs). The restore point, the rollback copy and the
+configuration-file protection of a repository upgrade apply to both.
 .TP
 .BR search " \fITERM\fR"
 Search local and remote indexes for packages matching
@@ -324,6 +340,10 @@ Install from a local archive when offline:
 .PP
 .RS
 .B pkm install vim \-\-archive /path/to/vim-9.1.1.igos.tar.gz
+.PP
+Move an installed package forward from a build the mirror does not serve yet:
+.PP
+.B pkm upgrade forge \-\-archive /path/to/forge-1.0.igos.tar.gz \-\-archive\-trust loose
 .RE
 .PP
 Install proprietary software via a download helper:

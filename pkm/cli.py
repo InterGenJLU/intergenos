@@ -30,7 +30,7 @@ from .installer import (
 )
 from .remover import PackageRemover, ancestor_chain, prune_empty_unowned_dirs
 from .verifier import PackageVerifier
-from .repo import RepoManager
+from .repo import RepoManager, ArchiveReadError, _read_package_meta
 from .output import (
     Reporter, QUIET, NORMAL, VERBOSE,
     set_process_level, emit, emit_info, emit_note, emit_done, emit_warn, emit_error,
@@ -885,6 +885,23 @@ def build_parser():
         help="Required to upgrade `linux-kernel`. Kernel upgrades can leave "
              "a system unbootable on partial failure (O-002); pkm refuses to "
              "touch the running kernel package without this explicit flag.",
+    )
+    p_upgrade.add_argument(
+        "--archive", metavar="PATH",
+        help="Move ONE named, installed package forward from this local "
+             ".igos.tar.gz instead of the repository. The archive's own "
+             "metadata must name that package; an older build refuses "
+             "unless --allow-downgrade; dependencies it declares must "
+             "already be installed. Same restore point, rollback copy and "
+             "configuration protection as a repository upgrade.",
+    )
+    p_upgrade.add_argument(
+        "--archive-trust", choices=["strict", "loose", "repo-only"],
+        default="strict",
+        help="Trust mode for --archive, as for `pkm install --archive` "
+             "(default: strict — the signed index must carry this exact "
+             "archive; loose proceeds with a warning for a build the "
+             "mirror does not serve yet).",
     )
 
     # -- search --
@@ -2400,8 +2417,6 @@ def cmd_update(db, args):
 
 
 def cmd_upgrade(db, args):
-    from .version import is_upgradable, VersionParseError
-
     # Q3 (O-027): refuse bare `pkm upgrade` invocations. Bare = no
     # positional packages AND no --all. Default-deny on destructive
     # mass-mutate — silent mass-modify is the opposite of "when in
@@ -2418,99 +2433,20 @@ def cmd_upgrade(db, args):
 
     repo = repo_manager()
     installer = package_installer(db)
-    allow_downgrade = getattr(args, "allow_downgrade", False)
-    ignore_holds = getattr(args, "ignore_holds", False)
-    held_set = set(db.list_held())
 
-    # O-010: route (version, release) compare through pkm.version so that
-    # 1.10 sorts above 1.9, release-suffix bumps are detected, and the
-    # downgrade case requires explicit --allow-downgrade.
-    installed = db.list_installed()
-    upgradable = []
-    # Packages the repository would move BACKWARDS. Without --allow-downgrade
-    # these are correctly not upgraded — but they were also silently dropped,
-    # so naming one explicitly produced "nothing to upgrade" with no reason
-    # given. Collected here and reported below for anything the user named.
-    downgrade_blocked = []
-
-    for pkg in installed:
-        remote = repo.get_package(pkg["name"])
-        if not remote:
-            continue
-        try:
-            if is_upgradable(pkg, remote, allow_downgrade=allow_downgrade):
-                upgradable.append((pkg, remote))
-                continue
-        except VersionParseError as e:
-            emit_warn(f"cannot compare versions for {pkg['name']}: {e}")
-            continue
-        _d = txn.downgrade_decision(
-            pkg["name"], pkg, remote, allow_downgrade=allow_downgrade)
-        if _d.kind == "refuse":
-            downgrade_blocked.append((pkg["name"], _d))
-
-    # Q7 (O-030): --security-only restricts candidates to repo entries
-    # flagged security=true (set by generate-repodb.py from docs/
-    # governance/security-advisories.yml). Applied before held-filter so
-    # the held-skip notice only mentions held packages that WOULD have
-    # been security-eligible — keeps the user signal sharp.
-    security_only = getattr(args, "upgrade_security_only", False)
-    if security_only:
-        upgradable = [(i, r) for i, r in upgradable if r.get("security")]
-        if not upgradable:
-            emit_info(
-                "No security-flagged upgrades available. The repository "
-                "index has no entries with security=true matching installed "
-                "packages."
-            )
-            return
-
-    held_excluded_names = []
-    if args.packages:
-        # Filter to requested packages
-        names = set(args.packages)
-        # A named package the repository would move BACKWARDS gets the reason,
-        # with both version-releases, instead of vanishing into "nothing to
-        # upgrade". Same guard as install and reinstall, same override.
-        for _name, _d in downgrade_blocked:
-            if _name in names:
-                emit_error(_d.message)
-        # Q9: explicit-named upgrade of a held package fails loud unless
-        # --ignore-holds. Avoids the "I asked for nginx and got nothing"
-        # silent skip.
-        if not ignore_holds:
-            held_requested = names & held_set
-            if held_requested:
-                listed = ", ".join(sorted(held_requested))
-                verb = "is" if len(held_requested) == 1 else "are"
-                emit_error(
-                    f"{listed} {verb} held. Run `pkm unhold <name>` "
-                    f"first, or pass --ignore-holds to override (intended "
-                    f"for emergency security upgrades only)."
-                )
-                sys.exit(1)
-        upgradable = [(i, r) for i, r in upgradable if i["name"] in names]
-    elif not ignore_holds:
-        # Q9: --all `pkm upgrade` filters held packages with informational
-        # notice. --ignore-holds bypasses for emergency security override.
-        held_excluded_names = sorted(
-            p["name"] for p, _ in upgradable if p["name"] in held_set
-        )
-        if held_excluded_names:
-            upgradable = [
-                (i, r) for i, r in upgradable if i["name"] not in held_set
-            ]
-
+    # Where the replacement comes from. A local archive names ONE installed
+    # package and is checked for identity, direction, trust and dependencies
+    # before anything is planned; the repository path derives the queue from
+    # the signed index. From the plan summary on, both run the same code.
+    local_archive = getattr(args, "archive", None)
+    if local_archive:
+        upgradable, held_excluded_names = _local_archive_upgrade_candidates(
+            db, repo, args, local_archive)
+    else:
+        upgradable, held_excluded_names = _repository_upgrade_candidates(
+            db, repo, args)
     if not upgradable:
-        if held_excluded_names:
-            emit_info(
-                f"Nothing to upgrade — the only candidates "
-                f"({', '.join(held_excluded_names)}) are held. Run "
-                f"`pkm unhold <name>` to release, or pass --ignore-holds."
-            )
-        else:
-            emit_info("Everything is up to date.")
-        return
+        return 0
 
     # Q1 (O-002): kernel-replace gate. The running kernel image stays loaded in
     # memory until reboot, so a partial-failure kernel upgrade can leave the
@@ -2599,7 +2535,16 @@ def cmd_upgrade(db, args):
 
     # Q3: confirmation gate.
     if not _confirm_upgrade(args):
-        return
+        return 0
+
+    if any(p["name"] == "pkm" for p, _ in upgradable):
+        _n = _load_own_modules_before_replacement()
+        emit_info(
+            f"pkm is replacing itself: its {_n} modules were loaded before "
+            f"the first file is replaced, so this transaction runs to the "
+            f"end on the code it started with; the next pkm command runs "
+            f"the new release."
+        )
 
     # Chronicle: pre-transaction restore point, taken after the user confirms
     # and before the loop mutates anything (so a cancelled upgrade captures
@@ -2741,7 +2686,12 @@ def cmd_upgrade(db, args):
                 "a dependency its new release introduces could not be installed"))
             continue
 
-        dl_ok, dl_result = repo.download_package(remote_pkg["name"])
+        if remote_pkg.get("local_archive"):
+            # The file was checked (identity, trust, direction, dependencies)
+            # before the plan; its sha256 rides into the install-time re-hash.
+            dl_ok, dl_result = True, remote_pkg["local_archive"]
+        else:
+            dl_ok, dl_result = repo.download_package(remote_pkg["name"])
         if not dl_ok:
             emit_error(f"downloading {remote_pkg['name']}: {dl_result}")
             failed_this_txn.append((
@@ -2883,7 +2833,8 @@ def cmd_upgrade(db, args):
                 remote_pkg["name"],
                 old_version=installed_pkg["version"],
                 new_version=remote_pkg["version"],
-                method="archive",
+                method=("local-archive" if remote_pkg.get("local_archive")
+                        else "archive"),
             )
             emit_info(f"Upgraded {remote_pkg['name']} to {remote_pkg['version']}")
             upgraded_this_txn.append(remote_pkg["name"])
@@ -4003,6 +3954,338 @@ def _topological_upgrade_order(upgradable, kernel_last_name=None):
     return ordered, cycle_groups
 
 
+def _repository_upgrade_candidates(db, repo, args):
+    """The upgrade queue from the signed index: every installed package the
+    repository carries a newer (or, with --allow-downgrade, different) build
+    of, filtered to the named packages, the security flag and the holds.
+    Returns ``(upgradable, held_excluded_names)``; an empty queue has already
+    said why. Refusals exit here, before anything is planned.
+    """
+    from .version import is_upgradable, VersionParseError
+    allow_downgrade = getattr(args, "allow_downgrade", False)
+    ignore_holds = getattr(args, "ignore_holds", False)
+    held_set = set(db.list_held())
+    # O-010: route (version, release) compare through pkm.version so that
+    # 1.10 sorts above 1.9, release-suffix bumps are detected, and the
+    # downgrade case requires explicit --allow-downgrade.
+    installed = db.list_installed()
+    upgradable = []
+    # Packages the repository would move BACKWARDS. Without --allow-downgrade
+    # these are correctly not upgraded — but they were also silently dropped,
+    # so naming one explicitly produced "nothing to upgrade" with no reason
+    # given. Collected here and reported below for anything the user named.
+    downgrade_blocked = []
+
+    for pkg in installed:
+        remote = repo.get_package(pkg["name"])
+        if not remote:
+            continue
+        try:
+            if is_upgradable(pkg, remote, allow_downgrade=allow_downgrade):
+                upgradable.append((pkg, remote))
+                continue
+        except VersionParseError as e:
+            emit_warn(f"cannot compare versions for {pkg['name']}: {e}")
+            continue
+        _d = txn.downgrade_decision(
+            pkg["name"], pkg, remote, allow_downgrade=allow_downgrade)
+        if _d.kind == "refuse":
+            downgrade_blocked.append((pkg["name"], _d))
+
+    # Q7 (O-030): --security-only restricts candidates to repo entries
+    # flagged security=true (set by generate-repodb.py from docs/
+    # governance/security-advisories.yml). Applied before held-filter so
+    # the held-skip notice only mentions held packages that WOULD have
+    # been security-eligible — keeps the user signal sharp.
+    security_only = getattr(args, "upgrade_security_only", False)
+    if security_only:
+        upgradable = [(i, r) for i, r in upgradable if r.get("security")]
+        if not upgradable:
+            emit_info(
+                "No security-flagged upgrades available. The repository "
+                "index has no entries with security=true matching installed "
+                "packages."
+            )
+            return [], []
+
+    held_excluded_names = []
+    if args.packages:
+        # Filter to requested packages
+        names = set(args.packages)
+        # A named package the repository would move BACKWARDS gets the reason,
+        # with both version-releases, instead of vanishing into "nothing to
+        # upgrade". Same guard as install and reinstall, same override.
+        for _name, _d in downgrade_blocked:
+            if _name in names:
+                emit_error(_d.message)
+        # Q9: explicit-named upgrade of a held package fails loud unless
+        # --ignore-holds. Avoids the "I asked for nginx and got nothing"
+        # silent skip.
+        if not ignore_holds:
+            held_requested = names & held_set
+            if held_requested:
+                listed = ", ".join(sorted(held_requested))
+                verb = "is" if len(held_requested) == 1 else "are"
+                emit_error(
+                    f"{listed} {verb} held. Run `pkm unhold <name>` "
+                    f"first, or pass --ignore-holds to override (intended "
+                    f"for emergency security upgrades only)."
+                )
+                sys.exit(1)
+        upgradable = [(i, r) for i, r in upgradable if i["name"] in names]
+    elif not ignore_holds:
+        # Q9: --all `pkm upgrade` filters held packages with informational
+        # notice. --ignore-holds bypasses for emergency security override.
+        held_excluded_names = sorted(
+            p["name"] for p, _ in upgradable if p["name"] in held_set
+        )
+        if held_excluded_names:
+            upgradable = [
+                (i, r) for i, r in upgradable if i["name"] not in held_set
+            ]
+
+    if not upgradable:
+        if held_excluded_names:
+            emit_info(
+                f"Nothing to upgrade — the only candidates "
+                f"({', '.join(held_excluded_names)}) are held. Run "
+                f"`pkm unhold <name>` to release, or pass --ignore-holds."
+            )
+        else:
+            emit_info("Everything is up to date.")
+        return [], []
+    return upgradable, held_excluded_names
+
+
+def _local_archive_upgrade_candidates(db, repo, args, archive):
+    """The upgrade queue for `pkm upgrade <name> --archive <file>`: exactly
+    one installed package, replaced from the given local archive.
+
+    Origin: a package built ahead of the mirror had no honest way onto a
+    machine that already carried it. `pkm install --archive` refuses an
+    installed package by design; `upgrade` and `reinstall` resolve only from
+    the signed index. The pre-mint installed-gate record — a freshly built
+    assistant archive deployed onto a real installed machine — was blocked
+    on exactly that (2026-08-27), and remove-then-install, the only way
+    through, discards the downgrade guard, the restore point and the
+    rollback copy this path carries.
+
+    Everything below is checked BEFORE anything is planned or touched, and
+    every refusal names what it saw:
+      - one name, no --all, no --security-only;
+      - the package is installed and not superseded; a hold is honoured
+        exactly as the repository path honours it;
+      - the file is readable and carries a .PKGINFO that names THIS package
+        (an archive of another package is refused — the sibling-archive
+        class the pre-r13 reinstall resolver fell into);
+      - the trust gate `pkm install --archive` applies: strict (default) and
+        repo-only need the signed index to carry this exact archive; loose
+        proceeds with the warning;
+      - the direction: an older build refuses and names both numbers,
+        --allow-downgrade permits it and says so, the same build is nothing
+        to do;
+      - every runtime dependency the archive declares is already installed.
+        This command fetches nothing from the repository: a local build's
+        dependencies are the person's to install first, in the open.
+    The candidate entry carries ``local_archive`` so the shared transaction
+    code takes the file instead of downloading, and ``sha256`` so the
+    install-time re-hash gate covers the file between here and the extract.
+    """
+    if getattr(args, "upgrade_all", False):
+        emit_error(
+            "--archive names one file for one package; it cannot be "
+            "combined with --all. Nothing was changed."
+        )
+        sys.exit(1)
+    if getattr(args, "upgrade_security_only", False):
+        emit_error(
+            "--archive names one file for one package; --security-only "
+            "selects from the repository index and cannot be combined with "
+            "it. Nothing was changed."
+        )
+        sys.exit(1)
+    if len(args.packages) != 1:
+        emit_error(
+            f"--archive upgrades exactly one package: name it once "
+            f"(`pkm upgrade <name> --archive {archive}`). Nothing was changed."
+        )
+        sys.exit(1)
+    name = args.packages[0]
+
+    existing = db.get_installed(name)
+    if not existing:
+        emit_error(
+            f"{name} is not installed; `pkm upgrade --archive` moves an "
+            f"installed package forward. To install it from this archive: "
+            f"`pkm install {name} --archive {archive}`. Nothing was changed."
+        )
+        sys.exit(1)
+    if existing.get("superseded_by"):
+        emit_error(
+            f"{name} {txn.format_vr(existing)} was superseded by "
+            f"{existing['superseded_by']}; there is no installed package to "
+            f"move forward. Nothing was changed."
+        )
+        sys.exit(1)
+    if name in set(db.list_held()) and not getattr(args, "ignore_holds", False):
+        emit_error(
+            f"{name} is held. Run `pkm unhold {name}` first, or pass "
+            f"--ignore-holds to override (intended for emergency security "
+            f"upgrades only)."
+        )
+        sys.exit(1)
+
+    path = Path(archive)
+    import hashlib
+    try:
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1 << 16), b""):
+                h.update(chunk)
+        archive_sha = h.hexdigest()
+        archive_size = path.stat().st_size
+    except OSError as e:
+        emit_error(f"cannot read archive {path}: {e}. Nothing was changed.")
+        sys.exit(1)
+    try:
+        meta = _read_package_meta(path)
+    except ArchiveReadError as e:
+        emit_error(f"cannot read archive {path}: {e}. Nothing was changed.")
+        sys.exit(1)
+    if not meta:
+        emit_error(
+            f"{path} carries no .PKGINFO, so the package it holds cannot be "
+            f"established; a build from the project's own build tool always "
+            f"carries one. Nothing was changed."
+        )
+        sys.exit(1)
+    if meta.get("name") != name:
+        emit_error(
+            f"{path} names the package {meta.get('name') or '?'} "
+            f"{txn.format_vr(meta)}, not {name}. An archive replaces only the "
+            f"package it was built as. Nothing was changed."
+        )
+        sys.exit(1)
+    if not meta.get("version"):
+        emit_error(
+            f"{path} states no version for {name}; its build cannot be "
+            f"compared with the installed {txn.format_vr(existing)}. Nothing "
+            f"was changed."
+        )
+        sys.exit(1)
+    candidate = {
+        "name": name,
+        "version": meta["version"],
+        "release": meta.get("release", 1),
+        "sha256": archive_sha,
+        "size": archive_size,
+        "depends": [d for d in (meta.get("depends") or []) if isinstance(d, str)],
+        "local_archive": str(path),
+    }
+
+    emit_info(f"Archive: {path}")
+    emit_info(f"SHA256:  {archive_sha}")
+    # The trust gate `pkm install --archive` applies, same modes, same words.
+    trust_mode = getattr(args, "archive_trust", "strict") or "strict"
+    repo_pkg = None
+    try:
+        repo_pkg = repo.get_package(name)
+    except Exception:
+        repo_pkg = None
+    repo_match = bool(repo_pkg and repo_pkg.get("sha256") == archive_sha)
+    if repo_match:
+        emit_info(
+            f"sha256 matches the repository index for {name} "
+            f"{txn.format_vr(repo_pkg)}"
+        )
+    elif repo_pkg and repo_pkg.get("sha256"):
+        emit_warn(
+            f"archive sha256 does not match the repository index entry for "
+            f"{name} {txn.format_vr(repo_pkg)}: archive {archive_sha}, "
+            f"index {repo_pkg['sha256']}"
+        )
+    if trust_mode == "repo-only" and not repo_match:
+        emit_error(
+            "--archive-trust=repo-only requires archive SHA256 to match the "
+            "repository index. Use --archive-trust=loose to override. "
+            "Nothing was changed."
+        )
+        sys.exit(1)
+    if trust_mode == "strict" and not repo_match:
+        emit_error(
+            "--archive-trust=strict requires SHA256 match against repository "
+            "index. Use --archive-trust=loose to override. Nothing was "
+            "changed."
+        )
+        sys.exit(1)
+    if trust_mode == "loose":
+        emit_warn(
+            "--archive-trust=loose — skipping repo verification. Verify "
+            "SHA256 independently before trusting this archive."
+        )
+
+    # Direction: the same guard, the same override, the same words as the
+    # repository path.
+    decision = txn.downgrade_decision(
+        name, existing, candidate,
+        allow_downgrade=getattr(args, "allow_downgrade", False))
+    if not decision.ok:
+        emit_error(decision.message)
+        sys.exit(1)
+    if decision.kind == "same":
+        emit_info(
+            f"{txn.describe_subject(name, existing)} is already installed at "
+            f"exactly the archive's build. Nothing to do; nothing was changed."
+        )
+        return [], []
+    if decision.kind == "downgrade":
+        emit_warn(decision.message)
+
+    missing = sorted(d for d in candidate["depends"] if not db.get_installed(d))
+    if missing:
+        emit_error(
+            f"{name} {txn.format_vr(candidate)} declares runtime "
+            f"dependencies that are not installed: {', '.join(missing)}. A "
+            f"local archive's dependencies are not fetched from the "
+            f"repository by this command; install them first "
+            f"(`sudo pkm install {' '.join(missing)}`), then re-run. Nothing "
+            f"was changed."
+        )
+        sys.exit(1)
+
+    emit_info(
+        f"Upgrading {txn.describe_change(name, existing, candidate)} from "
+        f"the local archive"
+    )
+    return [(existing, candidate)], []
+
+
+def _load_own_modules_before_replacement():
+    """Load every module of this package into the running process NOW.
+
+    When the package being replaced is pkm itself, the files under the
+    package directory change while this process is still running the
+    transaction. Python loads a module the first time it is imported; the
+    steps after the replacement (the next-steps block, the advisory refresh,
+    the configuration summary) import modules of their own, and an import
+    that first happens AFTER the files moved would load the NEW release's
+    module into the OLD release's process — a transaction finishing on code
+    it did not start with. Loading everything first keeps the whole
+    transaction on one release; the next invocation runs the new one.
+    Returns the number of modules loaded.
+    """
+    import importlib
+    import pkgutil
+    package = sys.modules[__package__]
+    count = 0
+    for module in pkgutil.iter_modules(package.__path__):
+        if module.name == "__main__":
+            continue
+        importlib.import_module(f"{__package__}.{module.name}")
+        count += 1
+    return count
+
+
 def _print_upgrade_plan_summary(upgradable, held_excluded_names, db):
     """Q3: structured plan summary printed before the confirmation gate.
 
@@ -4024,10 +4307,16 @@ def _print_upgrade_plan_summary(upgradable, held_excluded_names, db):
 
     # Download size summary — sum repo-declared sizes for packages where
     # the repo index provides one. Missing size is treated as 0 (no warn).
-    total_size = sum(int(r.get("size") or 0) for _, r in upgradable)
+    # A local archive is not downloaded: it is named with its own size.
+    total_size = sum(int(r.get("size") or 0) for _, r in upgradable
+                     if not r.get("local_archive"))
     if total_size > 0:
         mb = total_size / (1024 * 1024)
         print(f"  Download size: ~{mb:.1f} MiB")
+    for _, r in upgradable:
+        if r.get("local_archive"):
+            mb = int(r.get("size") or 0) / (1024 * 1024)
+            print(f"  Local archive: {r['local_archive']} (~{mb:.1f} MiB)")
 
     if held_excluded_names:
         emit_info(

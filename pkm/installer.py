@@ -1401,7 +1401,17 @@ class PackageInstaller:
                         file=sys.stderr,
                     )
 
+            # The version is the archive's own statement when it carries one
+            # (every archive from the project's build tool does); the file
+            # name is the fallback for an archive built before .PKGINFO. The
+            # release was already read from .PKGINFO (PKM-A02 below) while the
+            # version still came from the name, so an archive saved under a
+            # release-qualified name — the rollback cache's own shape,
+            # widget-1.0-3.igos.tar.gz — registered version "1.0-3" beside
+            # release 3, a row no later comparison could order.
             version = self._version_from_archive(name, archive_path.name)
+            if pkginfo.get("version"):
+                version = str(pkginfo["version"])
 
             # Atomic supersede transaction. add_installed + add_files +
             # mark_superseded + transfer_file_ownership + log_operation all
