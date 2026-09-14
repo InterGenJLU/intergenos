@@ -1460,8 +1460,8 @@ ensure_sources_staged() {
     # 3.9.0's vendor regen for the cargo-vendor-gen git-source config fix.
     mkdir -p "$IGOS/sources"
     chmod a+wt "$IGOS/sources"
-    rsync -a "${SOURCES}/" "$IGOS/sources/" 2>/dev/null || true
-    rsync -a "${PATCHES}/" "$IGOS/sources/" 2>/dev/null || true
+    rsync -a "${SOURCES}/" "$IGOS/sources/" || return $?
+    rsync -a "${PATCHES}/" "$IGOS/sources/" || return $?
 
     local count=$(ls "$IGOS/sources" 2>/dev/null | wc -l)
     log "  Sources staged: $count files in $IGOS/sources/"
@@ -1756,10 +1756,10 @@ sync_chroot_scripts() {
     # but --start-at skips setup and code changes between restarts aren't
     # reflected. This ensures the chroot always has the latest.
     log "  Syncing scripts into chroot..."
-    rsync -a --delete /mnt/intergenos/scripts/   "$IGOS/mnt/intergenos/scripts/"
-    rsync -a --delete /mnt/intergenos/packages/  "$IGOS/mnt/intergenos/packages/"
-    rsync -a --delete /mnt/intergenos/config/    "$IGOS/mnt/intergenos/config/" 2>/dev/null || true
-    rsync -a --delete /mnt/intergenos/installer/ "$IGOS/mnt/intergenos/installer/" 2>/dev/null || true
+    rsync -a --delete /mnt/intergenos/scripts/   "$IGOS/mnt/intergenos/scripts/" || return $?
+    rsync -a --delete /mnt/intergenos/packages/  "$IGOS/mnt/intergenos/packages/" || return $?
+    rsync -a --delete /mnt/intergenos/config/    "$IGOS/mnt/intergenos/config/" || return $?
+    rsync -a --delete /mnt/intergenos/installer/ "$IGOS/mnt/intergenos/installer/" || return $?
     # docs/ sync added 2026-05-23: defense against the silent-no-build
     # class — packages that reference /mnt/intergenos/docs/<file> at
     # build time (signing-key.asc, license bundles, etc.) need the file
@@ -1769,7 +1769,7 @@ sync_chroot_scripts() {
     # (see packages/core/intergenos-keyring/build.sh header), but the
     # sync is kept as defense for any future package that legitimately
     # consumes docs/ at build time.
-    rsync -a --delete /mnt/intergenos/docs/      "$IGOS/mnt/intergenos/docs/"      2>/dev/null || true
+    rsync -a --delete /mnt/intergenos/docs/      "$IGOS/mnt/intergenos/docs/" || return $?
     # assets/ sync added 2026-05-23 17:51 CDT: 4 desktop-tier packages
     # (intergen-firstboot, intergen-mark, intergen-pkm-notifier,
     # intergen-no-overview) cp -a from /mnt/intergenos/assets/<name>/
@@ -1779,23 +1779,23 @@ sync_chroot_scripts() {
     # discipline of keeping these files single-sourced under assets/
     # rather than per-package. Same chroot-rsync-coverage class as the
     # docs/ gap; same fix shape.
-    rsync -a --delete /mnt/intergenos/assets/    "$IGOS/mnt/intergenos/assets/"    2>/dev/null || true
+    rsync -a --delete /mnt/intergenos/assets/    "$IGOS/mnt/intergenos/assets/" || return $?
     # Sync Python builder for desktop tier (igos-build + its pkm dependency
     # per RFC v1 tracker/verifier parity)
-    rsync -a /mnt/intergenos/igos-build.py "$IGOS/mnt/intergenos/" 2>/dev/null || true
+    rsync -a /mnt/intergenos/igos-build.py "$IGOS/mnt/intergenos/" || return $?
     # Repo-root SOURCES.md (parity with the phase_setup copy above): the single
     # authored source-availability statement, installed by
     # packages/core/intergenos-legal. Unmasked for the same reason.
-    rsync -a /mnt/intergenos/SOURCES.md "$IGOS/mnt/intergenos/"
-    rsync -a --delete /mnt/intergenos/igos-build/   "$IGOS/mnt/intergenos/igos-build/" 2>/dev/null || true
-    rsync -a --delete /mnt/intergenos/pkm/          "$IGOS/mnt/intergenos/pkm/"        2>/dev/null || true
+    rsync -a /mnt/intergenos/SOURCES.md "$IGOS/mnt/intergenos/" || return $?
+    rsync -a --delete /mnt/intergenos/igos-build/   "$IGOS/mnt/intergenos/igos-build/" || return $?
+    rsync -a --delete /mnt/intergenos/pkm/          "$IGOS/mnt/intergenos/pkm/" || return $?
     # intergen source for phase_ai (parity with phase_setup copy above)
-    rsync -a --delete /mnt/intergenos/intergen/     "$IGOS/mnt/intergenos/intergen/"   2>/dev/null || true
+    rsync -a --delete /mnt/intergenos/intergen/     "$IGOS/mnt/intergenos/intergen/" || return $?
     # shim SBAT CSV for the in-chroot check-sbat-generations.sh firing in
     # phase_bootloader (parity with the phase_setup copy; the checker's
     # not-found branch is fail-closed and refuses the phase without it)
     mkdir -p "$IGOS/mnt/intergenos/docker/shim-build/sbat"
-    rsync -a --delete /mnt/intergenos/docker/shim-build/sbat/ "$IGOS/mnt/intergenos/docker/shim-build/sbat/"
+    rsync -a --delete /mnt/intergenos/docker/shim-build/sbat/ "$IGOS/mnt/intergenos/docker/shim-build/sbat/" || return $?
 }
 
 phase_core() {
