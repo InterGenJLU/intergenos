@@ -207,7 +207,7 @@ if [ -d "$CLAUDE_DIR" ]; then
     done < <(find "$CLAUDE_DIR" -type f -o -type l 2>/dev/null)
 fi
 
-# npm creates a symlink at <prefix>/bin/claude pointing into the module dir.
+# npm creates a symlink in <prefix>/bin/ pointing into the module dir.
 # Record it so pkm remove unlinks the binary surface.
 CLAUDE_TARGET=$(readlink -f "$CLAUDE_BIN" 2>/dev/null || echo "$CLAUDE_BIN")
 if [ -L "$CLAUDE_BIN" ]; then

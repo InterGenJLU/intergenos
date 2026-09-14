@@ -77,7 +77,7 @@ claude_code_verify_installed_version() {
     fi
 
     if [[ "$reported_output" == *$'\n'* ]]; then
-        echo "  ERROR: claude --version returned more than one line." >&2
+        echo "  ERROR: the installed executable's --version output has more than one line." >&2
         return 1
     fi
     read -r -a tokens <<< "$reported_output"
@@ -88,7 +88,7 @@ claude_code_verify_installed_version() {
         token="${token%,}"
         if claude_code_is_release_version "$token"; then
             if [ -n "$actual_version" ] && [ "$actual_version" != "$token" ]; then
-                echo "  ERROR: claude --version reported more than one release version." >&2
+                echo "  ERROR: the installed executable's --version output names more than one release." >&2
                 return 1
             fi
             actual_version="$token"
@@ -96,7 +96,7 @@ claude_code_verify_installed_version() {
     done
 
     if [ -z "$actual_version" ]; then
-        echo "  ERROR: could not parse a release from claude --version: ${reported_output:-empty}" >&2
+        echo "  ERROR: could not parse a release from the installed executable's --version output: ${reported_output:-empty}" >&2
         return 1
     fi
     if [ "$actual_version" != "$requested_version" ]; then
@@ -114,6 +114,8 @@ claude_code_install_selected_cli() {
     local version_output
     local installed_version
     local global_prefix
+    local module_dir
+    local bin_name
 
     if [ "$selected_mode" != "pinned" ] && [ "$selected_mode" != "current" ]; then
         echo "  ERROR: internal Claude Code install mode is invalid: ${selected_mode:-empty}" >&2
@@ -129,7 +131,7 @@ claude_code_install_selected_cli() {
     fi
 
     echo "  Checking the package tree for critical security advisories..."
-    if ! audit_tmpdir=$(mktemp -d -t igos-claude-audit-XXXXXX); then
+    if ! audit_tmpdir=$(mktemp -d -t igos-claude-code-audit-XXXXXX); then
         echo "  ERROR: could not create the isolated advisory-check directory." >&2
         return 1
     fi
@@ -185,13 +187,22 @@ JSONEOF
         echo "  ERROR: npm did not report its global installation prefix." >&2
         return 1
     fi
-    CLAUDE_CODE_INSTALLED_BIN="${global_prefix%/}/bin/claude"
+    # The executable's name is read from the installed module's own manifest
+    # (its package.json `bin` map) rather than assumed, and the module must
+    # declare exactly one.
+    module_dir="${global_prefix%/}/lib/node_modules/${CLAUDE_CODE_NPM_PACKAGE}"
+    if ! bin_name=$(node -p 'const b = require(process.argv[1] + "/package.json").bin; (b && typeof b === "object" && Object.keys(b).length === 1) ? Object.keys(b)[0] : ""' "$module_dir" 2>/dev/null) \
+            || [ -z "$bin_name" ] || [[ "$bin_name" == */* ]]; then
+        echo "  ERROR: the installed module does not declare exactly one executable: ${module_dir}/package.json" >&2
+        return 1
+    fi
+    CLAUDE_CODE_INSTALLED_BIN="${global_prefix%/}/bin/${bin_name}"
     if [ ! -x "$CLAUDE_CODE_INSTALLED_BIN" ]; then
-        echo "  ERROR: npm completed but the installed claude executable is absent: $CLAUDE_CODE_INSTALLED_BIN" >&2
+        echo "  ERROR: npm completed but the installed executable is absent: $CLAUDE_CODE_INSTALLED_BIN" >&2
         return 1
     fi
     if ! version_output=$("$CLAUDE_CODE_INSTALLED_BIN" --version 2>&1); then
-        echo "  ERROR: the installed claude executable could not report its version." >&2
+        echo "  ERROR: the installed executable could not report its version." >&2
         printf '%s\n' "$version_output" >&2
         return 1
     fi
