@@ -6040,7 +6040,7 @@ Helper to download and install Google Chrome
 
 ### claude-code (1.0)
 
-Helper to install Anthropic Claude Code CLI and VS Code extension
+Helper to install a reviewed or explicitly current Anthropic Claude Code CLI and verified VS Code extension
 
 - License: `GPL-3.0-or-later`
 - Payload license: `LicenseRef-Anthropic-Commercial-Terms`
