@@ -251,6 +251,19 @@ detail "SOURCE_DATE_EPOCH: $SOURCE_DATE_EPOCH"
 step_begin "[1/6]"
 log "mounting pseudo-fs inside chroot..."
 
+# ----------------------------------------------------------------------------
+# Cleanup trap — always unmount even on failure.
+# ----------------------------------------------------------------------------
+cleanup_mounts() {
+    log "cleanup: unmounting chroot pseudo-fs..."
+    for mnt in "$CHROOT/dev/pts" "$CHROOT/run" "$CHROOT/dev" "$CHROOT/sys" "$CHROOT/proc"; do
+        if mountpoint -q "$mnt"; then
+            umount -l "$mnt" || warn "lazy-unmount failed on $mnt (will be reaped by VM reboot)"
+        fi
+    done
+}
+trap cleanup_mounts EXIT
+
 mount_if_needed() {
     local mnt="$1" type="$2" src="$3" opts="${4:-}"
     if mountpoint -q "$mnt"; then
@@ -274,18 +287,6 @@ if [ -d "$CHROOT/dev/pts" ] && ! mountpoint -q "$CHROOT/dev/pts"; then
 fi
 status_line "mount chroot pseudo-fs" DONE
 
-# ----------------------------------------------------------------------------
-# Cleanup trap — always unmount even on failure.
-# ----------------------------------------------------------------------------
-cleanup_mounts() {
-    log "cleanup: unmounting chroot pseudo-fs..."
-    for mnt in "$CHROOT/dev/pts" "$CHROOT/run" "$CHROOT/dev" "$CHROOT/sys" "$CHROOT/proc"; do
-        if mountpoint -q "$mnt"; then
-            umount -l "$mnt" || warn "lazy-unmount failed on $mnt (will be reaped by VM reboot)"
-        fi
-    done
-}
-trap cleanup_mounts EXIT
 
 # ----------------------------------------------------------------------------
 # Step 2: Customize-airootfs hooks (chroot context)
