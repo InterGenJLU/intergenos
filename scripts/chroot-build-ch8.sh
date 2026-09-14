@@ -80,14 +80,26 @@ if [ "${IGOS_TRACE_LIB_LOADED:-0}" = "1" ]; then
     trace_init "tier-ch8"
     _CH8_TIER_START_MS=$(date +%s%3N)
     trace_event tier_start tier=ch8 log_file="$IGOS_LOGS/ch8-build.log"
-    _ch8_trace_exit() {
-        local rc=$?
-        trace_event tier_end tier=ch8 rc::=$rc duration_ms::=$(( $(date +%s%3N) - _CH8_TIER_START_MS ))
-        trace_close
-        return $rc
-    }
-    trap _ch8_trace_exit EXIT
 fi
+_CH8_ACTIVE_PACKAGE=""
+_ch8_trace_exit() {
+    local rc=$?
+    if [ "$rc" -ne 0 ] && [ -n "$_CH8_ACTIVE_PACKAGE" ]; then
+        igos_progress_end "$_CH8_ACTIVE_PACKAGE" "$rc" ||
+            printf 'warning: could not record package progress\n' >&2
+        log "error: core package failed: $_CH8_ACTIVE_PACKAGE (exit $rc)" ||
+            printf 'error: core package failed: %s (exit %s)\n' "$_CH8_ACTIVE_PACKAGE" "$rc" >&2
+        log "    resume with the orchestrator: --start-at core --start-at-pkg $_CH8_ACTIVE_PACKAGE" ||
+            printf 'warning: could not record package resume guidance\n' >&2
+    fi
+    if [ "${IGOS_TRACE_LIB_LOADED:-0}" = "1" ]; then
+        trace_event tier_end tier=ch8 rc::=$rc duration_ms::=$(( $(date +%s%3N) - _CH8_TIER_START_MS )) ||
+            printf 'warning: could not record tier completion\n' >&2
+        trace_close || printf 'warning: could not close tier trace\n' >&2
+    fi
+    return "$rc"
+}
+trap _ch8_trace_exit EXIT
 
 # ============================================================================
 # Logging
@@ -401,24 +413,12 @@ run_package() {
     # honored end-to-end so this class of silent partial-install halts
     # the build cleanly at the point of failure.
     igos_progress_begin "$name"
+    _CH8_ACTIVE_PACKAGE="$name"
     build_ch8_package "$@"
     local bcp_rc=$?
+    if [ "$bcp_rc" -ne 0 ]; then exit "$bcp_rc"; fi
+    _CH8_ACTIVE_PACKAGE=""
     igos_progress_end "$name" "$bcp_rc"
-    if [ "$bcp_rc" -ne 0 ]; then
-        log ""
-        log "error: build failed: $name"
-        log "    Fix the issue and re-run with the orchestrator (both flags required):"
-        log "      sudo IGOS_START_AT=$name bash scripts/build-intergenos.sh \\"
-        log "          --user \$USER --root-password \$RP --user-password \$UP \\"
-        log "          --start-at core --checkpoint --stop-after bootloader"
-        log ""
-        log "    IGOS_START_AT alone does not short-circuit earlier phases — it is"
-        log "    a package-skip honored only within chroot-build-ch8.sh. The"
-        log "    --start-at core flag is required to skip validate/verify-sources/"
-        log "    setup/toolchain/chroot-prep/chroot-tools."
-        log ""
-        exit 1
-    fi
 
     if [ -n "$IGOS_STOP_AFTER" ] && { [ "$name" = "$IGOS_STOP_AFTER" ] || [ "$pkg_dir" = "$IGOS_STOP_AFTER" ]; }; then
         log ""

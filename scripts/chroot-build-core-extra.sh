@@ -78,14 +78,26 @@ if [ "${IGOS_TRACE_LIB_LOADED:-0}" = "1" ]; then
     trace_init "tier-core-extra"
     _CE_TIER_START_MS=$(date +%s%3N)
     trace_event tier_start tier=core-extra log_file="$IGOS_LOGS/core-extra-build.log"
-    _ce_trace_exit() {
-        local rc=$?
-        trace_event tier_end tier=core-extra rc::=$rc duration_ms::=$(( $(date +%s%3N) - _CE_TIER_START_MS ))
-        trace_close
-        return $rc
-    }
-    trap _ce_trace_exit EXIT
 fi
+_CE_ACTIVE_PACKAGE=""
+_ce_trace_exit() {
+    local rc=$?
+    if [ "$rc" -ne 0 ] && [ -n "$_CE_ACTIVE_PACKAGE" ]; then
+        igos_progress_end "$_CE_ACTIVE_PACKAGE" "$rc" ||
+            printf 'warning: could not record package progress\n' >&2
+        log "error: core-extra package failed: $_CE_ACTIVE_PACKAGE (exit $rc)" ||
+            printf 'error: core-extra package failed: %s (exit %s)\n' "$_CE_ACTIVE_PACKAGE" "$rc" >&2
+        log "    resume with the orchestrator: --start-at core-extra --start-at-pkg $_CE_ACTIVE_PACKAGE" ||
+            printf 'warning: could not record package resume guidance\n' >&2
+    fi
+    if [ "${IGOS_TRACE_LIB_LOADED:-0}" = "1" ]; then
+        trace_event tier_end tier=core-extra rc::=$rc duration_ms::=$(( $(date +%s%3N) - _CE_TIER_START_MS )) ||
+            printf 'warning: could not record tier completion\n' >&2
+        trace_close || printf 'warning: could not close tier trace\n' >&2
+    fi
+    return "$rc"
+}
+trap _ce_trace_exit EXIT
 
 # ============================================================================
 # Logging
@@ -373,25 +385,12 @@ run_package() {
     # core-extra was the original surfacing site — apparmor + linux-
     # firmware silent partial-installs both lived here.
     igos_progress_begin "$name"
+    _CE_ACTIVE_PACKAGE="$name"
     build_core_package "$@"
     local bcp_rc=$?
+    if [ "$bcp_rc" -ne 0 ]; then exit "$bcp_rc"; fi
+    _CE_ACTIVE_PACKAGE=""
     igos_progress_end "$name" "$bcp_rc"
-    if [ "$bcp_rc" -ne 0 ]; then
-        log ""
-        log "error: build failed: $name"
-        log "    Fix the issue and re-run with the orchestrator (both flags required):"
-        log "      sudo IGOS_START_AT=$name bash scripts/build-intergenos.sh \\"
-        log "          --user \$USER --root-password \$RP --user-password \$UP \\"
-        log "          --start-at core-extra --checkpoint --stop-after bootloader"
-        log ""
-        log "    IGOS_START_AT alone does not short-circuit earlier phases — it is"
-        log "    a package-skip honored only within chroot-build-core-extra.sh."
-        log "    Without --start-at core-extra, the orchestrator re-runs every"
-        log "    phase from validate (and phase_setup's chown will rewrite the"
-        log "    populated chroot's ownership)."
-        log ""
-        exit 1
-    fi
 
     if [ -n "$IGOS_STOP_AFTER" ] && { [ "$name" = "$IGOS_STOP_AFTER" ] || [ "$pkg_dir" = "$IGOS_STOP_AFTER" ]; }; then
         log ""

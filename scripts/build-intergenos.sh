@@ -516,6 +516,7 @@ emit_build_summary() {
 CURRENT_PHASE=""
 
 cleanup() {
+    trap - EXIT  # interruption has its own finalization below
     log ""
     log "warning: build interrupted during phase: ${CURRENT_PHASE:-none}"
     log "    cleaning up…"
@@ -563,6 +564,49 @@ SKIPPING=true
 if [ -z "$START_AT" ]; then
     SKIPPING=false
 fi
+
+report_phase_failure() {
+    local phase="$1" description="$2" rc="$3" start_time="$4"
+    local elapsed=$(( $(date +%s) - start_time ))
+    local minutes=$(( elapsed / 60 )) seconds=$(( elapsed % 60 ))
+    local elapsed_ms=$(( elapsed * 1000 ))
+    log ""
+    log "error: phase failed: $phase ($description)"
+    log "    exit code: $rc"
+    log "    elapsed: ${minutes}m ${seconds}s"
+    log "    resume with: sudo bash $0 --user $BUILD_USER --start-at $phase"
+    log ""
+    # Structured trail: phase_exit (failure) + build_failure event with
+    # context so the JSONL trail captures the failure boundary even
+    # if a downstream handler swallows the exit code.
+    trace_phase_exit "$phase" "$rc" "$elapsed_ms"
+    build_failure_emit \
+        --where "build-intergenos.sh:run_phase" \
+        --why "phase ${phase} (${description}) exited non-zero" \
+        --phase "${phase}" \
+        --rc "${rc}"
+    trace_event "build_end" \
+        "success::=false" \
+        "last_phase=${phase}" \
+        "rc::=${rc}" \
+        "elapsed_s::=${elapsed}"
+
+    # Emit build_summary on phase failure too.
+    local _elapsed_total=$(( $(date +%s) - BUILD_START ))
+    emit_build_summary "${_elapsed_total}" "false" "${phase}"
+
+    trace_close
+}
+
+phase_failure_exit() {
+    local rc=$?
+    trap - EXIT
+    if [ "$rc" -ne 0 ]; then
+        report_phase_failure "$CURRENT_PHASE" "$_RUN_PHASE_DESCRIPTION" "$rc" "$_RUN_PHASE_START_TIME" ||
+            printf 'error: phase %s failed with exit %s; failure reporting also failed\n' "$CURRENT_PHASE" "$rc" >&2
+    fi
+    exit "$rc"
+}
 
 run_phase() {
     local phase="$1"
@@ -667,44 +711,21 @@ run_phase() {
             ;;
     esac
 
-    # Run the phase
+    # Keep phase execution in this shell and outside conditional contexts:
+    # both caller state and nested errexit must survive. The EXIT handler
+    # finalizes a failure, including an explicit exit from the phase.
+    _RUN_PHASE_DESCRIPTION="$description"
+    _RUN_PHASE_START_TIME="$start_time"
+    trap phase_failure_exit EXIT
     "$@"
     local rc=$?
+    if [ "$rc" -ne 0 ]; then exit "$rc"; fi
+    trap - EXIT
 
     local elapsed=$(( $(date +%s) - start_time ))
     local minutes=$(( elapsed / 60 ))
     local seconds=$(( elapsed % 60 ))
     local elapsed_ms=$(( elapsed * 1000 ))
-
-    if [ $rc -ne 0 ]; then
-        log ""
-        log "error: phase failed: $phase ($description)"
-        log "    exit code: $rc"
-        log "    elapsed: ${minutes}m ${seconds}s"
-        log "    resume with: sudo bash $0 --user $BUILD_USER --start-at $phase"
-        log ""
-        # Structured trail: phase_exit (failure) + build_failure event with
-        # context so the JSONL trail captures the failure boundary even
-        # if a downstream handler swallows the exit code.
-        trace_phase_exit "$phase" "$rc" "$elapsed_ms"
-        build_failure_emit \
-            --where "build-intergenos.sh:run_phase" \
-            --why "phase ${phase} (${description}) exited non-zero" \
-            --phase "${phase}" \
-            --rc "${rc}"
-        trace_event "build_end" \
-            "success::=false" \
-            "last_phase=${phase}" \
-            "rc::=${rc}" \
-            "elapsed_s::=${elapsed}"
-
-        # Emit build_summary on phase failure too.
-        local _elapsed_total=$(( $(date +%s) - BUILD_START ))
-        emit_build_summary "${_elapsed_total}" "false" "${phase}"
-
-        trace_close
-        exit $rc
-    fi
 
     log ""
     log "${IGOS_MARK_OK} $phase — ${minutes}m ${seconds}s"
