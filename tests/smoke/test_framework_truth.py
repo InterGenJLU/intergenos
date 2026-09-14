@@ -62,7 +62,7 @@ class FrameworkTruthTests(unittest.TestCase):
             set -uo pipefail
             SMOKE_JSON=1
             . "{LIB_SH}"
-            check_warn sample $'line one\\nline two\\tcolumn\\rreturn'
+            check_warn sample $'line one\\nline two\\tcolumn\\rreturn\\x01unit'
             summary
             """
         )
@@ -77,7 +77,7 @@ class FrameworkTruthTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         parsed = json.loads(result.stdout)
         message = parsed["checks"][0]["message"]
-        self.assertEqual(message, "line one\nline two\tcolumn\rreturn")
+        self.assertEqual(message, "line one\nline two\tcolumn\rreturn\x01unit")
 
 
 if __name__ == "__main__":

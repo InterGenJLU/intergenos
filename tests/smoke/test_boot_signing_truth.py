@@ -282,7 +282,7 @@ class SigningTruthTests(ShellCheckCase):
                     "SMOKE_SHIM_EFI": str(esp / "shimx64.efi"),
                     "SMOKE_GRUB_EFI": str(grub),
                 },
-                stubs={"sbverify": "printf '%s\\n' 'image signature issuer: /CN=fixture/'\n"},
+                stubs={"sbverify": "printf '%s\\n' 'signature 1' 'image signature issuer: /CN=fixture/'\n"},
             )
         self.assertEqual(self.one(rows, "sign/chain-root")[0], "FAIL")
 
@@ -306,12 +306,36 @@ class SigningTruthTests(ShellCheckCase):
                     "SMOKE_SHIM_EFI": str(shim),
                     "SMOKE_GRUB_EFI": str(grub),
                 },
-                stubs={"sbverify": "printf '%s\\n' 'image signature issuer: /CN=fixture/'\n"},
+                stubs={"sbverify": "printf '%s\\n' 'signature 1' 'image signature issuer: /CN=fixture/'\n"},
             )
         status, _, message = self.one(rows, "sign/chain-root")
         self.assertEqual(status, "WARN")
         self.assertIn("PE signature records", message)
         self.assertIn("trust roots not validated here", message)
+
+    def test_chain_root_rejects_unsigned_pe_even_when_sbverify_exits_zero(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            firmware = root / "sys/firmware/efi"
+            esp = root / "boot/efi"
+            firmware.mkdir(parents=True)
+            esp.mkdir(parents=True)
+            shim = esp / "shimx64.efi"
+            grub = esp / "grubx64.efi"
+            shim.write_bytes(b"unsigned shim")
+            grub.write_bytes(b"unsigned grub")
+            rows = self.run_check(
+                SIGNING_SH,
+                "check_signing_chain_root",
+                env_update={
+                    "SMOKE_EFI_FIRMWARE": str(firmware),
+                    "SMOKE_ESP_ROOT": str(esp),
+                    "SMOKE_SHIM_EFI": str(shim),
+                    "SMOKE_GRUB_EFI": str(grub),
+                },
+                stubs={"sbverify": "printf '%s\\n' 'No signature table present'\nexit 0\n"},
+            )
+        self.assertEqual(self.one(rows, "sign/chain-root")[0], "FAIL")
 
     def test_chain_root_unreadable_is_not_absent(self):
         with tempfile.TemporaryDirectory() as tmp:

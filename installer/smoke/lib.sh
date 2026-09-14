@@ -165,25 +165,32 @@ summary() {
 # ---------------------------------------------------------------------------
 emit_json() {
     local pass="$1" fail="$2" warn="$3" skip="$4"
-    printf '{\n  "checks": [\n'
-    local first=1
-    for r in "${SMOKE_RESULTS[@]}"; do
-        local status="${r%%|*}"
-        local rest="${r#*|}"
-        local id="${rest%%|*}"
-        local msg="${rest#*|}"
-        msg="${msg//\\/\\\\}"
-        msg="${msg//\"/\\\"}"
-        msg="${msg//$'\b'/\\b}"
-        msg="${msg//$'\f'/\\f}"
-        msg="${msg//$'\n'/\\n}"
-        msg="${msg//$'\r'/\\r}"
-        msg="${msg//$'\t'/\\t}"
-        [ $first -eq 1 ] || printf ',\n'
-        first=0
-        printf '    {"status": "%s", "id": "%s", "message": "%s"}' \
-            "$status" "$id" "$msg"
-    done
-    printf '\n  ],\n  "summary": {"pass": %d, "fail": %d, "warn": %d, "skip": %d}\n}\n' \
-        "$pass" "$fail" "$warn" "$skip"
+    # NUL frames cannot occur in a Bash string, so they preserve every other
+    # control byte without inventing another delimiter. Python's standard JSON
+    # encoder then escapes the complete U+0000..U+001f range correctly.
+    printf '%s\0' "${SMOKE_RESULTS[@]}" | /usr/bin/python3 -c '
+import json
+import sys
+
+checks = []
+for raw in sys.stdin.buffer.read().split(b"\0"):
+    if not raw:
+        continue
+    status, check_id, message = raw.decode("utf-8", "replace").split("|", 2)
+    checks.append({"status": status, "id": check_id, "message": message})
+json.dump(
+    {
+        "checks": checks,
+        "summary": {
+            "pass": int(sys.argv[1]),
+            "fail": int(sys.argv[2]),
+            "warn": int(sys.argv[3]),
+            "skip": int(sys.argv[4]),
+        },
+    },
+    sys.stdout,
+    indent=2,
+)
+sys.stdout.write("\n")
+' "$pass" "$fail" "$warn" "$skip"
 }

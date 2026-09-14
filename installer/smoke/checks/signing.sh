@@ -501,11 +501,11 @@ check_signing_chain_root() {
     local shim_signer grub_signer shim_rc=0 grub_rc=0
     shim_signer="$("$SMOKE_SBVERIFY" --list "$SMOKE_SHIM_EFI" 2>&1)" || shim_rc=$?
     grub_signer="$("$SMOKE_SBVERIFY" --list "$SMOKE_GRUB_EFI" 2>&1)" || grub_rc=$?
-    if [ "$shim_rc" -ne 0 ] || ! grep -qiE 'signature|certificate|image signature issuer|CN=' <<<"$shim_signer"; then
+    if [ "$shim_rc" -ne 0 ] || ! grep -qE '^[[:space:]]*signature[[:space:]]+[1-9][0-9]*[[:space:]]*$' <<<"$shim_signer"; then
         check_fail "sign/chain-root" "$SMOKE_SHIM_EFI has no readable PE signature record"
         return
     fi
-    if [ "$grub_rc" -ne 0 ] || ! grep -qiE 'signature|certificate|image signature issuer|CN=' <<<"$grub_signer"; then
+    if [ "$grub_rc" -ne 0 ] || ! grep -qE '^[[:space:]]*signature[[:space:]]+[1-9][0-9]*[[:space:]]*$' <<<"$grub_signer"; then
         check_fail "sign/chain-root" "$SMOKE_GRUB_EFI has no readable PE signature record"
         return
     fi
