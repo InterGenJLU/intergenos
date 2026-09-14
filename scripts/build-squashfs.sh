@@ -191,7 +191,7 @@ logpipe() {
     # ge9b-11 Step-2.7 firing, 2026-07-30). Narration headers and the
     # :STATUS verdict column keep the wrapped design; relay does not.
     local _subtag="${1:-}" _l
-    while IFS= read -r _l; do
+    while IFS= read -r _l || [ -n "$_l" ]; do
         _sec_render "${_SEC_CUR}${_subtag:+ $_subtag}"
         printf '[%s] %s\n' "$(_ts)" "$_l"
     done

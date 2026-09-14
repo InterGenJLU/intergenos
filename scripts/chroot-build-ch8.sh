@@ -195,7 +195,7 @@ build_ch8_package() {
     _phase_start_ms=$(date +%s%3N)
     if ! apply_package_patches "${IGOS_PACKAGES}/${pkg_dir}/package.yml" >> "$pkg_log" 2>&1; then
         log "  FAILED in patch-apply"
-        tail -20 "$pkg_log" | while IFS= read -r l; do log "    $l"; done
+        tail -20 "$pkg_log" | while IFS= read -r l || [ -n "$l" ]; do log "    $l"; done
         _phase_dur_ms=$(( $(date +%s%3N) - _phase_start_ms ))
         if [ "${IGOS_TRACE_LIB_LOADED:-0}" = "1" ]; then
             trace_pkg_phase "$name" patch_apply 1 "$_phase_dur_ms"
@@ -236,7 +236,7 @@ build_ch8_package() {
         [ "${IGOS_TRACE_LIB_LOADED:-0}" = "1" ] && trace_pkg_phase "$name" configure "$rc" "$_phase_dur_ms"
         if [ $rc -ne 0 ]; then
             log "  FAILED in configure (exit $rc)"
-            tail -20 "$pkg_log" | while IFS= read -r l; do log "    $l"; done
+            tail -20 "$pkg_log" | while IFS= read -r l || [ -n "$l" ]; do log "    $l"; done
             pkg_trace_finish ch8 "$name" "$version" "$pkg_log" "$build_script" "$_pkg_start_ms" "$rc" configure
             return 1
         fi
@@ -254,7 +254,7 @@ build_ch8_package() {
         [ "${IGOS_TRACE_LIB_LOADED:-0}" = "1" ] && trace_pkg_phase "$name" build "$rc" "$_phase_dur_ms"
         if [ $rc -ne 0 ]; then
             log "  FAILED in build (exit $rc)"
-            tail -20 "$pkg_log" | while IFS= read -r l; do log "    $l"; done
+            tail -20 "$pkg_log" | while IFS= read -r l || [ -n "$l" ]; do log "    $l"; done
             pkg_trace_finish ch8 "$name" "$version" "$pkg_log" "$build_script" "$_pkg_start_ms" "$rc" build
             return 1
         fi
@@ -275,7 +275,7 @@ build_ch8_package() {
         [ "${IGOS_TRACE_LIB_LOADED:-0}" = "1" ] && trace_pkg_phase "$name" check "$c_rc" "$_phase_dur_ms"
         if [ $c_rc -ne 0 ]; then
             log "  [CHECK] FAILED (exit $c_rc) — NON-FATAL (test-suite result; build continues; full output in log + trace)"
-            tail -20 "$pkg_log" | while IFS= read -r l; do log "    $l"; done
+            tail -20 "$pkg_log" | while IFS= read -r l || [ -n "$l" ]; do log "    $l"; done
         fi
         log "  [CHECK] done (see log for results)"
     fi
