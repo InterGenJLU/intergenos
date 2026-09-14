@@ -11,9 +11,9 @@ when neither source nor target is copy-on-write, and it is already the
 distribution's idiom.
 
 The version manifest still records each file's sha256 (spec §3) so a version
-self-verifies and a restore re-hashes before writing. An unchanged (hardlinked)
-file reuses the previous version's recorded sha rather than re-hashing, so a
-capture only hashes what actually changed.
+self-verifies and a restore re-hashes before writing. Hardlink reuse requires
+matching nanosecond metadata and verified source and previous-version hashes.
+A source that changes during capture is refused without committing a version.
 
 Commit-last (spec §14): the tree is built under a staging name, then renamed to
 its version-id name, and only then is the manifest committed. A capture
@@ -31,6 +31,10 @@ from pathlib import Path
 from . import cas as _cas
 from . import manifest as _manifest
 from . import paths as _paths
+
+
+class SourceChangedError(RuntimeError):
+    """A source changed while its capture was being prepared."""
 
 
 def userdata_tree(target_root, version_id):
@@ -100,31 +104,38 @@ def capture(source_roots, target_root, prev_manifest, sequence, wall_clock,
     ))
 
     entries = []
-    for root in source_roots:
-        root = str(root)
-        if not os.path.exists(root):
-            continue
-        for dirpath, dirnames, filenames in os.walk(root, topdown=True):
-            # Prune excluded directories so we never descend into them.
-            if is_excluded:
-                dirnames[:] = [
-                    d for d in dirnames
-                    if not is_excluded(os.path.join(dirpath, d) + "/")
+    try:
+        for root in source_roots:
+            root = str(root)
+            if not os.path.exists(root):
+                continue
+            for dirpath, dirnames, filenames in os.walk(root, topdown=True):
+                # Prune excluded directories so we never descend into them.
+                if is_excluded:
+                    dirnames[:] = [
+                        d for d in dirnames
+                        if not is_excluded(os.path.join(dirpath, d) + "/")
+                    ]
+                _capture_dir(dirpath, staging, entries)
+                # os.walk lists directory symlinks but does not visit them.
+                directory_links = [
+                    name for name in dirnames
+                    if os.path.islink(os.path.join(dirpath, name))
                 ]
-            _capture_dir(dirpath, staging, entries)
-            # os.walk lists directory symlinks in dirnames but does not visit
-            # them. Capture the links themselves alongside the file entries.
-            directory_links = [
-                name for name in dirnames
-                if os.path.islink(os.path.join(dirpath, name))
-            ]
-            for fn in filenames + directory_links:
-                ap = os.path.join(dirpath, fn)
-                if is_excluded and is_excluded(ap):
-                    continue
-                _capture_file_or_link(
-                    ap, staging, prev_index, prev_tree, entries
-                )
+                for fn in filenames + directory_links:
+                    ap = os.path.join(dirpath, fn)
+                    if is_excluded and is_excluded(ap):
+                        continue
+                    _capture_file_or_link(
+                        ap, staging, prev_index, prev_tree, entries
+                    )
+    except BaseException as error:
+        # A refused source must not leave a partial version tree behind.
+        try:
+            shutil.rmtree(staging)
+        except OSError as cleanup_error:
+            error.add_note(f"staging cleanup failed: {cleanup_error}")
+        raise
 
     manifest = _manifest.build_manifest(
         _paths.LAYER_USER_DATA, sequence, wall_clock, reason, entries
@@ -171,6 +182,22 @@ def _capture_dir(dirpath, staging, entries):
     entries.append(e)
 
 
+def _source_signature(st):
+    return (st.st_dev, st.st_ino, st.st_mode, st.st_uid, st.st_gid,
+            st.st_size, st.st_mtime_ns, st.st_ctime_ns)
+
+
+def _require_unchanged_source(path, before):
+    try:
+        after = os.lstat(path)
+    except OSError as error:
+        raise SourceChangedError(
+            f"source changed during capture: {path}: {error}"
+        ) from error
+    if _source_signature(after) != _source_signature(before):
+        raise SourceChangedError(f"source changed during capture: {path}")
+
+
 def _capture_file_or_link(ap, staging, prev_index, prev_tree, entries):
     try:
         st = os.lstat(ap)
@@ -209,16 +236,25 @@ def _capture_file_or_link(ap, staging, prev_index, prev_tree, entries):
         and _tree_path(prev_tree, ap).exists()
     )
     if unchanged:
-        # Hardlink to the prior version's inode: O(0) bytes, and reuse its sha.
+        # Timestamp-preserving copies and a damaged previous version must
+        # not make different bytes look eligible for hardlink reuse.
+        source_sha = _cas.sha256_file(ap)
+        _require_unchanged_source(ap, st)
+        unchanged = (
+            source_sha == prev.get("sha256")
+            and _cas.sha256_file(_tree_path(prev_tree, ap)) == source_sha
+        )
+    if unchanged:
         os.link(_tree_path(prev_tree, ap), tp)
         sha = prev["sha256"]
         captured_st = st
     else:
         shutil.copy2(ap, tp, follow_symlinks=False)
-        # The source may change as soon as copy2 returns. Describe and hash the
-        # staged version, which is the data this manifest actually commits.
+        _require_unchanged_source(ap, st)
+        # Describe and hash the bytes in the staged version.
         captured_st = os.lstat(tp)
         sha = _cas.sha256_file(tp)
+    _require_unchanged_source(ap, st)
     e = {"path": ap, "type": _manifest.T_FILE,
          "size": captured_st.st_size, "sha256": sha}
     # Ownership describes the source to restore, not the daemon-owned staging

@@ -68,17 +68,33 @@ class UserDataCaptureIntegrityTest(unittest.TestCase):
             self.engine.verify(_paths.LAYER_USER_DATA, second_version)["ok"]
         )
 
-    def test_manifest_hashes_staged_copy_when_source_changes_after_copy(self):
+    def test_source_change_after_copy_refuses_the_version(self):
         self.document.write_bytes(b"before")
-        source_stat = self.document.lstat()
         real_copy = _userdata.shutil.copy2
-        real_lstat = _userdata.os.lstat
 
         def copy_then_change(source, target, *args, **kwargs):
             result = real_copy(source, target, *args, **kwargs)
             if Path(source) == self.document:
                 self.document.write_bytes(b"after!")
             return result
+
+        with mock.patch.object(
+            _userdata.shutil, "copy2", side_effect=copy_then_change
+        ):
+            with self.assertRaisesRegex(
+                _userdata.SourceChangedError, "changed during capture"
+            ):
+                self._capture("source changes after copy")
+
+        self.assertFalse(self.engine.list_versions(_paths.LAYER_USER_DATA))
+        self.assertFalse(list(
+            (self.engine.target_root() / "userdata").glob(".staging-*")
+        ))
+
+    def test_manifest_keeps_source_ownership_for_the_staged_copy(self):
+        self.document.write_bytes(b"before")
+        source_stat = self.document.lstat()
+        real_lstat = _userdata.os.lstat
 
         def staging_has_daemon_ownership(path):
             result = real_lstat(path)
@@ -94,11 +110,9 @@ class UserDataCaptureIntegrityTest(unittest.TestCase):
             return result
 
         with mock.patch.object(
-            _userdata.shutil, "copy2", side_effect=copy_then_change
-        ), mock.patch.object(
             _userdata.os, "lstat", side_effect=staging_has_daemon_ownership
         ):
-            version = self._capture("source changes after copy")
+            version = self._capture("source ownership is preserved")
 
         stored = self._stored_document(version)
         captured = self.engine.get_manifest(_paths.LAYER_USER_DATA, version)
@@ -107,7 +121,7 @@ class UserDataCaptureIntegrityTest(unittest.TestCase):
             if item["path"] == str(self.document)
         )
         self.assertEqual(stored.read_bytes(), b"before")
-        self.assertEqual(self.document.read_bytes(), b"after!")
+        self.assertEqual(self.document.read_bytes(), b"before")
         self.assertEqual(entry["uid"], source_stat.st_uid)
         self.assertEqual(entry["gid"], source_stat.st_gid)
         self.assertTrue(
