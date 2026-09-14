@@ -63,10 +63,14 @@ Secret hygiene:
     original module redacted only named function args; the build-pipeline lift
     extends the redactor to subprocess `env_extra` to cover the build-side
     threat surface.
-  - Stdin payloads passed to `traced_run(input="...")` are logged verbatim —
-    caller's responsibility to pass via a side channel if secret. The build
-    pipeline rarely passes secrets via stdin; the primary historical risk
-    (signing-passphrase prompts) already uses a non-stdin path.
+  - Stdin payloads passed to `traced_run(input="...")` are logged verbatim
+    EXCEPT for credential consumers: when the command is one of
+    STDIN_CREDENTIAL_CONSUMERS (chpasswd, passwd, cryptsetup, openssl, gpg,
+    ssh-keygen, mokutil ...) or the payload has the shape of a password-hash
+    line or a crypt hash, the writer records the byte count and a
+    `stdin_redacted` reason and never the bytes (decided 2026-09-14: the
+    installer's step layer redacted `password`, but the subprocess layer
+    below it logged the full `chpasswd -e` line with both account hashes).
 """
 
 from __future__ import annotations
@@ -77,6 +81,7 @@ import json
 import logging
 import inspect
 import os
+import re
 import shutil
 import subprocess
 import threading
@@ -122,6 +127,59 @@ REDACT_KEYS = frozenset({
 # events scrubs any matching variable's value before emission.
 # Security-driven: build-host env may carry GPG/SBSIGN passphrases, repo
 # tokens, or signing keys; durable JSONL must not surface them.
+# Commands whose standard input is, by their nature, a credential: a password
+# or hash line (chpasswd -e, passwd --stdin), a LUKS passphrase (cryptsetup
+# --key-file=-), a passphrase or key (gpg, ssh-keygen, openssl passwd, mokutil
+# --import). For these the trace writer records how many bytes went in and
+# never which. Matched on the command's basename, so /usr/sbin/chpasswd and
+# a chroot-prefixed invocation both match (traced_run_chroot passes the real
+# argv through: the chroot wrapper is skipped before matching).
+STDIN_CREDENTIAL_CONSUMERS = frozenset({
+    "chpasswd", "passwd", "cryptsetup", "openssl", "gpg", "gpg2", "gpgv",
+    "ssh-keygen", "mokutil", "sbsign", "luksformat", "chage", "usermod",
+})
+
+# Defense in depth for a consumer the list does not name: a payload that
+# LOOKS like a credential is redacted too — a crypt hash ($1$/$5$/$6$/$y$/
+# $2b$ ...) anywhere in it, or a `name:<secret>` password-file line.
+_CREDENTIAL_SHAPE_RE = re.compile(
+    # a crypt hash anywhere, or a password-file line `account:<token>` with
+    # NO space after the colon (a YAML `key: value` line has one, an nft
+    # ruleset has none of these shapes, so ordinary payloads stay readable)
+    r"(^|[\s:])\$(?:1|5|6|y|2[abxy]|gy|argon2[id]*)\$|^[a-z_][a-z0-9_-]{0,31}:[^\s:]{8,}$",
+    re.M,
+)
+
+_CHROOT_WRAPPERS = frozenset({"chroot", "sudo", "env", "nice", "ionice"})
+
+
+def _output_credential_reason(cmd, payload):
+    """Why a subprocess's stdout/stderr must not be recorded, or None.
+    A credential consumer's output is withheld only when it is
+    credential-shaped (its usage text and error lines stay readable);
+    any other command's output is withheld when credential-shaped."""
+    if payload and _CREDENTIAL_SHAPE_RE.search(payload):
+        return "credential-shaped output"
+    return None
+
+
+def _stdin_credential_reason(cmd, payload):
+    """Why this stdin must not be recorded, or None if it may be."""
+    argv = list(cmd)
+    i = 0
+    # skip wrappers and their leading arguments (chroot <dir> <cmd> ...)
+    while i < len(argv) and os.path.basename(str(argv[i])) in _CHROOT_WRAPPERS:
+        i += 2 if os.path.basename(str(argv[i])) == "chroot" else 1
+        while i < len(argv) and str(argv[i]).startswith("-"):
+            i += 1
+    name = os.path.basename(str(argv[i])) if i < len(argv) else ""
+    if name in STDIN_CREDENTIAL_CONSUMERS:
+        return f"credential consumer: {name}"
+    if payload and _CREDENTIAL_SHAPE_RE.search(payload):
+        return "credential-shaped payload"
+    return None
+
+
 REDACT_ENV_SUBSTRINGS = ("TOKEN", "PASSWORD", "PASSPHRASE", "SECRET", "KEY",
                          "CRED", "AUTH")
 
@@ -579,6 +637,7 @@ def traced_run(
     requirement preserved from Forge's prior art.
     """
     start = time.monotonic()
+    _stdin_reason = _stdin_credential_reason(cmd, input) if input else None
     if _VERBOSE:
         _emit({
             "type": "subprocess_start",
@@ -587,7 +646,9 @@ def traced_run(
             "pkg": pkg,
             "cmd": list(cmd),
             "stdin_bytes": len(input.encode("utf-8")) if input else 0,
-            "stdin": input if input else None,
+            "stdin": (None if not input
+                      else "<REDACTED>" if _stdin_reason else input),
+            "stdin_redacted": _stdin_reason,
             "cwd": cwd,
             "env_extra": _redact_env(
                 {k: v for k, v in env.items() if k not in os.environ}
@@ -621,6 +682,11 @@ def traced_run(
 
     duration_ms = int((time.monotonic() - start) * 1000)
 
+    # The same rule on the way OUT: a credential consumer's output (openssl
+    # passwd prints the hash it made; a password tool echoing its input) and
+    # any credential-shaped output are withheld, byte counts kept.
+    _out_reason = _output_credential_reason(cmd, result.stdout)
+    _err_reason = _output_credential_reason(cmd, result.stderr)
     _emit({
         "type": "subprocess_end",
         "phase": phase,
@@ -628,8 +694,10 @@ def traced_run(
         "pkg": pkg,
         "cmd": list(cmd),
         "rc": result.returncode,
-        "stdout": result.stdout,
-        "stderr": result.stderr,
+        "stdout": ("<REDACTED>" if _out_reason else result.stdout),
+        "stderr": ("<REDACTED>" if _err_reason else result.stderr),
+        "stdout_redacted": _out_reason,
+        "stderr_redacted": _err_reason,
         "stdout_bytes": len(result.stdout.encode("utf-8")) if result.stdout else 0,
         "stderr_bytes": len(result.stderr.encode("utf-8")) if result.stderr else 0,
         "duration_ms": duration_ms,
@@ -951,5 +1019,5 @@ __all__ = [
     # Structured-failure builders
     "install_failure", "build_failure",
     # Module-level redact policy (callers may extend per-package)
-    "REDACT_KEYS", "REDACT_ENV_SUBSTRINGS",
+    "REDACT_KEYS", "REDACT_ENV_SUBSTRINGS", "STDIN_CREDENTIAL_CONSUMERS",
 ]
