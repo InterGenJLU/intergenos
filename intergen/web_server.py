@@ -1883,6 +1883,37 @@ class WebServer:
         data_out["connections"] = len(self._connections)
         await ctx.ws.send_json(data_out)
 
+    # -- Conversation binding for everything after route() -------------------
+
+    def _bound(self, ctx: ConnectionContext, fn, *args, **kwargs):
+        """Run ONE router call inside this connection's conversation binding.
+
+        The router is shared by every browser tab and by the desktop bus, and
+        the daemon detaches the router's own conversation, so a router method
+        that reads conversation state — the model-facing history, the staged
+        offers, the relevance index — refuses unless the turn has named the
+        conversation it belongs to (ConversationUnbound, fail-closed by
+        design). route() names it on the call. Everything after route() —
+        building the model prompt, the honesty-screen regenerations, the
+        code-offer check — reads the same state and must name the same
+        conversation. This is the one place that does it, so a call cannot be
+        added after route() without going through the binding.
+
+        The binding is PER THREAD (router._conversation_scope), which is what
+        keeps an abandoned turn on a worker thread from writing into whichever
+        conversation the loop thread binds next. That is also why a binding
+        taken on the event loop does not cover a call run in an executor: the
+        regenerations run on worker threads and each one calls this from that
+        thread, taking its own binding there. The body holds no await, so the
+        binding never spans a point where another connection's turn could run
+        on this thread.
+
+        Never relaxed: an unbound access still refuses. The fix is to bind,
+        not to give the router a default conversation back.
+        """
+        with self._router.bind_conversation(ctx.conversation):
+            return fn(*args, **kwargs)
+
     # -- Streaming LLM response ---------------------------------------------
 
     async def _stream_llm_response(self, ctx: ConnectionContext,
@@ -1922,12 +1953,14 @@ class WebServer:
                 if getattr(self._router, "_state_cache", None) else None
             )
             if sysmap_data:
-                messages = self._router._build_system_map_messages(
+                messages = self._bound(
+                    ctx, self._router._build_system_map_messages,
                     _gen_input, sysmap_data)
             else:
                 # Cache emptied since the route decision — fall back to the
                 # no-fabricate freeform prompt rather than inventing state.
-                messages = self._router._build_messages(_gen_input, with_tools=False)
+                messages = self._bound(ctx, self._router._build_messages,
+                                       _gen_input, with_tools=False)
             tool_schemas = []
         else:
             # Match the system prompt to the route: tool turns keep the
@@ -1937,9 +1970,11 @@ class WebServer:
             # make true installed-tool facts available so the model grounds
             # instead of inventing (png2jpg) or defaulting to apt. None for
             # tool turns and non-subjects → those are untouched.
-            _grounding = (self._router._grounding_context(_gen_input)
+            _grounding = (self._bound(ctx, self._router._grounding_context,
+                                      _gen_input)
                           if route_result.source == "llm_freeform" else None)
-            messages = self._router._build_messages(
+            messages = self._bound(
+                ctx, self._router._build_messages,
                 _gen_input, with_tools=_with_tools, grounding=_grounding)
             # Offer tools ONLY when the router's eligibility gate decided this
             # turn needs them (source == "llm_tools"). Freeform/conversational
@@ -2102,7 +2137,8 @@ class WebServer:
             _corrected = await loop.run_in_executor(
                 None,
                 lambda: _claim_ctx.run(
-                    self._router._regenerate_without_claim, messages, _marker))
+                    self._bound, ctx, self._router._regenerate_without_claim,
+                    messages, _marker))
             if _corrected is not None:
                 full_response = _corrected
                 _outcome = "violation_regenerated"
@@ -2118,7 +2154,7 @@ class WebServer:
         # the leg-1 root enabler; regenerate off-thread once re-grounded, else the
         # honest no-self-offer fallback. Runs on the (execution-corrected)
         # full_response so ONE delivered answer clears every honesty gate.
-        _code_offer = self._router._code_offer_staged()
+        _code_offer = self._bound(ctx, self._router._code_offer_staged)
         _off_verdict, _off_marker = safety.screen_model_text_offer(
             full_response, dispatched=_dispatched, code_offer_staged=_code_offer)
         if _off_verdict == "clean":
@@ -2129,7 +2165,8 @@ class WebServer:
             _off_corrected = await loop.run_in_executor(
                 None,
                 lambda: _offer_ctx.run(
-                    self._router._regenerate_without_selfoffer, messages))
+                    self._bound, ctx, self._router._regenerate_without_selfoffer,
+                    messages))
             if _off_corrected is not None:
                 full_response = _off_corrected
                 _off_outcome = "violation_regenerated"
@@ -2177,6 +2214,7 @@ class WebServer:
             _cap_corrected = await loop.run_in_executor(
                 None,
                 lambda: _cap_ctx.run(
+                    self._bound, ctx,
                     self._router._regenerate_with_capability_grounding,
                     messages, _cap_marker))
             if _cap_corrected is not None:
