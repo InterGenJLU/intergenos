@@ -2395,6 +2395,19 @@ def _driver_leg_is_done():
     return _package_is_installed(_DRIVER_PACKAGE) is True
 
 
+def _engine_leg_is_done():
+    """Whether this machine's offered compute engine is confirmed installed.
+
+    Reuse the offer definitions for the package list, including the CUDA
+    toolkit. A missing offer or an unreadable package state keeps the current
+    page order, just as the graphics-driver check does.
+    """
+    record = _gpu_detection_record()
+    engines = [offer for offer in _gpu_offers(record, probe=lambda name: False)
+               if offer['key'] == 'compute_engine']
+    return bool(engines) and all(_offer_is_installed(offer) for offer in engines)
+
+
 def _package_is_installed(name):
     """Whether ``name`` is installed, or None when that cannot be determined.
 
@@ -3108,7 +3121,7 @@ def _standalone_driver_banner_applies(record, probe=None):
 def _setup_card_placement(driver_leg_done):
     """Where the "set InterGen up" card belongs on the Meet InterGen page.
 
-    After the driver leg, setting InterGen up is the next action, so the card
+    After the driver or engine leg, setup is the next action, so the card
     is lifted from below the fold to directly under the page's own heading —
     'after-title'. The released build lifted it to position ZERO instead,
     which put it, and a line of running text, ABOVE the "Meet InterGen"
@@ -3160,7 +3173,7 @@ _OFFER_BOX_MAX_WIDTH = 660
 _OFFER_DETAIL_COLOR = '#dbe4ef'
 
 
-def _build_gpu_install_offer(record, probe=None):
+def _build_gpu_install_offer(record, probe=None, on_engine_installed=None):
     """THE box: what was detected, why it matters, and a switch per item.
 
     One box, not two. The released page built a "proprietary drivers are
@@ -3369,6 +3382,9 @@ def _build_gpu_install_offer(record, probe=None):
             status.set_text(outcome['message'])
             if outcome['installed'] is True:
                 btn.set_visible(False)
+                if (outcome['activation'] == 'service-restart'
+                        and on_engine_installed is not None):
+                    on_engine_installed()
             else:
                 btn.set_sensitive(True)
                 btn.set_label(_GPU_INSTALL_RETRY_LABEL)
@@ -3862,9 +3878,30 @@ def build_intergen_page():
     # Absent record, hardware with nothing to add, or a machine that already
     # has everything on offer: appends nothing.
     record = _gpu_detection_record()
-    gpu_section = _build_gpu_install_offer(record)
+    is_set_up = _intergen_is_set_up()
+
+    def _on_engine_installed():
+        if not is_set_up:
+            lifted = _place_setup_card()
+            setup_btn.grab_focus()
+            if lifted:
+                # Focus may scroll using the card's allocation before the
+                # reorder. Reveal the stable heading without changing focus.
+                viewport = setup_btn.get_ancestor(Gtk.Viewport)
+                if viewport is not None:
+                    viewport.scroll_to(title, None)
+
+    gpu_section = _build_gpu_install_offer(
+        record, on_engine_installed=_on_engine_installed)
     if gpu_section is not None:
         box.append(gpu_section)
+    if not is_set_up:
+        scroll_hint = Gtk.Label(
+            label='Scroll down to set InterGen up and choose his size.')
+        scroll_hint.add_css_class('intergen-summon-text')
+        scroll_hint.set_justify(Gtk.Justification.CENTER)
+        scroll_hint.set_wrap(True)
+        box.append(scroll_hint)
 
     # Example prompts — two columns. No "Things you can ask:" label: the boxed
     # questions are self-evidently prompts, so the heading is inferred visually
@@ -3912,7 +3949,7 @@ def build_intergen_page():
     # show an honest "starting" card until the engine is definitively up. First-
     # run onboarding is UNCHANGED: the opt-in disclosure + one-click setup card
     # below only build when NOT set up (this branch returns early).
-    if _intergen_is_set_up():
+    if is_set_up:
         state_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         state_box.set_halign(Gtk.Align.CENTER)
         # `shown['state']` carries the currently-displayed state across probe
@@ -4160,37 +4197,32 @@ def build_intergen_page():
     setup_btn.connect('clicked', _on_setup_clicked)
     box.append(setup_box)
 
-    # AFTER THE DRIVER LEG, SETTING INTERGEN UP IS THE NEXT ACTION — so the
-    # card is lifted out of its default place near the bottom, where on a
-    # laptop screen it sits below the fold: a user who has just rebooted
-    # arrives, sees prose about a page they have already read, and has to
-    # scroll to find the one thing they came back to do. Moving the single
-    # existing card — rather than adding a second button — keeps one control
-    # for one action, so no two copies can disagree about state.
-    #
-    # It is lifted to directly UNDER THE PAGE'S HEADING, not above it. The
-    # released build moved it to position zero, which put the card and a line
-    # of running text above the "Meet InterGen" heading they belong under —
-    # a page introducing itself after its own contents (see
-    # _setup_card_placement).
-    #
-    # Only in that state. On a first visit, with no driver installed, the
-    # existing order is correct: the disclosure is meant to be read before the
-    # button that acts on it.
-    if _setup_card_placement(_driver_leg_is_done()) == 'after-title':
-        done_note = Gtk.Label(
-            label='Your graphics driver is installed. The next step is to set '
-                  'InterGen up.')
-        done_note.add_css_class('intergen-summon-key')
-        done_note.set_justify(Gtk.Justification.CENTER)
-        done_note.set_wrap(True)
-        done_note.set_max_width_chars(88)
-        box.append(done_note)
-        # reorder_child_after(child, sibling) places child immediately after
-        # sibling. The title stays first; these land between it and the
-        # introductory paragraph.
+    # Keep one setup card. Either completed leg makes it the next action;
+    # a missing record or an inconclusive package check leaves the disclosure
+    # before it. The NVIDIA driver-only path retains its existing wording.
+    done_note = Gtk.Label()
+    done_note.add_css_class('intergen-summon-key')
+    done_note.set_justify(Gtk.Justification.CENTER)
+    done_note.set_wrap(True)
+    done_note.set_max_width_chars(88)
+
+    def _place_setup_card():
+        driver_done = _driver_leg_is_done()
+        if _setup_card_placement(driver_done or _engine_leg_is_done()) != 'after-title':
+            return False
+        done_note.set_text(
+            'Your graphics driver is installed. The next step is to set '
+            'InterGen up.' if driver_done else
+            'Your compute engine is installed. The next step is to set '
+            'InterGen up.')
+        if done_note.get_parent() is None:
+            box.append(done_note)
         box.reorder_child_after(done_note, title)
         box.reorder_child_after(setup_box, done_note)
+        scroll_hint.set_visible(False)
+        return True
+
+    _place_setup_card()
 
     # Once enabled — where to find InterGen
     summon = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
