@@ -318,6 +318,9 @@ GUI_SUBSTRATE_DESKTOP = {
     # Desktop services that aren't core (polkit/NM are in core)
     "geoclue2", "modemmanager", "upower", "udisks2",
     "bluez", "avahi", "gvfs", "wsdd", "gnome-keyring", "gnome-online-accounts",
+    # XML parser for wsdd, also used by CairoSVG in extra. Follow the earliest
+    # runtime consumer; runtime-only edges are absent from consumer inference.
+    "defusedxml",
     # GNOME core
     "gnome-shell", "mutter", "gnome-desktop", "gnome-control-center",
     "gnome-session", "gjs", "gcr", "gcr4", "gspell",
@@ -1222,11 +1225,11 @@ USER_FACING_LIBS_EXTRA = {
 # package directive — these were previously pip-pulled by the generator's
 # own run instructions). Pure-python SVG-rendering stack: cairosvg atop
 # cairocffi (cffi bindings to the desktop tier's libcairo) + its CSS/XML
-# support libs. Mirror-only (iso_include:false, the extra-tier default);
+# support libs. The remaining members are mirror-only (iso_include:false);
 # consumed by design tooling, not by any shipped app.
 ICON_TOOLCHAIN_EXTRA = {
     "cairosvg", "cairocffi", "cssselect2", "tinycss2",
-    "webencodings", "defusedxml",
+    "webencodings",
 }
 
 # Virtualization / self-hosting stack (Ubuntu-replacement wave, 2026-07-16).

@@ -1,11 +1,11 @@
 name: defusedxml
 version: "0.7.1"
-release: 1
-description: XML bomb protection for Python stdlib parsers (icon-toolchain dep)
+release: 2  # r2: Ship in the desktop tier and on the ISO as wsdd's required, upstream-preferred XML parser; CairoSVG remains a consumer.
+description: XML parsing safeguards for Python applications
 license: PSF-2.0
 homepage: https://github.com/tiran/defusedxml
-tier: extra
-iso_include: false
+tier: desktop
+iso_include: true
 build_style: custom
 install_func: do_install
 source:

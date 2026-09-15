@@ -38,8 +38,8 @@ The aggregate ships on the installed system at
 | toolchain | 28 |
 | core | 315 |
 | base | 37 |
-| desktop | 472 |
-| extra | 219 |
+| desktop | 473 |
+| extra | 218 |
 | ai | 58 |
 | compute | 52 |
 
@@ -2924,6 +2924,13 @@ Low-level GSettings backend
 
 - License: `LGPL-2.1-or-later`
 - Homepage: https://wiki.gnome.org/Projects/dconf
+
+### defusedxml (0.7.1)
+
+XML parsing safeguards for Python applications
+
+- License: `PSF-2.0`
+- Homepage: https://github.com/tiran/defusedxml
 
 ### desktop-file-utils (0.28)
 
@@ -6123,13 +6130,6 @@ CSS selector matching for Python ElementTree (icon-toolchain dep)
 
 - License: `BSD-3-Clause`
 - Homepage: https://github.com/Kozea/cssselect2
-
-### defusedxml (0.7.1)
-
-XML bomb protection for Python stdlib parsers (icon-toolchain dep)
-
-- License: `PSF-2.0`
-- Homepage: https://github.com/tiran/defusedxml
 
 ### discord (1.0)
 
