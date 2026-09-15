@@ -1,6 +1,6 @@
 name: gvfs
 version: "1.58.2"
-release: 1
+release: 2  # r2: Declare wsdd as a runtime dependency so the Windows-network backend can start its discovery helper.
 description: GNOME virtual filesystem
 license: LGPL-2.0-or-later
 homepage: ''
@@ -43,6 +43,7 @@ dependencies:
   host: []
   runtime:
   - avahi
+  - wsdd
   - gcr4
   - glib-networking
   - gtk3
