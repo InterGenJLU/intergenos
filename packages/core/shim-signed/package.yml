@@ -1,15 +1,16 @@
 name: shim-signed
 version: "16.1"
-release: 2
-description: Microsoft-signed UEFI shim bootloader (Fedora-piggyback per D-002, dual-tracked with own shim-review PR per D-003)
-license: BSD-2-Clause-Patent
+release: 3  # r3: the source licence metadata now matches shim's two-clause BSD COPYRIGHT text, and the description states that the own-shim fork is preparation rather than a submitted review. Both fields are carried in package metadata, so the package identity advances even though the Microsoft-signed EFI payload is unchanged.
+description: Microsoft-signed UEFI shim bootloader (Fedora-piggyback per D-002, with own-shim review preparation per D-003)
+license: BSD-2-Clause
 homepage: https://github.com/rhboot/shim
 tier: core
 build_style: custom
 install_func: do_install
 # D-002 (2026-05-18, decided) authorizes Fedora-piggyback shipping
-# day-0. D-003 ratifies the own-MS-signed shim arm via rhboot/shim-review
-# PR (target 2026-05-22). Legal cover for redistribution recorded at
+# day-0. D-003 ratifies the own-MS-signed shim arm via rhboot/shim-review.
+# Its public fork branch is preparation, not a submitted review tag. Legal
+# cover for redistribution is recorded at
 # docs/governance/fedora-shim-redistribution.md (P-009 closure).
 #
 # Vendor-pinned shim from Fedora, signed by Microsoft. We piggyback on
