@@ -62,6 +62,14 @@ class EngineLadderTest(unittest.TestCase):
         self.addCleanup(
             lambda: setattr(serving_device, "hip_is_supported_here",
                             self._orig_supported))
+        self._orig_cuda = serving_device.cuda_is_usable_here
+        self.addCleanup(
+            lambda: setattr(serving_device, "cuda_is_usable_here",
+                            self._orig_cuda))
+        self._orig_vendor = serving_device._detect_vendor
+        self.addCleanup(
+            lambda: setattr(serving_device, "_detect_vendor",
+                            self._orig_vendor))
         # Nothing present unless a test says so.
         for engine in list(serving_device.ENGINE_SERVER_PATHS):
             serving_device.ENGINE_SERVER_PATHS[engine] = os.path.join(
@@ -107,9 +115,48 @@ class EngineLadderTest(unittest.TestCase):
         self.assertEqual(nxt[0], "vulkan")
 
     def test_the_bottom_rung_has_nothing_below_it(self):
-        """The honest end of the ladder — the caller must fail, not loop."""
+        """The honest end of the ladder — the caller must fail, not loop.
+
+        Every rung this machine has is either the failed one or already
+        tried; nothing untried remains, so the answer is None.
+        """
         self._present("hip", "vulkan")
-        self.assertIsNone(serving_device.next_engine_after("vulkan", "amd"))
+        self.assertIsNone(serving_device.next_engine_after(
+            "vulkan", "amd", tried={"hip"}))
+
+    def test_an_untried_higher_rung_is_offered_after_a_lower_one_fails(self):
+        """The ladder is exhausted only when every engine has been TRIED.
+
+        A Vulkan start that failed with an untried CUDA build behind the
+        proprietary driver must reach CUDA, not "ladder exhausted" (measured
+        on an installed NVIDIA machine 2026-09-10 with the shipped order).
+        """
+        self._present("cuda", "vulkan")
+        serving_device.cuda_is_usable_here = lambda *a, **k: True
+        nxt = serving_device.next_engine_after("vulkan", "nvidia")
+        self.assertIsNotNone(nxt)
+        self.assertEqual(nxt[0], "cuda")
+
+    def test_the_vendor_reaches_the_ladder_when_no_caller_names_it(self):
+        """engine_ladder detects the vendor exactly as select_serving_engine
+        does; a caller that passes nothing gets this machine's ladder, not
+        the vendor-less default that hid the CUDA rung."""
+        self._present("cuda", "vulkan")
+        serving_device.cuda_is_usable_here = lambda *a, **k: True
+        serving_device._detect_vendor = lambda: "nvidia"
+        self.assertEqual([e for e, _ in serving_device.engine_ladder()],
+                         ["cuda", "vulkan"])
+        nxt = serving_device.next_engine_after("vulkan")
+        self.assertEqual(nxt[0], "cuda")
+        self.assertIsNone(serving_device.next_engine_after(
+            "vulkan", tried={"cuda"}))
+
+    def test_a_tried_engine_is_never_offered_again(self):
+        self._present("hip", "vulkan")
+        self.assertIsNone(serving_device.next_engine_after(
+            "hip", "amd", tried={"vulkan"}))
+        self.assertIsNone(serving_device.next_engine_after(
+            "hip", "amd", tried={"hip", "vulkan"}))
 
     def test_no_engines_at_all_is_none_not_a_crash(self):
         self.assertIsNone(serving_device.next_engine_after("hip", "amd"))
@@ -313,6 +360,34 @@ class RestartAdvancesTheLadderTest(unittest.TestCase):
         self._stub_start([False, True])
         self.mgr.restart()
         self.assertIsNone(self.mgr._config.device)
+
+    def test_a_vulkan_failure_reaches_an_untried_cuda_build(self):
+        """The NVIDIA shape: Vulkan (the floor) failed first, the CUDA build
+        and the proprietary driver are present and untried — the restart
+        must try CUDA rather than announce the ladder exhausted."""
+        from dataclasses import replace as _replace
+        self.cuda = _fake_binary(self.tmp, "cuda-server")
+        serving_device.ENGINE_SERVER_PATHS["cuda"] = self.cuda
+        serving_device.ENGINE_SERVER_PATHS["hip"] = os.path.join(
+            self.tmp, "absent-hip")
+        _orig_cuda = serving_device.cuda_is_usable_here
+        _orig_vendor = serving_device._detect_vendor
+        serving_device.cuda_is_usable_here = lambda *a, **k: True
+        serving_device._detect_vendor = lambda: "nvidia"
+        self.addCleanup(lambda: setattr(serving_device, "cuda_is_usable_here",
+                                        _orig_cuda))
+        self.addCleanup(lambda: setattr(serving_device, "_detect_vendor",
+                                        _orig_vendor))
+        self.mgr._config = _replace(self.mgr._config, server_path=self.vulkan)
+        self._stub_start([False, True])
+        self.assertTrue(self.mgr.restart())
+        self.assertEqual(self.attempts, [self.vulkan, self.cuda])
+
+    def test_the_tried_engines_are_forgotten_after_a_successful_start(self):
+        """A later, unrelated restart starts the ladder afresh."""
+        self.mgr._engines_tried.update({"hip", "vulkan"})
+        self.mgr._note_successful_start()
+        self.assertEqual(self.mgr._engines_tried, set())
 
     def test_a_non_engine_failure_does_not_switch_engines(self):
         self._stub_start([False])

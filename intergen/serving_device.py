@@ -230,6 +230,19 @@ def cuda_is_usable_here(drm_root: "str | os.PathLike" = "/sys/class/drm") -> boo
         return False
 
 
+def _detect_vendor() -> str | None:
+    """The hardware detector's GPU vendor string for this machine ("amd",
+    "nvidia", "intel", …) or None when detection fails. The ONE vendor
+    detection behind both the engine choice and the engine ladder, so the two
+    can never disagree about which machine they are on."""
+    try:
+        from intergen.hardware import HardwareDetector
+        vendor, _model, _vram_mb = HardwareDetector()._detect_gpu()
+        return vendor
+    except Exception:
+        return None
+
+
 def select_serving_engine(vendor: str | None = None,
                           engine_pin: str | None = None) -> tuple[str, str]:
     """Choose the engine that serves, and the server binary it runs.
@@ -256,11 +269,7 @@ def select_serving_engine(vendor: str | None = None,
         return pin, ENGINE_SERVER_PATHS.get(pin, "")
 
     if vendor is None:
-        try:
-            from intergen.hardware import HardwareDetector
-            vendor, _model, _vram_mb = HardwareDetector()._detect_gpu()
-        except Exception:
-            vendor = None
+        vendor = _detect_vendor()
 
     for engine in ENGINE_PREFERENCE.get(vendor or "", _DEFAULT_PREFERENCE):
         path = ENGINE_SERVER_PATHS[engine]
@@ -304,6 +313,12 @@ def engine_ladder(vendor: str | None = None) -> list[tuple[str, str]]:
     cannot run on this GPU is not offered as a rung.
     """
     ladder: list[tuple[str, str]] = []
+    if vendor is None:
+        # Detect exactly as select_serving_engine does. A caller that names
+        # no vendor used to get the vendor-less default ladder — Vulkan alone
+        # — so on an NVIDIA machine a working CUDA build was never a rung and
+        # a Vulkan failure read "ladder exhausted" (measured 2026-09-10).
+        vendor = _detect_vendor()
     order = list(ENGINE_PREFERENCE.get(vendor or "", _DEFAULT_PREFERENCE))
     for engine in order + ["vulkan"]:
         if any(e == engine for e, _ in ladder):
@@ -320,25 +335,32 @@ def engine_ladder(vendor: str | None = None) -> list[tuple[str, str]]:
 
 
 def next_engine_after(failed_engine: str | None,
-                      vendor: str | None = None) -> tuple[str, str] | None:
-    """The next rung below ``failed_engine``, or None when there is none.
+                      vendor: str | None = None,
+                      tried: "set[str] | frozenset[str] | None" = None
+                      ) -> tuple[str, str] | None:
+    """The next UNTRIED rung of this machine's ladder, in preference order,
+    or None when every rung has been tried.
 
-    ``None``/unknown for ``failed_engine`` means "start at the top". Returning
-    None is the honest end of the ladder: every engine this machine has has now
-    been tried, and the caller must fail loudly rather than loop.
+    ``failed_engine`` is the engine that just failed; ``tried`` names the
+    engines already attempted in this sequence (the caller accumulates it and
+    clears it on a successful start). Both are excluded. The rungs are walked
+    in preference order, not "below the failed one": the floor engine can be
+    the first to fail (a config pin, or a machine whose preferred engine was
+    installed after it) and an untried higher rung is still an engine this
+    machine has. Returning None is the honest end of the ladder: every engine
+    this machine has has now been tried, and the caller must fail loudly
+    rather than loop — the tried set only grows, so this terminates.
     """
     ladder = engine_ladder(vendor)
     if not ladder:
         return None
-    if not failed_engine:
-        return ladder[0]
-    for i, (engine, _path) in enumerate(ladder):
-        if engine == failed_engine:
-            return ladder[i + 1] if i + 1 < len(ladder) else None
-    # The failed engine is not on the ladder at all (an explicit pin, or a
-    # build that has since been removed). Offer the top rung, which is the
-    # closest thing to "try something else" that is still true.
-    return ladder[0]
+    excluded = set(tried or ())
+    if failed_engine:
+        excluded.add(failed_engine)
+    for engine, path in ladder:
+        if engine not in excluded:
+            return engine, path
+    return None
 
 
 # DRM connector types that are NOT a display sink. The kernel's connector

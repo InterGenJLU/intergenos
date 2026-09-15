@@ -378,6 +378,10 @@ class LlamaManager(LlamaManagerInterface):
         self._requests_served: int = 0
         self._last_error: str | None = None
         self._last_failure: StartFailure = StartFailure.NONE
+        # The engines tried in the current start sequence (restart drops down
+        # the ladder over engine-level failures); cleared on a successful
+        # start so a later, unrelated restart starts the ladder afresh.
+        self._engines_tried: set[str] = set()
         self._startup_stderr: str = ""  # child's captured model-load banner (drained once after /health)
         # Seconds this launch may take to load and answer /health. start()
         # re-derives it from the model bytes; the floor is what a caller gets
@@ -848,7 +852,7 @@ class LlamaManager(LlamaManagerInterface):
                 # guard every cycle would reset to 0 each time and never
                 # accumulate, so llama_manager's own cap could never fire — the
                 # bound would rest solely on the watchdog's monotonic counter.
-                self._restart_count = 0
+                self._note_successful_start()
                 log.info("llama-server started successfully on port %d", port)
                 return True
 
@@ -1056,6 +1060,12 @@ class LlamaManager(LlamaManagerInterface):
             server_path=self._config.server_path,
         )
 
+    def _note_successful_start(self) -> None:
+        """A healthy start ends the restart budget's count and the engine
+        sequence: the next failure, if any, is a new episode."""
+        self._restart_count = 0
+        self._engines_tried.clear()
+
     def _advance_engine(self) -> bool:
         """Move to the next engine on the preference ladder. True if it moved.
 
@@ -1095,7 +1105,9 @@ class LlamaManager(LlamaManagerInterface):
         except Exception:                             # pragma: no cover
             pass
 
-        nxt = next_engine_after(current_engine)
+        if current_engine:
+            self._engines_tried.add(current_engine)
+        nxt = next_engine_after(current_engine, tried=self._engines_tried)
         if nxt is None:
             log.error("no engine left below %s — the preference ladder is "
                       "exhausted", current_engine or current or "the current "
