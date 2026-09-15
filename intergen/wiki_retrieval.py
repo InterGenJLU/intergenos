@@ -44,11 +44,16 @@ returns ``None`` — the feature is simply off, exactly like citations.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
+import os
 import re
+import stat
 import time
 from dataclasses import dataclass
 from html.parser import HTMLParser
+from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:  # numpy is an embedding-path-only dep (kept out of import)
@@ -133,6 +138,21 @@ _CHUNK_OVERLAP = 30
 # finished now can be finished later rather than degrading to keyword matching
 # until the machine is rebooted.
 _EMBED_BATCH = 32          # passages per request to the embedding server
+
+# The on-disk index cache. The computed passage vectors are written under
+# the daemon's own state directory once the whole corpus is embedded, and
+# loaded at the next start when — and only when — everything they were
+# computed from is unchanged: the VERIFIED page hashes of the signed manifest
+# (a page that changed, or a manifest that no longer verifies, changes the
+# key), the embedding model's identity (another model's vectors are not
+# comparable), and this format version (bumped when the chunker or the file
+# layout changes). The header carries the key, the chunk count and the
+# sha256 of the vectors file; a cache whose key, count or hash does not match
+# is never loaded, and nothing world-writable is read. A start that finds no
+# usable cache embeds exactly as before and writes a fresh one.
+_INDEX_FORMAT_VERSION = 1
+_CACHE_HEADER_NAME = "index.json"
+_CACHE_VECTORS_NAME = "index.npy"
 _STARTUP_EMBED_BUDGET_S = 10.0   # how long index construction may spend embedding
 _RESUME_EMBED_BUDGET_S = 2.0     # how long one resume_embedding() pass may spend
 
@@ -312,9 +332,17 @@ class WikiRetrieval:
         self,
         citations: "WikiCitations",
         embedder: "Callable[[list[str]], list[list[float]] | None] | None" = None,
+        *,
+        cache_dir: "str | os.PathLike[str] | None" = None,
+        embedder_identity: str = "",
     ) -> None:
         self._citations = citations
         self._embedder = embedder
+        # The on-disk cache (see _INDEX_FORMAT_VERSION): both must be given
+        # for a cache to exist — the directory the daemon owns and the
+        # identity of the model whose vectors these are.
+        self._cache_dir = Path(cache_dir) if cache_dir is not None else None
+        self._embedder_identity = str(embedder_identity or "")
         self._chunks: list[WikiChunk] = []
         self._embeddings: "np.ndarray | None" = None
         # Partial embedding progress. _vectors holds one row per chunk already
@@ -354,11 +382,159 @@ class WikiRetrieval:
         elif self._citations.available:
             logger.info("wiki-retrieval: verified wiki present but no indexable "
                         "text extracted (%d page(s) excluded)", excluded)
+        if self._chunks and self._load_cache():
+            return
         self._embed_chunks()
 
     def _embed_chunks(self) -> None:
         """Embed as much of the corpus as the startup budget allows."""
         self._embed_pass(_STARTUP_EMBED_BUDGET_S, at_startup=True)
+
+    # ── the on-disk index cache ────────────────────────────────────────────
+
+    def _cache_key(self) -> "str | None":
+        """The key everything in the cache was computed from, or None when no
+        cache applies (no verified pages, no embedder identity)."""
+        pages = self._citations.page_hashes()
+        if not pages or not self._embedder_identity:
+            return None
+        material = json.dumps({
+            "format": _INDEX_FORMAT_VERSION,
+            "chunk_words": _CHUNK_WORDS,
+            "chunk_overlap": _CHUNK_OVERLAP,
+            "embedder": self._embedder_identity,
+            "pages": sorted(pages.items()),
+        }, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _writable_by_others(path: Path) -> bool:
+        """True when ``path`` is group- or world-writable, a symbolic link, or
+        cannot be inspected — none of which is read as the daemon's own."""
+        try:
+            st = os.lstat(path)
+        except OSError:
+            return True
+        if stat.S_ISLNK(st.st_mode):
+            return True
+        return bool(st.st_mode & (stat.S_IWGRP | stat.S_IWOTH))
+
+    def _load_cache(self) -> bool:
+        """Load the vectors from the cache when its key, chunk count and file
+        hash all match; otherwise say why at INFO and return False so the
+        corpus is embedded from scratch. Nothing world-writable is read."""
+        if self._cache_dir is None:
+            return False
+        key = self._cache_key()
+        if key is None:
+            return False
+        header_path = self._cache_dir / _CACHE_HEADER_NAME
+        vectors_path = self._cache_dir / _CACHE_VECTORS_NAME
+        if not header_path.exists() or not vectors_path.exists():
+            logger.info("wiki-retrieval: no index cache under %s; embedding "
+                        "the corpus", self._cache_dir)
+            return False
+        for path in (self._cache_dir, header_path, vectors_path):
+            if self._writable_by_others(path):
+                logger.info("wiki-retrieval: index cache not read: %s is "
+                            "writable by others (or a link); embedding the "
+                            "corpus", path)
+                return False
+        try:
+            header = json.loads(header_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            logger.info("wiki-retrieval: index cache not read: header "
+                        "unreadable (%s); embedding the corpus",
+                        type(exc).__name__)
+            return False
+        if not isinstance(header, dict) or header.get("key") != key:
+            logger.info("wiki-retrieval: index cache not read: key mismatch "
+                        "(the verified pages, the embedding model or the index "
+                        "format changed); embedding the corpus")
+            return False
+        if header.get("chunks") != len(self._chunks):
+            logger.info("wiki-retrieval: index cache not read: chunk count "
+                        "%s != %d; embedding the corpus", header.get("chunks"),
+                        len(self._chunks))
+            return False
+        try:
+            raw = vectors_path.read_bytes()
+        except OSError as exc:
+            logger.info("wiki-retrieval: index cache not read: vectors "
+                        "unreadable (%s); embedding the corpus",
+                        type(exc).__name__)
+            return False
+        digest = hashlib.sha256(raw).hexdigest()
+        if header.get("vectors_sha256") != digest:
+            logger.info("wiki-retrieval: index cache not read: vectors file "
+                        "hash mismatch; embedding the corpus")
+            return False
+        try:
+            import io
+            np = _np()
+            arr = np.load(io.BytesIO(raw), allow_pickle=False)
+            if arr.ndim != 2 or arr.shape[0] != len(self._chunks):
+                raise ValueError("shape mismatch")
+            arr = np.asarray(arr, dtype=np.float32)
+        except Exception as exc:  # noqa: BLE001 — a bad cache is never fatal
+            logger.info("wiki-retrieval: index cache not read: vectors "
+                        "malformed (%s); embedding the corpus",
+                        type(exc).__name__)
+            return False
+        self._vectors = arr.tolist()
+        self._embeddings = arr
+        logger.info("wiki-retrieval: index loaded from the on-disk cache "
+                    "(%d passages, key %s…); no embedding request made",
+                    arr.shape[0], key[:12])
+        return True
+
+    def _save_cache(self) -> None:
+        """Write the completed vectors and their header under the cache
+        directory, owner-only, vectors first so the header's hash always
+        names a file that exists. Best-effort: a write failure is logged and
+        the in-memory index is unaffected."""
+        if self._cache_dir is None or self._embeddings is None:
+            return
+        key = self._cache_key()
+        if key is None:
+            return
+        try:
+            import io
+            from intergen.private_state import private_dir, private_open
+            np = _np()
+            private_dir(self._cache_dir)
+            # private_dir tightens only inside the daemon's owned trees; the
+            # cache is owner-only wherever it is asked to live.
+            if not os.path.islink(self._cache_dir):
+                os.chmod(self._cache_dir, 0o700)
+            buf = io.BytesIO()
+            np.save(buf, self._embeddings, allow_pickle=False)
+            raw = buf.getvalue()
+            vectors_path = self._cache_dir / _CACHE_VECTORS_NAME
+            header_path = self._cache_dir / _CACHE_HEADER_NAME
+            tmp_v = vectors_path.with_suffix(".npy.tmp")
+            with private_open(tmp_v, "wb") as fh:
+                fh.write(raw)
+            os.replace(tmp_v, vectors_path)
+            header = {
+                "format": _INDEX_FORMAT_VERSION,
+                "key": key,
+                "embedder": self._embedder_identity,
+                "chunks": len(self._chunks),
+                "vectors_sha256": hashlib.sha256(raw).hexdigest(),
+                "written_at": time.time(),
+            }
+            tmp_h = header_path.with_suffix(".json.tmp")
+            with private_open(tmp_h, "w", encoding="utf-8") as fh:
+                json.dump(header, fh, sort_keys=True)
+            os.replace(tmp_h, header_path)
+            logger.info("wiki-retrieval: index cache written under %s "
+                        "(%d passages, key %s…)", self._cache_dir,
+                        len(self._chunks), key[:12])
+        except Exception as exc:  # noqa: BLE001 — the cache is an optimisation
+            logger.warning("wiki-retrieval: index cache not written (%s); the "
+                           "next start embeds the corpus again",
+                           type(exc).__name__)
 
     def resume_embedding(self) -> bool:
         """Continue embedding an index that started degraded. Returns True once
@@ -431,6 +607,8 @@ class WikiRetrieval:
                            "keyword fallback only", type(exc).__name__)
             self._embeddings = None
             self._vectors = []
+            return
+        self._save_cache()
 
     @property
     def available(self) -> bool:

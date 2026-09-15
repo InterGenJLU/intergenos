@@ -101,6 +101,14 @@ INTROSPECTION_XML = f"""
 _WIKI_RESUME_LOCK_CREATION = threading.Lock()
 
 
+def _wiki_index_cache_dir() -> "Path":
+    """Where the documentation-index cache lives: the daemon's own private
+    state tree (``$XDG_STATE_HOME/intergen/wiki-index``), created owner-only
+    by the writer; nothing world-writable is ever read from it."""
+    from intergen.private_state import state_dir_path
+    return state_dir_path() / "wiki-index"
+
+
 def _hardware_tier_record(tier) -> dict:
     """The daemon's record of the detected hardware tier, from the detector's
     own result. ONE function builds it so every reader of the record sees the
@@ -881,6 +889,21 @@ class InterGenDaemon(InterGenDBusInterface):
                 f"{llama.last_failure.name}: {llama.last_error} "
                 "(watchdog restart give-up)"
             )
+
+    def _embedding_model_identity(self) -> str:
+        """``<name>:<sha256>`` of the embedding model from the signed models
+        manifest, or "" when it cannot be read — in which case the
+        documentation-index cache is not used at all."""
+        if self._mm is None:
+            return ""
+        try:
+            info = self._mm.get_embedding_model()
+            if info.name and info.sha256:
+                return f"{info.name}:{info.sha256}"
+        except Exception as e:  # noqa: BLE001 — identity failure = no cache
+            log.warning("Embedding model identity unavailable (%s); the "
+                        "documentation index will not be cached", e)
+        return ""
 
     def _resolve_embed_model_path(self) -> str:
         """Resolve the embedding GGUF path FRESH on each call — env override
@@ -1992,6 +2015,12 @@ class InterGenDaemon(InterGenDBusInterface):
                     # RAG retrieval over the teaching how-to corpus (PI-218-2). None
                     # when the embedding server is down → corpus keyword fallback.
                     embedder=(self._embed_llama.embed if self._embed_llama else None),
+                    # The documentation-index cache: the daemon's own state
+                    # directory and the identity (name + pinned sha256) of the
+                    # embedding model whose vectors it holds. No identity, no
+                    # cache — vectors from an unknown model are never reused.
+                    wiki_index_cache_dir=_wiki_index_cache_dir(),
+                    embedder_identity=self._embedding_model_identity(),
                 )
                 # The browser server is handed this same router, and it serves
                 # one conversation per connected client. So the router's own

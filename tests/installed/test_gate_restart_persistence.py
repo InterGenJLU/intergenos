@@ -256,3 +256,51 @@ def test_an_incomplete_index_advances_after_a_turn_without_a_restart():
         "whole corpus; when it does not move, only a restart would — and a restart "
         "re-pays the same start-up budget."
     )
+
+
+def test_the_computed_index_is_cached_keyed_on_the_verified_manifest(installed_intergen_dir):
+    """A restart loads the index it computed last time when nothing it was
+    computed from has changed (the verified page hashes of the signed manifest,
+    the embedding model's identity, the index format), and re-embeds otherwise.
+
+    Re-armed 2026-09-15 behind the shipped behaviour (it was dropped 2026-08-27
+    when no release wrote a cache). Read from the shipped module by parsing:
+    the index build path must consult the cache loader, the completed
+    embedding must save it, the loader must verify a key and a file hash, and
+    the daemon must hand the retrieval object a cache directory — a cache the
+    daemon never wires is the omission wearing a new name.
+    """
+    import ast
+
+    source = (installed_intergen_dir / "wiki_retrieval.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    defined = {node.name for node in ast.walk(tree)
+               if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    calls: dict[str, set[str]] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for inner in ast.walk(node):
+            if isinstance(inner, ast.Call) and isinstance(inner.func, ast.Attribute):
+                calls.setdefault(node.name, set()).add(inner.func.attr)
+
+    loader_defined = "_load_cache" in defined
+    saver_defined = "_save_cache" in defined
+    build_consults_loader = "_load_cache" in calls.get("_build_index", set())
+    finalise_saves = "_save_cache" in calls.get("_finalise_embeddings", set())
+    daemon = (installed_intergen_dir / "dbus_daemon.py").read_text(encoding="utf-8")
+    daemon_wires_cache = "wiki_index_cache_dir" in daemon
+
+    assert (loader_defined and saver_defined and build_consults_loader
+            and finalise_saves and daemon_wires_cache), (
+        "\nThe computed documentation index is not cached on disk, or the cache is not "
+        "wired:\n"
+        f"  loader defined in the shipped module      : {loader_defined}\n"
+        f"  saver defined in the shipped module       : {saver_defined}\n"
+        f"  the index build consults the loader       : {build_consults_loader}\n"
+        f"  a completed embedding saves the cache     : {finalise_saves}\n"
+        f"  the daemon hands over a cache directory   : {daemon_wires_cache}\n"
+        "Every start re-embeds the whole corpus against a one-slot server under a "
+        "start-up budget; a cache keyed on the documentation's own verified hashes "
+        "would make a restart cheap."
+    )

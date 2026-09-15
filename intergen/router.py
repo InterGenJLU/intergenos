@@ -1798,7 +1798,9 @@ class ConversationRouter(RouterInterface):
                  memory: MemoryManager | None = None,
                  state_cache: StateCache | None = None,
                  escalation=None,
-                 embedder: Callable[[list[str]], "list[list[float]] | None"] | None = None):
+                 embedder: Callable[[list[str]], "list[list[float]] | None"] | None = None,
+                 wiki_index_cache_dir: "str | os.PathLike[str] | None" = None,
+                 embedder_identity: str = ""):
         self._tools = tool_registry
         self._semantic = semantic_matcher
         self._llm = llm
@@ -1892,8 +1894,14 @@ class ConversationRouter(RouterInterface):
         if self._wiki_citations is not None:
             try:
                 from intergen.wiki_retrieval import WikiRetrieval
-                self._wiki_retrieval = WikiRetrieval(self._wiki_citations,
-                                                     embedder=embedder)
+                # The computed passage index is cached under the daemon's own
+                # directory, keyed on the verified page hashes and the
+                # embedding model's identity, so a restart does not re-embed
+                # a corpus nothing has changed (wiki_retrieval: the cache).
+                self._wiki_retrieval = WikiRetrieval(
+                    self._wiki_citations, embedder=embedder,
+                    cache_dir=wiki_index_cache_dir,
+                    embedder_identity=embedder_identity)
             except Exception:  # noqa: BLE001 — additive: never take the router down
                 logger.warning(
                     "wiki retrieval unavailable at init; freeform answers will not "
