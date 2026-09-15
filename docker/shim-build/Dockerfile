@@ -26,8 +26,9 @@ FROM debian:bookworm-slim@sha256:5a2a80d11944804c01b8619bc967e31801ec39bf3257ab8
 
 # -----------------------------------------------------------------------------
 # Reproducibility anchors — must be identical across all build hosts
-# SOURCE_DATE_EPOCH = 2026-05-06 00:00:00 UTC (post-ceremony cert mint at
-# 2026-05-05 17:23:27 UTC; epoch must be >= cert NotBefore for self-consistency)
+# SOURCE_DATE_EPOCH = 2025-05-06 00:00:00 UTC. The numeric epoch is a
+# reproducibility input and remains unchanged; this comment records its actual
+# decoded date rather than claiming it postdates the certificate.
 # -----------------------------------------------------------------------------
 ARG SOURCE_DATE_EPOCH=1746489600
 ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
