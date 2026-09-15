@@ -785,7 +785,7 @@
             "takes_value": true
           }
         ],
-        "help": "Writes the current sha256 of every regular file the named package owns to a file, for comparison after the package's post_install has run. Reads only; changes nothing."
+        "help": "Writes the sha256 and change time of each regular file the package owns to a file, for comparison after the package's post_install has run. Reads only; changes nothing."
       },
       "record-hook-changes": {
         "aliases": [],
@@ -828,7 +828,7 @@
             "takes_value": true
           }
         ],
-        "help": "Compares the package's own files against a baseline written by `pkm hook-baseline` before its post_install ran. Files whose content changed across that window are recorded as hook-managed: existence is checked, the byte comparison against the payload hash is not, and the text manifest is re-emitted stating the class so the record survives a later import. Only the package's own files are considered; a file another package owns is never touched."
+        "help": "Compares the package's own files against a baseline written by `pkm hook-baseline` before its post_install ran. Files whose content changed, or whose change time changed from a matching recorded payload checksum, are recorded as hook-managed: existence is checked, the byte comparison against the payload hash is not, and the text manifest is re-emitted stating the class so the record survives a later import. Only the package's own files are considered; a file another package owns is never touched."
       },
       "refresh-baseline": {
         "aliases": [],
