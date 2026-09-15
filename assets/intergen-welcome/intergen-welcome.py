@@ -9,6 +9,7 @@ Flows naturally from the boot animation:
 
 import gi
 import importlib.util
+import hashlib
 import subprocess
 import threading
 import json
@@ -550,6 +551,164 @@ def wrap_with_background(content, css_class, scroll=False):
     return overlay
 
 
+# ---------------------------------------------------------------------------
+# Secure Boot: is this machine's own signing key enrolled? (R001.3 row 37 (b))
+#
+# The installer stages the machine's Machine Owner Key certificate at
+# /etc/intergenos/mok.der (world-readable; the certificate is public) and on
+# the boot partition at EFI/InterGenOS/mok.der. Enrolment happens in the
+# firmware's MokManager at the first Secure-Boot start and is easy to miss:
+# the prompt waits about 10 seconds and a sleeping monitor can hide it, after
+# which the queued request is gone. This card runs at the first login — the
+# moment a person is looking at the screen — and says, in plain words, what
+# state the key is in and what to do next. It only ever READS: the public
+# certificate, mokutil's listings (readable without privilege) and the
+# Secure Boot state. It is silent when there is nothing to say.
+# ---------------------------------------------------------------------------
+_MOK_PUBLIC_CERT = '/etc/intergenos/mok.der'
+_MOK_ESP_PATH_WORDS = 'EFI > InterGenOS > mok.der'
+
+
+def _mokutil_lines(*args):
+    """mokutil's output lines for ``args``, or None when it cannot be asked."""
+    try:
+        proc = subprocess.run(['mokutil', *args], capture_output=True, text=True,
+                              timeout=15)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0 and not (proc.stdout or '').strip():
+        return None
+    return (proc.stdout or '').splitlines()
+
+
+def _fingerprints_in(lines):
+    """The SHA1 fingerprints mokutil printed, lower-case, without colons."""
+    out = set()
+    for line in lines or []:
+        line = line.strip()
+        if line.lower().startswith('sha1 fingerprint:'):
+            out.add(line.split(':', 1)[1].strip().replace(':', '').lower())
+    return out
+
+
+def _mok_enrolment_state(cert_path=_MOK_PUBLIC_CERT, mokutil=_mokutil_lines):
+    """What is known about this machine's own Secure Boot key.
+
+    Returns None when the machine has no staged certificate (a BIOS install,
+    an install that skipped enrolment, or a release before the certificate
+    was staged) — there is nothing to advise. Otherwise a dict:
+        enrolled    True / False / None (mokutil unavailable)
+        queued      True / False / None — an enrolment request still waits
+                    for the next Secure-Boot start
+        secure_boot True / False / None — the firmware's current state
+        fingerprint the certificate's SHA1, for the person to compare
+    """
+    try:
+        with open(cert_path, 'rb') as fh:
+            der = fh.read()
+    except OSError:
+        return None
+    if not der:
+        return None
+    fingerprint = hashlib.sha1(der).hexdigest()
+    enrolled_lines = mokutil('--list-enrolled')
+    enrolled = None if enrolled_lines is None else fingerprint in _fingerprints_in(enrolled_lines)
+    queued_lines = mokutil('--list-new')
+    queued = None if queued_lines is None else fingerprint in _fingerprints_in(queued_lines)
+    sb_lines = mokutil('--sb-state')
+    if sb_lines is None:
+        secure_boot = None
+    else:
+        text = ' '.join(sb_lines).lower()
+        secure_boot = True if 'enabled' in text else (False if 'disabled' in text else None)
+    return {'enrolled': enrolled, 'queued': queued, 'secure_boot': secure_boot,
+            'fingerprint': fingerprint}
+
+
+def _secure_boot_card_text(state):
+    """(title, body, action) for the card, or None when nothing needs saying."""
+    if state is None or state['enrolled'] is not False:
+        return None
+    pretty = ':'.join(state['fingerprint'][i:i + 2] for i in range(0, 40, 2))
+    if state['queued']:
+        body = ('This machine signs its own boot loader and kernels with a key '
+                'made during the install, and that key is not enrolled in the '
+                'firmware yet. The enrolment request is waiting for the next '
+                'start with Secure Boot on: MokManager will ask you to press a '
+                'key within about 10 seconds, then for the enrolment password '
+                'you set during the install.')
+    else:
+        body = ('This machine signs its own boot loader and kernels with a key '
+                'made during the install, and that key is not enrolled in the '
+                'firmware. No enrolment request is waiting, so the next start '
+                'with Secure Boot on would stop at a "Verification failed" '
+                'menu.')
+    action = ('If MokManager does not appear, or the boot stops at '
+              '"Verification failed": choose "Enroll key from disk", open the '
+              'boot partition, pick ' + _MOK_ESP_PATH_WORDS + ', then Continue and '
+              'reboot. No password is needed on that path. The key\'s '
+              'fingerprint is ' + pretty + '.')
+    if state['secure_boot'] is True:
+        title = 'Secure Boot is on but this machine\'s key is not enrolled'
+    elif state['secure_boot'] is False:
+        title = 'Secure Boot is off — enrol this machine\'s key before turning it on'
+    else:
+        title = 'This machine\'s Secure Boot key is not enrolled'
+    return (title, body, action)
+
+
+def _build_secure_boot_card(state=None):
+    """The advisory box for the welcome page, or None when it has nothing to say."""
+    if state is None:
+        state = _mok_enrolment_state()
+    text = _secure_boot_card_text(state)
+    if text is None:
+        return None
+    title, body, action = text
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    box.add_css_class('intergen-advisory')
+    box.set_halign(Gtk.Align.CENTER)
+    t = Gtk.Label(label=title)
+    t.add_css_class('intergen-advisory-title')
+    t.set_justify(Gtk.Justification.CENTER)
+    t.set_wrap(True)
+    box.append(t)
+    b = Gtk.Label(label=body)
+    b.add_css_class('intergen-advisory-text')
+    b.set_justify(Gtk.Justification.CENTER)
+    b.set_wrap(True)
+    b.set_max_width_chars(88)
+    box.append(b)
+    a = Gtk.Label(label=action)
+    a.add_css_class('intergen-advisory-action')
+    a.set_justify(Gtk.Justification.CENTER)
+    a.set_wrap(True)
+    a.set_max_width_chars(88)
+    box.append(a)
+    ca_line = _firmware_ca_line()
+    if ca_line:
+        c = Gtk.Label(label=ca_line)
+        c.add_css_class('intergen-advisory-text')
+        c.set_justify(Gtk.Justification.CENTER)
+        c.set_wrap(True)
+        c.set_max_width_chars(88)
+        box.append(c)
+    return box
+
+
+def _firmware_ca_line():
+    """The installer's firmware-database sentence, when its module is present
+    on this system (the installer package ships it); empty otherwise."""
+    try:
+        from installer.backend.mok_guidance import firmware_ca_line
+    except Exception:
+        return ''
+    try:
+        return firmware_ca_line() or ''
+    except Exception:
+        return ''
+
+
 def build_welcome_page():
     """Page 1: Welcome — brand moment."""
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
@@ -587,6 +746,12 @@ def build_welcome_page():
     subtitle.set_wrap(True)
     subtitle.set_max_width_chars(70)
     box.append(subtitle)
+
+    # The Secure Boot key advisory (row 37): shown only when the machine's
+    # own key is staged and not enrolled; silent everywhere else.
+    sb_card = _build_secure_boot_card()
+    if sb_card is not None:
+        box.append(sb_card)
 
     return wrap_with_background(box, 'welcome-bg', scroll=True)
 
