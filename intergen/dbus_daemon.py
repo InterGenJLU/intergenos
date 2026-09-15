@@ -101,6 +101,27 @@ INTROSPECTION_XML = f"""
 _WIKI_RESUME_LOCK_CREATION = threading.Lock()
 
 
+def _hardware_tier_record(tier) -> dict:
+    """The daemon's record of the detected hardware tier, from the detector's
+    own result. ONE function builds it so every reader of the record sees the
+    same keys the detector measured — the model-launch path sizes the offload
+    from ``gpu_vram_mb``, and a record built without that key (the shipped
+    R001.2 shape) made every plan run as "video memory could not be read" on
+    machines whose detector had read the card, offloading every layer blind.
+    ``None`` in ``gpu_vram_mb`` is the detector's honest unknown and is carried
+    through as such, never replaced by a guess."""
+    return {
+        "level": tier.tier.value,
+        "ram_gb": tier.ram_gb,
+        "gpu_vendor": tier.gpu_vendor,
+        "gpu_model": tier.gpu_model,
+        "gpu_vram_mb": tier.gpu_vram_mb,
+        "recommended_model": tier.recommended_model,
+        "recommended_quant": tier.recommended_quant,
+        "estimated_model_size_gb": tier.estimated_model_size_gb,
+    }
+
+
 class InterGenDaemon(InterGenDBusInterface):
     """D-Bus service skeleton for InterGen.
 
@@ -1310,15 +1331,7 @@ class InterGenDaemon(InterGenDBusInterface):
             from intergen.hardware import HardwareDetector
             detector = HardwareDetector()
             tier = detector.detect()
-            self._hardware_tier = {
-                "level": tier.tier.value,
-                "ram_gb": tier.ram_gb,
-                "gpu_vendor": tier.gpu_vendor,
-                "gpu_model": tier.gpu_model,
-                "recommended_model": tier.recommended_model,
-                "recommended_quant": tier.recommended_quant,
-                "estimated_model_size_gb": tier.estimated_model_size_gb,
-            }
+            self._hardware_tier = _hardware_tier_record(tier)
             log.info("Hardware: Tier %d (%.1f GB RAM, %s)",
                      tier.tier.value, tier.ram_gb, tier.gpu_vendor or "no GPU")
             # What this box can run, plus whether its GPU driver makes that
