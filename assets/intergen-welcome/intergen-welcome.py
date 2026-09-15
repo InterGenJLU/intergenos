@@ -2702,6 +2702,14 @@ _VENDOR_LICENSE_NOTICE = (
 # 'none'            — nothing to do.
 _ACTIVATION_ORDER = ('reboot', 'service-restart', 'none')
 
+_ENGINE_SETUP_NEXT_STEP = (
+    'InterGen is not set up yet — set him up next; he will use the new '
+    'engine from his first start.')
+
+_ENGINE_SETUP_ADVISORY = (
+    'InterGen is not set up yet — set him up below; he will use the new '
+    'engine from his first start.')
+
 
 def _gpu_offers(record, probe=None):
     """The offers for this machine, in the order they are shown.
@@ -2939,10 +2947,13 @@ def _install_notice(selected, offers):
             'does not take effect until you do. '
             + _WELCOMER_RETURNS_AFTER_REBOOT)
     elif activation == 'service-restart':
-        parts.append(
-            'InterGen chooses which engine to run with when his service '
-            'starts, so once the installation finishes, restart InterGen — '
-            'or the whole machine — for the new engine to take over.')
+        if _intergen_is_set_up():
+            parts.append(
+                'InterGen chooses which engine to run with when his service '
+                'starts, so once the installation finishes, restart InterGen — '
+                'or the whole machine — for the new engine to take over.')
+        else:
+            parts.append(_ENGINE_SETUP_ADVISORY)
     return ' '.join(parts)
 
 
@@ -3003,10 +3014,13 @@ def _install_outcome(selected, offers, probe=None):
                 'takes effect after a restart. '
                 + _WELCOMER_RETURNS_AFTER_REBOOT)
         elif activation == 'service-restart':
-            message = (
-                done + ' installed. InterGen chooses which engine to run with '
-                'when his service starts, so restart InterGen — or the whole '
-                'machine — for the new engine to take over.')
+            if _intergen_is_set_up():
+                message = (
+                    done + ' installed. InterGen chooses which engine to run with '
+                    'when his service starts, so restart InterGen — or the whole '
+                    'machine — for the new engine to take over.')
+            else:
+                message = done + ' installed. ' + _ENGINE_SETUP_NEXT_STEP
         else:
             message = done + ' installed.'
     return {
@@ -3037,6 +3051,8 @@ def _closing_note(selected, offers):
                 'effect until you restart. ' + _WELCOMER_RETURNS_AFTER_REBOOT
                 + ' Run: sudo reboot')
     if activation == 'service-restart':
+        if not _intergen_is_set_up():
+            return '>>> ' + _ENGINE_SETUP_NEXT_STEP
         return ('>>> RESTART INTERGEN: he chooses which engine to run with '
                 'when his service starts, so the new engine takes over after '
                 'a restart.')

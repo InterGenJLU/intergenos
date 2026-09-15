@@ -30,6 +30,7 @@ import importlib.util
 import re
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import gi
 gi.require_version("Gtk", "4.0")
@@ -277,8 +278,10 @@ class TestWhatIsSaidAfterwards(unittest.TestCase):
 
     def test_a_completed_install_is_reported_as_completed(self):
         offers = welcome._gpu_offers(AMD, probe=NOTHING_INSTALLED)
-        outcome = welcome._install_outcome(
-            ["compute_engine"], offers, probe=_probe(**{"llama-cpp-hip": True}))
+        with patch.object(welcome, "_intergen_is_set_up", return_value=True):
+            outcome = welcome._install_outcome(
+                ["compute_engine"], offers,
+                probe=_probe(**{"llama-cpp-hip": True}))
         self.assertTrue(outcome["installed"])
         self.assertEqual(outcome["missing"], [])
         self.assertEqual(outcome["activation"], "service-restart")
