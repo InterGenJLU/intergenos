@@ -96,7 +96,7 @@ def detect_gpu_vendor(pci_vendors=None):
 # test_gpu_detect.TestEnginePreferenceMatchesTheSelector.
 _ENGINE_PREFERENCE = {
     "amd":    ["hip", "vulkan"],
-    "nvidia": ["vulkan", "cuda"],
+    "nvidia": ["cuda", "vulkan"],
 }
 _DEFAULT_PREFERENCE = ["vulkan"]
 
@@ -204,10 +204,11 @@ def upgrade_outranks_shipped(vendor):
     Read straight off the ratified table, because that table is what decides
     which engine actually serves once both are present. On AMD, HIP is listed
     ahead of Vulkan, so adding it changes which engine serves. On NVIDIA,
-    Vulkan is listed ahead of CUDA — adding CUDA installs it and leaves
-    Vulkan serving — and whatever makes the offer must say so rather than let
-    a user install several gigabytes expecting a speed-up the project
-    measured as a slow-down.
+    CUDA is listed ahead of Vulkan (decided 2026-09-15: the driver offer
+    installs the proprietary driver, the toolkit and the CUDA build so that
+    CUDA serves; the selector only takes the CUDA rung when that driver is
+    present), so adding it changes which engine serves there too. Whatever
+    makes the offer reads this fact rather than asserting one of its own.
     """
     row = _ENGINE_PREFERENCE.get(vendor or "", _DEFAULT_PREFERENCE)
     upgrade = upgrade_engine_for(vendor)

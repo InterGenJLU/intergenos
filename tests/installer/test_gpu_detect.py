@@ -83,10 +83,12 @@ class TestEngineFacts(unittest.TestCase):
     def test_hip_outranks_the_shipped_engine_on_amd(self):
         self.assertTrue(gpu_detect.upgrade_outranks_shipped("amd"))
 
-    def test_cuda_does_not_outrank_the_shipped_engine_on_nvidia(self):
-        # The ratified table lists Vulkan ahead of CUDA. Anything that offers
-        # CUDA must say Vulkan keeps serving, and this is the fact it reads.
-        self.assertFalse(gpu_detect.upgrade_outranks_shipped("nvidia"))
+    def test_cuda_outranks_the_shipped_engine_on_nvidia(self):
+        # Decided 2026-09-15: the table lists CUDA ahead of Vulkan on NVIDIA
+        # (the driver offer installs the proprietary driver, the toolkit and
+        # the CUDA build for exactly this). Anything that offers CUDA must say
+        # it takes over once installed, and this is the fact it reads.
+        self.assertTrue(gpu_detect.upgrade_outranks_shipped("nvidia"))
 
     def test_hardware_with_no_upgrade_never_outranks(self):
         self.assertFalse(gpu_detect.upgrade_outranks_shipped("intel"))
@@ -112,7 +114,7 @@ class TestDetectionRecord(unittest.TestCase):
         self.assertEqual(record["vendor"], "nvidia")
         self.assertEqual(record["shipped_engine"], "vulkan")
         self.assertEqual(record["upgrade_engine"], "cuda")
-        self.assertFalse(record["upgrade_outranks_shipped"])
+        self.assertTrue(record["upgrade_outranks_shipped"])
         self.assertEqual(record["version"], gpu_detect.DETECTION_RECORD_VERSION)
 
     def test_amd_records_hip_taking_over(self):

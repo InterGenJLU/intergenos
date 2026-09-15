@@ -3050,11 +3050,13 @@ def _cuda_speed_sentence(outranks):
     """What to say about CUDA's effect on which engine serves.
 
     Read off the installer's record rather than asserted here, so this cannot
-    contradict the table that actually decides. On the ranking as ratified,
-    Vulkan is preferred over CUDA — installing CUDA installs it and leaves
-    Vulkan serving — and saying so is the difference between an honest offer
-    and selling several gigabytes as a speed-up the project measured as a
-    slow-down.
+    contradict the table that actually decides: the record says whether the
+    CUDA engine outranks the shipped Vulkan one on this machine (it does on
+    the table as decided 2026-09-15; a record written by an earlier installer
+    may say otherwise), and each sentence below states only what its branch
+    of that fact means for the user. Saying which engine will serve is the
+    difference between an honest offer and selling several gigabytes on a
+    promise this code cannot check.
     """
     if outranks:
         return ('On this hardware the CUDA engine is preferred over Vulkan '
