@@ -3,7 +3,7 @@
 # Copyright (C) 2026 InterGenJLU
 
 # Upstream ships interpreted Python; no configuration or compilation is needed.
-# The builder's PATCH phase verifies and applies the package.yml patch first.
+# The builder's PATCH phase verifies and applies the package.yml patches first.
 configure() { :; }
 build() { :; }
 

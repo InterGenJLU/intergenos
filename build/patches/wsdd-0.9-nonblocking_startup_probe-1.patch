@@ -1,0 +1,32 @@
+# wsdd v0.9 blocks its event loop during per-client startup jitter.
+# Upstream source: src/wsdd.py:740-742; Python 3.14.3/Linux observation:
+# one initialization callback took 7.006 s; four maximum delays took 12.0 s.
+# GVfs 1.58.2 has a 10 s connect timeout (daemon/gvfswsddservice.c).
+# https://github.com/christgau/wsdd/blob/v0.9/src/wsdd.py#L740
+# v0.9 is the latest upstream release checked on 2026-09-14.
+# Preserve the 0-3 s jitter with a timer; cancel it when its client stops.
+
+--- a/src/wsdd.py
++++ b/src/wsdd.py
+@@ -738,10 +738,11 @@
+         self.handlers[WSD_RESOLVE_MATCH] = self.handle_resolve_match
+ 
+         # avoid packet storm when hosts come up by delaying initial probe
+-        time.sleep(random.randint(0, MAX_STARTUP_PROBE_DELAY))
+-        self.send_probe()
++        self.startup_probe = self.mch.aio_loop.call_later(
++            random.randint(0, MAX_STARTUP_PROBE_DELAY), self.send_probe)
+ 
+     def cleanup(self) -> None:
++        self.startup_probe.cancel()
+         super().cleanup()
+         WSDClient.instances.remove(self)
+ 
+@@ -760,6 +761,7 @@
+         self.probes[i] = time.time()
+ 
+     def teardown(self) -> None:
++        self.startup_probe.cancel()
+         super().teardown()
+         self.remove_outdated_probes()
+ 

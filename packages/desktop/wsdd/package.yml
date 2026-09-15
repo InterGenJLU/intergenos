@@ -15,6 +15,8 @@ source:
 patches:
   - file: wsdd-0.9-python314_debug_loop-1.patch
     sha256: 44e39782540452ee386cb05f234e72a24afa19fd47850018ba6da2d6dc7cac6b
+  - file: wsdd-0.9-nonblocking_startup_probe-1.patch
+    sha256: 52072dd7052274bedae1fe4406490cf8a74411e581b9ba44db40a547c93c6d33
 dependencies:
   build: []
   host: []

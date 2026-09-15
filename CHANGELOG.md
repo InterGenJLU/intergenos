@@ -22,6 +22,12 @@ landed is in the repository README, not here.
 
 ### Added
 
+- `wsdd` 0.9, the WS-Discovery helper used by GNOME Files for Windows-network
+  browsing. GVfs now requires it, and the ISO includes `defusedxml` for its
+  XML parsing. The advertising service is installed but remains disabled.
+  A compatibility patch initializes verbose diagnostics on the actual event
+  loop when running with Python 3.14. Initial discovery probes retain their
+  random delay without blocking the client API while interfaces initialize.
 - `codex`: a download helper that installs OpenAI's Codex command-line coding
   agent from the npm registry (pinned version, registry signature, advisory
   check) and the Codex VS Code extension from a pinned, sha256-verified
