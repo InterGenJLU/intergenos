@@ -473,6 +473,23 @@
           },
           {
             "names": [
+              "--archive"
+            ],
+            "takes_value": true
+          },
+          {
+            "names": [
+              "--archive-trust"
+            ],
+            "takes_value": true,
+            "choices": [
+              "strict",
+              "loose",
+              "repo-only"
+            ]
+          },
+          {
+            "names": [
               "--wait"
             ],
             "takes_value": false
@@ -657,6 +674,18 @@
             "names": [
               "-h",
               "--help"
+            ],
+            "takes_value": false
+          },
+          {
+            "names": [
+              "--limit"
+            ],
+            "takes_value": true
+          },
+          {
+            "names": [
+              "--all"
             ],
             "takes_value": false
           }
