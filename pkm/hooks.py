@@ -82,6 +82,7 @@ LDCONFIG = "/usr/sbin/ldconfig"
 GLIB_COMPILE_SCHEMAS = "/usr/bin/glib-compile-schemas"
 APPARMOR_PARSER = "/usr/sbin/apparmor_parser"
 UPDATE_CA_TRUST = "/usr/bin/update-ca-trust"
+UPDATE_CA_TRUST_PROVIDER = "ca-certificates"
 GTK_UPDATE_ICON_CACHE = "/usr/bin/gtk-update-icon-cache"
 FC_CACHE = "/usr/bin/fc-cache"
 UPDATE_DESKTOP_DATABASE = "/usr/bin/update-desktop-database"
@@ -657,9 +658,16 @@ def run_canonical_hooks(root, file_list, name, version, operation, hooks=None):
                     cosmetic_failures.append(hook.id)
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
             level = "CRITICAL" if hook.critical else "WARN"
+            if isinstance(e, FileNotFoundError) and cmd[0] == UPDATE_CA_TRUST:
+                detail = (
+                    f"required program {UPDATE_CA_TRUST} is missing; "
+                    f"expected provider: {UPDATE_CA_TRUST_PROVIDER}"
+                )
+            else:
+                detail = f"exec failed: {e}"
             messages.append(
                 f"  hook[{hook.id}] {level} ({hook.description}): "
-                f"exec failed: {e}"
+                f"{detail}"
             )
             if hook.critical:
                 critical_failures.append(hook.id)

@@ -113,3 +113,23 @@ def test_archive_lifecycle_command_uses_reviewed_absolute_program(tmp_path):
     builder = getattr(hooks, "_archive_lifecycle_command", None)
     assert builder is not None, "archive-hook argv has no testable constructor"
     assert builder(tmp_path / "hook.sh")[0] == "/usr/bin/bash"
+
+
+def test_missing_ca_program_names_the_expected_producer(monkeypatch):
+    monkeypatch.setattr(hooks, "_TRACE_AVAILABLE", False)
+
+    def missing(_argv, **_kwargs):
+        raise FileNotFoundError(2, "No such file or directory", "/usr/bin/update-ca-trust")
+
+    monkeypatch.setattr(hooks.subprocess, "run", missing)
+    result = hooks.run_canonical_hooks(
+        "/",
+        ["etc/ca-certificates/demo.crt"],
+        "demo",
+        "1.0",
+        "install",
+    )
+    assert result.critical_failures == ["ca-trust"]
+    message = "\n".join(result.messages)
+    assert "/usr/bin/update-ca-trust" in message
+    assert "expected provider: ca-certificates" in message
