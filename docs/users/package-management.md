@@ -37,11 +37,20 @@ sudo pkm upgrade --all
 ```
 Compares your installed packages against the synced index and installs newer versions for any packages that have them available. `pkm sync` (above) only refreshes the index; this is the command that actually changes what's on disk. A bare `pkm upgrade` with no package names and no `--all` refuses to run rather than silently mass-modifying the system — name specific packages instead if you only want to upgrade those (for example, `sudo pkm upgrade firefox`).
 
+When the package manager itself is among the packages with a newer version, `--all` upgrades pkm **first** and then re-runs itself under the new release for the rest of the queue (it says so before asking for your confirmation, which covers both halves). The remaining packages are therefore always installed by the code that ships with the new pkm, never by the code that is being replaced.
+
 To move an installed package forward from a local archive — a build the mirror does not serve yet — name the package and the file:
 ```bash
 sudo pkm upgrade forge --archive /path/to/forge-1.0.igos.tar.gz --archive-trust loose
 ```
 The archive's own metadata must name that package; an older build is refused unless you pass `--allow-downgrade`; every dependency the archive declares must already be installed (this command fetches nothing from the repository). The same restore point, rollback copy and configuration-file protection as a repository upgrade apply. `--archive-trust strict` (the default) requires the signed index to carry that exact archive, so a build ahead of the mirror needs `loose`, which says so in its output.
+
+### Restarting Services After an Upgrade
+```bash
+pkm restart-services --list
+sudo pkm restart-services --all
+```
+An upgraded service keeps running its old code until it is restarted. `--list` classifies the packages installed or upgraded **since this boot** (anything installed before the boot was loaded fresh at boot and is only counted) and prints the ones that need a restart or a reboot. `--all` restarts the running units of those packages — and only the units that started before their package was upgraded; a unit already restarted after the upgrade is reported as current and left alone. The units that carry your login session (the system bus, logind, the journal, the display manager) are **never** restarted by `--all`; a package whose only running units are such is reported as REBOOT REQUIRED instead, because a live restart would end your session. Naming a unit explicitly (`sudo pkm restart-services sshd.service`) restarts exactly that unit, with a warning first if it carries the session. `--all` refuses to act when the boot time cannot be read, rather than guessing.
 
 ### Removing Software
 ```bash

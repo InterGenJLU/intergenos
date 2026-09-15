@@ -81,6 +81,37 @@ and the trust modes are those of
 archive; \fIloose\fR proceeds with a warning, which a build the mirror does
 not serve yet needs). The restore point, the rollback copy and the
 configuration-file protection of a repository upgrade apply to both.
+When
+.B \-\-all
+finds the package manager itself among the upgradable packages, pkm upgrades
+FIRST and the command then re-executes itself under the new release for the
+rest of the queue (it says so before the confirmation prompt, which covers
+both halves), so the remaining packages are always installed by the code the
+new pkm ships, never by the code being replaced.
+.TP
+.BR restart\-services " [\fB\-\-list\fR | \fB\-\-all\fR | \fIUNIT...\fR]"
+Restart services that are still running old code after an upgrade. With
+.BR \-\-list ,
+classify the packages installed or upgraded since THIS boot (a package
+installed before the boot was loaded fresh at boot and is counted, not
+listed) and print the ones that need a restart or a reboot; read-only. With
+.BR \-\-all ,
+restart every running unit that belongs to a package upgraded since this boot
+and that started before that upgrade (systemd's active-since stamp is compared
+with the upgrade's history stamp; a unit already restarted after the upgrade
+is reported as current and left alone). The units that carry the login
+session (the system bus, logind, the journal, the display manager) are never
+restarted by
+.BR \-\-all ;
+a package whose only running units are such is reported as REBOOT REQUIRED
+instead, because a live restart would end the session. Packages that declare
+a reboot are reported only when they changed since this boot.
+.B \-\-all
+refuses to act when the boot time cannot be read from /proc/stat. Naming a
+unit restarts exactly that unit, with a warning first if it carries the
+session. Exit status 0 on success, 1 if any restart failed or
+.B \-\-all
+could not bound itself to this boot.
 .TP
 .BR search " \fITERM\fR"
 Search local and remote indexes for packages matching
@@ -374,6 +405,15 @@ Verify the integrity of every installed package:
 .PP
 .RS
 .B pkm verify \-\-all
+.RE
+.PP
+After an upgrade, see which services still run old code, then restart them
+(the login session is never touched):
+.PP
+.RS
+.B pkm restart\-services \-\-list
+.br
+.B sudo pkm restart\-services \-\-all
 .RE
 .PP
 List everything in the desktop tier:
