@@ -130,7 +130,7 @@ do_install() {
 #!/bin/bash
 # /usr/bin/forge — InterGenOS Forge installer entry point.
 # Dispatches to installer/__main__.py with all original args.
-exec /usr/bin/python3 -m installer "$@"
+exec /usr/bin/python3 -P -m installer "$@"
 FORGE
     chmod 755 "${DESTDIR}/usr/bin/forge"
 

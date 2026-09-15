@@ -727,7 +727,7 @@ if [ -d "/mnt/intergenos/pkm" ]; then
     # Create /usr/bin/pkm wrapper
     cat > "${MOUNT_POINT}/usr/bin/pkm" << 'PKMEOF'
 #!/bin/bash
-exec /usr/bin/python3 -m pkm "$@"
+exec /usr/bin/python3 -P -m pkm "$@"
 PKMEOF
     chmod 755 "${MOUNT_POINT}/usr/bin/pkm"
 

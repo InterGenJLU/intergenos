@@ -35,7 +35,7 @@ do_install() {
     # CLI shim — thin wrapper so `pkm ...` works from PATH
     install -Dm755 /dev/stdin "${DESTDIR}/usr/bin/pkm" << 'SHIM'
 #!/bin/sh
-exec /usr/bin/python3 -m pkm "$@"
+exec /usr/bin/python3 -P -m pkm "$@"
 SHIM
 
     # Default repo configuration — points at the public binary package

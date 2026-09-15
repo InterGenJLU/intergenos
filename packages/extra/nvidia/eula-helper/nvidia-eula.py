@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3 -P
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2015-2016, 2026 InterGenJLU
 """nvidia-eula — InterGenOS EULA install-helper for the NVIDIA proprietary userspace.
