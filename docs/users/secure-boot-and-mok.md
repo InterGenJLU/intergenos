@@ -95,7 +95,7 @@ MOK enrollment only matters when you intend to run with Secure Boot **enabled**.
 
 On that boot, shim notices the pending MOK enrollment request and runs **MokManager** before continuing. MokManager is a small blue-text-on-black-background utility that walks you through four screens (captured below from a real enrollment):
 
-1. **"Perform MOK management"** — press any key to start, then choose **Enroll MOK**.
+1. **"Perform MOK management"** — press any key to start, then choose **Enroll MOK**. **MokManager waits about 10 seconds for that key press**, and the prompt can pass unseen while a monitor is still waking up. If it does, the queued request is gone and the boot stops at a "Verification failed" menu — see [I missed the MokManager prompt](#i-missed-the-mokmanager-prompt) below; it is recoverable from that menu without another machine.
 
    ![MokManager "Perform MOK management" menu with Enroll MOK highlighted](images/mok-1-enroll-panel.png)
 
@@ -150,6 +150,19 @@ For non-encrypted installs, the UKI's bundled initramfs is minimal — typically
 
 Most of the time you will never think about any of this. When something goes wrong, you have several recovery paths.
 
+### "I missed the MokManager prompt"
+
+The MokManager window is short (about 10 seconds), and on some machines the firmware's display is not awake yet when it appears. When it passes unseen, shim drops the queued request and stops at a menu titled **"Verification failed"** that offers *Continue boot*, *Enroll key from disk* and *Enroll hash from disk*. Recovery takes one minute and needs no password:
+
+1. Choose **Enroll key from disk**.
+2. Pick the boot partition (the small FAT volume, usually the only one offered).
+3. Open **EFI**, then **InterGenOS**, and pick **mok.der** — the installer staged your machine's certificate there for exactly this.
+4. Choose **Continue**, answer **Yes**, then **Reboot**.
+
+Do not use *Enroll hash from disk*: it pins today's boot loader bytes, and the next kernel update would fail to boot.
+
+Once you are logged in, the Welcomer's first page tells you whether the key is enrolled; it shows the same steps whenever the key is staged but not enrolled, and stays silent otherwise. The certificate's public copy is at `/etc/intergenos/mok.der`; `mokutil --list-enrolled` lists what the firmware holds.
+
 ### "I forgot the MOK enrollment password"
 
 On a default install (Secure Boot off), this has no effect on booting: enrollment is not required and your locally signed UKIs load regardless. The enrollment password only matters when you intend to enable Secure Boot.
@@ -173,6 +186,7 @@ On a default install (Secure Boot off) nothing stops you, but the supported path
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Boot stops at MokManager every time | MOK enrollment never completed; firmware re-prompts each boot | Complete enrollment; see [First-boot MOK enrollment](#first-boot-mok-enrollment) above. |
+| Boot stops at "Verification failed" with no *Enroll MOK* entry | The MokManager window passed unseen and the queued request was dropped | *Enroll key from disk* → EFI → InterGenOS → mok.der; see [I missed the MokManager prompt](#i-missed-the-mokmanager-prompt). |
 | A new UKI will not boot under Secure Boot | The UKI is signed with a MOK shim does not trust | Enroll the current MOK, or rebuild the UKI after enrollment. |
 | GRUB shows no usable InterGenOS UKI entry | UKI generation or signing failed | Inspect `/var/log/intergen-kernel-postinstall.log`. ESP-full and missing MOK material are two causes; do not assume a bare entry can unlock an encrypted root. |
 | `ukify` is missing on the installed system | The package providing it was removed | Reinstall the `systemd` tooling, which provides `ukify`, with `sudo pkm reinstall systemd`, then run `sudo pkm reinstall linux-kernel`. On an encrypted install, missing `ukify` does not guarantee a usable bare-kernel fallback. |

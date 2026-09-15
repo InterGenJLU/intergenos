@@ -195,6 +195,8 @@ The Forge installer (`installer/backend/mok.py`) handles install-time MOK setup.
 
 After install, the MOK is *queued* but *not yet enrolled*. Enrollment completes on the first boot after you re-enable Secure Boot in firmware setup (§0 step 3) — that re-enable is what puts shim in the boot path and lets MokManager run.
 
+The installer also stages the DER certificate at two more places so the from-disk recovery and the first-login check work without another machine: `/boot/efi/EFI/InterGenOS/mok.der` (the boot partition, beside shim — what MokManager's "Enroll key from disk" reads) and `/etc/intergenos/mok.der` (world-readable; the Welcomer compares its SHA1 with `mokutil --list-enrolled` at the first login and shows the recovery steps while the key is not enrolled). The certificate is public; the private key stays in the 0700 directory.
+
 ### Verifying what the installer wrote
 
 After install, before first reboot, you can verify the MOK files are in place. The simplest verification is on the next boot's pre-MokManager prompt itself, but if you want to audit beforehand:
@@ -425,7 +427,11 @@ openssl x509 -in /var/lib/intergen/mok/mok.crt -noout -fingerprint -sha1
 
 ### "I missed the 10-second MokManager prompt"
 
-The system booted to InterGenOS with the MOK still queued. Log in and re-trigger:
+Two cases, told apart by what the screen shows.
+
+**The boot stopped at "Verification failed"** (Secure Boot on, the window passed unseen): the queued request was consumed by the timeout — `mokutil --list-new` is empty afterwards — and shim's menu offers only *Continue boot*, *Enroll key from disk* and *Enroll hash from disk*. The installer stages the certificate on the boot partition for this case: choose *Enroll key from disk* → the FAT volume → EFI → InterGenOS → mok.der → Continue → Yes → Reboot. No password, no timeout. (Never *Enroll hash from disk*: it pins the current binaries and breaks at the next kernel.) Measured on the hub workstation on 2026-09-05.
+
+**The system booted to InterGenOS with the MOK still queued** (Secure Boot was off): log in and re-trigger:
 
 ```bash
 sudo mokutil --import /var/lib/intergen/mok/mok.der
