@@ -86,6 +86,8 @@ do_install() {
     install -Dm755 tailscaled "$DESTDIR/usr/sbin/tailscaled"
 
     # Daemon env file referenced by EnvironmentFile= in the unit.
+    # Tailscale 1.98.5 supports TS_DEBUG_FIREWALL_MODE=nftables:
+    # https://tailscale.com/docs/features/firewall-mode
     install -Dm644 "$BUILD_DIR/tailscaled.defaults" \
         "$DESTDIR/etc/default/tailscaled"
 
