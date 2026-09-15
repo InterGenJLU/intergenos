@@ -66,8 +66,8 @@ from intergen.model_manager import (
     APACHE_LICENSE_REF,
     QWEN_LICENSE_REF,
     QWEN_LICENSE_URL,
-    _load_pins,
-    _model_license_ref,
+    _load_manifest_entries,
+    _pins_from_entries,
 )
 
 #: Directory the model store lives in (root-owned, RO to users). Same constant
@@ -77,6 +77,13 @@ _MANIFEST_PATH = MANIFEST_PATH
 _SYSTEM_LEGAL_DIR = SYSTEM_LEGAL_DIR
 
 _SHA_CHUNK = 1024 * 1024  # 1 MiB streaming read for the integrity re-hash.
+
+# URLs follow the descriptor's explicit license identifier, never a repository
+# name. A new license needs a reviewed mapping before provisioning can record it.
+_LICENSE_URLS = {
+    APACHE_LICENSE_REF: "https://www.apache.org/licenses/LICENSE-2.0",
+    QWEN_LICENSE_REF: QWEN_LICENSE_URL,
+}
 
 
 def _emit(message: str) -> None:
@@ -192,7 +199,7 @@ def provision(
     Steps (fail-closed at each): filename safety → pin lookup (no pin ⇒ refuse,
     no TOFU) → staged-file existence → sha256 RE-verify vs pin (mismatch ⇒
     refuse) → atomic install root-owned 0644 → manifest sidecar update →
-    system-wide license-acceptance record (for licenses that require it).
+    system-wide license record from the package-shipped descriptor.
     """
     filename = arguments.get("filename")
     staging_path = arguments.get("staging_path")
@@ -215,7 +222,11 @@ def provision(
     # I-005). The projector is validated up front too, so a bad mmproj aborts
     # the whole install rather than leaving a vision GGUF in the store without
     # its projector.
-    pins = _load_pins(pins_path)
+    # Use the same descriptor snapshot for artifact pins and the legal record.
+    # This loader relies on package verification;
+    # it does not perform detached-signature verification here.
+    entries = _load_manifest_entries(pins_path)
+    pins = _pins_from_entries(entries)
     expected_sha, err = _validate_staged(filename, staging_path, pins)
     if err:
         return False, err
@@ -224,6 +235,16 @@ def provision(
             mmproj_filename, mmproj_staging_path, pins)
         if err:
             return False, err
+
+    entry = entries.get(filename)
+    if (entry is None or entry.get("filename") != filename
+            or entry.get("sha256") != expected_sha):
+        return False, (f"provision: {filename!r} has no matching descriptor "
+                       "entry for its filename and sha256; refusing install.")
+    license_ref = entry.get("license_ref")
+    if not isinstance(license_ref, str) or license_ref not in _LICENSE_URLS:
+        return False, (f"provision: {filename!r} has a missing or unsupported "
+                       f"descriptor license_ref {license_ref!r}; refusing install.")
 
     # Integrity proven for every artifact → install (primary, then projector),
     # each root-owned 0644 via a same-dir temp + atomic os.replace.
@@ -272,23 +293,14 @@ def provision(
             # manifest). Report it but treat the install as succeeded.
             _emit(f"provision: note — manifest sidecar update failed: {exc}.")
 
-    # System-wide license acceptance — complete the setup write-set under
-    # /var/lib/intergen (the .gguf + manifest above, the legal record here). The
-    # store is system-wide; its license acceptance belongs at system scope too,
-    # the same record Forge writes at install time. The human who authenticated
-    # this pkexec install ("install InterGen's AI model") is accepting the
-    # model's license for the system — so we write it root-owned, attributed to
-    # them. Derived entirely from trusted catalog data (license_ref from the
-    # model's repo_id; no caller-supplied license content), and only for licenses
-    # that actually require acceptance (Apache and other permissive licenses are
-    # auto-accepted, so no record is written for them — matching
-    # ModelManager.record_license_acceptance).
-    if catalog_model is not None:
-        note = _write_system_acceptance(
-            catalog_model, expected_sha, system_legal_dir, accepted_by,
-        )
-        if note:
-            _emit(note)
+    # Record the descriptor's license even for permissive models, replacing an
+    # inaccurate older record when setup is rerun. Catalog defaults and caller
+    # arguments do not supply legal metadata.
+    note = _write_system_acceptance(
+        entry, expected_sha, system_legal_dir, accepted_by, pins_path=pins_path,
+    )
+    if note:
+        _emit(note)
 
     msg = f"provision: installed {filename} ({expected_sha[:16]}…) to {dest}."
     if mmproj_dest is not None:
@@ -296,40 +308,37 @@ def provision(
     return True, msg
 
 
-def _write_system_acceptance(model, sha256: str, system_legal_dir: Path,
-                            accepted_by: str) -> str:
+def _write_system_acceptance(entry: dict, sha256: str, system_legal_dir: Path,
+                            accepted_by: str, *, pins_path: Path) -> str:
     """Write the system-wide license-acceptance record (root-owned).
 
-    No-op for permissive licenses (returns ""). For acceptance-requiring
-    licenses, writes <system_legal_dir>/<filename>-accepted.json with the same
-    schema as ModelManager.record_license_acceptance, attributed to the
+    The entry and its license mapping were checked before installing files.
+    Writes <system_legal_dir>/<filename>-accepted.json, attributed to the
     authenticating user. Returns a human-readable note on a non-fatal failure
     (the model is already installed; a legal-record hiccup does not fail the
     install — but it IS surfaced).
     """
-    license_ref = _model_license_ref(model)
-    if license_ref == APACHE_LICENSE_REF:
-        return ""  # permissive — auto-accepted, no record needed.
-
+    license_ref = entry["license_ref"]
+    filename = entry["filename"]
     record = {
-        "model": model.name,
-        "filename": model.filename,
-        "repo_id": model.repo_id,
+        "model": entry.get("name") or filename,
+        "filename": filename,
+        "repo_id": entry.get("repo_id", ""),
+        "sha256": sha256,
         "license_ref": license_ref,
-        "canonical_url": (
-            QWEN_LICENSE_URL if license_ref == QWEN_LICENSE_REF else "unknown"
-        ),
+        "canonical_url": _LICENSE_URLS[license_ref],
+        "license_source": f"the shipped descriptor {pins_path} (package-verified)",
         "accepted_at": datetime.datetime.now(
             datetime.timezone.utc
         ).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "accepted_by": accepted_by or os.environ.get("PKEXEC_USER", "unknown"),
         "scope": "system",  # distinguishes from a per-user XDG record.
     }
-    target = system_legal_dir / f"{model.filename}-accepted.json"
+    target = system_legal_dir / f"{filename}-accepted.json"
     try:
         system_legal_dir.mkdir(parents=True, exist_ok=True)
         os.chmod(system_legal_dir, 0o755)
-        tmp = system_legal_dir / f".{model.filename}-accepted.json.incoming"
+        tmp = system_legal_dir / f".{filename}-accepted.json.incoming"
         tmp.write_text(json.dumps(record, indent=2) + "\n")
         os.chmod(tmp, 0o644)
         if os.geteuid() == 0:

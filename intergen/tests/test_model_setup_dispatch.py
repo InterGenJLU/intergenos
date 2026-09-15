@@ -23,12 +23,14 @@ from unittest import mock
 from intergen import model_setup_dispatch as msd
 
 
-def _write_pins(pins_path: Path, entries: dict[str, str]) -> None:
+def _write_pins(pins_path: Path, entries: dict[str, str],
+                license_ref: str = "Apache-2.0") -> None:
     """Write a pin manifest in the shipped models-manifest.json schema."""
     pins_path.write_text(json.dumps({
         "version": "0.1",
         "entries": [
-            {"name": fn, "filename": fn, "sha256": sha}
+            {"name": fn, "filename": fn, "sha256": sha,
+             "license_ref": license_ref}
             for fn, sha in entries.items()
         ],
     }))
@@ -58,6 +60,7 @@ class TestProvision(unittest.TestCase):
             pins_path=self.pins,
             model_dir=self.store,
             manifest_path=self.manifest,
+            system_legal_dir=self.root / "legal",
         )
 
     def test_happy_path_installs_root_owned_perms(self):
@@ -119,9 +122,7 @@ class TestProvision(unittest.TestCase):
 
 
 class TestSystemLicenseAcceptance(unittest.TestCase):
-    """The setup write-set includes the system-wide license-acceptance record
-    for licenses that require it (the human authenticating the install accepts
-    the model's license for the system — same record Forge writes)."""
+    """The setup write-set records the package descriptor's license."""
 
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
@@ -136,10 +137,11 @@ class TestSystemLicenseAcceptance(unittest.TestCase):
     def tearDown(self):
         self._tmp.cleanup()
 
-    def _install(self, filename: str):
+    def _install(self, filename: str, license_ref: str = "Apache-2.0"):
         staged = self.staging / filename
         staged.write_bytes(b"weights" * 32)
-        _write_pins(self.pins, {filename: hashlib.sha256(staged.read_bytes()).hexdigest()})
+        _write_pins(self.pins, {filename: hashlib.sha256(staged.read_bytes()).hexdigest()},
+                    license_ref)
         return msd.provision(
             {"filename": filename, "staging_path": str(staged)},
             pins_path=self.pins, model_dir=self.store,
@@ -148,11 +150,10 @@ class TestSystemLicenseAcceptance(unittest.TestCase):
         )
 
     def test_qwen_writes_system_acceptance(self):
-        # Qwen → Tongyi-Qianwen license requires acceptance → record written.
-        # Tier-1 (2B) is now InternVL3.5 (Apache); the 9B remains Qwen (the
-        # tier-2 payload is the fine-tuned round-3 build of the same base), so
-        # it stays the representative Tongyi-acceptance case.
-        ok, msg = self._install("Qwen3.5-9B-intergen-round3-Q4_K_M.gguf")
+        # This fixture explicitly declares Tongyi-Qianwen; the shipped model
+        # descriptor currently declares Apache-2.0 for this filename.
+        ok, msg = self._install("Qwen3.5-9B-intergen-round3-Q4_K_M.gguf",
+                                "LicenseRef-Tongyi-Qianwen")
         self.assertTrue(ok, msg)
         rec_path = self.legal / "Qwen3.5-9B-intergen-round3-Q4_K_M.gguf-accepted.json"
         self.assertTrue(rec_path.is_file())
@@ -163,13 +164,12 @@ class TestSystemLicenseAcceptance(unittest.TestCase):
         self.assertEqual(rec["filename"], "Qwen3.5-9B-intergen-round3-Q4_K_M.gguf")
         self.assertEqual(os.stat(rec_path).st_mode & 0o777, 0o644)
 
-    def test_apache_model_writes_no_acceptance(self):
-        # nomic-embed → Apache-2.0 is auto-accepted → no record written.
+    def test_apache_model_writes_descriptor_record(self):
         ok, msg = self._install("nomic-embed-text-v1.5.Q8_0.gguf")
         self.assertTrue(ok, msg)
-        self.assertFalse((self.legal / "nomic-embed-text-v1.5.Q8_0.gguf-accepted.json").exists())
-        # ...and no stray legal dir contents.
-        self.assertFalse(self.legal.exists() and any(self.legal.iterdir()))
+        record = json.loads((self.legal / "nomic-embed-text-v1.5.Q8_0.gguf-accepted.json").read_text())
+        self.assertEqual(record["license_ref"], "Apache-2.0")
+        self.assertEqual(record["canonical_url"], "https://www.apache.org/licenses/LICENSE-2.0")
 
 
 class TestMainArgvAndEnvGate(unittest.TestCase):
@@ -221,7 +221,8 @@ class TestProvisionMmproj(unittest.TestCase):
 
     def _call(self, arguments):
         return msd.provision(arguments, pins_path=self.pins,
-                             model_dir=self.store, manifest_path=self.manifest)
+                             model_dir=self.store, manifest_path=self.manifest,
+                             system_legal_dir=self.root / "legal")
 
     def test_vision_installs_both_artifacts(self):
         g_staged, g_sha = self._stage("vlm.gguf", b"GGUF" * 100)
