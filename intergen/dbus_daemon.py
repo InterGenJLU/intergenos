@@ -802,6 +802,15 @@ class InterGenDaemon(InterGenDBusInterface):
                 # Whether the embedder has been OBSERVED to answer. "enabled"
                 # only ever meant an index object was wired.
                 "verified": bool(router_status.get("memory_verified", False)),
+                # The measured facts behind the flags: what this conversation's
+                # index holds, what it was handed, when it last wrote, and
+                # whether the embedder has answered IT. The status line renders
+                # these rather than a cause nobody observed.
+                "indexed_turns": int(router_status.get("memory_indexed_turns", 0)),
+                "turns_seen": int(router_status.get("memory_turns_seen", 0)),
+                "last_index_at": router_status.get("memory_last_index_at"),
+                "embedder_answered": bool(router_status.get("memory_verified",
+                                                            False)),
             }
         return json.dumps(status, indent=2)
 

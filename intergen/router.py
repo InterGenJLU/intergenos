@@ -1981,6 +1981,19 @@ class ConversationRouter(RouterInterface):
                 "belongs to (bind_conversation) before it can be routed.")
         return conv
 
+    def _conversation_or_none(self) -> "ConversationState | None":
+        """The conversation a caller has bound — the per-thread binding a turn
+        or a status call takes, else the router's own conversation — or None
+        when there is neither (a detached router with nothing bound). The
+        non-raising twin of :attr:`_conv`, for readers that must answer
+        truthfully rather than refuse: a status question is one."""
+        local = getattr(self, "_conversation_binding", None)
+        named = getattr(local, "state", None) if local is not None else None
+        if named is not None:
+            return named
+        conv = getattr(self, "_bound_conversation", None)
+        return conv if isinstance(conv, ConversationState) else None
+
     @contextlib.contextmanager
     def _conversation_scope(self, state: ConversationState):
         local = getattr(self, "_conversation_binding", None)
@@ -7707,11 +7720,18 @@ class ConversationRouter(RouterInterface):
 
     def get_status(self) -> dict:
         """Return router status."""
-        # Read WITHOUT binding: a status question must never fail because no
-        # turn happens to be in flight, and it must never bind a conversation of
-        # its own choosing. A frontend that wants its own conversation's numbers
-        # binds it around the call (the desktop bus does).
-        conv = getattr(self, "_bound_conversation", None)
+        # Read WITHOUT binding one of its own: a status question must never
+        # fail because no turn happens to be in flight, and it must never bind
+        # a conversation of its own choosing. A frontend that wants its own
+        # conversation's numbers binds it around the call (the desktop bus
+        # does) — and that binding is read HERE through the same accessor the
+        # routing path uses (the per-thread binding first, the router's own
+        # conversation second). This used to read only the router's own
+        # attribute, which the daemon detaches at start-up, so status reported
+        # "no bound conversation, zero history, unverified memory" after
+        # successful index writes on the very conversation it had bound
+        # (measured on an installed machine 2026-09-04).
+        conv = self._conversation_or_none()
         index = conv.turn_index if conv is not None else None
         status = {
             "tool_count": self._tools.tool_count,
@@ -7735,6 +7755,14 @@ class ConversationRouter(RouterInterface):
             # failed yet, only never succeeded — and the user surface read that
             # as working.
             "memory_verified": (index.verified if index is not None else False),
+            # MEASURED off the index itself: how many exchanges it holds, how
+            # many it was handed, and when it last wrote — so the user surface
+            # states what happened instead of guessing at a cause.
+            "memory_indexed_turns": (index.indexed_count if index is not None
+                                     else 0),
+            "memory_turns_seen": (index.turns_seen if index is not None else 0),
+            "memory_last_index_at": (index.last_indexed_at if index is not None
+                                     else None),
         }
         if self._metrics:
             status.update(self._metrics.get_status())

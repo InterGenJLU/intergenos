@@ -77,6 +77,39 @@ class SessionRecallStatusTest(unittest.TestCase):
         self.assertNotIn("session recall active", out)
         self.assertIn("NOT YET VERIFIED", out)
 
+    def test_unverified_states_what_was_measured_not_a_guessed_cause(self):
+        """Status blamed the embedder ("the :8081 embedder has not answered
+        yet") on a machine whose embedder had answered scores of requests
+        (measured 2026-09-04): the index had simply never been asked. The
+        line now says what is MEASURED — how many turns were indexed, how
+        many were seen, whether this conversation's index has had an answer —
+        and names no cause it did not observe."""
+        out = self._render({"enabled": True, "degraded": False,
+                            "verified": False, "indexed_turns": 0,
+                            "turns_seen": 0, "last_index_at": None,
+                            "embedder_answered": False})
+        self.assertNotIn("has not answered", out)
+        self.assertIn("0 turns indexed", out)
+        self.assertIn("no conversation turn has been indexed yet", out)
+
+    def test_active_states_the_index_count_and_the_last_write(self):
+        out = self._render({"enabled": True, "degraded": False,
+                            "verified": True, "indexed_turns": 3,
+                            "turns_seen": 3, "last_index_at": 1788559976.65,
+                            "embedder_answered": True})
+        self.assertIn("session recall active", out)
+        self.assertIn("3 turns indexed", out)
+        self.assertIn("last index write", out)
+
+    def test_a_pending_turn_is_named_as_pending(self):
+        # A turn handed to the index whose embed has not landed yet.
+        out = self._render({"enabled": True, "degraded": False,
+                            "verified": True, "indexed_turns": 2,
+                            "turns_seen": 3, "last_index_at": 1788559976.65,
+                            "embedder_answered": True})
+        self.assertIn("2 turns indexed", out)
+        self.assertIn("1 pending", out)
+
     def test_degraded_still_reads_loud(self):
         out = self._render({"enabled": True, "degraded": True,
                             "verified": True})
@@ -111,6 +144,50 @@ class IndexVerificationTest(unittest.TestCase):
         self.assertIsNot(idx.verified, None)
         self.assertIsNot(idx.degraded, None)
 
+    def test_the_index_measures_its_own_writes(self):
+        """The counters the status line renders: turns seen, turns indexed
+        and the wall time of the last index write — MEASURED off the index's
+        own state, set only by a real successful embed."""
+        import time
+        from intergen.memory import SessionTurnIndex
+
+        def embed(texts):
+            return [[1.0, 0.0, 0.0] for _ in texts]
+
+        idx = SessionTurnIndex(embedder=embed)
+        try:
+            self.assertEqual(idx.indexed_count, 0)
+            self.assertEqual(idx.turns_seen, 0)
+            self.assertIsNone(idx.last_indexed_at)
+            before = time.time()
+            idx.index_turn("what year was Linux released?", "1991.")
+            deadline = time.monotonic() + 5
+            while idx.indexed_count < 1 and time.monotonic() < deadline:
+                time.sleep(0.01)
+            self.assertEqual(idx.indexed_count, 1)
+            self.assertEqual(idx.turns_seen, 1)
+            self.assertTrue(idx.verified)
+            self.assertIsNotNone(idx.last_indexed_at)
+            self.assertGreaterEqual(idx.last_indexed_at, before)
+        finally:
+            idx.stop()
+
+    def test_a_failed_embed_indexes_nothing_and_records_no_write(self):
+        import time
+        from intergen.memory import SessionTurnIndex
+        idx = SessionTurnIndex(embedder=lambda texts: None)
+        try:
+            idx.index_turn("q", "a")
+            deadline = time.monotonic() + 5
+            while not idx.degraded and time.monotonic() < deadline:
+                time.sleep(0.01)
+            self.assertTrue(idx.degraded)
+            self.assertEqual(idx.indexed_count, 0)
+            self.assertEqual(idx.turns_seen, 1)
+            self.assertIsNone(idx.last_indexed_at)
+        finally:
+            idx.stop()
+
 
 class RouterStatusTest(unittest.TestCase):
     """The router lifts the measured flag, not just the wired one."""
@@ -122,6 +199,63 @@ class RouterStatusTest(unittest.TestCase):
         self.assertIn('"memory_verified"', src,
                       "the router status does not carry the measured flag, so "
                       "the surface has nothing truthful to render")
+
+    def test_status_carries_the_measured_index_facts(self):
+        """Read off a real router with a bound conversation whose index has
+        been driven, not off the source text."""
+        import time
+        from intergen.router import ConversationRouter
+
+        def embed(texts):
+            return [[1.0, 0.0, 0.0] for _ in texts]
+
+        class _Tools:
+            tool_count = 0
+
+        class _Semantic:
+            @staticmethod
+            def get_intent_count():
+                return 0
+
+        class _LLM:
+            @staticmethod
+            def get_escalation_mode():
+                class _M:
+                    value = "auto"
+                return _M()
+
+        r = ConversationRouter.__new__(ConversationRouter)
+        r._max_history = 20
+        r._record = lambda *a, **k: None
+        r._current_query_type = "general"
+        r._memory = None
+        r._embedder = embed
+        r._tools = _Tools()
+        r._semantic = _Semantic()
+        r._llm = _LLM()
+        r._metrics = None
+        r.detach_conversation()
+        conv = r.new_conversation()
+        try:
+            with r.bind_conversation(conv):
+                fresh = r.get_status()
+            self.assertEqual(fresh["memory_indexed_turns"], 0)
+            self.assertEqual(fresh["memory_turns_seen"], 0)
+            self.assertIsNone(fresh["memory_last_index_at"])
+            r._append_history("what year was Linux released?", "1991.",
+                              state=conv)
+            deadline = time.monotonic() + 5
+            while conv.turn_index.indexed_count < 1 and time.monotonic() < deadline:
+                time.sleep(0.01)
+            with r.bind_conversation(conv):
+                after = r.get_status()
+            self.assertEqual(after["memory_indexed_turns"], 1)
+            self.assertEqual(after["memory_turns_seen"], 1)
+            self.assertTrue(after["memory_verified"])
+            self.assertIsNotNone(after["memory_last_index_at"])
+            self.assertEqual(after["history_length"], 2)
+        finally:
+            conv.turn_index.stop()
 
     def test_no_index_reports_unverified_rather_than_absent(self):
         """A missing key would render as False anyway — but silently.

@@ -523,6 +523,28 @@ def offline_status() -> dict:
     return status
 
 
+def _memory_measured_line(mem: dict) -> str:
+    """The session-recall index's measured facts in one line: turns indexed,
+    turns pending (handed to the index but not yet written), the wall time of
+    the last index write, and whether the embedder has answered this index."""
+    indexed = int(mem.get("indexed_turns") or 0)
+    seen = int(mem.get("turns_seen") or 0)
+    pending = max(0, seen - indexed)
+    parts = [f"{indexed} turns indexed"]
+    if pending:
+        parts.append(f"{pending} pending")
+    last = mem.get("last_index_at")
+    if isinstance(last, (int, float)):
+        import time as _time
+        parts.append("last index write "
+                     + _time.strftime("%H:%M:%S", _time.localtime(last)))
+    else:
+        parts.append("no index write yet")
+    parts.append("embedder answered this index: "
+                 + ("yes" if mem.get("embedder_answered") else "no"))
+    return "; ".join(parts)
+
+
 def print_status(status: dict) -> None:
     """Render a status payload. Pure over the dict — no bus, no daemon.
 
@@ -616,13 +638,18 @@ def print_status(status: dict) -> None:
             print("      history window only, so an older antecedent may be lost.")
         elif mem.get("verified"):
             print("  Memory:     session recall active (:8081 index)")
+            print(f"      {_memory_measured_line(mem)}")
         elif mem.get("enabled"):
             # Wired but never yet observed to work. Saying "active" here would
             # be reporting configuration as if it were behaviour: an embedder
             # that has never come up has not failed either, so nothing has set
             # the degraded flag, and the old wording called that active.
+            # What follows is MEASURED — the index's own counts — never a
+            # cause: this line once blamed an embedder that had answered
+            # scores of requests for an index that had never been asked.
             print("  Memory:     session recall wired, NOT YET VERIFIED")
-            print("      the :8081 embedder has not answered yet, so whether")
+            print(f"      {_memory_measured_line(mem)}")
+            print("      no conversation turn has been indexed yet, so whether")
             print("      recall works on this machine is not known.")
         else:
             print("  Memory:     disabled (no embedder wired)")

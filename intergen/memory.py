@@ -1400,6 +1400,12 @@ class SessionTurnIndex:
         # was attempted and failed — which is precisely the window in which a
         # user is deciding whether to trust it.
         self._verified = False
+        # Wall time of the last successful index write, or None. With the two
+        # counts (turns_seen / indexed_count) this is what the status surface
+        # renders: what the index MEASURED, never a cause it did not observe
+        # (status once blamed an embedder that had answered scores of requests
+        # for an index that had simply never been asked).
+        self._last_indexed_at: float | None = None
         self._lock = threading.Lock()
         # Bounded worker: ONE daemon thread drains a bounded FIFO queue. The
         # design specified a depth-1 drop-oldest slot; measured, that dropped 26
@@ -1442,6 +1448,25 @@ class SessionTurnIndex:
         """
         with self._lock:
             return self._verified
+
+    @property
+    def indexed_count(self) -> int:
+        """How many exchanges this index holds — successful embeds only."""
+        with self._lock:
+            return len(self._turns)
+
+    @property
+    def turns_seen(self) -> int:
+        """How many exchanges were handed to :meth:`index_turn`. The
+        difference from :attr:`indexed_count` is what is pending or failed."""
+        with self._lock:
+            return self._turn_seq
+
+    @property
+    def last_indexed_at(self) -> float | None:
+        """Wall time (``time.time()``) of the last successful index write."""
+        with self._lock:
+            return self._last_indexed_at
 
     def _embed_one(self, text: str):
         """Embed a single text -> 1-D float32 np.ndarray, or None (degrade).
@@ -1636,6 +1661,7 @@ class SessionTurnIndex:
             self._turns.append(_IndexedTurn(
                 turn_no=turn_no, vectors=vecs,
                 user_input=user_input, response=response))
+            self._last_indexed_at = time.time()
             indexed = len(self._turns)
         if len(pieces) > 1:
             glass.emit("memory", "index_chunked", detail={
