@@ -2610,26 +2610,9 @@ class ConversationRouter(RouterInterface):
         if self._state_cache and not has_safety_trigger \
                 and not route_compound_whole \
                 and "package" not in lower_input_raw:
-            cached = self._state_cache.lookup_for_query(user_input)
-            if cached and "\n" not in cached.strip():
-                # The state cache holds single-value SHELL-command state
-                # (hostname / uname / uptime / date …), so it declares that
-                # provenance rather than leaning on the parameter default.
-                response = self._template_synthesis(
-                    user_input, cached, self._SHELL_OUTPUT_TOOL)
-                if response:
-                    self._won("cache", single_value=True)
-                    self._record(
-                        RouteResult(text=response, source="cache", handled=True,
-                                    answer_linkage=AnswerLinkage(
-                                        kind="cache", renderer="template")),
-                        t0, "cache",
-                    )
-                    return RouteResult(
-                        text=response, source="cache", handled=True,
-                        answer_linkage=AnswerLinkage(
-                            kind="cache", renderer="template"),
-                    )
+            cached_result = self._try_state_cache(user_input, t0)
+            if cached_result is not None:
+                return cached_result
 
         # Self-awareness — instant template responses, no LLM needed
         lower_input = user_input.lower().strip()
@@ -4828,6 +4811,40 @@ class ConversationRouter(RouterInterface):
         return RouteResult(handled=False, decline_reason=reason,
                            tool_calls=[call] if call else [],
                            tool_results=[tool_result] if tool_result else [])
+
+    def _try_state_cache(self, user_input: str, t0: float) -> RouteResult | None:
+        """Answer a single-value system-state question from the state cache.
+
+        Returns the delivered result, or None when the cache holds nothing for
+        the question (or only multi-line output, which needs the model to
+        format). The caller decides eligibility (safety triggers, compounds,
+        package questions); this decides the answer.
+
+        The exchange is written through the single history writer like every
+        other code-owned fast path on the desktop bus: a cache-served turn used
+        to return without writing anything, so the conversation held no trace
+        of it — nothing for a follow-up to resolve against and no session-
+        memory index event for the turn (the "a completed turn produces no
+        index event" observation of the 2026-09-04 evaluation, for this
+        disposition; the browser server's own write-back hid it there).
+        """
+        cached = self._state_cache.lookup_for_query(user_input)
+        if not cached or "\n" in cached.strip():
+            return None
+        # The state cache holds single-value SHELL-command state
+        # (hostname / uname / uptime / date …), so it declares that
+        # provenance rather than leaning on the parameter default.
+        response = self._template_synthesis(
+            user_input, cached, self._SHELL_OUTPUT_TOOL)
+        if not response:
+            return None
+        self._won("cache", single_value=True)
+        self._append_history(user_input, response)
+        result = RouteResult(text=response, source="cache", handled=True,
+                             answer_linkage=AnswerLinkage(
+                                 kind="cache", renderer="template"))
+        self._record(result, t0, "cache")
+        return result
 
     def _try_deterministic_fallback(self, user_input: str) -> RouteResult:
         """Route-to-tools guard: resolve the query to a known read-only system
