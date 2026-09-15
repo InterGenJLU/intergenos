@@ -1031,7 +1031,8 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         # is surfaced as a warning, not a hard failure on an otherwise-complete
         # install.
         try:
-            scrub = users.remove_test_accounts(target)
+            scrub = users.remove_test_accounts(
+                target, protected_username=install_io["username"])
             if scrub["removed"]:
                 _emit(PHASE_CLEANUP, 12,
                       f"scrubbed stray test account(s): "

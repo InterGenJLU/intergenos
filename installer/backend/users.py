@@ -1018,9 +1018,17 @@ def _ship_ssh_keys_only_dropin(target):
     dropin_path.chmod(0o644)
 
 
-def remove_test_accounts(target):
+def remove_test_accounts(target, *, protected_username=None):
     """Defense-in-depth: guarantee no LFS test account leaks onto the installed
     system.
+
+    ``protected_username`` is the login the person chose in the wizard. It is
+    never a scrub candidate, even when it spells a test-account name: the
+    scrub decided by name alone, so an install whose chosen login was
+    ``tester`` deleted that account and its home at the end of an otherwise
+    successful install (R001.3 row 27 item 1). The chosen name is excluded
+    exactly; an inherited ``tester`` on a target whose login is different is
+    still removed.
 
     The LFS Ch8 test suite runs as a `tester` account. shadow's post_install no
     longer creates it (the `useradd` was removed) and the live ISO root is
@@ -1037,7 +1045,8 @@ def remove_test_accounts(target):
     """
     target_str = str(target)
     passwd = os.path.join(target_str, "etc", "passwd")
-    test_accounts = ("tester",)
+    test_accounts = tuple(
+        name for name in ("tester",) if name != protected_username)
 
     def _present():
         try:
@@ -1055,4 +1064,8 @@ def remove_test_accounts(target):
             intent=f"scrub stray LFS test account: {acct}",
         )
         removed.append(acct)
-    return {"removed": removed, "survivors": sorted(_present())}
+    return {
+        "removed": removed,
+        "survivors": sorted(_present()),
+        "protected": protected_username,
+    }
