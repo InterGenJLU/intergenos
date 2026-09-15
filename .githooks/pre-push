@@ -781,10 +781,10 @@ done
 
 if [ -z "$RELCHECK_TARGET" ]; then
     echo "[pre-push] release checker: not a dev/master push — exempt by design"
-elif [ ! -f scripts/bump-changed-releases.py ]; then
-    echo "[pre-push] WARN: scripts/bump-changed-releases.py not found; skipping release checker"
 elif [ -z "$PY_BIN" ]; then
-    echo "[pre-push] WARN: no Python 3 interpreter found; skipping release checker"
+    echo "[pre-push] BLOCK: no Python 3 interpreter found; pushed-content gates cannot run"
+    echo "  A dev/master push that was not inspected is not a passing push."
+    exit 1
 else
     echo "[pre-push] release checker: evaluating $(git rev-parse --short=8 "$RELCHECK_TARGET") as pushed to $RELCHECK_REF..."
     RELCHECK_TMP=$(mktemp -d 2>/dev/null || echo "")
@@ -795,8 +795,18 @@ else
         exit 1
     fi
     RELCHECK_WT="$RELCHECK_TMP/wt"
+    cleanup_relcheck_worktree() {
+        if [ -n "${RELCHECK_WT:-}" ] && [ -d "$RELCHECK_WT" ]; then
+            git worktree remove --force "$RELCHECK_WT" >/dev/null 2>&1 || true
+        fi
+        if [ -n "${RELCHECK_TMP:-}" ] && [ -d "$RELCHECK_TMP" ]; then
+            rm -rf "$RELCHECK_TMP"
+        fi
+    }
+    trap cleanup_relcheck_worktree EXIT HUP INT TERM
     if ! git worktree add --detach "$RELCHECK_WT" "$RELCHECK_TARGET" >/dev/null 2>&1; then
-        rm -rf "$RELCHECK_TMP"
+        cleanup_relcheck_worktree
+        trap - EXIT HUP INT TERM
         echo "[pre-push] BLOCK: could not check out $(git rev-parse --short=8 "$RELCHECK_TARGET") to evaluate release/content_hash state."
         echo "  The release checker is fail-closed: an unevaluated push to $RELCHECK_REF is not permitted."
         echo "  Inspect: git worktree add --detach <dir> $RELCHECK_TARGET"
@@ -805,7 +815,12 @@ else
     fi
     RELCHECK_OUT=""
     RELCHECK_RC=0
-    RELCHECK_OUT=$("$PY_BIN" "$RELCHECK_WT/scripts/bump-changed-releases.py" --check 2>&1) || RELCHECK_RC=$?
+    if [ -f "$RELCHECK_WT/scripts/bump-changed-releases.py" ] \
+            && [ ! -L "$RELCHECK_WT/scripts/bump-changed-releases.py" ]; then
+        RELCHECK_OUT=$("$PY_BIN" "$RELCHECK_WT/scripts/bump-changed-releases.py" --check 2>&1) || RELCHECK_RC=$?
+    else
+        RELCHECK_OUT="release checker: candidate has no regular scripts/bump-changed-releases.py — legacy checker skipped"
+    fi
 
     # ---- 9c. Pinned-upstream recipes the bump machine does NOT track ------
     # Run while the pristine worktree above still exists, so this costs no second
@@ -850,8 +865,53 @@ else
         NOTICES_OUT=$(cd "$RELCHECK_WT" && "$PY_BIN" scripts/generate-third-party-notices.py --check 2>&1) || NOTICES_RC=$?
     fi
 
-    git worktree remove --force "$RELCHECK_WT" >/dev/null 2>&1 || true
-    rm -rf "$RELCHECK_TMP"
+    # ---- 9e. Package-manager execution inventory (dev + master) ----------
+    # This gate shares 9b's detached worktree so it reads the exact commit
+    # being pushed, never the caller's checkout.  Every instrument and input
+    # must be a tracked regular blob in that commit; a missing file, symlink,
+    # malformed contract, incomplete census, or drift is a refusal.
+    PKM_INV_RC=0
+    PKM_INV_OUT=""
+    PKM_INV_REQUIRED=(
+        scripts/check-pkm-execution-inventory.py
+        scripts/lib/pkm_execution_inventory.py
+        config/pkm-execution-inventory.tsv
+        config/pkm-execution-shapes.tsv
+        config/pkm-process-calls.tsv
+        config/pkm-safe-python-launchers.tsv
+    )
+    PKM_INV_MISSING=()
+    for _pkm_inv_rel in "${PKM_INV_REQUIRED[@]}"; do
+        _pkm_inv_entry=$(git ls-tree "$RELCHECK_TARGET" -- "$_pkm_inv_rel" 2>/dev/null || true)
+        read -r _pkm_inv_mode _pkm_inv_type _pkm_inv_object _pkm_inv_path <<< "$_pkm_inv_entry"
+        if { [ "$_pkm_inv_mode" != "100644" ] && [ "$_pkm_inv_mode" != "100755" ]; } \
+                || [ "$_pkm_inv_type" != "blob" ] \
+                || [ ! -f "$RELCHECK_WT/$_pkm_inv_rel" ] \
+                || [ -L "$RELCHECK_WT/$_pkm_inv_rel" ] \
+                || [ ! -r "$RELCHECK_WT/$_pkm_inv_rel" ]; then
+            PKM_INV_MISSING+=("$_pkm_inv_rel")
+        fi
+    done
+    if [ "${#PKM_INV_MISSING[@]}" -ne 0 ]; then
+        PKM_INV_RC=2
+        PKM_INV_OUT="pkm execution inventory: ERROR: missing or not a regular in-tree blob"
+        for _pkm_inv_rel in "${PKM_INV_MISSING[@]}"; do
+            PKM_INV_OUT+=$'\n'"  $_pkm_inv_rel"
+        done
+    else
+        PKM_INV_OUT=$(cd "$RELCHECK_WT" && "$PY_BIN" -P \
+            "$RELCHECK_WT/scripts/check-pkm-execution-inventory.py" \
+            --root "$RELCHECK_WT" \
+            --inventory "$RELCHECK_WT/config/pkm-execution-inventory.tsv" \
+            --process-calls "$RELCHECK_WT/config/pkm-process-calls.tsv" \
+            --shapes "$RELCHECK_WT/config/pkm-execution-shapes.tsv" \
+            --safe-launchers "$RELCHECK_WT/config/pkm-safe-python-launchers.tsv" \
+            2>&1) || PKM_INV_RC=$?
+    fi
+
+    cleanup_relcheck_worktree
+    trap - EXIT HUP INT TERM
+    printf '%s\n' "$PKM_INV_OUT" | sed 's/^/  /'
     if [ "$RELCHECK_RC" -ne 0 ]; then
         echo "[pre-push] BLOCK: first-party content changed without a release bump."
         echo ""
@@ -900,6 +960,16 @@ else
         exit 1
     fi
     printf '%s\n' "$NOTICES_OUT" | sed 's/^/  /'
+    if [ "$PKM_INV_RC" -eq 1 ]; then
+        echo "[pre-push] BLOCK: package-manager execution inventory drifted (gate 9e)."
+        exit 1
+    elif [ "$PKM_INV_RC" -eq 2 ]; then
+        echo "[pre-push] BLOCK: package-manager execution inventory could not produce a complete verdict (gate 9e)."
+        exit 1
+    elif [ "$PKM_INV_RC" -ne 0 ]; then
+        echo "[pre-push] BLOCK: package-manager execution inventory exited unexpectedly with $PKM_INV_RC (gate 9e)."
+        exit 1
+    fi
 fi
 
 # ---- 9.5 Release-validation gate (master pushes only; fail-closed) --------
