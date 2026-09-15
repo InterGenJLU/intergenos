@@ -36,7 +36,7 @@ Microsoft sign our shim through the `rhboot/shim-review` process.
 
 ## 2. Why this requires explicit handling
 
-The shim code itself is **BSD-2-Clause-Patent** (per
+The shim code itself is **BSD-2-Clause** (per the upstream `COPYRIGHT` text and
 [`packages/core/shim-signed/package.yml`](../../packages/core/shim-signed/package.yml#L5)),
 which is free software. The shim **source** is freely
 redistributable.
@@ -75,8 +75,8 @@ hardware. The canonical statements:
   statement that the signed shim ecosystem is meant for
   redistribution.
 
-- Fedora ships the shim source under the original BSD-2-Clause-
-  Patent license, plus the Microsoft-signed binary under terms
+- Fedora ships the shim source under the original BSD-2-Clause
+  license, plus the Microsoft-signed binary under terms
   that explicitly permit downstream use during the shim-review
   bootstrap window.
 
@@ -129,16 +129,15 @@ The InterGenOS-shipped shim is bit-for-bit Fedora's. This means:
   the package stages only the Fedora-built EFI binaries
   (`shimx64.efi`, `mmx64.efi`), which Forge copies to the ESP.
 
-- **Patent claims:** the BSD-2-Clause-Patent grants from the
-  upstream contributors apply; we do not extend further
-  representations.
+- **Patent terms:** the upstream `COPYRIGHT` file grants redistribution
+  under BSD-2-Clause and contains no explicit patent grant. We make no
+  additional patent representation.
 
 ---
 
 ## 5. End-state (post-shim-review)
 
-When the `rhboot/shim-review` PR for InterGenOS lands and
-Microsoft signs our shim:
+When the InterGenOS review request is accepted and Microsoft signs our shim:
 
 - The Fedora-shim bundling at
   `packages/core/shim-signed/build.sh` is replaced by an
@@ -172,8 +171,8 @@ Microsoft signs our shim:
 
 This document was authored 2026-05-18 as part of the InterGenOS
 v1.0 legal-readiness sprint, closing audit finding **P-009**
-(Medium: `shim-signed` declares BSD-2-Clause-Patent but repackages
-a Fedora RPM without documented permission) from the 2026-05-18
+(Medium: `shim-signed` declared the wrong patent-extended BSD identifier
+while repackaging a Fedora RPM without documented permission) from the 2026-05-18
 comprehensive state audit.
 
 **License of this document.** This file is licensed **CC0-1.0**.

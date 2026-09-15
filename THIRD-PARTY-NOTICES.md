@@ -54,7 +54,7 @@ The aggregate ships on the installed system at
 | `BSD-3-Clause` | 98 |
 | `Apache-2.0` | 74 |
 | `LGPL-2.0-or-later` | 34 |
-| `BSD-2-Clause` | 32 |
+| `BSD-2-Clause` | 33 |
 | `GPL-2.0-only` | 19 |
 | `MPL-2.0` | 19 |
 | `LGPL-3.0-or-later` | 19 |
@@ -2157,9 +2157,9 @@ Shadow password suite (rebuilt with Linux-PAM support)
 
 ### shim-signed (16.1)
 
-Microsoft-signed UEFI shim bootloader (Fedora-piggyback per D-002, dual-tracked with own shim-review PR per D-003)
+Microsoft-signed UEFI shim bootloader (Fedora-piggyback per D-002, with own-shim review preparation per D-003)
 
-- License: `BSD-2-Clause-Patent`
+- License: `BSD-2-Clause`
 - Homepage: https://github.com/rhboot/shim
 
 ### slang-pass1 (2.3.3)
