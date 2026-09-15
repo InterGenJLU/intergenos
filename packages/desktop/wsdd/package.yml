@@ -1,0 +1,30 @@
+name: wsdd
+version: "0.9"
+release: 1
+description: Web Services Discovery helper for network browsing
+license: MIT
+homepage: https://github.com/christgau/wsdd
+tier: desktop
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/christgau/wsdd/archive/refs/tags/v${version}.tar.gz
+    sha256: 009efafb763686d9e265ca8f1dd17696bc80fc0ee619f48ea7878ec21471f61e
+    filename: ${name}-${version}.tar.gz
+patches:
+  - file: wsdd-0.9-python314_debug_loop-1.patch
+    sha256: 44e39782540452ee386cb05f234e72a24afa19fd47850018ba6da2d6dc7cac6b
+dependencies:
+  build: []
+  host: []
+  runtime:
+    # Upstream can fall back from defusedxml.ElementTree to xml.etree.ElementTree;
+    # require its preferred XML parser here. Optional systemd.daemon only supplies
+    # socket activation; GVfs supplies its own socket when that module is absent.
+    - python
+    - defusedxml
+verify_paths:
+  - /usr/bin/wsdd
+  - /usr/share/man/man8/wsdd.8
+  - /usr/lib/systemd/system/wsdd.service

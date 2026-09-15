@@ -317,7 +317,7 @@ GUI_SUBSTRATE_DESKTOP = {
     "colord", "colord-gtk", "babl", "gegl",
     # Desktop services that aren't core (polkit/NM are in core)
     "geoclue2", "modemmanager", "upower", "udisks2",
-    "bluez", "avahi", "gvfs", "gnome-keyring", "gnome-online-accounts",
+    "bluez", "avahi", "gvfs", "wsdd", "gnome-keyring", "gnome-online-accounts",
     # GNOME core
     "gnome-shell", "mutter", "gnome-desktop", "gnome-control-center",
     "gnome-session", "gjs", "gcr", "gcr4", "gspell",

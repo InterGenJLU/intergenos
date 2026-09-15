@@ -29,7 +29,7 @@ The aggregate ships on the installed system at
 ## Coverage summary
 
 
-**Total packages:** 1180
+**Total packages:** 1181
 
 **Distribution by tier:**
 
@@ -38,7 +38,7 @@ The aggregate ships on the installed system at
 | toolchain | 28 |
 | core | 315 |
 | base | 37 |
-| desktop | 471 |
+| desktop | 472 |
 | extra | 219 |
 | ai | 58 |
 | compute | 52 |
@@ -47,7 +47,7 @@ The aggregate ships on the installed system at
 
 | License | Count |
 |---|---:|
-| `MIT` | 276 |
+| `MIT` | 277 |
 | `GPL-3.0-or-later` | 157 |
 | `LGPL-2.1-or-later` | 154 |
 | `GPL-2.0-or-later` | 145 |
@@ -5630,6 +5630,13 @@ PipeWire session manager
 Web Open Font Format 2.0 library
 
 - License: `MIT`
+
+### wsdd (0.9)
+
+Web Services Discovery helper for network browsing
+
+- License: `MIT`
+- Homepage: https://github.com/christgau/wsdd
 
 ### x264 (20250815)
 

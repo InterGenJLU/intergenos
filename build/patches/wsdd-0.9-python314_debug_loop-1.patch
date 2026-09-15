@@ -1,0 +1,25 @@
+# wsdd v0.9 calls asyncio.get_event_loop() before creating its runtime loop.
+# Upstream source: src/wsdd.py:1971; Python 3.14 raises RuntimeError here.
+# https://github.com/christgau/wsdd/blob/v0.9/src/wsdd.py#L1971
+# v0.9 is the latest upstream release checked on 2026-09-14.
+# Set debug on the loop main() actually creates; preserve every CLI option.
+
+--- a/src/wsdd.py
++++ b/src/wsdd.py
+@@ -1968,7 +1968,6 @@
+         log_level = logging.INFO
+     elif args.verbose > 1:
+         log_level = logging.DEBUG
+-        asyncio.get_event_loop().set_debug(True)
+         logging.getLogger("asyncio").setLevel(logging.DEBUG)
+     else:
+         log_level = logging.WARNING
+@@ -2083,6 +2082,8 @@
+         return 4
+ 
+     aio_loop = asyncio.new_event_loop()
++    if args.verbose > 1:
++        aio_loop.set_debug(True)
+     nm = create_address_monitor(platform.system(), aio_loop)
+ 
+     api_server = None
