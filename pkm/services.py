@@ -71,6 +71,106 @@ REBOOT_TRIGGER_PACKAGES = frozenset({
 })
 
 
+# Units that carry the person's login session. A live restart of any of them
+# ends or breaks the session everything else runs in: the system bus every
+# desktop process talks to, the login manager that owns the seat, the journal
+# every unit logs to, the display manager that owns the screen. `pkm
+# restart-services --all` NEVER restarts these; an upgraded package whose
+# only running units are in this set is reported as REBOOT REQUIRED instead,
+# because that is the only honest way its new code activates. Measured
+# 2026-09-11 on a developer workstation: `--all` restarted dbus, gdm, logind,
+# sshd, NetworkManager and polkit among 23 units and ended the desktop
+# session (R001.3 gating row 41). Named explicitly on the command line a
+# unit in this set is still restarted — the person asked for it by name and
+# is told what it costs first.
+SESSION_CRITICAL_UNITS = frozenset({
+    "dbus.service", "dbus-broker.service",
+    "systemd-logind.service",
+    "systemd-journald.service",
+    "gdm.service", "display-manager.service",
+})
+
+
+def unit_canonical_name(unit):
+    """`nginx` -> `nginx.service`; a name that already carries a unit
+    suffix (.service, .socket, .timer, ...) is returned unchanged."""
+    tail = unit.rsplit("/", 1)[-1]
+    return unit if "." in tail else unit + ".service"
+
+
+def is_session_critical(unit):
+    """True when restarting this unit live would end the login session."""
+    return unit_canonical_name(unit) in SESSION_CRITICAL_UNITS
+
+
+def boot_time_epoch(proc_stat="/proc/stat"):
+    """The running kernel's boot time as epoch seconds (the `btime` row of
+    /proc/stat), or None when it cannot be read — a caller that bounds
+    itself to "since this boot" must refuse rather than guess."""
+    try:
+        with open(proc_stat) as fh:
+            for line in fh:
+                if line.startswith("btime "):
+                    return int(line.split()[1])
+    except (OSError, ValueError, IndexError):
+        return None
+    return None
+
+
+def precise_boot_epoch(proc_uptime="/proc/uptime", now=None):
+    """The boot instant as epoch seconds with sub-second precision: the
+    current time minus the kernel's uptime (/proc/uptime, centiseconds).
+    /proc/stat's `btime` is an integer second, truncated — comparing a unit's
+    active-since instant derived from it against an upgrade's microsecond
+    history stamp misjudged a unit restarted within the same second as its
+    upgrade as still stale (measured on the loaner, 2026-09-15). None when
+    /proc/uptime cannot be read; the caller falls back to `btime`."""
+    try:
+        with open(proc_uptime) as fh:
+            uptime = float(fh.read().split()[0])
+    except (OSError, ValueError, IndexError):
+        return None
+    import time as _time
+    return (now if now is not None else _time.time()) - uptime
+
+
+def unit_active_since_epoch(unit, boot_epoch):
+    """Epoch seconds at which `unit` last entered the active state, derived
+    from systemd's monotonic stamp (ActiveEnterTimestampMonotonic, usec since
+    boot) and the boot instant (precise_boot_epoch, falling back to the
+    integer `boot_epoch` from /proc/stat); None when systemd cannot say (unit
+    unknown, never active, systemctl absent or slow). A None is reported to
+    the person as "state unknown" and the unit is restarted, never skipped."""
+    if boot_epoch is None:
+        return None
+    precise = precise_boot_epoch()
+    if precise is not None and abs(precise - boot_epoch) < 2.0:
+        boot_epoch = precise
+    argv = ["systemctl", "show", "-p", "ActiveEnterTimestampMonotonic",
+            "--value", unit]
+    try:
+        if _TRACE_AVAILABLE:
+            result = _trace.traced_run(
+                argv, timeout=10, phase="pkm_service_query",
+                intent=f"active-since query for {unit}",
+            )
+        else:
+            result = subprocess.run(  # trace-coverage: allow — _trace shim unavailable fallback
+                argv, capture_output=True, text=True, timeout=10,
+            )
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return None
+    if result.returncode != 0:
+        return None
+    raw = (result.stdout or "")
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8", "replace")
+    raw = raw.strip()
+    if not raw.isdigit() or int(raw) == 0:
+        return None
+    return boot_epoch + int(raw) / 1_000_000
+
+
 # Path patterns the manifest may contain for service-unit files.
 _SYSTEMD_UNIT_RE = re.compile(
     r"^(usr/lib|etc)/systemd/system/([^/]+\.service)$"
@@ -231,12 +331,30 @@ def classify_restart_requirement(package_name, file_list,
         }
     units = scan_manifest_for_services(file_list)
     active = query_active_services(units) if units else []
-    if active:
+    critical = [u for u in active if is_session_critical(u)]
+    restartable = [u for u in active if u not in critical]
+    if restartable:
+        reason = (f"{len(restartable)} running service(s) upgraded — "
+                  f"restart to load new code")
+        if critical:
+            reason += (f"; {len(critical)} session-carrying unit(s) "
+                       f"({', '.join(critical)}) are not restarted live and "
+                       f"activate the new code on the next boot")
         return {
             "requirement": "restart",
-            "services": active,
+            "services": restartable,
+            "session_critical": critical,
+            "reason": reason,
+        }
+    if critical:
+        return {
+            "requirement": "reboot",
+            "services": [],
+            "session_critical": critical,
             "reason": (
-                f"{len(active)} running service(s) upgraded — restart to load new code"
+                f"{package_name} owns running unit(s) that carry the login "
+                f"session ({', '.join(critical)}); a live restart would end "
+                f"the session, so the new code activates on the next boot"
             ),
         }
     # No running service to restart. A desktop-shell payload (a GNOME shell

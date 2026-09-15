@@ -3711,28 +3711,74 @@ def cmd_restart_services(db, args):
 
     Three modes:
 
-      --list      Classify every installed package against the Q5 restart
-                  rules (reboot-trigger / restart-needed / none) and print
-                  the non-trivial classifications. Read-only.
-      --all       Walk installed packages; restart every active systemd
-                  unit owned by a pkm package. Reboot-required packages
-                  surface as REBOOT REQUIRED notices but are not auto-
-                  rebooted.
+      --list      Classify the packages installed or upgraded SINCE THIS
+                  BOOT against the Q5 restart rules (reboot / restart /
+                  relogin) and print the non-trivial ones. Everything
+                  installed before this boot was loaded fresh at boot and
+                  is counted, not listed. Read-only.
+      --all       Restart every running unit that belongs to a package
+                  upgraded since this boot AND that has not been restarted
+                  since that upgrade (systemd's ActiveEnterTimestamp is
+                  compared with the upgrade's history stamp). Units that
+                  carry the login session (the system bus, logind, the
+                  journal, the display manager) are never restarted here;
+                  a package whose only running units are such is reported
+                  as REBOOT REQUIRED. Packages that declare a reboot
+                  surface as REBOOT REQUIRED only when they changed since
+                  this boot. Refuses when the boot time cannot be read.
       <service>...  Restart specific systemd unit names directly. No
                   classification scan — operator-driven targeted action.
+                  A session-carrying unit named here is restarted, with a
+                  warning that says what it costs, because the person
+                  asked for it by name.
 
-    Exit code: 0 on full success, 1 if any restart failed.
+    Exit code: 0 on full success, 1 if any restart failed or --all could
+    not bound itself to this boot.
+
+    Why the "since this boot" bound (R001.3 gating row 41): the previous
+    --all walked EVERY installed package and restarted every active unit
+    any of them owned — on a workstation that was dbus, gdm, logind, sshd,
+    NetworkManager and polkit among 23 units, and the desktop session ended
+    (2026-09-11). Its REBOOT REQUIRED lines fired for every reboot-class
+    package on the machine regardless of when it was installed (13 lines,
+    all for packages installed five days before that boot).
     """
+    from datetime import datetime, timezone
     from .services import (
+        boot_time_epoch,
         classify_restart_requirement,
         format_service_summary,
+        is_session_critical,
         run_restart_services,
+        unit_active_since_epoch,
     )
+
+    def _history_epoch(ts):
+        try:
+            return datetime.fromisoformat(ts).timestamp()
+        except (TypeError, ValueError):
+            return None
+
+    boot = boot_time_epoch()
+    changed = {}
+    if boot is not None:
+        since_iso = datetime.fromtimestamp(boot, timezone.utc).isoformat()
+        changed = db.packages_changed_since(since_iso)
 
     if args.restart_list:
         installed = db.list_installed()
+        if boot is None:
+            emit_warn(
+                "the boot time could not be read from /proc/stat; every "
+                "installed package is classified, including packages that "
+                "were loaded fresh at boot."
+            )
         any_action = False
+        skipped_before_boot = 0
         for pkg in installed:
+            if boot is not None and pkg["name"] not in changed:
+                skipped_before_boot += 1
+                continue
             files = db.get_files(pkg["name"])
             file_list = [f["path"] + ("/" if f["is_dir"] else "") for f in files]
             classification = classify_restart_requirement(
@@ -3742,52 +3788,110 @@ def cmd_restart_services(db, args):
             if classification["requirement"] == "none":
                 continue
             any_action = True
-            print(f"  {pkg['name']}:")
+            print(f"  {pkg['name']} (changed {changed.get(pkg['name'], 'this boot')}):")
             summary = format_service_summary(classification)
             if summary:
                 print(summary)
         if not any_action:
-            emit_info("No services need restart and no reboot is required.")
+            emit_info("No services need restart and no reboot is required "
+                      "for anything changed since this boot.")
+        if skipped_before_boot:
+            emit_info(
+                f"{skipped_before_boot} installed package(s) predate this "
+                f"boot and were loaded fresh at boot — not listed."
+            )
         return 0
 
     if args.restart_all:
-        installed = db.list_installed()
-        all_services = []
+        if boot is None:
+            emit_error(
+                "cannot read this boot's start time from /proc/stat; "
+                "`--all` restarts only units of packages upgraded since this "
+                "boot and cannot bound itself. Name the units instead: "
+                "`pkm restart-services <unit>...` (`--list` still classifies)."
+            )
+            return 1
+        if not changed:
+            emit_info(
+                "No package was installed or upgraded since this boot; "
+                "nothing is running old code. To restart a unit anyway, "
+                "name it: `pkm restart-services <unit>`."
+            )
+            return 0
+        installed_by_name = {p["name"]: p for p in db.list_installed()}
+        to_restart = []       # (unit, package)
+        already_current = []  # (unit, package)
+        state_unknown = []    # unit names whose active-since could not be read
         reboot_reasons = []
-        for pkg in installed:
-            files = db.get_files(pkg["name"])
+        for name in sorted(changed):
+            pkg = installed_by_name.get(name)
+            if pkg is None:
+                continue  # changed since boot, but not installed now (removed)
+            files = db.get_files(name)
             file_list = [f["path"] + ("/" if f["is_dir"] else "") for f in files]
             classification = classify_restart_requirement(
-                pkg["name"], file_list,
+                name, file_list,
                 declared_reboot_required=bool(pkg.get("reboot_required")),
             )
-            if classification["requirement"] == "restart":
-                all_services.extend(classification["services"])
-            elif classification["requirement"] == "reboot":
+            if classification["requirement"] == "reboot":
                 reboot_reasons.append(format_service_summary(classification))
+                continue
+            if classification["requirement"] != "restart":
+                continue
+            changed_at = _history_epoch(changed[name])
+            for unit in classification["services"]:
+                since = unit_active_since_epoch(unit, boot)
+                if since is None or changed_at is None:
+                    state_unknown.append(unit)
+                    to_restart.append((unit, name))
+                elif since >= changed_at:
+                    already_current.append((unit, name))
+                else:
+                    to_restart.append((unit, name))
+            for unit in classification.get("session_critical", []):
+                reboot_reasons.append(
+                    f"  {name}: {unit} carries the login session and is not "
+                    f"restarted live — its new code activates on the next boot"
+                )
 
         # Dedupe while preserving discovery order so summary output is
         # stable across runs against the same install state.
         seen = set()
-        unique_services = []
-        for s in all_services:
-            if s not in seen:
-                seen.add(s)
-                unique_services.append(s)
+        unique_units = []
+        for unit, _pkg in to_restart:
+            if unit not in seen:
+                seen.add(unit)
+                unique_units.append(unit)
 
-        if reboot_reasons:
-            for r in reboot_reasons:
-                print(r)
-        if not unique_services:
-            if not reboot_reasons:
+        for r in reboot_reasons:
+            print(r)
+        if already_current:
+            emit_info(
+                "Already running the upgraded code (restarted after the "
+                "upgrade): " + ", ".join(
+                    f"{u} ({p})" for u, p in already_current)
+            )
+        if state_unknown:
+            emit_warn(
+                "systemd could not say when these unit(s) last started; "
+                "they are restarted to be safe: " + ", ".join(state_unknown)
+            )
+        if not unique_units:
+            if not reboot_reasons and not already_current:
                 emit_info("No active services to restart.")
             return 0
-        emit_info(f"Restarting {len(unique_services)} service(s): "
-                  f"{', '.join(unique_services)}")
-        results = run_restart_services(unique_services)
+        emit_info(f"Restarting {len(unique_units)} service(s) of packages "
+                  f"changed since this boot: {', '.join(unique_units)}")
+        results = run_restart_services(unique_units)
         return _render_restart_results(results)
 
     if args.services:
+        critical = [u for u in args.services if is_session_critical(u)]
+        if critical:
+            emit_warn(
+                "these unit(s) carry the login session; restarting them "
+                "ends or breaks the current session: " + ", ".join(critical)
+            )
         emit_info(f"Restarting {len(args.services)} service(s): "
                   f"{', '.join(args.services)}")
         results = run_restart_services(args.services)
@@ -3795,8 +3899,8 @@ def cmd_restart_services(db, args):
 
     # No flag, no positional — print usage hint.
     print("  Usage: pkm restart-services [--list | --all | <service>...]")
-    print("    --list       Classify all installed packages")
-    print("    --all        Restart every active service owned by a pkm package")
+    print("    --list       Classify the packages changed since this boot")
+    print("    --all        Restart the running units of packages upgraded since this boot")
     print("    <service>    Restart specific systemd unit name(s)")
     return 0
 

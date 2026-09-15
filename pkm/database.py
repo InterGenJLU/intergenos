@@ -1928,6 +1928,28 @@ class PackageDB:
             method=method, success=success, committed=commit,
         )
 
+    def packages_changed_since(self, since_iso):
+        """{package_name: newest successful install/upgrade timestamp} for
+        every package whose history carries a successful install or upgrade
+        at or after `since_iso` (an ISO-8601 UTC stamp in the shape
+        log_operation writes, so the comparison is a plain string order).
+
+        The consumer is `pkm restart-services`: only a package changed since
+        THIS boot can be running old code — anything installed before the
+        boot was loaded fresh at boot. Reading the history table rather than
+        the installed row's install_date keeps upgrades (which rewrite the
+        row) and installs on one footing.
+        """
+        rows = self.conn.execute(
+            """SELECT package_name, MAX(timestamp) FROM history
+               WHERE success = 1
+                 AND operation IN ('install', 'upgrade')
+                 AND timestamp >= ?
+               GROUP BY package_name""",
+            (since_iso,)
+        ).fetchall()
+        return {name: ts for name, ts in rows}
+
     def get_history(self, package_name=None, limit=50):
         """Get operation history."""
         if package_name:
