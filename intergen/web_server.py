@@ -46,6 +46,7 @@ from aiohttp import WSCloseCode, WSMsgType, web
 
 from intergen import glass, safety
 from intergen.governance import GovernanceEngine
+from intergen.router import correct_identity_collision
 from intergen.session_manager import SessionManager
 from intergen.conversation_state import (
     ConversationState, new_conversation_state,
@@ -1191,11 +1192,15 @@ class WebServer:
             ))
             return
 
-        # Append user message to session history
-        ctx.session_history.append(
-            Message(role=MessageRole.USER, content=content)
-        )
-
+        # The person's message is NOT appended here. The conversation's
+        # model-facing buffer and this connection's transcript are ONE list,
+        # and the router's _append_history is its single writer on the web
+        # surface: each delivery path below records the exchange once, after
+        # the answer exists, exactly as the desktop bus does. A pre-append here
+        # doubled the question in the model prompt (_build_messages places the
+        # question after the history) and, on the streamed path, left a
+        # [user] tail that the write-back's [user, assistant] guard could not
+        # recognise, so the session file stored every exchange twice.
         user_msg = content
 
         # Extract image data for vision models (M-002)
@@ -1334,16 +1339,14 @@ class WebServer:
                 logger.warning(
                     "M8-2: dispatch %s succeeded but its result did not reach the "
                     "delivered answer (%s) — fast path", _tr.name, _reason)
-            ctx.session_history.append(
-                Message(role=MessageRole.ASSISTANT, content=_delivered)
-            )
-            # M2a: fast (deterministic) web turns also feed the model's buffer so
-            # "the model sees what the user sees" holds for EVERY web turn — the
-            # The "How much RAM? → Can I add any?" fast-path miss. Idempotent
-            # against sub-paths that self-appended inside route().
-            if _delivered.strip():
-                self._router._append_history(user_msg, _delivered,
-                                            state=ctx.conversation)
+            # The single writer: fast (deterministic) web turns feed the
+            # model's buffer — which IS the transcript — so "the model sees
+            # what the user sees" holds for EVERY web turn (the "How much RAM?
+            # → Can I add any?" fast-path miss). Idempotent against sub-paths
+            # that self-appended inside route().
+            self._router._append_history(
+                user_msg, correct_identity_collision(_delivered),
+                state=ctx.conversation)
             await self._persist_and_list(ctx)
             return
 
@@ -1390,14 +1393,11 @@ class WebServer:
             logger.warning(
                 "M8-2: dispatch %s succeeded but its result did not reach the "
                 "delivered answer (%s) — fallback path", _tr.name, _reason)
-        ctx.session_history.append(
-            Message(role=MessageRole.ASSISTANT, content=_delivered)
-        )
-        # M2a: the fallback (offer-resolution / IP / clarify) web turns too —
-        # every web turn feeds the model-facing buffer (idempotent).
-        if _delivered.strip():
-            self._router._append_history(user_msg, _delivered,
-                                            state=ctx.conversation)
+        # The single writer: the fallback (offer-resolution / IP / clarify)
+        # web turns too — every web turn records its exchange once (idempotent).
+        self._router._append_history(
+            user_msg, correct_identity_collision(_delivered),
+            state=ctx.conversation)
         await self._persist_and_list(ctx)
 
     async def _send_session_list(self, ctx: ConnectionContext) -> None:
@@ -2233,12 +2233,18 @@ class WebServer:
             full_response = (full_response.rstrip() + "\n\n"
                              + route_result.reoffer_reminder)
 
-        # M2a: mirror the DELIVERED answer into the router's model-facing buffer so
-        # the next turn's model sees what the user just saw (the streamed-web write
-        # gap — idempotent; _append_history glass-logs decision/history_write).
-        if full_response.strip():
-            self._router._append_history(user_msg, full_response,
-                                         state=ctx.conversation)
+        # The single writer: record the DELIVERED answer in the router's
+        # model-facing buffer — the same list the transcript pane and the
+        # session file read — so the next turn's model sees what the user just
+        # saw (idempotent; _append_history glass-logs decision/history_write).
+        # Identity guard on the stored text: a streamed response can't be
+        # un-shown token-by-token (identity QUESTIONS are caught proactively by
+        # the self-awareness fast path and never stream), but the stored history
+        # stays canonical so a rare mid-stream "I am InterGenOS" slip can't
+        # re-prime later turns.
+        self._router._append_history(
+            user_msg, correct_identity_collision(full_response),
+            state=ctx.conversation)
 
         # Send stream_end
         await ctx.ws.send_json({
@@ -2301,16 +2307,6 @@ class WebServer:
                 payload["full_output"] = full
             await ctx.ws.send_json(payload)
 
-        # Identity guard on the persisted transcript: a streamed response can't
-        # be un-shown token-by-token (identity QUESTIONS are caught proactively
-        # by the self-awareness fast path and never stream), but keep the stored
-        # history canonical so a rare mid-stream "I am InterGenOS" slip can't
-        # re-prime later turns.
-        from intergen.router import correct_identity_collision
-        ctx.session_history.append(
-            Message(role=MessageRole.ASSISTANT,
-                    content=correct_identity_collision(full_response))
-        )
 
     async def _process_llm_stream(
         self,

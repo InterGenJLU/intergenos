@@ -114,11 +114,9 @@ def _server_and_ctx(llm, router):
 
 
 def _run_model_turn(server, ctx, user_msg, source="llm_freeform"):
-    # The message handler appends the person's message to the transcript
-    # before it routes; this drives the streamed path directly and does the
-    # same, so the write-back after the turn meets the shape it expects.
-    ctx.session_history.append(Message(role=MessageRole.USER,
-                                       content=user_msg))
+    # The message handler appends nothing before it routes: the router's
+    # _append_history is the single writer of the conversation on the web
+    # surface, so driving the streamed path directly meets the same shape.
     route_result = RouteResult(text="", source=source, handled=False)
     asyncio.run(server._stream_llm_response(ctx, "turn1", user_msg,
                                             route_result))
@@ -138,12 +136,12 @@ class DetachedRouterModelTurnTests(unittest.TestCase):
         self.assertIn("1991", ends[0]["full_response"])
         self.assertTrue(ends[0]["used_llm"])
         self.assertFalse(ctx.ws.of_type("error"))
-        # The exchange was written back into THIS connection's conversation.
+        # The exchange was written back into THIS connection's conversation,
+        # exactly once (the single-writer regression sits beside this test).
         pairs = [(m.role, m.content) for m in ctx.conversation.history]
-        self.assertIn((MessageRole.USER, "What year was Linux first released?"),
-                      pairs)
-        self.assertIn((MessageRole.ASSISTANT,
-                       "Linux was first released in 1991."), pairs)
+        self.assertEqual(pairs, [
+            (MessageRole.USER, "What year was Linux first released?"),
+            (MessageRole.ASSISTANT, "Linux was first released in 1991.")])
 
     def test_the_prompt_carries_this_connections_history(self):
         llm = _FakeLLM(["Linus ", "Torvalds."])
