@@ -940,15 +940,27 @@ _SYSTEM_TEACH_NOUN = (
     r"kernels?|memory|ram|disks?|drives?|cpus?|processors?|cores?|drivers?|"
     r"process(?:es)?|services?|daemons?|filesystems?|swap|caches?|gpus?|bios|"
     r"firmware|threads?|schedulers?|partitions?|registers?")
+# A polite or filler lead-in changes nothing about what is asked: "can you
+# explain what a kernel is" is the same teach ask as "explain what a kernel
+# is" (measured 2026-09-15: the polite shape was not recognised and the
+# question was answered from the system-state cache with the running kernel's
+# version — a wrong answer, not merely a cached one).
+_TEACH_LEAD_IN = (r"(?:so\s+|and\s+|but\s+|ok\s+|okay\s+|please\s+)?"
+                  r"(?:(?:can|could|would|will)\s+you\s+(?:please\s+)?)?"
+                  r"(?:please\s+)?")
 _SYSTEM_NOUN_TEACH_RE = re.compile(
-    r"^\s*(?:so\s+|and\s+|but\s+|ok\s+|okay\s+)?(?:"
+    r"^\s*" + _TEACH_LEAD_IN + r"(?:"
     r"what(?:'?s|\s+is|\s+are)\s+(?:a\s+|an\s+|the\s+)?(?:" + _SYSTEM_TEACH_NOUN + r")\b"
     r"|how\s+(?:do|does)\s+(?:a\s+|an\s+|the\s+)?(?:" + _SYSTEM_TEACH_NOUN
     + r")\b[^?]*\bwork\b"
     r"|what\s+does\s+(?:a\s+|an\s+|the\s+)?(?:" + _SYSTEM_TEACH_NOUN
     + r")\b[^?]*\bmean\b"
-    r"|explain\s+(?:what\s+|how\s+|a\s+|an\s+|the\s+)?(?:" + _SYSTEM_TEACH_NOUN + r")\b"
-    r"|tell\s+me\s+about\s+(?:a\s+|an\s+|the\s+)?(?:" + _SYSTEM_TEACH_NOUN + r")\b"
+    # "explain (to me) what/how a kernel is/does/works" and "explain a kernel"
+    r"|explain\s+(?:to\s+me\s+)?(?:what\s+|how\s+)?(?:a\s+|an\s+|the\s+)?(?:"
+    + _SYSTEM_TEACH_NOUN + r")\b"
+    # "tell me what a kernel is" and "tell me about the kernel"
+    r"|tell\s+me\s+(?:what\s+|about\s+)(?:a\s+|an\s+|the\s+)?(?:"
+    + _SYSTEM_TEACH_NOUN + r")\b"
     r")", re.IGNORECASE)
 # A live-state signal turns the same noun into a "MY current X" ask → NOT teach.
 _SYSTEM_NOUN_LIVE_SIGNAL_RE = re.compile(
@@ -2607,9 +2619,9 @@ class ConversationRouter(RouterInterface):
         # or the query is about a PACKAGE — "what version of the kernel package"
         # wants pkm's package release, not the cached uname kernel string, so it
         # must reach the manage_packages route rather than the system-state cache.
-        if self._state_cache and not has_safety_trigger \
-                and not route_compound_whole \
-                and "package" not in lower_input_raw:
+        if self._state_cache_may_serve(user_input, lower_input_raw,
+                                       has_safety_trigger=has_safety_trigger,
+                                       route_compound_whole=route_compound_whole):
             cached_result = self._try_state_cache(user_input, t0)
             if cached_result is not None:
                 return cached_result
@@ -4811,6 +4823,30 @@ class ConversationRouter(RouterInterface):
         return RouteResult(handled=False, decline_reason=reason,
                            tool_calls=[call] if call else [],
                            tool_results=[tool_result] if tool_result else [])
+
+    def _state_cache_may_serve(self, user_input: str, lower_input_raw: str, *,
+                               has_safety_trigger: bool,
+                               route_compound_whole: bool) -> bool:
+        """Whether the system-state cache may answer this question at all.
+
+        Refused when: no cache is wired; a safety trigger is present; the
+        compound is routed whole to the model; the question is about a PACKAGE
+        ("what version of the kernel package" wants the package manager's
+        release, not the cached uname string); or the question is a
+        DEFINITIONAL / how-to ask about a dual-reading system noun ("what is a
+        kernel", "can you explain what a kernel is") — a teach ask the model
+        answers, never a system-fact cache, which keys on the bare noun and
+        answered such a question with the running kernel's version (measured
+        2026-09-15). The live-state reading ("what kernel am I running") is
+        unaffected.
+        """
+        if not self._state_cache or has_safety_trigger or route_compound_whole:
+            return False
+        if "package" in lower_input_raw:
+            return False
+        if self._is_system_noun_teach(user_input):
+            return False
+        return True
 
     def _try_state_cache(self, user_input: str, t0: float) -> RouteResult | None:
         """Answer a single-value system-state question from the state cache.
