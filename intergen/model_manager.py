@@ -828,6 +828,38 @@ class ModelManager(ModelManagerInterface):
         finally:
             shutil.rmtree(staging_root, ignore_errors=True)
 
+    def verify_system_license_record(self, model: ModelInfo) -> tuple[bool, str]:
+        """Re-verify an installed artifact and repair its record via the runner.
+
+        Even an already-present model must cross the existing provision
+        boundary before its system record is trusted. The dispatcher derives
+        the artifact path from its own store and never downloads or copies it.
+        Return the runner's result for setup to display, including refusals.
+        """
+        payload = json.dumps({"filename": model.filename, "record_only": True})
+        try:
+            completed = subprocess.run(
+                ["/usr/bin/pkexec", PROVISION_RUNNER_PATH, payload],
+                capture_output=True, text=True, check=False,
+            )
+        except OSError as exc:
+            return False, (f"Model record verification refused for {model.filename}: "
+                           f"the privileged runner could not be started ({exc}).")
+        result = "\n".join(part.strip() for part in
+                           (completed.stdout, completed.stderr) if part.strip())
+        if completed.returncode == 0 and result:
+            return True, result
+        if completed.returncode == PKEXEC_NOT_AUTHORIZED:
+            reason = "administrator authorization was not given"
+        elif completed.returncode == PKEXEC_COMMAND_NOT_EXECUTED:
+            reason = "the privileged runner could not be executed"
+        elif completed.returncode == 0:
+            reason = "the privileged runner returned no verification result"
+        else:
+            reason = "the privileged runner refused the record update"
+        return False, (f"Model record verification refused for {model.filename}: "
+                       f"{reason}." + (f"\n{result}" if result else ""))
+
     def _cap_unpinned_to_highest_pinned(self, model: ModelInfo) -> ModelInfo:
         """Cap a recommendation at the highest PINNED tier.
 

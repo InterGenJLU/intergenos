@@ -2,22 +2,25 @@
 # /usr/bin/intergen-model-setup-runner — pkexec target for InterGen model-storage
 # provisioning during `intergen setup`.
 #
-# Invoked by intergen (model_manager._provision_via_pkexec) via pkexec when a
-# downloaded + pin-verified model must be installed into the system-wide
-# root-owned model store (/var/lib/intergen/models). Runs as root after
+# Invoked by intergen's model manager via pkexec to install a staged model or
+# re-verify an existing model and its legal record in the system-wide
+# root-owned store (/var/lib/intergen/models). Runs as root after
 # PolicyKit authentication against org.intergenos.intergen.provision-model-storage.
 #
 # This is a HUMAN-INITIATED setup action — the user typed `intergen setup` and
 # authenticated to PolicyKit directly. There is NO LLM, NO ingress, and NO AI-6
 # dispatch token here; that machinery belongs to intergen-privileged-runner (the
 # runtime AI tool-dispatch path). The single security obligation at this boundary
-# is that root must not trust the caller's claim about the staged file: the
-# Python dispatcher (intergen.model_setup_dispatch) RE-VERIFIES the staged file's
-# sha256 against the shipped pin manifest before installing it root-owned.
+# is that root must not trust the caller's claim about the artifact: the Python
+# dispatcher (intergen.model_setup_dispatch) RE-VERIFIES its sha256 against the
+# package-shipped descriptor before installation or a record-only repair.
 #
 # Argv contract (from the intergen caller via pkexec):
 #   $1 — JSON object: {"filename": "<model.gguf>", "staging_path": "<abs path>"}
 #        (validated + sha-re-verified by the Python dispatcher before any write).
+#        Or {"filename": "<model.gguf>", "record_only": true}: re-verify the
+#        existing artifact at the dispatcher's trusted store path, then repair
+#        only its legal record. No model download, copy or sidecar update.
 
 set -eu
 
@@ -43,7 +46,7 @@ shift
 
 # Resolve the calling user's name from PKEXEC_UID (pkexec strips USER). The
 # dispatcher records it as the `accepted_by` of the system-wide license
-# acceptance it writes for licenses that require acceptance — the human who
+# record it writes from the package descriptor — the human who
 # authenticated this install is who accepted the model's license for the system
 # (the same record Forge writes at install time). Mirrors intergen-privileged-
 # runner's getent resolution.

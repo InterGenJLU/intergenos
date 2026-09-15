@@ -37,6 +37,10 @@ Argv contract (from intergen-model-setup-runner):
                    pinned artifacts). When present, both are validated against
                    their manifest pins BEFORE either is installed, and both ride
                    THIS single pkexec escalation (no second auth prompt).
+    record_only  — OPTIONAL boolean. True re-verifies the installed filename in
+                   the trusted model store and repairs only its legal record.
+                   No staging or projector arguments are accepted in this mode;
+                   no model is downloaded or copied and no sidecar is updated.
 
 Environment (set by the runner from pkexec):
 
@@ -135,19 +139,19 @@ def _validate_staged(filename: str, staging_path: str,
                     "(must be a bare basename, no path components).")
     expected_sha = pins.get(filename, "")
     if not expected_sha:
-        return "", (f"provision: no pin for {filename!r}; refusing to install "
+        return "", (f"provision: no pin for {filename!r}; refusing "
                     "an unpinned/unknown artifact.")
     staged = Path(staging_path)
     if not staged.is_absolute():
         return "", f"provision: staging_path must be absolute; got {staging_path!r}."
     if not staged.is_file():
-        return "", f"provision: staged file not found: {staged}."
+        return "", f"provision: model artifact not found: {staged}."
     actual_sha = _sha256_file(staged)
     if actual_sha != expected_sha:
         return "", (
-            f"provision: sha256 mismatch for {filename} — refusing install. "
+            f"provision: sha256 mismatch for {filename} — refusing request. "
             f"expected {expected_sha[:16]}…, got {actual_sha[:16]}…. The staged "
-            "file is not the pinned artifact; nothing was written to the store."
+            "or installed file is not the pinned artifact; nothing was written to the store."
         )
     return expected_sha, ""
 
@@ -200,10 +204,28 @@ def provision(
     no TOFU) → staged-file existence → sha256 RE-verify vs pin (mismatch ⇒
     refuse) → atomic install root-owned 0644 → manifest sidecar update →
     system-wide license record from the package-shipped descriptor.
+
+    record_only checks the installed artifact through the same pin gate, then
+    repairs its legal record or leaves an already-correct record untouched.
+    This mode never installs a model or updates the manifest sidecar.
     """
     filename = arguments.get("filename")
-    staging_path = arguments.get("staging_path")
-    if not isinstance(filename, str) or not isinstance(staging_path, str):
+    record_only = arguments.get("record_only", False)
+    if not isinstance(record_only, bool):
+        return False, "provision: record_only must be a boolean; refusing request."
+    if not isinstance(filename, str):
+        return False, "provision: args_json must carry a string 'filename'."
+    if record_only:
+        if any(key in arguments for key in
+               ("staging_path", "mmproj_filename", "mmproj_staging_path")):
+            return False, ("provision: record-only verification accepts no "
+                           "staging or projector paths; refusing request.")
+        # The caller names an artifact, never its location. _validate_staged
+        # checks the basename before it reads this trusted-store path.
+        staging_path = str(model_dir / filename)
+    else:
+        staging_path = arguments.get("staging_path")
+    if not isinstance(staging_path, str):
         return False, ("provision: args_json must carry string 'filename' and "
                        "'staging_path'.")
 
@@ -227,7 +249,10 @@ def provision(
     # it does not perform detached-signature verification here.
     entries = _load_manifest_entries(pins_path)
     pins = _pins_from_entries(entries)
-    expected_sha, err = _validate_staged(filename, staging_path, pins)
+    try:
+        expected_sha, err = _validate_staged(filename, staging_path, pins)
+    except OSError as exc:
+        return False, f"provision: cannot verify {filename!r}: {exc}; refusing request."
     if err:
         return False, err
     if has_mmproj:
@@ -240,11 +265,19 @@ def provision(
     if (entry is None or entry.get("filename") != filename
             or entry.get("sha256") != expected_sha):
         return False, (f"provision: {filename!r} has no matching descriptor "
-                       "entry for its filename and sha256; refusing install.")
+                       "entry for its filename and sha256; refusing request.")
     license_ref = entry.get("license_ref")
     if not isinstance(license_ref, str) or license_ref not in _LICENSE_URLS:
         return False, (f"provision: {filename!r} has a missing or unsupported "
-                       f"descriptor license_ref {license_ref!r}; refusing install.")
+                       f"descriptor license_ref {license_ref!r}; refusing request.")
+
+    if record_only:
+        # No model/sidecar write occurs on this path. A record-write failure
+        # must fail setup too; it cannot inherit provision's non-fatal note.
+        return _write_system_acceptance(
+            entry, expected_sha, system_legal_dir, accepted_by,
+            pins_path=pins_path, preserve_correct=True,
+        )
 
     # Integrity proven for every artifact → install (primary, then projector),
     # each root-owned 0644 via a same-dir temp + atomic os.replace.
@@ -296,7 +329,7 @@ def provision(
     # Record the descriptor's license even for permissive models, replacing an
     # inaccurate older record when setup is rerun. Catalog defaults and caller
     # arguments do not supply legal metadata.
-    note = _write_system_acceptance(
+    _record_ok, note = _write_system_acceptance(
         entry, expected_sha, system_legal_dir, accepted_by, pins_path=pins_path,
     )
     if note:
@@ -309,14 +342,17 @@ def provision(
 
 
 def _write_system_acceptance(entry: dict, sha256: str, system_legal_dir: Path,
-                            accepted_by: str, *, pins_path: Path) -> str:
+                            accepted_by: str, *, pins_path: Path,
+                            preserve_correct: bool = False) -> tuple[bool, str]:
     """Write the system-wide license-acceptance record (root-owned).
 
     The entry and its license mapping were checked before installing files.
     Writes <system_legal_dir>/<filename>-accepted.json, attributed to the
-    authenticating user. Returns a human-readable note on a non-fatal failure
-    (the model is already installed; a legal-record hiccup does not fail the
-    install — but it IS surfaced).
+    authenticating user. Returns success and a human-readable result. Normal
+    provisioning reports record failure after installation as a note; a
+    record-only caller must propagate failure. After artifact verification,
+    preserve_correct leaves an accurate record's original attribution and
+    timestamp untouched.
     """
     license_ref = entry["license_ref"]
     filename = entry["filename"]
@@ -328,14 +364,25 @@ def _write_system_acceptance(entry: dict, sha256: str, system_legal_dir: Path,
         "license_ref": license_ref,
         "canonical_url": _LICENSE_URLS[license_ref],
         "license_source": f"the shipped descriptor {pins_path} (package-verified)",
-        "accepted_at": datetime.datetime.now(
-            datetime.timezone.utc
-        ).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "accepted_by": accepted_by or os.environ.get("PKEXEC_USER", "unknown"),
         "scope": "system",  # distinguishes from a per-user XDG record.
     }
     target = system_legal_dir / f"{filename}-accepted.json"
     try:
+        if preserve_correct:
+            try:
+                existing = json.loads(target.read_text())
+            except (FileNotFoundError, json.JSONDecodeError, UnicodeError):
+                existing = None
+            if (isinstance(existing, dict)
+                    and all(existing.get(key) == value for key, value in record.items())
+                    and all(isinstance(existing.get(key), str) and existing[key]
+                            for key in ("accepted_at", "accepted_by"))):
+                return True, (f"provision: re-verified {filename}; license record "
+                              f"already correct at {target}.")
+        record.update(
+            accepted_at=datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            accepted_by=accepted_by or os.environ.get("PKEXEC_USER", "unknown"),
+        )
         system_legal_dir.mkdir(parents=True, exist_ok=True)
         os.chmod(system_legal_dir, 0o755)
         tmp = system_legal_dir / f".{filename}-accepted.json.incoming"
@@ -345,10 +392,16 @@ def _write_system_acceptance(entry: dict, sha256: str, system_legal_dir: Path,
             os.chown(tmp, 0, 0)
         os.replace(tmp, target)
     except OSError as exc:
-        return (f"provision: note — system license-acceptance record write "
-                f"failed ({exc}); model is installed, record it via Forge or "
-                "re-run setup.")
-    return f"provision: recorded system license acceptance ({license_ref}) at {target}."
+        if preserve_correct:
+            return False, (f"provision: license record update refused for "
+                           f"{filename}: {exc}.")
+        return False, (f"provision: note — system license-acceptance record write "
+                       f"failed ({exc}); model is installed, record it via Forge or "
+                       "re-run setup.")
+    if preserve_correct:
+        return True, (f"provision: re-verified {filename}; license record "
+                      f"rewritten at {target}.")
+    return True, f"provision: recorded system license acceptance ({license_ref}) at {target}."
 
 
 def main(argv: list[str] | None = None) -> int:

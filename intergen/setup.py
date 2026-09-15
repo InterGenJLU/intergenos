@@ -555,6 +555,12 @@ def run_setup(*, auto_yes: bool = False, tier_override: int | None = None) -> bo
         print(f"Model already downloaded: {model.name}")
         print(f"  Path: {model.local_path}")
         print()
+        record_ok, record_message = mm.verify_system_license_record(model)
+        print(record_message)
+        if not record_ok:
+            print("Model record verification refused; setup did not complete.")
+            print("intergen-setup: result=record-verification-refused")
+            return False
         _generate_auth_token()
         _generate_dispatch_key()
         print("Web auth token generated.")
