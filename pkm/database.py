@@ -29,6 +29,9 @@ except ImportError:
 def _emit_db_event(operation, **fields):
     """Emit a pkm_db_write event when forensic-trace is loaded.
 
+    A write event records an executed statement, not the final outcome of
+    an enclosing transaction, which may commit or roll back after emission.
+
     Safe to call at every SQLite mutation site: short-circuits to no-op
     when verbose mode is off. Failures are swallowed silently so a sink
     write failure never affects the database operation.
@@ -1276,7 +1279,7 @@ class PackageDB:
             "add_installed",
             pkg=name, version=version, release=release, tier=tier,
             install_method=install_method, install_reason=install_reason,
-            pkg_id=pkg_id, committed=commit,
+            pkg_id=pkg_id, statement_executed=True,
             replaced_pkg_id=replaced_pkg_id,
             cascaded_files=cascaded_files,
             cascaded_depends=cascaded_depends,
@@ -1925,7 +1928,7 @@ class PackageDB:
             "log_operation",
             pkg=package_name, history_operation=operation,
             old_version=old_version, new_version=new_version,
-            method=method, success=success, committed=commit,
+            method=method, success=success, statement_executed=True,
         )
 
     def packages_changed_since(self, since_iso):
