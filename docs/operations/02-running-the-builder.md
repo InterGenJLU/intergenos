@@ -328,9 +328,10 @@ sudo env IGOS_START_AT=<pkg-dir> IGOS_STOP_AFTER=<pkg-dir> IGOS_BUILD_DEBUG_VERB
 
 > **Harvest the chroot-copy logs BEFORE any ISO-pipeline resume (`--start-at bootloader`/`image`).** The bash tiers write their per-package and tier logs to `$IGOS_LOGS` **inside the chroot copy** (host path `/mnt/igos/mnt/intergenos/build/logs/`), and `phase_image` tears the chroot down — destroying every log the post-burn trace audit needs (learned on a targeted burn where the bash-tier per-package logs were unrecoverable). After the rebuild completes and before resuming the ISO pipeline, copy them to the virtiofs-backed (host-persistent) tree:
 > ```sh
-> sudo rsync -a /mnt/igos/mnt/intergenos/build/logs/ \
->   /mnt/intergenos/build/logs/chroot-harvest-$(date +%Y%m%d-%H%M%S)/
+> H=/mnt/intergenos/build/logs/chroot-harvest-$(date +%Y%m%d-%H%M%S)
+> sudo rsync -a /mnt/igos/mnt/intergenos/build/logs/ "$H/" && sudo chmod -R a+rX "$H"
 > ```
+> The `chmod` is load-bearing: the chroot's trace sink writes its `trace/*.jsonl` records mode 0600 root, `rsync -a` preserves that mode, and a harvest left as copied cannot be read by the post-burn sweep running as an ordinary user (70 of the R001.2 / R001.2-03 trace files were unreadable at the first sweep and were opened by hand). Every harvest is sweep material, so it is made readable at harvest time.
 
 ## Orphan detection
 
