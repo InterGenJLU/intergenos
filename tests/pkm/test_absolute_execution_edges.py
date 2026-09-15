@@ -74,6 +74,10 @@ def test_gpgv_command_uses_reviewed_absolute_program():
     assert builder(Path("index"), Path("index.sig"))[0] == "/usr/bin/gpgv"
 
 
+def test_build_only_index_signer_uses_reviewed_absolute_program():
+    assert getattr(repo, "GPG", None) == "/usr/bin/gpg"
+
+
 def test_service_query_uses_reviewed_absolute_program(monkeypatch):
     calls = []
     monkeypatch.setattr(services, "_TRACE_AVAILABLE", False)

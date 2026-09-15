@@ -102,6 +102,7 @@ REPO_PKG_CACHE = REPO_CACHE_DIR / "packages"
 # filesystem as REPO_CACHE_DIR so shutil.move on restore stays atomic.
 REPO_ROLLBACK_DIR = REPO_CACHE_DIR / "rollback"
 GPG_KEYRING = Path("/etc/pkm/trusted.gpg")
+GPG = "/usr/bin/gpg"
 GPGV = "/usr/bin/gpgv"
 
 DEFAULT_REPOS = {
@@ -1510,7 +1511,7 @@ def sign_index(index_path, gpg_key_id=None):
     # the prior publish. Without --yes, gpg prompts "overwrite? (y/N)" on
     # /dev/tty and dies ("cannot open '/dev/tty'") before reaching the PIN —
     # not a pinentry/display problem, just an unanswered overwrite prompt.
-    cmd = ["gpg", "--yes", "--detach-sign", "--armor", "--output", str(sig_path)]
+    cmd = [GPG, "--yes", "--detach-sign", "--armor", "--output", str(sig_path)]
     if gpg_key_id:
         cmd.extend(["--local-user", gpg_key_id])
     cmd.append(str(index_path))
