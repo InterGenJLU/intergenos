@@ -129,13 +129,29 @@ else
         exit 10
     fi
     mkdir -p "$ACCEPTANCE_DIR"
+    # Resolve and encode identity before opening the acceptance record.
+    # A direct root invocation has no named consenting user without SUDO_USER.
+    # Keep this writer compatible with already-installed helper libraries.
+    ACCEPTANCE_USER=${SUDO_USER:-$(id -un)}
+    ACCEPTANCE_IDENTITY=$(python3 - "$ACCEPTANCE_USER" "${SUDO_USER:+SUDO_USER}" <<'PYIDENTITY'
+import json
+import sys
+
+user, source = sys.argv[1:]
+print(json.dumps({
+    "user": user,
+    "consenting_user_named": bool(source),
+    "user_source": source or "effective_uid",
+})[1:-1])
+PYIDENTITY
+    )
     cat > "$ACCEPTANCE_FILE" <<JSON
 {
   "helper": "zoom",
   "version": "1.0",
   "payload_license": "LicenseRef-Zoom-Terms-of-Service",
   "accepted_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "user": "$(logname 2>/dev/null || echo unknown)"
+$ACCEPTANCE_IDENTITY
 }
 JSON
     chmod 644 "$ACCEPTANCE_FILE"

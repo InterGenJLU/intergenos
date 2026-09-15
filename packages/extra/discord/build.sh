@@ -97,6 +97,22 @@ else
         exit 10
     fi
     mkdir -p "$ACCEPTANCE_DIR"
+    # Resolve and encode identity before opening the acceptance record.
+    # A direct root invocation has no named consenting user without SUDO_USER.
+    # Keep this writer compatible with already-installed helper libraries.
+    ACCEPTANCE_USER=${SUDO_USER:-$(id -un)}
+    ACCEPTANCE_IDENTITY=$(python3 - "$ACCEPTANCE_USER" "${SUDO_USER:+SUDO_USER}" <<'PYIDENTITY'
+import json
+import sys
+
+user, source = sys.argv[1:]
+print(json.dumps({
+    "user": user,
+    "consenting_user_named": bool(source),
+    "user_source": source or "effective_uid",
+})[1:-1])
+PYIDENTITY
+    )
     cat > "$ACCEPTANCE_FILE" <<JSON
 {
   "helper": "discord",
@@ -106,7 +122,7 @@ else
   "trust_chain_caveat": "Discord does not publish a signed apt repository; the Snap-Store alternative is rejected by the project-canonical no-snapd directive (decided 2026-05-21); the K21.F Option B trust-gap disclosure was presented and accepted at install time.",
   "k21_f_option": "B",
   "accepted_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "user": "$(logname 2>/dev/null || echo unknown)"
+$ACCEPTANCE_IDENTITY
 }
 JSON
     chmod 644 "$ACCEPTANCE_FILE"

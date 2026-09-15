@@ -253,6 +253,22 @@ done
 mkdir -p "$ACCEPTANCE_DIR"
 install -m 644 "$EXTRACT_DIR/EULA.txt" "$EULA_RECORD"
 if [ ! -f "$ACCEPTANCE_FILE" ]; then
+    # Resolve and encode identity before opening the acceptance record.
+    # A direct root invocation has no named consenting user without SUDO_USER.
+    # Keep this writer compatible with already-installed helper libraries.
+    ACCEPTANCE_USER=${SUDO_USER:-$(id -un)}
+    ACCEPTANCE_IDENTITY=$(python3 - "$ACCEPTANCE_USER" "${SUDO_USER:+SUDO_USER}" <<'PYIDENTITY'
+import json
+import sys
+
+user, source = sys.argv[1:]
+print(json.dumps({
+    "user": user,
+    "consenting_user_named": bool(source),
+    "user_source": source or "effective_uid",
+})[1:-1])
+PYIDENTITY
+    )
     cat > "$ACCEPTANCE_FILE" <<JSON
 {
   "helper": "cuda-toolkit",
@@ -263,7 +279,7 @@ if [ ! -f "$ACCEPTANCE_FILE" ]; then
   "artifact_sha256": "${CUDA_RUN_SHA256}",
   "source_url": "${CUDA_URL}",
   "accepted_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "user": "$(logname 2>/dev/null || echo unknown)"
+$ACCEPTANCE_IDENTITY
 }
 JSON
     chmod 644 "$ACCEPTANCE_FILE"
