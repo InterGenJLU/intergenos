@@ -487,6 +487,66 @@ class OffloadReportTests(unittest.TestCase):
         self.assertEqual(b("using CUDA0", 33), "CUDA")
         self.assertEqual(b("some backend", 33), "GPU")   # positive but unnamed
 
+    def test_backend_is_the_selected_engine_not_the_banners_word_order(self):
+        """The HIP build reuses the CUDA code path, so its load banner reads
+        "ggml_cuda_init: found 2 ROCm devices" — one line naming both. Status
+        printed CUDA on a machine serving on the HIP engine (measured
+        2026-09-04), and the audit trail recorded the same wrong backend. The
+        backend is derived from the engine binary that was SELECTED; the
+        banner is the cross-check."""
+        b = LlamaManager._parse_backend
+        rocm = ("ggml_cuda_init: found 2 ROCm devices (Total VRAM: 28640 MiB)\n"
+                "load_tensors: offloaded 33/33 layers to GPU")
+        self.assertEqual(b(rocm, 33, engine="hip"), "HIP/ROCm")
+        self.assertEqual(b("using CUDA0", 33, engine="cuda"), "CUDA")
+        self.assertEqual(b("ggml_vulkan: Found 1 Vulkan devices", 33,
+                           engine="vulkan"), "Vulkan")
+        # Zero offload is CPU whatever engine was launched.
+        self.assertEqual(b(rocm, 0, engine="hip"), "CPU")
+        # With no engine known (a custom server path) the banner decides, and
+        # the ROCm/HIP words are tested before the CUDA word they sit beside.
+        self.assertEqual(b(rocm, 33), "HIP/ROCm")
+        self.assertEqual(b("ggml_hip: 1 HIP device", 33), "HIP/ROCm")
+
+    def test_record_offload_names_the_engine_it_launched(self):
+        from dataclasses import replace as _replace
+        from intergen import serving_device
+        import intergen.glass as glassmod
+        m = LlamaManager()
+        m._config = ServerConfig(
+            model_path="/nonexistent/model.gguf", port=8080,
+            context_size=4096, gpu_layers=999, parallel=1, jinja=False,
+            reasoning="none",
+            server_path=serving_device.ENGINE_SERVER_PATHS["hip"])
+        m._startup_stderr = ("ggml_cuda_init: found 2 ROCm devices\n"
+                             "load_tensors: offloaded 33/33 layers to GPU")
+        events = []
+        with mock.patch.object(glassmod, "emit",
+                               side_effect=lambda *a, **k: events.append((a, k))):
+            m._record_offload(port=8080, gpu_layers=999, expect_offload=True)
+        self.assertEqual(m._serving_backend, "HIP/ROCm")
+        self.assertEqual(m.offload_report()["backend"], "HIP/ROCm")
+        # The audit row carries the same value.
+        rows = [k for a, k in events if a[:2] == ("engine", "offload_check")]
+        self.assertEqual(rows[0]["detail"]["backend"], "HIP/ROCm")
+
+    def test_a_banner_that_contradicts_the_engine_is_reported_not_hidden(self):
+        from intergen import serving_device
+        m = LlamaManager()
+        m._config = ServerConfig(
+            model_path="/nonexistent/model.gguf", port=8080,
+            context_size=4096, gpu_layers=999, parallel=1, jinja=False,
+            reasoning="none",
+            server_path=serving_device.ENGINE_SERVER_PATHS["hip"])
+        m._startup_stderr = ("ggml_vulkan: Found 1 Vulkan devices\n"
+                             "load_tensors: offloaded 33/33 layers to GPU")
+        with mock.patch("intergen.glass.emit"), \
+                self.assertLogs("intergen.llama_manager", level="WARNING") as cm:
+            m._record_offload(port=8080, gpu_layers=999, expect_offload=True)
+        self.assertEqual(m._serving_backend, "HIP/ROCm")
+        self.assertTrue(any("banner" in line.lower() for line in cm.output),
+                        cm.output)
+
     def test_fully_offloaded(self):
         """Corrected 2026-08-24: zero offloaded layers is never "fully offloaded".
 

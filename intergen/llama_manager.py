@@ -2018,22 +2018,65 @@ class LlamaManager(LlamaManagerInterface):
         Retained for the fatal offload gate; delegates to _parse_offload."""
         return LlamaManager._parse_offload(load_text)[0]
 
+    # The backend name each engine serves under. The HIP build reuses the CUDA
+    # code path, so its banner says "ggml_cuda_init: found N ROCm devices";
+    # the name comes from the ENGINE, never from which word the banner prints
+    # first.
+    _ENGINE_BACKEND_NAMES = {"hip": "HIP/ROCm", "cuda": "CUDA",
+                             "vulkan": "Vulkan"}
+
     @staticmethod
-    def _parse_backend(load_text: str, offloaded: int | None) -> str:
-        """Name the serving backend from the load banner. The AUTHORITATIVE signal
-        is the offloaded count: a banner may report a Vulkan device was FOUND yet
-        still fall back to CPU (0 layers), so 0/None offload => 'CPU' regardless of
-        what device was probed. A positive offload => the accelerator named in the
-        banner (Vulkan/CUDA/…)."""
+    def _engine_for_server_path(server_path: str | None) -> str | None:
+        """The engine ("hip" / "cuda" / "vulkan") whose fixed server path is
+        ``server_path``, or None for a path that is not one of the shipped
+        engine binaries (a custom path)."""
+        if not server_path:
+            return None
+        try:
+            from intergen.serving_device import ENGINE_SERVER_PATHS
+        except Exception:                             # pragma: no cover
+            return None
+        for engine, path in ENGINE_SERVER_PATHS.items():
+            if path == server_path:
+                return engine
+        return None
+
+    @staticmethod
+    def _banner_backend(load_text: str) -> str | None:
+        """The backend the load banner names, or None when it names none. The
+        ROCm/HIP words are tested BEFORE the CUDA word they sit beside on the
+        HIP build's own banner line."""
+        low = (load_text or "").lower()
+        for name, keys in (("HIP/ROCm", ("rocm", "hip")), ("Vulkan", ("vulkan",)),
+                           ("CUDA", ("cuda",)), ("Metal", ("metal",)),
+                           ("SYCL", ("sycl",))):
+            if any(k in low for k in keys):
+                return name
+        return None
+
+    @staticmethod
+    def _parse_backend(load_text: str, offloaded: int | None,
+                       engine: str | None = None) -> str:
+        """Name the serving backend. The AUTHORITATIVE signals, in order:
+
+        1. the offloaded count — a banner may report a device was FOUND yet
+           still fall back to CPU (0 layers), so 0/None offload => 'CPU'
+           whatever engine was launched;
+        2. the SELECTED ENGINE (``engine``: the ladder's rung, resolved from
+           the server binary that was launched) — hip => HIP/ROCm, cuda =>
+           CUDA, vulkan => Vulkan;
+        3. with no engine known (a custom server path), the accelerator the
+           banner names, ROCm/HIP tested before CUDA.
+
+        Status printed CUDA on a machine serving on the HIP engine (measured
+        2026-09-04) because the HIP build's banner carries both words and the
+        old parser walked a fixed list with CUDA first; the audit trail
+        recorded the same wrong backend."""
         if not offloaded:  # None or 0 => nothing reached the GPU
             return "CPU"
-        low = (load_text or "").lower()
-        for name, key in (("Vulkan", "vulkan"), ("CUDA", "cuda"),
-                          ("ROCm", "rocm"), ("HIP", "hip"), ("Metal", "metal"),
-                          ("SYCL", "sycl")):
-            if key in low:
-                return name
-        return "GPU"
+        if engine in LlamaManager._ENGINE_BACKEND_NAMES:
+            return LlamaManager._ENGINE_BACKEND_NAMES[engine]
+        return LlamaManager._banner_backend(load_text) or "GPU"
 
     def _record_offload(self, port: int, gpu_layers: int,
                         expect_offload: bool) -> None:
@@ -2046,7 +2089,20 @@ class LlamaManager(LlamaManagerInterface):
         self._offload_requested = gpu_layers
         self._offloaded_layers = off
         self._total_layers = tot
-        self._serving_backend = self._parse_backend(self._startup_stderr, off)
+        engine = self._engine_for_server_path(
+            getattr(self._config, "server_path", None) if self._config else None)
+        self._serving_backend = self._parse_backend(self._startup_stderr, off,
+                                                    engine=engine)
+        # The banner is the cross-check on the engine-derived name: a banner
+        # that names a different accelerator than the engine launched is
+        # reported, never hidden behind the engine's word.
+        if off and engine in self._ENGINE_BACKEND_NAMES:
+            named = self._banner_backend(self._startup_stderr)
+            if named is not None and named != self._serving_backend:
+                log.warning(
+                    "serving backend cross-check: the %s engine was launched "
+                    "(%s) but its load banner names %s — reporting the engine",
+                    engine, self._serving_backend, named)
         fully = self._fully_offloaded(gpu_layers, off, tot)
         if gpu_layers > 0 and not fully:
             log.warning(
