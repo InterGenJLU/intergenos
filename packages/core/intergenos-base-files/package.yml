@@ -59,6 +59,7 @@ verify_paths:
   - /etc/modprobe.d/disable-algif.conf
   - /etc/modprobe.d/pcspkr-alias-owner.conf
   - /etc/modprobe.d/rtw88-aspm.conf
+  - /usr/lib/sysctl.d/60-intergenos-hardening.conf
   - /etc/gdm/custom.conf
   - /usr/bin/lsb_release
   - /usr/lib/systemd/system-preset/80-intergenos-enable.preset
