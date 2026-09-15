@@ -85,6 +85,7 @@ source_tree:
 - scripts/check-kernel-required-symbols.py
 - config/kernel/required-security-symbols.txt
 - config/kernel/required-hardware-symbols.txt
+- config/kernel/required-disabled-symbols.txt
 # The declared CVE patches and the parser that reads the declaration, added
 # 2026-08-11. Moving these patches to the canonical build/patches directory is
 # what lets BOTH passes apply the same set — but build-source-archives.py
@@ -135,6 +136,7 @@ sources_extra:
 - scripts/check-kernel-required-symbols.py
 - config/kernel/required-security-symbols.txt
 - config/kernel/required-hardware-symbols.txt
+- config/kernel/required-disabled-symbols.txt
 # The declared CVE patches and the parser that reads the declaration, added
 # 2026-08-11. Moving these patches to the canonical build/patches directory is
 # what lets BOTH passes apply the same set — but build-source-archives.py

@@ -1,0 +1,28 @@
+# Kernel symbols this distribution requires to be DISABLED in the produced config.
+#
+# Read by scripts/check-kernel-required-symbols.py, which both kernel recipes run
+# after merging the config fragments. Each entry is a bare CONFIG_X name that must
+# appear in the produced .config as the literal line `# CONFIG_X is not set`.
+# `=y` or `=m` is a finding. The symbol being ABSENT from the config entirely is a
+# finding too: every symbol listed here exists on x86_64, so absence means the
+# gate was handed a config that is not the one this build produced (or the
+# symbol was renamed upstream, which is a change that must be looked at, not
+# waved through).
+#
+# WHY A THIRD KIND. The exact-value file cannot say "must be off": a produced
+# .config never writes `CONFIG_X=n`; it writes `# CONFIG_X is not set`, which the
+# exact-value reader (a literal `CONFIG_X=value` match) cannot express. The
+# enabled-either file says "must be on". Neither can refuse a symbol that was
+# turned back on by a default, a dependency's `select`, or a fragment regression.
+#
+# The measured case that created this file (R001.3 row 23, 2026-09-14): the
+# shipped 6.18.10 kernels carried CONFIG_COMPAT_BRK=y because nothing had ever
+# stated it, and with it on the kernel clamps kernel.randomize_va_space to 1, so
+# every process's heap sat at a predictable address on every installed machine
+# whatever the sysctl said.
+#
+# The minimum-entry threshold for this file is 1: it is a deliberate, small list,
+# and a parse that finds zero entries is still refused as unmeasurable.
+#
+# Format: one bare CONFIG_X name per line. Comments and blank lines are ignored.
+CONFIG_COMPAT_BRK

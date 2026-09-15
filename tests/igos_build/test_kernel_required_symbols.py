@@ -34,7 +34,14 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 GATE = REPO_ROOT / "scripts/check-kernel-required-symbols.py"
 EXACT_FILE = REPO_ROOT / "config/kernel/required-security-symbols.txt"
 ENABLED_FILE = REPO_ROOT / "config/kernel/required-hardware-symbols.txt"
+DISABLED_FILE = REPO_ROOT / "config/kernel/required-disabled-symbols.txt"
 RECIPES = ("packages/core/linux-kernel", "packages/core/linux-kernel-pass2")
+
+# The hub's real running-kernel config, when this test runs on an InterGenOS
+# machine: the R001.2 kernels carry CONFIG_COMPAT_BRK=y, which is the measured
+# defect the disabled kind was added for. Used as a RED input when present.
+RUNNING_KERNEL_CONFIG = Path("/boot") / f"config-{Path('/proc/sys/kernel/osrelease').read_text().strip()}" \
+    if Path("/proc/sys/kernel/osrelease").is_file() else None
 
 CLEAN, FINDINGS, UNMEASURABLE = 0, 1, 2
 
@@ -57,8 +64,12 @@ def write_config(path: Path, lines) -> Path:
     return path
 
 
-def satisfying_config(tmp_path: Path, drop=(), demote=(), extra=()) -> Path:
-    """A config meeting every requirement, minus whatever the test removes."""
+def satisfying_config(tmp_path: Path, drop=(), demote=(), extra=(), enable=()) -> Path:
+    """A config meeting every requirement, minus whatever the test removes.
+
+    `drop` removes a symbol from the config entirely (for a disabled-list symbol
+    that means neither set nor stated off); `enable` turns a disabled-list
+    symbol back ON, the measured COMPAT_BRK shape."""
     lines = ["CONFIG_64BIT=y", 'CONFIG_LOCALVERSION="-igos-15"']
     for req in requirements(EXACT_FILE):
         name = req.split("=", 1)[0]
@@ -69,6 +80,10 @@ def satisfying_config(tmp_path: Path, drop=(), demote=(), extra=()) -> Path:
         if name in drop:
             continue
         lines.append(f"{name}=m")
+    for name in requirements(DISABLED_FILE):
+        if name in drop:
+            continue
+        lines.append(f"{name}=y" if name in enable else f"# {name} is not set")
     lines.extend(extra)
     return write_config(tmp_path / "produced.config", lines)
 
@@ -123,7 +138,8 @@ def test_the_gates_inputs_are_declared_by_both_recipes(recipe, field):
     }
     for needed in ("scripts/check-kernel-required-symbols.py",
                    "config/kernel/required-security-symbols.txt",
-                   "config/kernel/required-hardware-symbols.txt"):
+                   "config/kernel/required-hardware-symbols.txt",
+                   "config/kernel/required-disabled-symbols.txt"):
         assert needed in entries, (
             f"{recipe}/package.yml does not declare {needed} in {field}; configure() "
             "reads it, so it decides what this kernel must contain."
@@ -182,6 +198,75 @@ def test_lockdown_resolving_back_to_force_none_is_refused(tmp_path):
     assert "FORCE_NONE" in result.stdout
 
 
+# ── the DISABLED kind: a symbol that must be stated off (R001.3 row 23) ─────
+
+def test_a_disabled_symbol_turned_back_on_is_refused(tmp_path):
+    """The measured shape: olddefconfig turned CONFIG_COMPAT_BRK on by default in
+    every shipped kernel, and with it on the kernel clamps
+    kernel.randomize_va_space to 1 whatever the sysctl says."""
+    result = run_gate(satisfying_config(tmp_path, enable={"CONFIG_COMPAT_BRK"}))
+    assert result.returncode == FINDINGS, result.stdout
+    assert "CONFIG_COMPAT_BRK" in result.stdout
+    assert "CONFIG_COMPAT_BRK=y" in result.stdout, (
+        "the refusal should say what the config produced INSTEAD of the not-set line"
+    )
+
+
+def test_a_disabled_symbol_absent_from_the_config_is_refused(tmp_path):
+    """Every symbol in the disabled list exists on x86_64, so a config that does not
+    mention it is not the config this build produced. Absence must not read as
+    'off'."""
+    result = run_gate(satisfying_config(tmp_path, drop={"CONFIG_COMPAT_BRK"}))
+    assert result.returncode == FINDINGS, result.stdout
+    assert "CONFIG_COMPAT_BRK" in result.stdout
+    assert "ABSENT" in result.stdout
+
+
+def test_a_disabled_symbol_stated_off_passes(tmp_path):
+    """The satisfying config states every disabled-list symbol as
+    `# CONFIG_X is not set`; that is the only shape that passes."""
+    result = run_gate(satisfying_config(tmp_path))
+    assert result.returncode == CLEAN, result.stdout
+    assert "must-be-disabled" in result.stdout
+
+
+def test_a_disabled_file_holding_exact_values_refuses(tmp_path):
+    """Same claim-shape discipline as the other two files: a `CONFIG_X=n` line is
+    not how a produced config says off, so it is refused rather than guessed at."""
+    wrong = write_config(tmp_path / "wrong.txt", ["CONFIG_COMPAT_BRK=n"])
+    assert_refused_as_unmeasurable(run_gate(satisfying_config(tmp_path), disabled_file=wrong))
+
+
+def test_an_empty_disabled_file_refuses(tmp_path):
+    """The floor for this list is one entry; a parse that finds none is unmeasurable."""
+    empty = write_config(tmp_path / "empty.txt", ["# nothing required"])
+    assert_refused_as_unmeasurable(run_gate(satisfying_config(tmp_path), disabled_file=empty))
+
+
+@pytest.mark.skipif(
+    RUNNING_KERNEL_CONFIG is None or not RUNNING_KERNEL_CONFIG.is_file()
+    or "CONFIG_COMPAT_BRK=y" not in RUNNING_KERNEL_CONFIG.read_text(errors="replace"),
+    reason="the running kernel's config is not readable here or does not carry the "
+           "R001.2 defect (CONFIG_COMPAT_BRK=y); the synthetic shape above covers it",
+)
+def test_the_shipped_r0012_kernel_config_is_refused_for_compat_brk(tmp_path):
+    """RED against reality: the running R001.2 kernel's own /boot/config carries
+    CONFIG_COMPAT_BRK=y. The gate must refuse it for exactly that symbol — and the
+    same config with only that line flipped must pass, so the refusal is that
+    line's and nothing else's."""
+    real = run_gate(RUNNING_KERNEL_CONFIG)
+    assert real.returncode == FINDINGS, real.stdout
+    assert "CONFIG_COMPAT_BRK   [produced: CONFIG_COMPAT_BRK=y]" in real.stdout
+    flipped_lines = [
+        "# CONFIG_COMPAT_BRK is not set" if line == "CONFIG_COMPAT_BRK=y" else line
+        for line in RUNNING_KERNEL_CONFIG.read_text(errors="replace").splitlines()
+    ]
+    flipped = run_gate(write_config(tmp_path / "flipped.config", flipped_lines))
+    assert flipped.returncode == CLEAN, (
+        "the real config refused for more than the one flipped line:\n" + flipped.stdout
+    )
+
+
 # ── it refuses just as hard when it cannot measure ──────────────────────────
 
 def test_a_config_with_no_enabled_symbols_refuses(tmp_path):
@@ -216,25 +301,45 @@ def test_an_enabled_file_holding_exact_values_refuses(tmp_path):
 # ── the requirement files are a decision record ─────────────────────────────
 
 def test_the_requirement_files_are_populated_and_well_formed():
-    exact, enabled = requirements(EXACT_FILE), requirements(ENABLED_FILE)
+    exact, enabled, disabled = requirements(EXACT_FILE), requirements(ENABLED_FILE), requirements(DISABLED_FILE)
     assert len(exact) >= 20, f"only {len(exact)} exact-value requirements"
     assert len(enabled) >= 30, f"only {len(enabled)} enabled requirements"
+    assert len(disabled) >= 1, "the disabled list is empty"
     for line in exact:
         assert re.fullmatch(r"CONFIG_[A-Za-z0-9_]+=\S+", line), f"malformed exact entry: {line!r}"
-    for line in enabled:
-        assert re.fullmatch(r"CONFIG_[A-Za-z0-9_]+", line), f"malformed enabled entry: {line!r}"
+    for line in enabled + disabled:
+        assert re.fullmatch(r"CONFIG_[A-Za-z0-9_]+", line), f"malformed bare-name entry: {line!r}"
 
 
-def test_no_symbol_is_required_by_both_files():
+def test_no_symbol_is_required_by_two_files():
     """A symbol required at an exact value and separately required as merely
-    enabled would let the weaker claim mask a violation of the stronger one."""
+    enabled would let the weaker claim mask a violation of the stronger one; a
+    symbol required both on and off could never be satisfied and would refuse
+    every build for a reason nobody can fix in the config."""
     exact_names = {line.split("=", 1)[0] for line in requirements(EXACT_FILE)}
-    both = sorted(exact_names & set(requirements(ENABLED_FILE)))
-    assert not both, f"required by both files: {both}"
+    enabled_names = set(requirements(ENABLED_FILE))
+    disabled_names = set(requirements(DISABLED_FILE))
+    assert not sorted(exact_names & enabled_names), f"exact and enabled: {sorted(exact_names & enabled_names)}"
+    assert not sorted(exact_names & disabled_names), f"exact and disabled: {sorted(exact_names & disabled_names)}"
+    assert not sorted(enabled_names & disabled_names), f"enabled and disabled: {sorted(enabled_names & disabled_names)}"
+
+
+def test_the_overrides_fragment_states_every_disabled_symbol_off():
+    """The gate refuses a produced config that turned a listed symbol on; the
+    fragment is where the build ASKS for it to be off. Omitting a symbol never
+    disables it (olddefconfig resolves it from its default), so the request has
+    to be the literal not-set line, and it has to be there for every entry."""
+    fragment = (REPO_ROOT / "config/kernel/fragments/99-intergenos-overrides.config").read_text()
+    for name in requirements(DISABLED_FILE):
+        assert f"# {name} is not set" in fragment, (
+            f"{name} is required off but 99-intergenos-overrides.config does not state "
+            f"`# {name} is not set`; the produced config would take the Kconfig default "
+            "and the gate would refuse every kernel build"
+        )
 
 
 def test_no_requirement_is_listed_twice():
-    for path in (EXACT_FILE, ENABLED_FILE):
+    for path in (EXACT_FILE, ENABLED_FILE, DISABLED_FILE):
         entries = requirements(path)
         dupes = sorted({e for e in entries if entries.count(e) > 1})
         assert not dupes, f"{path.name} lists these more than once: {dupes}"

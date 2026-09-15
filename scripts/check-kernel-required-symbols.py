@@ -20,15 +20,25 @@ can be requested and silently not appear:
 So the produced config is asserted, and a dropped class is a BUILD FAILURE
 rather than a silent shipment.
 
-TWO REQUIREMENT KINDS, because they are not the same claim:
+THREE REQUIREMENT KINDS, because they are not the same claim:
 
-  EXACT   config/kernel/required-security-symbols.txt holds literal
-          `CONFIG_X=value` lines. For these, built-in-ness IS the guarantee and
-          =m would be a silent downgrade, so the value is part of the
-          requirement.
-  ENABLED config/kernel/required-hardware-symbols.txt holds bare `CONFIG_X`
-          names. For a driver, module-versus-built-in is a legitimate packaging
-          choice while ABSENCE is the defect, so =y and =m both satisfy it.
+  EXACT    config/kernel/required-security-symbols.txt holds literal
+           `CONFIG_X=value` lines. For these, built-in-ness IS the guarantee and
+           =m would be a silent downgrade, so the value is part of the
+           requirement.
+  ENABLED  config/kernel/required-hardware-symbols.txt holds bare `CONFIG_X`
+           names. For a driver, module-versus-built-in is a legitimate packaging
+           choice while ABSENCE is the defect, so =y and =m both satisfy it.
+  DISABLED config/kernel/required-disabled-symbols.txt holds bare `CONFIG_X`
+           names that must be OFF: the produced config must carry the literal
+           line `# CONFIG_X is not set`. =y and =m are findings; so is the
+           symbol being absent from the config entirely, because every listed
+           symbol exists on x86_64 and absence means the gate is not looking at
+           the config this build produced. The exact-value kind cannot express
+           this — a produced .config never writes `CONFIG_X=n`. Added 2026-09-14
+           for CONFIG_COMPAT_BRK (R001.3 row 23): olddefconfig had turned it on
+           by default in every shipped kernel, and with it on the kernel clamps
+           kernel.randomize_va_space to 1 whatever the sysctl says.
 
 It also refuses a kernel whose lockdown `choice` resolved back to
 LOCK_DOWN_KERNEL_FORCE_NONE — lockdown disabled at boot, which is exactly the
@@ -66,9 +76,14 @@ from pathlib import Path
 # than the real list, and the sweep would then pass for the wrong reason.
 MIN_EXACT_REQUIREMENTS = 20
 MIN_ENABLED_REQUIREMENTS = 30
+# The disabled list is deliberately small (one entry at its creation), so its
+# floor is 1: a parse that finds nothing is still refused as unmeasurable.
+MIN_DISABLED_REQUIREMENTS = 1
 
 RE_EXACT = re.compile(r"^(CONFIG_[A-Za-z0-9_]+)=(\S+)$")
 RE_NAME = re.compile(r"^(CONFIG_[A-Za-z0-9_]+)$")
+# The literal shape a produced .config uses for a symbol that is off.
+RE_NOT_SET = re.compile(r"^# (CONFIG_[A-Za-z0-9_]+) is not set$")
 
 LOCKDOWN_DISABLED = "CONFIG_LOCK_DOWN_KERNEL_FORCE_NONE=y"
 
@@ -105,12 +120,17 @@ def read_requirements(path: Path, pattern: re.Pattern, minimum: int, kind: str) 
 
 
 def read_config(path: Path):
-    """Returns (set of literal 'CONFIG_X=value' lines, set of enabled names)."""
+    """Returns (set of literal 'CONFIG_X=value' lines, set of enabled names,
+    set of names the config states as `# CONFIG_X is not set`)."""
     if not path.is_file():
         raise Unmeasurable(f"the produced kernel config is not readable at {path}")
-    literals, enabled = set(), set()
+    literals, enabled, not_set = set(), set(), set()
     for raw in path.read_text(errors="replace").splitlines():
         line = raw.strip()
+        off = RE_NOT_SET.match(line)
+        if off:
+            not_set.add(off.group(1))
+            continue
         if not line.startswith("CONFIG_") or "=" not in line:
             continue
         literals.add(line)
@@ -122,7 +142,7 @@ def read_config(path: Path):
             f"{path} contains no enabled symbols at all. That is not a kernel config "
             "this build produced, and an empty read must never certify a clean result."
         )
-    return literals, enabled
+    return literals, enabled, not_set
 
 
 def main() -> int:
@@ -136,10 +156,13 @@ def main() -> int:
                         help="override the exact-value requirement file")
     parser.add_argument("--enabled-file", type=Path,
                         help="override the enabled-either requirement file")
+    parser.add_argument("--disabled-file", type=Path,
+                        help="override the must-be-disabled requirement file")
     args = parser.parse_args()
 
     exact_path = args.exact_file or (args.repo_root / "config/kernel/required-security-symbols.txt")
     enabled_path = args.enabled_file or (args.repo_root / "config/kernel/required-hardware-symbols.txt")
+    disabled_path = args.disabled_file or (args.repo_root / "config/kernel/required-disabled-symbols.txt")
 
     print("=" * 70)
     print("KERNEL REQUIRED-SYMBOL GATE")
@@ -148,7 +171,8 @@ def main() -> int:
     try:
         exact = read_requirements(exact_path, RE_EXACT, MIN_EXACT_REQUIREMENTS, "exact-value")
         enabled_req = read_requirements(enabled_path, RE_NAME, MIN_ENABLED_REQUIREMENTS, "enabled")
-        literals, enabled = read_config(args.config)
+        disabled_req = read_requirements(disabled_path, RE_NAME, MIN_DISABLED_REQUIREMENTS, "disabled")
+        literals, enabled, not_set = read_config(args.config)
     except Unmeasurable as exc:
         print("", file=sys.stderr)
         print("  REFUSING THE BUILD — the required-symbol gate cannot measure:", file=sys.stderr)
@@ -156,9 +180,10 @@ def main() -> int:
         print("", file=sys.stderr)
         return 2
 
-    print(f"produced config : {args.config} ({len(enabled)} symbols enabled)")
+    print(f"produced config : {args.config} ({len(enabled)} symbols enabled, {len(not_set)} stated off)")
     print(f"exact-value     : {exact_path} ({len(exact)} requirements)")
     print(f"enabled-either  : {enabled_path} ({len(enabled_req)} requirements)")
+    print(f"must-be-disabled: {disabled_path} ({len(disabled_req)} requirements)")
     print("")
 
     findings = []
@@ -194,6 +219,34 @@ def main() -> int:
             "this defect, which is why it must fail here and not on a user's laptop."
         )
     print(f"  checked {len(enabled_req)}, dropped {len(missing_enabled)}")
+    print("")
+
+    print("-" * 70)
+    print("DISABLED requirements — the config must state `# CONFIG_X is not set`")
+    print("-" * 70)
+    unmet_disabled = 0
+    for name in disabled_req:
+        if name in not_set:
+            continue
+        unmet_disabled += 1
+        actual = next((l for l in literals if l.startswith(name + "=")), None)
+        if actual:
+            print(f"  ENABLED (finding)  {name}   [produced: {actual}]")
+            findings.append(
+                f"{name} must be disabled but the produced config carries {actual}. A default, "
+                "a dependency's select or a fragment regression turned it back on; the "
+                "fragment states it as `# " + name + " is not set` and the produced config "
+                "must agree. Refusing to build a kernel that silently re-enables it."
+            )
+        else:
+            print(f"  ABSENT (finding)   {name}   [neither set nor stated off]")
+            findings.append(
+                f"{name} must be stated off (`# {name} is not set`) but the produced config "
+                "does not mention it at all. Every symbol in the disabled list exists on "
+                "x86_64, so this is not the config this build produced, or the symbol was "
+                "renamed upstream — either way it is looked at, not waved through."
+            )
+    print(f"  checked {len(disabled_req)}, unmet {unmet_disabled}")
     print("")
 
     print("-" * 70)
