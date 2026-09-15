@@ -34,13 +34,12 @@ do_install() {
     # Must be set here because tar-based deployment strips setuid bits.
     chmod 4755 "${DESTDIR}/usr/bin/sudo"
 
-    # Configuration ships as owned, manifest-tracked payload (hooks may not
-    # write package-ownable bytes). Byte- and mode-identical to the files the
-    # retired post_install wrote on live targets.
+    # Configuration ships as owned, manifest-tracked payload. The main sudoers
+    # file supplies secure_path, including /usr/local; the drop-in only grants
+    # the wheel group access and must not replace that path.
     install -dm755 "${DESTDIR}/etc/sudoers.d" "${DESTDIR}/etc/pam.d"
 
     cat > "${DESTDIR}/etc/sudoers.d/00-sudo" << "EOF"
-Defaults secure_path="/usr/sbin:/usr/bin"
 %wheel ALL=(ALL) ALL
 EOF
     chmod 644 "${DESTDIR}/etc/sudoers.d/00-sudo"
