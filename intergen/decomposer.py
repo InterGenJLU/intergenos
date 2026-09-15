@@ -148,6 +148,67 @@ _INTERROGATIVES = r"what|how|is|are|which|when|where|who|why|does|do|can"
 # immediately after "and" missed it. Kept narrow: the interposed form is the
 # explicit "if not" only, not any subordinate clause.
 _CONDITIONAL_JOIN = r"(?:if\s+not,?\s+)?"
+# NEGATION SCOPE. A clause introduced by "do not" / "don't" / "never" is a
+# prohibition, and the list that follows it — "do not use tools, run commands,
+# access files, or contact external services" — names what NOT to do. The
+# comma-before-a-verb split point above cannot tell that list from a list of
+# things to do, and once it had cut "run commands, ..." loose, that tail was
+# routed as an affirmative request to run a command and the consent dialog
+# opened for a sentence whose whole point was to forbid it (gating row 22,
+# measured on two installed machines). So: a split point that falls inside a
+# negated scope is not a split. The scope of "do not" / "don't" / "never" runs
+# to the end of its sentence — conservatively, because the cost of over-merging
+# is one whole sentence handed to the model, and the cost of under-merging is
+# an action nobody asked for. "without" governs only the phrase up to the next
+# comma or conjunction ("install vim without asking, and then open it" is still
+# two things), so its scope ends there.
+_NEGATION_GOVERNOR = re.compile(
+    r"\b(?:do\s+not|don[\u2019']?t|never|without)\b", re.IGNORECASE)
+_SENTENCE_END = re.compile(r"[.;!?](?=\s|$)")
+_WITHOUT_SCOPE_END = re.compile(r",|;|\b(?:and|or|then|but)\b", re.IGNORECASE)
+
+
+def negated_spans(query: str) -> list[tuple[int, int]]:
+    """The (start, end) character spans of ``query`` governed by a negation.
+
+    Pure and tier-free. Exposed so a caller (and the tests) can ask the same
+    question the splitter asks.
+    """
+    spans: list[tuple[int, int]] = []
+    for m in _NEGATION_GOVERNOR.finditer(query):
+        if m.group(0).lower() == "without":
+            end_m = _WITHOUT_SCOPE_END.search(query, m.end())
+        else:
+            end_m = _SENTENCE_END.search(query, m.end())
+        end = end_m.start() if end_m else len(query)
+        spans.append((m.start(), end))
+    return spans
+
+
+def _merge_negated_scope(query: str, parts: list[str]) -> list[str]:
+    """Re-join any part that begins inside a negated scope onto the part before
+    it, using the original text between them so nothing is reworded."""
+    spans = negated_spans(query)
+    if not spans or len(parts) <= 1:
+        return parts
+    located: list[tuple[int, int]] = []   # (start, end) of each part in query
+    cursor = 0
+    for part in parts:
+        start = query.find(part, cursor)
+        if start < 0:
+            # A part that is not a substring of the query (a cleanup rewrote
+            # it) cannot be placed; leave the split as it is rather than guess.
+            return parts
+        located.append((start, start + len(part)))
+        cursor = start + len(part)
+    merged: list[tuple[int, int]] = [located[0]]
+    for start, end in located[1:]:
+        if any(g_start < start < g_end for g_start, g_end in spans):
+            merged[-1] = (merged[-1][0], end)
+        else:
+            merged.append((start, end))
+    return [query[a:b].strip().rstrip(".,;") for a, b in merged]
+
 _COMPOUND_SIGNALS = [
     r"\band\s+then\b",
     r"\bafter\s+that\b",
@@ -358,6 +419,12 @@ def split_compound(query: str) -> list[str]:
         bits = [b.strip().rstrip(".,;") for b in comma_split.split(part) if b.strip()]
         expanded.extend(bits if len(bits) > 1 else [part])
     parts = expanded
+
+    # A split point inside a negated scope is not a split (row 22): re-join
+    # those parts on the original text. Runs after every split point above so
+    # it sees the final cut, and before the cleanup so the original words are
+    # still there to re-join.
+    parts = _merge_negated_scope(query, parts)
 
     # Clean up: remove leading "and", "also", etc.
     cleaned = []
