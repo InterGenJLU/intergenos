@@ -149,7 +149,7 @@ def unit_active_since_epoch(unit, boot_epoch):
     precise = precise_boot_epoch()
     if precise is not None and abs(precise - boot_epoch) < 2.0:
         boot_epoch = precise
-    argv = ["systemctl", "show", "-p", "ActiveEnterTimestampMonotonic",
+    argv = [SYSTEMCTL, "show", "-p", "ActiveEnterTimestampMonotonic",
             "--value", unit]
     try:
         if _TRACE_AVAILABLE:

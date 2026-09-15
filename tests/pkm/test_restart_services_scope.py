@@ -26,8 +26,8 @@ What these tests pin:
     REQUIRED for it instead;
   * a session-carrying unit named explicitly is restarted, with a warning.
 
-Systemd is never touched: `systemctl` is a fake on PATH (the neighbour
-tests' shape) and the restart runner is observed, not run.
+Systemd is never touched: the fixed systemctl module constant is bound to a
+fake executable and the restart runner is observed, not run.
 """
 
 import io
@@ -74,6 +74,7 @@ def _write_fake_systemctl(bindir, active, active_since_usec=None):
     path = Path(bindir) / "systemctl"
     path.write_text("\n".join(lines) + "\n")
     path.chmod(0o755)
+    services.SYSTEMCTL = str(path)
 
 
 class SessionCriticalSetTest(unittest.TestCase):
@@ -123,8 +124,10 @@ class ActiveSinceTest(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.bin = self.tmp.name
         self._old_path = os.environ.get("PATH", "")
+        self._old_systemctl = services.SYSTEMCTL
         os.environ["PATH"] = self.bin + os.pathsep + self._old_path
         self.addCleanup(os.environ.__setitem__, "PATH", self._old_path)
+        self.addCleanup(setattr, services, "SYSTEMCTL", self._old_systemctl)
 
     def test_monotonic_stamp_is_added_to_boot_time(self):
         _write_fake_systemctl(self.bin, ["sshd.service"],
@@ -176,8 +179,10 @@ class ClassificationTest(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.bin = self.tmp.name
         self._old_path = os.environ.get("PATH", "")
+        self._old_systemctl = services.SYSTEMCTL
         os.environ["PATH"] = self.bin + os.pathsep + self._old_path
         self.addCleanup(os.environ.__setitem__, "PATH", self._old_path)
+        self.addCleanup(setattr, services, "SYSTEMCTL", self._old_systemctl)
 
     def test_only_session_units_running_is_reboot_class(self):
         _write_fake_systemctl(self.bin, ["dbus.service"])
@@ -261,8 +266,10 @@ class RestartServicesCommandTest(unittest.TestCase):
         self.bin = str(Path(self.tmp.name) / "bin")
         os.mkdir(self.bin)
         self._old_path = os.environ.get("PATH", "")
+        self._old_systemctl = services.SYSTEMCTL
         os.environ["PATH"] = self.bin + os.pathsep + self._old_path
         self.addCleanup(os.environ.__setitem__, "PATH", self._old_path)
+        self.addCleanup(setattr, services, "SYSTEMCTL", self._old_systemctl)
         self.restarted = []
 
     def _package(self, name, files, changed_at_offset_s=None, reboot=False):

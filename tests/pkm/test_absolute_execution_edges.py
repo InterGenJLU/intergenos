@@ -102,6 +102,27 @@ def test_service_restart_uses_reviewed_absolute_program(monkeypatch):
     assert calls == [["/usr/bin/systemctl", "restart", "demo.service"]]
 
 
+def test_service_active_since_uses_reviewed_absolute_program(monkeypatch):
+    calls = []
+    monkeypatch.setattr(services, "_TRACE_AVAILABLE", False)
+    monkeypatch.setattr(services, "precise_boot_epoch", lambda: None)
+    monkeypatch.setattr(
+        services.subprocess,
+        "run",
+        lambda argv, **_kwargs: calls.append(argv)
+        or SimpleNamespace(returncode=0, stdout="1000000"),
+    )
+    assert services.unit_active_since_epoch("demo.service", 1000) == 1001
+    assert calls == [[
+        "/usr/bin/systemctl",
+        "show",
+        "-p",
+        "ActiveEnterTimestampMonotonic",
+        "--value",
+        "demo.service",
+    ]]
+
+
 def test_install_and_remove_chroot_commands_use_reviewed_absolute_program(tmp_path):
     hook = tmp_path / "var/lib/pkm/hooks/demo/post-install"
     hook.parent.mkdir(parents=True)
