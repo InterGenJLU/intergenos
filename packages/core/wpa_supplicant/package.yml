@@ -25,3 +25,4 @@ dependencies:
 verify_paths:
   - /usr/sbin/wpa_supplicant
   - /usr/sbin/wpa_passphrase
+  - /usr/lib/systemd/system/wpa_supplicant-nl80211@.service.d/10-hardware.conf

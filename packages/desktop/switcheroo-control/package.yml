@@ -38,3 +38,4 @@ verify_paths:
   - /usr/libexec/switcheroo-control
   - /usr/lib/systemd/system/switcheroo-control.service
   - /etc/dbus-1/system.d/net.hadess.SwitcherooControl.conf
+  - /usr/lib/systemd/system/switcheroo-control.service.d/10-hardware.conf
