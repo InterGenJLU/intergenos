@@ -115,6 +115,128 @@ def allows_mok_enrollment(
     return None
 
 
+# ---------------------------------------------------------------------------
+# The firmware's Secure Boot signature database (`db`): which Microsoft
+# certificate authorities this machine trusts (R001.3 row 37 companion,
+# decided 2026-09-05). Read-only, unprivileged (the variable is 0644 under
+# efivars), openssl only for the subject line. The shipped shim carries BOTH
+# Microsoft signatures (UEFI CA 2011 and UEFI CA 2023), so this is an
+# advisory about the machine, never a boot decision.
+# ---------------------------------------------------------------------------
+
+# EFI_IMAGE_SECURITY_DATABASE_GUID (UEFI spec) — the `db` / `dbx` variables.
+_IMAGE_SECURITY_DB_GUID = "d719b2cb-3d3a-4596-a3bc-dad00e67656f"
+# EFI_CERT_X509_GUID — a signature list whose entries are DER certificates.
+_EFI_CERT_X509_GUID = "a5c059a1-94e4-4aa7-87b5-ab155c2bf072"
+_SIGNATURE_LIST_HEADER = 28   # GUID(16) + ListSize(4) + HeaderSize(4) + SignatureSize(4)
+_SIGNATURE_OWNER = 16         # every EFI_SIGNATURE_DATA entry starts with the owner GUID
+
+MICROSOFT_UEFI_CA_2011 = "Microsoft Corporation UEFI CA 2011"
+MICROSOFT_UEFI_CA_2023 = "Microsoft UEFI CA 2023"
+
+
+def iter_signature_list_certificates(raw: bytes) -> list:
+    """The DER certificates inside a chain of EFI_SIGNATURE_LIST structures.
+
+    `raw` is the variable payload (attributes already stripped). Lists of any
+    other signature type (hashes, for instance) are skipped; a malformed
+    list ends the walk rather than guessing at bytes.
+    """
+    import struct
+    import uuid
+    certs = []
+    off = 0
+    while off + _SIGNATURE_LIST_HEADER <= len(raw):
+        sig_type = str(uuid.UUID(bytes_le=raw[off:off + 16]))
+        list_size, header_size, sig_size = struct.unpack(
+            "<III", raw[off + 16:off + _SIGNATURE_LIST_HEADER])
+        if list_size < _SIGNATURE_LIST_HEADER or off + list_size > len(raw):
+            break
+        if sig_type == _EFI_CERT_X509_GUID and sig_size > _SIGNATURE_OWNER:
+            body = raw[off + _SIGNATURE_LIST_HEADER + header_size:off + list_size]
+            for i in range(0, len(body) - sig_size + 1, sig_size):
+                certs.append(bytes(body[i + _SIGNATURE_OWNER:i + sig_size]))
+        off += list_size
+    return certs
+
+
+def read_db_certificates(efivars_dir: Path = _EFIVARS_DIR) -> Optional[list]:
+    """The DER certificates the firmware's `db` holds, or None when the
+    variable is absent or unreadable (non-EFI, or a locked-down efivars)."""
+    path = efivars_dir / f"db-{_IMAGE_SECURITY_DB_GUID}"
+    try:
+        raw = path.read_bytes()
+    except (FileNotFoundError, PermissionError, OSError):
+        return None
+    if len(raw) <= _PAYLOAD_OFFSET:
+        return None
+    return iter_signature_list_certificates(raw[_PAYLOAD_OFFSET:])
+
+
+def certificate_common_name(der: bytes) -> Optional[str]:
+    """The CN of a DER certificate via openssl, or None when it cannot be read."""
+    import subprocess
+    try:
+        proc = subprocess.run(
+            ["openssl", "x509", "-inform", "DER", "-noout", "-subject",
+             "-nameopt", "RFC2253"],
+            input=der, capture_output=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    subject = proc.stdout.decode("utf-8", "replace").strip()
+    if subject.startswith("subject="):
+        subject = subject[len("subject="):].strip()
+    for part in subject.split(","):
+        part = part.strip()
+        if part.startswith("CN="):
+            return part[3:]
+    return None
+
+
+def microsoft_uefi_ca_state(efivars_dir: Path = _EFIVARS_DIR) -> Optional[dict]:
+    """Which Microsoft UEFI certificate authorities this firmware trusts.
+
+    Returns None when the database cannot be read (the advisory is then
+    withheld, never guessed), else a dict:
+        {"2011": bool, "2023": bool, "common_names": [every CN in db]}
+    """
+    certs = read_db_certificates(efivars_dir)
+    if certs is None:
+        return None
+    names = [n for n in (certificate_common_name(c) for c in certs) if n]
+    return {
+        "2011": MICROSOFT_UEFI_CA_2011 in names,
+        "2023": MICROSOFT_UEFI_CA_2023 in names,
+        "common_names": names,
+    }
+
+
+def microsoft_ca_advisory(state: Optional[dict]) -> str:
+    """One plain-language sentence for the person, from microsoft_uefi_ca_state()."""
+    if state is None:
+        return ""
+    both = "Microsoft UEFI CA 2011 and 2023"
+    if state["2011"] and state["2023"]:
+        return (f"This machine's firmware trusts both Microsoft signing "
+                f"authorities ({both}); the InterGenOS boot loader is signed "
+                f"under both, so it starts here either way.")
+    if state["2011"] and not state["2023"]:
+        return ("This machine's firmware trusts the Microsoft UEFI CA 2011 but "
+                "not the 2023 authority. The InterGenOS boot loader is signed "
+                "under both, so it starts here; boot loaders signed only under "
+                "the 2023 authority would not, until a firmware update adds it.")
+    if state["2023"] and not state["2011"]:
+        return ("This machine's firmware trusts the Microsoft UEFI CA 2023 but "
+                "not the 2011 authority. The InterGenOS boot loader is signed "
+                "under both, so it starts here.")
+    return ("This machine's firmware trusts neither Microsoft UEFI signing "
+            "authority (2011 or 2023), so with Secure Boot on it would not "
+            "start the InterGenOS boot loader; keep Secure Boot off, or enroll "
+            "the vendor keys in firmware setup.")
+
+
 def is_efi_firmware(efi_dir: Path = _EFI_SYSFS_DIR) -> bool:
     """True when the host booted via UEFI (the efi sysfs tree exists).
 

@@ -900,6 +900,13 @@ def _install_signed_efi_chain(target, partitions, mok_keypair,
     if rc != 0:
         raise RuntimeError(f"shim staging to ESP failed: {stderr}")
 
+    # The MOK certificate beside shim on the ESP (and a public copy on the
+    # root): if the MokManager window passes unseen at the first Secure-Boot
+    # start, the queued request is dropped and shim's failure menu offers
+    # "Enroll key from disk" — which can only read this FAT volume. Row 37.
+    from . import mok as _mok
+    _mok.stage_mok_certificate(target, mok_keypair["der_path"])
+
     # Fallback auto-discovery path: some older UEFI firmware only looks at
     # /EFI/BOOT/bootx64.efi when no matching UEFI boot variable is registered.
     # Mirror the MS-signed shim, the MOK-signed GRUB, AND MokManager there so

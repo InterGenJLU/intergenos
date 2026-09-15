@@ -566,6 +566,9 @@ def _load_yaml(path):
 # --------------------------------------------------------------------------
 
 
+from installer.backend.mok_guidance import MOK_WINDOW_ADVISORY, firmware_ca_line  # noqa: E402
+
+
 def _mok_prompt_text(sb_state):
     """Build the MOK-password prompt body for an EFI install (pure; unit-tested).
 
@@ -584,8 +587,12 @@ def _mok_prompt_text(sb_state):
         "back, or logged. Leave it blank to skip enrollment.\n"
         "After the install finishes, re-enable Secure Boot in your UEFI "
         "firmware setup: that is what triggers MokManager on the next boot, "
-        "where you type this password to complete enrollment."
+        "where you type this password to complete enrollment.\n"
+        + MOK_WINDOW_ADVISORY
     )
+    ca_line = firmware_ca_line()
+    if ca_line:
+        base += "\n" + ca_line
     if sb_state is True:
         return base + (
             "\n\n*** Secure Boot is ENABLED on this machine. ***\n"
@@ -1145,6 +1152,9 @@ def run_declarative(yaml_path, install_io, archive_dir, packages_dir, dry_run):
             _reporter.detail("in your UEFI firmware setup — that is what triggers")
             _reporter.detail("MokManager, where you enter the MOK enrollment password")
             _reporter.detail("you set to register your machine's signing key.")
+            _reporter.detail("Press a key within 10 seconds when MokManager appears;")
+            _reporter.detail("if you miss it, choose 'Enroll key from disk' and pick")
+            _reporter.detail("EFI > InterGenOS > mok.der on the boot partition.")
             _reporter.detail("See docs/users/secure-boot-and-mok.md.")
         else:
             _reporter.detail(f"Reboot, and {media_txt}.")

@@ -35,7 +35,14 @@ from installer.backend._validators import (
     validate_username,
 )
 
+from installer.backend.mok_guidance import MOK_WINDOW_ADVISORY, firmware_ca_line
 from .. import doc_viewer
+
+
+def _ca_line():
+    """The firmware-database sentence, with a leading break, or nothing."""
+    line = firmware_ca_line()
+    return ("\n\n" + line) if line else ""
 from ._base import _ForgePage, _toast
 
 
@@ -191,7 +198,9 @@ class UserPage(_ForgePage):
             "shown back, or logged. After the install finishes, re-enable "
             "Secure Boot in your UEFI firmware setup: that is what "
             "triggers MokManager at the next boot, where you type this "
-            "password to register your per-machine MOK with the firmware."
+            "password to register your per-machine MOK with the firmware. "
+            + MOK_WINDOW_ADVISORY
+            + _ca_line()
         )
 
         self._mok_pw_row = Adw.PasswordEntryRow()

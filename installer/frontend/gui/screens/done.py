@@ -16,6 +16,7 @@ import subprocess
 from gi.repository import Adw, Gtk
 
 from installer.backend.disks import live_media_kind
+from installer.backend.mok_guidance import MOK_WINDOW_ADVISORY
 from installer.backend.secureboot import allows_mok_enrollment
 
 from ._base import _ForgePage, _toast
@@ -40,8 +41,10 @@ _MEDIA_CLAUSE_DEFAULT = "remove the install media"
 _MOK_REMINDER = (
     " Re-enable Secure Boot in your UEFI firmware setup on this reboot — "
     "that is what triggers MokManager, where you enter the MOK enrollment "
-    "password you set to register your machine's signing key. See "
-    "docs/users/secure-boot-and-mok.md for the full first-boot walkthrough."
+    "password you set to register your machine's signing key. "
+    + MOK_WINDOW_ADVISORY
+    + " See docs/users/secure-boot-and-mok.md for the full first-boot "
+    "walkthrough."
 )
 
 

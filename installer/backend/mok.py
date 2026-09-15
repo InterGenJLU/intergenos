@@ -32,6 +32,7 @@ import re
 import subprocess
 from pathlib import Path
 
+from . import trace
 from ._validators import validate_mok_password
 from .hooks import (
     mount_efivars,
@@ -145,6 +146,50 @@ def generate_mok_keypair(target, common_name="InterGenOS Machine Owner Key"):
         "cert_path": cert_path,
         "der_path": der_path,
     }
+
+
+# Where the DER certificate is staged so the two recovery paths work without
+# another machine (R001.3 row 37 (a), decided 2026-09-05 after the hub's own
+# dropped enrolment): the EFI system partition, because MokManager's
+# "Enroll key from disk" can read only FAT volumes, never the (encrypted)
+# root; and a world-readable copy on the root, because the first-login
+# check (the Welcomer) runs as the person, who cannot read the 0700
+# /var/lib/intergen/mok/ or the 0700 ESP mount. The certificate is public.
+ESP_MOK_CERT_DIR = "/boot/efi/EFI/InterGenOS"
+ESP_MOK_CERT = f"{ESP_MOK_CERT_DIR}/mok.der"
+PUBLIC_MOK_CERT = "/etc/intergenos/mok.der"
+
+
+def stage_mok_certificate(target, der_path):
+    """Copy the DER certificate to the ESP and to the public root path.
+
+    Runs on the live system against the mounted target (plain file copies,
+    no chroot). Both copies are read back and compared byte for byte with
+    the source; a mismatch or a failed copy raises — a staged recovery path
+    that does not match the enrolled key is worse than none. Returns the
+    two in-target paths.
+    """
+    import os
+    import shutil
+    target = Path(target)
+    src = target / der_path.lstrip("/")
+    der = src.read_bytes()
+    staged = []
+    for rel in (ESP_MOK_CERT, PUBLIC_MOK_CERT):
+        dst = target / rel.lstrip("/")
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src, dst)
+        os.chmod(dst, 0o644)
+        if dst.read_bytes() != der:
+            raise RuntimeError(
+                f"MOK certificate staged at {rel} does not match {der_path}")
+        staged.append(rel)
+    trace.trace_event(
+        "mok_certificate_staged", phase="bootloader",
+        source=der_path, staged=staged, size=len(der),
+        intent="stage the MOK certificate for 'Enroll key from disk' and the "
+               "first-login enrolment check")
+    return staged
 
 
 def queue_mok_enrollment(target, der_path, password):
