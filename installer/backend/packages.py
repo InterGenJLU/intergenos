@@ -950,8 +950,13 @@ def install_packages(target, archive_dir, groups, package_dir=None,
 
     Returns:
         (success_count, fail_count, failed_packages, installed_names)
-        installed_names is the resolved install-set name list (so the caller
-        can run post-install hooks ONLY for packages actually installed).
+        installed_names holds ONLY the names whose install() returned ok,
+        in queue order, so the caller runs post-install hooks and the
+        checksum reconcile for packages that are actually on the target. The
+        full queue is still what every install() call receives for the
+        supersede-order check; it is not what is returned (R001.3 row 27
+        item 5: the whole queue was returned, and hooks ran for packages
+        whose install had failed).
     """
     packages = get_group_packages(groups, archive_dir, package_dir)
     total = len(packages)
@@ -967,6 +972,7 @@ def install_packages(target, archive_dir, groups, package_dir=None,
 
     success = 0
     failed = []
+    installed = []
 
     trace.trace_event("packages_install_begin",
                       target=str(target), archive_dir=str(archive_dir),
@@ -1004,11 +1010,13 @@ def install_packages(target, archive_dir, groups, package_dir=None,
             )
             if ok:
                 success += 1
+                installed.append(name)
             else:
                 failed.append((name, msg))
 
     trace.trace_event("packages_install_end",
                       success_count=success, fail_count=len(failed),
-                      failed=[name for name, _ in failed])
+                      failed=[name for name, _ in failed],
+                      installed=list(installed))
 
-    return success, len(failed), failed, queue_names
+    return success, len(failed), failed, installed
