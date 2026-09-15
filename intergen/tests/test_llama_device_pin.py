@@ -372,3 +372,82 @@ def test_start_with_absent_server_path_refuses_loudly(tmp_path):
     assert mgr.last_failure is StartFailure.BINARY_ABSENT
     assert _CmdRecorder.last_cmd is None, "launch must never be attempted"
 
+
+
+# ── virtual connectors are not displays (the two-card box, 2026-09-05) ──────
+#
+# Fixture shape captured read-only from a real two-card machine on 2026-09-15
+# (evidence 20-hub-drm-tree.txt): the display-free card exposes a
+# "Writeback-N" connector whose status reads "connected" although nothing is
+# attached to it — a writeback connector is the kernel's capture SINK for
+# compositors, never a display. Counting it made both cards read as driving a
+# display, so the serving model landed on the card painting the desktop.
+
+_HUB_DISPLAY_FREE_CARD = {"DP-5": "disconnected", "DP-6": "disconnected",
+                          "DP-7": "disconnected", "DP-8": "disconnected",
+                          "Writeback-2": "connected"}
+_HUB_DISPLAY_CARD = {"DP-1": "disconnected", "DP-2": "disconnected",
+                     "DP-3": "connected", "DP-4": "connected",
+                     "Writeback-1": "unknown"}
+
+
+def test_a_connected_writeback_connector_does_not_make_a_display(tmp_path):
+    _mk_sysfs(tmp_path, "0000:07:00.0", "card0", _HUB_DISPLAY_FREE_CARD)
+    assert serving_device._pci_drives_display(
+        "0000:07:00.0", sysfs_root=str(tmp_path)) is False
+
+
+def test_a_physical_connector_still_counts_beside_a_writeback(tmp_path):
+    _mk_sysfs(tmp_path, "0000:03:00.0", "card1", _HUB_DISPLAY_CARD)
+    assert serving_device._pci_drives_display(
+        "0000:03:00.0", sysfs_root=str(tmp_path)) is True
+
+
+def test_twins_with_a_writeback_node_serve_on_the_display_free_card(tmp_path):
+    # The whole selection over the captured two-card shape: without the fix
+    # both cards read as display-driving and the first match (the display
+    # card, 03:00.0) won.
+    _mk_sysfs(tmp_path, "0000:03:00.0", "card1", _HUB_DISPLAY_CARD)
+    _mk_sysfs(tmp_path, "0000:07:00.0", "card0", _HUB_DISPLAY_FREE_CARD)
+    out = (
+        "  ROCm0: AMD Radeon AI PRO R9700 (32624 MiB, 32000 MiB free) [PCI 0000:03:00.0]\n"
+        "  ROCm1: AMD Radeon AI PRO R9700 (32624 MiB, 32000 MiB free) [PCI 0000:07:00.0]\n"
+    )
+    assert serving_device.select_serving_device_and_pci(
+        out, discrete_vram_mb=32624, sysfs_root=str(tmp_path)
+    ) == ("ROCm1", "0000:07:00.0")
+
+
+def test_an_unreadable_physical_connector_is_still_unknown(tmp_path):
+    # Excluding writeback nodes must not weaken the fail-safe: a physical
+    # connector whose status cannot be read leaves the card "unknown".
+    _mk_sysfs(tmp_path, "0000:07:00.0", "card0",
+              {"DP-5": "disconnected", "Writeback-2": "connected"})
+    (tmp_path / "class" / "drm" / "card0-DP-5" / "status").chmod(0)
+    try:
+        assert serving_device._pci_drives_display(
+            "0000:07:00.0", sysfs_root=str(tmp_path)) is None
+    finally:
+        (tmp_path / "class" / "drm" / "card0-DP-5" / "status").chmod(0o644)
+
+
+def test_the_excluded_connector_types_are_named():
+    # The exclusion is enumerated, not a name pattern: exactly the kernel's
+    # writeback connector type. A "Virtual" connector IS a display (a virtual
+    # machine's guest screen) and stays counted.
+    assert serving_device.NON_DISPLAY_CONNECTOR_TYPES == frozenset({"Writeback"})
+    assert serving_device._connector_type("card0-Writeback-2") == "Writeback"
+    assert serving_device._connector_type("card2-HDMI-A-1") == "HDMI-A"
+    assert serving_device._connector_type("card1-eDP-1") == "eDP"
+    assert serving_device._connector_type("card0-Virtual-1") == "Virtual"
+
+
+def test_display_state_words_for_the_launch_log(tmp_path):
+    _mk_sysfs(tmp_path, "0000:03:00.0", "card1", _HUB_DISPLAY_CARD)
+    _mk_sysfs(tmp_path, "0000:07:00.0", "card0", _HUB_DISPLAY_FREE_CARD)
+    assert serving_device.display_state_words(
+        "0000:03:00.0", sysfs_root=str(tmp_path)) == "driving a display"
+    assert serving_device.display_state_words(
+        "0000:07:00.0", sysfs_root=str(tmp_path)) == "display-free"
+    assert serving_device.display_state_words(
+        "0000:ff:00.0", sysfs_root=str(tmp_path)) == "display state unknown"

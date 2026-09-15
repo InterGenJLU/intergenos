@@ -307,16 +307,43 @@ def next_engine_after(failed_engine: str | None,
     return ladder[0]
 
 
+# DRM connector types that are NOT a display sink. The kernel's connector
+# type list (drm_connector_enum_list) names these types: Unknown, VGA, DVI-I,
+# DVI-D, DVI-A, Composite, SVIDEO, LVDS, Component, DIN, DP, HDMI-A, HDMI-B,
+# TV, eDP, Virtual, DSI, DPI, Writeback, SPI, USB. Every one of them is a
+# physical or guest-visible display sink except WRITEBACK: a writeback
+# connector is the capture sink a compositor renders INTO (the kernel reports
+# its status as "connected" whenever the driver exposes it — measured on a
+# two-card machine 2026-09-15, "Writeback-2" connected on the card with every
+# DP disconnected). Counting it made a display-free card read as driving a
+# display, so the serving model landed on the card painting the desktop. A
+# "Virtual" connector IS a display (a virtual machine's guest screen) and is
+# counted; "Unknown" is counted too, because failing toward "driving a
+# display" keeps serving OFF a card whose state is unclear.
+NON_DISPLAY_CONNECTOR_TYPES: frozenset[str] = frozenset({"Writeback"})
+
+
+def _connector_type(connector_dir_name: str) -> str:
+    """The connector TYPE encoded in a ``<sysfs>/class/drm/<card>-<TYPE>-<n>``
+    directory name — ``card0-HDMI-A-1`` is ``HDMI-A``, ``card0-Writeback-2``
+    is ``Writeback``. The type is the name between the card and the trailing
+    index; the kernel writes no separate type attribute for a connector."""
+    rest = connector_dir_name.split("-", 1)[1] if "-" in connector_dir_name else ""
+    return rest.rsplit("-", 1)[0] if "-" in rest else rest
+
+
 def _pci_drives_display(pci_id: str, sysfs_root: str = "/sys") -> bool | None:
     """Whether the GPU at ``pci_id`` is driving a connected display.
 
     Resolution is through the kernel's own records, no tools:
     ``<sysfs>/bus/pci/devices/<id>/drm/`` names the card's DRM node(s), and
     each connector's ``<sysfs>/class/drm/<card>-*/status`` says whether a
-    display is attached. Returns ``True`` when any connector on the card
-    reports "connected", ``False`` when the card exists and none do, and
+    display is attached. Returns ``True`` when any DISPLAY connector on the
+    card reports "connected", ``False`` when the card exists and none do, and
     ``None`` when the mapping cannot be read (no DRM node, no such PCI
     device) — the caller treats ``None`` as "unknown", never as an answer.
+    Connectors whose type is in :data:`NON_DISPLAY_CONNECTOR_TYPES` (the
+    kernel's writeback capture sinks) are not displays and are skipped.
     """
     drm_dir = os.path.join(sysfs_root, "bus", "pci", "devices", pci_id, "drm")
     try:
@@ -329,6 +356,9 @@ def _pci_drives_display(pci_id: str, sysfs_root: str = "/sys") -> bool | None:
     for card in cards:
         for status_path in glob.glob(
                 os.path.join(sysfs_root, "class", "drm", f"{card}-*", "status")):
+            if (_connector_type(os.path.basename(os.path.dirname(status_path)))
+                    in NON_DISPLAY_CONNECTOR_TYPES):
+                continue
             try:
                 with open(status_path, encoding="utf-8") as fh:
                     if fh.read().strip() == "connected":
@@ -342,6 +372,19 @@ def _pci_drives_display(pci_id: str, sysfs_root: str = "/sys") -> bool | None:
     if any_unreadable:
         return None
     return False
+
+
+def display_state_words(pci_id: str, sysfs_root: str = "/sys") -> str:
+    """The display state of the card at ``pci_id`` in the words the launch log
+    prints beside the chosen device: "driving a display", "display-free", or
+    "display state unknown" — the three answers of :func:`_pci_drives_display`,
+    so the log names the chosen card AND what the choice rested on."""
+    state = _pci_drives_display(pci_id, sysfs_root)
+    if state is True:
+        return "driving a display"
+    if state is False:
+        return "display-free"
+    return "display state unknown"
 
 
 def _select_serving_candidate(list_output: str | None = None,

@@ -1514,7 +1514,8 @@ class InterGenDaemon(InterGenDBusInterface):
                 # it no longer decides whether the card is used to serve it.
                 # There is no audition, no probe and no speed threshold.
                 from intergen.llama_manager import resolve_gpu_layers
-                from intergen.serving_device import (pci_for_device_name,
+                from intergen.serving_device import (display_state_words,
+                                                     pci_for_device_name,
                                                      select_serving_device_and_pci,
                                                      select_serving_engine)
                 _hw = self._hardware_tier or {}
@@ -1574,13 +1575,18 @@ class InterGenDaemon(InterGenDBusInterface):
                 _eff_gpu_layers = resolve_gpu_layers(_cfg_gpu_layers,
                                                      tier_level=_tier_level,
                                                      plan=_plan)
+                # The chosen card's display state is what the selection rested
+                # on (the serving model stays off the card painting the
+                # desktop), so the log names it beside the device.
+                _device_display = (display_state_words(_device_pci)
+                                   if _device_pci else None)
                 log.info("offload: llama_server.gpu_layers=%r (tier %s, card %s "
                          "MiB) -> %d layers, engine %s (%s)%s; %s",
                          _cfg_gpu_layers, _tier_level,
                          _vram_mb if _vram_mb is not None else "unreadable",
                          _eff_gpu_layers, _engine, _server_path,
                          (f", device pin {_device}"
-                          f"{f' at PCI {_device_pci}' if _device_pci else ''}")
+                          f"{f' at PCI {_device_pci} ({_device_display})' if _device_pci else ''}")
                          if _device else "",
                          _plan.reason)
                 glass.emit("warmup", "offload_plan", turn_id=self._boot_turn,
@@ -1588,6 +1594,9 @@ class InterGenDaemon(InterGenDBusInterface):
                                "configured": _cfg_gpu_layers,
                                "tier_level": _tier_level,
                                "vram_mb": _vram_mb,
+                               "device": _device,
+                               "device_pci": _device_pci,
+                               "device_display": _device_display,
                                "required_mb": _plan.required_mb,
                                "total_layers": _plan.total_layers,
                                "fits": _plan.fits,
