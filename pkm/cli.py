@@ -2416,6 +2416,83 @@ def cmd_update(db, args):
         )
 
 
+# The environment variable that carries "pkm replaced itself in the previous
+# process; this one continues the same `pkm upgrade --all`" across the
+# re-execution (R001.3 walk row S1-5). Its value names the release move.
+_SELF_UPGRADE_CONTINUATION_ENV = "PKM_CONTINUED_AFTER_SELF_UPGRADE"
+
+
+def _upgrade_all_reexec_argv(args, python=None):
+    """The argument vector that continues a `pkm upgrade --all` under the
+    NEW package manager: the interpreter with -P (the current directory is
+    never on the module path — the launcher class of R001.3 row 30), the
+    package by module name, the subcommand, --all, --yes (the confirmation
+    was given to the previous process), and every option of the original
+    invocation that shapes the queue. --dry-run cannot reach here (nothing
+    installs under it). Kept as a pure function so a test can read it."""
+    argv = [python or sys.executable, "-P", "-m", "pkm"]
+    if getattr(args, "verbose", False):
+        argv.append("-v")
+    if getattr(args, "quiet", False):
+        argv.append("-q")
+    argv += ["upgrade", "--all", "--yes"]
+    if getattr(args, "upgrade_allow_kernel_replace", False):
+        argv.append("--allow-kernel-replace")
+    if getattr(args, "upgrade_security_only", False):
+        argv.append("--security-only")
+    if getattr(args, "ignore_holds", False):
+        argv.append("--ignore-holds")
+    if getattr(args, "allow_downgrade", False):
+        argv.append("--allow-downgrade")
+    return argv
+
+
+def _reexec_upgrade_all_under_new_pkm(args, installed_pkg, remote_pkg, db,
+                                      remaining):
+    """pkm has just replaced itself inside a `pkm upgrade --all`; hand the
+    rest of the queue to the NEW release by replacing this process.
+
+    Everything this process still owed for pkm is done before the exec: the
+    history row was written by the installer, the database is committed
+    (the connection is closed here so the new process opens it clean), and
+    the person is told what happens next. What the new process does: it
+    re-derives the queue from the signed index (pkm is current now, so it
+    is absent), takes its own restore point for the remaining packages,
+    and prints one consolidated next-steps block for them. What is NOT
+    carried: pkm's own next-steps classification (pkm ships no service
+    unit, so there is nothing to restart) and the advisory refresh, which
+    the new process performs at its end. An exec that fails is a loud
+    error, not a silent continuation on the old code.
+    """
+    move = f"{txn.format_vr(installed_pkg)} -> {txn.format_vr(remote_pkg)}"
+    argv = _upgrade_all_reexec_argv(args)
+    emit_info(
+        f"pkm {move} is installed. Re-executing `{' '.join(argv[1:])}` "
+        f"under the new release for the remaining {remaining} package(s)."
+    )
+    env = dict(os.environ)
+    env[_SELF_UPGRADE_CONTINUATION_ENV] = move
+    try:
+        sys.stdout.flush()
+        sys.stderr.flush()
+    except (OSError, ValueError):
+        pass
+    try:
+        db.close()
+    except Exception:  # noqa: BLE001 — the exec must not be blocked by a close
+        pass
+    try:
+        os.execve(argv[0], argv, env)
+    except OSError as e:
+        emit_error(
+            f"could not re-execute the package manager under its new "
+            f"release ({e}). pkm itself IS upgraded; the remaining "
+            f"{remaining} package(s) were NOT touched. Run "
+            f"`pkm upgrade --all` again to upgrade them under the new release."
+        )
+        sys.exit(1)
+
+
 def cmd_upgrade(db, args):
     # Q3 (O-027): refuse bare `pkm upgrade` invocations. Bare = no
     # positional packages AND no --all. Default-deny on destructive
@@ -2430,6 +2507,18 @@ def cmd_upgrade(db, args):
             "upgrade. Add --dry-run to preview without modifying anything."
         )
         sys.exit(1)
+
+    # A queue that contained pkm itself was split: pkm upgraded first in the
+    # previous process, which then re-executed this command under the new
+    # release for the rest (R001.3 walk row S1-5). Say so once; the queue
+    # below is re-derived from the signed index, so pkm is no longer in it.
+    _continued = os.environ.get(_SELF_UPGRADE_CONTINUATION_ENV)
+    if _continued:
+        emit_info(
+            f"Continuing the upgrade under the new package manager "
+            f"({_continued}): pkm replaced itself first; the remaining "
+            f"packages are upgraded by the new release."
+        )
 
     repo = repo_manager()
     installer = package_installer(db)
@@ -2513,6 +2602,36 @@ def cmd_upgrade(db, args):
             f"dependency cycle among {', '.join(group)} — the repo index "
             f"declares a circular runtime dependency; upgrading them in "
             f"alphabetical order within the cycle (a correct index has none)."
+        )
+
+    # S1-5 (R001.3 walk): when `--all` carries pkm AND other packages, pkm
+    # goes FIRST and, once it has landed, this process re-executes `pkm
+    # upgrade --all` under the NEW release for the rest. Before this, the
+    # queue's alphabetical tiebreak put cuda-toolkit ahead of pkm on
+    # 2026-09-03 and the OLD code ran the download helper's destructive
+    # step. The topological order is respected for everything else: pkm
+    # declares no in-queue runtime dependency it could jump.
+    self_first = bool(
+        upgrade_all and not local_archive and len(upgradable) > 1
+        and any(p["name"] == "pkm" for p, _ in upgradable)
+    )
+    if self_first:
+        if _continued:
+            emit_error(
+                "pkm is still upgradable after replacing itself "
+                f"({_continued}); refusing to loop. Run `pkm upgrade pkm` "
+                "alone and read its output."
+            )
+            sys.exit(1)
+        upgradable = (
+            [pr for pr in upgradable if pr[0]["name"] == "pkm"]
+            + [pr for pr in upgradable if pr[0]["name"] != "pkm"]
+        )
+        emit_info(
+            f"pkm is in this queue: it upgrades FIRST, then this command "
+            f"re-runs itself under the new release for the remaining "
+            f"{len(upgradable) - 1} package(s) (a second restore point is "
+            f"taken for them; the confirmation you give now covers both)."
         )
 
     # Q6 (O-025): free-disk preflight. Sum repo-declared compressed
@@ -2838,6 +2957,11 @@ def cmd_upgrade(db, args):
             )
             emit_info(f"Upgraded {remote_pkg['name']} to {remote_pkg['version']}")
             upgraded_this_txn.append(remote_pkg["name"])
+            if self_first and remote_pkg["name"] == "pkm":
+                _reexec_upgrade_all_under_new_pkm(
+                    args, installed_pkg, remote_pkg, db,
+                    remaining=len(upgradable) - 1,
+                )
         else:
             emit_error(f"upgrading {remote_pkg['name']}: {msg}")
             failed_this_txn.append((remote_pkg["name"], msg))
