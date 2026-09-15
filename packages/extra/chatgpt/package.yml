@@ -1,7 +1,7 @@
 name: chatgpt
 version: "1.0"
-release: 1
-content_hash: 2fe9995e0dbab9eb
+release: 2  # r2: The helper acceptance record names SUDO_USER when supplied, otherwise the effective account with an explicit indication that no consenting user was named. Identity is JSON-encoded before opening the record; this writer works with the existing helper library.
+content_hash: 6eb6035da85c3b4f
 description: Helper to download and install the ChatGPT desktop app with Codex
 license: GPL-3.0-or-later
 payload_license: LicenseRef-OpenAI-Terms-of-Use

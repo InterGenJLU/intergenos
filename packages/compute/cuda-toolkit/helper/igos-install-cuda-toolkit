@@ -42,7 +42,7 @@ CUDA_VERSION="13.3.1"
 # after the files are recorded (see stamp_release_into_manifest below), so
 # the package manager records the toolkit at the release it actually
 # installed. It must equal `release:` in package.yml; the build checks that.
-HELPER_RELEASE="6"
+HELPER_RELEASE="7"
 CUDA_RUN="cuda_13.3.1_610.43.02_linux.run"
 CUDA_URL="https://developer.download.nvidia.com/compute/cuda/13.3.1/local_installers/cuda_13.3.1_610.43.02_linux.run"
 CUDA_RUN_SHA256="9f98ec1f6c950401041d3f1308e221f0d5db8771a8e10569001b64caaee31a92"
