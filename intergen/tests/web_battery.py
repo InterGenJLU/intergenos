@@ -388,7 +388,14 @@ async def _drive(tree_root: Path, local_port: int, token: str,
                                      "frame": m}) + "\n")
             for q in QUESTIONS:
                 sent_at = time.time()
-                r = await conv.turn(q.text, deadline_s=deadline_s)
+                # A fresh user asked for consent says no. Answering the prompt
+                # (rather than leaving it hanging) lets the server END that
+                # turn, so the questions after it are graded on their own; the
+                # prompt itself is still recorded and, on a no-action question,
+                # still a FAIL. Measured at the base: an unanswered prompt held
+                # the turn open and every later question was refused "busy".
+                r = await conv.turn(q.text, gate_decision="deny",
+                                    deadline_s=deadline_s)
                 for m in r.messages:
                     fh.write(json.dumps({"wall": time.time(),
                                          "question": q.key,
