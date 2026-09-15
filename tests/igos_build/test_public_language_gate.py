@@ -706,6 +706,26 @@ class PathScopedExemptionShapeTests(unittest.TestCase):
             "these path-scoped exemptions are matched with an unanchored "
             f"search and would exempt any path CONTAINING them: {unanchored}")
 
+    def test_upstream_cli_inventory_identifiers_are_narrowly_exempt(self):
+        token = "co" + "dex"
+        compiled = _compiled(token)
+        path = "config/pkm-execution-inventory.tsv"
+        identifiers = (
+            f"download-helper:{token}:igos-install-{token}\t{token}\t"
+            f"packages/extra/{token}/build.sh\t/usr/bin/igos-install-{token}\t"
+            f"@openai/{token}\t/helpers/{token}.manifest\t{token}-helper"
+        )
+        self.assertEqual(clg.scan_line(identifiers, compiled, path), [])
+        self.assertEqual(
+            clg.scan_line(f"reviewed by {token}", compiled, path),
+            [token],
+            "ordinary prose in the same TSV must remain blocked",
+        )
+        self.assertTrue(
+            clg.scan_line(identifiers, compiled, "docs/example.md"),
+            "the identifier carve must not apply outside the one contract file",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

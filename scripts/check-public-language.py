@@ -325,6 +325,23 @@ _EXEMPT_SPAN_PATTERNS_BY_PATH = [
     ("private-repo-dirname-in-shell-string",
      re.compile(r"^scripts/[^/]+\.sh$"),
      re.compile('"' + "intergen" "os-" "private" + '"')),
+    # The machine-readable execution inventory must name the upstream OpenAI
+    # CLI package, its helper executable, package path, module path, manifest
+    # and shape.  Those exact lowercase identifier forms are product/package
+    # data, not an internal attribution.  The carve applies only to this TSV
+    # and only to the complete identifier forms; ordinary prose in the same
+    # file remains visible to the private term list.
+    ("upstream-openai-cli-inventory-identifiers",
+     re.compile(r"^config/pkm-execution-inventory[.]tsv$"),
+     re.compile(
+         r"(?:download-helper:" + "co" "dex" + r":igos-install-" + "co" "dex"
+         + r"|(?<=\t)" + "co" "dex" + r"(?=\t)"
+         + r"|packages/extra/" + "co" "dex" + r"/build[.]sh"
+         + r"|/usr/bin/igos-install-" + "co" "dex"
+         + r"|@openai/" + "co" "dex"
+         + r"|/helpers/" + "co" "dex" + r"[.]manifest"
+         + r"|" + "co" "dex" + r"-helper)"
+     )),
 ]
 
 
