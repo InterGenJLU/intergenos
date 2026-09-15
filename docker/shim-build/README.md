@@ -93,9 +93,10 @@ sha256sum build-output/intergenos-shim-16.1.tar
 
 ## What this build does NOT produce
 
-- A Microsoft-signed shim. That comes from the shim-review PR-merge process.
-  Submit the unsigned binary + this Dockerfile + the vendor cert + the
-  39-question README to `rhboot/shim-review`; MS signs after review acceptance.
+- A Microsoft-signed shim. That comes after shim-review acceptance and a
+  separate signing submission through Microsoft's hardware program. Commit the
+  unsigned binary + this Dockerfile + the vendor cert + the 39-question README
+  under the required dated tag, then link that tag from the review issue.
 - A self-signed shim. Run `scripts/sign-shim.sh` for that, separately.
 
 ## Known limitations (current phase)

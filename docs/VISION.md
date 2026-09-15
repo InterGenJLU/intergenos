@@ -318,12 +318,13 @@ Full research archives in [docs/research/](research/INDEX.md) (180+ documents ac
 20. ☑ EFI vendor cert (Nitrokey #1 PIV slot 9c; 2-year cert; rotated AES-256 management key)
 21. ☑ Master pubkey published (`keys.openpgp.org` email-verified + `keyserver.ubuntu.com` SKS index; `docs/signing-key.asc` committed)
 22. ☑ Forge Secure Boot toolchain (gnu-efi + rpm + shim-signed + efitools + mokutil + sbsigntool all built from source)
-23. ☐ Shim-review submission (rhboot/shim-review PR via the sponsor track; replaces the piggyback path)
-24. ☐ Microsoft 2011 CA migration — obtaining an InterGenOS-owned MS-signed shim
+23. ☐ Shim-review submission (complete artifact set under the required dated tag, linked from an upstream review issue; replaces the piggyback path)
+24. ☐ Microsoft UEFI CA 2023 migration — obtaining an InterGenOS-owned MS-signed shim
     While InterGenOS is still in development we use Fedora's signed shim, which lets
     users enroll a MOK and enable Secure Boot today. Once we're satisfied with the
     build and have shipped a development ISO, we'll actively pursue our own MS-signed
-    shim through the normal shim-review process (#23).
+    shim through the normal shim-review process (#23). Preparation exists, but
+    no dated submission tag or upstream review issue has been filed yet.
 
 ### v1.0 application + experience layer
 

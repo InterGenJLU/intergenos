@@ -7,9 +7,12 @@
 > the live submission document corrects that a separate EV code-signing
 > certificate **is** required for the Microsoft Hardware Dev Center `.cab`
 > upload. Kept here as historical record of the pre-graduation drafting
-> process; do not cite this file's Q27 or PR-open date as current.
+> process; do not cite this file's Q27, CA-transition prediction, source-input
+> answer, artifact hash, fork state, or PR-open date as current.
 
-**Status:** DRAFT skeleton populating in pre-PR work for the rhboot/shim-review queue. Target PR-open: 2026-05-15. Hard external deadline: 2026-06-27 (Microsoft 2011 UEFI CA expiration → 2023-CA only after that date).
+**Status:** SUPERSEDED draft skeleton from the pre-review preparation. The live
+submission document records that no dated tag or review issue exists yet and
+that newly approved submissions now return only 2023-signed binaries.
 
 **Conventions used in this draft:**
 
@@ -59,7 +62,8 @@ References:
 
 **InterGenOS** is an end-user-facing Linux distribution built from source via the InterGenOS Forge build system. It is intended for general-purpose desktop and server use with a strong emphasis on Secure Boot + signed-only module loading + hardened-by-default posture, encoded across the kernel-config baseline and the Forge build pipeline.
 
-- License: GPL-3.0 end-to-end across the boot chain
+- Licenses across the boot chain: shim BSD-2-Clause, GRUB2 GPL-3.0-or-later,
+  Linux kernel GPL-2.0-only
 - Distribution model: ISO + live-installer ("Forge SB" installer, packaged via `pkm` package manager)
 - Boot chain: shim → GRUB2 → signed Linux kernel → signed kernel modules
 - Architecture: x86_64 (this submission); arm64 / riscv not in scope for this submission
@@ -92,7 +96,10 @@ Additionally, InterGenOS's kernel-module-signing posture (ephemeral per-build mo
 
 Therefore InterGenOS requires its own shim binary signed by Microsoft with the InterGenOS vendor cert embedded.
 
-**Empirical note (2026-04-18):** the Fedora shim-x64-16.1-2 binary InterGenOS currently piggybacks on for the Monday 2026-04-20 release ships with MS 2011 CA signature only (verified `sbverify --list shimx64.efi`). That was acceptable for the piggyback bootstrap. Our own shim-review submission, opened before the 2026-06-27 cert-transition deadline, will receive dual-signed (2011 + 2023 CA) binaries from Microsoft for maximum hardware compatibility — a strict improvement over the Fedora-piggyback posture.
+**Superseding transition note:** InterGenOS now ships Fedora's dual-signed
+shim-x64-16.1-8 binary. Microsoft's 2026-06-26 update states that newly
+approved submissions return only 2023-signed binaries, so an eventual
+InterGenOS shim requires firmware that trusts the 2023 CA.
 
 ---
 
@@ -126,7 +133,12 @@ Therefore InterGenOS requires its own shim binary signed by Microsoft with the I
 
 __FILLED__:
 
-**Yes.** Build is rooted at `rhboot/shim` git tag `16.1` (commit `afc49558b34548644c1cd0ad1b6526a9470182ed`), per the InterGenOS shim-build Dockerfile committed at `docker/shim-build/Dockerfile` on master. The Dockerfile uses `FROM debian:bookworm-slim@sha256:5a2a80d11944804c01b8619bc967e31801ec39bf3257ab80b91070eb23625644` for reproducibility and pulls the shim source tarball directly from the upstream tag. Reviewer can verify by running `docker build .` against this Dockerfile and comparing the produced `shimx64.efi` SHA-256 against the canonical value in Q25 (`b6c0c2c59cd2c6cc8306138ffd58a70210926defab4147b332663c91097ccf75`).
+**No.** The Dockerfile clones the `16.1` Git tag and asserts commit
+`afc49558b34548644c1cd0ad1b6526a9470182ed`; it does not consume or checksum
+the required `shim-16.1.tar.bz2` release archive. The `b6c0c2c5...` value in
+this historical draft belongs to the stale RSA-2048 fork artifact. The live
+submission document records the RSA-4096 candidate as `441f9bd1...` and keeps
+the release-tar input as an unresolved preparation gap.
 
 The `SHIM_COMMIT_SHA` artifact emitted by the build records the upstream commit hash and is part of the 9-check `verify-b2-reproducibility.sh` harness output.
 
@@ -134,9 +146,14 @@ The `SHIM_COMMIT_SHA` artifact emitted by the build records the upstream commit 
 
 ## 9. URL for a repo that contains the exact code which was built to result in your binary?
 
-__FILLED__: `https://github.com/InterGenJLU/shim-review/tree/intergenos-shim-x64-20260515`
+__NOT SUBMITTED__: the public fork has a historical preparation branch, not
+the dated tag linked from a review issue that upstream requires.
 
-The submission branch is created in the `InterGenJLU/shim-review` fork of `rhboot/shim-review`. The build inputs (Dockerfile, vendor cert, SBAT entries, signing script) live in the InterGenOS main repo and are referenced from the submission branch:
+The current artifact set must be synchronized into the
+`InterGenJLU/shim-review` fork, committed, tagged, and linked from an upstream
+review issue before this answer has a submission URL. The build inputs
+(Dockerfile, vendor cert, SBAT entries, signing script) live in the InterGenOS
+main repository:
 
 - `docker/shim-build/Dockerfile` — reproducible container build (produces unsigned `shimx64.efi`)
 - `docker/shim-build/vendor-cert/intergenos-secure-boot-ca.{pem,der}` — public vendor cert (private half on NK#1 PIV slot 9c)
@@ -364,7 +381,9 @@ __FILLED__:
 
 **Yes — verified reproducible across two independent native-Linux Docker hosts.**
 
-The Dockerfile (`docker/shim-build/Dockerfile` on master, mirrored in the InterGenJLU/shim-review fork per Q9) reproduces the shim binary byte-for-byte from upstream `rhboot/shim` 16.1 (commit `afc49558b34548644c1cd0ad1b6526a9470182ed`) + the embedded InterGenOS vendor cert.
+The historical figures below describe the stale RSA-2048 preparation branch.
+The live submission document records the later RSA-4096 candidate and the
+absence of a current tagged fork state.
 
 **Cross-host reproducibility evidence (native-Linux Docker):**
 
@@ -400,7 +419,9 @@ Plus `scripts/verify-b2-reproducibility.sh` graduates this into a 9-check harnes
 
 __FILLED__:
 
-Build logs are committed in the `InterGenJLU/shim-review/intergenos-shim-x64-20260515` fork branch under `logs/`:
+The logs below belong to the historical RSA-2048 preparation branch. A current
+tagged submission must carry fresh logs for the RSA-4096 artifact under
+`logs/`:
 
 | File | Content |
 |---|---|
@@ -423,13 +444,16 @@ The Dockerfile + harness script + log files together let any reviewer with a nat
 
 __FILLED__:
 
-**Pre-MS-signing SHA-256 of the shim binary submitted for Microsoft signing:**
+**Historical pre-signing candidate SHA-256 (not submitted):**
 
 ```
 b6c0c2c59cd2c6cc8306138ffd58a70210926defab4147b332663c91097ccf75  shimx64.efi
 ```
 
-This is the canonical attestation for the unsigned shim binary that Microsoft will sign. The post-MS-signing SHA will differ (the embedded MS signature changes the binary content); the post-signing SHA is what end-users verify against the signed binary they install. Both pre-signing and post-signing SHAs will be pinned in the InterGenJLU/shim-review fork branch — the pre-signing SHA in this README (the canonical build attestation), the post-signing SHA in a follow-up commit once Microsoft returns the signed binary (~6-8 weeks post-PR-merge per the standard rhboot/shim-review cadence).
+This hash identifies the stale RSA-2048 preparation artifact preserved by this
+historical draft. It is not the current RSA-4096 candidate and was not offered
+for review or Microsoft signing. The live submission document carries the
+current identity and the required tag state.
 
 **Reproducibility:** the pre-signing SHA above is reproducible byte-for-byte on any native-Linux Docker host running the Dockerfile in Q22. Cross-host evidence in Q22's table.
 
@@ -658,7 +682,8 @@ The kernel-lockdown auto-trigger gap (Q17) was surfaced during this draft's popu
 - [x] Ethan email format decision in Q7 — resolved: shared role address (PGP-signed mail to secondary maintainer's key) per Q7 body
 - [x] Kernel-lockdown auto-trigger gap (Q17) RESOLVED at master commit `baf84d8` — `CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT=y` added to `99-intergenos-overrides.config:130` per Path 1 (maintainer ruling 2026-04-29T18:05:38Z, integrated 18:18Z)
 - [ ] B2 Dockerfile build artifact + SHA256 + Q22-Q25 + Q14 + Q29 + Q30 (B2 reproducibility lane)
-- [x] Q9 InterGenJLU/shim-review fork created + submission branch pushed (2026-05-05)
+- [x] InterGenJLU/shim-review preparation branch created (2026-05-05; stale artifact, not submission state)
+- [ ] Current artifact set synchronized, committed, tagged, and linked from a review issue
 - [x] Q10, Q12, Q18, Q20, Q32, Q37 specific version pins confirmed against package definitions (completed 2026-04-29)
 - [ ] Q38 ≥2 peer-review contributions completed and linked
 - [ ] Pre-PR-open final pass: SBAT entry + signed binary hashes + all gated items resolved

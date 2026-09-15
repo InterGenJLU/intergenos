@@ -31,7 +31,7 @@ If you're new to the project, start here. Otherwise, jump to the section relevan
 
 ## For reviewers + auditors
 
-- [shim-review-submission.md](shim-review-submission.md) — Submission to the rhboot/shim-review process.
+- [shim-review-submission.md](shim-review-submission.md) — Preparation for the rhboot/shim-review submission process.
 - [grub2-cve-audit.md](grub2-cve-audit.md) — CVE audit against the GRUB2 fork.
 - [signing-key.md](signing-key.md) — Canonical signing-key fingerprints.
 - [signing-procedure.md](signing-procedure.md) — Operational runbook for release signing.

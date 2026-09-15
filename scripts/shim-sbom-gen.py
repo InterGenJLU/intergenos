@@ -485,7 +485,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--submission-tag",
         default="intergenos-shim-x64-20260515",
-        help="Submission branch tag in InterGenJLU/shim-review fork",
+        help="Dated submission tag in the InterGenJLU/shim-review fork",
     )
     p.add_argument(
         "--created",

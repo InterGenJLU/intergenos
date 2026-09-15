@@ -119,13 +119,18 @@ __FILLED__: Yes. Built from rhboot/shim release tarball shim-16.1.tar.bz2 (upstr
 
 **Action for Q9 fork:** Q16 fork answer cites the now-explicit confirmation. No additional fork-side action needed beyond the G2 README_draft_skeleton.md edit.
 
-### §4.4 — 2011 + 2023 key dual-signing (October 2025 update)
+### §4.4 — 2011 to 2023 signing transition
 
-**Canonical requirement (per rhboot README, dated 2025-10-20):** Shims submitted to Microsoft will receive signatures using BOTH 2011 and 2023 keys. Applicants should reference Microsoft's [2023 signing guidance](https://techcommunity.microsoft.com/blog/hardware-dev-center/signing-with-the-new-2023-microsoft-uefi-certificates-what-submitters-need-to-kn/4455787) and updated requirements.
+**Current requirement:** Microsoft's 2026-06-26 update says approved
+submissions now return only binaries signed by the Microsoft UEFI CA 2023;
+signing with the 2011 CA has ceased.
 
-**Our state (Q5 empirical note):** *"Our own shim-review submission, opened before the 2026-06-27 cert-transition deadline, will receive dual-signed (2011 + 2023 CA) binaries from Microsoft for maximum hardware compatibility — a strict improvement over the Fedora-piggyback posture."*
+**Prior state:** the earlier Q5 prediction expected both signatures. That
+prediction expired with the 2011 signing service and is superseded by the live
+submission document.
 
-**Status:** ALREADY ALIGNED. Our Q5 anticipates the dual-signing. No gap.
+**Status:** the current document is aligned to 2023-only returns. Firmware
+without the 2023 CA remains a compatibility gate for an eventual own shim.
 
 ### §4.5 — Contact verification via PGP-encrypted email
 
