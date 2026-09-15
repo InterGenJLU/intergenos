@@ -51,7 +51,7 @@ def _inventory_row(key="canonical:demo"):
         "source": "pkm/hooks.py",
         "selector": "demo",
         "target": "/usr/bin/demo",
-        "fingerprint": "a" * 64,
+        "fingerprint": "sha256:" + "a" * 64,
         "shape": "demo",
     })
     return row

@@ -1,6 +1,6 @@
 key	owner	target	source	form	expected_prefix	fingerprint
-safe-launch:forge:package	forge	/usr/bin/forge	packages/desktop/forge/build.sh	heredoc:FORGE	"exec /usr/bin/python3 -P -m installer ""$@"""	21fc3edfad5f5213ce1cd2b00683c7f148c86bd98786c9eb91f599173fe881a9
-safe-launch:intergenos-backup:chronicle-pretxn	intergenos-backup	/usr/lib/pkm/pre-transaction.d/chronicle-restore-point;/usr/libexec/chronicle/chronicle-pretxn-handler	assets/intergenos-backup/chronicle-pretxn-handler	shebang	#!/usr/bin/python3 -P	f016b088405cf826777fe59cb738140d6b2d6c9979324c31252d45577f789cee
-safe-launch:nvidia:eula	nvidia	/usr/lib/intergen/eula-helpers/nvidia-eula	packages/extra/nvidia/eula-helper/nvidia-eula.py	shebang	#!/usr/bin/python3 -P	a57e3d827e7677ac16c77aa475d88c8393c4b15f08f49984afccfc3142141bd1
-safe-launch:pkm:development-image	pkm	/usr/bin/pkm	scripts/create-image.sh	heredoc:PKMEOF	"exec /usr/bin/python3 -P -m pkm ""$@"""	57dd97a0434ae654af90e32d9b92e21f156ee62896db228bf5e7ba820388493c
-safe-launch:pkm:package	pkm	/usr/bin/pkm	packages/core/pkm/build.sh	heredoc:SHIM	"exec /usr/bin/python3 -P -m pkm ""$@"""	62735c88184b1477fd339ac155d8eb856b63bf05b4a8373b0465853d66b9d477
+safe-launch:forge:package	forge	/usr/bin/forge	packages/desktop/forge/build.sh	heredoc:FORGE	"exec /usr/bin/python3 -P -m installer ""$@"""	sha256:21fc3edfad5f5213ce1cd2b00683c7f148c86bd98786c9eb91f599173fe881a9
+safe-launch:intergenos-backup:chronicle-pretxn	intergenos-backup	/usr/lib/pkm/pre-transaction.d/chronicle-restore-point;/usr/libexec/chronicle/chronicle-pretxn-handler	assets/intergenos-backup/chronicle-pretxn-handler	shebang	#!/usr/bin/python3 -P	sha256:f016b088405cf826777fe59cb738140d6b2d6c9979324c31252d45577f789cee
+safe-launch:nvidia:eula	nvidia	/usr/lib/intergen/eula-helpers/nvidia-eula	packages/extra/nvidia/eula-helper/nvidia-eula.py	shebang	#!/usr/bin/python3 -P	sha256:a57e3d827e7677ac16c77aa475d88c8393c4b15f08f49984afccfc3142141bd1
+safe-launch:pkm:development-image	pkm	/usr/bin/pkm	scripts/create-image.sh	heredoc:PKMEOF	"exec /usr/bin/python3 -P -m pkm ""$@"""	sha256:57dd97a0434ae654af90e32d9b92e21f156ee62896db228bf5e7ba820388493c
+safe-launch:pkm:package	pkm	/usr/bin/pkm	packages/core/pkm/build.sh	heredoc:SHIM	"exec /usr/bin/python3 -P -m pkm ""$@"""	sha256:62735c88184b1477fd339ac155d8eb856b63bf05b4a8373b0465853d66b9d477

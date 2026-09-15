@@ -71,7 +71,7 @@ SAFE_LAUNCH_COLUMNS = (
     "fingerprint",
 )
 
-_HEX64 = re.compile(r"^[0-9a-f]{64}$")
+_HEX64 = re.compile(r"^sha256:[0-9a-f]{64}$")
 _HELPER_TARGET = re.compile(r"/usr/bin/(igos-install-[A-Za-z0-9_-]+)")
 _HEREDOC = re.compile(r"<<\s*'?([A-Za-z0-9_]+)'?")
 _STABLE_DEST = re.compile(
@@ -99,9 +99,7 @@ LIFECYCLE_EVENTS = (
     "pre_install", "post_install", "pre_upgrade", "post_upgrade",
     "pre_remove", "post_remove",
 )
-EXPECTED_HOOKSEAL_AST_SHA256 = (
-    "8e932b37ba6837ae42953c92d33aae3c159681c9a379130b813195a8436871fc"
-)
+EXPECTED_HOOKSEAL_AST_SHA256 = "sha256:8e932b37ba6837ae42953c92d33aae3c159681c9a379130b813195a8436871fc"
 
 _PROCESS_APIS = frozenset({
     "subprocess.run",
@@ -170,7 +168,7 @@ class SafeLauncher:
 
 
 def _sha_bytes(value: bytes) -> str:
-    return hashlib.sha256(value).hexdigest()
+    return "sha256:" + hashlib.sha256(value).hexdigest()
 
 
 def _sha_text(value: str) -> str:
