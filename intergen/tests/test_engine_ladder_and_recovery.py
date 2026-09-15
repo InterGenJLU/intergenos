@@ -403,13 +403,39 @@ class RestartAdvancesTheLadderTest(unittest.TestCase):
         self.assertEqual(self.attempts, [self.hip],
                          "a missing model file caused an engine switch")
 
+    def _pin_vendor(self, vendor):
+        """The ladder detects the machine's GPU vendor itself (row 39), so a
+        test about the ladder's SHAPE must say which machine it is on — left
+        unpinned, this class read the host: on an AMD workstation the HIP rung
+        is untried after a Vulkan failure and the ladder rightly offers it,
+        which is not the case these tests describe (found by the hub battery
+        on a two-card AMD host, 2026-09-15)."""
+        orig = serving_device._detect_vendor
+        serving_device._detect_vendor = lambda: vendor
+        self.addCleanup(lambda: setattr(serving_device, "_detect_vendor", orig))
+
     def test_the_bottom_of_the_ladder_fails_rather_than_looping(self):
+        """No vendor rung remains: Vulkan is the whole ladder, and its
+        failure is the end of the line, never a loop."""
+        self._pin_vendor(None)
         self.mgr._config = __import__("dataclasses").replace(
             self.mgr._config, server_path=self.vulkan)
         self._stub_start([False, False])
         self.assertFalse(self.mgr.restart())
         self.assertEqual(self.attempts, [self.vulkan],
                          "it tried to advance past the bottom rung")
+
+    def test_on_an_amd_host_a_vulkan_failure_still_offers_the_untried_hip_rung(self):
+        """The shape the hub measured: on an AMD machine whose HIP build is
+        present and untried, a Vulkan failure is NOT the bottom — the ladder
+        offers HIP before declaring itself exhausted (row 39's rule, every
+        untried engine before exhaustion)."""
+        self._pin_vendor("amd")
+        self.mgr._config = __import__("dataclasses").replace(
+            self.mgr._config, server_path=self.vulkan)
+        self._stub_start([False, True])
+        self.assertTrue(self.mgr.restart())
+        self.assertEqual(self.attempts, [self.vulkan, self.hip])
 
 
 if __name__ == "__main__":
