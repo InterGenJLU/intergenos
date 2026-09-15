@@ -60,19 +60,28 @@ KFD_TOPOLOGY_NODES = "/sys/class/kfd/kfd/topology/nodes"
 #   HIP build places them in VRAM. A HIP-vs-Vulkan speed measurement on that
 #   box is owed and will be recorded here when taken.
 #
-#   nvidia: PROVISIONAL — Vulkan first, pending a decision walk. Measured
-#   2026-08-04 on a GeForce RTX 3070 Ti Laptop (cc 8.6, driver 580.159.04,
-#   9B Q4_K_M, same source pin both engines, condition-proven, two orderings
-#   agreeing): the Vulkan engine was FASTER than the CUDA engine on every
-#   metric taken (pp512 −3.1%, pp2048 −4.2%, tg128 −6.5%; the driver reports
-#   NV_coopmat2, so the Vulkan path also reaches the tensor cores). Method and
-#   numbers: docs/CUDA-ENGINE.md. Keeping the measured-faster engine first
-#   preserves shipping behaviour; the CUDA engine stays available and one
-#   config line ("llama_server.engine": "cuda") or one edit here flips it.
-#   This entry must not be reordered without a recorded decision.
+#   nvidia: CUDA first, Vulkan the floor — decided 2026-09-15. The first-login
+#   NVIDIA offer installs the proprietary driver, the CUDA toolkit and the
+#   CUDA engine build for exactly one purpose: that the CUDA engine serves. An
+#   offer whose acceptance changes nothing about which engine serves is a stub
+#   (the shipped Vulkan-first row was measured on an installed machine
+#   2026-09-10: the CUDA build worked and was never used). The CUDA rung is
+#   taken only when its build AND the proprietary driver are present
+#   (:func:`cuda_is_usable_here`) — the CUDA build cannot serve on the open
+#   kernel driver, so a present binary alone is not a usable engine. The
+#   earlier measurement stands on record: 2026-08-04 on a GeForce RTX 3070 Ti
+#   Laptop (cc 8.6, driver 580.159.04, 9B Q4_K_M, same source pin both
+#   engines, two orderings agreeing) the Vulkan engine was 3–7 % faster than
+#   the CUDA engine on every metric taken (pp512 −3.1 %, pp2048 −4.2 %,
+#   tg128 −6.5 %; the driver reports NV_coopmat2, so Vulkan also reaches the
+#   tensor cores). That is a speed delta, not a correctness one, and the
+#   decision rests on the offer meaning what it says; one config line
+#   ("llama_server.engine": "vulkan") keeps the measured-faster engine for
+#   anyone who wants it. This entry must not be reordered without a recorded
+#   decision.
 ENGINE_PREFERENCE: dict[str, list[str]] = {
     "amd":    ["hip", "vulkan"],
-    "nvidia": ["vulkan", "cuda"],
+    "nvidia": ["cuda", "vulkan"],
 }
 _DEFAULT_PREFERENCE: list[str] = ["vulkan"]
 
@@ -203,6 +212,24 @@ def hip_is_supported_here(topology_root: str = KFD_TOPOLOGY_NODES,
     return bool(detected & supported)
 
 
+def cuda_is_usable_here(drm_root: "str | os.PathLike" = "/sys/class/drm") -> bool:
+    """Whether the CUDA engine build can serve on this machine: an NVIDIA card
+    is bound to NVIDIA's own kernel driver (read from sysfs by
+    :func:`intergen.model_choice.detect_driver_state`, which never raises).
+
+    Present is not usable: the CUDA build needs the proprietary driver's
+    runtime behind it, and on the open driver (nouveau) or with no NVIDIA card
+    it cannot serve. Unreadable driver state is "not usable" — the Vulkan
+    floor then serves, and nothing is guessed. ``drm_root`` is injectable so
+    the three states are provable without the hardware.
+    """
+    try:
+        from intergen.model_choice import detect_driver_state
+        return bool(detect_driver_state(drm_root).proprietary_nvidia)
+    except Exception:
+        return False
+
+
 def select_serving_engine(vendor: str | None = None,
                           engine_pin: str | None = None) -> tuple[str, str]:
     """Choose the engine that serves, and the server binary it runs.
@@ -248,6 +275,11 @@ def select_serving_engine(vendor: str | None = None,
         # not tell" would strand every machine whose driver state is unusual.
         if engine == "hip" and hip_is_supported_here() is False:
             continue
+        # The CUDA build serves only behind the proprietary driver; on the
+        # open driver a present binary is not a usable engine (decided
+        # 2026-09-15, the preference table's nvidia row).
+        if engine == "cuda" and not cuda_is_usable_here():
+            continue
         return engine, path
     return "vulkan", ENGINE_SERVER_PATHS["vulkan"]
 
@@ -280,6 +312,8 @@ def engine_ladder(vendor: str | None = None) -> list[tuple[str, str]]:
         if not path or not (os.path.isfile(path) and os.access(path, os.X_OK)):
             continue
         if engine == "hip" and hip_is_supported_here() is False:
+            continue
+        if engine == "cuda" and not cuda_is_usable_here():
             continue
         ladder.append((engine, path))
     return ladder

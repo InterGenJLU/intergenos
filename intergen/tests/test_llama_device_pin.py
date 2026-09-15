@@ -280,14 +280,55 @@ def test_engine_amd_without_hip_falls_to_vulkan(tmp_path, monkeypatch):
     assert select_serving_engine(vendor="amd") == ("vulkan", paths["vulkan"])
 
 
-def test_engine_nvidia_provisional_order_is_vulkan_first(tmp_path, monkeypatch):
-    # PROVISIONAL, pending the recorded decision walk: Vulkan measured FASTER
-    # than CUDA on the reference NVIDIA card at this pin (2026-08-04,
-    # docs/CUDA-ENGINE.md), so the table keeps it first even with the CUDA
-    # build installed. When the walk rules otherwise, ENGINE_PREFERENCE and
-    # this test change together.
+def test_engine_nvidia_cuda_first_on_the_proprietary_driver(tmp_path, monkeypatch):
+    # Decided 2026-09-15: the first-login NVIDIA offer installs the driver, the
+    # CUDA toolkit and the CUDA engine build for exactly this; an offer that
+    # changes nothing about which engine serves is a stub. CUDA serves when
+    # its build AND the proprietary driver are present; Vulkan is the floor.
     paths = _fake_engines(tmp_path, monkeypatch, present={"cuda", "vulkan"})
+    monkeypatch.setattr(serving_device, "cuda_is_usable_here", lambda *a, **k: True)
+    assert select_serving_engine(vendor="nvidia") == ("cuda", paths["cuda"])
+
+
+def test_engine_nvidia_cuda_build_without_the_driver_is_not_selected(tmp_path, monkeypatch):
+    # The CUDA build cannot serve on the open kernel driver (no CUDA runtime
+    # behind it); a present binary is not a usable engine. Vulkan serves.
+    paths = _fake_engines(tmp_path, monkeypatch, present={"cuda", "vulkan"})
+    monkeypatch.setattr(serving_device, "cuda_is_usable_here", lambda *a, **k: False)
     assert select_serving_engine(vendor="nvidia") == ("vulkan", paths["vulkan"])
+
+
+def test_engine_nvidia_without_the_cuda_build_serves_vulkan(tmp_path, monkeypatch):
+    paths = _fake_engines(tmp_path, monkeypatch, present={"vulkan"})
+    monkeypatch.setattr(serving_device, "cuda_is_usable_here", lambda *a, **k: True)
+    assert select_serving_engine(vendor="nvidia") == ("vulkan", paths["vulkan"])
+
+
+def test_the_nvidia_preference_row_is_cuda_then_vulkan():
+    assert serving_device.ENGINE_PREFERENCE["nvidia"] == ["cuda", "vulkan"]
+
+
+def _mk_drm_card(root, card, vendor, driver):
+    dev = root / card / "device"
+    dev.mkdir(parents=True)
+    (dev / "vendor").write_text(vendor + "\n")
+    drv = root / "drivers" / driver
+    drv.mkdir(parents=True, exist_ok=True)
+    (dev / "driver").symlink_to(drv)
+
+
+def test_cuda_usable_reads_the_bound_kernel_driver(tmp_path):
+    # An NVIDIA card bound to NVIDIA's own driver: the CUDA engine can serve.
+    _mk_drm_card(tmp_path / "a", "card0", "0x10de", "nvidia")
+    assert serving_device.cuda_is_usable_here(drm_root=tmp_path / "a") is True
+    # The same card on the open driver: it cannot.
+    _mk_drm_card(tmp_path / "b", "card0", "0x10de", "nouveau")
+    assert serving_device.cuda_is_usable_here(drm_root=tmp_path / "b") is False
+    # No NVIDIA card at all.
+    _mk_drm_card(tmp_path / "c", "card0", "0x1002", "amdgpu")
+    assert serving_device.cuda_is_usable_here(drm_root=tmp_path / "c") is False
+    # Nothing readable: not usable, never a guess.
+    assert serving_device.cuda_is_usable_here(drm_root=tmp_path / "none") is False
 
 
 def test_engine_unknown_vendor_serves_vulkan(tmp_path, monkeypatch):
