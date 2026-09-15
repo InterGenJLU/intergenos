@@ -1,4 +1,5 @@
 call_key	module	qualname	canonical_api	variant	dispatch_key	command_builder	fingerprint
+pkm/cli.py:_reexec_upgrade_all_under_new_pkm:os.execve:1	pkm/cli.py	_reexec_upgrade_all_under_new_pkm	os.execve	exec	pkm-edge:python-launcher	argv[0]	sha256:1bb5897416927acca048f7e6b2077e38de4aa9c6c61fd32c08a29d3d4523807f
 pkm/hooks.py:run_archive_lifecycle_hook:_trace.traced_run:1	pkm/hooks.py	run_archive_lifecycle_hook	_trace.traced_run	trace	pkm-edge:archive-bash-mediator;archive:*	cmd	sha256:2227f19091dbb5fde7435ce677ad6141c1a6ecab08d7789c688a99b9e71b5698
 pkm/hooks.py:run_archive_lifecycle_hook:subprocess.run:1	pkm/hooks.py	run_archive_lifecycle_hook	subprocess.run	subprocess	pkm-edge:archive-bash-mediator;archive:*	cmd	sha256:055c066ba4ebeb35c8094f2e1aae8d6b65a4f1ae31e4f0cb6de2b7f19494845c
 pkm/hooks.py:run_canonical_hooks:_trace.traced_run:1	pkm/hooks.py	run_canonical_hooks	_trace.traced_run	trace	canonical:*	cmd	sha256:51a23631825d13451e5c4d5ddb6c2e66982b4681d858de635442e0935c000501
@@ -19,3 +20,5 @@ pkm/services.py:query_active_services:_trace.traced_run:1	pkm/services.py	query_
 pkm/services.py:query_active_services:subprocess.run:1	pkm/services.py	query_active_services	subprocess.run	subprocess	pkm-edge:service-query	[SYSTEMCTL, 'is-active', '--quiet', unit]	sha256:addeef807b7a0cac9f8cb772a280d3c8283254ff069ab92c2ebcca66d9a8c246
 pkm/services.py:run_restart_services:_trace.traced_run:1	pkm/services.py	run_restart_services	_trace.traced_run	trace	pkm-edge:service-restart	[SYSTEMCTL, 'restart', unit]	sha256:1494f95f2101c8f839d34f590083138a30a95ff943928f62d7f94679d8fca1ad
 pkm/services.py:run_restart_services:subprocess.run:1	pkm/services.py	run_restart_services	subprocess.run	subprocess	pkm-edge:service-restart	[SYSTEMCTL, 'restart', unit]	sha256:8c8ebbed89f7e4298f5e0bfec7383632fc73df46b402f328355fcc8e5c13fe51
+pkm/services.py:unit_active_since_epoch:_trace.traced_run:1	pkm/services.py	unit_active_since_epoch	_trace.traced_run	trace	pkm-edge:service-query	argv	sha256:56be283f0f87de2e95735e7663f3cc53a916e772d6344454fc97c42cb665cc89
+pkm/services.py:unit_active_since_epoch:subprocess.run:1	pkm/services.py	unit_active_since_epoch	subprocess.run	subprocess	pkm-edge:service-query	argv	sha256:46bfa7c0d8a8e985c607b5ce323eb7e8e661ec86bb0408557e1bb0e395734858
