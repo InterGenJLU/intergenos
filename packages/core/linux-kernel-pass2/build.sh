@@ -19,25 +19,44 @@
 
 FRAG_DIR="/mnt/intergenos/config/kernel/fragments"
 
-# Kernel release identity — read from linux-kernel's package.yml (the single
-# source of truth; see packages/core/linux-kernel/build.sh). pass2 ships the
-# FINAL kernel (supersedes linux-kernel), so it MUST produce the same
-# KERNELRELEASE the user sees from pkm — i.e. linux-kernel's release, NOT pass2's
-# own package-revision (which is unrelated to the kernel's identity).
-_KREL=$(grep '^release:' /mnt/intergenos/packages/core/linux-kernel/package.yml 2>/dev/null | awk '{print $2}' | tr -d '"')
-# Fail LOUD on an unparseable release (NOT default-to-1) — a silent mis-stamp of
-# the kernel IDENTITY reintroduces the transparency gap the release-stamp closes.
-# pass2 ships the FINAL kernel, so a wrong stamp here is what the user actually
-# boots. Fail-closed. (WC review of 17875898.)
-if [ -z "$_KREL" ]; then
-    echo "FATAL: cannot parse 'release:' from packages/core/linux-kernel/package.yml — refusing to mis-stamp the kernel release" >&2
-    exit 1
-fi
-# The version is an identity value too — fail loud on an empty PKG_VERSION rather
-# than defaulting to a stale literal (WC symmetry review). pass2 ships the FINAL
-# kernel, so a wrong version stamp is what the user boots.
+# Pass 2 uses linux-kernel's release, not its own package revision. This recipe
+# is sourced both in the build tree and from Forge's copied installer bundle.
+# Require the caller's version before deriving either identity component.
 if [ -z "${PKG_VERSION:-}" ]; then
     echo "FATAL: PKG_VERSION is empty — refusing to mis-stamp the kernel version" >&2
+    exit 1
+fi
+_KERNEL_RECIPE_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+_KERNEL_PACKAGE_YML="${_KERNEL_RECIPE_DIR}/../linux-kernel/package.yml"
+_KREL=$(grep '^release:' "$_KERNEL_PACKAGE_YML" 2>/dev/null | awk '{print $2}' | tr -d '"')
+_KERNEL_BASE_VERSION=$(grep '^version:' "$_KERNEL_PACKAGE_YML" 2>/dev/null | awk '{print $2}' | tr -d '"')
+if [ -n "$_KERNEL_BASE_VERSION" ] && [ "$_KERNEL_BASE_VERSION" != "$PKG_VERSION" ]; then
+    echo "FATAL: linux-kernel version ${_KERNEL_BASE_VERSION} differs from pass 2 version ${PKG_VERSION} — refusing to mis-stamp the kernel version" >&2
+    exit 1
+fi
+
+# Forge strips release metadata from its bundled recipes. Recover it from the
+# installed module tree, as the first-pass recipe does, accepting exactly one
+# match for this version. PKM_PACKAGE_ROOT also scopes isolated install roots.
+if [ -z "$_KREL" ]; then
+    _kmod_root="${PKM_PACKAGE_ROOT:-/}"
+    _kmod_count=0
+    _kmod_found=""
+    for _kmod_dir in "${_kmod_root%/}/usr/lib/modules/${PKG_VERSION}-igos-"*; do
+        [ -d "$_kmod_dir" ] || continue
+        _kmod_count=$((_kmod_count + 1))
+        _kmod_found="$_kmod_dir"
+    done
+    if [ "$_kmod_count" -eq 1 ]; then
+        _KREL="${_kmod_found##*-igos-}"
+    elif [ "$_kmod_count" -gt 1 ]; then
+        echo "FATAL: ${_kmod_count} staged module trees match ${_kmod_root%/}/usr/lib/modules/${PKG_VERSION}-igos-* — refusing to guess which release this is" >&2
+        exit 1
+    fi
+    unset _kmod_root _kmod_count _kmod_found _kmod_dir
+fi
+if [ -z "$_KREL" ]; then
+    echo "FATAL: cannot resolve the kernel release — no 'release:' in ${_KERNEL_PACKAGE_YML} and no matching staged module tree; refusing to mis-stamp the kernel release" >&2
     exit 1
 fi
 KVER="${PKG_VERSION}-igos-${_KREL}"
@@ -239,4 +258,38 @@ do_install() {
     # against upstream + clean-rebuild scenarios
     install -vm644 "${IGOS_SOURCES}/linux-${pkg_ver}.tar.xz" \
         "${DESTDIR}/usr/src/linux-${pkg_ver}.tar.xz"
+}
+
+# Regenerate indexes after this pass deploys its final module tree. Keeping the
+# operation in this package's own lifecycle hook lets the hook recorder observe
+# its writes for this package, including when the build driver runs the hook.
+# The sealed archive carries only the function body, so resolve the release
+# here as the first-pass hook does; the recipe preamble is not always present.
+post_install() {
+    set -e
+    local root="${PKM_PACKAGE_ROOT:-/}"
+    local kver="${KVER:-}"
+    if [ -z "$kver" ]; then
+        local _found="" _count=0 _d
+        for _d in "${root%/}"/usr/lib/modules/*-igos-*; do
+            [ -d "$_d" ] || continue
+            _count=$((_count + 1))
+            _found="${_d##*/}"
+        done
+        if [ "$_count" -gt 1 ]; then
+            echo "FATAL: ${_count} staged module trees under ${root%/}/usr/lib/modules — refusing to guess which release to depmod" >&2
+            return 1
+        fi
+        kver="$_found"
+    fi
+    if [ -z "$kver" ]; then
+        echo "FATAL: cannot resolve the kernel release to depmod — KVER is unset and no ${root%/}/usr/lib/modules/*-igos-* tree is staged. Refusing to run depmod with an empty version." >&2
+        return 1
+    fi
+    # A staged root must never refresh the build host's module indexes.
+    if [ "${root%/}" = "" ]; then
+        depmod "$kver"
+    else
+        depmod -b "${root%/}" "$kver"
+    fi
 }

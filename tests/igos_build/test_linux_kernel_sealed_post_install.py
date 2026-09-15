@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 InterGenJLU
-"""The kernel recipe's post_install must not depend on its own build preamble.
+"""Both kernel recipes seal a post_install independent of the build preamble.
 
 WHAT WENT WRONG. `packages/core/linux-kernel/build.sh` defined
 
@@ -43,6 +43,9 @@ the real one cannot run, the module tree is fabricated in a temporary directory,
 and PKM_PACKAGE_ROOT points at that directory. A gate below asserts the body
 invokes no external command other than depmod, so if the recipe ever grows one
 the test refuses to run it rather than executing it against this machine.
+The complete pass-2 recipe is also sourced from a temporary installer bundle.
+Those cases expose only its read-only parsers and the depmod stub, with grep
+guarded against reading recipes outside the fixture.
 """
 
 import os
@@ -59,6 +62,7 @@ sys.path.insert(0, str(_REPO_ROOT / "igos-build"))
 import hookseal  # noqa: E402
 
 _RECIPE = _REPO_ROOT / "packages" / "core" / "linux-kernel" / "build.sh"
+_PASS2_RECIPE = _RECIPE.parent.parent / "linux-kernel-pass2" / "build.sh"
 
 # Shell builtins and control words the body may use freely; anything else that
 # looks like a command at the start of a line is an external invocation.
@@ -70,11 +74,15 @@ _ALLOWED_WORDS = {
 }
 
 
-class BodySafetyGateTest(unittest.TestCase):
+class _RecipeTest(unittest.TestCase):
+    recipe = _RECIPE
+
+
+class BodySafetyGateTest(_RecipeTest):
     """Refuse to execute a body that does more than this test sandboxes."""
 
     def test_the_body_invokes_nothing_but_depmod(self):
-        body = hookseal.extract_function(_RECIPE.read_text(), "post_install")
+        body = hookseal.extract_function(self.recipe.read_text(), "post_install")
         self.assertIsNotNone(body, "the recipe declares no post_install()")
         offenders = []
         for line in body.splitlines():
@@ -105,19 +113,21 @@ class _SealedRun:
     def __init__(self, testcase):
         self.tc = testcase
 
-    def run(self, module_dirs, kver_env=None, package_root=True):
-        body = hookseal.extract_function(_RECIPE.read_text(), "post_install")
-        script_text = hookseal.render_script(
-            "post_install", body, "linux-kernel", "6.18.10-10")
+    def run(self, module_dirs, kver_env=None, package_root=True, depmod_rc=0,
+            source_recipe=False, recipe_release=10, recipe_version="6.18.10",
+            package_version="6.18.10"):
+        body = hookseal.extract_function(self.tc.recipe.read_text(), "post_install")
+        self.tc.assertIsNotNone(body, "the recipe declares no post_install()")
         tmp = tempfile.mkdtemp(prefix="kernel-postinstall-")
         self.tc.addCleanup(lambda: __import__("shutil").rmtree(
             tmp, ignore_errors=True))
         root = Path(tmp) / "root"
+        self.root = root
         for name in module_dirs:
             (root / "usr" / "lib" / "modules" / name).mkdir(parents=True)
         root.mkdir(parents=True, exist_ok=True)
 
-        # A depmod stub that records its argv and always succeeds. The real
+        # Record depmod's arguments and return the selected status. The real
         # depmod is never reachable: PATH is replaced, not prepended to.
         bindir = Path(tmp) / "bin"
         bindir.mkdir()
@@ -126,28 +136,62 @@ class _SealedRun:
         stub.write_text(
             "#!/bin/bash\n"
             f'printf "%s\\n" "$*" >> {record}\n'
-            "exit 0\n")
+            f"exit {depmod_rc}\n")
         stub.chmod(0o755)
 
-        script = Path(tmp) / "post_install.sh"
-        script.write_text(script_text)
-        script.chmod(0o755)
+        if source_recipe:
+            recipe_dir = Path(tmp) / "core" / self.tc.recipe.parent.name
+            recipe_dir.mkdir(parents=True)
+            recipe_copy = recipe_dir / "build.sh"
+            recipe_copy.write_text(self.tc.recipe.read_text())
+            sibling = recipe_dir.parent / "linux-kernel"
+            sibling.mkdir(exist_ok=True)
+            metadata = f'version: "{recipe_version}"\n'
+            if recipe_release is not None:
+                metadata += f"release: {recipe_release}\n"
+            (sibling / "package.yml").write_text(metadata)
+            # Source the actual recipe with only its read-only parsers available.
+            # The grep guard refuses any attempt to consult a host recipe.
+            for command in ("dirname", "readlink", "awk", "tr"):
+                (bindir / command).symlink_to(f"/usr/bin/{command}")
+            grep = bindir / "grep"
+            grep.write_text(
+                '#!/bin/bash\nfor arg in "$@"; do\n'
+                '  case "$arg" in /*) [[ "$arg" == "$TEST_FIXTURE_ROOT/"* ]] '
+                '|| { echo "outside fixture: $arg" >&2; exit 91; };; esac\n'
+                'done\nexec /usr/bin/grep "$@"\n')
+            grep.chmod(0o755)
+            script_text = f'source "{recipe_copy}"\npost_install\n'
+
+        if source_recipe:
+            script = Path(tmp) / "post_install.sh"
+            script.write_text(script_text)
+        else:
+            sealed_root = Path(tmp) / "sealed"
+            events = hookseal.seal_into_staging(
+                sealed_root, self.tc.recipe, self.tc.recipe.parent.name,
+                "6.18.10-10", events=("post_install",))
+            self.tc.assertEqual(events, ["post_install"])
+            script = sealed_root / ".scripts" / "post_install.sh"
 
         env = {
-            "PATH": f"{bindir}:/usr/bin:/bin",
+            "PATH": str(bindir),
             "HOME": tmp,
+            "TEST_FIXTURE_ROOT": tmp,
         }
+        if source_recipe:
+            env["PKG_VERSION"] = package_version
         if package_root:
             env["PKM_PACKAGE_ROOT"] = str(root)
         if kver_env is not None:
             env["KVER"] = kver_env
-        proc = subprocess.run(["bash", "-e", str(script)],
+        proc = subprocess.run(["/bin/bash", "-e", str(script)],
                               capture_output=True, text=True, env=env)
         argv = record.read_text().splitlines() if record.exists() else []
         return proc, argv
 
 
-class DerivationTest(unittest.TestCase):
+class DerivationTest(_RecipeTest):
     """With no KVER in the environment — the sealed-archive shape."""
 
     def test_it_derives_the_release_from_the_staged_module_tree(self):
@@ -189,13 +233,18 @@ class DerivationTest(unittest.TestCase):
 
     def test_it_scopes_depmod_to_the_package_root(self):
         """A non-'/' root must reach depmod, or the host's tree is rebuilt."""
-        proc, argv = _SealedRun(self).run(["6.18.10-igos-10"])
+        runner = _SealedRun(self)
+        proc, argv = runner.run(["6.18.10-igos-10"])
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertIn("-b", argv[0],
-                      f"depmod was not scoped to the package root: {argv[0]!r}")
+        self.assertEqual(argv, [f"-b {runner.root} 6.18.10-igos-10"])
+
+    def test_depmod_failure_reaches_the_sealed_hook_caller(self):
+        proc, argv = _SealedRun(self).run(["6.18.10-igos-10"], depmod_rc=23)
+        self.assertEqual(proc.returncode, 23, proc.stderr)
+        self.assertEqual(len(argv), 1)
 
 
-class PreambleContextTest(unittest.TestCase):
+class PreambleContextTest(_RecipeTest):
     """With KVER set — the sourced-recipe shape, which must not regress."""
 
     def test_an_explicit_kver_is_honoured(self):
@@ -215,12 +264,19 @@ class PreambleContextTest(unittest.TestCase):
                          f"exited {proc.returncode}\nstderr: {proc.stderr}")
         self.assertIn("6.18.10-igos-10", argv[0])
 
+    def test_the_default_root_does_not_add_a_staging_prefix(self):
+        proc, argv = _SealedRun(self).run(
+            [], kver_env="6.18.10-igos-10", package_root=False)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(argv, ["6.18.10-igos-10"])
 
-class RecipeTextTest(unittest.TestCase):
+
+class RecipeTextTest(_RecipeTest):
     """Pins read off the recipe, to catch a regression at review time."""
 
     def test_the_body_no_longer_hard_depends_on_the_build_variable(self):
-        body = hookseal.extract_function(_RECIPE.read_text(), "post_install")
+        body = hookseal.extract_function(self.recipe.read_text(), "post_install")
+        self.assertIsNotNone(body, "the recipe declares no post_install()")
         code = "\n".join(ln for ln in body.splitlines()
                          if not ln.strip().startswith("#"))
         self.assertNotRegex(
@@ -234,6 +290,60 @@ class RecipeTextTest(unittest.TestCase):
                 match.group(1).startswith(":-")
                 or match.group(1).startswith("-"),
                 f"KVER is referenced without a default: {match.group(0)}")
+
+
+class Pass2BodySafetyGateTest(BodySafetyGateTest):
+    recipe = _PASS2_RECIPE
+
+
+class Pass2DerivationTest(DerivationTest):
+    recipe = _PASS2_RECIPE
+
+
+class Pass2PreambleContextTest(PreambleContextTest):
+    recipe = _PASS2_RECIPE
+
+
+class Pass2RecipeTextTest(RecipeTextTest):
+    recipe = _PASS2_RECIPE
+
+
+class Pass2SourcedRecipeTest(_RecipeTest):
+    """Exercise the complete recipe as Forge does, without a build-tree path."""
+
+    recipe = _PASS2_RECIPE
+
+    def test_sibling_release_is_used_in_the_build_context(self):
+        runner = _SealedRun(self)
+        proc, argv = runner.run([], source_recipe=True, recipe_release=37)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(argv, [f"-b {runner.root} 6.18.10-igos-37"])
+
+    def test_forge_metadata_without_release_uses_the_installed_tree(self):
+        runner = _SealedRun(self)
+        proc, argv = runner.run(["6.18.10-igos-37"], source_recipe=True,
+                                recipe_release=None)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(argv, [f"-b {runner.root} 6.18.10-igos-37"])
+
+    def test_forge_refuses_absent_ambiguous_or_wrong_version_trees(self):
+        for trees in ([], ["6.18.10-igos-36", "6.18.10-igos-37"],
+                      ["6.18.11-igos-37"]):
+            with self.subTest(trees=trees):
+                proc, argv = _SealedRun(self).run(
+                    trees, source_recipe=True, recipe_release=None)
+                self.assertNotEqual(proc.returncode, 0)
+                self.assertEqual(argv, [])
+                self.assertIn("FATAL:", proc.stderr)
+
+    def test_sourcing_refuses_missing_or_mismatched_package_version(self):
+        for version in ("", "6.18.11"):
+            with self.subTest(version=version):
+                proc, argv = _SealedRun(self).run(
+                    [], source_recipe=True, package_version=version)
+                self.assertNotEqual(proc.returncode, 0)
+                self.assertEqual(argv, [])
+                self.assertIn("FATAL:", proc.stderr)
 
 
 if __name__ == "__main__":
