@@ -2,7 +2,7 @@
 
 **Audience:** end users installing InterGenOS on Secure Boot hardware, and reviewers verifying our key-management posture.
 **Scope:** the full path from a freshly-installed InterGenOS system to a working MOK-enrolled keyring that DKMS / out-of-tree modules can chain against.
-**Last updated:** 2026-07-25
+**Last updated:** 2026-09-14
 **Status:** v1 — gating doc for the 2026-05-14 first-light trigger. Real-hardware validation against the validation-target build's ISO output performed before promotion.
 
 This document is the canonical end-user procedure for MOK enrollment on InterGenOS. Companion docs:
@@ -134,7 +134,12 @@ For a deeper treatment of the ephemeral kernel-module key (#3) and why it is dis
 
 ## 3. Pre-install state — what InterGenOS ships today
 
-As of this writing InterGenOS uses Fedora's MS-signed shim binary (`shim-x64-16.1-2`) for the pre-boot chain. Our own MS-signed shim is in flight — see [docs/shim-review-submission.md](shim-review-submission.md) and its target 2026-05-22 PR-open against `rhboot/shim-review`.
+As of this writing InterGenOS uses Fedora's MS-signed shim binary
+(`shim-x64-16.1-8`) for the pre-boot chain. Preparation for an InterGenOS shim
+is documented in [docs/shim-review-submission.md](shim-review-submission.md),
+but it has not reached submitted state: the public fork carries a preparation
+branch, while the upstream review process requires a dated tag linked from a
+review issue.
 
 **The MOK enrollment flow described here works identically against both the Fedora-piggyback shim and our own forthcoming MS-signed shim.** The shim binary changes; the MOK enrollment path does not. The shim is just the carrier — what matters at MOK time is that *some* MS-signed shim is loaded, exposing the standard `MokManager` interface from `mmx64.efi`.
 
@@ -144,7 +149,22 @@ A reviewer or end user verifying the loaded shim at boot can run:
 sbverify --list /boot/efi/EFI/InterGenOS/shimx64.efi
 ```
 
-and expect either MS 2011 CA or MS 2023 CA signatures (or both, post-shim-review acceptance). Both are accepted by UEFI firmware shipped from 2012 onward.
+and inspect which Microsoft signatures are present. Firmware accepts only a
+signature that chains to a certificate in its Secure Boot `db`:
+
+| Firmware trust database | 2011-only shim | 2023-only shim | Dual-signed shim |
+|---|---|---|---|
+| Microsoft UEFI CA 2011 only | Boots while that CA remains trusted | Does not boot | Should boot through the 2011 signature |
+| Microsoft UEFI CA 2023 only | Does not boot | Boots | Should boot through the 2023 signature |
+| Both CAs | Boots | Boots | Boots |
+
+The Fedora 16.1-8 shim currently shipped by InterGenOS carries both Microsoft
+signatures, so it bridges the two single-CA database states on firmware that
+evaluates both signatures correctly. Dual-signing is not a universal firmware
+guarantee: some implementations evaluate only one signature, and revocation
+state still applies. Under Microsoft's current signing policy, a newly approved
+shim is returned with the 2023 signature only and therefore requires the 2023
+CA in firmware `db`.
 
 ---
 
