@@ -522,19 +522,24 @@ class TheRemovalIsIdentityCheckedTests(unittest.TestCase):
         """The defect, directly: the name now refers to a different file, and
         the removal must decline rather than delete a stranger's."""
         path = pr.write_request("manage_packages", {"action": "list"}, "tok")
-        identity = self._identity(path)
+        # read_request holds its descriptor through discard_request. Keep the
+        # same lifetime here: an unlinked file with no open descriptor may
+        # immediately donate its inode to the replacement on some filesystems.
+        with open(path, "rb") as original:
+            info = os.fstat(original.fileno())
+            identity = (info.st_dev, info.st_ino)
+            os.unlink(path)
+            decoy = path
+            with open(decoy, "w", encoding="utf-8") as fh:
+                fh.write("not the request")
 
-        os.unlink(path)
-        decoy = path
-        with open(decoy, "w", encoding="utf-8") as fh:
-            fh.write("not the request")
-
-        pr.discard_request(decoy, identity=identity)
-        self.assertTrue(
-            os.path.exists(decoy),
-            "the removal deleted whatever the name pointed at, rather than the "
-            "file that was actually read",
-        )
+            self.assertNotEqual(self._identity(decoy), identity)
+            pr.discard_request(decoy, identity=identity)
+            self.assertTrue(
+                os.path.exists(decoy),
+                "the removal deleted whatever the name pointed at, rather than the "
+                "file that was actually read",
+            )
 
     def test_the_file_that_was_read_is_still_removed(self):
         """The identity check must not stop the ordinary case working."""
