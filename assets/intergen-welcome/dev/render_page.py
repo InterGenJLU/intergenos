@@ -47,9 +47,22 @@ mod.apply_prompt = lambda *a, **k: None
 #   nvidia-driver-done  the driver installed, the engine not, two model sizes
 #                       offered — the state after the driver reboot, in which
 #                       the page crashed on 2026-09-02.
+#   mok-not-enrolled    the welcome page on a machine whose own Secure Boot key
+#                       is staged but not enrolled, with an enrolment request
+#                       queued and Secure Boot off — the state after an install
+#                       whose first Secure-Boot start has not happened yet
+#                       (R001.3 row 37); the advisory box is built.
 # Unset: the page reads the render host, as it always did.
 SCENARIO = os.environ.get('IGOS_WELCOMER_SCENARIO')
-if SCENARIO in ('nvidia-offer', 'nvidia-driver-done'):
+if SCENARIO == 'mok-not-enrolled':
+    mod._mok_enrolment_state = lambda *a, **k: {
+        'enrolled': False, 'queued': True, 'secure_boot': False,
+        'fingerprint': 'df3b9774bbeee5c7f3c3ccff25539eb8a6fcbd55'}
+    mod._firmware_ca_line = lambda: (
+        "This machine's firmware trusts both Microsoft signing authorities "
+        "(Microsoft UEFI CA 2011 and 2023); the InterGenOS boot loader is "
+        "signed under both, so it starts here either way.")
+elif SCENARIO in ('nvidia-offer', 'nvidia-driver-done'):
     driver_done = SCENARIO == 'nvidia-driver-done'
     mod._gpu_detection_record = lambda *a, **k: {
         'version': mod._GPU_RECORD_VERSION, 'vendor': 'nvidia',
