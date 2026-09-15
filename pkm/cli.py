@@ -1003,9 +1003,9 @@ def build_parser():
     # before/after evidence, scoped to the package's own files.
     p_hook_base = sub.add_parser(
         "hook-baseline",
-        help="Record a package's own file hashes before its post_install runs",
+        help="Record a package's own file state before its post_install runs",
         description=(
-            "Writes the current sha256 of every regular file the named package "
+            "Writes the sha256 and change time of each regular file the package "
             "owns to a file, for comparison after the package's post_install "
             "has run. Reads only; changes nothing."
         ),
@@ -1020,7 +1020,8 @@ def build_parser():
         description=(
             "Compares the package's own files against a baseline written by "
             "`pkm hook-baseline` before its post_install ran. Files whose "
-            "content changed across that window are recorded as hook-managed: "
+            "content changed, or whose change time changed from a matching "
+            "recorded payload checksum, are recorded as hook-managed: "
             "existence is checked, the byte comparison against the payload "
             "hash is not, and the text manifest is re-emitted stating the "
             "class so the record survives a later import. Only the package's "
@@ -3779,7 +3780,8 @@ def cmd_record_hook_changes(db, args):
                 line = line.rstrip("\n")
                 if not line:
                     continue
-                # "<sha256>  <path>", split on the FIRST double space so a
+                # "<sha256>:<ctime_ns>:<owner_sha256>  <path>" (or legacy hash-only), split
+                # on the FIRST double space so a
                 # path containing spaces survives the round trip.
                 digest, _, path = line.partition("  ")
                 if path:
@@ -3789,7 +3791,11 @@ def cmd_record_hook_changes(db, args):
         return 1
 
     installer = package_installer(db)
-    changed, messages = installer.record_hook_changes(args.package, baseline)
+    try:
+        changed, messages = installer.record_hook_changes(args.package, baseline)
+    except ValueError as e:
+        emit_error(f"invalid hook baseline: {e}")
+        return 1
     for line in messages:
         emit(line)
     if changed:
@@ -3797,8 +3803,8 @@ def cmd_record_hook_changes(db, args):
             f"{args.package}: {len(changed)} own payload file(s) recorded as "
             f"hook-managed")
     else:
-        emit_done(f"{args.package}: post_install rewrote none of its own "
-                  f"payload files")
+        emit_done(f"{args.package}: no own payload files newly classified "
+                  f"as hook-managed")
     return 0
 
 

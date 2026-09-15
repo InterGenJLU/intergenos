@@ -2773,7 +2773,7 @@ class PackageInstaller:
     # ------------------------------------------------------------------
 
     def hook_baseline(self, name):
-        """Hash the package's OWN regular files, for comparison across a hook.
+        """Record the package's OWN regular file state before a hook.
 
         The archive install path learns which files a hook touched by taking a
         filesystem snapshot immediately before running it. The source-build
@@ -2789,13 +2789,17 @@ class PackageInstaller:
         boundary is what stops this mechanism from being a way to silence
         another package's byte check.
 
-        Returns {path: sha256} for the regular files that exist and can be
-        read. A path that is missing or unreadable is OMITTED rather than
-        recorded as None: absent-then-present and unreadable-then-readable are
+        Returns {path: "sha256:ctime_ns:owner_sha256"} for existing readable
+        regular files. ctime records an identical-content rewrite as well as a
+        byte change. The owner's recorded checksum is captured before the
+        hook too ('-' when unavailable), so a metadata-only change cannot
+        reclassify pre-existing damage. Missing or unreadable paths are OMITTED
+        rather than recorded as None: absent-then-present and unreadable-then-readable are
         not evidence that a hook rewrote content, and inventing a value for
         either would manufacture a change the machine never observed.
         """
         baseline = {}
+        checksums = self.db.get_file_checksums(name)
         for entry in self.db.get_files(name):
             if entry["is_dir"]:
                 continue
@@ -2804,7 +2808,13 @@ class PackageInstaller:
             if not os.path.isfile(abs_path) or os.path.islink(abs_path):
                 continue
             try:
-                baseline[path] = _sha256(abs_path)
+                checksum = _sha256(abs_path)
+                ctime_ns = os.stat(abs_path).st_ctime_ns
+                expected = checksums.get(path)
+                if not isinstance(expected, str) or not re.fullmatch(
+                        r"[0-9a-f]{64}", expected):
+                    expected = "-"
+                baseline[path] = f"{checksum}:{ctime_ns}:{expected}"
             except (OSError, PermissionError):
                 continue
         return baseline
@@ -2814,9 +2824,10 @@ class PackageInstaller:
 
         The second half. Compares the live content of the package's own files
         against `baseline` — captured by hook_baseline before the recipe's
-        post_install ran — and treats a path whose bytes changed across that
-        window as hook-managed content: the same D-9b rule the archive install
-        path applies, reached by the same kind of observation.
+        post_install ran — and treats a path whose bytes or ctime changed
+        across that window as hook-managed content. Unlike archive observation,
+        a ctime-only change also requires a matching starting payload checksum
+        for this owner, so metadata changes cannot classify existing damage.
 
         A path is considered ONLY if it is in the baseline AND owned by this
         package. Divergence is never inferred from the recorded checksum: a
@@ -2837,7 +2848,9 @@ class PackageInstaller:
                         f"to record"]
 
         owned = {e["path"] for e in self.db.get_files(name) if not e["is_dir"]}
+        checksums = self.db.get_file_checksums(name)
         changed = []
+        unclassified = []
         for path, before in sorted(baseline.items()):
             if path not in owned:
                 # The rows moved under us between the two halves. Say so
@@ -2846,17 +2859,44 @@ class PackageInstaller:
             abs_path = str(self.root / path)
             if not os.path.isfile(abs_path) or os.path.islink(abs_path):
                 continue
+            # The CLI transports this token verbatim. Legacy hash-only
+            # baselines retain their content-only comparison; they cannot
+            # supply evidence of an identical-content rewrite.
+            if not isinstance(before, str) or not re.fullmatch(
+                    r"[0-9a-f]{64}(?::[0-9]+:(?:[0-9a-f]{64}|-))?", before):
+                raise ValueError(f"invalid hook baseline state for {path}")
+            before_hash, *before_state = before.split(":")
             try:
                 after = _sha256(abs_path)
+                after_ctime = os.stat(abs_path).st_ctime_ns
             except (OSError, PermissionError):
                 continue
-            if after != before:
+            if after != before_hash:
                 changed.append(path)
+            elif before_state and after_ctime != int(before_state[0]):
+                # ctime includes chmod/chown/touch. An identical-content
+                # state change is enough only when the starting bytes matched
+                # THIS owner's checksum before the hook, and that checksum
+                # still belongs to this owner. Reconciliation during the hook
+                # must not retroactively establish a trustworthy baseline.
+                expected = before_state[1]
+                if (expected != "-" and before_hash == expected and
+                        checksums.get(path) == expected):
+                    changed.append(path)
+                else:
+                    unclassified.append(path)
 
+        messages = []
+        if unclassified:
+            messages = [
+                f"  hook[record] {name}: {len(unclassified)} own file state "
+                f"change(s) kept their existing content class because the "
+                f"starting bytes lacked an unchanged checksum for this owner"
+            ] + [f"    {p}" for p in unclassified]
         if not changed:
-            return [], []
+            return [], messages
 
-        messages = [
+        messages += [
             f"  hook[record] {name}: post_install rewrote "
             f"{len(changed)} of its own payload file(s) — recorded as "
             f"hook-managed content (existence-checked)"
