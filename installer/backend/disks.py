@@ -1543,26 +1543,78 @@ def mount_target(partitions, target="/mnt/target"):
     _run(f"mount {root_device} {target}", phase=TRACE_PHASE_MOUNT,
          intent="mount the target root")
 
-    # Mount ESP if EFI
+    # Mount ESP if EFI. The root mount above is the one resource this
+    # function has acquired at this point; a failure here used to leave it
+    # mounted, and the orchestrator's cleanup set keyed on the last COMPLETED
+    # phase (partition) never unmounted it (R001.3 row 27 item 4). Unwind it
+    # before the original exception leaves this function. A failed root mount
+    # acquired nothing, so it needs no unwinding.
     if partitions.get("efi"):
         esp_mount = f"{target}/boot/efi"
-        os.makedirs(esp_mount, exist_ok=True)
-        _run(f"mount {partitions['esp']} {esp_mount}", phase=TRACE_PHASE_MOUNT,
-             intent="mount the EFI system partition")
+        try:
+            os.makedirs(esp_mount, exist_ok=True)
+            _run(f"mount {partitions['esp']} {esp_mount}", phase=TRACE_PHASE_MOUNT,
+                 intent="mount the EFI system partition")
+        except Exception as esp_exc:
+            try:
+                _run(["umount", target], phase=TRACE_PHASE_MOUNT,
+                     intent="unmount the target root after the ESP step failed")
+            except Exception as unwind_exc:
+                raise RuntimeError(
+                    f"{type(esp_exc).__name__}: {esp_exc}; and unmounting the "
+                    f"target root afterwards failed too: "
+                    f"{type(unwind_exc).__name__}: {unwind_exc}"
+                ) from esp_exc
+            raise
 
     return target
 
 
 def unmount_target(target="/mnt/target"):
-    """Unmount all filesystems under target."""
-    # Unmount in reverse order
-    # Each result is recorded (rc, stderr) even though none is acted on here.
+    """Unmount every filesystem still mounted under ``target``, then the
+    target itself.
+
+    Returns the list of failures, one plain sentence each, in the order they
+    happened; an empty list means nothing under the target is mounted any
+    more. A path that is not a mount point is skipped (the virtual
+    filesystems are normally gone already, unmounted by hooks), so the list
+    never carries a "not mounted" non-failure. The caller decides what a
+    failure means: the orchestrator's success path refuses to call the
+    install complete while the target is still mounted (R001.3 row 27
+    item 3 — every result used to be discarded here).
+    """
+    failures = []
     for sub in ["boot/efi", "dev/pts", "dev", "proc", "sys", "run"]:
         path = f"{target}/{sub}"
-        trace.traced_run(["umount", path], phase=TRACE_PHASE_CLEANUP,
-                         intent=f"unmount {path}")
-    trace.traced_run(["umount", target], phase=TRACE_PHASE_CLEANUP,
-                     intent=f"unmount the target {target}")
+        if not os.path.ismount(path):
+            trace.trace_event("unmount_skipped", phase=TRACE_PHASE_CLEANUP,
+                              path=path, reason="not a mount point")
+            continue
+        result = trace.traced_run(["umount", path], phase=TRACE_PHASE_CLEANUP,
+                                  intent=f"unmount {path}")
+        if result.returncode != 0:
+            failures.append(_umount_failure(path, result))
+    if os.path.ismount(target):
+        result = trace.traced_run(["umount", target], phase=TRACE_PHASE_CLEANUP,
+                                  intent=f"unmount the target {target}")
+        if result.returncode != 0:
+            failures.append(_umount_failure(target, result))
+        elif os.path.ismount(target):
+            failures.append(
+                f"umount {target} returned 0 but the target is still a mount point")
+    else:
+        trace.trace_event("unmount_skipped", phase=TRACE_PHASE_CLEANUP,
+                          path=target, reason="not a mount point")
+    return failures
+
+
+def _umount_failure(path, result):
+    stderr = (result.stderr or "")
+    if isinstance(stderr, bytes):
+        stderr = stderr.decode("utf-8", "replace")
+    stderr = stderr.strip()
+    return f"umount {path} failed rc={result.returncode}" + (
+        f": {stderr}" if stderr else "")
 
 
 def is_efi():

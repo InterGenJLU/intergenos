@@ -181,6 +181,9 @@ class _RunInstallTestBase(unittest.TestCase):
         # install_packages returns a 4-tuple
         # (success, fail, failed, installed_names) — run_install unpacks all 4.
         self.packages.install_packages.return_value = (5, 0, [], [])
+        # unmount_target returns the list of what stayed mounted; an empty
+        # list is the clean case (a bare MagicMock would read as a failure).
+        self.disks.unmount_target.return_value = []
         # Silent-loss preflight: empty gap = install-set fully honored. Without
         # this the fully-mocked `packages` module returns a truthy MagicMock and
         # preflight_check_install_set_complete would spuriously abort every test.
@@ -439,6 +442,65 @@ class TestRunInstallFailurePaths(_RunInstallTestBase):
         self.assertFalse(result.success)
         self.assertIn("boot fail", result.error_message)
         self.assertNotIn("umount fail", result.error_message)
+
+
+class TestRunInstallRow27Cleanup(_RunInstallTestBase):
+    """R001.3 gating row 27 items 1 and 3 at the orchestrator."""
+
+    def test_the_scrub_protects_the_chosen_login(self):
+        self.users.remove_test_accounts.return_value = {
+            "removed": [], "survivors": [], "protected": "user"}
+        result = run_install(
+            self.yaml_path, VALID_INSTALL_IO,
+            str(self.archive_dir), str(self.packages_dir),
+        )
+        self.assertTrue(result.success)
+        self.users.remove_test_accounts.assert_called_once()
+        self.assertEqual(
+            self.users.remove_test_accounts.call_args.kwargs.get(
+                "protected_username"),
+            VALID_INSTALL_IO["username"])
+
+    def test_a_target_that_stays_mounted_is_not_an_install_complete(self):
+        self.disks.unmount_target.return_value = [
+            "umount /mnt/target failed rc=32: target is busy"]
+        with patch("installer.backend.install.trace") as trace:
+            result = run_install(
+                self.yaml_path, VALID_INSTALL_IO,
+                str(self.archive_dir), str(self.packages_dir),
+            )
+            trace.detach_target_sink.assert_called_once()
+        self.assertFalse(result.success)
+        self.assertNotEqual(result.phase_completed, PHASE_CLEANUP)
+        self.assertIn("target is busy", result.error_message)
+        self.assertIn("complete on disk", result.error_message)
+
+    def test_the_target_sink_is_closed_before_the_unmount(self):
+        order = []
+        with patch("installer.backend.install.trace") as trace:
+            trace.detach_target_sink.side_effect = (
+                lambda *a, **k: order.append("detach"))
+            self.disks.unmount_target.side_effect = (
+                lambda *a, **k: order.append("unmount") or [])
+            result = run_install(
+                self.yaml_path, VALID_INSTALL_IO,
+                str(self.archive_dir), str(self.packages_dir),
+            )
+        self.assertTrue(result.success)
+        self.assertEqual(order, ["detach", "unmount"])
+
+    def test_error_path_unmount_failure_is_a_warning_not_a_mask(self):
+        self.bootloader.install_bootloader.side_effect = RuntimeError(
+            "grub-install failed")
+        self.disks.unmount_target.return_value = [
+            "umount /mnt/target failed rc=32: target is busy"]
+        result = run_install(
+            self.yaml_path, VALID_INSTALL_IO,
+            str(self.archive_dir), str(self.packages_dir),
+        )
+        self.assertFalse(result.success)
+        self.assertIn("grub-install failed", result.error_message)
+        self.assertTrue(any("target is busy" in w for w in result.warnings))
 
 
 class TestRunInstallDryRun(_RunInstallTestBase):

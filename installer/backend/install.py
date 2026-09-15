@@ -103,6 +103,28 @@ _PHASES_NEEDING_UNMOUNT = {
 _PHASES_NEEDING_VIRTFS_UNMOUNT = _PHASES_NEEDING_UNMOUNT - {PHASE_MOUNT}
 
 
+def _best_effort_unmount(result, target):
+    """Cleanup on the error and cancel paths: unmount what the completed
+    phases mounted, never masking the original error. What stays mounted is
+    recorded on the result as a warning, so the person reads it instead of
+    finding a busy target later."""
+    try:
+        if result.phase_completed in _PHASES_NEEDING_VIRTFS_UNMOUNT:
+            hooks.unmount_virtual_fs(target)
+    except Exception as exc:
+        result.warnings.append(
+            f"virtual filesystems under {target} not unmounted "
+            f"({type(exc).__name__}: {exc})")
+    try:
+        if result.phase_completed in _PHASES_NEEDING_UNMOUNT:
+            trace.detach_target_sink(Path(target))
+            for failure in disks.unmount_target(target) or []:
+                result.warnings.append(f"target not unmounted: {failure}")
+    except Exception as exc:
+        result.warnings.append(
+            f"target {target} not unmounted ({type(exc).__name__}: {exc})")
+
+
 class _CancelRequested(Exception):
     """Sentinel raised inside run_install when cancel_event has been set.
 
@@ -1101,10 +1123,22 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
                 result.warnings.append(msg)
                 _emit(PHASE_CLEANUP, 12, f"warning: {msg}")
         hooks.unmount_virtual_fs(target)
-        disks.unmount_target(target)
-        result.phase_completed = PHASE_CLEANUP
-        result.success = True
-        _emit(PHASE_CLEANUP, 13, "install complete")
+        # The durable trace copy lives ON the target; an open handle there
+        # is one more reason the unmount can fail. Close it first — the
+        # live-session sink keeps recording — and act on what the unmount
+        # reports instead of declaring the install complete regardless.
+        trace.detach_target_sink(Path(target))
+        unmount_failures = disks.unmount_target(target)
+        if unmount_failures:
+            msg = ("the installed system is complete on disk, but the "
+                   "target could not be unmounted: "
+                   + "; ".join(unmount_failures))
+            result.error_message = msg
+            _emit(PHASE_CLEANUP, 13, f"error: {msg}")
+        else:
+            result.phase_completed = PHASE_CLEANUP
+            result.success = True
+            _emit(PHASE_CLEANUP, 13, "install complete")
 
     except _CancelRequested as cr:
         # User-requested cancel via cancel_event. The phase boundary that
@@ -1116,31 +1150,13 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         cancel_at = cr.args[0] if cr.args else "unknown phase"
         result.error_message = f"install cancelled by user at {cancel_at}"
         _emit(cancel_at, total, f"cancelled at {cancel_at}")
-        try:
-            if result.phase_completed in _PHASES_NEEDING_VIRTFS_UNMOUNT:
-                hooks.unmount_virtual_fs(target)
-        except Exception:
-            pass
-        try:
-            if result.phase_completed in _PHASES_NEEDING_UNMOUNT:
-                disks.unmount_target(target)
-        except Exception:
-            pass
+        _best_effort_unmount(result, target)
 
     except Exception as e:
         result.error_message = f"{type(e).__name__}: {e}"
         # Best-effort cleanup based on how far we got. Don't mask the
         # original error if cleanup itself fails.
-        try:
-            if result.phase_completed in _PHASES_NEEDING_VIRTFS_UNMOUNT:
-                hooks.unmount_virtual_fs(target)
-        except Exception:
-            pass
-        try:
-            if result.phase_completed in _PHASES_NEEDING_UNMOUNT:
-                disks.unmount_target(target)
-        except Exception:
-            pass
+        _best_effort_unmount(result, target)
 
     finally:
         # Always close trace sinks. Final event captures the outcome so the

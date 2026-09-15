@@ -225,23 +225,38 @@ class DiskPhaseTraced(unittest.TestCase):
 
     def test_mount_and_unmount_are_rows_with_their_rc(self):
         fake = _FakeRun()
-        fake.fail["umount /mnt/t/boot/efi"] = (32, "umount: /mnt/t/boot/efi: not mounted.")
+        fake.fail["umount /mnt/t/boot/efi"] = (32, "umount: /mnt/t/boot/efi: target is busy.")
+        # The unmount helper touches only mount points and reports what it
+        # could not unmount (R001.3 row 27 item 3): the ESP stays busy, the
+        # root goes away on its umount.
+        mounted = {"/mnt/t", "/mnt/t/boot/efi"}
+
+        def ismount(path):
+            if path == "/mnt/t" and any(c[0] == ["umount", "/mnt/t"] for c in fake.calls):
+                return False
+            return path in mounted
         with _Sink() as sink, patch.object(_shared.subprocess, "run", fake), \
-             patch.object(disks.os, "makedirs", lambda *a, **k: None):
+             patch.object(disks.os, "makedirs", lambda *a, **k: None), \
+             patch.object(disks.os.path, "ismount", ismount):
             disks.mount_target({"root": f"{DISK}p2", "esp": f"{DISK}p1", "efi": True},
                                target="/mnt/t")
-            disks.unmount_target("/mnt/t")   # never raises; results were discarded before
+            failures = disks.unmount_target("/mnt/t")
             rows = sink.rows()
         mounts = [r for r in _starts(rows) if r["cmd"][0] == "mount"]
         self.assertEqual([r["cmd"] for r in mounts],
                          [["mount", f"{DISK}p2", "/mnt/t"], ["mount", f"{DISK}p1", "/mnt/t/boot/efi"]])
         self.assertTrue(all(r["phase"] == "mount" for r in mounts))
         umounts = [r for r in _ends(rows) if r["cmd"][0] == "umount"]
-        self.assertEqual(len(umounts), 7)
+        self.assertEqual([r["cmd"] for r in umounts],
+                         [["umount", "/mnt/t/boot/efi"], ["umount", "/mnt/t"]])
         self.assertTrue(all(r["phase"] == "cleanup" for r in umounts))
         esp = [r for r in umounts if r["cmd"][1] == "/mnt/t/boot/efi"][0]
         self.assertEqual(esp["rc"], 32)
-        self.assertIn("not mounted", esp["stderr"])
+        self.assertIn("target is busy", esp["stderr"])
+        self.assertEqual(failures, ["umount /mnt/t/boot/efi failed rc=32: umount: /mnt/t/boot/efi: target is busy."])
+        skipped = [r for r in rows if r.get("type") == "unmount_skipped"]
+        self.assertEqual(sorted(r["path"] for r in skipped),
+                         sorted(f"/mnt/t/{s}" for s in ("dev/pts", "dev", "proc", "sys", "run")))
 
     def test_target_sink_replays_the_live_rows_first(self):
         with _Sink() as sink:

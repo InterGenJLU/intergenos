@@ -498,6 +498,43 @@ def attach_target_sink(target: Path) -> None:
         logger.warning("trace: could not attach target sink: %s", exc)
 
 
+def detach_target_sink(target: Path) -> int:
+    """Flush + close the durable target-side sink(s) under ``target`` and
+    drop them from the writer list; the live-session sink keeps recording.
+
+    Called by the installer right before it unmounts the target: an open
+    handle on the filesystem being unmounted is one more way the unmount
+    can fail, and the durable copy should end with its own close on record.
+    Returns the number of sinks closed (0 when none is attached, or when
+    verbose tracing is off). Never raises.
+    """
+    global _SINKS
+    prefix = str(Path(target)) + os.sep
+    closed = 0
+    with _LOCK:
+        keep = []
+        for s in _SINKS:
+            name = getattr(s, "name", "")
+            if isinstance(name, str) and name.startswith(prefix):
+                try:
+                    # The last row the durable copy carries is its own close.
+                    s.write(json.dumps({"type": "target_sink_detached",
+                                        "path": name, "ts": _iso_ts(),
+                                        "runid": _RUNID}, sort_keys=True) + "\n")
+                    s.flush()
+                    s.close()
+                except Exception:
+                    pass
+                closed += 1
+            else:
+                keep.append(s)
+        _SINKS = keep
+    if closed:
+        _emit({"type": "target_sink_detached", "target": str(target),
+               "sinks_closed": closed})
+    return closed
+
+
 def close_trace() -> None:
     """Flush + close all sinks. Idempotent."""
     global _SINKS
@@ -1103,7 +1140,7 @@ __all__ = [
     # State accessors
     "is_verbose", "get_runid", "get_start_ts",
     # Forge-compat sink openers
-    "init_trace", "attach_target_sink", "close_trace",
+    "init_trace", "attach_target_sink", "detach_target_sink", "close_trace",
     # Build-domain sink openers
     "init_build_trace", "init_phase_trace", "init_package_trace", "init_host_trace",
     # Subprocess + file wrappers
