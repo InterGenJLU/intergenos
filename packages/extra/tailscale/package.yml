@@ -1,7 +1,7 @@
 name: tailscale
 version: "1.98.5"
-release: 1
-content_hash: d05d4451d5ea1c56
+release: 2  # r2: defaults select the native nftables backend through the upstream firewall-mode setting; the existing unit reads that file. Runtime join and rule creation remain to be validated on an installed system.
+content_hash: fe9b0ed2777f67dd
 description: WireGuard-based mesh VPN — tailscale CLI + tailscaled node agent
 license: BSD-3-Clause
 homepage: https://tailscale.com

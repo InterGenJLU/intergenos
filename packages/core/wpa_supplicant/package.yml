@@ -1,6 +1,7 @@
 name: wpa_supplicant
 version: '2.11'
-release: 1
+release: 2  # r2: ship a wireless-hardware condition only for the nl80211 template; generic D-Bus and wired authentication remain available. The drop-in is declared in verify_paths.
+content_hash: a6bb92dadc70e7c4
 description: WPA/WPA2/IEEE 802.1X supplicant
 license: BSD-3-Clause
 homepage: https://w1.fi/wpa_supplicant/
