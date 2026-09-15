@@ -29,6 +29,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import pkm.hooks as hooks_mod
 from pkm.hooks import (
     ACCOUNT_SEED_SCRIPT_REL,
     ACCOUNT_SKEL_REL,
@@ -75,9 +76,11 @@ class AccountSkelSeedHookTests(unittest.TestCase):
         (self.root / SYSUSERS_CONF_REL).write_text("u testsvc 990 - -\n")
         self._orig_path = os.environ.get("PATH", "")
         os.environ["PATH"] = f"{self.bin}:{self._orig_path}"
+        self._orig_sysusers = hooks_mod.SYSTEMD_SYSUSERS
 
     def tearDown(self):
         os.environ["PATH"] = self._orig_path
+        hooks_mod.SYSTEMD_SYSUSERS = self._orig_sysusers
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     # -- fixtures ---------------------------------------------------------
@@ -123,6 +126,7 @@ class AccountSkelSeedHookTests(unittest.TestCase):
             "exit 0\n"
         )
         path.chmod(0o755)
+        hooks_mod.SYSTEMD_SYSUSERS = str(path)
         return log
 
     def _fire_pre_hooks(self):

@@ -83,6 +83,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import pkm.remover as remover_mod
 from pkm.database import PackageDB
 from pkm.remover import PackageRemover, _post_remove_cmd
 
@@ -99,7 +100,7 @@ class PostRemoveHookBehaviourTest(unittest.TestCase):
 
     The fixture root is a temporary directory, so the remover takes its
     chroot branch and really execs `chroot <root> /var/lib/pkm/hooks/...`.
-    A stub `chroot` first on PATH records the argv it was given and then
+    A stub bound to the module's fixed chroot constant records the argv and then
     runs the hook, which makes argv, environment and ordering observable
     without the privilege a real chroot(2) needs.
     """
@@ -115,12 +116,15 @@ class PostRemoveHookBehaviourTest(unittest.TestCase):
         self.stubdir = self.root / "stubbin"
         self.stubdir.mkdir()
         self._write_chroot_stub()
+        self._orig_chroot = remover_mod.CHROOT
+        remover_mod.CHROOT = str(self.stubdir / "chroot")
 
     def tearDown(self):
         try:
             self.db.close()
         except Exception:
             pass
+        remover_mod.CHROOT = self._orig_chroot
         shutil.rmtree(self._tmp, ignore_errors=True)
 
     # -- fixture helpers ------------------------------------------------
@@ -175,11 +179,17 @@ class PostRemoveHookBehaviourTest(unittest.TestCase):
         new_path = (f"{self.stubdir}:{payload_path}" if extra_path
                     else str(self.stubdir / "empty"))
         prev = os.environ.get("PATH")
+        prev_chroot = remover_mod.CHROOT
         os.environ["PATH"] = new_path
+        remover_mod.CHROOT = (
+            str(self.stubdir / "chroot") if extra_path
+            else str(self.stubdir / "empty" / "chroot")
+        )
         try:
             return PackageRemover(self.db, root=str(self.root)).remove(
                 name, **kwargs)
         finally:
+            remover_mod.CHROOT = prev_chroot
             if prev is None:
                 os.environ.pop("PATH", None)
             else:

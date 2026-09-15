@@ -102,6 +102,7 @@ REPO_PKG_CACHE = REPO_CACHE_DIR / "packages"
 # filesystem as REPO_CACHE_DIR so shutil.move on restore stays atomic.
 REPO_ROLLBACK_DIR = REPO_CACHE_DIR / "rollback"
 GPG_KEYRING = Path("/etc/pkm/trusted.gpg")
+GPGV = "/usr/bin/gpgv"
 
 DEFAULT_REPOS = {
     "intergenos": {
@@ -110,6 +111,19 @@ DEFAULT_REPOS = {
         "priority": 100,
     }
 }
+
+
+def _gpgv_command(data_path, sig_path):
+    """Build the fixed verification command used by both trace paths."""
+    return [
+        GPGV,
+        "--keyring",
+        str(GPG_KEYRING),
+        "--status-fd",
+        "1",
+        str(sig_path),
+        str(data_path),
+    ]
 
 
 # L-019: anti-rollback + freshness state.
@@ -844,19 +858,16 @@ class RepoManager:
         Returns None (falsy) in all fail-closed cases (gpgv failure, no
         VALIDSIG line, non-pinned fingerprint, empty pin set).
         """
+        command = _gpgv_command(data_path, sig_path)
         if _TRACE_AVAILABLE:
             result = _trace.traced_run(
-                ["gpgv", "--keyring", str(GPG_KEYRING),
-                 "--status-fd", "1",
-                 str(sig_path), str(data_path)],
+                command,
                 phase="pkm_gpg_verify",
                 intent=f"gpg verify {sig_path.name} against {data_path.name}",
             )
         else:
             result = subprocess.run(  # trace-coverage: allow — _trace shim unavailable fallback
-                ["gpgv", "--keyring", str(GPG_KEYRING),
-                 "--status-fd", "1",
-                 str(sig_path), str(data_path)],
+                command,
                 capture_output=True, text=True
             )
         if result.returncode != 0:

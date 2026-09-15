@@ -96,10 +96,10 @@ for db in "${DATABASES[@]}"; do
         continue
     fi
 
-    if ! install -D -m "$(mode_for "$db")" -o 0 -g 0 "$src" "$dest" 2>/dev/null; then
+    if ! /usr/bin/install -D -m "$(mode_for "$db")" -o 0 -g 0 "$src" "$dest" 2>/dev/null; then
         # Ownership flags fail for an unprivileged caller; the content still
         # matters more than the uid, so retry without them and say so.
-        if install -D -m "$(mode_for "$db")" "$src" "$dest"; then
+        if /usr/bin/install -D -m "$(mode_for "$db")" "$src" "$dest"; then
             say "  /etc/${db}: seeded from skeleton (ownership not set — not running as root)"
             seeded=$((seeded + 1))
         else

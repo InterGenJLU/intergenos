@@ -7,9 +7,9 @@ Covers both layered mechanisms:
     invoked via file_list pattern matching.
   - Archive .scripts/<event>.sh lifecycle hooks invoked from a staging dir.
 
-Tests use a temporary fake-bin directory prepended to PATH so the hook
-framework calls our stub binaries instead of the real depmod / ldconfig /
-etc. Stub binaries log their argv + return a configurable exit code,
+Tests bind the module's fixed executable constants to temporary stub binaries;
+production code never accepts this selection from PATH or the environment.
+The stubs log their argv + return a configurable exit code,
 exercising both GREEN (exit 0) and RED (non-zero exit) paths.
 
 Critical vs cosmetic semantics are exercised end-to-end:
@@ -32,8 +32,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-# Hook tests in this module rely on shell-script stubs invoked through
-# `/bin/sh`-style execution + subprocess argv inspection. InterGenOS
+# Hook tests in this module rely on shell-script stubs bound directly to the
+# fixed module constants + subprocess argv inspection. InterGenOS
 # commits to Linux-only dev/test (2026-05-19) so these tests run
 # unconditionally.
 
@@ -47,6 +47,15 @@ from pkm.hooks import (
     run_archive_lifecycle_hook,
     format_hook_summary,
 )
+
+
+_HOOK_PROGRAM_ATTRS = {
+    "apparmor_parser": "APPARMOR_PARSER",
+    "depmod": "DEPMOD",
+    "gtk-update-icon-cache": "GTK_UPDATE_ICON_CACHE",
+    "ldconfig": "LDCONFIG",
+    "systemctl": "SYSTEMCTL",
+}
 
 
 def _make_fake_bin(bindir, name, exit_code=0):
@@ -67,6 +76,9 @@ def _make_fake_bin(bindir, name, exit_code=0):
         f"exit {exit_code}\n"
     )
     path.chmod(0o755)
+    attr = _HOOK_PROGRAM_ATTRS.get(name)
+    if attr:
+        setattr(hooks_mod, attr, str(path))
     return path, log, env_log
 
 
@@ -82,9 +94,15 @@ class TestRunCanonicalHooks(unittest.TestCase):
         # Prepend fake bin to PATH; record original for tearDown restore.
         self._orig_path = os.environ.get("PATH", "")
         os.environ["PATH"] = f"{self.bin}:{self._orig_path}"
+        self._orig_programs = {
+            attr: getattr(hooks_mod, attr)
+            for attr in _HOOK_PROGRAM_ATTRS.values()
+        }
 
     def tearDown(self):
         os.environ["PATH"] = self._orig_path
+        for attr, value in self._orig_programs.items():
+            setattr(hooks_mod, attr, value)
         # Best-effort cleanup; tmp is OS-managed if rmtree fails.
         import shutil
         shutil.rmtree(self.tmp, ignore_errors=True)
@@ -161,19 +179,20 @@ class TestRunCanonicalHooks(unittest.TestCase):
                          "icon-cache must NOT run on a theme dir lacking index.theme")
 
     def test_missing_canonical_command_flags_failure(self):
-        # No depmod stub anywhere in PATH → subprocess.run raises FileNotFoundError.
+        # A deliberately absent fixed depmod path raises FileNotFoundError.
         # Critical hook's exec-failure path should flag critical_failures.
-        os.environ["PATH"] = "/nonexistent-dir-deliberately-empty"
+        hooks_mod.DEPMOD = "/nonexistent-dir-deliberately-empty/depmod"
         try:
             file_list = ["usr/lib/modules/6.6.50-igos/kernel/drivers/foo.ko"]
             result = run_canonical_hooks(self.root, file_list, "linux-kernel", "6.6.50", "install")
             self.assertIn("depmod", result.critical_failures)
         finally:
-            os.environ["PATH"] = f"{self.bin}:{self._orig_path}"
+            hooks_mod.DEPMOD = self._orig_programs["DEPMOD"]
 
     def test_systemd_daemon_reload_fires_on_service_files(self):
         # Cosmetic hook; only meaningful when root == "/". The test bin
-        # PATH is hijacked so we can verify systemctl is INVOKED on live root.
+        # The fixed program constant is patched so we can verify systemctl is
+        # INVOKED on live root.
         _, log, _ = _make_fake_bin(self.bin, "systemctl", exit_code=0)
         # Temporarily test against root="/" path to exercise the
         # systemctl-daemon-reload code path (the helper returns None for
@@ -218,7 +237,7 @@ class TestRunCanonicalHooks(unittest.TestCase):
             cmd = _apparmor_parser_cmd("/", ["etc/apparmor.d/usr.bin.foo",
                                              "etc/apparmor.d/usr.bin.bar"])
         self.assertIsNotNone(cmd)
-        self.assertEqual(cmd[0], "apparmor_parser")
+        self.assertEqual(cmd[0], "/usr/sbin/apparmor_parser")
         self.assertIn("-r", cmd)
         self.assertIn("/etc/apparmor.d/usr.bin.foo", cmd)
         self.assertIn("/etc/apparmor.d/usr.bin.bar", cmd)

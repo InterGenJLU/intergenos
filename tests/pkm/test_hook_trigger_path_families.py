@@ -36,9 +36,15 @@ from pathlib import Path
 
 import yaml
 
+import pkm.hooks as hooks_mod
 from pkm.hooks import CANONICAL_HOOKS, run_canonical_hooks
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+_PROGRAM_ATTRS = {
+    "depmod": "DEPMOD",
+    "ldconfig": "LDCONFIG",
+    "systemctl": "SYSTEMCTL",
+}
 
 
 def _make_fake_bin(bindir, name, exit_code=0):
@@ -51,6 +57,7 @@ def _make_fake_bin(bindir, name, exit_code=0):
         f"exit {exit_code}\n"
     )
     path.chmod(0o755)
+    setattr(hooks_mod, _PROGRAM_ATTRS[name], str(path))
     return path, log
 
 
@@ -72,9 +79,11 @@ class LdconfigTriggerFamilies(unittest.TestCase):
         self.root.mkdir()
         self._orig_path = os.environ.get("PATH", "")
         os.environ["PATH"] = f"{self.bin}:{self._orig_path}"
+        self._orig_program = hooks_mod.LDCONFIG
 
     def tearDown(self):
         os.environ["PATH"] = self._orig_path
+        hooks_mod.LDCONFIG = self._orig_program
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def _fires(self, file_list):
@@ -130,9 +139,11 @@ class SystemdReloadTriggerFamilies(unittest.TestCase):
         self.bin.mkdir()
         self._orig_path = os.environ.get("PATH", "")
         os.environ["PATH"] = f"{self.bin}:{self._orig_path}"
+        self._orig_program = hooks_mod.SYSTEMCTL
 
     def tearDown(self):
         os.environ["PATH"] = self._orig_path
+        hooks_mod.SYSTEMCTL = self._orig_program
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def _fires(self, file_list):
@@ -195,9 +206,11 @@ class DepmodTriggerFamilies(unittest.TestCase):
         self.root.mkdir()
         self._orig_path = os.environ.get("PATH", "")
         os.environ["PATH"] = f"{self.bin}:{self._orig_path}"
+        self._orig_program = hooks_mod.DEPMOD
 
     def tearDown(self):
         os.environ["PATH"] = self._orig_path
+        hooks_mod.DEPMOD = self._orig_program
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def _invocation(self, file_list):

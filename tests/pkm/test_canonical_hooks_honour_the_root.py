@@ -105,7 +105,7 @@ def test_fc_cache_is_given_the_root_through_the_option_fontconfig_has(tmp_path):
     root.mkdir()
     cmd = hooks._fc_cache_cmd(str(root), ["usr/share/fonts/demo/Demo.ttf"])
     assert cmd is not None, "the font cache hook declined for a foreign root"
-    assert cmd[0] == "fc-cache"
+    assert cmd[0] == "/usr/bin/fc-cache"
     joined = " ".join(cmd)
     assert str(root) in joined
     assert "--sysroot" in joined or "-y" in cmd, (
@@ -114,9 +114,9 @@ def test_fc_cache_is_given_the_root_through_the_option_fontconfig_has(tmp_path):
     )
 
 
-def test_fc_cache_on_the_live_system_is_unchanged():
+def test_fc_cache_on_the_live_system_uses_the_reviewed_program():
     assert hooks._fc_cache_cmd("/", ["usr/share/fonts/demo/Demo.ttf"]) == [
-        "fc-cache", "-f",
+        "/usr/bin/fc-cache", "-f",
     ]
 
 
@@ -129,7 +129,7 @@ def test_update_ca_trust_declines_for_a_foreign_root(tmp_path):
     )
 
 
-def test_update_ca_trust_on_the_live_system_is_unchanged():
+def test_update_ca_trust_on_the_live_system_uses_the_reviewed_program():
     assert hooks._update_ca_trust_cmd("/", ["etc/ssl/certs/demo.pem"]) == [
-        "update-ca-trust",
+        "/usr/bin/update-ca-trust",
     ]

@@ -51,6 +51,9 @@ except ImportError:
     _TRACE_AVAILABLE = False
 
 
+SYSTEMCTL = "/usr/bin/systemctl"
+
+
 # Packages whose upgrade always requires a reboot to take effect on the
 # live system. Userspace restart cannot resolve the on-disk-vs-in-memory
 # divergence for these. Names match the package-name field in the
@@ -248,13 +251,13 @@ def query_active_services(unit_names):
         try:
             if _TRACE_AVAILABLE:
                 result = _trace.traced_run(
-                    ["systemctl", "is-active", "--quiet", unit],
+                    [SYSTEMCTL, "is-active", "--quiet", unit],
                     timeout=10, phase="pkm_service_query",
                     intent=f"is-active check for {unit}",
                 )
             else:
                 result = subprocess.run(  # trace-coverage: allow — _trace shim unavailable fallback
-                    ["systemctl", "is-active", "--quiet", unit],
+                    [SYSTEMCTL, "is-active", "--quiet", unit],
                     capture_output=True, timeout=10,
                 )
             if result.returncode == 0:
@@ -621,13 +624,13 @@ def run_restart_services(unit_names):
         try:
             if _TRACE_AVAILABLE:
                 result = _trace.traced_run(
-                    ["systemctl", "restart", unit],
+                    [SYSTEMCTL, "restart", unit],
                     timeout=60, phase="pkm_service_restart",
                     intent=f"systemctl restart {unit}",
                 )
             else:
                 result = subprocess.run(  # trace-coverage: allow — _trace shim unavailable fallback
-                    ["systemctl", "restart", unit],
+                    [SYSTEMCTL, "restart", unit],
                     capture_output=True, text=True, timeout=60,
                 )
             results[unit] = result.returncode == 0

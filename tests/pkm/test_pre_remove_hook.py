@@ -75,6 +75,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import pkm.remover as remover_mod
 from pkm.database import PackageDB
 from pkm.remover import PackageRemover, _pre_remove_cmd
 
@@ -91,7 +92,7 @@ class PreRemoveHookBehaviourTest(unittest.TestCase):
 
     The fixture root is a temporary directory, so the remover takes its
     chroot branch and really execs `chroot <root> /var/lib/pkm/hooks/...`.
-    A stub `chroot` placed first on PATH records the exact argv it was
+    A stub bound to the module's fixed chroot constant records the exact argv it was
     given and then runs the hook, which is what makes the argv, the
     environment and the ordering all observable without the test needing
     the privilege a real chroot(2) requires.
@@ -108,12 +109,15 @@ class PreRemoveHookBehaviourTest(unittest.TestCase):
         self.stubdir = self.root / "stubbin"
         self.stubdir.mkdir()
         self._write_chroot_stub()
+        self._orig_chroot = remover_mod.CHROOT
+        remover_mod.CHROOT = str(self.stubdir / "chroot")
 
     def tearDown(self):
         try:
             self.db.close()
         except Exception:
             pass
+        remover_mod.CHROOT = self._orig_chroot
         shutil.rmtree(self._tmp, ignore_errors=True)
 
     # -- fixture helpers ------------------------------------------------
@@ -171,20 +175,26 @@ class PreRemoveHookBehaviourTest(unittest.TestCase):
         )
 
     def _remove(self, name, extra_path=True, **kwargs):
-        """Run the removal with the stub `chroot` first on PATH.
+        """Run the removal with the fixed chroot constant bound to the stub.
 
-        `extra_path=False` runs it with a PATH that has no `chroot` at all,
+        `extra_path=False` binds a deliberately absent chroot path,
         which is how the could-not-execute case is reached honestly.
         """
         payload_path = os.environ.get("PATH", "")
         new_path = (f"{self.stubdir}:{payload_path}" if extra_path
                     else str(self.stubdir / "empty"))
         prev = os.environ.get("PATH")
+        prev_chroot = remover_mod.CHROOT
         os.environ["PATH"] = new_path
+        remover_mod.CHROOT = (
+            str(self.stubdir / "chroot") if extra_path
+            else str(self.stubdir / "empty" / "chroot")
+        )
         try:
             return PackageRemover(self.db, root=str(self.root)).remove(
                 name, **kwargs)
         finally:
+            remover_mod.CHROOT = prev_chroot
             if prev is None:
                 os.environ.pop("PATH", None)
             else:
@@ -247,6 +257,8 @@ class PreRemoveHookBehaviourTest(unittest.TestCase):
             "import sys\n"
             f"sys.path.insert(0, {str(REPO_ROOT)!r})\n"
             "from pkm.database import PackageDB\n"
+            "import pkm.remover as remover\n"
+            f"remover.CHROOT = {str(self.stubdir / 'chroot')!r}\n"
             "from pkm.remover import PackageRemover\n"
             f"db = PackageDB(db_path={str(self.root / 'pkm.db')!r},"
             f" root={str(self.root)!r})\n"

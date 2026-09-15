@@ -14,7 +14,7 @@ Q6 — Free-disk preflight:
   - check_free_space gates against the safety margin
   - format_preflight_failure renders a user-facing error
 
-Tests use fake-bin PATH override for systemctl interactions (GREEN + RED
+Tests patch the fixed systemctl module constant to a fake binary (GREEN + RED
 paths exercised against the actual subprocess.run call surface) and
 tmpfs-style real filesystem queries for disk-space checks (cannot easily
 fake shutil.disk_usage). Per D-009 item 8 + arc lesson: integration-style
@@ -29,11 +29,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-# systemctl-driven tests in this module use fake-bin PATH overrides
-# to intercept the systemctl subprocess. The fake-bin pattern uses
+# systemctl-driven tests in this module bind the fixed program constant
+# to a fake binary. The fake-bin pattern uses
 # POSIX shell semantics + chmod +x; InterGenOS commits to Linux-only
 # dev/test (2026-05-19) so these tests run unconditionally.
 
+import pkm.services as services_mod
 from pkm.services import (
     REBOOT_TRIGGER_PACKAGES,
     scan_manifest_for_services,
@@ -91,6 +92,7 @@ esac
 """
     path.write_text(script)
     path.chmod(0o755)
+    services_mod.SYSTEMCTL = str(path)
     return path, log
 
 
@@ -146,9 +148,11 @@ class TestQueryActiveServices(unittest.TestCase):
         self.bin.mkdir()
         self._orig_path = os.environ["PATH"]
         os.environ["PATH"] = f"{self.bin}:{self._orig_path}"
+        self._orig_systemctl = services_mod.SYSTEMCTL
 
     def tearDown(self):
         os.environ["PATH"] = self._orig_path
+        services_mod.SYSTEMCTL = self._orig_systemctl
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def test_empty_input_returns_empty(self):
@@ -165,11 +169,11 @@ class TestQueryActiveServices(unittest.TestCase):
 
     def test_no_systemd_returns_empty(self):
         # Empty PATH = no systemctl available; should return empty silently.
-        os.environ["PATH"] = "/nonexistent-bin-only"
+        services_mod.SYSTEMCTL = "/nonexistent-bin-only/systemctl"
         try:
             self.assertEqual(query_active_services(["foo.service"]), [])
         finally:
-            os.environ["PATH"] = f"{self.bin}:{self._orig_path}"
+            services_mod.SYSTEMCTL = self._orig_systemctl
 
 
 class TestClassifyRestartRequirement(unittest.TestCase):
@@ -180,9 +184,11 @@ class TestClassifyRestartRequirement(unittest.TestCase):
         self.bin.mkdir()
         self._orig_path = os.environ["PATH"]
         os.environ["PATH"] = f"{self.bin}:{self._orig_path}"
+        self._orig_systemctl = services_mod.SYSTEMCTL
 
     def tearDown(self):
         os.environ["PATH"] = self._orig_path
+        services_mod.SYSTEMCTL = self._orig_systemctl
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def test_kernel_returns_reboot(self):
@@ -267,9 +273,11 @@ class TestRunRestartServices(unittest.TestCase):
         self.bin.mkdir()
         self._orig_path = os.environ["PATH"]
         os.environ["PATH"] = f"{self.bin}:{self._orig_path}"
+        self._orig_systemctl = services_mod.SYSTEMCTL
 
     def tearDown(self):
         os.environ["PATH"] = self._orig_path
+        services_mod.SYSTEMCTL = self._orig_systemctl
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def test_all_succeed_returns_all_true(self):
@@ -283,12 +291,12 @@ class TestRunRestartServices(unittest.TestCase):
         self.assertEqual(result, {"foo.service": False})
 
     def test_no_systemctl_returns_all_false(self):
-        os.environ["PATH"] = "/nonexistent-bin"
+        services_mod.SYSTEMCTL = "/nonexistent-bin/systemctl"
         try:
             result = run_restart_services(["foo.service"])
             self.assertEqual(result, {"foo.service": False})
         finally:
-            os.environ["PATH"] = f"{self.bin}:{self._orig_path}"
+            services_mod.SYSTEMCTL = self._orig_systemctl
 
 
 # ---------------------------------------------------------------------------

@@ -12,7 +12,7 @@ Extends the Q5 classification coverage in test_q5_q6_helpers.py with:
     "Active now" tally, and the empty (nothing-actionable) case;
   - _print_transaction_next_steps printing the block (or nothing).
 
-systemctl-driven cases use the same fake-bin PATH override pattern as
+systemctl-driven cases patch the same fixed module constant as
 test_q5_q6_helpers.py.
 """
 
@@ -24,6 +24,7 @@ import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 
+import pkm.services as services_mod
 from pkm.services import (
     classify_restart_requirement,
     format_next_steps,
@@ -57,6 +58,7 @@ esac
 """
     path.write_text(script)
     path.chmod(0o755)
+    services_mod.SYSTEMCTL = str(path)
     return path
 
 
@@ -132,9 +134,11 @@ class ClassifyPrecedenceTests(unittest.TestCase):
         self.bin.mkdir()
         self._orig_path = os.environ["PATH"]
         os.environ["PATH"] = f"{self.bin}:{self._orig_path}"
+        self._orig_systemctl = services_mod.SYSTEMCTL
 
     def tearDown(self):
         os.environ["PATH"] = self._orig_path
+        services_mod.SYSTEMCTL = self._orig_systemctl
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def test_reboot_name_beats_relogin_payload(self):

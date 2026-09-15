@@ -85,6 +85,7 @@ _ARCHIVE_METADATA_FILES = frozenset({".PKGINFO", "package.yml"})
 # filesystem root of every install — the exact class the seam exists to close,
 # reintroduced by the seam itself.
 _ARCHIVE_METADATA_DIRS = frozenset({".scripts"})
+CHROOT = "/usr/sbin/chroot"
 
 
 def _is_archive_metadata(rel: str) -> bool:
@@ -98,6 +99,16 @@ def _is_archive_metadata(rel: str) -> bool:
         return True
     head = stripped.split("/", 1)[0]
     return head in _ARCHIVE_METADATA_DIRS
+
+
+def _post_install_hook_cmd(root, hook):
+    """Build the fixed command for a stable package post-install hook."""
+    root = Path(root)
+    hook = Path(hook)
+    if str(root) == "/":
+        return [str(hook)]
+    hook_in_chroot = "/" + str(hook.relative_to(root))
+    return [CHROOT, str(root), hook_in_chroot]
 
 
 # Environment allowlist for install-helper subprocess execution (H-024).
@@ -1835,7 +1846,6 @@ class PackageInstaller:
             # Live-system install: run hook directly. PKM_PACKAGE_ROOT="/"
             # is the natural value the hook would compute itself.
             env["PKM_PACKAGE_ROOT"] = "/"
-            cmd = [str(hook)]
         else:
             # Chroot install: execute hook under chroot(self.root) so all
             # filesystem-rooted paths inside the hook (/boot, /boot/efi,
@@ -1846,8 +1856,7 @@ class PackageInstaller:
             # has everything it needs. PKM_PACKAGE_ROOT="/" because inside
             # the chroot, the target IS the root.
             env["PKM_PACKAGE_ROOT"] = "/"
-            hook_in_chroot = "/" + str(hook.relative_to(self.root))
-            cmd = ["chroot", str(self.root), hook_in_chroot]
+        cmd = _post_install_hook_cmd(self.root, hook)
 
         try:
             if _TRACE_AVAILABLE:

@@ -71,6 +71,22 @@ HOOK_ENV_ALLOWLIST = frozenset({
     "TMPDIR", "SHELL",
 })
 
+# Executable identities are part of the hook contract.  PATH remains in the
+# child environment only for reviewed shell bodies that still need it; pkm's
+# own argv[0] values never delegate identity selection to that PATH.
+BASH = "/usr/bin/bash"
+SYSTEMD_SYSUSERS = "/usr/bin/systemd-sysusers"
+SYSTEMD_TMPFILES = "/usr/bin/systemd-tmpfiles"
+DEPMOD = "/usr/sbin/depmod"
+LDCONFIG = "/usr/sbin/ldconfig"
+GLIB_COMPILE_SCHEMAS = "/usr/bin/glib-compile-schemas"
+APPARMOR_PARSER = "/usr/sbin/apparmor_parser"
+UPDATE_CA_TRUST = "/usr/bin/update-ca-trust"
+GTK_UPDATE_ICON_CACHE = "/usr/bin/gtk-update-icon-cache"
+FC_CACHE = "/usr/bin/fc-cache"
+UPDATE_DESKTOP_DATABASE = "/usr/bin/update-desktop-database"
+UPDATE_MIME_DATABASE = "/usr/bin/update-mime-database"
+SYSTEMCTL = "/usr/bin/systemctl"
 
 LIFECYCLE_EVENTS = (
     "pre_install", "post_install",
@@ -114,7 +130,7 @@ def _depmod_cmd(root, matched):
             continue
         if i + 1 >= len(parts) or not parts[i + 1]:
             continue
-        cmd = ["depmod", "-a"]
+        cmd = [DEPMOD, "-a"]
         if str(root) != "/":
             cmd += ["-b", str(root)]
         cmd.append(parts[i + 1])
@@ -124,7 +140,7 @@ def _depmod_cmd(root, matched):
 
 def _ldconfig_cmd(root, matched):
     if str(root) == "/":
-        return ["ldconfig"]
+        return [LDCONFIG]
     # Pre-create {root}/etc so ldconfig can write its
     # {root}/etc/ld.so.cache~ temporary cache file. Under alphabetical
     # package install order, early-letter packages (a*) that ship .so
@@ -136,11 +152,11 @@ def _ldconfig_cmd(root, matched):
     # — 5 of 6 reported failures hit this. exist_ok=True keeps the call
     # idempotent for the common case where /etc/ already exists.
     os.makedirs(Path(root) / "etc", exist_ok=True)
-    return ["ldconfig", "-r", str(root)]
+    return [LDCONFIG, "-r", str(root)]
 
 
 def _glib_compile_schemas_cmd(root, matched):
-    return ["glib-compile-schemas", str(Path(root) / "usr/share/glib-2.0/schemas")]
+    return [GLIB_COMPILE_SCHEMAS, str(Path(root) / "usr/share/glib-2.0/schemas")]
 
 
 # The live kernel's AppArmor LSM interface. Module-level so tests can patch
@@ -182,7 +198,7 @@ def _apparmor_parser_cmd(root, matched):
     profile_paths = [str(Path(root) / p) for p in matched]
     if not profile_paths:
         return None
-    return ["apparmor_parser", "-r"] + profile_paths
+    return [APPARMOR_PARSER, "-r"] + profile_paths
 
 
 def _update_ca_trust_cmd(root, matched):
@@ -204,7 +220,7 @@ def _update_ca_trust_cmd(root, matched):
         # declined hook is currently a silent `continue` in run_canonical_hooks)
         # is real and is reported with this change rather than papered over.
         return None
-    return ["update-ca-trust"]
+    return [UPDATE_CA_TRUST]
 
 
 def _gtk_update_icon_cache_cmd(root, matched):
@@ -227,7 +243,7 @@ def _gtk_update_icon_cache_cmd(root, matched):
     ready = sorted(t for t in themes if (icons_root / t / "index.theme").exists())
     if not ready:
         return None
-    cmd = ["gtk-update-icon-cache", "-f"]
+    cmd = [GTK_UPDATE_ICON_CACHE, "-f"]
     for theme in ready:
         cmd.append(str(icons_root / theme))
     return cmd
@@ -235,7 +251,7 @@ def _gtk_update_icon_cache_cmd(root, matched):
 
 def _fc_cache_cmd(root, matched):
     if str(root) == "/":
-        return ["fc-cache", "-f"]
+        return [FC_CACHE, "-f"]
     # Scan the TARGET's font directories, not this machine's.
     #
     # Measured, not assumed: `pkm --root <dir> install font-alias` from the
@@ -246,15 +262,15 @@ def _fc_cache_cmd(root, matched):
     # The option is fontconfig's own: `-y, --sysroot=SYSROOT  prepend SYSROOT
     # to all paths for scanning`, read from `fc-cache --help` on fontconfig
     # 2.17.1 rather than from memory.
-    return ["fc-cache", "-f", "--sysroot=" + str(root)]
+    return [FC_CACHE, "-f", "--sysroot=" + str(root)]
 
 
 def _update_desktop_database_cmd(root, matched):
-    return ["update-desktop-database", str(Path(root) / "usr/share/applications")]
+    return [UPDATE_DESKTOP_DATABASE, str(Path(root) / "usr/share/applications")]
 
 
 def _update_mime_database_cmd(root, matched):
-    return ["update-mime-database", str(Path(root) / "usr/share/mime")]
+    return [UPDATE_MIME_DATABASE, str(Path(root) / "usr/share/mime")]
 
 
 def _systemctl_daemon_reload_cmd(root, matched):
@@ -263,7 +279,7 @@ def _systemctl_daemon_reload_cmd(root, matched):
     # system. Chroot installs don't have a running systemd to refresh.
     if str(root) != "/":
         return None
-    return ["systemctl", "daemon-reload"]
+    return [SYSTEMCTL, "daemon-reload"]
 
 
 # Account-database skeleton, shipped by intergenos-base-files as reference
@@ -308,7 +324,7 @@ def _account_skel_seed_cmd(root, matched):
     script = root / ACCOUNT_SEED_SCRIPT_REL
     if not skel.is_dir() or not script.is_file():
         return None
-    return ["/bin/bash", str(script), "--root", str(root)]
+    return [BASH, str(script), "--root", str(root)]
 
 
 def _systemd_sysusers_cmd(root, matched):
@@ -327,7 +343,7 @@ def _systemd_sysusers_cmd(root, matched):
     files = [str(Path(root) / p) for p in matched if p.endswith(".conf")]
     if not files:
         return None
-    cmd = ["systemd-sysusers"]
+    cmd = [SYSTEMD_SYSUSERS]
     if str(root) != "/":
         cmd += ["--root", str(root)]
     cmd += files
@@ -345,7 +361,7 @@ def _systemd_tmpfiles_cmd(root, matched):
     files = [str(Path(root) / p) for p in matched if p.endswith(".conf")]
     if not files:
         return None
-    cmd = ["systemd-tmpfiles"]
+    cmd = [SYSTEMD_TMPFILES]
     if str(root) != "/":
         cmd += ["--root", str(root)]
     cmd += ["--create"] + files
@@ -671,6 +687,11 @@ def archive_lifecycle_hook_path(staging_dir, event):
     return script if script.is_file() else None
 
 
+def _archive_lifecycle_command(script):
+    """Return the fixed shell command for a sealed archive hook."""
+    return [BASH, "-e", str(script)]
+
+
 def run_archive_lifecycle_hook(staging_dir, event, name, version, root):
     """Run a .scripts/<event>.sh from an extracted archive staging dir.
 
@@ -714,15 +735,16 @@ def run_archive_lifecycle_hook(staging_dir, event, name, version, root):
     import time as _time
     _hook_start = _time.monotonic()
     try:
+        cmd = _archive_lifecycle_command(script)
         if _TRACE_AVAILABLE:
             result = _trace.traced_run(
-                ["bash", "-e", str(script)], env=env, timeout=600,
+                cmd, env=env, timeout=600,
                 phase="pkm_archive_lifecycle",
                 intent=f"archive/{event}", pkg=name,
             )
         else:
             result = subprocess.run(  # trace-coverage: allow — _trace shim unavailable fallback
-                ["bash", "-e", str(script)], env=env,
+                cmd, env=env,
                 capture_output=True, text=True, timeout=600,
             )
         if _TRACE_AVAILABLE:

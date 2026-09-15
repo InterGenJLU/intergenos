@@ -21,6 +21,9 @@ except ImportError:
 from .database import PackageDB, MANIFEST_DIR, _sha256
 from .hooks import HOOK_ENV_ALLOWLIST
 
+
+CHROOT = "/usr/sbin/chroot"
+
 # Subtrees the post-prune directory sweep never touches.
 #
 # `opt` — the hook-product class. A recipe's post_install hook writes its
@@ -68,7 +71,7 @@ def _remove_hook_cmd(root, hook):
     if str(root) == "/":
         return [str(hook)], "/"
     hook_in_chroot = "/" + str(Path(hook).relative_to(root))
-    return ["chroot", str(root), hook_in_chroot], "/"
+    return [CHROOT, str(root), hook_in_chroot], "/"
 
 
 def _pre_remove_cmd(root, hook):
