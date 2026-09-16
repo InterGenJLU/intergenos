@@ -1,6 +1,7 @@
 name: udisks2
 version: "2.11.1"
-release: 1
+release: 2  # r2: restrict hostname changes and realtime scheduling without hiding host mounts.
+content_hash: 03ade3f4bb85c53f
 description: Disk management D-Bus service
 license: GPL-2.0-or-later
 homepage: https://github.com/storaged-project/udisks
