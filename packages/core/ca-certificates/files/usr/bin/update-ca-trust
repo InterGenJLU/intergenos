@@ -1,0 +1,7 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# InterGenOS compatibility wrapper, not the Fedora update-ca-trust script.
+case "$#:$*" in
+    0:|1:extract) exec /usr/bin/trust extract-compat ;;
+    *) echo "usage: update-ca-trust [extract]" >&2; exit 2 ;;
+esac

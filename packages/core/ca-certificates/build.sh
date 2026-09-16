@@ -45,6 +45,10 @@ build() {
 
 do_install() {
     set -e
+    install -Dm755 "$(dirname "${BASH_SOURCE[0]}")/files/usr/bin/update-ca-trust" \
+        "${DESTDIR}/usr/bin/update-ca-trust"
+    install -Dm644 "$(dirname "${BASH_SOURCE[0]}")/files/usr/share/man/man8/update-ca-trust.8" \
+        "${DESTDIR}/usr/share/man/man8/update-ca-trust.8"
     install -dm755 "${DESTDIR}/etc/ssl/certs"
     install -dm755 "${DESTDIR}/etc/pki/tls/certs"
     install -dm755 "${DESTDIR}/etc/pki/ca-trust/source/anchors"
