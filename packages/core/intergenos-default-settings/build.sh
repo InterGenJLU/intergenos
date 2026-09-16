@@ -319,6 +319,8 @@ GDMHIDPI
     install -dm755 "${DESTDIR}/etc/dconf/db/local.d/locks"
     install -m644 "${assets}/dconf/db/local.d/locks/00-app-folders" \
         "${DESTDIR}/etc/dconf/db/local.d/locks/00-app-folders"
+    install -m644 "${assets}/dconf/db/local.d/locks/01-screen-reader-availability" \
+        "${DESTDIR}/etc/dconf/db/local.d/locks/01-screen-reader-availability"
     # The branded ArcMenu start badge (framed iOS-glass squircle + ECG pulse) at
     # the absolute system path the dconf db above points ArcMenu at.
     install -dm755 "${DESTDIR}/usr/share/icons/intergenos"

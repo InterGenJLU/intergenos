@@ -3,6 +3,11 @@
 # gsettings override file — sets default values for GNOME desktop.
 # Installed to /usr/share/glib-2.0/schemas/ and compiled with glib-compile-schemas.
 # Users can override any of these in their own dconf database.
+# Unavailable features may also carry an explicit system writability lock.
+
+[org.gnome.desktop.a11y.applications]
+# No screen-reader implementation is included in this package set.
+screen-reader-enabled=false
 #
 # To apply: glib-compile-schemas /usr/share/glib-2.0/schemas/
 

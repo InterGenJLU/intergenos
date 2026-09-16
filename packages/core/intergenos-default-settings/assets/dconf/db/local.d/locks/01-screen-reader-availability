@@ -1,0 +1,2 @@
+# Remove this lock when deploying a supported screen reader.
+/org/gnome/desktop/a11y/applications/screen-reader-enabled

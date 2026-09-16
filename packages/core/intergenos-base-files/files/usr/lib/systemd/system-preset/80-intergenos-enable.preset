@@ -9,6 +9,8 @@
 #   - systemd-* services   (90-systemd.preset, upstream)
 
 enable NetworkManager.service
+# Mobile broadband activation uses the alias installed by this unit's preset.
+enable ModemManager.service
 enable apparmor.service
 enable systemd-oomd.service
 

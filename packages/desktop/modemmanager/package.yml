@@ -1,6 +1,6 @@
 name: modemmanager
 version: "1.24.2"
-release: 1
+release: 2  # r2: require the daemon unit and D-Bus activation file in the shipped payload for desktop mobile broadband.
 description: Mobile broadband modem management daemon
 license: GPL-2.0-or-later
 homepage: ''
@@ -30,3 +30,5 @@ dependencies:
 verify_paths:
   - /usr/bin/mmcli
   - /usr/lib/libmm-glib.so
+  - /usr/lib/systemd/system/ModemManager.service
+  - /usr/share/dbus-1/system-services/org.freedesktop.ModemManager1.service
