@@ -26,3 +26,4 @@ dependencies:
 verify_paths:
   - /usr/libexec/rtkit-daemon
   - /usr/lib/systemd/system/rtkit-daemon.service
+  - /usr/lib/systemd/system/rtkit-daemon.service.d/20-hardening.conf

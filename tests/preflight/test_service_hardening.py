@@ -40,6 +40,27 @@ CASES = [
             'PrivateDevices',
         ),
     ),
+    (
+        'rtkit', 'rtkit-daemon.service',
+        {
+            'NoNewPrivileges': 'yes',
+            'PrivateDevices': 'yes',
+            'PrivateTmp': 'yes',
+            'ProtectHome': 'yes',
+            'ProtectSystem': 'strict',
+            'ProtectControlGroups': 'yes',
+            'ProtectKernelTunables': 'yes',
+            'ProtectKernelModules': 'yes',
+            'RestrictAddressFamilies': 'AF_UNIX',
+        },
+        (
+            'RestrictRealtime',
+            'PrivateUsers',
+            'PrivatePIDs',
+            'ProtectProc',
+            'ProcSubset',
+        ),
+    ),
 ]
 
 
