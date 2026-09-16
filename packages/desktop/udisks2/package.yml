@@ -36,3 +36,4 @@ configure_flags:
 verify_paths:
   - /usr/libexec/udisks2/udisksd
   - /usr/lib/systemd/system/udisks2.service
+  - /usr/lib/systemd/system/udisks2.service.d/20-hardening.conf

@@ -79,6 +79,31 @@ CASES = [
             'ProcSubset',
         ),
     ),
+    (
+        'udisks2', 'udisks2.service',
+        {
+            'ProtectHostname': 'true',
+            'RestrictRealtime': 'true',
+        },
+        (
+            'PrivateTmp',
+            'PrivateDevices',
+            'PrivateMounts',
+            'ProtectSystem',
+            'ProtectHome',
+            'ProtectKernelTunables',
+            'ProtectControlGroups',
+            'ProtectKernelLogs',
+            'ReadOnlyPaths',
+            'ReadWritePaths',
+            'InaccessiblePaths',
+            'BindPaths',
+            'BindReadOnlyPaths',
+            'TemporaryFileSystem',
+            'RootDirectory',
+            'RootImage',
+        ),
+    ),
 ]
 
 
