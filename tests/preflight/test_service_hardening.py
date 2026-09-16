@@ -124,14 +124,13 @@ CASES = [
     (
         'cups', 'cups.service',
         {
-            'ProtectSystem': 'full',
-            'ReadWritePaths': '/etc/cups',
             'PrivateTmp': 'true',
             'ProtectKernelLogs': 'true',
             'ProtectControlGroups': 'true',
             'RestrictRealtime': 'true',
         },
         (
+            'ProtectSystem',
             'PrivateDevices',
             'SystemCallArchitectures',
             'MemoryDenyWriteExecute',
