@@ -72,7 +72,10 @@ class SetRootPasswordReadsBack(unittest.TestCase):
             if cmd[0] == "chpasswd" and chpasswd_writes:
                 self.t.set_root(kw["input"].split(":", 1)[1].strip())
             return R()
-        with patch.object(users, "_sha512crypt_hash", return_value=HASH), \
+        # The install asks hash_password for the stored hash; it is the seam
+        # to control here, because the real one asks the system library and
+        # returns whatever format that library prefers.
+        with patch.object(users, "hash_password", return_value=HASH), \
              patch.object(users.trace, "traced_run", side_effect=fake_run), \
              patch.object(users.trace, "trace_event",
                           side_effect=lambda *a, **k: self.events.append((a, k))):

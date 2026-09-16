@@ -23,11 +23,32 @@ configure() {
     # /usr/sbin tools like `ip`/`nft` (GBC001.2 fix). The trailing
     # ENV_PATH rewrite (later -e wins per-line) restores /usr/sbin while
     # keeping the merged-/usr layout. ENV_SUPATH (root) already had it.
-    sed -e 's:#ENCRYPT_METHOD DES:ENCRYPT_METHOD YESCRYPT:' \
+    # The method line: upstream ships it COMMENTED as `# ENCRYPT_METHOD YESCRYPT`,
+    # so the previous form here — which targeted `#ENCRYPT_METHOD DES` — matched
+    # nothing and exited 0, and the shipped file declared no method at all.
+    # Measured on an installed machine 2026-09-16: /etc/login.defs carried no
+    # active ENCRYPT_METHOD line, while the account the installer created held a
+    # $6$ hash and an account whose password was changed on the machine held $y$.
+    sed -e 's/^#[[:space:]]*ENCRYPT_METHOD[[:space:]].*/ENCRYPT_METHOD YESCRYPT/' \
         -e 's:/var/spool/mail:/var/mail:'                   \
         -e '/PATH=/{s@/sbin:@@;s@/bin:@@}'                  \
         -e 's@^ENV_PATH.*@ENV_PATH\tPATH=/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin@' \
         -i etc/login.defs
+
+    # A substitution that matches nothing exits 0, which is how the previous form
+    # shipped a file that declared nothing for as long as it did. Assert the END
+    # STATE instead of trusting the edit: if upstream moves this line again, the
+    # build stops here rather than shipping a system whose hashing method is
+    # whatever the library happens to prefer that year.
+    grep -qE '^ENCRYPT_METHOD[[:space:]]+YESCRYPT$' etc/login.defs || {
+        echo "ERROR: etc/login.defs declares no ENCRYPT_METHOD after the edit;" >&2
+        echo "       upstream's line shape changed — fix the substitution." >&2
+        exit 1
+    }
+    grep -qE '^ENV_PATH[[:space:]]' etc/login.defs || {
+        echo "ERROR: etc/login.defs carries no ENV_PATH line after the edit." >&2
+        exit 1
+    }
 
     # Needed because passwd location is hardcoded in some programs
     touch /usr/bin/passwd

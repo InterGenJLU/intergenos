@@ -22,6 +22,7 @@ visudo runs against an absolute target path. chown by numeric uid/gid
 looked up from target's /etc/passwd.
 """
 
+import ctypes
 import logging
 import os
 import re
@@ -79,6 +80,12 @@ log = logging.getLogger(__name__)
 # there yet and the two steps are not ordered relative to each other.
 CHRONICLE_GROUP = "chronicle"
 
+# Buffer sizes for the reentrant password-library calls. Both come from
+# libcrypt's own headers: CRYPT_GENSALT_OUTPUT_SIZE and the size of struct
+# crypt_data, taken generously because a short buffer is a truncated hash.
+_CRYPT_GENSALT_OUTPUT_SIZE = 192
+_CRYPT_DATA_SIZE = 32768
+
 # The supplementary groups the console account is created with.
 DEFAULT_USER_GROUPS = ("wheel", "audio", "video", "cdrom", "input",
                        CHRONICLE_GROUP)
@@ -92,6 +99,111 @@ _SUDOERS_WHEEL_COMMENTED_RE = re.compile(
     r'^#\s*%wheel\s+ALL=\(ALL:ALL\)\s+ALL\s*$',
     re.MULTILINE,
 )
+
+
+def _libcrypt():
+    """The system's own password library, or None when it cannot be loaded.
+
+    This is the library `passwd` itself uses on the installed machine, so asking
+    it is what makes an install-time hash and a password change made afterwards
+    agree.
+    """
+    try:
+        import ctypes.util
+        name = ctypes.util.find_library("crypt") or "libcrypt.so.2"
+        return ctypes.CDLL(name, use_errno=True)
+    except OSError as exc:
+        log.warning("password library could not be loaded (%s)", exc)
+        return None
+
+
+def _libcrypt_hash(password):
+    """Hash `password` with the system library's own preferred method.
+
+    Returns the stored-hash string, or None when the library cannot do it — the
+    caller then falls back and says so. Nothing here guesses a method name: the
+    library states which one it prefers, which is the same answer `passwd` acts
+    on, so the format the install writes is the format the machine will keep
+    producing.
+
+    The reentrant calls (`crypt_gensalt_rn`, `crypt_rn`) are used rather than
+    the plain ones because the plain ones return a pointer to a static buffer:
+    correct here, but a shared buffer holding a password hash is not a thing to
+    leave lying in a process that goes on to do other work.
+    """
+    lib = _libcrypt()
+    if lib is None:
+        return None
+    for symbol in ("crypt_preferred_method", "crypt_gensalt_rn", "crypt_rn"):
+        if not hasattr(lib, symbol):
+            log.warning("password library has no %s; using the fallback", symbol)
+            return None
+    try:
+        lib.crypt_preferred_method.restype = ctypes.c_char_p
+        prefix = lib.crypt_preferred_method()
+        if not prefix:
+            return None
+
+        lib.crypt_gensalt_rn.restype = ctypes.c_char_p
+        lib.crypt_gensalt_rn.argtypes = [ctypes.c_char_p, ctypes.c_ulong,
+                                         ctypes.c_char_p, ctypes.c_int,
+                                         ctypes.c_char_p, ctypes.c_int]
+        salt_buf = ctypes.create_string_buffer(_CRYPT_GENSALT_OUTPUT_SIZE)
+        entropy = secrets.token_bytes(64)
+        salt = lib.crypt_gensalt_rn(prefix, 0, entropy, len(entropy),
+                                    salt_buf, len(salt_buf))
+        if not salt:
+            log.warning("password library produced no salt for %s", prefix)
+            return None
+
+        lib.crypt_rn.restype = ctypes.c_char_p
+        lib.crypt_rn.argtypes = [ctypes.c_char_p, ctypes.c_char_p,
+                                 ctypes.c_void_p, ctypes.c_int]
+        data = ctypes.create_string_buffer(_CRYPT_DATA_SIZE)
+        stored = lib.crypt_rn(password.encode(), salt,
+                              ctypes.byref(data), len(data))
+        if not stored:
+            log.warning("password library refused to hash with %s", prefix)
+            return None
+        text = stored.decode()
+        if text.startswith("*"):
+            # libcrypt's documented failure token. Treated as a failure here
+            # rather than stored, because storing it would lock the account
+            # while looking like a hash.
+            log.warning("password library returned its failure token")
+            return None
+        return text
+    except (AttributeError, OSError, ValueError, UnicodeDecodeError) as exc:
+        log.warning("password library call failed (%s); using the fallback", exc)
+        return None
+
+
+def hash_password(password):
+    """The stored-hash string the install writes for an account.
+
+    The system's own library first, in the method that library prefers — that is
+    what makes the account the install creates match what `passwd` writes on the
+    same machine. Measured before this existed: an installed machine carried one
+    account at $6$ from the install and one at $y$ from a password change made
+    afterwards, on the same system, with no method declared in /etc/login.defs
+    at all.
+
+    SHA-512 crypt remains the fallback, and a fallback is RECORDED as one. It is
+    a strong format that every consumer of /etc/shadow accepts, so an install
+    does not fail over this — but the record always names the format actually
+    written, so nothing downstream has to assume which one it was.
+    """
+    stored = _libcrypt_hash(password)
+    fallback = stored is None
+    if fallback:
+        stored = _sha512crypt_hash(password)
+    trace.trace_event(
+        "password_hash_format",
+        format="$" + stored.split("$")[1] + "$",
+        fallback=fallback,
+        intent="record the password format this install actually wrote, so it "
+               "can be compared with what the installed system produces")
+    return stored
 
 
 def _sha512crypt_hash(password):
@@ -148,7 +260,7 @@ def set_root_password(target, password):
         raise ValueError(err)
     # Pre-hash + feed via stdin: avoids both PAM (which fails in chroot)
     # AND process table exposure of the plaintext.
-    hashed = _sha512crypt_hash(password)
+    hashed = hash_password(password)
     target_str = str(target)
 
     # chpasswd --root <target> -e: write /etc/shadow on target via libcrypt,
@@ -335,7 +447,7 @@ def create_user(target, username, password, groups=None):
 
     # Pre-hash + chpasswd --root -e: bypass install-time PAM, avoid process
     # table plaintext exposure. See _sha512crypt_hash() docstring.
-    hashed = _sha512crypt_hash(password)
+    hashed = hash_password(password)
     cmd = ["chpasswd", "--root", target_str, "-e"]
     result = trace.traced_run(
         cmd, input=f"{username}:{hashed}\n",
