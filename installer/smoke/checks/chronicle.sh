@@ -79,6 +79,70 @@ check_chronicle_polkit() {
     fi
 }
 
+# The install writes /etc/machine-id onto the target once, at install time
+# (installer/backend/config.py), so its modification time is when this system
+# was installed. A restore-point timeline whose newest entry is older than
+# that belongs to some earlier system, not this one — and an empty timeline
+# means there is no state to return to at all. Both are a WARN, never a FAIL:
+# the machine works, the person just cannot roll it back.
+check_chronicle_restore_point_covers_this_install() {
+    local anchor="${SMOKE_MACHINE_ID:-/etc/machine-id}"
+    local installed_at newest out rc
+
+    if [ ! -e "$anchor" ]; then
+        check_warn "chronicle/restore-point" \
+            "cannot tell when this system was installed ($anchor is absent)"
+        return
+    fi
+    if ! installed_at="$(stat -c %Y "$anchor" 2>/dev/null)" \
+       || [ -z "$installed_at" ]; then
+        check_warn "chronicle/restore-point" \
+            "cannot read the installation time from $anchor"
+        return
+    fi
+
+    out="$(chronicle list restore-point --json 2>&1)"
+    rc=$?
+    if [ "$rc" -ne 0 ]; then
+        # Unreadable is not absent: an ordinary account cannot reach the
+        # engine, and reporting that as "no restore points" would be a lie
+        # in the direction of alarm.
+        check_warn "chronicle/restore-point" \
+            "restore-point timeline unreadable here — re-run as root: sudo intergenos-smoke-test (${out})"
+        return
+    fi
+
+    newest="$(printf '%s' "$out" | python3 -c '
+import json, sys
+try:
+    versions = json.loads(sys.stdin.read())
+except Exception:
+    sys.exit(3)
+if not isinstance(versions, list):
+    sys.exit(3)
+stamps = [v.get("wall_clock") for v in versions
+          if isinstance(v, dict) and isinstance(v.get("wall_clock"), (int, float))]
+print(int(max(stamps)) if stamps else "")
+' 2>/dev/null)"
+    if [ $? -ne 0 ]; then
+        check_warn "chronicle/restore-point" \
+            "the restore-point timeline could not be parsed"
+        return
+    fi
+
+    if [ -z "$newest" ]; then
+        check_warn "chronicle/restore-point" \
+            "no restore point exists — there is no system state to return to (take one: chronicle capture restore-point)"
+        return
+    fi
+    if [ "$newest" -lt "$installed_at" ]; then
+        check_warn "chronicle/restore-point" \
+            "the newest restore point predates this installation — it belongs to an earlier system (take one: chronicle capture restore-point)"
+        return
+    fi
+    check_pass "chronicle/restore-point" "a restore point covers this installation"
+}
+
 run_chronicle_checks() {
     if ! _chronicle_installed; then
         check_skip "chronicle" "intergenos-backup not installed (optional desktop app)"
@@ -88,4 +152,5 @@ run_chronicle_checks() {
     check_chronicle_pretxn_handler
     check_chronicle_units
     check_chronicle_polkit
+    check_chronicle_restore_point_covers_this_install
 }

@@ -35,7 +35,8 @@ from typing import Callable, Optional
 
 import yaml
 
-from . import bootloader, config, disks, hooks, integrity, mok, packages, trace, users
+from . import (bootloader, config, disks, hooks, integrity, mok, packages,
+               restorepoint, trace, users)
 
 
 PHASE_VALIDATE = "validate"
@@ -1106,6 +1107,30 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
                 _emit(PHASE_CLEANUP, 12, f"warning: {msg}")
         except Exception as e:
             msg = f"test-account scrub failed ({type(e).__name__}: {e})"
+            result.warnings.append(msg)
+            _emit(PHASE_CLEANUP, 12, f"warning: {msg}")
+
+        # The install's own restore point, taken while the target is still
+        # mounted. Without it the oldest state this machine can return to is
+        # whatever it happened to be in when its first package transaction
+        # ran, because the restore-point layer is otherwise written only by
+        # the package manager. Best effort by design: the backup utility is
+        # optional, and a system that is complete on disk is not failed over
+        # a restore point — but a failure is named rather than swallowed.
+        try:
+            rp = restorepoint.take_install_restore_point(target)
+            if rp["status"] == "taken":
+                _emit(PHASE_CLEANUP, 12,
+                      "restore point of the installed system taken "
+                      f"({rp['version_id']})")
+            elif rp["status"] == "failed":
+                msg = ("no restore point of the installed system was taken: "
+                       + rp["detail"])
+                result.warnings.append(msg)
+                _emit(PHASE_CLEANUP, 12, f"warning: {msg}")
+        except Exception as e:  # noqa: BLE001 — never fail a complete install
+            msg = (f"no restore point of the installed system was taken "
+                   f"({type(e).__name__}: {e})")
             result.warnings.append(msg)
             _emit(PHASE_CLEANUP, 12, f"warning: {msg}")
 
