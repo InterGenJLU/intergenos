@@ -117,11 +117,20 @@ DEFGRUB_BLOCK
 }
 
 post_install() {
-    # 6. Regenerate /boot/grub/grub.cfg with our 06_intergenos_multi_background
-    # script in the active set. Safe to invoke multiple times.
-    if command -v update-grub >/dev/null 2>&1; then
-        update-grub || true
-    elif command -v grub-mkconfig >/dev/null 2>&1; then
-        grub-mkconfig -o /boot/grub/grub.cfg || true
+    # A fresh install configures its bootloader after package hooks. Probing
+    # the live overlay at this stage cannot produce the target's boot menu.
+    local menu
+    if [ -f /boot/efi/EFI/InterGenOS/grub.cfg ]; then
+        menu=/boot/efi/EFI/InterGenOS/grub.cfg
+    elif [ -f /boot/grub/grub.cfg ]; then
+        menu=/boot/grub/grub.cfg
+    else
+        echo "GRUB theme installed; menu generation awaits bootloader configuration."
+        return 0
     fi
+    if ! command -v grub-mkconfig >/dev/null 2>&1; then
+        echo "GRUB theme: grub-mkconfig is required to update $menu" >&2
+        return 1
+    fi
+    grub-mkconfig -o "$menu"
 }
