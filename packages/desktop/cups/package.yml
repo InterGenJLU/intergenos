@@ -32,6 +32,7 @@ tests:
   reason: "make check has two halves and only one of them can run here. The unit tests do run: `make -k check` builds and executes the array, internationalization, PWG, option, file, language, IPP, raster, HTTP and PPD API tests plus the CGI, help-index, PPD-compiler, PPD-importer and MIME tests, and their output is in the package log. One of them, the CGI API init test, reports FAIL because it runs without a CGI request environment. The second half is the scheduler test plan, which cannot run: the top-level check target ends by calling test/run-stp-tests.sh (Makefile:246-248 in the pinned cups 2.4.16 tarball), and that script refuses to run as root at its lines 19-22 with 'Please run this as a normal user. Not supported when run as root.' and exits 1. The chroot builds as root, so make check always ends non-zero on that step and the whole target is waived. Running that half would mean dropping to an unprivileged account that also owns the build tree the script writes into, which the build does not currently arrange. The earlier wording here attributed the non-zero exit to a session bus, a display and 'address in use' conflicts; the measured cause is the root refusal above, so that explanation is replaced by what the log actually shows. Named consequence of this policy: because the waiver covers the whole target, a NEW unit-test failure would also be absorbed rather than halting."
 
 verify_paths:
+  - /usr/lib/systemd/system/cups.service.d/20-hardening.conf
   - /etc/cups/client.conf
   - /etc/pam.d/cups
   - /usr/sbin/cupsd
