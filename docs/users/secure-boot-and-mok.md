@@ -75,6 +75,7 @@ The MOK is yours. It lives at `/var/lib/intergen/mok/` on the installed system. 
 Removing them is the only way that list gets shorter, and it is deliberately a decision you make rather than something that happens to you:
 
 - **During an install**, Forge shows you the keys this system already trusts that belong to earlier installs — each with its fingerprint and the date it was created — and offers to retire them. Keeping them all is the default and is always available; whatever you choose, the firmware asks you to confirm it at the same prompt that confirms the new key.
+- **If you asked for a retirement and it did not happen**, the Welcomer's first page says so at your next login and prints the command that asks again. The firmware's prompt waits about ten seconds; when it is missed the request is dropped and nothing is removed, so the machine still trusts exactly what it trusted before — the page exists so that state is not silent.
 - **At any other time**, `mokutil --export` writes every enrolled certificate to a file in the current directory and `mokutil --delete <file>` queues one for removal, confirmed at the same firmware prompt. Check which file is the current machine's key first: its fingerprint matches `sha1sum` of `/var/lib/intergen/mok/mok.der` — and that is the comparison to use, because the firmware's listing prints SHA-1 and a fingerprint computed any other way will not match it.
 
 ## The Forge install flow
@@ -168,7 +169,7 @@ The MokManager window is short (about 10 seconds), and on some machines the firm
 
 Do not use *Enroll hash from disk*: it pins today's boot loader bytes, and the next kernel update would fail to boot.
 
-Once you are logged in, the Welcomer's first page tells you whether the key is enrolled; it shows the same steps whenever the key is staged but not enrolled, and stays silent otherwise. The certificate's public copy is at `/etc/intergenos/mok.der`; `mokutil --list-enrolled` lists what the firmware holds.
+Once you are logged in, the Welcomer's first page tells you whether the key is enrolled; it shows the same steps whenever the key is staged but not enrolled, and stays silent otherwise. It also tells you when a retirement of an earlier install's key that you asked for during the install has not happened, and prints the command that asks again; it stays silent when every key you asked about is gone. The certificate's public copy is at `/etc/intergenos/mok.der`; `mokutil --list-enrolled` lists what the firmware holds.
 
 ### "I forgot the MOK enrollment password"
 
