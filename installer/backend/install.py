@@ -214,6 +214,13 @@ class InstallResult:
     integrity_manifest_entry_count: int = 0
     integrity_archives_checked: int = 0
     integrity_missing_archives: list = field(default_factory=list)
+    #: The recovery key generated for the encrypted volume, when the person
+    #: asked for one. It exists in exactly two places: this field, which the
+    #: frontend shows once at the end of the install, and the key slot on the
+    #: volume itself. It is never written to the trace, to a file, or to the
+    #: installed system — if the person does not write it down, it is gone,
+    #: and the completion screen says so.
+    luks_recovery_key: str = ""
     warnings: list = field(default_factory=list)
     cancelled: bool = False
 
@@ -603,6 +610,12 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
             _emit(PHASE_PARTITION, 2,
                   f"LUKS opt-in: wrapping root in LUKS2 (argon2id){tail}")
 
+        # The person's answer to the offer of a second way into the disk.
+        # Only meaningful on an encrypted install; the partitioner refuses
+        # the combination rather than ignoring it.
+        recovery_key_enabled = bool(
+            luks_enabled and install_io.get("luks_recovery_key_enable"))
+
         def _fido2_status(msg):
             _emit(PHASE_PARTITION, 2, f"FIDO2 enrollment: {msg}")
 
@@ -614,7 +627,14 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
             tpm2_enabled=tpm2_enabled,
             fido2_enabled=fido2_enabled,
             fido2_progress_callback=_fido2_status if fido2_enabled else None,
+            recovery_key_enabled=recovery_key_enabled,
         )
+        if partitions.get("recovery_key"):
+            # Carried to the frontend for the one time it is shown, and
+            # deliberately nowhere else.
+            result.luks_recovery_key = partitions["recovery_key"]
+            _emit(PHASE_PARTITION, 3,
+                  "recovery key added as a second unlock slot")
         result.phase_completed = PHASE_PARTITION
         _emit(PHASE_PARTITION, 3, "partitioned + formatted")
 

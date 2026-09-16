@@ -152,10 +152,26 @@ class DonePage(_ForgePage):
                 getattr(state, "mok_enrollment_chosen", False)
                 and allows_mok_enrollment() is True
             )
-            self._status.set_description(_success_description(
+            description = _success_description(
                 mok_reminder=mok_reminder,
                 media_kind=live_media_kind(),
-            ))
+            )
+            recovery_key = getattr(state, "luks_recovery_key", "")
+            if recovery_key:
+                # The only time it is shown. Say plainly that it is not
+                # stored anywhere, so nobody leaves this page assuming it
+                # can be looked up on the installed system.
+                description = (
+                    "RECOVERY KEY for the encrypted disk — write it down "
+                    "before you reboot:\n\n"
+                    f"{recovery_key}\n\n"
+                    "This is the only time it is shown. It is not saved on "
+                    "the disk or in the install record, and it cannot be "
+                    "recovered. Keep it somewhere that is not this machine: "
+                    "anyone holding it can unlock this disk.\n\n"
+                    + description
+                )
+            self._status.set_description(description)
             self.next_button.set_label("Reboot now")
 
     def _on_next_clicked(self, _button):  # noqa: override

@@ -71,6 +71,20 @@ class InstallerState:
     tpm2_enabled: bool = False
     fido2_enabled: bool = False
 
+    # --- A second way into the encrypted disk (R001.3 row 32) ---
+    # Offered on every encrypted install, not experimental and not
+    # hardware-dependent: the machine generates a recovery key, adds it as a
+    # second LUKS key slot, and the completion page shows it once. It is
+    # never stored on the disk or in the install record.
+    luks_recovery_key_enable: bool = False
+
+    #: The generated recovery key, carried from the install result to the
+    #: completion page for the one time it is shown. It is deliberately NOT
+    #: cleared by clear_sensitive_data(): the whole point is that the person
+    #: reads it after the install finishes. It exists only here and in the
+    #: key slot on the volume — never on the disk, never in the trace.
+    luks_recovery_key: str = ""
+
     # --- Dual-boot detection (Option C 2026-05-24) ---
     # When True, GRUB_DISABLE_OS_PROBER=false is written to the installed
     # system's /etc/default/grub. os-prober runs at install time and on
@@ -456,6 +470,8 @@ class InstallerState:
                 io["tpm2_enabled"] = True
             if self.fido2_enabled:
                 io["fido2_enabled"] = True
+            if self.luks_recovery_key_enable:
+                io["luks_recovery_key_enable"] = True
         return io
 
     def to_run_install_kwargs(

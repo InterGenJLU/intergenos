@@ -74,6 +74,16 @@ Forge writes `{cred_id, stored_nonce}` to the ESP under `/intergen/fido2/`. Neit
 
 This is flagged EXPERIMENTAL for the same family of reasons as the TPM2 path: a lost token, a firmware update on the token that rotates the underlying credential storage, or a token swap all invalidate the slot. The passphrase slot stays in the LUKS header for fallback.
 
+### The recovery key
+
+An encrypted install offers you a second way in, and it is worth taking. A disk with one key slot is a disk you lose entirely by forgetting one passphrase — or by typing it correctly into the wrong keyboard layout, which is the more common way it happens.
+
+Say yes and the installer generates a recovery key on your machine, adds it as a second key slot on the encrypted volume, and proves the slot works before it moves on. The key is eight groups of five characters, drawn from an alphabet that leaves out the characters people transcribe wrongly — no O or 0, no I, L or 1.
+
+It is shown once, on the last screen of the install. Write it down before you reboot. It is not saved on the disk, it is not in the install record, and it is not sent anywhere — so nobody, including us, can give it back to you later. Keep it somewhere that is not the machine it unlocks: anyone holding it can open that disk, exactly as your passphrase can.
+
+If you say no, nothing changes: your passphrase is the only way in, which is how installs behaved before this option existed.
+
 ## The boot-time flow
 
 When an encrypted InterGenOS system boots, the path looks like this:
@@ -177,7 +187,9 @@ Most of the time you will never think about any of this. When something goes wro
 
 ### "I forgot my passphrase"
 
-If no usable keyslot credential remains, your data is gone. We are sorry. LUKS has a volume key, but InterGenOS does not hold it or escrow a recovery credential; there is no back door or service we can offer that will recover it. This is intentional — a recovery channel that we could use is a channel that an attacker could use.
+If you took the recovery key the installer offered, use it: it unlocks the disk anywhere the passphrase would, at the same boot prompt. It is the second key slot on the volume, and it exists precisely for this.
+
+If you did not take one, or no longer have it, and no other keyslot credential remains, your data is gone. We are sorry. LUKS has a volume key, but InterGenOS does not hold it or escrow a recovery credential; there is no back door or service we can offer that will recover it. This is intentional — a recovery channel that we could use is a channel that an attacker could use. The recovery key is not an exception to that: it is generated on your machine, shown to you once, and never stored anywhere we or anyone else can reach.
 
 If this happens, boot a live ISO and reinstall. **Back up early and often** is the only mitigation.
 

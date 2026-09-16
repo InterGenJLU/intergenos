@@ -474,6 +474,7 @@ def _release_disk(disk_path):
 
 def partition_disk(disk_path, efi=False, luks_enabled=False, luks_passphrase=None,
                    tpm2_enabled=False, fido2_enabled=False,
+                   recovery_key_enabled=False,
                    fido2_progress_callback=None):
     """Partition a disk for InterGenOS installation.
 
@@ -523,6 +524,15 @@ def partition_disk(disk_path, efi=False, luks_enabled=False, luks_passphrase=Non
 
     Returns dict with partition paths.
     """
+    # A recovery key is a second slot on a LUKS volume; without encryption
+    # there is no volume to add it to. Refuse before anything touches the
+    # disk rather than silently ignoring the choice the person made.
+    if recovery_key_enabled and not luks_enabled:
+        raise ValueError(
+            "recovery_key_enabled requires luks_enabled: a recovery key is a "
+            "second unlock slot on the encrypted volume, and an unencrypted "
+            "install has none")
+
     # D-005 Phase B pre-check: disk size sufficient for ESP + meaningful root
     disk_size = _disk_size_bytes(disk_path)
     trace.trace_event("disk_phase_begin", phase=TRACE_PHASE_PARTITION,
@@ -532,7 +542,8 @@ def partition_disk(disk_path, efi=False, luks_enabled=False, luks_passphrase=Non
     try:
         layout = _partition_disk(disk_path, disk_size, efi, luks_enabled,
                                  luks_passphrase, tpm2_enabled, fido2_enabled,
-                                 fido2_progress_callback)
+                                 fido2_progress_callback,
+                                 recovery_key_enabled=recovery_key_enabled)
     except BaseException as exc:
         # The failure is a row before it is an exception: the command rows
         # above it already carry the rc and stderr; this names the step's
@@ -541,13 +552,20 @@ def partition_disk(disk_path, efi=False, luks_enabled=False, luks_passphrase=Non
         trace.trace_event("disk_phase_failed", phase=TRACE_PHASE_PARTITION,
                           disk=disk_path, error=f"{type(exc).__name__}: {exc}"[:2000])
         raise
+    # The layout goes into the trace, and the recovery key is a credential:
+    # it is replaced by the fact that one exists. The key itself reaches the
+    # frontend, which shows it to the person once, and nowhere else.
+    traced_layout = {k: v for k, v in layout.items() if k != "recovery_key"}
+    if "recovery_key" in layout:
+        traced_layout["recovery_key_present"] = True
     trace.trace_event("disk_phase_end", phase=TRACE_PHASE_PARTITION,
-                      disk=disk_path, layout=dict(layout))
+                      disk=disk_path, layout=traced_layout)
     return layout
 
 
 def _partition_disk(disk_path, disk_size, efi, luks_enabled, luks_passphrase,
-                    tpm2_enabled, fido2_enabled, fido2_progress_callback):
+                    tpm2_enabled, fido2_enabled, fido2_progress_callback,
+                    recovery_key_enabled=False):
     """partition_disk's body; the wrapper above opens and closes the trace phase."""
     if disk_size < FRESH_INSTALL_MIN_DISK_BYTES:
         raise RuntimeError(
@@ -655,6 +673,13 @@ def _partition_disk(disk_path, disk_size, efi, luks_enabled, luks_passphrase,
             _run(f"mkfs.ext4 -L intergenos {mapper}")
 
             crypt_opts = ["luks", "discard"]
+            recovery_key = None
+            if recovery_key_enabled:
+                # Before the experimental unlock methods, so that a machine
+                # whose TPM or security key enrolment fails still leaves the
+                # person with the second way in they asked for.
+                recovery_key = generate_recovery_key()
+                add_recovery_key_slot(p2, luks_passphrase, recovery_key)
             if tpm2_enabled or fido2_enabled:
                 _enroll_experimental_unlock_methods(
                     p1, p2, luks_passphrase,
@@ -663,7 +688,7 @@ def _partition_disk(disk_path, disk_size, efi, luks_enabled, luks_passphrase,
                     fido2_progress_callback=fido2_progress_callback,
                     crypt_opts=crypt_opts,
                 )
-            return {
+            layout = {
                 "esp": p1,
                 "root": p2,
                 "root_mapper": mapper,
@@ -671,6 +696,9 @@ def _partition_disk(disk_path, disk_size, efi, luks_enabled, luks_passphrase,
                 "crypt_opts": crypt_opts,
                 "efi": True,
             }
+            if recovery_key is not None:
+                layout["recovery_key"] = recovery_key
+            return layout
         else:
             _run(f"mkfs.ext4 -L intergenos {p2}")
             return {"esp": p1, "root": p2, "efi": True}
@@ -1327,6 +1355,61 @@ def _luks_add_key_with_existing(luks_partition, existing_key, new_key):
             os.unlink(new_key_path)
         except OSError:
             pass
+
+
+#: A recovery key is written down by a person and typed back at a boot
+#: prompt, often months later, so the alphabet leaves out the characters
+#: that get transcribed wrongly (O and 0, I, L and 1) and the key is
+#: grouped. Eight groups of five over this 31-character alphabet carry
+#: about 198 bits, which is far more than the volume key it protects.
+RECOVERY_KEY_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
+RECOVERY_KEY_GROUPS = 8
+RECOVERY_KEY_GROUP_LEN = 5
+
+
+def generate_recovery_key():
+    """Return a grouped recovery key drawn from the system's own entropy."""
+    import secrets
+    groups = [
+        "".join(secrets.choice(RECOVERY_KEY_ALPHABET)
+                for _ in range(RECOVERY_KEY_GROUP_LEN))
+        for _ in range(RECOVERY_KEY_GROUPS)
+    ]
+    return "-".join(groups)
+
+
+def add_recovery_key_slot(luks_partition, existing_passphrase, recovery_key):
+    """Add `recovery_key` as a second unlock slot, and prove it opens.
+
+    Writing the slot is not the same as being able to unlock with it, and
+    a recovery key that does not work is worse than none: the person
+    believes they have a way back in. cryptsetup is therefore asked
+    directly, with the new key, whether it opens the volume — no mapping
+    is created, only the key slots are tried.
+    """
+    if isinstance(existing_passphrase, str):
+        existing_key = existing_passphrase.encode("utf-8")
+    else:
+        existing_key = bytes(existing_passphrase)
+    new_key = (recovery_key.encode("ascii")
+               if isinstance(recovery_key, str) else bytes(recovery_key))
+
+    _luks_add_key_with_existing(luks_partition, existing_key, new_key)
+
+    res = trace.traced_run(
+        ["cryptsetup", "open", "--test-passphrase", "--batch-mode",
+         "--key-file=-", luks_partition],
+        input=new_key,
+        phase=TRACE_PHASE_PARTITION,
+        intent=f"prove the recovery key opens {luks_partition}",
+    )
+    if res.returncode != 0:
+        raise RuntimeError(
+            "the recovery key slot was written but could not unlock "
+            f"{luks_partition} (cryptsetup exit {res.returncode}): "
+            + res.stderr.decode("utf-8", errors="replace").strip()
+        )
+    return {"verified": True, "device": luks_partition}
 
 
 def _scrub_passphrase_from_text(text, passphrase_bytes):

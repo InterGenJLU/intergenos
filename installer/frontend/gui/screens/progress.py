@@ -427,6 +427,10 @@ class ProgressPage(_ForgePage):
             # consumed by the orchestrator. Defense-in-depth against
             # crash-dump / core-file credential leakage.
             state.clear_sensitive_data()
+            # Carried AFTER the scrub, deliberately: the recovery key is the
+            # one secret this install is meant to hand back to the person,
+            # and the completion page is where they read it.
+            state.luks_recovery_key = getattr(result, "luks_recovery_key", "")
             self._progress_bar.set_fraction(1.0)
             self._progress_bar.set_text("Install complete")
             msg = "Install complete."
