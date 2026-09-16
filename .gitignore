@@ -104,3 +104,6 @@ docs/research/**/*.tar.xz
 docs/research/**/*.tar.gz
 
 intergen/tests/results/
+
+# CVP / vendor-program working material — never public
+cvp/
