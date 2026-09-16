@@ -250,6 +250,207 @@ def queue_mok_enrollment(target, der_path, password):
         raise RuntimeError(f"mokutil --import failed: {stderr}")
 
 
+# ---------------------------------------------------------------------------
+# Prior machine owner keys: reading what the firmware already trusts, and
+# offering to retire the ones this machine no longer holds a private half for.
+#
+# Every install generates a fresh key and enrols it. Nothing ever retired the
+# old ones, so a machine that has been reinstalled several times accumulates a
+# trusted key per install — measured on one fleet machine: seven of this
+# project's keys enrolled, six of them belonging to disks that were installed
+# over. A key stays trusted whether or not anyone still holds its private half,
+# and the dates in the certificate are not checked by anything in the boot
+# path, so the only way a machine's trust set ever shrinks is a deliberate
+# removal.
+#
+# The rules this code keeps, in the order they matter:
+#   - it never removes anything on its own. It reads, it reports, and it queues
+#     a removal only for keys a person explicitly chose;
+#   - the removal goes through the firmware's own manager, which asks the
+#     person to confirm it at the same prompt, with the same password, as an
+#     addition — no separate trust path is invented here;
+#   - it never claims an enrolment date. The firmware records none. What it
+#     shows is the certificate's own creation time, which on this system IS the
+#     install that generated it, and the wording says "created";
+#   - the key this install just generated is excluded by comparing SHA-1 over
+#     the certificate bytes, which is what the firmware's own listing prints.
+#     Comparing a differently-computed fingerprint would silently mark the live
+#     key as a prior one.
+OWNER_KEY_COMMON_NAME = "InterGenOS Machine Owner Key"
+
+# Where the exported certificates land inside the target while they are read.
+# Inside the target rather than the live root: the files come from the
+# firmware, and a temporary directory on the target is removed with it if the
+# install is abandoned.
+_EXPORT_DIR = "/var/lib/intergen/mok/enrolled"
+
+
+def sha1_fingerprint(der):
+    """The SHA-1 of the certificate bytes, lower-case and unseparated.
+
+    This is the value the firmware's own listing prints per enrolled key, so it
+    is the value every comparison in this module uses.
+    """
+    import hashlib
+    return hashlib.sha1(der).hexdigest()
+
+
+def export_enrolled_certificates(target, runner=None):
+    """Every certificate the firmware currently trusts as a machine owner key.
+
+    Returns a list of DER byte strings, or None when the store cannot be read
+    at all — an unreadable store is never reported as an empty one, because
+    "no prior keys" and "could not look" must not reach a person as the same
+    sentence.
+
+    The export runs through the target's own tooling with the firmware
+    variables mounted, the same way the enrolment does. It writes files and
+    reads nothing else; it changes no key store.
+    """
+    runner = runner or run_chroot
+    export_dir = Path(target) / _EXPORT_DIR.lstrip("/")
+    try:
+        export_dir.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return None
+    mount_efivars(target)
+    try:
+        rc, _out, _err = runner(
+            str(target), f"cd {_EXPORT_DIR} && rm -f MOK-*.der && mokutil --export")
+    finally:
+        unmount_efivars(target)
+    if rc != 0:
+        return None
+    ders = []
+    for path in sorted(export_dir.glob("MOK-*.der")):
+        try:
+            ders.append(path.read_bytes())
+        except OSError:
+            return None
+    return ders
+
+
+def certificate_identity(der):
+    """What a person needs to recognise one enrolled certificate.
+
+    Returns a dict with the common name, the SHA-1 fingerprint, and the
+    certificate's own validity dates as the firmware would show them, or None
+    when the bytes cannot be read as a certificate. `created` is the
+    certificate's start time: this project generates the key during the
+    install, so it is the install's own moment — it is NOT an enrolment date,
+    and no caller may present it as one, because the firmware records none.
+    """
+    import subprocess
+    from .secureboot import certificate_common_name
+    cn = certificate_common_name(der)
+    if cn is None:
+        return None
+    try:
+        proc = subprocess.run(
+            ["openssl", "x509", "-inform", "DER", "-noout", "-dates"],
+            input=der, capture_output=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    created = expires = None
+    for line in proc.stdout.decode("utf-8", "replace").splitlines():
+        if line.startswith("notBefore="):
+            created = line[len("notBefore="):].strip()
+        elif line.startswith("notAfter="):
+            expires = line[len("notAfter="):].strip()
+    return {"common_name": cn, "sha1": sha1_fingerprint(der),
+            "created": created, "expires": expires, "der": der}
+
+
+def prior_owner_keys(ders, current_der):
+    """This project's enrolled keys other than the one this install generated.
+
+    Certificates with any other common name — a vendor's authority, for
+    instance — are not this project's to offer for removal and are left alone.
+    The current key is excluded by fingerprint, never by position or by date.
+    """
+    if not ders:
+        return []
+    current = sha1_fingerprint(current_der) if current_der else None
+    prior = []
+    for der in ders:
+        identity = certificate_identity(der)
+        if identity is None:
+            continue
+        if identity["common_name"] != OWNER_KEY_COMMON_NAME:
+            continue
+        if current is not None and identity["sha1"] == current:
+            continue
+        prior.append(identity)
+    return prior
+
+
+def queue_owner_key_removal(target, identities, password, runner=None):
+    """Queue the chosen prior keys for removal at the firmware's own prompt.
+
+    Nothing is removed here. The request waits until the machine next starts
+    with Secure Boot on, where the firmware's manager lists it as a deletion
+    and asks the person to confirm it with the enrolment password — the same
+    prompt, the same password and the same ten-second window as an addition. If
+    that prompt is missed the request is dropped and the key store is left
+    exactly as it was; the first-login check is what says so afterwards.
+
+    `identities` are records from prior_owner_keys(); an empty list is a
+    programming error rather than a no-op, because "remove nothing" is the
+    decline path and the caller owns it.
+    """
+    runner = runner or run_chroot_stdin
+    if not identities:
+        raise ValueError(
+            "queue_owner_key_removal called with no keys — the caller owns the "
+            "decline path and must not reach here when a person keeps them all")
+    if not password:
+        raise ValueError("removal needs the enrolment password the person set")
+    err = validate_mok_password(password)
+    if err:
+        raise ValueError(err)
+
+    target_path = Path(target)
+    export_dir = target_path / _EXPORT_DIR.lstrip("/")
+    export_dir.mkdir(parents=True, exist_ok=True)
+    in_target = []
+    for identity in identities:
+        name = f"retire-{identity['sha1']}.der"
+        (export_dir / name).write_bytes(identity["der"])
+        in_target.append(f"{_EXPORT_DIR}/{name}")
+
+    cmd = "mokutil --delete " + " ".join(in_target)
+    stdin_data = f"{password}\n{password}\n"
+    mount_efivars(target)
+    try:
+        rc, _out, stderr = runner(str(target), cmd, stdin_data)
+    finally:
+        unmount_efivars(target)
+    if rc != 0:
+        raise RuntimeError(f"mokutil --delete failed: {stderr}")
+    trace.trace_event(
+        "mok_prior_keys_queued_for_removal", phase="bootloader",
+        count=len(identities),
+        fingerprints=[i["sha1"] for i in identities],
+        intent="the person chose to retire previously enrolled machine owner "
+               "keys; the firmware asks them to confirm it when the machine "
+               "next starts with Secure Boot on")
+
+
+def record_owner_key_decision(kept, removed):
+    """Record what the person decided about prior keys, including keeping them.
+
+    A decline is recorded as deliberately as a removal: a machine that still
+    trusts six old keys should say that someone was asked and said no, not go
+    quiet.
+    """
+    trace.trace_event(
+        "mok_prior_keys_decision", phase="bootloader",
+        offered=len(kept) + len(removed), kept=len(kept), removed=len(removed),
+        declined=not removed,
+        intent="record the person's answer to the prior-key offer, whichever "
+               "way it went")
+
+
 def sign_efi_binary(target, binary_path, key_path, cert_path, output_path=None):
     """Sign an EFI binary (GRUB, kernel image) with an MOK key via sbsign.
 
