@@ -49,7 +49,7 @@ def test_icon_cache_builder_uses_reviewed_absolute_program(tmp_path):
 
 
 def test_ca_builder_uses_reviewed_absolute_program():
-    cmd = hooks._update_ca_trust_cmd("/", ["etc/ca-certificates/demo.crt"])
+    cmd = hooks._update_ca_trust_cmd("/", ["etc/pki/anchors/demo.pem"])
     assert cmd[0] == "/usr/bin/update-ca-trust"
 
 
@@ -149,7 +149,10 @@ def test_missing_ca_program_names_the_expected_producer(monkeypatch):
     monkeypatch.setattr(hooks.subprocess, "run", missing)
     result = hooks.run_canonical_hooks(
         "/",
-        ["etc/ca-certificates/demo.crt"],
+        # The trust source directory p11-kit is configured with; the path has
+        # to be one the ca-trust trigger selects or this test proves nothing
+        # about the missing-program message.
+        ["etc/pki/anchors/demo.pem"],
         "demo",
         "1.0",
         "install",

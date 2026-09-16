@@ -63,9 +63,14 @@ def _matched_for(hook):
         "usr/lib/libfoo.so.1",
         "usr/share/glib-2.0/schemas/org.example.gschema.xml",
         "etc/apparmor.d/usr.bin.demo",
+        # The trust source directory p11-kit is built with. The two
+        # /usr/share/ca-certificates and /usr/share/pki paths that used to sit
+        # here selected the certificate-trust hook only because its trigger
+        # named a directory family this tree does not ship into; with the
+        # trigger corrected to the configured source, a path the hook actually
+        # selects is what keeps it inside this file's general check.
+        "etc/pki/anchors/a3418fda.0.pem",
         "etc/ssl/certs/demo.pem",
-        "usr/share/ca-certificates/trust-source/anchors/demo.crt",
-        "usr/share/pki/trust/anchors/demo.crt",
         "usr/share/icons/hicolor/scalable/apps/demo.svg",
         "usr/share/fonts/demo/Demo-Regular.ttf",
         "usr/share/applications/demo.desktop",
@@ -123,13 +128,13 @@ def test_fc_cache_on_the_live_system_uses_the_reviewed_program():
 def test_update_ca_trust_declines_for_a_foreign_root(tmp_path):
     root = tmp_path / "target"
     root.mkdir()
-    assert hooks._update_ca_trust_cmd(str(root), ["etc/ssl/certs/demo.pem"]) is None, (
+    assert hooks._update_ca_trust_cmd(str(root), ["etc/pki/anchors/demo.pem"]) is None, (
         "the CA trust hook would rebuild the RUNNING system's trust store "
         "during an install into another root"
     )
 
 
 def test_update_ca_trust_on_the_live_system_uses_the_reviewed_program():
-    assert hooks._update_ca_trust_cmd("/", ["etc/ssl/certs/demo.pem"]) == [
+    assert hooks._update_ca_trust_cmd("/", ["etc/pki/anchors/demo.pem"]) == [
         "/usr/bin/update-ca-trust",
     ]

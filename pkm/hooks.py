@@ -14,7 +14,7 @@ package operation completes deploy:
    /usr/share/icons/<theme>/, fc-cache on /usr/share/fonts/,
    update-desktop-database on /usr/share/applications/,
    update-mime-database on /usr/share/mime/, update-ca-trust on
-   /etc/ca-certificates/ and /usr/share/ca-certificates/.
+   /etc/pki/anchors/ (the trust source directory p11-kit is built with).
 
 2. Archive .scripts/ lifecycle hooks (opt-in, bespoke packages):
    Packages requiring custom setup beyond canonical triggers ship
@@ -474,9 +474,32 @@ CANONICAL_HOOKS = [
         critical=True,
     ),
     CanonicalHook(
+        # THE TRIGGER NAMED A DIRECTORY FAMILY THIS TREE DOES NOT USE. Its
+        # previous form, ^(etc|usr/share)/ca-certificates/, is the Debian
+        # layout; no recipe here installs anything under either of those two
+        # paths, so the hook selected nothing and the trust updater that landed
+        # with ca-certificates r3 was never invoked by a package operation. A
+        # trigger that selects no path is indistinguishable from a package that
+        # shipped no trust anchor — the failure had nothing to report it.
+        #
+        # What this tree actually configures: p11-kit is built with
+        # -D trust_paths=/etc/pki/anchors and ca-certificates emits its trusted
+        # roots there in the OpenSSL TRUSTED CERTIFICATE format p11-kit-trust
+        # requires. That one directory is the authoritative input, and its
+        # anchors/ and blocklist/ subdirectories are how p11-kit organises a
+        # trust path, so the trigger takes any descendant of it.
+        #
+        # It deliberately does NOT take the extracted outputs — the bundle and
+        # the hashed certificate directory under /etc/ssl/certs, and the
+        # /etc/pki/tls/certs alias. Those are what the updater WRITES; a trigger
+        # on them would make the hook respond to its own result. Nor does it
+        # take /etc/pki/ca-trust/source/anchors, which ca-certificates ships
+        # empty as a future per-certificate drop-in point and which p11-kit is
+        # not configured to read: a file landing there changes no trust today,
+        # and firing on it would report a regeneration that regenerated nothing.
         id="ca-trust",
         description="ca-certificates trust store",
-        pattern=re.compile(r"^(etc|usr/share)/ca-certificates/"),
+        pattern=re.compile(r"^etc/pki/anchors/.+"),
         cmd_fn=_update_ca_trust_cmd,
         critical=True,
     ),
