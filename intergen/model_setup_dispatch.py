@@ -58,6 +58,7 @@ import json
 import os
 import shutil
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 from intergen.model_manager import (
@@ -66,6 +67,7 @@ from intergen.model_manager import (
     PINS_MANIFEST_PATH,
     SYSTEM_LEGAL_DIR,
     MODEL_CATALOG,
+    EMBEDDING_MODEL,
     ModelManager,
     APACHE_LICENSE_REF,
     QWEN_LICENSE_REF,
@@ -308,7 +310,8 @@ def provision(
     # side uses, so list_downloaded() stays consistent. Look the structural
     # metadata up by filename from the catalog; the pin is the trust anchor.
     catalog_model = next(
-        (m for m in MODEL_CATALOG.values() if m.filename == filename), None
+        (replace(m) for m in [*MODEL_CATALOG.values(), EMBEDDING_MODEL]
+         if m.filename == filename), None
     )
     if catalog_model is not None:
         try:
@@ -318,13 +321,13 @@ def provision(
             catalog_model.local_path = str(dest)
             catalog_model.downloaded = True
             if mmproj_dest is not None:
+                catalog_model.mmproj_filename = mmproj_filename
+                catalog_model.mmproj_sha256 = _mmproj_sha
                 catalog_model.mmproj_local_path = str(mmproj_dest)
-            mm._update_manifest(catalog_model)
+            if not mm._update_manifest(catalog_model):
+                return False, "provision: files installed, but runtime manifest write failed."
         except OSError as exc:
-            # The file IS installed + verified — a manifest-write hiccup is not
-            # fatal (get_model_for_tier checks the file on disk, not the
-            # manifest). Report it but treat the install as succeeded.
-            _emit(f"provision: note — manifest sidecar update failed: {exc}.")
+            return False, f"provision: files installed, but runtime manifest update failed: {exc}."
 
     # Record the descriptor's license even for permissive models, replacing an
     # inaccurate older record when setup is rerun. Catalog defaults and caller

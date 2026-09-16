@@ -591,7 +591,8 @@ class ModelManager(ModelManagerInterface):
             model.local_path = str(local_path)
             if self.verify_model(model):
                 model.downloaded = True
-                self._update_manifest(model)
+                if not self._update_manifest(model):
+                    return False
                 return self._download_paired_mmproj(
                     model, progress_callback=progress_callback)
             log.warning("Existing model failed verification, re-downloading")
@@ -624,7 +625,8 @@ class ModelManager(ModelManagerInterface):
                 # trust anchor; it equals the computed hash by construction).
                 model.local_path = str(local_path)
                 model.downloaded = True
-                self._update_manifest(model)
+                if not self._update_manifest(model):
+                    return False
                 log.info(
                     "Model %s ready (pin-verified) via %s", model.name, label
                 )
@@ -690,7 +692,7 @@ class ModelManager(ModelManagerInterface):
             proj.local_path = str(local_path)
             if self.verify_model(proj):
                 model.mmproj_local_path = str(local_path)
-                return True
+                return self._update_manifest(model)
             log.warning("Existing mmproj failed verification, re-downloading")
             local_path.unlink()
         for label, url in (
@@ -702,6 +704,8 @@ class ModelManager(ModelManagerInterface):
                 url, local_path, proj.sha256, progress_callback
             ):
                 model.mmproj_local_path = str(local_path)
+                if not self._update_manifest(model):
+                    return False
                 log.info("mmproj %s ready (pin-verified) via %s",
                          proj.filename, label)
                 return True
@@ -1035,6 +1039,8 @@ class ModelManager(ModelManagerInterface):
         """List all downloaded and verified models."""
         result = []
         for entry in self._manifest.values():
+            if entry.get("kind", "model") != "model":
+                continue
             local_path = Path(entry.get("local_path", ""))
             if local_path.exists():
                 info = ModelInfo(
@@ -1155,7 +1161,25 @@ class ModelManager(ModelManagerInterface):
             tier=HardwareTierLevel.TIER_1,
             local_path=str(path),
         )
-        return self.verify_model(synthetic)
+        if not self.verify_model(synthetic):
+            return False
+        entry = self._entries.get(path.name, {})
+        if entry.get("has_vision"):
+            filename = entry.get("mmproj_filename")
+            pin = entry.get("mmproj_sha256")
+            if not filename or not pin or Path(filename).name != filename:
+                log.error("Model %s has no valid paired projector descriptor", path.name)
+                return False
+            projector = ModelInfo(
+                name=f"{path.stem} (mmproj)", filename=filename,
+                repo_id=synthetic.repo_id, quant="", size_gb=0.0,
+                sha256=pin, tier=synthetic.tier,
+                local_path=str(path.parent / filename),
+            )
+            if not self.verify_model(projector):
+                log.error("Model %s: paired projector verification failed", path.name)
+                return False
+        return True
 
     def get_embedding_model(self) -> ModelInfo:
         """Return info for the embedding model (nomic-embed-text-v1.5)."""
@@ -1168,6 +1192,7 @@ class ModelManager(ModelManagerInterface):
             sha256=EMBEDDING_MODEL.sha256,
             tier=EMBEDDING_MODEL.tier,
         )
+        self._apply_manifest(model)
 
         local_path = self._model_dir / model.filename
         if local_path.exists():
@@ -1280,7 +1305,7 @@ class ModelManager(ModelManagerInterface):
                 log.warning("Failed to load manifest: %s", e)
                 self._manifest = {}
 
-    def _update_manifest(self, model: ModelInfo) -> None:
+    def _update_manifest(self, model: ModelInfo) -> bool:
         """Update the manifest with model info and write to disk."""
         self._manifest[model.filename] = {
             "name": model.name,
@@ -1291,11 +1316,22 @@ class ModelManager(ModelManagerInterface):
             "sha256": model.sha256,
             "tier": model.tier.value,
             "local_path": model.local_path or "",
+            "kind": "embedding" if model.filename == EMBEDDING_MODEL.filename else "model",
         }
+        if model.mmproj_local_path and model.mmproj_filename:
+            self._manifest[model.mmproj_filename] = {
+                "name": f"{model.name} (mmproj)",
+                "filename": model.mmproj_filename,
+                "sha256": model.mmproj_sha256,
+                "local_path": model.mmproj_local_path,
+                "kind": "projector",
+            }
         try:
             self._manifest_path.parent.mkdir(parents=True, exist_ok=True)
             self._manifest_path.write_text(
                 json.dumps(self._manifest, indent=2) + "\n"
             )
+            return True
         except OSError as e:
             log.error("Failed to write manifest: %s", e)
+            return False

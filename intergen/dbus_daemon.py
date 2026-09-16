@@ -920,17 +920,22 @@ class InterGenDaemon(InterGenDBusInterface):
         import os
         from pathlib import Path as _Path
         override = os.environ.get("INTERGEN_EMBED_MODEL_PATH")
-        if override:
-            return override if _Path(override).exists() else ""
         if self._mm is None:
             return ""
         try:
-            info = self._mm.get_embedding_model()
-            path = info.local_path or ""
+            if override:
+                path = override
+            else:
+                info = self._mm.get_embedding_model()
+                path = info.local_path or ""
+            if path and self._mm.verify_arbitrary_path(_Path(path)):
+                return path
+            if path:
+                log.error("Embedding model failed pin verification: %s", path)
         except Exception as e:  # noqa: BLE001 — lookup failure degrades to "absent"
             log.warning("Embedding model lookup failed: %s", e)
             return ""
-        return path if path and _Path(path).exists() else ""
+        return ""
 
     def _start_embed_server(self) -> bool:
         """(Re)start the embedding-only llama-server on THIS retained manager.
