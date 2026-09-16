@@ -37,6 +37,13 @@ That file is the single place the default is decided; turning fcron on by
 default is a one-line change there. Enabling the unit on your own machine, as
 above, does not touch it.
 
-The other scheduler on this system, atd, ships off for the same reasons and is
-described in the same file. Log rotation does NOT depend on either one — it
-runs from logrotate.timer, which is enabled.
+The other scheduler, atd, is no longer installed by default (decided
+2026-09-16). Two schedulers were being installed side by side, each with its own
+setuid programs, for one function, and nothing on the system called that one. It
+is still published and installable if you want it:
+
+    sudo pkm install at
+
+It ships off after installation for the same reasons as fcron, and that decision
+is recorded in the same preset file. Log rotation does NOT depend on either
+scheduler — it runs from logrotate.timer, which is enabled.

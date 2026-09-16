@@ -73,8 +73,12 @@
 # hook-stripped, fcron only chowns fcrontab/fcrondyn) and unchanged; screen/wall
 # are likewise not hook-strips (wall's install-time flattening is the pkm-deploy
 # class PI-Z11, its own wave).
-/usr/bin/at                             4750 root atd
-/usr/sbin/atd                           4750 root atd
+# NOTE: /usr/bin/at and /usr/sbin/atd are deliberately ABSENT since 2026-09-16:
+# that scheduler is published to the mirror but no longer part of the shipped
+# install set (packages/base/at/package.yml, iso_include: false), so the mirror-only
+# prune removes it from the chroot before this gate audits it. The system keeps one
+# scheduler, the one the tree actually calls. With no entries here, a build that
+# ships these programs again fails the seal on the unexpected-privilege arm.
 /usr/bin/fcronsighup                    4710 root fcron
 # fcrontab is owned by fcron since fcron r11 (2026-08-24): the program runs as the
 # fcron user, upstream's own shape; owned by root it refused every user's crontab

@@ -265,6 +265,14 @@ enable rtkit-daemon.service
 # That surface is worth having available and is not worth running by default on
 # a machine that has been given no jobs to run.
 #
+# Amended 2026-09-16: `at` is no longer part of the shipped install set — it is
+# published to the mirror and installed on request (its recipe carries
+# iso_include: false), because two schedulers were shipping side by side for one
+# function and nothing in the tree called that one. Its line below is kept
+# deliberately, not left behind: it is what holds the daemon off by default on a
+# machine where someone later installs the package, which is exactly the case
+# the preset exists to decide.
+#
 # Consequence of reverting these lines: both daemons start on every install.
 # Turning either on by default is a one-line change here — which is the point of
 # deciding it in one file instead of in a recipe that the install-time pass

@@ -5,6 +5,26 @@ content_hash: 2660f6250d2432f6
 description: Job scheduling commands (at, batch, atq, atrm)
 license: GPL-2.0-or-later
 tier: base
+# Decided 2026-09-16: this package is published to the mirror but is not part of
+# the shipped install set. Two job schedulers were shipping side by side, each
+# with its own privileged programs, for one function. The tree's own usage
+# settles which one stays: the shipped backup tool declares the other scheduler
+# as the system's crontab provider and looks for its command at startup, while
+# nothing outside this package's own files calls `at`, `atd`, `atq` or `batch`.
+# Narrowing this package's privilege instead is not available: the daemon must
+# run submitted jobs as other users and the submission program must write the
+# spool as the invoking user, so stripping the bits would ship a package that is
+# present and broken — the failure class this project refuses.
+#
+# tier and iso_include are independent axes (docs/package-tiers.md): the tier
+# still states what this package IS, an end-user command-line utility, and
+# iso_include states how it is delivered — from the mirror, on request, rather
+# than on every machine. A user who wants it installs it in one command and
+# gets the same archive; the shipped set loses two setuid programs it had no
+# caller for. The declared privileged-program inventory loses both entries in
+# the same commit, so a build that ships them again fails the seal instead of
+# matching a stale declaration.
+iso_include: false
 build_style: custom
 install_func: do_install
 
