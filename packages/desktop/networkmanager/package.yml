@@ -64,3 +64,4 @@ silent_loss_accepted:
 verify_paths:
   - /usr/bin/nmcli
   - /usr/lib/libnm.so
+  - /usr/lib/systemd/system/NetworkManager.service.d/20-hardening.conf
