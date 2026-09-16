@@ -65,6 +65,7 @@ In InterGenOS, silence is golden.
 - **No Telemetry**: InterGenOS collects zero analytics, crash reports, or usage statistics.
 - **No Auto-Updates**: Your system will not update software behind your back. `pkm update` and `pkm sync` refresh the index; software changes only when you explicitly run `sudo pkm upgrade --all` or name packages to upgrade.
 - **No Automatic Data Upload**: No telemetry, analytics, or crash reports are sent automatically. User-invoked web search and optional cloud escalation do send the disclosed request to the selected external service.
+- **No Passphrase On Your Machine's Signing Key**: the machine owner key that signs your kernels lives at `/var/lib/intergen/mok/mok.key`, readable only by the administrator and stored without a passphrase, because kernel and driver updates sign with it when nobody is at the machine. On an encrypted install it is protected by your disk encryption; on an unencrypted install, someone who takes the disk can read it. The full trade, the alternative and what would change it are in [Secure Boot and MOK](secure-boot-and-mok.md).
 - **Open Drivers, Required Vendor Firmware**: Core uses open-source kernel drivers, while `linux-firmware`, CPU microcode, and SOF carry redistributable vendor binaries needed to operate common hardware. Proprietary driver packages such as NVIDIA remain explicit opt-ins.
 
 ## 6. Further Reading

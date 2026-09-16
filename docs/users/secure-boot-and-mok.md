@@ -154,6 +154,22 @@ If you opt for TPM2-sealed unlock (an experimental feature not offered by the in
 
 For non-encrypted installs, the UKI's bundled initramfs is minimal — typically only CPU microcode — because all storage and filesystem drivers are built into the kernel. The bootloader does not need an initramfs to find the root volume.
 
+## The signing key lives on the disk it helps protect
+
+This is a deliberate trade, and it is worth understanding rather than discovering.
+
+**What is stored, and where.** Your machine owner key is a pair. The certificate — `/var/lib/intergen/mok/mok.crt` and its DER form `mok.der` — is public and is what you enrol into your firmware. The private half is `/var/lib/intergen/mok/mok.key`: an RSA-2048 key, readable only by the administrator (mode 0600, in a directory only the administrator can open), and stored **without a passphrase**.
+
+**Why it has no passphrase.** Every kernel update and every out-of-tree driver rebuild has to sign something with that key, and nobody is sitting at the machine when those run. The kernel package's post-install step and the NVIDIA module signing step both reach for it unattended. A passphrase would mean a person typing it in the middle of every upgrade, or a passphrase stored beside the key — which protects nothing.
+
+**What someone who takes the disk gains.** If you chose the encrypted install, the key sits on the LUKS-encrypted root volume. Someone who removes the disk and has no passphrase gets ciphertext: the key is no more reachable than the rest of your system. If you chose an unencrypted install, someone who has the disk can read the key, and with it they can sign a kernel or a module that *your* machine's firmware will accept — they would still have to get that code onto your machine, but Secure Boot would no longer stand in the way once they had. Put plainly: on an unencrypted machine, physical possession of the disk defeats the protection this key provides. This is the single strongest argument for choosing the encrypted install.
+
+Note what it does **not** give them. The key is yours alone, generated on your machine at install time. It signs nothing outside it, it is not a project key, and it gives no access to any other machine.
+
+**What the alternative would cost.** The arrangement that removes this trade is a key that never touches the disk — held in a hardware token, a smart card, or sealed to a TPM. Each of those means the signing material is unavailable exactly when the system needs it: a kernel update on a machine whose token is not plugged in either fails or silently leaves you with an unsigned kernel that will not boot under Secure Boot. That is a worse failure than the one it prevents, and it is why this release keeps the key on disk.
+
+**What would change this.** Two things. If unattended signing stopped being necessary — for example, if kernels arrived already signed by a key your firmware trusts, so your machine never had to sign anything itself — the key would not need to be reachable. And if a hardware-backed store could satisfy an automated signing step without a person present, the cost side of the trade would change. Neither is true for this release, so the arrangement stands and is documented here rather than left implicit.
+
 ## Recovery
 
 Most of the time you will never think about any of this. When something goes wrong, you have several recovery paths.
