@@ -225,9 +225,8 @@ fi
 
 # npm creates a symlink in <prefix>/bin/ pointing into the module dir.
 # Record it so pkm remove unlinks the binary surface.
-CLAUDE_TARGET=$(readlink -f "$CLAUDE_BIN" 2>/dev/null || echo "$CLAUDE_BIN")
 if [ -L "$CLAUDE_BIN" ]; then
-    igos_helper_record_symlink "$CLAUDE_BIN" "$CLAUDE_TARGET"
+    igos_helper_record_symlink_literal "$CLAUDE_BIN"
 elif [ -f "$CLAUDE_BIN" ]; then
     igos_helper_record_file "$CLAUDE_BIN"
 fi

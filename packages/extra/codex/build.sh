@@ -225,9 +225,8 @@ if command -v codex >/dev/null 2>&1; then
     # npm creates a symlink at <prefix>/bin/codex pointing into the module
     # dir. Record it so pkm remove unlinks the binary surface.
     CODEX_BIN=$(command -v codex)
-    CODEX_TARGET=$(readlink -f "$CODEX_BIN" 2>/dev/null || echo "$CODEX_BIN")
     if [ -L "$CODEX_BIN" ]; then
-        igos_helper_record_symlink "$CODEX_BIN" "$CODEX_TARGET"
+        igos_helper_record_symlink_literal "$CODEX_BIN"
     elif [ -f "$CODEX_BIN" ]; then
         igos_helper_record_file "$CODEX_BIN"
     fi

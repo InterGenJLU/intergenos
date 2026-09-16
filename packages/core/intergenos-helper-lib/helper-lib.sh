@@ -428,6 +428,40 @@ igos_helper_record_symlink() {
     printf '%s\t%s\n' "$link_path" "$target" >> "$IGOS_HELPER_STAGING/symlinks"
 }
 
+igos_helper_record_symlink_literal() {
+    # Record a symlink by READING THE LINK, so the recorded target is the
+    # one the filesystem holds at that entry. <link_path> is the only
+    # argument; there is no second argument to get wrong.
+    #
+    # WHY THIS EXISTS (measured on an installed system, 2026-09-16). Two
+    # download helpers derived the target with `readlink -f`, which RESOLVES
+    # the link instead of reading it. npm leaves a RELATIVE link behind, so
+    # the machine held a link of the shape
+    #     /usr/bin/<tool> -> ../lib/node_modules/<scope>/<pkg>/bin/<entry>
+    # while the manifest recorded the resolved absolute path. Nothing reads
+    # the field back, so nothing caught it: the manifest is the machine's own
+    # account of what a helper deposited, and it was not true. A caller that
+    # passes a target can still pass a resolved one; a caller that names only
+    # the link cannot.
+    if [ -z "$IGOS_HELPER_STAGING" ]; then
+        igos_helper_internal_fault "igos_helper_record_symlink_literal was called before igos_helper_init"
+        return 1
+    fi
+    local link_path="$1"
+    if [ ! -L "$link_path" ]; then
+        igos_helper_emit "igos_helper_record_symlink_literal: ${link_path} is not a symlink — record a regular file with igos_helper_record_file; refusing"
+        return 1
+    fi
+    local target
+    if ! target="$(readlink -- "$link_path")"; then
+        igos_helper_emit "igos_helper_record_symlink_literal: the link at ${link_path} could not be read; refusing"
+        return 1
+    fi
+    # Delegate: the absolute-path check and the tab/newline refusals live in
+    # one place and apply to both recorders.
+    igos_helper_record_symlink "$link_path" "$target"
+}
+
 igos_helper_record_dep() {
     # Append a dependency package name to the manifest's depends[]
     # array. pkm reads this on install + threads through add_depends
