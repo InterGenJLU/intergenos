@@ -50,7 +50,12 @@
 # the hook's chown, so the fresh-chroot state is now the intended 4750.
 /usr/libexec/dbus-daemon-launch-helper  4750 root messagebus
 /usr/libexec/libgtop_server2            4755 root root
-/usr/bin/ksu                            4755 root root
+# NOTE: /usr/bin/ksu is deliberately ABSENT since 2026-09-16: the Kerberos
+# switch-user program is no longer shipped at all. mitkrb's do_install removes
+# what upstream installs setuid root, because this system configures no Kerberos
+# realm and the program exits before its own authorization check. With no entry
+# here, a build that ships it again fails the seal on the unexpected-privilege
+# arm instead of passing silently.
 /usr/bin/nvidia-modprobe                4755 root root
 /usr/bin/suexec                         4755 root root
 # --- post_install capture-restore set (L29 finding #2, PRE-EXISTING class) ---

@@ -1,6 +1,6 @@
 name: mitkrb
 version: "1.22.2"
-release: 3  # r3: the test-suite status is reported instead of masked. The `|| true` that swallowed every check() failure is gone and no waiver replaces it: this suite's failure is an uncharacterised segfault, which is exactly the class a waiver must not cover.  # L29: setuid-strip regression rebuild (staging-chokepoint chown)
+release: 4  # r4: the Kerberos switch-user program (/usr/bin/ksu) is no longer shipped. Upstream's make install lands it setuid root; this system configures no Kerberos realm, so the program exits before it reaches its own authorization check, and a setuid-root binary that cannot succeed at its purpose is privilege with nothing behind it. do_install removes it and halts if it is still present afterwards. Nothing in the tree references it and this package's verify_paths do not name it; the client programs and the libraries are unchanged. The declared privileged-program inventory loses its entry in the same commit.  # r3: the test-suite status is reported instead of masked. The `|| true` that swallowed every check() failure is gone and no waiver replaces it: this suite's failure is an uncharacterised segfault, which is exactly the class a waiver must not cover.  # L29: setuid-strip regression rebuild (staging-chokepoint chown)
 description: MIT Kerberos V5 authentication
 license: MIT
 homepage: ''
