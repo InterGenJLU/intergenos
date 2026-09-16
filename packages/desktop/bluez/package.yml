@@ -29,3 +29,4 @@ configure_flags:
 verify_paths:
   - /usr/bin/bluemoon
   - /usr/lib/libbluetooth.so
+  - /usr/lib/systemd/system/bluetooth.service.d/20-hardening.conf

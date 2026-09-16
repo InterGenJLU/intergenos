@@ -27,6 +27,19 @@ CASES = [
             'ProtectKernelTunables',
         ),
     ),
+    (
+        'bluez', 'bluetooth.service',
+        {
+            'RestrictNamespaces': 'true',
+            'RestrictSUIDSGID': 'true',
+            'SystemCallArchitectures': 'native',
+            'LockPersonality': 'true',
+        },
+        (
+            'PrivateNetwork',
+            'PrivateDevices',
+        ),
+    ),
 ]
 
 
