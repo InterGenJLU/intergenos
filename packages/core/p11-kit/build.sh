@@ -7,17 +7,6 @@
 
 configure() {
     set -e
-    # Prepare distribution-specific anchor hook
-    sed '20,$ d' -i trust/trust-extract-compat
-
-    cat >> trust/trust-extract-compat << "EOF"
-# Copy existing anchor modifications to /etc/ssl/local
-/usr/libexec/make-ca/copy-trust-modifications
-
-# Update trust stores
-/usr/sbin/make-ca -r
-EOF
-
     mkdir -p p11-build
     cd    p11-build
 
@@ -45,6 +34,9 @@ do_install() {
     set -e
     cd p11-build
     DESTDIR="$DESTDIR" ninja install
+
+    install -Dm755 "$(dirname "${BASH_SOURCE[0]}")/files/usr/libexec/p11-kit/trust-extract-compat" \
+        "${DESTDIR}/usr/libexec/p11-kit/trust-extract-compat"
 
     # Create update-ca-certificates symlink
     ln -sfv /usr/libexec/p11-kit/trust-extract-compat \

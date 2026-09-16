@@ -1,0 +1,250 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# InterGenOS TLS extraction from p11-kit's configured /etc/pki/anchors store.
+# Both outputs become visible together through one directory exchange.
+set -eu
+if [ "$#" -ne 0 ]; then
+    echo "usage: trust extract-compat" >&2
+    exit 2
+fi
+if [ "$(/usr/bin/id -u)" -ne 0 ]; then
+    echo "trust: extracting system trust requires root" >&2
+    exit 1
+fi
+PATH=/usr/bin:/usr/sbin
+LC_ALL=C
+export PATH LC_ALL
+umask 077
+if [ ! -d /etc/pki/anchors ] || [ ! -d /etc/ssl/certs ] ||
+   [ -L /etc/ssl ] || [ -L /etc/ssl/certs ]; then
+    echo "trust: expected anchor and certificate directories are unavailable" >&2
+    exit 1
+fi
+if [ -L /run/update-ca-trust ]; then
+    echo "trust: lock directory must not be a symlink" >&2
+    exit 1
+fi
+/usr/bin/install -d -m 0700 /run/update-ca-trust
+lock_metadata=$(/usr/bin/stat -c '%a:%u:%g' /run/update-ca-trust)
+if [ "$lock_metadata" != '700:0:0' ] || [ -L /run/update-ca-trust/lock ]; then
+    echo "trust: unsafe lock directory or lock file" >&2
+    exit 1
+fi
+if [ -e /run/update-ca-trust/lock ]; then
+    lock_metadata=$(/usr/bin/stat -c '%u:%g' /run/update-ca-trust/lock)
+    if [ ! -f /run/update-ca-trust/lock ] || [ "$lock_metadata" != '0:0' ]; then
+        echo "trust: unsafe lock file" >&2
+        exit 1
+    fi
+fi
+exec 9>>/run/update-ca-trust/lock
+/usr/bin/flock -x 9
+# A prior generation names its managed files. The initial package owns only
+# the bundle and numeric subject-hash files. Refuse unfamiliar entries so a
+# server certificate or local configuration cannot disappear from its path.
+managed=/etc/ssl/certs/.p11-kit-managed
+if [ -L "$managed" ] || { [ -e "$managed" ] && [ ! -f "$managed" ]; }; then
+    echo "trust: managed-file record must be a regular file" >&2
+    exit 1
+fi
+if [ -f "$managed" ]; then
+    metadata=$(/usr/bin/stat -c '%a:%u:%g' "$managed")
+    if [ "$metadata" != '644:0:0' ]; then
+        echo "trust: unsafe managed-file record" >&2
+        exit 1
+    fi
+fi
+for entry in /etc/ssl/certs/* /etc/ssl/certs/.[!.]* /etc/ssl/certs/..?*; do
+    [ -e "$entry" ] || [ -L "$entry" ] || continue
+    name=${entry##*/}
+    if [ ! -f "$entry" ]; then
+        echo "trust: unexpected certificate-directory entry type: $entry" >&2
+        exit 1
+    fi
+    case "$name" in ca-certificates.crt|.p11-kit-managed) continue ;; esac
+    if [ ! -f "$managed" ] && [ -f "$entry" ] &&
+       /usr/bin/printf '%s\n' "$name" | /usr/bin/grep -Eq '^[0-9a-f]{8}\.[0-9]+$'; then
+        hash=$(/usr/bin/env -i PATH=/usr/bin LC_ALL=C OPENSSL_CONF=/dev/null \
+            /usr/bin/openssl x509 -in "$entry" -hash -noout)
+        if [ "${name%.*}" = "$hash" ]; then
+            constraints=$(/usr/bin/env -i PATH=/usr/bin LC_ALL=C OPENSSL_CONF=/dev/null \
+                /usr/bin/openssl x509 -in "$entry" -ext basicConstraints -noout)
+            if /usr/bin/printf '%s\n' "$constraints" | /usr/bin/grep -q 'CA:TRUE'; then
+                continue
+            fi
+        fi
+    fi
+    if [ -f "$managed" ] && /usr/bin/grep -Fxq -- "$name" "$managed"; then
+        continue
+    fi
+    echo "trust: unmanaged certificate-directory entry: $entry; active certificates were not changed" >&2
+    exit 1
+done
+stage=$(/usr/bin/mktemp -d /etc/ssl/.trust-extract.XXXXXXXX)
+retain_stage=0
+cleanup() {
+    status=$?
+    trap - EXIT HUP INT TERM
+    if [ "$retain_stage" -eq 0 ]; then
+        /usr/bin/rm -rf -- "$stage" || status=1
+    fi
+    exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 1' HUP INT TERM
+# The trust parser can ignore malformed files without returning an error.
+# Validate complete certificate encodings and policy syntax independently.
+if [ -n "$(/usr/bin/find /etc/pki/anchors -type l -print -quit)" ]; then
+    echo "trust: anchor symlinks require explicit review" >&2
+    exit 1
+fi
+/usr/bin/find /etc/pki/anchors -type f -exec /usr/bin/sha256sum -- {} + >"$stage/inputs.before.raw"
+/usr/bin/sort "$stage/inputs.before.raw" >"$stage/inputs.before"
+if ! /usr/bin/find /etc/pki/anchors -type f -exec /usr/bin/env -i \
+        PATH=/usr/bin:/usr/sbin LC_ALL=C HOME=/root OPENSSL_CONF=/dev/null \
+        /bin/sh -eu -c '
+    stage=$1
+    shift
+    for source do
+        case "$source" in
+            *.p11-kit)
+                /usr/bin/trust check-format "$source" >"$stage/source.out" 2>"$stage/source.err"
+                [ ! -s "$stage/source.err" ] || { /usr/bin/cat "$stage/source.err" >&2; exit 1; }
+                [ "$(/usr/bin/cat "$stage/source.out")" = "$source: OK" ] || {
+                    /usr/bin/cat "$stage/source.out" >&2; exit 1;
+                }
+                ;;
+            *)
+                if /usr/bin/grep -q -- "-----BEGIN" "$source"; then
+                    /usr/bin/awk "
+                    /^-----BEGIN (TRUSTED )?CERTIFICATE-----$/ {
+                        if (inside) exit 1; inside=1; body=0;
+                        ending=\$0; sub(/BEGIN/, \"END\", ending); next
+                    }
+                    /^-----END / {
+                        if (!inside || !body || \$0 != ending) exit 1;
+                        inside=0; count++; next
+                    }
+                    inside { if (\$0 !~ /^[A-Za-z0-9+\\/=]+$/) exit 1; body++; next }
+                    /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+                    { exit 1 }
+                    END { if (inside || !count) exit 1; print count }
+                    " "$source" >"$stage/source.count"
+                    /usr/bin/openssl storeutl -noout -certs "$source" >"$stage/source.out" 2>"$stage/source.err"
+                    [ ! -s "$stage/source.err" ] || { /usr/bin/cat "$stage/source.err" >&2; exit 1; }
+                    count=$(/usr/bin/cat "$stage/source.count")
+                    /usr/bin/grep -Fxq "Total found: $count" "$stage/source.out"
+                else
+                    /usr/bin/openssl x509 -inform DER -in "$source" -outform DER \
+                        -out "$stage/source.der"
+                    /usr/bin/cmp -s "$source" "$stage/source.der"
+                fi
+                ;;
+        esac
+    done
+' validate-anchors "$stage" {} +; then
+    echo "trust: invalid anchor input; active certificates were not changed" >&2
+    exit 1
+fi
+extract() {
+    if ! /usr/bin/env -i PATH=/usr/bin:/usr/sbin LC_ALL=C HOME=/root /usr/bin/trust extract --filter=ca-anchors --purpose=server-auth \
+            "$@" 2>"$stage/diagnostic"; then
+        /usr/bin/cat "$stage/diagnostic" >&2
+        echo "trust: extraction failed; active certificates were not changed" >&2
+        exit 1
+    fi
+    # A parser diagnostic may otherwise accompany a successful partial export.
+    if [ -s "$stage/diagnostic" ]; then
+        /usr/bin/cat "$stage/diagnostic" >&2
+        echo "trust: extraction reported a diagnostic; active certificates were not changed" >&2
+        exit 1
+    fi
+}
+extract --format=pem-directory-hash "$stage/certs"
+extract --format=pem-bundle "$stage/certs/ca-certificates.crt"
+if [ ! -s "$stage/certs/ca-certificates.crt" ]; then
+    echo "trust: refusing an empty TLS trust store" >&2
+    exit 1
+fi
+# Validate all certificates, including the complete bundle, before publication.
+/usr/bin/env -i PATH=/usr/bin LC_ALL=C OPENSSL_CONF=/dev/null /usr/bin/openssl crl2pkcs7 -nocrl -certfile "$stage/certs/ca-certificates.crt" \
+    -out /dev/null
+for cert in "$stage/certs/"*.pem; do
+    [ -f "$cert" ] && [ ! -L "$cert" ] || exit 1
+    /usr/bin/env -i PATH=/usr/bin LC_ALL=C OPENSSL_CONF=/dev/null /usr/bin/openssl x509 -in "$cert" -noout
+    /usr/bin/chmod 0644 "$cert"
+done
+# Compare the certificate multisets from the two independent extractions.
+pem_records='
+/^-----BEGIN CERTIFICATE-----$/ { if (inside) exit 1; inside=1; cert=""; next }
+/^-----END CERTIFICATE-----$/ {
+    if (!inside || cert == "") exit 1; print cert; inside=0; count++; next
+}
+inside { if ($0 !~ /^[A-Za-z0-9+\/=]+$/) exit 1; cert=cert $0; next }
+$0 != "" { exit 1 }
+END { if (inside || !count) exit 1 }'
+/usr/bin/awk "$pem_records" "$stage/certs/"*.pem >"$stage/directory.records"
+/usr/bin/awk "$pem_records" "$stage/certs/ca-certificates.crt" >"$stage/bundle.records"
+/usr/bin/sort "$stage/directory.records" >"$stage/directory.sorted"
+/usr/bin/sort "$stage/bundle.records" >"$stage/bundle.sorted"
+if ! /usr/bin/cmp -s "$stage/directory.sorted" "$stage/bundle.sorted"; then
+    echo "trust: bundle and hashed directory disagree; active certificates were not changed" >&2
+    exit 1
+fi
+for link in "$stage/certs/"*; do
+    [ -L "$link" ] || continue
+    target=$(/usr/bin/readlink "$link")
+    case "$target" in
+        */*|.|..) echo "trust: unexpected hash-link target" >&2; exit 1 ;;
+    esac
+    [ -f "$stage/certs/$target" ] && [ ! -L "$stage/certs/$target" ] || exit 1
+done
+for entry in "$stage/certs/"*; do
+    /usr/bin/printf '%s\n' "${entry##*/}"
+done >"$stage/certs/.p11-kit-managed"
+/usr/bin/chmod 0644 "$stage/certs/.p11-kit-managed"
+/usr/bin/chown -R 0:0 "$stage/certs"
+/usr/bin/chmod 0755 "$stage/certs"
+/usr/bin/chmod 0644 "$stage/certs/ca-certificates.crt"
+if [ -n "$(/usr/bin/find /etc/pki/anchors -type l -print -quit)" ]; then
+    echo "trust: anchor inputs changed during extraction" >&2
+    exit 1
+fi
+/usr/bin/find /etc/pki/anchors -type f -exec /usr/bin/sha256sum -- {} + >"$stage/inputs.after.raw"
+/usr/bin/sort "$stage/inputs.after.raw" >"$stage/inputs.after"
+if ! /usr/bin/cmp -s "$stage/inputs.before" "$stage/inputs.after"; then
+    echo "trust: anchor inputs changed during extraction; active certificates were not changed" >&2
+    exit 1
+fi
+comparison=0
+/usr/bin/diff --brief --recursive --no-dereference -- \
+    /etc/ssl/certs "$stage/certs" >"$stage/comparison" 2>&1 || comparison=$?
+case "$comparison" in
+    0)
+        metadata_equal=1
+        metadata=$(/usr/bin/stat -c '%a:%u:%g' /etc/ssl/certs)
+        [ "$metadata" = '755:0:0' ] || metadata_equal=0
+        for entry in /etc/ssl/certs/* /etc/ssl/certs/.p11-kit-managed; do
+            metadata=$(/usr/bin/stat -c '%a:%u:%g' "$entry")
+            expected='644:0:0'
+            [ ! -L "$entry" ] || expected='777:0:0'
+            [ "$metadata" = "$expected" ] || metadata_equal=0
+        done
+        if [ "$metadata_equal" -eq 1 ]; then
+            echo "trust: TLS certificates are unchanged"
+            exit 0
+        fi
+        ;;
+    1) ;;
+    *) /usr/bin/cat "$stage/comparison" >&2; exit 1 ;;
+esac
+# GNU mv uses the filesystem's atomic exchange; --no-copy refuses a fallback.
+# Retain the entire previous directory, including locally added files. A later
+# administrative cleanup can remove it after the new store has been verified.
+# Retain both trees if a signal interrupts the exchange or its status handling.
+retain_stage=1
+if ! /usr/bin/mv --exchange --no-copy --no-target-directory -- "$stage/certs" /etc/ssl/certs; then
+    echo "trust: publication failed; inspect retained staging at $stage" >&2
+    exit 1
+fi
+echo "trust: TLS certificates updated; previous directory retained at $stage/certs"

@@ -1,6 +1,7 @@
 name: p11-kit
 version: "0.26.2"
-release: 1
+release: 2  # r2: validate the configured anchors and atomically publish TLS outputs.
+content_hash: bac38a816820c8f8
 description: PKCS#11 module loading library
 license: BSD-3-Clause
 homepage: https://p11-glue.github.io/p11-glue/p11-kit.html
@@ -21,7 +22,15 @@ dependencies:
   host: []
   runtime:
     - libtasn1
+    - openssl
+    - util-linux
+    - coreutils
+    - diffutils
+    - gawk
+    - findutils
+    - grep
 verify_paths:
   - /usr/bin/p11-kit
   - /usr/bin/trust
   - /usr/lib/libp11-kit.so
+  - /usr/libexec/p11-kit/trust-extract-compat
