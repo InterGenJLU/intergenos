@@ -46,6 +46,11 @@ def test_modemmanager_preset_enables_activation_alias(tmp_path):
         "[Service]\nExecStart=/usr/sbin/ModemManager\n[Install]\n"
         "WantedBy=multi-user.target\nAlias=dbus-org.freedesktop.ModemManager1.service\n")
     (units / "multi-user.target").write_text("[Unit]\nDescription=Multiuser\n")
+    recipe = REPO / "packages/desktop/modemmanager/build.sh"
+    subprocess.run(["/usr/bin/bash", "-e", "-c",
+                    'source "$1"; DESTDIR="$2"; install_activation_policy',
+                    "modem-policy-test", str(recipe), str(tmp_path)],
+                   check=True, capture_output=True, text=True)
     presets = tmp_path / "usr/lib/systemd/system-preset"
     presets.mkdir()
     source = REPO / "packages/core/intergenos-base-files/files/usr/lib/systemd/system-preset/80-intergenos-enable.preset"
@@ -55,3 +60,4 @@ def test_modemmanager_preset_enables_activation_alias(tmp_path):
     alias = tmp_path / "etc/systemd/system/dbus-org.freedesktop.ModemManager1.service"
     assert alias.is_symlink()
     assert os.readlink(alias) == "/usr/lib/systemd/system/ModemManager.service"
+    assert not (tmp_path / "etc/systemd/system/multi-user.target.wants/ModemManager.service").exists()
