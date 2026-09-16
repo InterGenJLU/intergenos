@@ -1,6 +1,6 @@
 name: inetutils
 version: '2.7'
-release: 4  # r4: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+release: 5  # r5: ping6 drops setuid for cap_net_raw+ep restored and read back after deployment; libcap is an explicit runtime dependency.
 description: GNU network utilities
 license: GPL-3.0-or-later
 source:

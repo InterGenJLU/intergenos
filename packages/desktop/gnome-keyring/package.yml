@@ -1,6 +1,6 @@
 name: gnome-keyring
 version: '48.0'
-release: 3  # hook-contract wave: pam.d/gnome-keyring moved into do_install (owned payload)
+release: 4  # r4: cap_ipc_lock+ep is restored and read back after deployment; libcap is an explicit runtime dependency.  # hook-contract wave: pam.d/gnome-keyring moved into do_install (owned payload)
 description: GNOME password and secret storage
 license: GPL-2.0-or-later
 homepage: https://wiki.gnome.org/Projects/GnomeKeyring

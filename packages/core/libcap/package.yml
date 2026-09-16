@@ -1,6 +1,6 @@
 name: libcap
 version: '2.77'
-release: 1
+release: 2  # r2: verify_paths covers setcap and getcap, the target-time programs required by capability-restoring package hooks.
 description: POSIX capabilities library
 license: BSD-3-Clause
 source:
