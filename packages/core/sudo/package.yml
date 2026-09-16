@@ -1,6 +1,6 @@
 name: sudo
 version: "1.9.17p2"
-release: 4  # r4: remove the duplicate secure_path assignment from 00-sudo so the main sudoers value retains /usr/local command paths; keep the wheel grant and PAM policy.  # hook-contract wave: sudoers.d/pam.d config moved post_install -> do_install (owned payload)
+release: 5  # r5: the privilege configuration ships 0440, the mode sudo's own syntax checker requires — at 0644 `visudo -c` refuses the whole configuration and names both /etc/sudoers and the 00-sudo drop-in (R001.3 row 32). Hand bump: this recipe pins an upstream tarball and ships no first-party file beside build.sh, so the release-bump tool does not watch it.  # r4: remove the duplicate secure_path assignment from 00-sudo so the main sudoers value retains /usr/local command paths; keep the wheel grant and PAM policy.  # hook-contract wave: sudoers.d/pam.d config moved post_install -> do_install (owned payload)
 description: Execute commands as another user
 license: ISC
 homepage: https://www.sudo.ws/

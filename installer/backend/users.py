@@ -27,6 +27,7 @@ import os
 import re
 import secrets
 import shlex
+import stat
 import subprocess
 import termios
 from pathlib import Path
@@ -367,18 +368,54 @@ def create_user(target, username, password, groups=None):
     # autostart entry instead — decided 2026-05-27 (Option A
     # post-install-#25 trace surfaced the pam_start: error 26).
 
-    # Enable sudo for wheel group (if sudoers exists). Stage to
-    # /etc/sudoers.new + run visudo -c -f for syntax-check before
-    # committing — a malformed sudoers locks the user out of sudo
-    # entirely. If verification fails, leave sudoers unchanged and
-    # log a warning rather than fail the install (user can still
-    # gain root via initial password and hand-edit sudoers).
-    #
-    # visudo has no --root flag (its --file flag takes an absolute path
-    # but visudo treats it as relative to the chroot if invoked there).
-    # Easiest: invoke visudo from host, pointing at the staging file's
-    # host-side absolute path. visudo doesn't care about target context
-    # for syntax-checking (it's a pure parser run).
+    # Give the wheel group sudo, and leave the privilege configuration
+    # at the mode its own syntax checker requires (enable_wheel_sudo).
+    enable_wheel_sudo(target)
+
+
+# The mode the sudo syntax checker requires of every file it reads: readable by
+# owner and group, writable by nobody. `visudo -c` exits non-zero on anything
+# more permissive and names the file, so one permissive drop-in refuses the whole
+# configuration — measured on an installed R001.2-03 machine, where both
+# /etc/sudoers and /etc/sudoers.d/00-sudo were 0644 and `visudo -c` exited 1.
+SUDOERS_MODE = 0o440
+
+
+def enable_wheel_sudo(target, runner=None):
+    """Give the wheel group sudo on `target`, and leave the modes valid.
+
+    Two things happen here and both are load-bearing.
+
+    The wheel line: the shipped /etc/sudoers carries it commented out, and the
+    install uncomments it. The rewrite is staged to /etc/sudoers.new and checked
+    with the syntax checker BEFORE it replaces the real file, because a
+    malformed sudoers locks the person out of sudo entirely. A refused check
+    leaves the file exactly as it was and logs a warning rather than failing the
+    install — the person can still become root with the password they just set.
+
+    The modes: a rename carries the staged file's mode, so a staged file left at
+    the writer's default would silently replace a restrictive shipped file with a
+    permissive one — which is how an installed machine ended up with /etc/sudoers
+    at 0644 while the package shipped it correctly. The mode is therefore set on
+    the staging file BEFORE the rename, and every drop-in in /etc/sudoers.d is
+    brought to the same mode, because the checker reads them all and refuses on
+    the first permissive one. An install onto a disk that already carries a
+    permissive file corrects it rather than preserving it.
+
+    Returns True when the wheel line was changed, False when there was nothing
+    to change or the syntax check refused.
+
+    `runner` is the syntax checker, injected for tests; it defaults to the
+    traced subprocess runner. The checker has no --root flag and treats its
+    --file argument as relative to a chroot when invoked inside one, so it is
+    run from the host against the staging file's host-side absolute path; it is
+    a pure parser run and does not care about the target's context.
+    """
+    runner = runner or (lambda argv: trace.traced_run(
+        argv, phase="users",
+        intent="syntax-check staged sudoers before commit"))
+
+    changed = False
     sudoers = Path(target) / "etc" / "sudoers"
     if sudoers.exists():
         content = sudoers.read_text()
@@ -388,13 +425,11 @@ def create_user(target, username, password, groups=None):
         if new_content != content:
             staging = Path(target) / "etc" / "sudoers.new"
             staging.write_text(new_content)
-            result = trace.traced_run(
-                ["visudo", "-c", "-f", str(staging)],
-                phase="users",
-                intent="syntax-check staged sudoers before commit",
-            )
+            os.chmod(staging, SUDOERS_MODE)
+            result = runner(["visudo", "-c", "-f", str(staging)])
             if result.returncode == 0:
                 staging.replace(sudoers)
+                changed = True
                 trace.trace_event("sudoers_wheel_enabled",
                                   path=str(sudoers))
             else:
@@ -404,6 +439,38 @@ def create_user(target, username, password, groups=None):
                     "file (visudo: %s); leaving sudoers unchanged",
                     (result.stderr or "").strip(),
                 )
+        _tighten_sudoers_mode(sudoers)
+
+    dropin_dir = Path(target) / "etc" / "sudoers.d"
+    if dropin_dir.is_dir():
+        for path in sorted(dropin_dir.iterdir()):
+            if path.is_file():
+                _tighten_sudoers_mode(path)
+    return changed
+
+
+def _tighten_sudoers_mode(path):
+    """Set one privilege-configuration file to the checker's required mode.
+
+    Recorded when it actually changes something, because a machine whose files
+    were permissive is a machine whose syntax checker was refusing, and that is
+    worth being able to see in the install record afterwards.
+    """
+    try:
+        current = stat.S_IMODE(path.stat().st_mode)
+    except OSError:
+        return
+    if current == SUDOERS_MODE:
+        return
+    try:
+        os.chmod(path, SUDOERS_MODE)
+    except OSError as exc:
+        log.warning("could not set %s to %o: %s", path, SUDOERS_MODE, exc)
+        return
+    trace.trace_event("sudoers_mode_corrected", path=str(path),
+                      was=oct(current), now=oct(SUDOERS_MODE),
+                      intent="the sudo syntax checker refuses a configuration "
+                             "file more permissive than 0440")
 
 
 @trace.trace_install_step("enable_services")

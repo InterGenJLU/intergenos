@@ -42,7 +42,13 @@ do_install() {
     cat > "${DESTDIR}/etc/sudoers.d/00-sudo" << "EOF"
 %wheel ALL=(ALL) ALL
 EOF
-    chmod 644 "${DESTDIR}/etc/sudoers.d/00-sudo"
+    # 0440 is what sudo's own syntax checker requires of every file it reads:
+    # `visudo -c` exits non-zero on anything more permissive and names the file,
+    # so one permissive drop-in refuses the whole configuration. Stated here for
+    # the main file too rather than relying on upstream's install mode, so the
+    # shipped modes are readable in the recipe.
+    chmod 440 "${DESTDIR}/etc/sudoers.d/00-sudo"
+    chmod 440 "${DESTDIR}/etc/sudoers"
 
     cat > "${DESTDIR}/etc/pam.d/sudo" << "EOF"
 # Begin /etc/pam.d/sudo
