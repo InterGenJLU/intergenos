@@ -279,15 +279,15 @@ UKIFY_ARGS=(
     "--cmdline=$CMDLINE"
     "--output=$UKI"
 )
-# Microcode: load FIRST (each --initrd= in declaration order) so the
-# selected blob is applied before kernel init touches CPU features. Order:
-# Intel then AMD — matches scripts/chroot-build-bootloader.sh's order
-# (chosen to mirror Arch mkinitcpio's ALL_microcode default ordering). The
-# kernel scans the concatenated microcode cpio at early-firmware load and
-# picks the blob matching the running CPU vendor; including both is the
-# canonical pattern for installation media + system images intended to
-# boot on either Intel or AMD silicon.
-[ -f "$UCODE_INTEL" ] && UKIFY_ARGS+=("--initrd=$UCODE_INTEL")
+# This hook creates an installed machine's UKI. Omit Intel-only firmware
+# when every reported processor is AMD. An unreadable, empty or mixed CPU
+# inventory retains both images; portable installation media also keep both.
+CPU_VENDORS=$(awk '$1 == "vendor_id" {print $3}' /proc/cpuinfo | sort -u)
+if [ "$CPU_VENDORS" = "AuthenticAMD" ]; then
+    log "AMD-only processor inventory: omitting Intel microcode from this UKI"
+else
+    [ -f "$UCODE_INTEL" ] && UKIFY_ARGS+=("--initrd=$UCODE_INTEL")
+fi
 [ -f "$UCODE_AMD" ]   && UKIFY_ARGS+=("--initrd=$UCODE_AMD")
 
 # D-005 Phase D: initramfs selection.
