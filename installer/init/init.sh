@@ -321,6 +321,23 @@ if [ "$MODE" = "live" ] || [ "$MODE" = "install-gui" ]; then
         sed -i "/^${grp}:/s/\$/intergenos/" /newroot/etc/group
     done
 
+    # The account-specific bus policy belongs to this live overlay, alongside
+    # the account itself. The installed Forge package carries no such policy.
+    mkdir -p /newroot/etc/dbus-1/system.d
+    cat > /newroot/etc/dbus-1/system.d/org.intergenos.ForgeInstaller1.Live.conf <<'FORGE_LIVE_POLICY'
+<!DOCTYPE busconfig PUBLIC
+ "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+  <policy user="intergenos">
+    <allow send_destination="org.intergenos.ForgeInstaller1"
+           send_interface="org.intergenos.ForgeInstaller1"/>
+    <allow receive_sender="org.intergenos.ForgeInstaller1"/>
+  </policy>
+</busconfig>
+FORGE_LIVE_POLICY
+    chmod 644 /newroot/etc/dbus-1/system.d/org.intergenos.ForgeInstaller1.Live.conf
+
     # Home dir + tmpfiles-driven ownership (busybox-static may lack chown;
     # delegating to systemd-tmpfiles at sysinit.target sidesteps the
     # dependency).
