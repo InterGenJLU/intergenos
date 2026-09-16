@@ -35,6 +35,11 @@ HOW IT GRADES — every predicate is a FAIL, none is a warning:
     or a tool route                                            -> FAIL
   * a question marked MODEL-REQUIRED did not get a model answer
     (see "origin" below)                                       -> FAIL
+  * a question whose answer must be CODE-OWNED (a live machine fact the
+    daemon can read) was composed by the model instead          -> FAIL
+  * a question carrying a CORRECTNESS predicate was answered with a
+    statement that is not true of this machine or of this
+    conversation (see _truth_reasons)                           -> FAIL
   * no terminal frame inside the deadline, or a server close   -> FAIL
 
 WHAT "CAME FROM THE MODEL" CAN MEAN HERE. The shipped frames carry the
@@ -66,7 +71,9 @@ whole, with the wall time it arrived), ``verdicts.tsv`` (one line per
 question), ``summary.json`` (counts, the target identity read from
 ``pkm info intergen`` over ssh, the tree sha, the file hashes, the exact
 commands, wall times, the origin-evidence statement), ``target-identity.txt``
-(the raw pkm/hostname output), ``glass-excerpt.jsonl`` (the target's trace
+(the raw pkm/hostname output), ``ground-truth.txt`` (the target's own reading
+of what the CORRECTNESS predicates check an answer against),
+``glass-excerpt.jsonl`` (the target's trace
 rows for the turn ids this run minted, when readable) and ``SHA256SUMS``,
 written LAST. Exit status: 0 = every question PASS; 1 = at least one FAIL;
 2 = refused or usage error (no record written).
@@ -139,6 +146,20 @@ class Question:
     # True: any gate prompt, tool acknowledgement, tool execution,
     # decomposition or tool route on this question is a FAIL.
     no_action: bool = False
+    # The name of a CORRECTNESS predicate, or None. Every other predicate in
+    # this battery asks how the turn was SERVED — whether a frame errored, a
+    # banner appeared, a refusal was delivered, the model was reached. None of
+    # them reads the ANSWER. Measured 2026-09-16 on the tree at a51039c4e: this
+    # battery scored 14 PASS / 0 FAIL while telling the person they had "12.1G
+    # of free RAM out of 16.0G" on a machine with 15Gi total and 7.8Gi
+    # available, and naming the FOURTH question as their first. A served wrong
+    # answer is the failure this battery exists to catch; these predicates read
+    # what was said and check it against what is true.
+    truth: str | None = None
+    # True: the answer must be CODE-OWNED. A live machine fact the daemon can
+    # read (memory, disk) must not be composed by the model, which does not
+    # have the numbers — the disk question is already answered this way.
+    code_required: bool = False
 
 
 # At least twelve, fixed. The order matters: the follow-up and the elliptical
@@ -154,7 +175,8 @@ QUESTIONS: tuple[Question, ...] = (
              model_required=True),
     Question("q06", "live-data-machine", "How much free disk space do I have?",
              model_required=False),
-    Question("q07", "elliptical", "And memory?", model_required=False),
+    Question("q07", "elliptical", "And memory?", model_required=False,
+             truth="memory_matches_the_machine", code_required=True),
     Question("q08", "row-22-verbatim", ROW22_SENTENCE, model_required=True,
              no_action=True),
     Question("q09", "social-elliptical", "Thanks!", model_required=False),
@@ -168,7 +190,8 @@ QUESTIONS: tuple[Question, ...] = (
              "Can you explain what a kernel is, in one sentence?",
              model_required=True),
     Question("q14", "prior-turn-context", "What was my first question to you?",
-             model_required=True),
+             model_required=False,
+             truth="names_the_first_question", code_required=True),
 )
 
 
@@ -226,9 +249,119 @@ class Verdict:
     text_head: str = ""
 
 
+# The reading each CORRECTNESS predicate checks its answer against, and the
+# command that takes it ON THE TARGET. Run immediately after that question's
+# turn, so the answer and the truth describe the same moment.
+TRUTH_PROBES = {"memory_matches_the_machine": "free -h"}
+
+# A size as `free -h` and a human answer write one: 15Gi, 7.8Gi, 12.1G, 512M.
+_SIZE_RE = re.compile(r"\b(\d+(?:\.\d+)?)\s*([KMGT])i?B?\b")
+_SIZE_UNIT = {"K": 1 / 1024 / 1024, "M": 1 / 1024, "G": 1.0, "T": 1024.0}
+
+
+def _sizes_in(text: str) -> list[float]:
+    """Every size in the text, in GiB. `free -h` prints GiB under a `Gi`/`G`
+    label, so both spellings normalise the same way."""
+    out = []
+    for value, unit in _SIZE_RE.findall(text or ""):
+        try:
+            out.append(float(value) * _SIZE_UNIT[unit.upper()])
+        except (ValueError, KeyError):
+            continue
+    return out
+
+
+def _mem_row(free_h: str) -> dict[str, float]:
+    """The target's `Mem:` row, read BY COLUMN NAME, as GiB."""
+    header: list[str] | None = None
+    for line in (free_h or "").splitlines():
+        parts = line.split()
+        if not parts:
+            continue
+        if parts[0].lower() == "total":
+            header = [c.lower() for c in parts]
+            continue
+        if parts[0].lower().startswith("mem") and header:
+            values = parts[1:]
+            if len(values) != len(header):
+                return {}
+            row = {}
+            for name, raw in zip(header, values):
+                sizes = _sizes_in(raw) or _sizes_in(raw + "B")
+                if sizes:
+                    row[name] = sizes[0]
+            return row
+    return {}
+
+
+def _truth_reasons(q: Question, text: str, ground_truth: dict[str, str],
+                   ) -> list[str]:
+    """Correctness predicates. Each returns a reason per FALSE statement found,
+    and says so plainly when it could not obtain ground truth — an unreadable
+    truth source is never silently treated as a pass.
+
+    The tolerances are ROUNDING tolerances, not drift tolerances: the reading
+    these figures are checked against is taken on the target IMMEDIATELY after
+    the turn (see _drive), so the only gap between the answer and the truth is
+    `free -h`'s own one-decimal rounding and a second of ordinary allocation. A
+    band wide enough to absorb minutes of drift would absorb the defect too —
+    a first cut of this predicate used 20% and passed "12.1G of free RAM out of
+    16.0G" on a machine with 15Gi total, which is the exact statement it exists
+    to catch.
+    """
+    reasons: list[str] = []
+    if q.truth == "memory_matches_the_machine":
+        free_h = ground_truth.get("memory", "")
+        row = _mem_row(free_h)
+        if not row.get("total"):
+            return ["memory ground truth unreadable on the target — this "
+                    "question's answer could not be checked"]
+        total = row["total"]
+        stated = _sizes_in(text)
+        if not stated:
+            return ["the answer states no memory figure at all"]
+        # The TOTAL is the one figure that cannot move between the turn and the
+        # reading. The largest figure an answer about memory states is its
+        # claim about the machine's size.
+        claimed_total = max(stated)
+        if abs(claimed_total - total) > max(0.05, total * 0.02):
+            reasons.append(
+                f"the answer states the machine has {claimed_total:.1f}GiB of "
+                f"memory; it has {total:.1f}GiB")
+        # Every other figure must be one the machine actually reports.
+        for value in stated:
+            if value == claimed_total:
+                continue
+            band = max(0.3, value * 0.05)
+            if not any(abs(value - k) <= band for k in row.values()):
+                reasons.append(
+                    f"the answer states {value:.1f}GiB, which is not any "
+                    f"figure the machine reports: "
+                    + ", ".join(f"{k}={v:.1f}GiB" for k, v in sorted(row.items())))
+    elif q.truth == "names_the_first_question":
+        first = QUESTIONS[0].text
+        others = [o.text for o in QUESTIONS
+                  if o.key not in (QUESTIONS[0].key, q.key)]
+        if not re.search(r"\b" + re.escape(first) + r"\b", text or "",
+                         re.IGNORECASE):
+            reasons.append(f"the answer does not name the first question "
+                           f"({first!r})")
+        named = [o for o in others if o.lower() in (text or "").lower()]
+        if named:
+            reasons.append("the answer names a question that was not the "
+                           "first: " + "; ".join(repr(o) for o in named))
+    elif q.truth:
+        reasons.append(f"unknown correctness predicate {q.truth!r}")
+    return reasons
+
+
 def _grade(q: Question, r: Any, glass_rows: dict[str, list[dict]] | None,
-           ) -> Verdict:
-    """Apply the predicates to one collected turn. Pure; no I/O."""
+           ground_truth: dict[str, str] | None = None) -> Verdict:
+    """Apply the predicates to one collected turn. Pure; no I/O.
+
+    ``ground_truth`` carries the readings the CORRECTNESS predicates check the
+    answer against (see _truth_reasons); it is gathered once, over the same ssh,
+    and recorded beside the verdicts."""
     types = [m.get("type", "") for m in r.messages]
     terminal_frame = next(
         (m for m in reversed(r.messages)
@@ -311,6 +444,10 @@ def _grade(q: Question, r: Any, glass_rows: dict[str, list[dict]] | None,
     if q.model_required and origin != "model":
         reasons.append(f"model-required question answered by {origin!r} "
                        f"(source={source!r}, terminal={terminal})")
+    if q.code_required and origin != "code":
+        reasons.append(f"question whose answer must be code-owned was answered "
+                       f"by {origin!r} (source={source!r}, terminal={terminal})")
+    reasons.extend(_truth_reasons(q, text, ground_truth or {}))
 
     return Verdict(
         key=q.key, shape=q.shape, question=q.text,
@@ -377,6 +514,8 @@ def _read_glass(target: str, ssh_port: int, turn_ids: list[str],
 
 async def _drive(tree_root: Path, local_port: int, token: str,
                  deadline_s: float, frames_out: Path,
+                 target: str, ssh_port: int,
+                 truth_reads: dict[str, tuple[str, int, str]],
                  ) -> list[tuple[Question, Any]]:
     from intergen.tests import ws_harness  # the pinned copy, put on sys.path by main()
     results: list[tuple[Question, Any]] = []
@@ -402,6 +541,14 @@ async def _drive(tree_root: Path, local_port: int, token: str,
                                          "sent_at": sent_at,
                                          "frame": m}) + "\n")
                 fh.flush()
+                # The truth this question is checked against, read NOW — while
+                # the answer is one turn old — not at the end of the run.
+                probe = TRUTH_PROBES.get(q.truth or "")
+                if probe:
+                    gt = _ssh_read(target, ssh_port, probe, timeout=60)
+                    truth_reads[q.key] = (probe, gt.returncode,
+                                          gt.stdout if gt.returncode == 0
+                                          else gt.stdout + gt.stderr)
                 results.append((q, r))
                 print(f"[web-battery] {q.key} {q.shape}: closed_by={r.closed_by} "
                       f"terminal={r.terminal} elapsed={r.elapsed_s}s "
@@ -476,6 +623,7 @@ def main(argv: list[str] | None = None) -> int:
                               stderr=subprocess.PIPE, text=True)
     out.mkdir(parents=True)
     (out / "target-identity.txt").write_text(identity_raw, encoding="utf-8")
+    truth_reads: dict[str, tuple[str, int, str]] = {}
     try:
         sys.path.insert(0, str(tree_root))
         from intergen.tests import ws_harness
@@ -503,7 +651,8 @@ def main(argv: list[str] | None = None) -> int:
             return EXIT_FAIL
 
         results = asyncio.run(_drive(tree_root, local_port, token,
-                                     args.deadline, out / "frames.jsonl"))
+                                     args.deadline, out / "frames.jsonl",
+                                     args.target, args.ssh_port, truth_reads))
     finally:
         tunnel.terminate()
         try:
@@ -521,7 +670,25 @@ def main(argv: list[str] | None = None) -> int:
         args.target, args.ssh_port, turn_ids)
     (out / "glass-excerpt.jsonl").write_text(glass_raw, encoding="utf-8")
 
-    verdicts = [_grade(q, r, glass_rows) for q, r in results]
+    # The readings the CORRECTNESS predicates check answers against, each taken
+    # on the target immediately after its own turn (see _drive), written into
+    # the record so a reader can redo the comparison. A read that FAILED is
+    # recorded as the failure it is; the predicate then reports the question as
+    # unchecked rather than passing it.
+    gt_lines = []
+    for key in sorted(truth_reads):
+        cmd, rc, output = truth_reads[key]
+        gt_lines.append(f"=== {key}: ssh {args.target} {cmd} (rc={rc}) ===\n"
+                        f"{output}")
+    (out / "ground-truth.txt").write_text(
+        "\n".join(gt_lines) or "no question in this battery carries a "
+        "correctness predicate that needs a reading\n", encoding="utf-8")
+
+    verdicts = [
+        _grade(q, r, glass_rows,
+               {"memory": truth_reads.get(q.key, ("", 1, ""))[2]
+                if truth_reads.get(q.key, ("", 1, ""))[1] == 0 else ""})
+        for q, r in results]
     with (out / "verdicts.tsv").open("w", encoding="utf-8") as fh:
         fh.write("key\tshape\tverdict\torigin\tsource\tterminal\t"
                  "glass_corroborated\telapsed_s\tturn_id\treasons\t"

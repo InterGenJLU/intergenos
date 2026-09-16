@@ -1485,6 +1485,73 @@ _DA_DISK_RE = re.compile(
     r"|\bdisk\s+space\s+(?:left|free|remaining|available)\b"
     r"|\bhow\s+full\s+is\s+(?:my|the)\s+disk\b|\bis\s+my\s+disk\s+full\b",
     re.IGNORECASE)
+# D1 — MEMORY/RAM state, the sibling of the disk probe. The state cache DOES
+# poll `free -h`, but its value is multi-line and the cache-served route only
+# serves single-value output, so a memory question reached no code-owned data at
+# all and fell to the model, which answered it with numbers it did not have
+# (measured on the shipped web surface 2026-09-16: "12.1G of free RAM out of
+# 16.0G" on a machine with 15Gi total and 7.8Gi available). Value-shaped forms
+# only; the teach-guard above covers "how do I check my memory".
+_DA_MEMORY_RE = re.compile(
+    r"\bhow\s+much\s+(?:memory|ram)\b[^?]*"
+    r"\b(?:free|left|available|remaining|used|do\s+i\s+have)\b"
+    r"|\bhow\s+much\s+(?:free|available)\s+(?:memory|ram)\b"
+    r"|\b(?:free|available|used)\s+(?:memory|ram)\b"
+    r"|\b(?:memory|ram)\s+(?:free|left|remaining|available|usage|used)\b"
+    r"|\bam\s+i\s+(?:out\s+of|low\s+on)\s+(?:memory|ram)\b",
+    re.IGNORECASE)
+# A memory ask SCOPED to something smaller than the machine ("how much memory
+# is used by firefox", "which process is using the most memory") is not a
+# question about the machine's memory, and `free -h` does not answer it. The
+# probe declines on any of these rather than handing back a system-wide figure
+# as though it were the answer — a wrong answer is the defect this whole step
+# is about. Declining leaves the ask to its existing carriers unchanged.
+_DA_MEMORY_SCOPE_GUARD_RE = re.compile(
+    r"\bby\s+\w|\bprocess(?:es)?\b|\bapp(?:lication)?s?\b|\bprogram\b"
+    r"|\bcontainer\b|\bservice\b|\bbrowser\b|\btab\b|\bper\b"
+    r"|\bwhich\b|\bwhat(?:'?s)?\s+using\b|\bwho\s+is\s+using\b",
+    re.IGNORECASE)
+# A conversational-memory ask ("do you remember what I asked", "what was my
+# first question") says "memory"/"remember" about the CONVERSATION, not about
+# RAM. It must never reach the RAM probe.
+_DA_CONVERSATION_MEMORY_RE = re.compile(
+    r"\b(?:do|can)\s+you\s+remember\b|\bremember\s+(?:what|when|that)\b"
+    r"|\byour\s+memory\s+of\b|\b(?:my|the)\s+(?:first|second|third|last|"
+    r"previous|original)\s+(?:question|message|thing)\b"
+    r"|\bwhat\s+did\s+i\s+(?:ask|say)\b",
+    re.IGNORECASE)
+# The bare ELLIPTICAL follow-up — "And memory?" after "how much free disk space
+# do I have?". Resolved ONLY against a resource-state question in the turn
+# before it (see _try_direct_local); on its own it means nothing determinate and
+# the class declines rather than guessing which "memory" was meant.
+_DA_RESOURCE_ELLIPSIS_RE = re.compile(
+    r"^(?:and|what\s+about|how\s+about|ok(?:ay)?\s+and)\s+"
+    r"(?:my\s+|the\s+)?(?:memory|ram)\s*\??$",
+    re.IGNORECASE)
+# An ORDINAL question about the conversation itself — "what was my first
+# question to you", "what was the last thing I asked". Answered from the
+# conversation's verbatim transcript, in code. The shipped surface answered it
+# from the trimmed model buffer and named a LATER turn (measured 2026-09-16:
+# asked for the first of fourteen questions, it named the fourth).
+_DA_ORDINAL_RE = re.compile(
+    # "MY first question" — the possessive is required. "What was the first
+    # question on the exam" is not a question about this conversation, and
+    # answering it out of the transcript would be a wrong answer.
+    r"\bwhat\s+(?:was|were)\s+my\s+"
+    r"(?P<ord1>first|1st|second|2nd|third|3rd|last|most\s+recent|previous)\s+"
+    r"(?:question|message|thing)\b"
+    r"|\bwhat\s+(?:was|were)\s+the\s+"
+    r"(?P<ord2>first|1st|second|2nd|third|3rd|last|most\s+recent|previous)\s+"
+    r"thing\s+i\s+(?:asked|said)\b"
+    r"|\bwhat\s+did\s+i\s+ask\s+(?:you\s+)?(?P<ord3>first|second|third|last)\b",
+    re.IGNORECASE)
+_DA_ORDINAL_INDEX = {
+    "first": 0, "1st": 0,
+    "second": 1, "2nd": 1,
+    "third": 2, "3rd": 2,
+    "last": -1, "most recent": -1, "previous": -1,
+}
+
 _DA_BATTERY_RE = re.compile(
     r"\bbattery\s+(?:level|percentage|percent|status|life|charge|left|remaining)\b"
     r"|\bbattery\b|\bhow\s+much\s+(?:battery|charge|power)\b"
@@ -1526,6 +1593,40 @@ def _da_render_disk_free(out: str) -> "str | None":
             f"(of {parts[0]} total).")
 
 
+def _da_render_memory_free(out: str) -> "str | None":
+    # `free -h` → a header line, a "Mem:" line, and (usually) a "Swap:" line.
+    # Read the Mem: row by NAME, never by position, and report AVAILABLE rather
+    # than free: on Linux "free" excludes the page cache the kernel will hand
+    # back on demand, so it reads far lower than what a program can actually
+    # get, and quoting it tells the user they are out of memory when they are
+    # not. Total comes from the same row. Anything else -> None (decline).
+    header: list[str] | None = None
+    for line in out.splitlines():
+        parts = line.split()
+        if not parts:
+            continue
+        if header is None and parts[0].lower() in ("total", "mem:"):
+            if parts[0].lower() == "total":
+                header = parts
+                continue
+        if parts[0].lower().startswith("mem"):
+            if header is None or "available" not in [c.lower() for c in header]:
+                return None
+            cols = [c.lower() for c in header]
+            # The row carries a label plus one value per header column.
+            values = parts[1:]
+            if len(values) != len(cols):
+                return None
+            by_name = dict(zip(cols, values))
+            total = by_name.get("total")
+            available = by_name.get("available")
+            if not total or not available:
+                return None
+            return (f"You have {available} of memory available "
+                    f"(of {total} total).")
+    return None
+
+
 # (intent-key, detector, FIXED read-only command, renderer). Ordered so a
 # superstring intent is disambiguated first: "uptime" contains "time", so the
 # uptime detector is consulted before the time detector.
@@ -1535,6 +1636,7 @@ _DA_LOCAL_PROBES = (
     ("date", _DA_DATE_RE, "date '+%A, %B %-d, %Y'", _da_render_date),
     ("hostname", _DA_HOSTNAME_RE, "hostname", _da_render_hostname),
     ("disk_free", _DA_DISK_RE, "df -h --output=size,avail /", _da_render_disk_free),
+    ("memory_free", _DA_MEMORY_RE, "free -h", _da_render_memory_free),
 )
 
 # D2 — EXTERNAL basics (weather / daylight / a nearby place's hours). These are
@@ -3220,10 +3322,58 @@ class ConversationRouter(RouterInterface):
         text = user_input or ""
         if _EXPLAIN_PRIOR_RE.search(text) or _DA_TEACH_GUARD_RE.search(text):
             return None
+        # D0 — a question about THIS CONVERSATION, consulted before the machine
+        # probes so an ordinal ask ("what was my first question") can never be
+        # read as a question about RAM.
+        ordinal = self._try_direct_ordinal(user_input, t0)
+        if ordinal is not None:
+            return ordinal
         local = self._try_direct_local(user_input, t0)
         if local is not None:
             return local
         return self._try_direct_external(user_input, original_input, t0)
+
+    def _try_direct_ordinal(self, user_input: str, t0: float
+                            ) -> "RouteResult | None":
+        """D0 — an ORDINAL question about the conversation, answered VERBATIM
+        from the conversation's own transcript.
+
+        The model-facing buffer is trimmed in place to the last twenty messages,
+        so the opening exchange is gone once the conversation is ten turns old,
+        and the relevance index is queried by SEMANTIC similarity over turns the
+        embedder managed to embed — neither can reach "the first one". Asked for
+        the first of fourteen questions on the shipped web surface, the
+        assistant named the fourth (measured 2026-09-16).
+
+        Reads ``conv.transcript``: unbounded, in order, verbatim, written by the
+        single history writer. No model, no embedder, no network — so the answer
+        cannot be fabricated and cannot degrade. A turn the transcript does not
+        hold DECLINES (returns None) rather than naming a different one, which
+        is the whole defect."""
+        m = _DA_ORDINAL_RE.search(user_input or "")
+        if not m:
+            return None
+        word = (m.group("ord1") or m.group("ord2") or m.group("ord3") or "")
+        idx = _DA_ORDINAL_INDEX.get(" ".join(word.lower().split()))
+        if idx is None:
+            return None
+        transcript = self._conv.transcript
+        if not transcript or (idx >= 0 and idx >= len(transcript)):
+            # The conversation does not hold that turn. Say nothing rather than
+            # hand back a turn the person did not ask about.
+            glass.emit("decision", "direct_answer", detail={
+                "class": "conversation", "intent": "ordinal_question",
+                "verdict": "declined_no_such_turn",
+                "ordinal": word.lower(), "turns_held": len(transcript)})
+            return None
+        asked = transcript[idx][0]
+        label = {0: "first", 1: "second", 2: "third"}.get(
+            idx, "most recent") if idx >= 0 else "most recent"
+        answer = f'Your {label} question was: "{asked}"'
+        return self._direct_answer_result(
+            user_input, answer, "ordinal_question", "conversation", t0,
+            # Read out of this conversation's own verbatim record, in code.
+            linkage=AnswerLinkage(kind="code", renderer="conversation_transcript"))
 
     def _try_direct_local(self, user_input: str, t0: float) -> "RouteResult | None":
         """D1 — LOCAL basics: a fixed, code-owned, read-only probe per enumerated
@@ -3247,6 +3397,30 @@ class ConversationRouter(RouterInterface):
                     # Composed from a direct sysfs read in code — no dispatch.
                     linkage=AnswerLinkage(kind="code", renderer="sysfs_probe"))
             return None  # sysfs read error → fall through honestly
+        # A conversational-memory ask says "memory"/"remember" about the
+        # CONVERSATION. It is not a machine probe; leave it to its own carriers.
+        if _DA_CONVERSATION_MEMORY_RE.search(text):
+            return None
+        # A memory ask about one process/app is not a question about the
+        # machine's memory; decline rather than answer it system-wide.
+        if _DA_MEMORY_RE.search(text) and _DA_MEMORY_SCOPE_GUARD_RE.search(text):
+            glass.emit("decision", "direct_answer", detail={
+                "class": "local", "intent": "memory_free",
+                "verdict": "declined_scoped_below_the_machine"})
+            return None
+        # The bare elliptical follow-up ("And memory?") carries no subject of its
+        # own. Resolve it ONLY against a resource-state question in the turn
+        # before it — the disk question it follows — and decline otherwise
+        # rather than guess which "memory" was meant.
+        if _DA_RESOURCE_ELLIPSIS_RE.search(text.strip()):
+            transcript = self._conv.transcript
+            prior = transcript[-1][0] if transcript else ""
+            if not (_DA_DISK_RE.search(prior) or _DA_MEMORY_RE.search(prior)):
+                glass.emit("decision", "direct_answer", detail={
+                    "class": "local", "intent": "memory_free",
+                    "verdict": "declined_no_resource_antecedent"})
+                return None
+            text = "how much memory is available"
         for intent, detector, command, render in _DA_LOCAL_PROBES:
             if not detector.search(text):
                 continue
@@ -7653,6 +7827,13 @@ class ConversationRouter(RouterInterface):
             return
         hist.append(Message(role=MessageRole.USER, content=user_input))
         hist.append(Message(role=MessageRole.ASSISTANT, content=response))
+        # The verbatim, in-order, never-trimmed record of the conversation —
+        # written HERE, past the idempotency guard and BEFORE the window trim
+        # below, so it holds exactly the exchanges the buffer held and holds
+        # them for the whole conversation. It is what an ORDINAL question about
+        # the conversation reads (_try_direct_ordinal); nothing else reads it,
+        # and it never enters a prompt.
+        conv.transcript.append((user_input, response))
         # M1 (bullet 3): every write to the model-facing conversation buffer.
         # By its ABSENCE on the streamed web path this is the exact (a)/(c)
         # write-gap — making it visible (and, post-M2a, its presence) is the

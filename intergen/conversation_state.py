@@ -56,6 +56,8 @@ class ConversationState:
     ``offer_in_recent_history`` whether that window is open for THIS turn
     ``offer_topic_terms``     the offered command's content words
     ``handed_off_commands``   commands already declined or handed off here
+    ``transcript``            every exchange this conversation has had, in
+                              order and verbatim, never trimmed
     ``turn_index``            the relevance index over this conversation's turns
     ``first_interaction``     whether nothing has been said yet
     ``memory_session_id``     the long-term memory session this conversation
@@ -78,6 +80,18 @@ class ConversationState:
     offer_in_recent_history: bool = False
     offer_topic_terms: frozenset[str] = frozenset()
     handed_off_commands: set[str] = field(default_factory=set)
+    # Every exchange, in order, verbatim, unbounded — (user_input, response).
+    #
+    # `history` is the MODEL-FACING buffer and is trimmed in place to the last
+    # twenty messages, so the opening exchange is destroyed once a conversation
+    # is ten turns old. `turn_index` holds verbatim exchanges too, but it is
+    # queried by semantic similarity and only ever holds a turn the embedder
+    # managed to embed — so neither can answer an ORDINAL question about the
+    # conversation ("what was my first question"), and the assistant answered
+    # one with a later turn. This list is the record those questions read: no
+    # model, no embedder, no trim. It is display/answer state only and is never
+    # placed in a prompt, so it cannot grow the model's context.
+    transcript: list[tuple[str, str]] = field(default_factory=list)
     turn_index: Any = None
     first_interaction: bool = True
     memory_session_id: str | None = None
@@ -126,6 +140,10 @@ class ConversationState:
         # Loop-killer set is per-conversation: a fresh conversation may re-offer
         # an action a prior (discarded) one declined.
         self.handed_off_commands.clear()
+        # The verbatim transcript is per-conversation like everything else here:
+        # a discarded conversation's first question must not be readable as the
+        # fresh one's.
+        self.transcript.clear()
         self.first_interaction = True
 
 
