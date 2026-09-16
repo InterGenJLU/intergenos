@@ -487,7 +487,14 @@ def test_the_canonical_owner_claims_that_unit_and_skips_a_chroot(pkg):
     rel = f"usr/lib/systemd/system/{DAEMON_RELOAD_DELETED[pkg]}"
 
     assert hook.pattern.search(rel), f"{rel} does not arm the canonical hook"
-    assert hook.cmd_fn("/", [rel]) == ["systemctl", "daemon-reload"]
+    # The canonical hook binds its program by absolute path (pkm/hooks.py
+    # SYSTEMCTL), so PATH cannot select what runs as root. This assertion
+    # still expected the bare name and has been failing on every one of
+    # this file's parametrized cases since that binding landed;
+    # tests/pkm/test_absolute_execution_edges.py asserts the absolute form
+    # for the same function, so the two tests disagreed and this one was
+    # the stale half.
+    assert hook.cmd_fn("/", [rel]) == ["/usr/bin/systemctl", "daemon-reload"]
     assert hook.cmd_fn("/mnt/some-target-root", [rel]) is None, (
         "the canonical owner must do nothing on a root no manager owns — "
         "which is the context the deleted recipe calls ran in at build time"
