@@ -313,7 +313,7 @@ def sha1_fingerprint(der):
     return hashlib.sha1(der).hexdigest()
 
 
-def export_enrolled_certificates(target, runner=None):
+def export_enrolled_certificates(target=None, runner=None):
     """Every certificate the firmware currently trusts as a machine owner key.
 
     Returns a list of DER byte strings, or None when the store cannot be read
@@ -321,10 +321,30 @@ def export_enrolled_certificates(target, runner=None):
     "no prior keys" and "could not look" must not reach a person as the same
     sentence.
 
-    The export runs through the target's own tooling with the firmware
-    variables mounted, the same way the enrolment does. It writes files and
-    reads nothing else; it changes no key store.
+    The trusted set belongs to the MACHINE, not to the system being installed,
+    so with no target this reads it on the live system — which is what the
+    installer's own screens need, since they ask the person before a target
+    exists. With a target, it reads through the target's tooling with the
+    firmware variables mounted, the same way the enrolment does, which is what
+    the install phase uses once the system is in place.
+
+    Either way it only writes the exported files and reads them back; it
+    changes no key store.
     """
+    import tempfile
+    if target is None:
+        import subprocess
+        work = Path(tempfile.mkdtemp(prefix="igos-mok-enrolled-"))
+        try:
+            proc = subprocess.run(
+                ["mokutil", "--export"], cwd=str(work),
+                capture_output=True, timeout=30)
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if proc.returncode != 0:
+            return None
+        return _read_exported(work)
+
     runner = runner or run_chroot
     export_dir = Path(target) / _EXPORT_DIR.lstrip("/")
     try:
@@ -339,8 +359,13 @@ def export_enrolled_certificates(target, runner=None):
         unmount_efivars(target)
     if rc != 0:
         return None
+    return _read_exported(export_dir)
+
+
+def _read_exported(directory):
+    """The exported certificates in name order, or None if one cannot be read."""
     ders = []
-    for path in sorted(export_dir.glob("MOK-*.der")):
+    for path in sorted(Path(directory).glob("MOK-*.der")):
         try:
             ders.append(path.read_bytes())
         except OSError:
@@ -385,6 +410,13 @@ def prior_owner_keys(ders, current_der):
     Certificates with any other common name — a vendor's authority, for
     instance — are not this project's to offer for removal and are left alone.
     The current key is excluded by fingerprint, never by position or by date.
+
+    `current_der` of None means THIS INSTALL HAS NOT GENERATED ITS KEY YET, and
+    then every one of this project's enrolled keys is a prior one — which is the
+    installer's true state at the moment the person is asked, because the new
+    key is made later, in the bootloader phase. A caller on a system that does
+    hold a key must pass it; passing None there would offer the machine's own
+    working key for removal.
     """
     if not ders:
         return []

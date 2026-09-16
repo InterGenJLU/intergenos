@@ -82,6 +82,17 @@ class PriorKeySelection(unittest.TestCase):
         self.assertTrue(identity["created"], "a creation date must be shown")
         self.assertTrue(identity["expires"], "the validity end must be shown")
 
+    def test_before_this_install_makes_its_key_every_one_of_ours_is_prior(self):
+        """The installer asks BEFORE the new key exists, so at that moment every
+        enrolled key of ours belongs to an earlier install. The None case is the
+        contract, not an accident — and a caller on a system that does hold a key
+        must pass it, or it would offer that machine its own working key."""
+        prior = mok.prior_owner_keys(
+            [self.current, self.older_one, self.vendor], None)
+        self.assertEqual({p["sha1"] for p in prior},
+                         {mok.sha1_fingerprint(self.current),
+                          mok.sha1_fingerprint(self.older_one)})
+
     def test_bytes_that_are_not_a_certificate_are_skipped_not_guessed_at(self):
         self.assertIsNone(mok.certificate_identity(b"not a certificate"))
         prior = mok.prior_owner_keys([b"rubbish", self.older_one], self.current)
