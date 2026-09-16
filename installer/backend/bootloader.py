@@ -819,6 +819,52 @@ def install_bootloader(target, disk, partitions, mok_keypair=None,
         _stage_grub_assets_to_esp(target)
 
 
+#: The removable-media fallback set: (source under ESP_BOOT_DIR, name under
+#: /EFI/BOOT). Some older UEFI firmware only looks at /EFI/BOOT/bootx64.efi
+#: when no matching UEFI boot variable is registered, so the whole chain is
+#: mirrored there and stays self-contained — shim keeps its Microsoft
+#: signature so Secure Boot validation passes, and it finds GRUB in the same
+#: directory.
+#:
+#: MokManager is NOT optional. shim looks for mmx64.efi only in the directory
+#: it was launched from, and with an enrolment pending a shim that cannot find
+#: it HARD-FAILS ("MOK Manager not found"). A test machine boot-looped on its
+#: first Secure Boot start for exactly that reason: its firmware takes this
+#: fallback path on default boot, and only the first-stage loader and GRUB had
+#: been mirrored (2026, installed-system evaluation).
+#:
+#: Decided 2026-09-16 (R001.3 row 32): the resulting files are deliberate
+#: byte-identical copies of the signed originals, not leftovers of a boot
+#: loader installer, and they are not removed. Measured read-only on an
+#: R001.2-03 install: /EFI/BOOT holds these three files and no others, each
+#: pair shares a hash and compares equal byte for byte, and each file carries
+#: a real signature — shim two, from the Microsoft UEFI authorities of 2011
+#: and 2023; GRUB one, from this project's machine owner key; MokManager one,
+#: from the Fedora Secure Boot authority. The set is declared here, and a test
+#: holds it, so the member that has already cost a bootloop cannot be dropped
+#: quietly again.
+EFI_FALLBACK_COPIES = (
+    (SHIM_BINARY, "bootx64.efi"),
+    (GRUB_BINARY, GRUB_BINARY),
+    (MOKMANAGER_BINARY, MOKMANAGER_BINARY),
+)
+
+EFI_FALLBACK_DIR = "/boot/efi/EFI/BOOT"
+
+
+def stage_efi_fallback_copies(target):
+    """Mirror EFI_FALLBACK_COPIES into /EFI/BOOT. Returns the pairs staged."""
+    copies = " && ".join(
+        f"cp {ESP_BOOT_DIR}/{src} {EFI_FALLBACK_DIR}/{dst}"
+        for src, dst in EFI_FALLBACK_COPIES
+    )
+    rc, _, stderr = trace.traced_run_chroot(
+        target, f"mkdir -p {EFI_FALLBACK_DIR} && {copies}")
+    if rc != 0:
+        raise RuntimeError(f"EFI/BOOT fallback staging failed: {stderr}")
+    return EFI_FALLBACK_COPIES
+
+
 def _install_signed_efi_chain(target, partitions, mok_keypair,
                               make_default_boot=True):
     """EFI install with signed boot chain (shim + signed GRUB).
@@ -907,25 +953,7 @@ def _install_signed_efi_chain(target, partitions, mok_keypair,
     from . import mok as _mok
     _mok.stage_mok_certificate(target, mok_keypair["der_path"])
 
-    # Fallback auto-discovery path: some older UEFI firmware only looks at
-    # /EFI/BOOT/bootx64.efi when no matching UEFI boot variable is registered.
-    # Mirror the MS-signed shim, the MOK-signed GRUB, AND MokManager there so
-    # the chain is self-contained — shim stays signed by MS so SecureBoot
-    # validation passes, and it finds grubx64.efi in the same directory.
-    # MokManager is NOT optional here: shim only looks for mmx64.efi in the
-    # directory it was launched from, and with a MokNew enrollment pending a
-    # shim that cannot find it HARD-FAILS ("MOK Manager not found") — the
-    # ge9b-04 dogfood box bootlooped on its first SB reboot exactly because
-    # its firmware takes this fallback path on default boot and only
-    # shim+grub were mirrored (PI-ge9b04-A, installed-side leg).
-    rc, _, stderr = trace.traced_run_chroot(target,
-        f"mkdir -p /boot/efi/EFI/BOOT && "
-        f"cp {ESP_BOOT_DIR}/{SHIM_BINARY} /boot/efi/EFI/BOOT/bootx64.efi && "
-        f"cp {ESP_BOOT_DIR}/{GRUB_BINARY} /boot/efi/EFI/BOOT/{GRUB_BINARY} && "
-        f"cp {ESP_BOOT_DIR}/{MOKMANAGER_BINARY} /boot/efi/EFI/BOOT/{MOKMANAGER_BINARY}"
-    )
-    if rc != 0:
-        raise RuntimeError(f"EFI/BOOT fallback staging failed: {stderr}")
+    stage_efi_fallback_copies(target)
 
     # Sign every /boot/vmlinuz-* kernel image with the MOK. This closes
     # the middle link in the v2 playbook's 3-check signature chain:

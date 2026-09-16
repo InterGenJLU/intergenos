@@ -145,7 +145,7 @@ class TestCertificateStaging(unittest.TestCase):
         self.assertLess(chain.index("shim staging to ESP failed"),
                         chain.index("stage_mok_certificate("))
         self.assertLess(chain.index("stage_mok_certificate("),
-                        chain.index("EFI/BOOT fallback staging failed"))
+                        chain.index("stage_efi_fallback_copies("))
 
 
 class TestOneWordingOnEverySurface(unittest.TestCase):
