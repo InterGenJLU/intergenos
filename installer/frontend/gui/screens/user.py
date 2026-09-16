@@ -35,7 +35,13 @@ from installer.backend._validators import (
     validate_username,
 )
 
-from installer.backend.mok_guidance import MOK_WINDOW_ADVISORY, firmware_ca_line
+from installer.backend import mok
+from installer.backend.mok_guidance import (
+    MOK_WINDOW_ADVISORY,
+    PRIOR_KEY_KEEP_LINE,
+    firmware_ca_line,
+    prior_key_advisory,
+)
 from .. import doc_viewer
 
 
@@ -208,6 +214,48 @@ class UserPage(_ForgePage):
         self._mok_pw_row.set_show_apply_button(False)
         self._mok_pw_row.connect("notify::text", self._on_mok_pw_changed)
         mok_group.add(self._mok_pw_row)
+
+        # ─── PRIOR KEYS FROM EARLIER INSTALLS ────────────────────────
+        # Every install enrols a key and nothing has ever retired an old
+        # one, so a reinstalled machine trusts one key per install —
+        # including keys whose private half went with the disk they were
+        # made on. Nothing checks the dates in those certificates, so the
+        # list only ever gets shorter if someone shortens it.
+        #
+        # The rules this widget keeps: the switch is OFF, so keeping them
+        # is what happens if the person does nothing; each key is shown
+        # with the fingerprint the firmware itself prints and the date it
+        # was created (the firmware records no enrolment date, so the word
+        # is "created"); and the group is silent when there is nothing to
+        # offer rather than saying "zero".
+        self._prior_keys = mok.prior_owner_keys(
+            mok.export_enrolled_certificates() or [], None)
+        self._retire_prior_row = None
+        if self._prior_keys:
+            prior_group = Adw.PreferencesGroup()
+            prior_group.set_title("Keys from earlier installs")
+            prior_group.set_description(
+                prior_key_advisory(len(self._prior_keys)))
+
+            listing = Adw.ExpanderRow()
+            listing.set_title(
+                f"{len(self._prior_keys)} key(s) this machine already trusts")
+            listing.set_subtitle("Open to see each one")
+            for key in self._prior_keys:
+                row = Adw.ActionRow()
+                row.set_title(f"Created {key['created']}")
+                row.set_subtitle(key["sha1"])
+                listing.add_row(row)
+            prior_group.add(listing)
+
+            self._retire_prior_row = Adw.SwitchRow()
+            self._retire_prior_row.set_title("Retire these keys")
+            self._retire_prior_row.set_subtitle(PRIOR_KEY_KEEP_LINE)
+            self._retire_prior_row.set_active(False)
+            prior_group.add(self._retire_prior_row)
+            self._mok_prior_group = prior_group
+        else:
+            self._mok_prior_group = None
 
         # Clickable docs row — opens an inline viewer dialog with the
         # secure-boot walkthrough rendered from markdown. Strong visual
@@ -445,5 +493,17 @@ class UserPage(_ForgePage):
         # correctly unsets it. The Done page reads this flag, not
         # mok_password (which clear_sensitive_data() scrubs first).
         state.mok_enrollment_chosen = bool(state.mok_password)
+
+        # The prior-key answer travels with the rest of the page. Retiring
+        # anything needs the enrolment password, because the firmware asks
+        # for it to confirm a removal exactly as it does for an addition —
+        # so a person who skipped enrolment keeps every old key and the
+        # install says so rather than going quiet.
+        state.prior_owner_keys = list(getattr(self, "_prior_keys", []) or [])
+        state.retire_prior_owner_keys = mok.retire_choice(
+            state.prior_owner_keys,
+            self._retire_prior_row is not None
+            and self._retire_prior_row.get_active(),
+            state.mok_password)
 
         return True

@@ -566,7 +566,24 @@ def _load_yaml(path):
 # --------------------------------------------------------------------------
 
 
-from installer.backend.mok_guidance import MOK_WINDOW_ADVISORY, firmware_ca_line  # noqa: E402
+from installer.backend.mok_guidance import (  # noqa: E402
+    MOK_WINDOW_ADVISORY,
+    firmware_ca_line,
+    prior_key_advisory,
+)
+
+
+def _prior_key_question_text(prior_keys):
+    """What the person reads before answering about earlier installs' keys
+    (pure; unit-tested). Each key is shown with the date it was created — the
+    firmware records no enrolment date — and with the fingerprint the firmware
+    itself prints, so a person can match what they see here against what
+    MokManager will show them."""
+    listing = "\n".join(
+        f"  created {key['created']}  {key['sha1'][:32]}…"
+        for key in prior_keys)
+    return (prior_key_advisory(len(prior_keys)) + "\n\n" + listing +
+            "\n\nRetire these keys? NO keeps them all.")
 
 
 def _mok_prompt_text(sb_state):
@@ -848,6 +865,22 @@ def prompt_install_io():
             )
             return None
 
+    # Keys from earlier installs. Asked only when there is something to offer
+    # AND the person set an enrolment password, because the firmware asks for
+    # that password to confirm a removal exactly as it does an addition — so a
+    # person who skipped enrolment keeps every old key, and the install records
+    # that rather than going quiet. The dialog defaults to NO: keeping them is
+    # what happens if nobody chooses.
+    retire_prior_keys = None
+    if mok_pw:
+        prior_keys = mok.prior_owner_keys(
+            mok.export_enrolled_certificates() or [], None)
+        if prior_keys:
+            retire_prior_keys = _ask_yesno(
+                "Keys from earlier installs",
+                _prior_key_question_text(prior_keys),
+                default_no=True)
+
     # Option C 2026-05-24 — dual-boot detection prompt.
     # YES => GRUB_DISABLE_OS_PROBER=false written permanently to
     #        /etc/default/grub. grub-mkconfig (at install time AND every
@@ -924,6 +957,10 @@ def prompt_install_io():
     # mirroring state.to_install_io — absent key -> backend keeps the prepend.
     if make_default_boot is not None:
         install_io["make_default_boot"] = make_default_boot
+    # Only-when-asked threading, same as above: an absent key means nobody was
+    # offered anything, which is different from a person who said no.
+    if retire_prior_keys is not None:
+        install_io["retire_prior_owner_keys"] = retire_prior_keys
     # Wi-Fi carry: same only-when-asked threading.
     if carry_wifi is not None:
         install_io["carry_wifi"] = carry_wifi

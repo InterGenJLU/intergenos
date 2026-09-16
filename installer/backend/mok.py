@@ -486,6 +486,19 @@ def queue_owner_key_removal(target, identities, password, runner=None):
                "next starts with Secure Boot on")
 
 
+def retire_choice(prior_keys, chose_to_retire, password):
+    """Whether this install should ask the firmware to retire prior keys.
+
+    Three things must all hold, and each one is a rule rather than a detail:
+    there is something to retire; the person said so; and an enrolment password
+    exists, because the firmware asks for it to confirm a removal exactly as it
+    does an addition. A person who skipped enrolment therefore keeps every old
+    key — there is no path here that removes something without a person having
+    answered a question with the password in hand.
+    """
+    return bool(prior_keys and chose_to_retire and password)
+
+
 def record_owner_key_decision(kept, removed):
     """Record what the person decided about prior keys, including keeping them.
 

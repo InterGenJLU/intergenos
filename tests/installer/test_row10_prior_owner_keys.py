@@ -245,5 +245,44 @@ class TheLifetimeIsStatedWhereverTheKeyIsMet(unittest.TestCase):
         self.assertIn("Keep them all", mok_guidance.PRIOR_KEY_KEEP_LINE)
 
 
+class TheQuestionAPersonAnswers(unittest.TestCase):
+    """What the two frontends ask, and the one rule that decides the answer."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.keys = mok.prior_owner_keys(
+            [_self_signed_der(mok.OWNER_KEY_COMMON_NAME),
+             _self_signed_der(mok.OWNER_KEY_COMMON_NAME)], None)
+
+    def test_nothing_is_retired_unless_all_three_conditions_hold(self):
+        """Something to retire, a person who said so, and the password the
+        firmware will ask for. Any one missing means keep everything."""
+        self.assertTrue(mok.retire_choice(self.keys, True, "a-password-1234"))
+        self.assertFalse(mok.retire_choice(self.keys, False, "a-password-1234"),
+                         "a person who said no keeps their keys")
+        self.assertFalse(mok.retire_choice(self.keys, True, ""),
+                         "no enrolment password means the firmware cannot be "
+                         "asked to confirm a removal")
+        self.assertFalse(mok.retire_choice([], True, "a-password-1234"),
+                         "nothing to retire is not a removal")
+
+    def test_the_text_question_shows_each_key_and_makes_keeping_the_no_answer(self):
+        from installer.frontend import tui
+        text = tui._prior_key_question_text(self.keys)
+        self.assertIn(str(len(self.keys)), text)
+        for key in self.keys:
+            self.assertIn(key["sha1"][:32], text)
+            self.assertIn(key["created"], text)
+        self.assertIn("created", text)
+        self.assertNotIn("enrolled on", text,
+                         "the firmware records no enrolment date; the word is "
+                         "'created'")
+        self.assertIn("NO keeps them all", text)
+
+    def test_the_wording_says_the_firmware_will_ask_for_confirmation(self):
+        from installer.backend import mok_guidance
+        self.assertIn("confirm", mok_guidance.prior_key_advisory(2))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1018,6 +1018,32 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
                     install_io["mok_password"],
                 )
                 _emit(PHASE_MOK, 12, "MOK enrollment queued")
+                # Keys from earlier installs, when the person was offered them
+                # and chose to retire them. The store is read again here rather
+                # than trusting what a screen saw minutes ago, and the key this
+                # install just generated is excluded by its own certificate. A
+                # failure is a warning, never a failed install: the new key is
+                # already staged and the machine boots either way.
+                try:
+                    enrolled = mok.export_enrolled_certificates(target) or []
+                    current = Path(
+                        target) / mok_keypair["der_path"].lstrip("/")
+                    prior = mok.prior_owner_keys(
+                        enrolled, current.read_bytes())
+                    if prior and install_io.get("retire_prior_owner_keys"):
+                        mok.queue_owner_key_removal(
+                            target, prior, install_io["mok_password"])
+                        _emit(PHASE_MOK, 12,
+                              f"{len(prior)} earlier key(s) await confirmation "
+                              f"at the firmware prompt")
+                        mok.record_owner_key_decision(kept=[], removed=prior)
+                    else:
+                        mok.record_owner_key_decision(kept=prior, removed=[])
+                except Exception as e:
+                    result.warnings.append(
+                        f"retiring earlier Machine Owner Keys did not happen "
+                        f"({type(e).__name__}: {e}); nothing was removed and "
+                        f"the machine still trusts them")
             except Exception as e:
                 msg = (
                     f"MOK enrollment queueing failed "
