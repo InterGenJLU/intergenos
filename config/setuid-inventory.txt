@@ -85,14 +85,14 @@
 # (measured on the R001.1 install). Less privilege than owner root, not more.
 /usr/bin/fcrontab                       6755 fcron fcron
 /usr/bin/fcrondyn                       4755 root fcron
-/usr/sbin/exim-*                        6755 root exim
-# The mail transfer agent is reached through /usr/sbin/exim, a symlink to the
-# versioned binary above, and the recipe's chmod names the symlink and follows it.
-# The path is declared here so the recipe line and this list name the same thing:
-# without it the recipe-declaration arm reads a privileged mode set on a path no
-# entry covers. The chroot arms walk regular files only, so this entry is never
-# matched there — the versioned entry above is what the seal checks.
-/usr/sbin/exim                          6755 root exim
+# NOTE: the mail transfer agent's programs are deliberately ABSENT since
+# 2026-09-16: the package is published to the mirror but is no longer part of the
+# shipped install set (packages/base/exim/package.yml, iso_include: false), so the
+# mirror-only prune removes it from the chroot before this gate audits it. It could
+# not be shipped unprivileged — measured: with the setuid bit dropped it cannot
+# create its own spool file — and after the unused scheduler moved to the mirror
+# nothing shipped called it. With no entries here, a build that ships those
+# programs again fails the seal on the unexpected-privilege arm.
 # NOTE: /usr/bin/screen-* is deliberately ABSENT since 2026-09-16: the
 # terminal multiplexer ships unprivileged (recipe r4). Its setuid bit came from
 # upstream's install rule and bought only the global socket directory, which the

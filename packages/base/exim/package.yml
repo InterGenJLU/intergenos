@@ -6,6 +6,29 @@ description: Message Transfer Agent
 license: GPL-2.0-or-later
 homepage: https://www.exim.org/
 tier: base
+# Decided 2026-09-16: this package is published to the mirror but is not part of
+# the shipped install set. It is a setuid-root mail transfer agent, and on an
+# installed machine it has no service unit, nothing listening on the mail port,
+# and — once the unused job scheduler also moved to the mirror in this same
+# change set — no caller anywhere in the shipped tree. The other scheduler is
+# built without mail support at all, so nothing that ships asks for local mail
+# delivery.
+#
+# Shipping it unprivileged instead is not available, and this was measured
+# rather than assumed: at its present mode local delivery works; with the setuid
+# bit dropped and with no privileged bit at all, it cannot create its own spool
+# file and the message is refused. So the honest choice was between keeping a
+# setuid-root program on every machine with nothing calling it, or delivering it
+# on request. tier and iso_include are independent axes (docs/package-tiers.md):
+# the tier still states what this package IS, and iso_include states how it is
+# delivered.
+#
+# A machine that wants local mail delivery installs it in one command and gets
+# the same archive, with its privileges intact and its behaviour unchanged. The
+# declared privileged-program inventory loses both of its entries in the same
+# commit, so a build that ships it again fails the seal instead of matching a
+# stale declaration.
+iso_include: false
 build_style: custom
 install_func: do_install
 
