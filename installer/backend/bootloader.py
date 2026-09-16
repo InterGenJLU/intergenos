@@ -979,7 +979,8 @@ def _install_signed_efi_chain(target, partitions, mok_keypair,
         # — a user-control violation — so we consult the user's choice below.
         _pre_rc, _pre_stdout, _pre_stderr = trace.traced_run_chroot(target, "efibootmgr")
         _pre_order, _pre_entries = _parse_efibootmgr_output(_pre_stdout)
-        foreign_before = _foreign_os_bootnums(_pre_entries, BOOTLOADER_ID)
+        foreign_before = (_foreign_os_bootnums(_pre_entries, BOOTLOADER_ID)
+                          if _pre_rc == 0 else None)
         foreign_bootnums = ([b for b, (_active, label, _path) in _pre_entries.items()
                              if label != BOOTLOADER_ID] if _pre_rc == 0 else None)
 
@@ -1638,6 +1639,7 @@ def _write_boot_default_intent(target, expect_default, foreign_before,
     # Installed-on-disk OS entries govern the default-target offer. The wider
     # inventory also includes retained vendor, removable and inactive entries.
     foreign_count = len(foreign_bootnums) if foreign_bootnums is not None else None
+    os_count = len(foreign_before) if foreign_before is not None else None
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
@@ -1650,7 +1652,7 @@ def _write_boot_default_intent(target, expect_default, foreign_before,
             "#   system as the default; the checker only reports.\n"
             f"default_boot_target={'yes' if expect_default else 'no'}\n"
             f"boot_entry_label={BOOTLOADER_ID}\n"
-            f"foreign_os_entries_at_install={len(foreign_before)}\n"
+            f"foreign_os_entries_at_install={os_count if os_count is not None else 'unknown'}\n"
             f"foreign_boot_entries_at_install={foreign_count if foreign_count is not None else 'unknown'}\n"
         )
         path.chmod(0o644)
@@ -1671,7 +1673,7 @@ def _write_boot_default_intent(target, expect_default, foreign_before,
         "boot_default_intent_recorded",
         path=f"/{BOOT_DEFAULT_INTENT_REL}",
         default_boot_target=("yes" if expect_default else "no"),
-        foreign_os_entries_at_install=len(foreign_before),
+        foreign_os_entries_at_install=os_count,
         foreign_boot_entries_at_install=foreign_count,
         retained_foreign_bootnums=foreign_bootnums,
         intent="record the install-time default-boot-target decision so the "

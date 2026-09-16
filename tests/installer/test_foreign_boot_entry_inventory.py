@@ -36,5 +36,6 @@ def test_cleanup_never_removes_foreign_entries():
 
 def test_unknown_inventory_is_not_reported_as_zero(tmp_path):
     with mock.patch.object(bootloader.trace, "trace_event") as event:
-        bootloader._write_boot_default_intent(tmp_path, True, [])
+        bootloader._write_boot_default_intent(tmp_path, True, None)
     assert event.call_args.kwargs["foreign_boot_entries_at_install"] is None
+    assert event.call_args.kwargs["foreign_os_entries_at_install"] is None
