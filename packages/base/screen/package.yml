@@ -1,6 +1,6 @@
 name: screen
 version: "5.0.1"
-release: 3  # r3: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+release: 4  # r4: the terminal multiplexer ships unprivileged. Upstream's install rule sets mode 4755 on the versioned binary; do_install now clears it and halts if it is still set. The setuid bit bought two things here and neither is still needed: this build has no utmp support (upstream's --enable-utmp defaults to no, this recipe never passed it, and the shipped binary references no utmp API symbol), and the global socket directory /run/screen, which required privilege to create and to use, is no longer configured — sockets live in each user's own $HOME/.screen, upstream's default. Detach, reattach and multiple sessions per user were exercised unprivileged before the change; sharing one session between two different accounts required the setuid binary and goes with it. The declared privileged-program inventory loses its entry in the same commit.  # r3: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
 description: GNU Screen terminal multiplexer
 license: GPL-3.0-or-later
 homepage: https://www.gnu.org/software/screen/

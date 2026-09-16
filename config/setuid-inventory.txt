@@ -77,5 +77,10 @@
 /usr/bin/fcrontab                       6755 fcron fcron
 /usr/bin/fcrondyn                       4755 root fcron
 /usr/sbin/exim-*                        6755 root exim
-/usr/bin/screen-*                       4755 root root
+# NOTE: /usr/bin/screen-* is deliberately ABSENT since 2026-09-16: the
+# terminal multiplexer ships unprivileged (recipe r4). Its setuid bit came from
+# upstream's install rule and bought only the global socket directory, which the
+# recipe no longer configures; this build has no utmp support, so it never wrote
+# the user accounting database. With no entry here, a build that ships a
+# privileged multiplexer again fails the seal on the unexpected-privilege arm.
 /usr/bin/wall                           2755 root tty
