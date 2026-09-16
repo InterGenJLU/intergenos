@@ -1,6 +1,6 @@
 name: libgtop
 version: "2.41.3"
-release: 2  # L29: setuid-strip regression rebuild (staging-chokepoint chown)
+release: 3  # r3: the system-information helper /usr/libexec/libgtop_server2 ships unprivileged. Upstream installs it setuid root for systems whose library cannot read process data directly; here the library reads the kernel's process filesystem in-process and never executes the helper. Measured with the bit dropped: identical process, memory, cpu and per-process data for every process including root-owned ones, and the desktop's system monitor ran and read the same process trees with zero executions of the helper. do_install clears the bit and halts if it is still set; the declared privileged-program inventory loses its entry in the same commit.  # L29: setuid-strip regression rebuild (staging-chokepoint chown)
 description: System monitoring library
 license: GPL-2.0-or-later
 homepage: ''

@@ -49,7 +49,12 @@
 # strips suid on any chown of a regular file). D1 added a chmod-restore after
 # the hook's chown, so the fresh-chroot state is now the intended 4750.
 /usr/libexec/dbus-daemon-launch-helper  4750 root messagebus
-/usr/libexec/libgtop_server2            4755 root root
+# NOTE: /usr/libexec/libgtop_server2 is deliberately ABSENT since 2026-09-16:
+# the system-information helper ships unprivileged (libgtop r3). The library reads
+# the kernel's process filesystem in-process and never executes the helper —
+# measured with the bit dropped, including the desktop's system monitor. With no
+# entry here, a build that ships it privileged again fails the seal on the
+# unexpected-privilege arm.
 # NOTE: /usr/bin/ksu is deliberately ABSENT since 2026-09-16: the Kerberos
 # switch-user program is no longer shipped at all. mitkrb's do_install removes
 # what upstream installs setuid root, because this system configures no Kerberos
