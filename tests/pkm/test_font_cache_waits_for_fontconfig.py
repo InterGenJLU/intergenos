@@ -42,7 +42,7 @@ from pkm import hooks
 FONT_CACHE_HOOK = next(
     hook for hook in hooks.CANONICAL_HOOKS if hook.id == "font-cache"
 )
-A_FONT = "usr/share/fonts/am4c116/Demo-Regular.ttf"
+A_FONT = "usr/share/fonts/demo-foundry/Demo-Regular.ttf"
 THE_CONFIG = "etc/fonts/fonts.conf"
 
 
@@ -61,7 +61,7 @@ def test_the_deferral_is_reported_and_is_not_a_failure(tmp_path):
     root = tmp_path / "target"
     root.mkdir()
     result = hooks.run_canonical_hooks(
-        str(root), [A_FONT], "am4c116-demo-font", "1.0", "install",
+        str(root), [A_FONT], "demo-font", "1.0", "install",
     )
     assert "font-cache" not in result.critical_failures
     assert "font-cache" not in result.cosmetic_failures, (
