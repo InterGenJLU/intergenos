@@ -24,6 +24,29 @@ MOK_WINDOW_ADVISORY = (
 )
 
 
+PRIOR_KEY_ADVISORY = (
+    "This machine already trusts {count} key(s) from earlier installs of "
+    "InterGenOS. They do not expire out of the way — nothing checks the dates "
+    "in these certificates — so they stay trusted until they are removed. "
+    "Keeping them changes nothing; retiring them means the firmware will ask "
+    "you to confirm the removal at the same prompt that confirms this "
+    "install's new key."
+)
+
+PRIOR_KEY_KEEP_LINE = (
+    "Keep them all — nothing is removed and this install's key is added as "
+    "usual."
+)
+
+
+def prior_key_advisory(count):
+    """The one wording of the prior-key offer, or an empty string when there is
+    nothing to offer (never a sentence about zero keys)."""
+    if not count:
+        return ""
+    return PRIOR_KEY_ADVISORY.format(count=count)
+
+
 def firmware_ca_line():
     """The plain-language sentence about the firmware's signature database,
     or an empty string when it cannot be read (never a guess)."""

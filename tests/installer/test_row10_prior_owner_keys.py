@@ -198,5 +198,41 @@ class RecordingTheAnswer(unittest.TestCase):
         self.assertFalse(fields["declined"])
 
 
+class TheLifetimeIsStatedWhereverTheKeyIsMet(unittest.TestCase):
+    """Decided 2026-09-16: the long validity stays, and every surface that
+    meets the key says that nothing verifies the dates and that retirement is
+    by removal. A decision recorded in one place and forgotten in the other two
+    is how a claim goes stale, so this test holds all three."""
+
+    REPO = Path(__file__).resolve().parents[2]
+
+    def test_the_code_that_chooses_the_lifetime_says_why(self):
+        source = (self.REPO / "installer/backend/mok.py").read_text()
+        self.assertIn("NOTHING VERIFIES THESE DATES", source)
+        self.assertIn("retired by", source)
+
+    def test_the_enrolment_runbook_says_it(self):
+        text = (self.REPO / "docs/mok-enrollment.md").read_text().lower()
+        self.assertIn("nothing verifies those dates", text)
+        self.assertIn("retired by removing it", text)
+
+    def test_the_user_document_says_it(self):
+        text = (self.REPO / "docs/users/secure-boot-and-mok.md").read_text().lower()
+        self.assertIn("nothing verifies those dates", text)
+        self.assertIn("mokutil --export", text)
+
+    def test_the_offer_text_says_it_and_is_silent_when_there_is_nothing(self):
+        from installer.backend import mok_guidance
+        self.assertEqual(mok_guidance.prior_key_advisory(0), "")
+        advisory = mok_guidance.prior_key_advisory(6)
+        self.assertIn("6", advisory)
+        self.assertIn("nothing checks the dates", advisory)
+        self.assertIn("confirm", advisory)
+
+    def test_keeping_everything_is_offered_in_words(self):
+        from installer.backend import mok_guidance
+        self.assertIn("Keep them all", mok_guidance.PRIOR_KEY_KEEP_LINE)
+
+
 if __name__ == "__main__":
     unittest.main()

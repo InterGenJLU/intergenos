@@ -111,6 +111,24 @@ def generate_mok_keypair(target, common_name="InterGenOS Machine Owner Key"):
     # machine, protected by filesystem perms — adding a passphrase
     # would block automated DKMS signing without solving any threat
     # we actually face).
+    # The certificate is generated with a hundred-year validity, and that is a
+    # deliberate choice rather than an oversight — decided 2026-09-16 after the
+    # question was measured rather than argued.
+    #
+    # NOTHING VERIFIES THESE DATES. The boot verifier disables the time check
+    # outright and accepts an expired certificate by design, because there is no
+    # trustworthy clock before the system starts; the kernel never compares a
+    # certificate's window against the clock when it verifies a module
+    # signature, and says so in its own source; and nothing in this project
+    # checks them either. A shorter number would therefore announce a boundary
+    # the machine does not enforce, and would become a boot failure the day any
+    # layer began enforcing it — this key signs the boot image and the boot
+    # loader on every installed machine.
+    #
+    # So a key is not retired by waiting for it to expire. It is retired by
+    # removing it from the firmware's trusted set, which is what the offer built
+    # on prior_owner_keys() below exists to do, and what the documentation and
+    # the installer texts say in plain words.
     openssl_cmd = [
         "openssl", "req", "-new", "-x509",
         "-newkey", f"rsa:{MOK_KEY_BITS}",

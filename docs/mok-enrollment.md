@@ -175,7 +175,8 @@ The Forge installer (`installer/backend/mok.py`) handles install-time MOK setup.
 ### What the installer does
 
 1. **Generate keypair** ([mok.py:generate_mok_keypair](../installer/backend/mok.py#L54)):
-   - RSA-2048 X.509 self-signed cert, valid 100 years (the lifetime of your machine is the only thing that matters; key rotation requires a new enrollment cycle and is rarely done in practice).
+   - RSA-2048 X.509 self-signed cert, valid 100 years. The long validity is deliberate, and the reason is worth knowing: **nothing verifies those dates.** shim disables the certificate time check when it verifies a signature, and accepts an expired certificate by design — there is no trustworthy clock before the system starts. The kernel does not compare a certificate's validity window against the clock either when it checks a module signature. Neither does any part of InterGenOS. A shorter validity would therefore state a boundary nothing enforces, while risking a machine that will not boot the day some layer begins enforcing it.
+   - **A key is retired by removing it, not by letting it expire.** Reinstalling generates a new key and leaves the old one enrolled and trusted, so a machine reinstalled several times trusts several keys. Forge offers to remove the earlier ones during an install, and `mokutil --export` followed by `mokutil --delete <file>` does the same thing by hand at any time; either way the firmware asks you to confirm the removal at the same prompt that confirms an addition.
    - Subject is `CN=InterGenOS Machine Owner Key` by default. The installer allows you to override the CN with a label of your choice (e.g., `CN=Christopher's laptop MOK`), constrained to a safe-character whitelist to prevent shell injection.
    - Files written under `/var/lib/intergen/mok/` on your installed system, with mode 0700 on the directory:
      - `mok.key` — RSA private key, PEM, **mode 0600**

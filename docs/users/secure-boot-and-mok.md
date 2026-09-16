@@ -68,7 +68,14 @@ It exists for two reasons:
 1. **Your machine signs the kernels you install.** Whenever pkm installs, reinstalls, or upgrades the `linux-kernel` package, InterGenOS rebuilds the UKI and signs it with your MOK. The InterGenOS release key never sees the kernels you install; it only signs the live ISO and install media that ship from us.
 2. **You can trust your own third-party drivers.** If you build out-of-tree modules (e.g., proprietary GPU drivers via DKMS), they can be signed by your MOK and load on a Secure Boot system without disabling enforcement.
 
-The MOK is yours. It lives at `/var/lib/intergen/mok/` on the installed system. If you reinstall, Forge generates a fresh MOK; if you migrate to a new machine, you generate a new MOK there. Reinstalling does not remove certificates enrolled by earlier installs, so review the enrolled list and remove an obsolete MOK through MokManager only after confirming which certificate belongs to the current installation.
+The MOK is yours. It lives at `/var/lib/intergen/mok/` on the installed system. If you reinstall, Forge generates a fresh MOK; if you migrate to a new machine, you generate a new MOK there.
+
+**Reinstalling does not remove the certificates earlier installs enrolled, and they do not expire out of the way.** The certificate carries a hundred-year validity, and — this is the part worth knowing — **nothing verifies those dates**: shim disables the time check when it verifies a signature and accepts an expired certificate by design, because there is no trustworthy clock before the system starts, and the kernel does not check them either when it verifies a module signature. So a machine that has been reinstalled a few times trusts one key per install, including keys whose private half is gone with the disk it was made on, and it will keep trusting them until someone removes them.
+
+Removing them is the only way that list gets shorter, and it is deliberately a decision you make rather than something that happens to you:
+
+- **During an install**, Forge shows you the keys this system already trusts that belong to earlier installs — each with its fingerprint and the date it was created — and offers to retire them. Keeping them all is the default and is always available; whatever you choose, the firmware asks you to confirm it at the same prompt that confirms the new key.
+- **At any other time**, `mokutil --export` writes every enrolled certificate to a file in the current directory and `mokutil --delete <file>` queues one for removal, confirmed at the same firmware prompt. Check which file is the current machine's key first: its fingerprint matches `sha1sum` of `/var/lib/intergen/mok/mok.der` — and that is the comparison to use, because the firmware's listing prints SHA-1 and a fingerprint computed any other way will not match it.
 
 ## The Forge install flow
 
