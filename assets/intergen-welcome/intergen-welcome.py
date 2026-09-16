@@ -657,14 +657,8 @@ def _secure_boot_card_text(state):
     return (title, body, action)
 
 
-def _build_secure_boot_card(state=None):
-    """The advisory box for the welcome page, or None when it has nothing to say."""
-    if state is None:
-        state = _mok_enrolment_state()
-    text = _secure_boot_card_text(state)
-    if text is None:
-        return None
-    title, body, action = text
+def _advisory_box(title, body, action, extra=''):
+    """One advisory box: a title, what is true, what to do, an optional line."""
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
     box.add_css_class('intergen-advisory')
     box.set_halign(Gtk.Align.CENTER)
@@ -685,15 +679,25 @@ def _build_secure_boot_card(state=None):
     a.set_wrap(True)
     a.set_max_width_chars(88)
     box.append(a)
-    ca_line = _firmware_ca_line()
-    if ca_line:
-        c = Gtk.Label(label=ca_line)
+    if extra:
+        c = Gtk.Label(label=extra)
         c.add_css_class('intergen-advisory-text')
         c.set_justify(Gtk.Justification.CENTER)
         c.set_wrap(True)
         c.set_max_width_chars(88)
         box.append(c)
     return box
+
+
+def _build_secure_boot_card(state=None):
+    """The advisory box for the welcome page, or None when it has nothing to say."""
+    if state is None:
+        state = _mok_enrolment_state()
+    text = _secure_boot_card_text(state)
+    if text is None:
+        return None
+    title, body, action = text
+    return _advisory_box(title, body, action, _firmware_ca_line())
 
 
 def _firmware_ca_line():
@@ -707,6 +711,141 @@ def _firmware_ca_line():
         return firmware_ca_line() or ''
     except Exception:
         return ''
+
+
+# ---------------------------------------------------------------------------
+# Prior machine owner keys: did the retirement the person asked for happen?
+# (R001.3 row 10)
+#
+# When a person asks during the install to retire the machine owner keys that
+# earlier installs left in the firmware, the installer writes each chosen
+# certificate to /var/lib/intergen/mok/enrolled/retire-<fingerprint>.der and
+# asks the firmware to delete it. The firmware does the deleting, at its own
+# prompt, on the next start with Secure Boot on — a prompt that waits about ten
+# seconds and is easy to miss, after which the request is dropped and the key
+# store is left exactly as it was. That is the safe direction, but it is silent:
+# without this card the person would believe old keys were retired while the
+# machine still trusts them. This card reads the request files, asks mokutil
+# what is enrolled and which deletions it still holds, and says which of the two
+# happened. It only ever READS, and it is silent when every requested key is
+# gone or when nobody asked for anything.
+# ---------------------------------------------------------------------------
+_MOK_RETIRE_DIR = '/var/lib/intergen/mok/enrolled'
+_MOK_RETIRE_PREFIX = 'retire-'
+_MOK_RETIRE_SUFFIX = '.der'
+
+
+def _mok_retirement_state(retire_dir=_MOK_RETIRE_DIR, mokutil=_mokutil_lines):
+    """What became of the prior-key retirement this install asked for.
+
+    Returns None when nothing was asked for (no request file) or when mokutil
+    cannot be asked at all — in both cases there is nothing this page can
+    honestly say. Otherwise a dict:
+        requested   the fingerprints the install asked the firmware to delete
+        still_trusted  requested keys the firmware still trusts and holds no
+                       deletion for any more — the missed-prompt case
+        waiting     requested keys whose deletion the firmware still holds
+        gone        requested keys the firmware no longer trusts
+    A request file's name carries the fingerprint, and the file's own SHA-1 is
+    that same fingerprint, so the name is checked against the bytes and a file
+    whose name and content disagree is ignored rather than trusted.
+    """
+    try:
+        names = sorted(os.listdir(retire_dir))
+    except OSError:
+        return None
+    requested = []
+    for name in names:
+        if not (name.startswith(_MOK_RETIRE_PREFIX)
+                and name.endswith(_MOK_RETIRE_SUFFIX)):
+            continue
+        claimed = name[len(_MOK_RETIRE_PREFIX):-len(_MOK_RETIRE_SUFFIX)].lower()
+        try:
+            with open(os.path.join(retire_dir, name), 'rb') as fh:
+                der = fh.read()
+        except OSError:
+            continue
+        if not der or hashlib.sha1(der).hexdigest() != claimed:
+            continue
+        requested.append(claimed)
+    if not requested:
+        return None
+    enrolled_lines = mokutil('--list-enrolled')
+    if enrolled_lines is None:
+        return None
+    enrolled = _fingerprints_in(enrolled_lines)
+    waiting_lines = mokutil('--list-delete')
+    waiting = set() if waiting_lines is None else _fingerprints_in(waiting_lines)
+    return {
+        'requested': requested,
+        'still_trusted': [f for f in requested if f in enrolled and f not in waiting],
+        'waiting': [f for f in requested if f in waiting],
+        'gone': [f for f in requested if f not in enrolled],
+    }
+
+
+def _count_words(n, singular, plural=None):
+    """"one machine owner key" / "three machine owner keys" — small counts as
+    words, because a person reads a sentence, not a number."""
+    names = {1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five',
+             6: 'six', 7: 'seven', 8: 'eight', 9: 'nine', 10: 'ten'}
+    word = names.get(n, str(n))
+    if plural is None:
+        plural = singular + 's'
+    return f"{word} {singular if n == 1 else plural}"
+
+
+def _prior_key_card_text(state):
+    """(title, body, action) for the card, or None when nothing needs saying."""
+    if state is None:
+        return None
+    missed = state['still_trusted']
+    waiting = state['waiting']
+    if not missed and not waiting:
+        return None
+    asked = _count_words(len(state['requested']), 'machine owner key')
+    if missed:
+        title = ('An older Secure Boot key you asked to retire is still trusted'
+                 if len(missed) == 1 else
+                 'Older Secure Boot keys you asked to retire are still trusted')
+        body = ('During the install you asked to retire ' + asked + ' left in the '
+                'firmware by earlier installs. '
+                + _count_words(len(missed), 'of them is', 'of them are')
+                + ' still trusted: the firmware asks you to confirm a removal at '
+                  'its own prompt, that prompt waits about 10 seconds, and when it '
+                  'is missed the request is dropped. Nothing was removed and '
+                  'nothing was damaged — the machine simply still trusts the same '
+                  'keys it did before.')
+        action = ('To ask again, run this, restart with Secure Boot on, and '
+                  'confirm the removal with your enrolment password:\n'
+                  'sudo mokutil --delete '
+                  + ' '.join(os.path.join(_MOK_RETIRE_DIR,
+                                          _MOK_RETIRE_PREFIX + f + _MOK_RETIRE_SUFFIX)
+                             for f in missed))
+        return (title, body, action)
+    title = ('A Secure Boot key you asked to retire is still waiting for the firmware'
+             if len(waiting) == 1 else
+             'Secure Boot keys you asked to retire are still waiting for the firmware')
+    body = ('During the install you asked to retire ' + asked + ' left in the '
+            'firmware by earlier installs. The firmware still holds '
+            + _count_words(len(waiting), 'request', 'requests')
+            + ': it carries them out at the next start with Secure Boot on, where '
+              'it asks you to confirm the removal with your enrolment password '
+              'within about 10 seconds. Until then the key stays trusted.')
+    action = ('Restart with Secure Boot on and answer that prompt. If you miss it, '
+              'the request is dropped and this page will say so — nothing is '
+              'removed without your answer.')
+    return (title, body, action)
+
+
+def _build_prior_key_card(state=None):
+    """The retirement advisory for the welcome page, or None when silent."""
+    if state is None:
+        state = _mok_retirement_state()
+    text = _prior_key_card_text(state)
+    if text is None:
+        return None
+    return _advisory_box(*text)
 
 
 def build_welcome_page():
@@ -752,6 +891,12 @@ def build_welcome_page():
     sb_card = _build_secure_boot_card()
     if sb_card is not None:
         box.append(sb_card)
+
+    # The prior-key retirement advisory (row 10): shown only when a retirement
+    # this install asked for has not happened yet; silent everywhere else.
+    prior_card = _build_prior_key_card()
+    if prior_card is not None:
+        box.append(prior_card)
 
     return wrap_with_background(box, 'welcome-bg', scroll=True)
 
