@@ -930,6 +930,25 @@ phase_validate() {
         return 1
     fi
 
+    # Privileged-program declaration gate (the setuid inventory's recipe arm).
+    # The same list the seal checks against the built chroot (squashfs step
+    # 4.76) is checked here against the RECIPES, before anything is built: a
+    # recipe line that sets a setuid or setgid bit must name a path
+    # config/setuid-inventory.txt already declares. The chroot arms answer the
+    # question at the last moment before an image is written; this one answers
+    # it while the change is still a recipe, so a new privileged program and
+    # its declaration arrive together. Shipped-set verdict only — privileged
+    # modes in mirror-only recipes are listed in the output and are not part of
+    # the verdict, because the list declares what the image ships. Host-side
+    # static analysis, no chroot. Wired 2026-09-16 with the gating row that
+    # removed the unneeded privileged programs from the shipped set.
+    log "Running privileged-program declaration gate (recipe arm of the setuid inventory)..."
+    python3 "${SCRIPTS}/check-setuid-inventory.py" --recipes "${PACKAGES_DIR}" 2>&1 | tee -a "$BUILD_LOG"
+    if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+        log "error: a recipe grants privilege to a program the declared inventory does not name — declare it in config/setuid-inventory.txt in the same change, or do not set the bit"
+        return 1
+    fi
+
     # Hook-contract gate: a recipe's lifecycle functions now travel inside the
     # signed archive and run on the target, which makes them a delivery
     # mechanism the manifest, the signature and every downstream integrity gate
