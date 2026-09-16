@@ -27,6 +27,7 @@ dependencies:
   - libdaemon
   - libevent
 verify_paths:
+  - /usr/lib/systemd/system/avahi-daemon.service.d/20-hardening.conf
   - /usr/sbin/avahi-autoipd
   - /usr/bin/avahi-browse
   - /usr/lib/libavahi-client.so

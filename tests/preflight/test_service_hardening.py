@@ -104,6 +104,23 @@ CASES = [
             'RootImage',
         ),
     ),
+    (
+        'avahi', 'avahi-daemon.service',
+        {
+            'ProtectSystem': 'full',
+            'ProtectHome': 'true',
+            'PrivateDevices': 'true',
+            'ProtectKernelTunables': 'true',
+            'ProtectKernelModules': 'true',
+            'ProtectKernelLogs': 'true',
+            'ProtectControlGroups': 'true',
+            'RestrictRealtime': 'true',
+        },
+        (
+            'PrivateNetwork',
+            'ProtectHostname',
+        ),
+    ),
 ]
 
 
