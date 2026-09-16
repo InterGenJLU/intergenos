@@ -61,6 +61,24 @@ CASES = [
             'ProcSubset',
         ),
     ),
+    (
+        'switcheroo-control', 'switcheroo-control.service',
+        {
+            'ProtectSystem': 'strict',
+            'ProtectControlGroups': 'yes',
+            'ProtectHome': 'yes',
+            'ProtectKernelModules': 'yes',
+            'PrivateTmp': 'yes',
+            'RestrictAddressFamilies': 'AF_UNIX AF_LOCAL AF_NETLINK',
+            'MemoryDenyWriteExecute': 'yes',
+            'RestrictRealtime': 'yes',
+        },
+        (
+            'ProtectKernelTunables',
+            'PrivateDevices',
+            'ProcSubset',
+        ),
+    ),
 ]
 
 
