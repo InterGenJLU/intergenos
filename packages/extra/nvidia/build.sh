@@ -59,6 +59,29 @@ BUILD_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 NV_VERSION="580.159.04"
 RUN_FILE="NVIDIA-Linux-x86_64-${NV_VERSION}.run"
 
+install_modprobe_policy() {
+    # Block nouveau — module BLACKLIST not kernel cmdline. modprobe.d is the
+    # correct layer for module load-time policy (the kernel itself doesn't
+    # consume blacklist directives — modprobe + systemd-modules-load do).
+    # Two-line pattern (blacklist + modeset=0) is belt-and-suspenders:
+    # blacklist handles the late-load path (modprobe / systemd-modules-load);
+    # modeset=0 handles the early-KMS auto-detection path that bypasses
+    # the blacklist.
+    install -d -m 755 "$DESTDIR/etc/modprobe.d"
+    cat > "$DESTDIR/etc/modprobe.d/nvidia-nouveau-blacklist.conf" <<'EOF'
+# Shipped by extra/nvidia — InterGenOS NVIDIA package
+#
+# Module-loader blacklist for nouveau (NOT kernel cmdline). The nvidia
+# driver's own load-time options (modeset, fbdev) live on the kernel
+# cmdline at /etc/kernel/cmdline.d/40-nvidia.conf so users can audit at
+# `cat /proc/cmdline`.
+blacklist nouveau
+options nouveau modeset=0
+# The legacy framebuffer driver competes with the NVIDIA DRM driver.
+blacklist nvidiafb
+EOF
+}
+
 configure() {
     set -e
 
@@ -484,24 +507,7 @@ EOF
 nvidia-drm.modeset=1 nvidia-drm.fbdev=1
 EOF
 
-    # Block nouveau — module BLACKLIST not kernel cmdline. modprobe.d is the
-    # correct layer for module load-time policy (the kernel itself doesn't
-    # consume blacklist directives — modprobe + systemd-modules-load do).
-    # Two-line pattern (blacklist + modeset=0) is belt-and-suspenders:
-    # blacklist handles the late-load path (modprobe / systemd-modules-load);
-    # modeset=0 handles the early-KMS auto-detection path that bypasses
-    # the blacklist.
-    install -d -m 755 "$DESTDIR/etc/modprobe.d"
-    cat > "$DESTDIR/etc/modprobe.d/nvidia-nouveau-blacklist.conf" <<'EOF'
-# Shipped by extra/nvidia — InterGenOS NVIDIA package
-#
-# Module-loader blacklist for nouveau (NOT kernel cmdline). The nvidia
-# driver's own load-time options (modeset, fbdev) live on the kernel
-# cmdline at /etc/kernel/cmdline.d/40-nvidia.conf so users can audit at
-# `cat /proc/cmdline`.
-blacklist nouveau
-options nouveau modeset=0
-EOF
+    install_modprobe_policy
 
     install -d -m 755 "$DESTDIR/usr/lib/udev/rules.d"
     if [ -d "$NV_RUN_SRC/udev" ] || compgen -G "$NV_RUN_SRC"/*-nvidia*.rules > /dev/null; then
