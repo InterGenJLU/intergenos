@@ -4,8 +4,10 @@
 WHY THIS FILE EXISTS.
 
 pkm's canonical hooks each receive the install root and are expected to do one
-of two things with it: run the tool against that root, or decline to run at all
-because the operation only means something on the running system. Eleven of the
+of three things with it: run the tool against that root, decline to run at all
+because the operation only means something on the running system, or postpone
+the work with a reason that gets reported (the font cache does this while the
+target has no fontconfig configuration to read). Eleven of the
 thirteen do exactly that — depmod takes `-b`, ldconfig takes `-r`,
 systemd-sysusers and systemd-tmpfiles take `--root`, the schema, icon, desktop
 and mime tools are handed root-qualified directories, and apparmor_parser and
@@ -95,7 +97,11 @@ def test_no_hook_runs_rootless_against_a_foreign_root(tmp_path):
             continue
         cmd = hook.cmd_fn(str(root), matched)
         if cmd is None:
-            continue  # declined, which is the other honest answer
+            continue  # declined, which is the second honest answer
+        if isinstance(cmd, hooks.HookDeferral):
+            # Postponed with its reason reported, which is the third: the work
+            # is real and still owed, and no command was run against anything.
+            continue
         if not any(str(root) in part for part in cmd):
             offenders.append(f"{hook.id}: {' '.join(cmd)}")
     assert not offenders, (
@@ -107,9 +113,16 @@ def test_no_hook_runs_rootless_against_a_foreign_root(tmp_path):
 
 def test_fc_cache_is_given_the_root_through_the_option_fontconfig_has(tmp_path):
     root = tmp_path / "target"
-    root.mkdir()
+    # fc-cache reads the TARGET's fontconfig configuration through --sysroot, so
+    # the hook postpones the build while the target has none. Give the target
+    # the file a real fontconfig install ships, which is the state this test is
+    # about: the command that gets built once there is a cache to build.
+    (root / "etc/fonts").mkdir(parents=True)
+    (root / "etc/fonts/fonts.conf").write_text("<fontconfig/>\n", encoding="utf-8")
     cmd = hooks._fc_cache_cmd(str(root), ["usr/share/fonts/demo/Demo.ttf"])
-    assert cmd is not None, "the font cache hook declined for a foreign root"
+    assert isinstance(cmd, list), (
+        f"the font cache hook did not build a command for a configured target: {cmd!r}"
+    )
     assert cmd[0] == "/usr/bin/fc-cache"
     joined = " ".join(cmd)
     assert str(root) in joined

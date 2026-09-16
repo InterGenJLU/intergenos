@@ -31,6 +31,9 @@ Failure semantics split by hook class:
     whether to invoke the Q1 rollback flow.
   - Cosmetic canonical hooks (icon cache, font cache, mime db, desktop
     db): failure warns and continues; operation still reports success.
+  - A canonical hook whose command builder returns a HookDeferral has not
+    failed at all: the work is real, is still owed, and cannot be done yet.
+    The reason is reported and the operation continues unflagged.
   - Archive lifecycle hooks: critical by default. The package author
     can opt into cosmetic semantics by exiting the script with code 2,
     the documented "warn and continue" return.
@@ -99,6 +102,17 @@ LIFECYCLE_EVENTS = (
 HookResult = namedtuple(
     "HookResult", ["critical_failures", "cosmetic_failures", "messages"]
 )
+
+
+# What a canonical hook's command builder returns when the work is real, is not
+# done, and cannot be done YET — as distinct from the two answers that already
+# existed. A command means "run this"; None means "this operation is meaningless
+# here, say nothing" (a chroot install has no running kernel to load an AppArmor
+# profile into). Neither of those fits work that is still owed: running it would
+# fail, and saying nothing would leave an install reporting success with the
+# target's state unbuilt. run_canonical_hooks reports the reason and counts the
+# hook as neither a critical nor a cosmetic failure, because nothing has failed.
+HookDeferral = namedtuple("HookDeferral", ["reason"])
 
 
 # Canonical hook definitions. Each entry binds:
@@ -250,6 +264,12 @@ def _gtk_update_icon_cache_cmd(root, matched):
     return cmd
 
 
+# fontconfig's own configuration file, and the reason the cache build has to be
+# able to wait: fc-cache reads the TARGET's configuration, and packages install
+# in an order that puts fonts before the package that ships it.
+FONTS_CONF_REL = "etc/fonts/fonts.conf"
+
+
 def _fc_cache_cmd(root, matched):
     if str(root) == "/":
         return [FC_CACHE, "-f"]
@@ -263,6 +283,28 @@ def _fc_cache_cmd(root, matched):
     # The option is fontconfig's own: `-y, --sysroot=SYSROOT  prepend SYSROOT
     # to all paths for scanning`, read from `fc-cache --help` on fontconfig
     # 2.17.1 rather than from memory.
+    #
+    # WAIT WHEN THE TARGET HAS NO CONFIGURATION YET. fc-cache with --sysroot
+    # reads the target's /etc/fonts/fonts.conf, which fontconfig itself ships.
+    # Packages install in an order that puts font packages before fontconfig, so
+    # for part of every fresh install the target has fonts and no configuration,
+    # and each of those invocations failed with a diagnostic — eight of them in
+    # the install trace this was measured from, every one of them before
+    # fontconfig. Nothing about that is the font package's fault and nothing
+    # about it is actionable: the file arrives later by itself.
+    #
+    # So the build is postponed and SAID to be postponed. It is not skipped
+    # silently, which would leave an install reporting success over a cache that
+    # was never made, and it is not reported as a failure, because nothing has
+    # failed — the work is simply not due yet. The trigger takes fonts.conf as
+    # well, so installing fontconfig rebuilds the cache for every font that
+    # landed before it, and the postponement closes instead of leaking.
+    if not (Path(root) / FONTS_CONF_REL).is_file():
+        return HookDeferral(
+            f"the target has no {FONTS_CONF_REL} yet, which fc-cache reads "
+            f"through --sysroot; installing fontconfig rebuilds the cache for "
+            f"every font installed before it"
+        )
     return [FC_CACHE, "-f", "--sysroot=" + str(root)]
 
 
@@ -511,9 +553,15 @@ CANONICAL_HOOKS = [
         critical=False,
     ),
     CanonicalHook(
+        # The second arm is what closes the postponement in _fc_cache_cmd: a
+        # target that had no fontconfig configuration when its fonts arrived
+        # gets its cache built when fontconfig lands, because fontconfig's own
+        # install now selects this hook. Without it the deferral would be a
+        # leak — a cache nobody ever comes back to build.
         id="font-cache",
         description="fontconfig cache",
-        pattern=re.compile(r"^usr/share/fonts/.+"),
+        pattern=re.compile(r"^usr/share/fonts/.+"
+                           r"|^etc/fonts/fonts\.conf$"),
         cmd_fn=_fc_cache_cmd,
         critical=False,
     ),
@@ -632,6 +680,11 @@ def run_canonical_hooks(root, file_list, name, version, operation, hooks=None):
         if not matched:
             continue
         cmd = hook.cmd_fn(root, matched)
+        if isinstance(cmd, HookDeferral):
+            messages.append(
+                f"  hook[{hook.id}] PENDING ({hook.description}): {cmd.reason}"
+            )
+            continue
         if cmd is None:
             continue
         if _TRACE_AVAILABLE:
