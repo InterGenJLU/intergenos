@@ -46,10 +46,60 @@ same shape as the previous implementation.
 
 from gi.repository import Adw, GLib, Gtk
 
+from installer.backend import sshkeys
 from installer.backend.packages import GROUPS
 
 from .. import doc_viewer
 from ._base import _ForgePage, _toast
+
+
+def resolve_ssh_keys(text, accepted_fingerprints):
+    """Decide what goes into authorized_keys, or say why nothing does.
+
+    Returns `(key_text, error)`; exactly one of the two is None, except
+    for an empty box, which is `("", None)` — no key is a legitimate
+    answer that leaves password login on.
+
+    `accepted_fingerprints` is the set of fingerprints the person ticked
+    in the review dialog, or None when they have not reviewed the paste
+    yet. Both of those are refusals with a message, never a silent
+    smaller key set: a key nobody was shown is a key nobody consented to.
+
+    This function is the whole decision. The screen below it collects
+    text and shows messages; it makes no judgement of its own about what
+    a key is, so the graphical installer, the text installer and the
+    backend writer cannot drift apart on the unit of work again.
+    """
+    result = sshkeys.parse(text)
+
+    if not result.accepted and not result.rejected:
+        return "", None
+
+    if result.rejected:
+        lines = "\n".join(
+            f"  • line {r.lineno}: {r.reason}" for r in result.rejected)
+        return None, (
+            f"{len(result.rejected)} of the lines you pasted are not keys "
+            f"this installer will accept:\n{lines}\n\nFix or remove those "
+            "lines and try again — nothing is installed until every line "
+            "is a key.")
+
+    if accepted_fingerprints is None:
+        return None, (
+            f"You pasted {len(result.accepted)} "
+            f"key{'s' if len(result.accepted) > 1 else ''}. Open “Review "
+            "keys” and confirm each one before continuing — every key you "
+            "keep can log in to this machine as you.")
+
+    keep = [k for k in result.accepted
+            if k.fingerprint in accepted_fingerprints]
+    if not keep:
+        return None, (
+            "No key is marked to install. Tick at least one key in “Review "
+            "keys”, or clear the box to keep password login enabled "
+            "instead.")
+
+    return sshkeys.render_authorized_keys(keep), None
 
 
 # Human-friendly display names for the group keys.
@@ -192,11 +242,14 @@ class PackagesPage(_ForgePage):
         self._ssh_key_row = Adw.ActionRow()
         self._ssh_key_row.set_title("SSH public key (optional)")
         self._ssh_key_row.set_subtitle(
-            "Paste your SSH public key (e.g. `ssh-ed25519 AAAAC3...`). "
-            "If provided, password-based SSH login is disabled and the "
-            "server accepts key-based authentication only. Leave blank "
-            "to allow password SSH login (easier first-time setup; "
-            "weaker against brute-force)."
+            "Paste one SSH public key per line (e.g. `ssh-ed25519 "
+            "AAAAC3...`), or the contents of an existing authorized_keys "
+            "file. Every line is checked and shown to you for approval "
+            "before anything is installed. If you install at least one "
+            "key, password-based SSH login is disabled and the server "
+            "accepts key-based authentication only. Leave blank to allow "
+            "password SSH login (easier first-time setup; weaker against "
+            "brute-force)."
         )
         services_section.add(self._ssh_key_row)
 
@@ -217,8 +270,28 @@ class PackagesPage(_ForgePage):
         self._ssh_key_entry_row.add_suffix(self._ssh_key_scroller)
         services_section.add(self._ssh_key_entry_row)
 
+        # Review row — every pasted key is shown with its type, comment
+        # and fingerprint and is kept only if the person ticks it. The
+        # set of ticked fingerprints lives on the page; on_next() refuses
+        # to advance until it covers the current paste.
+        self._ssh_key_accepted = None
+        self._ssh_key_review_row = Adw.ActionRow()
+        self._ssh_key_review_row.set_title("Review keys")
+        self._ssh_key_review_row.set_subtitle(
+            "See each key you pasted — its type, its comment and its "
+            "fingerprint — and choose which ones may log in as you.")
+        self._ssh_key_review_button = Gtk.Button(label="Review keys")
+        self._ssh_key_review_button.set_valign(Gtk.Align.CENTER)
+        self._ssh_key_review_button.connect(
+            "clicked", self._on_review_ssh_keys)
+        self._ssh_key_review_row.add_suffix(self._ssh_key_review_button)
+        self._ssh_key_review_row.set_activatable_widget(
+            self._ssh_key_review_button)
+        services_section.add(self._ssh_key_review_row)
+
         self._ssh_key_row.set_visible(False)
         self._ssh_key_entry_row.set_visible(False)
+        self._ssh_key_review_row.set_visible(False)
 
         page.append(services_section)
 
@@ -400,13 +473,88 @@ class PackagesPage(_ForgePage):
         active = switch_row.get_active()
         self._ssh_key_row.set_visible(active)
         self._ssh_key_entry_row.set_visible(active)
+        self._ssh_key_review_row.set_visible(active)
         if not active:
             # Zero the key buffer on toggle-off so a stale paste doesn't
             # survive an off-then-on cycle (same contract as the LUKS
-            # passphrase fields on the Disk page).
+            # passphrase fields on the Disk page). The acceptance set
+            # goes with it: consent given to one paste is not consent to
+            # whatever the box holds next.
             buf = self._ssh_key_view.get_buffer()
             buf.set_text("")
+            self._ssh_key_accepted = None
         self._update_hero()
+
+    # ─── SSH KEY REVIEW ───────────────────────────────────────────────
+    def _current_key_text(self):
+        buf = self._ssh_key_view.get_buffer()
+        start, end = buf.get_bounds()
+        return buf.get_text(start, end, False)
+
+    def _on_review_ssh_keys(self, _button):
+        """Show every pasted key and take a per-key decision."""
+        result = sshkeys.parse(self._current_key_text())
+
+        if result.rejected:
+            _, message = resolve_ssh_keys(self._current_key_text(), None)
+            _toast(self._window, message.replace("\n", " "))
+            return
+
+        if not result.accepted:
+            _toast(self._window,
+                   "There is nothing to review — the key box is empty.")
+            return
+
+        dialog = Adw.AlertDialog(
+            heading="Keys that may log in as you",
+            body=("Each key below can log in to this machine as your user. "
+                  "Keep only the ones you recognise — compare the "
+                  "fingerprint against `ssh-keygen -lf` on the machine the "
+                  "key came from."),
+        )
+        group = Adw.PreferencesGroup()
+        checks = {}
+        for key in result.accepted:
+            row = Adw.ActionRow()
+            label = key.comment or "(no comment)"
+            bits = f"{key.bits}-bit " if key.bits else ""
+            row.set_title(GLib.markup_escape_text(label))
+            row.set_subtitle(GLib.markup_escape_text(
+                f"{bits}{key.key_type}   ·   {key.fingerprint}"))
+            check = Gtk.CheckButton()
+            check.set_valign(Gtk.Align.CENTER)
+            # Default OFF: keeping a key is a decision the person makes,
+            # not one they have to notice and undo.
+            check.set_active(
+                self._ssh_key_accepted is not None
+                and key.fingerprint in self._ssh_key_accepted)
+            row.add_prefix(check)
+            row.set_activatable_widget(check)
+            group.add(row)
+            checks[key.fingerprint] = check
+
+        dialog.set_extra_child(group)
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("keep", "Install the ticked keys")
+        dialog.set_response_appearance(
+            "keep", Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_default_response("cancel")
+        dialog.set_close_response("cancel")
+
+        def _on_response(_dialog, response):
+            if response != "keep":
+                return
+            self._ssh_key_accepted = {
+                fp for fp, check in checks.items() if check.get_active()}
+            kept = len(self._ssh_key_accepted)
+            _toast(self._window,
+                   f"{kept} of {len(checks)} keys will be installed."
+                   if kept else
+                   "No key ticked — password login stays enabled unless you "
+                   "tick one or clear the box.")
+
+        dialog.connect("response", _on_response)
+        dialog.present(self._window)
 
     def _on_intro_link(self, _label, uri):
         # Custom URL scheme — route to the inline doc viewer instead of
@@ -436,9 +584,17 @@ class PackagesPage(_ForgePage):
         self._ssh_switch.set_active(state.ssh_server_enable)
         self._ssh_key_row.set_visible(state.ssh_server_enable)
         self._ssh_key_entry_row.set_visible(state.ssh_server_enable)
+        self._ssh_key_review_row.set_visible(state.ssh_server_enable)
 
         buf = self._ssh_key_view.get_buffer()
         buf.set_text(state.ssh_public_key or "")
+        # Coming back to this page, the keys already in state are ones
+        # this person accepted on a previous pass; carry that consent so
+        # Back-then-Next does not re-ask, and nothing else does.
+        restored = sshkeys.parse(state.ssh_public_key or "")
+        self._ssh_key_accepted = (
+            {k.fingerprint for k in restored.accepted}
+            if restored.accepted else None)
 
         self._update_hero()
 
@@ -474,48 +630,20 @@ class PackagesPage(_ForgePage):
                    "needs to run — turn it on, or turn InterGen off.")
             return False
 
-        # D-019 / sshd-password-auth closure: record the optional
-        # public key (only meaningful when ssh_server_enable=True).
+        # D-019 / sshd-password-auth closure, with the 2026-09-16 key
+        # contract: every pasted line is validated, and only the keys the
+        # person ticked in the review dialog are recorded. The whole
+        # decision is resolve_ssh_keys() — this screen adds no judgement
+        # of its own about what a key is.
         if state.ssh_server_enable:
-            buf = self._ssh_key_view.get_buffer()
-            start, end = buf.get_bounds()
-            key_text = buf.get_text(start, end, False).strip()
-            if key_text and not self._looks_like_ssh_pubkey(key_text):
-                _toast(self._window,
-                       "That doesn't look like an SSH public key. It "
-                       "should start with `ssh-ed25519` / `ssh-rsa` / "
-                       "`ecdsa-sha2-nistp256` (etc.) followed by the "
-                       "key material. Leave blank to keep password SSH "
-                       "login enabled.")
+            key_text, error = resolve_ssh_keys(
+                self._current_key_text(), self._ssh_key_accepted)
+            if error is not None:
+                _toast(self._window, error.replace("\n", " "))
+                if self._ssh_key_accepted is None:
+                    self._on_review_ssh_keys(None)
                 return False
             state.ssh_public_key = key_text
         else:
             state.ssh_public_key = ""
         return True
-
-    @staticmethod
-    def _looks_like_ssh_pubkey(text: str) -> bool:
-        """Minimal validation of an SSH public-key line.
-
-        Accepts the common key-type prefixes (ssh-rsa, ssh-ed25519,
-        ecdsa-sha2-nistp{256,384,521}, sk-* for FIDO2 hardware tokens)
-        followed by whitespace + at least one base64-ish chunk. Does
-        NOT cryptographically verify the key — that happens at
-        sshd-load time and produces a clear error in journalctl if the
-        key is malformed."""
-        line = text.strip().split("\n", 1)[0]
-        parts = line.split(None, 2)
-        if len(parts) < 2:
-            return False
-        key_type = parts[0]
-        valid_prefixes = (
-            "ssh-rsa",
-            "ssh-ed25519",
-            "ssh-dss",
-            "ecdsa-sha2-nistp256",
-            "ecdsa-sha2-nistp384",
-            "ecdsa-sha2-nistp521",
-            "sk-ssh-ed25519@openssh.com",
-            "sk-ecdsa-sha2-nistp256@openssh.com",
-        )
-        return key_type in valid_prefixes

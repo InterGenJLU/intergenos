@@ -36,7 +36,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from installer.backend import bootloader, config, disks, hooks, mok, packages, users
+from installer.backend import (bootloader, config, disks, hooks, mok, packages,
+                               sshkeys, users)
 from installer.frontend import netprobe
 
 
@@ -404,6 +405,68 @@ def _ask_package_groups():
     return sorted(chosen)
 
 
+def prompt_ssh_public_key():
+    """Ask for one SSH public key, show it, and take an explicit yes.
+
+    Returns the accepted key line, or "" when the person supplies none.
+
+    Decided 2026-09-16. Before this, an unrecognised paste produced one
+    message box that said the install would continue with password
+    authentication, and then it did — a person who clicked through it
+    finished an install whose SSH posture was the opposite of the one
+    they had just asked for, with no further chance to correct it. The
+    substitution is now never silent and never one-sided: an unusable
+    paste is named with its reason and the question is asked again, and a
+    usable key is shown with its type, its comment and its fingerprint
+    before it is installed.
+
+    The box takes one line, so this path takes one key; the graphical
+    installer's multi-line box is where a whole authorized_keys file is
+    pasted. Both call `installer.backend.sshkeys` for the judgement, so
+    neither can drift into accepting something the other refuses.
+    """
+    while True:
+        rc, key_text = _ask_input(
+            "SSH public key (optional)",
+            "Paste your SSH public key (e.g. `ssh-ed25519 AAAAC3...`).\n\n"
+            "If you install a key, password-based SSH login is disabled "
+            "and the server accepts key-based authentication only. Leave "
+            "blank to allow password SSH login (easier first-time setup; "
+            "weaker against brute-force).",
+            default="",
+        )
+        if rc != 0 or not (key_text or "").strip():
+            return ""
+
+        result = sshkeys.parse(key_text)
+
+        if result.rejected:
+            first = result.rejected[0]
+            _dialog("--title", "That is not a key this installer can use",
+                    "--msgbox",
+                    f"What you pasted:\n\n  {first.text[:200]}\n\n"
+                    f"Why it cannot be installed:\n\n  {first.reason}\n\n"
+                    "You will be asked again. Leave the box empty if you "
+                    "would rather keep password-based SSH login.",
+                    "18", "72")
+            continue
+
+        key = result.accepted[0]
+        bits = f"{key.bits}-bit " if key.bits else ""
+        if _ask_yesno(
+                "Install this key?",
+                "This key will be able to log in to this machine as your "
+                "user:\n\n"
+                f"  Type:        {bits}{key.key_type}\n"
+                f"  Comment:     {key.comment or '(none)'}\n"
+                f"  Fingerprint: {key.fingerprint}\n\n"
+                "Check the fingerprint against `ssh-keygen -lf` on the "
+                "machine the key came from. Install it?",
+                default_no=True):
+            return key.line
+        return ""
+
+
 def walking():
     """Run the interactive walking sequence. Returns dict of answers (or None
     if the user cancelled at any step)."""
@@ -475,42 +538,7 @@ def walking():
     # If left blank, password SSH login stays on. Inputbox is one
     # line; user pastes the full key (dialog scrolls horizontally
     # for long keys).
-    ssh_public_key = ""
-    if ssh_server_enable:
-        rc, key_text = _ask_input(
-            "SSH public key (optional)",
-            "Paste your SSH public key (e.g. `ssh-ed25519 AAAAC3...`).\n\n"
-            "If provided, password-based SSH login is disabled and the "
-            "server accepts key-based authentication only. Leave blank "
-            "to allow password SSH login (easier first-time setup; "
-            "weaker against brute-force).",
-            default=""
-        )
-        if rc == 0 and key_text.strip():
-            # Minimal validation -- catch obvious paste mistakes
-            # (private key, random text) before commit.
-            line = key_text.strip().split("\n", 1)[0]
-            parts = line.split(None, 2)
-            valid_prefixes = (
-                "ssh-rsa", "ssh-ed25519", "ssh-dss",
-                "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384",
-                "ecdsa-sha2-nistp521",
-                "sk-ssh-ed25519@openssh.com",
-                "sk-ecdsa-sha2-nistp256@openssh.com",
-            )
-            if len(parts) >= 2 and parts[0] in valid_prefixes:
-                ssh_public_key = line
-            else:
-                # Invalid; warn but don't block install. Password
-                # auth stays on as the fallback.
-                _dialog("--title", "SSH public key not recognized",
-                        "--msgbox",
-                        "That doesn't look like an SSH public key. "
-                        "It should start with `ssh-ed25519` / `ssh-rsa` / "
-                        "`ecdsa-sha2-nistp256` (etc.). Continuing with "
-                        "password-based SSH authentication enabled. You "
-                        "can add a key later by appending it to "
-                        "~/.ssh/authorized_keys.", "12", "70")
+    ssh_public_key = prompt_ssh_public_key() if ssh_server_enable else ""
 
     return {
         "version": 1,

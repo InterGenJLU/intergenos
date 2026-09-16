@@ -994,11 +994,25 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
             # When the user pasted a public key in the Forge UI, install
             # authorized_keys + ship the keys-only sshd drop-in. Username
             # comes from install_io (set by Forge prior to PHASE_USERS).
-            users.enable_ssh_server(
+            ssh_result = users.enable_ssh_server(
                 target,
                 username=install_io.get("username"),
                 public_key=install_io.get("ssh_public_key"),
             )
+            # A key the person believes they installed, that was refused,
+            # is the difference between "I can log in from my laptop" and
+            # a machine they cannot reach. Every refusal is named, and an
+            # SSH server that ended up with no key says so rather than
+            # leaving the person to discover it at the first connection.
+            for refusal in ssh_result.rejected:
+                msg = f"SSH public key not installed — {refusal}"
+                result.warnings.append(msg)
+                _emit(PHASE_SERVICES, 11, f"warning: {msg}")
+            if install_io.get("ssh_public_key") and not ssh_result.installed:
+                msg = ("no usable SSH public key was installed, so password "
+                       "authentication is still enabled for SSH")
+                result.warnings.append(msg)
+                _emit(PHASE_SERVICES, 11, f"warning: {msg}")
 
         result.phase_completed = PHASE_SERVICES
         _emit(PHASE_SERVICES, 12, "services enabled")

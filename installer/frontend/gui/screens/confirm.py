@@ -29,6 +29,7 @@ contract."""
 
 from gi.repository import Adw, GLib, Gtk
 
+from installer.backend import sshkeys
 from installer.backend.bootloader import has_other_os_boot_entries
 from installer.backend.packages import GROUPS
 from installer.backend.secureboot import is_secure_boot_enabled, is_efi_firmware
@@ -440,8 +441,14 @@ class ConfirmPage(_ForgePage):
             services.append("InterGen (autostart)")
         if state.ssh_server_enable:
             ssh_str = "SSH server"
-            if state.ssh_public_key:
-                ssh_str += " (keys-only)"
+            # Name the keys, not just the posture: this is the last page
+            # before the install runs, and "keys-only" alone never told
+            # the person HOW MANY keys they were about to trust.
+            keys = sshkeys.parse(state.ssh_public_key or "").accepted
+            if keys:
+                ssh_str += (f" (keys-only · {len(keys)} key"
+                            f"{'s' if len(keys) > 1 else ''}: "
+                            + ", ".join(k.fingerprint for k in keys) + ")")
             services.append(ssh_str)
         if services:
             self._sw_services.set_subtitle("   ·   ".join(services))

@@ -31,9 +31,10 @@ import shlex
 import stat
 import subprocess
 import termios
+from dataclasses import dataclass
 from pathlib import Path
 
-from . import trace
+from . import sshkeys, trace
 from ._validators import validate_password
 
 # The SSH firewall rule has ONE shape and ONE home: a removable fragment under
@@ -99,6 +100,22 @@ _SUDOERS_WHEEL_COMMENTED_RE = re.compile(
     r'^#\s*%wheel\s+ALL=\(ALL:ALL\)\s+ALL\s*$',
     re.MULTILINE,
 )
+
+
+@dataclass(frozen=True)
+class SshServerResult:
+    """What enable_ssh_server actually did with the supplied key text.
+
+    `installed` counts keys written AND usable (right ownership), which
+    is the number the keys-only decision turns on. `rejected` holds one
+    human-readable string per line that was refused, for the caller to
+    put on the install's warning list — a refused key the person never
+    hears about is a key they think they have.
+    """
+
+    installed: int
+    fingerprints: tuple
+    rejected: tuple
 
 
 def _libcrypt():
@@ -1031,6 +1048,15 @@ def enable_ssh_server(target, username=None, public_key=None):
     only.conf disabling password authentication. When `public_key` is
     empty, password SSH login stays on (upstream default + Mozilla
     Modern hardening from the 01-intergenos-hardening.conf drop-in).
+
+    Decided 2026-09-16: the keys-only drop-in ships only when at least
+    one key was actually installed and usable. Disabling password
+    authentication on the strength of key text that turned out to hold no
+    usable key leaves a running machine nobody can log in to — the exact
+    silent failure the first directive refuses. Returns an
+    `SshServerResult` naming what was installed and what was refused, so
+    the caller can put a refusal in front of the person rather than
+    reporting a clean install over it.
     """
     result = trace.traced_run(
         ["systemctl", "--root", str(target), "enable", "sshd.service"],
@@ -1056,9 +1082,25 @@ def enable_ssh_server(target, username=None, public_key=None):
     # (decided 2026-05-22 Option C). When the user pasted a
     # public key in the Forge UI, install it for the new user and
     # disable password authentication.
-    if public_key and username:
-        _install_ssh_authorized_key(target, username, public_key)
+    if not (public_key and username):
+        return SshServerResult(installed=0, fingerprints=(), rejected=())
+
+    parsed = sshkeys.parse(public_key)
+    keys = _install_ssh_authorized_key(target, username, public_key)
+    if keys:
         _ship_ssh_keys_only_dropin(target)
+    else:
+        log.warning(
+            "enable_ssh_server: no usable key was installed for %s, so the "
+            "keys-only drop-in is NOT shipped; password authentication "
+            "stays enabled and the machine remains reachable", username,
+        )
+    return SshServerResult(
+        installed=len(keys),
+        fingerprints=tuple(k.fingerprint for k in keys),
+        rejected=tuple(f"line {r.lineno}: {r.reason}"
+                       for r in parsed.rejected),
+    )
 
 
 def write_ssh_firewall_fragment(target):
@@ -1109,19 +1151,54 @@ def installer_console_is_serial(cmdline_path="/proc/cmdline", fds=(0, 1, 2)):
 
 
 def _install_ssh_authorized_key(target, username, public_key):
-    """Write /home/<username>/.ssh/authorized_keys with the given key.
+    """Write /home/<username>/.ssh/authorized_keys with the given key(s).
+
+    Returns the list of `sshkeys.ParsedKey` actually written, which is
+    empty when nothing in `public_key` validated.
 
     Permissions: ~/.ssh = 0700, authorized_keys = 0600, both owned by
     the user. sshd refuses to use authorized_keys with looser perms.
     Resolves username -> uid/gid via chroot lookup so the new user's
     actual ownership is honored (rather than guessing the Forge-created
     user has UID 1000).
+
+    Decided 2026-09-16: this function parses and validates rather than
+    writing what it was handed. It previously did
+    `auth_keys.write_text(public_key.rstrip() + "\\n")` — the whole
+    string, verbatim — while the only validation upstream read the first
+    line, so every line of a pasted authorized_keys file was installed on
+    the strength of line 1. Both frontends now filter to accepted keys
+    before calling here; this re-parse is the backstop that makes the
+    file on disk match what was approved even if a future caller does
+    not, and the rejected lines are logged and traced rather than
+    written.
     """
     ssh_dir = Path(target) / "home" / username / ".ssh"
     auth_keys = ssh_dir / "authorized_keys"
 
+    parsed = sshkeys.parse(public_key)
+    for bad in parsed.rejected:
+        log.error(
+            "_install_ssh_authorized_key: refusing line %d of the supplied "
+            "key text (%s); it is NOT written to %s",
+            bad.lineno, bad.reason, auth_keys,
+        )
+        trace.trace_event("ssh_authkeys_line_refused",
+                          username=username, lineno=bad.lineno,
+                          reason=bad.reason)
+    if not parsed.accepted:
+        log.error(
+            "_install_ssh_authorized_key: no supplied line is a valid SSH "
+            "public key; %s is NOT written and password authentication is "
+            "left in place", auth_keys,
+        )
+        trace.trace_event("ssh_authkeys_none_valid",
+                          username=username,
+                          rejected=len(parsed.rejected))
+        return []
+
     ssh_dir.mkdir(parents=True, exist_ok=True)
-    auth_keys.write_text(public_key.rstrip() + "\n")
+    auth_keys.write_text(sshkeys.render_authorized_keys(parsed.accepted))
 
     ssh_dir.chmod(0o700)
     auth_keys.chmod(0o600)
@@ -1147,7 +1224,12 @@ def _install_ssh_authorized_key(target, username, public_key):
         )
         trace.trace_event("ssh_authkeys_chown_skipped",
                           username=username, reason="user_not_in_target_passwd")
-        return
+        # The file is left in place so the person can chown it, but it
+        # counts as ZERO installed keys: sshd ignores an authorized_keys
+        # it does not trust the ownership of, so calling this a success
+        # would let the caller disable password login with no working way
+        # back in.
+        return []
     # Recursive chown via os.walk + os.chown (host-side, no chroot).
     for root, dirs, files in os.walk(ssh_dir):
         for d in dirs:
@@ -1157,7 +1239,10 @@ def _install_ssh_authorized_key(target, username, public_key):
     os.chown(ssh_dir, uid, gid)
     trace.trace_event("ssh_authkeys_installed",
                       username=username, uid=uid, gid=gid,
-                      path=str(auth_keys))
+                      path=str(auth_keys),
+                      count=len(parsed.accepted),
+                      fingerprints=[k.fingerprint for k in parsed.accepted])
+    return list(parsed.accepted)
 
 
 def _ship_ssh_keys_only_dropin(target):
