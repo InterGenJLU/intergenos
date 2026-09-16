@@ -14,4 +14,6 @@ tier: core
 build_style: make
 verify_paths:
   - /usr/sbin/capsh
+  - /usr/sbin/getcap
+  - /usr/sbin/setcap
   - /usr/lib/libcap.so

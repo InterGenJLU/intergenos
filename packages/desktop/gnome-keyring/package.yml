@@ -24,6 +24,7 @@ dependencies:
   host: []
   runtime:
   - gcr
+  - libcap
   - libcap-ng
   - linux-pam
   - dbus

@@ -31,13 +31,10 @@
 /usr/lib/polkit-1/polkit-agent-helper-1 4711 root root
 /usr/sbin/unix_chkpwd                   4755 root root
 /usr/bin/fusermount3                    4755 root root
-# NOTE: /usr/bin/ping is deliberately ABSENT since the 2026-07-28 posture
-# change: inetutils ping runs UNPRIVILEGED (mode 755) over an ICMP datagram
-# socket with net.ipv4.ping_group_range open — measured live; the recipe
-# documents it. This entry previously declared the pre-posture 4755 and made
-# the gate demand a suid bit the recipe deliberately dropped (caught
-# 2026-07-30, ge9b-11). ping6 below keeps setuid: raw-socket only, measured.
-/usr/bin/ping6                          4755 root root
+# NOTE: /usr/bin/ping and /usr/bin/ping6 are deliberately ABSENT. ping uses
+# an ICMP datagram socket with net.ipv4.ping_group_range open; ping6 uses a raw
+# socket with cap_net_raw+ep restored and read back by its package hook. Both
+# stage mode 755, so this inventory must never demand a setuid bit for either.
 # NOTE: /usr/bin/traceroute is deliberately ABSENT — the dedicated
 # traceroute package (2.1.6, the June inetutils split) installs 755 with
 # no suid intent in recipe or upstream. Whether it should gain

@@ -44,4 +44,26 @@ GKPAM
 post_install() {
     set -e
     glib-compile-schemas /usr/share/glib-2.0/schemas 2>/dev/null || true
+
+    # File capabilities are extended attributes and are not retained by the
+    # package archive/extraction path. Restore the narrow memory-lock grant on
+    # the deployed payload, then read it back so a missing or ineffective tool
+    # cannot turn this into a successful no-op.
+    for _cap_tool in /usr/sbin/setcap /usr/sbin/getcap; do
+        if [ ! -x "$_cap_tool" ]; then
+            echo "ERROR: $_cap_tool is absent or not executable; cannot restore the gnome-keyring-daemon capability" >&2
+            exit 1
+        fi
+    done
+    _cap_root="${PKM_PACKAGE_ROOT:-/}"
+    _cap_target="${_cap_root%/}/usr/bin/gnome-keyring-daemon"
+    if ! /usr/sbin/setcap cap_ipc_lock+ep "$_cap_target"; then
+        echo "ERROR: failed to set cap_ipc_lock+ep on $_cap_target" >&2
+        exit 1
+    fi
+    _installed_cap=$(/usr/sbin/getcap "$_cap_target")
+    if [ "$_installed_cap" != "$_cap_target cap_ipc_lock=ep" ]; then
+        echo "ERROR: $_cap_target capability read-back differs: ${_installed_cap:-<empty>}" >&2
+        exit 1
+    fi
 }
