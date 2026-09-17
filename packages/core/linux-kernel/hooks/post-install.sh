@@ -398,12 +398,32 @@ if [ -f "$MOK_KEY" ] && [ -f "$MOK_CERT" ]; then
     SIGN_THIS_UKI="yes"
     log "signing the boot image with this machine's own key"
 else
-    if mok_secure_boot_enabled; then
-        refuse_to_sign "Secure Boot is enabled on this machine and there is no signing key at $MOK_KEY, so any image built here could not load"
-    fi
-    log "no machine owner key at $MOK_KEY — the boot image will be UNSIGNED. That is"
-    log "  usable only while Secure Boot stays off in firmware. Turning Secure Boot on"
-    log "  without a key enrolled leaves this machine unable to boot the image."
+    mok_secure_boot_enabled
+    SB_STATE=$?
+    case "$SB_STATE" in
+        0)
+            refuse_to_sign "Secure Boot is enabled on this machine and there is no signing key at $MOK_KEY, so any image built here could not load"
+            ;;
+        1)
+            log "no machine owner key at $MOK_KEY, and this machine's firmware reports"
+            log "  Secure Boot OFF — the boot image will be UNSIGNED. It boots as things"
+            log "  stand. Turning Secure Boot on without a key enrolled leaves this"
+            log "  machine unable to boot the image."
+            ;;
+        *)
+            # The third answer, said as itself. This is the composition case: a
+            # build root or an install target where the firmware variables are
+            # not visible, so there is nothing to ask. Refusing here would
+            # refuse every image build, and claiming Secure Boot is off would
+            # be stating a fact nobody read.
+            log "no machine owner key at $MOK_KEY, and this machine's Secure Boot state"
+            log "  COULD NOT BE READ — the boot image will be UNSIGNED. That is expected"
+            log "  where a system is being composed rather than run, because the firmware"
+            log "  variables are not visible there. On a machine that is running, an"
+            log "  unreadable Secure Boot state is itself worth looking into: if the"
+            log "  firmware is in fact enforcing it, this image will not load."
+            ;;
+    esac
 fi
 
 # Build the UKI. Capture ukify's stdout+stderr into LOGFILE for both

@@ -56,12 +56,18 @@ import hashlib
 import os
 import shutil
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 HOOK = REPO_ROOT / "packages" / "core" / "linux-kernel" / "hooks" / "post-install.sh"
 UPDATER = REPO_ROOT / "scripts" / "update-boot-menu.sh"
+# The hook sources this before it does anything, and refuses to run without it,
+# so every fixture stages it at the path the linux-kernel recipe installs it to.
+# It is the REAL helper for the same reason the updater is: the message under
+# test is the shipped one or it is not the message under test.
+MOK_HELPER = REPO_ROOT / "scripts" / "mok-signing.sh"
 
 KVER = "6.18.10-igos-17"
 VALID_MACHINE_ID = "0123456789abcdef0123456789abcdef"
@@ -72,6 +78,11 @@ NEEDED = (
     "bash", "cat", "stat", "date", "mkdir", "grep", "tr", "sed", "basename",
     "tee", "cp", "ls", "rm", "find", "readlink", "dirname", "cut", "sort",
     "head", "awk", "chmod", "mv", "sh",
+    # The signing helper reads the key's protection state with openssl and its
+    # Secure Boot state with od. Both are present on any machine this hook runs
+    # on; leaving them out would make the helper fail for a reason that has
+    # nothing to do with the messages under test.
+    "openssl", "od",
 )
 
 
@@ -86,8 +97,16 @@ class Fixture:
                  with_updater=False, esp_menu_dir=None, menu_repointable=True):
         self.root = Path(tmp)
         for rel in ("boot/efi/EFI/Linux", "varlog", "libintergen", "bin",
-                    "pkgroot/etc"):
+                    "pkgroot/etc", "efivars"):
             (self.root / rel).mkdir(parents=True, exist_ok=True)
+
+        # The REAL signing helper, at the path the linux-kernel recipe installs
+        # it to. The hook sources it before anything else and refuses without
+        # it, which is correct on a machine — the same package ships both — and
+        # would otherwise make every test here fail for that one reason.
+        helper = self.root / "libintergen" / "mok-signing.sh"
+        shutil.copy2(MOK_HELPER, helper)
+        helper.chmod(0o644)
 
         # A vmlinuz has to exist or the hook exits before anything under test.
         (self.root / "boot" / f"vmlinuz-{KVER}").write_text("not a real kernel\n")
@@ -168,6 +187,16 @@ def _run(fixture):
         'mount --bind "$FIXTURE_ROOT/boot" /boot && '
         'mount --bind "$FIXTURE_ROOT/varlog" /var/log && '
         'mount --bind "$FIXTURE_ROOT/libintergen" /usr/lib/intergen && '
+        # An EMPTY directory over the firmware variables, so the fixture's
+        # Secure Boot state is UNREADABLE rather than whatever the machine
+        # running the suite happens to report. Without this these tests would
+        # read the host: on a host with Secure Boot enforcing, a fixture with no
+        # signing key is a refusal, and every message assertion below would fail
+        # for that reason instead of the one it is testing. The unreadable state
+        # is also the true state of a system being composed, which is the case
+        # these install-ordering messages are about.
+        'mkdir -p /sys/firmware/efi/efivars 2>/dev/null; '
+        'mount --bind "$FIXTURE_ROOT/efivars" /sys/firmware/efi/efivars 2>/dev/null; '
         'PATH="$FIXTURE_ROOT/bin" exec "$FIXTURE_ROOT/bin/bash" "$HOOK_PATH"'
     )
     env = dict(os.environ)
@@ -194,6 +223,51 @@ def fire(fixture):
 def fire_rc(fixture):
     """Same firing, returning the hook's exit status."""
     return _run(fixture).returncode
+
+
+class FirmwareStateIsNotReadFromTheHost(unittest.TestCase):
+    """The fixture's Secure Boot state must come from the fixture.
+
+    Added 2026-09-17 with the signing-passphrase change. The hook now asks what
+    the firmware is doing, and without the empty bind over the firmware
+    variables it would ask the machine running the suite — so on a host with
+    Secure Boot enforcing, a fixture with no signing key is a refusal and every
+    message assertion in this file fails for that reason instead of its own.
+    A bind that silently stopped working would put the tests back on the host,
+    so the state is asserted rather than assumed.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = self._tmp.name
+        self.addCleanup(self._tmp.cleanup)
+
+    def test_the_fixture_reports_an_unreadable_secure_boot_state(self):
+        msgs = hook_lines(fire(Fixture(self.tmp, machine_id=VALID_MACHINE_ID,
+                                       with_ukify=True, with_updater=True)))
+        self.assertIn("COULD NOT BE READ", msgs,
+                      "the hook read a Secure Boot state from somewhere; if that "
+                      "is the host's, these tests are reading the machine they "
+                      "run on")
+
+    def test_the_three_firmware_answers_are_three_different_sentences(self):
+        """On, off and unreadable are three answers and must not collapse.
+
+        Asserted against the shipped hook's own text because only one of the
+        three is reachable from a fixture: "enabled" needs firmware that
+        enforces, and "off" needs firmware that does not.
+        """
+        text = HOOK.read_text(encoding="utf-8")
+        self.assertIn("Secure Boot is enabled on this machine", text)
+        self.assertIn("Secure Boot OFF", text)
+        self.assertIn("COULD NOT BE READ", text)
+
+    def test_an_unsigned_build_still_happens_when_nothing_enforces_it(self):
+        """A system being composed has no firmware to ask and must still build."""
+        msgs = hook_lines(fire(Fixture(self.tmp, machine_id=VALID_MACHINE_ID,
+                                       with_ukify=True, with_updater=True)))
+        self.assertIn("UKI built at", msgs)
+        self.assertIn("UNSIGNED", msgs)
 
 
 class KernelHookMessages(unittest.TestCase):
