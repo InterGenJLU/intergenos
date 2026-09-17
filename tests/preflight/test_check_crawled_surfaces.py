@@ -360,3 +360,38 @@ def test_a_page_wide_wrapper_carrying_one_date_does_not_exempt_the_page(surface)
     result = surface.run(surface.sitemap(url))
     assert result.returncode == FINDINGS, (
         "a date inside a page-wide wrapper exempted the page:\n" + result.stdout)
+
+
+def test_a_date_in_an_entrys_rail_dates_the_whole_entry(surface):
+    """The served news page's shape: the date sits in a short rail beside the entry's
+    body, not inside it. Read as dating only the rail, every release string in the
+    archive becomes a finding and the archive can never pass."""
+    url = surface.page(
+        "news.html",
+        '<div class="wrap">\n'
+        '<article class="entry"><div class="rail"><span class="date">2026-09-03</span>'
+        '<span class="kind">Update</span></div>\n'
+        '<div class="body"><h2>InterGenOS R001.2 released</h2>'
+        "<p>R001.2 replaces R001.1 as the recommended download.</p></div></article>\n"
+        '<article class="entry"><div class="rail"><span class="date">2026-08-16</span>'
+        '</div><div class="body"><p>R001 was the first public release.</p></div></article>'
+        "</div>")
+    result = surface.run(surface.sitemap(url))
+    assert result.returncode == CLEAN, (
+        "a dated archive entry was read as a claim about today:\n" + result.stdout)
+
+
+def test_the_rail_rule_does_not_date_a_sibling_entry(surface):
+    """Each entry's date covers that entry. A stale claim in the NEXT entry, which has
+    no date of its own, is still refused."""
+    url = surface.page(
+        "half-dated.html",
+        '<div class="wrap">\n'
+        '<article class="entry"><div class="rail"><span class="date">2026-09-03</span>'
+        '</div><div class="body"><p>R001.2 replaces R001.1.</p></div></article>\n'
+        '<article class="entry"><div class="body">'
+        "<p>R001 ships GNOME 49 on Wayland today.</p></div></article></div>")
+    result = surface.run(surface.sitemap(url))
+    assert result.returncode == FINDINGS, (
+        "an undated entry was covered by its neighbour's date:\n" + result.stdout)
+    assert "R001" in result.stdout

@@ -249,16 +249,20 @@ def sitemap_pages(sitemap_url: str, timeout: float, depth: int = 0) -> list:
 
 BLOCK_TAGS = {"article", "section", "li", "div", "tr", "td", "p", "main", "aside",
               "details", "blockquote", "header", "footer", "nav", "figure", "dd"}
-DATED_ANCESTOR_LEVELS = 2
 
 
-class _BlockSpans(html.parser.HTMLParser):
-    """Source spans of the block elements, so a dated entry has an END.
+class _Markup(html.parser.HTMLParser):
+    """Block-element spans, and where the page MARKS UP a date.
 
-    An earlier cut of this gate treated an entry as running from its date to the next
-    date, which meant one date near the top of a page exempted everything below it —
-    a hole wide enough to park a stale claim in. The entry is the element that carries
-    the date, and it ends where that element ends."""
+    Two things are needed to decide whether a release string is history. Where the
+    block elements begin and end, so a dated entry has an end — an earlier cut let an
+    entry run from its date to the next date, and one date near the top of a page then
+    exempted everything below it. And where the page itself says "this is a date":
+    a `<time>` element, or an element whose class names a date, which is how both of
+    this project's surfaces mark their entries. A bare date in a footer is not a mark;
+    prose that dates itself is handled separately, sentence by sentence."""
+
+    DATE_MARK_TAGS = {"time"}
 
     def __init__(self, text: str):
         super().__init__(convert_charrefs=False)
@@ -269,14 +273,19 @@ class _BlockSpans(html.parser.HTMLParser):
                 self.line_starts.append(index + 1)
         self.stack: list = []
         self.spans: list = []
+        self.date_marks: list = []
 
     def _offset(self) -> int:
         line, column = self.getpos()
         return self.line_starts[line - 1] + column
 
     def handle_starttag(self, tag, attrs):
+        offset = self._offset()
+        classes = " ".join(value or "" for name, value in attrs if name == "class")
+        if tag in self.DATE_MARK_TAGS or "date" in classes.lower():
+            self.date_marks.append(offset)
         if tag in BLOCK_TAGS:
-            self.stack.append((tag, self._offset()))
+            self.stack.append((tag, offset))
 
     def handle_endtag(self, tag):
         if tag not in BLOCK_TAGS:
@@ -295,42 +304,48 @@ class _BlockSpans(html.parser.HTMLParser):
         self.stack = []
 
 
-def dated_spans(text: str, raw_html: str) -> list:
-    """Every block element's span, with whether it carries a date of its own.
+# A rail or byline holds the date and little else; the entry it belongs to is its
+# parent. Measured on the served news page: `<div class="rail"><span class="date">…`
+# beside a sibling `<div class="body">` that carries the entry's text.
+RAIL_TEXT_LIMIT = 160
 
-    Returns (start, end, dated) sorted innermost-first by size, which is what the
-    ancestor walk in in_dated_entry() needs."""
-    parser = _BlockSpans(raw_html)
+
+def dated_spans(text: str, raw_html: str) -> list:
+    """The span of every DATED ENTRY: the element a marked-up date belongs to."""
+    parser = _Markup(raw_html)
     try:
         parser.feed(raw_html)
         parser.close()
     except Exception:                                 # noqa: BLE001 — malformed markup
-        parser.spans = parser.spans or []
-    spans = [(start, end, bool(DATE_RE.search(text[start:end])))
-             for start, end in parser.spans]
-    spans.sort(key=lambda span: span[1] - span[0])
-    return spans
+        pass
+    blocks = sorted(parser.spans, key=lambda span: span[1] - span[0])
+    entries = []
+    for mark in parser.date_marks:
+        containing = [span for span in blocks if span[0] <= mark < span[1]]
+        if not containing:
+            continue
+        scope = containing[0]
+        if len(text[scope[0]:scope[1]].strip()) < RAIL_TEXT_LIMIT and len(containing) > 1:
+            scope = containing[1]                     # the rail's entry, not the rail
+        if not DATE_RE.search(text[scope[0]:scope[1]]):
+            continue                                  # a date mark with no date in it
+        entries.append(scope)
+    return entries
 
 
 def in_dated_entry(offset: int, spans: list) -> bool:
-    """The element holding this text, or its immediate parent, carries a date.
-
-    Only those two levels count. A date in a footer or a page-wide wrapper would
-    otherwise buy the whole page a pass, which is the same hole in a different shape as
-    an entry with no end."""
-    containing = [span for span in spans if span[0] <= offset < span[1]]
-    return any(dated for _, _, dated in containing[:DATED_ANCESTOR_LEVELS])
+    return any(start <= offset < end for start, end in spans)
 
 
 def dated_sentence(text: str, offset: int) -> bool:
     """True when the sentence around @offset carries its own date.
 
-    Measured on the served wiki 2026-09-17: "The first public release, R001, was
-    published 2026-08-16; for the current release, see the main repository README."
-    dates itself, and the date follows the release string rather than opening a block
-    above it. A sentence that says when something happened is a history entry the size
-    of a sentence. The release still has to be OLDER than the declared one — the caller
-    checks that — so this cannot exempt a stale claim about today."""
+    Measured on the served wiki: "The first public release, R001, was published
+    2026-08-16; for the current release, see the main repository README." The date
+    follows the release string rather than opening an entry above it, and a sentence
+    that says when something happened is a history entry the size of a sentence. The
+    release still has to be OLDER than the declared one, which the caller checks, so
+    this cannot exempt a stale claim about today."""
     start = max(text.rfind(". ", 0, offset), text.rfind("\n", 0, offset)) + 1
     end = text.find(". ", offset)
     end = len(text) if end < 0 else end + 1
