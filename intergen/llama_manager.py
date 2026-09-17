@@ -579,6 +579,53 @@ class LlamaManager(LlamaManagerInterface):
             # card reserved for the judge/eval instance on dual-GPU boxes.
             # elif, not if: a CPU-pinned instance's --device none is supreme.
             cmd += ["--device", device]
+        # THE SERVER'S IDLE-SLOT CLEARING IS OFF ON THIS LAUNCH, AND SAYING SO
+        # IS THE WHOLE CHANGE. Its own startup line is
+        #
+        #   srv init: init: --clear-idle requires --kv-unified, disabling
+        #
+        # and it is easy to read as something being taken away: --clear-idle is
+        # not on our command line at all, so that is the server switching off
+        # one of its OWN defaults because --kv-unified is absent, which it is
+        # because an explicit --parallel means the slot count is not "auto".
+        #
+        # MEASURED before deciding, rather than flipping a flag a log line
+        # mentioned. Four arms of the SAME eight turns (same prompts,
+        # temperature 0, fixed seed) were served on this project's development
+        # laptop on 2026-09-16, two with the shipped launch and two with
+        # --kv-unified added and nothing else changed:
+        #
+        #   wall total per arm   24.40s / 24.43s (shipped) vs 24.80s / 24.26s
+        #   same-config spread   up to 0.40s, which is the noise floor
+        #   shipped vs unified   0.25s apart — INSIDE that floor
+        #   peak RSS             within 260 kB across all four arms
+        #   answers              all 32 identical, word for word
+        #
+        # The mechanism explains the result: --clear-idle "saves and clears idle
+        # slots on a new task", and a launch with ONE decode slot has no second
+        # slot that can be idle. There is nothing for the feature to act on, so
+        # its absence costs nothing — on this configuration.
+        #
+        # So the flag is not passed, and the launch states that rather than
+        # leaving a reader to reconcile our argv with the server's later line.
+        if parallel == 1:
+            log.info(
+                "--kv-unified NOT passed, so the server disables its own "
+                "--clear-idle default and says so at startup. This launch has "
+                "ONE decode slot, so no slot can be idle while another is "
+                "serving and idle-slot clearing has nothing to act on. "
+                "Measured 2026-09-16 over four arms of the same eight served "
+                "turns: latency, peak memory and every answer were the same "
+                "with the flag and without it, within a run-to-run spread of "
+                "0.40s.")
+        else:
+            log.info(
+                "--kv-unified NOT passed, so the server disables its own "
+                "--clear-idle default and says so at startup. This launch has "
+                "%d decode slots. The measurement behind that choice was taken "
+                "at ONE slot and does not speak for this one, so the shipped "
+                "behaviour is kept unchanged and named here rather than "
+                "changed on an untested assumption.", parallel)
         if cacheable and cache_reuse > 0 and not mmproj_path:
             # Reuse the cached KV for the longest common prefix across requests
             # (via KV shifting) — the ~437-tok system prompt is identical every

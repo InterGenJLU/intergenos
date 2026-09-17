@@ -131,6 +131,40 @@ class LaunchCommandTests(unittest.TestCase):
         self.assertIn("multimodal context", said)
         self.assertIn(mmproj.name, said)
 
+    def test_the_launch_never_passes_the_unified_kv_option(self):
+        """The decision, pinned. Passing it changes the KV layout for every
+        served turn, and the measurement found nothing to gain at one slot."""
+        cmd = self._start()
+        self.assertNotIn("--kv-unified", cmd)
+        self.assertNotIn("-kvu", cmd)
+
+    def test_the_launch_states_why_idle_slot_clearing_is_off(self):
+        """The server's own line — `--clear-idle requires --kv-unified,
+        disabling` — reads like a capability being taken away. It is the server
+        switching off one of its OWN defaults because an explicit --parallel
+        means the slot count is not "auto". A launch that leaves it off says so,
+        with what the measurement found, instead of leaving a reader to
+        reconcile our argument list with a complaint the server makes later.
+        """
+        with self.assertLogs("intergen.llama_manager", level="INFO") as got:
+            self._start(parallel=1)
+        said = " ".join(got.output)
+        self.assertIn("--kv-unified NOT passed", said)
+        self.assertIn("--clear-idle", said)
+        self.assertIn("ONE decode slot", said)
+
+    def test_a_multi_slot_launch_says_the_measurement_does_not_cover_it(self):
+        """Honest about its own evidence. The four arms were served at one slot;
+        widening that result to a launch with more slots would be claiming
+        something the measurement did not establish."""
+        with self.assertLogs("intergen.llama_manager", level="INFO") as got:
+            cmd = self._start(parallel=4)
+        said = " ".join(got.output)
+        self.assertIn("--kv-unified NOT passed", said)
+        self.assertIn("4 decode slots", said)
+        self.assertIn("does not speak for this one", said)
+        self.assertNotIn("--kv-unified", cmd)
+
     def test_mmproj_emitted_when_present(self):
         with tempfile.NamedTemporaryFile(suffix=".gguf") as mmproj:
             cmd = self._start(mmproj_path=mmproj.name)
