@@ -1,6 +1,6 @@
 name: nmap
 version: "7.991"
-release: 1
+release: 2  # r2: spelling only — a comment in this recipe's build script now writes the project's license word the American way, with the rest of the tree. The pinned upstream source, the build and the payload are unchanged; this release exists because the machine cannot tell a comment from a command, and it is right not to guess.
 description: Network host and service discovery and security scanner
 license: LicenseRef-NPSL-0.95  # Nmap Public Source License 0.95 — not on the SPDX list (3.28.0), so SPDX's LicenseRef form names it exactly
 homepage: https://nmap.org/

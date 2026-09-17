@@ -1,6 +1,6 @@
 name: libdht
 version: "0.27"
-release: 1
+release: 2  # r2: spelling only — a comment in this recipe's build script now writes the project's license word the American way, with the rest of the tree. The pinned upstream source, the build and the payload are unchanged; this release exists because the machine cannot tell a comment from a command, and it is right not to guess.
 description: BitTorrent Mainline DHT client library (jech/dht)
 license: MIT
 homepage: https://github.com/jech/dht
