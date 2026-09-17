@@ -121,10 +121,22 @@ def test_the_hook_keeps_its_critical_class_and_its_command_builder():
 
 
 def test_the_builder_still_refuses_a_foreign_root(tmp_path):
+    """The refusal is unchanged; what MOVED is that it is now reported.
+
+    The builder used to answer a bare None, which run_canonical_hooks skipped
+    in silence: the hook was selected, nothing ran, and the operation's output
+    said nothing about it. It now answers a HookDecline carrying the reason, so
+    the same refusal reaches the person running pkm. The refusal itself — no
+    command, nothing run against any root — is exactly what it was.
+    """
     relative = _configured_trust_dir().lstrip("/")
     root = tmp_path / "target"
     root.mkdir()
-    assert CA_TRUST_HOOK.cmd_fn(str(root), [f"{relative}/root.pem"]) is None
+    answer = CA_TRUST_HOOK.cmd_fn(str(root), [f"{relative}/root.pem"])
+    assert isinstance(answer, hooks.HookDecline), (
+        f"the foreign-root refusal changed shape: {answer!r}"
+    )
+    assert "target" in answer.reason or "root" in answer.reason
 
 
 def test_the_builder_still_names_the_reviewed_program_on_the_live_system():

@@ -38,6 +38,9 @@ Failure semantics split by hook class:
     and gains one NOTE line per stderr line. NOTE is not a failure level: it
     carries what the hook said in the case where it succeeded, which is the
     case where the words OK, WARN and CRITICAL say nothing about it.
+  - A CRITICAL canonical hook that was selected and whose builder returned no
+    command reports DECLINED with its reason. Nothing failed, so no count
+    moves; cosmetic hooks keep their silence in the same case.
   - Archive lifecycle hooks: critical by default. The package author
     can opt into cosmetic semantics by exiting the script with code 2,
     the documented "warn and continue" return.
@@ -117,6 +120,18 @@ HookResult = namedtuple(
 # target's state unbuilt. run_canonical_hooks reports the reason and counts the
 # hook as neither a critical nor a cosmetic failure, because nothing has failed.
 HookDeferral = namedtuple("HookDeferral", ["reason"])
+
+
+# What a command builder returns when the work does not belong on THIS root and
+# will not be done later by anything this tree ships — as distinct from the
+# postponement above, which says the work is still owed and closes by itself.
+# The certificate-trust hook is the case: it declines for a foreign root rather
+# than rebuild the running machine's trust store, and nothing afterwards builds
+# the target's, so the honest word is one that does not promise it will be. A
+# builder with nothing to say may still return None; for a CRITICAL hook the
+# decline is reported either way, because a critical hook that was selected and
+# ran nothing is the report a person needs most.
+HookDecline = namedtuple("HookDecline", ["reason"])
 
 
 # Canonical hook definitions. Each entry binds:
@@ -235,10 +250,20 @@ def _update_ca_trust_cmd(root, matched):
         #
         # Declining leaves the target's trust store to be built where that can
         # be done correctly — on a machine that has the tool, which is the
-        # target itself once it boots. The visible-skip gap this leaves (a
-        # declined hook is currently a silent `continue` in run_canonical_hooks)
-        # is real and is reported with this change rather than papered over.
-        return None
+        # target itself. The visible-skip gap this used to leave — a declined
+        # hook was a silent `continue` in run_canonical_hooks — is closed by
+        # returning the decline with its reason instead of a bare None, so the
+        # operation reports that this hook was selected and did not act.
+        #
+        # DECLINED and not PENDING, deliberately: a postponement says the work
+        # closes by itself, and nothing in this tree rebuilds a target's trust
+        # store after the install. Saying "pending" would promise a step no
+        # component performs, which is the failure this whole class is about.
+        return HookDecline(
+            "update-ca-trust takes no root argument, so running it here would "
+            "rebuild the RUNNING system's trust store and still leave the "
+            "target's unbuilt; the target's store is built on the target"
+        )
     return [UPDATE_CA_TRUST]
 
 
@@ -689,7 +714,26 @@ def run_canonical_hooks(root, file_list, name, version, operation, hooks=None):
                 f"  hook[{hook.id}] PENDING ({hook.description}): {cmd.reason}"
             )
             continue
-        if cmd is None:
+        if isinstance(cmd, HookDecline) or cmd is None:
+            # A SELECTED HOOK THAT RAN NOTHING IS NOT A SILENT ONE.
+            #
+            # Until this block existed, a builder returning no command was a
+            # bare `continue`: the package installed a file the hook's trigger
+            # matched, the hook decided not to act, and the operation's output
+            # carried no trace of either. For a cosmetic hook that silence is
+            # right — a skipped icon cache is not news. For a CRITICAL hook it
+            # is the gap that matters: those hooks are the ones whose absence
+            # leaves the target's state diverging from its metadata.
+            #
+            # Nothing is counted as a failure here, because nothing failed.
+            if hook.critical:
+                reason = (
+                    cmd.reason if isinstance(cmd, HookDecline)
+                    else "the hook's command builder produced no command for this root"
+                )
+                messages.append(
+                    f"  hook[{hook.id}] DECLINED ({hook.description}): {reason}"
+                )
             continue
         if _TRACE_AVAILABLE:
             try:

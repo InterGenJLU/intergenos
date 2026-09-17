@@ -28,6 +28,8 @@ WHAT THESE TESTS PIN.
 1. No canonical hook, for any root, produces a command that mentions neither
    the root nor a root-scoping flag — unless it declines to run entirely. This
    is the general form, so a hook added later cannot reintroduce the class.
+   A decline may be a bare None or a HookDecline carrying the reason the
+   operation reports; neither builds a command, which is what this pins.
 2. fc-cache is given the root through the option fontconfig actually has. This
    machine's fontconfig is 2.17.1 and its `fc-cache --help` lists
    `-y, --sysroot=SYSROOT  prepend SYSROOT to all paths for scanning`; the flag
@@ -96,8 +98,11 @@ def test_no_hook_runs_rootless_against_a_foreign_root(tmp_path):
         if not matched:
             continue
         cmd = hook.cmd_fn(str(root), matched)
-        if cmd is None:
-            continue  # declined, which is the second honest answer
+        if cmd is None or isinstance(cmd, hooks.HookDecline):
+            # Declined, which is the second honest answer. A HookDecline is
+            # that same answer carrying its reason so a critical hook's
+            # decision reaches the operation's output instead of vanishing.
+            continue
         if isinstance(cmd, hooks.HookDeferral):
             # Postponed with its reason reported, which is the third: the work
             # is real and still owed, and no command was run against anything.
@@ -139,12 +144,20 @@ def test_fc_cache_on_the_live_system_uses_the_reviewed_program():
 
 
 def test_update_ca_trust_declines_for_a_foreign_root(tmp_path):
+    """Still declines — and now says so.
+
+    The assertion moved from `is None` to the decline value because the answer
+    gained a reason, not because the behaviour changed: no command is built and
+    nothing runs against any root, exactly as before.
+    """
     root = tmp_path / "target"
     root.mkdir()
-    assert hooks._update_ca_trust_cmd(str(root), ["etc/pki/anchors/demo.pem"]) is None, (
+    answer = hooks._update_ca_trust_cmd(str(root), ["etc/pki/anchors/demo.pem"])
+    assert isinstance(answer, hooks.HookDecline), (
         "the CA trust hook would rebuild the RUNNING system's trust store "
-        "during an install into another root"
+        f"during an install into another root: {answer!r}"
     )
+    assert answer.reason.strip(), "the decline carries no reason to report"
 
 
 def test_update_ca_trust_on_the_live_system_uses_the_reviewed_program():
