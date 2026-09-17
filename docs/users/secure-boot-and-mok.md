@@ -138,6 +138,23 @@ The InterGenOS PIV slot 9c key, used for release signing on our offline workstat
 
 If UKI generation or signing fails, the hook records the failure and may leave the previous UKI selected. Plain installs may retain a usable bare-kernel entry; encrypted installs with only the placeholder initramfs do not. The failure does not prove that the next boot is usable.
 
+## Where the kernel command line lives, and how to add a parameter
+
+On a system that boots a UKI, the kernel command line is **not** a line in a bootloader configuration file. It is a section inside the signed image itself (`.cmdline`), put there when the image is built. Editing GRUB's configuration on disk will not change what the kernel boots with, and neither will editing anything else after the image exists: the command line is part of what the signature covers, which is the point of bundling it.
+
+The supported way to add a parameter is to give the next image build a fragment to include:
+
+1. Write the parameters into a file under `/etc/kernel/cmdline.d/`, ending in `.conf` — for example `/etc/kernel/cmdline.d/50-my-parameter.conf`. Comment lines beginning with `#` and blank lines are ignored, so the file can explain itself.
+2. Rebuild the image: `sudo pkm reinstall linux-kernel`. The same rebuild happens by itself the next time a kernel package is installed or upgraded.
+3. Reboot, then check `cat /proc/cmdline`. That is the kernel's own answer, and it is the one to trust.
+
+What the rebuild does, on your machine and with your key: the hook reads the base command line (`/etc/kernel/cmdline`, or the running one if that file is absent), appends every fragment in `/etc/kernel/cmdline.d/` in sorted filename order, bundles kernel, initramfs and command line into one image with `ukify`, and signs it with your machine's own MOK from `/var/lib/intergen/mok/`. No release key is involved, as described above. `/var/log/intergen-kernel-postinstall.log` names each fragment it merged and what the fragment contributed, so a parameter that did not take can be traced to the step where it was lost.
+
+Two things worth knowing before you rely on a parameter:
+
+- **Sorted order is the whole of the ordering rule.** `40-` comes before `50-`. Packages that need a boot parameter ship their own fragment here rather than editing a shared file, so `ls /etc/kernel/cmdline.d/` is a complete list of what the system adds to your command line.
+- **With Secure Boot enabled, the kernel runs in integrity lockdown and refuses some module parameters** — specifically the ones a driver marks as hardware parameters, such as a physical memory address. The parameter is accepted on the command line, the module simply does not take it, and the boot log records `Lockdown: unsafe module parameters is restricted`. If a parameter appears in `/proc/cmdline` but plainly had no effect, that log line is the first place to look. (Measured 2026-09-16 on this project's hardware, which is why it is written down here.)
+
 ## ESP sizing
 
 Because every kernel you install becomes a signed UKI in `/boot/efi`, the ESP needs enough headroom for several generations of kernel. A typical UKI is 80–150 MB depending on the initramfs payload. Forge creates a fixed **1 GiB** EFI System Partition during partitioning, which leaves room for several kernel generations plus their fallbacks.
