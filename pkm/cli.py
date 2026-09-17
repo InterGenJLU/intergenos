@@ -2041,6 +2041,16 @@ def cmd_install(db, args):
             reporter.error(msg)
             sys.exit(1)
 
+    # WHAT THE HOOKS SAID TWICE IN THIS TRANSACTION. A hook's NOTE output is
+    # shown the first time it says something and folded afterwards, so this is
+    # where the transaction states what it folded and how many times each
+    # block was said. Nothing is printed when nothing repeated, which is the
+    # ordinary single-package install.
+    _note_folds = installer.note_fold_summary()
+    if _note_folds:
+        for _line in _note_folds.splitlines():
+            reporter.info(_line)
+
     # 3.0-F28 / Q5: after the whole transaction, print ONE consolidated,
     # strongest-first "Next steps" block naming every just-installed package
     # that needs a reboot, a service restart, or a re-login before its payload

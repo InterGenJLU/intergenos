@@ -1014,6 +1014,26 @@ def install_packages(target, archive_dir, groups, package_dir=None,
             else:
                 failed.append((name, msg))
 
+    # WHAT THE HOOKS SAID TWICE, SAID ONCE HERE. The per-package messages
+    # above show a hook's NOTE output the first time and fold it afterwards;
+    # this is where the install states what it folded, so a reader of the log
+    # sees a count instead of silence. It goes into the trace as structured
+    # fields as well as into the log line, and the unfiltered stderr of every
+    # one of those hook runs is already in this same trace.
+    note_fold_summary = installer.note_fold_summary()
+    folded = installer.note_fold.folded()
+    trace.trace_event("packages_note_fold",
+                      phase="packages",
+                      folded_line_count=installer.note_fold.folded_line_count(),
+                      folded_blocks=[
+                          {"hook": f.hook_id, "lines": f.lines,
+                           "operations": f.count, "packages": f.packages}
+                          for f in folded
+                      ])
+    if note_fold_summary:
+        for line in note_fold_summary.splitlines():
+            LOG.info("%s", line.strip())
+
     trace.trace_event("packages_install_end",
                       success_count=success, fail_count=len(failed),
                       failed=[name for name, _ in failed],

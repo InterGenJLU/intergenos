@@ -259,6 +259,13 @@ class InstallWiringTests(_WiringHarness):
             def __init__(self, db):
                 pass
 
+            def note_fold_summary(self):
+                # The real installer owns the NOTE-fold ledger for the whole
+                # transaction and cmd_install asks it what it folded at the
+                # end; a double that cannot answer that is a double of an
+                # older contract.
+                return ""
+
         class _FakeRepo:
             def __init__(self):
                 pass

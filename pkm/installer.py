@@ -55,6 +55,8 @@ from .repo import _read_package_meta, ArchiveReadError
 from .hooks import (
     CANONICAL_HOOKS_PRE,
     archive_lifecycle_hook_path,
+    NoteFold,
+    format_note_fold_summary,
     run_canonical_hooks,
     run_archive_lifecycle_hook,
     format_hook_summary,
@@ -966,6 +968,26 @@ class PackageInstaller:
     def __init__(self, db: PackageDB, root="/"):
         self.db = db
         self.root = Path(root)
+        # ONE INSTALL SESSION IS ONE LEDGER OF WHAT THE HOOKS HAVE ALREADY
+        # SAID. A system install is this one object installing every package
+        # in one process, and that is the only scope at which a hook's
+        # repeated NOTE output can be recognised as a repeat: measured on the
+        # R001.2-03 install trace, 139 of the 184 NOTE lines were the same
+        # hook saying the same thing in a LATER package operation, and none
+        # of them were a run repeating itself. The ledger folds those to one
+        # shown block plus a count; note_fold_summary() below says what it
+        # folded, and the unfiltered stderr is in the install trace either
+        # way.
+        self.note_fold = NoteFold()
+
+    def note_fold_summary(self):
+        """What this install session folded, or "" when nothing repeated.
+
+        The caller that owns the session prints this when the session ends —
+        `installer/backend/packages.py` after its install loop, `pkm install`
+        after its queue — so a folded install can never read as a quiet one.
+        """
+        return format_note_fold_summary(self.note_fold)
 
     def install(self, name, archive_path=None, queue=None, expected_sha256=None,
                 install_reason="manual", reporter=None, sidecars_out=None):
@@ -1590,7 +1612,7 @@ class PackageInstaller:
             #      lifecycle so any files written by step 2 are seen.
             canonical_pre_result = run_canonical_hooks(
                 self.root, file_list, name, version, "install",
-                hooks=CANONICAL_HOOKS_PRE,
+                hooks=CANONICAL_HOOKS_PRE, note_fold=self.note_fold,
             )
             # D-9 (hook-output recording): a sealed lifecycle hook writes
             # files that no manifest declares, and an unrecorded write is an
@@ -1620,6 +1642,7 @@ class PackageInstaller:
                 )
             canonical_result = run_canonical_hooks(
                 self.root, file_list, name, version, "install",
+                note_fold=self.note_fold,
             )
             hook_summary = format_hook_summary(
                 canonical_pre_result, archive_hook_result, canonical_result,

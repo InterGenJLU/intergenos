@@ -85,7 +85,8 @@ class DegradedInstallerTest(unittest.TestCase):
         archive = _build_archive(self.tmp, "kpkg", "1.0")
         db = PackageDB(self.tmp / "pkm.db", root=str(self.root))
 
-        def fake_canonical(root, file_list, name, version, op, hooks=None):
+        def fake_canonical(root, file_list, name, version, op, hooks=None,
+                           note_fold=None):
             # The POST call (hooks=None) reports a critical failure.
             if hooks is None:
                 return HookResult(["uki-sign"], [], [])
@@ -109,7 +110,8 @@ class DegradedInstallerTest(unittest.TestCase):
         archive = _build_archive(self.tmp, "svcpkg", "1.0")
         db = PackageDB(self.tmp / "pkm2.db", root=str(self.root))
 
-        def fake_canonical(root, file_list, name, version, op, hooks=None):
+        def fake_canonical(root, file_list, name, version, op, hooks=None,
+                           note_fold=None):
             if hooks is None:
                 return HookResult([], ["systemd-daemon-reload"], [])
             return HookResult([], [], [])
