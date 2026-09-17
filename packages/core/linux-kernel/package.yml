@@ -99,6 +99,7 @@ source_tree:
 - scripts/build-microcode-cpio.sh
 - scripts/prune-old-kernels.sh
 - scripts/update-boot-menu.sh
+- scripts/mok-signing.sh
 
 # The kernel configuration fragments are a first-party build input that is not a
 # `source:` entry: configure() concatenates every fragments/*.config and runs
@@ -123,6 +124,7 @@ sources_extra:
 # ride in the corresponding-source archive (survey 2026-08-11).
 - scripts/prune-old-kernels.sh
 - scripts/update-boot-menu.sh
+- scripts/mok-signing.sh
 - scripts/build-microcode-cpio.sh
 - installer/init/fde-init.sh
 - installer/init/build-fde-initramfs.sh
@@ -157,6 +159,7 @@ verify_paths:
   # microcode regen, and unbootable FDE installs.
   - /usr/lib/intergen/prune-old-kernels.sh
   - /usr/lib/intergen/update-boot-menu.sh
+  - /usr/lib/intergen/mok-signing.sh
   - /usr/lib/intergen/build-microcode-cpio.sh
   - /usr/lib/intergen/fde-init.sh
   - /usr/lib/intergen/build-fde-initramfs.sh

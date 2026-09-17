@@ -453,6 +453,12 @@ do_install() {
         "${DESTDIR}/usr/lib/intergen/prune-old-kernels.sh"
     install -vm755 "/mnt/intergenos/scripts/update-boot-menu.sh" \
         "${DESTDIR}/usr/lib/intergen/update-boot-menu.sh"
+    # The one place that answers "may this machine sign, and with what". The
+    # post-install hook below and the driver module signer both source it, so
+    # the two cannot answer the same question differently. Mode 644: it is
+    # sourced, never executed.
+    install -vm644 "/mnt/intergenos/scripts/mok-signing.sh" \
+        "${DESTDIR}/usr/lib/intergen/mok-signing.sh"
     install -vm755 "/mnt/intergenos/scripts/build-microcode-cpio.sh" \
         "${DESTDIR}/usr/lib/intergen/build-microcode-cpio.sh"
     install -vm755 "/mnt/intergenos/installer/init/fde-init.sh" \

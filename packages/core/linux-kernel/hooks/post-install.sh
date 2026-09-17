@@ -11,10 +11,15 @@
 #
 # Phase A scope (this hook):
 #   - Build UKI from new vmlinuz + intel-ucode.img + initramfs.img + cmdline
-#   - Sign UKI with /var/lib/intergen/mok/mok.{key,crt} if present
-#   - Install UKI to /boot/efi/EFI/Linux/intergenos-<kver>.efi
-#   - Gracefully degrade (exit 0, no break) if ukify or MOK absent —
-#     grub-loads-vmlinuz path stays intact as fallback
+#   - Sign UKI with /var/lib/intergen/mok/mok.{key,crt}, asking the owner for
+#     the key's passphrase; a signing step that cannot get it REFUSES (exit 1)
+#     and leaves the previous release's signed image in place as the boot target
+#   - Install UKI to /boot/efi/EFI/Linux/intergenos-<kver>.efi, and only after
+#     its signature has been verified — an unsigned image is never placed where
+#     the boot chain would pick it up
+#   - Degrade without signing (exit 0) only where there is nothing to enforce it:
+#     no builder yet during first-install ordering, or no key on a machine whose
+#     firmware is not enforcing Secure Boot. Both say which case they are.
 #
 # The D-005 phases this header used to list as still to be done have landed,
 # and saying otherwise above code that runs them sent readers away from it:
@@ -55,6 +60,41 @@ log() {
     # break the install — chmod issues, full-disk, ESP-mounted-ro,
     # etc. silently fall through to stderr-only.
     echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ') $msg" >> "$LOGFILE" 2>/dev/null || true
+}
+
+# The one place that answers "may this machine sign, and with what". Sourced
+# rather than reimplemented here, because the driver module signer asks the same
+# question and the two must not answer it differently.
+#
+# Absent helper = refusal. It is shipped by this package and named in its
+# verify_paths, so its absence means the payload on this machine is incomplete,
+# and an incomplete payload must not produce a boot image that nothing checked.
+MOK_HELPER=/usr/lib/intergen/mok-signing.sh
+if [ -r "$MOK_HELPER" ]; then
+    # shellcheck source=/dev/null
+    . "$MOK_HELPER"
+else
+    log "FATAL: $MOK_HELPER is missing, so this hook cannot ask for the signing passphrase."
+    log "  No boot image will be built or signed for this kernel, and the ESP keeps the"
+    log "  previous release's signed image, which stays bootable. Reinstall the kernel"
+    log "  package to restore the helper: sudo pkm reinstall linux-kernel"
+    exit 1
+fi
+
+# Refuse, in one place, with the whole truth in it. Every refusal below leaves
+# the ESP exactly as it was: the previous release's signed image is still there,
+# it is still what the boot menu points at, and it still boots. What does NOT
+# happen is the boot menu moving to a kernel with no signed image, and what does
+# not happen is this hook exiting zero on a kernel that cannot boot.
+refuse_to_sign() {
+    local why="$1"
+    log "REFUSING TO SIGN: $why"
+    log "  Kernel $NEW_KVER is installed on disk but is NOT BOOTABLE UNTIL SIGNED."
+    log "  Nothing was written to the ESP. The previous release's signed boot image is"
+    log "  still there and is still the boot-menu target, so this machine still boots."
+    log "  To finish the job with the passphrase in hand, at the console:"
+    log "      sudo pkm reinstall linux-kernel"
+    exit 1
 }
 
 # Has the system this hook is populating ever booted? The predicate is
@@ -128,6 +168,12 @@ UCODE_INTEL="/boot/intel-ucode.img"
 UCODE_AMD="/boot/amd-ucode.img"
 ESP_UKI_DIR="/boot/efi/EFI/Linux"
 UKI="$ESP_UKI_DIR/intergenos-$NEW_KVER.efi"
+# The image is built HERE first and only takes the name above once its
+# signature has been verified. Same directory so the move is a rename on the
+# same filesystem. Until that rename the ESP holds exactly what it held before,
+# so a refusal, a crash or a power cut leaves the previous release's signed
+# image as the boot target rather than a half-written or unsigned one.
+UKI_STAGE="$ESP_UKI_DIR/.intergenos-$NEW_KVER.efi.new"
 MOK_KEY="/var/lib/intergen/mok/mok.key"
 MOK_CERT="/var/lib/intergen/mok/mok.crt"
 CMDLINE_FILE="/etc/kernel/cmdline"
@@ -277,8 +323,10 @@ UKIFY_ARGS=(
     "build"
     "--linux=$VMLINUZ"
     "--cmdline=$CMDLINE"
-    "--output=$UKI"
+    "--output=$UKI_STAGE"
 )
+# Whatever happens after this point, the staging file does not survive it.
+trap 'rm -f "$UKI_STAGE" 2>/dev/null || true' EXIT
 # This hook creates an installed machine's UKI. Omit Intel-only firmware
 # when every reported processor is AMD. An unreadable, empty or mixed CPU
 # inventory retains both images; portable installation media also keep both.
@@ -313,16 +361,49 @@ else
     [ -f "$INITRD" ] && UKIFY_ARGS+=("--initrd=$INITRD")
 fi
 
-# Sign with user MOK if present (D-005 user-MOK signing model — InterGenOS
-# PIV slot 9c key NEVER touches user systems; only the user's local MOK).
+# Sign with the machine owner's key (D-005 user-MOK signing model — the project
+# signing key NEVER touches user systems; only the owner's own key).
+#
+# The key is encrypted at rest since 2026-09-17, so this is where the owner is
+# asked. Three states and three different answers:
+#
+#   key present  -> migrate it first if it still has no passphrase, then ask for
+#                   the passphrase. No passphrase, no signature, no boot image.
+#   key absent,
+#   Secure Boot on -> refusal. An unsigned image on a machine whose firmware
+#                   enforces signatures is not a lesser outcome, it is an image
+#                   that cannot boot, and writing it over a working one would
+#                   take the machine down.
+#   key absent,
+#   Secure Boot off or unreadable -> build unsigned and say so plainly. This is
+#                   the install-media and the deliberately-unenrolled case; the
+#                   image boots, and the message says what it is missing.
+SIGN_THIS_UKI="no"
 if [ -f "$MOK_KEY" ] && [ -f "$MOK_CERT" ]; then
+    if ! mok_key_is_encrypted "$MOK_KEY"; then
+        log "this machine's signing key has no passphrase on it (installed before 2026-09-17)"
+        if ! mok_migrate_plain_key "$MOK_KEY"; then
+            refuse_to_sign "the signing key is unprotected and the owner did not set a passphrase for it"
+        fi
+    fi
+    if [ -z "${MOK_PASSPHRASE:-}" ]; then
+        if ! mok_resolve_passphrase "$MOK_KEY" "the boot image for kernel $NEW_KVER"; then
+            refuse_to_sign "no usable passphrase for the machine owner signing key"
+        fi
+    fi
     UKIFY_ARGS+=(
         "--secureboot-private-key=$MOK_KEY"
         "--secureboot-certificate=$MOK_CERT"
     )
-    log "signing UKI with user MOK"
+    SIGN_THIS_UKI="yes"
+    log "signing the boot image with this machine's own key"
 else
-    log "no user MOK at $MOK_KEY — UKI built unsigned. Secure Boot disabled? OK. Secure Boot enabled with MokManager-enrolled MOK? would refuse to load — re-run install to regenerate MOK."
+    if mok_secure_boot_enabled; then
+        refuse_to_sign "Secure Boot is enabled on this machine and there is no signing key at $MOK_KEY, so any image built here could not load"
+    fi
+    log "no machine owner key at $MOK_KEY — the boot image will be UNSIGNED. That is"
+    log "  usable only while Secure Boot stays off in firmware. Turning Secure Boot on"
+    log "  without a key enrolled leaves this machine unable to boot the image."
 fi
 
 # Build the UKI. Capture ukify's stdout+stderr into LOGFILE for both
@@ -334,12 +415,43 @@ fi
 # only ukify path was the swallowed-output pkm-hook fire.
 log "ukify cmdline (${#UKIFY_ARGS[@]} args):"
 printf '  %s\n' "${UKIFY_ARGS[@]}" | tee -a "$LOGFILE" >&2
-UKIFY_OUTPUT=$(ukify "${UKIFY_ARGS[@]}" 2>&1)
-UKIFY_RC=$?
+# The passphrase reaches the boot-image signer on standard input. The builder
+# runs that signer as a child and does not redirect its standard input, so what
+# is piped here is what the signer reads — one line, which is exactly what it
+# asks for. It is never an argument: arguments are readable in the process table
+# by every user on the machine, and this one is also written verbatim into the
+# ukify command line logged just above.
+#
+# rc comes from PIPESTATUS, read in the same command: `$?` after a pipeline is
+# the last stage's status, and with an intervening statement it is that
+# statement's.
+if [ "$SIGN_THIS_UKI" = "yes" ]; then
+    UKIFY_OUTPUT=$(printf '%s\n' "$MOK_PASSPHRASE" | ukify "${UKIFY_ARGS[@]}" 2>&1)
+    UKIFY_RC=${PIPESTATUS[1]}
+else
+    UKIFY_OUTPUT=$(ukify "${UKIFY_ARGS[@]}" 2>&1 </dev/null)
+    UKIFY_RC=$?
+fi
 echo "----- ukify stdout+stderr (rc=$UKIFY_RC) -----" >> "$LOGFILE"
 printf '%s\n' "$UKIFY_OUTPUT" >> "$LOGFILE"
 echo "----- end ukify output -----" >> "$LOGFILE"
 if [ $UKIFY_RC -eq 0 ]; then
+    # Prove the signature before the image is allowed to take the boot path's
+    # name. The builder exits non-zero when the signer refuses, so this is a
+    # second reading rather than the only one — and a second reading is what
+    # catches a builder that ever changes its mind about that, which is the
+    # class of silence this whole change exists to remove.
+    if [ "$SIGN_THIS_UKI" = "yes" ]; then
+        if ! sbverify --cert "$MOK_CERT" "$UKI_STAGE" >/dev/null 2>&1; then
+            rm -f "$UKI_STAGE"
+            refuse_to_sign "the boot image was built but carries no valid signature from this machine's own certificate"
+        fi
+        log "boot image signature verified against $MOK_CERT"
+    fi
+    if ! mv -f "$UKI_STAGE" "$UKI"; then
+        rm -f "$UKI_STAGE"
+        refuse_to_sign "the finished boot image could not be put in place at $UKI"
+    fi
     UKI_SIZE=$(stat -c %s "$UKI" 2>/dev/null || echo "?")
     log "UKI built at $UKI ($UKI_SIZE bytes)"
     # Audit the UKI's section table for the operator-required sections.
@@ -355,8 +467,15 @@ if [ $UKIFY_RC -eq 0 ]; then
         fi
     fi
 else
+    rm -f "$UKI_STAGE" 2>/dev/null || true
+    if [ "$SIGN_THIS_UKI" = "yes" ]; then
+        # A build that was supposed to be signed and failed is a refusal, not a
+        # degrade. Exiting zero here is what let a machine report a successful
+        # kernel upgrade and then boot the previous kernel with no one told.
+        refuse_to_sign "the boot image could not be built or signed (builder exit $UKIFY_RC); its output is in $LOGFILE"
+    fi
     log "ukify failed (exit $UKIFY_RC); output above. grub-loads-vmlinuz path remains as recovery per D-005 fallback semantics."
-    exit 0  # NEVER break the kernel install on UKI failure
+    exit 0  # an UNSIGNED build failing does not break the kernel install
 fi
 
 log "D-005 Phase A complete for kernel $NEW_KVER"

@@ -97,6 +97,7 @@ source_tree:
 - scripts/parse-package-yml-patches.py
 - build/patches/linux-6.18.51-amdgpu-runtime-resume-hotplug-only-on-change-1.patch
 - packages/core/linux-kernel/hooks/post-install.sh
+- scripts/mok-signing.sh
 
 # The kernel configuration fragments are a first-party build input that is not a
 # `source:` entry: configure() concatenates every fragments/*.config and runs
@@ -140,6 +141,7 @@ sources_extra:
 - scripts/parse-package-yml-patches.py
 - build/patches/linux-6.18.51-amdgpu-runtime-resume-hotplug-only-on-change-1.patch
 - packages/core/linux-kernel/hooks/post-install.sh
+- scripts/mok-signing.sh
 
 verify_paths:
   - /usr/include/linux/limits.h
