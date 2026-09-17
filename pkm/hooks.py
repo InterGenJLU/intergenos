@@ -85,6 +85,19 @@ HOOK_ENV_ALLOWLIST = frozenset({
     "PATH", "HOME", "USER", "LOGNAME",
     "LANG", "LC_ALL", "LC_CTYPE", "TERM",
     "TMPDIR", "SHELL",
+    # The machine owner's signing-key passphrase, and the only name on this
+    # list that carries a secret. The kernel package's post-install hook builds
+    # and signs this machine's boot image with a key that is encrypted at rest,
+    # so during an install the installer sets this variable for the length of
+    # the package phase and the hook signs without asking a person who is in
+    # the middle of an install. On an installed machine nobody sets it, the
+    # hook finds it absent, and it asks the owner at the console instead —
+    # which is the whole point of the change: no unattended signing.
+    #
+    # It stays a name on a default-deny list rather than an inherited
+    # environment. A hook that has no business signing anything still cannot
+    # read anything else the driver happens to be holding.
+    "IGOS_MOK_PASSPHRASE",
 })
 
 # Executable identities are part of the hook contract.  PATH remains in the

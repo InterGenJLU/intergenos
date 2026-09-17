@@ -38,7 +38,8 @@ from .hooks import (
     mount_efivars,
     unmount_efivars,
 )
-from .mok import sign_efi_binary
+from . import mok
+from .mok import sign_efi_binary, verify_efi_signature
 
 # Host-side path: shipped on every InterGenOS live ISO. Belt-suspenders
 # below copies from HERE (host) to <target>/boot/grub/fonts/ so the
@@ -580,7 +581,7 @@ def ingest_kernel_hook_log(target):
     trace.trace_event("kernel_hook_log_end", path=str(logfile))
 
 
-def rebuild_fde_uki(target, partitions):
+def rebuild_fde_uki(target, partitions, mok_passphrase=None):
     """Rebuild the kernel UKI with the REAL FDE initramfs, after crypttab exists.
 
     Gap B (FDE Phase-D completion). The linux-kernel post_install hook builds the
@@ -600,6 +601,10 @@ def rebuild_fde_uki(target, partitions):
     reconcile so the rebuilt UKI/kernel state is reconciled. Fail-closed: a LUKS
     UKI that can't unlock is worse than a halted install, so any failure raises
     here (where the cause is clear) rather than at the user's first boot.
+
+    `mok_passphrase` is the machine owner's signing-key passphrase. The hook
+    re-run signs the rebuilt image, and the key is encrypted at rest, so without
+    it the hook refuses and this raises.
     """
     if not partitions.get("luks_enabled"):
         return
@@ -615,12 +620,21 @@ def rebuild_fde_uki(target, partitions):
             extra={"hook": hook_rel},
         )
 
+    # The hook signs the rebuilt image, and the signing key is encrypted at
+    # rest, so the hook needs the owner's passphrase. It travels in the child's
+    # environment rather than in this command string: the command string is in
+    # the process table while it runs and is recorded verbatim in the install
+    # trace, and an environment variable named for what it holds is scrubbed by
+    # the trace's own redaction. With no passphrase the hook refuses and the
+    # install stops here, which is the same fail-closed rule as everywhere else
+    # — an unsigned image on an encrypted root is not a lesser outcome.
     rc, _, stderr = trace.traced_run_chroot(target,
         "PKM_PACKAGE_NAME=linux-kernel PKM_PACKAGE_VERSION=fde-rebuild "
         f"bash /{hook_rel}",
         phase="bootloader",
         intent="re-run linux-kernel post-install hook after /etc/crypttab exists "
                "so the UKI bundles the real FDE initramfs (Gap B Phase-D)",
+        env=mok.signing_env(mok_passphrase),
     )
     # Surface the hook's own ukify/FDE log into the Forge trace either way.
     ingest_kernel_hook_log(target)
@@ -668,7 +682,8 @@ def rebuild_fde_uki(target, partitions):
 
 
 def install_bootloader(target, disk, partitions, mok_keypair=None,
-                       detect_other_oses=True, make_default_boot=True):
+                       detect_other_oses=True, make_default_boot=True,
+                       mok_passphrase=None):
     """Install bootloader on the target system.
 
     Args:
@@ -678,6 +693,11 @@ def install_bootloader(target, disk, partitions, mok_keypair=None,
         mok_keypair: dict from mok.generate_mok_keypair() with key_path/cert_path.
                      Required for EFI installs (signed boot chain).
                      Ignored for BIOS installs.
+        mok_passphrase: the owner's signing-key passphrase, set in the
+                     installer. Required for EFI installs, because the private
+                     key is encrypted at rest and neither of the two signing
+                     steps below can open it without one. Ignored for BIOS
+                     installs, which sign nothing.
         detect_other_oses: Option C 2026-05-24 — user's install-time
                      choice on whether GRUB should run os-prober to
                      detect other OSes (Windows alongside install, other
@@ -695,7 +715,8 @@ def install_bootloader(target, disk, partitions, mok_keypair=None,
 
     Raises:
         RuntimeError if any step fails.
-        ValueError if EFI install requested without mok_keypair.
+        ValueError if EFI install requested without mok_keypair or without
+            mok_passphrase.
     """
     target = str(target)
     efi = partitions.get("efi", False)
@@ -706,6 +727,15 @@ def install_bootloader(target, disk, partitions, mok_keypair=None,
             "to sign the GRUB binary"
         )
 
+    if efi and not mok_passphrase:
+        raise ValueError(
+            "EFI install requires the machine owner's signing-key passphrase. "
+            "The key that signs this machine's boot chain is encrypted at "
+            "rest, so the boot loader and the kernel images cannot be signed "
+            "without it, and an unsigned boot chain is not something this "
+            "install writes."
+        )
+
     # C-006: orchestrator (install.py PHASE_VIRTUAL_FS) owns virtual_fs
     # lifecycle. This function runs between PHASE_VIRTUAL_FS and
     # PHASE_CLEANUP so /dev /proc /sys /run /dev/pts are already bind-
@@ -713,7 +743,8 @@ def install_bootloader(target, disk, partitions, mok_keypair=None,
     # cleanup (unmount only removes the top layer).
     if efi:
         _install_signed_efi_chain(target, partitions, mok_keypair,
-                                  make_default_boot=make_default_boot)
+                                  make_default_boot=make_default_boot,
+                                  mok_passphrase=mok_passphrase)
     else:
         _install_bios_grub(target, disk)
 
@@ -865,8 +896,63 @@ def stage_efi_fallback_copies(target):
     return EFI_FALLBACK_COPIES
 
 
+def _kernel_images_on_target(target):
+    """Every /boot/vmlinuz-* image on the target, as in-target paths.
+
+    Listed from the host's view of the mounted target rather than by a glob
+    inside the chroot, because the caller signs them one at a time and needs
+    the names before it starts.
+    """
+    boot = Path(target) / "boot"
+    if not boot.is_dir():
+        return []
+    return [f"/boot/{path.name}"
+            for path in sorted(boot.glob("vmlinuz-*")) if path.is_file()]
+
+
+def _sign_kernel_images(target, mok_keypair, passphrase):
+    """Sign each kernel image with the owner's key, one invocation per image.
+
+    This replaced a single chrooted shell loop. The reason is mechanical rather
+    than stylistic: the key is now encrypted, and the boot-image signer reads
+    the passphrase as ONE LINE from its standard input per invocation. A shell
+    loop gets one standard input for the whole loop, so the first image would
+    consume the line and every later one would find nothing to read.
+
+    The two properties the shell loop had are kept and are what the tests
+    assert: an image that already carries a signature from this certificate is
+    skipped, so an install retry is idempotent; and the signer writes to a new
+    file which is then renamed, so a crash mid-write leaves the previous image
+    intact rather than a truncated one.
+    """
+    for image in _kernel_images_on_target(target):
+        if verify_efi_signature(target, image, mok_keypair["cert_path"]):
+            trace.trace_event(
+                "kernel_image_already_signed", phase="bootloader", image=image,
+                intent="an install retry does not re-sign an image that already "
+                       "carries this machine's own signature")
+            continue
+        sign_efi_binary(
+            target,
+            binary_path=image,
+            key_path=mok_keypair["key_path"],
+            cert_path=mok_keypair["cert_path"],
+            output_path=f"{image}.new",
+            passphrase=passphrase,
+        )
+        rc, _, stderr = trace.traced_run_chroot(
+            target, f"mv {image}.new {image}",
+            phase="bootloader",
+            intent="replace the kernel image with the signed one in a single "
+                   "rename, so an interrupted signing leaves the previous "
+                   "image whole")
+        if rc != 0:
+            raise RuntimeError(
+                f"signed kernel image could not replace {image}: {stderr}")
+
+
 def _install_signed_efi_chain(target, partitions, mok_keypair,
-                              make_default_boot=True):
+                              make_default_boot=True, mok_passphrase=None):
     """EFI install with signed boot chain (shim + signed GRUB).
 
     make_default_boot: D1 / work-plan 1.25 — see install_bootloader. Governs
@@ -935,6 +1021,7 @@ def _install_signed_efi_chain(target, partitions, mok_keypair,
         binary_path=grub_efi_chroot_path,
         key_path=mok_keypair["key_path"],
         cert_path=mok_keypair["cert_path"],
+        passphrase=mok_passphrase,
     )
 
     # Copy shim + MokManager from shim-signed package to ESP
@@ -972,21 +1059,7 @@ def _install_signed_efi_chain(target, partitions, mok_keypair,
     #   - sbsign writes to $k.new then renames — explicit atomicity
     #     regardless of sbsigntools version. A crash mid-write leaves
     #     the pre-signed kernel intact, not a truncated binary.
-    rc, _, stderr = trace.traced_run_chroot(target,
-        f"for k in /boot/vmlinuz-*; do "
-        f"  [ -f \"$k\" ] || continue; "
-        f"  if sbverify --cert {mok_keypair['cert_path']} \"$k\" >/dev/null 2>&1; then "
-        f"    echo \"skipping $k (already signed with MOK)\"; "
-        f"    continue; "
-        f"  fi; "
-        f"  sbsign --key {mok_keypair['key_path']} "
-        f"--cert {mok_keypair['cert_path']} "
-        f"--output \"$k.new\" \"$k\" || exit 1; "
-        f"  mv \"$k.new\" \"$k\" || exit 1; "
-        f"done"
-    )
-    if rc != 0:
-        raise RuntimeError(f"kernel image signing failed: {stderr}")
+    _sign_kernel_images(target, mok_keypair, mok_passphrase)
 
     # Register shim as the primary UEFI boot entry via efibootmgr.
     # The disk + partition number come from partitions['esp'].

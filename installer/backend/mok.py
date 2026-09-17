@@ -28,12 +28,13 @@ MOK enrollment lifecycle (the supported procedure, in order):
   NVIDIA modules) to load under CONFIG_MODULE_SIG_FORCE=y.
 """
 
+import contextlib
 import re
 import subprocess
 from pathlib import Path
 
 from . import trace
-from ._validators import validate_mok_password
+from ._validators import validate_mok_key_passphrase, validate_mok_password
 from .hooks import (
     mount_efivars,
     unmount_efivars,   # batch 1 fix: C1 efivars mount around mokutil
@@ -51,33 +52,174 @@ MOK_KEY_BITS = 2048  # RSA-2048 — matches kernel module signing default
 # every realistic machine-owner label.
 _COMMON_NAME_RE = re.compile(r"^[A-Za-z0-9 _.\-]{1,64}$")
 
+# How the owner's passphrase reaches a tool that needs it.
+#
+# The rule everything here follows: never an argument, never a file. An
+# argument is in the process table for every user on the machine to read while
+# the command runs; a file on disk is the thing the passphrase exists to avoid.
+# What is left is this process's environment and a pipe, and which of the two
+# is used is decided by the tool rather than by preference — measured on the
+# installed tools, 2026-09-17:
+#   - openssl takes `-passin`/`-passout env:NAME` and reads NAME here.
+#   - the boot-image signer (sbsign) has no option and no variable at all. It
+#     loads the key through OpenSSL's default passphrase callback, which reads
+#     ONE LINE from standard input when standard input is a pipe. One line per
+#     invocation: a loop that signs four images needs four feeds.
+#   - the module signer (the kernel's scripts/sign-file) reads one named
+#     variable and does not read standard input.
+_PASS_ENV = "IGOS_MOK_PASSPHRASE"
 
-def generate_mok_keypair(target, common_name="InterGenOS Machine Owner Key"):
+
+def _env_with_passphrase(passphrase, env=None, name=_PASS_ENV):
+    """This process's environment plus the passphrase under `name`.
+
+    A copy is made rather than mutating os.environ, so the value exists only
+    for the child that needs it and never lingers in the installer's own
+    environment where an unrelated subprocess would inherit it.
+    """
+    import os
+    merged = dict(os.environ if env is None else env)
+    merged[name] = passphrase
+    return merged
+
+
+@contextlib.contextmanager
+def passphrase_in_environment(passphrase, name=_PASS_ENV):
+    """Put the owner's passphrase in THIS process's environment, briefly.
+
+    For the one case that cannot use a per-child environment: the package
+    phase, where the signing hook is started several layers down by the package
+    manager's own hook runner rather than by a call this code makes. The
+    variable is removed again when the block ends, however the block ends, so
+    an unrelated subprocess started later in the install does not inherit it.
+
+    A passphrase of None is not an error here and the block simply does
+    nothing: a BIOS install signs nothing and has no passphrase to hold. The
+    signing steps themselves are what refuse when one is missing, because they
+    are the places that know a signature was expected.
+    """
+    import os
+    if not passphrase:
+        yield
+        return
+    previous = os.environ.get(name)
+    os.environ[name] = passphrase
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = previous
+
+
+def signing_env(passphrase, env=None):
+    """The environment a chrooted signing step needs, carrying the passphrase.
+
+    The variable name is not decorative. The install trace scrubs the value of
+    any environment variable whose NAME contains PASSPHRASE (among other
+    markers), so naming it for what it holds is what keeps it out of the
+    durable trace file. A name like IGOS_MOK_SECRET_X would be recorded in
+    full.
+
+    Raises ValueError with no passphrase: a signing step that reaches this
+    point without one is about to produce an unsigned boot artefact, and that
+    is a refusal rather than a degraded success.
+    """
+    if not passphrase:
+        raise ValueError(
+            "a signing step was reached without the machine owner's "
+            "signing-key passphrase; the key is encrypted at rest and nothing "
+            "can sign with it until the owner provides it")
+    return _env_with_passphrase(passphrase, env)
+
+
+def verify_key_is_encrypted(target, key_path, passphrase):
+    """Prove the private key is encrypted, and that this passphrase opens it.
+
+    Two assertions, and the first one is the one that matters. Reading the key
+    with an EMPTY passphrase must FAIL: against a plain key that same command
+    answers "RSA key ok", which is how the finding was measured on a real
+    install. A check that only proved the passphrase works would pass on a
+    plain key too, because a plain key opens under any passphrase argument.
+
+    Raises RuntimeError when either assertion fails. The caller treats that as
+    an install failure: a key that is not protected is not a key this design
+    can ship, and saying so in a warning is how the previous state survived.
+    """
+    key_fspath = str(Path(target) / str(key_path).lstrip("/"))
+
+    empty = subprocess.run(
+        ["openssl", "rsa", "-in", key_fspath, "-check", "-noout",
+         "-passin", "pass:"],
+        capture_output=True, text=True)
+    if empty.returncode == 0:
+        raise RuntimeError(
+            f"the machine owner signing key at {key_path} reads back with an "
+            f"EMPTY passphrase, so it is stored unencrypted. Any process "
+            f"running as root could sign a boot image this machine's firmware "
+            f"trusts. The install stops here rather than shipping it.")
+
+    opened = subprocess.run(
+        ["openssl", "rsa", "-in", key_fspath, "-check", "-noout",
+         "-passin", f"env:{_PASS_ENV}"],
+        capture_output=True, text=True, env=_env_with_passphrase(passphrase))
+    if opened.returncode != 0:
+        raise RuntimeError(
+            f"the machine owner signing key at {key_path} is encrypted, but "
+            f"the passphrase the installer holds does not open it, so nothing "
+            f"on this machine could ever sign with it: {opened.stderr.strip()}")
+
+
+
+def generate_mok_keypair(target, common_name="InterGenOS Machine Owner Key",
+                         passphrase=None, disk_passphrase=None):
     """Generate a fresh MOK keypair on the target system.
 
     Creates an RSA-2048 X.509 self-signed cert + private key under
     /var/lib/intergen/mok/ on the target. The keypair is per-install —
     different on every machine, never reused.
 
+    The private key is ENCRYPTED with the owner's passphrase, which is
+    required. There is no path through this function that produces a plain
+    key, because a plain key is the finding this argument exists to close:
+    every process running as root could sign a boot image the firmware
+    trusts, so Secure Boot stopped an attacker without root and nobody with
+    root. The generated key is read back before this function returns, and a
+    key that reads back WITHOUT a passphrase raises rather than warns.
+
     Args:
         target: target root path
         common_name: CN field for the cert subject. Must match
             ``[A-Za-z0-9 _.-]{1,64}`` to prevent shell injection into the
             openssl ``-subj`` argument.
+        passphrase: the owner's signing-key passphrase, set in the installer.
+            Required. It travels to openssl through this process's own
+            environment, never as an argument — an argument is readable in
+            the process table by every user on the machine.
+        disk_passphrase: the install's disk passphrase when there is one, so
+            the check that the two differ happens here as well as in the
+            frontend that collected them.
 
     Returns:
         dict with keys: 'key_path', 'cert_path', 'der_path'
         (all paths are inside the chroot, e.g., /var/lib/intergen/mok/mok.key)
 
     Raises:
-        ValueError if common_name fails the whitelist.
-        RuntimeError if keypair generation fails.
+        ValueError if common_name or passphrase fails its check.
+        RuntimeError if keypair generation or the read-back check fails.
     """
     if not _COMMON_NAME_RE.fullmatch(common_name):
         raise ValueError(
             f"MOK common_name must match {_COMMON_NAME_RE.pattern} "
             f"(got {common_name!r})"
         )
+
+    # Checked BEFORE the target directory is made, so a refusal leaves nothing
+    # half-written for a later caller to mistake for a finished key.
+    err = validate_mok_key_passphrase(passphrase, disk_passphrase)
+    if err:
+        raise ValueError(err)
 
     target = Path(target)
     mok_dir = target / MOK_DIR.lstrip("/")
@@ -107,10 +249,26 @@ def generate_mok_keypair(target, common_name="InterGenOS Machine Owner Key"):
     # could never sign with MOK at fire time. Moving the call site is
     # done in install.py; this code change makes the move safe by
     # removing the chroot dependency on target-side openssl.
-    # -nodes: no passphrase on the private key (keys live on the
-    # machine, protected by filesystem perms — adding a passphrase
-    # would block automated DKMS signing without solving any threat
-    # we actually face).
+    # The private key is encrypted with the owner's passphrase. The comment
+    # that stood here said a passphrase "would block automated DKMS signing
+    # without solving any threat we actually face". Both halves turned out to
+    # be wrong, and they were measured rather than argued:
+    #   - the threat is real and was the design's own. Every signing step ran
+    #     unattended as root, so root could sign a boot image the firmware
+    #     trusts. The chain resisted an attacker without root and no one with
+    #     it, which is not what a verified boot chain is for.
+    #   - nothing is blocked. Each signing tool on this system can take a
+    #     passphrase without a person at a terminal: the boot-image signer
+    #     reads one line from its standard input, the unified-kernel-image
+    #     builder passes its own standard input through to that signer, and
+    #     the module signer reads one named environment variable. Each of
+    #     them refuses and writes nothing when the passphrase is absent or
+    #     wrong, which is the behaviour wanted anyway.
+    # Decided 2026-09-17, reversing the 2026-05 no-passphrase trade.
+    #
+    # -passout env:VAR: openssl reads the passphrase from this process's
+    # environment. NEVER `pass:` — that puts the secret in the process table,
+    # where any user on the machine can read it while openssl runs.
     # The certificate is generated with a hundred-year validity, and that is a
     # deliberate choice rather than an oversight — decided 2026-09-16 after the
     # question was measured rather than argued.
@@ -136,10 +294,12 @@ def generate_mok_keypair(target, common_name="InterGenOS Machine Owner Key"):
         "-out", cert_fspath,
         "-outform", "PEM",
         "-days", "36500",
-        "-nodes",
+        "-passout", f"env:{_PASS_ENV}",
         "-subj", f"/CN={common_name}/",
     ]
-    result = subprocess.run(openssl_cmd, capture_output=True, text=True)
+    result = subprocess.run(
+        openssl_cmd, capture_output=True, text=True,
+        env=_env_with_passphrase(passphrase))
     if result.returncode != 0:
         raise RuntimeError(f"MOK keypair generation failed: {result.stderr}")
 
@@ -158,6 +318,12 @@ def generate_mok_keypair(target, common_name="InterGenOS Machine Owner Key"):
     os.chmod(key_fspath, 0o600)
     os.chmod(cert_fspath, 0o644)
     os.chmod(der_fspath, 0o644)
+
+    # The install's own check, run on the bytes that were just written rather
+    # than on the intent that wrote them. A key that opens with an empty
+    # passphrase fails the install here; every machine installed before this
+    # change shipped exactly that key and nothing noticed for four months.
+    verify_key_is_encrypted(target, key_path, passphrase)
 
     return {
         "key_path": key_path,
@@ -514,8 +680,22 @@ def record_owner_key_decision(kept, removed):
                "way it went")
 
 
-def sign_efi_binary(target, binary_path, key_path, cert_path, output_path=None):
-    """Sign an EFI binary (GRUB, kernel image) with an MOK key via sbsign.
+def sign_efi_binary(target, binary_path, key_path, cert_path, output_path=None,
+                    passphrase=None):
+    """Sign an EFI binary (GRUB, kernel image) with the owner's key via sbsign.
+
+    The key is encrypted, so the signer needs the owner's passphrase. sbsign has
+    no option and no environment variable for it: it loads the key through
+    OpenSSL's default passphrase callback, which reads ONE LINE from standard
+    input when standard input is a pipe. That is measured behaviour of the
+    installed sbsign, not an assumption, and it is why this feeds exactly one
+    line and why a caller signing several binaries calls this once per binary
+    rather than once for the set.
+
+    With no passphrase available the signer refuses and writes no output file at
+    all — its own behaviour, which is the behaviour wanted. This function refuses
+    before reaching it, so the reason is a sentence rather than a stack of
+    OpenSSL errors.
 
     Args:
         target: target root path
@@ -524,13 +704,21 @@ def sign_efi_binary(target, binary_path, key_path, cert_path, output_path=None):
         cert_path: path inside chroot to the signing cert (PEM)
         output_path: path inside chroot for the signed output. If None,
                      overwrites binary_path in place (sbsign --output same).
+        passphrase: the owner's signing-key passphrase. Required.
 
     Returns:
         Path to the signed binary (always inside chroot).
 
     Raises:
+        ValueError if no passphrase was given.
         RuntimeError if sbsign fails.
     """
+    if not passphrase:
+        raise ValueError(
+            f"signing {binary_path} needs the machine owner's signing-key "
+            f"passphrase; the key is encrypted at rest and the signer cannot "
+            f"open it without one")
+
     if output_path is None:
         output_path = binary_path
 
@@ -538,7 +726,7 @@ def sign_efi_binary(target, binary_path, key_path, cert_path, output_path=None):
         f"sbsign --key {key_path} --cert {cert_path} "
         f"--output {output_path} {binary_path}"
     )
-    rc, stdout, stderr = run_chroot(str(target), cmd)
+    rc, stdout, stderr = run_chroot_stdin(str(target), cmd, f"{passphrase}\n")
     if rc != 0:
         raise RuntimeError(f"sbsign failed for {binary_path}: {stderr}")
 

@@ -219,3 +219,55 @@ def validate_mok_password(value):
             "MokManager on first boot)"
         )
     return None
+
+
+def validate_mok_key_passphrase(value, disk_passphrase=None):
+    """Validate the passphrase that protects the machine owner signing key.
+
+    This is NOT the enrollment password validated above. That one is typed once
+    at the firmware's own key manager to confirm an enrollment. This one guards
+    the private key that signs every boot image and driver module this machine
+    will ever load, so it is asked for at every signing step for the life of the
+    machine and it is never optional: an empty value has no meaning here, unlike
+    the enrollment password where empty means "skip enrollment".
+
+    The grammar is the same printable-ASCII 8-256 shape, and for a mechanical
+    reason rather than a stylistic one: the passphrase reaches the boot-image
+    signer as one line on its standard input, so an embedded newline would be
+    read as the end of it, and it reaches the module signer through an
+    environment variable, which cannot carry a NUL byte at all.
+
+    `disk_passphrase`, when given, is the full-disk-encryption passphrase for
+    this install. The signing key's passphrase must not be the same words: the
+    two protect different things, are typed in different places, and a person
+    who learns one must not thereby hold the other.
+
+    Returns an error string, or None when the value is acceptable.
+    """
+    if not isinstance(value, str):
+        return "signing-key passphrase must be a string"
+    if value == "":
+        return (
+            "the machine owner signing key needs a passphrase — it protects "
+            "the key that signs every boot image and driver module on this "
+            "machine, and it is asked for each time one is signed"
+        )
+    if not 8 <= len(value) <= 256:
+        return (
+            f"signing-key passphrase must be 8-256 characters (got {len(value)})"
+        )
+    if not all(32 <= ord(c) <= 126 for c in value):
+        return (
+            "signing-key passphrase must be printable ASCII only — the "
+            "boot-image signer reads it as a single line and the module "
+            "signer reads it from the environment, so control characters, "
+            "newlines and non-ASCII cannot be carried intact"
+        )
+    if disk_passphrase and value == disk_passphrase:
+        return (
+            "the signing-key passphrase must not be the disk passphrase — "
+            "they protect different things, and reusing the disk passphrase "
+            "means anyone who watches it typed at boot can also sign a boot "
+            "image this machine will trust"
+        )
+    return None

@@ -849,6 +849,7 @@ def traced_run_chroot(
     phase: Optional[str] = None,
     intent: Optional[str] = None,
     input: Optional[str] = None,
+    env: Optional[dict] = None,
     pkg: Optional[str] = None,
 ) -> tuple[int, str, str]:
     """Run a shell command inside a chroot of the target with full trace.
@@ -856,10 +857,19 @@ def traced_run_chroot(
     Same return tuple shape as Forge's `hooks.run_chroot`: (rc, stdout, stderr).
     Use for package post_install hooks that genuinely need chroot context;
     prefer host-side `traced_run` with `--root` flags everywhere else.
+
+    `env` is the complete environment for the child, as subprocess.run takes
+    it. It exists so a caller can hand a chrooted command a secret the command
+    needs — the machine owner's signing-key passphrase reaches the kernel hook
+    this way — without putting it in the shell command, where it would be both
+    in the process table and in this trace's own `cmd` field. Only variables
+    that are NOT already in this process's environment are recorded at all, and
+    those are scrubbed by name through REDACT_ENV_SUBSTRINGS, which covers any
+    name carrying PASSPHRASE, PASSWORD, TOKEN, SECRET, KEY, CRED or AUTH.
     """
     cmd = ["chroot", str(target), "/bin/bash", "-c", shell_command]
     result = traced_run(
-        cmd, input=input, phase=phase, pkg=pkg,
+        cmd, input=input, env=env, phase=phase, pkg=pkg,
         intent=intent or f"chroot exec: {shell_command[:80]}",
     )
     return result.returncode, result.stdout, result.stderr

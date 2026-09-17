@@ -37,6 +37,7 @@ import yaml
 
 from . import (bootloader, config, disks, hooks, integrity, mok, packages,
                restorepoint, trace, users)
+from ._validators import validate_mok_key_passphrase
 
 
 PHASE_VALIDATE = "validate"
@@ -393,6 +394,21 @@ def validate_install_inputs(cfg, install_io):
                 "passphrase before invoking the backend)"
             )
 
+    # The machine owner's signing-key passphrase. The key generated later signs
+    # this machine's boot chain, and it is encrypted at rest, so an install that
+    # will sign anything has to carry the passphrase from the frontend. It is
+    # validated here as well as at the point of entry, because a hand-edited
+    # install.yaml reaches this function without passing a frontend at all. A
+    # value that is absent entirely is left to the EFI check at the generation
+    # site, which knows whether this install signs anything; a value that is
+    # PRESENT is checked here whatever the firmware turns out to be.
+    if install_io.get("mok_key_passphrase") is not None:
+        err = validate_mok_key_passphrase(
+            install_io.get("mok_key_passphrase"),
+            install_io.get("luks_passphrase"))
+        if err:
+            errors.append(f"install_io mok_key_passphrase: {err}")
+
     # D-001 EXPERIMENTAL TPM2 / FIDO2 unlock methods compose with LUKS:
     # enabling either without luks_enabled is incoherent (no LUKS
     # keyslot to add the derived key to). Hardware + tools pre-flight
@@ -683,7 +699,10 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         _emit(PHASE_CONFIG, 5, "pre-staging UKI prereqs (cmdline + MOK)")
         config.generate_kernel_cmdline(target, partitions)
         if efi:
-            mok_keypair = mok.generate_mok_keypair(target)
+            mok_keypair = mok.generate_mok_keypair(
+                target,
+                passphrase=install_io.get("mok_key_passphrase"),
+                disk_passphrase=install_io.get("luks_passphrase"))
             _emit(PHASE_CONFIG, 5,
                   f"MOK keypair generated pre-packages "
                   f"(key={mok_keypair['key_path']})")
@@ -715,13 +734,27 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
             if progress_callback:
                 progress_callback(PHASE_PACKAGES, current, total_pkgs, name)
 
-        ok_count, fail_count, failed, installed_names = packages.install_packages(
-            target,
-            archive_dir,
-            cfg["package_groups"],
-            package_dir=packages_dir,
-            progress_callback=_pkg_progress,
-        )
+        # The kernel package's post-install hook fires inside this call and
+        # signs this machine's first boot image. The signing key is encrypted at
+        # rest, so the hook needs the owner's passphrase — and the person is in
+        # the middle of an install, not at a console prompt, so the installer
+        # hands it over rather than making the hook ask.
+        #
+        # It is set for the length of this call and removed afterwards, in a
+        # finally, so it does not sit in the installer's environment for every
+        # later subprocess to inherit. pkm's own hook environment is
+        # default-deny (pkm/hooks.py HOOK_ENV_ALLOWLIST), so only hooks see it
+        # and only because that list names it.
+        with mok.passphrase_in_environment(
+                install_io.get("mok_key_passphrase")):
+            ok_count, fail_count, failed, installed_names = (
+                packages.install_packages(
+                    target,
+                    archive_dir,
+                    cfg["package_groups"],
+                    package_dir=packages_dir,
+                    progress_callback=_pkg_progress,
+                ))
         result.package_success_count = ok_count
         result.package_fail_count = fail_count
         result.failed_packages = failed
@@ -834,7 +867,10 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         if efi:
             if mok_keypair is None:
                 _emit(PHASE_MOK, 8, "generating MOK keypair (Secure Boot)")
-                mok_keypair = mok.generate_mok_keypair(target)
+                mok_keypair = mok.generate_mok_keypair(
+                    target,
+                    passphrase=install_io.get("mok_key_passphrase"),
+                    disk_passphrase=install_io.get("luks_passphrase"))
                 _emit(PHASE_MOK, 9, "MOK keypair generated (late path)")
             else:
                 _emit(PHASE_MOK, 9,
@@ -863,6 +899,9 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
             # installs and single-OS EFI installs are unchanged; the frontend
             # only sets it (possibly False) when a foreign OS entry is detected.
             make_default_boot=install_io.get("make_default_boot", True),
+            # The key is encrypted at rest; both signing steps inside need the
+            # owner's passphrase, and neither may take it from a file.
+            mok_passphrase=install_io.get("mok_key_passphrase"),
         )
 
         # Gap B (FDE Phase-D): on a LUKS install, rebuild the UKI with the REAL
@@ -874,7 +913,9 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         # reconcile so the rebuilt UKI state is reconciled.
         if efi:
             _emit(PHASE_BOOTLOADER, 10, "rebuilding FDE UKI (LUKS unlock)")
-            bootloader.rebuild_fde_uki(target, partitions)
+            bootloader.rebuild_fde_uki(
+                target, partitions,
+                mok_passphrase=install_io.get("mok_key_passphrase"))
 
         result.phase_completed = PHASE_BOOTLOADER
         _emit(PHASE_BOOTLOADER, 10, "bootloader installed")
