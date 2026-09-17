@@ -34,7 +34,7 @@ import time
 from dataclasses import replace
 from pathlib import Path
 from importlib import import_module
-from typing import Any, Callable
+from typing import Any, Callable, NamedTuple
 
 # Canonical pkexec runner path — installed by packages/ai/intergen/build.sh
 # from intergen/data/intergen-privileged-runner per the build-system
@@ -118,6 +118,7 @@ from intergen.dispatch_token import (
     mint_token,
 )
 from intergen.spotlighting import is_wrapped, wrap_ingress_content
+from intergen import glass
 from intergen import privileged_request
 from intergen.interfaces.scanner import (
     ScanContext,
@@ -252,6 +253,67 @@ def honest_handoff_message(what: str, command: str, needs_admin: bool) -> str:
         msg += ("\n\nYou can do it yourself in a terminal or the desktop app:\n\n"
                 f"`{run_cmd.strip()}`")
     return msg
+
+
+# ── Privileged escalation posture (the daemon's own environment, only) ──────
+#
+# A privileged dispatch escalates: the registry asks the user manager to run
+# pkexec, pkexec asks PolicyKit, and PolicyKit raises an INTERACTIVE
+# AUTHENTICATION DIALOG on the desktop of whoever is sitting at the machine.
+# Measured 2026-09-16 on a development box: a test cell answered a consent gate
+# with "allow", the dispatch escalated, and a polkit dialog appeared in front of
+# the person using that machine, attributed to nothing they had done.
+#
+# A daemon can now be told to REFUSE the escalating class outright, at the
+# dispatch boundary, before a request file is staged and before any process is
+# started. The refusal is absolute for that daemon: nothing a turn carries can
+# lift it, because the only thing read is the daemon's own environment.
+PRIVILEGED_ESCALATION_ENV = "INTERGEN_PRIVILEGED_ESCALATION"
+# The ONE value that permits escalation when the variable is set at all.
+ESCALATION_ALLOWED = "allow"
+
+
+class EscalationPosture(NamedTuple):
+    """What this daemon will do with an action that needs administrator rights.
+
+    `allows` is the decision. `setting` is the raw value read, or "" when
+    nothing set it, and `source` says which of those two it was — a daemon
+    running with escalation refused must never be mistakable for one that would
+    escalate, so both halves are stated in the trace rather than inferred.
+    """
+    allows: bool
+    setting: str
+    source: str
+
+
+def privileged_escalation_posture() -> EscalationPosture:
+    """Read the posture from THE DAEMON'S OWN ENVIRONMENT, and nowhere else.
+
+    WHAT CAN SET IT: the environment of the daemon process itself — a systemd
+    unit's Environment=/EnvironmentFile=, or a shell that exports it before
+    starting the daemon. The test harness sets it for every test process
+    (conftest.py), so no cell written later can reach an authentication prompt.
+
+    WHAT CANNOT SET IT: a turn, a tool argument, a gate decision, a conversation,
+    a config file, a web request, an MCP handler or any other input that arrives
+    after the daemon started. None of them are read here, which is the point: a
+    posture that a request could influence would be a posture an untrusted input
+    could lift.
+
+    FAIL CLOSED ON ANYTHING UNRECOGNISED. Only the exact value "allow" permits
+    escalation once the variable is set; an empty value, a typo, "true", "1" or
+    "yes" all REFUSE. The variable does not exist on a shipped install, so the
+    only way to hold an unrecognised value is to have set one deliberately, and
+    reading a mistyped restriction as permission is the failure this avoids.
+
+    The default — nothing set — allows escalation, which is what an installed
+    system does and must keep doing: refusing by default would silently take
+    away a person's ability to change their own machine through the assistant.
+    """
+    raw = os.environ.get(PRIVILEGED_ESCALATION_ENV)
+    if raw is None:
+        return EscalationPosture(True, "", "default")
+    return EscalationPosture(raw == ESCALATION_ALLOWED, raw, "environment")
 
 
 def card_action_description(tool_call: "ToolCall") -> tuple[str, str]:
@@ -1161,6 +1223,41 @@ class ToolRegistry:
         (measured), so 0 = success and non-zero = failure (validation, refusal,
         an authentication denial, or the manager itself failing to start it).
         """
+        # THE POSTURE IS READ FIRST, BEFORE ANYTHING IS STAGED OR STARTED.
+        # Under a refusing posture nothing is written to disk, no unit is asked
+        # for, and no process is started — so there is no path from here to an
+        # authentication dialog. The row is emitted on BOTH postures: a daemon
+        # that escalates and one that refuses must be told apart from the record
+        # alone, never inferred from the absence of a line.
+        posture = privileged_escalation_posture()
+        glass.emit("dispatch", "privileged_escalation", detail={
+            "tool": tool_name,
+            "escalates": posture.allows,
+            "setting": posture.setting,
+            "source": posture.source,
+            "variable": PRIVILEGED_ESCALATION_ENV,
+        })
+        if not posture.allows:
+            logger.warning(
+                "privileged dispatch of %s refused at the boundary: %s=%r "
+                "(only %r permits escalation)",
+                tool_name, PRIVILEGED_ESCALATION_ENV, posture.setting,
+                ESCALATION_ALLOWED,
+            )
+            return ToolResult(
+                call_id=call.call_id,
+                name=tool_name,
+                content=(
+                    f"This assistant is running with administrator actions "
+                    f"turned off, so {tool_name} was refused before anything "
+                    f"was started. Nothing was changed on this machine and no "
+                    f"password was asked for. You can still make the change "
+                    f"yourself in a terminal."
+                ),
+                success=False,
+                executed=False,
+            )
+
         if dispatch_token is None:
             logger.error(
                 "privileged dispatch of %s reached without an approval token; "

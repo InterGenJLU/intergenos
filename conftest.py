@@ -84,6 +84,28 @@ _REAL_DENYLIST = os.path.join(
 if "IGOS_PUBLIC_LANGUAGE_DENYLIST" not in os.environ and os.path.exists(_REAL_DENYLIST):
     os.environ["IGOS_PUBLIC_LANGUAGE_DENYLIST"] = _REAL_DENYLIST
 
+# NO TEST PROCESS MAY REACH AN AUTHENTICATION PROMPT. THIS IS THE MECHANISM.
+#
+# A privileged dispatch escalates through pkexec, pkexec asks PolicyKit, and
+# PolicyKit raises an interactive authentication dialog on the desktop of
+# whoever is at the machine. Measured 2026-09-16: a cell answered a consent gate
+# with "allow", the dispatch escalated, and a person sitting at that machine was
+# shown a password dialog for something they had not done. Nobody reads a test
+# runner's terminal, an unattended run has nobody to answer, and a test that
+# blocks on a person is not a test.
+#
+# Every cell that touches the gate is expected to stub the dispatcher as well —
+# that remains the local discipline. This is the floor UNDER that discipline: it
+# is set once, before any intergen import, for every process the suite runs in,
+# so a cell written later that forgets the stub still cannot reach a prompt. The
+# daemon refuses the escalating class outright under this value
+# (tool_registry.privileged_escalation_posture).
+#
+# A cell that genuinely needs the escalating branch takes the posture back
+# EXPLICITLY, in its own code, with the dispatcher stubbed — which is a visible,
+# reviewable act rather than a silent default.
+os.environ["INTERGEN_PRIVILEGED_ESCALATION"] = "refuse"
+
 _HOME_TMP = os.path.join(_XDG_TMP, "home")
 os.makedirs(_HOME_TMP, exist_ok=True)
 os.environ["HOME"] = _HOME_TMP
