@@ -211,3 +211,25 @@ def test_a_failing_hook_is_untouched_by_folding(tmp_path):
     assert fold.folded() == [], (
         f"a failure was recorded in the NOTE fold ledger: {fold.folded()!r}"
     )
+
+
+def test_two_silent_operations_are_not_a_repeat_of_each_other(tmp_path):
+    """Found by running the real icon-cache hook against a real scratch root.
+
+    The machine's own gtk-update-icon-cache writes nothing at all, so both
+    operations produced an EMPTY block. The ledger recorded that empty block as
+    a block and counted the second silent run as a repeat of it: the install
+    would have claimed a fold that never happened, and the summary raised
+    IndexError on a block with no first line. Silence is never an entry.
+    """
+    fold = hooks.NoteFold()
+    for package in ("first-package", "second-package"):
+        result = _run(tmp_path, _hook("quiet", "exit 0"), package=package,
+                      note_fold=fold)
+        assert _notes(result) == []
+    assert fold.folded() == [], (
+        f"two hooks that said nothing were recorded as a repeat: {fold.folded()!r}"
+    )
+    assert hooks.format_note_fold_summary(fold) == "", (
+        "an install where nothing was said claimed that something was folded"
+    )

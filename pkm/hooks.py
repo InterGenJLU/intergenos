@@ -945,7 +945,15 @@ def run_canonical_hooks(root, file_list, name, version, operation, hooks=None,
                     if line.strip()
                 ]
                 counted = _collapse_identical_lines(note_lines)
-                if note_fold is not None:
+                # A HOOK THAT SAID NOTHING HAS NOTHING TO FOLD. Found by
+                # running the real icon-cache hook against a real scratch
+                # root, where the tool wrote nothing at all: the ledger was
+                # being handed the empty block, recorded it as a block, and
+                # counted the next silent run as a repeat of it — an install
+                # would have claimed a fold that never happened, and the
+                # summary raised on a block with no first line. Silence is
+                # never an entry.
+                if counted and note_fold is not None:
                     counted = note_fold.show(
                         hook.id, hook.description, counted, name,
                     )
