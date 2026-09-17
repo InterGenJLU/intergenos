@@ -80,6 +80,14 @@ RELEASE_RE = re.compile(r"\bR(\d{3})(?:\.(\d+))?\b")
 LINE_FORM_RE = re.compile(r"\bR\d{3}\.x\b")
 DECLARATION_RE = re.compile(r"^R\d{3}(?:\.\d+)?$")
 
+# A FORM EXAMPLE, not a claim: an enumeration that ends in an ellipsis, the way a
+# documentation page explains how releases are named — "A major release (R001, R002, …)"
+# and "A point release (R001.1, R001.2, …)". Measured on the served wiki 2026-09-17. The
+# rule is deliberately narrow: the ellipsis must follow within the same enumeration, so
+# "Download InterGenOS R001.2" and "the current release (R001)" are untouched by it.
+EXAMPLE_ENUM_RE = re.compile(
+    r"R\d{3}(?:\.\d+)?(?:\s*,\s*R\d{3}(?:\.\d+)?)*\s*,\s*(?:…|\.\.\.)")
+
 # A dated history entry opens at a date the page itself carries: an ISO date, or the
 # short `14 SEP` form the news page uses in its index. Everything from one date to the
 # next belongs to that entry.
@@ -185,7 +193,14 @@ def crawl_delay_for(sitemap_url: str, timeout: float) -> float:
         return DEFAULT_CRAWL_DELAY
 
 
-def sitemap_pages(sitemap_url: str, timeout: float) -> list:
+def sitemap_pages(sitemap_url: str, timeout: float, depth: int = 0) -> list:
+    """Every page a surface lists, following a sitemap INDEX into the sitemaps it names.
+
+    An index is the shape a growing site adopts without telling anyone. Read naively, its
+    `<loc>` entries are sitemap URLs, and fetching them AS pages would find no release
+    string in any of them and report the surface clean — a silent empty crawl wearing a
+    pass. So the root element decides: `urlset` lists pages, `sitemapindex` lists
+    sitemaps and is followed, and anything else is refused."""
     try:
         _, body = fetch(sitemap_url, timeout)
     except Exception as exc:                      # noqa: BLE001 — every failure refuses
@@ -199,17 +214,36 @@ def sitemap_pages(sitemap_url: str, timeout: float) -> list:
         raise Unmeasurable(
             f"the sitemap {sitemap_url} is not parseable XML: {exc}"
         ) from exc
-    pages = [
+    root_tag = root.tag.rsplit("}", 1)[-1]
+    locs = [
         element.text.strip()
         for element in root.iter()
         if element.tag.rsplit("}", 1)[-1] == "loc" and element.text and element.text.strip()
     ]
-    if not pages:
+    if root_tag == "sitemapindex":
+        if depth >= 2:
+            raise Unmeasurable(
+                f"{sitemap_url} is a sitemap index nested more than two deep; refusing "
+                "rather than following it further.")
+        if not locs:
+            raise Unmeasurable(
+                f"the sitemap index {sitemap_url} names no sitemaps. An empty crawl must "
+                "never be reported as a clean one.")
+        pages: list = []
+        for child in locs:
+            pages.extend(sitemap_pages(child, timeout, depth + 1))
+        return pages
+    if root_tag != "urlset":
+        raise Unmeasurable(
+            f"the sitemap {sitemap_url} has root element {root_tag!r}; this gate reads "
+            "`urlset` and `sitemapindex` documents and refuses anything else rather than "
+            "guess what it is looking at.")
+    if not locs:
         raise Unmeasurable(
             f"the sitemap {sitemap_url} lists no pages. An empty crawl must never be "
             "reported as a clean one."
         )
-    return pages
+    return locs
 
 
 def dated_spans(text: str) -> list:
@@ -237,9 +271,13 @@ def check_page(url: str, html: str, declared: str, findings: list) -> int:
     line_form = declared.split(".")[0] + ".x"
     examined = 0
 
+    example_spans = [(m.start(), m.end()) for m in EXAMPLE_ENUM_RE.finditer(text)]
+
     for match in RELEASE_RE.finditer(text):
         if LINE_FORM_RE.match(text, match.start()):
             continue                                   # `RNNN.x` names the line
+        if any(start <= match.start() < end for start, end in example_spans):
+            continue                                   # a naming-form example, not a claim
         examined += 1
         found = match.group(0)
         if found == declared:

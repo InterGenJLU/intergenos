@@ -257,3 +257,65 @@ def test_the_default_surfaces_are_the_project_site_and_wiki_and_come_from_sitema
     assert body.count("http") == 2, (
         "DEFAULT_SURFACES should name the two sitemaps and nothing else:\n" + body)
     assert "sitemap" in body and body.count("loc") == 0
+
+
+def test_a_sitemap_index_is_followed_into_the_sitemaps_it_names(surface):
+    """An index read naively lists sitemap URLs, not pages. Fetching those AS pages finds
+    no release string in any of them and reports the surface clean — an empty crawl
+    wearing a pass."""
+    stale = surface.page("index.html", "<h1>InterGenOS R001.2 released</h1>")
+    inner = surface.sitemap(stale, name="pages.xml")
+    (surface.root / "index-of-sitemaps.xml").write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f"  <sitemap><loc>{inner}</loc></sitemap>\n</sitemapindex>\n")
+    result = surface.run(f"{surface.base}/index-of-sitemaps.xml")
+    assert result.returncode == FINDINGS, (
+        "the index was not followed into its sitemaps, so the stale page was never "
+        "read:\n" + result.stdout)
+    assert "R001.2" in result.stdout
+
+
+def test_an_empty_sitemap_index_is_refused(surface):
+    (surface.root / "empty-index.xml").write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        "</sitemapindex>\n")
+    result = surface.run(f"{surface.base}/empty-index.xml")
+    assert result.returncode == UNMEASURABLE, result.stdout
+    assert "names no sitemaps" in result.stderr, result.stderr
+
+
+def test_an_xml_document_that_is_neither_is_refused(surface):
+    (surface.root / "not-a-sitemap.xml").write_text(
+        '<?xml version="1.0"?><rss><channel><loc>x</loc></channel></rss>')
+    result = surface.run(f"{surface.base}/not-a-sitemap.xml")
+    assert result.returncode == UNMEASURABLE, result.stdout
+    assert "root element" in result.stderr, result.stderr
+
+
+def test_a_naming_form_example_is_not_read_as_a_claim(surface):
+    """Measured on the served wiki: a page explaining how releases are named writes
+    "A major release (R001, R002, …)". That is the form, not a claim about today, and a
+    gate that refused it could never reach exit 0 on a documentation surface."""
+    url = surface.page(
+        "naming.html",
+        "<p>A major release (R001, R002, …) is produced by the full from-scratch build. "
+        "A point release (R001.1, R001.2, …) rebuilds only the changed packages.</p>")
+    result = surface.run(surface.sitemap(url))
+    assert result.returncode == CLEAN, (
+        "a naming-form enumeration was read as a release claim:\n" + result.stdout)
+
+
+def test_the_form_example_rule_does_not_swallow_a_real_claim(surface):
+    """The narrow reading, pinned: an ellipsis elsewhere on the page must not exempt a
+    download line or a current-release sentence."""
+    url = surface.page(
+        "mixed.html",
+        "<p>A major release (R001, R002, …) is produced by the full build.</p>\n"
+        "<p>Download InterGenOS R001.2 x86_64 UEFI live ISO.</p>\n"
+        "<p>R001.2 is the current release.</p>")
+    result = surface.run(surface.sitemap(url))
+    assert result.returncode == FINDINGS, result.stdout
+    assert "R001.2" in result.stdout
+    assert "status sentence" in result.stdout, result.stdout
