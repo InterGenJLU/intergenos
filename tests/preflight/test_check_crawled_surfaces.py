@@ -397,3 +397,21 @@ def test_the_rail_rule_does_not_date_a_sibling_entry(surface):
     assert result.returncode == FINDINGS, (
         "an undated entry was covered by its neighbour's date:\n" + result.stdout)
     assert "R001" in result.stdout
+
+
+def test_a_class_that_merely_contains_the_letters_of_date_is_not_a_date_mark(surface):
+    """Measured on the served home page: `<section class="updates">` wraps the hero and
+    the download block, and "updates" contains the letters of "date". Read as a date
+    mark, that section dated a third of the page and exempted the two claims the gate
+    exists to catch."""
+    url = surface.page(
+        "home.html",
+        '<main><section class="updates" aria-label="Latest updates">'
+        '<div class="up-items"><a class="up-item"><span class="d">14 SEP</span>'
+        "<span>Known issues in R001.2</span></a></div>\n"
+        "<h1>InterGenOS R001.2 released</h1>\n"
+        "<p>Download InterGenOS R001.2 x86_64 UEFI live ISO.</p></section></main>")
+    result = surface.run(surface.sitemap(url))
+    assert result.returncode == FINDINGS, (
+        "a class containing the letters of 'date' dated the section:\n" + result.stdout)
+    assert result.stdout.count("R001.2") >= 2, result.stdout

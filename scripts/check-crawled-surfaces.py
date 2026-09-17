@@ -263,6 +263,12 @@ class _Markup(html.parser.HTMLParser):
     prose that dates itself is handled separately, sentence by sentence."""
 
     DATE_MARK_TAGS = {"time"}
+    # A class TOKEN, never a substring: `class="updates"` contains the letters of
+    # "date" and is a section heading a whole page hangs off. Measured — reading it as
+    # a date mark exempted the served home page's hero and download block, which are
+    # exactly the claims this gate exists to catch.
+    DATE_MARK_CLASS_RE = re.compile(r"^(?:date|dates|pubdate|published|timestamp)$"
+                                    r"|^date[-_]|[-_]date$", re.I)
 
     def __init__(self, text: str):
         super().__init__(convert_charrefs=False)
@@ -282,7 +288,8 @@ class _Markup(html.parser.HTMLParser):
     def handle_starttag(self, tag, attrs):
         offset = self._offset()
         classes = " ".join(value or "" for name, value in attrs if name == "class")
-        if tag in self.DATE_MARK_TAGS or "date" in classes.lower():
+        marked = any(self.DATE_MARK_CLASS_RE.search(token) for token in classes.split())
+        if tag in self.DATE_MARK_TAGS or marked:
             self.date_marks.append(offset)
         if tag in BLOCK_TAGS:
             self.stack.append((tag, offset))
