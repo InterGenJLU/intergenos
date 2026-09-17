@@ -39,9 +39,6 @@ landed is in the repository README, not here.
 - The older GPU power rule (`70-intergen-compute-gpu-pm.rules`) still holds
   every secondary AMD card awake permanently.
 - The NVIDIA driver helper's silent minute after the EULA is only partly fixed.
-- The assistant re-reads the graphics-hardware identity every five minutes with
-  the PCI listing tool, which resumes every suspended PCI device each time; on
-  one tested laptop each pass also logs a failed link bring-up.
 - No Thunderbolt device-authorization daemon is shipped; Thunderbolt devices
   behave as the firmware's default policy dictates.
 - The scenario harness sits to its timeout when the assistant's bus name is
@@ -244,6 +241,29 @@ landed is in the repository README, not here.
   outcome of an enclosing transaction; upgrading a download-helper package
   keeps the application it installed; the `claude-code` helper's install-mode
   option reaches the helper and only as "0" or "1".
+- The assistant answers a question about the conversation itself ("what was my
+  first question") from a verbatim, in-order record it now keeps, and a question
+  about this machine's memory from the machine's own reading (what is available,
+  not what is free); a follow-up such as "and memory?" resolves only against a
+  resource question. Before, both went to the model and it named a later turn
+  and a wrong figure with confidence.
+- The assistant reads the display adapter's identity once from the kernel's
+  device tree instead of running a PCI listing every five minutes; that listing
+  resumed every suspended PCI device on each pass. A launch no longer passes the
+  prefix-reuse option to an engine context that cannot honour it, and says so.
+- A download helper's manifest records the symbolic link a machine actually
+  holds, not its resolved target.
+- What a package hook says on a zero exit is reported as a NOTE line instead of
+  being discarded (eight fontconfig diagnostics naming a real ordering defect had
+  been dropped by an install that called every hook OK); a hook that is selected
+  and then declines to run for a foreign install root says so with its reason.
+  Identical NOTE output from one hook is shown once with its count, a block a
+  hook already said in the same install is not printed again and the closing
+  summary names what was folded; the install trace keeps every line.
+- An installed gate states whether a kernel panic on this machine would leave a
+  record: the reserved region, the recorder's registration, the backend, and the
+  shipped configuration on disk, so a machine running a corrected kernel image
+  it will lose at the next boot is reported as such.
 - The package-manager hook that invokes the certificate-trust updater fires on
   the trust source p11-kit is actually configured with (`/etc/pki/anchors`,
   including its anchors and blocklist subdirectories); it matched a directory
