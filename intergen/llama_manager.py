@@ -579,7 +579,7 @@ class LlamaManager(LlamaManagerInterface):
             # card reserved for the judge/eval instance on dual-GPU boxes.
             # elif, not if: a CPU-pinned instance's --device none is supreme.
             cmd += ["--device", device]
-        if cacheable and cache_reuse > 0:
+        if cacheable and cache_reuse > 0 and not mmproj_path:
             # Reuse the cached KV for the longest common prefix across requests
             # (via KV shifting) — the ~437-tok system prompt is identical every
             # turn, so without this each new user message re-prefills the whole
@@ -590,6 +590,35 @@ class LlamaManager(LlamaManagerInterface):
             # never gets the flag (no-op today, brick-risk under a stricter
             # upstream llama.cpp).
             cmd += ["--cache-reuse", str(cache_reuse)]
+        elif cacheable and cache_reuse > 0 and mmproj_path:
+            # AND NOT ON A MULTIMODAL CONTEXT. `cacheable` is a property of the
+            # BACKBONE, declared in the signed manifest; prefix reuse is a
+            # property of the CONTEXT the server actually builds. Loading a
+            # projector builds a multimodal context, which does not do it. The
+            # flag was passed anyway, because nothing here asked what kind of
+            # context this launch was creating, and the server answered after
+            # the fact — on EVERY prompt-processing task, not once at load:
+            #
+            #   slot update_slots: id 0 | task 0 | cache reuse is not supported
+            #                                     - ignoring n_cache_reuse = 256
+            #
+            # Measured on intergenos-192-r001-2, 2026-09-16, on the shipped
+            # InternVL3.5-2B + projector configuration, and reproduced on four
+            # separate daemons that evening (the installed release and three
+            # trees). So the per-turn prefill saving this flag exists to provide
+            # was never happening on the multimodal path, and the only record of
+            # that was a line in the server's log that nobody reads.
+            #
+            # Decided HERE, where the context is known, and STATED — a launch
+            # that does not get prefix reuse says so at launch, in its own log,
+            # instead of leaving a reader to reconcile the argv with the
+            # server's later complaint.
+            log.info(
+                "--cache-reuse NOT passed: the backbone declares cacheable, but "
+                "this launch loads a projector (%s) and a multimodal context "
+                "does not support prefix reuse; the server ignores the flag on "
+                "every task. Each turn prefills its whole prefix.",
+                mmproj_path)
         if has_vision and not mmproj_path:
             # The model DECLARES vision (signed manifest) but no projector path
             # was resolved — a partially-provisioned vision model (GGUF verified,

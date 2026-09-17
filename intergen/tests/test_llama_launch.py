@@ -93,6 +93,44 @@ class LaunchCommandTests(unittest.TestCase):
         cmd = self._start(cacheable=True, cache_reuse=0)
         self.assertNotIn("--cache-reuse", cmd)
 
+    def test_a_multimodal_context_never_gets_cache_reuse(self):
+        """`cacheable` is a property of the BACKBONE; prefix reuse is a property
+        of the CONTEXT the server builds. Loading a projector builds a
+        multimodal context, which does not do it — the server says so on EVERY
+        prompt-processing task, not once at load:
+
+            slot update_slots: id 0 | task 0 | cache reuse is not supported
+                                              - ignoring n_cache_reuse = 256
+
+        Measured on intergenos-192-r001-2, 2026-09-16, on the shipped
+        InternVL3.5-2B + projector configuration and reproduced on four separate
+        daemons. The flag was passed anyway because nothing asked what kind of
+        context the launch was building."""
+        with tempfile.NamedTemporaryFile(suffix=".gguf") as mmproj:
+            cmd = self._start(cacheable=True, cache_reuse=256,
+                              mmproj_path=mmproj.name)
+            self.assertIn("--mmproj", cmd)
+            self.assertNotIn("--cache-reuse", cmd)
+
+    def test_a_text_only_cacheable_launch_still_gets_it(self):
+        """The fix must not cost the text-only path the flag it exists for."""
+        cmd = self._start(cacheable=True, cache_reuse=256)
+        self.assertIn("--cache-reuse", cmd)
+        self.assertNotIn("--mmproj", cmd)
+
+    def test_the_launch_log_states_why_prefix_reuse_is_absent(self):
+        """A launch that does not get prefix reuse says so AT LAUNCH, in its own
+        log — not by leaving a reader to reconcile the argv with a complaint the
+        server makes later."""
+        with tempfile.NamedTemporaryFile(suffix=".gguf") as mmproj:
+            with self.assertLogs("intergen.llama_manager", level="INFO") as got:
+                self._start(cacheable=True, cache_reuse=256,
+                            mmproj_path=mmproj.name)
+        said = " ".join(got.output)
+        self.assertIn("--cache-reuse NOT passed", said)
+        self.assertIn("multimodal context", said)
+        self.assertIn(mmproj.name, said)
+
     def test_mmproj_emitted_when_present(self):
         with tempfile.NamedTemporaryFile(suffix=".gguf") as mmproj:
             cmd = self._start(mmproj_path=mmproj.name)
