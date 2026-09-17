@@ -319,3 +319,44 @@ def test_the_form_example_rule_does_not_swallow_a_real_claim(surface):
     assert result.returncode == FINDINGS, result.stdout
     assert "R001.2" in result.stdout
     assert "status sentence" in result.stdout, result.stdout
+
+
+def test_a_sentence_that_dates_itself_is_history(surface):
+    """Measured on the served wiki: "The first public release, R001, was published
+    2026-08-16; for the current release, see the main repository README." The date
+    follows the release string instead of opening a block above it, and the sentence is
+    a history entry the size of a sentence."""
+    url = surface.page(
+        "security-review.html",
+        "<p>Project status. The first public release, R001, was published 2026-08-16; "
+        "for the current release, see the main repository README.</p>")
+    result = surface.run(surface.sitemap(url))
+    assert result.returncode == CLEAN, (
+        "a sentence carrying its own date was read as a claim about today:\n"
+        + result.stdout)
+
+
+def test_a_date_in_one_block_does_not_exempt_the_next_block(surface):
+    """The hole this gate's dating rule had to close. An entry that ran from its date to
+    the next date meant one date near the top of a page exempted every stale claim below
+    it. An entry ends where the element carrying the date ends."""
+    url = surface.page(
+        "mixed-dates.html",
+        "<article><time>2026-08-16</time>"
+        "<p>The first public release, R001, was published then.</p></article>\n"
+        "<p>R001 ships GNOME 49 on Wayland as its graphical session.</p>")
+    result = surface.run(surface.sitemap(url))
+    assert result.returncode == FINDINGS, (
+        "a date in an earlier element exempted a claim in a later one:\n" + result.stdout)
+    assert "R001" in result.stdout
+
+
+def test_a_page_wide_wrapper_carrying_one_date_does_not_exempt_the_page(surface):
+    """A date in a footer or a page-wide <main> must not buy the whole page a pass."""
+    url = surface.page(
+        "wrapped.html",
+        "<main><section><p>R001 ships GNOME 49 on Wayland.</p></section>"
+        "<footer><p>Last updated 2026-08-16</p></footer></main>")
+    result = surface.run(surface.sitemap(url))
+    assert result.returncode == FINDINGS, (
+        "a date inside a page-wide wrapper exempted the page:\n" + result.stdout)

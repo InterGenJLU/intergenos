@@ -53,6 +53,7 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import html.parser
 import re
 import sys
 import time
@@ -246,27 +247,103 @@ def sitemap_pages(sitemap_url: str, timeout: float, depth: int = 0) -> list:
     return locs
 
 
-def dated_spans(text: str) -> list:
-    """(start, end, release_key_or_None) for each dated entry in the page.
+BLOCK_TAGS = {"article", "section", "li", "div", "tr", "td", "p", "main", "aside",
+              "details", "blockquote", "header", "footer", "nav", "figure", "dd"}
+DATED_ANCESTOR_LEVELS = 2
 
-    An entry runs from the date that opens it to the next date. Text before the first
-    date belongs to no entry: it is what the page says about today."""
-    dates = list(DATE_RE.finditer(text))
-    spans = []
-    for index, match in enumerate(dates):
-        end = dates[index + 1].start() if index + 1 < len(dates) else len(text)
-        spans.append((match.start(), end))
+
+class _BlockSpans(html.parser.HTMLParser):
+    """Source spans of the block elements, so a dated entry has an END.
+
+    An earlier cut of this gate treated an entry as running from its date to the next
+    date, which meant one date near the top of a page exempted everything below it —
+    a hole wide enough to park a stale claim in. The entry is the element that carries
+    the date, and it ends where that element ends."""
+
+    def __init__(self, text: str):
+        super().__init__(convert_charrefs=False)
+        self.text = text
+        self.line_starts = [0]
+        for index, char in enumerate(text):
+            if char == "\n":
+                self.line_starts.append(index + 1)
+        self.stack: list = []
+        self.spans: list = []
+
+    def _offset(self) -> int:
+        line, column = self.getpos()
+        return self.line_starts[line - 1] + column
+
+    def handle_starttag(self, tag, attrs):
+        if tag in BLOCK_TAGS:
+            self.stack.append((tag, self._offset()))
+
+    def handle_endtag(self, tag):
+        if tag not in BLOCK_TAGS:
+            return
+        for index in range(len(self.stack) - 1, -1, -1):
+            if self.stack[index][0] == tag:
+                start = self.stack[index][1]
+                del self.stack[index:]
+                self.spans.append((start, self._offset()))
+                return
+
+    def close(self):
+        super().close()
+        for _, start in self.stack:
+            self.spans.append((start, len(self.text)))
+        self.stack = []
+
+
+def dated_spans(text: str, raw_html: str) -> list:
+    """Every block element's span, with whether it carries a date of its own.
+
+    Returns (start, end, dated) sorted innermost-first by size, which is what the
+    ancestor walk in in_dated_entry() needs."""
+    parser = _BlockSpans(raw_html)
+    try:
+        parser.feed(raw_html)
+        parser.close()
+    except Exception:                                 # noqa: BLE001 — malformed markup
+        parser.spans = parser.spans or []
+    spans = [(start, end, bool(DATE_RE.search(text[start:end])))
+             for start, end in parser.spans]
+    spans.sort(key=lambda span: span[1] - span[0])
     return spans
 
 
 def in_dated_entry(offset: int, spans: list) -> bool:
-    return any(start <= offset < end for start, end in spans)
+    """The element holding this text, or its immediate parent, carries a date.
+
+    Only those two levels count. A date in a footer or a page-wide wrapper would
+    otherwise buy the whole page a pass, which is the same hole in a different shape as
+    an entry with no end."""
+    containing = [span for span in spans if span[0] <= offset < span[1]]
+    return any(dated for _, _, dated in containing[:DATED_ANCESTOR_LEVELS])
+
+
+def dated_sentence(text: str, offset: int) -> bool:
+    """True when the sentence around @offset carries its own date.
+
+    Measured on the served wiki 2026-09-17: "The first public release, R001, was
+    published 2026-08-16; for the current release, see the main repository README."
+    dates itself, and the date follows the release string rather than opening a block
+    above it. A sentence that says when something happened is a history entry the size
+    of a sentence. The release still has to be OLDER than the declared one — the caller
+    checks that — so this cannot exempt a stale claim about today."""
+    start = max(text.rfind(". ", 0, offset), text.rfind("\n", 0, offset)) + 1
+    end = text.find(". ", offset)
+    end = len(text) if end < 0 else end + 1
+    newline = text.find("\n", offset)
+    if 0 <= newline < end:
+        end = newline
+    return bool(DATE_RE.search(text[start:end]))
 
 
 def check_page(url: str, html: str, declared: str, findings: list) -> int:
     """Appends findings; returns the number of release strings examined."""
     text = page_text(html)
-    spans = dated_spans(text)
+    spans = dated_spans(text, html)
     declared_key = release_sort_key(*RELEASE_RE.match(declared).groups())
     line_form = declared.split(".")[0] + ".x"
     examined = 0
@@ -283,7 +360,8 @@ def check_page(url: str, html: str, declared: str, findings: list) -> int:
         if found == declared:
             continue
         key = release_sort_key(match.group(1), match.group(2))
-        if in_dated_entry(match.start(), spans) and key < declared_key:
+        if key < declared_key and (in_dated_entry(match.start(), spans)
+                                   or dated_sentence(text, match.start())):
             continue                                   # history, correctly dated
         line = line_of(text, match.start())
         if in_dated_entry(match.start(), spans):
@@ -305,6 +383,10 @@ def check_page(url: str, html: str, declared: str, findings: list) -> int:
             continue                                   # the release-invariant form
         if in_dated_entry(offset, spans):
             continue
+        older = [p for p in stale
+                 if release_sort_key(*RELEASE_RE.match(p).groups()) < declared_key]
+        if len(older) == len(stale) and DATE_RE.search(sentence):
+            continue                                   # a sentence that dates itself
         findings.append(Finding(
             url, line_of(text, offset), "status sentence",
             " ".join(sentence.split())[:200],
