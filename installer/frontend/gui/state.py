@@ -134,6 +134,15 @@ class InstallerState:
     root_password: str = ""
     root_password_confirm: str = ""
     mok_password: str = ""
+    # The passphrase that protects this machine's signing key. A DIFFERENT
+    # secret from the enrollment password above: that one is typed once at the
+    # firmware's key manager to confirm an enrollment, this one guards the key
+    # that signs every boot image and driver module for the life of the
+    # machine, and it is asked for each time something is signed. Required on
+    # an EFI install — the install generates that key and signs this machine's
+    # boot chain with it, so there is no coherent EFI install without one.
+    mok_key_passphrase: str = ""
+    mok_key_passphrase_confirm: str = ""
     # Non-sensitive record of the MOK choice: True when the user opted into
     # MOK enrollment by setting a (validated) passphrase on the User screen.
     # Exists because clear_sensitive_data() zeroes mok_password from BOTH
@@ -248,6 +257,8 @@ class InstallerState:
         self.root_password = ""
         self.root_password_confirm = ""
         self.mok_password = ""
+        self.mok_key_passphrase = ""
+        self.mok_key_passphrase_confirm = ""
         # D-001: LUKS passphrase + confirm cleared too. The backend has
         # already piped the passphrase to cryptsetup over stdin and
         # zeroized its local copy by the time we reach here.
@@ -405,6 +416,21 @@ class InstallerState:
             _yaml.safe_dump(cfg, f, sort_keys=False, default_flow_style=False)
         return p
 
+    def key_passphrase_error(self) -> Optional[str]:
+        """What is wrong with the signing key's passphrase, or None.
+
+        The confirmation is checked here rather than in the screen so the rule
+        holds for any caller, and the disk passphrase comparison happens here
+        because this object is the only place that holds both.
+        """
+        from installer.backend._validators import validate_mok_key_passphrase
+
+        if self.mok_key_passphrase != self.mok_key_passphrase_confirm:
+            return "The two signing key passphrase entries do not match"
+        return validate_mok_key_passphrase(
+            self.mok_key_passphrase,
+            self.luks_passphrase if self.luks_enabled else None)
+
     def to_install_io(self) -> Dict[str, Any]:
         """Emit the install_io dict consumed by `run_install`.
 
@@ -443,6 +469,11 @@ class InstallerState:
             io["carry_wifi"] = self.carry_wifi
         if self.mok_password:
             io["mok_password"] = self.mok_password
+        # Absent and empty are different to the backend: an absent key means
+        # this install signs nothing (a BIOS install), and an empty one is a
+        # validation error the backend surfaces by name.
+        if self.mok_key_passphrase:
+            io["mok_key_passphrase"] = self.mok_key_passphrase
         # D-010 InterGen AI opt-in: thread through only when the user
         # opted in; absent key is equivalent to intergen_ai_enable=False
         # per the backend's install_io.get("intergen_ai_enable") read

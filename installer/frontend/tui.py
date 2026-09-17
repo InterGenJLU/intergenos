@@ -238,6 +238,65 @@ def _ask_password(title, prompt):
                    prompt, "10", "70")
 
 
+def _key_passphrase_prompt_text():
+    """What the person is told when they are asked to set the signing passphrase.
+
+    It has to answer three questions in the space of a dialog box: what the key
+    does, when they will be asked for it, and what happens if they lose it.
+    Without the second one a person cannot decide whether to write it down, and
+    a passphrase that is asked for at every kernel update and was never written
+    down becomes a machine that stops taking updates.
+    """
+    return (
+        "Set a passphrase for this machine's signing key.\n\n"
+        "That key signs the boot images and driver modules this machine will\n"
+        "load. With a passphrase on it, nothing can sign in your name unless\n"
+        "you are there to allow it.\n\n"
+        "You will be asked for it each time this machine signs something —\n"
+        "in practice, at a kernel or graphics-driver update. Keep it where\n"
+        "you can find it.\n\n"
+        "It must not be your disk passphrase, and at least 8 characters."
+    )
+
+
+def _collect_key_passphrase(ask_password, notify, disk_passphrase=None):
+    """Ask for the signing key's passphrase, twice, until it is usable.
+
+    `ask_password(title, prompt) -> (rc, value)` and `notify(message)` are passed
+    in rather than called directly so the loop can be tested without a terminal.
+    A non-zero rc from either question means the person cancelled, and this
+    returns None; the caller treats that as cancelling the install rather than
+    as an empty passphrase, because an EFI install with no passphrase would have
+    nothing to sign its own boot chain with.
+    """
+    from installer.backend._validators import validate_mok_key_passphrase
+
+    while True:
+        rc, first = ask_password(
+            "Signing key passphrase", _key_passphrase_prompt_text())
+        if rc != 0:
+            return None
+        error = validate_mok_key_passphrase(first or "", disk_passphrase)
+        if error:
+            notify(error)
+            first = ""
+            continue
+
+        rc, second = ask_password(
+            "Confirm signing key passphrase",
+            "Type the signing key passphrase again to confirm:")
+        if rc != 0:
+            return None
+        if first != second:
+            notify("The two entries did not match. Try again.")
+            first = second = ""
+            continue
+
+        chosen = first
+        del first, second
+        return chosen
+
+
 def _ask_menu(title, prompt, items):
     """items: list of (tag, description) tuples. Returns selected tag."""
     args = ["--title", title, "--menu", prompt, "20", "70", str(len(items))]
@@ -908,6 +967,23 @@ def prompt_install_io():
             )
             return None
 
+    # The signing key's passphrase. Its own step, EFI only, and not optional
+    # there: this install generates a key that signs this machine's boot chain,
+    # and the key is encrypted at rest, so an EFI install without a passphrase
+    # has nothing it can sign with. Collected AFTER the disk passphrase so the
+    # two can be compared — reusing the disk passphrase is refused.
+    mok_key_passphrase = ""
+    if disks.is_efi():
+        mok_key_passphrase = _collect_key_passphrase(
+            _ask_password,
+            lambda message: _dialog(
+                "--title", "Signing key passphrase", "--msgbox", message,
+                "12", "72"),
+            disk_passphrase=luks_passphrase or None,
+        )
+        if mok_key_passphrase is None:
+            return None  # cancelled
+
     # Keys from earlier installs. Asked only when there is something to offer
     # AND the person set an enrolment password, because the firmware asks for
     # that password to confirm a removal exactly as it does an addition — so a
@@ -994,6 +1070,7 @@ def prompt_install_io():
         "username": username,
         "user_password": user_pw,
         "mok_password": mok_pw,
+        "mok_key_passphrase": mok_key_passphrase,
         "detect_other_oses": detect_other_oses,
     }
     # Thread the default-boot choice only when it was actually asked (not None),

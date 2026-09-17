@@ -52,6 +52,18 @@ def _ca_line():
 from ._base import _ForgePage, _toast
 
 
+def _is_efi_install():
+    """Whether this install will produce a signed boot chain.
+
+    The signing key, and therefore its passphrase, exists only on an EFI
+    install; a BIOS install signs nothing and is not asked for one. Read from
+    the firmware rather than from the state object because nothing earlier in
+    the wizard records it.
+    """
+    from installer.backend.secureboot import is_efi_firmware
+    return is_efi_firmware()
+
+
 _PASSWORD_MIN_LEN = 8  # mirrors backend/_validators.py:_PASSWORD_MIN_LEN
 
 
@@ -215,6 +227,41 @@ class UserPage(_ForgePage):
         self._mok_pw_row.connect("notify::text", self._on_mok_pw_changed)
         mok_group.add(self._mok_pw_row)
 
+        # ─── THE SIGNING KEY'S OWN PASSPHRASE ────────────────────────
+        # A different secret from the one above, and the difference is worth
+        # the two extra rows. The enrollment password is typed once, at the
+        # firmware's key manager, to confirm that this machine's key may be
+        # trusted. This passphrase protects the key itself, which signs every
+        # boot image and driver module this machine will load, and it is asked
+        # for each time one is signed — in practice at a kernel or
+        # graphics-driver update.
+        #
+        # Before 2026-09-17 the key had no passphrase and every signing step
+        # ran unattended, which meant any process running as root could sign a
+        # boot image the firmware trusts. It is not optional on an EFI install:
+        # the install generates that key and signs this machine's boot chain
+        # with it.
+        key_group = Adw.PreferencesGroup()
+        key_group.set_title("Signing key passphrase")
+        key_group.set_description(
+            "This machine will have its own signing key, and this passphrase "
+            "protects it. The key signs the boot images and driver modules "
+            "this machine loads; with a passphrase on it, nothing signs in "
+            "your name unless you are there to allow it. You will be asked "
+            "for this each time something is signed — at a kernel or "
+            "graphics-driver update — so keep it where you can find it. It "
+            "must not be your disk passphrase."
+        )
+        self._key_pw_row = Adw.PasswordEntryRow()
+        self._key_pw_row.set_title("Signing key passphrase")
+        self._key_pw_row.set_show_apply_button(False)
+        key_group.add(self._key_pw_row)
+        self._key_confirm_row = Adw.PasswordEntryRow()
+        self._key_confirm_row.set_title("Confirm signing key passphrase")
+        self._key_confirm_row.set_show_apply_button(False)
+        key_group.add(self._key_confirm_row)
+        self._key_group = key_group
+
         # ─── PRIOR KEYS FROM EARLIER INSTALLS ────────────────────────
         # Every install enrols a key and nothing has ever retired an old
         # one, so a reinstalled machine trusts one key per install —
@@ -287,6 +334,7 @@ class UserPage(_ForgePage):
         mok_group.add(self._mok_docs_row)
 
         page.append(mok_group)
+        page.append(self._key_group)
 
         return page
 
@@ -439,6 +487,8 @@ class UserPage(_ForgePage):
         self._root_pw_row.set_text("")
         self._root_confirm_row.set_text("")
         self._mok_pw_row.set_text("")
+        self._key_pw_row.set_text("")
+        self._key_confirm_row.set_text("")
         self._user_strength_row.set_visible(False)
         self._root_strength_row.set_visible(False)
         self._update_hero()
@@ -451,6 +501,8 @@ class UserPage(_ForgePage):
         state.root_password = self._root_pw_row.get_text()
         state.root_password_confirm = self._root_confirm_row.get_text()
         state.mok_password = self._mok_pw_row.get_text()
+        state.mok_key_passphrase = self._key_pw_row.get_text()
+        state.mok_key_passphrase_confirm = self._key_confirm_row.get_text()
 
         username_err = validate_username(state.username)
         if username_err:
@@ -486,6 +538,16 @@ class UserPage(_ForgePage):
         if mok_pw_err:
             _toast(self._window, mok_pw_err)
             return False
+
+        # Required on an EFI install and meaningless on a BIOS one, which signs
+        # nothing. The state object owns the rule because it is the only place
+        # that holds both this passphrase and the disk passphrase it must not
+        # be.
+        if _is_efi_install():
+            key_pw_err = state.key_passphrase_error()
+            if key_pw_err:
+                _toast(self._window, f"Signing key passphrase: {key_pw_err}")
+                return False
 
         # Recorded only after validation passes, so an invalid passphrase
         # never registers as an enrollment choice. Re-assigned on every
