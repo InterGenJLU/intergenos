@@ -58,6 +58,9 @@ import unittest
 from unittest import mock
 
 from intergen import privileged_request as pr
+from intergen.tests.escalation_posture import (
+    escalation_allowed_for_a_stubbed_dispatch,
+)
 from intergen import tool_registry as tr
 from intergen.tool_registry import ToolRegistry
 from intergen.interfaces.types import ToolCall
@@ -169,7 +172,11 @@ class _DispatchTestCase(unittest.TestCase):
 
         with mock.patch.object(tr, "_PKEXEC_RUNNER_PATH", str(runner)), \
                 mock.patch.object(tr, "_SYSTEMD_RUN", str(systemd_run)), \
-                mock.patch.object(tr.subprocess, "run", side_effect=_fake_run):
+                mock.patch.object(tr.subprocess, "run", side_effect=_fake_run), \
+                escalation_allowed_for_a_stubbed_dispatch():
+            # These cells are about what the ESCALATING branch builds, so they
+            # take the refusing posture back for the duration — inside the stub
+            # above, which is what makes that safe.
             return ToolRegistry._dispatch_via_pkexec(
                 _call(), "manage_packages", dict(ARGS), TOKEN,
             )
@@ -407,7 +414,8 @@ class NoProtectedValueOnTheCommandLineTests(_DispatchTestCase):
             return f"/usr/bin/{name}"
 
         with mock.patch.object(tr.subprocess, "run", side_effect=_capture_run), \
-                mock.patch.object(tr.shutil, "which", side_effect=_fake_which):
+                mock.patch.object(tr.shutil, "which", side_effect=_fake_which), \
+                escalation_allowed_for_a_stubbed_dispatch():
             ToolRegistry._dispatch_via_pkexec(
                 _call(), "manage_packages", dict(ARGS), TOKEN,
             )
@@ -455,7 +463,8 @@ class RequestLifecycleTests(_DispatchTestCase):
         with mock.patch.object(
             tr.privileged_request, "write_request",
             side_effect=tr.privileged_request.RequestError("no runtime dir"),
-        ), mock.patch.object(tr.subprocess, "run") as run:
+        ), mock.patch.object(tr.subprocess, "run") as run, \
+                escalation_allowed_for_a_stubbed_dispatch():
             result = ToolRegistry._dispatch_via_pkexec(
                 _call(), "manage_packages", dict(ARGS), TOKEN,
             )

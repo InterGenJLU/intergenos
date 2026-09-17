@@ -538,10 +538,15 @@ class Leg3ProcCanaryTests(unittest.TestCase):
         import tempfile
         from unittest import mock
 
+        from intergen.tests.escalation_posture import (
+            escalation_allowed_for_a_stubbed_dispatch,
+        )
+
         with tempfile.TemporaryDirectory(prefix="privboundary-canary-") as runtime:
             with mock.patch.dict(
                     os.environ, {"XDG_RUNTIME_DIR": runtime}, clear=False), \
-                    mock.patch.object(tr.subprocess, "run", side_effect=_capture):
+                    mock.patch.object(tr.subprocess, "run", side_effect=_capture), \
+                    escalation_allowed_for_a_stubbed_dispatch():
                 ToolRegistry._dispatch_via_pkexec(
                     ToolCall(
                         name="manage_packages",

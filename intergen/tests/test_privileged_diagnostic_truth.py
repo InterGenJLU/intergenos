@@ -49,6 +49,9 @@ from pathlib import Path
 from unittest import mock
 
 from intergen import tool_registry as tr
+from intergen.tests.escalation_posture import (
+    escalation_allowed_for_a_stubbed_dispatch,
+)
 from intergen.tool_registry import ToolRegistry
 from intergen.interfaces.types import ToolCall
 from intergen.interfaces.provenance import Provenance
@@ -151,7 +154,10 @@ def _dispatch(returncode, stdout, stderr, *, runner_present,
                     side_effect=_manager_routing_run(
                         completed,
                         "running" if manager_present else "offline",
-                    )):
+                    )), \
+                escalation_allowed_for_a_stubbed_dispatch():
+            # This helper exists to read what the ESCALATING branch reports, so
+            # it takes the refusing posture back inside the stub above.
             result = ToolRegistry._dispatch_via_pkexec(
                 _call(), "manage_packages", {"action": "upgrade"},
                 "token-placeholder",
@@ -303,7 +309,8 @@ def _dispatch_with_real_runner_path(returncode, stderr, runner_path,
                 mock.patch.object(tr, "_PKEXEC_RUNNER_PATH", str(runner_path)), \
                 mock.patch.object(
                     tr.subprocess, "run",
-                    side_effect=_manager_routing_run(completed, "running")):
+                    side_effect=_manager_routing_run(completed, "running")), \
+                escalation_allowed_for_a_stubbed_dispatch():
             result = ToolRegistry._dispatch_via_pkexec(
                 _call(), "manage_packages", {"action": "upgrade"},
                 "token-placeholder",
@@ -495,6 +502,7 @@ def _dispatch_with_manager(manager_answer, *, socket_present, returncode=127,
             mock.patch.object(tr, "_PKEXEC_RUNNER_PATH", str(runner)))
         stack.enter_context(
             mock.patch.object(tr.subprocess, "run", side_effect=_run))
+        stack.enter_context(escalation_allowed_for_a_stubbed_dispatch())
         result = ToolRegistry._dispatch_via_pkexec(
             _call(), "manage_packages", {"action": "upgrade"},
             "token-placeholder",
@@ -578,7 +586,8 @@ class TheSystemdRunPathIsAbsoluteTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="privdiag-abs-") as runtime:
             with mock.patch.dict(
                     os.environ, {"XDG_RUNTIME_DIR": runtime}, clear=False), \
-                    mock.patch.object(tr.subprocess, "run", side_effect=_run):
+                    mock.patch.object(tr.subprocess, "run", side_effect=_run), \
+                    escalation_allowed_for_a_stubbed_dispatch():
                 ToolRegistry._dispatch_via_pkexec(
                     _call(), "manage_packages", {"action": "upgrade"},
                     "token-placeholder",

@@ -137,10 +137,23 @@ class PrivilegedDispatchGateTests(unittest.TestCase):
     def test_tokenless_pkexec_dispatch_fails_closed(self):
         # Direct call to _dispatch_via_pkexec with no token must refuse before
         # invoking pkexec (defense-in-depth on the invariant).
-        call = self._call()
-        result = ToolRegistry._dispatch_via_pkexec(
-            call, "manage_services", self.args, None,
+        #
+        # The escalating posture is taken back here so the cell reaches the
+        # TOKEN refusal it is about rather than the posture refusal that now
+        # precedes it, and the dispatch is stubbed first — which is what makes
+        # lifting the posture safe, and is checked by the helper.
+        from intergen import tool_registry as tr
+        from intergen.tests.escalation_posture import (
+            escalation_allowed_for_a_stubbed_dispatch,
         )
+
+        call = self._call()
+        with mock.patch.object(tr.subprocess, "run") as run, \
+                escalation_allowed_for_a_stubbed_dispatch():
+            result = ToolRegistry._dispatch_via_pkexec(
+                call, "manage_services", self.args, None,
+            )
+        run.assert_not_called()
         self.assertFalse(result.success)
         self.assertIn("without a human-approval token", result.content)
 
