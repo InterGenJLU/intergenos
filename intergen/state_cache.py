@@ -60,7 +60,10 @@ _STATIC_COMMANDS: dict[str, list[list[str]]] = {
     "kernel": [["uname", "-r"]],
     "os_release": [["cat", "/etc/os-release"]],
     "cpu_info": [["lscpu"], ["head", "-20"]],
-    "gpu_info": [["lspci"], ["grep", "-i", "vga"]],
+    # gpu_info is NOT here: a display adapter's identity cannot change while
+    # the machine runs, so a 300-second poll could only ever return the answer
+    # it already had, and `lspci` reads PCI configuration space to get it. It
+    # is read ONCE, from sysfs, by read_display_adapters() below.
     "block_devices": [["lsblk"]],
     "usb_devices": [["lsusb"]],
     # network_interfaces ("ip -brief addr show") DROPPED: `ip` opens an
@@ -152,6 +155,120 @@ _QUERY_TO_CACHE = {
 }
 
 
+# ── Display-adapter identity, read WITHOUT a configuration-space access ──────
+#
+# The static tier used to re-run `lspci | grep -i vga` every 300 seconds for
+# the GPU's identity. Two things are wrong with that. The identity of a fixed
+# adapter cannot change while the machine is running, so the poll can only ever
+# return the answer it already has; and `lspci` reads PCI CONFIGURATION SPACE,
+# which on a machine where the kernel does not serve the header from its own
+# cache resumes a runtime-suspended device. (Measured on intergenos-192-r001-2,
+# kernel 6.18.10-igos-21, 2026-09-16: an unprivileged read there does NOT
+# resume the four suspended devices — their runtime_active_time did not move.
+# That is one machine's behaviour under one kernel and one privilege posture,
+# and it is not something to build on.)
+#
+# These attributes are kernel-side values in sysfs. Reading them touches no
+# device. The vendor and device NAMES come from the same pci.ids database
+# lspci itself uses, read as an ordinary file; when it is absent the numeric
+# identifiers are reported, which is true and useful, rather than a name being
+# guessed.
+_PCI_DEVICES_DIR = "/sys/bus/pci/devices"
+_PCI_IDS_PATHS = ("/usr/share/hwdata/pci.ids", "/usr/share/misc/pci.ids")
+# PCI base class 0x03 is a display controller; the sub-class names are the ones
+# the specification gives and the ones lspci prints.
+_DISPLAY_SUBCLASS = {
+    0x00: "VGA compatible controller",
+    0x01: "XGA compatible controller",
+    0x02: "3D controller",
+    0x80: "Display controller",
+}
+
+
+def _read_attr(path: str) -> str:
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            return fh.read().strip()
+    except OSError:
+        return ""
+
+
+def _pci_names(vendor: str, device: str) -> tuple[str, str]:
+    """(vendor name, device name) from the pci.ids database, or ("", "").
+
+    Reads the same file lspci reads, as a file. A database that is absent or
+    unreadable yields empty names and the caller reports the numbers.
+    """
+    for path in _PCI_IDS_PATHS:
+        try:
+            fh = open(path, "r", encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        vendor_name = device_name = ""
+        with fh:
+            in_vendor = False
+            for line in fh:
+                if not line.strip() or line.startswith("#"):
+                    continue
+                if not line.startswith("\t"):
+                    if in_vendor:
+                        break          # past our vendor's block
+                    if line[:4].lower() == vendor:
+                        in_vendor = True
+                        vendor_name = line[4:].strip()
+                    continue
+                if in_vendor and not line.startswith("\t\t"):
+                    if line[1:5].lower() == device:
+                        device_name = line[5:].strip()
+                        break
+        return vendor_name, device_name
+    return "", ""
+
+
+def read_display_adapters() -> str:
+    """One line per display adapter, in the shape the old poll produced.
+
+    Format: "00:02.0 VGA compatible controller: Intel Corporation Iris Plus
+    Graphics G1 (Ice Lake) (rev 07)" — the same sentence `lspci | grep -i vga`
+    produced, so every reader of this cache key is unaffected. Built from sysfs
+    identity attributes and the pci.ids file; no configuration space is read and
+    no subprocess is run. Returns "" when nothing can be read, which the caller
+    treats exactly as it treats an empty command result.
+    """
+    lines = []
+    try:
+        slots = sorted(os.listdir(_PCI_DEVICES_DIR))
+    except OSError:
+        return ""
+    for slot in slots:
+        base = os.path.join(_PCI_DEVICES_DIR, slot)
+        klass = _read_attr(os.path.join(base, "class"))
+        if not klass.startswith("0x03"):
+            continue
+        try:
+            subclass = int(klass[4:6], 16)
+        except ValueError:
+            continue
+        vendor = _read_attr(os.path.join(base, "vendor")).lower().removeprefix("0x")
+        device = _read_attr(os.path.join(base, "device")).lower().removeprefix("0x")
+        revision = _read_attr(os.path.join(base, "revision")).lower().removeprefix("0x")
+        vendor_name, device_name = _pci_names(vendor, device)
+        described = (f"{vendor_name} {device_name}".strip()
+                     if (vendor_name or device_name) else f"{vendor}:{device}")
+        # The slot as lspci prints it: the domain is dropped when it is 0000.
+        short = slot[5:] if slot.startswith("0000:") else slot
+        rev = f" (rev {revision})" if revision and revision != "00" else ""
+        lines.append(f"{short} "
+                     f"{_DISPLAY_SUBCLASS.get(subclass, 'Display controller')}: "
+                     f"{described}{rev}")
+    return "\n".join(lines)
+
+
+# Values that are an IDENTITY, not a state: read once, never on a timer. Each
+# maps its cache key to the reader that produces it.
+_IDENTITY_READERS = {"gpu_info": read_display_adapters}
+
+
 class StateCache:
     """Background system state cache with tiered refresh intervals."""
 
@@ -175,6 +292,7 @@ class StateCache:
         self._stop_event.clear()
 
         # Initial population (blocking — fills cache before daemon reports ready)
+        self._poll_identities()
         self._poll_all(_STATIC_COMMANDS, _STATIC_INTERVAL)
         self._poll_all(_DYNAMIC_COMMANDS, _DYNAMIC_INTERVAL)
         logger.info("State cache populated: %d entries", len(self._cache))
@@ -194,6 +312,37 @@ class StateCache:
         self._dynamic_thread.start()
         logger.info("State cache threads started (static=%ds, dynamic=%ds)",
                      _STATIC_INTERVAL, _DYNAMIC_INTERVAL)
+
+    def _poll_identities(self) -> None:
+        """Read each IDENTITY value once and cache it forever.
+
+        An identity is not a state: it is read at start and never on a timer,
+        because a timer on a constant is work that can only return the answer
+        already held. `stale_after` is set past any session so nothing treats
+        the value as expired and quietly re-reads it. A reader that returns
+        nothing writes nothing — the key stays absent, which every consumer
+        already handles as "not cached".
+        """
+        for key, reader in _IDENTITY_READERS.items():
+            with self._lock:
+                if key in self._cache:
+                    continue
+            try:
+                value = reader()
+            except Exception:  # noqa: BLE001 — an identity read never takes the daemon down
+                logger.exception("identity read failed for %s", key)
+                continue
+            if not value:
+                logger.warning("identity read for %s returned nothing; the key "
+                               "stays absent rather than holding an empty value",
+                               key)
+                continue
+            with self._lock:
+                self._cache[key] = CachedValue(
+                    value=value, timestamp=time.monotonic(),
+                    command=f"{reader.__name__}() — sysfs identity read",
+                    stale_after=float("inf"))
+            logger.info("identity %s read once from sysfs", key)
 
     def stop(self) -> None:
         """Stop background polling."""
