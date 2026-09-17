@@ -857,7 +857,8 @@ _MOK_RETIRE_PREFIX = 'retire-'
 _MOK_RETIRE_SUFFIX = '.der'
 
 
-def _mok_retirement_state(retire_dir=_MOK_RETIRE_DIR, mokutil=_mokutil_lines):
+def _mok_retirement_state(retire_dir=_MOK_RETIRE_DIR, mokutil=_mokutil_lines,
+                          decisions_path=None):
     """What became of the prior-key retirement this install asked for.
 
     Returns None when nothing was asked for (no request file) or when mokutil
@@ -871,11 +872,31 @@ def _mok_retirement_state(retire_dir=_MOK_RETIRE_DIR, mokutil=_mokutil_lines):
     A request file's name carries the fingerprint, and the file's own SHA-1 is
     that same fingerprint, so the name is checked against the bytes and a file
     whose name and content disagree is ignored rather than trusted.
+
+    ON A REAL MACHINE THIS DIRECTORY CANNOT BE LISTED BY THE PERSON. Its parent
+    is mode 0700 root:root, this page runs as the person, and the listing raises
+    PermissionError — so this card was silent on every installed machine,
+    measured 2026-09-17 on a workstation whose firmware trusts four machine
+    owner certificates. The fallback is the world-readable record the install
+    writes: when the directory cannot be listed, the fingerprints it marks as
+    retired ARE the request list. `from_record` says which of the two was read,
+    because a card that never saw the request files must not print their names
+    as though it had.
     """
+    from_record = False
     try:
         names = sorted(os.listdir(retire_dir))
     except OSError:
-        return None
+        names = None
+    if names is None:
+        decisions = _prior_key_decisions(
+            _MOK_DECISION_RECORD if decisions_path is None else decisions_path)
+        requested = sorted(f for f, decision in decisions.items()
+                           if decision == 'retired')
+        if not requested:
+            return None
+        from_record = True
+        return _retirement_state_from(requested, mokutil, from_record)
     requested = []
     for name in names:
         if not (name.startswith(_MOK_RETIRE_PREFIX)
@@ -892,6 +913,11 @@ def _mok_retirement_state(retire_dir=_MOK_RETIRE_DIR, mokutil=_mokutil_lines):
         requested.append(claimed)
     if not requested:
         return None
+    return _retirement_state_from(requested, mokutil, from_record)
+
+
+def _retirement_state_from(requested, mokutil, from_record):
+    """What the firmware says about the keys an install asked it to remove."""
     enrolled_lines = mokutil('--list-enrolled')
     if enrolled_lines is None:
         return None
@@ -903,6 +929,7 @@ def _mok_retirement_state(retire_dir=_MOK_RETIRE_DIR, mokutil=_mokutil_lines):
         'still_trusted': [f for f in requested if f in enrolled and f not in waiting],
         'waiting': [f for f in requested if f in waiting],
         'gone': [f for f in requested if f not in enrolled],
+        'from_record': from_record,
     }
 
 
@@ -938,12 +965,25 @@ def _prior_key_card_text(state):
                   'is missed the request is dropped. Nothing was removed and '
                   'nothing was damaged — the machine simply still trusts the same '
                   'keys it did before.')
-        action = ('To ask again, run this, restart with Secure Boot on, and '
-                  'confirm the removal with your enrolment password:\n'
-                  'sudo mokutil --delete '
-                  + ' '.join(os.path.join(_MOK_RETIRE_DIR,
-                                          _MOK_RETIRE_PREFIX + f + _MOK_RETIRE_SUFFIX)
-                             for f in missed))
+        if state.get('from_record'):
+            # The request files were never seen — only the record that says a
+            # removal was asked for — so this names the documented path rather
+            # than file names it cannot vouch for.
+            action = ('To ask again, in a terminal: mokutil --export writes '
+                      'every trusted certificate to a file here, and sudo '
+                      'mokutil --delete <file> queues one for removal. Restart '
+                      'with Secure Boot on and confirm it with your enrolment '
+                      'password. The fingerprints still trusted:\n'
+                      + '\n'.join('  ' + ':'.join(f[i:i + 2]
+                                                  for i in range(0, 40, 2))
+                                   for f in missed))
+        else:
+            action = ('To ask again, run this, restart with Secure Boot on, and '
+                      'confirm the removal with your enrolment password:\n'
+                      'sudo mokutil --delete '
+                      + ' '.join(os.path.join(_MOK_RETIRE_DIR,
+                                              _MOK_RETIRE_PREFIX + f + _MOK_RETIRE_SUFFIX)
+                                 for f in missed))
         return (title, body, action)
     title = ('A Secure Boot key you asked to retire is still waiting for the firmware'
              if len(waiting) == 1 else
