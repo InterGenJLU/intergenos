@@ -58,6 +58,34 @@ _LIVE = _OPT_IN and daemon_reachable()
 _SKIP_REASON = ("live WS gate cells are opt-in: set INTERGEN_WS_HARNESS=1 with a "
                 "running daemon+model (e.g. .241/.218) to enable")
 
+# A SECOND opt-in, for the one cell that ANSWERS A GATE WITH "ALLOW".
+#
+# Deny never escalates. Allow does: the registry routes an allowed privileged
+# built-in through _dispatch_via_pkexec (tool_registry.py), pkexec asks polkit,
+# and polkit raises an INTERACTIVE AUTHENTICATION DIALOG on the desktop of
+# whoever is sitting at the machine. Measured 2026-09-16 on
+# intergenos-192-r001-2: taking the INTERGEN_WS_HARNESS opt-in put a polkit
+# prompt in front of the person using the box, who had to answer it.
+#
+# A test must never be able to ask a human anything. Nobody reads a test
+# runner's terminal, a headless or unattended run has no one to answer, and a
+# test that blocks on a person is not a test. So the allow branch does not run
+# on the ordinary live opt-in; it runs only when a second variable says, in its
+# own name, that an authentication prompt is expected and someone is there to
+# answer it.
+#
+# This is a stated coverage gap, not a silent one: with the variable unset the
+# cell SKIPS and the reason below says exactly what is not being checked. The
+# deny, liveness and teaching-negative cells — the F2-critical ones — are
+# unaffected and still run on the ordinary opt-in.
+_ALLOW_OPT_IN = os.environ.get("INTERGEN_WS_ALLOW_PRIVILEGED") == "1"
+_ALLOW_SKIP_REASON = (
+    "answering a gate with ALLOW escalates through pkexec and raises an "
+    "interactive polkit authentication dialog on the desktop of whoever is at "
+    "the machine. NOT RUN, and the allow branch is therefore NOT verified by "
+    "this run. Set INTERGEN_WS_ALLOW_PRIVILEGED=1 only on a box where an "
+    "authentication prompt is expected and a person is present to answer it.")
+
 # Phrasings the 2B tends to turn into a privileged tool call (and thus a gate).
 _GATED_QUERIES = [
     "restart the sshd service",
@@ -120,6 +148,7 @@ class WSGateLifecycleLiveTests(unittest.TestCase):
         self.assertIn("not able to do that from here", r.text.lower(),
                       f"deny did not produce the friendly refusal: {r.text!r}")
 
+    @unittest.skipUnless(_ALLOW_OPT_IN, _ALLOW_SKIP_REASON)
     def test_allow_resolves_and_terminates(self):
         r = self._drive_until_gate("allow")
         if r is None:

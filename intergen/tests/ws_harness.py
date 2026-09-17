@@ -32,6 +32,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+import pwd
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -60,10 +62,85 @@ _TERMINAL_TYPES = frozenset({
 })
 
 
+# Where the panel token is looked for, in order, when no directory is given.
+# Named here so the failure below can print the list it actually tried.
+TOKEN_FILE_ENV = "INTERGEN_WS_TOKEN_FILE"
+
+
+def _token_candidates() -> list[Path]:
+    """Every place the panel token is looked for, in order.
+
+    `Path.home()` alone is not enough, and the reason is a collision between two
+    correct things. conftest.py redirects HOME and every XDG base to a throwaway
+    directory before any intergen import, deliberately: a suite run must not
+    touch the invoking user's own files (measured 2026-08-24, a run changed the
+    modes of three directories and six files under the real home). The LIVE
+    cells here, by design, drive the REAL daemon — whose token lives in the real
+    home. So under pytest the redirection moved the token out of reach and the
+    opt-in those cells advertise could not be taken: enabling
+    INTERGEN_WS_HARNESS=1 produced four FileNotFoundError failures rather than
+    four runs (measured 2026-09-16 on intergenos-192-r001-2, identically at
+    a51039c4e, so not a regression — the opt-in had never been reachable under
+    pytest).
+
+    The order below fixes that without weakening the isolation. The isolation
+    exists to stop a test run WRITING to the real home; every path here is READ,
+    and only when a caller has asked to drive the live daemon.
+
+      1. INTERGEN_WS_TOKEN_FILE, when set — an explicit path, which is the
+         answer when the daemon is not this user's or not on this machine.
+      2. The invoking user's home from the PASSWD DATABASE. os.getuid() is the
+         real user either way; pwd does not read $HOME, so the redirection does
+         not move it.
+      3. Path.home() — unchanged behaviour outside pytest, and the path a
+         caller who has set HOME on purpose means.
+    """
+    candidates: list[Path] = []
+    explicit = os.environ.get(TOKEN_FILE_ENV)
+    if explicit:
+        candidates.append(Path(explicit))
+    try:
+        candidates.append(
+            Path(pwd.getpwuid(os.getuid()).pw_dir) / ".config" / "intergen"
+            / "web-token")
+    except (KeyError, OSError):
+        pass
+    candidates.append(Path.home() / ".config" / "intergen" / "web-token")
+    seen: set[str] = set()
+    ordered: list[Path] = []
+    for c in candidates:
+        key = str(c)
+        if key not in seen:
+            seen.add(key)
+            ordered.append(c)
+    return ordered
+
+
 def default_token(config_dir: Path | None = None) -> str:
-    """Read the panel web token the daemon writes for the local UI."""
-    base = config_dir or (Path.home() / ".config" / "intergen")
-    return (base / "web-token").read_text().strip()
+    """Read the panel web token the daemon writes for the local UI.
+
+    `config_dir` names the directory to read, exactly as before. With none, the
+    candidates above are tried in order and the first readable one wins. When
+    none is readable the error NAMES every path tried and the environment
+    variable that overrides them, because the bare FileNotFoundError this used
+    to raise pointed at a throwaway pytest directory and said nothing about why
+    the token was not there.
+    """
+    if config_dir is not None:
+        return (Path(config_dir) / "web-token").read_text().strip()
+    tried = _token_candidates()
+    for path in tried:
+        try:
+            token = path.read_text().strip()
+        except OSError:
+            continue
+        if token:
+            return token
+    raise FileNotFoundError(
+        "no panel web token could be read. The daemon writes it when it "
+        "starts; these paths were tried, in order: "
+        + ", ".join(str(p) for p in tried)
+        + f". Set {TOKEN_FILE_ENV} to read it from somewhere else.")
 
 
 @dataclass
