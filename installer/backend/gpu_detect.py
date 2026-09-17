@@ -8,7 +8,7 @@ are on the install medium, and the in-tree Vulkan build of the inference
 engine serves the assistant on top of them. Two classes of hardware can do
 better with software that is NOT allowed on the medium:
 
-  * NVIDIA's proprietary driver, whose licence forbids redistribution;
+  * NVIDIA's proprietary driver, whose license forbids redistribution;
   * the per-vendor compute engine builds (CUDA on NVIDIA, HIP/ROCm on AMD),
     which are mirror-only by design.
 
@@ -16,7 +16,7 @@ Neither can be installed while the installer runs, and the installer never
 reaches the network. So the installer's whole job here is to WRITE DOWN what
 it found, and the offer to install it is made on the first boot — by the
 welcome application, where the package manager is present, the machine is on
-a network, and the vendor's own licence gate can run with its full text on
+a network, and the vendor's own license gate can run with its full text on
 the user's own machine.
 
 Decided 2026-08-05: an installer page that showed a terminal command the user

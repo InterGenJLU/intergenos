@@ -14,7 +14,7 @@ failure is silent:
      named; no document is written. An SBOM missing a shipped package asserts a
      completeness it does not have, which is worse than no SBOM at all.
 
-  3. LICENCES ARE REPRESENTED, NOT COERCED. A declaration that is not a
+  3. LICENSES ARE REPRESENTED, NOT COERCED. A declaration that is not a
      well-formed SPDX expression becomes a LicenseRef carrying the raw text,
      never NOASSERTION — dropping the declaration would defeat the one audit
      the document exists to serve.
@@ -358,7 +358,7 @@ class TestArchiveChecksums(TreeTestCase):
 
 
 # ----------------------------------------------------------------------
-# Licence representation
+# License representation
 # ----------------------------------------------------------------------
 
 

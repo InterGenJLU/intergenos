@@ -54,7 +54,7 @@ do_install() {
 
     # Install documentation
     install -v -m755 -d "${DESTDIR}/usr/share/doc/openssh-10.2p1"
-    install -v -m644 INSTALL LICENCE OVERVIEW README* \
+    install -v -m644 INSTALL LICENSE OVERVIEW README* \
         "${DESTDIR}/usr/share/doc/openssh-10.2p1"
 
     # Install InterGenOS sshd systemd unit

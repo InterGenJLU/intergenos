@@ -354,7 +354,7 @@ do_install() {
     fi
 
     # A post-install hook, not a silent dependency. pkm never runs a download
-    # helper on a user's behalf (it will not accept a vendor licence for them),
+    # helper on a user's behalf (it will not accept a vendor license for them),
     # so pulling cuda-toolkit in as a runtime dependency puts the HELPER on the
     # machine but not the toolkit. Without the toolkit these binaries fail to
     # start with a missing-soname error, which is loud but unhelpful. Say the

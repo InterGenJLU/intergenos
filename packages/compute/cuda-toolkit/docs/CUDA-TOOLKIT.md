@@ -9,9 +9,9 @@ toolkit and lays it out under `/opt/cuda`.
 
 InterGenOS builds what it ships from source and publishes the result on its own
 mirror. It cannot do that with CUDA. `nvcc`, NVIDIA's compiler, may not be
-redistributed under NVIDIA's CUDA end user licence agreement, so a mirror
+redistributed under NVIDIA's CUDA end user license agreement, so a mirror
 package carrying the toolkit would be redistributing something we have no right
-to redistribute. Rather than read the licence narrowly and hope, the toolkit is
+to redistribute. Rather than read the license narrowly and hope, the toolkit is
 fetched from NVIDIA, on your machine, by a script you can read.
 
 The same pattern already carries the other proprietary software the distribution
@@ -29,8 +29,8 @@ does not own: Chrome, Visual Studio Code, Claude Code.
   extract-only mode that writes the payload to a directory and stops, and only
   after the hash check above has passed. The installer inside it never runs:
   it would offer to replace this machine's GPU driver, and its silent mode
-  accepts the licence on your behalf.
-- **The licence text you agreed to is kept.** It is written to
+  accepts the license on your behalf.
+- **The license text you agreed to is kept.** It is written to
   `/var/lib/intergen/legal/cuda-toolkit-<version>-EULA.txt` and to
   `/opt/cuda/EULA.txt`, alongside a JSON record of when it was accepted and by
   whom.
@@ -54,7 +54,7 @@ same layout, so NVIDIA's documentation describes what you have.
 /opt/cuda/bin/nvcc            the compiler        (add /opt/cuda/bin to PATH)
 /opt/cuda/include             headers
 /opt/cuda/lib64               runtime libraries   (already on the loader path)
-/opt/cuda/EULA.txt            the licence
+/opt/cuda/EULA.txt            the license
 /etc/ld.so.conf.d/cuda.conf   what puts lib64 on the loader path
 ```
 
@@ -100,6 +100,6 @@ sudo pkm remove cuda-toolkit
 This removes the files under `/opt/cuda` that the helper recorded, and the
 loader configuration. The acceptance record under `/var/lib/intergen/legal` is
 left in place on purpose, so reinstalling the **same version** does not ask you
-to accept a licence you have already accepted. The record names its version, so
-a later toolkit version asks again — a different licence text deserves a fresh
+to accept a license you have already accepted. The record names its version, so
+a later toolkit version asks again — a different license text deserves a fresh
 answer.

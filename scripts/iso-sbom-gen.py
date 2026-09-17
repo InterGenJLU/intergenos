@@ -60,12 +60,12 @@ in-tree pattern (one package declares
 
 The alternative — mapping an unrecognised declaration to ``NOASSERTION`` —
 is rejected deliberately. It would render a document that validates while
-having silently dropped the one fact a licence audit needs.
+having silently dropped the one fact a license audit needs.
 
 LIMIT, STATED PLAINLY: this validates the SHAPE of an SPDX expression
 (identifier tokens joined by AND / OR / WITH, optional parentheses, a
 trailing ``+``, and ``LicenseRef-`` / ``DocumentRef-`` tokens). It does NOT
-check membership in the SPDX licence list, because a bundled copy of that
+check membership in the SPDX license list, because a bundled copy of that
 list goes stale silently and a network fetch has no place in a generator.
 So a well-formed-but-misspelled identifier passes through as declared. A
 list-membership check belongs in the package-metadata lint that owns
@@ -114,7 +114,7 @@ parse_template = _parser_mod.parse_template
 TOOL_NAME = "scripts/iso-sbom-gen.py-1.0"
 MIRROR_BASE = "https://repo.intergenos.org/x86_64/current"
 
-# One SPDX licence-expression token: an identifier, or a LicenseRef/DocumentRef.
+# One SPDX license-expression token: an identifier, or a LicenseRef/DocumentRef.
 # Identifiers may carry a trailing '+' (the "or-later" shorthand SPDX still
 # accepts alongside the -or-later suffix form).
 _LICENSE_ID_RE = re.compile(r"^[A-Za-z0-9.\-]+\+?$")
@@ -148,11 +148,11 @@ def spdx_id_fragment(text: str) -> str:
 
 
 def license_expression_is_wellformed(expr: str) -> bool:
-    """True if `expr` parses as an SPDX licence expression by SHAPE.
+    """True if `expr` parses as an SPDX license expression by SHAPE.
 
     Checks token structure only — identifiers joined by AND/OR/WITH with
     balanced parentheses. Deliberately does NOT check that each identifier is
-    on the SPDX licence list; see the module docstring for why, and for what
+    on the SPDX license list; see the module docstring for why, and for what
     that means about a misspelled identifier.
     """
     if not expr or not expr.strip():
@@ -225,9 +225,9 @@ def resolve_license(declared: str) -> tuple[str, list[dict]]:
                 "licenseId": ref,
                 "name": ref.removeprefix("LicenseRef-").replace("-", " "),
                 "extractedText": (
-                    f"Declared in package.yml as part of the licence expression "
-                    f"{declared!r}. This reference is not an SPDX licence-list "
-                    f"identifier; the package's own licence text ships with the "
+                    f"Declared in package.yml as part of the license expression "
+                    f"{declared!r}. This reference is not an SPDX license-list "
+                    f"identifier; the package's own license text ships with the "
                     f"package."
                 ),
             }
@@ -241,8 +241,8 @@ def resolve_license(declared: str) -> tuple[str, list[dict]]:
         "licenseId": ref,
         "name": declared,
         "extractedText": (
-            f"package.yml declares this package's licence as {declared!r}, which "
-            f"is not a well-formed SPDX licence expression. It is recorded here "
+            f"package.yml declares this package's license as {declared!r}, which "
+            f"is not a well-formed SPDX license expression. It is recorded here "
             f"verbatim rather than replaced with NOASSERTION, so the declaration "
             f"is preserved exactly as the package states it."
         ),
@@ -381,7 +381,7 @@ def build_package_entry(pkg, archives_dir: Path | None) -> tuple[dict, list[dict
     payload_license = getattr(pkg, "payload_license", None)
     if payload_license:
         comment_parts.append(
-            f"This package fetches a payload at install time whose licence is "
+            f"This package fetches a payload at install time whose license is "
             f"declared separately as {payload_license!r}; the payload is not "
             f"redistributed by InterGenOS and is not part of this package's "
             f"own bytes."
@@ -600,7 +600,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  NOTE: {len(shipped) - hashed_count} shipped package(s) had no "
               f"staged archive; each entry says so in its comment. Use "
               f"--require-archives to make that a refusal.")
-    print(f"  non-SPDX licence refs      : "
+    print(f"  non-SPDX license refs      : "
           f"{len(doc.get('hasExtractedLicensingInfos', []))}")
     print(f"  relationships              : {len(doc['relationships'])}")
     print(f"  created                    : {created}")

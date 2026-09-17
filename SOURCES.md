@@ -104,7 +104,7 @@ source distribution, "corresponding source" under InterGenOS means
    program and the vendored dependency set it is compiled with — every
    one of those inputs is in the archive, because the corresponding
    source of what we built is all of what we built it from. The single
-   exception is an input whose licence does not grant us redistribution
+   exception is an input whose license does not grant us redistribution
    rights; that case is declared `redistributable: false`, is never
    silently dropped, and is described under "Build inputs we may not
    republish" in §5.
@@ -262,7 +262,7 @@ for the helper-payload license posture.
 
 **Build inputs we may not republish.** One package,
 `packages/compute/llama-cpp-cuda`, is compiled against a proprietary
-vendor toolkit whose licence does not grant redistribution rights:
+vendor toolkit whose license does not grant redistribution rights:
 NVIDIA's CUDA toolkit, whose compiler `nvcc` may not be
 redistributed. The binary we publish is entirely our own compiled
 output from MIT-licensed llama.cpp source, with NVIDIA's runtime

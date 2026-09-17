@@ -10,7 +10,7 @@ describe themselves as a key-value store — Valkey, Memcached, LevelDB, RocksDB
 and etcd among them. It is a text search, not a category listing. The tables in
 this guide name every database package the release carries; search for one by
 name (`pkm search valkey`) to see its version and tier. `pkm info valkey`
-shows repository licence, size, and checksum while it is available but not
+shows repository license, size, and checksum while it is available but not
 installed; after installation it reports installed metadata, dependencies, and
 files instead.
 
@@ -44,11 +44,11 @@ If you are developing software in C/C++ or Rust and need to embed a lightning-fa
 
 ## 3. Licensing Transparency
 
-Every curated database package is open-source or public-domain software. Its exact licence or dedication is recorded in package metadata; SQLite, for example, uses `LicenseRef-Public-Domain` rather than an OSI licence identifier.
+Every curated database package is open-source or public-domain software. Its exact license or dedication is recorded in package metadata; SQLite, for example, uses `LicenseRef-Public-Domain` rather than an OSI license identifier.
 
 Where a popular database has moved to a restrictive non-OSI license, we ship an open-source, wire-compatible alternative instead. For example, **Valkey** is the recommended in-memory cache as a drop-in alternative to Redis.
 
-Packages that require separate licence acceptance declare an explicit EULA or payload-licence gate. Ordinary `license` metadata is descriptive and does not by itself create an acceptance prompt.
+Packages that require separate license acceptance declare an explicit EULA or payload-license gate. Ordinary `license` metadata is descriptive and does not by itself create an acceptance prompt.
 
 ## 4. Installation and Setup
 

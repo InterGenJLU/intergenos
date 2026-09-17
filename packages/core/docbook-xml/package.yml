@@ -1,10 +1,10 @@
 name: docbook-xml
 version: '4.5'
-release: 2  # r2: license: OASIS -> DocBook-DTD — a valid SPDX identifier, so the new licence-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade.
+release: 2  # r2: license: OASIS -> DocBook-DTD — a valid SPDX identifier, so the new license-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade.
 description: DocBook XML DTD
 # The DTD's own notice (docbookx.dtd, in the pinned 4.5 zip) is the text SPDX
 # carries as DocBook-DTD — same copyright holders, same permission paragraph.
-# The neighbouring DocBook-XML identifier is the MIT-style stylesheet licence
+# The neighbouring DocBook-XML identifier is the MIT-style stylesheet license
 # and does not apply to this artifact.
 license: DocBook-DTD
 homepage: ''

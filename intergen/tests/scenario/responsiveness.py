@@ -31,9 +31,9 @@ asked, whatever the trace says about routing.
 
 Fail-closed within the determinable domain: once the reply is identified as a
 topic-bearing template, the turn FAILS unless the question POSITIVELY licenses
-that topic. Absence of a licence is a failure, never a pass.
+that topic. Absence of a license is a failure, never a pass.
 
-Why the licence cues are word-anchored (this is load-bearing)
+Why the license cues are word-anchored (this is load-bearing)
 -------------------------------------------------------------
 The selector this checks is itself substring-matched, and that is how the
 observed defect was produced: ``_template_synthesis`` chooses the disk summary
@@ -45,7 +45,7 @@ the disk template for whatever output it is handed. Reproduced directly:
     >>> R._template_synthesis("search for a pdf editor", "a\\nmulti-line output")
     'Disk usage is available.'
 
-If this module matched its licence cues the same unanchored way, ``"pdf"`` would
+If this module matched its license cues the same unanchored way, ``"pdf"`` would
 license the disk topic and the gate would wave through the exact defect it
 exists to catch. Every cue here is therefore matched on WORD boundaries. This is
 a deliberate divergence from the selector's matching, not an oversight.
@@ -70,7 +70,7 @@ DOES NOT CATCH (stated plainly, no silent coverage claim):
   back the unsummarized command output, which is deliberately not a template);
 * an answer on the right subject that answers a different sub-question;
 * a question that names the subject incidentally while asking something else —
-  the licence is granted and the turn is not flagged.
+  the license is granted and the turn is not flagged.
 
 Nothing here reaches into the daemon: the check reads only the question as sent
 and the reply as delivered.
@@ -119,7 +119,7 @@ _TEMPLATE_SHAPES: dict[str, tuple[tuple[str, ...], tuple[str, ...], tuple[re.Pat
                      (re.compile(r"^this is a (?:32|64)-bit system \(.+\)\.$"),)),
 }
 
-# ── per-topic licence cues, matched on WORD BOUNDARIES (see module docstring) ──
+# ── per-topic license cues, matched on WORD BOUNDARIES (see module docstring) ──
 #
 # A cue set answers one question only: "does the question name this subject at
 # all?" It is not a router-selector replica and does not decide routing. Cues

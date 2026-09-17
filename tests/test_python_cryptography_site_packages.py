@@ -4,7 +4,7 @@
 
 WHAT WENT WRONG. The wheel this recipe builds carries the sdist's entire top
 level, so `pip install` put tests/, docs/, rust/, vendor/, _cffi_src/, the
-Cargo files and three licence files straight into
+Cargo files and three license files straight into
 /usr/lib/python3.14/site-packages — a namespace every Python package on the
 system shares. Read from the shipped archive of the first release
 (python-cryptography-44.0.0.igos.tar.gz on the published mirror), the archive

@@ -1,6 +1,6 @@
 name: liburing
 version: "2.14"
-release: 2  # r2: deprecated licence identifiers replaced with the modern SPDX forms after reading the pinned tarball's own grant — no or-later election appears anywhere in liburing 2.14, so both are -only. Recipe metadata only, but the archive's .PKGINFO carries license=, so the shipped bytes change and the release advances with them.
+release: 2  # r2: deprecated license identifiers replaced with the modern SPDX forms after reading the pinned tarball's own grant — no or-later election appears anywhere in liburing 2.14, so both are -only. Recipe metadata only, but the archive's .PKGINFO carries license=, so the shipped bytes change and the release advances with them.
 description: Linux io_uring async I/O wrapper library (Jens Axboe)
 license: MIT AND LGPL-2.1-only AND GPL-2.0-only
 homepage: https://github.com/axboe/liburing

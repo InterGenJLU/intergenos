@@ -4,11 +4,11 @@ version: "20260622"
 # pkm ordering). Prior 20260309-2 carried the elf_class_exempt declaration
 # (L9 class, 2026-07-03) as a same-version content change; that
 # declaration persists below, version-independent.
-release: 3  # r3: license: Various (redistributable) -> LicenseRef-Various-Redistributable — a valid SPDX identifier, so the new licence-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade. capture wave: header corrected (no Intel/AMD audio-DSP firmware upstream)
+release: 3  # r3: license: Various (redistributable) -> LicenseRef-Various-Redistributable — a valid SPDX identifier, so the new license-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade. capture wave: header corrected (no Intel/AMD audio-DSP firmware upstream)
 description: Firmware files for Linux kernel drivers (WiFi, GPU, audio, etc.)
 # This package is thousands of vendor blobs under many separate redistribution
 # terms; no single identifier is true of it. LicenseRef- preserves the
-# declaration, and WHAT.binary-firmware / LICENCE.* in the tarball remain the
+# declaration, and WHAT.binary-firmware / LICENSE.* in the tarball remain the
 # per-blob authority.
 license: LicenseRef-Various-Redistributable
 homepage: https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git

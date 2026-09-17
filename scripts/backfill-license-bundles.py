@@ -35,7 +35,7 @@ What it does
    and extracts it to a temp directory.
 4. Walks the extracted tree (top-level + immediate licenses/ /
    LICENSES/ / license-files/ subdirs) for files matching the standard
-   upstream license naming pattern (LICENSE / LICENCE / COPYING /
+   upstream license naming pattern (LICENSE / LICENSE / COPYING /
    COPYRIGHT / NOTICE — case-insensitive, with optional .txt / .md /
    suffix variants).
 5. Copies matching files into <CHROOT>/usr/share/licenses/<name>/.

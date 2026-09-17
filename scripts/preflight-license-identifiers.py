@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 InterGenJLU
 """Fail-closed preflight gate: every recipe's `license:` must be a real SPDX
-licence expression, every identifier in it on the SPDX licence list.
+license expression, every identifier in it on the SPDX license list.
 
 WHY A SEPARATE GATE, AND WHY HERE
 ---------------------------------
-`license:` is the field every downstream licence consumer reads: the SBOM
+`license:` is the field every downstream license consumer reads: the SBOM
 generator copies it into `licenseDeclared`, the mirror index carries it, and a
-licence audit of a shipped image begins and ends with it. Nothing checked it.
+license audit of a shipped image begins and ends with it. Nothing checked it.
 A recipe could declare `Public-Domain`, `MIT-style` or `Various
 (redistributable)` and every tool downstream would faithfully propagate a
 string no SPDX consumer can resolve.
@@ -17,17 +17,17 @@ scripts/iso-sbom-gen.py validates the SHAPE of an expression — identifiers
 joined by AND/OR/WITH — and says in its own docstring that list membership
 belongs to "the package-metadata lint that owns license: as a field". This is
 that lint. Shape validation alone passes a misspelling: `Zope-2.0` and
-`Public-Domain` are both well-formed tokens and neither is a licence anyone
+`Public-Domain` are both well-formed tokens and neither is a license anyone
 can look up.
 
 The check is static and costs milliseconds — it reads recipes and one bundled
 data file, never the chroot or the network — so it runs at preflight and
-refuses the build before it starts, rather than shipping unresolvable licence
+refuses the build before it starts, rather than shipping unresolvable license
 metadata into an image and a mirror index.
 
 FAIL-CLOSED
 -----------
-A recipe whose licence cannot be READ is a failure, never a skip. Unparseable
+A recipe whose license cannot be READ is a failure, never a skip. Unparseable
 YAML, a missing `license:` key, a non-string value, an empty string: each is a
 finding naming the file. A gate that skips what it cannot read reports a zero
 it never earned.
@@ -37,43 +37,43 @@ fix list instead of stopping at the first bad file.
 
 WHAT COUNTS AS VALID
 --------------------
-An SPDX licence expression:
+An SPDX license expression:
 
-  * an identifier on the SPDX licence list (`MIT`, `GPL-3.0-or-later`), with
+  * an identifier on the SPDX license list (`MIT`, `GPL-3.0-or-later`), with
     an optional trailing `+`;
   * `LicenseRef-<idstring>`, optionally `DocumentRef-<id>:`-qualified — SPDX's
-    own mechanism for a licence that is not on the list. A package whose
-    licence genuinely has no list identifier declares it this way; that is the
+    own mechanism for a license that is not on the list. A package whose
+    license genuinely has no list identifier declares it this way; that is the
     answer, not an exception-list entry;
   * those joined by `AND` / `OR`, with parentheses;
-  * `<licence> WITH <exception>`, where the right operand must be on the SPDX
-    licence-EXCEPTION list — a distinct list, and the reason a bare
-    "is it on the licence list" check would wave `MIT WITH MIT` through.
+  * `<license> WITH <exception>`, where the right operand must be on the SPDX
+    license-EXCEPTION list — a distinct list, and the reason a bare
+    "is it on the license list" check would wave `MIT WITH MIT` through.
 
 Deprecated identifiers (`GPL-2.0`, `LGPL-2.1`) ARE on the list and therefore
 PASS. They are reported separately as warnings, because replacing `GPL-2.0`
 with `GPL-2.0-only` or `GPL-2.0-or-later` resolves an ambiguity the recipe
 never resolved — a licensing determination that belongs to whoever reads the
-package's own licence text, not to a lint. Silence about them would be the
+package's own license text, not to a lint. Silence about them would be the
 worse error; so would a gate quietly picking one.
 
 THE EXCEPTION LIST
 ------------------
 `EXEMPT_PACKAGES` is empty, and the intent is that it stays that way.
-`LicenseRef-` already covers every licence SPDX does not carry, so an entry
+`LicenseRef-` already covers every license SPDX does not carry, so an entry
 here means something stranger. Any entry must name the package and say in a
-comment why that licence is genuinely absent from SPDX and why a LicenseRef is
+comment why that license is genuinely absent from SPDX and why a LicenseRef is
 not the right shape for it.
 
 THE BUNDLED LIST, AND ITS STALENESS
 -----------------------------------
 The identifier sets live in config/spdx-license-list.json, checked in with the
-upstream tag, the licence-list version, and the sha256 of each upstream file
+upstream tag, the license-list version, and the sha256 of each upstream file
 it was built from. A build gate must not fetch: that would make the verdict
 depend on a third party being reachable and honest at that moment.
 
 The honest cost is that the bundled list ages. This gate answers that by
-printing the licence-list version and release date on EVERY run, pass or fail,
+printing the license-list version and release date on EVERY run, pass or fail,
 so a stale list is stated rather than assumed, and by carrying the refresh
 procedure in the data file itself. A newly-published identifier a recipe wants
 is a list refresh, not a gate bypass.
@@ -99,7 +99,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_RELPATH = "config/spdx-license-list.json"
 
-# Packages whose licence is genuinely absent from SPDX in a way LicenseRef-
+# Packages whose license is genuinely absent from SPDX in a way LicenseRef-
 # does not express. Empty by design — see the module docstring. Each entry is
 # "<tier>/<name>": "why SPDX has no identifier for this and why LicenseRef- is
 # the wrong shape here".
@@ -153,7 +153,7 @@ def load_spdx(root: Path) -> dict:
 
 
 def check_expression(expr: str, spdx: dict) -> tuple[str | None, list[str]]:
-    """Validate one licence expression.
+    """Validate one license expression.
 
     Returns (error, deprecated_ids). `error` is None when the expression is a
     valid SPDX expression whose every identifier is on the relevant list;
@@ -161,7 +161,7 @@ def check_expression(expr: str, spdx: dict) -> tuple[str | None, list[str]]:
     finding is actionable without re-deriving anything.
     """
     if not isinstance(expr, str) or not expr.strip():
-        return "declares no licence text at all", []
+        return "declares no license text at all", []
 
     spaced = expr.replace("(", " ( ").replace(")", " ) ")
     tokens = spaced.split()
@@ -187,36 +187,36 @@ def check_expression(expr: str, spdx: dict) -> tuple[str | None, list[str]]:
     for tok in meaningful:
         if expect_operand:
             if tok.upper() in _OPERATORS:
-                return (f"has the operator {tok!r} where a licence was expected"), []
+                return (f"has the operator {tok!r} where a license was expected"), []
             if after_with:
                 # The right operand of WITH comes from the EXCEPTION list.
                 if not (_REF_RE.match(tok) or tok in spdx["exceptions"]):
                     return (f"uses {tok!r} after WITH, which is not on the SPDX "
-                            f"licence-exception list"), []
+                            f"license-exception list"), []
             elif _REF_RE.match(tok):
                 pass
             elif _ID_RE.match(tok):
                 base = tok[:-1] if tok.endswith("+") else tok
                 if base not in spdx["licenses"]:
                     return (f"uses {tok!r}, which is not an identifier on the "
-                            f"SPDX licence list"), []
+                            f"SPDX license list"), []
                 if base in spdx["deprecated"]:
                     deprecated.append(base)
             else:
-                return (f"uses {tok!r}, which is not a licence identifier, a "
+                return (f"uses {tok!r}, which is not a license identifier, a "
                         f"LicenseRef- or an operator"), []
             expect_operand = False
             after_with = False
         else:
             if tok.upper() not in _OPERATORS:
                 return (f"puts {tok!r} where AND, OR or WITH was expected — two "
-                        f"licences separated by a bare space is not an "
+                        f"licenses separated by a bare space is not an "
                         f"expression"), []
             after_with = tok.upper() == "WITH"
             expect_operand = True
 
     if expect_operand:
-        return "ends with an operator and no licence after it", []
+        return "ends with an operator and no license after it", []
     return None, deprecated
 
 
@@ -247,7 +247,7 @@ def scan(root: Path, spdx: dict, shipped_only: bool) -> tuple[list[dict], list[d
             pkg = parse_template(str(recipe))
         except Exception as e:
             # Unreadable is a finding. The build's own parser rejected it, so
-            # the licence cannot be established at all. It counts as CHECKED:
+            # the license cannot be established at all. It counts as CHECKED:
             # the recipe was examined and produced a verdict, and without this
             # a tree of nothing but unparseable recipes would exit 2 for an
             # empty scope and bury every finding it had just collected.
@@ -312,7 +312,7 @@ def main(argv=None) -> int:
         return 2
 
     scope = "shipped packages only" if args.shipped_only else "every package"
-    print(f"[license-identifiers] SPDX licence list {spdx['version']} "
+    print(f"[license-identifiers] SPDX license list {spdx['version']} "
           f"({spdx['tag']}, released {spdx['release_date']}) — "
           f"{len(spdx['licenses'])} identifiers, {len(spdx['exceptions'])} exceptions")
     print(f"[license-identifiers] scanned {counts['scanned']} recipe(s): "
@@ -323,7 +323,7 @@ def main(argv=None) -> int:
         print(f"[license-identifiers] WARNING: {len(warnings)} recipe(s) declare "
               f"a DEPRECATED SPDX identifier. These pass — the identifier is on "
               f"the list — and are reported because the replacement resolves an "
-              f"ambiguity only the package's own licence text can settle:")
+              f"ambiguity only the package's own license text can settle:")
         for w in warnings:
             where = "shipped" if w["shipped"] else "mirror-only"
             print(f"  {w['recipe']}  [{where}]")
@@ -332,12 +332,12 @@ def main(argv=None) -> int:
 
     if not findings:
         print(f"[license-identifiers] PASS: every checked recipe declares a "
-              f"valid SPDX licence expression"
+              f"valid SPDX license expression"
               f"{f' ({len(warnings)} deprecated-identifier warning(s))' if warnings else ''}")
         return 0
 
     print(f"[license-identifiers] HALT: {len(findings)} recipe(s) declare a "
-          f"licence that is not a valid SPDX expression:", file=sys.stderr)
+          f"license that is not a valid SPDX expression:", file=sys.stderr)
     for f in findings:
         if f["shipped"] is None:
             where = "unreadable"
@@ -351,7 +351,7 @@ def main(argv=None) -> int:
     print("  license: is what the SBOM's licenseDeclared and the mirror index "
           "carry. A string that is not an SPDX identifier propagates into both "
           "and resolves for nobody.", file=sys.stderr)
-    print("  Fix in the recipe: use the SPDX identifier for the licence the "
+    print("  Fix in the recipe: use the SPDX identifier for the license the "
           "package actually carries, or — when SPDX has no identifier for it — "
           "LicenseRef-<Name>, which is SPDX's own way to say exactly that.",
           file=sys.stderr)

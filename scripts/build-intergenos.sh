@@ -1006,18 +1006,18 @@ phase_validate() {
     log "Running preflight-kernel-release-lockstep gate (verify_paths derivation)..."
     python3 "${SCRIPTS}/preflight-kernel-release-lockstep.py" 2>&1 | tee -a "$BUILD_LOG"
 
-    # Licence-identifier gate: package.yml's `license:` is what the ISO SBOM
+    # License-identifier gate: package.yml's `license:` is what the ISO SBOM
     # publishes as licenseDeclared and what the mirror index carries, and until
     # this gate nothing checked it. Declarations like `Public-Domain`,
     # `MIT-style` and `Various (redistributable)` propagated into both and
     # resolve for no SPDX consumer. Shape validation alone does not catch them
     # — every one of those is a well-formed token — so this checks membership
-    # in the SPDX licence list bundled at config/spdx-license-list.json, and
+    # in the SPDX license list bundled at config/spdx-license-list.json, and
     # checks WITH's right operand against the separate exception list. A
-    # licence SPDX does not carry is declared LicenseRef-<Name>, which is
+    # license SPDX does not carry is declared LicenseRef-<Name>, which is
     # SPDX's own mechanism for exactly that. Deprecated-but-listed identifiers
     # pass and are reported as warnings: replacing GPL-2.0 with -only or
-    # -or-later resolves an ambiguity only the package's licence text settles.
+    # -or-later resolves an ambiguity only the package's license text settles.
     # Static, milliseconds, no chroot and no network.
     log "Running preflight-license-identifiers gate (SPDX list membership)..."
     python3 "${SCRIPTS}/preflight-license-identifiers.py" 2>&1 | tee -a "$BUILD_LOG"

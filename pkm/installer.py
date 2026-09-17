@@ -235,7 +235,7 @@ def payload_installed(name, root=None):
     return (Path(base) / f"{name}.manifest").is_file()
 
 
-# Where a download-helper records that a human read the vendor licence and
+# Where a download-helper records that a human read the vendor license and
 # typed the exact acceptance phrase. The helper owns these files; pkm only
 # reads them. The name carries the acceptance schema the helper wrote against
 # (`<package>-<schema>-accepted.json`), so the presence test globs the schema
@@ -248,7 +248,7 @@ def acceptance_record_exists(name, record_dir=None):
     """True if this machine already holds an acceptance record for <name>.
 
     Read by the non-interactive gate on proprietary-payload installs. The rule
-    that gate enforces is "pkm never accepts a vendor licence on the user's
+    that gate enforces is "pkm never accepts a vendor license on the user's
     behalf" — and a recorded acceptance IS the user having accepted, on this
     machine, at a time the record itself carries. Refusing anyway meant the
     only way to update an already-accepted payload without a human at the

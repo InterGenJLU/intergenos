@@ -36,7 +36,7 @@ If you're new to the project, start here. Otherwise, jump to the section relevan
 - [signing-key.md](signing-key.md) — Canonical signing-key fingerprints.
 - [signing-procedure.md](signing-procedure.md) — Operational runbook for release signing.
 - [research/security/](research/security/) — Security research and advisories.
-- [legal/](legal/) — Payload licences and patent posture.
+- [legal/](legal/) — Payload licenses and patent posture.
 - [sboms/](sboms/) — Software bills of materials.
 - [ceremony/](ceremony/) — The signing-key ceremony procedure.
 
@@ -49,9 +49,9 @@ If you're new to the project, start here. Otherwise, jump to the section relevan
 
 ## For governance
 
-- [governance/](governance/) — Role policy, licence policy, and redistribution posture.
+- [governance/](governance/) — Role policy, license policy, and redistribution posture.
 - [governance/succession.md](governance/succession.md) — Public role policy.
-- [governance/license-policy.md](governance/license-policy.md) — How licences are classified and what that means for what ships.
+- [governance/license-policy.md](governance/license-policy.md) — How licenses are classified and what that means for what ships.
 - [mirror/](mirror/) — Binary-mirror design.
 
 ## For research / archaeology

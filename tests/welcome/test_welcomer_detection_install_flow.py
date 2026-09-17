@@ -368,7 +368,7 @@ class TestTheWordsOnScreen(unittest.TestCase):
 
     def test_one_spelling_of_license_is_used_throughout(self):
         """Two spellings of the same word appeared on one page — 'license'
-        in the model copy and 'licence' in the vendor lines directly below
+        in the model copy and 'license' in the vendor lines directly below
         it. American spelling is the project's, and the AMD and NVIDIA
         banners both carry the word."""
         source = WELCOME_PY.read_text()

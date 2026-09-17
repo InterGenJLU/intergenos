@@ -39,7 +39,7 @@ do_install() {
 
     # The wheel this recipe builds carries the sdist's whole top level, not
     # just the library: tests/, docs/, rust/, vendor/, _cffi_src/, the Cargo
-    # files and the licence files all land directly in site-packages, which
+    # files and the license files all land directly in site-packages, which
     # is a namespace shared by every Python package on the system. Two things
     # follow, and one of them was measured:
     #

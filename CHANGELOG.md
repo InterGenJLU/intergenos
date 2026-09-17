@@ -171,7 +171,7 @@ landed is in the repository README, not here.
   measured: the chat model, its paired projector and the embedding model are
   recorded, their bytes verified before loading, and a manifest-write failure
   is reported; model records carry the package descriptor identity and an
-  explicit licence, and an existing-model setup re-verifies the installed
+  explicit license, and an existing-model setup re-verifies the installed
   artifact and reports the record rewritten, already correct or refused.
 - **Root is no longer locked on an installed system.** The password package's
   post-install hook ran on every installed target after the installer had
@@ -332,7 +332,7 @@ landed is in the repository README, not here.
 - The `wpa_supplicant` nl80211 template unit and the `switcheroo-control`
   unit are conditioned on the hardware they need; neither starts on a machine
   without it.
-- `shim-signed`: the source licence metadata matches shim's two-clause BSD text.
+- `shim-signed`: the source license metadata matches shim's two-clause BSD text.
 
 ### Changed
 
@@ -662,7 +662,7 @@ instructions are unchanged from R001.
 - **Teaching answers are prepared in small batches,** so preparing them cannot
   block the first thing a person asks.
 - **`intergen --version` is a command, and the Qwen attribution is shown where
-  a person converses.** The licence page said the command existed; typing it
+  a person converses.** The license page said the command existed; typing it
   printed `Unknown command`. It prints the package version and, only when a
   Qwen-family model is on the machine, one line naming that model and the
   Tongyi Qianwen License. The same line appears under the web conversation

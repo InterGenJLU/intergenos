@@ -61,7 +61,7 @@ echo "    it downloads, and refuses to install if the check fails."
 echo "    Discord is the exception, and the gap is stated here rather"
 echo "    than left for you to find out."
 echo ""
-echo "    Continuing records that you accept Discord's licence terms and"
+echo "    Continuing records that you accept Discord's license terms and"
 echo "    that you have read this."
 echo ""
 

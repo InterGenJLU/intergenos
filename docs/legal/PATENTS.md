@@ -296,7 +296,7 @@ with the same x264/x265 linkage.
 from the mirror as an explicit user install.** Decided 2026-08-05: the
 package ships with x265 encoding enabled because a transcoder without
 it does not do the job a user installs a transcoder to do, while the
-build stays free of components whose own licences withhold patent
+build stays free of components whose own licenses withhold patent
 grants — `fdk-aac` is disabled (the build uses ffmpeg's native AAC
 encoder), as is `libdovi`. Every vendor hardware-encode path
 (NVENC/NVDEC, Intel QSV, AMD VCE) is also disabled, which additionally

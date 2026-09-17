@@ -144,7 +144,7 @@ class TestDetectionRecord(unittest.TestCase):
         for key in record:
             self.assertNotIn("accept", key)
             self.assertNotIn("selected", key)
-            self.assertNotIn("licence", key)
+            self.assertNotIn("license", key)
 
 
 class TestWritingTheRecord(unittest.TestCase):

@@ -242,7 +242,7 @@ recorded in `packages/compute/cuda-toolkit/helper/igos-install-cuda-toolkit`.
 The helper verifies this checksum before unpacking anything and refuses the
 install on a mismatch.
 
-**Where the licence text comes from.** Not from a URL we hope stays
+**Where the license text comes from.** Not from a URL we hope stays
 alive: the agreement ships inside the runfile as `EULA.txt`, and the
 helper writes that exact file to
 `/var/lib/intergen/legal/cuda-toolkit-<version>-EULA.txt` and to
@@ -264,7 +264,7 @@ helper writes that exact file to
 - §2.3 permits redistribution of the Linux-only portions only if the
   object code files are unmodified apart from decompression.
 - §1.5 forbids using the toolkit in a way that would subject it to an
-  open source licence — including any licence requiring it to be
+  open source license — including any license requiring it to be
   distributable at no charge.
 - §1.6 states the toolkit is not certified for safety-critical systems
   (avionics, medical, automotive, life support).

@@ -1,6 +1,6 @@
 name: websockets
 version: "16.0"
-release: 3  # r3: license: BSD -> BSD-3-Clause — a valid SPDX identifier, so the new licence-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade. r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+release: 3  # r3: license: BSD -> BSD-3-Clause — a valid SPDX identifier, so the new license-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade. r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
 description: WebSocket implementation (RFC 6455 and 7692)
 # Upstream's LICENSE at the pinned 16.0 tag carries three clauses including the
 # non-endorsement clause, which is BSD-3-Clause. Bare 'BSD' named no version.

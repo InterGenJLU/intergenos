@@ -16,7 +16,7 @@ untrue about their own machine.
 
 (b) THE TERMINAL ALWAYS SAID IT FINISHED. The closing line was the literal
     string "Installation finished." regardless of what happened, so a refused
-    licence or a failed download ended with a sentence stating the opposite of
+    license or a failed download ended with a sentence stating the opposite of
     the truth. It now reports the actual exit status and says plainly when
     nothing above it necessarily completed.
 

@@ -34,7 +34,7 @@ do_install() {
 
     # LICENSE is installed from this package's own directory (synced into
     # the chroot via sync_chroot_scripts' packages/ rsync). It is also the
-    # licence source scripts/pkg-functions.sh reads in-chroot, so it stays
+    # license source scripts/pkg-functions.sh reads in-chroot, so it stays
     # here. Mirrors the intergenos-keyring pre-built-artifact pattern
     # (build-rules §2.5) for a plain-text asset needing no build tooling.
     install -Dm644 /mnt/intergenos/packages/core/intergenos-legal/LICENSE \
@@ -54,7 +54,7 @@ do_install() {
     # scripts/build-intergenos.sh, both of which copy it explicitly. This
     # check fails the build loudly and names them rather than installing
     # nothing, because a legal-notice file missing from an installed
-    # system is a licence-compliance defect that nothing downstream would
+    # system is a license-compliance defect that nothing downstream would
     # report.
     local root_sources="/mnt/intergenos/SOURCES.md"
     if [ ! -f "$root_sources" ]; then

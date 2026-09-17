@@ -79,7 +79,7 @@ Two things will mislead you if you skip them:
 
 If none of those apply and the numbers are close on your card, the engine that
 ships by default is the simpler answer — it needs no extra download, no
-proprietary toolkit, and no licence acceptance.
+proprietary toolkit, and no license acceptance.
 
 ## What it needs
 
@@ -91,7 +91,7 @@ proprietary toolkit, and no licence acceptance.
 
 Installing this package pulls in both dependencies, but pkm will **not** run the
 CUDA toolkit's download helper for you — that would mean accepting NVIDIA's
-licence on your behalf. So after installing this, run:
+license on your behalf. So after installing this, run:
 
 ```sh
 sudo pkm install cuda-toolkit
@@ -154,4 +154,4 @@ It contains no NVIDIA code: the CUDA libraries are loaded at run time from
 NVIDIA at build time and is not redistributed by InterGenOS — the
 corresponding-source archive for this package says so explicitly and gives
 NVIDIA's own URL and the SHA-256 the build verified, so the build is
-reproducible by anyone who accepts NVIDIA's licence themselves.
+reproducible by anyone who accepts NVIDIA's license themselves.

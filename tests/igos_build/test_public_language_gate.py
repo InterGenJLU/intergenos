@@ -183,10 +183,10 @@ class MatchingTests(unittest.TestCase):
                              f"a capitalised attribution must still block: {blocked}")
 
     def test_licence_identifier_suffix_carve_matches_its_comment(self):
-        """The licence-suffix carve names its licence stems instead of accepting
+        """The license-suffix carve names its license stems instead of accepting
         any capitalised word.
 
-        Its comment said "only the suffix position of a licence identifier is
+        Its comment said "only the suffix position of a license identifier is
         exempt" while its pattern read `[A-Z][\\w.+]*` — any capitalised token
         at all. The tightened form is a list of the stems the tracked tree
         actually carries; anything else is a hit again. The token is assembled
@@ -202,14 +202,14 @@ class MatchingTests(unittest.TestCase):
             "license: BSD-4-Clause-" + tok,
         ):
             self.assertEqual(clg.scan_line(exempt, ct), [],
-                             f"a named licence identifier stays exempt: {exempt}")
+                             f"a named license identifier stays exempt: {exempt}")
         for blocked in (
             "Reviewed-" + tok + " signed off on the change",
-            "Handoff-" + tok + " is not a licence identifier",
+            "Handoff-" + tok + " is not a license identifier",
             "the " + tok + " reviewed it",
         ):
             self.assertEqual(clg.scan_line(blocked, ct), [tok],
-                             f"a non-licence capitalised stem must block again: {blocked}")
+                             f"a non-license capitalised stem must block again: {blocked}")
 
 
 class SeparatorVariantTests(unittest.TestCase):

@@ -20,4 +20,4 @@ dependencies:
   runtime: []
 verify_paths:
   - /usr/bin/tokei
-  - /usr/share/licenses/tokei/LICENCE-APACHE
+  - /usr/share/licenses/tokei/LICENSE-APACHE

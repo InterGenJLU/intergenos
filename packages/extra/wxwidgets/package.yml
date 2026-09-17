@@ -2,7 +2,7 @@ name: wxwidgets
 version: "3.2.10"
 release: 1
 description: Cross-platform C++ GUI toolkit (GTK 3 backend, Audacity gating dep)
-# Upstream license: wxWindows Library Licence, Version 3.1 — a derivative of
+# Upstream license: wxWindows Library License, Version 3.1 — a derivative of
 # LGPL-2.0+ with an additional clause exempting binary distributors from the
 # obligation to distribute source code of works that link against the library.
 # SPDX expresses this as "LGPL-2.0-or-later WITH WxWindows-exception-3.1";

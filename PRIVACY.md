@@ -238,10 +238,10 @@ point. You can decline; if you decline, InterGen does not start.
 Model licensing is declared per model in the signed model manifest,
 and that signed field is what the acceptance gate reads — never a
 guess from the model's name or origin. A model under a restrictive
-licence requires a separate, explicit acceptance step before it will
+license requires a separate, explicit acceptance step before it will
 download, recorded on disk. **Every model shipped today declares
 Apache-2.0**, which the gate treats as permissive and auto-accepts,
-so no separate licence-acceptance step appears for the current set.
+so no separate license-acceptance step appears for the current set.
 If a future model ships under restrictive terms, that step returns.
 See [`docs/governance/license-policy.md`](docs/governance/license-policy.md).
 

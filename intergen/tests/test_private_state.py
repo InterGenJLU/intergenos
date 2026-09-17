@@ -10,7 +10,7 @@ cannot reach:
   already holds world-readable state;
 * the create sites whose real entry point is not drivable from a headless
   child — the console history (its writer is the interactive REPL loop), the
-  MCP schema pins and audit fallback, and the licence-acceptance records.
+  MCP schema pins and audit fallback, and the license-acceptance records.
 
 It also pins the specific recreate hole measured against the release: a Glass
 trace that is removed and re-created by the next append.

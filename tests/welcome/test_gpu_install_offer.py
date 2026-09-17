@@ -4,7 +4,7 @@
 
 Decided 2026-08-05: this offer used to be a page in the installer, which
 could never perform it. It lives here now, where the package manager is
-present and the vendor's own licence gate can run. These tests cover the
+present and the vendor's own license gate can run. These tests cover the
 parts that decide WHAT is offered and WHAT would be run — the record reader,
 the per-vendor offer list, the dependency rule, and the composed command.
 
@@ -291,7 +291,7 @@ class TestTheLicenceIsNeverAcceptedHere(unittest.TestCase):
         for record in (NVIDIA, AMD):
             for offer in welcome._gpu_offers(record, probe=NOTHING_INSTALLED):
                 self.assertNotIn("you have accepted", offer["detail"].lower())
-                self.assertNotIn("licence accepted", offer["detail"].lower())
+                self.assertNotIn("license accepted", offer["detail"].lower())
 
 
 if __name__ == "__main__":

@@ -34,8 +34,8 @@
 # changes what the scanner can do; both keep the package's dependency surface
 # to the libraries the scanning code actually links.
 #
-# UPSTREAM LICENCE, stated because it is not a common one: nmap ships under the
-# Nmap Public Source Licence, which is derived from GPL-2.0 but adds terms —
+# UPSTREAM LICENSE, stated because it is not a common one: nmap ships under the
+# Nmap Public Source License, which is derived from GPL-2.0 but adds terms —
 # it is not OSI-approved and it restricts redistribution inside proprietary
 # products. The SPDX identifier recorded in package.yml names it accurately
 # rather than approximating it as GPL-2.0.

@@ -527,7 +527,7 @@ def test_the_helper_questions_are_asked_of_the_root_not_the_machine(rooted):
 def test_a_proprietary_package_is_refused_for_another_root(rooted, monkeypatch):
     """The vendor-helper path cannot be performed on behalf of another root.
 
-    It downloads a payload and puts a vendor's licence in front of a person at
+    It downloads a payload and puts a vendor's license in front of a person at
     this machine's keyboard. Doing the pkm-package half and skipping the payload
     half is the half-application the option refuses.
     """
@@ -544,7 +544,7 @@ def test_a_proprietary_package_is_refused_for_another_root(rooted, monkeypatch):
 
     class _Repo:
         def get_package(self, name):
-            return {"payload_license": "a vendor licence"}
+            return {"payload_license": "a vendor license"}
 
     called = []
     monkeypatch.setattr(cli, "repo_manager", lambda: _Repo())

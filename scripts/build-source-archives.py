@@ -164,7 +164,7 @@ def _withheld_note(name: str, version: str, withheld: list[dict]) -> str:
         f"Corresponding source note for {name} {version}",
         "",
         "One or more inputs this package builds against are NOT included in",
-        "this archive. They are proprietary vendor artifacts whose licences do",
+        "this archive. They are proprietary vendor artifacts whose licenses do",
         "not grant us redistribution rights, so InterGenOS fetches them from",
         "the vendor at build time and does not republish them.",
         "",

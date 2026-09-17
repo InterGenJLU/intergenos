@@ -78,7 +78,7 @@ PCEOF
 
     # License + docs for legal compliance + system inspection.
     install -d -m 755 "$DESTDIR/usr/share/doc/libdht-0.27"
-    install -m 644 LICENCE  "$DESTDIR/usr/share/doc/libdht-0.27/LICENCE"
+    install -m 644 LICENSE  "$DESTDIR/usr/share/doc/libdht-0.27/LICENSE"
     install -m 644 README   "$DESTDIR/usr/share/doc/libdht-0.27/README"
     install -m 644 CHANGES  "$DESTDIR/usr/share/doc/libdht-0.27/CHANGES"
 }

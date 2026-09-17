@@ -33,7 +33,7 @@
 # (NVENC/NVDEC, Intel QSV, AMD VCE), each of which needs vendor SDK headers
 # that are not in the tree. Nothing here disables a feature to work around a
 # missing dependency that could have been packaged: each disabled item is a
-# licence or vendor-SDK decision, recorded in package.yml.
+# license or vendor-SDK decision, recorded in package.yml.
 
 CONTRIB_TARBALLS="
 ffmpeg-8.0.2.tar.bz2

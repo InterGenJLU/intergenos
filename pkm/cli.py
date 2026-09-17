@@ -1530,7 +1530,7 @@ def _proprietary_install(db, installer, repo, reporter, pkg_name, payload_licens
 
     # Non-interactive runs are refused unless this machine ALREADY holds an
     # acceptance record for the package. The property being protected is that
-    # pkm never accepts a vendor licence on the user's behalf — and a recorded
+    # pkm never accepts a vendor license on the user's behalf — and a recorded
     # acceptance is the user having accepted it here, which is why consulting
     # the record does not weaken the rule. A machine with no record is refused
     # exactly as before.
@@ -1744,7 +1744,7 @@ def cmd_install(db, args):
             if _payload_license:
                 # A proprietary-download package installs by running the
                 # vendor's own installer against the running system: it
-                # downloads a payload, shows the vendor's licence gate to a
+                # downloads a payload, shows the vendor's license gate to a
                 # person at this machine's keyboard, and records the
                 # acceptance here. None of that is something pkm can perform
                 # on behalf of another root, and doing the pkm-package half
@@ -1755,7 +1755,7 @@ def cmd_install(db, args):
                         f"{pkg_name} is a proprietary-download package: it is "
                         f"installed by running the vendor's own installer on "
                         f"this machine, with a person accepting the vendor's "
-                        f"licence. That cannot be done for the install root "
+                        f"license. That cannot be done for the install root "
                         f"{install_root()}. Nothing was changed."
                     )
                     return 1
@@ -2856,7 +2856,7 @@ def cmd_upgrade(db, args):
         # re-establishes runtime state.
         # A download-helper package owns two things: the installer script its
         # archive deposits, and the application that script fetched (the CUDA
-        # toolkit: seven gigabytes from NVIDIA, after a licence acceptance).
+        # toolkit: seven gigabytes from NVIDIA, after a license acceptance).
         # An upgrade of the package replaces the script. The application
         # stays on disk and is re-recorded on the new row below; removing it
         # here — as every upgrade did until 2026-09-03, when `pkm upgrade
@@ -3192,7 +3192,7 @@ def cmd_info(db, args):
     pkg = db.get_installed(args.package)
     if not pkg:
         # Not installed is not the same as nothing to say. The repository index
-        # this machine has already synced carries the version, tier, licence and
+        # this machine has already synced carries the version, tier, license and
         # description of every AVAILABLE package, and `pkm search` prints them
         # from that same index in the same session. Refusing to read it here
         # made `info` useless for the one question it is most often asked —

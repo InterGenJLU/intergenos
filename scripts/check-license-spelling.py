@@ -121,6 +121,22 @@ EXEMPTIONS = [
         reason="names the files linux-firmware installs on an installed system, "
                "so a reader can list them; the path is theirs, not ours"),
     Exemption(
+        name="this-gate-and-its-own-data",
+        path="scripts/check-license-spelling.py",
+        reason="this file IS the list of other people's names plus the pattern "
+               "that finds them, so the spelling it refuses has to appear in it; "
+               "the canary test beside it counts those lines, so a NEW one has "
+               "to be recorded deliberately rather than slipped in",
+        whole_file=True),
+    Exemption(
+        name="this-gates-test-fixtures",
+        path="tests/preflight/test_license_spelling_gate.py",
+        reason="its fixtures are this gate's inputs: the upstream names it must "
+               "accept and the sentences it must refuse, which cannot be "
+               "written in the spelling the gate accepts without testing "
+               "nothing; the same canary test counts these lines too",
+        whole_file=True),
+    Exemption(
         name="spdx-bundled-list-data",
         path="config/spdx-license-list.json",
         reason="SPDX's own published data, bundled verbatim so the identifier "

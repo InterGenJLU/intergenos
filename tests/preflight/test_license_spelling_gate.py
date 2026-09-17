@@ -58,6 +58,23 @@ EXEMPT_FILES = {
         '{"_about": "Identifier sets from the official SPDX licence list."}\n',
     "assets/theming/extensions/AlphabeticalAppGrid@stuarthayhurst.zip":
         "PK\x00\x00binary-ish\n",
+    # The gate and this file are exempt as whole files, and the gate fails
+    # closed when a named exemption's file is missing, so a synthetic repo has
+    # to carry them at their real paths.
+    "scripts/check-license-spelling.py":
+        "BRITISH = 'licence'  # the spelling this gate looks for\n",
+    "tests/preflight/test_license_spelling_gate.py":
+        "FIXTURE = 'The licence is yours.'\n",
+}
+
+# The canary the two whole-file exemptions promise. Both files must carry the
+# spelling to do their job, so neither can be gated line by line — but a NEW
+# line in either is a change somebody makes on purpose, and this is where they
+# record it. A wrong number here is not a style complaint: it means the one
+# place the gate cannot see grew, and nobody said so.
+SELF_EXEMPT_LINE_COUNTS = {
+    "scripts/check-license-spelling.py": 18,
+    "tests/preflight/test_license_spelling_gate.py": 15,
 }
 
 
@@ -65,6 +82,19 @@ def test_the_real_tree_passes():
     """The sweep's own gate, run against the tree it swept."""
     result = _run(REPO)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("name", sorted(SELF_EXEMPT_LINE_COUNTS))
+def test_the_whole_file_exemptions_have_not_grown_quietly(name):
+    """The two files the gate cannot check are counted instead."""
+    import re
+    british = re.compile(r"\blicenc(e|es|ed|ing)\b", re.IGNORECASE)
+    text = (REPO / name).read_text(encoding="utf-8")
+    hits = sum(1 for line in text.splitlines() if british.search(line))
+    assert hits == SELF_EXEMPT_LINE_COUNTS[name], (
+        f"{name} carries {hits} lines with the British spelling, recorded "
+        f"{SELF_EXEMPT_LINE_COUNTS[name]}. If the new one belongs there — a new "
+        f"exemption's marker, a new fixture — record it here in the same commit.")
 
 
 def test_a_new_prose_line_is_refused(tmp_path):

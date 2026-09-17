@@ -22,7 +22,7 @@ The fixes are a comparison (`downgrade_decision`), a rendering
 question asked at three moments: what exactly is about to change, stated in
 numbers, before it changes.
 
-BOUNDARY. Nothing here verifies, trusts, or gates on a licence. Signature and
+BOUNDARY. Nothing here verifies, trusts, or gates on a license. Signature and
 checksum verification, the EULA pause and the archive-ingestion semantics are
 untouched — this module decides what to PRINT and whether to PROCEED, never
 whether something is authentic.

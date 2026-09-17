@@ -14,11 +14,11 @@ does not by running with the identifier file removed and requiring a SETUP
 ERROR rather than a fetch or a pass.
 
 Covered:
-  RED  — an identifier that is not on the SPDX licence list
-  RED  — two licences separated by a bare space ("Public Domain")
+  RED  — an identifier that is not on the SPDX license list
+  RED  — two licenses separated by a bare space ("Public Domain")
   RED  — hyphens where AND operators belong (the NVIDIA shape)
   RED  — unbalanced parenthesis
-  RED  — a WITH whose right operand is a licence, not an exception
+  RED  — a WITH whose right operand is a license, not an exception
   RED  — an empty license: value          (fail-closed, not skipped)
   RED  — a missing license: key           (fail-closed, not skipped)
   RED  — an unparseable package.yml       (fail-closed, not skipped)
@@ -102,7 +102,7 @@ class TestLicenseIdentifierGate(unittest.TestCase):
             self.assertIn("HALT", r.stderr)
             self.assertIn("docbook-xml", r.stderr)
             self.assertIn("'OASIS'", r.stderr)
-            self.assertIn("not an identifier on the SPDX licence list", r.stderr)
+            self.assertIn("not an identifier on the SPDX license list", r.stderr)
 
     def test_bare_space_between_licences_is_red(self):
         # "Public Domain" is two operands with no operator. A shape check that
@@ -139,14 +139,14 @@ class TestLicenseIdentifierGate(unittest.TestCase):
 
     def test_with_operand_must_be_an_exception_not_a_licence(self):
         # Exceptions live on their own SPDX list. A membership check that
-        # consulted only the licence list would accept `MIT WITH MIT`.
+        # consulted only the license list would accept `MIT WITH MIT`.
         with tempfile.TemporaryDirectory() as td:
             repo = _make_repo(Path(td), {
                 "wrong-with": {"tier": "core", "license": "license: MIT WITH MIT"},
             })
             r = _run(repo)
             self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
-            self.assertIn("licence-exception list", r.stderr)
+            self.assertIn("license-exception list", r.stderr)
 
     def test_trailing_operator_is_red(self):
         with tempfile.TemporaryDirectory() as td:
@@ -319,7 +319,7 @@ class TestLicenseIdentifierGate(unittest.TestCase):
             })
             r = _run(repo)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-            self.assertIn("SPDX licence list", r.stdout)
+            self.assertIn("SPDX license list", r.stdout)
 
 
 class TestShippedTreeIsClean(unittest.TestCase):

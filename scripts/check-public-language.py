@@ -201,14 +201,14 @@ _EXEMPT_SPAN_PATTERNS = [
     ("assistant-cloud-scanner-providers-list-tail",
      re.compile(r"(?:[,;]|\bor\b|\band\b)\s*(?:and\s+|or\s+)?" + "Deep" "Seek" + r"\b",
                 re.IGNORECASE)),
-    # The upstream coding-tool product name in PROSE and in the licence
+    # The upstream coding-tool product name in PROSE and in the license
     # register, beside the existing hyphenated package-name carve above. The
     # register spells the product with a space ("<product> Code (CLI tool …)")
     # and carries a LicenseRef identifier naming the vendor, neither of which
     # the package-name pattern reaches. Required upstream attribution in a
     # legal document, not an internal identifier.
-    # Evidence: the 2026-07-26 audit — 13 lines across the licence register,
-    # the licence policy, the sources file and the third-party notices.
+    # Evidence: the 2026-07-26 audit — 13 lines across the license register,
+    # the license policy, the sources file and the third-party notices.
     ("upstream-product-prose-and-licenceref",
      re.compile(r"\b" + "Cla" "ude" + r"\s+Code\b|\bLicenseRef-Anthropic-[\w-]+",
                 re.IGNORECASE)),
@@ -251,34 +251,34 @@ _EXEMPT_SPAN_PATTERNS = [
     ("vendor-homepage-urls",
      re.compile(r"https?://[\w.-]*(?:" + "cla" "ude" + r"|" + "deep" "seek" +
                 r"|o" "pus" + r")[\w./%-]*", re.IGNORECASE)),
-    # An SPDX licence identifier whose trailing field coincides with a short
+    # An SPDX license identifier whose trailing field coincides with a short
     # internal token (a university-regents clause suffix). Narrow by
-    # construction: only the suffix position of a NAMED licence identifier is
-    # exempt. Evidence: the third-party notices file, the bundled SPDX licence
-    # list, and one package's licence field.
+    # construction: only the suffix position of a NAMED license identifier is
+    # exempt. Evidence: the third-party notices file, the bundled SPDX license
+    # list, and one package's license field.
     #
     # The stem alternation is a LIST, not a shape. It used to read
     # `[A-Z][\w.+]*`, which is any capitalised token at all — so the carve
     # exempted the collision after any capitalised word a line happened to
-    # carry, while its own comment said "a licence identifier". Measured
+    # carry, while its own comment said "a license identifier". Measured
     # against the tracked tree, the identifiers that genuinely need this carve
     # are exactly the two stems below; the open shape was covering nothing else
     # it was entitled to cover, and was one capitalised word away from covering
-    # a real hit. A new licence identifier joins the alternation on evidence,
+    # a real hit. A new license identifier joins the alternation on evidence,
     # which is the same rule every other entry in this file follows.
-    ("spdx-licence-identifier-suffix",
+    ("spdx-license-identifier-suffix",
      re.compile(r"\b(?:BSD-[0-9]-Clause|HPND)-U" "C" + r"\b")),
-    # An SPDX licence-EXCEPTION identifier carried in the bundled licence list
-    # (config/spdx-license-list.json), beside the licence-identifier-suffix
+    # An SPDX license-EXCEPTION identifier carried in the bundled license list
+    # (config/spdx-license-list.json), beside the license-identifier-suffix
     # carve above. Hyphens are non-word characters, so a short internal token
     # appearing as a hyphen-delimited fragment of an upstream identifier
     # satisfies the boundary anchor. The identifier is an upstream constant —
-    # it cannot be reworded, and dropping it would make the licence gate
-    # reject a real licence. Narrow by construction: only this exact quoted
+    # it cannot be reworded, and dropping it would make the license gate
+    # reject a real license. Narrow by construction: only this exact quoted
     # identifier is exempt, so prose uses of the letters still hit. The
     # pattern is assembled from pieces so this definition never spells the
     # colliding fragment (same self-reference discipline as the entries
-    # above). Evidence: the SPDX licence-identifier gate's data file blocked
+    # above). Evidence: the SPDX license-identifier gate's data file blocked
     # the 2026-08-05 push on this one line.
     ("spdx-exception-identifier",
      re.compile(r'"GPL-3\.0-389-' + "d" "s" + r'-base-exception"')),

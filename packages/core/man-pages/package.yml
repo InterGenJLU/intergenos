@@ -1,8 +1,8 @@
 name: man-pages
 version: '6.17'
-release: 2  # r2: license: man-pages -> LicenseRef-Linux-man-pages — a valid SPDX identifier, so the new licence-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade.
+release: 2  # r2: license: man-pages -> LicenseRef-Linux-man-pages — a valid SPDX identifier, so the new license-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade.
 description: Linux man pages
-# The 6.17 tarball ships 14 licence texts under LICENSES/, and 1,593 of its
+# The 6.17 tarball ships 14 license texts under LICENSES/, and 1,593 of its
 # 3,092 page files carry an SPDX tag — so no single identifier is true, and a
 # union derived from the tags alone would understate the untagged half.
 # LicenseRef- says exactly that; LICENSES/ in the tarball is the authority.

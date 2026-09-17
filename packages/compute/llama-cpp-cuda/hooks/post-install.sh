@@ -7,7 +7,7 @@
 # This engine links NVIDIA's CUDA runtime libraries, which live at /opt/cuda
 # and get there through the cuda-toolkit download helper. pkm will not run a
 # download helper on a user's behalf, because doing so would accept a vendor
-# licence for them, so `pkm install llama-cpp-cuda` puts the helper on the
+# license for them, so `pkm install llama-cpp-cuda` puts the helper on the
 # machine but leaves the toolkit unfetched. Without it these binaries fail to
 # start with a missing-soname error — loud, but it names a library rather than
 # the command that fixes it.
@@ -33,7 +33,7 @@ if [ ! -e "${CUDA_PREFIX}/lib64/libcudart.so" ]; then
     echo "      sudo pkm install cuda-toolkit"
     echo ""
     echo "  That downloads the toolkit from NVIDIA (about 4.1 GB) after showing"
-    echo "  you the licence. InterGenOS does not redistribute it."
+    echo "  you the license. InterGenOS does not redistribute it."
     echo ""
     missing=1
 fi

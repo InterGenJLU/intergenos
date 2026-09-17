@@ -91,7 +91,7 @@ dependencies:
   # libcublasLt and their dependencies) live at /opt/cuda, put there by the
   # cuda-toolkit download helper. Declaring the dependency gets the helper
   # onto the machine; the post-install hook below states the one command that
-  # actually fetches the toolkit, because pkm never accepts a vendor licence
+  # actually fetches the toolkit, because pkm never accepts a vendor license
   # on the user's behalf and so never runs a download helper unprompted.
   - cuda-toolkit
   # libcuda.so.1 — the CUDA driver API — comes from the driver, not the

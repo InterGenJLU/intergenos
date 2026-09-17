@@ -293,7 +293,7 @@ def _resolve_package_yml(manifest_name, version=None):
     packages/toolchain/{glibc,m4,ncurses}, whose tier and release describe the
     cross build rather than the archive being emitted. Those recipes are now
     named -tmp, so without this step the search would find nothing and the
-    emitted .PKGINFO would carry no tier, licence, release or description.
+    emitted .PKGINFO would carry no tier, license, release or description.
 
     Everything else still resolves by directory name, across every tier,
     discovered from the listing rather than hardcoded.
