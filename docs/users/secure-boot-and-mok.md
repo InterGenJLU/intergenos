@@ -171,21 +171,40 @@ If you opt for TPM2-sealed unlock (an experimental feature not offered by the in
 
 For non-encrypted installs, the UKI's bundled initramfs is minimal — typically only CPU microcode — because all storage and filesystem drivers are built into the kernel. The bootloader does not need an initramfs to find the root volume.
 
-## The signing key lives on the disk it helps protect
+## The signing key lives on the disk, and you hold its passphrase
 
-This is a deliberate trade, and it is worth understanding rather than discovering.
+**What is stored, and where.** Your machine owner key is a pair. The certificate — `/var/lib/intergen/mok/mok.crt` and its DER form `mok.der` — is public and is what you enrol into your firmware. The private half is `/var/lib/intergen/mok/mok.key`: an RSA-2048 key, readable only by the administrator (mode 0600, in a directory only the administrator can open), and **encrypted with a passphrase you set during the install**.
 
-**What is stored, and where.** Your machine owner key is a pair. The certificate — `/var/lib/intergen/mok/mok.crt` and its DER form `mok.der` — is public and is what you enrol into your firmware. The private half is `/var/lib/intergen/mok/mok.key`: an RSA-2048 key, readable only by the administrator (mode 0600, in a directory only the administrator can open), and stored **without a passphrase**.
+**When you are asked for it.** Each time this machine signs something with that key. In practice that is a kernel update and a graphics-driver rebuild — the two operations that produce something your firmware has to accept. The prompt appears at the console and in a desktop session; it says what is being signed, and it allows three attempts.
 
-**Why it has no passphrase.** Every kernel update and every out-of-tree driver rebuild has to sign something with that key, and nobody is sitting at the machine when those run. The kernel package's post-install step and the NVIDIA module signing step both reach for it unattended. A passphrase would mean a person typing it in the middle of every upgrade, or a passphrase stored beside the key — which protects nothing.
+**What happens if you do not give it.** Nothing is signed, and nothing pretends otherwise. The package manager says the new kernel is `NOT BOOTABLE UNTIL SIGNED`, the EFI system partition keeps the previous release's signed boot image, that image stays the boot-menu target, and the transaction is recorded as incomplete. Your machine still boots — on the kernel it was already booting. When you have the passphrase in hand, finish the job at the console:
 
-**What someone who takes the disk gains.** If you chose the encrypted install, the key sits on the LUKS-encrypted root volume. Someone who removes the disk and has no passphrase gets ciphertext: the key is no more reachable than the rest of your system. If you chose an unencrypted install, someone who has the disk can read the key, and with it they can sign a kernel or a module that *your* machine's firmware will accept — they would still have to get that code onto your machine, but Secure Boot would no longer stand in the way once they had. Put plainly: on an unencrypted machine, physical possession of the disk defeats the protection this key provides. This is the single strongest argument for choosing the encrypted install.
+```bash
+sudo pkm reinstall linux-kernel
+```
 
-Note what it does **not** give them. The key is yours alone, generated on your machine at install time. It signs nothing outside it, it is not a project key, and it gives no access to any other machine.
+A graphics-driver rebuild that could not sign says the same thing about its modules, which the kernel would otherwise refuse to load.
 
-**What the alternative would cost.** The arrangement that removes this trade is a key that never touches the disk — held in a hardware token, a smart card, or sealed to a TPM. Each of those means the signing material is unavailable exactly when the system needs it: a kernel update on a machine whose token is not plugged in either fails or silently leaves you with an unsigned kernel that will not boot under Secure Boot. That is a worse failure than the one it prevents, and it is why this release keeps the key on disk.
+**Why it has a passphrase.** Decided 2026-09-17, reversing the arrangement earlier releases shipped. Without one, every signing step ran unattended as the administrator, which meant any program running as root could sign a boot image your firmware trusts — with nobody at the gate. Secure Boot then stopped an attacker who did not have root, and no one who did. Unattended kernel updates and a boot chain that resists root cannot both hold, and the signing authority on your own machine is yours.
 
-**What would change this.** Two things. If unattended signing stopped being necessary — for example, if kernels arrived already signed by a key your firmware trusts, so your machine never had to sign anything itself — the key would not need to be reachable. And if a hardware-backed store could satisfy an automated signing step without a person present, the cost side of the trade would change. Neither is true for this release, so the arrangement stands and is documented here rather than left implicit.
+The cost is real and is stated rather than hidden: one passphrase prompt per kernel or driver update. Keep the passphrase where you can find it. A passphrase you cannot produce is a machine that stops taking kernel updates until you can — the machine keeps booting and keeps working, but it will not sign a new kernel.
+
+**Machines installed before this change.** They hold a key with no passphrase on it. Nothing is done to them behind your back: at the next kernel or driver update you are asked to set a passphrase, the key is rewritten encrypted in place, its previous bytes are destroyed, and the result is read back before anything signs with it. If you decline, the key is left exactly as it was and nothing is signed — you can set it at the next update instead. The first page you see when you log in says which state your machine is in, and you can read the same fact yourself:
+
+```bash
+cat /etc/intergenos/mok-key-protection
+```
+
+That file is a record of what the key's state was when it was last set, written by the installer or by the signing step; the key itself stays readable only by the administrator.
+
+**What someone who takes the disk gains.** If you chose the encrypted install, the key sits on the LUKS-encrypted root volume, so someone who removes the disk and has no disk passphrase gets ciphertext. If you chose an unencrypted install, someone who has the disk can read the key file — but it is now encrypted under your signing passphrase, so having the file is not the same as being able to sign with it. Their remaining route is guessing that passphrase, which is why the installer refuses to let it be your disk passphrase and asks for at least eight characters.
+
+Note what the key does **not** give anyone. It is yours alone, generated on your machine at install time. It signs nothing outside it, it is not a project key, and it gives no access to any other machine.
+
+**What the alternative would cost.** The arrangement that removes the key from the disk entirely is a key held in a hardware token, a smart card, or sealed to a TPM. Each means the signing material is unavailable when the token is not present, which turns a kernel update into a failure or an unsigned kernel. With a passphrase on the on-disk key, the person is the thing that has to be present, and a person who is not present gets a refusal that leaves the machine bootable — which is the failure this release prefers.
+
+**What would change this.** If kernels arrived already signed by a key your firmware trusts, your machine would never have to sign anything itself and would never need to ask. That is not how this release works, so the arrangement stands and is documented here rather than left implicit.
+
 
 ## Recovery
 

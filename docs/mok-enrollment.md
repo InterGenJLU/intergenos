@@ -68,7 +68,7 @@ The MOK is *yours*. The InterGenOS project has no copy and cannot recover it. If
 
 ### What MOK enrollment does NOT protect against
 
-- **A physically-present attacker who can boot from another medium.** They can read the MOK private half from `/var/lib/intergen/mok/mok.key` if the disk is not encrypted at rest.
+- **A physically-present attacker who can boot from another medium.** On an unencrypted disk they can copy the private half from `/var/lib/intergen/mok/mok.key`. Since 2026-09-17 that file is encrypted under a passphrase you set during the install, so copying it is not the same as being able to sign with it — their remaining route is guessing that passphrase. On an encrypted disk they get ciphertext either way. A machine installed before that date holds a key with no passphrase until the next kernel or driver update offers to set one.
 - **Firmware-level attacker.** A bug in UEFI implementation, or an SMM-level rootkit, sits below the MOK trust boundary.
 - **Compromised in-tree kernel.** If a vulnerability lets attacker code run in kernel context, module signing is bypassed by definition.
 - **Targeted social engineering of the enrollment flow.** A user who blindly enrolls a third party's MOK along with their own loses the boundary entirely.
@@ -179,15 +179,23 @@ The Forge installer (`installer/backend/mok.py`) handles install-time MOK setup.
    - **A key is retired by removing it, not by letting it expire.** Reinstalling generates a new key and leaves the old one enrolled and trusted, so a machine reinstalled several times trusts several keys. Forge offers to remove the earlier ones during an install, and `mokutil --export` followed by `mokutil --delete <file>` does the same thing by hand at any time; either way the firmware asks you to confirm the removal at the same prompt that confirms an addition. A removal that is asked for and then missed at that prompt is dropped and changes nothing, and the Welcomer's first page says so at the next login, with the command that asks again.
    - Subject is `CN=InterGenOS Machine Owner Key` by default. The installer allows you to override the CN with a label of your choice (e.g., `CN=Christopher's laptop MOK`), constrained to a safe-character whitelist to prevent shell injection.
    - Files written under `/var/lib/intergen/mok/` on your installed system, with mode 0700 on the directory:
-     - `mok.key` — RSA private key, PEM, **mode 0600**
+     - `mok.key` — RSA private key, PEM, **encrypted under the owner's passphrase**, **mode 0600**
      - `mok.crt` — self-signed cert, PEM, mode 0644
      - `mok.der` — same cert in DER format, mode 0644 (required by `mokutil`)
+   - The install reads the private key back before it goes on, with an EMPTY passphrase, and that read must FAIL. A key that opens without a passphrase fails the install rather than raising a warning, because that is the state earlier releases shipped in and nothing noticed.
+   - `/etc/intergenos/mok-key-protection` records whether the key has a passphrase on it, world-readable, so the first-login page — which runs as you, not as the administrator — can say so without reading the key.
 
 2. **Set the enrollment password** (validated by [_validators.py:validate_mok_password](../installer/backend/_validators.py)):
    - **You choose it, during install** — Forge prompts you for it in the **Secure Boot enrollment** section (GUI) or at the **Secure Boot MOK password** prompt (TUI). This is §0 step 2.
    - Printable-ASCII, 8–256 characters. The installer enforces that range so the value pipes cleanly to `mokutil` at staging time; pick something you can retype accurately at a firmware-text prompt, where the keyboard layout may be US-QWERTY regardless of your locale.
    - **Forge does not generate it, does not display it back, and does not write it to any log.** Remember the password you chose — you type it once, at MokManager (§0 step 3, §5 below).
    - Leaving the field empty skips MOK enrollment entirely.
+
+2a. **Set the signing key's passphrase** (validated by [_validators.py:validate_mok_key_passphrase](../installer/backend/_validators.py)):
+   - A **different secret** from the enrollment password above, in its own step, and not optional on an EFI install. The enrollment password is typed once, at the firmware's own key manager, to confirm that this machine's key may be trusted. This passphrase protects the key itself, which signs every boot image and driver module the machine will load, for the life of the machine.
+   - Printable-ASCII, 8–256 characters, and it **may not be your disk passphrase**: the two protect different things and are typed in different places, and someone who watches the disk passphrase typed at boot must not thereby be able to sign a boot image this machine will trust. Reusing the enrollment password is allowed — that is your choice to make, not a rule the installer invents.
+   - **You are asked for it again every time this machine signs something**, which in practice means at a kernel update and at a graphics-driver rebuild. Keep it where you can find it.
+   - Forge does not generate it, does not display it back, and does not write it to any log or to the install trace. It reaches the signing tools through a process environment variable and through a pipe, never as a command-line argument, because an argument is readable in the process table by every user on the machine.
 
 3. **Queue MOK for enrollment** ([mok.py:queue_mok_enrollment](../installer/backend/mok.py#L150)):
    - Invokes `mokutil --import /var/lib/intergen/mok/mok.der` inside the install chroot.
@@ -197,6 +205,37 @@ The Forge installer (`installer/backend/mok.py`) handles install-time MOK setup.
 After install, the MOK is *queued* but *not yet enrolled*. Enrollment completes on the first boot after you re-enable Secure Boot in firmware setup (§0 step 3) — that re-enable is what puts shim in the boot path and lets MokManager run.
 
 The installer also stages the DER certificate at two more places so the from-disk recovery and the first-login check work without another machine: `/boot/efi/EFI/InterGenOS/mok.der` (the boot partition, beside shim — what MokManager's "Enroll key from disk" reads) and `/etc/intergenos/mok.der` (world-readable; the Welcomer compares its SHA1 with `mokutil --list-enrolled` at the first login and shows the recovery steps while the key is not enrolled). The certificate is public; the private key stays in the 0700 directory.
+
+### What happens when the passphrase is not given
+
+A signing step that cannot get the passphrase **refuses**. It does not sign with nothing, and it does not skip signing and report success.
+
+Concretely, for a kernel update:
+
+- nothing is written to the EFI system partition. The boot image is built to a staging name in that directory and only renamed into place after its signature has been verified against this machine's own certificate, so until that rename the partition holds exactly what it held before;
+- the previous release's signed boot image is still there and is still the boot-menu target, so the machine still boots;
+- the hook says, in its own words, that the new kernel is `NOT BOOTABLE UNTIL SIGNED`, and the package manager repeats it in the advisory that is still on the screen when the transaction ends, naming the kernel and the command that finishes the job;
+- the hook exits non-zero, so the package manager records the transaction as incomplete rather than as a success.
+
+Three attempts are allowed at the prompt, then it refuses. To finish afterwards, at the console:
+
+```bash
+sudo pkm reinstall linux-kernel
+```
+
+For a graphics-driver rebuild, the module is left unsigned and the script says so and exits non-zero; an unsigned module is refused by the kernel under `CONFIG_MODULE_SIG_FORCE=y`, so a rebuild that reported success with an unsigned module would have surfaced as a driver that does not load at the next boot.
+
+Two cases are **not** refusals, and each says which it is: an install where the image builder has not been extracted yet, and a machine with no key at all whose firmware is not enforcing Secure Boot. A machine with no key **whose firmware is enforcing Secure Boot** is a refusal — an image built there could not load, and writing it over a working one would take the machine down.
+
+### Machines installed before the key had a passphrase
+
+Every machine installed before 2026-09-17 holds a key with no passphrase on it. They are not left that way and they are not changed behind anyone's back.
+
+At the next kernel or driver update the signing step notices, says what the state means, and asks for a passphrase twice. Then it rewrites the key encrypted in place, destroys the previous bytes, and reads the result back — with an empty passphrase first, which must fail, and then with the passphrase just set, which must succeed — before anything signs with it.
+
+A refused migration changes nothing at all: the key is left exactly as it was, nothing is signed, and the offer comes again at the next update. The machine keeps booting on the kernel it already has.
+
+Nothing invents a passphrase for you. A key protected by something you were never told is not protected from your point of view.
 
 ### Verifying what the installer wrote
 

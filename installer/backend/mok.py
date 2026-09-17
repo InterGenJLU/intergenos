@@ -26,6 +26,19 @@ MOK enrollment lifecycle (the supported procedure, in order):
   trusted keyring (CONFIG_SECONDARY_TRUSTED_KEYRING=y), allowing kernel
   modules signed with the corresponding private key (e.g., DKMS-built
   NVIDIA modules) to load under CONFIG_MODULE_SIG_FORCE=y.
+
+The private half is ENCRYPTED AT REST under a passphrase the machine owner
+sets in the installer, and every signing step asks for it (decided
+2026-09-17). This is a different secret from the enrollment password above:
+that one is typed once at the firmware's own key manager to confirm an
+enrollment, this one guards the key itself for the life of the machine.
+
+Earlier releases stored the key without a passphrase so that kernel and
+driver updates could sign unattended. The consequence, measured rather than
+argued, was that any process running as root could sign a boot image the
+firmware trusts, so Secure Boot stopped an attacker without root and nobody
+with root. Unattended kernel updates and a boot chain that resists root
+cannot both hold.
 """
 
 import contextlib
