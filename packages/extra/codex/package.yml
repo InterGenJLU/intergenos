@@ -1,7 +1,7 @@
 name: codex
 version: "1.0"
-release: 2  # r2: The helper acceptance record names SUDO_USER when supplied, otherwise the effective account with an explicit indication that no consenting user was named. Identity is JSON-encoded before opening the record; this writer works with the existing helper library.
-content_hash: 0d5d6d2ad9c01d15
+release: 3  # r3: the installed manifest records the symlink this package creates as the link it is, instead of the path that link resolved to at build time — the same change as the sibling download helper, for the same reason.  # r2: The helper acceptance record names SUDO_USER when supplied, otherwise the effective account with an explicit indication that no consenting user was named. Identity is JSON-encoded before opening the record; this writer works with the existing helper library.
+content_hash: 997e5b07ef7e310e
 description: Helper to install OpenAI Codex CLI and VS Code extension
 license: GPL-3.0-or-later
 payload_license: "Apache-2.0 AND LicenseRef-OpenAI-Terms-of-Use"
