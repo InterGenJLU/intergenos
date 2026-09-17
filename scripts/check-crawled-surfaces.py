@@ -325,7 +325,10 @@ def dated_spans(text: str, raw_html: str) -> list:
         if not containing:
             continue
         scope = containing[0]
-        if len(text[scope[0]:scope[1]].strip()) < RAIL_TEXT_LIMIT and len(containing) > 1:
+        # Collapsed, because tags were blanked in place: the rail's span is mostly the
+        # spaces its markup left behind, and len() of that would never look short.
+        rail_text = " ".join(text[scope[0]:scope[1]].split())
+        if len(rail_text) < RAIL_TEXT_LIMIT and len(containing) > 1:
             scope = containing[1]                     # the rail's entry, not the rail
         if not DATE_RE.search(text[scope[0]:scope[1]]):
             continue                                  # a date mark with no date in it

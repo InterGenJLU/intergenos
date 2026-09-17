@@ -369,8 +369,10 @@ def test_a_date_in_an_entrys_rail_dates_the_whole_entry(surface):
     url = surface.page(
         "news.html",
         '<div class="wrap">\n'
-        '<article class="entry"><div class="rail"><span class="date">2026-09-03</span>'
-        '<span class="kind">Update</span></div>\n'
+        '<article class="entry" id="point-release-r001-2"><div class="rail">'
+        '<span class="date">2026-09-03</span><span class="kind">Point release</span>'
+        '<a class="permalink" href="#point-release-r001-2" '
+        'aria-label="Link to this entry: InterGenOS R001.2 released">#</a></div>\n'
         '<div class="body"><h2>InterGenOS R001.2 released</h2>'
         "<p>R001.2 replaces R001.1 as the recommended download.</p></div></article>\n"
         '<article class="entry"><div class="rail"><span class="date">2026-08-16</span>'
