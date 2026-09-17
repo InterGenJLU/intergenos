@@ -18,7 +18,7 @@ first occurrence is shown in full and in place, every distinct line is shown,
 and the unfiltered stderr still reaches the install trace in full
 (test_hook_note_record_keeps_every_line.py pins that half).
 
-MEASURED, not assumed, on the .199's own R001.2-03 install trace: folding
+MEASURED, not assumed, on a real R001.2-03 install trace: folding
 identical lines inside a single package operation folds 0 of those 184 lines,
 because no producing run repeats itself internally. The repeats are ACROSS
 package operations. Both scopes are implemented — the per-operation rule
