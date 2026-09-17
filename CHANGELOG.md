@@ -20,8 +20,101 @@ landed is in the repository README, not here.
 
 ## [Unreleased]
 
+### Known limits in R001.3
+
+- The small (2B) tier states wrong facts with confidence and answers some direct
+  questions with a template; the model's floor, not the tree's.
+- A web-search request phrased without a search verb or a subject the assistant
+  can extract still goes to the model. `search the web for …` always reaches
+  the tool. (A clause governed by "do not", "never" or "without" is no longer
+  cut into an affirmative request; see Fixed.)
+- The wiki embedding index can still stay keyword-only for a daemon run: the
+  after-turn catch-up pass now waits up to fifteen seconds for the embedding
+  slot and says so when it gives up, so the case is rarer and no longer silent.
+- The greeter shows the Qwen attribution only when the installed `intergen`
+  carries `--version`; a machine upgraded package by package renders nothing
+  until intergen updates.
+- Stopping the assistant service by hand does not keep it stopped: the desktop
+  panel re-activates it over the desktop bus.
+- The older GPU power rule (`70-intergen-compute-gpu-pm.rules`) still holds
+  every secondary AMD card awake permanently.
+- The NVIDIA driver helper's silent minute after the EULA is only partly fixed.
+- The assistant re-reads the graphics-hardware identity every five minutes with
+  the PCI listing tool, which resumes every suspended PCI device each time; on
+  one tested laptop each pass also logs a failed link bring-up.
+- No Thunderbolt device-authorization daemon is shipped; Thunderbolt devices
+  behave as the firmware's default policy dictates.
+- The scenario harness sits to its timeout when the assistant's bus name is
+  already owned (a test-instrument limit).
+- The canonical test suite cannot complete on an installed machine.
+
 ### Added
 
+- **An encrypted install offers a recovery key.** Until now an encrypted install
+  ended with exactly one unlock credential. The installer now offers, on every
+  encrypted install, to generate a recovery key on the machine, adds it as a
+  second key slot, proves the slot opens the volume before it says so, and
+  shows the key once on the completion page for the person to write down. The
+  installer's record carries the fact that a key exists, never the key.
+- **Every install ends with a restore point.** The backup engine used to take
+  its first restore point only before a package transaction, so a machine on
+  which nobody installed anything had no state to return to. The installer now
+  takes one at the end of the install, and the shipped health check reports
+  when a machine cannot be rolled back to itself.
+- **The package manager can move an installed package forward from a local
+  archive.** `pkm upgrade <name> --archive <file>` upgrades exactly one
+  installed package from an archive whose own metadata names it, under the same
+  trust modes, downgrade guard, dependency check, confirmation, restore point,
+  rollback copy and configuration protection as a repository upgrade; the
+  history row records the method. When the package manager replaces itself,
+  every one of its own modules is loaded before the first file is replaced.
+- **A TLS trust updater** (`update-ca-trust`, with its manual) that validates
+  the configured anchors and publishes the generated certificate bundles
+  atomically; `p11-kit` carries the regeneration helper.
+- **A kernel hardening floor** shipped as `/usr/lib/sysctl.d/60-intergenos-hardening.conf`:
+  kernel pointer restriction, full address-space randomization, strict
+  reverse-path filtering, ICMP redirects neither accepted nor sent, martian
+  packets logged, each applied to every interface so it wins over the systemd
+  default. The kernel is built with the legacy heap layout switched off
+  (`CONFIG_COMPAT_BRK` off), which the previous kernels carried on and which
+  clamped address-space randomization. A shipped gate refuses a kernel
+  configuration that turns it back on.
+- **A kernel panic leaves a record the next boot can read.** On every installed
+  system to date the kernel's panic-record backend loaded and recorded nothing:
+  the EFI backend ships switched off by the kernel's own default, and once
+  switched on it was still observed to write nothing from a panic on a Secure
+  Boot machine. The installed system now reserves a small named memory region
+  at boot through the kernel's own `reserve_mem` mechanism, and the RAM-backed
+  recorder claims it by name — the kernel chooses the address, and Secure Boot
+  lockdown, which refuses a recorder pointed at a fixed address, permits the
+  named form. The configuration is delivered through the installer's
+  command-line source (`/etc/kernel/cmdline.d/30-panic-record.conf`) and a
+  module-load file, and a shipped gate refuses the address form so the silent
+  regression cannot return. Proven on real hardware under Secure Boot: a
+  deliberate panic left nothing before the change and a readable record
+  (`/var/lib/systemd/pstore/dmesg-ramoops-0`, with the panic line and call
+  trace) after it. The EFI backend option stays as the fallback.
+- **Machine Owner Key precautions.** The installer stages the machine's own
+  Secure Boot certificate on the boot partition beside shim
+  (`EFI/InterGenOS/mok.der`, what MokManager's "Enroll key from disk" reads)
+  and at `/etc/intergenos/mok.der`; every enrolment text states the ~10-second
+  MokManager window and the from-disk recovery path; the firmware's signature
+  database is read and the trusted Microsoft UEFI authorities are stated in
+  plain language. The installer also reads the owner keys the firmware already
+  trusts, names the ones earlier installs on this machine left behind, and
+  offers to retire them during the install. The first-login page says when the
+  key is staged but not enrolled, and when a retirement asked for during the
+  install has not happened, with the recovery path in each case.
+- **The installer's disk phase is on the record.** Every command the partition
+  and mount steps issue runs through the install trace with its arguments,
+  exit status, output and duration; the phase opens with the disk, its size and
+  the chosen options and closes with the resulting layout. A passphrase or
+  sealing secret fed to any command is withheld by the trace writer with only
+  its byte count kept.
+- **Installed file capabilities are restored and read back** after deployment
+  for the programs that need them (`ping6`, the keyring daemon) instead of
+  those programs shipping setuid; `libcap` ships `setcap` and `getcap` for the
+  package hooks that restore them.
 - `wsdd` 0.9, the WS-Discovery helper used by GNOME Files for Windows-network
   browsing. GVfs now requires it, and the ISO includes `defusedxml` for its
   XML parsing. The advertising service is installed but remains disabled.
@@ -40,35 +133,229 @@ landed is in the repository README, not here.
   and `libfastjson` 1.2609.0: the rsyslog log processor built with the RELP
   acknowledged-delivery transport (input and output), file input, statistics,
   systemd journal import and export, plain TCP input and JSON parsing. Ships a
-  hardened service unit and a local-only default configuration; the service is
-  disabled by default and is enabled only where a host is deployed as a log
-  receiver. Mirror-only (`sudo pkm install rsyslog`).
-
-### Changed
-
-- Linux kernel 6.18.10 → 6.18.51, the current release of the 6.18 long-term
-  series (`linux-kernel` and `linux-kernel-pass2`, release restarted at 1, so
-  the kernel release string becomes `6.18.51-igos-1`). Five backport patches
-  the recipes carried are retired because 6.18.51 carries each fix upstream:
-  CVE-2026-31431, CVE-2026-43284, CVE-2026-43500 (the locally authored backport
-  is replaced by upstream's own fix), CVE-2026-46300, and the ASUS keyboard
-  probe fix. The one remaining local patch, the graphics-card display-wakeup
-  patch, is re-based onto 6.18.51 with its hunks unchanged. The kernel updates
-  through `pkm upgrade` like any package and takes effect at the next reboot.
+  hardened service unit and a local-only default configuration whose
+  compatibility default is `strict`, so an unclean configuration aborts
+  start-up; the service is disabled by default and is enabled only where a
+  host is deployed as a log receiver. Mirror-only (`sudo pkm install rsyslog`).
+- Mobile broadband: the ModemManager daemon unit and its D-Bus activation file
+  ship, and the preset enables only the activation alias, so the daemon starts
+  on request from the desktop and never runs on a machine without a modem.
+- `pkm history` shows the 50 newest entries by default, with `--limit N` and
+  `--all` to reach an install's full record.
 
 ### Fixed
 
+- **Every web-chat turn that needs the model completes.** On every installed
+  R001.2 machine, a browser-chat question that reached the model raised inside
+  the daemon and showed the "Something went wrong on my end" banner, because
+  the browser server built the prompt outside the connection's conversation
+  binding once the daemon detached its own. Every router access after routing
+  now runs inside that binding; an unbound access still refuses.
+- The assistant's browser transcript records each exchange once and asks the
+  model the question once; every second turn used to carry the question twice.
+- The assistant's serving plan is computed with the video-memory figure the
+  hardware detector actually read; a writeback connector is no longer counted
+  as a monitor, so the serving model stays off the card painting the desktop;
+  on an NVIDIA card behind the proprietary driver the CUDA engine serves first
+  and Vulkan is the floor; and the engine ladder detects the card vendor itself
+  and offers every engine not yet tried before it reports itself exhausted.
+- A request clause governed by "do not", "don't", "never" or "without" is never
+  cut into an affirmative sub-request (the tail of such a sentence used to open
+  the consent dialog for a command the person had just forbidden). A
+  definition question ("explain what a kernel is") reaches the model instead of
+  being served from the system-fact cache.
+- The wiki index catches up after a turn even when the turn's own memory
+  embedding is still in flight; every trace row the memory index writes names
+  the turn that produced it, so the installed trace-integrity gate no longer
+  refuses a record after the turn it drove has been indexed. The assistant
+  caches its computed documentation index on disk, keyed by the documentation
+  hashes and the model identity, so a restart does not recompute it.
+- The assistant's status output and the runtime manifest state what was
+  measured: the chat model, its paired projector and the embedding model are
+  recorded, their bytes verified before loading, and a manifest-write failure
+  is reported; model records carry the package descriptor identity and an
+  explicit licence, and an existing-model setup re-verifies the installed
+  artifact and reports the record rewritten, already correct or refused.
+- **Root is no longer locked on an installed system.** The password package's
+  post-install hook ran on every installed target after the installer had
+  written the chosen root password, so every R001.2 install landed with root
+  locked and no rescue credential. The locked root the shipped media requires
+  is now written where the media is assembled, and the installer reads the
+  root password field back and verifies after the hooks that it still holds
+  the hash it wrote.
+- **The install trace never records a credential.** The subprocess layer used
+  to log the full `chpasswd -e` line with both account hashes; a credential fed
+  to `chpasswd`, `passwd`, `cryptsetup`, `openssl`, `gpg`, `ssh-keygen`,
+  `mokutil` and their kin is now recorded only as a byte count, a
+  credential-shaped payload or output fed to any other command is withheld the
+  same way, and the trace records only a description of the root password
+  field, never the hash.
+- **Every SSH public key the installer writes is one the person was shown and
+  accepted.** The graphical screen validated only the first line of the key
+  box and then stored and wrote the whole box, so a pasted `authorized_keys`
+  file had one line checked and every line installed. One shared parser now
+  decodes each line, and both the graphical and the text installer show what
+  will be written.
+- The Welcomer's SSH switch closes the port: the SSH opt-in writes the
+  removable nftables fragment the Welcomer manages, and the shipped
+  `/etc/nftables.conf` is never edited, so SSH OFF now drops the packet filter
+  rule as well as the service. The serial login prompt is enabled only when the
+  installer itself ran over a serial console, never on a merely working port.
+- Four installer-backend corrections: the final cleanup never deletes the login
+  the person chose; post-install hooks and the checksum reconcile run only for
+  packages whose install succeeded; a target that stays mounted is reported
+  instead of "install complete"; the boot-partition mount step unwinds the root
+  mount it acquired before the original error leaves. The `sr_RS.UTF-8@latin`
+  locale compiles.
+- The install leaves the privilege configuration at the mode sudo's own syntax
+  checker requires (`0440`); at `0644` `visudo -c` refused the whole
+  configuration. The install writes the password format the machine's own
+  password library prefers and records the format written, so an account made
+  by the install and a password changed afterwards no longer sit in two formats
+  on one machine; the shipped `login.defs` actually declares the hashing method.
+- Remote login: forwarding ships off in both directions (a person who logs in
+  cannot open tunnels through the machine, and the machine cannot reach back
+  into the key agent on the computer they came from); the recipe's copy and
+  the shipped copy of the drop-in are held equal by a test. The user guide
+  states the posture and how to turn forwarding on knowingly.
+- The three files the install mirrors into the removable-media fallback
+  directory on the boot partition are declared as one set and held by a test;
+  they are byte-identical signed copies of the originals, not leftovers.
+- Installed AMD-only unified kernel images omit the Intel microcode image;
+  mixed or unknown processor inventories keep both.
+- The boot menu's unified-kernel entries are named: the newest carries a fixed
+  id that `/etc/default/grub` pins as the default, so a later generator cannot
+  take the default by sorting first; the theme hook regenerates an existing
+  menu only and leaves initial installation to bootloader setup.
+- The boot-entry cleanup reports a truthful count and never removes a foreign
+  entry without an offer; the firmware's own fallback entry is classified as
+  what it is.
+- The package manager: `pkm info` exits 1 for a package that is not installed
+  and 0 for an installed one, so a script can gate on the status; `pkm cache
+  clean --keep-current` matches the installed archive by name, version and
+  release; `restart-services --all` restarts only the running units of packages
+  changed since this boot and never the units that carry the login session (a
+  package that would need one is reported as REBOOT REQUIRED), and refuses
+  without a readable boot time; `upgrade --all` upgrades the package manager
+  first and re-executes under the new release for the rest of the queue; a
+  hook's identical-byte rewrite of a file is classified hook-generated only
+  when the pre-hook bytes matched the owner's own checksum; database write
+  traces record statement execution truthfully instead of predicting the
+  outcome of an enclosing transaction; upgrading a download-helper package
+  keeps the application it installed; the `claude-code` helper's install-mode
+  option reaches the helper and only as "0" or "1".
+- The package-manager hook that invokes the certificate-trust updater fires on
+  the trust source p11-kit is actually configured with (`/etc/pki/anchors`,
+  including its anchors and blocklist subdirectories); it matched a directory
+  family no recipe in this tree installs into, so the updater was never invoked
+  by a package operation. The test derives the expected directory from the
+  p11-kit recipe's own configuration, so moving one without the other fails
+  loudly.
+- A font installed before fontconfig no longer reports its cache as built: the
+  cache builder postpones with its reason until the target has
+  `/etc/fonts/fonts.conf`, and that file joins the trigger, so installing
+  fontconfig rebuilds the cache for every font installed before it. (`fc-cache`
+  exits zero and complains only on stderr when no configuration is present,
+  which the package manager did not show.)
+- Every download helper's acceptance record names the person who ran it
+  (`SUDO_USER` when supplied, otherwise the effective account with an explicit
+  note that no consenting user was named); the CUDA helper stamps its release.
+- The `claude-code` helper pins CLI 2.1.270 (2.1.218 could not run the current
+  model family), prepares the dependency tree without lifecycle scripts,
+  refuses on a critical advisory or a failed registry-signature check (the
+  signature check was claimed before and never run), reads the installed
+  version back from the exact executable placed, and pins the VS Code extension
+  to 2.1.270 with its sha256; its refusals now say what happened and what the
+  reader can do.
+- `intergenos-backup` (the backup engine): the twelve defects found by review
+  are corrected with regression tests — captures record directory symlinks;
+  reclamation stops before deleting anything when any manifest is unreadable
+  or malformed; a same-size edit inside one second is stored as new bytes; the
+  manifest hashes the stored copy; scrub reports every integrity failure; an
+  existing store object is verified before deduplication accepts it; a failed
+  configuration capture is retried and journaled; integrity failures exit
+  non-zero; the configuration fingerprint covers every watched path; capture
+  work runs off the desktop application's main loop; separate engine instances
+  serialize state with a process lock. Retention removes versions
+  all-before-any, fail-loud and announced, with every plan recorded before and
+  after it runs and shown by the status command and the window; the
+  directory-class target's size cap is enforced; a persistently failing mirror
+  no longer accumulates a manifest per attempt; a store whose user-data
+  directory is a symlink is refused; an unchanged file is reused by hard link
+  only after its bytes and the previous stored copy are verified; a source that
+  changes while it is being copied is refused; an unreadable engine state file
+  is refused and preserved instead of being replaced by an empty state; and a
+  storage error while validating a pruning plan no longer leaves the plan's
+  announcement in the record without an outcome.
 - `nvidia`: the driver's install hook could not find the kernel when re-run
   by hand outside the package manager (its fallback looked for a module
   directory name InterGenOS never produces), and its module-signing fallback
   named a kernel source directory that does not exist. Both recovery paths now
   derive the paths from the real `<version>-igos-<release>` string; the normal
-  kernel-upgrade path was never affected.
-- `intergenos-backup`: a storage error while validating a pruning plan no
-  longer leaves the plan's announcement in the record without an outcome; the
-  record never drops an announcement whose plan has no outcome, every event of
-  one plan shares an identifier and names its store, and every retention event
-  is also written to the daemon's journal.
+  kernel-upgrade path was never affected. The legacy `nvidiafb` framebuffer
+  driver is prevented from loading alongside the NVIDIA DRM driver.
+- The shipped smoke harness (`intergenos-smoke-test`) is a trustworthy health
+  instrument: the package count comes from the listing header; a marker
+  package that is not found fails; an unprivileged verify is a warning with the
+  exact re-run command; a path the run merely cannot read is reported
+  unreadable, never absent, while a truly absent boot component under Secure
+  Boot fails; the initramfs stub no longer counts as a boot artifact; documented
+  no-driver PCI classes are never reported unclaimed; a missing check module
+  aborts the run instead of passing.
+- The first-run guide's restart texts follow the model setup state and direct
+  the person to the setup card; the installed-package check works with older
+  and newer package managers alike.
+- The `/etc/cron.README` shipped with `fcron` no longer describes the other
+  scheduler as present; it states that it is not installed and gives the one
+  command that installs it.
+- The `tailscale` defaults select the native nftables backend.
+- The `wpa_supplicant` nl80211 template unit and the `switcheroo-control`
+  unit are conditioned on the hardware they need; neither starts on a machine
+  without it.
+- `shim-signed`: the source licence metadata matches shim's two-clause BSD text.
+
+### Changed
+
+- Linux kernel 6.18.10 → 6.18.51, the current release of the 6.18 long-term
+  series (`linux-kernel` and `linux-kernel-pass2`, release restarted at 1, so
+  the kernel release string becomes `6.18.51-igos-<release>`). Five backport
+  patches the recipes carried are retired because 6.18.51 carries each fix
+  upstream: CVE-2026-31431, CVE-2026-43284, CVE-2026-43500 (the locally
+  authored backport is replaced by upstream's own fix), CVE-2026-46300, and the
+  ASUS keyboard probe fix. The one remaining local patch, the graphics-card
+  display-wakeup patch, is re-based onto 6.18.51 with its hunks unchanged. The
+  final kernel pass runs `depmod` through its own sealed post-install hook so
+  the package manager's recorders observe its writes. The kernel updates
+  through `pkm upgrade` like any package and takes effect at the next reboot.
+- **Unneeded privileged programs are removed from the desktop set.** The
+  terminal multiplexer (`screen`) and the system-information helper
+  (`libgtop`) ship without their setuid bit, which nothing in this system
+  needed; the Kerberos switch-user program (`ksu`) is no longer shipped, since
+  this system configures no realm and the program could never succeed; each
+  recipe halts if the bit is still set. The declared privileged-program
+  inventory loses the entries in the same change.
+- **Default-enabled third-party services run under systemd restrictions.**
+  `avahi`, `bluez`, `cups`, `networkmanager`, `rtkit`, `switcheroo-control` and
+  `udisks2` ship upstream's service hardening drop-ins, each checked to keep the
+  access the service needs (network discovery, Bluetooth devices, printer
+  configuration and device access, network and device access, realtime
+  scheduling, host mounts).
+- The package manager, the installer and the root-run helpers (the backup
+  engine's pre-transaction handler, the NVIDIA EULA helper) run Python in
+  safe-path mode, and every program the package manager's hooks execute is
+  bound by absolute path; a bidirectional execution inventory and a
+  pushed-content gate refuse new, missing or changed execution edges.
+- The desktop's unavailable screen-reader control is kept off and unwritable
+  until a supported implementation is deployed; Orca, Rygel and WebDAV sharing
+  are suppressed in the default session.
+- The live session's D-Bus policy for the installer is written only into the
+  live-media boot overlay, not into the installed policy file.
+- Ctrl+Alt+T opens a terminal and Super+D shows the desktop.
+- `sudo` ships one secure-path setting (the duplicate line in the drop-in that
+  dropped `/usr/local` from the path is removed).
+- The user documentation states where the machine's kernel-signing key lives,
+  what that costs, and what would change it; the desktop guide says InterGenOS
+  runs Wayland.
 
 ### Security
 
@@ -77,6 +364,15 @@ landed is in the repository README, not here.
   kernel. Closed by the move to 6.18.51, which carries the upstream fix.
   Advisory: `docs/security/advisories/CVE-2026-53362-ipv6-fraggap.md`. No
   interim mitigation exists for installed systems; the fix is the kernel update.
+- R001.2 installs landed with root locked and no rescue credential, with the
+  chosen root password never taking effect; see Fixed. Installed systems get
+  the correction with the `shadow` and `forge` updates; an existing install's
+  root stays as it is until the person sets it.
+- R001.2's install trace (kept on the installed system) recorded the chosen
+  account password hashes; see Fixed. A person who installed R001.2 should
+  treat the trace file as sensitive or delete it.
+- Remote login on R001.2 permitted TCP and agent forwarding for anyone who
+  could log in; see Fixed.
 
 ---
 
