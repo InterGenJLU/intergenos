@@ -228,6 +228,7 @@ class TestRunInstallHappyPath(_RunInstallTestBase):
             tpm2_enabled=False,
             fido2_enabled=False,
             fido2_progress_callback=None,
+            recovery_key_enabled=False,
         )
         self.disks.mount_target.assert_called_once()
         self.hooks.mount_virtual_fs.assert_called_once()
