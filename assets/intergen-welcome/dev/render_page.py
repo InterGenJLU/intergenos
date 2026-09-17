@@ -61,6 +61,19 @@ mod.apply_prompt = lambda *a, **k: None
 #   key-unrecorded      the same machine, except that nothing records the state
 #                       at all. The wording differs and this is the scenario
 #                       that shows whether the difference reads as a difference.
+#   trusted-one-own     the always-shown statement of what the firmware trusts
+#                       (row 49) on a settled machine: one machine owner
+#                       certificate, and it is this machine's own. This is the
+#                       one state drawn as a statement rather than an advisory.
+#   trusted-kept        several trusted, this machine's own among them, the
+#                       others kept on purpose at an install.
+#   trusted-undecided   several trusted, this machine's own among them, nobody
+#                       ever asked about the others — the common case on a
+#                       machine reinstalled a few times.
+#   trusted-own-absent  several trusted and this machine's own is NOT among
+#                       them.
+#   trusted-unreadable  the firmware could not be asked at all: the statement
+#                       says unreadable, and never zero.
 # Unset: the page reads the render host, as it always did.
 SCENARIO = os.environ.get('IGOS_WELCOMER_SCENARIO')
 if SCENARIO == 'mok-not-enrolled':
@@ -78,6 +91,37 @@ elif SCENARIO in ('key-unprotected', 'key-unrecorded'):
     mod._signing_key_protected = (
         (lambda *a, **k: False) if SCENARIO == 'key-unprotected'
         else (lambda *a, **k: None))
+elif SCENARIO and SCENARIO.startswith('trusted-'):
+    # The row 49 statement, rendered in each state it can be in. Everything else
+    # on the page is made silent so the statement is what is being looked at.
+    mod._mok_enrolment_state = lambda *a, **k: None
+    mod._mok_retirement_state = lambda *a, **k: None
+    mod._machine_has_a_signing_key = lambda *a, **k: False
+    OWN = 'd41d8cd98f00b204e9800998ecf8427e1a2b3c4d'
+    OLD_A = '8a541b1738e975d378646339be215d6a7892aab0'
+    OLD_B = '17f8adde8d70dee58521b561126051d8879aa23d'
+    states = {
+        'trusted-one-own': {'count': 1, 'own': OWN, 'own_is_trusted': True,
+                            'others': [], 'kept': [], 'undecided': [],
+                            'asked_to_retire': []},
+        'trusted-kept': {'count': 3, 'own': OWN, 'own_is_trusted': True,
+                         'others': [OLD_A, OLD_B], 'kept': [OLD_A, OLD_B],
+                         'undecided': [], 'asked_to_retire': []},
+        'trusted-undecided': {'count': 3, 'own': OWN, 'own_is_trusted': True,
+                              'others': [OLD_A, OLD_B], 'kept': [],
+                              'undecided': [OLD_A, OLD_B],
+                              'asked_to_retire': []},
+        'trusted-own-absent': {'count': 2, 'own': OWN, 'own_is_trusted': False,
+                               'others': [OLD_A, OLD_B], 'kept': [],
+                               'undecided': [OLD_A, OLD_B],
+                               'asked_to_retire': []},
+        'trusted-unreadable': {'count': None, 'own': None,
+                               'own_is_trusted': None, 'others': [], 'kept': [],
+                               'undecided': [], 'asked_to_retire': []},
+    }
+    if SCENARIO not in states:
+        sys.exit(f'unknown IGOS_WELCOMER_SCENARIO {SCENARIO!r}')
+    mod._trusted_owner_key_state = lambda *a, **k: states[SCENARIO]
 elif SCENARIO in ('nvidia-offer', 'nvidia-driver-done'):
     driver_done = SCENARIO == 'nvidia-driver-done'
     mod._gpu_detection_record = lambda *a, **k: {

@@ -944,6 +944,11 @@ def _count_words(n, singular, plural=None):
     return f"{word} {singular if n == 1 else plural}"
 
 
+def _capitalised(text):
+    """A sentence that begins with a written-out number still begins a sentence."""
+    return text[:1].upper() + text[1:] if text else text
+
+
 def _prior_key_card_text(state):
     """(title, body, action) for the card, or None when nothing needs saying."""
     if state is None:
@@ -1150,7 +1155,7 @@ def _trusted_owner_key_state(cert_path=_MOK_PUBLIC_CERT,
     }
 
 
-def _owner_key_removal_action(fingerprints):
+def _owner_key_removal_action(fingerprints, own_is_known, all_kept=False):
     """The documented way to retire trusted keys on a running machine.
 
     Taken from docs/users/secure-boot-and-mok.md and docs/mok-enrollment.md
@@ -1161,12 +1166,22 @@ def _owner_key_removal_action(fingerprints):
     """
     listed = '\n'.join('  ' + ':'.join(f[i:i + 2] for i in range(0, 40, 2))
                         for f in fingerprints)
-    return ('To retire the others, in a terminal: mokutil --export writes every '
+    # With this machine's own certificate unreadable, which of these is its own
+    # is exactly what is not known, so they are not listed under a heading that
+    # says they are not it.
+    heading = ('The fingerprints that are not this machine\'s own:'
+               if own_is_known else 'The fingerprints the firmware trusts:')
+    # Keys somebody was asked about and chose to keep are a decision that was
+    # already made. Telling that person to retire them contradicts the sentence
+    # above, so the same path is offered rather than instructed.
+    opening = ('If you change your mind, in a terminal: '
+               if all_kept else 'To retire the others, in a terminal: ')
+    return (opening + 'mokutil --export writes every '
             'trusted certificate to a file here, and sudo mokutil --delete '
             '<file> queues one for removal. Restart with Secure Boot on and '
             'confirm it with your enrolment password; the prompt waits about '
-            '10 seconds and nothing is removed without your answer. The '
-            'fingerprints that are not this machine\'s own:\n' + listed)
+            '10 seconds and nothing is removed without your answer. '
+            + heading + '\n' + listed)
 
 
 def _trusted_owner_keys_text(state):
@@ -1199,20 +1214,19 @@ def _trusted_owner_keys_text(state):
         return (title, body, '')
 
     counted = _count_words(count, 'certificate')
+    # The title carries the count. The body opens with what that count means for
+    # this machine rather than saying the same sentence again, which is what the
+    # first render of this statement did.
     if own_is_trusted is True:
-        opening = ('This machine\'s firmware trusts ' + counted + ' carrying '
-                   'this project\'s machine owner name, and this machine\'s '
-                   'own is among them.')
+        opening = ('One of them is this machine\'s own, matched by fingerprint '
+                   'against the copy of its certificate on this disk.')
     elif own_is_trusted is False:
-        opening = ('This machine\'s firmware trusts ' + counted + ' carrying '
-                   'this project\'s machine owner name, and this machine\'s '
-                   'own is not among them — nothing here was signed by a key '
-                   'this firmware knows about.')
+        opening = ('This machine\'s own certificate is NOT among them: nothing '
+                   'this machine signs is trusted by this firmware until that '
+                   'certificate is enrolled.')
     else:
-        opening = ('This machine\'s firmware trusts ' + counted + ' carrying '
-                   'this project\'s machine owner name. Whether this '
-                   'machine\'s own is among them could not be checked: there '
-                   'is no readable copy of its certificate at '
+        opening = ('Whether this machine\'s own is among them could not be '
+                   'checked: there is no readable copy of its certificate at '
                    + _MOK_PUBLIC_CERT + ', which is the state of every machine '
                    'installed before that copy was staged.')
 
@@ -1224,15 +1238,18 @@ def _trusted_owner_keys_text(state):
             'machine keeps trusting keys whose private half went with the disk '
             'they were made on.')
     if kept:
-        sentences.append(_count_words(len(kept), 'of them is', 'of them are')
-                         + ' there because somebody was asked during an install '
-                           'and chose to keep ' + ('it' if len(kept) == 1 else 'them')
-                         + ', which is a decision and not a problem.')
+        sentences.append(
+            _capitalised(_count_words(len(kept), 'of them is', 'of them are'))
+            + ' there because somebody was asked during an install and chose to '
+              'keep ' + ('it' if len(kept) == 1 else 'them')
+            + ', which is a decision and not a problem.')
     if undecided:
-        sentences.append(_count_words(len(undecided), 'of them is', 'of them are')
-                         + ' there because nobody has decided anything about '
-                         + ('it' if len(undecided) == 1 else 'them')
-                         + ': no install recorded a choice.')
+        sentences.append(
+            _capitalised(_count_words(len(undecided), 'of them is',
+                                      'of them are'))
+            + ' there because nobody has decided anything about '
+            + ('it' if len(undecided) == 1 else 'them')
+            + ': no install recorded a choice.')
     if asked:
         sentences.append('The advice above covers the '
                          + _count_words(len(asked), 'key')
@@ -1248,7 +1265,10 @@ def _trusted_owner_keys_text(state):
 
     title = ('This machine\'s firmware trusts ' + counted
              + ' named for this project')
-    action = _owner_key_removal_action(others) if others else ''
+    all_kept = bool(others) and not undecided and not asked
+    action = (_owner_key_removal_action(others, own_is_trusted is not None,
+                                        all_kept=all_kept)
+              if others else '')
     return (title, ' '.join(sentences), action)
 
 
@@ -1294,7 +1314,13 @@ def _build_trusted_owner_keys_card(state=None):
     if state is None:
         state = _trusted_owner_key_state()
     title, body, action = _trusted_owner_keys_text(state)
-    settled = (state.get('count') == 1 and state.get('own_is_trusted') is True)
+    # Settled: this machine's own key is trusted and nothing about the rest is
+    # an open question — either there is no rest, or somebody decided to keep
+    # what is there. Every other state either asks something of the person or
+    # could not be read, and those are the amber ones.
+    settled = (state.get('own_is_trusted') is True
+               and not (state.get('undecided') or [])
+               and not (state.get('asked_to_retire') or []))
     if settled:
         return _statement_box(title, body, action)
     return _advisory_box(title, body, action)

@@ -256,6 +256,48 @@ class TestWhatItSays(unittest.TestCase):
         self.assertNotIn("is not among", text)
 
 
+class TestItReadsLikeSomebodyWroteIt(unittest.TestCase):
+    """Three wording defects the first real render showed, each of them a claim
+    or a misreading rather than a matter of taste."""
+
+    def test_sentences_begin_with_a_capital(self):
+        """The count words are written out ("four of them are ..."), and one of
+        them opened a sentence in the middle of the paragraph in lower case."""
+        title, body, action = welcome._trusted_owner_keys_text(
+            {"count": 3, "own_is_trusted": True, "others": [FP_A, FP_B],
+             "kept": [FP_A], "undecided": [FP_B], "asked_to_retire": []})
+        for sentence in body.split(". "):
+            sentence = sentence.strip()
+            if sentence:
+                self.assertTrue(sentence[0].isupper() or sentence[0].isdigit(),
+                                f"sentence starts lower case: {sentence[:40]!r}")
+
+    def test_the_body_does_not_repeat_the_title(self):
+        """The first render said 'trusts four certificates named for this
+        project' in the title and 'trusts four certificates carrying this
+        project's machine owner name' as the next line."""
+        title, body, action = welcome._trusted_owner_keys_text(
+            {"count": 4, "own_is_trusted": None, "others": [FP_A, FP_B],
+             "kept": [], "undecided": [FP_A, FP_B], "asked_to_retire": []})
+        self.assertNotIn("firmware trusts four", body)
+
+    def test_unknown_membership_does_not_label_the_others_as_not_yours(self):
+        """With the machine's own certificate unreadable, the page cannot know
+        which of the listed fingerprints is its own, so it must not print them
+        under a heading that says they are not."""
+        title, body, action = welcome._trusted_owner_keys_text(
+            {"count": 2, "own_is_trusted": None, "others": [FP_A, FP_B],
+             "kept": [], "undecided": [FP_A, FP_B], "asked_to_retire": []})
+        self.assertNotIn("not this machine's own", action)
+        self.assertIn("fingerprints the firmware trusts", action)
+
+    def test_known_membership_still_labels_them_as_the_others(self):
+        title, body, action = welcome._trusted_owner_keys_text(
+            {"count": 3, "own_is_trusted": True, "others": [FP_A, FP_B],
+             "kept": [], "undecided": [FP_A, FP_B], "asked_to_retire": []})
+        self.assertIn("not this machine's own", action)
+
+
 class TestTheBoxItBuilds(unittest.TestCase):
     def test_the_card_is_built_in_every_state(self):
         for count, own in ((1, True), (3, True), (2, False), (2, None),
@@ -275,6 +317,26 @@ class TestTheBoxItBuilds(unittest.TestCase):
         classes = box.get_css_classes()
         self.assertIn("intergen-statement", classes)
         self.assertNotIn("intergen-advisory", classes)
+
+    def test_keys_kept_on_purpose_are_not_painted_as_a_warning(self):
+        """Seen in the render: keys somebody was asked about and chose to keep
+        came out in the amber box under a heading telling the person to retire
+        them, which contradicts the sentence right above it."""
+        box = welcome._build_trusted_owner_keys_card(
+            {"count": 3, "own": OWN, "own_is_trusted": True,
+             "others": [FP_A, FP_B], "kept": [FP_A, FP_B], "undecided": [],
+             "asked_to_retire": []})
+        classes = box.get_css_classes()
+        self.assertIn("intergen-statement", classes)
+        self.assertNotIn("intergen-advisory", classes)
+
+    def test_the_kept_wording_offers_rather_than_instructs(self):
+        title, body, action = welcome._trusted_owner_keys_text(
+            {"count": 3, "own": OWN, "own_is_trusted": True,
+             "others": [FP_A, FP_B], "kept": [FP_A, FP_B], "undecided": [],
+             "asked_to_retire": []})
+        self.assertIn("change your mind", action)
+        self.assertNotIn("To retire the others", action)
 
     def test_several_trusted_keys_are_an_advisory(self):
         box = welcome._build_trusted_owner_keys_card(
