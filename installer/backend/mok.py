@@ -325,6 +325,10 @@ def generate_mok_keypair(target, common_name="InterGenOS Machine Owner Key",
     # change shipped exactly that key and nothing noticed for four months.
     verify_key_is_encrypted(target, key_path, passphrase)
 
+    # Recorded only after the read-back proved it, so the record cannot say
+    # "protected" about a key that is not.
+    record_key_protection(target, True)
+
     return {
         "key_path": key_path,
         "cert_path": cert_path,
@@ -342,6 +346,43 @@ def generate_mok_keypair(target, common_name="InterGenOS Machine Owner Key",
 ESP_MOK_CERT_DIR = "/boot/efi/EFI/InterGenOS"
 ESP_MOK_CERT = f"{ESP_MOK_CERT_DIR}/mok.der"
 PUBLIC_MOK_CERT = "/etc/intergenos/mok.der"
+
+# A world-readable record of whether the private key has a passphrase on it.
+#
+# The key itself is in a directory only root can open, which is correct and is
+# not going to change so that a status line can be drawn. The first-login page
+# runs as the person, so what it reads is this: plain text, one fact, written by
+# the two places that can change that fact — here, when the key is made, and the
+# signing helper on an installed machine, when it protects an older one.
+#
+# It is a record and it says so. A machine with no record is not a machine with
+# a protected key, and the page that reads it says "not recorded" rather than
+# inventing the comfortable answer.
+MOK_PROTECTION_RECORD = "/etc/intergenos/mok-key-protection"
+
+
+def record_key_protection(target, protected):
+    """Write the world-readable record of the key's protection state.
+
+    Returns the in-target path. The file is deliberately dull: a person can read
+    it with cat and see the same fact the first-login page shows them.
+    """
+    import datetime
+    import os
+    path = Path(target) / MOK_PROTECTION_RECORD.lstrip("/")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.datetime.now(datetime.timezone.utc).strftime(
+        "%Y-%m-%dT%H:%M:%SZ")
+    path.write_text(
+        "# Whether this machine's signing key is protected by a passphrase.\n"
+        "# That key signs this machine's boot images and driver modules. This\n"
+        "# file is a record, written when the key was made or when it was\n"
+        "# protected; the key itself is readable only by root.\n"
+        f"protected={'yes' if protected else 'no'}\n"
+        f"recorded={stamp}\n",
+        encoding="utf-8")
+    os.chmod(path, 0o644)
+    return MOK_PROTECTION_RECORD
 
 
 def stage_mok_certificate(target, der_path):

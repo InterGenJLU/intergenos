@@ -407,3 +407,42 @@ class TestMigratingAKeyThatHasNoPassphrase:
         assert result.returncode == 0
         assert PASSPHRASE not in result.stdout
         assert PASSPHRASE not in result.stderr
+
+
+class TestTheProtectionStateIsRecorded:
+    """After a migration, the first-login page can tell the person it is done."""
+
+    def test_a_successful_migration_records_it(self, tmp_path):
+        key = make_plain_key(tmp_path / "mok")
+        calls = tmp_path / "calls"
+        stub_prompt(tmp_path / "bin", [PASSPHRASE, PASSPHRASE], calls)
+        record = tmp_path / "etc" / "mok-key-protection"
+        result = run_helper(
+            f'mok_migrate_plain_key "{key}" || exit 9',
+            tmp_path, path_prepend=str(tmp_path / "bin"),
+            env_extra={"MOK_PROTECTION_RECORD": str(record)})
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "protected=yes" in record.read_text(encoding="utf-8")
+
+    def test_a_refused_migration_records_nothing(self, tmp_path):
+        key = make_plain_key(tmp_path / "mok")
+        calls = tmp_path / "calls"
+        stub_prompt(tmp_path / "bin", [], calls)
+        record = tmp_path / "etc" / "mok-key-protection"
+        result = run_helper(
+            f'mok_migrate_plain_key "{key}" && echo MIGRATED',
+            tmp_path, path_prepend=str(tmp_path / "bin"),
+            env_extra={"MOK_PROTECTION_RECORD": str(record)})
+        assert_refused(result)
+        assert not record.exists(), (
+            "a refused migration recorded a protection that did not happen")
+
+    def test_the_record_carries_no_secret(self, tmp_path):
+        key = make_plain_key(tmp_path / "mok")
+        calls = tmp_path / "calls"
+        stub_prompt(tmp_path / "bin", [PASSPHRASE, PASSPHRASE], calls)
+        record = tmp_path / "etc" / "mok-key-protection"
+        run_helper(f'mok_migrate_plain_key "{key}" || exit 9', tmp_path,
+                   path_prepend=str(tmp_path / "bin"),
+                   env_extra={"MOK_PROTECTION_RECORD": str(record)})
+        assert PASSPHRASE not in record.read_text(encoding="utf-8")

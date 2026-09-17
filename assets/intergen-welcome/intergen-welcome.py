@@ -657,6 +657,108 @@ def _secure_boot_card_text(state):
     return (title, body, action)
 
 
+# Is this machine's signing key protected by a passphrase? (2026-09-17)
+#
+# The key that signs this machine's boot images and driver modules is encrypted
+# at rest since 2026-09-17. A machine installed before that carries one with no
+# passphrase, which is the state where any process running as root can sign a
+# boot image the firmware trusts.
+#
+# This page runs as the person and CANNOT read the key: it lives in a directory
+# readable only by root, which is correct and is not going to change for the
+# sake of a status line. What it reads instead is a small world-readable record
+# that the two places which change the state write — the installer when it
+# generates the key, and the signing helper when it protects an older one. The
+# record is plain text a person can read with cat, which is the point.
+#
+# No record is its own answer. A machine installed before the change has no
+# record and an unprotected key, and saying "protected" there would be the exact
+# kind of reassuring silence this whole change exists to remove.
+_MOK_PROTECTION_RECORD = '/etc/intergenos/mok-key-protection'
+
+
+def _signing_key_protected(path=_MOK_PROTECTION_RECORD):
+    """True, False, or None when there is no record or it cannot be understood."""
+    try:
+        with open(path, 'r', encoding='utf-8') as fh:
+            text = fh.read()
+    except OSError:
+        return None
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, _, value = line.partition('=')
+        if key.strip() != 'protected':
+            continue
+        value = value.strip().lower()
+        if value in ('yes', 'true', '1'):
+            return True
+        if value in ('no', 'false', '0'):
+            return False
+        return None
+    return None
+
+
+def _signing_key_card_text(protected):
+    """(title, body, action) for the card, or None when nothing needs saying.
+
+    Silence on a protected key is deliberate: the page advises, it does not
+    congratulate, and a first login that lists everything that is fine teaches a
+    person to skim past the one thing that is not.
+    """
+    if protected is True:
+        return None
+    if protected is False:
+        title = 'This machine\'s signing key has no passphrase'
+        body = ('The key that signs this machine\'s boot images and driver '
+                'modules is stored without a passphrase, so any program running '
+                'as root can sign one in your name. Machines installed before '
+                'September 2026 are all in this state.')
+    else:
+        title = 'This machine\'s signing key is not recorded as protected'
+        body = ('Nothing on this machine records whether the key that signs its '
+                'boot images and driver modules has a passphrase. Machines '
+                'installed before September 2026 have no such record and no '
+                'passphrase, which means any program running as root can sign '
+                'in your name.')
+    action = ('The next kernel or graphics-driver update will offer to set a '
+              'passphrase for it, and will ask for that passphrase each time '
+              'this machine signs something afterwards. To do it now, at a '
+              'terminal: sudo pkm reinstall linux-kernel')
+    return (title, body, action)
+
+
+def _machine_has_a_signing_key(cert_path=_MOK_PUBLIC_CERT):
+    """Whether this machine has a signing key at all.
+
+    A BIOS install has none and signs nothing, so telling that machine its
+    signing key is not recorded as protected would be advice about something
+    that does not exist. The public certificate copy is the readable signal:
+    it is staged beside the key on every install that makes one.
+    """
+    try:
+        with open(cert_path, 'rb') as fh:
+            return bool(fh.read())
+    except OSError:
+        return False
+
+
+def _build_signing_key_card(protected=None, has_key=None):
+    """The advisory box for the welcome page, or None when it has nothing to say."""
+    if has_key is None:
+        has_key = _machine_has_a_signing_key()
+    if not has_key:
+        return None
+    if protected is None:
+        protected = _signing_key_protected()
+    text = _signing_key_card_text(protected)
+    if text is None:
+        return None
+    title, body, action = text
+    return _advisory_box(title, body, action)
+
+
 def _advisory_box(title, body, action, extra=''):
     """One advisory box: a title, what is true, what to do, an optional line."""
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
@@ -891,6 +993,14 @@ def build_welcome_page():
     sb_card = _build_secure_boot_card()
     if sb_card is not None:
         box.append(sb_card)
+
+    # Whether this machine's signing key has a passphrase on it (2026-09-17):
+    # shown when it does not, or when nothing records that it does — which is
+    # every machine installed before that date. Silent on a machine with no
+    # signing key, and silent once the key is protected.
+    protection_card = _build_signing_key_card()
+    if protection_card is not None:
+        box.append(protection_card)
 
     # The prior-key retirement advisory (row 10): shown only when a retirement
     # this install asked for has not happened yet; silent everywhere else.

@@ -52,6 +52,15 @@ mod.apply_prompt = lambda *a, **k: None
 #                       queued and Secure Boot off — the state after an install
 #                       whose first Secure-Boot start has not happened yet
 #                       (R001.3 row 37); the advisory box is built.
+#   key-unprotected     the welcome page on a machine installed before signing
+#                       keys were protected: the key is there, it has no
+#                       passphrase, and the enrolment is fine. The protection
+#                       advisory is built and the enrolment one is not, which is
+#                       the pair worth looking at — two advisories that have to
+#                       read as different problems.
+#   key-unrecorded      the same machine, except that nothing records the state
+#                       at all. The wording differs and this is the scenario
+#                       that shows whether the difference reads as a difference.
 # Unset: the page reads the render host, as it always did.
 SCENARIO = os.environ.get('IGOS_WELCOMER_SCENARIO')
 if SCENARIO == 'mok-not-enrolled':
@@ -62,6 +71,13 @@ if SCENARIO == 'mok-not-enrolled':
         "This machine's firmware trusts both Microsoft signing authorities "
         "(Microsoft UEFI CA 2011 and 2023); the InterGenOS boot loader is "
         "signed under both, so it starts here either way.")
+elif SCENARIO in ('key-unprotected', 'key-unrecorded'):
+    mod._mok_enrolment_state = lambda *a, **k: None       # enrolment is fine
+    mod._mok_retirement_state = lambda *a, **k: None       # nothing to retire
+    mod._machine_has_a_signing_key = lambda *a, **k: True
+    mod._signing_key_protected = (
+        (lambda *a, **k: False) if SCENARIO == 'key-unprotected'
+        else (lambda *a, **k: None))
 elif SCENARIO in ('nvidia-offer', 'nvidia-driver-done'):
     driver_done = SCENARIO == 'nvidia-driver-done'
     mod._gpu_detection_record = lambda *a, **k: {

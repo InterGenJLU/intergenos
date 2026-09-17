@@ -256,5 +256,44 @@ class TestTheEnvironmentWindowCloses(unittest.TestCase):
             self.assertNotIn(mok._PASS_ENV, os.environ)
 
 
+class TestTheProtectionStateIsRecordedForThePerson(unittest.TestCase):
+    """The first-login page runs as the person and cannot read the key."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory(prefix="igos-mok-test-")
+        self.target = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+
+    def record_path(self):
+        return self.target / mok.MOK_PROTECTION_RECORD.lstrip("/")
+
+    def test_generating_the_key_records_that_it_is_protected(self):
+        mok.generate_mok_keypair(self.target, passphrase=PASSPHRASE)
+        text = self.record_path().read_text(encoding="utf-8")
+        self.assertIn("protected=yes", text)
+
+    def test_the_record_is_readable_by_the_person(self):
+        mok.generate_mok_keypair(self.target, passphrase=PASSPHRASE)
+        mode = self.record_path().stat().st_mode & 0o777
+        self.assertEqual(mode, 0o644,
+                         "the page that reads this runs as the person, not root")
+
+    def test_the_record_carries_no_secret(self):
+        mok.generate_mok_keypair(self.target, passphrase=PASSPHRASE)
+        self.assertNotIn(PASSPHRASE, self.record_path().read_text(encoding="utf-8"))
+
+    def test_the_record_says_what_it_is(self):
+        """A person who cats this file should understand it without a manual."""
+        mok.generate_mok_keypair(self.target, passphrase=PASSPHRASE)
+        text = self.record_path().read_text(encoding="utf-8").lower()
+        self.assertIn("passphrase", text)
+        self.assertIn("boot", text)
+
+    def test_nothing_is_recorded_when_generation_refuses(self):
+        with self.assertRaises(ValueError):
+            mok.generate_mok_keypair(self.target, passphrase="")
+        self.assertFalse(self.record_path().exists())
+
+
 if __name__ == "__main__":
     unittest.main()

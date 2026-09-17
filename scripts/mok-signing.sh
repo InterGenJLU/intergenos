@@ -288,7 +288,38 @@ mok_migrate_plain_key() {
 
     MOK_PASSPHRASE="$first"
     first=""
+
+    # The first-login page runs as the person and cannot read the key, so the
+    # fact that it is now protected is recorded where the person can read it.
+    # Written only here, after the read-back above, so the record cannot claim
+    # a protection that did not happen.
+    mok_record_protection yes
+
     mok_log "the machine owner signing key is now protected by your passphrase."
+    return 0
+}
+
+# Where the protection state is recorded for the first-login page. Same path the
+# installer writes; overridable for the tests.
+MOK_PROTECTION_RECORD="${MOK_PROTECTION_RECORD:-/etc/intergenos/mok-key-protection}"
+
+mok_record_protection() {
+    local state="$1"
+    local dir
+    dir=$(dirname "$MOK_PROTECTION_RECORD")
+    mkdir -p "$dir" 2>/dev/null || true
+    {
+        echo "# Whether this machine's signing key is protected by a passphrase."
+        echo "# That key signs this machine's boot images and driver modules. This"
+        echo "# file is a record, written when the key was made or when it was"
+        echo "# protected; the key itself is readable only by root."
+        echo "protected=${state}"
+        echo "recorded=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+    } > "$MOK_PROTECTION_RECORD" 2>/dev/null || {
+        mok_log "could not record the key's protection state at $MOK_PROTECTION_RECORD"
+        return 1
+    }
+    chmod 644 "$MOK_PROTECTION_RECORD" 2>/dev/null || true
     return 0
 }
 

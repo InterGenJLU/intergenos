@@ -418,7 +418,44 @@ def format_service_summary(classification):
 _REBOOT_BANNER_WIDTH = 72
 
 
-def format_reboot_banner(package_names):
+# The packages whose payload is a kernel this machine has to boot. Used only to
+# decide whether the unsigned-kernel question is worth asking at all: a
+# transaction that installed a text editor gets no boot-image commentary.
+_KERNEL_PACKAGE_NAMES = frozenset({"linux-kernel", "linux-kernel-pass2"})
+
+
+def kernels_without_a_boot_image(boot_dir="/boot"):
+    """Kernel releases on this machine with no signed boot image to start them.
+
+    Read from the machine rather than from anything the kernel hook recorded. A
+    marker file would go stale — removed by hand, left behind after a later
+    successful signing, or never written because the hook died first — and the
+    question that decides the next boot is simply whether the EFI system
+    partition holds an image for this kernel.
+
+    An empty list is returned for a machine with no EFI system partition at all:
+    such a machine boots its kernel directly and there is nothing to say about
+    boot images. Same for a /boot that cannot be read: an unreadable directory
+    is not evidence that anything is missing, and a warning invented from a
+    failed read is a warning nobody can act on.
+    """
+    from pathlib import Path as _Path
+    boot = _Path(boot_dir)
+    esp_uki_dir = boot / "efi" / "EFI" / "Linux"
+    if not boot.is_dir() or not esp_uki_dir.is_dir():
+        return []
+    try:
+        images = {path.name[len("intergenos-"):-len(".efi")]
+                  for path in esp_uki_dir.glob("intergenos-*.efi")}
+        kernels = sorted(path.name[len("vmlinuz-"):]
+                         for path in boot.glob("vmlinuz-*") if path.is_file())
+    except OSError:
+        return []
+    return [kver for kver in sorted(kernels, reverse=True)
+            if kver not in images]
+
+
+def format_reboot_banner(package_names, boot_dir="/boot"):
     """Render the LOUD, aggregated post-transaction reboot banner (3.0-F28).
 
     Args:
@@ -457,6 +494,33 @@ def format_reboot_banner(package_names):
         "  Until you reboot, these components are on disk but NOT yet active",
         "  (for example, a newly installed GPU driver stays behind the driver",
         "  the running kernel already loaded).",
+    ])
+
+    # A kernel that was installed but not signed turns the sentence above into
+    # a false promise: rebooting runs the PREVIOUS kernel, and nothing else on
+    # this screen would tell the person that. The hook that refused to sign
+    # already said so in its own output, but that scrolls past inside a package
+    # transaction; this is the line that is still on the screen at the end.
+    if any(name in _KERNEL_PACKAGE_NAMES for name in names):
+        unsigned = kernels_without_a_boot_image(boot_dir)
+        if unsigned:
+            lines.extend([
+                "",
+                "  NOT BOOTABLE UNTIL SIGNED:",
+            ])
+            lines.extend(f"    - {kver}" for kver in unsigned)
+            lines.extend([
+                "",
+                "  These kernels are on disk but have no signed boot image, so",
+                "  rebooting now runs the PREVIOUS kernel, not the new one. The",
+                "  signing step asks for your signing key's passphrase and was",
+                "  not able to get it.",
+                "",
+                "  To finish it, at this machine's console:",
+                "    sudo pkm reinstall linux-kernel",
+            ])
+
+    lines.extend([
         "",
         "  Run: sudo reboot",
         rule,
