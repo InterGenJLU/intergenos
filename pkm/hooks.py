@@ -37,7 +37,13 @@ Failure semantics split by hook class:
   - A canonical hook that exits zero and writes to stderr keeps its OK line
     and gains one NOTE line per stderr line. NOTE is not a failure level: it
     carries what the hook said in the case where it succeeded, which is the
-    case where the words OK, WARN and CRITICAL say nothing about it.
+    case where the words OK, WARN and CRITICAL say nothing about it. NOTE
+    output that REPEATS is folded rather than printed again — identical lines
+    within one operation, and, when the caller passes a NoteFold ledger, a
+    block the same hook already said earlier in the same install session. A
+    fold always carries its count and its packages, every distinct line is
+    still shown, and the hook's unfiltered stderr still reaches the install
+    trace, so the fold is a view over the record and never the record.
   - A CRITICAL canonical hook that was selected and whose builder returned no
     command reports DECLINED with its reason. Nothing failed, so no count
     moves; cosmetic hooks keep their silence in the same case.
@@ -109,6 +115,132 @@ LIFECYCLE_EVENTS = (
 HookResult = namedtuple(
     "HookResult", ["critical_failures", "cosmetic_failures", "messages"]
 )
+
+
+# One NOTE block that an install showed once and then folded: which hook said
+# it, its exact lines, how many package operations said it, and which packages
+# those were. Everything a reader needs to see that a repeat WAS a repeat.
+FoldedNote = namedtuple(
+    "FoldedNote", ["hook_id", "description", "lines", "count", "packages"]
+)
+
+
+def _collapse_identical_lines(lines):
+    """Fold byte-identical lines within ONE hook run, keeping first order.
+
+    Returns [(text, times_said)] in the order each text first appeared.
+    """
+    counts = {}
+    order = []
+    for line in lines:
+        if line not in counts:
+            counts[line] = 0
+            order.append(line)
+        counts[line] += 1
+    return [(text, counts[text]) for text in order]
+
+
+class NoteFold:
+    """The ledger that lets one install session show a repeat once.
+
+    WHY THIS EXISTS, MEASURED RATHER THAN ASSUMED. Carrying a hook's stderr
+    into the install output added 184 NOTE lines to the R001.2-03 install this
+    machine was built from, and 141 of them were two vendor tools repeating
+    themselves: gtk-update-icon-cache printing "Cache file created
+    successfully." once for each of 69 packages that ship icons, and
+    update-mime-database printing the same eight-line XDG advisory for each of
+    9 packages that ship mime data. Sixty-nine identical lines teach a reader
+    to skip NOTE output, which ends in the same place as discarding it.
+
+    WHERE THE REPEATS ARE. Not inside one package operation — folding there
+    folds 0 of those 184 lines, because no producing run repeats itself. They
+    are ACROSS package operations, and one install is one PackageInstaller
+    installing 862 packages in one process. So the ledger is held by that
+    installer and passed in; it is an argument and never module state, so a
+    caller that wants each operation to stand alone simply passes nothing.
+
+    WHAT FOLDING IS ALLOWED TO DO. Collapse, never drop. A block is shown in
+    full the first time, in place, in first-occurrence order; every distinct
+    line is shown; a repeat is recorded with its count and its packages and
+    named in the closing summary; and the hook's unfiltered stderr still goes
+    to the install trace in full, so the display is a view over the record and
+    never the record itself. A filter that silenced text instead of counting it
+    would be the same mechanism that hid eight fontconfig diagnostics inside an
+    install that called every one of those hooks OK.
+    """
+
+    def __init__(self):
+        self._blocks = {}
+        self._order = []
+
+    def show(self, hook_id, description, counted_lines, package):
+        """Return the (text, times) pairs to display for this block.
+
+        An empty list means every line of the block was already shown for this
+        hook earlier in the session; the repeat is recorded, not discarded.
+        """
+        key = (hook_id, tuple(counted_lines))
+        entry = self._blocks.get(key)
+        if entry is None:
+            self._blocks[key] = {
+                "hook_id": hook_id,
+                "description": description,
+                "lines": [text for text, _ in counted_lines],
+                "count": 1,
+                "packages": [package],
+            }
+            self._order.append(key)
+            return list(counted_lines)
+        entry["count"] += 1
+        if package not in entry["packages"]:
+            entry["packages"].append(package)
+        return []
+
+    def folded(self):
+        """The blocks that repeated, in the order they were first shown."""
+        return [
+            FoldedNote(
+                e["hook_id"], e["description"], list(e["lines"]),
+                e["count"], list(e["packages"]),
+            )
+            for e in (self._blocks[k] for k in self._order)
+            if e["count"] > 1
+        ]
+
+    def folded_line_count(self):
+        """How many NOTE lines the fold kept off the display."""
+        return sum(len(f.lines) * (f.count - 1) for f in self.folded())
+
+
+def format_note_fold_summary(note_fold):
+    """Say what was folded, so a folded install cannot read as a quiet one.
+
+    Empty string when nothing repeated, so an ordinary install gains no
+    wording at all.
+    """
+    if note_fold is None:
+        return ""
+    folded = note_fold.folded()
+    if not folded:
+        return ""
+    lines = [
+        f"  NOTE output folded in this install: "
+        f"{note_fold.folded_line_count()} repeat lines from "
+        f"{len(folded)} block(s) already shown. "
+        f"The install trace carries every one of them in full."
+    ]
+    for f in folded:
+        shown_for = f.packages[0]
+        others = f.packages[1:]
+        named = ", ".join(others[:3])
+        if len(others) > 3:
+            named += f", and {len(others) - 3} more"
+        lines.append(
+            f"    hook[{f.hook_id}] ({f.description}): {len(f.lines)} line(s), "
+            f"shown for {shown_for}, said again in {f.count - 1} more package "
+            f"operation(s) ({named}): {f.lines[0]}"
+        )
+    return "\n".join(lines)
 
 
 # What a canonical hook's command builder returns when the work is real, is not
@@ -659,7 +791,8 @@ def _build_hook_env(name, version, root, operation):
     return env
 
 
-def run_canonical_hooks(root, file_list, name, version, operation, hooks=None):
+def run_canonical_hooks(root, file_list, name, version, operation, hooks=None,
+                        note_fold=None):
     """Fire canonical hooks based on file_list path patterns.
 
     Args:
@@ -671,6 +804,11 @@ def run_canonical_hooks(root, file_list, name, version, operation, hooks=None):
         name, version: package identity for error messages + hook env.
         operation: "install" | "upgrade" | "remove" (passed to hook env
             as PKM_PACKAGE_OPERATION).
+        note_fold: optional NoteFold ledger shared by every package
+            operation of one install session. Given one, a NOTE block this
+            hook already said earlier in the session is shown once and
+            counted there instead of printed again; without one, each
+            operation stands alone and nothing is remembered between calls.
         hooks: which canonical hook list to iterate. Defaults to
             CANONICAL_HOOKS (post-lifecycle infrastructure: ldconfig,
             depmod, icon-cache, etc.). Pass CANONICAL_HOOKS_PRE to fire
@@ -792,10 +930,31 @@ def run_canonical_hooks(root, file_list, name, version, operation, hooks=None):
                 # path. The volume is measured, not assumed: across that whole
                 # install the canonical hooks wrote 8,728 bytes of stderr on
                 # zero exits — 184 lines, at most 8 from any single run.
-                messages.extend(
-                    f"  hook[{hook.id}] NOTE ({hook.description}): {line}"
-                    for line in (result.stderr or "").splitlines()
+                #
+                # REPETITION IS FOLDED, NEVER DROPPED. Two vendor tools
+                # produced 141 of the 184 NOTE lines a real install gained,
+                # each saying one identical thing once per package. Identical
+                # lines from this hook fold here with the number of times it
+                # said them; a block this hook already said earlier in the
+                # same install session folds through the ledger, which keeps
+                # the count and the packages for the closing summary. The
+                # unfiltered stderr is already in the install trace, so what
+                # is folded is the display and never the record.
+                note_lines = [
+                    line for line in (result.stderr or "").splitlines()
                     if line.strip()
+                ]
+                counted = _collapse_identical_lines(note_lines)
+                if note_fold is not None:
+                    counted = note_fold.show(
+                        hook.id, hook.description, counted, name,
+                    )
+                messages.extend(
+                    f"  hook[{hook.id}] NOTE ({hook.description}): {text}"
+                    + ("" if times == 1
+                       else f" [the same line {times} times in this"
+                            f" package operation]")
+                    for text, times in counted
                 )
             else:
                 level = "CRITICAL" if hook.critical else "WARN"
