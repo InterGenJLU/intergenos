@@ -101,6 +101,16 @@ class ToolResult:
     # output, but a not-executed result must NOT be narrated as success (the
     # shutdown fabrication — the model was told "it executed" when it was denied).
     executed: bool = True
+    # THE PERSON THEMSELVES PRESSED DENY at the consent card (or denied for the
+    # rest of the conversation). Set only by the registry's deny branch. The
+    # `content` of such a result is the registry's own AUDIT RECORD of what the
+    # person just did, not a message written for them, so every delivery path
+    # must render its own refusal instead of passing that sentence on. A field
+    # rather than a match on the audit text: matching would make the answer
+    # depend on a log line's wording, and a later edit to that wording would
+    # silently restore the defect (measured 2026-09-16 — a denied action was
+    # answered with "Tool call denied by user via review modal.").
+    denied_by_user: bool = False
 
 
 @dataclass

@@ -2524,84 +2524,34 @@ class WebServer:
     def _card_action_description(tool_call: ToolCall) -> tuple[str, str]:
         """(what, command) for the in-web review card (the review card).
 
-        `what` = the action in plain user language, derived from the extracted
-        intent — NEVER the raw command string or the raw user sentence. `command`
-        = the concrete command shown for transparency. A trust surface must
-        describe the real action, so the fallback names the tool + args rather
-        than guessing."""
-        name = tool_call.name
-        args = tool_call.arguments if isinstance(tool_call.arguments, dict) else {}
-        if name == "manage_packages":
-            action = str(args.get("action", ""))
-            pkg = str(args.get("package") or args.get("name") or "")
-            if action in ("update", "upgrade"):
-                from intergen.capability_registry import PKM_UPDATE_COMMAND
-                return ("Refresh the package index and install available updates.",
-                        PKM_UPDATE_COMMAND)
-            if action == "install":
-                return (f"Install the package '{pkg}'." if pkg else "Install a package.",
-                        f"pkm install {pkg}".strip())
-            if action in ("remove", "uninstall"):
-                return (f"Remove the package '{pkg}'." if pkg else "Remove a package.",
-                        f"pkm remove {pkg}".strip())
-            return (f"Manage packages ({action}).", f"pkm {action} {pkg}".strip())
-        if name == "manage_services":
-            action = str(args.get("action", ""))
-            svc = str(args.get("service") or args.get("unit") or "")
-            verb = action.capitalize() or "Change"
-            return (f"{verb} the {svc} service." if svc else f"{verb} a service.",
-                    f"systemctl {action} {svc}".strip())
-        if name == "run_command":
-            return ("Run a system command.", str(args.get("command", "")))
-        if name == "write_file":
-            path = str(args.get("path", ""))
-            return (f"Write to the file {path}." if path else "Write to a file.",
-                    f"write {path}".strip())
-        return (f"Perform a {name} action.", f"{name} {args}".strip())
+        The rendering itself lives in tool_registry.card_action_description,
+        because the router needs the same sentence and the same command when a
+        dispatch it drove is denied at the card. This stays as the name the web
+        surface already calls.
+        """
+        from intergen.tool_registry import card_action_description
+        return card_action_description(tool_call)
 
     @staticmethod
     def _handoff_command(tool_call: ToolCall) -> str:
         """The concrete command to hand a user for an action they can run
-        themselves — ONLY for tools whose action maps to a real command line
-        (manage_packages / manage_services / run_command). Empty for tools where
-        no such line exists (write_file / take_screenshot / analyze_file / …), so
-        the honest handoff omits a bogus command rather than inventing one."""
-        if tool_call.name in ("manage_packages", "manage_services", "run_command"):
-            _what, command = WebServer._card_action_description(tool_call)
-            return command
-        return ""
+        themselves, or empty when the action has no such line."""
+        from intergen.tool_registry import handoff_command
+        return handoff_command(tool_call)
 
     def _gate_refusal_message(self, tool_call: ToolCall, tr: ToolResult) -> str:
         """User-facing line when the registry did NOT run a held/denied action.
 
-        A BLOCKED action (a destructive command the safety tier hard-refuses)
-        NEVER gets a "run it yourself" command — that would hand the user the very
-        thing the block exists to prevent (fail-closed, security-first); it gets the plain friendly
-        refusal. A normal state-changing action that was denied or had no consent
-        surface gets the 3-part honest handoff (user-language classification), so the user is honestly
-        advised of the real path forward rather than dead-ended."""
-        from intergen.tool_registry import (
-            _classify_risk_tier, tier_needs_admin, honest_handoff_message,
-        )
-        friendly = (
-            "I'm not able to do that from here right now. "
-            "If you'd like, I can look something up for you or walk "
-            "you through how to do it instead."
-        )
-        if getattr(tr, "blocked", False):
-            return friendly
-        command = self._handoff_command(tool_call)
-        if not command:
-            return friendly
+        One renderer serves every surface (tool_registry.gate_refusal_message):
+        a blocked action gets the plain refusal and is never handed a command to
+        run, and a normal state-changing action that was denied or had no
+        consent surface gets the 3-part honest handoff. The tool object is
+        looked up here because the risk tier is read from it.
+        """
+        from intergen.tool_registry import gate_refusal_message
         tool_obj = (self._tools.get_tool(tool_call.name)
                     if self._tools else None)
-        risk_tier = _classify_risk_tier(
-            tool_obj, tool_call.arguments, tool_call.name,
-        )
-        what, _cmd = self._card_action_description(tool_call)
-        return honest_handoff_message(
-            what, command, tier_needs_admin(risk_tier),
-        )
+        return gate_refusal_message(tool_call, tr, tool_obj)
 
     async def _evaluate_tool_with_gate(
         self,

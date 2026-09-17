@@ -119,6 +119,45 @@ class WSGateLifecycleLiveTests(unittest.TestCase):
                 return r
         return None
 
+    @staticmethod
+    def _expected_refusal(r):
+        """What the shipped refusal renderer composes for the denied call.
+
+        The gate_prompt frame names the tool and carries its arguments, which is
+        everything the renderer reads. `action` is capped at 200 characters on
+        the wire, so a call whose arguments were truncated cannot be
+        reconstructed; that raises here rather than silently weakening the
+        assertion into a phrase match.
+        """
+        import json
+
+        from intergen.interfaces.types import (
+            Provenance, ToolCall, ToolResult,
+        )
+        from intergen.tool_registry import gate_refusal_message
+
+        prompt = next((m for m in r.messages
+                       if m.get("type") == "gate_prompt"), None)
+        assert prompt is not None, "no gate_prompt frame in a turn that gated"
+        args = json.loads(prompt.get("action") or "{}")
+        call = ToolCall(name=prompt.get("tool_name", ""), arguments=args,
+                        call_id=prompt.get("tool_call_id", ""),
+                        source_of_request=Provenance.USER_DIRECT)
+        denied = ToolResult(call_id=call.call_id, name=call.name,
+                            content="", success=False, executed=False,
+                            denied_by_user=True)
+        # The renderer reads one thing from the tool object: the risk tier.
+        # The live daemon's registry is not reachable from this process, so the
+        # renderer is given None and takes its name-based classification — and
+        # the frame carries the tier the DAEMON computed, so the two are
+        # compared here instead of assumed equal. A mismatch fails loudly.
+        from intergen.tool_registry import _classify_risk_tier
+        here = _classify_risk_tier(None, args, call.name)
+        assert here.value == prompt.get("risk_tier"), (
+            f"classification differs from the daemon's: {here.value} here vs "
+            f"{prompt.get('risk_tier')} on the card")
+        return gate_refusal_message(call, denied, None)
+
     def test_universal_liveness_invariant(self):
         # The structural F2 catch: every turn terminates non-empty inside the
         # deadline. A wedged turn (the pre-fix deny-hang) fails this even with
@@ -142,11 +181,22 @@ class WSGateLifecycleLiveTests(unittest.TestCase):
         self.assertEqual(r.closed_by, "client")
         self.assertTrue(r.text.strip(), "deny produced no user-visible reply")
         # Content half: liveness catches the raw wedge; this asserts the RIGHT
-        # recovery, not merely that *something* terminal arrived. A denied gated
-        # action takes the deterministic friendly refusal
-        # (web_server.py:1476-1498), never an error or raw jargon.
-        self.assertIn("not able to do that from here", r.text.lower(),
-                      f"deny did not produce the friendly refusal: {r.text!r}")
+        # recovery, not merely that *something* terminal arrived.
+        #
+        # THE DEFECT THIS CELL MEASURED, 2026-09-16: the whole answer was
+        # "Tool call denied by user via review modal." — the registry's own
+        # audit record of what the person had just done, delivered verbatim.
+        # It is named here so it can never come back quietly.
+        self.assertNotIn("denied by user via review modal", r.text.lower(),
+                         f"the person was shown the audit string: {r.text!r}")
+        # And the answer is the one the single refusal renderer produces for
+        # the very call the card was shown for. Reconstructing the call from
+        # the gate_prompt frame makes this an EQUALITY against the shipped
+        # renderer rather than a search for a hopeful phrase, so a refusal that
+        # is merely plausible — or that drifts on one surface only — fails.
+        self.assertEqual(r.text.strip(), self._expected_refusal(r).strip(),
+                         f"deny did not produce the refusal the shared "
+                         f"renderer composes for this call: {r.text!r}")
 
     @unittest.skipUnless(_ALLOW_OPT_IN, _ALLOW_SKIP_REASON)
     def test_allow_resolves_and_terminates(self):

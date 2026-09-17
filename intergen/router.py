@@ -1825,7 +1825,9 @@ def _clarify_for_referent_gap(gap: str) -> "RouteResult | None":
 
 
 def _decline_answer(reason: str,
-                    tool_result: "ToolResult | None") -> "RouteResult | None":
+                    tool_result: "ToolResult | None",
+                    tool_call: "ToolCall | None" = None,
+                    tool_obj: "BaseTool | None" = None) -> "RouteResult | None":
     """The answer a REFUSED dispatch already contains, or None to fall through.
 
     A tool that ran and refused has said something specific and true — "this
@@ -1855,6 +1857,36 @@ def _decline_answer(reason: str,
         return None
     if getattr(tool_result, "success", False):
         return None
+    # THE PERSON PRESSED DENY, AND THAT REFUSAL IS NOT THE TOOL'S TO WORD.
+    # The registry's content for a denial is its own audit record of what the
+    # person just did ("Tool call denied by user via review modal."). Measured
+    # 2026-09-16 against a live daemon: that sentence was the whole answer a
+    # person saw after pressing deny on the shipped web panel. It tells them
+    # what they did, in the machine's vocabulary, and nothing about what they
+    # can do instead. The renderer written for this case already existed on the
+    # web surface and could not be reached from here, because this answered
+    # first. Rendering it HERE covers every surface the router serves, not just
+    # the panel. Falling through instead would send the clause to the model,
+    # which is the improvised-advice shape this whole helper exists to prevent.
+    if getattr(tool_result, "denied_by_user", False) and tool_call is not None:
+        from intergen.tool_registry import gate_refusal_message
+        refusal = gate_refusal_message(tool_call, tool_result, tool_obj)
+        return RouteResult(
+            text=refusal,
+            source="keyword",
+            handled=True,
+            used_llm=False,
+            # The words are the CODE's, composed from a template — not text
+            # taken from the tool result. A composed refusal recorded as a
+            # dispatch would read, to every delivery surface, as the tool's
+            # own words, which is the one thing it is not.
+            answer_linkage=AnswerLinkage(
+                kind="code",
+                tool=getattr(tool_result, "name", "") or "",
+                call_id=getattr(tool_result, "call_id", "") or "",
+                renderer="gate_refusal",
+            ),
+        )
     text = (getattr(tool_result, "content", "") or "").strip()
     if not text:
         return None
@@ -4976,7 +5008,10 @@ class ConversationRouter(RouterInterface):
         # SAY is used: an empty one would replace the model's attempt to help
         # with silence, and the argument-indeterminate path still falls through
         # to the clarify that is its documented remedy.
-        answered = _decline_answer(reason, tool_result)
+        answered = _decline_answer(
+            reason, tool_result, tool_call=call,
+            tool_obj=(self._tools.get_tool(call.name)
+                      if call is not None and self._tools else None))
         if answered is not None:
             self._append_history(user_input, answered.text)
             return dataclasses.replace(

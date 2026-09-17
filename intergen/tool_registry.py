@@ -254,6 +254,99 @@ def honest_handoff_message(what: str, command: str, needs_admin: bool) -> str:
     return msg
 
 
+def card_action_description(tool_call: "ToolCall") -> tuple[str, str]:
+    """(what, command) for a state-changing action: the plain-language sentence
+    and the concrete command line.
+
+    `what` = the action in plain user language, derived from the extracted
+    intent — NEVER the raw command string or the raw user sentence. `command` =
+    the concrete command shown for transparency. A trust surface must describe
+    the real action, so the fallback names the tool + args rather than guessing.
+
+    Lives here, beside honest_handoff_message, because more than one surface
+    needs it: the web review card renders it, and the router renders it when a
+    dispatch it drove was denied at the gate. Two copies would drift, and the
+    drift would be invisible — each surface would look right on its own.
+    """
+    name = tool_call.name
+    args = tool_call.arguments if isinstance(tool_call.arguments, dict) else {}
+    if name == "manage_packages":
+        action = str(args.get("action", ""))
+        pkg = str(args.get("package") or args.get("name") or "")
+        if action in ("update", "upgrade"):
+            from intergen.capability_registry import PKM_UPDATE_COMMAND
+            return ("Refresh the package index and install available updates.",
+                    PKM_UPDATE_COMMAND)
+        if action == "install":
+            return (f"Install the package '{pkg}'." if pkg else "Install a package.",
+                    f"pkm install {pkg}".strip())
+        if action in ("remove", "uninstall"):
+            return (f"Remove the package '{pkg}'." if pkg else "Remove a package.",
+                    f"pkm remove {pkg}".strip())
+        return (f"Manage packages ({action}).", f"pkm {action} {pkg}".strip())
+    if name == "manage_services":
+        action = str(args.get("action", ""))
+        svc = str(args.get("service") or args.get("unit") or "")
+        verb = action.capitalize() or "Change"
+        return (f"{verb} the {svc} service." if svc else f"{verb} a service.",
+                f"systemctl {action} {svc}".strip())
+    if name == "run_command":
+        return ("Run a system command.", str(args.get("command", "")))
+    if name == "write_file":
+        path = str(args.get("path", ""))
+        return (f"Write to the file {path}." if path else "Write to a file.",
+                f"write {path}".strip())
+    return (f"Perform a {name} action.", f"{name} {args}".strip())
+
+
+def handoff_command(tool_call: "ToolCall") -> str:
+    """The concrete command to hand a person for an action they can run
+    themselves — ONLY for tools whose action maps to a real command line
+    (manage_packages / manage_services / run_command). Empty for tools where no
+    such line exists (write_file / take_screenshot / analyze_file / …), so the
+    honest handoff omits a bogus command rather than inventing one."""
+    if tool_call.name in ("manage_packages", "manage_services", "run_command"):
+        _what, command = card_action_description(tool_call)
+        return command
+    return ""
+
+
+# The plain refusal, for a held action with no command worth handing over and
+# for one the safety tier hard-refuses.
+GATE_REFUSAL_PLAIN = (
+    "I'm not able to do that from here right now. "
+    "If you'd like, I can look something up for you or walk "
+    "you through how to do it instead."
+)
+
+
+def gate_refusal_message(tool_call: "ToolCall", tool_result: "ToolResult",
+                         tool_obj: "BaseTool | None" = None) -> str:
+    """What a person is told when the registry did NOT run a held/denied action.
+
+    A BLOCKED action (a destructive command the safety tier hard-refuses) NEVER
+    gets a "run it yourself" command — that would hand the person the very thing
+    the block exists to prevent (fail-closed, security-first); it gets the plain
+    refusal. A normal state-changing action that was denied, or that had no
+    consent surface, gets the 3-part honest handoff, so the person is honestly
+    advised of the real path forward rather than dead-ended.
+
+    THE SINGLE SOURCE for every surface. The web panel's tool-call loop renders
+    its refusal here, and so does the router when a dispatch it drove was denied
+    at the card — before that, the router delivered the registry's audit string
+    ("Tool call denied by user via review modal.") to the person, because the
+    renderer written for this case could not be reached from that path.
+    """
+    if getattr(tool_result, "blocked", False):
+        return GATE_REFUSAL_PLAIN
+    command = handoff_command(tool_call)
+    if not command:
+        return GATE_REFUSAL_PLAIN
+    risk_tier = _classify_risk_tier(tool_obj, tool_call.arguments, tool_call.name)
+    what, _cmd = card_action_description(tool_call)
+    return honest_handoff_message(what, command, tier_needs_admin(risk_tier))
+
+
 def _ingress_source_attribution(
     tool_name: str, arguments: dict[str, Any]
 ) -> tuple[str, str]:
@@ -752,6 +845,11 @@ class ToolRegistry:
                     content="Tool call denied by user via review modal.",
                     success=False,
                     executed=False,
+                    # The line above is this result's AUDIT record; it is not a
+                    # message for the person who pressed deny. The mark is what
+                    # tells every delivery path to render its own refusal rather
+                    # than deliver that sentence (see gate_refusal_message).
+                    denied_by_user=True,
                 )
             # Approved (allow_once / allow_conversation) — proceed to execution.
             if privileged:
