@@ -1112,9 +1112,11 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
                         _emit(PHASE_MOK, 12,
                               f"{len(prior)} earlier key(s) await confirmation "
                               f"at the firmware prompt")
-                        mok.record_owner_key_decision(kept=[], removed=prior)
+                        mok.record_owner_key_decision(
+                            kept=[], removed=prior, target=target)
                     else:
-                        mok.record_owner_key_decision(kept=prior, removed=[])
+                        mok.record_owner_key_decision(
+                            kept=prior, removed=[], target=target)
                 except Exception as e:
                     result.warnings.append(
                         f"retiring earlier Machine Owner Keys did not happen "

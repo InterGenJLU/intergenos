@@ -10,6 +10,7 @@ Flows naturally from the boot animation:
 import gi
 import importlib.util
 import hashlib
+import re
 import subprocess
 import threading
 import json
@@ -208,6 +209,25 @@ window.welcome-window {
 .intergen-advisory-title { font-size: 1.35em; font-weight: 800; color: #ffc107; }
 .intergen-advisory-text { font-size: 1.05em; color: #f6e7bf; }
 .intergen-advisory-action { font-size: 1.05em; font-weight: 700; color: #ffd54f; }
+
+/* ---- A STATEMENT, not an advisory ----
+   The first-login page states what the firmware trusts on every machine,
+   including the machines with nothing to do about it. That box is deliberately
+   NOT amber: amber is this page's colour for "something needs your attention",
+   and painting a settled machine amber every first login is how a person learns
+   to skim past amber on the login where it matters. Brand blue on the page's
+   own dark ground, same shape, same spacing, different meaning. */
+.intergen-statement {
+    background-color: rgba(0, 153, 255, 0.10);
+    border: 2px solid rgba(0, 153, 255, 0.55);
+    border-radius: 12px;
+    padding: 16px 22px;
+    margin-top: 6px;
+    margin-bottom: 2px;
+}
+.intergen-statement-title { font-size: 1.35em; font-weight: 800; color: #0099FF; }
+.intergen-statement-text { font-size: 1.05em; color: #d7e6f5; }
+.intergen-statement-action { font-size: 1.05em; font-weight: 700; color: #7cc4ff; }
 
 /* ---- Switch rows INSIDE the advisory box ----
    Photographed on both reference machines: the switch rows sat in a panel
@@ -950,6 +970,296 @@ def _build_prior_key_card(state=None):
     return _advisory_box(*text)
 
 
+# ---------------------------------------------------------------------------
+# What the firmware trusts, stated on every machine (R001.3 row 49)
+#
+# Row 10 made the install offer to retire the machine owner keys earlier
+# installs left in the firmware, and made the card above say when a retirement
+# somebody asked for did not happen. Every other machine stayed silent. A
+# machine nobody asked — one installed before the offer existed, or one whose
+# owner kept the old keys — trusts one certificate per install and says nothing
+# about it: measured on the workstation this was written on, the firmware trusts
+# four certificates carrying this project's machine owner name, and the first
+# login mentioned none of them.
+#
+# So this statement is shown on EVERY machine, every time, whatever the answer
+# is. It says how many certificates with this project's machine owner name the
+# firmware trusts, whether this machine's own is among them by fingerprint,
+# which of the others somebody decided to keep and which nobody has decided
+# about, and — when more than one is trusted — the documented command that
+# retires the rest through the firmware's own confirmation.
+#
+# It reads only what the person running it may read: mokutil's listings, the
+# world-readable copy of this machine's certificate, and the world-readable
+# record of what was decided during the install. It never reads the key.
+#
+# A count it cannot read is stated as unreadable. Never as zero: "this machine
+# trusts nothing extra" and "I could not ask" are different facts, and only one
+# of them is good news.
+# ---------------------------------------------------------------------------
+_MOK_OWNER_COMMON_NAME = 'InterGenOS Machine Owner Key'
+_MOK_DECISION_RECORD = '/etc/intergenos/mok-prior-keys'
+
+
+def _subject_common_name(subject):
+    """The CN= component of a certificate subject line, or ''.
+
+    The components are separated by commas, and a value may itself contain a
+    comma, so the split is on a comma that is followed by another `NAME=`
+    component rather than on every comma.
+    """
+    for part in re.split(r',\s*(?=[A-Za-z0-9.]+=)', subject.strip()):
+        name, _, value = part.partition('=')
+        if name.strip().upper() == 'CN':
+            return value.strip()
+    return ''
+
+
+def _enrolled_owner_fingerprints(lines):
+    """Fingerprints of enrolled certificates carrying this project's owner name.
+
+    mokutil prints, per key, a fingerprint line and then the decoded
+    certificate, in which an Issuer line and a Subject line both carry a CN and
+    a "Subject Public Key Info:" line follows the subject. Only the line that
+    begins exactly "Subject:" is the certificate's own subject; the issuer's
+    name belongs to whoever signed it and answering with it would count a
+    vendor's authority as one of this project's keys.
+    """
+    out = []
+    fingerprint = None
+    for raw in lines or []:
+        line = raw.strip()
+        low = line.lower()
+        if low.startswith('sha1 fingerprint:'):
+            fingerprint = line.split(':', 1)[1].strip().replace(':', '').lower()
+        elif low.startswith('subject:'):
+            if fingerprint is not None:
+                subject = line.split(':', 1)[1]
+                if _subject_common_name(subject) == _MOK_OWNER_COMMON_NAME:
+                    out.append(fingerprint)
+                fingerprint = None
+    return out
+
+
+def _prior_key_decisions(path=_MOK_DECISION_RECORD):
+    """{fingerprint: 'kept' | 'retired'} from the install's own record.
+
+    An absent record means nobody was asked — every key is undecided, which is
+    what a machine installed before the offer existed should say. It is not an
+    error and it is not a decision.
+    """
+    try:
+        with open(path, 'r', encoding='utf-8') as fh:
+            text = fh.read()
+    except OSError:
+        return {}
+    out = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, _, value = line.partition('=')
+        key = key.strip().lower()
+        value = value.strip().lower()
+        if key in ('kept', 'retired') and re.fullmatch(r'[0-9a-f]{40}', value):
+            out[value] = key
+    return out
+
+
+def _trusted_owner_key_state(cert_path=_MOK_PUBLIC_CERT,
+                             decisions_path=_MOK_DECISION_RECORD,
+                             mokutil=_mokutil_lines):
+    """What the firmware trusts as machine owner keys, as far as this page may read.
+
+    count            how many certificates carry this project's machine owner
+                     name, or None when the firmware could not be asked
+    own_is_trusted   True / False / None — None when this machine's own
+                     certificate could not be read, where "not among them" would
+                     be a claim with nothing behind it
+    others           the trusted ones that are not this machine's own
+    kept / undecided those others split by what the install recorded
+    asked_to_retire  those the install asked the firmware to remove and which it
+                     still trusts — the card above is what speaks about those
+    """
+    lines = mokutil('--list-enrolled')
+    if lines is None:
+        return {'count': None, 'own': None, 'own_is_trusted': None,
+                'others': [], 'kept': [], 'undecided': [],
+                'asked_to_retire': []}
+    trusted = _enrolled_owner_fingerprints(lines)
+    own = None
+    try:
+        with open(cert_path, 'rb') as fh:
+            der = fh.read()
+    except OSError:
+        der = b''
+    if der:
+        own = hashlib.sha1(der).hexdigest()
+    own_is_trusted = None if own is None else (own in trusted)
+    others = sorted(f for f in trusted if own is None or f != own)
+    decisions = _prior_key_decisions(decisions_path)
+    return {
+        'count': len(trusted),
+        'own': own,
+        'own_is_trusted': own_is_trusted,
+        'others': others,
+        'kept': sorted(f for f in others if decisions.get(f) == 'kept'),
+        'undecided': sorted(f for f in others if f not in decisions),
+        'asked_to_retire': sorted(f for f in others
+                                  if decisions.get(f) == 'retired'),
+    }
+
+
+def _owner_key_removal_action(fingerprints):
+    """The documented way to retire trusted keys on a running machine.
+
+    Taken from docs/users/secure-boot-and-mok.md and docs/mok-enrollment.md
+    rather than invented here: mokutil writes every enrolled certificate to a
+    file, and a deletion is queued per file and confirmed at the firmware's own
+    prompt with the enrolment password — the same prompt that confirms an
+    addition. Nothing is removed by running it.
+    """
+    listed = '\n'.join('  ' + ':'.join(f[i:i + 2] for i in range(0, 40, 2))
+                        for f in fingerprints)
+    return ('To retire the others, in a terminal: mokutil --export writes every '
+            'trusted certificate to a file here, and sudo mokutil --delete '
+            '<file> queues one for removal. Restart with Secure Boot on and '
+            'confirm it with your enrolment password; the prompt waits about '
+            '10 seconds and nothing is removed without your answer. The '
+            'fingerprints that are not this machine\'s own:\n' + listed)
+
+
+def _trusted_owner_keys_text(state):
+    """(title, body, action) for the statement. Never None: it always speaks."""
+    count = state.get('count')
+    own_is_trusted = state.get('own_is_trusted')
+    others = list(state.get('others') or [])
+    kept = list(state.get('kept') or [])
+    undecided = list(state.get('undecided') or [])
+    asked = list(state.get('asked_to_retire') or [])
+
+    if count is None:
+        title = 'What this machine\'s firmware trusts could not be read'
+        body = ('This page asks the firmware, through mokutil, which '
+                'certificates it trusts as machine owner keys — the keys that '
+                'may sign a boot image this machine will start. That question '
+                'could not be asked on this start, so the number is unknown. '
+                'Unknown is not the same as nothing, and this page will not '
+                'show you a comfortable number it did not measure.')
+        action = ('To ask it yourself, in a terminal: mokutil --list-enrolled')
+        return (title, body, action)
+
+    if count == 0:
+        title = 'This machine\'s firmware trusts no machine owner key of this project'
+        body = ('The firmware trusts no certificate carrying this project\'s '
+                'machine owner name. On a machine that signs its own boot '
+                'images that means the key it signs with is not enrolled yet, '
+                'and the advice above says what to do about it. On a machine '
+                'that signs nothing there is nothing to do.')
+        return (title, body, '')
+
+    counted = _count_words(count, 'certificate')
+    if own_is_trusted is True:
+        opening = ('This machine\'s firmware trusts ' + counted + ' carrying '
+                   'this project\'s machine owner name, and this machine\'s '
+                   'own is among them.')
+    elif own_is_trusted is False:
+        opening = ('This machine\'s firmware trusts ' + counted + ' carrying '
+                   'this project\'s machine owner name, and this machine\'s '
+                   'own is not among them — nothing here was signed by a key '
+                   'this firmware knows about.')
+    else:
+        opening = ('This machine\'s firmware trusts ' + counted + ' carrying '
+                   'this project\'s machine owner name. Whether this '
+                   'machine\'s own is among them could not be checked: there '
+                   'is no readable copy of its certificate at '
+                   + _MOK_PUBLIC_CERT + ', which is the state of every machine '
+                   'installed before that copy was staged.')
+
+    sentences = [opening]
+    if others:
+        sentences.append(
+            'Each certificate is one install: reinstalling generates a new key '
+            'and leaves the earlier one trusted, and nothing expires it, so a '
+            'machine keeps trusting keys whose private half went with the disk '
+            'they were made on.')
+    if kept:
+        sentences.append(_count_words(len(kept), 'of them is', 'of them are')
+                         + ' there because somebody was asked during an install '
+                           'and chose to keep ' + ('it' if len(kept) == 1 else 'them')
+                         + ', which is a decision and not a problem.')
+    if undecided:
+        sentences.append(_count_words(len(undecided), 'of them is', 'of them are')
+                         + ' there because nobody has decided anything about '
+                         + ('it' if len(undecided) == 1 else 'them')
+                         + ': no install recorded a choice.')
+    if asked:
+        sentences.append('The advice above covers the '
+                         + _count_words(len(asked), 'key')
+                         + ' an install asked the firmware to remove and which '
+                           'it still trusts.')
+
+    if count == 1 and own_is_trusted is True:
+        title = 'This machine\'s firmware trusts one machine owner key: its own'
+        pretty = ':'.join(state['own'][i:i + 2] for i in range(0, 40, 2)) \
+            if state.get('own') else ''
+        action = ('Its fingerprint is ' + pretty + '.') if pretty else ''
+        return (title, ' '.join(sentences), action)
+
+    title = ('This machine\'s firmware trusts ' + counted
+             + ' named for this project')
+    action = _owner_key_removal_action(others) if others else ''
+    return (title, ' '.join(sentences), action)
+
+
+def _statement_box(title, body, action):
+    """A plain statement of fact: the same shape as an advisory, not its colour.
+
+    An advisory is amber because something needs doing. This statement is shown
+    on every machine including the ones with nothing to do, and painting those
+    amber would teach a person that amber means nothing.
+    """
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    box.add_css_class('intergen-statement')
+    box.set_halign(Gtk.Align.CENTER)
+    t = Gtk.Label(label=title)
+    t.add_css_class('intergen-statement-title')
+    t.set_justify(Gtk.Justification.CENTER)
+    t.set_wrap(True)
+    box.append(t)
+    b = Gtk.Label(label=body)
+    b.add_css_class('intergen-statement-text')
+    b.set_justify(Gtk.Justification.CENTER)
+    b.set_wrap(True)
+    b.set_max_width_chars(88)
+    box.append(b)
+    if action:
+        a = Gtk.Label(label=action)
+        a.add_css_class('intergen-statement-action')
+        a.set_justify(Gtk.Justification.CENTER)
+        a.set_wrap(True)
+        a.set_max_width_chars(88)
+        box.append(a)
+    return box
+
+
+def _build_trusted_owner_keys_card(state=None):
+    """The always-shown statement of what the firmware trusts.
+
+    Never None. The one state that needs nothing from the person — a single
+    trusted key which is this machine's own — is drawn as a statement; every
+    other state is drawn as an advisory, because in every other state there is
+    either something to decide or something that could not be read.
+    """
+    if state is None:
+        state = _trusted_owner_key_state()
+    title, body, action = _trusted_owner_keys_text(state)
+    settled = (state.get('count') == 1 and state.get('own_is_trusted') is True)
+    if settled:
+        return _statement_box(title, body, action)
+    return _advisory_box(title, body, action)
+
+
 def build_welcome_page():
     """Page 1: Welcome — brand moment."""
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
@@ -1007,6 +1317,13 @@ def build_welcome_page():
     prior_card = _build_prior_key_card()
     if prior_card is not None:
         box.append(prior_card)
+
+    # What the firmware trusts (row 49): shown on EVERY machine, every time,
+    # whatever the answer is — including "this could not be read". The cards
+    # above speak only when something is wrong, which left a machine trusting
+    # keys from four earlier installs with nothing said to anyone.
+    trusted_card = _build_trusted_owner_keys_card()
+    box.append(trusted_card)
 
     return wrap_with_background(box, 'welcome-bg', scroll=True)
 

@@ -373,6 +373,16 @@ PUBLIC_MOK_CERT = "/etc/intergenos/mok.der"
 # inventing the comfortable answer.
 MOK_PROTECTION_RECORD = "/etc/intergenos/mok-key-protection"
 
+# What was decided about the machine owner keys earlier installs left in this
+# firmware, written where the person can read it.
+#
+# The decision was already recorded as a trace event, and a trace event is the
+# install's own diary: the first-login page runs as the person and cannot read
+# it. Without this file that page cannot tell a key somebody looked at and chose
+# to keep from a key nobody was ever asked about — and it says those two things
+# differently, because they are different facts about a machine.
+OWNER_KEY_DECISION_RECORD = "/etc/intergenos/mok-prior-keys"
+
 
 def record_key_protection(target, protected):
     """Write the world-readable record of the key's protection state.
@@ -719,12 +729,24 @@ def retire_choice(prior_keys, chose_to_retire, password):
     return bool(prior_keys and chose_to_retire and password)
 
 
-def record_owner_key_decision(kept, removed):
+def record_owner_key_decision(kept, removed, target=None):
     """Record what the person decided about prior keys, including keeping them.
 
     A decline is recorded as deliberately as a removal: a machine that still
     trusts six old keys should say that someone was asked and said no, not go
     quiet.
+
+    Two records, for two readers. The trace event is the install's own account
+    of what happened. The file under `target` is for the person: world-readable,
+    one fingerprint per line with the word for what was decided, so the
+    first-login page — which runs as them and cannot read the install trace —
+    can say "you chose to keep this one" instead of treating every trusted key
+    as an open question.
+
+    Writing that file NEVER fails the install and never raises: a machine whose
+    status line could not be written is still a correctly installed machine, and
+    the caller's own handler would otherwise turn it into a warning about a
+    retirement that did happen.
     """
     trace.trace_event(
         "mok_prior_keys_decision", phase="bootloader",
@@ -732,6 +754,36 @@ def record_owner_key_decision(kept, removed):
         declined=not removed,
         intent="record the person's answer to the prior-key offer, whichever "
                "way it went")
+    if target is None:
+        return None
+    return _write_owner_key_decision_record(target, kept, removed)
+
+
+def _write_owner_key_decision_record(target, kept, removed):
+    """Write the world-readable record. Returns its in-target path, or None."""
+    import datetime
+    import os
+    try:
+        path = Path(target) / OWNER_KEY_DECISION_RECORD.lstrip("/")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y-%m-%dT%H:%M:%SZ")
+        lines = [
+            "# What was decided about the machine owner keys that earlier",
+            "# installs left in this machine's firmware. Written during the",
+            "# install, when the person was offered them. A key that is trusted",
+            "# but not listed here was never offered to anyone: nobody decided.",
+            "# 'kept' stays trusted on purpose; 'retired' was asked to be",
+            "# removed, which the firmware confirms at its own prompt.",
+            f"decided={stamp}",
+        ]
+        lines += [f"kept={identity['sha1']}" for identity in kept]
+        lines += [f"retired={identity['sha1']}" for identity in removed]
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        os.chmod(path, 0o644)
+        return OWNER_KEY_DECISION_RECORD
+    except Exception:
+        return None
 
 
 def sign_efi_binary(target, binary_path, key_path, cert_path, output_path=None,
