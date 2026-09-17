@@ -422,12 +422,19 @@ printf '  %s\n' "${UKIFY_ARGS[@]}" | tee -a "$LOGFILE" >&2
 # by every user on the machine, and this one is also written verbatim into the
 # ukify command line logged just above.
 #
-# rc comes from PIPESTATUS, read in the same command: `$?` after a pipeline is
-# the last stage's status, and with an intervening statement it is that
-# statement's.
+# The passphrase arrives on standard input through a process substitution
+# rather than a pipeline, and the reason is not style. Inside a command
+# substitution a pipeline's own statuses are not visible to the outer shell:
+# PIPESTATUS there belongs to the outer shell's last pipeline, which under
+# `set -u` is an unbound variable when there has not been one. Measured on a
+# real firing of this hook, which failed at this line with exactly that.
+#
+# With the substitution the builder is the only command in the assignment, so
+# $? is the builder's own status. printf is a shell builtin, so the passphrase
+# never becomes a process with arguments anyone could read.
 if [ "$SIGN_THIS_UKI" = "yes" ]; then
-    UKIFY_OUTPUT=$(printf '%s\n' "$MOK_PASSPHRASE" | ukify "${UKIFY_ARGS[@]}" 2>&1)
-    UKIFY_RC=${PIPESTATUS[1]}
+    UKIFY_OUTPUT=$(ukify "${UKIFY_ARGS[@]}" 2>&1 < <(printf '%s\n' "$MOK_PASSPHRASE"))
+    UKIFY_RC=$?
 else
     UKIFY_OUTPUT=$(ukify "${UKIFY_ARGS[@]}" 2>&1 </dev/null)
     UKIFY_RC=$?

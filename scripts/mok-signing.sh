@@ -154,8 +154,9 @@ mok_resolve_passphrase() {
         return 1
     fi
 
-    local attempt answer
+    local attempt answer made=0
     for (( attempt = 1; attempt <= MOK_ASK_ATTEMPTS; attempt++ )); do
+        made=$attempt
         answer=$("$MOK_ASK_PROGRAM" \
                     --timeout="$MOK_ASK_TIMEOUT" \
                     --icon=changes-prevent \
@@ -175,9 +176,65 @@ mok_resolve_passphrase() {
     done
     answer=""
 
-    mok_log "no usable passphrase after ${MOK_ASK_ATTEMPTS} attempts — refusing to sign ${purpose}."
+    # The count is what actually happened, not the allowance. An empty answer
+    # means nobody is there, so the loop stops rather than asking an empty room
+    # twice more — and saying "after 3 attempts" when one was made is a false
+    # number in a log somebody will read after a failed upgrade.
+    if [ "$made" -eq 1 ]; then
+        mok_log "no usable passphrase (1 attempt made, ${MOK_ASK_ATTEMPTS} allowed) — refusing to sign ${purpose}."
+    else
+        mok_log "no usable passphrase after ${made} attempts (${MOK_ASK_ATTEMPTS} allowed) — refusing to sign ${purpose}."
+    fi
     return 1
 }
+
+# Rewrite a plain key encrypted under `passphrase`, in place. One
+# implementation for both routes into the migration — the owner typing a new
+# passphrase, and a passphrase already supplied for this operation — so the
+# read-back rules cannot differ between them.
+_mok_rewrite_key_encrypted() {
+    local key="$1" passphrase="$2"
+    local tmp="${key}.migrating.$$"
+    rm -f "$tmp"
+    if ! MOK_PASS_NEW="$passphrase" openssl rsa -in "$key" -aes256 \
+            -passout env:MOK_PASS_NEW -out "$tmp" >/dev/null 2>&1; then
+        rm -f "$tmp"
+        mok_log "the key could not be rewritten; it is unchanged and nothing will be signed."
+        return 1
+    fi
+    chmod 600 "$tmp" 2>/dev/null || true
+
+    # Read the NEW file back before the old one is destroyed. Both directions:
+    # it must not open with an empty passphrase, and it must open with the one
+    # just set. The first assertion is the one that matters — a rewrite that
+    # silently produced another plain key would pass the second.
+    if openssl rsa -in "$tmp" -check -noout -passin pass: >/dev/null 2>&1; then
+        rm -f "$tmp"
+        mok_log "the rewritten key still opens with no passphrase; the original is unchanged."
+        return 1
+    fi
+    if ! mok_passphrase_opens_key "$tmp" "$passphrase"; then
+        rm -f "$tmp"
+        mok_log "the rewritten key does not open with the passphrase just set; the original is unchanged."
+        return 1
+    fi
+
+    # Destroy the unprotected bytes before the new file takes the name. shred
+    # is best effort by nature — on a copy-on-write or flash-translated device
+    # it cannot promise the old blocks are gone — so the sequence does not
+    # depend on it: the file is overwritten with the new key either way.
+    if command -v shred >/dev/null 2>&1; then
+        shred -n 1 -z "$key" >/dev/null 2>&1 || true
+    fi
+    if ! mv -f "$tmp" "$key"; then
+        rm -f "$tmp"
+        mok_log "the protected key could not replace the original at $key."
+        return 1
+    fi
+    chmod 600 "$key" 2>/dev/null || true
+    return 0
+}
+
 
 # Give a key that has no passphrase one, in place.
 #
@@ -214,6 +271,28 @@ mok_migrate_plain_key() {
     mok_log "  any process running as root can sign one today. Set a passphrase"
     mok_log "  now and it will be asked for each time something is signed."
 
+    # A passphrase already supplied for this operation is used instead of
+    # asking. The case that makes this necessary: a kernel operation driven by
+    # something that holds the passphrase — an install, or a person who set it
+    # in the same session — meeting a key that is still plain. Prompting there
+    # would ask a person a question that has already been answered, in the
+    # middle of an operation nobody is watching, which is the failure mode this
+    # whole change is supposed to remove rather than relocate.
+    #
+    # Found by firing the real hook rather than by reading it.
+    local supplied="${!MOK_PASS_ENV:-}"
+    if [ -n "$supplied" ]; then
+        mok_log "  using the passphrase already supplied for this operation"
+        if _mok_rewrite_key_encrypted "$key" "$supplied"; then
+            MOK_PASSPHRASE="$supplied"
+            mok_record_protection yes
+            mok_log "the machine owner signing key is now protected by that passphrase."
+            return 0
+        fi
+        mok_log "the key could not be protected with the supplied passphrase; it is unchanged."
+        return 1
+    fi
+
     if ! command -v "$MOK_ASK_PROGRAM" >/dev/null 2>&1; then
         mok_log "cannot ask for a new passphrase: $MOK_ASK_PROGRAM is not on this system. The key is unchanged."
         return 1
@@ -243,48 +322,10 @@ mok_migrate_plain_key() {
         return 1
     fi
 
-    local tmp="${key}.migrating.$$"
-    rm -f "$tmp"
-    if ! MOK_PASS_NEW="$first" openssl rsa -in "$key" -aes256 \
-            -passout env:MOK_PASS_NEW -out "$tmp" >/dev/null 2>&1; then
-        rm -f "$tmp"
+    if ! _mok_rewrite_key_encrypted "$key" "$first"; then
         first=""
-        mok_log "the key could not be rewritten; it is unchanged and nothing will be signed."
         return 1
     fi
-    chmod 600 "$tmp" 2>/dev/null || true
-
-    # Read the NEW file back before the old one is destroyed. Both directions:
-    # it must not open with an empty passphrase, and it must open with the one
-    # the owner just set. The first assertion is the one that matters — a
-    # rewrite that silently produced another plain key would pass the second.
-    if openssl rsa -in "$tmp" -check -noout -passin pass: >/dev/null 2>&1; then
-        rm -f "$tmp"
-        first=""
-        mok_log "the rewritten key still opens with no passphrase; the original is unchanged."
-        return 1
-    fi
-    if ! mok_passphrase_opens_key "$tmp" "$first"; then
-        rm -f "$tmp"
-        first=""
-        mok_log "the rewritten key does not open with the passphrase just set; the original is unchanged."
-        return 1
-    fi
-
-    # Destroy the unprotected bytes before the new file takes the name. shred
-    # is best effort by nature — on a copy-on-write or flash-translated device
-    # it cannot promise the old blocks are gone — so the sequence does not
-    # depend on it: the file is overwritten with the new key either way.
-    if command -v shred >/dev/null 2>&1; then
-        shred -n 1 -z "$key" >/dev/null 2>&1 || true
-    fi
-    if ! mv -f "$tmp" "$key"; then
-        rm -f "$tmp"
-        first=""
-        mok_log "the protected key could not replace the original at $key."
-        return 1
-    fi
-    chmod 600 "$key" 2>/dev/null || true
 
     MOK_PASSPHRASE="$first"
     first=""

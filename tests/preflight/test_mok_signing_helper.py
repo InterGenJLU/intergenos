@@ -446,3 +446,53 @@ class TestTheProtectionStateIsRecorded:
                    path_prepend=str(tmp_path / "bin"),
                    env_extra={"MOK_PROTECTION_RECORD": str(record)})
         assert PASSPHRASE not in record.read_text(encoding="utf-8")
+
+
+class TestASuppliedPassphraseMigratesWithoutAsking:
+    """A passphrase already supplied must not produce a prompt.
+
+    Found by firing the real hook rather than by reading it. A kernel operation
+    driven by something that holds the passphrase — an install, or a person who
+    set it in the same session — can meet a key that is still plain. Prompting
+    there asks a question that has already been answered, in the middle of an
+    operation nobody is watching, which relocates the failure this change
+    exists to remove instead of removing it.
+    """
+
+    def test_it_migrates_with_the_supplied_passphrase_and_asks_nobody(
+            self, tmp_path):
+        key = make_plain_key(tmp_path / "mok")
+        before = key.read_bytes()
+        calls = tmp_path / "calls"
+        stub_prompt(tmp_path / "bin", ["never-used"], calls)
+        record = tmp_path / "etc" / "mok-key-protection"
+        result = run_helper(
+            f'mok_migrate_plain_key "{key}" || exit 9\n'
+            f'[ "$MOK_PASSPHRASE" = "{PASSPHRASE}" ] || exit 8\n'
+            f'echo MIGRATED',
+            tmp_path, path_prepend=str(tmp_path / "bin"),
+            env_extra={"IGOS_MOK_PASSPHRASE": PASSPHRASE,
+                       "MOK_PROTECTION_RECORD": str(record)})
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "MIGRATED" in result.stdout
+        assert not calls.exists(), (
+            "a person was asked for a passphrase that had already been supplied")
+        assert key.read_bytes() != before
+        assert "protected=yes" in record.read_text(encoding="utf-8")
+
+    def test_the_migrated_key_opens_only_with_that_passphrase(self, tmp_path):
+        key = make_plain_key(tmp_path / "mok")
+        calls = tmp_path / "calls"
+        stub_prompt(tmp_path / "bin", [], calls)
+        run_helper(f'mok_migrate_plain_key "{key}" || exit 9', tmp_path,
+                   path_prepend=str(tmp_path / "bin"),
+                   env_extra={"IGOS_MOK_PASSPHRASE": PASSPHRASE})
+        empty = subprocess.run(
+            ["openssl", "rsa", "-in", str(key), "-check", "-noout",
+             "-passin", "pass:"], capture_output=True)
+        assert empty.returncode != 0, "the migrated key is still plain"
+        env = dict(os.environ, IGOS_TEST_PASS=PASSPHRASE)
+        right = subprocess.run(
+            ["openssl", "rsa", "-in", str(key), "-check", "-noout",
+             "-passin", "env:IGOS_TEST_PASS"], env=env, capture_output=True)
+        assert right.returncode == 0
