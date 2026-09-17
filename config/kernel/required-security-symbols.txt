@@ -25,6 +25,17 @@ CONFIG_BLK_DEV_DM=y
 CONFIG_CRYPTO_USER_API_HASH=y
 CONFIG_CRYPTO_USER_API_SKCIPHER=y
 CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY=y
+
+# The security modules' initialisation order, asserted against the PRODUCED
+# config. Requested in config/kernel/fragments/99-intergenos-overrides.config,
+# which states the measurement behind it in full. In short: the kernel returns
+# the FIRST registered module's answer for a task's security context, the bpf
+# module registers a stub that answers "not supported", and with that stub ahead
+# of AppArmor the kernel refused every runtime audit configuration change with
+# errno 95. The fragment merge (`cat fragments/*.config | olddefconfig`) has no
+# conflict detection, so the order that was asked for is not evidence of the
+# order that was produced.
+CONFIG_LSM="lockdown,yama,integrity,landlock,apparmor,bpf"
 CONFIG_SYSFB_SIMPLEFB=y
 CONFIG_VMD=y
 CONFIG_DRM_TTM=y

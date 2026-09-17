@@ -243,27 +243,52 @@ def test_an_empty_disabled_file_refuses(tmp_path):
     assert_refused_as_unmeasurable(run_gate(satisfying_config(tmp_path), disabled_file=empty))
 
 
+# The two defects the shipped R001.2 kernel's own config carries, each with the
+# line that repairs it. Both were measured on a running machine, not derived from
+# the fragments: CONFIG_COMPAT_BRK=y clamps kernel.randomize_va_space to 1
+# whatever the sysctl says (R001.3 row 23), and the module order that puts the bpf
+# stub ahead of AppArmor made the kernel refuse every runtime audit configuration
+# change with errno 95 (measured 2026-09-17; see
+# tests/igos_build/test_kernel_lsm_order.py and the CONFIG_LSM note in
+# config/kernel/fragments/99-intergenos-overrides.config).
+SHIPPED_R0012_DEFECTS = {
+    "CONFIG_COMPAT_BRK=y": "# CONFIG_COMPAT_BRK is not set",
+    'CONFIG_LSM="lockdown,yama,integrity,bpf,landlock,apparmor"':
+        'CONFIG_LSM="lockdown,yama,integrity,landlock,apparmor,bpf"',
+}
+
+
 @pytest.mark.skipif(
     RUNNING_KERNEL_CONFIG is None or not RUNNING_KERNEL_CONFIG.is_file()
-    or "CONFIG_COMPAT_BRK=y" not in RUNNING_KERNEL_CONFIG.read_text(errors="replace"),
-    reason="the running kernel's config is not readable here or does not carry the "
-           "R001.2 defect (CONFIG_COMPAT_BRK=y); the synthetic shape above covers it",
+    or not any(defect in RUNNING_KERNEL_CONFIG.read_text(errors="replace").splitlines()
+               for defect in SHIPPED_R0012_DEFECTS),
+    reason="the running kernel's config is not readable here or carries neither "
+           "R001.2 defect; the synthetic shapes above cover them",
 )
-def test_the_shipped_r0012_kernel_config_is_refused_for_compat_brk(tmp_path):
+def test_the_shipped_r0012_kernel_config_is_refused_for_its_known_defects(tmp_path):
     """RED against reality: the running R001.2 kernel's own /boot/config carries
-    CONFIG_COMPAT_BRK=y. The gate must refuse it for exactly that symbol — and the
-    same config with only that line flipped must pass, so the refusal is that
-    line's and nothing else's."""
+    both defects. The gate must refuse it, naming each — and the same config with
+    exactly those lines repaired must pass, so the refusal is theirs and nothing
+    else's."""
+    text = RUNNING_KERNEL_CONFIG.read_text(errors="replace").splitlines()
+    present = [defect for defect in SHIPPED_R0012_DEFECTS if defect in text]
+    assert present, "the skip guard let through a config carrying neither defect"
+
     real = run_gate(RUNNING_KERNEL_CONFIG)
     assert real.returncode == FINDINGS, real.stdout
-    assert "CONFIG_COMPAT_BRK   [produced: CONFIG_COMPAT_BRK=y]" in real.stdout
-    flipped_lines = [
-        "# CONFIG_COMPAT_BRK is not set" if line == "CONFIG_COMPAT_BRK=y" else line
-        for line in RUNNING_KERNEL_CONFIG.read_text(errors="replace").splitlines()
-    ]
+    if "CONFIG_COMPAT_BRK=y" in present:
+        assert "CONFIG_COMPAT_BRK   [produced: CONFIG_COMPAT_BRK=y]" in real.stdout
+    for defect in present:
+        if defect.startswith("CONFIG_LSM="):
+            assert defect in real.stdout + real.stderr, (
+                "the refusal does not say which module order the config produced:\n"
+                + real.stdout + real.stderr
+            )
+
+    flipped_lines = [SHIPPED_R0012_DEFECTS.get(line, line) for line in text]
     flipped = run_gate(write_config(tmp_path / "flipped.config", flipped_lines))
     assert flipped.returncode == CLEAN, (
-        "the real config refused for more than the one flipped line:\n" + flipped.stdout
+        "the real config refused for more than the known defects:\n" + flipped.stdout
     )
 
 
