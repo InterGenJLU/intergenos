@@ -320,11 +320,12 @@ Full research archives in [docs/research/](research/INDEX.md) (180+ documents ac
 22. ☑ Forge Secure Boot toolchain (gnu-efi + rpm + shim-signed + efitools + mokutil + sbsigntool all built from source)
 23. ☐ Shim-review submission (complete artifact set under the required dated tag, linked from an upstream review issue; replaces the piggyback path)
 24. ☐ Microsoft UEFI CA 2023 migration — obtaining an InterGenOS-owned MS-signed shim
-    While InterGenOS is still in development we use Fedora's signed shim, which lets
-    users enroll a MOK and enable Secure Boot today. Once we're satisfied with the
-    build and have shipped a development ISO, we'll actively pursue our own MS-signed
-    shim through the normal shim-review process (#23). Preparation exists, but
-    no dated submission tag or upstream review issue has been filed yet.
+    We use Fedora's signed shim, which lets users enroll a MOK and enable Secure Boot
+    today. The condition this item used to wait on — shipping an installable image — has
+    happened: public release images are downloadable and installed on hardware. What
+    remains is the submission itself through the normal shim-review process (#23):
+    preparation exists, and no dated submission tag or upstream review issue has been
+    filed yet.
 
 ### v1.0 application + experience layer
 
@@ -332,13 +333,13 @@ Full research archives in [docs/research/](research/INDEX.md) (180+ documents ac
 26. ☑ Live ISO infrastructure (custom initramfs + squashfs builder + 3-entry GRUB menu: Try / Install Graphical / Install Text) — authored in-tree; end-to-end ISO-boot validation continuing on hardware
 27. ☑ Forge GUI frontend (GTK4 + libadwaita; Welcome → Disk → User → Install → Done) — authored in-tree; live-session validation continuing
 28. ☑ First-boot animation — Phase 2 SDL backend complete (~800 lines at `assets/intergen-firstboot/`). Phase 3 (DRM/KMS direct framebuffer) is post-v1.0 polish.
-29. ☑ FLUX-generated branding (theming canonical assets — logo, icon theme, cursor; GRUB / GDM polish pending — no Plymouth, per the project's transparent-boot design)
+29. ☑ FLUX-generated branding (theming canonical assets — logo, icon theme, cursor; no Plymouth, per the project's transparent-boot design). The boot menu's polish has since landed as its own package, `packages/desktop/intergenos-grub-theme`: a theme that suppresses the menu border so the brand mark stays visible, twelve resolution-matched backgrounds and a runtime selector that picks one from the mode GRUB negotiates. The login screen takes its appearance from the shell stylesheet in `packages/desktop/intergenos-theme`; no separate greeter-branding package exists in the tree.
 30. ☑ Application roadmap Phase 1 — 9 install-helpers shipping (Brave, Chrome, Claude Code, Discord, Edge, Signal, Spotify, VS Code, Zoom). Steam has since landed as well, with the 32-bit and Proton stack it needs (`packages/extra/steam`, `gaming`, `ge-proton`, `wine`, `dxvk`, `gamescope`, `lib32-*`).
 31. ☑ Application roadmap Phase 2 — Firefox 140.9.0esr, Audacity 3.7.7, Transmission 4.1.1, Rhythmbox 3.4.9 + LV2 plugin host stack landed, and LibreOffice, Thunderbird, GIMP and Inkscape have since landed too. VLC is not packaged; `mpv` and `celluloid` are the shipped video players.
 32. ☐ Multi-DE with config isolation (KDE Plasma, COSMIC)
 33. ☑ AI Tier 1 + Tier 2 integration — `intergen daemon` + console live; hardware-tier detection and `intergen ask` (tool-calling) validated end-to-end on a bare-metal install. The Tier-2 9B ships and auto-selects on capable hardware, and vision — screenshot/image understanding — ships on every tier. All three tiers, and their paired vision projectors, are SHA-256-pinned in the signed model manifest, and the Tier-3 35B has been served on high-end GPU hardware. The Tier-3 NATIVE DISPATCH LANE is what remains unshipped: `SHIPPED_LOGIC_LANES` in `intergen/dispatch_policy.py` holds Tier 2 alone, so a machine serving the 35B decides actions through the code-owned locked path
 34. ☑ InterGen Sentinel security scanning (Local-Rules + Local-Qwen default; opt-in cloud providers) — validated live: Sentinel scan active over the tool registry, LocalQwen deep scanner attached, every tool dispatch audited
-35. ☑ Public binary mirror — `repo.intergenos.org` is live, serving signed per-package `.igos.tar.gz` archives, a signed `InterGenOS.db` index, and the GPL source-archive tree under `sources/`; `pkm sync` validates the index signature. Remaining: ISO download infrastructure and full v1.0 package coverage.
+35. ☑ Public binary mirror — `repo.intergenos.org` is live, serving signed per-package `.igos.tar.gz` archives, a signed `InterGenOS.db` index, and the GPL source-archive tree under `sources/`; `pkm sync` validates the index signature. The ISO download path is live on the same host — the image, its checksum file and the signature over that checksum are published under `iso/` and linked from the project's front page. Remaining: full v1.0 package coverage.
 
 ### Release
 
