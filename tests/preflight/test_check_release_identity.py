@@ -327,7 +327,12 @@ class Setter(unittest.TestCase):
                 SETTER.apply(packages, "R001.3-02", None)
 
     def test_cli_round_trip_on_a_copy_of_the_real_tree(self):
-        """Prove against reality: the real recipe's files move cleanly to a next release and back."""
+        """Prove against reality: the real recipe's files move cleanly to a next release and back.
+
+        The next release is derived from the one the tree declares (its last
+        number plus one), so the test does not fix a release the tree will one
+        day already state — which would make the forward move a no-op.
+        """
         import shutil
         with tempfile.TemporaryDirectory() as tmp:
             src = REPO_ROOT / "packages/core/intergenos-base-files/files/etc"
@@ -336,13 +341,19 @@ class Setter(unittest.TestCase):
             for name in GATE.IDENTITY_FILES:
                 shutil.copy2(src / name, dst / name)
             before = {n: (dst / n).read_text() for n in GATE.IDENTITY_FILES}
+            current, disagreements = GATE.read_declared(dst)
+            self.assertEqual(disagreements, [], "the real tree's identity files must agree before the move")
+            stem, _, last = current.rpartition(".")
+            self.assertTrue(stem and last.isdigit(), current)
+            target = f"{stem}.{int(last) + 1}"
+            self.assertNotEqual(target, current)
             out = io.StringIO()
             with redirect_stdout(out):
-                rc = SETTER.main(["R001.3", "--packages", str(Path(tmp) / "packages")])
+                rc = SETTER.main([target, "--packages", str(Path(tmp) / "packages")])
             self.assertEqual(rc, 0, out.getvalue())
             self.assertIn("rewrote igos-release, os-release, lsb-release, issue", out.getvalue())
             declared, _ = GATE.read_declared(dst)
-            self.assertEqual(declared, "R001.3")
+            self.assertEqual(declared, target)
             with redirect_stdout(out):
                 rc = SETTER.main([declared_back := before["igos-release"].strip(),
                                   "--packages", str(Path(tmp) / "packages")])
