@@ -25,7 +25,7 @@ patches:
   - file: linux-6.18.51-amdgpu-runtime-resume-hotplug-only-on-change-1.patch
     sha256: 64b4badab9a6cf9f72a23344ad01cc66f8f7d59db2cdeeb3838deac12ec534b5
 
-content_hash: 7eff58af3d371436
+content_hash: 6d0cdb407e98e511
 description: Linux kernel
 license: GPL-2.0-only
 source:
