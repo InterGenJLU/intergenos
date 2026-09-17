@@ -34,6 +34,10 @@ Failure semantics split by hook class:
   - A canonical hook whose command builder returns a HookDeferral has not
     failed at all: the work is real, is still owed, and cannot be done yet.
     The reason is reported and the operation continues unflagged.
+  - A canonical hook that exits zero and writes to stderr keeps its OK line
+    and gains one NOTE line per stderr line. NOTE is not a failure level: it
+    carries what the hook said in the case where it succeeded, which is the
+    case where the words OK, WARN and CRITICAL say nothing about it.
   - Archive lifecycle hooks: critical by default. The package author
     can opt into cosmetic semantics by exiting the script with code 2,
     the documented "warn and continue" return.
@@ -721,6 +725,34 @@ def run_canonical_hooks(root, file_list, name, version, operation, hooks=None):
                     pass
             if result.returncode == 0:
                 messages.append(f"  hook[{hook.id}] OK ({hook.description})")
+                # WHAT THE HOOK SAID ON ITS WAY TO A ZERO EXIT.
+                #
+                # Until this block existed, a canonical hook that succeeded
+                # produced the word OK and nothing else, and everything it had
+                # written to stderr was dropped. A tool that does its work and
+                # warns about the state it found was therefore silent in exactly
+                # the case that happens. Measured in the R001.2-03 install trace:
+                # 102 of 779 canonical hook runs exited zero with something on
+                # stderr, and eight of those were fc-cache printing
+                # "Cannot load default config file" — the diagnostic that named a
+                # real ordering defect, discarded eight times by an install that
+                # called every one of them OK.
+                #
+                # NOTE is a level of its own, deliberately: OK, WARN and CRITICAL
+                # keep their exact meanings and their counts, nothing that reads
+                # those words changes, and a hook that spoke is still a hook that
+                # succeeded — it is counted neither critical nor cosmetic.
+                #
+                # One line per non-blank stderr line, uncapped, which is what
+                # run_archive_lifecycle_hook already does for the other hook
+                # path. The volume is measured, not assumed: across that whole
+                # install the canonical hooks wrote 8,728 bytes of stderr on
+                # zero exits — 184 lines, at most 8 from any single run.
+                messages.extend(
+                    f"  hook[{hook.id}] NOTE ({hook.description}): {line}"
+                    for line in (result.stderr or "").splitlines()
+                    if line.strip()
+                )
             else:
                 level = "CRITICAL" if hook.critical else "WARN"
                 stderr_snip = result.stderr.strip().replace("\n", " ")[:200]
