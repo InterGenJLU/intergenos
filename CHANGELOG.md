@@ -169,7 +169,11 @@ landed is in the repository README, not here.
   addresses, an unreadable topology, an unreadable architecture list — leaves
   the previous behaviour untouched: only a measured "this card is not covered"
   declines the engine, and the reason names the card and what the build
-  declares.
+  declares. Choosing an engine happens in two places, and both are given the
+  pinned card: the second one, the launcher's own fallback, was asking about
+  whichever card the automatic selection would have taken, which wrote a
+  contradicting decision into the log and would have refused a working engine to
+  any caller that reached it.
 - **A refused archive install now exits non-zero.** `pkm install --archive`
   checks the archive's SHA256 against the signed repository index. When it did
   not match, the command printed `archive SHA256 does not match repository
