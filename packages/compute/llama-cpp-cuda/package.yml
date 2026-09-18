@@ -48,26 +48,65 @@ source:
 
 # DECLARED GPU targets (decision 2): the chroot has no GPU, so the target set
 # is stated, never detected. NVIDIA spelling is compute capability in the
-# CMAKE_CUDA_ARCHITECTURES vocabulary; this is upstream llama.cpp's own
-# non-native default for CUDA 13, adopted deliberately rather than inherited
-# silently (ggml/src/ggml-cuda/CMakeLists.txt at this pin).
+# CMAKE_CUDA_ARCHITECTURES vocabulary.
 #
-#   75-virtual   Turing PTX. The floor: the nvidia driver package requires
-#                GSP firmware, which starts at Turing, and CUDA 13 dropped
-#                everything older. PTX rather than SASS because the driver
-#                JIT-compiles it, so Turing works without carrying its kernels.
-#   80-virtual   PTX covering the Ampere datacentre parts and anything between
-#                the real targets below.
-#   86-real      GeForce RTX 30 series — compiled kernels, no JIT at first run.
-#   89-real      GeForce RTX 40 series.
-#   120a-real    GeForce RTX 50 series (Blackwell). The 'a' is required: the
-#                FP4 tensor-core instructions are not forwards compatible.
-#   121a-real    The second Blackwell consumer target.
+# EVERY GENERATION IS -real. THERE IS NO -virtual TOKEN HERE, AND configure()
+# REFUSES ONE.
 #
-# Absent kernels are not a hard failure here the way they are for HIP — the
-# two -virtual entries mean an architecture without compiled kernels still
-# runs, by JIT, after a one-time pause on first load.
-gpu_targets: "75-virtual;80-virtual;86-real;89-real;120a-real;121a-real"
+# The earlier list declared 75-virtual and 80-virtual on the reasoning that the
+# driver JIT-compiles PTX, so a Turing card would work without carrying its
+# kernels. That reasoning is wrong whenever the driver is older than the
+# toolkit, and it was wrong on a shipped machine. Measured 2026-09-17 on a
+# GeForce GTX 1650 (compute capability 7.5) running driver 580.159.04 against a
+# toolkit at 13.3.1, with a five-line CUDA program built two ways from that
+# toolkit:
+#
+#   built as a real sm_75 ELF   -> the kernel ran, the value came back
+#   built as sm_75 PTX only     -> "the provided PTX was compiled with an
+#                                  unsupported toolchain", the kernel did not
+#                                  run, and the memory kept its fill pattern
+#
+# That is the same sentence the assistant's engine aborted on at every launch
+# on that machine, which served on Vulkan instead for four days. A driver
+# advertises the CUDA version it can translate PTX for — 580.159.04 advertises
+# 13.0 — and PTX emitted by a NEWER toolkit is refused. Carrying PTX for a
+# generation therefore promises a card that the promise cannot be kept for on
+# any machine whose driver has not caught up with our toolkit, which is the
+# normal case for a distribution that pins both.
+#
+# So every generation this toolkit can target is carried as compiled kernels,
+# and do_install() refuses to seal the archive unless the staged binaries
+# actually contain an ELF for each one.
+#
+# THE AGE LIMIT, stated plainly: CUDA 13 removed Maxwell, Pascal and Volta
+# ("Removed support for Maxwell, Pascal, and Volta GPUs, corresponding to
+# compute capabilities earlier than Turing", CUDA 13.0 release notes,
+# https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html). The
+# oldest generation this engine can be built for is therefore Turing, 7.5,
+# 2018. Older NVIDIA cards are not abandoned — they serve on the Vulkan engine,
+# which is the default and carries no such floor.
+#
+# The list is every entry `nvcc --list-gpu-arch` reports for the pinned 13.3.1
+# toolkit, read from the toolkit itself on 2026-09-17:
+#
+#   75-real      Turing        GeForce GTX 16 / RTX 20
+#   80-real      Ampere        A100 and the datacentre parts
+#   86-real      Ampere        GeForce RTX 30
+#   87-real      Ampere        Jetson Orin
+#   88-real      Ampere        the second Orin target
+#   89-real      Ada           GeForce RTX 40
+#   90-real      Hopper        H100
+#   100-real     Blackwell     datacentre
+#   103-real     Blackwell     the second datacentre target
+#   110-real     Blackwell     the third
+#   120a-real    Blackwell     GeForce RTX 50. The 'a' is required: the FP4
+#                              tensor-core instructions are not forwards
+#                              compatible.
+#   121a-real    Blackwell     the second consumer target, same reason.
+#
+# Carrying compiled kernels for all of them costs archive size, and that cost is
+# stated in the release note rather than discovered later.
+gpu_targets: "75-real;80-real;86-real;87-real;88-real;89-real;90-real;100-real;103-real;110-real;120a-real;121a-real"
 
 dependencies:
   build:

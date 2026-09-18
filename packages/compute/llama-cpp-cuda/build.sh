@@ -129,9 +129,84 @@ version: ${_want} "*) ;;
     echo "[build-number] ${1} reports: $(printf '%s\n' "$_out" | grep -m1 "^version: ${_want} ")"
 }
 
+# Assert that a staged binary carries COMPILED KERNELS for every generation
+# gpu_targets declares. $1 = binary, $2 = the declared target list.
+#
+# Why this is a gate and not a comment. The declaration is a promise to a user
+# with that card; the only thing that keeps the promise is an ELF for that
+# architecture inside the binary. Before this check, the recipe declared Turing
+# and shipped Turing PTX, which the driver on a Turing machine could not use —
+# and nothing in the build noticed, because the build succeeded. The binary is
+# asked what it actually contains, and the archive is refused if the answer is
+# short of what was declared.
+#
+# It lives here rather than in check() for the same governed reason as
+# llama_assert_build_number: this variant declares tests.enabled=false and the
+# builder skips the whole check phase, so an assertion placed there would not
+# run at all.
+llama_assert_device_code() {
+    _bin="$1"; _targets="$2"
+    _cuobjdump="$(cuda_toolkit_root)/bin/cuobjdump"
+    if [ ! -x "$_cuobjdump" ]; then
+        echo "ERROR: no cuobjdump at ${_cuobjdump}; cannot verify that" >&2
+        echo "       ${_bin} carries the device code it declares. Refusing" >&2
+        echo "       to seal the archive on an unverified promise." >&2
+        return 1
+    fi
+    _have="$("$_cuobjdump" --list-elf "$_bin" 2>/dev/null \
+             | grep -oE 'sm_[0-9]+[af]?' | sort -u | tr '\n' ' ')"
+    echo "[device-code] ${_bin} carries: ${_have:-(none)}"
+    _missing=""
+    _old_ifs="$IFS"; IFS=';'
+    for _t in $_targets; do
+        IFS="$_old_ifs"
+        # "120a-real" -> "sm_120a"; "75-real" -> "sm_75"
+        _arch="sm_${_t%%-*}"
+        case " $_have " in
+            *" $_arch "*) ;;
+            *) _missing="${_missing} ${_arch}" ;;
+        esac
+        IFS=';'
+    done
+    IFS="$_old_ifs"
+    if [ -n "$_missing" ]; then
+        echo "ERROR: ${_bin} declares GPU targets it does not carry kernels for." >&2
+        echo "       declared : ${_targets}" >&2
+        echo "       carries  : ${_have:-(none)}" >&2
+        echo "       missing  :${_missing}" >&2
+        echo "       A declared generation with no compiled kernel is a promise" >&2
+        echo "       to a card that cannot be kept: the driver would have to" >&2
+        echo "       translate PTX, and a driver older than this toolkit" >&2
+        echo "       refuses to. Refusing to seal the archive." >&2
+        return 1
+    fi
+}
+
 configure() {
     set -e
     CUDA_ARCHS="${IGOS_GPU_TARGETS:?FATAL: gpu_targets not declared in package.yml/plumbing}"
+
+    # No -virtual token may reach the compiler from this recipe. PTX is only
+    # usable if the DRIVER can translate it, and a driver older than the
+    # toolkit that emitted it refuses — measured 2026-09-17 on a compute-7.5
+    # card with driver 580.159.04 (advertising CUDA 13.0) against this pinned
+    # 13.3.1 toolkit: a real sm_75 ELF ran, the same program built as sm_75 PTX
+    # failed with "the provided PTX was compiled with an unsupported
+    # toolchain". That is the sentence a shipped machine's engine aborted on at
+    # every launch. A distribution pins its toolkit and its driver separately,
+    # so this is the normal case, not the exception. Refuse it here, at
+    # configure, rather than discover it on somebody's machine.
+    case ";${CUDA_ARCHS};" in
+        *-virtual\;*)
+            echo "ERROR: gpu_targets declares a -virtual (PTX-only) target:" >&2
+            echo "         ${CUDA_ARCHS}" >&2
+            echo "       PTX is compiled by the DRIVER at load time, and a" >&2
+            echo "       driver older than the toolkit that emitted it refuses" >&2
+            echo "       it: 'the provided PTX was compiled with an unsupported" >&2
+            echo "       toolchain'. Every generation this engine claims must" >&2
+            echo "       carry compiled kernels — declare it as -real." >&2
+            return 1 ;;
+    esac
 
     SRC_PARENT="$(dirname "$PWD")"
     CUDA_ROOT="$(cuda_toolkit_root)"
@@ -384,4 +459,12 @@ do_install() {
     # build-substrate run settles).
     llama_assert_build_number "$DESTDIR/opt/llama-cpp-cuda/bin/llama-cli" \
                               "$(cuda_toolkit_root)/lib64" || return 1
+
+    # Every staged binary must carry compiled kernels for every generation this
+    # recipe declares. Asked of the binaries that ship, after they are staged
+    # and before the archive is sealed.
+    for b in llama-server llama-cli llama-bench; do
+        llama_assert_device_code "$DESTDIR/opt/llama-cpp-cuda/bin/$b" \
+                                 "${IGOS_GPU_TARGETS}" || return 1
+    done
 }
