@@ -1872,11 +1872,16 @@ class PackageDB:
         rows are excluded — they don't contribute to live rev-dep state.
 
         Returns:
-            list[dict] — each row {name, version, tier} of orphan packages
-            sorted by name.
+            list[dict] — each row {name, version, release, tier} of orphan
+            packages sorted by name.
+
+        The release is selected because the caller prints these rows. Without
+        it, the version-release renderer falls back to the schema default of
+        release 1 and would print a release the package does not have — worse
+        than printing none, because a wrong number reads as a true one.
         """
         rows = self.conn.execute(
-            """SELECT i.name, i.version, i.tier
+            """SELECT i.name, i.version, i.release, i.tier
                FROM installed i
                WHERE i.install_reason = 'dependency'
                  AND i.superseded_by IS NULL
@@ -1887,7 +1892,8 @@ class PackageDB:
                  )
                ORDER BY i.name"""
         ).fetchall()
-        return [{"name": r[0], "version": r[1], "tier": r[2]} for r in rows]
+        return [{"name": r[0], "version": r[1], "release": r[2],
+                 "tier": r[3]} for r in rows]
 
     # ------------------------------------------------------------------
     # Search

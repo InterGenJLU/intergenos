@@ -3051,7 +3051,17 @@ def cmd_upgrade(db, args):
                 method=("local-archive" if remote_pkg.get("local_archive")
                         else "archive"),
             )
-            emit_info(f"Upgraded {remote_pkg['name']} to {remote_pkg['version']}")
+            # RELEASE-BEARING COMPLETION LINE. This printed the version alone,
+            # so an upgrade that moved release 256 to release 269 said
+            # "Upgraded intergen to 0.1.0" — the same six characters before and
+            # after, on the one line a person reads to confirm what landed
+            # (measured on an installed machine, 2026-09-18). The release is
+            # read back off the row the install just wrote, which is the
+            # authority for what is now installed, with the index entry as the
+            # fallback when the row cannot be read.
+            _installed_row = db.get_installed(remote_pkg["name"]) or remote_pkg
+            emit_info(f"Upgraded {remote_pkg['name']} to "
+                      f"{txn.format_vr(_installed_row)}")
             upgraded_this_txn.append(remote_pkg["name"])
             if self_first and remote_pkg["name"] == "pkm":
                 _reexec_upgrade_all_under_new_pkm(
@@ -4864,7 +4874,7 @@ def cmd_autoremove(db, args):
     for o in orphans:
         ok, msg = remover.remove(o["name"], force=False)
         if ok:
-            emit_info(f"Removed {o['name']}")
+            emit_info(f"Removed {txn.describe_subject(o['name'], o)}")
         else:
             emit_error(f"removing {o['name']}: {msg}")
             any_failed = True

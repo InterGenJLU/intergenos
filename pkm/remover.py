@@ -596,7 +596,9 @@ class PackageRemover:
             self.db.log_operation("remove", name, old_version=pkg["version"])
             if run_post_remove_hook:
                 self._run_post_remove_hook(name, pkg["version"])
-            return True, f"Removed {name} {pkg['version']} (no files tracked)"
+            from . import txn as _txn
+            return True, (f"Removed {_txn.describe_subject(name, pkg)} "
+                          f"(no files tracked)")
 
         # Classify each manifest path by what is ON DISK, not by the DB's
         # is_dir flag. The flag is unreliable at scale (ge9b-08 chroot DB:
@@ -931,12 +933,18 @@ class PackageRemover:
                 )
             # PKM-A08: keep the success line honest — a bare green "Removed"
             # over files left on disk reads as a clean uninstall in scroll-back.
+            # RELEASE-BEARING COMPLETION LINE. The returned message has named
+            # the release through describe_subject since the transaction lines
+            # were made release-bearing; this printed line, which is the one a
+            # person actually reads, still said "Removed intergen 0.1.0" and
+            # could not tell release 256 from release 269. Same helper as the
+            # message, so the two cannot drift apart.
             if failed_removals:
                 reporter.done(
-                    f"Removed {name} {pkg['version']} — "
+                    f"Removed {_txn.describe_subject(name, pkg)} — "
                     f"{len(failed_removals)} file(s) left on disk (see warning)"
                 )
             else:
-                reporter.done(f"Removed {name} {pkg['version']}")
+                reporter.done(f"Removed {_txn.describe_subject(name, pkg)}")
 
         return True, msg

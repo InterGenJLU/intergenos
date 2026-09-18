@@ -1749,7 +1749,8 @@ class PackageInstaller:
                     for line in degraded_pkmnew.splitlines():
                         reporter.info(line)
                 return False, (
-                    f"Installed {name} {version} ({file_count} files){extra}, "
+                    f"Installed {name} {self._installed_vr(name, version)} "
+                    f"({file_count} files){extra}, "
                     f"but critical post-install hook(s) FAILED: "
                     f"{', '.join(critical_hook_ids)}. Live system state may "
                     f"diverge from package metadata. Package marked DEGRADED "
@@ -1759,7 +1760,8 @@ class PackageInstaller:
                     + (f"\n{degraded_pkmnew}" if degraded_pkmnew else "")
                 )
 
-            msg = f"Installed {name} {version} ({file_count} files){extra}"
+            msg = (f"Installed {name} {self._installed_vr(name, version)} "
+                   f"({file_count} files){extra}")
             if hook_summary:
                 msg = msg + "\n" + hook_summary
             # PKM-A25: the systemd daemon-reload hook is intentionally
@@ -1814,6 +1816,27 @@ class PackageInstaller:
 
         finally:
             shutil.rmtree(staging, ignore_errors=True)
+
+    def _installed_vr(self, name, version):
+        """``<version>-<release>`` for the row just written, or the bare version.
+
+        The completion LINE has been release-bearing since the transaction
+        lines were; these MESSAGES still said "Installed intergen 0.1.0", and
+        the degraded-install message is the one a user needs most — it is what
+        they read when a critical hook failed and they have to decide what is
+        actually on the machine.
+
+        Read back off the installed row rather than off the archive metadata,
+        which the ingestion may have adjusted, and the same helper the
+        transaction lines use so the two cannot drift. A row that cannot be
+        read falls back to the bare version: saying less is right, inventing a
+        release is not.
+        """
+        from . import txn as _txn
+        row = self.db.get_installed(name)
+        if not row:
+            return version
+        return _txn.format_vr(row)
 
     def _run_post_install_hook(self, name, version):
         """Fire per-package post-install runtime hook if shipped.
