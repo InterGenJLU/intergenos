@@ -163,6 +163,23 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **The test suite no longer leaves a memory-index worker writing behind it.**
+  One test in the memory-index trace file deliberately stops the index while its
+  embedding server is still hanging, which is how it proves the stop is bounded,
+  and then let the embedder answer at cleanup without waiting for the worker it
+  had abandoned. That worker still had one trace row to write, and it wrote it
+  wherever the process's record pointed by then: into the next test's temporary
+  record, where a later test counts it as its own ("two indexed rows where one
+  exchange was indexed"), or into a temporary directory that had already been
+  removed — which leaves the process-wide trace writer bound to a path that no
+  longer exists, so the next test's own rows are dropped with nothing but a log
+  line and it reads none at all. Measured on that file alone at the tree before
+  this change: 6 of 30 runs red, and 5 of 30 with a full suite running
+  concurrently, every one of them in the sibling control that asserts a stopped
+  index still recorded its exchange. The test now lets the embedder answer and
+  then waits for the worker while its own record is still the one in place, so
+  nothing it started outlives it. Shipped code is unchanged; this is the suite
+  measuring the index rather than measuring itself.
 - **A turn that asks for no commands now gets none on any path, not just from
   the model.** The assistant reads a turn that forbids tools ("Do not use tools,
   run commands, access files, or contact external services") and stops offering

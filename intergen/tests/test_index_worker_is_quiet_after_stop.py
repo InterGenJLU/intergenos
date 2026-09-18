@@ -70,6 +70,19 @@ class TheIndexWorkerIsQuietAfterStop(unittest.TestCase):
             os.environ["XDG_STATE_HOME"] = self._prev
 
     @staticmethod
+    def _release_and_collect(release: threading.Event,
+                             index: SessionTurnIndex) -> None:
+        """Let the hung embedder answer, then wait for the worker to finish.
+
+        Registered after the index is built, so it runs BEFORE the record is
+        restored and the temporary directories are removed (cleanups run in
+        reverse registration order): the worker's last row lands in the record
+        the exchange belonged to, and no writer survives this test.
+        """
+        release.set()
+        index.stop(timeout=10.0)
+
+    @staticmethod
     def _memory_rows(tmp: str) -> list[dict]:
         return glass_rows.where(glass_rows.read(tmp), phase="memory")
 
@@ -138,7 +151,6 @@ class TheIndexWorkerIsQuietAfterStop(unittest.TestCase):
         process that will not shut down.
         """
         release = threading.Event()
-        self.addCleanup(release.set)
         reached_the_embedder = threading.Event()
 
         def hung_embedder(texts):
@@ -147,6 +159,19 @@ class TheIndexWorkerIsQuietAfterStop(unittest.TestCase):
             return [[0.5] * 8 for _ in texts]
 
         index = SessionTurnIndex(embedder=hung_embedder)
+        # THIS TEST IS THE ONE THAT DELIBERATELY ABANDONS A WORKER, so it is the
+        # one that has to collect it. stop(timeout=0.5) below leaves the worker
+        # inside the embedder with an "indexed" row still to write. Releasing the
+        # embedder at cleanup and returning leaves that write to land wherever the
+        # record points by the time it happens: the next test's record (an extra
+        # "indexed" row a later test counts as its own), or a temporary directory
+        # that has already been deleted — which binds the process-wide trace
+        # writer to a path that no longer exists, so the rows of whatever test
+        # comes next are dropped with only a log line. Measured on this file
+        # alone at tree 426fe5167: 6 of 30 runs red in the control below, "0 != 1".
+        # Releasing and then WAITING keeps the abandoned worker inside the test
+        # that abandoned it, while its own record is still the one in place.
+        self.addCleanup(self._release_and_collect, release, index)
         index.index_turn("a question", "an answer")
         self.assertTrue(reached_the_embedder.wait(10.0),
                         "the worker never reached the embedder, so this test "
