@@ -47,6 +47,15 @@ landed is in the repository README, not here.
 
 ### Added
 
+- **An attached iPhone or iPad is served.** The libraries that speak to Apple
+  mobile devices were already shipped, and the virtual filesystem layer was
+  already built against them, but the daemon all of them connect to was not —
+  so the socket they open had no other end and a plugged-in device was neither
+  mounted nor pairable. The daemon is now packaged (`usbmuxd`). It is started
+  by a udev rule when a device with Apple's USB vendor id appears and exits
+  when the last one is unplugged, so nothing runs while no device is attached,
+  and it drops to a locked unprivileged account that owns the device node. No
+  service unit is installed and no service is enabled.
 - **The URI perl distribution is complete.** `URI/otpauth.pm`, one of the URI
   modules the project ships, loads `MIME::Base32` when it is used, and the
   project's perl did not carry that module, so that one documented URI scheme
