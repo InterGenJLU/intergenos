@@ -36,6 +36,35 @@ else
     PY_BIN=""
 fi
 
+# ---- A gate that cannot run refuses the push ----------------------------
+# Decided 2026-09-17, replacing the skip-on-missing posture the four
+# range-scoped gates below shared. The old comment justified it as "a branch
+# predating it"; that is the wrong way round. This hook and the scripts it runs
+# live in the SAME checkout, so a script that is not there means this tree was
+# modified — and a warning printed during an automated push is read by nobody,
+# which makes the check silently absent rather than skipped. The same holds for
+# the interpreter: a gate nobody could run has not passed.
+#
+# Called before each gate, with the script path and the gate's plain name. It
+# either returns, meaning the gate can run, or it refuses the push naming what
+# is missing and why the push is refused for it.
+require_gate_can_run() {
+    local script="$1" label="$2"
+    if [ ! -f "$script" ]; then
+        echo "[pre-push] BLOCK: the $label could not run — $script is missing."
+        echo "  Reason: the hook and its gates live in the same checkout, so a missing gate script"
+        echo "          means this tree was modified. A check that did not run has not passed."
+        echo "  Resolve: restore $script, or push from a tree that carries it."
+        exit 1
+    fi
+    if [ -z "$PY_BIN" ]; then
+        echo "[pre-push] BLOCK: the $label could not run — no Python 3 interpreter was found."
+        echo "  Reason: $script needs Python 3, and a check that did not run has not passed."
+        echo "  Resolve: make Python 3 reachable as python3, py or python on PATH."
+        exit 1
+    fi
+}
+
 # Read the two positional arguments git passes a pre-push hook:
 #   $1 = the remote NAME being pushed to (e.g. "origin")
 #   $2 = the remote URL being pushed to  (e.g. git@github.com:owner/repo.git)
@@ -266,22 +295,14 @@ fi
 # exactly that spelling on 2026-07-24, which is how this surfaced. The ref is
 # now PUSH_LOCAL, the local sha git handed this hook for the branch being
 # updated, so the audit reads the published content by construction rather
-# than by coincidence. Everything else about the gate — fail-closed on a
-# violation, WARN-skip on a missing interpreter or a missing script — is
-# unchanged.
+# than by coincidence. The gate is fail-closed throughout: a violation blocks,
+# and since 2026-09-17 a missing script or a missing interpreter blocks too.
 #
 # Uses PY_BIN computed at hook start (host-portable Python detection).
-if [ -f scripts/check-public-content.py ]; then
-    if [ -z "$PY_BIN" ]; then
-        echo "[pre-push] WARN: no Python 3 interpreter found; skipping audit"
-    else
-        if ! "$PY_BIN" scripts/check-public-content.py --from-ref "$PUSH_LOCAL"; then
-            echo "[pre-push] BLOCK: public-content audit failed (see above)"
-            exit 1
-        fi
-    fi
-else
-    echo "[pre-push] WARN: scripts/check-public-content.py not found; skipping audit"
+require_gate_can_run scripts/check-public-content.py "public-content audit"
+if ! "$PY_BIN" scripts/check-public-content.py --from-ref "$PUSH_LOCAL"; then
+    echo "[pre-push] BLOCK: public-content audit failed (see above)"
+    exit 1
 fi
 
 # ---- 1b. Public-language gate (fail-closed; PRIVATE term list) ------------
@@ -294,20 +315,14 @@ fi
 # token evaded; this gate matches word-boundary with span-aware, in-code
 # exemptions. Since 2026-08-25 the added lines of a file are matched in runs of
 # consecutive lines joined by one space, so a two-word term split by a line wrap
-# is caught; the report names the line the match starts on. A missing SCRIPT (a branch predating it) warns + skips, matching
-# the audit's posture — the security-critical input is the private list, which
-# the script itself fails closed on.
-if [ -f scripts/check-public-language.py ]; then
-    if [ -z "$PY_BIN" ]; then
-        echo "[pre-push] WARN: no Python 3 interpreter found; skipping language gate"
-    else
-        if ! "$PY_BIN" scripts/check-public-language.py --range "$REMOTE..$LOCAL"; then
-            echo "[pre-push] BLOCK: public-language gate failed (see above)"
-            exit 1
-        fi
-    fi
-else
-    echo "[pre-push] WARN: scripts/check-public-language.py not found; skipping language gate"
+# is caught; the report names the line the match starts on. The
+# security-critical input is the private list, which the script itself fails
+# closed on; since 2026-09-17 a missing script or interpreter fails closed here
+# too, so the gate is never absent without saying so.
+require_gate_can_run scripts/check-public-language.py "public-language gate"
+if ! "$PY_BIN" scripts/check-public-language.py --range "$REMOTE..$LOCAL"; then
+    echo "[pre-push] BLOCK: public-language gate failed (see above)"
+    exit 1
 fi
 
 # ---- 1c. Writing-register gate (two tiers; decided 2026-08-16) ------------
@@ -319,19 +334,11 @@ fi
 # advisory lines and never refuses on its own. Exclusion set is the
 # committed config/register-gate-exclusions.txt (the script fails loudly if
 # it is missing — an undefined exclusion set is never a silent wider scan).
-# A missing SCRIPT (a branch predating it) warns + skips, matching the
-# posture of the gates above.
-if [ -f scripts/check-register.py ]; then
-    if [ -z "$PY_BIN" ]; then
-        echo "[pre-push] WARN: no Python 3 interpreter found; skipping register gate"
-    else
-        if ! "$PY_BIN" scripts/check-register.py --range "$REMOTE..$LOCAL"; then
-            echo "[pre-push] BLOCK: writing-register gate failed (see above)"
-            exit 1
-        fi
-    fi
-else
-    echo "[pre-push] WARN: scripts/check-register.py not found; skipping register gate"
+# A missing script or interpreter blocks the push, matching the gates above.
+require_gate_can_run scripts/check-register.py "writing-register gate"
+if ! "$PY_BIN" scripts/check-register.py --range "$REMOTE..$LOCAL"; then
+    echo "[pre-push] BLOCK: writing-register gate failed (see above)"
+    exit 1
 fi
 
 # ---- 1d. License-spelling gate (decided 2026-09-17) ----------------------
@@ -341,19 +348,12 @@ fi
 # exempted BY NAME inside the script (file + marker + reason); a stale
 # exemption is a setup error there, never a pass. The suite runs the same
 # gate over the whole tree; this hook is the only place the commit-message
-# surface is reachable before a push. A missing SCRIPT warns + skips,
-# matching the gates above.
-if [ -f scripts/check-license-spelling.py ]; then
-    if [ -z "$PY_BIN" ]; then
-        echo "[pre-push] WARN: no Python 3 interpreter found; skipping license-spelling gate"
-    else
-        if ! "$PY_BIN" scripts/check-license-spelling.py --range "$REMOTE..$LOCAL"; then
-            echo "[pre-push] BLOCK: license-spelling gate failed (see above)"
-            exit 1
-        fi
-    fi
-else
-    echo "[pre-push] WARN: scripts/check-license-spelling.py not found; skipping license-spelling gate"
+# surface is reachable before a push. A missing script or interpreter blocks
+# the push, matching the gates above.
+require_gate_can_run scripts/check-license-spelling.py "license-spelling gate"
+if ! "$PY_BIN" scripts/check-license-spelling.py --range "$REMOTE..$LOCAL"; then
+    echo "[pre-push] BLOCK: license-spelling gate failed (see above)"
+    exit 1
 fi
 
 # ---- 2. Stale-branch check (the pushed branch vs its OWN remote) ----------
