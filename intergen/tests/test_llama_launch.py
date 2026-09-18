@@ -681,6 +681,82 @@ class OffloadReportTests(unittest.TestCase):
         self.assertTrue(any("OFFLOAD MISMATCH" in line for line in cm.output))
         self.assertTrue(events and events[0][0][:2] == ("engine", "offload_check"))
 
+    def test_a_capped_request_that_was_honoured_says_nothing(self):
+        """20 layers asked for, 20 delivered: there is no mismatch to report.
+
+        Measured 2026-09-17 on an installed 4 GB NVIDIA laptop serving under the
+        shipped interim cap: the launch asked for 20 of 29 layers, got exactly
+        20, and the log carried "requested all layers (--n-gpu-layers 20) …
+        serving backend is Vulkan, NOT GPU-accelerated … The model will run on
+        CPU". Twenty of its layers were on the card, and `intergen status` two
+        lines later said so. A warning that contradicts the machine hides the
+        real ones.
+        """
+        import intergen.glass as glassmod
+        m = LlamaManager()
+        m._startup_stderr = ("using Vulkan0\n"
+                             "load_tensors: offloaded 20/29 layers to GPU")
+        with mock.patch.object(glassmod, "emit"), \
+                self.assertNoLogs("intergen.llama_manager", level="WARNING"):
+            m._record_offload(port=8080, gpu_layers=20, expect_offload=True)
+        self.assertEqual(m._serving_backend, "Vulkan")
+        self.assertFalse(m.offload_report()["fully_offloaded"],
+                         "20 of 29 is still not every layer, and the report "
+                         "must keep saying so")
+
+    def test_a_capped_request_that_was_not_honoured_still_warns(self):
+        """20 layers asked for, none delivered: that IS a mismatch."""
+        import intergen.glass as glassmod
+        m = LlamaManager()
+        m._startup_stderr = ("ggml_vulkan: Found 1 Vulkan devices\n"
+                             "load_tensors: offloaded 0/29 layers to GPU")
+        with mock.patch.object(glassmod, "emit"), \
+                self.assertLogs("intergen.llama_manager", level="WARNING") as cm:
+            m._record_offload(port=8080, gpu_layers=20, expect_offload=True)
+        text = "\n".join(cm.output)
+        self.assertIn("OFFLOAD MISMATCH", text)
+        self.assertIn("20", text)
+
+    def test_a_short_offload_does_not_claim_the_processor_is_serving(self):
+        """Some layers on the card is not "running on CPU".
+
+        Fifteen of twenty-nine reached the card; the warning is owed because
+        fewer arrived than were asked for, but the sentence that says the model
+        runs on the processor is false and must not appear.
+        """
+        import intergen.glass as glassmod
+        m = LlamaManager()
+        m._startup_stderr = ("using Vulkan0\n"
+                             "load_tensors: offloaded 15/29 layers to GPU")
+        with mock.patch.object(glassmod, "emit"), \
+                self.assertLogs("intergen.llama_manager", level="WARNING") as cm:
+            m._record_offload(port=8080, gpu_layers=29, expect_offload=True)
+        text = "\n".join(cm.output)
+        self.assertIn("OFFLOAD MISMATCH", text)
+        self.assertNotIn("will run on CPU", text)
+        self.assertNotIn("NOT GPU-accelerated", text)
+
+    def test_the_all_layers_wording_is_not_used_for_a_capped_request(self):
+        """"requested all layers (--n-gpu-layers 20)" contradicts itself."""
+        import intergen.glass as glassmod
+        m = LlamaManager()
+        m._startup_stderr = ("using Vulkan0\n"
+                             "load_tensors: offloaded 0/29 layers to GPU")
+        with mock.patch.object(glassmod, "emit"), \
+                self.assertLogs("intergen.llama_manager", level="WARNING") as cm:
+            m._record_offload(port=8080, gpu_layers=20, expect_offload=True)
+        self.assertNotIn("requested all layers", "\n".join(cm.output))
+
+    def test_an_unreadable_banner_is_said_so_not_passed_over(self):
+        """"we could not tell" must never read as "the card got the layers"."""
+        import intergen.glass as glassmod
+        m = LlamaManager()
+        m._startup_stderr = "using Vulkan0\n(no offload summary in this banner)"
+        with mock.patch.object(glassmod, "emit"), \
+                self.assertLogs("intergen.llama_manager", level="WARNING") as cm:
+            m._record_offload(port=8080, gpu_layers=20, expect_offload=True)
+        self.assertIn("OFFLOAD UNVERIFIED", "\n".join(cm.output))
+
     def test_record_offload_clean_no_warn(self):
         import intergen.glass as glassmod
         m = LlamaManager()

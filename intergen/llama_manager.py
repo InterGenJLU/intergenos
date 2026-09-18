@@ -2215,19 +2215,65 @@ class LlamaManager(LlamaManagerInterface):
                     "(%s) but its load banner names %s — reporting the engine",
                     engine, self._serving_backend, named)
         fully = self._fully_offloaded(gpu_layers, off, tot)
-        if gpu_layers > 0 and not fully:
+        # The warning answers ONE question: did the card get what this launch
+        # asked it for? It used to compare against EVERY layer instead, so a
+        # launch that asked for 20 of 29 and got exactly 20 was reported as a
+        # mismatch — in a sentence that also called 20 "all layers", called a
+        # Vulkan backend not GPU-accelerated, and said the model would run on
+        # the processor while twenty of its layers were on the card (measured
+        # 2026-09-17 on an installed 4 GB NVIDIA laptop under the shipped
+        # interim cap). A warning that contradicts the machine trains a reader
+        # to skip the real ones.
+        if gpu_layers > 0 and off is None:
+            # An unreadable banner is not a clean start. Saying nothing here
+            # would let "we could not tell" pass for "the card got the layers".
             log.warning(
-                "GPU OFFLOAD MISMATCH (port %d): requested all layers "
-                "(--n-gpu-layers %d) but llama-server offloaded %s/%s — serving "
-                "backend is %s, NOT GPU-accelerated. Likely the daemon cannot see "
-                "the DRM nodes (PI-Z28 sandbox) or VRAM is short. The model will "
-                "run on CPU (unusably slow for the big tiers).",
-                port, gpu_layers, off, tot, self._serving_backend)
+                "GPU OFFLOAD UNVERIFIED (port %d): asked for %d layer(s) but "
+                "the load banner did not say how many reached the card, so the "
+                "offload could not be checked. Serving backend reported as %s.",
+                port, gpu_layers, self._serving_backend)
+        elif gpu_layers > 0 and self._offload_fell_short(gpu_layers, off, tot):
+            asked = ("every layer" if tot and gpu_layers >= tot
+                     else f"{gpu_layers} layer(s)")
+            if off:
+                log.warning(
+                    "GPU OFFLOAD MISMATCH (port %d): asked for %s "
+                    "(--n-gpu-layers %d) but llama-server offloaded %s/%s — "
+                    "serving backend is %s, so some layers are on the card and "
+                    "the rest are not. Likely VRAM is short for the context and "
+                    "any vision projector this launch loads.",
+                    port, asked, gpu_layers, off, tot, self._serving_backend)
+            else:
+                log.warning(
+                    "GPU OFFLOAD MISMATCH (port %d): asked for %s "
+                    "(--n-gpu-layers %d) but llama-server offloaded %s/%s — "
+                    "nothing reached the card, serving backend is %s. Likely "
+                    "the daemon cannot see the DRM nodes (PI-Z28 sandbox) or "
+                    "VRAM is short. The model will run on CPU (unusably slow "
+                    "for the big tiers).",
+                    port, asked, gpu_layers, off, tot, self._serving_backend)
         detail = self.describe_offload(requested_layers=gpu_layers, offloaded=off,
                                        total=tot,
                                        backend=self._serving_backend)
         detail.update({"port": port, "expect_offload": expect_offload})
         glass.emit("engine", "offload_check", detail=detail)
+
+    @staticmethod
+    def _offload_fell_short(gpu_layers: int, offloaded: int | None,
+                            total: int | None) -> bool:
+        """True when FEWER layers reached the card than this launch asked for.
+
+        Distinct from _fully_offloaded, which answers whether EVERY layer got
+        there. A capped launch that was honoured exactly is not fully offloaded
+        and is not a mismatch either; only the second question belongs in a
+        warning. A request above the model's layer count (999 means "all") is
+        satisfied by the whole model, and an unreadable banner (offloaded or
+        total unknown) is not evidence of a shortfall.
+        """
+        if offloaded is None:
+            return False
+        wanted = min(gpu_layers, total) if total else gpu_layers
+        return offloaded < wanted
 
     @staticmethod
     def _fully_offloaded(gpu_layers: int, offloaded: int | None,
