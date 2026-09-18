@@ -2250,6 +2250,39 @@ class WebServer:
             user_msg, correct_identity_collision(full_response),
             state=ctx.conversation)
 
+        # Send tool_executed for any tools that ran — BEFORE the turn's
+        # terminal frame, because it is the user's record that an action was
+        # taken and stream_end ENDS the turn. It used to be sent after
+        # stream_end, and any consumer that treats the terminal frame as the end
+        # of the turn never saw it: measured 2026-09-18 against a running daemon,
+        # a turn that really ran read_file carried session_list, turn_ack,
+        # stream_start, tool_ack, stream_token, stream_end and no card at all,
+        # while the daemon's own log named the tool it had run. This project's
+        # own websocket harness stops at the terminal frame, so the browser
+        # battery could never observe a tool_executed on a streamed turn and its
+        # no-action grading rested on two frames instead of three.
+        #
+        # The single line the user sees is the clean structured summary (D-1
+        # `model_summary` contract) when the tool sets one, falling back to the
+        # legacy content head; the full payload rides along so the client can
+        # offer a "show full output" expander. `content` ALWAYS stays the
+        # complete tool output (D-2).
+        for tr in tool_results:
+            summary = tr.model_summary or tr.content[:256]
+            payload = {
+                "type": "tool_executed",
+                "tool_name": tr.name,
+                "success": tr.success,
+                "summary": summary,
+            }
+            # Offer the expander only when the full output adds something
+            # beyond the summary line — a structured summary was set, or the
+            # content head was truncated. Otherwise the line already shows it.
+            full = tr.content or ""
+            if tr.model_summary is not None or len(full) > len(summary):
+                payload["full_output"] = full
+            await ctx.ws.send_json(payload)
+
         # Send stream_end
         await ctx.ws.send_json({
             "type": "stream_end",
@@ -2290,26 +2323,6 @@ class WebServer:
             "answer_linkage": _stream_link.as_detail()},
             dur_ms=elapsed_ms)
 
-        # Send tool_executed for any tools that ran. The single line the user
-        # sees is the clean structured summary (D-1 `model_summary` contract)
-        # when the tool sets one, falling back to the legacy content head; the
-        # full payload rides along so the client can offer a "show full output"
-        # expander. `content` ALWAYS stays the complete tool output (D-2).
-        for tr in tool_results:
-            summary = tr.model_summary or tr.content[:256]
-            payload = {
-                "type": "tool_executed",
-                "tool_name": tr.name,
-                "success": tr.success,
-                "summary": summary,
-            }
-            # Offer the expander only when the full output adds something
-            # beyond the summary line — a structured summary was set, or the
-            # content head was truncated. Otherwise the line already shows it.
-            full = tr.content or ""
-            if tr.model_summary is not None or len(full) > len(summary):
-                payload["full_output"] = full
-            await ctx.ws.send_json(payload)
 
 
     async def _process_llm_stream(

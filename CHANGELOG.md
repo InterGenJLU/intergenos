@@ -227,6 +227,20 @@ landed is in the repository README, not here.
   carries no comment and reads exactly as before; the change can only ever leave
   an architecture out of the declared set, never put one in, and leaving one out
   simply serves on the Vulkan engine instead.
+- **The record that an action was taken now reaches the browser before the turn
+  ends.** When the assistant runs a tool on a streamed turn, it sends the person
+  a card naming the tool and summarising what it did. That card was sent AFTER
+  the frame that ends the turn, so anything treating the end of the turn as the
+  end of the turn never received it. Measured against the running assistant on
+  2026-09-18: a turn that really did read a file carried the turn's start, the
+  "let me look that up" line, the answer and the end-of-turn frame — and no card
+  at all — while the assistant's own log named the tool it had just run. The
+  card is now sent before the end-of-turn frame, so the browser panel shows the
+  action above the answer that used it, in the order they happened. The project's
+  own websocket test harness had the same blind spot and stopped reading at the
+  end-of-turn frame; it now drains what follows, reports when the terminal frame
+  arrived and counts anything that came in after it, so a future regression of
+  this kind is visible to the instrument rather than invisible to it.
 - **A refused archive install now exits non-zero.** `pkm install --archive`
   checks the archive's SHA256 against the signed repository index. When it did
   not match, the command printed `archive SHA256 does not match repository

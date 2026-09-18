@@ -52,6 +52,15 @@ DEFAULT_PORT = 8089
 # deadlock test uses a ~1s ceiling instead (a deadlock hangs far past 1s).
 DEFAULT_DEADLINE_S = 120.0
 
+# How long to keep reading after a turn's terminal frame. It is a DRAIN, not a
+# wait: the answer is already in hand, nothing is expected, and the only job is
+# to record anything the server still sends so the harness can report it rather
+# than certify its absence without having looked. Half a second is far longer
+# than the gap measured between stream_end and the frames that followed it
+# (milliseconds, same event-loop turn) and short enough that a fourteen-question
+# battery pays under seven seconds for it in total.
+DEFAULT_SETTLE_S = 0.5
+
 # Server→client message types that END a turn from the client's point of view.
 # "response" is the non-streaming fast-path reply (P0/P1) — it IS terminal; the
 # original ws_gate_probe omitted it and so mis-read a clean fast answer as a
@@ -148,6 +157,12 @@ class WSTurnResult:
     """Structured outcome of one turn driven over the real WS path."""
     query: str
     terminal: bool = False
+    # When the terminal frame arrived, and how many frames the server sent
+    # AFTER it. A non-zero count is not a fault by itself — it is the record
+    # that the turn kept speaking, which a harness that stopped at the terminal
+    # frame could never report either way.
+    terminal_at: float | None = None
+    late_frames: int = 0
     text: str = ""
     saw_gate: bool = False
     gate_decision_sent: str | None = None
@@ -197,6 +212,7 @@ class WSGateClient:
         gate_decision: str | None = None,
         gate_action: str = "respond",
         deadline_s: float = DEFAULT_DEADLINE_S,
+        settle_s: float = DEFAULT_SETTLE_S,
     ) -> WSTurnResult:
         """Send one message on a FRESH connection and collect the turn.
 
@@ -213,12 +229,14 @@ class WSGateClient:
                 respond — exercises the gate timeout path), or "cancel"
                 (drop the connection on the gate prompt).
             deadline_s: client-side ceiling; on expiry closed_by="deadline".
+            settle_s: how long to keep reading after the terminal frame, so a
+                frame the server sends late is recorded rather than missed.
         """
         async with WSConversation(host=self._host, port=self._port,
                                   token=self._token) as conv:
             return await conv.turn(
                 query, gate_decision=gate_decision, gate_action=gate_action,
-                deadline_s=deadline_s)
+                deadline_s=deadline_s, settle_s=settle_s)
 
 
 class WSConversation:
@@ -274,6 +292,7 @@ class WSConversation:
         gate_decision: str | None = None,
         gate_action: str = "respond",
         deadline_s: float = DEFAULT_DEADLINE_S,
+        settle_s: float = DEFAULT_SETTLE_S,
     ) -> WSTurnResult:
         """Send one message on the open socket and collect its turn."""
         if self._ws is None:
@@ -282,17 +301,23 @@ class WSConversation:
             gate_decision if gate_action == "respond" else None))
         await self._ws.send_json({"type": "message", "content": query})
         await _drive_turn(self._ws, r, gate_decision=gate_decision,
-                          gate_action=gate_action, deadline_s=deadline_s)
+                          gate_action=gate_action, deadline_s=deadline_s,
+                          settle_s=settle_s)
         self.all_messages.extend(r.messages)
         return r
 
 
 async def _drive_turn(ws: Any, r: WSTurnResult, *,
                       gate_decision: str | None, gate_action: str,
-                      deadline_s: float) -> WSTurnResult:
+                      deadline_s: float,
+                      settle_s: float = DEFAULT_SETTLE_S) -> WSTurnResult:
     """Collect one turn's frames off ``ws`` into ``r`` (the message is already
     sent). Shared by the per-turn client and the multi-turn conversation so
-    both read the protocol the same way."""
+    both read the protocol the same way.
+
+    ``settle_s`` is how long to keep reading AFTER the terminal frame, so a
+    frame the server sends late is recorded rather than missed. See the note at
+    the terminal branch below for the measurement that made it necessary."""
     t0 = time.monotonic()
 
     def _now() -> float:
@@ -347,6 +372,43 @@ async def _drive_turn(ws: Any, r: WSTurnResult, *,
             if t == "error":
                 r.text += "[error] " + json.dumps(d)
             r.terminal = True
+            r.terminal_at = _now()
+            # DO NOT STOP READING HERE. The turn is over as far as the answer
+            # goes, but the server may still put frames on the wire, and a
+            # harness that stops at the terminal frame cannot see them — so it
+            # certifies their absence without ever having been able to observe
+            # them. Measured 2026-09-18: a turn that really ran a tool was
+            # recorded as session_list, turn_ack, stream_start, tool_ack,
+            # stream_token, stream_end, with no tool_executed card, because the
+            # card was sent after stream_end and this loop had already broken.
+            # The battery's own action-frame set is graded on those frames.
+            #
+            # Read on for a short settle window instead, and end on whichever
+            # comes first: the socket closing, the window expiring, or the
+            # overall deadline. The window is small because it is a drain, not
+            # a wait: nothing is expected, and anything that does arrive is
+            # recorded rather than missed.
+            settle_deadline = time.monotonic() + settle_s
+            while True:
+                left = min(settle_deadline - time.monotonic(),
+                           deadline_s - (time.monotonic() - t0))
+                if left <= 0:
+                    break
+                try:
+                    late = await asyncio.wait_for(ws.receive(), timeout=left)
+                except asyncio.TimeoutError:
+                    break
+                if late.type in (aiohttp.WSMsgType.CLOSED,
+                                 aiohttp.WSMsgType.CLOSING,
+                                 aiohttp.WSMsgType.ERROR):
+                    r.events.append((_now(), f"WS_{late.type.name}"))
+                    break
+                if late.type != aiohttp.WSMsgType.TEXT:
+                    continue
+                ld = json.loads(late.data)
+                r.events.append((_now(), ld.get("type", "")))
+                r.messages.append(ld)
+                r.late_frames += 1
             break
 
     r.elapsed_s = round(time.monotonic() - t0, 2)
