@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 InterGenJLU
-"""GATE — on the INSTALLED system a kernel panic has somewhere to write.
+"""GATE — on the INSTALLED system a kernel panic has somewhere to write,
+and something readable to show.
 
 WHAT THIS CATCHES THAT THE SOURCE-TREE TESTS CANNOT. tests/preflight proves the
 shipped files state the designed parameters, and that is all a source tree can
@@ -37,6 +38,17 @@ configuration from disk and says which of the two is missing.
 CONTROLS. Each reader is fed a boot log that does not satisfy it and must return
 the negative — including the log of a machine whose pstore registered the OTHER
 backend, because "some backend registered" is not what this gate is about.
+
+THE PANIC SCREEN IS REPORTED BESIDE THE RECORDER, and it is a second path, not a
+second opinion on the first. The recorder needs the reservation in this machine's
+image, the recorder registering at boot, and a NEXT BOOT that reads the region
+back. The screen needs none of them: the kernel draws it out of the panic handler
+on a display that is already lit, so a photograph carries the trace even from a
+machine that never boots again. The mode is read from the kernel
+(/sys/module/drm/parameters/panic_screen), never from the shipped file, and a
+machine whose image does not carry /etc/kernel/cmdline.d/31-panic-screen.conf
+says so by name: its mode reads "user", the formatter that prints three lines
+naming nothing.
 """
 
 from __future__ import annotations
@@ -50,6 +62,11 @@ import pytest
 BACKEND_PARAM = Path("/sys/module/pstore/parameters/backend")
 REQUIRED_BACKEND = "ramoops"
 ARCHIVER = "systemd-pstore.service"
+
+# The kernel's panic screen, and the formatter that draws the kernel log rather
+# than "KERNEL PANIC! Please reboot your computer." and nothing else.
+PANIC_SCREEN_PARAM = Path("/sys/module/drm/parameters/panic_screen")
+REQUIRED_SCREEN = "kmsg"
 
 # The kernel's own words, taken from a boot log of a machine where this was
 # proved working (2026-09-16), never from memory:
@@ -68,6 +85,7 @@ _CMDLINE_REQUIRED = ("reserve_mem=", "pstore.backend=ramoops", "ramoops.mem_name
 # file that loads the recorder at every boot.
 _SHIPPED_CONFIGURATION = (
     Path("/etc/kernel/cmdline.d/30-panic-record.conf"),
+    Path("/etc/kernel/cmdline.d/31-panic-screen.conf"),
     Path("/etc/modules-load.d/panic-record-ramoops.conf"),
 )
 
@@ -97,6 +115,15 @@ def registered_backend(log_text: str):
     controls can feed it a log that must not satisfy it."""
     match = _REGISTERED.search(log_text)
     return match.group(1) if match else None
+
+
+def panic_screen_mode(param_path: Path = PANIC_SCREEN_PARAM):
+    """The formatter the running kernel would draw, or None when the kernel
+    has no panic screen at all. Takes its path so the controls can point it
+    at a file whose content must not satisfy the assertion."""
+    if not param_path.is_file():
+        return None
+    return param_path.read_text().strip()
 
 
 def region_was_placed(log_text: str) -> bool:
@@ -147,6 +174,25 @@ def test_the_command_line_carries_the_parameters():
     )
 
 
+def test_the_panic_screen_draws_the_kernel_log():
+    """The path that needs neither the recorder nor a next boot."""
+    mode = panic_screen_mode()
+    assert mode is not None, (
+        f"{PANIC_SCREEN_PARAM} does not exist, so this kernel draws no panic "
+        "screen at all and a panic leaves whatever was on the display"
+    )
+    assert mode == REQUIRED_SCREEN, (
+        f"the panic screen on this machine is the {mode!r} formatter, not "
+        f"{REQUIRED_SCREEN!r}: a panic here prints 'KERNEL PANIC!', 'Please "
+        "reboot your computer.' and the one-line reason, and never the call "
+        "trace that names what failed. The mode is set by "
+        "drm.panic_screen=kmsg in /etc/kernel/cmdline.d/31-panic-screen.conf, "
+        "which reaches a machine inside the signed kernel image, so a machine "
+        "installed before that fragment shipped reads the old mode until its "
+        "next kernel update and reboot"
+    )
+
+
 def test_the_archiver_that_keeps_the_record_is_enabled():
     """The record is in RAM until something moves it to disk."""
     result = subprocess.run(
@@ -191,6 +237,21 @@ def test_a_different_backend_does_not_satisfy_the_registration_reader():
     )
     assert registered_backend(efi_log) == "efi_pstore"
     assert registered_backend(efi_log) != REQUIRED_BACKEND
+
+
+def test_the_screen_reader_returns_nothing_when_the_kernel_has_no_panic_screen(tmp_path):
+    assert panic_screen_mode(tmp_path / "absent") is None
+
+
+def test_the_default_screen_does_not_satisfy_the_screen_reader(tmp_path):
+    """The true-positive control: the reader must tell the two formatters apart."""
+    default_screen = tmp_path / "panic_screen"
+    default_screen.write_text("user\n")
+    assert panic_screen_mode(default_screen) == "user"
+    assert panic_screen_mode(default_screen) != REQUIRED_SCREEN
+    kernel_log_screen = tmp_path / "panic_screen_kmsg"
+    kernel_log_screen.write_text("kmsg\n")
+    assert panic_screen_mode(kernel_log_screen) == REQUIRED_SCREEN
 
 
 def test_the_region_reader_fails_when_no_region_was_reported():

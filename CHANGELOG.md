@@ -97,6 +97,21 @@ landed is in the repository README, not here.
   deliberate panic left nothing before the change and a readable record
   (`/var/lib/systemd/pstore/dmesg-ramoops-0`, with the panic line and call
   trace) after it. The EFI backend option stays as the fallback.
+- **A kernel panic shows the kernel's own record of what failed.** The kernel
+  draws a panic screen from inside the panic handler, on a display that is
+  already lit, and until now it drew the short one: `KERNEL PANIC!`, `Please
+  reboot your computer.` and the one-line reason, with nothing naming the code
+  that failed. The installed system now selects the kernel's other panic screen
+  (`drm.panic_screen=kmsg`, delivered as
+  `/etc/kernel/cmdline.d/31-panic-screen.conf`), which draws the tail of the
+  kernel log — the panic line, the instruction pointer, the call trace, the
+  tainted line and the loaded modules — so a photograph of the screen carries
+  the trace. This is a second path and not a replacement for the record above:
+  the record needs the machine to boot again, the screen does not, so a machine
+  that never boots again, or one installed before the recorder shipped, still
+  leaves something readable. It costs nothing at run time. A machine receives it
+  with its next kernel image, and reads its own mode at
+  `/sys/module/drm/parameters/panic_screen`.
 - **Machine Owner Key precautions.** The installer stages the machine's own
   Secure Boot certificate on the boot partition beside shim
   (`EFI/InterGenOS/mok.der`, what MokManager's "Enroll key from disk" reads)
@@ -484,7 +499,9 @@ landed is in the repository README, not here.
 - An installed gate states whether a kernel panic on this machine would leave a
   record: the reserved region, the recorder's registration, the backend, and the
   shipped configuration on disk, so a machine running a corrected kernel image
-  it will lose at the next boot is reported as such.
+  it will lose at the next boot is reported as such. It also reports which panic
+  screen the running kernel would draw, so a machine whose image does not carry
+  the kernel-log screen says so by name instead of being found out at a panic.
 - The package-manager hook that invokes the certificate-trust updater fires on
   the trust source p11-kit is actually configured with (`/etc/pki/anchors`,
   including its anchors and blocklist subdirectories); it matched a directory
