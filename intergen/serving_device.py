@@ -124,10 +124,22 @@ _DEFAULT_PREFERENCE: list[str] = ["vulkan"]
 # the tail is OPTIONAL by design — unpatched builds and id-less devices still
 # parse. intergen.hardware._LIST_DEVICES_RE is the same pattern minus the name
 # group; the two must change in lockstep.
+#
+# THE DOMAIN IS ONE TO EIGHT HEX DIGITS, not exactly four. ggml's CUDA backend
+# builds that id with "%04x:%02x:%02x.0" (read out of the installed engine
+# binary, 2026-09-18), and printf's %04x is a MINIMUM field width: domain 0
+# prints "0000", domain 0x10000 prints "10000". Linux gives domains above
+# 0xffff to devices behind a Thunderbolt or VMD host bridge, which is the shape
+# a card in an external enclosure arrives in. A fixed width of four did not
+# merely lose the address — the optional tail failed to match while text still
+# followed on the line, so the WHOLE line failed and the device vanished from
+# the list this selection reads. A card the machine has would be reported as a
+# card it does not have. The bus, device and function keep their fixed widths,
+# which are what the kernel and every backend emit.
 _DEVICE_LINE_RE = re.compile(
     r"^\s+(?P<name>\w+?\d+):\s+(?P<desc>.+?)\s+\((?P<total>\d+)\s*MiB,"
     r"\s*\d+\s*MiB free\)"
-    r"(?:\s+\[PCI\s+(?P<pci>[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}"
+    r"(?:\s+\[PCI\s+(?P<pci>[0-9a-fA-F]{1,8}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}"
     r"\.[0-7])\])?\s*$", re.MULTILINE)
 
 # A --list-devices total is accepted as "this is the discrete card" when it is

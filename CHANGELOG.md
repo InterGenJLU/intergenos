@@ -148,6 +148,18 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **A graphics card behind a Thunderbolt or VMD bridge is no longer invisible
+  to the serving-card selection.** Each engine's device listing carries a
+  `[PCI domain:bus:device.function]` tail, and the two readers of that listing
+  required the domain to be exactly four hex digits. The backends print it with
+  a MINIMUM width of four, so a device in domain 0 reads `0000:01:00.0` and a
+  device behind a Thunderbolt or VMD host bridge reads `10000:e1:00.0` — five.
+  The consequence was not a lost address but a lost device: the optional tail
+  failed to match while text still followed on the line, so the whole line
+  failed and the card disappeared from the list the selection reads, which
+  reported no such card at all. The domain is now read as one to eight hex
+  digits in both readers, a malformed tail is still refused, and the
+  four-digit form parses exactly as before.
 - **The line a person reads at the end of a transaction names the release.**
   Upgrading, downgrading or removing a package printed the version alone, so
   moving the assistant from release 269 to release 256 and back again printed

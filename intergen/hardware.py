@@ -79,11 +79,14 @@ TIER2_VRAM_MB = 7168
 # optionally followed by the " [PCI domain:bus:device.function]" suffix the
 # in-tree list-devices-pci-id.patch adds in every engine recipe. The tail is
 # OPTIONAL by design — unpatched builds and id-less devices still parse. The
-# two regexes must change in lockstep.
+# two regexes must change in lockstep. The domain is one to eight hex digits
+# rather than exactly four, for the reason set out beside the serving_device
+# copy: the backends print it with a MINIMUM width of four, and a device behind
+# a Thunderbolt or VMD bridge sits in a domain above 0xffff.
 _LIST_DEVICES_RE = re.compile(
     r"^\s+\w+?\d+:\s+(?P<desc>.+?)\s+\((?P<total>\d+)\s*MiB,"
     r"\s*\d+\s*MiB free\)"
-    r"(?:\s+\[PCI\s+[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}"
+    r"(?:\s+\[PCI\s+[0-9a-fA-F]{1,8}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}"
     r"\.[0-7]\])?\s*$", re.MULTILINE)
 
 # Model recommendations per tier. CPU-only boxes are Tier 1 BY CONSTRUCTION
