@@ -4521,6 +4521,30 @@ class ConversationRouter(RouterInterface):
                                source="explain_offer_run", handled=True,
                                answer_linkage=AnswerLinkage(
                                    kind="code", renderer="honest_fallback"))
+        # A STAGED ACTION IS STILL AN ACTION — a BACKSTOP, stated as one.
+        # An acceptance reaches here only through a bare affirmative or a
+        # bounded allowlist of acceptance-restating tails, and neither can
+        # contain a prohibition sentence, so no turn reaching this line today
+        # carries one; the reading is taken from the whole turn, so a clause of
+        # a compound cannot smuggle one in either. It is checked anyway,
+        # because the rule is that a turn forbidding commands gets none on ANY
+        # path, and a path left out of a rule is where the next hole is. If it
+        # ever does fire, the answer says what happened rather than running the
+        # action or going quiet — the caller has already consumed the offer, so
+        # it says the offer is gone and the action can be asked for again.
+        if getattr(self, "_turn_forbids_tools", False):
+            self._trail_note("dispatch", "rejected", tool=tool,
+                             reason="turn_text_forbids_tools")
+            glass.emit("decision", "dispatch_declined", detail={
+                "tool": tool, "reason": "turn_text_forbids_tools",
+                "path": "staged_action", "command": command})
+            return RouteResult(
+                text=("I did not run it: the same message asked me not to run "
+                      "commands or use tools, and that is the instruction I "
+                      "followed. Ask for it again and I will."),
+                source="explain_offer_run", handled=True,
+                answer_linkage=AnswerLinkage(
+                    kind="code", renderer="honest_fallback"))
         if tool == "write_file" and args:
             call = ToolCall(name="write_file", arguments=dict(args),
                             source_of_request=Provenance.USER_DIRECT)
@@ -4638,6 +4662,21 @@ class ConversationRouter(RouterInterface):
         Used by the IP handler for ifconfig + dig — both AUTO (AF_INET/INET6, no
         netlink). Fixed strings only, so there is no command-injection surface."""
         if getattr(self, "_tools", None) is None:
+            return None
+        # A FIXED command is still a command. This path does not go through
+        # _execute_tool_for_intent, so the turn's prohibition is applied here
+        # too; without it "what is my IP, without running any commands" ran
+        # ifconfig and dig. The caller treats None as "no reading", which is
+        # what it already does when the probe fails.
+        if getattr(self, "_turn_forbids_tools", False):
+            self._trail_note("dispatch", "rejected", tool="run_command",
+                             reason="turn_text_forbids_tools")
+            glass.emit("decision", "dispatch_declined", detail={
+                "tool": "run_command",
+                "reason": "turn_text_forbids_tools",
+                "path": "code_owned_fixed_command",
+                "command": command,
+            })
             return None
         call = ToolCall(name="run_command", arguments={"command": command},
                         source_of_request=Provenance.USER_DIRECT)
@@ -5025,8 +5064,13 @@ class ConversationRouter(RouterInterface):
             # wanted this clause. The route is unchanged — handled is still
             # False and the turn continues down the ladder exactly as before —
             # but the reason is now on the result and in the turn record.
-            reason = ("dispatch_failed" if tool_result
-                      else "arguments_indeterminate")
+            # The label must name what actually happened. A dispatch the
+            # turn's own text forbade is not an indeterminate argument, and
+            # recording it as one would bury the only evidence that the
+            # prohibition was honoured.
+            reason = (getattr(self, "_last_dispatch_decline_reason", None)
+                      or ("dispatch_failed" if tool_result
+                          else "arguments_indeterminate"))
         else:
             reason = "intent_without_tool"
         glass.emit("decision", "keyword_dispatch_declined", detail={
@@ -6185,6 +6229,40 @@ class ConversationRouter(RouterInterface):
         those paths was invisible to tool_calls consumers (the grader's
         tool_used saw [], and the trace under-reported the dispatch).
         """
+        # THE TURN'S OWN PROHIBITION, ENFORCED WHERE THE DISPATCH HAPPENS.
+        #
+        # Withholding the tool schemas stops the MODEL from asking for a tool.
+        # It does nothing about the paths that dispatch without asking the
+        # model at all: the keyword match, the semantic match and the
+        # deterministic state fallback each decide on their own and call this
+        # helper. Measured 2026-09-18 on the running assistant: "What time is
+        # it and why is the sky blue? Do not use tools, run commands, access
+        # files, or contact external services." — the first clause was answered
+        # by the keyword path, which ran `date` through run_command, while the
+        # schemas were correctly withheld from the model for the same turn.
+        # The sentence governs the TURN, so it governs every dispatch in it.
+        #
+        # This is the one place all three code-owned paths pass through, so it
+        # is where the rule is applied; the reason is recorded rather than
+        # hidden, and each caller sees (None, None) and continues down the
+        # ladder exactly as it does for any other undispatched intent — the
+        # clause falls to the model, which has already been told what the turn
+        # said. What the prohibition does NOT stop is answering from something
+        # already in hand: nothing here reads the state cache, and a route that
+        # answers without executing is untouched.
+        self._last_dispatch_decline_reason = None
+        if getattr(self, "_turn_forbids_tools", False):
+            self._last_dispatch_decline_reason = "turn_text_forbids_tools"
+            self._trail_note("dispatch", "rejected", tool=tool_name,
+                             reason="turn_text_forbids_tools")
+            glass.emit("decision", "dispatch_declined", detail={
+                "tool": tool_name,
+                "reason": "turn_text_forbids_tools",
+                "path": "code_owned_intent",
+                "sub_query": user_input,
+            })
+            return None, None
+
         tool = self._tools.get_tool(tool_name)
         if tool is None:
             return None, None
