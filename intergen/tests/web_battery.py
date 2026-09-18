@@ -390,13 +390,55 @@ def _grade(q: Question, r: Any, glass_rows: dict[str, list[dict]] | None,
     for canned in CANNED_NON_ANSWERS:
         if canned in text:
             reasons.append(f"canned non-answer delivered: {canned!r}")
+    # The target's own delivery row for this turn — the daemon writes what it
+    # actually did there (how many tool calls the turn made, and which tool, if
+    # any, the answer is linked to). Read once, here, because BOTH the
+    # no-action rule below and the origin corroboration further down need it.
+    delivery_finals: list[dict] = []
+    if glass_rows is not None and turn_id:
+        delivery_finals = [row for row in glass_rows.get(turn_id, [])
+                           if row.get("phase") == "delivery"
+                           and row.get("event") == "final"
+                           and (row.get("detail") or {}).get("iface") == "web"]
+
     if q.no_action:
+        # A NO-ACTION QUESTION IS GRADED ON EVIDENCE OF ACTION, NOT ON A LABEL.
+        #
+        # The property under test is whether the turn DID anything — ran a tool,
+        # touched a file, went out to the network. The rule used to fail the turn
+        # when its route was labelled "llm_tools", which is not that property:
+        # being OFFERED tool descriptions is not using one, and on a tier-2
+        # machine in native posture (dispatch unlocked) the web path labels an
+        # ordinary model answer llm_tools, so llm_freeform is not even reachable
+        # there. Measured 2026-09-18 on two machines: the arithmetic question was
+        # answered "391" with no action frame, tool_calls 0 and an empty
+        # answer_linkage.tool, and was failed anyway — the grader disagreeing with
+        # its own evidence.
+        #
+        # Three checks now, all of them evidence:
+        #   * an ACTION FRAME on the wire (a gate prompt, a tool acknowledgement,
+        #     a tool execution) — the frames the person would have seen;
+        #   * the route "decomposed", which IS an action: the turn was split into
+        #     a plan of clauses to carry out, and the person asked for none;
+        #   * the target's own delivery row: any tool call counted, or an answer
+        #     linked to a named tool.
+        # Nothing here asks what the turn was ALLOWED to do.
         seen = sorted(set(types) & ACTION_FRAMES)
         if seen:
             reasons.append(f"action frames on a no-action question: {seen}")
-        if source in ("decomposed", "llm_tools"):
-            reasons.append(f"tool/decomposition route on a no-action "
+        if source == "decomposed":
+            reasons.append(f"decomposition route on a no-action "
                            f"question: {source!r}")
+        for row in delivery_finals:
+            detail = row.get("detail") or {}
+            calls = detail.get("tool_calls")
+            if isinstance(calls, int) and calls > 0:
+                reasons.append(f"{calls} tool call(s) recorded on a no-action "
+                               f"question")
+            linked = ((detail.get("answer_linkage") or {}).get("tool") or "")
+            if linked:
+                reasons.append(f"the answer is linked to the tool {linked!r} "
+                               f"on a no-action question")
 
     # Origin, from the frames.
     stream_end = terminal_frame if terminal == "stream_end" else None
@@ -420,11 +462,7 @@ def _grade(q: Question, r: Any, glass_rows: dict[str, list[dict]] | None,
 
     glass_corroborated = "unreadable"
     if glass_rows is not None:
-        rows = glass_rows.get(turn_id, []) if turn_id else []
-        finals = [row for row in rows
-                  if row.get("phase") == "delivery"
-                  and row.get("event") == "final"
-                  and (row.get("detail") or {}).get("iface") == "web"]
+        finals = delivery_finals
         if frames_say_model:
             ok = any(
                 (row.get("detail") or {}).get("streamed") is True

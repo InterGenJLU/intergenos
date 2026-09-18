@@ -148,6 +148,21 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **The check that a question was answered without doing anything now reads what
+  the assistant did, not what it was allowed to do.** One question in the
+  release's own front-door test asks for mental arithmetic and says not to use
+  tools, run commands, read files or go online. The check failed that question
+  whenever the answer came back on the route the assistant labels "tools" — but
+  that label means the tool descriptions were AVAILABLE, not that anything was
+  used, and on a machine where the assistant is free to act it is the ordinary
+  label for a plain answer from the model. Measured on 2026-09-18 on two
+  installed machines: the question was answered correctly, nothing ran, the
+  assistant's own record of the turn counted zero tool calls and linked the
+  answer to no tool, and the check failed it anyway. It now fails the question
+  only on evidence that something was DONE — an action shown to the person
+  during the turn, a request split into a plan of steps, a counted tool call, or
+  an answer traced to a named tool. A check that disagrees with its own record
+  teaches the reader to doubt the record.
 - **A refused CUDA engine now says which card it has no code for.** The engine
   walk asks whether the installed CUDA build carries device code for this
   machine's card, and a card outside the build's declared target list drops the
