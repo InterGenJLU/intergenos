@@ -246,9 +246,39 @@ configure() {
     #                    finds none of the ones it guesses at, and dies with
     #                    `exec: -t: invalid option`. A build must never depend
     #                    on a graphical session or on someone being present.
-    rm -rf "$CUDA_ROOT" "$SRC_PARENT/cuda-extract"
-    mkdir -p "$SRC_PARENT/cuda-extract" "$CUDA_ROOT"
-    sh "$RUN_PATH" --nox11 --extract="$SRC_PARENT/cuda-extract"
+    #   --tmpdir=<abs>   the wrapper needs scratch room while it unpacks, and
+    #                    without this flag it takes it from /tmp. The build
+    #                    therefore carried an undeclared requirement on the
+    #                    build host's /tmp, which is untrue wherever /tmp is a
+    #                    tmpfs. Measured 2026-09-17 on a machine with 15 GiB of
+    #                    memory and a 7.7 GiB tmpfs /tmp: the wrapper printed
+    #                    "Extraction failed. Ensure there is enough space in
+    #                    /tmp and that the installation package is not corrupt"
+    #                    and exited 15 after 37 s, and the configure phase
+    #                    failed with it. With --tmpdir pointed at the work area
+    #                    on the same run, the extraction finished in 31 s, /tmp
+    #                    stayed at 5.4 MiB used, and the payload came to
+    #                    7.6 GiB (8,041,478,069 bytes) under --extract. So the
+    #                    scratch requirement is somewhere above the 7.7 GiB
+    #                    that was free in /tmp — the work area's filesystem is
+    #                    the one the builder already sizes, and it is where
+    #                    this belongs.
+    rm -rf "$CUDA_ROOT" "$SRC_PARENT/cuda-extract" "$SRC_PARENT/cuda-tmp"
+    mkdir -p "$SRC_PARENT/cuda-extract" "$CUDA_ROOT" "$SRC_PARENT/cuda-tmp"
+    if ! sh "$RUN_PATH" --nox11 --tmpdir="$SRC_PARENT/cuda-tmp" \
+            --extract="$SRC_PARENT/cuda-extract"; then
+        echo "ERROR: ${CUDA_RUN} did not extract. The wrapper's own message is" >&2
+        echo "       above. Scratch space was ${SRC_PARENT}/cuda-tmp and the" >&2
+        echo "       payload needs about 8 GB there and as much again under" >&2
+        echo "       ${SRC_PARENT}/cuda-extract; check the free space on that" >&2
+        echo "       filesystem before anything else." >&2
+        return 1
+    fi
+    # The wrapper empties its own scratch directory when it finishes (measured
+    # 2026-09-17: 0 bytes left in it). Removing the directory itself keeps the
+    # work area to what the next phase reads, and covers a future wrapper that
+    # is less tidy than this one.
+    rm -rf "$SRC_PARENT/cuda-tmp"
 
     # The payload is one directory per toolkit component, each already carrying
     # the standard targets/x86_64-linux layout plus include/ and lib64/ symlinks
