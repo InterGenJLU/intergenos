@@ -113,7 +113,19 @@ class GradingPredicates(unittest.TestCase):
         self.assertEqual(v.verdict, "FAIL")
         self.assertTrue(any("model-required" in s for s in v.reasons))
 
-    def test_row_22_fails_on_a_gate_prompt_and_on_a_tool_route(self):
+    def test_row_22_fails_on_a_gate_prompt_and_a_tool_acknowledgement(self):
+        """Action FRAMES still fail the no-action question.
+
+        This test used to assert that the route label "llm_tools" appeared in
+        the reasons as well. That assertion pinned a rule that graded the
+        question on what it was ALLOWED to do; the label means the tool
+        descriptions were on offer, not that anything was used, and on a
+        machine where the assistant is free to act it is the ordinary label for
+        a plain model answer. The label half was removed deliberately (see
+        test_no_action_is_graded_on_evidence.py); the frames half, which is
+        evidence of something actually happening in front of the person, is
+        unchanged and is what this test keeps.
+        """
         r = _model_turn(source="llm_tools")
         r.messages.insert(2, {"type": "tool_ack", "turn_id": "t1",
                               "text": "On it."})
@@ -123,7 +135,15 @@ class GradingPredicates(unittest.TestCase):
         self.assertEqual(v.verdict, "FAIL")
         joined = " ".join(v.reasons)
         self.assertIn("action frames", joined)
-        self.assertIn("llm_tools", joined)
+        self.assertIn("tool_ack", joined)
+        self.assertIn("gate_prompt", joined)
+
+    def test_row_22_is_not_failed_by_the_tool_route_label_alone(self):
+        """The same turn WITHOUT any action frame: offered, never used."""
+        r = _model_turn(source="llm_tools")
+        v = wb._grade(ROW22, r, _glass_model())
+        self.assertEqual(v.source, "llm_tools")
+        self.assertFalse(any("llm_tools" in s for s in v.reasons), v.reasons)
 
     def test_row_22_fails_on_a_decomposition(self):
         frames = [{"type": "turn_ack", "turn_id": "t1"},
