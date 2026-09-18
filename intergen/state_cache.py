@@ -225,6 +225,61 @@ def _pci_names(vendor: str, device: str) -> tuple[str, str]:
     return "", ""
 
 
+def _slot_sort_key(slot: str) -> tuple:
+    """Order a sysfs slot name the way lspci orders its listing.
+
+    lspci sorts by domain, then bus, then device, then function, comparing
+    them as NUMBERS (lspci.c compare_them). Sorting the sysfs names as text
+    gives the same order for every domain that fits in four hex digits,
+    because sysfs zero-pads to four — but not above that: as text "10000:…"
+    sorts before "9999:…", as a number it comes after. Returning the numbers
+    removes the question rather than leaving it to the widths.
+
+    A name that does not parse sorts after every name that does, on its own
+    text, so an unexpected entry is never silently reordered into the middle
+    of the listing.
+    """
+    try:
+        domain, bus, devfunc = slot.split(":")
+        dev, func = devfunc.split(".")
+        return (0, int(domain, 16), int(bus, 16), int(dev, 16), int(func, 16), "")
+    except ValueError:
+        return (1, 0, 0, 0, 0, slot)
+
+
+def _listing_shows_domains(slots: list[str]) -> bool:
+    """True when `lspci` prints the PCI domain on EVERY line of this machine.
+
+    lspci decides this once for the whole listing, not per device. In
+    pciutils 3.14.0 (the release this tree pins, sha256 e31c7972…) scan_device()
+    sets its `opt_domains` flag as soon as it meets any device whose domain is
+    not zero, and show_slot_name() then prints `%04x:` for every device it
+    shows. Two consequences that an earlier reading of this code missed: the
+    flag is set by devices that are NOT display adapters, and it is set before
+    lspci's own slot filter runs, so a device that never reaches the output
+    still turns the domain on for the lines that do.
+
+    Measured 2026-09-18 on a laptop whose four Thunderbolt devices sit in
+    domain 0x10000: `lspci | grep -i vga` there prints
+    "0000:01:00.0 VGA compatible controller: …" — a zero domain, printed,
+    because a different device's domain is not zero.
+
+    Slots are sysfs names ("0000:01:00.0"), so the domain is the field before
+    the first colon. A name that does not parse is skipped rather than being
+    read as a nonzero domain.
+    """
+    for slot in slots:
+        domain, sep, _ = slot.partition(":")
+        if not sep:
+            continue
+        try:
+            if int(domain, 16):
+                return True
+        except ValueError:
+            continue
+    return False
+
+
 def read_display_adapters() -> str:
     """One line per display adapter, in the shape the old poll produced.
 
@@ -234,12 +289,16 @@ def read_display_adapters() -> str:
     identity attributes and the pci.ids file; no configuration space is read and
     no subprocess is run. Returns "" when nothing can be read, which the caller
     treats exactly as it treats an empty command result.
+
+    Whether the slot carries its domain follows the whole machine's device
+    list, exactly as lspci decides it — see :func:`_listing_shows_domains`.
     """
     lines = []
     try:
-        slots = sorted(os.listdir(_PCI_DEVICES_DIR))
+        slots = sorted(os.listdir(_PCI_DEVICES_DIR), key=_slot_sort_key)
     except OSError:
         return ""
+    show_domains = _listing_shows_domains(slots)
     for slot in slots:
         base = os.path.join(_PCI_DEVICES_DIR, slot)
         klass = _read_attr(os.path.join(base, "class"))
@@ -255,8 +314,12 @@ def read_display_adapters() -> str:
         vendor_name, device_name = _pci_names(vendor, device)
         described = (f"{vendor_name} {device_name}".strip()
                      if (vendor_name or device_name) else f"{vendor}:{device}")
-        # The slot as lspci prints it: the domain is dropped when it is 0000.
-        short = slot[5:] if slot.startswith("0000:") else slot
+        # The slot as lspci prints it: the domain is dropped only when no
+        # device on this machine has a domain, which is the condition lspci
+        # itself applies to the whole listing.
+        short = slot
+        if not show_domains and slot.startswith("0000:"):
+            short = slot[5:]
         rev = f" (rev {revision})" if revision and revision != "00" else ""
         lines.append(f"{short} "
                      f"{_DISPLAY_SUBCLASS.get(subclass, 'Display controller')}: "

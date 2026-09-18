@@ -6909,7 +6909,15 @@ class ConversationRouter(RouterInterface):
         contract on _summarize_os."""
         import re
         line = output.strip().split("\n")[0] if output.strip() else ""
-        info = line.split(":", 2)[-1].strip() if ":" in line else line
+        # Take the PCI slot off by its SPACE, not by counting colons. lspci
+        # prints the domain on every line as soon as any device on the machine
+        # has one, so the slot is "00:02.0" on one machine and "0000:00:02.0"
+        # on the next, and counting two colons off the front of the longer form
+        # left "02.0 VGA compatible controller: …" — which this answered as
+        # "GPU: 02.0 Iris Xe Graphics." Everything before the first space is
+        # the slot; what follows is "<class>: <description>".
+        rest = line.split(None, 1)[1] if " " in line else line
+        info = rest.split(":", 1)[1].strip() if ":" in rest else rest
         info = info.replace("[AMD/ATI]", "AMD").replace("[NVIDIA]", "NVIDIA")
         info = re.sub(r"\s*\(rev [^)]*\)", "", info)
         m = re.search(r"\[([^\]]+)\]", info)

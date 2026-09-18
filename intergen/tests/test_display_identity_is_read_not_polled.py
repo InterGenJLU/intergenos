@@ -16,6 +16,16 @@ here so the class of access is gone rather than tolerated.
 The replacement produces the SAME sentence the pipeline produced, so every
 reader of the `gpu_info` cache key is unaffected — pinned below against the
 real machine's own `lspci` output where one is available.
+
+WHICH DOMAIN BEHAVIOUR THESE TESTS ASSERT: lspci prints the PCI domain on
+every line as soon as ANY device on the machine has a domain that is not
+zero, and on no line when none has (pciutils 3.14.0, the release this tree
+pins: lspci.c scan_device() sets opt_domains, show_slot_name() reads it for
+each device). The decision is made for the whole listing, by every PCI
+device, not per display adapter — so a machine whose display adapters all
+sit in domain 0000 still prints "0000:01:00.0" when, say, a Thunderbolt
+device sits in domain 10000. The reader is asserted against both cases
+below, and against the installed lspci at the end of the file.
 """
 
 from __future__ import annotations
@@ -67,6 +77,7 @@ class DisplayAdapterIdentityTests(unittest.TestCase):
         self.addCleanup(setattr, sc, "_PCI_IDS_PATHS", self._orig_ids)
 
     def test_a_display_adapter_reads_as_lspci_writes_it(self):
+        """No device has a domain, so no line carries one."""
         sc._PCI_DEVICES_DIR = _fake_pci_tree(self.tmp, {
             "0000:00:02.0": {"class": "0x030000", "vendor": "0x8086",
                              "device": "0x8a56", "revision": "0x07"},
@@ -92,6 +103,69 @@ class DisplayAdapterIdentityTests(unittest.TestCase):
         self.assertIn("VGA compatible controller: Intel Corporation", lines[0])
         self.assertIn("3D controller: NVIDIA Corporation GA104 "
                       "[GeForce RTX 3070] (rev a1)", lines[1])
+
+    def test_a_device_with_a_domain_puts_the_domain_on_every_line(self):
+        """The shape this was found on: the display adapters are in domain
+        0000 and a Thunderbolt device is not, so lspci prints 0000: on the
+        VGA lines.
+
+        The device that carries the domain is NOT a display adapter and never
+        appears in the output — it still decides the form, because lspci sets
+        its flag while scanning, before any filter.
+        """
+        sc._PCI_DEVICES_DIR = _fake_pci_tree(self.tmp, {
+            "0000:00:02.0": {"class": "0x030000", "vendor": "0x8086",
+                             "device": "0x8a56", "revision": "0x07"},
+            "0000:01:00.0": {"class": "0x030200", "vendor": "0x10de",
+                             "device": "0x2484", "revision": "0xa1"},
+            "10000:e0:06.0": {"class": "0x060400", "vendor": "0x8086",
+                              "device": "0x9999", "revision": "0x00"},
+        })
+        self.assertEqual(
+            sc.read_display_adapters().splitlines(),
+            ["0000:00:02.0 VGA compatible controller: Intel Corporation "
+             "Iris Plus Graphics G1 (Ice Lake) (rev 07)",
+             "0000:01:00.0 3D controller: NVIDIA Corporation "
+             "GA104 [GeForce RTX 3070] (rev a1)"])
+
+    def test_a_display_adapter_in_a_nonzero_domain_keeps_its_own_domain(self):
+        sc._PCI_DEVICES_DIR = _fake_pci_tree(self.tmp, {
+            "0001:03:00.0": {"class": "0x030000", "vendor": "0x10de",
+                             "device": "0x2484", "revision": "0xa1"},
+        })
+        self.assertEqual(
+            sc.read_display_adapters(),
+            "0001:03:00.0 VGA compatible controller: NVIDIA Corporation "
+            "GA104 [GeForce RTX 3070] (rev a1)")
+
+    def test_the_domain_decision_reads_every_slot_and_skips_a_bad_name(self):
+        """The predicate itself, on the names it can and cannot parse."""
+        self.assertFalse(sc._listing_shows_domains(
+            ["0000:00:02.0", "0000:01:00.0"]))
+        self.assertTrue(sc._listing_shows_domains(
+            ["0000:00:02.0", "10000:e0:06.0"]))
+        self.assertFalse(sc._listing_shows_domains([]))
+        # A name with no colon, and one whose domain is not a number, are
+        # skipped — neither is read as "this machine has a domain".
+        self.assertFalse(sc._listing_shows_domains(["nonsense", "zzzz:00:02.0"]))
+        self.assertTrue(sc._listing_shows_domains(["nonsense", "0001:00:02.0"]))
+
+    def test_the_devices_are_ordered_as_the_listing_orders_them(self):
+        """By domain, bus, device and function as NUMBERS, not as text.
+
+        Sorting the sysfs names as text puts "10000:…" before "9999:…";
+        lspci compares the numbers and puts it after.
+        """
+        self.assertEqual(
+            sorted(["10000:e1:00.0", "9999:01:00.0", "0000:01:00.0",
+                    "0000:00:02.0"], key=sc._slot_sort_key),
+            ["0000:00:02.0", "0000:01:00.0", "9999:01:00.0", "10000:e1:00.0"])
+        # Function order within one device, and a name that does not parse
+        # sorting after every name that does rather than into the middle.
+        self.assertEqual(
+            sorted(["0000:00:02.1", "nonsense", "0000:00:02.0"],
+                   key=sc._slot_sort_key),
+            ["0000:00:02.0", "0000:00:02.1", "nonsense"])
 
     def test_an_unknown_id_reports_the_numbers_rather_than_a_guess(self):
         sc._PCI_DEVICES_DIR = _fake_pci_tree(self.tmp, {
@@ -179,6 +253,12 @@ class AgainstThisMachineTests(unittest.TestCase):
     """The replacement must produce what the pipeline produced, HERE."""
 
     def test_it_matches_this_machines_own_pci_listing(self):
+        """Equality with the installed lspci, domains included.
+
+        This is the test that caught the wrong assumption: the reader dropped
+        a 0000 domain unconditionally, and on a machine with a Thunderbolt
+        device in domain 10000 the installed lspci prints it.
+        """
         if not shutil.which("lspci"):
             self.skipTest("lspci is not installed on this machine")
         if not os.path.isdir("/sys/bus/pci/devices"):
