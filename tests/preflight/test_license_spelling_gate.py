@@ -73,8 +73,8 @@ EXEMPT_FILES = {
 # record it. A wrong number here is not a style complaint: it means the one
 # place the gate cannot see grew, and nobody said so.
 SELF_EXEMPT_LINE_COUNTS = {
-    "scripts/check-license-spelling.py": 18,
-    "tests/preflight/test_license_spelling_gate.py": 15,
+    "scripts/check-license-spelling.py": 21,
+    "tests/preflight/test_license_spelling_gate.py": 31,
 }
 
 
@@ -161,3 +161,92 @@ def test_a_word_that_merely_contains_the_letters_is_not_a_hit(tmp_path):
                                                   "this word either.\n"}))
     result = _run(root)
     assert result.returncode == 0, result.stdout
+
+
+# Three lines from real commit messages, quoted exactly as they were written:
+# each is a true sentence that names an upstream identifier while explaining
+# why that identifier is exempt. A push was refused for all three on
+# 2026-09-17, because the message scan applied the pattern and nothing else.
+MESSAGE_LINES_NAMING_AN_UPSTREAM_IDENTIFIER = [
+    "alternation, its explaining comment and the licence-files metadata directory in",
+    "and the reason: the file names in Intel's firmware tarball, the licence-files",
+    "find expression that match files literally called LICENCE, the wxWidgets tarball",
+]
+
+
+def _committed(tmp_path, message):
+    """A synthetic repository whose newest commit carries `message`."""
+    root = _repo(tmp_path, EXEMPT_FILES)
+    env_args = ["-c", "user.email=t@example.invalid", "-c", "user.name=t"]
+    subprocess.run(["git", *env_args, "commit", "-qm", "base"], cwd=root, check=True)
+    note = root / "docs" / "note.md"
+    note.parent.mkdir(parents=True, exist_ok=True)
+    note.write_text("nothing to see\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+    subprocess.run(["git", *env_args, "commit", "-qm", message], cwd=root, check=True)
+    return root
+
+
+@pytest.mark.parametrize("line", MESSAGE_LINES_NAMING_AN_UPSTREAM_IDENTIFIER)
+def test_a_message_line_carrying_a_named_marker_is_accepted(tmp_path, line):
+    """A commit message that names an exempted identifier is a true statement
+    about somebody else's bytes, and the exemption reaches it."""
+    root = _committed(tmp_path, "docs: why the exemptions exist\n\n" + line + "\n")
+    result = _run(root, "--range", "HEAD~1..HEAD")
+    assert result.returncode == 0, result.stdout
+
+
+def test_a_new_sentence_beside_an_exempt_line_in_the_same_message_is_refused(tmp_path):
+    """Per line and per marker in a message too: naming an upstream identifier
+    on one line does not open the rest of the message."""
+    root = _committed(
+        tmp_path,
+        "docs: why the exemptions exist\n\n"
+        "find expression that match files literally called LICENCE, the wxWidgets tarball\n"
+        "and our own note about the licence terms\n")
+    result = _run(root, "--range", "HEAD~1..HEAD")
+    assert result.returncode == 1
+    assert "our own note about the licence terms" in result.stdout
+    assert "literally called LICENCE" not in result.stdout
+
+
+def test_a_marker_is_matched_exactly_so_the_lowercase_word_is_not_a_name(tmp_path):
+    """`LICENCE` is an upstream file name; `licence` is the word this project
+    does not use. The marker is matched as written, so the second is refused
+    even though its letters sit inside the first."""
+    root = _committed(tmp_path, "docs: a sentence about the licence policy\n")
+    result = _run(root, "--range", "HEAD~1..HEAD")
+    assert result.returncode == 1
+    assert "licence policy" in result.stdout
+
+
+def test_a_quoted_name_does_not_exempt_the_rest_of_its_own_line(tmp_path):
+    """The exemption covers the marker's own characters, not the sentence they
+    sit in. A line may name LICENCE and may not also use the word this project
+    does not use, however close together the two are."""
+    root = _committed(
+        tmp_path,
+        "docs: files literally called LICENCE, and our licence wording beside them\n")
+    result = _run(root, "--range", "HEAD~1..HEAD")
+    assert result.returncode == 1
+    assert "our licence wording" in result.stdout
+
+
+def test_a_marker_is_taken_out_whole_so_no_shorter_one_leaves_a_hit(tmp_path):
+    """LICENCE.Intel is removed as itself rather than as LICENCE plus .Intel,
+    so a line naming two upstream files is accepted for both of them."""
+    root = _committed(
+        tmp_path,
+        "build: install LICENCE.Intel and LICENCE.NXP from the firmware tarball\n")
+    result = _run(root, "--range", "HEAD~1..HEAD")
+    assert result.returncode == 0, result.stdout
+
+
+def test_a_whole_file_exemption_exempts_nothing_in_a_message(tmp_path):
+    """A whole-file exemption is a statement about one file's bytes. A message
+    is not that file, so naming the file does not carry the exemption along."""
+    root = _committed(
+        tmp_path,
+        "test: scripts/check-license-spelling.py still carries the licence spelling\n")
+    result = _run(root, "--range", "HEAD~1..HEAD")
+    assert result.returncode == 1

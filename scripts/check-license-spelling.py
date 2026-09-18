@@ -28,7 +28,15 @@ Everything this project says in its own voice, which is three surfaces:
     the pages the tree ships (documentation, the site content, the recipe
     descriptions that reach a package manager's output);
   * the commit messages in a push range, when one is given, because a commit
-    message is published the moment the branch is;
+    message is published the moment the branch is. A message may QUOTE the
+    exact marker text of a named exemption below — an upstream file name, a
+    metadata directory name — because a message that explains an exemption has
+    to be able to name what it exempts. The quoted characters are taken out and
+    the rest of the line is read as this project's own voice, so the exemption
+    covers the name and not the sentence around it. Nothing else is exempt: not
+    the file the marker names, not a class of words, not a free-text rule,
+    because a rule that exempts by description is the hole this gate exists to
+    close;
   * nothing else. A file git calls binary is skipped and named in the report.
 
 FAIL-CLOSED
@@ -76,6 +84,20 @@ class Exemption:
         if self.whole_file:
             return True
         return self.marker in line
+
+    def quotes_in(self, line):
+        """The marker's own characters, where this exemption reaches a line.
+
+        Used on the commit-message surface, which has no file: only the marker
+        can carry an exemption there, and it is matched exactly as written.
+
+        A whole-file exemption reaches nothing here and returns nothing. It is
+        a statement about one file's bytes, and a commit message is not that
+        file; naming the file in a message does not carry the exemption along.
+        """
+        if self.whole_file or self.marker is None:
+            return None
+        return self.marker if self.marker in line else None
 
 
 EXEMPTIONS = [
@@ -199,6 +221,23 @@ def scan_tree(root):
     return findings, binary
 
 
+def outside_the_quoted_names(line):
+    """What is left of a commit-message line once every named marker it quotes
+    is taken out of it.
+
+    An exemption covers the marker it names and nothing else, so the line is
+    read again with those characters removed: a message may quote `LICENCE` or
+    `licence-files` while explaining why they are exempt, and the same line may
+    not also use the word this project does not use. Longest marker first, so
+    `LICENCE.Intel` is taken out whole rather than leaving `.Intel` behind.
+    """
+    markers = sorted((x.marker for x in EXEMPTIONS if x.marker),
+                     key=len, reverse=True)
+    for marker in markers:
+        line = line.replace(marker, " ")
+    return line
+
+
 def scan_commit_messages(rng, root):
     out = git(["log", "--format=%H%x00%B%x00%x00", rng], root)
     findings = []
@@ -207,9 +246,12 @@ def scan_commit_messages(rng, root):
             continue
         sha, _, body = record.partition("\0")
         for number, line in enumerate(body.splitlines(), start=1):
-            if BRITISH.search(line):
-                findings.append((f"commit {sha.strip()[:12]}", number,
-                                 line.strip()))
+            if not BRITISH.search(line):
+                continue
+            if not BRITISH.search(outside_the_quoted_names(line)):
+                continue
+            findings.append((f"commit {sha.strip()[:12]}", number,
+                             line.strip()))
     return findings
 
 
