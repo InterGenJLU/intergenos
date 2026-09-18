@@ -338,18 +338,50 @@ class DecomposedQuery:
     response_prefix: str = ""
 
 
+def _governed(position: int, spans: "list[tuple[int, int]]") -> bool:
+    """Whether a match starting at ``position`` falls inside a negated scope.
+
+    The same containment test :func:`_merge_negated_scope` applies to a split
+    point, so detection, counting and splitting read one grammar rather than
+    three: a boundary that is not a split there is not a signal here.
+    """
+    return any(start < position < end for start, end in spans)
+
+
 def detect_compound(query: str) -> bool:
-    """Fast compound detection — regex only, no LLM. Microseconds."""
+    """Fast compound detection — regex only, no LLM. Microseconds.
+
+    A signal inside a prohibition is not a signal. "Do not use tools, run
+    commands, access files, or contact external services" matches the
+    comma-then-action-verb pattern on ", run", and that list names what NOT to
+    do; reading it as two requested actions mis-measures a sentence that asked
+    for none. The splitter has refused to CUT inside a negated scope since the
+    scope reading landed, but detection kept calling such a sentence compound,
+    so the two halves disagreed about the same text (measured on an installed
+    machine 2026-09-18: is_compound true on the row-22 sentence while the
+    splitter returned it in one piece). The scope comes from
+    :func:`negated_spans`, not from a second grammar of its own.
+    """
+    spans = negated_spans(query)
     for pattern in _COMPOUND_PATTERNS:
-        if pattern.search(query):
-            return True
+        for match in pattern.finditer(query):
+            if not _governed(match.start(), spans):
+                return True
     return False
 
 
 def count_actions(query: str) -> int:
-    """Estimate the number of distinct actions in a query."""
-    matches = _ACTION_VERBS.findall(query)
-    return max(1, len(set(m.lower() for m in matches)))
+    """Estimate the number of distinct actions in a query.
+
+    Verbs inside a prohibition are not actions the person asked for, so they
+    are not counted — the same scope reading :func:`detect_compound` and the
+    splitter use. A sentence whose every verb is governed still counts 1,
+    because the sentence is itself one request.
+    """
+    spans = negated_spans(query)
+    matches = [m for m in _ACTION_VERBS.finditer(query)
+               if not _governed(m.start(), spans)]
+    return max(1, len(set(m.group(0).lower() for m in matches)))
 
 
 def analyze_query(query: str, tier: HardwareTierLevel) -> DecomposedQuery:

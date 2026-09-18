@@ -163,6 +163,22 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **A prohibition is no longer counted as a request.** A sentence that says what
+  NOT to do — "Do not use tools, run commands, access files, or contact external
+  services" — carries a comma followed by an action verb, which is one of the
+  signals that marks a message as asking for several things at once. The splitter
+  already knew to leave a negated clause alone, so it returned such a sentence in
+  one piece; detection and the action count still read the raw text, so the same
+  sentence was recorded as compound with two actions while the splitter treated it
+  as one request. The two halves disagreed about the same words, the record told a
+  reader the machine had seen two actions in a sentence that asked for none, and
+  the wording used when a request really is split is chosen from that count.
+  Detection and counting now ask the same question about negation scope that the
+  splitter asks, from the same code, so there is one reading and not two. A signal
+  or a verb outside the prohibition still counts: "Check my disk usage and then
+  list my services, but do not delete anything" is still two things, and a real
+  request after the prohibition's sentence ends is still a request. Swept over the
+  885 turns of the scenario corpus and its seeds: not one changes.
 - **The check that a question was answered without doing anything now reads what
   the assistant did, not what it was allowed to do.** One question in the
   release's own front-door test asks for mental arithmetic and says not to use

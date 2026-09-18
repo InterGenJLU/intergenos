@@ -138,5 +138,101 @@ class NegationScopeIsPreserved(unittest.TestCase):
             ["check if docker is installed", "install it"])
 
 
+
+
+class ADetectionSignalInsideANegationIsNotASignal(unittest.TestCase):
+    """The splitter reads negation scope; detection and counting did not.
+
+    An earlier change taught ``split_compound`` that a split point inside a
+    negated scope is not a split, which is why the row-22 sentence comes
+    back whole above. ``detect_compound`` and ``count_actions`` were left
+    reading the raw text, so the same sentence was still REPORTED as
+    compound: the glass
+    row for the row-22 turn on an installed machine (2026-09-18, turn
+    9cf491ac7c9c0d17) carries ``is_compound: true`` and ``action_count: 2``,
+    matched on the regex for a comma followed by an action verb — and the
+    only text in that sentence the regex can match is the prohibition's own
+    list, "Do not use tools, run commands, access files, or contact external
+    services".
+
+    Nothing followed from it on that turn, because the splitter refused the
+    split and ``needs_decomposition`` came out false. It is still a
+    mis-measurement of the user's sentence, it is what the decomposition
+    message's tone is shaped from, and a reader of the record is told the
+    machine saw two actions in a sentence that asked for none.
+
+    The rule pinned here: detection and counting ask ``negated_spans`` — the
+    SAME reading the splitter uses, not a second grammar — and a match whose
+    start falls inside a governed span is not counted.
+    """
+
+    def test_the_row_22_sentence_is_not_reported_as_compound(self):
+        from intergen.decomposer import detect_compound
+        self.assertFalse(detect_compound(ROW22))
+
+    def test_the_row_22_sentence_counts_one_action_not_two(self):
+        from intergen.decomposer import count_actions
+        self.assertEqual(count_actions(ROW22), 1)
+
+    def test_the_row_22_analysis_says_one_action_on_every_tier(self):
+        for tier in TIERS:
+            with self.subTest(tier=tier):
+                result = analyze_query(ROW22, tier)
+                self.assertFalse(result.is_compound)
+                self.assertEqual(result.action_count, 1)
+                self.assertFalse(result.needs_decomposition)
+
+    def test_a_real_two_action_request_is_untouched(self):
+        """The control. Nothing in this change may quiet a genuine compound."""
+        from intergen.decomposer import count_actions, detect_compound
+        q = "check my disk space and list my processes"
+        self.assertTrue(detect_compound(q))
+        self.assertEqual(count_actions(q), 2)
+        for tier in TIERS:
+            with self.subTest(tier=tier):
+                result = analyze_query(q, tier)
+                self.assertTrue(result.is_compound)
+                self.assertEqual(result.action_count, 2)
+                self.assertTrue(result.needs_decomposition)
+
+    def test_every_case_the_splitter_keeps_whole_is_also_not_compound(self):
+        """Detection and splitting must agree. A sentence the splitter returns
+        in one piece, reported as compound, is the two halves disagreeing —
+        which is exactly the state this fixes."""
+        from intergen.decomposer import detect_compound
+        for name, sentence, expected in CASES:
+            if len(expected) == 1:
+                with self.subTest(case=name):
+                    self.assertEqual(split_compound(sentence), expected)
+                    self.assertFalse(
+                        detect_compound(sentence),
+                        f"{name}: the splitter keeps it whole but detection "
+                        f"still calls it compound")
+
+    def test_a_signal_outside_the_negation_still_fires(self):
+        """A real compound that also CONTAINS a prohibition is still compound —
+        the negation quiets only what it governs."""
+        from intergen.decomposer import detect_compound
+        q = ("Check my disk usage and then list my services, but do not "
+             "delete anything, run commands, or install packages.")
+        self.assertTrue(detect_compound(q))
+        self.assertEqual(len(split_compound(q)), 2)
+
+    def test_an_affirmative_after_the_sentence_ends_still_fires(self):
+        """"don't ... . Then tell me the hostname" — the scope ended at the
+        full stop, so the affirmative after it is a real second action."""
+        from intergen.decomposer import detect_compound
+        q = ("Don't restart the network, install packages, or delete files. "
+             "Then tell me the hostname.")
+        self.assertTrue(detect_compound(q))
+        self.assertEqual(len(split_compound(q)), 2)
+
+    def test_without_still_governs_only_its_own_phrase(self):
+        from intergen.decomposer import count_actions, detect_compound
+        q = "Install vim without asking, and then open it."
+        self.assertTrue(detect_compound(q))
+        self.assertEqual(count_actions(q), 2)
+
+
 if __name__ == "__main__":
     unittest.main()
