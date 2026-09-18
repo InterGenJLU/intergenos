@@ -126,8 +126,13 @@ class BoundedEmbedInputTests(unittest.TestCase):
         self.addCleanup(self._stop)
 
     def _stop(self) -> None:
+        # STOP the worker, do not merely clear the queue. clear() empties what
+        # is pending and leaves the worker running, so an exchange already
+        # being embedded kept writing its rows after the test had finished and
+        # the record had moved on to the next one. stop() waits for the worker,
+        # bounded, which is what makes this test's rows this test's own.
         try:
-            self.index.clear()
+            self.index.stop()
         except Exception:
             pass
 
@@ -176,7 +181,7 @@ class BoundedEmbedInputTests(unittest.TestCase):
         """
         small = _BoundedEmbedder(context_size=128)
         index = SessionTurnIndex(small.embed, window_turns=1)
-        self.addCleanup(lambda: index.clear())
+        self.addCleanup(index.stop)   # stop the worker, not just its queue
         index.index_turn("Tell me about " + _filler(4000), "Sure. " + _filler(4000))
 
         deadline = time.time() + 5.0
