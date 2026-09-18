@@ -334,6 +334,28 @@ else
     echo "[pre-push] WARN: scripts/check-register.py not found; skipping register gate"
 fi
 
+# ---- 1d. License-spelling gate (decided 2026-09-17) ----------------------
+# Range-scoped like 1b and 1c: the project's own voice spells the license
+# word one way, in the lines this push adds and in the range's commit
+# messages. Every upstream identifier that keeps the other spelling is
+# exempted BY NAME inside the script (file + marker + reason); a stale
+# exemption is a setup error there, never a pass. The suite runs the same
+# gate over the whole tree; this hook is the only place the commit-message
+# surface is reachable before a push. A missing SCRIPT warns + skips,
+# matching the gates above.
+if [ -f scripts/check-license-spelling.py ]; then
+    if [ -z "$PY_BIN" ]; then
+        echo "[pre-push] WARN: no Python 3 interpreter found; skipping license-spelling gate"
+    else
+        if ! "$PY_BIN" scripts/check-license-spelling.py --range "$REMOTE..$LOCAL"; then
+            echo "[pre-push] BLOCK: license-spelling gate failed (see above)"
+            exit 1
+        fi
+    fi
+else
+    echo "[pre-push] WARN: scripts/check-license-spelling.py not found; skipping license-spelling gate"
+fi
+
 # ---- 2. Stale-branch check (the pushed branch vs its OWN remote) ----------
 # Require the local branch being pushed to be at-or-ahead of its remote
 # counterpart, catching the "remote moved while we worked → push rejected"
