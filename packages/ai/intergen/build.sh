@@ -215,6 +215,16 @@ llama_server:
   reasoning: "off"
 
 logging:
+  # These three paths are what a ROOT/system deployment writes. A per-user
+  # service does not: it runs under ProtectSystem=strict, where the root-owned
+  # /var/log/intergen is read-only, so InterGen resolves each of them under the
+  # user's XDG state directory instead ($XDG_STATE_HOME/intergen, default
+  # ~/.local/state/intergen). The startup line "Logging configured: … file=…"
+  # names the file records actually reach, and that is the file to follow.
+  #
+  # `file` is read from here. `event_log` and `mcp_audit` are NOT: the event
+  # logger and the MCP audit log each resolve their own path by the same rule.
+  # They are listed so this file says where those two land, not to be edited.
   level: "INFO"
   file: "/var/log/intergen/intergen.log"
   event_log: "/var/log/intergen/events.jsonl"

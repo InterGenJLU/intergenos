@@ -110,6 +110,14 @@ _DEFAULTS = {
     },
     "logging": {
         "level": "INFO",
+        # The root/system paths. A per-user service cannot write them —
+        # ProtectSystem=strict leaves the root-owned /var/log/intergen
+        # read-only — so setup_logging resolves `file` under the user's XDG
+        # state directory and says which file it chose. `event_log` and
+        # `mcp_audit` are recorded here for the same reason the memory section
+        # records its default: so the configuration states where they land.
+        # Neither is read from here; the event logger and the MCP audit log
+        # resolve their own path by the same rule.
         "file": "/var/log/intergen/intergen.log",
         "event_log": "/var/log/intergen/events.jsonl",
         "mcp_audit": "/var/log/intergen/mcp-audit.log",
