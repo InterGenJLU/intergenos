@@ -190,6 +190,25 @@ landed is in the repository README, not here.
   still appears when the action is then refused or held for consent — a turn
   that asks for an action did ask for it. The browser panel and the terminal
   client read the same message, so both are corrected by the one change.
+- **The decision about whether a model fits the graphics card now measures the
+  card the model goes onto.** On a machine with more than one card the assistant
+  serves from exactly one of them, chosen after the model is picked and
+  overridable by hand in configuration — but whether the model fits, and how many
+  of its layers are placed on the card, was worked out from the most capable card
+  the hardware detection found. On a machine whose cards differ in size those are
+  two different cards. Measured on a two-card workstation on 2026-09-18: with the
+  model pinned to the smaller card, the recorded plan read "card 20464 MiB" and
+  declared a comfortable fit while the model was placed on a card of 8176 MiB. It
+  happened to fit, with 155 MiB to spare, and the fit was never checked against
+  the card that received it. For the largest model the signed record describes,
+  the same mistake would place 29 of 33 layers on a card with room for 9. The
+  card's size now comes from the same reading that chooses the card, so its name,
+  its address and its size can never describe different cards; this works for
+  every engine build, because each one reports its own devices' sizes. When no
+  card is pinned, or the engine reported no size, the previously detected figure
+  still stands — and either way the plan now states which figure it used, in the
+  log and in the recorded trace, so a stored plan can never name a size without
+  saying whose it is.
 - **A refused archive install now exits non-zero.** `pkm install --archive`
   checks the archive's SHA256 against the signed repository index. When it did
   not match, the command printed `archive SHA256 does not match repository

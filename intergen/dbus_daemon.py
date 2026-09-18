@@ -1551,10 +1551,11 @@ class InterGenDaemon(InterGenDBusInterface):
                 # it no longer decides whether the card is used to serve it.
                 # There is no audition, no probe and no speed threshold.
                 from intergen.llama_manager import resolve_gpu_layers
-                from intergen.serving_device import (display_state_words,
-                                                     pci_for_device_name,
-                                                     select_serving_device_and_pci,
-                                                     select_serving_engine)
+                from intergen.serving_device import (
+                    display_state_words,
+                    pci_and_vram_for_device_name,
+                    select_serving_device_name_pci_and_vram,
+                    select_serving_engine)
                 _hw = self._hardware_tier or {}
                 _gpu_vendor = _hw.get("gpu_vendor")
                 _vulkan_present = bool(_gpu_vendor) and _gpu_vendor != "software"
@@ -1594,16 +1595,26 @@ class InterGenDaemon(InterGenDBusInterface):
                 # different cards; on an operator pin the address is looked up
                 # by the pinned name EXACTLY, and an unresolvable name simply
                 # yields no hold rather than a guess.
+                # The card's SIZE comes out of the same selection, for the
+                # same reason its address does: the offload plan below decides
+                # whether the model fits, and it has to weigh the model against
+                # the card the model will actually go onto. It used to weigh it
+                # against the hardware detector's most-capable card, which on a
+                # machine with two different cards is a different card. The
+                # device pin itself is already read above, before the engine is
+                # chosen, because the engine gate needs it too.
                 if isinstance(_cfg_device, str) and _cfg_device not in ("auto", ""):
                     _device = _cfg_device
-                    _device_pci = (pci_for_device_name(_device,
-                                                       server=_server_path)
-                                   if _vulkan_present else None)
+                    _device_pci, _device_vram_mb = (
+                        pci_and_vram_for_device_name(_device,
+                                                     server=_server_path)
+                        if _vulkan_present else (None, None))
                 elif _vulkan_present:
-                    _device, _device_pci = select_serving_device_and_pci(
+                    (_device, _device_pci,
+                     _device_vram_mb) = select_serving_device_name_pci_and_vram(
                         server=_server_path)
                 else:
-                    _device, _device_pci = None, None
+                    _device, _device_pci, _device_vram_mb = None, None, None
                 _cfg_gpu_layers = self._config.get("llama_server.gpu_layers", "auto")
                 _tier_level = _hw.get("level") if isinstance(_hw.get("level"), int) else None
                 # The fit measurement: the card's detected memory, the model's
@@ -1613,8 +1624,23 @@ class InterGenDaemon(InterGenDBusInterface):
                 _vram_mb = _hw.get("gpu_vram_mb")
                 if not isinstance(_vram_mb, int):
                     _vram_mb = None
+                # THE CARD THE PLAN IS MEASURED AGAINST. When a card was pinned
+                # and the engine reported its size, that is the card the model
+                # goes onto and the only card the fit means anything about.
+                # Otherwise the detected figure stands, exactly as before —
+                # and either way the choice is NAMED, in the log and in the
+                # trace row, so a recorded plan can never state a size without
+                # saying whose it is.
+                if isinstance(_device_vram_mb, int) and _device_vram_mb > 0:
+                    _plan_vram_mb = _device_vram_mb
+                    _vram_source = "the pinned card"
+                else:
+                    _plan_vram_mb = _vram_mb
+                    _vram_source = ("no card pinned" if _device is None else
+                                    "the pinned card's size was not reported")
                 from intergen.gpu_offload import plan_for_model
-                _plan = plan_for_model(vram_mb=_vram_mb, model_path=model_path,
+                _plan = plan_for_model(vram_mb=_plan_vram_mb,
+                                       model_path=model_path,
                                        mmproj_path=model_mmproj_path)
                 _eff_gpu_layers = resolve_gpu_layers(_cfg_gpu_layers,
                                                      tier_level=_tier_level,
@@ -1625,9 +1651,10 @@ class InterGenDaemon(InterGenDBusInterface):
                 _device_display = (display_state_words(_device_pci)
                                    if _device_pci else None)
                 log.info("offload: llama_server.gpu_layers=%r (tier %s, card %s "
-                         "MiB) -> %d layers, engine %s (%s)%s; %s",
+                         "MiB from %s) -> %d layers, engine %s (%s)%s; %s",
                          _cfg_gpu_layers, _tier_level,
-                         _vram_mb if _vram_mb is not None else "unreadable",
+                         _plan_vram_mb if _plan_vram_mb is not None else "unreadable",
+                         _vram_source,
                          _eff_gpu_layers, _engine, _server_path,
                          (f", device pin {_device}"
                           f"{f' at PCI {_device_pci} ({_device_display})' if _device_pci else ''}")
@@ -1637,7 +1664,10 @@ class InterGenDaemon(InterGenDBusInterface):
                            iface="daemon", detail={
                                "configured": _cfg_gpu_layers,
                                "tier_level": _tier_level,
-                               "vram_mb": _vram_mb,
+                               "vram_mb": _plan_vram_mb,
+                               "vram_mb_source": _vram_source,
+                               "detected_vram_mb": _vram_mb,
+                               "pinned_card_vram_mb": _device_vram_mb,
                                "device": _device,
                                "device_pci": _device_pci,
                                "device_display": _device_display,

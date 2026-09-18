@@ -853,13 +853,16 @@ def _select_serving_candidate(list_output: str | None = None,
                               discrete_vram_mb: int | None = None,
                               server: str | None = None,
                               sysfs_root: str = "/sys"
-                              ) -> tuple[str, str | None] | None:
+                              ) -> tuple[str, str | None, int | None] | None:
     """Pick the ggml device the SERVING model should pin on a multi-GPU box.
 
-    Returns ``(ggml name, PCI address or None)`` — ONE selection, read two ways
-    by the two public wrappers below, so the name and the address can never
-    come from different cards. It used to return the name alone and throw the
-    address away, which left the power hold with nothing to aim at.
+    Returns ``(ggml name, PCI address or None, total MiB or None)`` — ONE
+    selection, read several ways by the public wrappers below, so the name, the
+    address and the card's SIZE can never come from different cards. It used to
+    return the name alone and throw the address away, which left the power hold
+    with nothing to aim at; it then threw the size away, which left the offload
+    plan measuring the hardware detector's most-capable card while the model
+    went onto whichever card was pinned.
 
     Policy: the hardware detector's most-capable DISCRETE card serves (its
     dedicated-VRAM size is the ground truth); the --list-devices entries whose
@@ -911,17 +914,17 @@ def _select_serving_candidate(list_output: str | None = None,
         except (OSError, subprocess.TimeoutExpired):
             return None
 
-    candidates: list[tuple[str, str | None]] = []
+    candidates: list[tuple[str, str | None, int | None]] = []
     for m in _DEVICE_LINE_RE.finditer(list_output):
         total = int(m.group("total"))
         if abs(total - discrete_vram_mb) <= discrete_vram_mb * _DEVICE_VRAM_TOLERANCE:
-            candidates.append((m.group("name"), m.group("pci")))
+            candidates.append((m.group("name"), m.group("pci"), total))
     if not candidates:
         return None
 
-    for name, pci in candidates:
+    for name, pci, total in candidates:
         if pci is not None and _pci_drives_display(pci, sysfs_root) is False:
-            return (name, pci)
+            return (name, pci, total)
     return candidates[0]
 
 
@@ -973,7 +976,69 @@ def select_serving_device_and_pci(list_output: str | None = None,
     """
     chosen = _select_serving_candidate(list_output, discrete_vram_mb, server,
                                        sysfs_root)
-    return chosen if chosen else (None, None)
+    return (chosen[0], chosen[1]) if chosen else (None, None)
+
+
+def select_serving_device_name_pci_and_vram(
+        list_output: str | None = None,
+        discrete_vram_mb: int | None = None,
+        server: str | None = None,
+        sysfs_root: str = "/sys"
+        ) -> tuple[str | None, str | None, int | None]:
+    """All three readings of ONE selection: ``(ggml name, PCI address, MiB)``.
+
+    The third element is the SIZE OF THE CARD THAT WILL BE PINNED, as the
+    engine's own ``--list-devices`` line reports it. It exists because the
+    offload plan — whether the model fits, and how many layers go on the card —
+    was computed from the hardware detector's MOST-CAPABLE card while the model
+    went onto whichever card this selection pinned. On a machine whose cards
+    differ in size those are different numbers: measured on a two-card
+    workstation 2026-09-18, the plan reported "card 20464 MiB" and declared a
+    comfortable fit while the model was placed on the 8176 MiB card.
+
+    Taking the size from the SAME selection that produces the pin is what makes
+    them impossible to disagree; reading it from sysfs separately would be a
+    second route to the same fact, able to drift. It is also backend-neutral:
+    every engine build prints its own devices' totals, so this works for the
+    CUDA and Vulkan builds exactly as it does for HIP.
+
+    None in any position means that part is unavailable, and the caller must
+    fall back rather than guess — for the size, that means using the detected
+    figure it used before, and SAYING which one it used.
+    """
+    chosen = _select_serving_candidate(list_output, discrete_vram_mb, server,
+                                       sysfs_root)
+    return chosen if chosen else (None, None, None)
+
+
+def pci_and_vram_for_device_name(device_name: str,
+                                 list_output: str | None = None,
+                                 server: str | None = None
+                                 ) -> tuple[str | None, int | None]:
+    """``(PCI address, total MiB)`` for the device the engine calls
+    ``device_name`` — the OPERATOR PIN's reading of the same device line.
+
+    A card named by hand in ``llama_server.device`` is the card the model goes
+    onto, so it is the card the offload plan has to be measured against. The
+    match is the ggml name EXACTLY as the engine prints it, with the same
+    no-guessing rule :func:`pci_for_device_name` documents: a name that is not
+    in the output yields ``(None, None)``, and a line that carries no PCI
+    suffix still yields its size, because the size is on every line while the
+    address needs the in-tree list-devices patch.
+    """
+    if list_output is None:
+        if server is None:
+            server = shutil.which("llama-server") or ENGINE_SERVER_PATHS["vulkan"]
+        try:
+            proc = subprocess.run([server, "--list-devices"],
+                                  capture_output=True, text=True, timeout=30)
+            list_output = (proc.stdout or "") + (proc.stderr or "")
+        except (OSError, subprocess.TimeoutExpired):
+            return (None, None)
+    for m in _DEVICE_LINE_RE.finditer(list_output):
+        if m.group("name") == device_name:
+            return (m.group("pci"), int(m.group("total")))
+    return (None, None)
 
 
 def pci_for_device_name(device_name: str, list_output: str | None = None,
