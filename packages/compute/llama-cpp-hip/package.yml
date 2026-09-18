@@ -63,6 +63,23 @@ source:
 # in rocBLAS and hipBLASLt — the longest build in the stack. They are declared
 # when there is a card to prove them on, not before.
 #
+# AMD'S MATRIX HAS NO PER-LIBRARY ARCHITECTURE COLUMN, and reading it as though
+# it did is how this project declared a target one of its own libraries cannot
+# build. The compatibility matrix answers ONE question: which architectures a
+# given ROCm RELEASE supports at all. It does not say that every library in that
+# release builds for every architecture in it, and two of them do not.
+# "AMD's matrix names gfx1030" and "hipBLASLt supports gfx1030" are different
+# claims, and only the first is true — measured 2026-09-18, a six-target
+# hipBLASLt build refused at CMake configure time in 14 s with "Unsupported GPU
+# target: gfx1030", because that library's own supported-architecture list
+# excludes RDNA2 by construction. Each library's own target list is what governs
+# what it can be built for; the matrix is the outer bound, not the per-library
+# answer. Where a library's list is narrower, its recipe declares the narrower
+# list and says why, and
+# tests/igos_build/test_the_rocm_stack_declares_one_target_list.py holds the
+# stated exceptions (hipblaslt and rocwmma omit gfx1030) against the tree so the
+# difference cannot go quiet.
+#
 # WHAT BOUNDS THIS LIST, and it is not the compiler. ggml's HIP backend
 # resolves its matrix multiplies into hipBLAS and rocBLAS, and those libraries
 # ship kernel files built for THEIR own declared target list — the same list,
@@ -78,6 +95,17 @@ source:
 # declared architecture must be in the built code objects AND have kernels in
 # the libraries this build links against — and refuses to seal the archive
 # otherwise, so an engine built before that rebuild cannot ship.
+#
+# THE LIBRARIES THIS ENGINE LINKS ARE hipBLAS AND rocBLAS, measured rather than
+# assumed: ldd on the built engine names libhipblas.so.3 and librocblas.so.5
+# and no hipblaslt (2026-09-18). That is why this recipe still declares six
+# although hipBLASLt declares five — hipBLASLt's kernels never reach this
+# binary — and why do_install()'s math-kernel check asks rocBLAS and not a
+# fixed pair. rocWMMA is a header library used at COMPILE time for the optional
+# flash-attention path, and the six-target engine compiles with it on: the
+# build's own device-code gate read "llama-server carries: gfx1030 gfx1100
+# gfx1101 gfx1102 gfx1200 gfx1201" (2026-09-18). Neither narrowed library takes
+# an architecture off this engine's list.
 gpu_targets: "gfx1030;gfx1100;gfx1101;gfx1102;gfx1200;gfx1201"
 
 dependencies:
