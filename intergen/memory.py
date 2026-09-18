@@ -1618,12 +1618,21 @@ class SessionTurnIndex:
         glass.emit("memory", "index_enqueue", detail={"turn_no": turn_no})
 
     def _drain(self) -> None:
-        """Bounded worker loop: embed the pending exchange and append it."""
+        """Bounded worker loop: embed the pending exchange and append it.
+
+        A stop DRAINS what is already queued rather than dropping it. An
+        exchange handed to index_turn() before the stop is an exchange the
+        caller was told would be indexed, and discarding it silently at
+        shutdown would make the index's own count untrue with nothing in the
+        record to say so. stop() bounds the wait and says so when it expires,
+        so the drain can never hold a shutdown open indefinitely; clear() is
+        how a caller actually throws queued work away.
+        """
         while True:
             with self._cv:
                 while not self._queue and not self._stopped:
                     self._cv.wait()
-                if self._stopped:
+                if not self._queue:
                     return
                 turn_no, user_input, response, turn_id, iface = self._queue.popleft()
             # Every row this exchange writes names the turn it came from (see
@@ -1886,8 +1895,36 @@ class SessionTurnIndex:
             self._verified = True
         glass.emit("memory", "index_cleared", detail={"dropped": n})
 
-    def stop(self) -> None:
-        """Stop the worker thread (clean shutdown / tests)."""
+    def stop(self, timeout: float = 5.0) -> None:
+        """Stop the worker thread and WAIT for it (clean shutdown / tests).
+
+        WAITING IS THE POINT. This used to set the flag, wake the worker and
+        return, which left a worker that was mid-embed still running with rows
+        left to write. Where those rows landed was decided by whatever the
+        trace pointed at by the time they were written — the record of a
+        conversation that had already been torn down, or, in a test process,
+        the next test's record. Measured 2026-09-18 on a full
+        suite run at tree 3e394c54c executing concurrently with a second suite
+        run: one memory test read two "indexed" rows where one exchange had
+        been indexed, the extra row belonging to an index whose test had
+        already finished.
+
+        The wait is BOUNDED by `timeout` seconds and LOUD when it expires: an
+        embedder that never answers costs a stated timeout and a glass row
+        naming it, never a shutdown that will not finish. Calling stop() from
+        the worker itself returns at once rather than waiting on the thread it
+        is running in.
+        """
         with self._cv:
             self._stopped = True
-            self._cv.notify()
+            self._cv.notify_all()
+        worker = self._worker
+        if worker is threading.current_thread():
+            return
+        worker.join(timeout)
+        if worker.is_alive():
+            glass.emit("memory", "index_stop_timeout", detail={
+                "timeout_s": timeout,
+                "reason": "the index worker was still running when the stop "
+                          "gave up waiting; anything it has left to write "
+                          "lands after this point"})
