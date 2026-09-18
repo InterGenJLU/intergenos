@@ -1170,7 +1170,12 @@ class LlamaManager(LlamaManagerInterface):
             log.warning("engine ladder unavailable (%s)", e)
             return False
 
-        current = self._config.server_path
+        # A saved configuration that carries no server path names no rung, so
+        # there is nothing to advance from. Reached on the start path, which
+        # asks the ladder for configurations restart() never saw.
+        current = getattr(self._config, "server_path", None)
+        if current is None:
+            return False
         current_engine = None
         try:
             from intergen.serving_device import ENGINE_SERVER_PATHS
@@ -1225,6 +1230,38 @@ class LlamaManager(LlamaManagerInterface):
         or an integrity failure degrades honestly instead of spending the budget.
         `sleep` is injected so a test can assert the back-off without waiting it
         out.
+
+        WHEN ONE ENGINE IS SPENT, THE LADDER IS ASKED. A binary that cannot run
+        on this machine fails identically on every attempt, so spending the whole
+        budget on it and then giving up leaves the assistant silent beside an
+        engine that would have served. _advance_engine() already knew how to drop
+        a rung, but only restart() asked it — and a server that never started has
+        nothing for the watchdog to restart until two health checks have failed.
+        Measured 2026-09-17 on an installed 4 GB NVIDIA laptop whose CUDA engine
+        aborts at model load: 105 seconds of silence on every boot, ended by the
+        watchdog rather than by the start. The start now asks for itself, so the
+        next rung costs the attempts on one engine instead of a watchdog cycle.
+        """
+        while True:
+            if self._attempt_start_on_this_engine(attempts, sleep):
+                return True
+            # This engine did not come up. If that was the engine's own failure
+            # and the ladder has a rung below, the attempts start again there;
+            # _engines_tried makes the walk finite.
+            if (self._last_failure in _ENGINE_LEVEL_FAILURES
+                    and self._advance_engine()):
+                log.info("starting on the next engine")
+                continue
+            log.error("llama-server did not start after %d attempts; last "
+                      "failure %s: %s", attempts, self._last_failure.name,
+                      self._last_error)
+            return False
+
+    def _attempt_start_on_this_engine(self, attempts, sleep) -> bool:
+        """The attempt budget for ONE engine. True if the server came up.
+
+        Split out of retry_transient_start so the ladder walk above reads as
+        what it is; the retry rules inside are unchanged.
         """
         for attempt in range(1, max(1, attempts) + 1):
             if self.start_saved_config():
@@ -1238,15 +1275,13 @@ class LlamaManager(LlamaManagerInterface):
                          "not retrying", failure.name)
                 return False
             if attempt >= attempts:
-                break
+                return False
             gap = self.TRANSIENT_RETRY_BACKOFF_S[
                 min(attempt - 1, len(self.TRANSIENT_RETRY_BACKOFF_S) - 1)]
             log.warning("llama-server start attempt %d/%d failed with %s (%s); "
                         "retrying in %.0fs", attempt, attempts, failure.name,
                         self._last_error, gap)
             sleep(gap)
-        log.error("llama-server did not start after %d attempts; last failure "
-                  "%s: %s", attempts, self._last_failure.name, self._last_error)
         return False
 
     def restart(self) -> bool:

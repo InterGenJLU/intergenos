@@ -438,5 +438,98 @@ class RestartAdvancesTheLadderTest(unittest.TestCase):
         self.assertEqual(self.attempts, [self.vulkan, self.hip])
 
 
+class TheFirstStartAdvancesTheLadderTest(unittest.TestCase):
+    """The ladder is reached on the daemon's own first start, not only on a
+    watchdog restart.
+
+    Measured 2026-09-17 on an installed 4 GB NVIDIA laptop whose CUDA engine
+    aborts at model load: the daemon spent its three start attempts on that one
+    binary, logged "llama-server did not start after 3 attempts", and the
+    assistant was silent until two consecutive thirty-second health checks had
+    failed and the watchdog's restart reached the Vulkan engine — 105 seconds
+    after the daemon started, on every boot. The ladder existed the whole time;
+    the start path just never asked it.
+    """
+
+    def setUp(self):
+        from intergen.llama_manager import LlamaManager, ServerConfig
+        from intergen.interfaces.types import StartFailure
+        self.StartFailure = StartFailure
+        self.tmp = tempfile.mkdtemp(prefix="ladder-first-start-")
+        self.addCleanup(lambda: __import__("shutil").rmtree(
+            self.tmp, ignore_errors=True))
+        self._orig_paths = dict(serving_device.ENGINE_SERVER_PATHS)
+        self.addCleanup(
+            lambda: serving_device.ENGINE_SERVER_PATHS.update(self._orig_paths))
+        self._orig_supported = serving_device.hip_is_supported_here
+        self.addCleanup(
+            lambda: setattr(serving_device, "hip_is_supported_here",
+                            self._orig_supported))
+        serving_device.hip_is_supported_here = lambda *a, **k: None
+        self.cuda = _fake_binary(self.tmp, "cuda-server")
+        self.vulkan = _fake_binary(self.tmp, "vulkan-server")
+        serving_device.ENGINE_SERVER_PATHS["cuda"] = self.cuda
+        serving_device.ENGINE_SERVER_PATHS["vulkan"] = self.vulkan
+        serving_device.ENGINE_SERVER_PATHS["hip"] = os.path.join(
+            self.tmp, "absent-hip")
+        self.mgr = LlamaManager()
+        self.mgr._config = ServerConfig(
+            model_path="/nonexistent/model.gguf", port=8080,
+            context_size=4096, gpu_layers=0, parallel=1, jinja=False,
+            reasoning="none", server_path=self.cuda)
+        self.attempts = []
+
+    def _stub_start(self, results, failure=None):
+        seq = list(results)
+        fail = failure or self.StartFailure.UNHEALTHY
+
+        def fake():
+            self.attempts.append(self.mgr._config.server_path)
+            outcome = seq.pop(0) if seq else False
+            self.mgr._last_failure = (
+                self.StartFailure.NONE if outcome else fail)
+            self.mgr._last_error = "" if outcome else f"stubbed {fail.name}"
+            return outcome
+
+        self.mgr.start_saved_config = fake
+
+    def test_the_attempts_on_one_engine_are_followed_by_the_next_rung(self):
+        # Three attempts on the engine that cannot run, then Vulkan, which
+        # serves — all inside the first start, with no watchdog involved.
+        self._stub_start([False, False, False, True])
+        self.assertTrue(
+            self.mgr.retry_transient_start(attempts=3, sleep=lambda _s: None))
+        self.assertEqual(
+            self.attempts,
+            [self.cuda, self.cuda, self.cuda, self.vulkan],
+            "the first start did not reach the next engine")
+
+    def test_an_absent_binary_costs_one_attempt_not_three(self):
+        # BINARY_ABSENT is not transient, so retrying the same path is pointless
+        # — but it IS the engine's own failure, so the next rung is still owed,
+        # and immediately.
+        self._stub_start([False, True], failure=self.StartFailure.BINARY_ABSENT)
+        self.assertTrue(
+            self.mgr.retry_transient_start(attempts=3, sleep=lambda _s: None))
+        self.assertEqual(self.attempts, [self.cuda, self.vulkan])
+
+    def test_an_integrity_failure_never_moves_to_another_engine(self):
+        # A missing model file is not the engine's fault and no other engine
+        # will find it; the start degrades honestly instead of walking the
+        # ladder.
+        self._stub_start([False], failure=self.StartFailure.MODEL_FILE_ABSENT)
+        self.assertFalse(
+            self.mgr.retry_transient_start(attempts=3, sleep=lambda _s: None))
+        self.assertEqual(self.attempts, [self.cuda])
+
+    def test_the_bottom_rung_ends_the_start_rather_than_looping(self):
+        self._stub_start([False])
+        self.assertFalse(
+            self.mgr.retry_transient_start(attempts=2, sleep=lambda _s: None))
+        self.assertEqual(self.attempts,
+                         [self.cuda, self.cuda, self.vulkan, self.vulkan],
+                         "each rung gets its attempts, and the floor ends it")
+
+
 if __name__ == "__main__":
     unittest.main()
