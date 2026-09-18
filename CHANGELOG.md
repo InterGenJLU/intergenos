@@ -148,6 +148,22 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **The line a person reads at the end of a transaction names the release.**
+  Upgrading, downgrading or removing a package printed the version alone, so
+  moving the assistant from release 269 to release 256 and back again printed
+  `Upgraded intergen to 0.1.0` both ways — the same characters whichever
+  direction the machine went, on the one line that says what just happened.
+  Removing it printed `Removed intergen 0.1.0`, and `pkm autoremove` named only
+  the package, so something left the machine over a line carrying no version at
+  all. The package database, `pkm --version` and the transaction plan all
+  carried the release already; only the completion lines dropped it. Each line
+  now renders the row the transaction just wrote, through the same helpers the
+  transaction plan uses, so the plan and the result cannot disagree; the
+  installer's messages, including the one printed when a critical hook failed,
+  carry it too; and the orphan query selects the release so that line cannot
+  fall back to a release the package does not have. Output only — nothing about
+  what is installed changed.
+
 - **The engine check now asks about the card the assistant will actually use,
   not about the machine.** The HIP build of the inference engine carries device
   code only for the AMD architectures it was compiled for, and the check that
