@@ -31,6 +31,7 @@ name: usbmuxd
 # Upstream commit: 3ded00c9985a5108cfc7591a309f9a23d57a8cba (2025-12-06)
 version: "1.1.1+master.20251206"
 release: 1
+content_hash: add47933755ecd49
 description: Daemon that multiplexes connections over USB to Apple mobile devices
 license: GPL-2.0-only OR GPL-3.0-only
 homepage: https://github.com/libimobiledevice/usbmuxd
