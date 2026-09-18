@@ -16,19 +16,36 @@ source:
     filename: rocm-rocm-libraries-${version}.tar.gz
     sha256: 50a4090b4ad18b34c375f666e5f71816cf55f89bc2175dc3eba9a7b80f65a15d
 
-# THE ONE RULED LIST — written identically in every ROCm recipe in this tree
-# (Decided 2026-09-18). Six concrete architectures: the five consumer and
-# workstation targets AMD's ROCm 7.2.0 compatibility matrix names, plus gfx1102
-# (Navi 33), which this project declares deliberately. The reasoning — the age
-# limit, why gfx1102 is in, and why the math libraries rather than the compiler
-# are what bounds the list — is written once, in
+# THE RULED LIST, LESS ONE STATED EXCEPTION. The ruled list (Decided
+# 2026-09-18) is six concrete architectures: the five consumer and workstation
+# targets AMD's ROCm 7.2.0 compatibility matrix names, plus gfx1102 (Navi 33),
+# which this project declares deliberately. The reasoning — the age limit, why
+# gfx1102 is in, and why the math libraries rather than the compiler are what
+# bounds the list — is written once, in
 # packages/compute/llama-cpp-hip/package.yml. It is COPIED here rather than
 # referenced because a recipe field in this format has no cross-recipe constant
 # to point at; tests/igos_build/test_the_rocm_stack_declares_one_target_list.py
-# is what keeps the copies byte-identical, and it sweeps in any new recipe that
-# declares gfx targets. Widening the list is never a one-recipe change: rocBLAS
-# and hipBLASLt build their kernels first, the engine builds last.
-gpu_targets: "gfx1030;gfx1100;gfx1101;gfx1102;gfx1200;gfx1201"
+# is what keeps the copies identical, holds this recipe to the ruled list less
+# its STATED exception, and sweeps in any new recipe that declares gfx targets.
+#
+# THIS RECIPE DECLARES FIVE: the ruled list WITHOUT gfx1030. rocWMMA is a
+# wave matrix multiply-accumulate header library, and the instruction it wraps
+# is WMMA, which arrived with RDNA3. RDNA2 does not have it, so rocWMMA's own
+# supported-architecture list (README in
+# https://github.com/ROCm/rocm-libraries) starts at gfx11 on the consumer side
+# — there is no gfx1030 code path upstream to build.
+#
+# WHAT THIS COSTS A gfx1030 USER: nothing measured. The HIP engine's optional
+# rocWMMA flash-attention path is a COMPILE-time option, and the engine
+# compiles for all six targets with -DGGML_HIP_ROCWMMA_FATTN=ON — measured
+# 2026-09-18, the six-target build's own device-code gate read "llama-server
+# carries: gfx1030 gfx1100 gfx1101 gfx1102 gfx1200 gfx1201". The engine's
+# declaration therefore stays at six; only this header package's own list
+# narrows.
+#
+# Widening the list is never a one-recipe change: rocBLAS and hipBLASLt build
+# their kernels first, the engine builds last.
+gpu_targets: "gfx1100;gfx1101;gfx1102;gfx1200;gfx1201"
 
 dependencies:
   build:
