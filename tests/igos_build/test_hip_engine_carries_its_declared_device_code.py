@@ -280,9 +280,17 @@ class TheMathKernelCheck(unittest.TestCase):
     """llama_assert_math_kernels, against a stand-in ROCm prefix.
 
     The engine's matrix multiplies resolve into rocBLAS through hipBLAS, and
-    both ship per-architecture kernel files generated from their OWN declared
-    target list. Carrying a code object for a card the math libraries were not
-    built for is the same broken promise one level down.
+    those libraries ship per-architecture kernel files generated from their OWN
+    declared target list. Carrying a code object for a card the math libraries
+    were not built for is the same broken promise one level down.
+
+    WHICH LIBRARIES ARE ASKED is now the caller's statement rather than a fixed
+    pair written into the function. The engine links hipBLAS and rocBLAS and
+    does NOT link hipBLASLt — measured 2026-09-18 by ldd on the built engine,
+    which names libhipblas.so.3 and librocblas.so.5 and no hipblaslt — so a
+    check that demanded hipBLASLt kernels refused a correct build for a library
+    the engine never calls. That is a false refusal, and a gate that refuses
+    what is true teaches its readers to route around it.
 
     The file names are the real ones, read from an installed ROCm 7.2.4 on
     2026-09-17: rocblas/library holds Kernels.so-000-gfx1100.hsaco and
@@ -313,18 +321,40 @@ class TheMathKernelCheck(unittest.TestCase):
             for shape in self.REAL_FILE_SHAPES:
                 (d / shape.format(gfx=arch)).touch()
 
-    def _check(self, targets):
+    def _check(self, targets, libs="rocblas"):
         return self.fn.run(f'ROCM_PATH="{self.rocm}"',
-                           f'llama_assert_math_kernels "{targets}"')
+                           f'llama_assert_math_kernels "{targets}" "{libs}"')
 
     def test_every_declared_architecture_has_kernels_passes(self):
         declared = _declared_targets()
-        for lib in ("rocblas", "hipblaslt"):
-            self._populate(lib, declared.split(";"))
+        self._populate("rocblas", declared.split(";"))
         r = self._check(declared)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("[math-kernels] rocblas carries:", r.stdout)
-        self.assertIn("[math-kernels] hipblaslt carries:", r.stdout)
+
+    def test_a_library_the_engine_does_not_link_is_never_asked(self):
+        # THE DEFECT THIS CLOSES. The check used to loop over a fixed
+        # "rocblas hipblaslt" pair. hipBLASLt is not linked by this engine and
+        # its upstream target list excludes gfx1030 by construction, so on a
+        # six-target build the gate refused an engine that was correct:
+        # "[math-kernels] hipblaslt carries: gfx1100 gfx1102 gfx1201 / missing:
+        # gfx1030 gfx1101 gfx1200" (hub build 2026-09-18). Only rocBLAS is
+        # populated here and there is no hipblaslt directory at all; the check
+        # passes because nothing asked for one.
+        declared = _declared_targets()
+        self._populate("rocblas", declared.split(";"))
+        r = self._check(declared)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("hipblaslt", r.stdout + r.stderr)
+
+    def test_an_empty_library_list_refuses_rather_than_passing(self):
+        # The caller now states which libraries to ask. Stating none would
+        # otherwise run the loop zero times and return success — a gate that
+        # verified nothing reporting that it found nothing wrong.
+        self._populate("rocblas", ["gfx1100"])
+        r = self._check("gfx1100", libs="")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("Refusing to seal", r.stderr)
 
     def test_a_card_the_math_libraries_lack_is_refused_and_named(self):
         # The shape this exists for: the engine's list is widened to a card
@@ -336,36 +366,88 @@ class TheMathKernelCheck(unittest.TestCase):
         self.assertIn("gfx1103", r.stderr)
         self.assertIn("Refusing to seal", r.stderr)
 
-    def test_the_second_library_is_checked_too(self):
-        # rocblas complete, hipblaslt short: a check that stopped at the first
-        # library would pass this.
+    def test_every_library_the_caller_names_is_checked_not_just_the_first(self):
+        # rocblas complete, the second library short: a check that stopped at
+        # the first named library would pass this. hipblas stands in for "a
+        # second library the engine does link", which is what the caller would
+        # name the day hipBLAS ships its own per-architecture kernels.
         self._populate("rocblas", SHIPPED_BINARY_CARRIED)
-        self._populate("hipblaslt", ["gfx1100"])
-        r = self._check(";".join(SHIPPED_BINARY_CARRIED))
+        self._populate("hipblas", ["gfx1100"])
+        r = self._check(";".join(SHIPPED_BINARY_CARRIED), libs="rocblas hipblas")
         self.assertEqual(r.returncode, 1)
-        self.assertIn("hipblaslt", r.stderr)
+        self.assertIn("hipblas", r.stderr)
 
     def test_a_missing_library_directory_refuses_rather_than_passing(self):
+        # A library the caller NAMED, with no kernel directory on disk: the
+        # engine links it, so its absence is unverifiable rather than benign.
         self._populate("rocblas", SHIPPED_BINARY_CARRIED)
-        r = self._check(";".join(SHIPPED_BINARY_CARRIED))
+        r = self._check(";".join(SHIPPED_BINARY_CARRIED), libs="rocblas hipblas")
         self.assertEqual(r.returncode, 1)
         self.assertIn("cannot verify", r.stderr)
 
     def test_an_empty_library_directory_refuses_rather_than_passing(self):
-        for lib in ("rocblas", "hipblaslt"):
-            (self.rocm / "lib" / lib / "library").mkdir(parents=True)
+        (self.rocm / "lib" / "rocblas" / "library").mkdir(parents=True)
         r = self._check("gfx1100")
         self.assertEqual(r.returncode, 1)
         self.assertIn("(none)", r.stdout + r.stderr)
 
     def test_the_architecture_free_files_do_not_satisfy_anything(self):
         # The .dat fallback names no architecture; only the .hsaco files do.
-        for lib in ("rocblas", "hipblaslt"):
-            d = self.rocm / "lib" / lib / "library"
-            d.mkdir(parents=True)
-            (d / "TensileLibrary_Type_4xi8I_HPA_Contraction_fallback.dat").touch()
+        d = self.rocm / "lib" / "rocblas" / "library"
+        d.mkdir(parents=True)
+        (d / "TensileLibrary_Type_4xi8I_HPA_Contraction_fallback.dat").touch()
         r = self._check("gfx1100")
         self.assertEqual(r.returncode, 1)
+
+
+class TheCheckedLibrariesAreTheOnesTheEngineLinks(unittest.TestCase):
+    """do_install may only ask for libraries this recipe says it links.
+
+    The check takes its library list from the caller, so the caller is where
+    the claim now lives, and an unchecked claim is how the previous version
+    came to demand hipBLASLt. This reads the argument back out of do_install
+    and holds it against the recipe's own declared runtime dependencies: the
+    gate can be narrower than the declaration (hipBLAS ships no kernels of its
+    own), never wider than it.
+    """
+
+    def _named_libraries(self):
+        call = re.search(
+            r'llama_assert_math_kernels\s+"\$\{IGOS_GPU_TARGETS\}"\s+"([^"]*)"',
+            BUILD_SH.read_text())
+        self.assertIsNotNone(
+            call, "do_install must call llama_assert_math_kernels with the "
+                  "declared targets and an explicit library list")
+        return call.group(1).split()
+
+    def _runtime_dependencies(self):
+        text = PACKAGE_YML.read_text()
+        block = re.search(r"^  runtime:\n((?:  - .*\n)+)", text, re.M)
+        self.assertIsNotNone(block, "the recipe declares runtime dependencies")
+        return [line.strip().lstrip("- ").strip()
+                for line in block.group(1).splitlines()]
+
+    def test_do_install_names_at_least_one_library(self):
+        self.assertTrue(self._named_libraries(),
+                        "an empty list would verify nothing")
+
+    def test_every_named_library_is_a_declared_runtime_dependency(self):
+        runtime = self._runtime_dependencies()
+        for lib in self._named_libraries():
+            with self.subTest(library=lib):
+                self.assertIn(
+                    lib, runtime,
+                    f"the gate asks {lib} for kernels, but the recipe does not "
+                    f"declare it as a runtime dependency — the engine either "
+                    f"links it and the declaration is wrong, or it does not "
+                    f"and the gate is asking the wrong library")
+
+    def test_hipblaslt_is_not_asked_because_the_engine_does_not_link_it(self):
+        # Measured 2026-09-18: ldd on the built engine names libhipblas.so.3
+        # and librocblas.so.5, no hipblaslt. Named here so a future widening of
+        # this list has to argue with a measurement rather than a habit.
+        self.assertNotIn("hipblaslt", self._named_libraries())
+        self.assertNotIn("hipblaslt", self._runtime_dependencies())
 
 
 if __name__ == "__main__":

@@ -187,6 +187,7 @@ llama_assert_device_code() {
 
 # Assert that every architecture gpu_targets declares also has KERNELS in the
 # math libraries this engine links against. $1 = the declared list.
+# $2 = the space-separated names of those libraries, stated by the caller.
 #
 # Why a second check. The first one asks the engine's own binary what it
 # carries, and an engine can carry code for a card while the layers underneath
@@ -196,6 +197,24 @@ llama_assert_device_code() {
 # was not built for would pass the code-object check and still fail on the
 # machine — the same defect one level down, introduced by the fix rather than
 # removed by it.
+#
+# WHICH LIBRARIES ARE ASKED, and why it is no longer a fixed pair. This check
+# was written to loop over "rocblas hipblaslt". The engine does not link
+# hipBLASLt: measured 2026-09-18 with ldd on the built engine, its dynamic
+# dependencies name libhipblas.so.3 and librocblas.so.5 and no hipblaslt at
+# all. So the loop demanded kernels from a library whose work never reaches
+# this binary, and on the six-target build it refused an engine that was
+# correct — "[math-kernels] hipblaslt carries: gfx1100 gfx1102 gfx1201 /
+# missing: gfx1030 gfx1101 gfx1200" — because hipBLASLt's own upstream target
+# list excludes RDNA2 by construction
+# (cmake/tensilelite_supported_architectures.cmake in ROCm/rocm-libraries: its
+# kernels are built on MFMA and WMMA, which gfx1030 does not have). A gate that
+# refuses a true build is not stricter than one that does not; it is wrong in
+# the other direction, and the people it stops are the ones who then learn to
+# route around it. The caller states the libraries, do_install() takes them
+# from this recipe's own declared runtime dependencies, and a library that
+# ships no per-architecture kernels of its own (hipBLAS is the dispatch layer
+# over rocBLAS) is simply not named.
 #
 # Measured 2026-09-17 on a machine running ROCm 7.2.4, built from the
 # THREE-target declaration in force at the time: the compiler accepts 76 AMDGPU
@@ -213,8 +232,19 @@ llama_assert_device_code() {
 # gate comes to pass on absence.
 llama_assert_math_kernels() {
     _targets="$1"
+    _libs="$2"
     _rocm="${ROCM_PATH:-/opt/rocm}"
-    for _lib in rocblas hipblaslt; do
+    # Naming no library would run the loop zero times and return success: a
+    # check that asked nothing, reporting that it found nothing wrong. Same
+    # rule as the missing and the empty directory below.
+    if [ -z "$(printf '%s' "$_libs" | tr -d '[:space:]')" ]; then
+        echo "ERROR: no math library was named for this check, so nothing was" >&2
+        echo "       verified. The engine's declared architectures have to be" >&2
+        echo "       checked against the kernels of the libraries it links." >&2
+        echo "       Refusing to seal the archive." >&2
+        return 1
+    fi
+    for _lib in $_libs; do
         _dir="${_rocm}/lib/${_lib}/library"
         if [ ! -d "$_dir" ]; then
             echo "ERROR: no kernel library directory at ${_dir}; cannot verify" >&2
@@ -341,8 +371,20 @@ do_install() {
     done
 
     # And the layers underneath must be able to serve those same cards. See
-    # llama_assert_math_kernels for why carrying the code object is not enough.
-    llama_assert_math_kernels "${IGOS_GPU_TARGETS}" || return 1
+    # llama_assert_math_kernels for why carrying the code object is not enough,
+    # and for why the libraries are named here rather than fixed in the check.
+    #
+    # THE LIST IS rocBLAS, and it is this recipe's own runtime dependencies read
+    # back: dependencies.runtime declares rocm-hip, rocblas and hipblas, which
+    # is exactly what ldd reports for the built engine (libhipblas.so.3 and
+    # librocblas.so.5, measured 2026-09-18). Of those, rocBLAS is the one that
+    # ships per-architecture kernel files — hipBLAS is the dispatch layer whose
+    # work resolves into rocBLAS, and the HIP runtime carries no Tensile
+    # kernels at all — so rocBLAS is what there is to check. hipBLASLt is NOT
+    # here because this engine does not link it. The day hipBLAS ships kernels
+    # of its own, or this engine links another library that does, its name is
+    # added to this line and the check asks it too.
+    llama_assert_math_kernels "${IGOS_GPU_TARGETS}" "rocblas" || return 1
 
     # Install the architecture list this build was compiled for, so the runtime
     # can tell whether the build has device code for the GPU in front of it.
