@@ -6,6 +6,7 @@ import argparse
 import contextlib
 import os
 import re
+import sqlite3
 import sys
 import time
 from pathlib import Path
@@ -35,6 +36,11 @@ from .output import (
     Reporter, QUIET, NORMAL, VERBOSE,
     set_process_level, emit, emit_info, emit_note, emit_done, emit_warn, emit_error,
 )
+
+# How many names `pkm list upgradable` prints when the repository index has no
+# entry for them. Short enough that a reader takes them in; beyond it the count
+# leads and the rest are summarised, so the answer never becomes a wall.
+UNCOMPARABLE_NAMES_SHOWN = 10
 
 # Build-stage intermediate packages: the install set ships these (they're
 # depended on in the recipe graph) but they are deliberately NOT published to the
@@ -711,6 +717,52 @@ def _pkm_mutation_lock(command, dry_run=False, wait=None, wait_timeout=None):
                 pass
 
 
+
+class _VersionAction(argparse.Action):
+    """`pkm --version` names the release, not the version alone.
+
+    The version on its own cannot tell two builds apart: an upgrade from release
+    73 to release 83 left `pkm 0.2.0` printing the same six characters before
+    and after (measured 2026-09-17 on an installed machine), while the package
+    database and the text manifest both carried the release. The release is read
+    from the database when this option is actually used, so no other command
+    pays for it, and a database that cannot be read falls back to the bare
+    version rather than failing the option.
+    """
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        # argparse's own version action writes to stdout; parser.exit(message=)
+        # would write to stderr and break every caller that reads the answer.
+        print(f"pkm {_installed_version_string()}")
+        parser.exit()
+
+
+def _installed_version_string():
+    """`<version>-<release>` for the installed pkm, or the bare version.
+
+    Read directly and read-only: this runs before any command has opened the
+    database, it must work for a user who cannot write it, and a missing or
+    unreadable database is a reason to say less, never to fail.
+    """
+    try:
+        from .database import DB_PATH
+        conn = sqlite3.connect(f"file:{DB_PATH}?immutable=1", uri=True)
+        try:
+            row = conn.execute(
+                "SELECT version, release FROM installed WHERE name = 'pkm'"
+            ).fetchone()
+        finally:
+            conn.close()
+    except Exception:
+        return __version__
+    if not row or not row[0]:
+        return __version__
+    version, release = row[0], row[1]
+    if release in (None, ""):
+        return str(version)
+    return f"{version}-{release}"
+
+
 def build_parser():
     """Build pkm's argument parser.
 
@@ -723,7 +775,8 @@ def build_parser():
         prog="pkm",
         description="InterGenOS Package Manager",
     )
-    parser.add_argument("--version", action="version", version=f"pkm {__version__}")
+    parser.add_argument("--version", action=_VersionAction, nargs=0,
+                        help="show the installed version and release, then exit")
     parser.add_argument("--db", help="Database path override")
 
     # The install root. Every piece of pkm's own state derives from it — the
@@ -3132,9 +3185,18 @@ def cmd_list(db, args):
         repo = repo_manager()
         installed = db.list_installed()
         count = 0
+        # An installed package the repository index has no entry for cannot be
+        # compared against anything. Skipping it silently made "Everything is up
+        # to date" mean two different things — every package checked and current,
+        # or a package nobody could check at all. Measured 2026-09-17 on an
+        # installed machine: `pkm list upgradable` answered that a package was up
+        # to date while the index held no row for it whatsoever, and that answer
+        # was then read as proof the package's release was right.
+        uncomparable = []
         for pkg in installed:
             remote = repo.get_package(pkg["name"])
             if not remote:
+                uncomparable.append(pkg["name"])
                 continue
             try:
                 # O-010: same version-aware compare as cmd_upgrade. Listing
@@ -3148,7 +3210,36 @@ def cmd_list(db, args):
                 emit_warn(f"cannot compare versions for {pkg['name']}: {e}")
                 continue
         if count == 0:
-            emit_info("Everything is up to date.")
+            if uncomparable:
+                emit_info("Everything the repository index carries is up to "
+                          "date.")
+            else:
+                emit_info("Everything is up to date.")
+        if uncomparable:
+            _print_uncomparable(uncomparable)
+
+
+def _print_uncomparable(names):
+    """Say which installed packages the repository index cannot answer for.
+
+    Named individually while the list is short enough to read; counted, with the
+    first few named, once it is not. Either way the reader is told that these
+    packages were not checked, rather than being left to read silence as a pass.
+    """
+    n = len(names)
+    noun = "package" if n == 1 else "packages"
+    emit_info(f"{n} installed {noun} {'has' if n == 1 else 'have'} no entry in "
+              f"the repository index, so {'it was' if n == 1 else 'they were'} "
+              f"not checked for upgrades. Run `pkm sync` if the index should "
+              f"carry {'it' if n == 1 else 'them'}.")
+    shown = sorted(names)
+    if n <= UNCOMPARABLE_NAMES_SHOWN:
+        for name in shown:
+            print(f"    {name}")
+    else:
+        for name in shown[:UNCOMPARABLE_NAMES_SHOWN]:
+            print(f"    {name}")
+        print(f"    … and {n - UNCOMPARABLE_NAMES_SHOWN} more")
 
 
 def cmd_search(db, args):
