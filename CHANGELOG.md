@@ -209,6 +209,24 @@ landed is in the repository README, not here.
   still stands — and either way the plan now states which figure it used, in the
   log and in the recorded trace, so a stored plan can never name a size without
   saying whose it is.
+- **A comment in the graphics-engine build's architecture record is no longer
+  read as a list of architectures.** The HIP build of the inference engine ships
+  a small file naming the AMD GPU architectures it carries device code for, and
+  the assistant reads it to decide whether the card it is about to serve on is
+  one of them. The reader split the whole file on spaces and discarded only the
+  words that themselves began with a `#`, so every other word of a comment
+  survived: a record opening `# written by the recipe` declared "by", "recipe",
+  "the" and "written" as architectures next to the real ones. That is not merely
+  untidy. The declared set is compared against the architecture of the card that
+  will be used, and a comment that names an architecture the build deliberately
+  dropped would have declared it as carried — the one direction that matters,
+  because accepting the engine on a card whose device code the build does not
+  contain crashes the engine at model load, which is exactly what this check
+  exists to prevent. Comments are now removed line by line, from the `#` to the
+  end of that line, before the rest is read. The file the recipe writes today
+  carries no comment and reads exactly as before; the change can only ever leave
+  an architecture out of the declared set, never put one in, and leaving one out
+  simply serves on the Vulkan engine instead.
 - **A refused archive install now exits non-zero.** `pkm install --archive`
   checks the archive's SHA256 against the signed repository index. When it did
   not match, the command printed `archive SHA256 does not match repository

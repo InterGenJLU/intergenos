@@ -197,6 +197,18 @@ def hip_build_gpu_targets(path: str = HIP_GPU_TARGETS_PATH) -> set[str]:
 
     Read from the file the HIP recipe installs. An empty set means the file is
     absent or unreadable, which callers treat as unknown.
+
+    Comments are stripped LINE-WISE: everything from a ``#`` to the end of that
+    line is dropped before the rest is split. Dropping only the TOKENS that
+    begin with ``#`` left every following word on the line in the set, so a
+    record opening ``# written by the recipe`` declared "by", "recipe", "the"
+    and "written" as architectures alongside the real ones. That reads as noise
+    and is not: this set is intersected with the architectures actually detected
+    on the machine, and compared against the architecture of the card that will
+    be pinned, so a comment that MENTIONS an architecture the build dropped
+    would declare it as carried. The refusal this feeds is what keeps the engine
+    off a card whose device code the build does not contain, and a wrong "yes"
+    there is a crash at model load.
     """
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as fh:
@@ -204,10 +216,12 @@ def hip_build_gpu_targets(path: str = HIP_GPU_TARGETS_PATH) -> set[str]:
     except OSError:
         return set()
     targets = set()
-    for chunk in raw.replace(";", " ").replace(",", " ").split():
-        chunk = chunk.strip()
-        if chunk and not chunk.startswith("#"):
-            targets.add(chunk)
+    for line in raw.splitlines():
+        line = line.split("#", 1)[0]
+        for chunk in line.replace(";", " ").replace(",", " ").split():
+            chunk = chunk.strip()
+            if chunk:
+                targets.add(chunk)
     return targets
 
 
