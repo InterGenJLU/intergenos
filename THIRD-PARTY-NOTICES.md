@@ -29,7 +29,7 @@ The aggregate ships on the installed system at
 ## Coverage summary
 
 
-**Total packages:** 1184
+**Total packages:** 1185
 
 **Distribution by tier:**
 
@@ -38,7 +38,7 @@ The aggregate ships on the installed system at
 | toolchain | 28 |
 | core | 315 |
 | base | 37 |
-| desktop | 473 |
+| desktop | 474 |
 | extra | 218 |
 | ai | 58 |
 | compute | 55 |
@@ -5507,6 +5507,13 @@ Power management service
 
 - License: `GPL-2.0-or-later`
 - Homepage: https://upower.freedesktop.org/
+
+### usbmuxd (1.1.1+master.20251206)
+
+Daemon that multiplexes connections over USB to Apple mobile devices
+
+- License: `GPL-2.0-only OR GPL-3.0-only`
+- Homepage: https://github.com/libimobiledevice/usbmuxd
 
 ### user-theme (1.0)
 
