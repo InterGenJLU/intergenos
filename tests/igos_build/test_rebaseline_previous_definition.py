@@ -65,19 +65,36 @@ class TheDerivationOfThePreviousDefinition(unittest.TestCase):
         self.assertIn("HEAD:igos-build/content_hash.py", provenance)
 
     def test_a_clean_working_copy_reads_the_commit_before_the_last_change(self):
-        """With the definition change already committed, the previous
-        definition is the copy at the parent of the commit that changed it —
-        otherwise the mode would compare the new definition against itself and
-        refuse everything."""
+        """With the definition change committed AS HEAD, the previous
+        definition is the copy at HEAD's parent — otherwise the mode would
+        compare the new definition against itself and refuse everything."""
         git = _fake_git({
             ("diff", "--quiet"): (0, ""),
             ("log", "-1"): (0, "abc123def4567890\n"),
+            ("rev-parse", "HEAD"): (0, "abc123def4567890\n"),
             ("show", "abc123def4567890^:igos-build/content_hash.py"):
                 (0, "OLD DEFINITION\n"),
         })
         text, provenance = bump.previous_definition_text(git)
         self.assertEqual(text, "OLD DEFINITION\n")
         self.assertIn("abc123def456^", provenance)
+
+    def test_an_old_definition_change_is_not_reachable_from_a_later_head(self):
+        """THE REFUSAL THAT KEEPS THE MODE HONEST. If the derivation kept
+        reaching back to the last definition change however old, the mode would
+        stay permanently in "absorb that one": a later real change to a field
+        the OLD definition ignores fingerprints identically under it, would be
+        read as explained by the definition widening, and would be re-baselined
+        with the release standing still — a build that reaches no installed
+        machine, carrying this tool's own approval."""
+        git = _fake_git({
+            ("diff", "--quiet"): (0, ""),
+            ("log", "-1"): (0, "abc123def4567890\n"),
+            ("rev-parse", "HEAD"): (0, "99887766554433221100\n"),
+        })
+        text, provenance = bump.previous_definition_text(git)
+        self.assertIsNone(text)
+        self.assertIn("not HEAD", provenance)
 
     def test_a_definition_with_no_parent_commit_is_refused_with_a_reason(self):
         """Nothing to compare against must come back as a refusal carrying its
@@ -86,6 +103,7 @@ class TheDerivationOfThePreviousDefinition(unittest.TestCase):
         git = _fake_git({
             ("diff", "--quiet"): (0, ""),
             ("log", "-1"): (0, "abc123def4567890\n"),
+            ("rev-parse", "HEAD"): (0, "abc123def4567890\n"),
             ("show", "abc123def4567890^:igos-build/content_hash.py"): (128, ""),
         })
         text, provenance = bump.previous_definition_text(git)

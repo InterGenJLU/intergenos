@@ -87,9 +87,19 @@ def previous_definition_text(git=_git) -> tuple[str | None, str]:
 
       * working tree copy modified against HEAD -> HEAD's copy is the previous
         definition (the change being absorbed is the uncommitted one);
-      * working tree copy clean -> the previous definition is the copy at the
-        parent of the last commit that changed the file (the change being
-        absorbed is that commit).
+      * working tree copy clean and HEAD is itself the commit that changed the
+        file -> the previous definition is HEAD's parent copy (the change being
+        absorbed is that commit);
+      * working tree copy clean and HEAD did not change the file -> there is no
+        definition change here to absorb, and the caller must refuse.
+
+    THE THIRD RULE IS NOT A TECHNICALITY. Without it the mode would keep
+    reaching back to the last definition change however old, which would leave
+    it permanently absorbing that one: a later, real change to a field the OLD
+    definition ignores would fingerprint identically under it, be read as
+    "explained by the definition widening", and be re-baselined with the
+    release standing still — the exact silent delivery loss this tool exists to
+    stop, wearing the tool's own approval.
 
     LIMIT, stated rather than hidden: only this one file's definition is read
     back. A definition change that also edits another module is not fully
@@ -111,6 +121,14 @@ def previous_definition_text(git=_git) -> tuple[str | None, str]:
     if rc3 != 0 or not last:
         return None, (f"no commit in this history changes {CONTENT_HASH_REL}, "
                       f"so there is no previous definition to compare against")
+    rc5, head = git("rev-parse", "HEAD")
+    head = head.strip()
+    if rc5 != 0 or not head:
+        return None, "git could not resolve HEAD"
+    if last != head:
+        return None, (f"{CONTENT_HASH_REL} is unchanged in the working tree and "
+                      f"was last changed by {last[:12]}, which is not HEAD "
+                      f"({head[:12]}), so no definition change is being made here")
     rc4, text = git("show", f"{last}^:{CONTENT_HASH_REL}")
     if rc4 != 0:
         return None, (f"{last[:12]} is the commit that introduced "
