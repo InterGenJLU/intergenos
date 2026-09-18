@@ -185,6 +185,67 @@ def negated_spans(query: str) -> list[tuple[int, int]]:
     return spans
 
 
+# An EXPLICIT prohibition on the assistant using tools at all, written by the
+# person in the turn's own text. Deliberately a closed list of whole phrases and
+# not a verb-plus-noun grammar: the cost of a false positive is a turn that
+# genuinely needed a tool being answered without one, so this recognises only
+# wordings that can mean nothing else.
+#
+# Every alternative names a GENERIC capability ("tools", "commands", "files",
+# "the internet"), never a specific object. "do not read the file /etc/passwd,
+# read /etc/os-release instead" must NOT match — it forbids one file, not the
+# ability to read files — and it does not, because the determiner "the" breaks
+# every pattern here.
+# "without using any tools" is as explicit as "do not use any tools", so each
+# verb is written in both its plain and its -ing form. Anything not listed
+# returns False.
+_TOOL_PROHIBITION = re.compile(
+    r"\b(?:"
+    r"(?:use|using)\s+(?:any\s+)?(?:tools?|tooling)"
+    r"|(?:call|calling)\s+(?:any\s+)?tools?"
+    r"|(?:invoke|invoking)\s+(?:any\s+)?tools?"
+    r"|(?:run|running)\s+(?:any\s+)?commands?"
+    r"|(?:execute|executing)\s+(?:any\s+)?commands?"
+    r"|(?:access|accessing)\s+(?:any\s+)?files?"
+    r"|(?:read|reading)\s+(?:any\s+)?files?"
+    r"|(?:open|opening)\s+(?:any\s+)?files?"
+    r"|(?:contact|contacting)\s+(?:any\s+)?external\s+(?:services?|resources?|systems?)"
+    r"|(?:access|accessing)\s+(?:the\s+)?(?:internet|network|web)"
+    r"|(?:search|searching)\s+the\s+(?:web|internet)"
+    r"|(?:search|searching)\s+online"
+    r"|(?:go|going)\s+online"
+    r"|(?:browse|browsing)\s+the\s+(?:web|internet)"
+    r"|(?:look|looking)\s+anything\s+up"
+    r")\b", re.IGNORECASE)
+
+
+def turn_forbids_tools(query: str) -> bool:
+    """Whether the turn's OWN TEXT explicitly forbids the assistant using tools.
+
+    Pure and tier-free, like :func:`negated_spans`, which it reuses: a
+    prohibition counts only when it falls inside a span that negation already
+    governs ("do not", "don't", "never", "without"). The phrase alone is not
+    enough — "should I use tools for this?" asks about tools and forbids
+    nothing.
+
+    WHY THIS EXISTS. Tool SCHEMAS are offered to the model on eligible turns.
+    When the person has written "Do not use tools, run commands, access files,
+    or contact external services", offering them anyway means the assistant is
+    holding open a door the person just asked it to keep shut, and the browser
+    panel then tells them it is looking something up on a turn where they
+    forbade exactly that. Withholding the schemas is not a refusal to answer:
+    the turn is answered from the model, which is what was asked for.
+
+    Narrow on purpose. It reads a closed list of generic prohibitions and
+    returns False on anything else, because a wrong True starves a turn that
+    needed a tool while a wrong False only leaves today's behaviour in place.
+    """
+    for start, end in negated_spans(query):
+        if _TOOL_PROHIBITION.search(query[start:end]):
+            return True
+    return False
+
+
 def _merge_negated_scope(query: str, parts: list[str]) -> list[str]:
     """Re-join any part that begins inside a negated scope onto the part before
     it, using the original text between them so nothing is reworded."""

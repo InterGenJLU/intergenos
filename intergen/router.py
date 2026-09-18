@@ -39,7 +39,8 @@ from intergen.conversation_state import (
     ConversationState, new_conversation_state,
 )
 from intergen.dispatch_policy import is_system_category_conversation
-from intergen.decomposer import analyze_query, DecomposedQuery
+from intergen.decomposer import (analyze_query, DecomposedQuery,
+                                 turn_forbids_tools)
 from intergen.intents import BOOT_PERF_COMPLAINT_PATTERN, FILE_SEARCH_PATTERN
 from intergen.memory import MemoryManager, fact_cache_text, fact_key
 from intergen.interfaces.router import RouterInterface
@@ -2965,9 +2966,27 @@ class ConversationRouter(RouterInterface):
         # ineligible and its behaviour is byte-identical to before this leg.
         # The score / query_type signals below are retained as observability
         # "why" annotations, no longer as the eligibility gate itself.
+        #
+        # ONE EXCEPTION TO THE WIDENED EXPOSURE: a turn whose OWN TEXT forbids
+        # tools. Widening eligibility was right because starvation is not a
+        # trust boundary — but the person writing "Do not use tools, run
+        # commands, access files, or contact external services" is not a
+        # starvation gate, it is an instruction, and offering the schemas anyway
+        # holds open a door they just asked to be kept shut. Measured on
+        # 2026-09-18 against the running assistant: that exact sentence, the
+        # browser battery's own no-action question, was routed to the tool path
+        # every time. Withholding the schemas is not a refusal — the turn falls
+        # to P4 and is answered from the model, which is what was asked for.
+        # The reading is decomposer.turn_forbids_tools, which reuses the same
+        # negation spans the splitter uses and recognises only a closed list of
+        # generic prohibitions, so a turn forbidding ONE file still gets tools.
+        _forbidden = turn_forbids_tools(user_input)
         if _locked:
             eligible_for_tools = False
             eligibility_reason = "locked_floor_code_owned"
+        elif _forbidden:
+            eligible_for_tools = False
+            eligibility_reason = "turn_text_forbids_tools"
         else:
             eligible_for_tools = True
             eligibility_reason = "native_freeform_schema_exposure"
@@ -2985,13 +3004,16 @@ class ConversationRouter(RouterInterface):
             "semantic_score": self._last_semantic_score,
             "query_type": self._current_query_type,
         })
+        _span.set_attribute("turn_text_forbids_tools", _forbidden)
         self._trail_note("eligibility",
                          "info" if eligible_for_tools else "rejected",
                          eligible=eligible_for_tools, reason=eligibility_reason,
-                         dispatch_locked=_locked)
+                         dispatch_locked=_locked,
+                         turn_text_forbids_tools=_forbidden)
         glass.emit("route", "eligibility", detail={
             "dispatch_locked": _locked, "eligible_for_tools": eligible_for_tools,
             "eligibility_reason": eligibility_reason,
+            "turn_text_forbids_tools": _forbidden,
             "tool_schemas_offered": tool_schemas_offered,
             "semantic_score": self._last_semantic_score,
             "query_type": self._current_query_type})

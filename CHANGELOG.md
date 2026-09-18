@@ -148,6 +148,25 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **A turn that forbids the use of tools is no longer offered them.** The
+  assistant exposes its tool descriptions to the model on most turns, which is
+  deliberate: withholding them was never a safety boundary, and every action
+  that changes anything is still gated at the point of execution. But a person
+  who writes "Do not use tools, run commands, access files, or contact external
+  services" has not failed a threshold — they have given an instruction, and
+  offering the tools anyway holds open a door they just asked to be kept shut.
+  Measured against the running assistant on 2026-09-18, that exact sentence was
+  routed to the tool path every time, and the panel then told the person it was
+  looking something up on the one turn where they had forbidden it. The turn's
+  own text is now read for an explicit prohibition, using the same reading of
+  negation the query splitter already uses, and the tool descriptions are
+  withheld when it finds one. This is not a refusal: the turn is answered from
+  the model, which is what was asked for, and the recorded reason says the
+  turn's text is why. The reading is deliberately narrow — it recognises a
+  closed list of wordings that name a general capability ("use tools", "run
+  commands", "access files", "search the web") and nothing else, so a request
+  that forbids one particular file still gets every tool. Across the 885
+  conversation turns this project keeps for testing, not one loses its tools.
 - **A graphics card behind a Thunderbolt or VMD bridge is no longer invisible
   to the serving-card selection.** Each engine's device listing carries a
   `[PCI domain:bus:device.function]` tail, and the two readers of that listing
