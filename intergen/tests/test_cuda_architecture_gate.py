@@ -37,8 +37,17 @@ def _targets_file(tmp: str, text: str) -> str:
 
 
 # The list the shipped recipe declares, so these cases are about the engine
-# users actually receive rather than about an invented one.
-SHIPPED = "75-virtual;80-virtual;86-real;89-real;120a-real;121a-real"
+# users actually receive rather than about an invented one. Since the recipe's
+# r6 every generation the pinned toolkit can emit is declared -real (a PTX
+# entry was measured to fail on a shipped machine whose driver was older than
+# the toolkit), so the shipped list carries no -virtual token; the reader keeps
+# its -virtual handling for a record that does carry one, and the fixture
+# cases below exercise it.
+SHIPPED = ("75-real;80-real;86-real;87-real;88-real;89-real;90-real;100-real;"
+           "103-real;110-real;120a-real;121a-real")
+SHIPPED_SET = {"75-real", "80-real", "86-real", "87-real", "88-real",
+               "89-real", "90-real", "100-real", "103-real", "110-real",
+               "120a-real", "121a-real"}
 
 
 class TargetListReaderTest(unittest.TestCase):
@@ -58,8 +67,7 @@ class TargetListReaderTest(unittest.TestCase):
                 self.assertEqual(
                     serving_device.cuda_build_gpu_targets(
                         _targets_file(self.tmp, text)),
-                    {"75-virtual", "80-virtual", "86-real", "89-real",
-                     "120a-real", "121a-real"})
+                    SHIPPED_SET)
 
     def test_a_missing_file_is_an_empty_set_not_an_exception(self):
         self.assertEqual(
