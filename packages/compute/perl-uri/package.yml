@@ -10,9 +10,8 @@ install_func: do_install
 # Shipped because /opt/rocm/bin/roc-obj-ls and /opt/rocm/bin/roc-obj-extract —
 # perl scripts installed by the rocm-hip recipe — both `use URI::Escape`, which
 # this distribution provides. The project's perl 5.42 does not carry it. Pure
-# perl; no compiler. URI/otpauth.pm additionally loads MIME::Base32, which the
-# project does not ship; no other URI module does, and neither ROCm tool parses
-# an otpauth: URI.
+# perl; no compiler. URI/otpauth.pm loads MIME::Base32, which perl-mime-base32
+# ships, so the whole distribution is loadable.
 source:
 - url: https://cpan.metacpan.org/authors/id/O/OA/OALDERS/URI-${version}.tar.gz
   sha256: 5a8750ddd8ee743d7cc89bebdd542a9b78a34023164ebe19dea0c248e121c21e
@@ -22,6 +21,7 @@ dependencies:
   host: []
   runtime:
   - perl
+  - perl-mime-base32
 verify_paths:
   - /usr/lib/perl5/5.42/site_perl/URI.pm
   - /usr/lib/perl5/5.42/site_perl/URI/Escape.pm

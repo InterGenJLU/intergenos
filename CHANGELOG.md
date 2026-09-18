@@ -47,6 +47,12 @@ landed is in the repository README, not here.
 
 ### Added
 
+- **The URI perl distribution is complete.** `URI/otpauth.pm`, one of the URI
+  modules the project ships, loads `MIME::Base32` when it is used, and the
+  project's perl did not carry that module, so that one documented URI scheme
+  died at load with `Can't locate MIME/Base32.pm in @INC`. The module is now
+  packaged from source (`perl-mime-base32`) and declared a runtime dependency
+  of `perl-uri`, so the whole distribution loads.
 - **An encrypted install offers a recovery key.** Until now an encrypted install
   ended with exactly one unlock credential. The installer now offers, on every
   encrypted install, to generate a recovery key on the machine, adds it as a

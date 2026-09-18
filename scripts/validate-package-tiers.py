@@ -548,6 +548,13 @@ COMPUTE_GPU_SDKS = {
     # which reads build and host dependencies only — has no edge to them.
     # rocm-hip is their only consumer today; retier when a broader one appears.
     "perl-file-which", "perl-uri",
+    # The base32 codec the URI distribution itself needs (decided 2026-09-18):
+    # URI/otpauth.pm loads MIME::Base32 at BEGIN, so without it that one
+    # documented URI scheme dies at load. It is declared as a RUNTIME
+    # dependency of perl-uri, which the tier inference does not read, so it
+    # lands here for the same reason the two names above do. perl-uri is its
+    # only consumer today; retier when a broader one appears.
+    "perl-mime-base32",
     # ROCm platform-completion wave (decided 2026-07-17: v1 = the full
     # user-facing platform, classes A-I + HIPIFY; rdc excluded).
     # Math-library set (rocm-libraries monorepo):

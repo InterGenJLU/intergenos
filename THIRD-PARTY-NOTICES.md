@@ -29,7 +29,7 @@ The aggregate ships on the installed system at
 ## Coverage summary
 
 
-**Total packages:** 1183
+**Total packages:** 1184
 
 **Distribution by tier:**
 
@@ -41,7 +41,7 @@ The aggregate ships on the installed system at
 | desktop | 473 |
 | extra | 218 |
 | ai | 58 |
-| compute | 54 |
+| compute | 55 |
 
 **Distribution by license (top 20):**
 
@@ -62,7 +62,7 @@ The aggregate ships on the installed system at
 | `Zlib` | 8 |
 | `LicenseRef-Public-Domain` | 7 |
 | `MIT OR Apache-2.0` | 7 |
-| `Artistic-1.0-Perl OR GPL-1.0-or-later` | 4 |
+| `Artistic-1.0-Perl OR GPL-1.0-or-later` | 5 |
 | `LGPL-2.1-or-later AND GPL-2.0-or-later` | 4 |
 | `BSL-1.0` | 4 |
 | `OFL-1.1` | 4 |
@@ -8027,6 +8027,13 @@ Perl module that finds an executable on the PATH (the perl equivalent of which)
 
 - License: `Artistic-1.0-Perl OR GPL-1.0-or-later`
 - Homepage: https://metacpan.org/pod/File::Which
+
+### perl-mime-base32 (1.303)
+
+Perl module for Base32 encoding and decoding (RFC 4648 and base32hex)
+
+- License: `Artistic-1.0-Perl OR GPL-1.0-or-later`
+- Homepage: https://metacpan.org/pod/MIME::Base32
 
 ### perl-uri (5.37)
 
