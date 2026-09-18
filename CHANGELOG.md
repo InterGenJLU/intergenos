@@ -148,6 +148,16 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **A refused archive install now exits non-zero.** `pkm install --archive`
+  checks the archive's SHA256 against the signed repository index. When it did
+  not match, the command printed `archive SHA256 does not match repository
+  index!`, refused to install, changed nothing — and exited 0. Anything that
+  reads the exit status, such as a build step or a script, was told the install
+  had succeeded while the package was not installed. Both refusing trust modes
+  (the default `strict` and `repo-only`) are now counted, the command ends with
+  a line naming each refused package and why, and it exits 1. The `loose`
+  override is unchanged: it is a deliberate choice, it still warns, and it still
+  proceeds.
 - **A staging build no longer opens the running system's package database.**
   The builder brackets a recipe's post-install hook with a baseline of the
   package's own file hashes and a comparison afterwards, so a file the hook

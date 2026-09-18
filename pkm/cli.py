@@ -1770,6 +1770,14 @@ def cmd_install(db, args):
     # than one advisory lost per-package in the install scroll).
     installed_this_txn = []
 
+    # Packages this transaction REFUSED, as (name, reason). A refusal used to
+    # print its error and `continue`, leaving nothing behind: the command then
+    # reached its end with an empty transaction and exited 0, so a caller — a
+    # script, a build step, a person reading $? — was told the install had
+    # succeeded while the package was not installed. An error message that the
+    # exit code contradicts is a silent failure with extra steps.
+    refused_this_txn = []
+
     for pkg_name in args.packages:
         archive = args.archive if len(args.packages) == 1 else None
 
@@ -1905,12 +1913,22 @@ def cmd_install(db, args):
                     "match the repository index. Use --archive-trust=loose "
                     "to override."
                 )
+                refused_this_txn.append((
+                    pkg_name,
+                    "the archive's SHA256 does not match the repository "
+                    "index (--archive-trust=repo-only)",
+                ))
                 continue
             elif trust_mode == "strict" and not repo_match:
                 reporter.error(
                     "--archive-trust=strict requires SHA256 match against "
                     "repository index. Use --archive-trust=loose to override."
                 )
+                refused_this_txn.append((
+                    pkg_name,
+                    "the archive's SHA256 does not match the repository "
+                    "index (--archive-trust=strict)",
+                ))
                 continue
             elif trust_mode == "loose":
                 reporter.warn(
@@ -2118,6 +2136,20 @@ def cmd_install(db, args):
     # never fails the transaction).
     if installed_this_txn:
         refresh_available_updates_after_transaction(db)
+
+    # A refused package means this command did not do what it was asked to do,
+    # whatever else it managed. Say so once, name each one and why, and exit
+    # non-zero — after the successful part of the transaction has reported
+    # itself, so a mixed run still tells the person what DID install.
+    if refused_this_txn:
+        reporter.blank()
+        reporter.error(
+            f"{len(refused_this_txn)} requested package(s) were refused and "
+            f"nothing was installed for them:"
+        )
+        for name, reason in refused_this_txn:
+            reporter.info(f"    {name}: {reason}")
+        sys.exit(1)
 
 
 def cmd_install_helper(db, args):
