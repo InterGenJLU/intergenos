@@ -204,11 +204,23 @@ class TheDaemonWiringTest(unittest.TestCase):
         import intergen.dbus_daemon as mod
         return Path(mod.__file__).read_text(encoding="utf-8")
 
-    def test_the_plan_is_given_the_pinned_size_when_there_is_one(self):
+    def test_the_plan_is_given_the_pinned_cards_memory_when_there_is_one(self):
+        """The plan is measured against the PINNED card, not the detector's.
+
+        The change of 2026-09-18 that made a display-driving card weigh its
+        FREE memory moved the expression this used to read: the daemon no
+        longer assigns the pinned card's total directly, it asks
+        ``serving_device.memory_to_plan_against`` which of the card's two
+        figures applies and takes the answer. The property under test is
+        unchanged and is what is pinned here — the figure the plan receives
+        comes from the pinned card's own reading, never from the hardware
+        detector's most-capable card.
+        """
         src = self._source()
         self.assertIn("if isinstance(_device_vram_mb, int) and _device_vram_mb > 0:",
                       src)
-        self.assertIn("_plan_vram_mb = _device_vram_mb", src)
+        self.assertIn("memory_to_plan_against(", src)
+        self.assertIn("total_mb=_device_vram_mb", src)
         self.assertIn("plan_for_model(vram_mb=_plan_vram_mb", src)
 
     def test_it_falls_back_to_the_detected_figure(self):

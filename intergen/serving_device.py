@@ -122,8 +122,14 @@ _DEFAULT_PREFERENCE: list[str] = ["vulkan"]
 # engine recipe applies (the id is ggml_backend_dev_props.device_id,
 # "domain:bus:device.function", printed only when the backend carries one), so
 # the tail is OPTIONAL by design — unpatched builds and id-less devices still
-# parse. intergen.hardware._LIST_DEVICES_RE is the same pattern minus the name
-# group; the two must change in lockstep.
+# parse. intergen.hardware._LIST_DEVICES_RE is the same pattern with neither
+# the name nor the free group captured; the two must change in lockstep.
+#
+# BOTH memory figures are captured, because the line carries both and the
+# offload plan needs to weigh the one the card can actually give it: on a card
+# that is painting the desktop the total is not available memory, and reading
+# the total alone declared a fit the card could not honour (measured
+# 2026-09-18: 7331 MiB required, 8176 MiB total, 6842 MiB free, "fits").
 #
 # THE DOMAIN IS ONE TO EIGHT HEX DIGITS, not exactly four. ggml's CUDA backend
 # builds that id with "%04x:%02x:%02x.0" (read out of the installed engine
@@ -138,7 +144,7 @@ _DEFAULT_PREFERENCE: list[str] = ["vulkan"]
 # which are what the kernel and every backend emit.
 _DEVICE_LINE_RE = re.compile(
     r"^\s+(?P<name>\w+?\d+):\s+(?P<desc>.+?)\s+\((?P<total>\d+)\s*MiB,"
-    r"\s*\d+\s*MiB free\)"
+    r"\s*(?P<free>\d+)\s*MiB free\)"
     r"(?:\s+\[PCI\s+(?P<pci>[0-9a-fA-F]{1,8}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}"
     r"\.[0-7])\])?\s*$", re.MULTILINE)
 
@@ -938,16 +944,19 @@ def _select_serving_candidate(list_output: str | None = None,
                               discrete_vram_mb: int | None = None,
                               server: str | None = None,
                               sysfs_root: str = "/sys"
-                              ) -> tuple[str, str | None, int | None] | None:
+                              ) -> tuple[str, str | None, int | None,
+                                         int | None] | None:
     """Pick the ggml device the SERVING model should pin on a multi-GPU box.
 
-    Returns ``(ggml name, PCI address or None, total MiB or None)`` — ONE
-    selection, read several ways by the public wrappers below, so the name, the
-    address and the card's SIZE can never come from different cards. It used to
-    return the name alone and throw the address away, which left the power hold
-    with nothing to aim at; it then threw the size away, which left the offload
-    plan measuring the hardware detector's most-capable card while the model
-    went onto whichever card was pinned.
+    Returns ``(ggml name, PCI address or None, total MiB or None, free MiB or
+    None)`` — ONE selection, read several ways by the public wrappers below, so
+    the name, the address and the card's TWO memory figures can never come from
+    different cards. It used to return the name alone and throw the address
+    away, which left the power hold with nothing to aim at; it then threw the
+    size away, which left the offload plan measuring the hardware detector's
+    most-capable card while the model went onto whichever card was pinned; it
+    then kept the total and threw the FREE figure away, which let the plan
+    declare a fit in memory the desktop was already holding.
 
     Policy: the hardware detector's most-capable DISCRETE card serves (its
     dedicated-VRAM size is the ground truth); the --list-devices entries whose
@@ -999,17 +1008,18 @@ def _select_serving_candidate(list_output: str | None = None,
         except (OSError, subprocess.TimeoutExpired):
             return None
 
-    candidates: list[tuple[str, str | None, int | None]] = []
+    candidates: list[tuple[str, str | None, int | None, int | None]] = []
     for m in _DEVICE_LINE_RE.finditer(list_output):
         total = int(m.group("total"))
         if abs(total - discrete_vram_mb) <= discrete_vram_mb * _DEVICE_VRAM_TOLERANCE:
-            candidates.append((m.group("name"), m.group("pci"), total))
+            candidates.append((m.group("name"), m.group("pci"), total,
+                               int(m.group("free"))))
     if not candidates:
         return None
 
-    for name, pci, total in candidates:
+    for name, pci, total, free in candidates:
         if pci is not None and _pci_drives_display(pci, sysfs_root) is False:
-            return (name, pci, total)
+            return (name, pci, total, free)
     return candidates[0]
 
 
@@ -1093,23 +1103,95 @@ def select_serving_device_name_pci_and_vram(
     """
     chosen = _select_serving_candidate(list_output, discrete_vram_mb, server,
                                        sysfs_root)
-    return chosen if chosen else (None, None, None)
+    return chosen[:3] if chosen else (None, None, None)
 
 
-def pci_and_vram_for_device_name(device_name: str,
-                                 list_output: str | None = None,
-                                 server: str | None = None
-                                 ) -> tuple[str | None, int | None]:
-    """``(PCI address, total MiB)`` for the device the engine calls
+def select_serving_device_name_pci_vram_and_free(
+        list_output: str | None = None,
+        discrete_vram_mb: int | None = None,
+        server: str | None = None,
+        sysfs_root: str = "/sys"
+        ) -> tuple[str | None, str | None, int | None, int | None]:
+    """All four readings of ONE selection: ``(ggml name, PCI address, total
+    MiB, free MiB)``.
+
+    The fourth element is what the card had left when the engine enumerated it.
+    It exists because the offload plan asks whether the model fits, and on a
+    card that is painting the desktop the total is not the answer to that
+    question: the desktop's framebuffers, its compositor and anything else
+    already resident hold the difference. Measured on a two-card workstation
+    2026-09-18 — 8176 MiB total, 6842 MiB free, a model needing 7331 MiB, and a
+    plan that declared a comfortable fit; the load then squeezed in with 155 MiB
+    to spare, which was luck, not a measurement.
+
+    Both figures come off the SAME line of the SAME enumeration that produces
+    the pin, so they cannot disagree about which card they describe.
+    :func:`memory_to_plan_against` is the one place that decides which of the
+    two the plan is weighed against.
+
+    None in any position means that part is unavailable and the caller must
+    fall back rather than guess.
+    """
+    chosen = _select_serving_candidate(list_output, discrete_vram_mb, server,
+                                       sysfs_root)
+    return chosen if chosen else (None, None, None, None)
+
+
+def memory_to_plan_against(total_mb: int | None, free_mb: int | None,
+                           drives_display: bool | None
+                           ) -> tuple[int | None, str]:
+    """Which of a card's two memory figures the offload plan must weigh, and
+    the words that say which one it was and why.
+
+    THE RULE. A card that is PROVABLY driving a display is weighed on its FREE
+    memory, because the desktop already holds the difference and a plan that
+    ignores that is planning against memory it cannot have. Everything else —
+    a display-free card, a card whose display state could not be read, a line
+    that carried no free figure — is weighed on the TOTAL, exactly as before.
+
+    WHY THE SECOND CLAUSE IS DELIBERATE. Shrinking the plan on an UNKNOWN
+    display state would change the answer on machines this defect never
+    touched: an engine build without the in-tree list-devices patch prints no
+    PCI address at all, so the display state of a perfectly ordinary
+    single-card machine is unknowable, and its plan must not move. Unknown is
+    not evidence, and this function never treats it as any.
+
+    The returned words are never empty and always name the card, so a recorded
+    plan can never state a figure without saying whose it is.
+    """
+    if drives_display is True and isinstance(free_mb, int):
+        return (free_mb,
+                "the free memory of the pinned card, which is driving a "
+                "display and is already holding the difference")
+    if drives_display is True:
+        return (total_mb,
+                "the total memory of the pinned card: it is driving a display, "
+                "but the engine reported no free figure for it")
+    if drives_display is False:
+        return (total_mb,
+                "the total memory of the pinned card, which is display-free")
+    return (total_mb,
+            "the total memory of the pinned card, whose display state could "
+            "not be read")
+
+
+def pci_vram_and_free_for_device_name(device_name: str,
+                                      list_output: str | None = None,
+                                      server: str | None = None
+                                      ) -> tuple[str | None, int | None,
+                                                 int | None]:
+    """``(PCI address, total MiB, free MiB)`` for the device the engine calls
     ``device_name`` — the OPERATOR PIN's reading of the same device line.
 
     A card named by hand in ``llama_server.device`` is the card the model goes
-    onto, so it is the card the offload plan has to be measured against. The
-    match is the ggml name EXACTLY as the engine prints it, with the same
-    no-guessing rule :func:`pci_for_device_name` documents: a name that is not
-    in the output yields ``(None, None)``, and a line that carries no PCI
-    suffix still yields its size, because the size is on every line while the
-    address needs the in-tree list-devices patch.
+    onto, so it is the card the offload plan has to be measured against — and
+    on that card the plan needs both figures for the same reason the automatic
+    selection does (:func:`memory_to_plan_against`). The match is the ggml name
+    EXACTLY as the engine prints it, with the same no-guessing rule
+    :func:`pci_for_device_name` documents: a name that is not in the output
+    yields all-None, and a line that carries no PCI suffix still yields its
+    memory figures, because both are on every line while the address needs the
+    in-tree list-devices patch.
     """
     if list_output is None:
         if server is None:
@@ -1119,11 +1201,25 @@ def pci_and_vram_for_device_name(device_name: str,
                                   capture_output=True, text=True, timeout=30)
             list_output = (proc.stdout or "") + (proc.stderr or "")
         except (OSError, subprocess.TimeoutExpired):
-            return (None, None)
+            return (None, None, None)
     for m in _DEVICE_LINE_RE.finditer(list_output):
         if m.group("name") == device_name:
-            return (m.group("pci"), int(m.group("total")))
-    return (None, None)
+            return (m.group("pci"), int(m.group("total")),
+                    int(m.group("free")))
+    return (None, None, None)
+
+
+def pci_and_vram_for_device_name(device_name: str,
+                                 list_output: str | None = None,
+                                 server: str | None = None
+                                 ) -> tuple[str | None, int | None]:
+    """``(PCI address, total MiB)`` for ``device_name`` — the two-value reading
+    of :func:`pci_vram_and_free_for_device_name`, kept for callers that need
+    nothing else. Both are ONE enumeration, so they cannot disagree.
+    """
+    pci, total, _free = pci_vram_and_free_for_device_name(
+        device_name, list_output, server)
+    return (pci, total)
 
 
 def pci_for_device_name(device_name: str, list_output: str | None = None,

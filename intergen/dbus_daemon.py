@@ -1552,9 +1552,11 @@ class InterGenDaemon(InterGenDBusInterface):
                 # There is no audition, no probe and no speed threshold.
                 from intergen.llama_manager import resolve_gpu_layers
                 from intergen.serving_device import (
+                    _pci_drives_display,
                     display_state_words,
-                    pci_and_vram_for_device_name,
-                    select_serving_device_name_pci_and_vram,
+                    memory_to_plan_against,
+                    pci_vram_and_free_for_device_name,
+                    select_serving_device_name_pci_vram_and_free,
                     select_serving_engine)
                 _hw = self._hardware_tier or {}
                 _gpu_vendor = _hw.get("gpu_vendor")
@@ -1595,26 +1597,30 @@ class InterGenDaemon(InterGenDBusInterface):
                 # different cards; on an operator pin the address is looked up
                 # by the pinned name EXACTLY, and an unresolvable name simply
                 # yields no hold rather than a guess.
-                # The card's SIZE comes out of the same selection, for the
-                # same reason its address does: the offload plan below decides
-                # whether the model fits, and it has to weigh the model against
-                # the card the model will actually go onto. It used to weigh it
-                # against the hardware detector's most-capable card, which on a
-                # machine with two different cards is a different card. The
-                # device pin itself is already read above, before the engine is
-                # chosen, because the engine gate needs it too.
+                # The card's TWO MEMORY FIGURES come out of the same selection,
+                # for the same reason its address does: the offload plan below
+                # decides whether the model fits, and it has to weigh the model
+                # against the card the model will actually go onto. It used to
+                # weigh it against the hardware detector's most-capable card,
+                # which on a machine with two different cards is a different
+                # card; it then weighed the pinned card's TOTAL, which on a card
+                # painting the desktop is memory the desktop is already holding.
+                # The device pin itself is already read above, before the engine
+                # is chosen, because the engine gate needs it too.
                 if isinstance(_cfg_device, str) and _cfg_device not in ("auto", ""):
                     _device = _cfg_device
-                    _device_pci, _device_vram_mb = (
-                        pci_and_vram_for_device_name(_device,
-                                                     server=_server_path)
-                        if _vulkan_present else (None, None))
+                    (_device_pci, _device_vram_mb, _device_free_mb) = (
+                        pci_vram_and_free_for_device_name(_device,
+                                                          server=_server_path)
+                        if _vulkan_present else (None, None, None))
                 elif _vulkan_present:
-                    (_device, _device_pci,
-                     _device_vram_mb) = select_serving_device_name_pci_and_vram(
-                        server=_server_path)
+                    (_device, _device_pci, _device_vram_mb,
+                     _device_free_mb) = \
+                        select_serving_device_name_pci_vram_and_free(
+                            server=_server_path)
                 else:
-                    _device, _device_pci, _device_vram_mb = None, None, None
+                    (_device, _device_pci, _device_vram_mb,
+                     _device_free_mb) = None, None, None, None
                 _cfg_gpu_layers = self._config.get("llama_server.gpu_layers", "auto")
                 _tier_level = _hw.get("level") if isinstance(_hw.get("level"), int) else None
                 # The fit measurement: the card's detected memory, the model's
@@ -1624,16 +1630,29 @@ class InterGenDaemon(InterGenDBusInterface):
                 _vram_mb = _hw.get("gpu_vram_mb")
                 if not isinstance(_vram_mb, int):
                     _vram_mb = None
-                # THE CARD THE PLAN IS MEASURED AGAINST. When a card was pinned
-                # and the engine reported its size, that is the card the model
-                # goes onto and the only card the fit means anything about.
-                # Otherwise the detected figure stands, exactly as before —
-                # and either way the choice is NAMED, in the log and in the
-                # trace row, so a recorded plan can never state a size without
-                # saying whose it is.
+                # The chosen card's display state is what the selection rested
+                # on (the serving model stays off the card painting the
+                # desktop), and it is read HERE, before the plan is made,
+                # because WHICH of the card's two memory figures the plan is
+                # weighed against depends on it.
+                _device_drives_display = (_pci_drives_display(_device_pci)
+                                          if _device_pci else None)
+                _device_display = (display_state_words(_device_pci)
+                                   if _device_pci else None)
+                # THE CARD THE PLAN IS MEASURED AGAINST, AND WHICH OF ITS TWO
+                # FIGURES. When a card was pinned and the engine reported its
+                # size, that is the card the model goes onto and the only card
+                # the fit means anything about; serving_device.
+                # memory_to_plan_against then decides between its total and its
+                # free memory, and returns the words for the choice. Otherwise
+                # the detected figure stands, exactly as before — and either way
+                # the choice is NAMED, in the log and in the trace row, so a
+                # recorded plan can never state a size without saying whose it
+                # is and which figure it was.
                 if isinstance(_device_vram_mb, int) and _device_vram_mb > 0:
-                    _plan_vram_mb = _device_vram_mb
-                    _vram_source = "the pinned card"
+                    _plan_vram_mb, _vram_source = memory_to_plan_against(
+                        total_mb=_device_vram_mb, free_mb=_device_free_mb,
+                        drives_display=_device_drives_display)
                 else:
                     _plan_vram_mb = _vram_mb
                     _vram_source = ("no card pinned" if _device is None else
@@ -1645,11 +1664,6 @@ class InterGenDaemon(InterGenDBusInterface):
                 _eff_gpu_layers = resolve_gpu_layers(_cfg_gpu_layers,
                                                      tier_level=_tier_level,
                                                      plan=_plan)
-                # The chosen card's display state is what the selection rested
-                # on (the serving model stays off the card painting the
-                # desktop), so the log names it beside the device.
-                _device_display = (display_state_words(_device_pci)
-                                   if _device_pci else None)
                 log.info("offload: llama_server.gpu_layers=%r (tier %s, card %s "
                          "MiB from %s) -> %d layers, engine %s (%s)%s; %s",
                          _cfg_gpu_layers, _tier_level,
@@ -1668,6 +1682,7 @@ class InterGenDaemon(InterGenDBusInterface):
                                "vram_mb_source": _vram_source,
                                "detected_vram_mb": _vram_mb,
                                "pinned_card_vram_mb": _device_vram_mb,
+                               "pinned_card_free_mb": _device_free_mb,
                                "device": _device,
                                "device_pci": _device_pci,
                                "device_display": _device_display,
