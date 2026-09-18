@@ -231,6 +231,17 @@ def main():
                         print(f"       $ {line}")
             print()
 
+    # A dry run is a preview and nothing else. Until 2026-09-17 the block above
+    # printed the phases and the build below ran anyway, so `--build --dry-run`
+    # was a real build — a person adding --dry-run to a build command to make it
+    # safe got the opposite of what the flag's name says. The chroot gate near
+    # the top of main() stays AHEAD of this exit: a tracked --build --dry-run
+    # outside the build chroot still refuses with exit 2, because a preview must
+    # not suggest the command would run there.
+    if do_build and dry_run:
+        print("\n==> Dry run: nothing was built. Remove --dry-run to run this build.")
+        sys.exit(0)
+
     # --- Execute build ---
     if do_build:
         print("\n==> Executing build\n")

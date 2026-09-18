@@ -86,13 +86,15 @@ cd /mnt/intergenos && python3 -m igos-build --only <name> --build --debug-verbos
 
 **Inside the chroot, or not at all.** That command is a *tracked* build: it writes package records to `/var/lib/igos/packages`, archives to `/var/lib/igos/archives` and staging to `/tmp/igos-staging`. Those are the chroot's own directories only when the builder runs inside the chroot. Typed on a live installed machine they are that machine's real package database, while the files being built deploy into `build/system` — the run deletes and overwrites installed package records for files that are not installed. Since 2026-09-17 the builder refuses: `scripts/chroot-enter.sh` sets `IGOS_BUILD_IN_CHROOT=1` and a tracked `--build` without it exits 2 with a message naming those three paths. On a live machine, outside the chroot, use `--stage-only` — it builds into the staging system root and touches none of them. `--dry-run` alone (no `--build`) is unaffected.
 
+**`--dry-run` never builds.** It prints the phases the build would run and exits 0. That is true whether or not `--build` is also given: before 2026-09-17 `--build --dry-run` printed the phases and then performed the real build, so adding `--dry-run` to a build command did the opposite of what its name says. The chroot refusal above still comes first — a tracked `--build --dry-run` outside the chroot exits 2 rather than printing a preview of a command that would not be allowed to run there.
+
 **`--debug-verbose` is mandatory here too.** It applies to every invocation of the builder, single-package builds included, not only the orchestrator.
 
 | Goal | Builder command (run inside the chroot, from `/mnt/intergenos`) |
 |---|---|
 | **One package** (deps must already be in the chroot) | `python3 -m igos-build --only <name> --build --debug-verbose --sources-dir /sources` |
 | **One whole tier** (`desktop`/`extra`/`compute`/`ai`) | `python3 -m igos-build --tier <tier> --build --debug-verbose --sources-dir /sources` |
-| **Preview only (no build)** | `python3 -m igos-build --only <name> --dry-run` |
+| **Preview only (no build)** | `python3 -m igos-build --only <name> --dry-run` (`--dry-run` never builds, with or without `--build`) |
 | **Skip already-built, unchanged-template packages** | add `--skip-built` |
 
 Builder flags (verified against `igos-build/__main__.py`, 2026-07-14): `--build`, `--only <name>`, `--tier <tier>`, `--sources-dir <dir>`, `--tracked` (accepted no-op — tracked deployment is the default), `--stage-only` (explicit opt-out: build into the staging system root with NO deploy/archive/registration), `--skip-built`, `--dry-run`, `--verbose`/`-v`, `--debug-verbose` (**always pass this on a real build**).
