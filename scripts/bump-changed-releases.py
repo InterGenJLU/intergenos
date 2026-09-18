@@ -38,8 +38,11 @@ against a half-staged source set; a declared-but-missing source_tree path also
 errors (fail-closed — a typo'd declaration would hash nothing).
 """
 import argparse
+import importlib.util
 import re
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -49,6 +52,94 @@ from parser import parse_template, discover_templates, TemplateError  # noqa: E4
 from content_hash import (  # noqa: E402
     content_fingerprint, sibling_shipped_bytes, url_basename, repo_root_of,
 )
+
+CONTENT_HASH_REL = "igos-build/content_hash.py"
+
+
+def _git(*args) -> tuple[int, str]:
+    """Run git in the repository and return (exit status, stdout)."""
+    p = subprocess.run(["git", *args], cwd=str(REPO_ROOT),
+                       capture_output=True, text=True)
+    return p.returncode, p.stdout
+
+
+def previous_definition_text(git=_git) -> tuple[str | None, str]:
+    """The COMMITTED content_hash.py that the current definition replaces.
+
+    Returns (source text, provenance). The text is None when the previous
+    definition cannot be derived, and the provenance then says why, so the
+    caller can refuse with a reason instead of guessing.
+
+    Why this is read from git rather than from a flag. --rebaseline used to
+    compute "the previous definition" as
+    `content_fingerprint(..., include_siblings=False)` — one hardcoded
+    expression of the one definition change it was written for (the 2026-08-05
+    sibling-files fold). Any LATER definition change therefore made it answer
+    about a definition that was already two changes old: on 2026-09-18, with
+    `gpu_targets` folded in, it refused all six trackable ROCm packages with
+    "content also changed under the previous fingerprint definition" while
+    --check, in the same tree, showed their content had not changed at all.
+    It failed closed, which is right, but its reason was false, and a tool that
+    refuses for a false reason teaches its user to reach past it.
+
+    The definition IS a file in this repository, so the previous one is a fact
+    git already holds:
+
+      * working tree copy modified against HEAD -> HEAD's copy is the previous
+        definition (the change being absorbed is the uncommitted one);
+      * working tree copy clean -> the previous definition is the copy at the
+        parent of the last commit that changed the file (the change being
+        absorbed is that commit).
+
+    LIMIT, stated rather than hidden: only this one file's definition is read
+    back. A definition change that also edits another module is not fully
+    reconstructed by this, and such a change must not be absorbed with
+    --rebaseline without re-reading it here first.
+    """
+    rc, _ = git("diff", "--quiet", "HEAD", "--", CONTENT_HASH_REL)
+    if rc == 1:
+        rc2, text = git("show", f"HEAD:{CONTENT_HASH_REL}")
+        if rc2 != 0:
+            return None, (f"git could not read HEAD:{CONTENT_HASH_REL}")
+        return text, (f"HEAD:{CONTENT_HASH_REL} — the working tree's copy is "
+                      f"modified, so HEAD holds the definition it replaces")
+    if rc != 0:
+        return None, (f"git could not compare {CONTENT_HASH_REL} against HEAD "
+                      f"(is this a git worktree?)")
+    rc3, out = git("log", "-1", "--format=%H", "--", CONTENT_HASH_REL)
+    last = out.strip()
+    if rc3 != 0 or not last:
+        return None, (f"no commit in this history changes {CONTENT_HASH_REL}, "
+                      f"so there is no previous definition to compare against")
+    rc4, text = git("show", f"{last}^:{CONTENT_HASH_REL}")
+    if rc4 != 0:
+        return None, (f"{last[:12]} is the commit that introduced "
+                      f"{CONTENT_HASH_REL} and it has no parent, so there is no "
+                      f"previous definition to compare against")
+    return text, (f"{last[:12]}^:{CONTENT_HASH_REL} — the copy before "
+                  f"{last[:12]}, the last commit that changed the definition")
+
+
+def load_fingerprint_fn(text: str, label: str):
+    """Load a content_hash.py source text and hand back its content_fingerprint.
+
+    The module is stdlib-only and duck-types its `pkg`, which is what makes a
+    historical copy loadable at all; it is executed from a temporary file that
+    is removed immediately, the loaded module object outliving it.
+    """
+    with tempfile.TemporaryDirectory() as td:
+        path = Path(td) / f"content_hash_{label}.py"
+        path.write_text(text)
+        spec = importlib.util.spec_from_file_location(
+            f"_content_hash_{label}", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    fn = getattr(module, "content_fingerprint", None)
+    if fn is None:
+        raise AttributeError(
+            "the previous definition has no content_fingerprint() to call")
+    return fn
+
 
 # `release:` is an int; capture the prefix + value + any trailing inline
 # comment (our release lines conventionally carry a why-comment, e.g.
@@ -157,9 +248,13 @@ def main() -> int:
                     help="report-only gate: exit 1 on any unbumped content change (no writes)")
     ap.add_argument("--rebaseline", action="store_true",
                     help="record the current fingerprint WITHOUT bumping, for a change "
-                         "to the fingerprint DEFINITION itself. Refuses any package whose "
-                         "content also changed under the old definition — that one is a "
-                         "real change and must bump. Cannot be combined with --check.")
+                         "to the fingerprint DEFINITION itself. The previous definition is "
+                         "read from the committed igos-build/content_hash.py, so any "
+                         "definition change is expressible, not only the one this flag was "
+                         "written for. Refuses the whole run when no definition changed, and "
+                         "refuses any package whose content also changed under the previous "
+                         "definition — that one is a real change and must bump. Cannot be "
+                         "combined with --check.")
     args = ap.parse_args()
 
     # --check promises to write nothing. --rebaseline exists to write. Passed
@@ -176,6 +271,36 @@ def main() -> int:
         ap.error("--rebaseline and --check cannot be combined: --check writes "
                  "nothing and --rebaseline exists to write. Run --check to see "
                  "what would move, then --rebaseline on its own to record it.")
+
+    # --rebaseline absorbs a change to the fingerprint DEFINITION, so it must
+    # first HAVE the previous definition. Derived once, before a single
+    # package.yml is opened, and the run refuses as a whole if it cannot be
+    # derived or if nothing about the definition actually changed — a
+    # re-baseline of a tree whose definition stands still would record real
+    # content changes as if they were free, which is the one thing this mode
+    # must never do.
+    previous_fingerprint = None
+    provenance = ""
+    if args.rebaseline:
+        prev_text, provenance = previous_definition_text()
+        if prev_text is None:
+            print(f"REFUSED: --rebaseline cannot derive the previous "
+                  f"fingerprint definition: {provenance}.", file=sys.stderr)
+            return 2
+        if prev_text == (REPO_ROOT / CONTENT_HASH_REL).read_text():
+            print(f"REFUSED: --rebaseline is for a change to the fingerprint "
+                  f"definition, and {CONTENT_HASH_REL} is identical to "
+                  f"{provenance}. Nothing here is a definition change, so any "
+                  f"drift is real content: run without --rebaseline so the "
+                  f"releases bump.", file=sys.stderr)
+            return 2
+        try:
+            previous_fingerprint = load_fingerprint_fn(prev_text, "previous")
+        except Exception as e:
+            print(f"REFUSED: the previous fingerprint definition "
+                  f"({provenance}) could not be loaded: {e}", file=sys.stderr)
+            return 2
+        print(f"Previous fingerprint definition read from {provenance}.")
 
     packages_dir = Path(args.packages_dir)
     sources_dir = Path(args.sources_dir)
@@ -240,14 +365,14 @@ def main() -> int:
             # did change, and it is refused here rather than quietly
             # re-baselined — which is the one way this flag could ever have
             # hidden something.
-            old_fp = content_fingerprint(pkg, sources_dir, include_siblings=False)
+            old_fp = previous_fingerprint(pkg, sources_dir)
             if old_fp != recorded:
                 errors.append(
                     f"{pkg.name}: refused — content also changed under the previous "
                     f"fingerprint definition (recorded {recorded[:12]}, "
-                    f"previous-definition {old_fp[:12]}). That is a content change "
-                    f"rather than a definition change; run without --rebaseline so the "
-                    f"release bumps.")
+                    f"previous-definition {old_fp[:12]}, read from {provenance}). "
+                    f"That is a content change rather than a definition change; run "
+                    f"without --rebaseline so the release bumps.")
                 continue
             text = _set_content_hash(text, fp)
             yml.write_text(text)
