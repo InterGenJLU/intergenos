@@ -11,6 +11,8 @@ depends on.
 """
 from __future__ import annotations
 
+import difflib
+import re
 import shutil
 import subprocess
 import sys
@@ -85,6 +87,88 @@ class TestCheckMode:
         assert _run(root, "--check").returncode == 2
         assert _run(root).returncode == 0
         assert _run(root, "--check").returncode == 0
+
+
+class TestDriftSizeIsARealDiff:
+    """The refusal's number is what changed, not how many lines moved.
+
+    The check once compared line N of the committed file against line N of the
+    freshly generated one. One package entry inserted in the middle shifts
+    every line after it, so a single added package was reported as "~768
+    differing lines" — a number that cannot be told apart from a corrupted
+    file, and that makes a person distrust the gate rather than read it.
+    """
+
+    @staticmethod
+    def _reported(stderr: str) -> tuple[int, int]:
+        m = re.search(r"\((\d+) line\(s\) added, (\d+) removed\)", stderr)
+        assert m, f"the refusal did not report a diff size: {stderr!r}"
+        return int(m.group(1)), int(m.group(2))
+
+    def test_a_two_line_change_reports_two_lines(self, tmp_path):
+        root = _fixture_repo(tmp_path)
+        assert _run(root).returncode == 0
+        yml = root / "packages" / "core" / "demo-lib" / "package.yml"
+        yml.write_text(PKG_YML
+                       .replace("license: MIT", "license: MIT-0")
+                       .replace("homepage: https://example.invalid/demo-lib",
+                                "homepage: https://example.invalid/demo"))
+        r = _run(root, "--check")
+        assert r.returncode == 2
+        added, removed = self._reported(r.stderr)
+        # Two lines were rewritten in place: two added, two removed. The
+        # license also appears once in the summary table, which is rewritten
+        # as one line too.
+        assert added == removed, r.stderr
+        assert added <= 4, r.stderr
+
+    def test_one_inserted_package_is_not_reported_as_the_whole_file(self, tmp_path):
+        root = _fixture_repo(tmp_path)
+        for name in ("mmm-lib", "zzz-lib"):
+            pkg = root / "packages" / "core" / name
+            pkg.mkdir(parents=True)
+            (pkg / "package.yml").write_text(
+                PKG_YML.replace("demo-lib", name))
+        assert _run(root).returncode == 0
+        before = (root / "THIRD-PARTY-NOTICES.md").read_text()
+
+        # bbb-lib sorts between demo-lib and mmm-lib, so its entry is INSERTED
+        # and every entry after it moves down — the exact shape that used to be
+        # counted as a whole-file difference.
+        pkg = root / "packages" / "core" / "bbb-lib"
+        pkg.mkdir(parents=True)
+        (pkg / "package.yml").write_text(PKG_YML.replace("demo-lib", "bbb-lib"))
+
+        r = _run(root, "--check")
+        assert r.returncode == 2
+        added, removed = self._reported(r.stderr)
+
+        assert _run(root).returncode == 0
+        after = (root / "THIRD-PARTY-NOTICES.md").read_text()
+        true_added = true_removed = 0
+        for line in difflib.unified_diff(before.splitlines(),
+                                         after.splitlines(),
+                                         n=0, lineterm=""):
+            if line.startswith("+++") or line.startswith("---"):
+                continue
+            if line.startswith("+"):
+                true_added += 1
+            elif line.startswith("-"):
+                true_removed += 1
+        assert (added, removed) == (true_added, true_removed), r.stderr
+
+        # And the number is small: the file is far longer than the change.
+        assert added < len(after.splitlines()) / 4, r.stderr
+
+    def test_the_refusal_still_forbids_a_hand_edit(self, tmp_path):
+        root = _fixture_repo(tmp_path)
+        assert _run(root).returncode == 0
+        yml = root / "packages" / "core" / "demo-lib" / "package.yml"
+        yml.write_text(PKG_YML.replace("license: MIT", "license: MIT-0"))
+        r = _run(root, "--check")
+        assert r.returncode == 2
+        assert "never hand-edit the file" in r.stderr
+        assert "generate-third-party-notices.py" in r.stderr
 
 
 class TestRealTree:

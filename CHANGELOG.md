@@ -148,6 +148,14 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **The attribution gate reports how big the change really is.** When the
+  generated `THIRD-PARTY-NOTICES.md` falls out of step with the recipes, the
+  check refuses and says how much differs. It compared line 1 with line 1,
+  line 2 with line 2, and so on, so adding a single package — whose entry is
+  inserted in the middle and moves every line after it — was reported as
+  "~768 differing lines". The message now reports what a real difference
+  contains: lines added and lines removed. The refusal itself, and the
+  instruction never to hand-edit the file, are unchanged.
 - **The ROCm object-listing tools start.** `/opt/rocm/bin/roc-obj-ls` and
   `/opt/rocm/bin/roc-obj-extract`, the two tools that list and extract the GPU
   code objects inside a compiled binary, are perl scripts. Both need the

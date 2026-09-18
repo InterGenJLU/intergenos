@@ -26,6 +26,7 @@ Usage:
 from __future__ import annotations
 
 import sys
+import difflib
 from collections import defaultdict
 from pathlib import Path
 
@@ -227,12 +228,26 @@ def main(check_only: bool = False) -> int:
             return 0
         committed_lines = committed.splitlines()
         fresh_lines = text.splitlines()
-        drift = sum(1 for a, b in zip(committed_lines, fresh_lines) if a != b)
-        drift += abs(len(committed_lines) - len(fresh_lines))
+        # The size is a real diff, not a positional comparison (decided
+        # 2026-09-18). Comparing line N against line N called every line after
+        # an inserted package entry a difference: adding one package reported
+        # "~768 differing lines" for a change that was 17 added and 3 removed,
+        # and a person reading that number cannot tell a one-package addition
+        # from a corrupted file. difflib counts what actually changed.
+        diff = difflib.unified_diff(committed_lines, fresh_lines, n=0,
+                                    lineterm="")
+        added = removed = 0
+        for line in diff:
+            if line.startswith("+++") or line.startswith("---"):
+                continue
+            if line.startswith("+"):
+                added += 1
+            elif line.startswith("-"):
+                removed += 1
         sys.stderr.write(
             f"[third-party-notices] DRIFT: the committed THIRD-PARTY-NOTICES.md "
             f"differs from what the generator produces at this tree "
-            f"(~{drift} differing lines).\n"
+            f"({added} line(s) added, {removed} removed).\n"
             f"Remedy: python3 scripts/generate-third-party-notices.py "
             f"&& git add THIRD-PARTY-NOTICES.md — never hand-edit the file.\n")
         return 2
