@@ -2489,6 +2489,20 @@ class ConversationRouter(RouterInterface):
         runs its own gate before executing) and for direct helper/test calls.
         """
         t0 = time.monotonic()
+        # WHETHER THIS TURN'S OWN TEXT FORBIDS TOOLS, READ ONCE, HERE.
+        #
+        # It is read at the top of the turn — before P0 decomposition — because
+        # P0 SPLITS the text, and a split destroys the fact. Measured
+        # 2026-09-18 on this lane's own tip: "Tell me the time and how much
+        # memory I have, without using any tools." decomposes into two clauses,
+        # the first of which ("Tell me the time") carries no prohibition at
+        # all, and each clause was then handed every tool schema. No per-clause
+        # reading can recover what the whole turn said; only a reading taken
+        # before the split can.
+        #
+        # Reset on EVERY turn, unconditionally, so a prohibition can never
+        # outlive the turn that asked for it and silence the next one.
+        self._turn_forbids_tools = turn_forbids_tools(user_input)
         # D-008 RFC §5.1 + temporal-watermark fix (audit 2026-05-29): reset the
         # PER-TURN ingress window at each turn boundary, but PRESERVE the
         # per-conversation window across turns. reset() clears same-turn fires
@@ -2980,7 +2994,9 @@ class ConversationRouter(RouterInterface):
         # The reading is decomposer.turn_forbids_tools, which reuses the same
         # negation spans the splitter uses and recognises only a closed list of
         # generic prohibitions, so a turn forbidding ONE file still gets tools.
-        _forbidden = turn_forbids_tools(user_input)
+        # It was taken ONCE at the top of this turn, before P0 could split the
+        # text, and is reused here rather than re-read — one turn, one reading.
+        _forbidden = getattr(self, "_turn_forbids_tools", False)
         if _locked:
             eligible_for_tools = False
             eligibility_reason = "locked_floor_code_owned"
@@ -5242,6 +5258,34 @@ class ConversationRouter(RouterInterface):
         if getattr(self, "_lock_dispatch", True):
             get_tracer().current_span().set_attribute(
                 "dispatch_locked_p3_skipped", True)
+            return RouteResult(handled=False)
+        # A TURN WHOSE OWN TEXT FORBIDS TOOLS IS GATED HERE TOO — AT THE
+        # CHOKEPOINT, NOT AT ONE CALL SITE.
+        #
+        # route()'s eligibility block withholds the schemas on the top-level
+        # path, and that is where this reading started. It is not enough: the
+        # compound path runs BEFORE that block (route() -> P0 ->
+        # _handle_compound -> _route_single -> here), which is the same
+        # ungated seam the dispatch lockdown's own comment above names.
+        # Measured 2026-09-18 at this lane's tip, with the real decomposer and
+        # a recording model: a compound turn ending "without using any tools."
+        # was split in two and each clause was handed all nine schemas.
+        #
+        # TWO READINGS, EITHER OF WHICH CLOSES IT. The per-turn flag carries
+        # what the WHOLE turn said, which is the only place a split clause's
+        # prohibition still exists. The direct reading of the text handed in
+        # covers the callers that do not come from this turn's route() at all —
+        # the memory-complaint re-route hands _route_single an EARLIER turn's
+        # text, and that text is what the model would be answering.
+        #
+        # Withholding is not refusing: the clause falls through to P4 freeform
+        # and is answered from the model, which is what was asked for.
+        if (getattr(self, "_turn_forbids_tools", False)
+                or turn_forbids_tools(user_input)):
+            get_tracer().current_span().set_attribute(
+                "turn_text_forbids_tools_p3_skipped", True)
+            self._trail_note("llm_tools", "rejected",
+                             reason="turn_text_forbids_tools")
             return RouteResult(handled=False)
         # Goal-2 grounding on the TOOL path too. F-2 routes imperative requests
         # ("list the printers") here, but without the curated capability facts

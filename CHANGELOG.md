@@ -182,6 +182,15 @@ landed is in the repository README, not here.
   commands", "access files", "search the web") and nothing else, so a request
   that forbids one particular file still gets every tool. Across the 885
   conversation turns this project keeps for testing, not one loses its tools.
+  The reading now covers every path from a turn to the model, a SPLIT turn
+  included. A request with more than one part is divided into its parts before
+  anything else happens, and each part used to be handed the tool descriptions
+  on its own — so "Tell me the time and how much memory I have, without using
+  any tools." was split in two and offered every tool twice, and the first
+  part, read by itself, carried no prohibition at all to notice. The turn is
+  therefore read once, whole, before it can be divided, and the one place that
+  offers the tool descriptions to the model checks that reading, so no route to
+  the model can get around it.
 - **A graphics card behind a Thunderbolt or VMD bridge is no longer invisible
   to the serving-card selection.** Each engine's device listing carries a
   `[PCI domain:bus:device.function]` tail, and the two readers of that listing

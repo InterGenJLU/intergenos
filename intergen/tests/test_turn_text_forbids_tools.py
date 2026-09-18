@@ -38,6 +38,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+import intergen.glass as glass_mod
 import intergen.trace as trace_mod
 from intergen.decomposer import turn_forbids_tools
 from intergen.interfaces.types import RouteResult
@@ -153,7 +154,18 @@ class ForbiddenTurnGetsNoSchemasTests(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
         self.state = self._tmp.name
+        # The glass log writes under XDG_STATE_HOME/intergen, and glass._glass
+        # is a module-level singleton that resolves its path ONCE. Without the
+        # directory and the reset this run printed 71 "glass write failed"
+        # lines — first because the directory did not exist, then because a
+        # later test inherited an earlier one's temporary directory after it
+        # had been removed. The assertions below are untouched; this is the
+        # harness telling the truth about its own environment, so a reader of
+        # the output is never taught to skim past errors.
+        os.makedirs(os.path.join(self.state, "intergen"), exist_ok=True)
         self.addCleanup(self._tmp.cleanup)
+        self.addCleanup(setattr, glass_mod, "_glass", None)
+        glass_mod._glass = None
         self.addCleanup(setattr, trace_mod, "_tracer", None)
         self.registry = ToolRegistry()
         self.registry.discover_tools()
