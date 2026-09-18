@@ -27,6 +27,7 @@ The tests come in three kinds:
     baseline, and the enumeration this fold depends on matches what git
     actually tracks, so "tracked" is checked rather than assumed.
 """
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -190,9 +191,47 @@ class RebaselineModeIsNotABypass(unittest.TestCase):
         (d / "hooks" / "post-install.sh").write_text(hook_text)
         return d
 
-    def _run(self, td: Path, *args):
+    def _repo(self, td: Path):
+        """A throwaway git repository holding a copy of the tool and of the
+        fingerprint definition it reads.
+
+        The mode derives the PREVIOUS definition from the committed copy of
+        igos-build/content_hash.py, so the tool has to be exercised somewhere
+        that has a history of its own. Pointed at a temporary --packages-dir
+        while running out of this checkout, it would read THIS repository's
+        git state, where no definition change is being made, and refuse before
+        it ever reached a package — which is correct behaviour and useless for
+        testing what this class exists to test.
+        """
+        repo = td / "repo"
+        (repo / "scripts").mkdir(parents=True)
+        shutil.copy2(REPO_ROOT / "scripts" / "bump-changed-releases.py",
+                     repo / "scripts" / "bump-changed-releases.py")
+        shutil.copytree(REPO_ROOT / "igos-build", repo / "igos-build",
+                        ignore=shutil.ignore_patterns("__pycache__"))
+        git = ["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid",
+               "-C", str(repo)]
+        subprocess.run(git[:1] + ["-C", str(repo), "init", "-q"], check=True)
+        subprocess.run(git + ["add", "-A"], check=True,
+                       stdout=subprocess.DEVNULL)
+        subprocess.run(git + ["commit", "-q", "-m", "base", "--no-verify"],
+                       check=True, stdout=subprocess.DEVNULL)
+        return repo
+
+    def _change_the_definition(self, repo: Path):
+        """Make a real, uncommitted change to the fingerprint definition, so
+        the mode has something to absorb and HEAD holds the previous one."""
+        f = repo / "igos-build" / "content_hash.py"
+        text = f.read_text()
+        marker = "_BUILD_AFFECTING_YML_KEYS = ("
+        assert marker in text, "the definition moved; this fixture needs updating"
+        head, _, tail = text.partition(marker)
+        f.write_text(head + marker + '"description", ' + tail)
+
+    def _run(self, td: Path, *args, repo: Path = None):
+        script = ((repo or REPO_ROOT) / "scripts" / "bump-changed-releases.py")
         return subprocess.run(
-            [sys.executable, str(REPO_ROOT / "scripts" / "bump-changed-releases.py"),
+            [sys.executable, str(script),
              "--packages-dir", str(td / "packages"),
              "--sources-dir", str(td / "sources"), *args],
             capture_output=True, text=True, errors="replace")
@@ -201,10 +240,12 @@ class RebaselineModeIsNotABypass(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             td = Path(tmp)
             (td / "sources").mkdir()
+            repo = self._repo(td)
+            self._change_the_definition(repo)
             # A baseline that matches NEITHER definition: this package's own
             # content moved, which --rebaseline must not quietly absorb.
             self._tree(td, "echo changed\n", recorded="0" * 16)
-            r = self._run(td, "--rebaseline")
+            r = self._run(td, "--rebaseline", repo=repo)
             self.assertNotEqual(r.returncode, 0,
                                 f"stdout={r.stdout}\nstderr={r.stderr}")
             # Assert on what the refusal MEANS, not on one prose fragment: the
