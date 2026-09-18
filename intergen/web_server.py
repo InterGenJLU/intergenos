@@ -2000,17 +2000,21 @@ class WebServer:
             "model_name": model_display or "local",
         })
 
-        # Hop-1 ack (perceived-latency): the instant a turn commits to the tool
-        # path, greet the user so the slow LLM/tool round-trip doesn't feel like
-        # a silent stall. Tool turns inherently route + execute + synthesize, so
-        # they are always in the medium/slow band. The line asserts nothing, so
-        # it composes with success, a gate prompt, or a refusal alike.
-        if route_result.source == "llm_tools" and self._filler.available:
-            await ctx.ws.send_json({
-                "type": "tool_ack",
-                "turn_id": turn_id,
-                "text": self._filler.hop1(),
-            })
+        # The hop-1 ack is NOT sent here. It used to be, on the strength of the
+        # route alone: the instant route_result.source was "llm_tools" the
+        # client was told the machine was off looking something up. But that
+        # route means tools were OFFERED to the model, not that the model
+        # called one, and on this tier most tool-route turns are answered
+        # straight from the model with no tool at all. Measured against the
+        # running assistant on 2026-09-18: every llm_tools turn in the
+        # fourteen-question web battery emitted the ack and not one of them
+        # executed a tool, including "Calculate 17 times 23 mentally. Reply
+        # with the number only. Do not use tools, run commands, access files,
+        # or contact external services." — answered 391, correctly, under a
+        # line promising the user an action the person had just forbidden and
+        # the machine never took. A frame that says an action is under way is
+        # a claim, and it is now made where it is true: at the first real tool
+        # call, in _process_llm_stream.
 
         collected_tokens: list[str] = []
         tool_calls_made: list[ToolCall] = []
@@ -2348,6 +2352,21 @@ class WebServer:
             elif isinstance(item, ToolCall):
                 # Tool call detected mid-stream — handle with gate
                 tool_calls_made.append(item)
+
+                # Hop-1 ack (perceived-latency), sent HERE and once per turn,
+                # because this is the first moment the turn is known to be
+                # taking an action rather than merely permitted to. The line
+                # still asserts nothing about the OUTCOME, so it composes with
+                # success, a gate prompt and a refusal alike — including the
+                # two refusals immediately below, where the turn did ask for an
+                # action. What it no longer does is appear on a turn that
+                # resolves without executing anything.
+                if len(tool_calls_made) == 1 and self._filler.available:
+                    await ctx.ws.send_json({
+                        "type": "tool_ack",
+                        "turn_id": turn_id,
+                        "text": self._filler.hop1(),
+                    })
 
                 # ── FORBIDDEN (gating model §3/§5/§6) ──────────────────────
                 # A Z3 write/state-change — system-critical files OR InterGen's

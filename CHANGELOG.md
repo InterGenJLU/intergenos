@@ -174,6 +174,22 @@ landed is in the repository README, not here.
   whichever card the automatic selection would have taken, which wrote a
   contradicting decision into the log and would have refused a working engine to
   any caller that reached it.
+- **A turn that runs no tool no longer says it is running one.** The browser
+  server sent its "let me look that up" acknowledgement the instant the router
+  routed a turn to the tool path. That route means tools were OFFERED to the
+  model, not that the model called one, and on the shipped small-model tier most
+  such turns are answered straight from the model with no tool at all. Measured
+  against the running assistant on 2026-09-18: every tool-route question in the
+  fourteen-question browser battery showed the line, and not one of them ran a
+  tool. The plainest case is the battery's own no-action question — "Calculate
+  17 times 23 mentally. Reply with the number only. Do not use tools, run
+  commands, access files, or contact external services." — which was answered
+  391, correctly and with no tool, underneath a line promising the person an
+  action they had just forbidden. The line is now sent at the first real tool
+  call instead, once per turn. It still says nothing about the outcome, so it
+  still appears when the action is then refused or held for consent — a turn
+  that asks for an action did ask for it. The browser panel and the terminal
+  client read the same message, so both are corrected by the one change.
 - **A refused archive install now exits non-zero.** `pkm install --archive`
   checks the archive's SHA256 against the signed repository index. When it did
   not match, the command printed `archive SHA256 does not match repository
