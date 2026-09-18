@@ -584,7 +584,34 @@ def print_status(status: dict) -> None:
         print(f"  and recorded ({ec.get('denials', 0)} so far this session).")
         print("  Unattended-baseline only — never a production posture.")
         print("-" * 40)
-    print(f"  Running:    {status.get('running', False)}")
+    # WHAT "Running" MEANS. The daemon process being alive is not what anyone
+    # runs this command to find out. A person asks whether the assistant WORKS,
+    # and a daemon can be perfectly alive while nothing on the machine can
+    # generate a reply — seen twice on real hardware: once with an engine
+    # binary moved aside (the daemon logged the absent binary as an ERROR,
+    # warned that the server failed to start, chose another engine, and still
+    # never bound a chat server) and once after an ordinary restart, with
+    # nothing moved at all. Both times this line read `Running: True` and the
+    # next one read `Last Error: None`, while the component marker two inches
+    # below read `[-] llama_server` and every request failed.
+    #
+    # The payload already carried the truth: the daemon computes
+    # `model_server_down` precisely so a unit reporting itself active while
+    # nothing can answer is queryable. The renderer threw it away. It no longer
+    # does — when the chat server is down this line says DEGRADED, and the
+    # reason reaches Last Error below instead of being replaced by None.
+    #
+    # The daemon-down case keeps its own statement: "no daemon at all" and "a
+    # daemon with no chat server" are different facts and must not collapse
+    # into one word.
+    server_down = status.get("model_server_down")
+    if status.get("daemon_down") or not status.get("running", False):
+        print(f"  Running:    {status.get('running', False)}")
+    elif server_down:
+        print("  Running:    DEGRADED — the daemon is up but the chat model "
+              "server is not")
+    else:
+        print(f"  Running:    {status.get('running', False)}")
     print(f"  Version:    {status.get('version', 'unknown')}")
 
     tier = status.get("tier")
@@ -609,7 +636,17 @@ def print_status(status: dict) -> None:
     # start; rendering it here makes "is my GPU being used" a first-party grounded
     # answer, not a claim the user can only check via nvidia-smi. Shown if present.
     offload = status.get("offload")
-    if isinstance(offload, dict) and offload:
+    if isinstance(offload, dict) and offload and server_down:
+        # The offload record describes a chat server. When there is no chat
+        # server the record's nulls are not a CPU fallback, and rendering them
+        # through the ordinary path said so anyway: the second real sighting
+        # printed "unknown, ? layers on CPU" while nothing was serving at all.
+        # Every word was defensible from the record and the sentence was false.
+        # Say what is true instead, and keep the numbers out of it — they
+        # describe a server that is not there.
+        print("  Offload:    not serving — the chat model server is not "
+              "running")
+    elif isinstance(offload, dict) and offload:
         backend = offload.get("backend", "?")
         n = offload.get("offloaded_layers")
         total = offload.get("total_layers")
@@ -691,7 +728,28 @@ def print_status(status: dict) -> None:
         print("  Logs:       journalctl --user -u intergen -n 50")
 
     print(f"  Requests:   {status.get('requests_handled', 0)}")
-    print(f"  Last Error: {status.get('last_error', 'none')}")
+    # The chat server's failure is an error the user needs, and leaving this
+    # line reading None beside a dead server is what made a broken machine look
+    # like a healthy one. Both facts are real and neither may overwrite the
+    # other: a router failure recorded in last_error and a chat server that
+    # will not start are different problems, and a person debugging needs both.
+    # When the daemon recorded no reason, saying so is honest; saying None is
+    # not.
+    recorded_error = status.get("last_error")
+    if server_down:
+        if recorded_error:
+            print(f"  Last Error: {recorded_error}")
+            print(f"              {server_down}")
+        else:
+            print(f"  Last Error: {server_down}")
+    else:
+        print(f"  Last Error: {recorded_error}")
+
+    # The same pointer the daemon-down path gives, for the same reason: the
+    # journal holds the ERROR and the WARNING this one line summarises, and a
+    # degraded report that does not say where to look is half a report.
+    if server_down and not status.get("daemon_down"):
+        print("  Logs:       journalctl --user -u intergen -n 50")
 
     components = status.get("components", {})
     if components:
