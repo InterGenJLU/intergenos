@@ -73,8 +73,8 @@ EXEMPT_FILES = {
 # record it. A wrong number here is not a style complaint: it means the one
 # place the gate cannot see grew, and nobody said so.
 SELF_EXEMPT_LINE_COUNTS = {
-    "scripts/check-license-spelling.py": 21,
-    "tests/preflight/test_license_spelling_gate.py": 31,
+    "scripts/check-license-spelling.py": 22,
+    "tests/preflight/test_license_spelling_gate.py": 32,
 }
 
 
@@ -124,6 +124,31 @@ def test_an_exemption_does_not_cover_a_new_sentence_in_the_same_file(tmp_path):
     result = _run(root)
     assert result.returncode == 1
     assert "packages/extra/wxwidgets/package.yml:2" in result.stdout
+
+
+def test_a_tree_line_that_names_two_upstream_files_is_accepted(tmp_path):
+    """The firmware recipe installs two upstream files on one line. Each is its
+    own named exemption, and the markers come out longest first, so neither one
+    leaves a fragment that reads as this project's own word."""
+    root = _repo(tmp_path, EXEMPT_FILES)
+    result = _run(root)
+    assert result.returncode == 0, result.stdout
+    assert "sof-firmware" not in result.stdout
+
+
+def test_a_tree_line_keeps_only_the_names_it_quotes(tmp_path):
+    """The masking case, on the tree surface: a line that quotes an upstream
+    name may not also use the word this project does not use. Until the two
+    surfaces were aligned this line passed, because an exempted line was
+    exempt whole."""
+    files = dict(EXEMPT_FILES)
+    files["packages/extra/wxwidgets/package.yml"] = (
+        "# upstream license file is docs/licence.txt, and our own licence note "
+        "sits beside it.\n")
+    root = _repo(tmp_path, files)
+    result = _run(root)
+    assert result.returncode == 1
+    assert "packages/extra/wxwidgets/package.yml:1" in result.stdout
 
 
 def test_a_stale_exemption_is_a_setup_error_not_a_pass(tmp_path):

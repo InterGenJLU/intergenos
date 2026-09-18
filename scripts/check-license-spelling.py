@@ -62,10 +62,11 @@ class Exemption:
     """One named piece of somebody else's text, and why it may keep its spelling.
 
     `path` is exact and relative to the repository root. `marker` is the exact
-    text on the line that makes the line theirs rather than ours — an upstream
-    file name, a metadata directory name, a quoted line. A line in that file is
-    exempt only when it contains that marker, so a new sentence in the same file
-    is still gated.
+    text that makes those characters theirs rather than ours — an upstream file
+    name, a metadata directory name, a quoted line. The exemption covers the
+    marker's own characters and nothing else: a line in that file is read again
+    with them removed, so a new sentence on the same line, or anywhere else in
+    the file, is still gated.
 
     `whole_file` names a file whose every line is somebody else's (a bundled
     data file); it still has to exist.
@@ -78,26 +79,17 @@ class Exemption:
         self.marker = marker
         self.whole_file = whole_file
 
-    def covers(self, path, line):
-        if path != self.path:
-            return False
-        if self.whole_file:
-            return True
-        return self.marker in line
+    def covers_whole_file(self, path):
+        """Whether this exemption takes a file out of the scan entirely."""
+        return self.whole_file and path == self.path
 
-    def quotes_in(self, line):
-        """The marker's own characters, where this exemption reaches a line.
+    def reaches_lines_of(self, path):
+        """Whether this exemption's marker may be quoted in that file's lines.
 
-        Used on the commit-message surface, which has no file: only the marker
-        can carry an exemption there, and it is matched exactly as written.
-
-        A whole-file exemption reaches nothing here and returns nothing. It is
-        a statement about one file's bytes, and a commit message is not that
-        file; naming the file in a message does not carry the exemption along.
+        A whole-file exemption reaches no individual line: it has already taken
+        the file out of the scan, and it names no marker to quote.
         """
-        if self.whole_file or self.marker is None:
-            return None
-        return self.marker if self.marker in line else None
+        return not self.whole_file and self.marker is not None and path == self.path
 
 
 EXEMPTIONS = [
@@ -107,6 +99,13 @@ EXEMPTIONS = [
         marker="LICENCE.Intel",
         reason="the file names inside Intel's own firmware tarball; the recipe "
                "installs them by name and a corrected spelling installs nothing"),
+    Exemption(
+        name="sof-firmware-upstream-licence-nxp",
+        path="packages/core/sof-firmware/build.sh",
+        marker="LICENCE.NXP",
+        reason="the second file name inside the same firmware tarball, installed "
+               "on the line beside Intel's; named separately because an "
+               "exemption covers the characters it names and no others"),
     Exemption(
         name="python-metadata-licence-files-directory",
         path="igos-build/license_bundle.py",
@@ -185,6 +184,13 @@ def git(args, root):
     return proc.stdout
 
 
+# Every marker there is. A commit message has no file, so only the marker can
+# carry an exemption there; the two whole-file exemptions name none and reach
+# nothing in a message, which is deliberate — a whole-file exemption is a
+# statement about one file's bytes, and a message is not that file.
+MESSAGE_EXEMPTIONS = [x for x in EXEMPTIONS if not x.whole_file]
+
+
 def tracked_text_files(root):
     """Every tracked file git does not call binary, and the binaries it does."""
     names = [n for n in git(["ls-files", "-z"], root).split("\0") if n]
@@ -212,26 +218,34 @@ def scan_tree(root):
             content = (root / name).read_text(encoding="utf-8", errors="strict")
         except (OSError, UnicodeDecodeError) as e:
             raise SystemExit(f"[license-spelling] cannot read {name}: {e}")
+        if any(x.covers_whole_file(name) for x in EXEMPTIONS):
+            continue
+        covering = [x for x in EXEMPTIONS if x.reaches_lines_of(name)]
         for number, line in enumerate(content.splitlines(), start=1):
             if not BRITISH.search(line):
                 continue
-            if any(x.covers(name, line) for x in EXEMPTIONS):
+            if not BRITISH.search(outside_the_quoted_names(line, covering)):
                 continue
             findings.append((name, number, line.strip()))
     return findings, binary
 
 
-def outside_the_quoted_names(line):
-    """What is left of a commit-message line once every named marker it quotes
-    is taken out of it.
+def outside_the_quoted_names(line, exemptions):
+    """What is left of a line once every named marker it quotes is taken out.
 
-    An exemption covers the marker it names and nothing else, so the line is
-    read again with those characters removed: a message may quote `LICENCE` or
-    `licence-files` while explaining why they are exempt, and the same line may
-    not also use the word this project does not use. Longest marker first, so
-    `LICENCE.Intel` is taken out whole rather than leaving `.Intel` behind.
+    This is the one rule both surfaces use. An exemption covers the marker it
+    names and nothing else, so the line is read again with those characters
+    removed: a file or a commit message may quote `LICENCE` or `licence-files`
+    while saying what they are, and the same line may not also use the word
+    this project does not use. Longest marker first, so `LICENCE.Intel` is
+    taken out whole rather than leaving `.Intel` behind, and a line that names
+    two upstream files is covered for both of them.
+
+    `exemptions` is the set whose markers may be quoted here: the ones naming
+    that file, for a tree line, and every marker there is, for a commit message
+    — a message has no file, so only the marker can carry the exemption.
     """
-    markers = sorted((x.marker for x in EXEMPTIONS if x.marker),
+    markers = sorted({x.marker for x in exemptions if x.marker},
                      key=len, reverse=True)
     for marker in markers:
         line = line.replace(marker, " ")
@@ -248,7 +262,7 @@ def scan_commit_messages(rng, root):
         for number, line in enumerate(body.splitlines(), start=1):
             if not BRITISH.search(line):
                 continue
-            if not BRITISH.search(outside_the_quoted_names(line)):
+            if not BRITISH.search(outside_the_quoted_names(line, MESSAGE_EXEMPTIONS)):
                 continue
             findings.append((f"commit {sha.strip()[:12]}", number,
                              line.strip()))
