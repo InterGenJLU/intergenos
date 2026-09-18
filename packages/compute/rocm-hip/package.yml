@@ -1,6 +1,6 @@
 name: rocm-hip
 version: "7.2.4"
-release: 4  # r4: rocprofiler-register is declared as a RUNTIME dependency, not only a build one. libamdhip64.so records librocprofiler-register.so.0 in its own DT_NEEDED, so every program that loads the HIP runtime needs that library present — and nothing on an installed machine pulled it, because no installed package named it. Measured on the R001.1 install of 2026-08-22: the library was absent, and all eighty programs under /opt/rocm/bin, the inference server among them, exited at the dynamic linker with "librocprofiler-register.so.0: cannot open shared object file". The package was published on the mirror and installable the whole time; only the declaration was missing.  # r3: /usr/bin symlinks for hipcc + hipconfig so bare-name callers resolve them in every exec context (the sibling rocminfo r2 finding: /opt/rocm/bin is on no default PATH, a service subprocess call finds nothing, and the failure is silent). Bumped BY HAND, same reason as rocminfo r2: this recipe pins upstream tarballs and ships no first-party sibling files, so bump-changed-releases.py does not track it and no instrument catches changed bytes at an unchanged (version,release) here. r2: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21).
+release: 5  # r5: perl-file-which and perl-uri are declared as RUNTIME dependencies. This recipe installs /opt/rocm/bin/roc-obj-ls and /opt/rocm/bin/roc-obj-extract, which are perl scripts that "use File::Which" and "use URI::Escape". The project's perl 5.42 carries neither module, so both tools died at BEGIN on every installed machine ("Can't locate File/Which.pm in @INC", measured on two R001.2 installs 2026-09-17). The two modules are now shipped as packages and named here, where the tools are shipped. Bumped BY HAND for the reason the r4 note gives: this recipe pins upstream tarballs and ships no first-party sibling files, so bump-changed-releases.py does not enumerate it.  # r4: rocprofiler-register is declared as a RUNTIME dependency, not only a build one. libamdhip64.so records librocprofiler-register.so.0 in its own DT_NEEDED, so every program that loads the HIP runtime needs that library present — and nothing on an installed machine pulled it, because no installed package named it. Measured on the R001.1 install of 2026-08-22: the library was absent, and all eighty programs under /opt/rocm/bin, the inference server among them, exited at the dynamic linker with "librocprofiler-register.so.0: cannot open shared object file". The package was published on the mirror and installable the whole time; only the declaration was missing.  # r3: /usr/bin symlinks for hipcc + hipconfig so bare-name callers resolve them in every exec context (the sibling rocminfo r2 finding: /opt/rocm/bin is on no default PATH, a service subprocess call finds nothing, and the failure is silent). Bumped BY HAND, same reason as rocminfo r2: this recipe pins upstream tarballs and ships no first-party sibling files, so bump-changed-releases.py does not track it and no instrument catches changed bytes at an unchanged (version,release) here. r2: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21).
 description: HIP runtime and compiler driver for AMD GPUs (CLR/hipamd + hipcc/hipconfig)
 license: MIT
 homepage: https://github.com/ROCm/rocm-systems
@@ -52,6 +52,11 @@ dependencies:
   # DT_NEEDED. It was declared as a build dependency only, so the library was
   # linked at build time and never installed on a user's machine.
   - rocprofiler-register
+  # roc-obj-ls and roc-obj-extract are perl scripts this recipe installs under
+  # /opt/rocm/bin; they use File::Which and URI::Escape, which perl 5.42 does
+  # not carry. Without these two the tools exit at BEGIN on every machine.
+  - perl-file-which
+  - perl-uri
 verify_paths:
   - /opt/rocm/lib/libamdhip64.so
   - /opt/rocm/bin/hipcc

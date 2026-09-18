@@ -29,7 +29,7 @@ The aggregate ships on the installed system at
 ## Coverage summary
 
 
-**Total packages:** 1181
+**Total packages:** 1183
 
 **Distribution by tier:**
 
@@ -41,7 +41,7 @@ The aggregate ships on the installed system at
 | desktop | 473 |
 | extra | 218 |
 | ai | 58 |
-| compute | 52 |
+| compute | 54 |
 
 **Distribution by license (top 20):**
 
@@ -62,11 +62,11 @@ The aggregate ships on the installed system at
 | `Zlib` | 8 |
 | `LicenseRef-Public-Domain` | 7 |
 | `MIT OR Apache-2.0` | 7 |
+| `Artistic-1.0-Perl OR GPL-1.0-or-later` | 4 |
 | `LGPL-2.1-or-later AND GPL-2.0-or-later` | 4 |
 | `BSL-1.0` | 4 |
 | `OFL-1.1` | 4 |
 | `ZPL-2.0 AND LGPL-2.1-or-later AND BSD-3-Clause` | 4 |
-| `NCSA` | 4 |
 
 **Helpers with proprietary payloads:**
 
@@ -8020,6 +8020,20 @@ JSON for Modern C++ (header-only library + cmake config)
 
 - License: `MIT`
 - Homepage: https://github.com/nlohmann/json
+
+### perl-file-which (1.27)
+
+Perl module that finds an executable on the PATH (the perl equivalent of which)
+
+- License: `Artistic-1.0-Perl OR GPL-1.0-or-later`
+- Homepage: https://metacpan.org/pod/File::Which
+
+### perl-uri (5.37)
+
+Perl modules for Uniform Resource Identifiers, including URI::Escape
+
+- License: `Artistic-1.0-Perl OR GPL-1.0-or-later`
+- Homepage: https://metacpan.org/pod/URI
 
 ### pybind11 (3.0.4)
 

@@ -540,6 +540,14 @@ COMPUTE_GPU_SDKS = {
     # libs whose only consumers today are compute-tier; retier when a
     # broader consumer appears.
     "fmt", "glog",
+    # The two perl modules the shipped ROCm object tools need (decided
+    # 2026-09-17): /opt/rocm/bin/roc-obj-ls and roc-obj-extract are perl
+    # scripts the rocm-hip recipe installs, and they use File::Which and
+    # URI::Escape, which the project's perl does not carry. They are declared
+    # as RUNTIME dependencies of rocm-hip, so the consumer-tier inference —
+    # which reads build and host dependencies only — has no edge to them.
+    # rocm-hip is their only consumer today; retier when a broader one appears.
+    "perl-file-which", "perl-uri",
     # ROCm platform-completion wave (decided 2026-07-17: v1 = the full
     # user-facing platform, classes A-I + HIPIFY; rdc excluded).
     # Math-library set (rocm-libraries monorepo):

@@ -142,6 +142,14 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **The ROCm object-listing tools start.** `/opt/rocm/bin/roc-obj-ls` and
+  `/opt/rocm/bin/roc-obj-extract`, the two tools that list and extract the GPU
+  code objects inside a compiled binary, are perl scripts. Both need the
+  `File::Which` and `URI::Escape` perl modules, which the project's perl does
+  not carry, so on every installed machine they exited immediately with
+  `Can't locate File/Which.pm in @INC` and listed nothing. Both modules are now
+  packaged from source (`perl-file-which`, `perl-uri`) and declared as runtime
+  dependencies of `rocm-hip`, which is the package that installs the tools.
 - **Every web-chat turn that needs the model completes.** On every installed
   R001.2 machine, a browser-chat question that reached the model raised inside
   the daemon and showed the "Something went wrong on my end" banner, because

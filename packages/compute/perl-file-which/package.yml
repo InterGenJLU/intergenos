@@ -1,0 +1,25 @@
+name: perl-file-which
+version: "1.27"
+release: 1
+description: Perl module that finds an executable on the PATH (the perl equivalent of which)
+license: Artistic-1.0-Perl OR GPL-1.0-or-later
+homepage: https://metacpan.org/pod/File::Which
+tier: compute
+build_style: custom
+install_func: do_install
+# Shipped because /opt/rocm/bin/roc-obj-ls and /opt/rocm/bin/roc-obj-extract —
+# perl scripts installed by the rocm-hip recipe — both `use File::Which` at
+# their top. The project's perl 5.42 does not carry the module, so both tools
+# died at BEGIN on every installed machine. Pure perl; no compiler.
+source:
+- url: https://cpan.metacpan.org/authors/id/P/PL/PLICEASE/File-Which-${version}.tar.gz
+  sha256: 3201f1a60e3f16484082e6045c896842261fc345de9fb2e620fd2a2c7af3a93a
+dependencies:
+  build:
+  - perl-core
+  host: []
+  runtime:
+  - perl
+verify_paths:
+  - /usr/lib/perl5/5.42/site_perl/File/Which.pm
+  - /usr/share/man/man3/File::Which.3
