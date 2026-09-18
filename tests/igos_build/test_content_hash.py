@@ -220,6 +220,43 @@ class TestBuildAffectingRecipeFields(unittest.TestCase):
                 "release: 1\npatches:\n  - file: a.patch\n  - file: b.patch\n")
             self.assertNotEqual(content_fingerprint(pkg, None), fp1)
 
+    def test_gpu_targets_change_flips_fingerprint(self):
+        """The declared GPU architecture list decides which kernels the
+        compiler emits, so it changes installed bytes exactly the way a
+        configure flag does — and a recipe whose kernels changed while its
+        release stood still is a build that reaches no machine.
+
+        MEASURED 2026-09-18 before this key was folded in, on the real tree:
+        twenty-two ROCm recipes had their gpu_targets line rewritten and
+        `bump-changed-releases.py --check` named NONE of them, while the same
+        checker, in the same run, named a package whose build.sh had been
+        touched. The instrument was working; the field was simply not in the
+        fold. That is the maintenance class this file's own note describes —
+        "a NEW build-affecting top-level recipe key ... will NOT advance the
+        auto-bump release until it is added here too".
+        """
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            pkg = _mk_pkg(root, name="foo", source=[],
+                          yml='release: 1\ngpu_targets: "gfx1100;gfx1102;gfx1201"\n')
+            fp1 = content_fingerprint(pkg, None)
+            pkg.template_path.write_text(
+                'release: 1\n'
+                'gpu_targets: "gfx1030;gfx1100;gfx1101;gfx1102;gfx1200;gfx1201"\n')
+            self.assertNotEqual(content_fingerprint(pkg, None), fp1)
+
+    def test_gpu_targets_fold_is_scoped_to_packages_that_declare_it(self):
+        """A package that declares no gpu_targets must fingerprint exactly as
+        before the key was folded in, so adding it re-baselines nothing outside
+        the twenty-three recipes that carry the field."""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            bsh = "configure && make\n"
+            pkg = _mk_pkg(root, name="foo", source=[], build_sh=bsh,
+                          yml="release: 1\ndescription: a thing\n")
+            legacy = hashlib.sha256(b"\0buildsh\0" + bsh.encode()).hexdigest()[:16]
+            self.assertEqual(content_fingerprint(pkg, None), legacy)
+
     def test_no_recipe_fields_is_backward_compatible(self):
         """A package WITHOUT build-affecting fields must fingerprint EXACTLY as
         the pre-change scheme (sha256(build.sh + source)) — so the existing

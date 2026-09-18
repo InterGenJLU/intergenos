@@ -434,7 +434,20 @@ def template_hash(pkg, sources_dir) -> str:
 # by design — folding them would mass-re-baseline; a build_style change in
 # isolation from build.sh is a known narrow residual, rare since it usually
 # co-varies with the build script.)
-_BUILD_AFFECTING_YML_KEYS = ("configure_flags", "patches", "cmake_args", "meson_args")
+#
+# gpu_targets was added 2026-09-18, and the miss it closes was measured rather
+# than reasoned. The declared GPU architecture list is interpolated into the
+# compiler's target argument, so it decides which kernels are emitted — as much
+# a byte-affecting field as a configure flag. Before it was folded in, rewriting
+# that line in twenty-two ROCm recipes left `bump-changed-releases.py --check`
+# naming none of them, in the same run in which it named a package whose
+# build.sh had been touched. A recipe whose kernels changed while its release
+# stood still is a build that reaches no installed machine at all, which is the
+# mirror-only delivery cost this whole mechanism exists to prevent. Twenty-three
+# recipes in the tree declare the field; a package without it folds nothing and
+# its baseline does not move.
+_BUILD_AFFECTING_YML_KEYS = ("configure_flags", "patches", "cmake_args",
+                            "meson_args", "gpu_targets")
 
 
 def _build_affecting_recipe_fields(tp) -> bytes:
@@ -506,11 +519,17 @@ def content_fingerprint(pkg, sources_dir, include_siblings=True) -> str:
         # recipe contains.
         #
         # include_siblings=False reproduces the fingerprint EXACTLY as it was
-        # defined before this fold existed. It has one caller and one purpose:
-        # the release tool's re-baseline mode proves a package's drift is
-        # explained entirely by the definition widening, and refuses to absorb
-        # it otherwise. Nothing else may pass False — a caller that did would
-        # be asking to be told the old answer.
+        # defined before this fold existed. It was written for the release
+        # tool's re-baseline mode, which used it to prove a package's drift was
+        # explained entirely by the definition widening. That is no longer what
+        # the re-baseline mode calls: one hardcoded expression can only ever
+        # describe ONE definition change, and it answered about the wrong one
+        # as soon as a second change landed (gpu_targets, 2026-09-18). The tool
+        # now reads the previous definition out of the committed copy of this
+        # file, so any definition change is expressible. The flag stays because
+        # the sibling-fold coverage test still asks this module for the
+        # pre-fold answer directly. Nothing in production may pass False — a
+        # caller that did would be asking to be told one particular old answer.
         sib = sibling_shipped_bytes(pkg) if include_siblings else b""
         if sib:
             h.update(b"\0siblings\0")
