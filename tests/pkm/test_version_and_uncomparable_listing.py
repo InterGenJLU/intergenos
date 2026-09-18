@@ -138,6 +138,30 @@ class APackageTheIndexCannotAnswerForIsSaidSo(unittest.TestCase):
         self.assertIn("2.3.2", text)
         self.assertIn("cuda-toolkit", text)
 
+    def test_a_build_intermediate_is_not_named(self):
+        # These are deliberately unpublished; the index is supposed to have no
+        # row for them, and `pkm update` already refuses to list them for the
+        # same reason. Measured 2026-09-17 on an installed machine: all 19
+        # packages with no index row were intermediates, so naming them would
+        # have been a wall of noise with nothing a person could act on in it.
+        for name in ("glib2-bootstrap", "dbus-pass2", "freetype2-pass1",
+                     "something-tmp"):
+            self.db.add_installed(name, "1.0", release=1, tier="core",
+                                  install_method="archive")
+        text = self._list_upgradable(_Repo({}))
+        self.assertIn("Everything is up to date.", text)
+        self.assertNotIn("no entry in the repository index", text)
+
+    def test_a_real_package_is_still_named_beside_intermediates(self):
+        self.db.add_installed("glib2-bootstrap", "1.0", release=1, tier="core",
+                              install_method="archive")
+        self.db.add_installed("cuda-toolkit", "13.3.1", release=7,
+                              tier="compute", install_method="helper")
+        text = self._list_upgradable(_Repo({}))
+        self.assertIn("cuda-toolkit", text)
+        self.assertNotIn("glib2-bootstrap", text)
+        self.assertIn("1 installed package has no entry", text)
+
     def test_a_long_list_is_counted_rather_than_dumped(self):
         for i in range(cli.UNCOMPARABLE_NAMES_SHOWN + 5):
             self.db.add_installed(f"pkg{i:03d}", "1.0", release=1, tier="core",

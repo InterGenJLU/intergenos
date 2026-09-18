@@ -3196,7 +3196,16 @@ def cmd_list(db, args):
         for pkg in installed:
             remote = repo.get_package(pkg["name"])
             if not remote:
-                uncomparable.append(pkg["name"])
+                # Build-stage intermediates are deliberately unpublished (see
+                # _BUILD_INTERMEDIATE_RE): the index is SUPPOSED to have no row
+                # for them, they are plumbing nobody chose, and `pkm update`
+                # already refuses to dump them for exactly that reason. Naming
+                # them here would re-create the wall that decision removed — and
+                # bury the packages a person can actually act on. Measured
+                # 2026-09-17 on an installed machine: 19 packages had no index
+                # row and every one of them was an intermediate.
+                if not _BUILD_INTERMEDIATE_RE.search(pkg["name"]):
+                    uncomparable.append(pkg["name"])
                 continue
             try:
                 # O-010: same version-aware compare as cmd_upgrade. Listing
