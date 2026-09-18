@@ -485,15 +485,20 @@ do_install() {
     # variant's record (/opt/rocm/share/llama-cpp-hip/gpu-targets) was added
     # to close.
     #
-    # Written from the same CUDA_ARCHS the cmake configure above consumed, so
+    # Written from the builder's exported declaration (IGOS_GPU_TARGETS, the
+    # same value configure() read into CUDA_ARCHS and handed to cmake), so
     # there is one source of truth (package.yml gpu_targets) rather than a
-    # second list that can drift away from what was actually compiled. The
-    # `:?` is load-bearing: if this phase ever runs without the variable set,
-    # an unguarded expansion would write an EMPTY record, and an empty record
-    # is read as "unknown" — the engine would then be offered on hardware
-    # nothing here proved it can serve. Failing loudly is the only safe
-    # behaviour.
-    printf '%s\n' "${CUDA_ARCHS:?FATAL: CUDA_ARCHS is not set in do_install; refusing to write an empty architecture record}" > gpu-targets.txt
+    # second list that can drift away from what was actually compiled. It is
+    # NOT read from CUDA_ARCHS: each recipe phase runs in its own shell, so a
+    # variable configure() set is gone by the time do_install() runs — the
+    # first real build of the guarded form below stopped here with exactly
+    # that message (2026-09-18), which is what the guard is for. The `:?` is
+    # load-bearing: an unguarded expansion of an unset variable would write an
+    # EMPTY record, and an empty record is read as "unknown" — the engine
+    # would then be offered on hardware nothing here proved it can serve.
+    # Failing loudly is the only safe behaviour. The HIP recipe's record line
+    # has the same shape for the same reason.
+    printf '%s\n' "${IGOS_GPU_TARGETS:?FATAL: gpu_targets not declared in package.yml/plumbing; refusing to write an empty architecture record}" > gpu-targets.txt
     install -Dm644 gpu-targets.txt \
         "${DESTDIR}/opt/llama-cpp-cuda/share/llama-cpp-cuda/gpu-targets"
 

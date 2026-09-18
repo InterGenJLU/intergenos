@@ -309,19 +309,26 @@ class RecipeParityTest(unittest.TestCase):
     def test_the_recipe_installs_the_list_it_compiled_with(self):
         """Read from the recipe's code, not from a mention of the path.
 
-        The list must be written FROM the same variable the cmake configure
-        consumed. A second literal list in do_install would be free to drift
-        away from what was actually compiled, which is the whole failure this
-        record exists to prevent.
+        The list must be written FROM the same declaration the cmake configure
+        consumed — the builder's exported IGOS_GPU_TARGETS, present in every
+        phase. A second literal list in do_install would be free to drift away
+        from what was actually compiled, which is the whole failure this record
+        exists to prevent.
         """
         build = (self._repo_root() / "packages" / "compute" / "llama-cpp-cuda"
                  / "build.sh").read_text()
         code = "\n".join(ln for ln in build.splitlines()
                          if not ln.strip().startswith("#"))
         flat = " ".join(code.replace("\\\n", " ").split())
-        self.assertIn("${CUDA_ARCHS:?", flat,
+        self.assertIn("${IGOS_GPU_TARGETS:?", flat,
                       "do_install must fail loudly rather than write an empty "
-                      "record if the target list is not set")
+                      "record if the target list is not declared")
+        # Each recipe phase runs in its own shell: a variable configure() set
+        # (CUDA_ARCHS) is not there when do_install() runs. The record line
+        # must read the builder's exported declaration instead.
+        record_line = next(ln for ln in code.splitlines()
+                           if "> gpu-targets.txt" in ln)
+        self.assertNotIn("CUDA_ARCHS", record_line)
         self.assertIn(
             'install -Dm644 gpu-targets.txt '
             '"${DESTDIR}/opt/llama-cpp-cuda/share/llama-cpp-cuda/gpu-targets"',
