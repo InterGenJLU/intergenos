@@ -24,10 +24,14 @@ Two decisions are made here, in order, and both are overridable from config:
 from __future__ import annotations
 
 import glob
+import logging
 import os
 import re
 import shutil
 import subprocess
+from typing import NamedTuple
+
+log = logging.getLogger(__name__)
 
 # The three engine builds and where each installs its server binary. These are
 # recipe-defined paths, not search heuristics: the Vulkan default engine
@@ -228,6 +232,14 @@ def hip_is_supported_here(topology_root: str = KFD_TOPOLOGY_NODES,
     it will not work" have different correct responses, and collapsing them
     would either block HIP on every machine whose topology is unreadable or
     claim support on machines that have none.
+
+    THIS IS THE MACHINE-LEVEL QUESTION, and on a multi-card machine it is the
+    wrong one to decide the engine with: "some card here is covered" is not
+    "the card the daemon will pin is covered". The engine choice therefore asks
+    :func:`hip_supports_serving_device`, which asks about the card, and falls
+    back to this answer only when no card can be identified. This function
+    stays because that fallback needs it, and because the installer's
+    first-boot offer has no pin to ask about yet.
     """
     detected = detect_amd_gfx_targets(topology_root)
     if not detected:
@@ -400,6 +412,181 @@ def cuda_is_supported_here(targets_path: str = CUDA_GPU_TARGETS_PATH,
     return any(_cuda_targets_cover(cap, targets) for cap in caps.values())
 
 
+def _pci_address_from_location(domain: int, location_id: int) -> str:
+    """The PCI address a KFD node's ``domain`` and ``location_id`` name.
+
+    The amdgpu driver packs the compute node's PCI bus/device/function into
+    one integer — bus in bits 8..15, device in bits 3..7, function in bits
+    0..2 — and publishes the PCI domain as its own property. The result is
+    written in the ``dddd:bb:dd.f`` form the engine's ``--list-devices`` lines
+    carry, so a kernel-side address and an engine-side address compare as
+    plain strings with no second format to keep in step.
+    """
+    bus = (location_id >> 8) & 0xFF
+    device = (location_id >> 3) & 0x1F
+    function = location_id & 0x7
+    return f"{domain:04x}:{bus:02x}:{device:02x}.{function}"
+
+
+def amd_gfx_targets_by_pci(topology_root: str = KFD_TOPOLOGY_NODES
+                           ) -> dict[str, str]:
+    """Each AMD compute node's gfx architecture, keyed by its PCI address.
+
+    This is :func:`detect_amd_gfx_targets` with the cards kept apart instead
+    of merged into one set, which is what lets a caller ask about ONE card.
+    Same source, same reader, no tool and no ROCm userspace: the driver's KFD
+    topology publishes ``gfx_target_version`` and ``location_id`` in the same
+    ``properties`` file.
+
+    Nodes with no architecture are skipped, which is how the CPU node the
+    driver always publishes (``gfx_target_version 0``) stays out. An empty
+    dict means nothing was readable, which callers must treat as unknown
+    rather than as "unsupported".
+    """
+    found: dict[str, str] = {}
+    try:
+        nodes = sorted(os.listdir(topology_root))
+    except OSError:
+        return found
+    for node in nodes:
+        props = os.path.join(topology_root, node, "properties")
+        try:
+            with open(props, "r", encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+        except OSError:
+            continue
+        values: dict[str, int] = {}
+        for line in text.splitlines():
+            parts = line.split()
+            if len(parts) == 2 and parts[0] in ("gfx_target_version",
+                                                "location_id", "domain"):
+                try:
+                    values[parts[0]] = int(parts[1])
+                except ValueError:
+                    pass
+        name = _gfx_name(values.get("gfx_target_version", 0))
+        if not name or "location_id" not in values:
+            continue
+        found[_pci_address_from_location(values.get("domain", 0),
+                                         values["location_id"])] = name
+    return found
+
+
+class HipDeviceSupport(NamedTuple):
+    """The HIP gate's answer, with what it rests on.
+
+    ``supported`` is the three-valued verdict — True, False, or None for "could
+    not tell". ``pci_id`` and ``gfx`` name the card the answer is about, and are
+    None when the answer had to fall back to the machine-level question.
+    ``targets`` is the build's declared architecture list, and ``reason`` is a
+    sentence naming the card and what is missing, for the log the refusal
+    writes: a machine that quietly serves on the wrong engine is the failure
+    this whole gate exists to make visible.
+    """
+    supported: bool | None
+    pci_id: str | None
+    gfx: str | None
+    targets: frozenset[str]
+    reason: str
+
+
+def hip_supports_serving_device(server: str | None = None,
+                                device_pin: str | None = None,
+                                list_output: str | None = None,
+                                discrete_vram_mb: int | None = None,
+                                sysfs_root: str = "/sys",
+                                topology_root: str | None = None,
+                                targets_path: str | None = None
+                                ) -> HipDeviceSupport:
+    """Whether the HIP build carries device code for the card it would PIN.
+
+    WHY THIS EXISTS RATHER THAN :func:`hip_is_supported_here`. That check is
+    machine-level: it says yes when any architecture the machine has appears in
+    the build's target list. The device pin is per-card — the serving model
+    takes ONE card. On a machine with a gfx1100 card and a gfx1102 card, and a
+    build covering gfx1102 and not gfx1100, the machine-level check says
+    "supported" on the strength of the gfx1102 card and the daemon then pins
+    the gfx1100 card, for which that build has no device code. llama-server
+    segfaults at model load, and a machine that would have served on Vulkan
+    serves nothing. Measured on a two-card AMD workstation 2026-09-18.
+
+    The card asked about comes from THE SAME selection that produces the pin
+    (:func:`select_serving_device_and_pci`, enumerating with the HIP binary),
+    so the gate and the launch can never describe different cards. ``server``
+    names that binary; the engine's own path is the right value, because device
+    names and addresses are backend-local.
+
+    ``device_pin`` is the ``llama_server.device`` config value. An operator who
+    names a card by its ggml name is pinning THAT card, and the gate has to ask
+    about the card that will actually be served on — asking the automatic
+    selector instead would refuse HIP over a card the operator excluded, or
+    accept it over a card they did not choose. The name is resolved to an
+    address exactly as the daemon resolves it (:func:`pci_for_device_name`),
+    and a name that does not resolve identifies no card, so the answer falls
+    back rather than guessing.
+
+    THE THREE-VALUED ANSWER IS PRESERVED, and every unknown falls back to the
+    machine-level answer rather than to a refusal: an engine build that names
+    no PCI addresses, a card absent from the topology, an unreadable topology
+    or an unreadable target list all leave today's behaviour exactly as it was.
+    Only a MEASURED "this card's architecture is not in the list" refuses.
+
+    ``topology_root`` and ``targets_path`` default to the module constants and
+    are resolved when called, not when defined, so a caller — or a test — that
+    replaces a constant gets the replacement.
+    """
+    if topology_root is None:
+        topology_root = KFD_TOPOLOGY_NODES
+    if targets_path is None:
+        targets_path = HIP_GPU_TARGETS_PATH
+    if server is None:
+        server = ENGINE_SERVER_PATHS["hip"]
+
+    targets = hip_build_gpu_targets(targets_path)
+    declared = frozenset(targets)
+
+    def _machine_level(why: str) -> HipDeviceSupport:
+        verdict = hip_is_supported_here(topology_root, targets_path)
+        return HipDeviceSupport(verdict, None, None, declared,
+                                f"{why}; the machine-level answer stands "
+                                f"({verdict!r})")
+
+    if not declared:
+        return _machine_level("the installed HIP build declares no "
+                              "architecture list")
+
+    pinned_by_hand = bool(device_pin
+                          and device_pin.strip().lower() not in ("auto", ""))
+    if pinned_by_hand:
+        pci_id = pci_for_device_name(device_pin.strip(),
+                                     list_output=list_output, server=server)
+    else:
+        _name, pci_id = select_serving_device_and_pci(
+            list_output=list_output, discrete_vram_mb=discrete_vram_mb,
+            server=server, sysfs_root=sysfs_root)
+    if not pci_id:
+        return _machine_level("the card that would be pinned has no resolvable "
+                              "PCI address")
+
+    by_pci = amd_gfx_targets_by_pci(topology_root)
+    gfx = by_pci.get(pci_id.lower())
+    if gfx is None:
+        return _machine_level(f"no compute node reports the architecture of "
+                              f"the card at PCI {pci_id}")
+
+    if gfx in declared:
+        return HipDeviceSupport(
+            True, pci_id, gfx, declared,
+            f"the card that would be pinned (PCI {pci_id}, {gfx}) is in the "
+            f"installed HIP build's architecture list "
+            f"({';'.join(sorted(declared))})")
+    return HipDeviceSupport(
+        False, pci_id, gfx, declared,
+        f"the card that would be pinned (PCI {pci_id}) is {gfx}, which the "
+        f"installed HIP build has no device code for: it declares "
+        f"{';'.join(sorted(declared))}")
+
+
 def cuda_is_usable_here(drm_root: "str | os.PathLike" = "/sys/class/drm") -> bool:
     """Whether the CUDA engine build can serve on this machine: an NVIDIA card
     is bound to NVIDIA's own kernel driver (read from sysfs by
@@ -432,7 +619,8 @@ def _detect_vendor() -> str | None:
 
 
 def select_serving_engine(vendor: str | None = None,
-                          engine_pin: str | None = None) -> tuple[str, str]:
+                          engine_pin: str | None = None,
+                          device_pin: str | None = None) -> tuple[str, str]:
     """Choose the engine that serves, and the server binary it runs.
 
     Returns ``(engine, server_path)``. An explicit ``engine_pin`` (the
@@ -451,6 +639,12 @@ def select_serving_engine(vendor: str | None = None,
     refuses loudly (BINARY_ABSENT, naming the empty path) instead of silently
     serving a different engine than the config states — a config typo is a
     loud boot failure, never a quiet substitution.
+
+    ``device_pin`` is the ``llama_server.device`` config value, passed through
+    to the HIP architecture gate so that gate asks about the card that will
+    actually be served on. It is not used for anything else here: which card
+    serves is still decided after this function returns, by the selector or by
+    the pin itself.
     """
     if engine_pin and engine_pin not in ("auto", ""):
         pin = engine_pin.strip().lower()
@@ -466,12 +660,19 @@ def select_serving_engine(vendor: str | None = None,
         # Present is not the same as usable. The HIP build carries device code
         # only for the architectures it was compiled for, and on an AMD GPU
         # outside that list llama-server segfaults at model load — so a machine
-        # that would have served fine on Vulkan crashes instead. Only a
-        # MEASURED "no" skips the engine; an unreadable topology or a missing
-        # target list leaves the preference alone, because refusing on "I could
+        # that would have served fine on Vulkan crashes instead. The question
+        # is asked about the CARD THIS ENGINE WOULD PIN, not about the machine:
+        # on a two-card box "some card here is covered" let the daemon pin the
+        # card that was not (measured 2026-09-18). Only a MEASURED "no" skips
+        # the engine; an unresolvable pin, an unreadable topology or a missing
+        # target list leave the preference alone, because refusing on "I could
         # not tell" would strand every machine whose driver state is unusual.
-        if engine == "hip" and hip_is_supported_here() is False:
-            continue
+        if engine == "hip":
+            support = hip_supports_serving_device(server=path,
+                                                  device_pin=device_pin)
+            if support.supported is False:
+                log.info("declining the HIP engine: %s", support.reason)
+                continue
         # The CUDA build serves only behind the proprietary driver; on the
         # open driver a present binary is not a usable engine (decided
         # 2026-09-15, the preference table's nvidia row).
@@ -506,9 +707,10 @@ def engine_ladder(vendor: str | None = None) -> list[tuple[str, str]]:
     only outcome is the restart budget draining and the assistant going silent
     on a machine that had a working engine available the whole time.
 
-    The architecture gate is applied here too, for both variants, so a HIP or
-    CUDA build that measurably cannot run on this machine's cards is not
-    offered as a rung.
+    The architecture gate is applied here too, for both variants, and asks
+    the same per-card question the engine choice asks, so a HIP or CUDA
+    build that measurably cannot run on the card this machine would pin is
+    not offered as a rung.
     """
     ladder: list[tuple[str, str]] = []
     if vendor is None:
@@ -524,8 +726,12 @@ def engine_ladder(vendor: str | None = None) -> list[tuple[str, str]]:
         path = ENGINE_SERVER_PATHS.get(engine, "")
         if not path or not (os.path.isfile(path) and os.access(path, os.X_OK)):
             continue
-        if engine == "hip" and hip_is_supported_here() is False:
-            continue
+        if engine == "hip":
+            support = hip_supports_serving_device(server=path)
+            if support.supported is False:
+                log.info("HIP is not a rung on this machine: %s",
+                         support.reason)
+                continue
         if engine == "cuda" and not cuda_is_usable_here():
             continue
         if engine == "cuda" and cuda_is_supported_here() is False:

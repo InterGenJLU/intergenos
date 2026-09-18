@@ -1566,9 +1566,17 @@ class InterGenDaemon(InterGenDBusInterface):
                 # (below) and LAUNCHES — device names are backend-local, so
                 # the two must be the same binary.
                 _cfg_engine = self._config.get("llama_server.engine", "auto")
+                # The DEVICE pin is read here, before the engine is chosen,
+                # because the engine choice needs it: the HIP build carries
+                # device code only for the architectures it was compiled for,
+                # and the gate that checks this has to ask about the card that
+                # will actually be served on. An operator who names a card is
+                # naming that card, so the gate must be told.
+                _cfg_device = self._config.get("llama_server.device", "auto")
                 _engine, _server_path = select_serving_engine(
                     vendor=_gpu_vendor if isinstance(_gpu_vendor, str) else None,
-                    engine_pin=_cfg_engine if isinstance(_cfg_engine, str) else None)
+                    engine_pin=_cfg_engine if isinstance(_cfg_engine, str) else None,
+                    device_pin=_cfg_device if isinstance(_cfg_device, str) else None)
                 # Serving-device resolution (multi-GPU boxes): an explicit
                 # llama_server.device string in config is an operator pin
                 # (supreme, the same user-control contract as gpu_layers);
@@ -1586,7 +1594,6 @@ class InterGenDaemon(InterGenDBusInterface):
                 # different cards; on an operator pin the address is looked up
                 # by the pinned name EXACTLY, and an unresolvable name simply
                 # yields no hold rather than a guess.
-                _cfg_device = self._config.get("llama_server.device", "auto")
                 if isinstance(_cfg_device, str) and _cfg_device not in ("auto", ""):
                     _device = _cfg_device
                     _device_pci = (pci_for_device_name(_device,

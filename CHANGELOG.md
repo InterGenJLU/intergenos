@@ -148,6 +148,28 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **The engine check now asks about the card the assistant will actually use,
+  not about the machine.** The HIP build of the inference engine carries device
+  code only for the AMD architectures it was compiled for, and the check that
+  keeps it from being chosen on anything else compared the architectures the
+  MACHINE has against that list, accepting the engine when ANY of them
+  overlapped. Which card serves is decided afterwards, and only one card
+  serves. On a two-card machine — measured 2026-09-18 on a workstation with a
+  gfx1100 card and a gfx1102 card, against a build covering gfx1102 and not
+  gfx1100 — the check accepted the engine on the strength of the gfx1102 card
+  and the assistant then launched it on the gfx1100 card, for which that build
+  has no device code. That is the crash at model load the check exists to
+  prevent, and it turns a machine that would have served correctly on the
+  Vulkan engine into one that serves nothing. The check now reads the
+  architecture of the card that would be pinned, taken from the same selection
+  that produces the pin, and from the graphics driver's own topology records —
+  no extra tool and no second copy of the hardware list. A card named by hand
+  in configuration is the card asked about. Single-card machines answer exactly
+  as before, and every unknown — an engine build that reports no card
+  addresses, an unreadable topology, an unreadable architecture list — leaves
+  the previous behaviour untouched: only a measured "this card is not covered"
+  declines the engine, and the reason names the card and what the build
+  declares.
 - **A refused archive install now exits non-zero.** `pkm install --archive`
   checks the archive's SHA256 against the signed repository index. When it did
   not match, the command printed `archive SHA256 does not match repository
