@@ -235,10 +235,12 @@ def hip_is_supported_here(topology_root: str = KFD_TOPOLOGY_NODES,
     None when either side is unknown.
 
     WHY THIS GATE EXISTS. Being an AMD part is not the same as being a part this
-    build can run on. The shipped HIP build declares
-    ``gfx1100;gfx1102;gfx1201``; an APU reporting gfx90c is an AMD GPU with no
-    device code in that build, and llama-server SEGFAULTS at model load rather
-    than reporting a clean refusal. Selecting HIP by vendor alone therefore
+    build can run on. The HIP build declares a bounded list of architectures and
+    carries device code for those only — the list is read from the record the
+    build installs, never copied here, because a copy would go stale the first
+    time the declaration widened. An APU reporting gfx90c is an AMD GPU that is
+    on no such list, and llama-server SEGFAULTS at model load rather than
+    reporting a clean refusal. Selecting HIP by vendor alone therefore
     turns a working Vulkan installation into a crash, which is why the answer
     has to come from the architecture and not from the vendor string.
 
