@@ -1385,7 +1385,17 @@ class BuildExecutor(PackageTracker):
                 # window between this call and the comparison after the hook
                 # is the evidence; nothing is inferred from a file merely
                 # disagreeing with its recorded hash.
-                hook_baseline = self.pkg_hook_baseline(pkg)
+                # Tracked mode only. The baseline reads and the comparison
+                # writes the package's row in the live package database, and a
+                # stage-only build registers no row: there is nothing to
+                # baseline, nothing to compare, and no reason to open that
+                # database at all. Measured on an installed machine, a
+                # stage-only build opened it and logged "pkm DB open failed
+                # for hook baseline" — the write failed and the machine was
+                # untouched, but a staging build must not reach for the
+                # running system's package database in the first place.
+                hook_baseline = (
+                    self.pkg_hook_baseline(pkg) if self.tracked else {})
                 # post_install runs on the live filesystem — DESTDIR removed via
                 # the same install-phase scoping seam used for the build phases.
                 post_env = self.phase_env(env, "post_install")
@@ -1399,7 +1409,7 @@ class BuildExecutor(PackageTracker):
                         )
                         success = False
                         break
-                if success:
+                if success and self.tracked:
                     self.pkg_record_hook_changes(pkg, hook_baseline)
                 self.logger.end_phase("post_install", 0 if success else 1)
 

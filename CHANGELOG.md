@@ -148,6 +148,16 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **A staging build no longer opens the running system's package database.**
+  The builder brackets a recipe's post-install hook with a baseline of the
+  package's own file hashes and a comparison afterwards, so a file the hook
+  rewrites is recorded as hook-managed rather than reported as damage. Both
+  halves read and write the package's row in the live package database — and
+  they ran on `--stage-only` builds too, which register no row at all. On an
+  installed machine that showed up as `pkm DB open failed for hook baseline:
+  attempt to write a readonly database`: the write failed, and nothing was
+  changed, but only because the build was unprivileged. The pair now runs in
+  tracked mode only, where there is a row to baseline.
 - **The attribution gate reports how big the change really is.** When the
   generated `THIRD-PARTY-NOTICES.md` falls out of step with the recipes, the
   check refuses and says how much differs. It compared line 1 with line 1,
