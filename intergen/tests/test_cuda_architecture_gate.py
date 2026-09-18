@@ -354,3 +354,124 @@ class RecipeParityTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CudaRefusalReasonTest(unittest.TestCase):
+    """A measured refusal has to SAY WHY, in the log, naming the card.
+
+    The HIP rung has done this since it grew its per-card gate: when it
+    declines it writes the card it would have pinned, that card's
+    architecture, and the list the installed build declares. The CUDA rung
+    reached the same verdict through a bare ``continue``, so a machine that
+    dropped from CUDA to Vulkan recorded only the decision it arrived at and
+    never the reason — measured twice on 2026-09-18, on an RTX 3070 Ti
+    machine and on a compute-7.5 machine, with a grep over the selector's own
+    loggers returning zero. Someone reading that journal can see the engine
+    changed and cannot see that the build had no code for their card, which
+    is the one fact that tells them whether to reinstall the engine or to
+    leave it alone.
+
+    Only a MEASURED refusal is logged. "I could not tell" writes nothing: a
+    log line that fires on an unreadable capability would train a reader to
+    ignore the line that matters.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="cuda-reason-")
+        self.addCleanup(lambda: __import__("shutil").rmtree(
+            self.tmp, ignore_errors=True))
+        # A REAL record file, read by the REAL parser — only the path is
+        # redirected, because the shipped path is bound as a default argument
+        # and a caller deep in the walk passes none.
+        self.targets = _targets_file(self.tmp, "75-virtual;89-real\n")
+        _real_reader = serving_device.cuda_build_gpu_targets
+        self._orig_reader = _real_reader
+        self.addCleanup(lambda: setattr(
+            serving_device, "cuda_build_gpu_targets", self._orig_reader))
+        serving_device.cuda_build_gpu_targets = (
+            lambda *_a, **_k: _real_reader(self.targets))
+
+        self._orig_caps = serving_device.detect_nvidia_compute_caps
+        self.addCleanup(lambda: setattr(
+            serving_device, "detect_nvidia_compute_caps", self._orig_caps))
+        # A compute-7.0 card against a build declaring 75-virtual and
+        # 89-real. 89-real is SASS for exactly 8.9 and runs on nothing else;
+        # 75-virtual is PTX the driver can JIT forward for 7.5 and ABOVE, and
+        # 7.0 is below it. So this card is covered by neither entry and the
+        # verdict is a measured False, not an unknown.
+        serving_device.detect_nvidia_compute_caps = (
+            lambda *_a, **_k: {"0000:01:00.0": 70})
+
+        self._orig_hip = serving_device.hip_is_supported_here
+        self.addCleanup(lambda: setattr(
+            serving_device, "hip_is_supported_here", self._orig_hip))
+        serving_device.hip_is_supported_here = lambda *_a, **_k: None
+        self._orig_usable = serving_device.cuda_is_usable_here
+        self.addCleanup(lambda: setattr(
+            serving_device, "cuda_is_usable_here", self._orig_usable))
+        serving_device.cuda_is_usable_here = lambda *_a, **_k: True
+
+        self._orig_paths = dict(serving_device.ENGINE_SERVER_PATHS)
+        self.addCleanup(lambda: serving_device.ENGINE_SERVER_PATHS.update(
+            self._orig_paths))
+        for engine in ("cuda", "vulkan"):
+            path = os.path.join(self.tmp, f"llama-server-{engine}")
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write("#!/bin/sh\n")
+            os.chmod(path, 0o755)
+            serving_device.ENGINE_SERVER_PATHS[engine] = path
+
+    def _assert_names_the_card_and_the_list(self, text):
+        self.assertIn("0000:01:00.0", text)
+        self.assertIn("7.0", text)
+        self.assertIn("75-virtual", text)
+        self.assertIn("89-real", text)
+
+    def test_the_engine_choice_logs_the_card_and_the_declared_list(self):
+        with self.assertLogs(serving_device.log, level="INFO") as caught:
+            engine, _path = serving_device.select_serving_engine(
+                vendor="nvidia")
+        self.assertEqual(engine, "vulkan")
+        self._assert_names_the_card_and_the_list("\n".join(caught.output))
+
+    def test_the_ladder_logs_the_card_and_the_declared_list(self):
+        with self.assertLogs(serving_device.log, level="INFO") as caught:
+            rungs = [e for e, _p in serving_device.engine_ladder(
+                vendor="nvidia")]
+        self.assertNotIn("cuda", rungs)
+        self._assert_names_the_card_and_the_list("\n".join(caught.output))
+
+    def test_an_unreadable_capability_logs_nothing(self):
+        """No capability read at all is None, not a refusal, and silent."""
+        serving_device.detect_nvidia_compute_caps = lambda *_a, **_k: {}
+        with self.assertNoLogs(serving_device.log, level="INFO"):
+            engine, _path = serving_device.select_serving_engine(
+                vendor="nvidia")
+        self.assertEqual(engine, "cuda")
+
+    def test_a_build_with_no_target_record_logs_nothing(self):
+        """An engine built before the record existed is unknown, not refused."""
+        serving_device.cuda_build_gpu_targets = lambda *_a, **_k: set()
+        with self.assertNoLogs(serving_device.log, level="INFO"):
+            engine, _path = serving_device.select_serving_engine(
+                vendor="nvidia")
+        self.assertEqual(engine, "cuda")
+
+    def test_the_reason_is_none_when_nothing_was_refused(self):
+        """A covered card produces no sentence at all, so no caller can log
+        a refusal that did not happen."""
+        serving_device.detect_nvidia_compute_caps = (
+            lambda *_a, **_k: {"0000:01:00.0": 89})
+        self.assertIsNone(serving_device.cuda_refusal_reason())
+
+    def test_the_reason_names_every_refused_card_not_just_one(self):
+        """A two-card box that is refused on both says so about both: a
+        reader told about one card would reinstall the engine for it and
+        still be stranded on the other."""
+        serving_device.detect_nvidia_compute_caps = (
+            lambda *_a, **_k: {"0000:01:00.0": 70, "0000:02:00.0": 60})
+        reason = serving_device.cuda_refusal_reason()
+        self.assertIn("0000:01:00.0", reason)
+        self.assertIn("0000:02:00.0", reason)
+        self.assertIn("7.0", reason)
+        self.assertIn("6.0", reason)

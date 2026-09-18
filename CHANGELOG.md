@@ -148,6 +148,21 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **A refused CUDA engine now says which card it has no code for.** The engine
+  walk asks whether the installed CUDA build carries device code for this
+  machine's card, and a card outside the build's declared target list drops the
+  machine from CUDA to Vulkan. That refusal was silent: the journal recorded the
+  engine the daemon arrived at and never the reason, so a reader could see the
+  engine change and could not tell whether to reinstall the engine or leave it
+  alone — the two situations looked identical. Both walks, the engine choice and
+  the recovery ladder, now write a line naming the card by PCI address, that
+  card's compute capability, and the target list the installed build declares,
+  which is the sentence the HIP variant has written since it grew its own
+  per-card gate. Only a measured refusal is logged: an unreadable capability, or
+  a build that installed no target record, is "I could not tell" and stays
+  silent, so the line that appears is always one that matters. The verdict and
+  the sentence are built from a single capability reading, so a reason can never
+  describe a different state of the machine than the decision it explains.
 - **A turn that forbids the use of tools is no longer offered them.** The
   assistant exposes its tool descriptions to the model on most turns, which is
   deliberate: withholding them was never a safety boundary, and every action

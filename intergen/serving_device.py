@@ -412,6 +412,50 @@ def cuda_card_support(targets_path: str = CUDA_GPU_TARGETS_PATH,
     return {pci: _cuda_targets_cover(cap, targets) for pci, cap in caps.items()}
 
 
+def cuda_refusal_reason(targets_path: str = CUDA_GPU_TARGETS_PATH,
+                        caps: "dict[str, int] | None" = None) -> "str | None":
+    """A sentence naming the cards the installed CUDA build has no code for,
+    or ``None`` when nothing was measurably refused.
+
+    WHY A REFUSAL HAS TO SAY THIS. Dropping from CUDA to Vulkan is a large,
+    silent change in how the machine serves, and the decision line the daemon
+    already writes names only the engine it arrived at. A reader who can see
+    that the engine changed, but not that the installed build has no device
+    code for their card, cannot tell whether to reinstall the engine or to
+    leave it alone — the two situations look identical in the journal. The
+    HIP rung has named its card since it grew its per-card gate; this is the
+    same sentence for the other variant.
+
+    ``None`` on anything but a measured "no", and on a machine with no
+    refused card at all, so a caller can log unconditionally on a string and
+    never announce a refusal that did not happen. An unreadable capability
+    and a build that installed no target record both produce per-card
+    verdicts of ``None``, which are not refusals and are not named here.
+
+    ``caps`` is the capability reading the verdict was made from. A caller
+    that has one passes it, so the sentence describes THAT reading rather
+    than a second, independent one taken a moment later: a reason derived
+    from a different measurement than the refusal is a reason that can
+    disagree with the decision it explains.
+    """
+    if caps is None:
+        caps = detect_nvidia_compute_caps()
+    refused = sorted(pci for pci, verdict
+                     in cuda_card_support(targets_path, caps=caps).items()
+                     if verdict is False)
+    if not refused:
+        return None
+    # A False verdict is only reachable when the target list parsed to
+    # something (an empty list yields None for every card), so the declared
+    # set below is never empty here.
+    declared = ";".join(sorted(cuda_build_gpu_targets(targets_path)))
+    cards = ", ".join(
+        f"PCI {pci} (compute capability {caps[pci] // 10}.{caps[pci] % 10})"
+        for pci in refused)
+    return (f"the installed CUDA build has no device code for {cards}: it "
+            f"declares {declared}")
+
+
 def cuda_is_supported_here(targets_path: str = CUDA_GPU_TARGETS_PATH,
                            caps: "dict[str, int] | None" = None
                            ) -> "bool | None":
@@ -713,8 +757,16 @@ def select_serving_engine(vendor: str | None = None,
         # is. Only a MEASURED "no" skips it, the same rule the HIP gate above
         # follows: an unreadable capability or a build that installed no target
         # record leaves the preference alone.
-        if engine == "cuda" and cuda_is_supported_here() is False:
-            continue
+        if engine == "cuda":
+            # One capability reading serves both the verdict and the sentence
+            # that explains it, so the two can never describe different
+            # states of the machine — and nvidia-smi is run once, not twice.
+            caps = detect_nvidia_compute_caps()
+            if cuda_is_supported_here(caps=caps) is False:
+                reason = cuda_refusal_reason(caps=caps)
+                if reason:
+                    log.info("declining the CUDA engine: %s", reason)
+                continue
         return engine, path
     return "vulkan", ENGINE_SERVER_PATHS["vulkan"]
 
@@ -762,8 +814,13 @@ def engine_ladder(vendor: str | None = None) -> list[tuple[str, str]]:
                 continue
         if engine == "cuda" and not cuda_is_usable_here():
             continue
-        if engine == "cuda" and cuda_is_supported_here() is False:
-            continue
+        if engine == "cuda":
+            caps = detect_nvidia_compute_caps()
+            if cuda_is_supported_here(caps=caps) is False:
+                reason = cuda_refusal_reason(caps=caps)
+                if reason:
+                    log.info("CUDA is not a rung on this machine: %s", reason)
+                continue
         ladder.append((engine, path))
     return ladder
 
