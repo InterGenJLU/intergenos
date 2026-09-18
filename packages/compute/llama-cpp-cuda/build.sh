@@ -472,6 +472,31 @@ do_install() {
     install -m 644 "$BUILD_DIR/docs/CUDA-ENGINE.md" \
         "$DESTDIR/usr/share/doc/llama-cpp-cuda/CUDA-ENGINE.md"
 
+    # The architectures this build carries code for, installed beside the
+    # engine so the serving selector can read them at run time.
+    #
+    # The selector needs to answer one question before it launches this
+    # engine: does the build have code this machine's card can execute? The
+    # driver being NVIDIA's own is a different question and not a sufficient
+    # one — CUDA 13 dropped every architecture below Turing, so a Volta card
+    # on a perfectly good proprietary driver has neither compiled kernels here
+    # nor PTX it can JIT from. Without this record the selector has nothing to
+    # read and can only guess, which is the same shape of defect the HIP
+    # variant's record (/opt/rocm/share/llama-cpp-hip/gpu-targets) was added
+    # to close.
+    #
+    # Written from the same CUDA_ARCHS the cmake configure above consumed, so
+    # there is one source of truth (package.yml gpu_targets) rather than a
+    # second list that can drift away from what was actually compiled. The
+    # `:?` is load-bearing: if this phase ever runs without the variable set,
+    # an unguarded expansion would write an EMPTY record, and an empty record
+    # is read as "unknown" — the engine would then be offered on hardware
+    # nothing here proved it can serve. Failing loudly is the only safe
+    # behaviour.
+    printf '%s\n' "${CUDA_ARCHS:?FATAL: CUDA_ARCHS is not set in do_install; refusing to write an empty architecture record}" > gpu-targets.txt
+    install -Dm644 gpu-targets.txt \
+        "${DESTDIR}/opt/llama-cpp-cuda/share/llama-cpp-cuda/gpu-targets"
+
     # The staged binary must REPORT the pinned build number. Asked of the
     # binary that ships. The loader path is the assembled toolkit, because
     # these binaries resolve the CUDA runtime dynamically (GGML_STATIC stays

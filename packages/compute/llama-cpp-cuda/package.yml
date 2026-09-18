@@ -149,3 +149,8 @@ verify_paths:
   # CUDA-versus-Vulkan comparison uses. A build that dropped it would leave
   # the claim unverifiable on the machine that matters.
   - /opt/llama-cpp-cuda/bin/llama-bench
+  # The architectures this build compiled for, written by do_install from the
+  # gpu_targets above. The serving selector reads it to decide whether this
+  # engine has code the machine's card can execute; a build that shipped
+  # without it leaves that question unanswerable at run time.
+  - /opt/llama-cpp-cuda/share/llama-cpp-cuda/gpu-targets

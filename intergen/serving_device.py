@@ -47,8 +47,34 @@ ENGINE_SERVER_PATHS: dict[str, str] = {
 # runtime can read the same list rather than carry a second copy that drifts.
 HIP_GPU_TARGETS_PATH = "/opt/rocm/share/llama-cpp-hip/gpu-targets"
 
+# The CUDA build is compiled for a DECLARED list of NVIDIA architectures, in
+# cmake's CMAKE_CUDA_ARCHITECTURES vocabulary. The list is written once in
+# packages/compute/llama-cpp-cuda/package.yml (`gpu_targets`), the recipe
+# passes it to cmake as -DCMAKE_CUDA_ARCHITECTURES, and the recipe also
+# installs it here so the runtime can read the same list rather than carry a
+# second copy that drifts — the same one-source-of-truth shape the HIP variant
+# uses, at this engine's own prefix.
+CUDA_GPU_TARGETS_PATH = "/opt/llama-cpp-cuda/share/llama-cpp-cuda/gpu-targets"
+
 # Where the amdgpu kernel driver publishes each compute node's architecture.
 KFD_TOPOLOGY_NODES = "/sys/class/kfd/kfd/topology/nodes"
+
+# A CMAKE_CUDA_ARCHITECTURES entry: a compute-capability number, an optional
+# 'a' marking it architecture-SPECIFIC, and an optional kind. A bare number
+# means cmake's default (both compiled kernels and PTX), which is why the kind
+# group is optional rather than required.
+_CUDA_TARGET_RE = re.compile(
+    r"^(?P<num>\d+)(?P<spec>a)?(?:-(?P<kind>real|virtual))?$")
+
+# nvidia-smi's csv rows: "index, name, compute_cap, pci.bus_id". The tool
+# prints the PCI domain in its eight-digit form ("00000000:01:00.0") while
+# sysfs and ggml's --list-devices both use four ("0000:01:00.0"), so the
+# domain is normalised to the sysfs spelling — a device id that did not match
+# the one every other reader here uses would silently never join up.
+_SMI_LINE_RE = re.compile(
+    r"^\s*\d+\s*,\s*[^,]*,\s*(?P<major>\d+)\.(?P<minor>\d+)\s*,\s*"
+    r"(?P<domain>[0-9a-fA-F]+):(?P<bus>[0-9a-fA-F]{2}):"
+    r"(?P<dev>[0-9a-fA-F]{2})\.(?P<fn>[0-7])\s*$", re.MULTILINE)
 
 # The DECLARED per-vendor engine preference, tried in order over engines whose
 # server binary is present. One table, visible here, so a preference change is
@@ -212,6 +238,168 @@ def hip_is_supported_here(topology_root: str = KFD_TOPOLOGY_NODES,
     return bool(detected & supported)
 
 
+def cuda_build_gpu_targets(path: str = CUDA_GPU_TARGETS_PATH) -> set[str]:
+    """The architectures the installed CUDA build actually carries code for.
+
+    Read from the file the CUDA recipe installs. An empty set means the file
+    is absent or unreadable, which callers treat as unknown — an engine built
+    before this record existed must not be read as an engine that supports
+    nothing.
+    """
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            raw = fh.read()
+    except OSError:
+        return set()
+    targets = set()
+    for line in raw.splitlines():
+        # A comment runs to the end of its LINE. Dropping only the tokens that
+        # begin with '#' would keep every remaining word of the comment as a
+        # target — "# written by the recipe" would contribute four of them.
+        line = line.split("#", 1)[0]
+        for chunk in line.replace(";", " ").replace(",", " ").split():
+            chunk = chunk.strip()
+            if chunk:
+                targets.add(chunk)
+    return targets
+
+
+def _cuda_targets_cover(compute_cap: int, targets: "set[str]") -> bool:
+    """Whether a build compiled for ``targets`` can serve a card of this
+    compute capability, expressed as cmake does — 8.6 is 86, 12.0 is 120.
+
+    WHY THIS IS NOT SET MEMBERSHIP, which is what the HIP side does. The CUDA
+    target vocabulary distinguishes compiled kernels from PTX:
+
+      86-real       SASS for exactly 8.6. Machine code; it runs on 8.6 and on
+                    nothing else, because SASS is not forwards compatible.
+      80-virtual    PTX for 8.0. The driver JIT-compiles it at first load for
+                    8.0 and for any newer architecture, at the cost of a
+                    one-time pause.
+      120a-real     the 'a' means architecture-SPECIFIC: Blackwell's FP4
+                    tensor-core instructions, which upstream documents as NOT
+                    forwards compatible. It covers 12.0 and stops there.
+      86            a bare number is cmake's default, meaning both of the
+                    first two forms for that number.
+
+    So the question is not "is my number listed" but "is there an entry whose
+    code this card can execute": an exact entry of either kind, or a
+    non-specific ``-virtual`` entry BELOW this card that the driver can JIT
+    forward from. A machine at 9.0 with 80-virtual in the list serves fine,
+    and a gate that demanded exact membership would refuse it.
+    """
+    for token in targets:
+        match = _CUDA_TARGET_RE.match(token.strip())
+        if not match:
+            continue
+        num = int(match.group("num"))
+        if num == compute_cap:
+            return True
+        # PTX JITs forward, but only from an entry that is not tied to one
+        # architecture. An 'a' entry below this card carries instructions this
+        # card may not have.
+        if (match.group("kind") == "virtual" and not match.group("spec")
+                and num < compute_cap):
+            return True
+    return False
+
+
+def _parse_compute_caps(text: str) -> "dict[str, int]":
+    """Per-card compute capability keyed by PCI id, parsed from nvidia-smi's
+    csv rows. A row that does not parse contributes nothing, so a tool that
+    printed "No devices were found" yields an empty mapping rather than a
+    confident-looking wrong answer."""
+    caps: dict[str, int] = {}
+    for match in _SMI_LINE_RE.finditer(text or ""):
+        cap = int(match.group("major")) * 10 + int(match.group("minor"))
+        domain = match.group("domain")[-4:].rjust(4, "0").lower()
+        pci = (f"{domain}:{match.group('bus').lower()}:"
+               f"{match.group('dev').lower()}.{match.group('fn')}")
+        caps[pci] = cap
+    return caps
+
+
+def detect_nvidia_compute_caps(smi_path: "str | None" = None
+                               ) -> "dict[str, int]":
+    """Every NVIDIA card's compute capability, keyed by PCI id.
+
+    Unlike the AMD side, which reads architectures straight out of the kernel's
+    KFD topology, no kernel interface publishes an NVIDIA card's compute
+    capability — ``/proc/driver/nvidia/gpus/*/information`` carries the model
+    name, the firmware and the bus location, but not the number this gate
+    needs. It therefore comes from the driver's own query tool, which is
+    acceptable only because the CUDA engine already requires that same
+    proprietary driver to serve at all.
+
+    An empty mapping means "nothing was readable" — no tool, a tool that
+    failed, or output that did not parse — and callers must treat it as
+    unknown, never as "unsupported".
+    """
+    exe = smi_path or shutil.which("nvidia-smi")
+    if not exe:
+        return {}
+    try:
+        completed = subprocess.run(
+            [exe, "--query-gpu=index,name,compute_cap,pci.bus_id",
+             "--format=csv,noheader"],
+            capture_output=True, text=True, timeout=10, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    if completed.returncode != 0:
+        return {}
+    return _parse_compute_caps(completed.stdout)
+
+
+def cuda_card_support(targets_path: str = CUDA_GPU_TARGETS_PATH,
+                      caps: "dict[str, int] | None" = None
+                      ) -> "dict[str, bool | None]":
+    """Per-card verdict, keyed by PCI id: can the installed CUDA build serve
+    on THIS card?
+
+    Per-card rather than per-machine because a multi-GPU box can carry cards
+    of different generations, and the serving model pins exactly one of them
+    (:func:`select_serving_device`). "The machine supports CUDA" is not a
+    usable answer when the card the pin lands on is the one that does not; a
+    caller reporting a refusal can name the card and the number it is missing.
+    A value of ``None`` means the build's target list was unreadable, so
+    nothing is known about that card either way.
+    """
+    if caps is None:
+        caps = detect_nvidia_compute_caps()
+    targets = cuda_build_gpu_targets(targets_path)
+    if not targets:
+        return {pci: None for pci in caps}
+    return {pci: _cuda_targets_cover(cap, targets) for pci, cap in caps.items()}
+
+
+def cuda_is_supported_here(targets_path: str = CUDA_GPU_TARGETS_PATH,
+                           caps: "dict[str, int] | None" = None
+                           ) -> "bool | None":
+    """Whether the installed CUDA build has code for at least one of this
+    machine's NVIDIA cards.
+
+    Returns True when at least one card is covered, False when cards were
+    detected and NONE are, and None when either side is unknown — the same
+    three-valued discipline :func:`hip_is_supported_here` keeps, and for the
+    same reason: "I could not tell" and "I checked and it will not work" have
+    different correct responses, and collapsing them would either strand every
+    machine whose driver state is unusual or claim support on machines that
+    have none.
+
+    At least one card is enough because selection pins ONE card, and
+    :func:`select_serving_device` prefers a servable one; the per-card detail
+    for a caller that needs to say WHICH is :func:`cuda_card_support`.
+    """
+    if caps is None:
+        caps = detect_nvidia_compute_caps()
+    if not caps:
+        return None
+    targets = cuda_build_gpu_targets(targets_path)
+    if not targets:
+        return None
+    return any(_cuda_targets_cover(cap, targets) for cap in caps.values())
+
+
 def cuda_is_usable_here(drm_root: "str | os.PathLike" = "/sys/class/drm") -> bool:
     """Whether the CUDA engine build can serve on this machine: an NVIDIA card
     is bound to NVIDIA's own kernel driver (read from sysfs by
@@ -289,6 +477,15 @@ def select_serving_engine(vendor: str | None = None,
         # 2026-09-15, the preference table's nvidia row).
         if engine == "cuda" and not cuda_is_usable_here():
             continue
+        # The right driver is not the same as the right architecture. The CUDA
+        # build carries code for a declared target list, and a card outside it
+        # — a Volta part under CUDA 13, say — has neither compiled kernels nor
+        # PTX to JIT from, so the engine cannot serve however good the driver
+        # is. Only a MEASURED "no" skips it, the same rule the HIP gate above
+        # follows: an unreadable capability or a build that installed no target
+        # record leaves the preference alone.
+        if engine == "cuda" and cuda_is_supported_here() is False:
+            continue
         return engine, path
     return "vulkan", ENGINE_SERVER_PATHS["vulkan"]
 
@@ -309,8 +506,9 @@ def engine_ladder(vendor: str | None = None) -> list[tuple[str, str]]:
     only outcome is the restart budget draining and the assistant going silent
     on a machine that had a working engine available the whole time.
 
-    The architecture gate is applied here too, so a HIP build that measurably
-    cannot run on this GPU is not offered as a rung.
+    The architecture gate is applied here too, for both variants, so a HIP or
+    CUDA build that measurably cannot run on this machine's cards is not
+    offered as a rung.
     """
     ladder: list[tuple[str, str]] = []
     if vendor is None:
@@ -329,6 +527,8 @@ def engine_ladder(vendor: str | None = None) -> list[tuple[str, str]]:
         if engine == "hip" and hip_is_supported_here() is False:
             continue
         if engine == "cuda" and not cuda_is_usable_here():
+            continue
+        if engine == "cuda" and cuda_is_supported_here() is False:
             continue
         ladder.append((engine, path))
     return ladder
