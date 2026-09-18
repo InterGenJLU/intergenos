@@ -67,6 +67,33 @@ def main():
         print("error: --stage-only and --tracked are mutually exclusive")
         sys.exit(2)
     tracked = not stage_only
+    # Tracked deployment writes to three ABSOLUTE paths — /var/lib/igos/packages,
+    # /var/lib/igos/archives and /tmp/igos-staging (builder.py, BuildExecutor).
+    # Inside the build chroot those are the chroot's own directories, which is
+    # the design. Typed on a live installed machine they are the RUNNING
+    # system's package database while the files deploy into build/system: the
+    # completion-marker step unlinks the installed record the package manager
+    # wrote, and a successful tracked build overwrites that record with a
+    # manifest for files that are not installed. scripts/chroot-enter.sh is the
+    # single entry point into the chroot and sets IGOS_BUILD_IN_CHROOT=1 in its
+    # env -i list; without it, a tracked build refuses here, before any object
+    # is constructed and before any directory is made.
+    if do_build and not stage_only and os.environ.get("IGOS_BUILD_IN_CHROOT") != "1":
+        print(
+            "error: tracked deployment refuses to run outside the build chroot.\n"
+            "  A tracked --build writes to /var/lib/igos/packages,\n"
+            "  /var/lib/igos/archives and /tmp/igos-staging. Outside the chroot\n"
+            "  those are the running system's own package database and staging\n"
+            "  directories, and this build's files are not what is installed\n"
+            "  there: the run would delete and overwrite installed package\n"
+            "  records.\n"
+            "  Tracked deployment is only valid inside the build chroot entered\n"
+            "  through scripts/chroot-enter.sh, which sets IGOS_BUILD_IN_CHROOT=1.\n"
+            "  On a live machine use --stage-only, which builds into the staging\n"
+            "  system root and touches none of those paths.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
     skip_built = "--skip-built" in args
     # Verbose forensic mode: --debug-verbose (preferred) OR --json-log (legacy
     # alias, preserved for one release) OR IGOS_BUILD_DEBUG_VERBOSE=1 (the

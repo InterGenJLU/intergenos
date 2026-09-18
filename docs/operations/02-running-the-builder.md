@@ -84,6 +84,8 @@ The single-package command flag is **`--only <name>`** on the Python builder (`p
 cd /mnt/intergenos && python3 -m igos-build --only <name> --build --debug-verbose --sources-dir /sources
 ```
 
+**Inside the chroot, or not at all.** That command is a *tracked* build: it writes package records to `/var/lib/igos/packages`, archives to `/var/lib/igos/archives` and staging to `/tmp/igos-staging`. Those are the chroot's own directories only when the builder runs inside the chroot. Typed on a live installed machine they are that machine's real package database, while the files being built deploy into `build/system` — the run deletes and overwrites installed package records for files that are not installed. Since 2026-09-17 the builder refuses: `scripts/chroot-enter.sh` sets `IGOS_BUILD_IN_CHROOT=1` and a tracked `--build` without it exits 2 with a message naming those three paths. On a live machine, outside the chroot, use `--stage-only` — it builds into the staging system root and touches none of them. `--dry-run` alone (no `--build`) is unaffected.
+
 **`--debug-verbose` is mandatory here too.** It applies to every invocation of the builder, single-package builds included, not only the orchestrator.
 
 | Goal | Builder command (run inside the chroot, from `/mnt/intergenos`) |

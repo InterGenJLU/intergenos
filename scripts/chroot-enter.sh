@@ -94,6 +94,16 @@ HOST_TZ="${HOST_TZ_POSIX}${POSIX_OFFSET}"
 # shipped to target boxes and blocked user git operations under
 # /mnt/intergenos (3.0-F26). A one-shot build has no use for bytecode cache;
 # suppress it for every chroot build phase at the single entry point.
+#
+# IGOS_BUILD_IN_CHROOT=1: the marker igos-build reads before it will run a
+# tracked --build. Tracked deployment writes to /var/lib/igos/packages,
+# /var/lib/igos/archives and /tmp/igos-staging, which are the chroot's own
+# directories only when the builder runs in here. Typed on a live installed
+# machine the same command form points at that machine's real package
+# database and deletes and overwrites installed records. This script is the
+# single entry point into the chroot, so this is the one place the marker is
+# set; igos-build/__main__.py refuses a tracked build without it and names
+# --stage-only as the form for a live machine.
 chroot "$IGOS" /usr/bin/env -i               \
     HOME=/root                               \
     TERM="$TERM"                             \
@@ -101,6 +111,7 @@ chroot "$IGOS" /usr/bin/env -i               \
     PS1='\[\e[1;34m\][\[\e[m\]\[\e[1;31m\](igos-chroot)\[\e[m\]\[\e[1;34m\]]\[\e[m\]\[\e[1;34m\][\[\e[m\]\[\e[1;37m\]<\[\e[m\]\[\e[1;32m\]\w\[\e[m\]\[\e[1;37m\]>\[\e[m\]\[\e[1;34m\]]\[\e[m\]\[\e[1;37m\]:\[\e[m\]\[\e[1;31m\]#\[\e[m\] ' \
     PATH=/usr/bin:/usr/sbin:/bin:/sbin        \
     PYTHONDONTWRITEBYTECODE=1                 \
+    IGOS_BUILD_IN_CHROOT=1                    \
     CFLAGS="-march=x86-64-v2 -mtune=generic -O2 -pipe" \
     CXXFLAGS="-march=x86-64-v2 -mtune=generic -O2 -pipe" \
     MAKEFLAGS="-j${JOBS}"                    \
