@@ -1,7 +1,7 @@
 name: codex
 version: "1.0"
-release: 3  # r3: the installed manifest records the symlink this package creates as the link it is, instead of the path that link resolved to at build time — the same change as the sibling download helper, for the same reason.  # r2: The helper acceptance record names SUDO_USER when supplied, otherwise the effective account with an explicit indication that no consenting user was named. Identity is JSON-encoded before opening the record; this writer works with the existing helper library.
-content_hash: 997e5b07ef7e310e
+release: 4  # r4: an extension this package pins but does not end up installing is now recorded as such — the same change as the sibling download helper, for the same reason. Every path that leaves the VS Code extension absent writes one post-install action line naming the extension, the pinned version and the reason, so the package manager's operation log carries the omission. The successful line and the exit status are unchanged.  # r3: the installed manifest records the symlink this package creates as the link it is, instead of the path that link resolved to at build time — the same change as the sibling download helper, for the same reason.  # r2: The helper acceptance record names SUDO_USER when supplied, otherwise the effective account with an explicit indication that no consenting user was named. Identity is JSON-encoded before opening the record; this writer works with the existing helper library.
+content_hash: 0a4337807625f856
 description: Helper to install OpenAI Codex CLI and VS Code extension
 license: GPL-3.0-or-later
 payload_license: "Apache-2.0 AND LicenseRef-OpenAI-Terms-of-Use"

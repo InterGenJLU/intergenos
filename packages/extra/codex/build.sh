@@ -260,6 +260,17 @@ CODEX_VSIX_PLATFORM="linux-x64"
 CODEX_VSIX_SHA256="cd9cd06c5bfcc8e18972587d04ac9d08b04152ebf6de426233ddc812b05933ff"
 
 ext_installed=0
+# Reason class for an extension that ends up NOT installed, from the fixed
+# vocabulary download-failed / integrity-refused / install-failed /
+# root-refused / vscode-absent. Empty means the extension installed. Every
+# path that leaves the extension absent sets this, so the manifest — and
+# through it the package manager's operation log — carries the omission as a
+# fact a machine can read, instead of leaving it visible only in the terminal
+# text of one run. Decided 2026-09-18: an observation run found this helper's
+# gallery download reset at zero bytes; the helper printed a warning and the
+# install still reported success, so nothing in the recorded footprint said a
+# pinned, sha256-verified component had not been installed.
+ext_skip_reason=""
 ext_vsix="/tmp/codex-${CODEX_VSIX_VERSION}-${CODEX_VSIX_PLATFORM}.vsix"
 code_bin="$(command -v code 2>/dev/null || command -v code-oss 2>/dev/null || true)"
 if [ -n "${code_bin}" ]; then
@@ -278,6 +289,7 @@ if [ -n "${code_bin}" ]; then
             echo "  Refusing to install a file that does not match what this package"
             echo "  expects. Either the publisher replaced this version, or the"
             echo "  download was tampered with. The extension was NOT installed."
+            ext_skip_reason="integrity-refused"
             rm -f "${ext_vsix}" 2>/dev/null || true
         else
             echo "  Extension .vsix verified (sha256 OK)."
@@ -304,6 +316,7 @@ if [ -n "${code_bin}" ]; then
             else
                 echo ""
                 if [ "$(id -u)" = "0" ] && [ -z "${ext_as}" ]; then
+                    ext_skip_reason="root-refused"
                     echo "  WARNING: the extension install ran AS ROOT (no invoking user was"
                     echo "  visible) and VS Code's super-user guard refused it (exit ${ext_rc})."
                     echo "  VS Code will not install extensions while running as root. The"
@@ -311,6 +324,7 @@ if [ -n "${code_bin}" ]; then
                     echo "  run this as your own user:"
                     echo "    ${code_bin} --install-extension ${ext_vsix}"
                 else
+                    ext_skip_reason="install-failed"
                     echo "  WARNING: the extension install failed (exit ${ext_rc})."
                 fi
                 echo "  Command output (tail):"
@@ -321,6 +335,7 @@ if [ -n "${code_bin}" ]; then
             fi
         fi
     else
+        ext_skip_reason="download-failed"
         echo ""
         echo "  WARNING: could not download the extension .vsix from the gallery"
         echo "  (network / timeout). The Codex CLI is installed and usable;"
@@ -329,6 +344,7 @@ if [ -n "${code_bin}" ]; then
         echo "    ${gallery_url}"
     fi
 else
+    ext_skip_reason="vscode-absent"
     echo ""
     echo "  NOTE: VS Code is not installed — the Codex VS Code extension was"
     echo "  skipped (the CLI above is fully usable on its own). To add it later:"
@@ -343,6 +359,14 @@ fi
 if [ "${ext_installed}" = "1" ]; then
     igos_helper_record_post_install_action \
         "VS Code extension openai.chatgpt (Codex) installed (per-user; not pkm-tracked)"
+elif [ -n "${ext_skip_reason}" ]; then
+    # The extension did not install. Record that as plainly as a success is
+    # recorded, naming the extension, the version that was pinned and the
+    # reason class, so a reader of the operation log learns it without having
+    # to compare two runs by eye. The exit status is deliberately left alone:
+    # a gallery outage must not fail an otherwise good install.
+    igos_helper_record_post_install_action \
+        "VS Code extension openai.chatgpt (Codex) ${CODEX_VSIX_VERSION} NOT installed (reason: ${ext_skip_reason}; per-user; not pkm-tracked)"
 fi
 
 igos_helper_commit
