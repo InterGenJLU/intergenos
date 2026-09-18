@@ -402,6 +402,55 @@ class EngineChoiceWiringTest(unittest.TestCase):
         self.assertEqual(engine, "vulkan")
 
 
+class TheLaunchersFallbackAsksTheSameQuestionTest(unittest.TestCase):
+    """LlamaManager._find_server is the second place an engine is chosen.
+
+    The daemon resolves the engine itself and hands the binary to start(), so
+    this fallback runs only for a caller that did not — but when it runs it must
+    ask the SAME question, about the SAME card. Found by running the fix as the
+    installed daemon on 2026-09-18: with the device pinned to the covered card,
+    the daemon chose HIP and this call, asking without the pin, logged Vulkan in
+    the same start. The launch was correct; the second answer was not, and on a
+    caller that uses it the pinned card's engine would have been declined.
+    """
+
+    def test_it_passes_the_pinned_device_to_the_selector(self):
+        from intergen import llama_manager
+
+        seen = {}
+
+        def _fake_select(vendor=None, engine_pin=None, device_pin=None):
+            seen["device_pin"] = device_pin
+            return "vulkan", "/usr/bin/llama-server"
+
+        import intergen.serving_device as sd
+        orig = sd.select_serving_engine
+        sd.select_serving_engine = _fake_select
+        self.addCleanup(lambda: setattr(sd, "select_serving_engine", orig))
+
+        mgr = llama_manager.LlamaManager.__new__(llama_manager.LlamaManager)
+        mgr._find_server(device_pin="ROCm0")
+        self.assertEqual(seen.get("device_pin"), "ROCm0")
+
+    def test_no_pin_is_still_no_pin(self):
+        from intergen import llama_manager
+
+        seen = {}
+
+        def _fake_select(vendor=None, engine_pin=None, device_pin=None):
+            seen["device_pin"] = device_pin
+            return "vulkan", "/usr/bin/llama-server"
+
+        import intergen.serving_device as sd
+        orig = sd.select_serving_engine
+        sd.select_serving_engine = _fake_select
+        self.addCleanup(lambda: setattr(sd, "select_serving_engine", orig))
+
+        mgr = llama_manager.LlamaManager.__new__(llama_manager.LlamaManager)
+        mgr._find_server()
+        self.assertIsNone(seen.get("device_pin"))
+
+
 class CudaCounterpartTest(unittest.TestCase):
     """The CUDA gate is machine-level too, and that is not the same defect.
 

@@ -522,7 +522,7 @@ class LlamaManager(LlamaManagerInterface):
                 log.error(self._last_error)
                 return False
         else:
-            server_path = self._find_server()
+            server_path = self._find_server(device_pin=device)
             if server_path is None:
                 self._last_error = "llama-server binary not found"
                 self._last_failure = StartFailure.BINARY_ABSENT
@@ -1671,7 +1671,7 @@ class LlamaManager(LlamaManagerInterface):
             return False
         return self._process.poll() is None
 
-    def _find_server(self) -> str | None:
+    def _find_server(self, device_pin: str | None = None) -> str | None:
         """Find the llama-server binary — engine-aware.
 
         The engine selector's choice (the per-vendor preference table over the
@@ -1681,12 +1681,23 @@ class LlamaManager(LlamaManagerInterface):
         binary the PATH finds. A caller that resolved the engine itself passes
         ``server_path`` to :meth:`start` instead and never reaches this
         fallback chain.
+
+        ``device_pin`` is the ggml device name this start is pinning, and it is
+        passed straight through to the selector, because the HIP architecture
+        gate asks about the card that will be served on. Without it this call
+        asked the AUTOMATIC selector while the launch used the pinned card — so
+        on a machine where the pinned card is covered and the automatic one is
+        not, this fallback declined an engine that would have worked, and logged
+        a decision the launch then contradicted. Measured on a two-card
+        workstation on 2026-09-18: with the pin on the covered card, the
+        daemon's own resolution chose HIP and this call logged Vulkan in the
+        same start.
         """
         import os
         import shutil
         try:
             from intergen.serving_device import select_serving_engine
-            engine, path = select_serving_engine()
+            engine, path = select_serving_engine(device_pin=device_pin)
             if os.path.isfile(path) and os.access(path, os.X_OK):
                 log.info("engine selector chose %s (%s)", engine, path)
                 return path
