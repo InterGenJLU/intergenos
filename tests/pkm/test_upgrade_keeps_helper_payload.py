@@ -159,15 +159,36 @@ class TheInstallerReRecordsAKeptPayload(_HelperInstallOnDisk):
             (self.root / "var/lib/igos/packages" / f"{NAME}-13.3.1").is_file(),
             "the text manifest was not written")
 
-    def test_a_stamped_release_in_the_manifest_still_wins(self):
+    def test_the_archive_release_wins_over_a_stale_manifest_stamp(self):
+        # The ordering a real upgrade produces: the footprint manifest still
+        # carries the release that downloaded the payload (5), and the archive
+        # that has just been installed is newer (6). Nothing re-ran the helper,
+        # so the manifest's stamp is stale by construction and must not be
+        # allowed to pull the recorded release backwards.
+        # Measured 2026-09-17 on an installed machine: cuda-toolkit was upgraded from
+        # the release-7 archive and the machine recorded release 6, after which
+        # pkm re-planned 13.3.1-6 -> 13.3.1-7 from the same archive forever.
         self._upgrade_the_archive_half()
         m = json.loads(self.manifest.read_text())
-        m["release_installed"] = 7
+        m["release_installed"] = 5
         self.manifest.write_text(json.dumps(m))
         inst = PackageInstaller(self.db, root=str(self.root))
         ok, msg = inst.reattach_helper_payload(NAME)
         self.assertTrue(ok, msg)
-        self.assertEqual(self.db.get_installed(NAME)["release"], 7)
+        self.assertEqual(self.db.get_installed(NAME)["release"], 6)
+
+    def test_the_reattach_rewrites_the_manifest_stamp_to_what_is_installed(self):
+        # The stamp is the record a later reattach reads. Leaving it stale is
+        # what made the defect above recur on every upgrade, so the reattach
+        # brings it forward to the release it just recorded.
+        self._upgrade_the_archive_half()
+        m = json.loads(self.manifest.read_text())
+        m["release_installed"] = 5
+        self.manifest.write_text(json.dumps(m))
+        inst = PackageInstaller(self.db, root=str(self.root))
+        ok, msg = inst.reattach_helper_payload(NAME)
+        self.assertTrue(ok, msg)
+        self.assertEqual(json.loads(self.manifest.read_text())["release_installed"], 6)
 
     def test_a_missing_manifest_is_reported_not_hidden(self):
         self._upgrade_the_archive_half()

@@ -10,7 +10,10 @@ no `release_installed`, and the default of 1 overwrote the archive's value.
 `pkm list upgradable` then showed a phantom `cuda-toolkit 13.3.1-1 →
 13.3.1-5` forever, and a `pkm upgrade` would have re-run the 4 GB helper
 every time. Fixed: a manifest without `release_installed` leaves the
-existing row's release alone; a manifest that carries one still wins.
+existing row's release alone; a manifest that carries one is recorded on a
+fresh helper run, and never pulls the recorded release below the archive that
+is installed (measured 2026-09-17 on an installed machine, where a stale stamp of 6
+overwrote an installed release of 7).
 """
 
 import tempfile
@@ -54,11 +57,26 @@ class HelperMergeKeepsArchiveReleaseTest(unittest.TestCase):
         self.assertEqual(row["release"], 5)
         self.assertEqual(row["install_method"], "helper")
 
-    def test_manifest_with_release_still_wins(self):
+    def test_a_fresh_helper_run_records_the_release_it_stamped(self):
+        # A helper that has just run wrote this stamp seconds ago, so it is the
+        # current answer and it is recorded as written.
         self.db.add_installed("cuda-toolkit", "13.3.1", release=5,
                               tier="compute", install_method="archive")
         ok, msg, declined = self._run(
             {"version_installed": "13.3.1", "release_installed": 7,
+             "files": [], "symlinks": [], "depends": []})
+        self.assertTrue(ok, msg)
+        self.assertEqual(self.db.get_installed("cuda-toolkit")["release"], 7)
+
+    def test_a_stamp_below_the_installed_row_never_pulls_it_backwards(self):
+        # The ordering a real upgrade produces, and the one that cost a machine
+        # its release record on 2026-09-17: the manifest's stamp is older than
+        # the archive that is installed. A merge records what is installed, so
+        # the recorded release does not move backwards.
+        self.db.add_installed("cuda-toolkit", "13.3.1", release=7,
+                              tier="compute", install_method="archive")
+        ok, msg, declined = self._run(
+            {"version_installed": "13.3.1", "release_installed": 5,
              "files": [], "symlinks": [], "depends": []})
         self.assertTrue(ok, msg)
         self.assertEqual(self.db.get_installed("cuda-toolkit")["release"], 7)

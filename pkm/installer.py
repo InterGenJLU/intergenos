@@ -395,6 +395,17 @@ def _read_partial_manifest_summary(name):
     }
 
 
+def _helper_manifest_path(name, root=None):
+    """Where the footprint manifest for `name` lives on the filesystem asked.
+
+    The same path _read_helper_manifest reads, named once so the reattach path
+    can write the stamp back without re-deriving it.
+    """
+    base = HELPER_MANIFEST_DIR if root is None else Path(
+        rootpaths.helper_manifest_dir(root))
+    return base / f"{name}.manifest"
+
+
 def _read_helper_manifest(name, root=None):
     """Read + validate the helper manifest produced by helper-lib.sh.
 
@@ -2505,11 +2516,64 @@ class PackageInstaller:
             )
         helper_path = self.root / "usr" / "bin" / f"igos-install-{name}"
         ok, msg, _declined = self._register_helper_footprint(
-            name, manifest, helper_path, verb="Re-recorded")
+            name, manifest, helper_path, verb="Re-recorded", reattach=True)
+        if ok:
+            self._restamp_helper_manifest_release(name)
         return ok, msg
 
+    def _restamp_helper_manifest_release(self, name):
+        """Bring the footprint manifest's release stamp up to what is recorded.
+
+        The stamp is what the NEXT reattach reads. Leaving it at the release
+        that downloaded the payload is what made the recorded release fall back
+        on every upgrade, so once the row carries the archive's release the
+        manifest is brought forward to the same number. Nothing else in the
+        manifest is touched: the build date still records when the payload was
+        fetched, and the two are meant to disagree after an upgrade.
+
+        A manifest that cannot be rewritten is not fatal — the row is already
+        correct, and the next reattach reads the row, not the stamp — so this
+        reports rather than fails.
+        """
+        row = self.db.get_installed(name)
+        if row is None:
+            return
+        try:
+            release = int(row["release"] or 1)
+        except (TypeError, ValueError, KeyError):
+            return
+        path = _helper_manifest_path(
+            name, root=None if str(self.root) == "/" else str(self.root))
+        try:
+            with open(str(path), "r", encoding="utf-8") as f:
+                stored = json.load(f)
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"  note: the footprint manifest for {name} could not be "
+                  f"read to bring its release stamp forward to {release} "
+                  f"({e}). The package record itself is correct.")
+            return
+        if not isinstance(stored, dict):
+            return
+        if stored.get("release_installed") == release:
+            return
+        stored["release_installed"] = release
+        tmp = path.with_suffix(path.suffix + ".new")
+        try:
+            with open(str(tmp), "w", encoding="utf-8") as f:
+                json.dump(stored, f, indent=2)
+                f.write("\n")
+            os.replace(str(tmp), str(path))
+        except OSError as e:
+            try:
+                os.unlink(str(tmp))
+            except OSError:
+                pass
+            print(f"  note: the footprint manifest for {name} could not be "
+                  f"brought forward to release {release} ({e}). The package "
+                  f"record itself is correct.")
+
     def _register_helper_footprint(self, name, manifest, helper_path,
-                                   verb="Installed"):
+                                   verb="Installed", reattach=False):
         """Record a validated helper footprint manifest on the package row.
 
         Shared by the helper run (a fresh download) and by the upgrade path
@@ -2534,25 +2598,49 @@ class PackageInstaller:
                 f"igos_helper_set_version with the upstream version."
             ), False
         # PKM-A26: thread release on the helper path too (parity with the
-        # archive path's A02 fix). The manifest carries no release today, so
-        # this defaults to 1 but is forward-compatible if a future manifest
-        # records release_installed.
-        try:
-            release = int(manifest.get("release_installed", 1))
-        except (TypeError, ValueError):
-            release = 1
-        # A helper manifest that carries no release_installed says nothing
-        # about the release; the archive install that preceded this merge
-        # recorded the .PKGINFO release, and that value must survive. Measured
-        # 2026-09-03: cuda-toolkit r5 was rewritten to r1 here, and
-        # `pkm list upgradable` then offered a phantom 13.3.1-1 -> 13.3.1-5.
-        if "release_installed" not in manifest:
-            prior = self.db.get_installed(name)
-            if prior is not None:
-                try:
-                    release = max(release, int(prior["release"] or 1))
-                except (TypeError, ValueError, KeyError):
-                    pass
+        # archive path's A02 fix).
+        #
+        # Two callers reach this with very different claims on the release.
+        #
+        # A FRESH HELPER RUN has just downloaded and just written the manifest,
+        # so `release_installed` is this second's answer and is recorded as
+        # written. When the manifest carries no stamp it says nothing at all,
+        # and the release the archive install recorded must survive (measured
+        # 2026-09-03: cuda-toolkit r5 was rewritten to r1 here, and `pkm list
+        # upgradable` then offered a phantom 13.3.1-1 -> 13.3.1-5).
+        #
+        # A REATTACH after an upgrade has run no helper and downloaded nothing.
+        # The manifest is the one the LAST download wrote, so its stamp is stale
+        # by construction, while the row was written moments ago from the new
+        # archive's .PKGINFO. The archive being installed is the authority on
+        # its own release, so the reattach takes the row's value and ignores the
+        # stamp. Measured 2026-09-17 on an installed machine: cuda-toolkit was upgraded
+        # from the release-7 archive and the machine recorded release 6 — the
+        # stamp 4891ebfe taught the helper to write — after which pkm re-planned
+        # 13.3.1-6 -> 13.3.1-7 from that same archive every time it was offered.
+        #
+        # Either way the recorded release never moves backwards on a merge.
+        stamped = None
+        if "release_installed" in manifest:
+            try:
+                stamped = int(manifest["release_installed"])
+            except (TypeError, ValueError):
+                stamped = None
+        prior_release = None
+        prior = self.db.get_installed(name)
+        if prior is not None:
+            try:
+                prior_release = int(prior["release"] or 1)
+            except (TypeError, ValueError, KeyError):
+                prior_release = None
+        if reattach:
+            release = prior_release if prior_release is not None else (
+                stamped if stamped is not None else 1)
+        else:
+            release = stamped if stamped is not None else (
+                prior_release if prior_release is not None else 1)
+            if prior_release is not None:
+                release = max(release, prior_release)
         manifest_files = manifest.get("files", [])
         manifest_symlinks = manifest.get("symlinks", [])
         manifest_depends = manifest.get("depends", [])
