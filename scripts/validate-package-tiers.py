@@ -862,7 +862,15 @@ GUI_SUBSTRATE_DESKTOP_EXTRA = {
     # X11 server-side utilities
     "libdmx", "sessreg", "setxkbmap",
     # iOS / USB device integration (consumed by gvfs)
-    "libimobiledevice-glue", "libusbmuxd",
+    #   usbmuxd — the daemon behind the two libraries below and behind
+    #     libimobiledevice: everything that speaks to an attached Apple device
+    #     connects to its socket. It is started by udev when such a device
+    #     appears, never by a user, and nothing build-depends on it (the
+    #     dependency is a run-time socket), so consumer inference cannot place
+    #     it and it classifies UNCLEAR without this entry. A desktop
+    #     integration service per docs/package-tiers.md, and the same class as
+    #     the two libraries it serves.
+    "libimobiledevice-glue", "libusbmuxd", "usbmuxd",
     # Multimedia decoders
     "libmad", "libmpeg2",
     # GNOME aux apps
