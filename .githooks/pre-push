@@ -130,28 +130,25 @@ done
 # name is published to the same public namespace and costs one case arm, so leaving it
 # open would be a known silent hole. Called out in the delivery rather than folded in
 # quietly.
-if [ -f scripts/check-public-language.py ] && [ -n "$PY_BIN" ]; then
-    _refname_args=()
-    for refline in "${PUSH_REFS[@]}"; do
-        read -r _l _ls _rref _rs <<< "$refline"
-        [ "$_ls" = "$ZERO" ] && continue          # deletion: nothing published
-        case "$_rref" in
-            refs/heads/*|refs/tags/*) _refname_args+=(--text "$_rref") ;;
-        esac
-    done
-    if [ "${#_refname_args[@]}" -gt 0 ]; then
-        if ! "$PY_BIN" scripts/check-public-language.py --label "pushed ref name" \
-                 "${_refname_args[@]}"; then
-            echo "[pre-push] BLOCK: a pushed ref NAME failed the language gate (see above)"
-            echo "  Rule 22: public refs are content-descriptive (feature/<topic>),"
-            echo "  never named after a seat, a person, or a dev host."
-            echo "  Rename locally, then push the new name:"
-            echo "    git branch -m <old> <new> && git push origin <new>"
-            exit 1
-        fi
+require_gate_can_run scripts/check-public-language.py "ref-name language gate"
+_refname_args=()
+for refline in "${PUSH_REFS[@]}"; do
+    read -r _l _ls _rref _rs <<< "$refline"
+    [ "$_ls" = "$ZERO" ] && continue          # deletion: nothing published
+    case "$_rref" in
+        refs/heads/*|refs/tags/*) _refname_args+=(--text "$_rref") ;;
+    esac
+done
+if [ "${#_refname_args[@]}" -gt 0 ]; then
+    if ! "$PY_BIN" scripts/check-public-language.py --label "pushed ref name" \
+             "${_refname_args[@]}"; then
+        echo "[pre-push] BLOCK: a pushed ref NAME failed the language gate (see above)"
+        echo "  Rule 22: public refs are content-descriptive (feature/<topic>),"
+        echo "  never named after a seat, a person, or a dev host."
+        echo "  Rename locally, then push the new name:"
+        echo "    git branch -m <old> <new> && git push origin <new>"
+        exit 1
     fi
-else
-    echo "[pre-push] WARN: ref-name language gate skipped (script or Python missing)"
 fi
 
 # ---- 0b. Multi-ref fan-out (blind spot 3: the push-range under-scan) ------
@@ -465,8 +462,10 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
                 */__pycache__/*|*/.venv/*|*/build/*) continue ;;
             esac
             if [ -z "$PY_BIN" ]; then
-                echo "[pre-push] WARN: no Python 3 interpreter; cannot py-compile $f"
-                continue
+                echo "[pre-push] BLOCK: the Python syntax check could not run — no Python 3 interpreter was found."
+                echo "  Reason: $f is being pushed unchecked, and a check that did not run has not passed."
+                echo "  Resolve: make Python 3 reachable as python3, py or python on PATH."
+                exit 1
             fi
             if ! "$PY_BIN" -m py_compile "$f" 2>/dev/null; then
                 echo "[pre-push] BLOCK: Python syntax error in $f"
@@ -579,7 +578,8 @@ fi
 # internal vocab, and AGENT-NAME patterns can slip through into git log via
 # the message body. This gate scans messages of pushed commits with the same
 # patterns gate 1 uses on file content.
-if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ] && [ -f scripts/check-public-content.py ]; then
+if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
+    require_gate_can_run scripts/check-public-content.py "commit-message audit"
     PY7="$PY_BIN"
     if [ -n "$PY7" ]; then
         BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
@@ -1115,8 +1115,8 @@ fi
 # fires solely on commits that CHANGE a release: value, so the legacy
 # backlog never blocks a push. Per-commit NO-GATE override honored inside
 # the script.
-if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ] \
-        && [ -f scripts/check-release-notes.py ] && [ -n "$PY_BIN" ]; then
+if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
+    require_gate_can_run scripts/check-release-notes.py "release-note chain gate"
     BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
     if ! "$PY_BIN" scripts/check-release-notes.py --base "$BASE" --head "$LOCAL"; then
         echo "[pre-push] BLOCK: release bump without its chain-head note (see above)."
@@ -1147,25 +1147,20 @@ fi
 # reasoned `Changelog-Exempt: <reason>` trailer on the triggering commit.
 # Per-commit NO-GATE override honored inside the script.
 #
-# Absence of the script or of a Python interpreter is announced rather than
-# skipped silently. Gate 9.6 above skips both conditions without a word; a
-# gate that can vanish quietly reports the same nothing whether it passed or
-# was never there, and the whole point of this one is that a record cannot
-# go missing unnoticed.
+# Absence of the script or of a Python interpreter refuses the push, and since
+# 2026-09-17 gate 9.6 above does the same — it skipped both conditions without
+# a word until then. A gate that can vanish quietly reports the same nothing
+# whether it passed or was never there, and the whole point of this one is that
+# a record cannot go missing unnoticed.
 if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
-    if [ ! -f scripts/check-changelog-accumulation.py ]; then
-        echo "[pre-push] WARN: scripts/check-changelog-accumulation.py not found; changelog accumulation gate NOT run"
-    elif [ -z "$PY_BIN" ]; then
-        echo "[pre-push] WARN: no Python 3 interpreter found; changelog accumulation gate NOT run"
-    else
-        BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
-        if ! "$PY_BIN" scripts/check-changelog-accumulation.py --base "$BASE" --head "$LOCAL"; then
-            echo "[pre-push] BLOCK: this push changes the shipped package set without a changelog record (see above)."
-            echo "  Add the entry to CHANGELOG.md in this push, or put"
-            echo "  \`Changelog-Exempt: <why this does not belong in a user-facing"
-            echo "  changelog>\` in the triggering commit's message."
-            exit 1
-        fi
+    require_gate_can_run scripts/check-changelog-accumulation.py "changelog accumulation gate"
+    BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
+    if ! "$PY_BIN" scripts/check-changelog-accumulation.py --base "$BASE" --head "$LOCAL"; then
+        echo "[pre-push] BLOCK: this push changes the shipped package set without a changelog record (see above)."
+        echo "  Add the entry to CHANGELOG.md in this push, or put"
+        echo "  \`Changelog-Exempt: <why this does not belong in a user-facing"
+        echo "  changelog>\` in the triggering commit's message."
+        exit 1
     fi
 fi
 
@@ -1251,7 +1246,10 @@ if [ "$ANCHOR_NEEDED" = "1" ]; then
             exit 1
         fi
     else
-        echo "[pre-push] WARN: scripts/anchor-tracker.sh not found or not executable; skipping TRACKER anchor"
+        echo "[pre-push] BLOCK: the TRACKER anchor step could not run — scripts/anchor-tracker.sh is missing or not executable."
+        echo "  Reason: this push updates public master, and the private ledger anchor is part of that promotion."
+        echo "  Resolve: restore scripts/anchor-tracker.sh and make it executable."
+        exit 1
     fi
 fi
 
