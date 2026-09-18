@@ -318,13 +318,20 @@ def main() -> int:
             print(f"REFUSED: the previous fingerprint definition "
                   f"({provenance}) could not be loaded: {e}", file=sys.stderr)
             return 2
-        print(f"Previous fingerprint definition read from {provenance}.")
+        print(f"Previous fingerprint definition read from {provenance}.",
+              flush=True)
 
     packages_dir = Path(args.packages_dir)
     sources_dir = Path(args.sources_dir)
 
     bumped, established, unchanged, drift, errors = [], [], [], [], []
     rebaselined = []
+    # A --rebaseline run writes ALL OR NOTHING. Before this, a run that
+    # refused two packages had already rewritten the five it reached first,
+    # so a person who read the refusal and stopped was left with a tree half
+    # re-baselined and no line of output saying so. Every write of that mode
+    # is staged here and applied only if the whole run is clean.
+    pending: list[tuple[Path, str]] = []
 
     for yml in discover_templates(packages_dir):
         try:
@@ -366,7 +373,10 @@ def main() -> int:
                 drift.append(f"{pkg.name}: no content_hash baseline recorded yet")
                 continue
             text = _set_content_hash(text, fp)
-            yml.write_text(text)
+            if args.rebaseline:
+                pending.append((yml, text))
+            else:
+                yml.write_text(text)
             established.append(pkg.name)
         elif recorded == fp:
             unchanged.append(pkg.name)
@@ -393,7 +403,7 @@ def main() -> int:
                     f"without --rebaseline so the release bumps.")
                 continue
             text = _set_content_hash(text, fp)
-            yml.write_text(text)
+            pending.append((yml, text))
             rebaselined.append(f"{pkg.name} {recorded[:12]} -> {fp[:12]}")
         else:
             # Content changed since the recorded release.
@@ -409,6 +419,22 @@ def main() -> int:
             text2 = _set_content_hash(text2, fp)
             yml.write_text(text2)
             bumped.append(f"{pkg.name} {change[0]}->{change[1]}")
+
+    # A refusal anywhere in a --rebaseline run discards every staged write.
+    # The mode's whole claim is that it absorbed a definition change and
+    # nothing else; a tree carrying half of that claim cannot be read back to
+    # tell which half.
+    if args.rebaseline:
+        if errors:
+            print(f"REFUSED: nothing was written — {len(errors)} package(s) "
+                  f"below are content changes, not definition changes, and a "
+                  f"re-baseline run applies all or nothing. "
+                  f"{len(pending)} staged re-baseline(s) discarded.",
+                  file=sys.stderr, flush=True)
+            rebaselined, established, pending = [], [], []
+        else:
+            for path, text in pending:
+                path.write_text(text)
 
     # --- report ---
     if rebaselined:
