@@ -1,7 +1,7 @@
 name: llama-cpp-hip
 version: "b8796"
-release: 4  # r4: the recipe records the GPU architectures the ROCm build was compiled for, so engine selection can refuse the HIP engine on a device the build has no code for rather than loading a model and crashing.  # r3: the engine reports which build it is. Upstream derives the build number from git metadata and these recipes build from a release tarball with no .git, so cmake's build-info step stamped zero and every binary shipped so far answered --version with "version: 0 (unknown)" — the one question a user comparing two engines has to be able to ask. configure() now passes LLAMA_BUILD_NUMBER, DERIVED from this recipe's own version pin rather than written a second time, and the pin's shape is checked so a pin that stops being b<number> fails the build loudly instead of stamping something wrong. do_install() then asks the STAGED binary for its --version and refuses to seal the archive unless it reports the pinned number; it lives there rather than in check() because the CUDA variant declares tests.enabled=false and the builder skips the whole check phase for such a package, which would have left one of the three engines unasserted. The same two shell functions are carried byte for byte by all three engine recipes, the same one-shape discipline as the --list-devices patch. This variant's build proof is taken on the ROCm-equipped build substrate; the recipe change is identical to its two siblings, which are build-proven here. r2: --list-devices PCI-id suffix — the same byte-identical in-tree patch as the default engine (see ai/llama-cpp r5 for the full rationale and the measurement), applied fail-loud in configure(). One-pin policy: all three engine variants print one shape so the serving-device selector reads them identically.
-content_hash: 37e8f706c95a19de
+release: 6  # r6: the engine declares the six ruled architectures instead of three — gfx1030, gfx1100, gfx1101, gfx1102, gfx1200 and gfx1201 (Decided 2026-09-18) — the same list every ROCm recipe in the tree now carries, kept identical by tests/igos_build/test_the_rocm_stack_declares_one_target_list.py. WHICH TARGETS ARE PROVEN, AND HOW: gfx1201 is proven on the workstation card and gfx1100 and gfx1102 on the reference pair, all three on the THREE-target build this release replaces; gfx1030, gfx1101 and gfx1200 are gate-proven only — no machine in this project's set carries one, so what stands behind them is the build's own refusal to seal an archive whose binaries do not carry device code for every declared architecture and whose linked rocBLAS and hipBLASLt have no kernels for one. The six-target archive is proven on hardware when the workstation and reference-pair legs re-run against it. ORDER: the math libraries build for six targets first and this engine last, because do_install() refuses an engine whose declared architecture has no kernels in the libraries it links against. No source pin and no compiled-code change of this recipe's own beyond the declaration.  # r5: this engine now proves what it declares, in two places. (a) The architecture record it installs at /opt/rocm/share/llama-cpp-hip/gpu-targets carries the architectures. It was written from a variable configure() sets, and each phase runs in its own shell, so the record shipped empty — measured 2026-09-17 on an installed machine, one byte. The runtime reads that record to decide whether this build has device code for the GPU in front of it, and an empty record reads as "I could not tell" rather than "no", so the check could not refuse this engine on a card it has no kernels for, which is the case where it segfaults at model load. The record is now written from IGOS_GPU_TARGETS, which the builder exports into every phase, and an absent declaration fails the build. (b) do_install() asks each shipped binary, through llvm-objcopy scoped to the .hip_fatbin section, for the architectures it actually carries, and refuses to seal the archive if a declared one is missing — so a declaration widened without the compile following it cannot ship. (c) The same step checks every declared architecture against the kernel files in the rocblas and hipblaslt this engine links against, because its matrix multiplies resolve into those libraries and carrying a code object for a card they were not built for is the same broken promise one level down. No declared input, no source pin and no compiled output changed.  # r4: the recipe records the GPU architectures the ROCm build was compiled for, so engine selection can refuse the HIP engine on a device the build has no code for rather than loading a model and crashing.  # r3: the engine reports which build it is. Upstream derives the build number from git metadata and these recipes build from a release tarball with no .git, so cmake's build-info step stamped zero and every binary shipped so far answered --version with "version: 0 (unknown)" — the one question a user comparing two engines has to be able to ask. configure() now passes LLAMA_BUILD_NUMBER, DERIVED from this recipe's own version pin rather than written a second time, and the pin's shape is checked so a pin that stops being b<number> fails the build loudly instead of stamping something wrong. do_install() then asks the STAGED binary for its --version and refuses to seal the archive unless it reports the pinned number; it lives there rather than in check() because the CUDA variant declares tests.enabled=false and the builder skips the whole check phase for such a package, which would have left one of the three engines unasserted. The same two shell functions are carried byte for byte by all three engine recipes, the same one-shape discipline as the --list-devices patch. This variant's build proof is taken on the ROCm-equipped build substrate; the recipe change is identical to its two siblings, which are build-proven here. r2: --list-devices PCI-id suffix — the same byte-identical in-tree patch as the default engine (see ai/llama-cpp r5 for the full rationale and the measurement), applied fail-loud in configure(). One-pin policy: all three engine variants print one shape so the serving-device selector reads them identically.
+content_hash: 47da96797cb76e90
 description: LLM inference engine — HIP/ROCm variant for AMD GPUs (opt-in, mirror-only)
 license: MIT
 homepage: https://github.com/ggml-org/llama.cpp
@@ -18,11 +18,67 @@ source:
   filename: llama.cpp-${version}.tar.gz
   sha256: 78a0190da2b2ff95506844a6f917e8a0d9c3d5b9cd7303d0f4ee95319dffd9e8
 
-# DECLARED GPU targets (decision 2): must cover every gfx the mirror's
-# users run this variant on — the RDNA3 reference pair + the RDNA4
-# dogfood cards. Kernels for absent targets are dead weight, absent
+# DECLARED GPU targets (decision 2): must cover every gfx the mirror's users
+# run this variant on. Kernels for absent targets are dead weight, absent
 # kernels are a hard runtime failure — the declaration is the contract.
-gpu_targets: "gfx1100;gfx1102;gfx1201"
+#
+# THIS FILE — packages/compute/llama-cpp-hip/package.yml — IS THE ONE PLACE THE
+# REASONING LIVES, and every other ROCm recipe points back here by that path.
+# The list itself is written
+# identically in every ROCm recipe in this tree; the others carry a copy of the
+# line and a pointer back here, because a recipe field in this format has no
+# cross-recipe constant to point at. Keeping the copies byte-identical is the
+# job of tests/igos_build/test_the_rocm_stack_declares_one_target_list.py,
+# which discovers the recipes by scanning for gfx tokens and so sweeps in a new
+# ROCm recipe the day it declares any.
+#
+# THE LIST, Decided 2026-09-18: gfx1030, gfx1100, gfx1101, gfx1102, gfx1200 and
+# gfx1201 — six concrete architectures, no generic targets.
+#
+# THE AGE LIMIT. AMD's own compatibility matrix for ROCm 7.2.0
+# (https://rocm.docs.amd.com/en/docs-7.2.0/compatibility/compatibility-matrix.html,
+# read 2026-09-17) names nine architectures and no others: gfx908, gfx90a,
+# gfx942 and gfx950 on the data-centre side, and gfx1030, gfx1100, gfx1101,
+# gfx1200 and gfx1201 on the consumer and workstation side. So the oldest
+# consumer generation AMD supports here is RDNA2 (gfx1030), and all five of the
+# consumer and workstation architectures it names are declared. The compiler in
+# this toolchain still accepts the GCN and Vega targets — its own table lists
+# 76 of them — but accepting a target is not supporting a card, and the
+# generations that fell off AMD's list are not coming back to it. An AMD card
+# older than RDNA2 is served by the Vulkan engine (packages/ai/llama-cpp),
+# which has no such floor.
+#
+# gfx1102 IS DELIBERATE AND STAYS. AMD's 7.2.0 matrix does not name it. This
+# project declares it anyway and builds kernels for it throughout the ROCm
+# stack, because it is Navi 33 — the RX 7600 and RX 7600 XT, one half of the
+# reference pair this variant is measured on. It works, it is proven on that
+# card, and "AMD does not list it" is not a reason to take a working card away
+# from the people who have one. A future reader comparing this line against
+# AMD's matrix should read this paragraph before changing anything.
+#
+# THE DATA-CENTRE ARCHITECTURES ARE OUT, and that is a decision rather than an
+# oversight. gfx908, gfx90a, gfx942 and gfx950 are on AMD's list; no machine in
+# this project's hardware set carries one, so a declaration for them could
+# never be proven here, and every extra target costs Tensile kernel-build time
+# in rocBLAS and hipBLASLt — the longest build in the stack. They are declared
+# when there is a card to prove them on, not before.
+#
+# WHAT BOUNDS THIS LIST, and it is not the compiler. ggml's HIP backend
+# resolves its matrix multiplies into hipBLAS and rocBLAS, and those libraries
+# ship kernel files built for THEIR own declared target list — the same list,
+# declared in twenty-odd package.yml files across this tree. Measured
+# 2026-09-17 on an installed ROCm 7.2.4 built from the THREE-target declaration
+# this list replaces: lib/rocblas/library and lib/hipblaslt/library carried
+# kernel files naming gfx1100, gfx1102 and gfx1201 and no others — exactly what
+# that declaration asked for, which is the point. Declaring a card here that
+# those libraries were not built for would put a code object in this engine and
+# still fail on the machine. So widening this line is never a one-recipe
+# change: the math libraries widen first, this engine last, and the six-target
+# stack is rebuilt in that order. do_install() enforces both halves — every
+# declared architecture must be in the built code objects AND have kernels in
+# the libraries this build links against — and refuses to seal the archive
+# otherwise, so an engine built before that rebuild cannot ship.
+gpu_targets: "gfx1030;gfx1100;gfx1101;gfx1102;gfx1200;gfx1201"
 
 dependencies:
   build:

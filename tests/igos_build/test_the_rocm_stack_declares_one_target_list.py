@@ -1,0 +1,169 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 InterGenJLU
+"""Every ROCm recipe in this tree declares ONE architecture list, and it is the ruled one.
+
+WHY THIS TEST EXISTS, and what it replaces.
+
+The HIP engine's matrix multiplies resolve into rocBLAS and hipBLASLt, and those
+libraries ship kernel files built for THEIR own declared list. An architecture
+declared in one recipe and missing from another is not a cosmetic difference: the
+engine ships a code object for a card whose math kernels were never built, and the
+failure arrives on the user's machine at model load, not in the build. So the whole
+ROCm stack has to declare the SAME list, and "the same list" has to be checked by
+something rather than maintained by attention.
+
+The tree has no cross-recipe constant for a recipe field. `${...}` substitution in
+package.yml resolves only per-package computed values (name, version and the version
+segments) and is applied only to source URLs — igos-build/parser.py builds that
+dictionary from the package being parsed, so there is nowhere for one shared value to
+live. Adding such a mechanism would put a second resolution layer in front of a field
+that is interpolated into a compiler argument, and that field's grammar is deliberately
+a closed allow-list checked at parse time. The list is therefore written out in each
+recipe, and THIS test is the single source of truth that keeps the copies identical.
+
+Discovery is by scanning the corpus, not by a list of names written here: a ROCm recipe
+added tomorrow is covered the day it is added, which a hardcoded roster would not do.
+The roster size is asserted separately so that a discovery bug cannot make the
+per-recipe check pass by finding nothing.
+"""
+
+import importlib
+import sys
+import unittest
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[2]
+PACKAGES = REPO / "packages"
+sys.path.insert(0, str(REPO))
+_parser_mod = importlib.import_module("igos-build.parser")
+
+# The ruled list, in the ruled order. Decided 2026-09-18: AMD's ROCm 7.2.0
+# compatibility matrix names five consumer and workstation architectures —
+# gfx1030, gfx1100, gfx1101, gfx1200, gfx1201 — and this project adds gfx1102
+# (Navi 33, the RX 7600 pair) deliberately. The data-centre architectures
+# (gfx908, gfx90a, gfx942, gfx950) are out: no machine in the project's
+# hardware set carries one, and each costs Tensile build time in rocBLAS and
+# hipBLASLt. The full rationale lives once, in
+# packages/compute/llama-cpp-hip/package.yml.
+RULED_TARGETS = "gfx1030;gfx1100;gfx1101;gfx1102;gfx1200;gfx1201"
+
+# The ROCm stack as it stands at the time of writing. This is a FLOOR for the
+# discovery scan, not the roster the per-recipe check iterates: it exists so a
+# scan that silently found nothing cannot report success.
+KNOWN_ROCM_RECIPE_COUNT = 22
+
+
+def _gpu_targets_line(path):
+    """The raw declared value, read from the file rather than the parser.
+
+    Read as text so the test also fails on a recipe that declares the right
+    architectures in the wrong order or with different spacing — the copies
+    have to be identical, not merely equivalent.
+    """
+    for line in path.read_text().splitlines():
+        if line.startswith("gpu_targets:"):
+            return line.split(":", 1)[1].strip().strip('"')
+    return None
+
+
+def _rocm_recipes():
+    """Every package.yml whose declared targets are AMD gfx tokens.
+
+    The predicate is the token vocabulary, not the directory: the ROCm stack
+    spans packages/compute and packages/ai, and the CUDA engine declares the
+    same field with NVIDIA compute-capability tokens and must not be swept in.
+    """
+    found = []
+    for path in sorted(PACKAGES.glob("*/*/package.yml")):
+        declared = _gpu_targets_line(path)
+        if declared is None:
+            continue
+        tokens = [t.strip() for t in declared.split(";")]
+        if tokens and all(t.startswith("gfx") for t in tokens):
+            found.append(path)
+    return found
+
+
+class TheRuledList(unittest.TestCase):
+
+    def test_the_ruled_list_is_the_six_targets(self):
+        self.assertEqual(
+            RULED_TARGETS.split(";"),
+            ["gfx1030", "gfx1100", "gfx1101", "gfx1102", "gfx1200", "gfx1201"],
+        )
+
+    def test_every_ruled_target_is_a_concrete_architecture_the_grammar_accepts(self):
+        # The parser's grammar is unchanged by this rule; all six are ordinary
+        # concrete gfx tokens it already accepted. Asserted rather than assumed,
+        # because a target the grammar rejects would fail every ROCm build at
+        # parse time.
+        token_re = _parser_mod._GPU_TARGET_TOKEN_RE
+        for token in RULED_TARGETS.split(";"):
+            with self.subTest(token=token):
+                self.assertIsNotNone(token_re.fullmatch(token))
+                # A "generic" target (gfx11-generic) is a different kind of
+                # thing and is deliberately not in this list.
+                self.assertNotIn("-", token)
+
+    def test_the_whole_ruled_list_parses_as_one_declaration(self):
+        import tempfile
+        template = (
+            "name: demo\nversion: \"1.0\"\nrelease: 1\n"
+            "description: ruled target list\nlicense: GPL-3.0-or-later\n"
+            "source: []\nbuild_style: custom\ntier: compute\n"
+            f"gpu_targets: \"{RULED_TARGETS}\"\n"
+        )
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "package.yml"
+            path.write_text(template)
+            self.assertEqual(
+                _parser_mod.parse_template(path).gpu_targets, RULED_TARGETS)
+
+
+class TheStackDeclaresIt(unittest.TestCase):
+
+    def test_the_scan_finds_the_stack(self):
+        # The instrument proof for the test below: without this, a broken scan
+        # would iterate an empty list and report success.
+        recipes = _rocm_recipes()
+        self.assertGreaterEqual(
+            len(recipes), KNOWN_ROCM_RECIPE_COUNT,
+            f"the scan found {len(recipes)} ROCm recipes; at least "
+            f"{KNOWN_ROCM_RECIPE_COUNT} declare gfx targets in this tree")
+
+    def test_every_rocm_recipe_declares_the_ruled_list_verbatim(self):
+        for path in _rocm_recipes():
+            with self.subTest(recipe=str(path.relative_to(REPO))):
+                self.assertEqual(
+                    _gpu_targets_line(path), RULED_TARGETS,
+                    "every recipe in the ROCm stack declares the one ruled "
+                    "list, byte for byte — the engine's declaration and the "
+                    "math libraries' kernels have to name the same cards")
+
+    def test_every_rocm_recipe_says_where_the_rationale_lives(self):
+        # The string is repeated because the format has nowhere to put it once.
+        # A reader editing any one copy has to be told, in that file, that the
+        # copies are kept identical by a test and where the reasoning is.
+        for path in _rocm_recipes():
+            with self.subTest(recipe=str(path.relative_to(REPO))):
+                text = path.read_text()
+                self.assertIn("llama-cpp-hip/package.yml", text)
+                self.assertIn(
+                    "test_the_rocm_stack_declares_one_target_list", text,
+                    "the recipe names the test that keeps the copies identical")
+
+
+class TheCudaEngineIsNotSweptIn(unittest.TestCase):
+
+    def test_the_cuda_engine_declares_compute_capabilities_and_is_excluded(self):
+        cuda = PACKAGES / "compute" / "llama-cpp-cuda" / "package.yml"
+        if not cuda.exists():
+            self.skipTest("no CUDA engine recipe in this tree")
+        declared = _gpu_targets_line(cuda)
+        self.assertIsNotNone(declared)
+        self.assertNotIn("gfx", declared)
+        self.assertNotIn(cuda, _rocm_recipes())
+
+
+if __name__ == "__main__":
+    unittest.main()

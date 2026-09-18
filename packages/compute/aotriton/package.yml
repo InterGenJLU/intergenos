@@ -8,7 +8,7 @@ name: aotriton
 # pytorch consumes what this package builds, no vendor prebuilt. Re-pinned from
 # 0.12b down under the torch 2.13.0 -> 2.10.0 cascade (unsloth torch<2.11).
 version: "0.11.1b"
-release: 1
+release: 2  # r2: the declared GPU architecture list widens from three targets to the six ruled on 2026-09-18 — gfx1030, gfx1100, gfx1101, gfx1102, gfx1200 and gfx1201, the five consumer and workstation architectures AMD's ROCm 7.2.0 compatibility matrix names plus gfx1102 (Navi 33), which this project declares deliberately. This build therefore emits kernels for six architectures instead of three, so the release moves with the bytes. Of the six, three are proven on hardware in this project's set — gfx1201 on the workstation card, gfx1100 and gfx1102 on the reference pair — and three are gate-proven only: gfx1030, gfx1101 and gfx1200, which no machine here carries. The rationale for the list is written once, in packages/compute/llama-cpp-hip/package.yml. This bump was written by hand: measured 2026-09-18, the release-bump machine does not see a gpu_targets change at all, because the field is not in content_hash.py's _BUILD_AFFECTING_YML_KEYS fold.
 content_hash: 0241edf7f1bf15a1
 description: Ahead-of-time compiled Triton attention kernels for ROCm (PyTorch SDPA backend)
 license: MIT
@@ -67,7 +67,19 @@ source:
   #     recursive re-derivation (flagged, not silently authored).
 
 # Feeds -DAOTRITON_TARGET_ARCH (overrides the broad upstream default arch list).
-gpu_targets: "gfx1100;gfx1102;gfx1201"
+# THE ONE RULED LIST — written identically in every ROCm recipe in this tree
+# (Decided 2026-09-18). Six concrete architectures: the five consumer and
+# workstation targets AMD's ROCm 7.2.0 compatibility matrix names, plus gfx1102
+# (Navi 33), which this project declares deliberately. The reasoning — the age
+# limit, why gfx1102 is in, and why the math libraries rather than the compiler
+# are what bounds the list — is written once, in
+# packages/compute/llama-cpp-hip/package.yml. It is COPIED here rather than
+# referenced because a recipe field in this format has no cross-recipe constant
+# to point at; tests/igos_build/test_the_rocm_stack_declares_one_target_list.py
+# is what keeps the copies byte-identical, and it sweeps in any new recipe that
+# declares gfx targets. Widening the list is never a one-recipe change: rocBLAS
+# and hipBLASLt build their kernels first, the engine builds last.
+gpu_targets: "gfx1030;gfx1100;gfx1101;gfx1102;gfx1200;gfx1201"
 
 dependencies:
   build:

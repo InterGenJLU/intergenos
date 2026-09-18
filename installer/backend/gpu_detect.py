@@ -114,7 +114,8 @@ SHIPPED_ENGINE = "vulkan"
 # read from is not on the machine yet. That is also why the parity test matters:
 # a recipe rebuilt for new architectures with this list left behind would make
 # the installer offer HIP to hardware it has no code for.
-HIP_GPU_TARGETS = ("gfx1100", "gfx1102", "gfx1201")
+HIP_GPU_TARGETS = ("gfx1030", "gfx1100", "gfx1101", "gfx1102",
+                   "gfx1200", "gfx1201")
 
 # Where the amdgpu kernel driver publishes each compute node's architecture. The
 # reader below is a COPY of intergen.serving_device.detect_amd_gfx_targets,

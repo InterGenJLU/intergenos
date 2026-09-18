@@ -94,6 +94,173 @@ version: ${_want} "*) ;;
     echo "[build-number] ${1} reports: $(printf '%s\n' "$_out" | grep -m1 "^version: ${_want} ")"
 }
 
+# Assert that a staged binary carries COMPILED DEVICE CODE for every
+# architecture gpu_targets declares. $1 = binary, $2 = the declared list.
+#
+# Why this is a gate and not a comment. The declaration is a promise to a person
+# with that card, and the only thing that keeps it is a code object for that
+# architecture inside the binary. Nothing verified it: the build wrote the
+# declaration into a record beside the binary and never asked the binary what it
+# actually contained. A target dropped by a cmake flag change, a toolchain that
+# silently skipped one, or a widened declaration that the compile did not follow
+# would all have shipped green.
+#
+# HOW IT READS, and why not the obvious tools. Three were measured on an
+# installed engine 2026-09-17:
+#
+#   roc-obj-ls            SHIPPED BUT NON-FUNCTIONAL on this distribution: it is
+#                         a perl script that requires File::Which, which the
+#                         project's perl does not carry, so it aborts at line 25
+#                         before reading anything.
+#   llvm-objdump --offloading
+#                         works, and reported exactly what that build declared — but
+#                         EXTRACTS every bundle entry as a file beside the input.
+#                         Run against a staged binary that is about to be sealed,
+#                         it would write gigabytes of extracted code objects into
+#                         DESTDIR and ship them.
+#   llvm-objcopy --dump-section
+#                         reads only, writes nothing beside the binary, and scopes
+#                         the scan to the section that holds the bundles. This is
+#                         the one used. Measured 2026-09-17 on the installed engine
+#                         built from the THREE-target declaration of the time, it
+#                         reported gfx1100, gfx1102 and gfx1201 — 125 bundle
+#                         entries each — matching what llvm-objdump extracted.
+#
+# The bundle entry ids inside .hip_fatbin have the form
+# hipv4-amdgcn-amd-amdhsa--gfx1100. Scoping the scan to that section is what
+# keeps this from being a substring match on a binary: an unrelated string
+# constant elsewhere in the executable cannot be mistaken for a code object.
+#
+# It lives in do_install() rather than check() for the same governed reason as
+# llama_assert_build_number: an assertion in check() does not run for a variant
+# whose recipe declares tests.enabled=false, and the engine recipes are held to
+# one shape.
+llama_assert_device_code() {
+    _bin="$1"; _targets="$2"
+    _objcopy="${ROCM_PATH:-/opt/rocm}/lib/llvm/bin/llvm-objcopy"
+    if [ ! -x "$_objcopy" ]; then
+        echo "ERROR: no llvm-objcopy at ${_objcopy}; cannot verify that" >&2
+        echo "       ${_bin} carries the device code it declares. Refusing" >&2
+        echo "       to seal the archive on an unverified promise." >&2
+        return 1
+    fi
+    # /dev/null is the output object llvm-objcopy insists on; the section goes
+    # to stdout. A binary with no .hip_fatbin section makes it exit non-zero,
+    # which is treated as "nothing found" below rather than as a pass.
+    # grep -a rather than strings(1): the same answer, measured, with one
+    # fewer tool the build environment has to carry.
+    _have="$("$_objcopy" --dump-section=.hip_fatbin=- "$_bin" /dev/null 2>/dev/null \
+             | grep -a -oE 'amdhsa--gfx[0-9a-z]+' \
+             | sed 's/.*--//' | sort -u | tr '\n' ' ')"
+    echo "[device-code] ${_bin} carries: ${_have:-(none)}"
+    if [ -z "$_have" ]; then
+        echo "ERROR: ${_bin} carries no AMD device code at all. Either the HIP" >&2
+        echo "       backend did not build into it or the section this reads" >&2
+        echo "       (.hip_fatbin) is not where the toolchain put it. Refusing" >&2
+        echo "       to seal the archive: a verification that finds nothing is" >&2
+        echo "       not a verification that found everything." >&2
+        return 1
+    fi
+    _missing=""
+    _old_ifs="$IFS"; IFS=';'
+    for _t in $_targets; do
+        IFS="$_old_ifs"
+        case " $_have " in
+            *" $_t "*) ;;
+            *) _missing="${_missing} ${_t}" ;;
+        esac
+        IFS=';'
+    done
+    IFS="$_old_ifs"
+    if [ -n "$_missing" ]; then
+        echo "ERROR: ${_bin} declares GPU targets it does not carry code for." >&2
+        echo "       declared : ${_targets}" >&2
+        echo "       carries  : ${_have}" >&2
+        echo "       missing  :${_missing}" >&2
+        echo "       A declared architecture with no code object is a promise to" >&2
+        echo "       a card that cannot be kept: this engine segfaults at model" >&2
+        echo "       load on an architecture it has no kernels for, rather than" >&2
+        echo "       refusing cleanly. Refusing to seal the archive." >&2
+        return 1
+    fi
+}
+
+# Assert that every architecture gpu_targets declares also has KERNELS in the
+# math libraries this engine links against. $1 = the declared list.
+#
+# Why a second check. The first one asks the engine's own binary what it
+# carries, and an engine can carry code for a card while the layers underneath
+# it cannot serve one. ggml's HIP backend calls into hipBLAS, which resolves to
+# rocBLAS, and both ship per-architecture kernel files generated at THEIR build
+# time from THEIR own declared target list. Declaring a card here that rocBLAS
+# was not built for would pass the code-object check and still fail on the
+# machine — the same defect one level down, introduced by the fix rather than
+# removed by it.
+#
+# Measured 2026-09-17 on a machine running ROCm 7.2.4, built from the
+# THREE-target declaration in force at the time: the compiler accepts 76 AMDGPU
+# targets and the device libraries carry bitcode for 54, but lib/rocblas/library
+# and lib/hipblaslt/library carried kernel files for exactly gfx1100, gfx1102
+# and gfx1201 — the same three every ROCm recipe then declared. That agreement
+# is the property this check exists to hold, and it is why the declaration was
+# widened to six (Decided 2026-09-18) by rebuilding the math libraries first and
+# this engine last. The upper bound on this engine's declaration is the math
+# libraries, not the compiler, and widening it is a decision about rebuilding
+# that stack.
+#
+# A missing or empty library directory REFUSES. A check with nothing to compare
+# against cannot certify anything, and reading it as "no objection" is how a
+# gate comes to pass on absence.
+llama_assert_math_kernels() {
+    _targets="$1"
+    _rocm="${ROCM_PATH:-/opt/rocm}"
+    for _lib in rocblas hipblaslt; do
+        _dir="${_rocm}/lib/${_lib}/library"
+        if [ ! -d "$_dir" ]; then
+            echo "ERROR: no kernel library directory at ${_dir}; cannot verify" >&2
+            echo "       that ${_lib} carries kernels for the architectures this" >&2
+            echo "       engine declares. Refusing to seal the archive on an" >&2
+            echo "       unverified promise." >&2
+            return 1
+        fi
+        _have="$(ls -1 "$_dir" 2>/dev/null \
+                 | grep -oE 'gfx[0-9a-z]+' | sort -u | tr '\n' ' ')"
+        echo "[math-kernels] ${_lib} carries: ${_have:-(none)}"
+        if [ -z "$_have" ]; then
+            echo "ERROR: ${_dir} names no GPU architecture at all. Either this" >&2
+            echo "       library was built without per-architecture kernels or" >&2
+            echo "       its file naming changed. Refusing to seal the archive:" >&2
+            echo "       a check that finds nothing has verified nothing." >&2
+            return 1
+        fi
+        _missing=""
+        _old_ifs="$IFS"; IFS=';'
+        for _t in $_targets; do
+            IFS="$_old_ifs"
+            case " $_have " in
+                *" $_t "*) ;;
+                *) _missing="${_missing} ${_t}" ;;
+            esac
+            IFS=';'
+        done
+        IFS="$_old_ifs"
+        if [ -n "$_missing" ]; then
+            echo "ERROR: this engine declares GPU targets that ${_lib} has no" >&2
+            echo "       kernels for." >&2
+            echo "       declared      : ${_targets}" >&2
+            echo "       ${_lib} carries: ${_have}" >&2
+            echo "       missing       :${_missing}" >&2
+            echo "       The engine would carry its own code objects for those" >&2
+            echo "       cards and still fail on the machine, because its matrix" >&2
+            echo "       multiplies resolve into this library. Widening this" >&2
+            echo "       engine's declaration means rebuilding that library for" >&2
+            echo "       the same architectures first. Refusing to seal the" >&2
+            echo "       archive." >&2
+            return 1
+        fi
+    done
+}
+
 configure() {
     set -e
     GPU_TARGETS="${IGOS_GPU_TARGETS:?FATAL: gpu_targets not declared in package.yml/plumbing}"
@@ -161,6 +328,22 @@ do_install() {
     llama_assert_build_number "$DESTDIR/opt/rocm/bin/llama-cli" \
                               "/opt/rocm/lib" || return 1
 
+    # Every staged binary this package declares must carry device code for every
+    # architecture the recipe declares. Asked of the binaries that ship, after
+    # they are staged and before the archive is sealed. verify_paths already
+    # requires the architecture RECORD to be present; presence is not content,
+    # and the record was shipping empty until this release — so the binary is
+    # asked directly rather than the record believed.
+    for _b in llama-server llama-cli; do
+        llama_assert_device_code "$DESTDIR/opt/rocm/bin/${_b}" \
+            "${IGOS_GPU_TARGETS:?FATAL: gpu_targets not declared in package.yml/plumbing}" \
+            || return 1
+    done
+
+    # And the layers underneath must be able to serve those same cards. See
+    # llama_assert_math_kernels for why carrying the code object is not enough.
+    llama_assert_math_kernels "${IGOS_GPU_TARGETS}" || return 1
+
     # Install the architecture list this build was compiled for, so the runtime
     # can tell whether the build has device code for the GPU in front of it.
     #
@@ -171,10 +354,24 @@ do_install() {
     # and declines HIP when the machine's architecture is measurably absent from
     # it.
     #
-    # Written from the same GPU_TARGETS the cmake configure above consumed, so
-    # there is one source of truth (package.yml gpu_targets) rather than a
-    # second list that can drift away from what was actually compiled.
-    printf '%s\n' "${GPU_TARGETS}" > gpu-targets.txt
+    # Read from IGOS_GPU_TARGETS, which the builder exports into EVERY phase's
+    # environment from package.yml's gpu_targets (igos-build/builder.py), and
+    # with the :? form so an absent declaration fails the build instead of
+    # writing a record that says nothing.
+    #
+    # It was written from $GPU_TARGETS, which configure() sets. Each phase runs
+    # in its own shell, so that variable is unset here and the record shipped
+    # EMPTY. Measured 2026-09-17 on an installed machine:
+    # /opt/rocm/share/llama-cpp-hip/gpu-targets was one byte, a newline
+    # (sha256 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b).
+    # intergen.serving_device.hip_build_gpu_targets then read an empty set, and
+    # hip_is_supported_here returns None — "I could not tell" — for an empty
+    # set, so the check that exists to keep this engine off a card it has no
+    # code for could not return False on any installed machine. The engine it
+    # guards segfaults at model load on such a card. The sibling CUDA recipe
+    # already consumes ${IGOS_GPU_TARGETS} in its own do_install; this one now
+    # does the same.
+    printf '%s\n' "${IGOS_GPU_TARGETS:?FATAL: gpu_targets not declared in package.yml/plumbing}" > gpu-targets.txt
     install -Dm644 gpu-targets.txt \
         "${DESTDIR}/opt/rocm/share/llama-cpp-hip/gpu-targets"
 }

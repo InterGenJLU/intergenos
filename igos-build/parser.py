@@ -177,7 +177,7 @@ class Package:
     # two GPU compute stacks name their ISAs differently and both are the
     # SAME declaration: the build chroot has no GPU, so the recipe states its
     # target set and the compiler is given exactly that.
-    #   AMD  (HIP/ROCm)  gfx tokens          e.g. "gfx1100;gfx1102;gfx1201"
+    #   AMD  (HIP/ROCm)  gfx tokens          e.g. "gfx1100;gfx1201"
     #   NVIDIA (CUDA)    compute-capability  e.g. "75-virtual;86-real;120a-real"
     # Exported to build.sh as IGOS_GPU_TARGETS. None = not target-sensitive.
     gpu_targets: str | None = None
