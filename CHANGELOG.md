@@ -163,6 +163,29 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **A turn that asks for no commands now gets none on any path, not just from
+  the model.** The assistant reads a turn that forbids tools ("Do not use tools,
+  run commands, access files, or contact external services") and stops offering
+  the model any tools for that turn. That covered the model's own requests and
+  nothing else: the keyword match, the similarity match and the fast path for
+  state questions each decide to run a command on their own, without asking the
+  model, and they went on doing it. Measured 2026-09-18 on the running
+  assistant, read from its own per-clause record: "What time is it and why is
+  the sky blue? Do not use tools, run commands, access files, or contact
+  external services." — the tools were correctly withheld from the model, and
+  the first half of the question was answered by running `date` anyway. The
+  sentence governs the turn, so it now governs every dispatch in it. All three
+  of those paths reach a tool through one place, and that place now declines
+  when the turn forbids tools, writes the reason into the turn's record rather
+  than hiding it, and lets the clause carry on to the model exactly as any
+  other unanswered clause does — which is what was asked for, and which still
+  answers: the model is already told the date and time, so the time question is
+  answered from what the assistant already holds instead of from a command. The
+  two fixed commands behind the "what is my IP" answer are covered by the same
+  rule, and an accepted offer is checked too, as a backstop. A turn that
+  forbids nothing is untouched: measured over all 885 user turns in the
+  scenario corpus, none loses a tool it had, and the same question without the
+  prohibition still runs the command.
 - **A prohibition is no longer counted as a request.** A sentence that says what
   NOT to do — "Do not use tools, run commands, access files, or contact external
   services" — carries a comma followed by an action verb, which is one of the
