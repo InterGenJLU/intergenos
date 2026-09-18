@@ -288,6 +288,29 @@ landed is in the repository README, not here.
   fall back to a release the package does not have. Output only — nothing about
   what is installed changed.
 
+- **The memory plan now weighs what a card can actually give, not what it
+  has.** The inference engine's own device listing prints two memory figures
+  for every card — the total and the free — and the plan that decides how much
+  of a model goes onto the card read the first and discarded the second. On a
+  card that is also painting the desktop the difference is the desktop.
+  Measured 2026-09-18 on a two-card workstation with the card pinned by hand to
+  the one driving the display: the model needed 7331 MiB, the card reported
+  8176 MiB total and 6842 MiB free, and the plan declared a comfortable fit
+  against the total; the load then finished with 155 MiB to spare, which was
+  luck and not a measurement. Both figures are now taken from the SAME line of
+  the SAME enumeration that decides which card serves, so they can never
+  describe different cards, and one place decides which of the two the plan is
+  weighed against: a card that is PROVABLY driving a display, and whose line
+  carried a free figure, is weighed on its FREE memory; everything else is
+  weighed on the total exactly as before — a display-free card, a card whose
+  display state could not be read, and a line that carried no free figure. That
+  last part is deliberate: an engine build without the in-tree device-listing
+  patch prints no card addresses at all, so the display state of an ordinary
+  single-card machine is unknowable, and a plan that quietly shrank on that
+  unknown would change the answer on machines this defect never touched. The
+  plan's log line and its recorded trace now name which figure was used and
+  why, beside the card's total and the card's display state, so a recorded plan
+  can never state a figure without saying whose it is and which one it was.
 - **The engine check now asks about the card the assistant will actually use,
   not about the machine.** The HIP build of the inference engine carries device
   code only for the AMD architectures it was compiled for, and the check that
