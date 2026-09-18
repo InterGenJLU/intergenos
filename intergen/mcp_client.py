@@ -30,6 +30,31 @@ from intergen.private_state import private_dir, private_open, private_write_text
 logger = logging.getLogger(__name__)
 
 _MCP_AUDIT_LOG = "/var/log/intergen/mcp-audit.log"
+# Where a per-user service's audit log actually goes. The daemon's own log and
+# its event log already resolve under the XDG state directory for a non-root
+# process (see intergen/config.py setup_logging and intergen/metrics.py
+# EventLogger); the audit log follows the same rule so a security record does
+# not depend on an exception handler firing.
+_MCP_AUDIT_FILENAME = "mcp-audit.log"
+
+
+def _audit_log_path():
+    """The file MCP audit entries are appended to on this machine.
+
+    Root/system deployments keep the configured /var/log path. A non-root
+    process resolves under $XDG_STATE_HOME/intergen, because ProtectSystem=strict
+    leaves /var/log/intergen read-only to it. An audit log already sitting at the
+    older ~/.local/share/intergen location is kept in place rather than orphaned,
+    so no machine ends up with its history split across two files.
+    """
+    if os.geteuid() == 0 or not str(_MCP_AUDIT_LOG).startswith(("/var/", "/usr/")):
+        return Path(_MCP_AUDIT_LOG)
+    legacy = Path.home() / ".local" / "share" / "intergen" / _MCP_AUDIT_FILENAME
+    if legacy.exists():
+        return legacy
+    state_home = Path(os.environ.get(
+        "XDG_STATE_HOME", Path.home() / ".local" / "state"))
+    return state_home / "intergen" / _MCP_AUDIT_FILENAME
 # Schema-pin store. The InterGen daemon runs in the USER context (web-token in
 # ~/.config, etc.), so the pin dir MUST be user-writable. The old root path
 # /var/lib/intergen/mcp-pins was unwritable by the user daemon -> the first-use
@@ -494,18 +519,31 @@ class SentinelGuard(SentinelGuardInterface):
             "arguments": {k: str(v)[:100] for k, v in arguments.items()},
             "result_length": len(result),
         }
+        # An audit write that cannot land must never turn a call that RAN into a
+        # reported failure. This method is invoked from inside the same try that
+        # wraps the tool call, after the tool has executed, so an exception here
+        # was caught by the call's own handler: the result was discarded, the
+        # caller was told the call had failed, and the record of the executed
+        # call existed nowhere. Found 2026-09-17: the write targeted the
+        # root-owned /var/log/intergen, which a per-user service under
+        # ProtectSystem=strict sees as a read-only filesystem, and Python raises
+        # that as a plain OSError (errno 30) which the old PermissionError-only
+        # handler did not catch. The path is now resolved where a user service
+        # can write it, and a failure is shouted rather than raised — losing the
+        # record is bad, and hiding a successful privileged call behind a false
+        # failure is worse.
         try:
-            log_path = Path(_MCP_AUDIT_LOG)
+            log_path = _audit_log_path()
             private_dir(log_path.parent)
             # The entry carries the tool name and its arguments, so the log is
             # owner-only wherever it lands.
             with private_open(log_path, "a") as f:
                 f.write(json.dumps(entry) + "\n")
-        except PermissionError:
-            fallback = Path.home() / ".local" / "share" / "intergen" / "mcp-audit.log"
-            private_dir(fallback.parent)
-            with private_open(fallback, "a") as f:
-                f.write(json.dumps(entry) + "\n")
+        except OSError as e:
+            logger.error(
+                "MCP AUDIT RECORD LOST: %s/%s ran and its audit entry could "
+                "not be written (%s). Entry: %s",
+                server_name, tool_name, e, json.dumps(entry))
 
     @staticmethod
     def _hash_schema(schema: ToolSchema) -> str:
