@@ -190,6 +190,35 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **A battery record now says when each turn ended and whether anything arrived
+  afterwards.** The instrument that drives the web assistant through a fixed
+  set of questions measures two things about the end of every turn — when the
+  terminal frame arrived, and how many frames the server put on the wire after
+  it — and wrote neither into the record it seals. A reader of a sealed record
+  therefore could not tell a turn that stopped cleanly from one that kept
+  speaking after it ended, which is the question the instrument was changed to
+  be able to answer in the first place. Both values are now written for every
+  question, in the per-question table and in the record's summary. A turn that
+  never reached a terminal frame writes an empty time rather than a zero,
+  because there was no arrival to time. The same change closes a blind spot on
+  the non-streaming reply path: that path returned at the terminal frame
+  instead of reading on for the short settle window, so a frame sent after a
+  fast reply could not be observed at all and a count of zero there would have
+  been a count nobody took. Every terminal path now reads on the same way.
+
+- **An install no longer reports an error as a missing package.** When
+  `pkm install --archive` cross-checks an archive against the repository index,
+  the lookup was wrapped in a catch-everything that turned any failure into "no
+  index entry". Measured: an error raised inside the lookup became an absent
+  entry, so the archive was refused with the line that says the archive's
+  SHA256 does not match the index — and the two SHA256 values under it — simply
+  gone, and with no error reported anywhere. The refusal still happened, so
+  nothing unsafe was installed; what was lost was the reason the person was
+  given. Only the failure that genuinely means there is nothing to compare
+  against is absorbed now — the index cache could not be read, which says so in
+  those words and is refused by the trust gate under the strict and
+  repository-only modes — and every other error travels with its own message.
+
 - **The engine-selection line for the embedding server now says that it pins no
   card, and why the card question is still asked.** The assistant runs a second,
   small server whose only job is to turn text into embeddings, and it is
