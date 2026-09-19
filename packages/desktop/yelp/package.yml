@@ -1,0 +1,87 @@
+name: yelp
+# 49.2 is the current release of the GNOME help viewer and the one this tree can
+# actually build. The choice is measured, not preferred (Rule 12 comment):
+#
+#   1. yelp's own meson.build names the toolkit it links. 49.2 asks for
+#      gtk4 >= 4.16.0, libadwaita-1 >= 1.6.0, webkitgtk-6.0 and
+#      webkitgtk-web-process-extension-6.0. The last release of the previous
+#      line, 42.3, asks instead for gtk+-3.0, libhandy-1 >= 1.5.0 and
+#      webkit2gtk-4.1. The two are different programs against different
+#      libraries; neither builds against the other's stack.
+#   2. This tree is a GNOME 49 desktop: gnome-shell 49.4, gtk4 4.20.3,
+#      libadwaita1 1.8.4, gsettings-desktop-schemas 49.1 and the help
+#      stylesheets already packaged at yelp-xsl 49.0. Every minimum 49.2 states
+#      is satisfied by what is already here, so the viewer matches the desktop
+#      it opens on top of rather than trailing it by seven releases.
+#   3. The tree ships TWO WebKit builds from one source: webkitgtk-gtk3
+#      (libwebkit2gtk-4.1.so, for GTK 3) and webkitgtk (libwebkitgtk-6.0.so,
+#      for GTK 4). 49.2 links the second. Declaring the first would pull a web
+#      engine into the image for a program that cannot use it.
+#   4. 42.3 dates from the GNOME 42 cycle and its libhandy-1 companion is the
+#      GTK-3 library this desktop keeps only for the handful of GTK-3
+#      applications still in the tier; adding a new one to that list would move
+#      the desktop backwards.
+#
+# tests/igos_build/test_help_viewer_ships.py pins the dependency set to the
+# flavour this release links, so a later version bump that crosses the GTK
+# boundary cannot pass quietly.
+version: "49.2"
+release: 1
+description: GNOME help viewer — the window F1 and every Help menu item open
+license: GPL-2.0-or-later
+homepage: https://gitlab.gnome.org/GNOME/yelp
+tier: desktop
+# tier: desktop because the help viewer is desktop integration, not an
+# application a person chooses to install: GTK applications resolve Help
+# through org.gnome.Yelp.desktop, so without this package on the installed
+# system F1 and every Help menu item open nothing at all, silently.
+build_style: meson
+install_func: do_install
+source:
+  - url: https://download.gnome.org/sources/yelp/49/yelp-${version}.tar.xz
+    sha256: 5afc8e77308451ee45ee919efee5a154ca3c153a90e2a1b58cebf7827ab88ad0
+dependencies:
+  build:
+    - gtk4                       # meson: gtk4 >= 4.16.0, gtk4-unix-print
+    - libadwaita1                # meson: libadwaita-1 >= 1.6.0
+    - webkitgtk                  # meson: webkitgtk-6.0 + the 6.0 web-process extension
+    - yelp-xsl                   # meson: yelp-xsl >= 42.3; the page stylesheets
+    - libxslt                    # meson: libxslt >= 1.1.4 and libexslt >= 0.8.1
+    - libxml2                    # meson: libxml-2.0 >= 2.6.5
+    - sqlite                     # meson: sqlite3 — the help index
+    - glib2                      # meson: gio-2.0 >= 2.67.4, gio-unix-2.0
+    - gsettings-desktop-schemas  # the desktop schemas the viewer reads at startup
+    - itstool                    # meson refuses below itstool 1.2.0
+    - xz                         # meson: liblzma >= 4.9, feature auto — declared so
+                                 # compressed-page support is decided here, not by
+                                 # whatever happened to be in the build root
+    - bzip2                      # meson: bzip2 feature auto, falling back to -lbz2
+    - desktop-file-utils         # desktop-file-validate, used by the build's own test
+  host: []
+  runtime:
+    - gtk4
+    - libadwaita1
+    - webkitgtk
+    - yelp-xsl
+    - libxslt
+    - libxml2
+    - sqlite
+    - glib2
+    - gsettings-desktop-schemas
+    - xz
+    - bzip2
+tests:
+  enabled: true
+  failure_policy: strict
+  reason: "upstream registers three tests and every one of them validates a file this package installs: desktop-file-validate over the generated org.gnome.Yelp.desktop, glib-compile-schemas --strict --dry-run over the GSettings schema, and appstreamcli validate over the metainfo file. All three tools are declared build dependencies and none needs a display, a bus or a network, so strict is honest here: a failure would mean this package is about to install a malformed desktop file, schema or metainfo document, which is exactly the case verify_paths cannot catch. Measured on the .192: 3 Ok, 0 Fail."
+
+verify_paths:
+  - /usr/bin/yelp
+  # Upstream's own install script (src/link-gnome-help.sh) makes this symlink,
+  # and applications that ask for help by the older name reach the viewer
+  # through it. It is verified because an install script is exactly the kind of
+  # step that can stop running without the build failing.
+  - /usr/bin/gnome-help
+  - /usr/lib/libyelp-1.so
+  - /usr/share/applications/org.gnome.Yelp.desktop
+  - /usr/share/glib-2.0/schemas/org.gnome.yelp.gschema.xml

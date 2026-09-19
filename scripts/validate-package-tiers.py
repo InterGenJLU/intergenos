@@ -782,7 +782,13 @@ PATTERN_DESKTOP_GNOME_AUX = {
     "baobab", "file-roller", "folks", "freerdp", "gdm",
     "grilo", "grilo-plugins", "gst-libav", "gst-plugins-ugly",
     "editorconfig-core-c", "vte",
-    "sysprof", "yelp-xsl",
+    # The help viewer and the stylesheets it renders with are one feature and
+    # belong in one set. The viewer is classified here rather than left to the
+    # dependency heuristic because nothing in the tree BUILD-depends on it:
+    # GTK applications reach it at run time through org.gnome.Yelp.desktop, so
+    # the heuristic that places a package by who builds against it has nothing
+    # to read and returns UNCLEAR. Added 2026-09-19 with the viewer itself.
+    "sysprof", "yelp-xsl", "yelp",
 }
 
 # Packages that look like they could be core but per docs/package-tiers.md

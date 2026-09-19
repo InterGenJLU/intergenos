@@ -50,6 +50,9 @@ WEBKIT_GTK4_RECIPE = "webkitgtk"
 WEBKIT_GTK3_RECIPE = "webkitgtk-gtk3"
 
 BINARY_PATH = "/usr/bin/yelp"
+# Upstream's own install script makes this symlink to the binary above; an
+# application that asks for help by the older name reaches the viewer through it.
+LEGACY_BINARY_PATH = "/usr/bin/gnome-help"
 DESKTOP_FILE_PATH = "/usr/share/applications/org.gnome.Yelp.desktop"
 GSETTINGS_SCHEMA_PATH = "/usr/share/glib-2.0/schemas/org.gnome.yelp.gschema.xml"
 
@@ -154,7 +157,7 @@ def test_the_desktop_file_and_the_binary_are_verified_after_install():
     asserted for the same reason: the viewer reads its own settings at startup.
     """
     verify = recipe().get("verify_paths") or []
-    for path in (BINARY_PATH, DESKTOP_FILE_PATH, GSETTINGS_SCHEMA_PATH):
+    for path in (BINARY_PATH, LEGACY_BINARY_PATH, DESKTOP_FILE_PATH, GSETTINGS_SCHEMA_PATH):
         assert path in verify, (
             f"{path} is not in verify_paths, so a build that failed to install "
             "it would still be recorded as a good package"
