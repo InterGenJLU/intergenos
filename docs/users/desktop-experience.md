@@ -156,7 +156,11 @@ InterGenOS ships the **Mesa** graphics stack for AMD (Radeon) and Intel (Arc, Ir
 
 The OpenGL, Vulkan, and video drivers are installed and available by default.
 Rusticl is built and its ICD is installed, but it has zero runtime cost and no
-device enabled until `RUSTICL_ENABLE` names one. Firefox uses VA-API for
+device enabled until `RUSTICL_ENABLE` names one. The `vainfo` command, installed by
+default, reports which VA-API driver your machine has and what it can decode; on
+Intel graphics it reports no accelerated driver until the Intel VA-API driver
+ships in the release after R001.3, which is a true reading of what is installed
+rather than a fault to fix. Firefox uses VA-API for
 hardware-accelerated video playback when the hardware and browser configuration
 support it. GNOME Shell renderers select OpenGL or Vulkan according to their
 runtime configuration.
