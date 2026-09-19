@@ -38,8 +38,8 @@ The aggregate ships on the installed system at
 | toolchain | 28 |
 | core | 315 |
 | base | 37 |
-| desktop | 474 |
-| extra | 218 |
+| desktop | 475 |
+| extra | 217 |
 | ai | 58 |
 | compute | 55 |
 
@@ -4816,6 +4816,13 @@ Video Acceleration API
 - License: `MIT`
 - Homepage: https://github.com/intel/libva
 
+### libva-utils (2.23.0)
+
+VA-API utility programs (vainfo, vaplay, vapostproc)
+
+- License: `MIT`
+- Homepage: https://github.com/intel/libva-utils
+
 ### libvorbis (1.3.7)
 
 Vorbis audio codec library
@@ -6602,13 +6609,6 @@ Library providing TPM 1.2 and TPM 2.0 emulation
 
 - License: `BSD-3-Clause`
 - Homepage: https://github.com/stefanberger/libtpms
-
-### libva-utils (2.23.0)
-
-VA-API utility programs (vainfo, vaplay, vapostproc)
-
-- License: `MIT`
-- Homepage: https://github.com/intel/libva-utils
 
 ### libvdpau (1.5)
 
