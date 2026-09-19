@@ -207,7 +207,21 @@ class TheLauncherSaysWhatAStartIsTest(unittest.TestCase):
 
 class TheGateIsStillAskedForACardlessStartTest(unittest.TestCase):
     """The whole point of the correction: the card question is still asked, and
-    the engine a cardless start resolves is the same one it resolved before."""
+    the engine a cardless start resolves is the same one it resolved before.
+
+    THIS CLASS ASSERTS ON AN AMD MACHINE, and pins that below rather than
+    letting the machine it runs on decide. The property under test is that the
+    per-card HIP gate is ASKED, and only the AMD row of the engine preference
+    table has a HIP rung to ask about: on a machine whose detector answers
+    "nvidia" the row is cuda then vulkan, the gate is never reached, and both
+    assertions below are about something that machine never does. Measured
+    2026-09-19: with the vendor detector forced to "nvidia" these two tests
+    failed at the tree they were written on (the gate spy recorded 0 calls
+    where they expect 1) and passed with it forced to "amd" — a result that
+    read the host rather than the code. The class stands in for the detector
+    for the same reason it stands in for the topology file, the architecture
+    record and the device selector: every one of them is the machine, and a
+    test that reads the machine is measuring the machine."""
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="cardless-gate-")
@@ -218,7 +232,7 @@ class TheGateIsStillAskedForACardlessStartTest(unittest.TestCase):
             lambda: serving_device.ENGINE_SERVER_PATHS.update(self._orig_paths))
         for attr in ("KFD_TOPOLOGY_NODES", "HIP_GPU_TARGETS_PATH",
                      "hip_supports_serving_device",
-                     "select_serving_device_and_pci"):
+                     "select_serving_device_and_pci", "_detect_vendor"):
             orig = getattr(serving_device, attr)
             self.addCleanup(
                 lambda a=attr, o=orig: setattr(serving_device, a, o))
@@ -236,6 +250,9 @@ class TheGateIsStillAskedForACardlessStartTest(unittest.TestCase):
             self.tmp, "gfx1030;gfx1201\n")
         serving_device.select_serving_device_and_pci = (
             lambda *a, **k: ("ROCm1", "0000:0e:00.0"))
+        # The machine this class asserts on. select_serving_engine() asks the
+        # detector when no vendor is passed, and _find_server() passes none.
+        serving_device._detect_vendor = lambda: "amd"
 
     def _spy(self, answer_supported):
         spy = _GateSpy(serving_device.HipDeviceSupport(
