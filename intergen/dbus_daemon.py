@@ -1556,6 +1556,7 @@ class InterGenDaemon(InterGenDBusInterface):
                     display_state_words,
                     memory_to_plan_against,
                     pci_vram_and_free_for_device_name,
+                    resolve_device_pin_for_engine,
                     select_serving_device_name_pci_vram_and_free,
                     select_serving_engine)
                 _hw = self._hardware_tier or {}
@@ -1607,13 +1608,41 @@ class InterGenDaemon(InterGenDBusInterface):
                 # painting the desktop is memory the desktop is already holding.
                 # The device pin itself is already read above, before the engine
                 # is chosen, because the engine gate needs it too.
+                # THE PIN IS RESOLVED IN THE CHOSEN ENGINE'S OWN NAMESPACE
+                # BEFORE IT IS USED. Device names are backend-local, and the
+                # engine that ends up chosen is not always the engine the
+                # operator had in mind when they wrote the name: the per-card
+                # architecture gate can decline the preferred engine, and the
+                # configured name then meant nothing to the engine that won.
+                # It used to be passed through anyway, and llama-server exited
+                # 1 with "invalid device: <name>" on every attempt until the
+                # ladder ran out — measured on a two-card AMD workstation
+                # 2026-09-19. resolve_device_pin_for_engine translates the pin
+                # by PCI address where both engines print one, and otherwise
+                # DROPS it with a reason, which leaves the chosen engine to
+                # select for itself: a machine that serves instead of one that
+                # cannot start.
+                _pin_name = None
                 if isinstance(_cfg_device, str) and _cfg_device not in ("auto", ""):
-                    _device = _cfg_device
+                    _pin = resolve_device_pin_for_engine(
+                        _cfg_device, _server_path if _vulkan_present else None)
+                    if _pin.name != _cfg_device:
+                        log.info("device pin: %s", _pin.reason)
+                    _pin_name = _pin.name
+                if _pin_name:
+                    _device = _pin_name
                     (_device_pci, _device_vram_mb, _device_free_mb) = (
                         pci_vram_and_free_for_device_name(_device,
                                                           server=_server_path)
                         if _vulkan_present else (None, None, None))
                 elif _vulkan_present:
+                    # Reached with no pin at all, and also when a pin was
+                    # named and could not be resolved in the chosen engine's
+                    # namespace. A DROPPED pin must not mean "no pin at all":
+                    # with no --device, llama.cpp spreads the model across
+                    # every visible card, which is the opposite of what pinning
+                    # is for. The automatic selection runs in the chosen
+                    # engine's own namespace and still yields ONE card.
                     (_device, _device_pci, _device_vram_mb,
                      _device_free_mb) = \
                         select_serving_device_name_pci_vram_and_free(

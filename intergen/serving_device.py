@@ -1274,6 +1274,128 @@ def pci_for_device_name(device_name: str, list_output: str | None = None,
     return None
 
 
+class DevicePinForEngine(NamedTuple):
+    """An operator device pin, translated into one engine's own namespace.
+
+    ``name`` is the device name to pass to THAT engine, or None when no name
+    can be passed honestly and the engine must make its own selection.
+    ``pci_id`` is the address the pin resolved to, for the runtime-power hold,
+    and is None whenever ``name`` is. ``reason`` is one plain sentence for the
+    log, so a dropped pin is always visible as a decision rather than as
+    silence.
+    """
+    name: str | None
+    pci_id: str | None
+    reason: str
+
+
+def _list_devices_text(server: str,
+                       enumerations: "dict[str, str] | None" = None
+                       ) -> str:
+    """``server --list-devices`` output, or "" when it cannot be read.
+
+    ``enumerations`` lets a caller — or a test — hand the text in per binary
+    instead of running anything. An unreadable enumeration yields the empty
+    string, never an exception: every caller here treats "nothing readable" as
+    "cannot tell", and cannot-tell must change no behaviour.
+    """
+    if enumerations is not None and server in enumerations:
+        return enumerations[server] or ""
+    try:
+        proc = subprocess.run([server, "--list-devices"],
+                              capture_output=True, text=True, timeout=30)
+        return (proc.stdout or "") + (proc.stderr or "")
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
+
+def resolve_device_pin_for_engine(device_pin: str | None,
+                                  server: str | None,
+                                  enumerations: "dict[str, str] | None" = None
+                                  ) -> DevicePinForEngine:
+    """The device name to hand ``server``, for the card ``device_pin`` names.
+
+    WHY THIS EXISTS. Device names are backend-local: "ROCm0" is a card to the
+    HIP build and is nothing at all to the Vulkan build, which numbers the same
+    two cards in its own order. The configured pin used to be passed to
+    whichever engine was chosen, so when the architecture gate declined the HIP
+    engine the Vulkan binary was launched with ``--device ROCm0`` and exited 1
+    with ``invalid device: ROCm0`` on every attempt — measured on a two-card AMD
+    workstation 2026-09-19. On the display-free card the whole ladder then ran
+    out with a working Vulkan engine installed and nothing served.
+
+    THE RULE: a name reaches an engine only after THAT engine's own
+    enumeration resolved it.
+      • the chosen engine already knows the name → it is used unchanged;
+      • it does not, but another installed engine knows it AND both print PCI
+        addresses → the card is matched BY ADDRESS and the chosen engine's own
+        name for it is used, so the operator still gets the card they named;
+      • neither → the pin is DROPPED for this engine and the reason says so.
+        Dropping it leaves the engine to select for itself, which is a machine
+        that serves; passing a name the engine cannot resolve is a machine that
+        cannot start.
+
+    Nothing here guesses. A build without the in-tree list-devices PCI-id patch
+    prints no addresses, so nothing can be matched and the pin is dropped
+    rather than resolved by position — ordinal arithmetic across two backends
+    is exactly how the wrong card gets picked.
+    """
+    pin = (device_pin or "").strip()
+    if not pin or pin.lower() in ("auto", "none"):
+        return DevicePinForEngine(None, None, "no card was pinned")
+    if not server:
+        return DevicePinForEngine(
+            None, None,
+            f"the pinned card {pin} was dropped: no engine binary was named, "
+            f"so no device list could be read")
+
+    own = _list_devices_text(server, enumerations)
+    for m in _DEVICE_LINE_RE.finditer(own):
+        if m.group("name") == pin:
+            return DevicePinForEngine(
+                pin, m.group("pci"),
+                f"the pinned card {pin} is in the chosen engine's own "
+                f"device list")
+
+    # The chosen engine does not know this name. Find the engine that does,
+    # take the ADDRESS it reports, and ask the chosen engine what IT calls the
+    # card at that address.
+    pinned_pci = None
+    naming_engine = None
+    for engine, path in ENGINE_SERVER_PATHS.items():
+        if not path or path == server:
+            continue
+        if not (os.path.isfile(path) and os.access(path, os.X_OK)):
+            continue
+        for m in _DEVICE_LINE_RE.finditer(
+                _list_devices_text(path, enumerations)):
+            if m.group("name") == pin and m.group("pci"):
+                pinned_pci, naming_engine = m.group("pci"), engine
+                break
+        if pinned_pci:
+            break
+
+    if pinned_pci:
+        for m in _DEVICE_LINE_RE.finditer(own):
+            if m.group("pci") and (m.group("pci").lower()
+                                   == pinned_pci.lower()):
+                return DevicePinForEngine(
+                    m.group("name"), m.group("pci"),
+                    f"the pinned card {pin} is at PCI {pinned_pci} (the "
+                    f"{naming_engine} engine's name for it); the chosen engine "
+                    f"calls that card {m.group('name')}")
+        return DevicePinForEngine(
+            None, None,
+            f"the pinned card {pin} is at PCI {pinned_pci}, which the chosen "
+            f"engine does not list; serving without a device pin on this "
+            f"engine")
+    return DevicePinForEngine(
+        None, None,
+        f"the pinned card {pin} is not in the chosen engine's device list and "
+        f"no installed engine reports an address for that name; serving "
+        f"without a device pin on this engine")
+
+
 # ── Runtime power management of the card that is serving ────────────────────
 #
 # WHY THIS IS HERE AT ALL. A discrete GPU with nothing plugged into it is left

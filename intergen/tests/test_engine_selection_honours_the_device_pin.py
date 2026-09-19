@@ -193,6 +193,85 @@ class LadderAsksAboutThePinnedCardTest(unittest.TestCase):
             self.assertEqual(rungs, ["hip", "vulkan"], value)
 
 
+class DevicePinIsResolvedInTheChosenEnginesNamespaceTest(unittest.TestCase):
+    """DEFECT TWO. A device name belongs to the engine that printed it."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="pin-namespace-")
+        self.addCleanup(lambda: __import__("shutil").rmtree(
+            self.tmp, ignore_errors=True))
+        self._orig_paths = dict(serving_device.ENGINE_SERVER_PATHS)
+        self.addCleanup(
+            lambda: serving_device.ENGINE_SERVER_PATHS.update(self._orig_paths))
+        self.hip = _fake_binary(self.tmp, "hip-server")
+        self.vulkan = _fake_binary(self.tmp, "vulkan-server")
+        serving_device.ENGINE_SERVER_PATHS["hip"] = self.hip
+        serving_device.ENGINE_SERVER_PATHS["vulkan"] = self.vulkan
+        serving_device.ENGINE_SERVER_PATHS["cuda"] = os.path.join(
+            self.tmp, "absent-cuda")
+
+    def _enumerations(self, vulkan_text=_VULKAN_LIST):
+        return {self.hip: _HIP_LIST, self.vulkan: vulkan_text}
+
+    def test_a_name_the_chosen_engine_knows_is_used_unchanged(self):
+        got = serving_device.resolve_device_pin_for_engine(
+            "ROCm0", self.hip, enumerations=self._enumerations())
+        self.assertEqual(got.name, "ROCm0")
+        self.assertEqual(got.pci_id, "0000:06:00.0")
+
+    def test_a_name_from_another_engine_is_re_resolved_by_address(self):
+        """THE RED. "ROCm0" is the RX 7600 at 0000:06:00.0; the Vulkan build
+        calls that same card Vulkan1. Passing "ROCm0" to the Vulkan binary
+        exits 1; passing Vulkan1 serves on the card the operator named."""
+        got = serving_device.resolve_device_pin_for_engine(
+            "ROCm0", self.vulkan, enumerations=self._enumerations())
+        self.assertEqual(got.name, "Vulkan1")
+        self.assertEqual(got.pci_id, "0000:06:00.0")
+        self.assertIn("0000:06:00.0", got.reason)
+
+    def test_the_other_card_re_resolves_to_the_other_name(self):
+        got = serving_device.resolve_device_pin_for_engine(
+            "ROCm1", self.vulkan, enumerations=self._enumerations())
+        self.assertEqual(got.name, "Vulkan0")
+        self.assertEqual(got.pci_id, "0000:0e:00.0")
+
+    def test_a_pin_that_cannot_be_matched_by_address_is_DROPPED(self):
+        """THE RED. Without the in-tree PCI-id patch no line carries an
+        address, so nothing can be matched. The pin is dropped — never passed
+        through — and the reason says so in plain words."""
+        got = serving_device.resolve_device_pin_for_engine(
+            "ROCm0", self.vulkan,
+            enumerations=self._enumerations(_VULKAN_LIST_NO_PCI))
+        self.assertIsNone(got.name)
+        self.assertIsNone(got.pci_id)
+        self.assertIn("ROCm0", got.reason)
+
+    def test_a_name_no_engine_knows_is_dropped(self):
+        got = serving_device.resolve_device_pin_for_engine(
+            "ROCm7", self.vulkan, enumerations=self._enumerations())
+        self.assertIsNone(got.name)
+
+    def test_no_pin_is_no_pin(self):
+        for value in (None, "", "auto", "  "):
+            got = serving_device.resolve_device_pin_for_engine(
+                value, self.vulkan, enumerations=self._enumerations())
+            self.assertIsNone(got.name, value)
+            self.assertIsNone(got.pci_id, value)
+
+    def test_an_unreadable_enumeration_drops_the_pin_rather_than_guessing(self):
+        got = serving_device.resolve_device_pin_for_engine(
+            "ROCm0", self.vulkan, enumerations={self.vulkan: "",
+                                                self.hip: ""})
+        self.assertIsNone(got.name)
+
+    def test_the_answer_always_carries_a_reason(self):
+        for pin, server in (("ROCm0", self.hip), ("ROCm0", self.vulkan),
+                            (None, self.vulkan), ("ROCm7", self.vulkan)):
+            got = serving_device.resolve_device_pin_for_engine(
+                pin, server, enumerations=self._enumerations())
+            self.assertTrue(got.reason.strip(), (pin, server))
+
+
 class AdvanceEngineCarriesThePinTest(unittest.TestCase):
     """The daemon's own step: when a running engine fails and the manager moves
     to the next rung, the pin currently in force is what the gate must be asked
@@ -222,6 +301,68 @@ class AdvanceEngineCarriesThePinTest(unittest.TestCase):
         mgr._engines_tried = set()
         mgr._advance_engine()
         self.assertEqual(seen.get("device_pin"), "ROCm0")
+
+
+class AdvanceEngineReResolvesThePinTest(unittest.TestCase):
+    """When the manager drops to the next rung, the operator's card travels
+    with it: the pin is re-resolved by address into the new engine's own
+    namespace, and dropped with a reason when that card is not there."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="advance-resolve-")
+        self.addCleanup(lambda: __import__("shutil").rmtree(
+            self.tmp, ignore_errors=True))
+        self._orig_paths = dict(serving_device.ENGINE_SERVER_PATHS)
+        self.addCleanup(
+            lambda: serving_device.ENGINE_SERVER_PATHS.update(self._orig_paths))
+        self.hip = _fake_binary(self.tmp, "hip-server")
+        self.vulkan = _fake_binary(self.tmp, "vulkan-server")
+        serving_device.ENGINE_SERVER_PATHS["hip"] = self.hip
+        serving_device.ENGINE_SERVER_PATHS["vulkan"] = self.vulkan
+        serving_device.ENGINE_SERVER_PATHS["cuda"] = os.path.join(
+            self.tmp, "absent-cuda")
+        orig_resolve = serving_device.resolve_device_pin_for_engine
+        self.addCleanup(
+            lambda: setattr(serving_device, "resolve_device_pin_for_engine",
+                            orig_resolve))
+        serving_device.resolve_device_pin_for_engine = (
+            lambda pin, server, enumerations=None:
+            orig_resolve(pin, server,
+                         enumerations={self.hip: _HIP_LIST,
+                                       self.vulkan: _VULKAN_LIST}))
+        orig_next = serving_device.next_engine_after
+        self.addCleanup(
+            lambda: setattr(serving_device, "next_engine_after", orig_next))
+        serving_device.next_engine_after = (
+            lambda *a, **k: ("vulkan", self.vulkan))
+
+    def _manager(self, device):
+        from intergen import llama_manager
+        mgr = llama_manager.LlamaManager.__new__(llama_manager.LlamaManager)
+        mgr._config = llama_manager.ServerConfig(
+            model_path="/does/not/exist.gguf", port=8080, context_size=4096,
+            gpu_layers=0, parallel=1, jinja=False, reasoning="off",
+            server_path=self.hip, device=device, device_pci="0000:06:00.0")
+        mgr._engines_tried = set()
+        return mgr
+
+    def test_the_pinned_card_travels_to_the_new_engine_by_address(self):
+        mgr = self._manager("ROCm0")
+        self.assertTrue(mgr._advance_engine())
+        self.assertEqual(mgr._config.server_path, self.vulkan)
+        self.assertEqual(mgr._config.device, "Vulkan1")
+        self.assertEqual(mgr._config.device_pci, "0000:06:00.0")
+
+    def test_a_card_the_new_engine_does_not_have_drops_the_pin(self):
+        mgr = self._manager("ROCm7")
+        self.assertTrue(mgr._advance_engine())
+        self.assertIsNone(mgr._config.device)
+        self.assertIsNone(mgr._config.device_pci)
+
+    def test_a_config_with_no_pin_still_has_none(self):
+        mgr = self._manager(None)
+        self.assertTrue(mgr._advance_engine())
+        self.assertIsNone(mgr._config.device)
 
 
 if __name__ == "__main__":

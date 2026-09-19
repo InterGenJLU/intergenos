@@ -1210,8 +1210,28 @@ class LlamaManager(LlamaManagerInterface):
         # The device pin belongs to the OLD binary's device namespace — device
         # names are backend-local, so carrying "Vulkan1" onto a different
         # engine would pin to whatever that name happens to mean there, or to
-        # nothing. Clear it and let the new engine's own selection run.
-        self._config = replace(self._config, server_path=path, device=None)
+        # nothing. It is re-resolved BY ADDRESS into the new engine's own
+        # namespace, which keeps the operator on the card they named; when the
+        # card cannot be matched there the pin is dropped and the reason is
+        # logged, and the new engine selects for itself. Carrying the raw name
+        # across was measured on 2026-09-19: llama-server exited 1 with
+        # "invalid device: ROCm0" on every attempt.
+        new_device = None
+        new_device_pci = None
+        if getattr(self._config, "device", None):
+            try:
+                from intergen.serving_device import (
+                    resolve_device_pin_for_engine)
+                resolved = resolve_device_pin_for_engine(
+                    self._config.device, path)
+                new_device = resolved.name
+                new_device_pci = resolved.pci_id
+                log.info("device pin on the new engine: %s", resolved.reason)
+            except Exception as e:                    # pragma: no cover
+                log.warning("could not re-resolve the device pin for %s (%s); "
+                            "the new engine will select for itself", engine, e)
+        self._config = replace(self._config, server_path=path,
+                               device=new_device, device_pci=new_device_pci)
         return True
 
     # The gaps between the attempts retry_transient_start makes, in seconds.
