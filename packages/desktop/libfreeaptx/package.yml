@@ -1,0 +1,22 @@
+name: libfreeaptx
+version: "0.2.2"
+release: 1
+description: Free aptX and aptX HD Bluetooth audio codec library
+license: LGPL-2.1-or-later  # read from COPYING (LGPL 2.1) and the per-file header, which says "version 2.1 of the License, or (at your option) any later version"
+homepage: https://github.com/regularhunter/libfreeaptx
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/regularhunter/libfreeaptx/archive/refs/tags/${version}.tar.gz
+  filename: ${name}-${version}.tar.gz
+  sha256: 5ab5ebddf3f2eb7ce47a505b87460b00fc1ede99c70010796d3575ab31ea80bf
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/libfreeaptx.so
+  - /usr/lib/pkgconfig/libfreeaptx.pc
+  - /usr/include/freeaptx.h
+  - /usr/bin/freeaptxenc

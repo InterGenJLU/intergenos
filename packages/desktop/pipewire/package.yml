@@ -1,6 +1,6 @@
 name: pipewire
 version: "1.6.0"
-release: 2  # capture wave: libcamera SPA + webrtc echo-cancel enabled
+release: 3  # r3: the three Bluetooth audio codecs ship — aptX, LDAC and LC3 are pinned =enabled in the meson line and their encoder libraries (libfreeaptx, ldacBT, liblc3) are declared deps, so a missing one halts the configure instead of silently dropping the codec. Decided 2026-09-18. # r2: capture wave: libcamera SPA + webrtc echo-cancel enabled
 description: Multimedia processing framework
 license: MIT
 homepage: https://pipewire.org/
@@ -34,6 +34,9 @@ dependencies:
   - libcamera     # capture wave: the libcamera SPA plugin (-Dlibcamera=enabled)
   - webrtc-audio-processing  # capture wave: real AEC engine for
                              # module-echo-cancel (-Decho-cancel-webrtc=enabled)
+  - libfreeaptx   # aptX / aptX HD encoder for the A2DP codec plugin
+  - ldacBT        # LDAC encoder and its adaptive bitrate control
+  - liblc3        # LC3 codec, used by LE Audio and by A2DP LC3
   host: []
   runtime:
   - alsa-lib
@@ -54,6 +57,9 @@ dependencies:
   - modemmanager
   - libcamera
   - webrtc-audio-processing
+  - libfreeaptx
+  - ldacBT
+  - liblc3
 configure_flags:
 - --wrap-mode=nofallback
 - -Dsession-managers=[]

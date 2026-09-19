@@ -29,7 +29,7 @@ The aggregate ships on the installed system at
 ## Coverage summary
 
 
-**Total packages:** 1185
+**Total packages:** 1188
 
 **Distribution by tier:**
 
@@ -38,7 +38,7 @@ The aggregate ships on the installed system at
 | toolchain | 28 |
 | core | 315 |
 | base | 37 |
-| desktop | 475 |
+| desktop | 478 |
 | extra | 217 |
 | ai | 58 |
 | compute | 55 |
@@ -49,10 +49,10 @@ The aggregate ships on the installed system at
 |---|---:|
 | `MIT` | 277 |
 | `GPL-3.0-or-later` | 157 |
-| `LGPL-2.1-or-later` | 154 |
+| `LGPL-2.1-or-later` | 155 |
 | `GPL-2.0-or-later` | 145 |
 | `BSD-3-Clause` | 98 |
-| `Apache-2.0` | 74 |
+| `Apache-2.0` | 76 |
 | `LGPL-2.0-or-later` | 34 |
 | `BSD-2-Clause` | 33 |
 | `GPL-2.0-only` | 19 |
@@ -3873,6 +3873,13 @@ Little Color Management System
 - License: `MIT`
 - Homepage: https://www.littlecms.com/
 
+### ldacBT (2.0.2.6)
+
+LDAC Bluetooth audio encoder library, with its adaptive bitrate control
+
+- License: `Apache-2.0`
+- Homepage: https://github.com/EHfive/ldacBT
+
 ### lib32-alsa-lib (1.2.15.3)
 
 ALSA sound library (32-bit multilib runtime)
@@ -4468,6 +4475,13 @@ Font encoding library
 
 - License: `MIT`
 
+### libfreeaptx (0.2.2)
+
+Free aptX and aptX HD Bluetooth audio codec library
+
+- License: `LGPL-2.1-or-later`
+- Homepage: https://github.com/regularhunter/libfreeaptx
+
 ### libgee (0.20.8)
 
 GObject-based collection library
@@ -4570,6 +4584,13 @@ High-speed JPEG compression/decompression library
 JPEG XL image format library
 
 - License: `BSD-3-Clause`
+
+### liblc3 (1.1.3)
+
+LC3 Bluetooth audio codec library (Low Complexity Communication Codec)
+
+- License: `Apache-2.0`
+- Homepage: https://github.com/google/liblc3
 
 ### libmad (0.15.1b)
 

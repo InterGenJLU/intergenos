@@ -1,0 +1,27 @@
+name: ldacBT
+version: "2.0.2.6"
+release: 1
+description: LDAC Bluetooth audio encoder library, with its adaptive bitrate control
+license: Apache-2.0  # read from LICENSE (Apache License 2.0) and the libldac source headers
+homepage: https://github.com/EHfive/ldacBT
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+# The release asset, not the git archive: it carries the libldac sources, which
+# are a submodule in the repository and absent from an archive of the tag.
+- url: https://github.com/EHfive/ldacBT/releases/download/v${version}/ldacBT-${version}.tar.gz
+  sha256: fee05740e86ee66f4540486d92683ee8e8071119907b57ca762c7e5d943ecef0
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tests:
+  enabled: false
+  reason: "Upstream ships no test suite — the pinned 2.0.2.6 tree contains no enable_testing(), no add_test() and no CTest include (verified in the pinned tarball 2026-09-19), so the cmake style's default check phase 'cmake --build build --target test' has no target and halts with 'No rule to make target'. What the build does assert: verify_paths hold the two shipped libraries and both pkg-config files, and the consumer exercises the encoder — the Bluetooth audio stack's LDAC codec plugin links against libldacBT_enc and libldacBT_abr and its configure fails if either is absent."
+
+verify_paths:
+  - /usr/lib/libldacBT_enc.so
+  - /usr/lib/libldacBT_abr.so
+  - /usr/lib/pkgconfig/ldacBT-enc.pc
+  - /usr/lib/pkgconfig/ldacBT-abr.pc

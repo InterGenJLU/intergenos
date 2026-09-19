@@ -24,6 +24,12 @@ configure() {
     # the WebRTC engine is what makes module-echo-cancel real (only the
     # null AEC shipped before). Both are the same silent-auto class this
     # comment block exists for — =enabled HALTS if either dep goes missing.
+    # The three Bluetooth audio codecs are the same class again: aptX, LDAC
+    # and LC3 were left at auto with no encoder library in the tree, so meson
+    # dropped them silently and a headset negotiated SBC however good it was.
+    # Their libraries (libfreeaptx, ldacBT, liblc3) are declared deps now, and
+    # =enabled makes a missing one HALT the configure — which is the point:
+    # the codecs cannot disappear again without someone being told.
     meson setup ..            \
           --prefix=/usr       \
           --libdir=/usr/lib   \
@@ -35,7 +41,10 @@ configure() {
           -Dffmpeg=enabled \
           -Dbluez5-backend-native-mm=enabled \
           -Dlibcamera=enabled \
-          -Decho-cancel-webrtc=enabled
+          -Decho-cancel-webrtc=enabled \
+          -Dbluez5-codec-aptx=enabled \
+          -Dbluez5-codec-ldac=enabled \
+          -Dbluez5-codec-lc3=enabled
 }
 
 build() {

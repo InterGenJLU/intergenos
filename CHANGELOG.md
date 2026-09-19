@@ -47,6 +47,16 @@ landed is in the repository README, not here.
 
 ### Added
 
+- **A Bluetooth headset can now negotiate aptX, LDAC or LC3, not only SBC.**
+  The audio server enabled its Bluetooth backend but left every codec option at
+  the build system's `auto` setting, and the encoder libraries for aptX, LDAC
+  and LC3 were not in the tree — so the build quietly disabled all three and
+  reported success. Whatever a headset supported, it got SBC. Three library
+  recipes are added (`libfreeaptx` for aptX and aptX HD, `ldacBT` for LDAC with
+  its adaptive bitrate control, and `liblc3` for LC3), the audio server declares
+  them and pins the three options to `enabled`, and a missing encoder library now
+  halts the build naming the dependency instead of dropping the codec in silence.
+
 - **`vainfo` arrives with the system.** The command that reports which hardware
   video acceleration a machine has, and what it can decode, was packaged
   mirror-only: it had to be downloaded before it could be asked, over a network,
