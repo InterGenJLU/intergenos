@@ -420,6 +420,7 @@ class TheLaunchersFallbackAsksTheSameQuestionTest(unittest.TestCase):
         seen = {}
 
         def _fake_select(vendor=None, engine_pin=None, device_pin=None):
+            seen["called"] = True
             seen["device_pin"] = device_pin
             return "vulkan", "/usr/bin/llama-server"
 
@@ -430,6 +431,7 @@ class TheLaunchersFallbackAsksTheSameQuestionTest(unittest.TestCase):
 
         mgr = llama_manager.LlamaManager.__new__(llama_manager.LlamaManager)
         mgr._find_server(device_pin="ROCm0")
+        self.assertTrue(seen.get("called"), "the selector was never called")
         self.assertEqual(seen.get("device_pin"), "ROCm0")
 
     def test_no_pin_is_still_no_pin(self):
@@ -438,6 +440,7 @@ class TheLaunchersFallbackAsksTheSameQuestionTest(unittest.TestCase):
         seen = {}
 
         def _fake_select(vendor=None, engine_pin=None, device_pin=None):
+            seen["called"] = True
             seen["device_pin"] = device_pin
             return "vulkan", "/usr/bin/llama-server"
 
@@ -448,6 +451,12 @@ class TheLaunchersFallbackAsksTheSameQuestionTest(unittest.TestCase):
 
         mgr = llama_manager.LlamaManager.__new__(llama_manager.LlamaManager)
         mgr._find_server()
+        # assertIsNone alone would ALSO pass if the stand-in had never been
+        # called: anything raised inside _find_server is caught there and falls
+        # through to the path search, leaving `seen` empty. A future change to
+        # the selector's signature would then leave this case green while it
+        # measured nothing. The call itself is asserted first.
+        self.assertTrue(seen.get("called"), "the selector was never called")
         self.assertIsNone(seen.get("device_pin"))
 
 

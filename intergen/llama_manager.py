@@ -522,7 +522,13 @@ class LlamaManager(LlamaManagerInterface):
                 log.error(self._last_error)
                 return False
         else:
-            server_path = self._find_server(device_pin=device)
+            # gpu_layers == 0 IS "this start takes no card": it is what makes
+            # the launch builder below pass --device none, and that elif makes
+            # --device none supreme over any `device` argument. So the
+            # classification here and the argv built later can never disagree.
+            server_path = self._find_server(device_pin=device,
+                                            cpu_pinned=(gpu_layers == 0),
+                                            embedding=embedding)
             if server_path is None:
                 self._last_error = "llama-server binary not found"
                 self._last_failure = StartFailure.BINARY_ABSENT
@@ -1699,7 +1705,9 @@ class LlamaManager(LlamaManagerInterface):
             return False
         return self._process.poll() is None
 
-    def _find_server(self, device_pin: str | None = None) -> str | None:
+    def _find_server(self, device_pin: str | None = None,
+                     cpu_pinned: bool = False,
+                     embedding: bool = False) -> str | None:
         """Find the llama-server binary — engine-aware.
 
         The engine selector's choice (the per-vendor preference table over the
@@ -1720,12 +1728,44 @@ class LlamaManager(LlamaManagerInterface):
         workstation on 2026-09-18: with the pin on the covered card, the
         daemon's own resolution chose HIP and this call logged Vulkan in the
         same start.
+
+        ``cpu_pinned`` says this start takes NO CARD: it runs with zero GPU
+        layers, which is what makes the launch builder pass ``--device none``.
+        It changes NOTHING about which engine is chosen — no device pin travels
+        for such a start, which is already what happened, and the per-card
+        architecture gate is asked in the ordinary no-pin way. What it changes
+        is the log: one line is written BEFORE the selection saying what this
+        start is, so the decline line that may follow is read as an answer
+        about the machine rather than as a decision about a card this start
+        uses. Without it, a shortened architecture record on a two-card
+        workstation made the embedding server's start look like a refusal of an
+        engine over a card that was never in question (measured 2026-09-18 and
+        2026-09-19).
+
+        Decided 2026-09-19: the gate STAYS consulted here. The engine binary
+        enumerates every visible card when it starts, whatever ``--device none``
+        then does about loading a model onto one, so "can this build cope with
+        the cards in this machine" is a real question even for a start that
+        pins none. Skipping it would trade a measured refusal for an
+        expectation about how an uncovered card behaves during enumeration,
+        which no machine in this project can currently test.
+
+        ``embedding`` only names the start in that line, so a reader does not
+        have to infer which of the two servers it is about.
         """
         import os
         import shutil
+        if cpu_pinned:
+            log.info(
+                "engine selection for %s: CPU-pinned (--device none), no card "
+                "is pinned; the per-card architecture gate is still asked "
+                "about the card the automatic selection would take, because "
+                "the engine binary enumerates every visible card at start",
+                "the embedding server" if embedding else "a CPU-resident server")
         try:
             from intergen.serving_device import select_serving_engine
-            engine, path = select_serving_engine(device_pin=device_pin)
+            engine, path = select_serving_engine(
+                device_pin=None if cpu_pinned else device_pin)
             if os.path.isfile(path) and os.access(path, os.X_OK):
                 log.info("engine selector chose %s (%s)", engine, path)
                 return path

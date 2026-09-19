@@ -172,6 +172,23 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **The engine-selection line for the embedding server now says that it pins no
+  card, and why the card question is still asked.** The assistant runs a second,
+  small server whose only job is to turn text into embeddings, and it is
+  CPU-resident by design: it starts with zero GPU layers, which is what makes
+  the launcher pass `--device none`. No graphics card is pinned for it. The
+  launcher nevertheless wrote only the engine chooser's per-card answer, with
+  nothing around it to say what the start was — so on a two-card machine whose
+  installed build did not cover the card the chooser would have picked, the line
+  read as a refusal of an engine over a card the reader had no reason to connect
+  to this start. A start with zero GPU layers now tells the launcher so, and the
+  launcher writes one line before the selection: the start is CPU-pinned, no card
+  is pinned, and the per-card question is still asked because the engine binary
+  enumerates every visible card when it starts, whatever `--device none` then
+  does about loading a model onto one. Nothing else changes: the same gate is
+  consulted, the same engine is chosen, and the same binary is launched as
+  before.
+
 - **The test suite no longer leaves a memory-index worker writing behind it.**
   One test in the memory-index trace file deliberately stops the index while its
   embedding server is still hanging, which is how it proves the stop is bounded,
