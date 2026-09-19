@@ -47,6 +47,15 @@ do_install() {
     # Ensure old -lcurses apps still build
     ln -sfv libncursesw.so "${DESTDIR}/usr/lib/libcurses.so"
 
+    # Prebuilt third-party binaries ask the loader for libtinfo.so.6 by that exact
+    # name. This build configures without --with-termlib, so the terminfo entry
+    # points (setupterm, tgetent, tigetstr) are exported by libncursesw.so.6 itself
+    # and no file of that name is produced; the symbols are here, only the name is
+    # missing. These two links supply the name: the versioned one is what a binary's
+    # dynamic section asks for, the unversioned one is what -ltinfo needs at link time.
+    ln -sfv libncursesw.so.6 "${DESTDIR}/usr/lib/libtinfo.so.6"
+    ln -sfv libtinfo.so.6 "${DESTDIR}/usr/lib/libtinfo.so"
+
     # Remove static libraries
     rm -fv "${DESTDIR}/usr/lib/libncursesw.a"
     rm -fv "${DESTDIR}/usr/lib"/lib{ncurses,form,panel,menu}.a

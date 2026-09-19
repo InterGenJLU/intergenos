@@ -1,7 +1,7 @@
 name: ncurses-core
 ships_as: ncurses  # ch8 dual-name twin — the driver archives this recipe under the ship name (chroot-build-ch8.sh run_package arg 2; runtime deps elsewhere may name 'ncurses')
 version: '6.6'
-release: 1
+release: 2  # r2: ship /usr/lib/libtinfo.so.6 and /usr/lib/libtinfo.so as compatibility links onto the wide library, so prebuilt binaries whose dynamic section asks for libtinfo.so.6 load on an installed system (this build has no --with-termlib, so libncursesw.so.6 exports the terminfo symbols). Decided 2026-09-18. The bump is by hand: this recipe builds a sha-pinned upstream tarball, so the release auto-bump tool does not track it.
 description: Terminal handling library
 license: MIT
 source:
@@ -17,3 +17,4 @@ verify_paths:
   - /usr/bin/ncursesw6-config
   - /usr/bin/captoinfo
   - /usr/lib/libcurses.so
+  - /usr/lib/libtinfo.so.6

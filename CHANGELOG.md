@@ -331,6 +331,17 @@ landed is in the repository README, not here.
   fall back to a release the package does not have. Output only — nothing about
   what is installed changed.
 
+- **Prebuilt binaries that ask for `libtinfo.so.6` now load on an installed
+  system.** The terminal-handling library is built here as one wide library, so
+  the terminfo entry points (`setupterm`, `tgetent`, `tigetstr`) are exported by
+  `libncursesw.so.6` and no file named `libtinfo.so.6` was produced. Third-party
+  binaries linked where that library is split ask the loader for that exact name
+  and failed to start, naming a library a user cannot install although every
+  symbol was already present. The ncurses recipe now ships `libtinfo.so.6` and
+  `libtinfo.so` as compatibility links onto the wide library, alongside the
+  `libcurses.so` link it already carried, and the versioned link is checked
+  after install.
+
 - **The memory plan now weighs what a card can actually give, not what it
   has.** The inference engine's own device listing prints two memory figures
   for every card — the total and the free — and the plan that decides how much
