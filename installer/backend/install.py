@@ -973,6 +973,17 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         # Enabled after preset-all above, whose catch-all would revert it.
         users.enable_bootorder_check(target)
 
+        # Weekly discard follows the disk layout this install wrote
+        # (decided 2026-09-19). An unencrypted install enables
+        # fstrim.timer so the drive is told which blocks it may reuse; an
+        # encrypted one leaves it off, because which blocks a filesystem
+        # uses is a description of that filesystem and an encrypted disk
+        # exists to keep that from the hardware. Made here, after
+        # enable_services()'s preset-all, whose catch-all would revert an
+        # earlier enable — and from luks_enabled, the same fact the
+        # partitioner acted on, not from a re-derivation of it.
+        users.configure_fstrim_timer(target, luks_enabled=luks_enabled)
+
         # Pre-configuration greeter seed: derive a single-primary monitor
         # layout from the live session's own display state so the target's
         # FIRST greeter renders on one monitor at the right mode — the sync

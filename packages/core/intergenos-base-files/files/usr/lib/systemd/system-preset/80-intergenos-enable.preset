@@ -282,6 +282,29 @@ enable rtkit-daemon.service
 disable atd.service
 disable fcron.service
 
+# fstrim.timer — NOT decided in this file, and that is deliberate.
+#
+# The timer asks every mounted filesystem, once a week, to tell the drive which
+# blocks it is no longer using. Whether an installed machine should do that
+# depends on how its disk was laid out, and this file cannot see that: a preset
+# is a static list, while the layout is known only while an install is running.
+#
+# The rule, and where it is applied: an UNENCRYPTED install enables the timer,
+# because a solid-state drive that is never told keeps rewriting blocks it
+# could have reused, and both its write performance and its endurance suffer
+# for it. An ENCRYPTED install leaves it off, because which blocks a filesystem
+# is using is a description of that filesystem, and handing that description to
+# the drive hands it to whoever later reads the drive — the one thing an
+# encrypted disk exists to prevent. The installer applies the rule in
+# installer/backend/users.py:configure_fstrim_timer, from the layout its own
+# partitioner returned, after the preset pass below has run; it states both
+# answers explicitly and reads each one back out of the target.
+#
+# Without this note the timer would read here as an oversight — the same
+# misreading the explicit default-off block above exists to prevent — when in
+# fact it is the one unit in the system whose default cannot be written down
+# until the disk is known. Decided 2026-09-19.
+
 # forge-tui.service has ConditionKernelCommandLine=igos.mode=install-tui
 # so it only fires in install-tui mode. In live + install-gui modes the
 # condition is not met and the unit is a no-op. Enabling here so it's

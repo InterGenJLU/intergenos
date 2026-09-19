@@ -705,6 +705,32 @@ landed is in the repository README, not here.
 
 ### Security
 
+- An encrypted install no longer writes a discard permission into
+  `/etc/crypttab`, and weekly discard is decided from the disk layout the
+  install wrote. Two things were true at once before this change: the installer
+  put the word `discard` in the encrypted root's crypttab options, and the
+  initramfs that opens that volume read only the `tpm2` and `fido2` tokens out
+  of the same field, so it passed no discard permission to `cryptsetup`.
+  Measured on an installed encrypted machine: `/etc/crypttab` read
+  `luks,discard,x-initrd.attach` while `dmsetup table cryptroot` carried no
+  `allow_discards` flag and the mapper reported a discard granularity of 0. The
+  behaviour was the safe one; the file said otherwise, so anyone reading their
+  own disk configuration drew the wrong conclusion from it. The word is dropped
+  from all three places that wrote it — both layouts the partitioner returns and
+  the crypttab writer's own default list — and the opener is unchanged, so no
+  installed or new machine changes behaviour. Alongside it, `fstrim.timer` is
+  now decided while the install runs: enabled on an unencrypted install, so the
+  drive is told which blocks it may reuse, and turned off on an encrypted one,
+  because which blocks a filesystem is using describes that filesystem and an
+  encrypted disk exists to keep that from the hardware. A preset file cannot
+  make that decision, since the layout is known only during the install; the
+  preset policy now says so in place rather than leaving the timer's absence
+  reading as an oversight. Both answers are stated explicitly and read back out
+  of the target, so a divergence between what `systemctl` reports and what the
+  target holds stops the install instead of shipping an undecided posture. The
+  trade an encrypted machine's owner would be making is stated in
+  `docs/users/security-defaults.md`.
+
 - CVE-2026-53362 (IPv6 send path, a local flaw listed in the CISA Known
   Exploited Vulnerabilities catalogue): R001 through R001.2 ship an affected
   kernel. Closed by the move to 6.18.51, which carries the upstream fix.

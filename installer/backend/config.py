@@ -616,11 +616,23 @@ def generate_crypttab(target, partitions):
     - "none" tells cryptsetup-open to read the passphrase from stdin
       (which fde-init.sh attaches to /dev/tty so the prompt fires).
     - Options come from partitions["crypt_opts"] (a list set by
-      disks.partition_disk). Always includes "luks,discard" baseline;
+      disks.partition_disk). Always includes the "luks" type token;
       adds "tpm2" / "fido2" when D-001 EXPERIMENTAL methods are
       enrolled (operator Option A 2026-05-18T22:52Z). fde-init.sh
       reads field 4 to decide which unlock methods to attempt before
       the passphrase prompt.
+      The list carries NO "discard": an encrypted root is opened
+      without permission to pass discards down to the drive, so which
+      blocks the filesystem is using is not published to the hardware.
+      The word was written here until 2026-09-19 and never had any
+      effect — fde-init.sh matches only the "tpm2" and "fido2" tokens
+      out of this field and passes no discard permission to cryptsetup,
+      so an installed machine carried the word in /etc/crypttab and a
+      mapping that refused discards (measured: the file read
+      "luks,discard,x-initrd.attach" while `dmsetup table cryptroot`
+      showed no allow_discards and the mapper reported a discard
+      granularity of 0). Decided 2026-09-19: the posture is the one the
+      machines already had, and the file now says so.
     - "x-initrd.attach" is always appended for the root volume. Without
       it systemd-cryptsetup-generator emits `Conflicts=umount.target` +
       `Before=umount.target` on systemd-cryptsetup@cryptroot.service, so
@@ -659,10 +671,14 @@ def generate_crypttab(target, partitions):
         # refuse with FATAL.
         device_ref = partitions["root"]
 
-    # crypt_opts default = ["luks", "discard"] for plain-passphrase
-    # LUKS installs; partition_disk extends with tpm2/fido2 tokens
-    # when EXPERIMENTAL slots get enrolled.
-    opts_list = list(partitions.get("crypt_opts") or ["luks", "discard"])
+    # crypt_opts default = ["luks"] for plain-passphrase encrypted
+    # installs; partition_disk extends with tpm2/fido2 tokens when
+    # EXPERIMENTAL slots get enrolled. No "discard" — see the docstring:
+    # the encrypted root is opened without discard permission by design,
+    # and this default is the third place that could put the word back,
+    # reached whenever a caller hands this writer a layout with no
+    # crypt_opts key at all.
+    opts_list = list(partitions.get("crypt_opts") or ["luks"])
     # Root-volume shutdown-detach ordering — see the docstring. Appended
     # here rather than in disks.partition_disk so it holds for every
     # caller that reaches this writer, including a crypt_opts list built

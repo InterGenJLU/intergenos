@@ -520,7 +520,10 @@ def partition_disk(disk_path, efi=False, luks_enabled=False, luks_passphrase=Non
       passphrase remains the canonical fallback at boot time per
       installer/init/fde-init.sh's TPM2 → FIDO2 → passphrase chain.
     - Returns dict includes "crypt_opts" = list of crypttab option
-      tokens (e.g. ["luks", "discard", "tpm2", "fido2"]).
+      tokens (e.g. ["luks", "tpm2", "fido2"]). No "discard": an
+      encrypted root is opened without permission to pass discards
+      down to the drive, so the pattern of blocks the filesystem is
+      using is not published to the hardware (decided 2026-09-19).
 
     Returns dict with partition paths.
     """
@@ -672,7 +675,7 @@ def _partition_disk(disk_path, disk_size, efi, luks_enabled, luks_passphrase,
             mapper = luks_open(p2, luks_passphrase, name=LUKS_MAPPER_NAME)
             _run(f"mkfs.ext4 -L intergenos {mapper}")
 
-            crypt_opts = ["luks", "discard"]
+            crypt_opts = ["luks"]
             recovery_key = None
             if recovery_key_enabled:
                 # Before the experimental unlock methods, so that a machine
@@ -729,7 +732,7 @@ def _partition_disk(disk_path, disk_size, efi, luks_enabled, luks_passphrase,
                 "root": p2,
                 "root_mapper": mapper,
                 "luks_enabled": True,
-                "crypt_opts": ["luks", "discard"],
+                "crypt_opts": ["luks"],
                 "efi": False,
             }
         else:

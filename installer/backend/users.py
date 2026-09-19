@@ -508,6 +508,9 @@ def create_user(target, username, password, groups=None):
 # configuration — measured on an installed R001.2-03 machine, where both
 # /etc/sudoers and /etc/sudoers.d/00-sudo were 0644 and `visudo -c` exited 1.
 SUDOERS_MODE = 0o440
+# util-linux ships this timer; whether an install enables it is
+# decided from the disk layout in configure_fstrim_timer below.
+FSTRIM_TIMER = "fstrim.timer"
 
 
 def enable_wheel_sudo(target, runner=None):
@@ -890,6 +893,90 @@ def enable_bootorder_check(target):
                  f"system whose boot entry is never checked."),
             cmd=cmd, rc=result.returncode,
             stdout=result.stdout, stderr=result.stderr,
+        )
+
+
+def configure_fstrim_timer(target, luks_enabled):
+    """Decide weekly discard from the disk layout this install just wrote.
+
+    util-linux ships fstrim.timer, which once a week asks every mounted
+    filesystem to tell the drive which blocks it is no longer using. On an
+    unencrypted install that is worth having: a solid-state drive that is never
+    told keeps rewriting blocks it could have reused, and both its write
+    performance and its endurance suffer for it.
+
+    On an encrypted install it is not, and the reason is what the discards
+    would say. Which blocks a filesystem is using is a description of that
+    filesystem, and handing the description to the drive hands it to whoever
+    later reads the drive — the one thing an encrypted disk exists to prevent.
+    So the timer is enabled on an unencrypted install and turned off on an
+    encrypted one. Nothing else about the machine changes: the encrypted root
+    is already opened without permission to pass discards down (see
+    config.generate_crypttab), so this decision and that one agree.
+
+    Decided HERE rather than in a preset file because a preset file cannot
+    make it. A preset is a static list read at install time; which layout was
+    written is known only while the install is running. Placed after
+    enable_services()'s `systemctl preset-all`, whose 99- catch-all `disable *`
+    would otherwise revert an enable made before it.
+
+    Both paths are stated, not assumed. The encrypted path issues an explicit
+    `disable` instead of relying on the catch-all having already done it, so
+    the decision holds whatever ran before, and both paths read the answer back
+    out of the target rather than trusting the command's exit status.
+
+    Host-side `systemctl --root` for the same no-daemon-in-chroot reason as
+    preset-all. Fail-loud: util-linux ships the timer on every InterGenOS
+    medium, so a failed call means a corrupted or mismatched payload, and an
+    install that carried on would ship a machine whose discard posture nobody
+    decided.
+    """
+    target_str = str(target)
+    verb = "disable" if luks_enabled else "enable"
+    layout = "encrypted" if luks_enabled else "unencrypted"
+    want = "disabled" if luks_enabled else "enabled"
+
+    if luks_enabled:
+        because = ("the used-block pattern of an encrypted filesystem is not "
+                   "published to the drive")
+    else:
+        because = "the drive is told which blocks it may reuse"
+
+    cmd = ["systemctl", "--root", target_str, verb, FSTRIM_TIMER]
+    result = trace.traced_run(
+        cmd, phase="services",
+        intent=f"{layout} install: weekly discard {want} — {because}",
+    )
+    if result.returncode != 0:
+        raise trace.install_failure(
+            where=f"users.py:configure_fstrim_timer / systemctl --root {verb}",
+            why=(f"{verb} of {FSTRIM_TIMER} failed on a {layout} install; "
+                 f"util-linux ships the timer on every InterGenOS medium, so a "
+                 f"failed call indicates a corrupted or mismatched payload — "
+                 f"refusing to ship a system whose discard posture was never "
+                 f"decided."),
+            cmd=cmd, rc=result.returncode,
+            stdout=result.stdout, stderr=result.stderr,
+        )
+
+    # Read the answer back out of the target. An exit status is what the
+    # command said; this is what the filesystem holds.
+    check = ["systemctl", "--root", target_str, "is-enabled", FSTRIM_TIMER]
+    seen = trace.traced_run(
+        check, phase="services",
+        intent=f"read back the weekly-discard state on a {layout} install",
+    )
+    got = (seen.stdout or "").strip()
+    if got != want:
+        raise trace.install_failure(
+            where="users.py:configure_fstrim_timer / read-back",
+            why=(f"a {layout} install must leave {FSTRIM_TIMER} {want}; the "
+                 f"target reads {got!r} after the {verb}. The command reported "
+                 f"success, so this is a divergence between what systemctl "
+                 f"said and what the target holds — the install must not "
+                 f"proceed on an undecided discard posture."),
+            cmd=check, rc=seen.returncode,
+            stdout=seen.stdout, stderr=seen.stderr,
         )
 
 

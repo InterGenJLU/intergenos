@@ -19,6 +19,11 @@ and without the option: those two lines are the entire difference.
 These tests pin the option into every generated crypttab and pin the
 properties fde-init.sh depends on (field count, name field, exact-token
 unlock-method matching).
+
+Updated 2026-09-19: the baseline option list lost its "discard" word, which
+was written and never honoured. These cases are this change's consumers — they
+read the same options field — so they move with it in the same commit rather
+than being left to fail later. What they measure is unchanged.
 """
 from __future__ import annotations
 
@@ -57,14 +62,14 @@ class ShutdownDetachOptionTests(_CrypttabWriterCase):
         path = self._write({"luks_enabled": True, "root": "/dev/nvme0n1p2"})
         opts = self._options_field(path).split(",")
         self.assertIn(ROOT_CRYPT_SHUTDOWN_OPT, opts)
-        self.assertEqual(opts[:2], ["luks", "discard"],
+        self.assertEqual(opts[:1], ["luks"],
                          "the baseline options must keep their order")
 
     def test_experimental_unlock_tokens_are_preserved(self):
         path = self._write({
             "luks_enabled": True,
             "root": "/dev/nvme0n1p2",
-            "crypt_opts": ["luks", "discard", "tpm2", "fido2"],
+            "crypt_opts": ["luks", "tpm2", "fido2"],
         })
         opts = self._options_field(path).split(",")
         # fde-init.sh matches ",tpm2," / ",fido2," against the comma-wrapped
@@ -78,16 +83,16 @@ class ShutdownDetachOptionTests(_CrypttabWriterCase):
         path = self._write({
             "luks_enabled": True,
             "root": "/dev/nvme0n1p2",
-            "crypt_opts": ["luks", "discard", ROOT_CRYPT_SHUTDOWN_OPT],
+            "crypt_opts": ["luks", ROOT_CRYPT_SHUTDOWN_OPT],
         })
         opts = self._options_field(path).split(",")
         self.assertEqual(opts.count(ROOT_CRYPT_SHUTDOWN_OPT), 1)
 
     def test_caller_list_is_not_mutated(self):
-        crypt_opts = ["luks", "discard"]
+        crypt_opts = ["luks"]
         self._write({"luks_enabled": True, "root": "/dev/nvme0n1p2",
                      "crypt_opts": crypt_opts})
-        self.assertEqual(crypt_opts, ["luks", "discard"],
+        self.assertEqual(crypt_opts, ["luks"],
                          "generate_crypttab must not mutate the caller's list")
 
     def test_line_shape_stays_four_fields(self):
