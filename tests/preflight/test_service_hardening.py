@@ -122,6 +122,51 @@ CASES = [
         ),
     ),
     (
+        'ipp-usb', 'ipp-usb.service',
+        {
+            'NoNewPrivileges': 'yes',
+            'ProtectHome': 'yes',
+            'ProtectSystem': 'strict',
+            'ProtectKernelModules': 'yes',
+            'ProtectKernelTunables': 'yes',
+            'RestrictRealtime': 'yes',
+            'RestrictSUIDSGID': 'yes',
+            'ReadWritePaths': '/var/ipp-usb /var/log/ipp-usb',
+        },
+        (
+            # The daemon talks to the printer over raw USB and serves it over
+            # the loopback address, so neither devices nor networking can be
+            # taken away from it.
+            'PrivateDevices',
+            'PrivateNetwork',
+            # Not set until it can be tried against a real printer: whether a
+            # Go binary linked to libusb through cgo ever needs a
+            # writable-then-executable mapping is not answerable on a machine
+            # with no such device.
+            'MemoryDenyWriteExecute',
+        ),
+    ),
+    (
+        'cups-browsed', 'cups-browsed.service',
+        {
+            'NoNewPrivileges': 'yes',
+            'ProtectHome': 'yes',
+            'ProtectKernelModules': 'yes',
+            'ProtectKernelTunables': 'yes',
+            'ProtectControlGroups': 'yes',
+            'RestrictRealtime': 'yes',
+            'RestrictSUIDSGID': 'yes',
+            'LockPersonality': 'yes',
+        },
+        (
+            # It exists to hear advertisements and to write print destinations
+            # into the scheduler's configuration.
+            'PrivateNetwork',
+            'ProtectSystem',
+            'PrivateDevices',
+        ),
+    ),
+    (
         'cups', 'cups.service',
         {
             'PrivateTmp': 'true',

@@ -47,6 +47,19 @@ landed is in the repository README, not here.
 
 ### Added
 
+- **A USB printer prints without a driver, and nothing new listens by default.**
+  Two packages arrive together. `ipp-usb` serves a printer that speaks IPP over
+  USB — nearly every printer sold since about 2016 — on this machine's loopback
+  address, so the print service can use it with no driver, no PPD and no vendor
+  download. It has no switch to forget: a udev rule starts it when such a
+  printer is plugged in and it exits when the printer is unplugged, and it does
+  not advertise itself while this machine's mDNS responder is off.
+  `cups-browsed` creates local print destinations from printers advertised on
+  the network; it acts on what other machines say about themselves, so it ships
+  disabled and is turned on only when both "Enable Print Services" and "Enable
+  Network Discovery" are on in the Welcomer, and off again the moment either is
+  turned off. No new switch was added to that page. cups-browsed is a package of
+  its own because upstream split it out of `cups-filters` at the 2.x boundary.
 - **The Help key opens something.** Pressing F1 in a GNOME application, or
   choosing Help from its menu, resolves through the help viewer's desktop file.
   The stylesheets that viewer renders pages with were already in the tree; the

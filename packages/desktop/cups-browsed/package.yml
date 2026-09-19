@@ -1,0 +1,52 @@
+name: cups-browsed
+version: "2.1.1"
+release: 1
+content_hash: dd8b1cc155000081
+description: Daemon that creates local print queues for printers it discovers on the network
+license: Apache-2.0
+homepage: https://github.com/OpenPrinting/cups-browsed
+tier: desktop
+# tier: desktop, on the media, and SHIPPED OFF. The daemon belongs with the
+# rest of the printing stack, and a machine that has it installed can turn it
+# on without fetching anything; what it must not do is run on a machine whose
+# owner has not asked for network printer discovery. The default is decided in
+# the tree's enable-list preset file
+# (packages/core/intergenos-base-files/.../80-intergenos-enable.preset), where
+# this unit is disabled beside the print scheduler and the mDNS responder it
+# depends on.
+#
+# WHY A RECIPE OF ITS OWN: cups-browsed used to ship inside cups-filters, and
+# it does not any more. Verified against the pinned cups-filters tarball this
+# tree already carries (cups-filters 2.0.1, sha256 39e71de3…): it contains no
+# file whose name matches "browsed", and the installed package on a machine
+# built from this tree lists 84 files, none of them cups-browsed. Upstream
+# split the daemon into its own project at the 2.x boundary.
+iso_include: true
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/OpenPrinting/cups-browsed/releases/download/${version}/cups-browsed-${version}.tar.xz
+  sha256: d185169a74e6a5731b6bd74cba8d269f34e5c71cb71ef1841f2fa91637ba1d58
+dependencies:
+  build:
+  - cups
+  - libcupsfilters
+  - libppd
+  - avahi
+  - glib2
+  - pkgconf
+  host: []
+  runtime:
+  - cups
+  - libcupsfilters
+  - libppd
+  - avahi
+  - glib2
+tests:
+  enabled: false
+  reason: "upstream's test/ directory drives a live CUPS scheduler and a second machine advertising queues over DNS-SD — `make check` starts cupsd and expects to discover remote queues, which a build machine cannot provide and which would touch the live scheduler if it could. What this recipe owes instead is asserted in do_install on every build: the daemon binary was staged, its unit carries the [Install] section the preset file decides against, and the shipped configuration listens over DNS-SD only rather than the legacy CUPS browse protocol."
+verify_paths:
+  - /usr/sbin/cups-browsed
+  - /usr/lib/systemd/system/cups-browsed.service
+  - /usr/lib/systemd/system/cups-browsed.service.d/20-hardening.conf
+  - /etc/cups/cups-browsed.conf

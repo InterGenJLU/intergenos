@@ -883,6 +883,18 @@ GUI_SUBSTRATE_DESKTOP_EXTRA = {
     #     integration service per docs/package-tiers.md, and the same class as
     #     the two libraries it serves.
     "libimobiledevice-glue", "libusbmuxd", "usbmuxd",
+    # 2026-09-19 printing services. Both are driven by the desktop rather than
+    # typed by a user, and nothing build-depends on either, so consumer
+    # inference cannot place them and both classify UNCLEAR without this entry.
+    #   ipp-usb — started by udev when a printer speaking IPP over USB is
+    #     plugged in; it serves that printer on the loopback address for the
+    #     print scheduler. The same shape as usbmuxd above: a udev-started
+    #     device integration service whose consumers reach it over a socket.
+    #   cups-browsed — creates local print destinations from printers
+    #     advertised on the network. It is turned on by the Welcomer's existing
+    #     Print Services and Network Discovery choices, never by a build
+    #     dependency.
+    "ipp-usb", "cups-browsed",
     # Multimedia decoders
     "libmad", "libmpeg2",
     # GNOME aux apps

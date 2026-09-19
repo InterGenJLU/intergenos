@@ -1,7 +1,7 @@
 name: forge
 version: "1.0.0"
-release: 307  # r307: co-bump only, no change to this package's own content: the help viewer recipe's test-policy text was reworded to name no machine, and the installer bundle fingerprints every non-toolchain recipe's stripped package.yml.
-content_hash: 03527fc26f068d2d
+release: 309  # r309: co-bump for the printing packages arriving in the same change (ipp-usb, cups-browsed) and the preset and Welcomer edits that decide and wire them; r307: co-bump only, no change to this package's own content: the help viewer recipe's test-policy text was reworded to name no machine, and the installer bundle fingerprints every non-toolchain recipe's stripped package.yml. Re-recorded at r309 when this change set was placed onto a development branch that already carried r307 and r308 of this package.
+content_hash: 6ef7989b08a54742
 # r250: co-bump — the bundled pkm (r74, the package-manager correctness set) and intergen-welcome (r44) recipes moved; no Forge code change.
 # r249: the install trace never records a credential fed to a subprocess: for chpasswd, passwd, cryptsetup, openssl, gpg, ssh-keygen, mokutil and their kin (also when wrapped by chroot) the writer records the stdin byte count and a stdin_redacted reason, never the bytes; a credential-shaped payload (a crypt hash, an account:token line) fed to any other command is withheld the same way, and credential-shaped OUTPUT is withheld too. Ordinary payloads stay verbatim. Until now the subprocess layer logged the full `chpasswd -e` line with both account hashes (R001.3 row 18, 2026-09-14).
 # r248: the installer reads root's password field back after writing it (a silent 61 ms success with no hash on the target now fails loudly) and verifies after the post-install hooks that the field still holds the hash the users phase wrote; the trace records only a description of the field, never the hash. Co-bump: the bundled shadow recipe moved to r3. R001.3 row 5, 2026-09-14.

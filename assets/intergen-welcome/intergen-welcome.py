@@ -2126,10 +2126,13 @@ def build_services_page():
     rows = [
         ('printing', 'Enable Print Services',
          'Start the CUPS print service and let you add and manage printers in '
-         'Settings. Needed for USB and network printers.'),
+         'Settings. A USB printer made since about 2016 needs no driver: plug '
+         'it in and it appears.'),
         ('discovery', 'Enable Network Discovery',
          'Find printers, media servers, and other devices on your local '
-         'network (mDNS / Avahi). Opens udp/5353 on the LAN.'),
+         'network (mDNS / Avahi). Opens udp/5353 on the LAN. With Print '
+         'Services on as well, printers other machines advertise are added '
+         'for you.'),
         ('ssh', 'Enable SSH Server',
          'Allow incoming SSH connections to this machine (key-only). Opens '
          'tcp/22.'),

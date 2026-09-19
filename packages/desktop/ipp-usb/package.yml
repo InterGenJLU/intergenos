@@ -1,0 +1,49 @@
+name: ipp-usb
+version: "0.9.34"
+release: 1
+content_hash: 5cc413527af03667
+description: Daemon that makes an IPP-over-USB printer or scanner reachable as a local network device
+license: BSD-2-Clause
+homepage: https://github.com/OpenPrinting/ipp-usb
+tier: desktop
+# tier: desktop, and on the media. A USB printer that speaks IPP over USB —
+# which is what nearly every printer sold since about 2016 does — is invisible
+# to the print scheduler without this daemon: the printer exposes a USB
+# interface with class/subclass/protocol 7/1/4 and no character device, so
+# CUPS has nothing to talk to. With it, the same printer prints and scans with
+# no driver at all. That is the driverless local-printing case, so it belongs
+# on the installed machine rather than on the mirror.
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/OpenPrinting/ipp-usb/archive/refs/tags/${version}.tar.gz
+  filename: ipp-usb-${version}.tar.gz
+  sha256: 4f0ada8593fda3f4239a50fcf24a625842143039de97708281e7b8c0cdff201a
+# The tag archive carries its Go dependencies in vendor/ already (verified by
+# extracting the pinned tarball: vendor/ is present and go.mod declares a
+# single direct dependency, github.com/OpenPrinting/goipp v1.2.0), so this
+# recipe needs no separate vendor tarball and the build never reaches the
+# network — GOFLAGS=-mod=vendor in build.sh makes that explicit.
+dependencies:
+  build:
+  - go
+  - libusb
+  - pkgconf
+  host: []
+  runtime:
+  - libusb
+  # avahi is NOT a runtime dependency. The daemon advertises over DNS-SD only
+  # when its configuration says so, and this recipe ships that switched off
+  # (see build.sh). With it off the daemon never talks to a responder.
+tests:
+  enabled: false
+  reason: "upstream's `make test` runs `go test`, which needs the Go build cache and a writable module tree; the build stages a stripped binary and the assertions this recipe owes — the staged daemon parses the staged configuration (`ipp-usb check`), that configuration binds loopback only and does not advertise, the unit starts the staged binary path, and no unit with an [Install] section was staged — run in do_install, which executes on every build, rather than in check(), which the builder skips for a package that declares tests disabled."
+verify_paths:
+  - /usr/sbin/ipp-usb
+  - /usr/lib/udev/rules.d/71-ipp-usb.rules
+  - /usr/lib/systemd/system/ipp-usb.service
+  - /usr/lib/systemd/system/ipp-usb.service.d/20-hardening.conf
+  - /usr/lib/tmpfiles.d/ipp-usb.conf
+  - /etc/ipp-usb/ipp-usb.conf
+  - /usr/share/ipp-usb/quirks/default.conf

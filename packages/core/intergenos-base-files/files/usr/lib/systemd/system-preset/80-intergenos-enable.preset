@@ -208,6 +208,46 @@ disable cups.path
 disable avahi-daemon.service
 disable avahi-daemon.socket
 
+# cups-browsed — the daemon that turns printers advertised on the network into
+# local print destinations. It ships OFF, decided 2026-09-19 with the rest of
+# the printing work.
+#
+# It is not a third switch on the Welcomer's services page. The daemon needs
+# the print scheduler (its unit declares Requires=cups.service) and it needs
+# this machine's mDNS responder to hear any advertisement at all, so the
+# Welcomer turns it on when BOTH Print Services and Network Discovery are on
+# and turns it off again the moment either is turned off. With this line, a
+# machine that has the package installed and has made neither choice does not
+# run it.
+#
+# Activation posture, stated honestly: the unit has no socket or D-Bus
+# activation. Disabled here means the daemon does not run.
+#
+# Security note: the daemon acts on what other machines say about themselves.
+# It listens for DNS-SD advertisements and creates print destinations from
+# them, so a machine running it will offer its user a printer that any host on
+# the network can claim to be. That is a reasonable thing to opt into on a
+# network the user trusts and a poor default everywhere else. Its shipped
+# configuration listens over DNS-SD only — the recipe pins
+# BrowseRemoteProtocols to dnssd, so the legacy CUPS browse protocol's udp/631
+# listener is not opened even when the daemon is running.
+#
+# Consequence of reverting this line: every machine with the package installed
+# starts building print destinations from network advertisements at first boot,
+# whether or not its owner asked for printing or for discovery.
+disable cups-browsed.service
+
+# ipp-usb — NOT decided in this file, and that is deliberate.
+#
+# The daemon that makes a USB printer speaking IPP-over-USB reachable locally
+# has no enablement state to decide: the unit it ships carries no [Install]
+# section, so it cannot be enabled or disabled, and nothing in the preset
+# resolution — including the 99- `disable *` catch-all — has anything to say
+# about it. udev starts it when a printer with the IPP-over-USB interface is
+# plugged in, and it exits when that printer is unplugged. Written down here
+# because an absent line otherwise reads as an oversight, which is the same
+# misreading the explicit block above exists to prevent. Decided 2026-09-19.
+
 # rtkit — the realtime-scheduling broker ships ON. Decided 2026-08-19,
 # revising the disable this file first carried: a desktop's audio stack asks
 # for realtime scheduling in ordinary use, so the daemon runs on effectively

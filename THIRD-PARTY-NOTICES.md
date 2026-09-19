@@ -29,7 +29,7 @@ The aggregate ships on the installed system at
 ## Coverage summary
 
 
-**Total packages:** 1189
+**Total packages:** 1191
 
 **Distribution by tier:**
 
@@ -38,7 +38,7 @@ The aggregate ships on the installed system at
 | toolchain | 28 |
 | core | 315 |
 | base | 37 |
-| desktop | 479 |
+| desktop | 481 |
 | extra | 217 |
 | ai | 58 |
 | compute | 55 |
@@ -52,9 +52,9 @@ The aggregate ships on the installed system at
 | `LGPL-2.1-or-later` | 155 |
 | `GPL-2.0-or-later` | 146 |
 | `BSD-3-Clause` | 98 |
-| `Apache-2.0` | 76 |
+| `Apache-2.0` | 77 |
+| `BSD-2-Clause` | 34 |
 | `LGPL-2.0-or-later` | 34 |
-| `BSD-2-Clause` | 33 |
 | `GPL-2.0-only` | 19 |
 | `MPL-2.0` | 19 |
 | `LGPL-3.0-or-later` | 19 |
@@ -2870,6 +2870,13 @@ Common UNIX Printing System
 - License: `Apache-2.0`
 - Homepage: https://openprinting.github.io/cups/
 
+### cups-browsed (2.1.1)
+
+Daemon that creates local print queues for printers it discovers on the network
+
+- License: `Apache-2.0`
+- Homepage: https://github.com/OpenPrinting/cups-browsed
+
 ### cups-filters (2.0.1)
 
 CUPS print filters
@@ -3837,6 +3844,13 @@ InterGenOS wiki — rendered mdBook HTML docs + release-key-signed per-page sha2
 
 - License: `GPL-3.0-or-later`
 - Homepage: https://github.com/InterGenJLU/intergenos
+
+### ipp-usb (0.9.34)
+
+Daemon that makes an IPP-over-USB printer or scanner reachable as a local network device
+
+- License: `BSD-2-Clause`
+- Homepage: https://github.com/OpenPrinting/ipp-usb
 
 ### iptables (1.8.12)
 

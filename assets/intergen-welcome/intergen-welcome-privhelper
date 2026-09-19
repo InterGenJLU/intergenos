@@ -59,6 +59,13 @@ DNS_DROPIN="$RESOLVED_CONF_D/50-intergen-welcome-dns.conf"
 
 NSSWITCH=/etc/nsswitch.conf
 
+# The IPP-over-USB daemon's configuration. It advertises the printer it serves
+# over DNS-SD only when this file says so, and this file says so only while the
+# machine's own mDNS responder is turned on — the Welcomer's Network Discovery
+# choice governs both, because they are the same decision: whether this machine
+# announces things about itself.
+IPP_USB_CONF=/etc/ipp-usb/ipp-usb.conf
+
 # The two forms of the name-service-switch hosts line this helper moves between.
 # OFF is the line glibc-core ships. ON is the SAME entries with mdns4_minimal
 # moved ahead of resolve. Nothing is added and nothing is removed — only the
@@ -333,6 +340,65 @@ write_dns_dropin() {
     restart_resolved
 }
 
+# unit_is_enabled <unit> — true when the unit is enabled to start on its own.
+# `systemctl is-enabled` exits non-zero for a disabled unit, which under
+# `set -e` would end this script, so every call sits inside a conditional.
+unit_is_enabled() {
+    systemctl is-enabled --quiet "$1" 2>/dev/null
+}
+
+# sync_cups_browsed — turn the network-printer daemon on when, and only when,
+# BOTH halves it needs are on.
+#
+# cups-browsed builds local print destinations out of printers it hears
+# advertised on the network. It needs the print scheduler (its unit declares
+# Requires=cups.service) and it needs this machine's mDNS responder to hear the
+# advertisements at all. So it is not a third switch: it follows the two
+# choices the user has already made on this page, and it is turned off again
+# the moment either one is turned off. Called by all four printing/discovery
+# verbs, so the daemon's state is derived from the two units every time rather
+# than tracked separately.
+sync_cups_browsed() {
+    if unit_is_enabled cups.socket && unit_is_enabled avahi-daemon.service; then
+        systemctl enable --now cups-browsed.service
+    else
+        systemctl disable --now cups-browsed.service 2>/dev/null || true
+    fi
+}
+
+# set_ipp_usb_dnssd on|off — let the USB printer daemon advertise, or not.
+#
+# The daemon serves the printer on the loopback address either way; what this
+# changes is whether it publishes that service over DNS-SD. With the responder
+# off, publishing cannot succeed and the daemon would write a failure line
+# every two seconds for as long as the printer is plugged in, so the package
+# ships it off and this turns it on with the rest of discovery. The edit is
+# read back, because a substitution that matches nothing changes nothing.
+set_ipp_usb_dnssd() {
+    local want="$1" value
+    case "$want" in
+        on)  value=enable ;;
+        off) value=disable ;;
+        *)   echo "intergen-welcome-privhelper: set_ipp_usb_dnssd takes on|off" >&2
+             return 1 ;;
+    esac
+
+    # The package may not be installed on this machine; that is not a failure
+    # of the discovery choice.
+    [ -f "$IPP_USB_CONF" ] || return 0
+
+    sed -i "s/^\\( *dns-sd *= *\\)\\(enable\\|disable\\)/\\1${value}/" "$IPP_USB_CONF"
+    if ! grep -qE "^ *dns-sd *= *${value}\\b" "$IPP_USB_CONF"; then
+        echo "intergen-welcome-privhelper: could not set dns-sd = ${value} in $IPP_USB_CONF" >&2
+        return 1
+    fi
+
+    # The daemon reads its configuration when it starts, which udev does when a
+    # printer is plugged in. try-restart re-reads it for a printer that is
+    # plugged in right now and does nothing when the daemon is not running.
+    systemctl try-restart ipp-usb.service 2>/dev/null || true
+}
+
 case "${1:-}" in
     enable-printing)
         systemctl enable --now cups.socket
@@ -340,9 +406,15 @@ case "${1:-}" in
         if [ -n "$u" ]; then
             usermod -aG lpadmin "$u"
         fi
+        # A USB printer needs nothing more: ipp-usb has no enablement state —
+        # udev starts it when such a printer is plugged in and it exits when
+        # the printer is unplugged. Network printers need the discovery half
+        # too, which is what this follows.
+        sync_cups_browsed
         ;;
     disable-printing)
         systemctl disable --now cups.socket cups.service cups.path 2>/dev/null || true
+        sync_cups_browsed
         ;;
     enable-discovery)
         systemctl enable --now avahi-daemon.service
@@ -360,12 +432,16 @@ table inet filter {
 }
 NFT
         reload_firewall
+        set_ipp_usb_dnssd on
+        sync_cups_browsed
         ;;
     disable-discovery)
         systemctl disable --now avahi-daemon.service avahi-daemon.socket 2>/dev/null || true
         set_mdns_hosts_order off
         rm -f "$MDNS_DROPIN"
         reload_firewall
+        set_ipp_usb_dnssd off
+        sync_cups_browsed
         ;;
     enable-ssh)
         systemctl enable --now sshd.service
