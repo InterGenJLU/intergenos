@@ -1,6 +1,7 @@
 name: rocrand
 version: "7.2.4"
 release: 2  # r2: the declared GPU architecture list widens from three targets to the six ruled on 2026-09-18 — gfx1030, gfx1100, gfx1101, gfx1102, gfx1200 and gfx1201, the five consumer and workstation architectures AMD's ROCm 7.2.0 compatibility matrix names plus gfx1102 (Navi 33), which this project declares deliberately. This build therefore emits kernels for six architectures instead of three, so the release moves with the bytes. Of the six, three are proven on hardware in this project's set — gfx1201 on the workstation card, gfx1100 and gfx1102 on the reference pair — and three are gate-proven only: gfx1030, gfx1101 and gfx1200, which no machine here carries. The rationale for the list is written once, in packages/compute/llama-cpp-hip/package.yml. This bump was written by hand: measured 2026-09-18, the release-bump machine does not see a gpu_targets change at all, because the field is not in content_hash.py's _BUILD_AFFECTING_YML_KEYS fold.
+content_hash: a42a15ac4c7a9055
 description: ROCm random number generation library (device-side RNG for ML training and simulation)
 license: MIT
 homepage: https://github.com/ROCm/rocm-libraries
