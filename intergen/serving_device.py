@@ -777,7 +777,8 @@ def select_serving_engine(vendor: str | None = None,
     return "vulkan", ENGINE_SERVER_PATHS["vulkan"]
 
 
-def engine_ladder(vendor: str | None = None) -> list[tuple[str, str]]:
+def engine_ladder(vendor: str | None = None,
+                  device_pin: str | None = None) -> list[tuple[str, str]]:
     """The engines this machine could serve with, preferred first.
 
     Returns ``[(engine, server_path), ...]`` over engines whose binary is
@@ -797,6 +798,17 @@ def engine_ladder(vendor: str | None = None) -> list[tuple[str, str]]:
     the same per-card question the engine choice asks, so a HIP or CUDA
     build that measurably cannot run on the card this machine would pin is
     not offered as a rung.
+
+    ``device_pin`` is the ``llama_server.device`` config value, and it is the
+    SAME argument :func:`select_serving_engine` takes, for the same reason: the
+    gate has to ask about the card that will actually be served on. Without it
+    this walk asked about the card the AUTOMATIC selection would choose, which
+    on a machine whose two cards differ is a different card — measured on a
+    two-card AMD workstation 2026-09-19, where the chooser correctly declined
+    the HIP engine for the pinned card and this walk then offered that same
+    engine back as a rung on the strength of the other card. A gate one call
+    site honours and another ignores is not a gate. With no pin the automatic
+    selection is asked, exactly as before.
     """
     ladder: list[tuple[str, str]] = []
     if vendor is None:
@@ -813,7 +825,8 @@ def engine_ladder(vendor: str | None = None) -> list[tuple[str, str]]:
         if not path or not (os.path.isfile(path) and os.access(path, os.X_OK)):
             continue
         if engine == "hip":
-            support = hip_supports_serving_device(server=path)
+            support = hip_supports_serving_device(server=path,
+                                                  device_pin=device_pin)
             if support.supported is False:
                 log.info("HIP is not a rung on this machine: %s",
                          support.reason)
@@ -833,7 +846,8 @@ def engine_ladder(vendor: str | None = None) -> list[tuple[str, str]]:
 
 def next_engine_after(failed_engine: str | None,
                       vendor: str | None = None,
-                      tried: "set[str] | frozenset[str] | None" = None
+                      tried: "set[str] | frozenset[str] | None" = None,
+                      device_pin: str | None = None
                       ) -> tuple[str, str] | None:
     """The next UNTRIED rung of this machine's ladder, in preference order,
     or None when every rung has been tried.
@@ -847,8 +861,12 @@ def next_engine_after(failed_engine: str | None,
     machine has. Returning None is the honest end of the ladder: every engine
     this machine has has now been tried, and the caller must fail loudly
     rather than loop — the tried set only grows, so this terminates.
+
+    ``device_pin`` is passed straight to :func:`engine_ladder`, so the rung
+    offered after a failure is judged against the card that will serve rather
+    than against whichever card the automatic selection prefers.
     """
-    ladder = engine_ladder(vendor)
+    ladder = engine_ladder(vendor, device_pin=device_pin)
     if not ladder:
         return None
     excluded = set(tried or ())

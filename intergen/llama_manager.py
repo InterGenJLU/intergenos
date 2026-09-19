@@ -1188,7 +1188,15 @@ class LlamaManager(LlamaManagerInterface):
 
         if current_engine:
             self._engines_tried.add(current_engine)
-        nxt = next_engine_after(current_engine, tried=self._engines_tried)
+        # The pin currently in force is what the gate must be asked about: on
+        # the first drop that is the operator's configured card, and after a
+        # drop it is None because the pin was cleared below and the new engine
+        # selects for itself. Asking without it let the ladder judge a
+        # DIFFERENT card than the one that would serve, and offer back an
+        # engine the per-card gate had just declined (measured 2026-09-19).
+        nxt = next_engine_after(current_engine, tried=self._engines_tried,
+                                device_pin=getattr(self._config, "device",
+                                                   None))
         if nxt is None:
             log.error("no engine left below %s — the preference ladder is "
                       "exhausted", current_engine or current or "the current "
