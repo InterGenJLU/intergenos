@@ -301,6 +301,12 @@ GUI_SUBSTRATE_DESKTOP = {
     "ffmpeg", "libass", "libplacebo",
     "dav1d", "libaom", "libvpx", "libde265", "svt-av1",
     "x264", "x265", "libva",
+    # libva-utils moved extra -> desktop on 2026-09-19: vainfo is the command
+    # that answers whether hardware video acceleration works, so it ships on the
+    # image beside the dispatcher it interrogates rather than being a download
+    # away on the machine whose acceleration is in doubt. It sits with libva for
+    # the same reason the two are packaged from the same upstream project.
+    "libva-utils",
     "libdvdread", "libdvdnav", "cdparanoia", "libcdio", "libcdio-paranoia",
     "totem-pl-parser",
     "libheif",
@@ -989,7 +995,7 @@ INTERGEN_PYTHON_RUNTIME_CORE = {
 GPU_DRIVERS_EXTRA = {
     "amdgpu", "amdgpu_top", "radeontop",          # AMD GPU driver + monitors
     "nvidia",                                     # NVIDIA proprietary driver
-    "libva-utils", "libvdpau", "libvdpau-va-gl",  # VA-API / VDPAU acceleration
+    "libvdpau", "libvdpau-va-gl",                 # VDPAU acceleration
     "vulkan-tools",                               # Vulkan diagnostics
 }
 

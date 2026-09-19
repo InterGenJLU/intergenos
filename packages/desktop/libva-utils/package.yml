@@ -1,13 +1,12 @@
 name: libva-utils
 version: "2.23.0"
-release: 1
+release: 2  # r2: the package moved from the mirror-only application tier to the desktop tier, so vainfo — the command that answers whether hardware video acceleration works — is on the installation image instead of a download away on the machine whose graphics are in doubt. Nothing about the build changes: same pinned 2.23.0 tarball, same autotools build, same programs installed; build.sh moved byte-identical. The tier move alone places it in the ISO set, because iso_include defaults to true for every tier except extra, compute and toolchain (igos-build/parser.py, effective_iso_include). Decided 2026-09-19 (R001.3 ride item).
 description: VA-API utility programs (vainfo, vaplay, vapostproc)
 license: MIT
 homepage: https://github.com/intel/libva-utils
-tier: extra
+tier: desktop
 build_style: custom
 install_func: do_install
-iso_include: false
 # libva-utils — VAAPI diagnostic + introspection utilities.
 # Provides `vainfo` (the canonical command for checking VAAPI driver
 # health on any GPU), plus `vaplay` (replay raw bitstreams) and

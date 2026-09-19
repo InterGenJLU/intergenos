@@ -162,6 +162,7 @@ When `polkit`, `NetworkManager`, `Node.js`, `Ruby`, `Rust`, or any other `tier: 
 
   - It is part of the Wayland or X11 protocol implementation (wayland, libX11, xwayland, libxkbcommon, etc.).
   - It is part of the graphics stack (Mesa, libdrm, Vulkan, OpenGL helpers, libepoxy).
+  - It is the diagnostic that answers whether a shipped graphics capability is working on the machine (`libva-utils`, which provides `vainfo`).
   - It is a font / text rendering library (fontconfig, freetype2 pass2, harfbuzz, pango, fribidi, graphite2, cairo, pixman).
   - It is a GUI toolkit or its core dependencies (GTK 3/4, gdk-pixbuf, librsvg, libadwaita, glycin, Qt if/when we ship it).
   - It is a multimedia/audio stack package (GStreamer + plugins, PulseAudio, PipeWire, WirePlumber, ALSA library, libogg, libvorbis, libopus, flac, lame, libsndfile).
@@ -169,7 +170,9 @@ When `polkit`, `NetworkManager`, `Node.js`, `Ruby`, `Rust`, or any other `tier: 
   - It is a desktop integration service (polkit, udisks2, geoclue, modemmanager, networkmanager, avahi, color management, accessibility).
   - It is a desktop-only Python module or library (most Python GUI bindings, desktop-only Python helpers).
 
-**Examples.** wayland, wayland-protocols, xwayland, libX11, libXrandr, libXcursor, libxkbcommon, mesa, libdrm, vulkan-loader, libepoxy, fontconfig, freetype2, harfbuzz, pango, cairo, gtk3, gtk4, gdk-pixbuf, librsvg, libadwaita, gstreamer, pulseaudio, pipewire, wireplumber, gnome-shell, mutter, gnome-desktop, gvfs, evince, cups, ghostscript, udisks2, geoclue, evolution-data-server.
+**Examples.** wayland, wayland-protocols, xwayland, libX11, libXrandr, libXcursor, libxkbcommon, mesa, libdrm, vulkan-loader, libepoxy, fontconfig, freetype2, harfbuzz, pango, cairo, gtk3, gtk4, gdk-pixbuf, librsvg, libadwaita, gstreamer, pulseaudio, pipewire, wireplumber, libva, libva-utils, gnome-shell, mutter, gnome-desktop, gvfs, evince, cups, ghostscript, udisks2, geoclue, evolution-data-server.
+
+**On a capability's own diagnostic (`libva-utils`).** `libva-utils` provides `vainfo`, the command that reports which VA-API driver a machine has and what it can decode. It was `tier: extra` with `iso_include: false`, so the one command that answers "is hardware video acceleration working here" had to be downloaded first — on a fresh install, over a network, on the machine whose acceleration was in doubt. It was re-tiered extra -> desktop on 2026-09-19 and now ships on the image beside `libva`, the dispatcher it interrogates. The rule this reads from: a diagnostic belongs in the tier of the capability it reports on, not in the application tier, because it is not an application a user installs to do work. `amdgpu` (`tier: extra`) still declares it as a runtime dependency; an extra-tier consumer depending on a desktop-tier provider is the allowed direction.
 
 **Counter-examples — these MUST NOT be in `tier: desktop`:**
 
