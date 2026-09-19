@@ -47,6 +47,14 @@ landed is in the repository README, not here.
 
 ### Added
 
+- **`vainfo` arrives with the system.** The command that reports which hardware
+  video acceleration a machine has, and what it can decode, was packaged
+  mirror-only: it had to be downloaded before it could be asked, over a network,
+  on the machine whose graphics were in doubt. `libva-utils` moved from the
+  application tier to the desktop tier, so `vainfo` is on the installation image
+  beside the `libva` dispatcher it interrogates. Nothing about the build changed.
+  On Intel graphics it reports no accelerated driver until the Intel VA-API
+  driver ships, which is the release after R001.3.
 - **An attached iPhone or iPad is served.** The libraries that speak to Apple
   mobile devices were already shipped, and the virtual filesystem layer was
   already built against them, but the daemon all of them connect to was not —
