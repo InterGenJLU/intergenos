@@ -193,9 +193,30 @@ def _is_trackable(pkg) -> bool:
 
     Having no baseline recorded must never again be the same thing as being
     exempt.
+
+    THE FOURTH CLAUSE, added 2026-09-19: a declared `gpu_targets` list. The
+    field names the GPU architectures the recipe builds for; the builder
+    interpolates it into the compiler's target argument, so it decides which
+    kernels the package emits. It was folded into the fingerprint definition on
+    2026-09-18 — but a field only matters for packages this tool asks for a
+    fingerprint in the first place, and the three clauses above ask only about
+    first-party CONTENT. A ROCm math library pins an upstream tarball, declares
+    no source_tree and ships no file of our own, so it fell outside all three.
+
+    MEASURED on the composed tooling chain (0f362577e, 2026-09-19): 23 recipes
+    declare the field and the predicate accepted 6. For the other 17 — every
+    ROCm math library, the two AI frameworks, MIOpen, composable-kernel —
+    rewriting the architecture list moved no release, so the rebuilt package
+    reached no installed machine: the same silent delivery loss the third
+    clause was written to end, entered by a different door.
+
+    The declaration is itself first-party: upstream did not write it, we did,
+    and it changes installed bytes. So it confers trackability on its own.
     """
     pinned = any(getattr(s, "sha256", None) for s in (pkg.source or []))
     if (not pinned) or bool(getattr(pkg, "source_tree", None)):
+        return True
+    if getattr(pkg, "gpu_targets", None):
         return True
     return bool(sibling_shipped_bytes(pkg))
 
