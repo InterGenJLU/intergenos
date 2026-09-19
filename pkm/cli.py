@@ -1898,8 +1898,29 @@ def cmd_install(db, args):
                         f"sha256 matches repository index for {pkg_name} "
                         f"{repo_pkg.get('version','?')} ✓"
                     )
-            except Exception:
+            except OSError as e:
+                # The ONE failure that genuinely means "there is no entry to
+                # compare this archive against": the index cache could not be
+                # read. RepoManager.get_package() loads the cached indexes off
+                # disk and already handles a rejected or corrupt one itself, so
+                # what can still reach here is the filesystem refusing the
+                # read. Say so — an unreadable index is not the same fact as a
+                # package the index has never heard of — and carry on to the
+                # trust gate below, which refuses under strict and repo-only.
+                reporter.error(
+                    f"the repository index could not be read "
+                    f"({type(e).__name__}: {e}); {pkg_name} cannot be checked "
+                    f"against it"
+                )
                 repo_pkg = None
+            # NOTHING ELSE IS CAUGHT HERE. This used to be a bare
+            # `except Exception: repo_pkg = None`, which renamed every error
+            # as "no index entry". Measured 2026-09-19: a TypeError raised
+            # inside the lookup became an absent entry, so the archive was
+            # refused with the "archive SHA256 does not match repository
+            # index!" line and both sha256 values GONE and no error reported
+            # anywhere. An error that reports itself as an ordinary absence is
+            # a silent failure; the error now travels with its own message.
 
             if not repo_match and repo_pkg and repo_pkg.get("sha256"):
                 reporter.error("archive SHA256 does not match repository index!")
