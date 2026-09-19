@@ -18,6 +18,7 @@ The orchestrator's `validate` phase runs these in sequence ([`scripts/build-inte
 
 | # | Gate | Script | Blocks build? |
 |---|------|--------|:---:|
+| 0 | **Hardware-proof gating** (no build while a row is unclosed) | `preflight-hardware-proof-gate.py` | yes when a gating table is configured (exit 1 while any row is open, in flight, only proposed closed, or in a state the gate does not recognise; exit 2 when the document, the section, the columns or the rows cannot be read). Runs only when `INTERGENOS_GATING_TABLE` names a table; when it does not, the build log states in those words that this build was NOT GATED on it |
 | 1 | Host requirements | `host-check.py` | yes |
 | 2 | Tier reachability (Rulebook Rule 17) | `preflight-tier-coverage.py` | yes |
 | 3 | **Audit-coverage** (reproducibility) | `preflight-audit-coverage.py` | yes |
@@ -41,6 +42,29 @@ archive-manifest phase (immediately before the first signing pause):
 signed page manifest — see its own section below. It lives at that phase
 rather than in `phase_validate` because it verifies the *built chroot's*
 installed documentation, which does not exist at validate time.
+
+Gate 0 is the mechanism behind a rule decided 2026-09-18: a finding against a
+critical component opens a row in a gating table at the moment it is classified,
+and the row closes only when the defect has been reproduced and the fix shown on
+every machine carrying the affected hardware. Unit tests never close one. The
+table is a project document rather than a file in this repository, so its path
+is configuration — set `INTERGENOS_GATING_TABLE` to it, and
+`INTERGENOS_GATING_SECTION` when the section is not headed
+`Hardware-proof gating`. The gate itself is a table reader: it is given a path,
+a section heading and the names of the two columns it needs, and it holds no
+copy of any table and no opinion about what the rows mean.
+
+It recognises four states. `open` and `in flight: <id>` refuse. `closed: <evidence>`
+passes. `waived: <record>` passes and is printed on every run that relies on it,
+so a waiver is never silently depended on. `closed-proposed` refuses and says
+why: a seat proposing a closure is not the operator declaring one. Any other
+state refuses and is printed for a person to read, because guessing at an
+unfamiliar state is the silent failure this gate exists to remove. There is
+deliberately no command-line waiver — a waiver belongs in the table, where it is
+dated and attributed, not in a launch command nobody reads afterwards.
+
+To clear it: close the row on the hardware it affects and say so in the row's
+state, or have the operator waive it by name in the table itself.
 
 Every one of them halts the build on a non-zero exit — the orchestrator runs under `set -euo pipefail`, so a gate failure propagates out of `phase_validate` (gates 4, 5, 6, 7 and 14 also carry explicit `return 1` handlers). Two carry nuances. Gate 13 (silent-loss) self-skips to exit 0 when there is no prior-build chroot to audit, so it only blocks on a real regression against a previous run; on a resume with a populated chroot the orchestrator holds it to `--require-audit`, where a skip halts instead of waving through. Gate 14 runs only on a resume — a from-scratch launch does not reach it. Gate 1 (`host-check.py`) validates the build *host*, not the package tree; the rest are pure host-side static analysis of `package.yml` / `build.sh` / the source tarballs.
 

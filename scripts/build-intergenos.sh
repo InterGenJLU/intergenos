@@ -823,6 +823,44 @@ phase_validate() {
         log "  /bin/sh -> bash"
     fi
 
+    # Hardware-proof gating — item 0, and it runs FIRST because it is the one
+    # check that can say this build should not be happening at all.
+    #
+    # Decided 2026-09-18: a finding against a critical component — the kernel
+    # and the Secure Boot chain, the bootloader, the installer, the package
+    # manager and its download helpers, the assistant and its GPU engines, the
+    # welcomer, networking and DNS, the observability agents — opens a row in a
+    # gating table the moment it is classified, and the row closes only when the
+    # defect has been reproduced and the fix shown on every machine carrying the
+    # affected hardware. The rule was written to be mechanical: the build
+    # pre-flight reads the table and refuses to launch while any row is
+    # unclosed. Read by hand it is a rule somebody has to remember at the one
+    # moment they are most eager to start a build.
+    #
+    # The table is a project document, not a file in this repository, so its
+    # path is configuration: set INTERGENOS_GATING_TABLE to it. The gate itself
+    # is a table reader and knows no paths.
+    #
+    # When the variable is not set there is nothing to read, and this build is
+    # NOT gated on it. That is stated here in the build log, in those words, so
+    # a reader of any log can tell a build that passed the gate from one that
+    # never ran it. It is not silently skipped and it is not assumed clean.
+    if [ -n "${INTERGENOS_GATING_TABLE:-}" ]; then
+        log "Running hardware-proof gating check (no build while a row is open)..."
+        local gating_args=(--gating-table "$INTERGENOS_GATING_TABLE")
+        if [ -n "${INTERGENOS_GATING_SECTION:-}" ]; then
+            gating_args+=(--section "$INTERGENOS_GATING_SECTION")
+        fi
+        python3 "${SCRIPTS}/preflight-hardware-proof-gate.py" \
+            "${gating_args[@]}" 2>&1 | tee -a "$BUILD_LOG"
+        if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+            log "error: a hardware-proof row is open, in flight, only proposed closed, or unreadable — this build does not launch. Close the row on the hardware it affects, or have the operator waive it by name in the table itself."
+            return 1
+        fi
+    else
+        log "NOT GATED on hardware-proof rows: INTERGENOS_GATING_TABLE is not set, so no gating table was read. This build has not been checked against it."
+    fi
+
     log "Running host requirements check..."
     python3 "${SCRIPTS}/host-check.py" 2>&1 | tee -a "$BUILD_LOG"
 
