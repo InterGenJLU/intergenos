@@ -73,7 +73,7 @@ dependencies:
 tests:
   enabled: true
   failure_policy: strict
-  reason: "upstream registers three tests and every one of them validates a file this package installs: desktop-file-validate over the generated org.gnome.Yelp.desktop, glib-compile-schemas --strict --dry-run over the GSettings schema, and appstreamcli validate over the metainfo file. All three tools are declared build dependencies and none needs a display, a bus or a network, so strict is honest here: a failure would mean this package is about to install a malformed desktop file, schema or metainfo document, which is exactly the case verify_paths cannot catch. Measured on the .192: 3 Ok, 0 Fail."
+  reason: "upstream registers three tests and every one of them validates a file this package installs: desktop-file-validate over the generated org.gnome.Yelp.desktop, glib-compile-schemas --strict --dry-run over the GSettings schema, and appstreamcli validate over the metainfo file. All three tools are declared build dependencies and none needs a display, a bus or a network, so strict is honest here: a failure would mean this package is about to install a malformed desktop file, schema or metainfo document, which is exactly the case verify_paths cannot catch. Measured on an installed machine of this release line, 2026-09-19: 3 Ok, 0 Fail."
 
 verify_paths:
   - /usr/bin/yelp
