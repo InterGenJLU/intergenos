@@ -29,7 +29,7 @@ The aggregate ships on the installed system at
 ## Coverage summary
 
 
-**Total packages:** 1191
+**Total packages:** 1194
 
 **Distribution by tier:**
 
@@ -38,7 +38,7 @@ The aggregate ships on the installed system at
 | toolchain | 28 |
 | core | 315 |
 | base | 37 |
-| desktop | 481 |
+| desktop | 484 |
 | extra | 217 |
 | ai | 58 |
 | compute | 55 |
@@ -48,9 +48,9 @@ The aggregate ships on the installed system at
 | License | Count |
 |---|---:|
 | `MIT` | 277 |
-| `GPL-3.0-or-later` | 157 |
+| `GPL-3.0-or-later` | 158 |
 | `LGPL-2.1-or-later` | 155 |
-| `GPL-2.0-or-later` | 146 |
+| `GPL-2.0-or-later` | 148 |
 | `BSD-3-Clause` | 98 |
 | `Apache-2.0` | 77 |
 | `BSD-2-Clause` | 34 |
@@ -5259,6 +5259,20 @@ SMB/CIFS file and print server
 - License: `GPL-3.0-or-later`
 - Homepage: https://www.samba.org/
 
+### sane-airscan (0.99.38)
+
+Driverless scanning backend for eSCL and WSD scanners, over USB or the network
+
+- License: `GPL-2.0-or-later`
+- Homepage: https://github.com/alexpevzner/sane-airscan
+
+### sane-backends (1.4.0)
+
+Scanner drivers and the library every scanning application talks to
+
+- License: `GPL-2.0-or-later`
+- Homepage: https://gitlab.com/sane-project/backends
+
 ### sassc (3.6.2)
 
 SASS CSS preprocessor compiler
@@ -5347,6 +5361,13 @@ Core MIME type database
 
 - License: `GPL-2.0-or-later`
 - Homepage: https://www.freedesktop.org/wiki/Software/shared-mime-info/
+
+### simple-scan (49.1)
+
+The desktop's scanning application
+
+- License: `GPL-3.0-or-later`
+- Homepage: https://gitlab.gnome.org/GNOME/simple-scan
 
 ### slang (2.3.3)
 

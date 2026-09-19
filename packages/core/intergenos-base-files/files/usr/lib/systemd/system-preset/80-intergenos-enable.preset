@@ -248,6 +248,31 @@ disable cups-browsed.service
 # because an absent line otherwise reads as an oversight, which is the same
 # misreading the explicit block above exists to prevent. Decided 2026-09-19.
 
+# saned — the daemon that lets OTHER machines use this machine's scanner. It
+# ships OFF, decided 2026-09-19 with the scanning work.
+#
+# Scanning on this machine does not use it: an application talks to the SANE
+# library in its own process and the library talks to the scanner. saned exists
+# for the person who deliberately wants to share a scanner with another
+# computer, and its socket accepts connections from the network to do it.
+#
+# Activation posture, stated honestly: saned.socket is what is decided here.
+# The unit that does the work, saned@.service, is a template the socket starts
+# per connection (Accept=yes), so it cannot be enabled or disabled on its own
+# and no line about it would mean anything. With the socket disabled, nothing
+# listens and no instance is ever started.
+#
+# Security note: the socket listens on tcp/6566 and hands each connection to a
+# daemon that speaks a protocol with no authentication of its own — access is
+# controlled by /etc/sane.d/saned.conf, a list of hosts. This machine's
+# firewall drops inbound by default, so turning the socket on is not by itself
+# enough to reach it from another machine; that is the intended shape, and it
+# is the same one the print scheduler and the mDNS responder have above.
+#
+# Consequence of reverting this line: every installed machine with a scanner
+# stack offers that scanner to anything that can reach tcp/6566.
+disable saned.socket
+
 # rtkit — the realtime-scheduling broker ships ON. Decided 2026-08-19,
 # revising the disable this file first carried: a desktop's audio stack asks
 # for realtime scheduling in ordinary use, so the daemon runs on effectively

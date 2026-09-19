@@ -1,0 +1,58 @@
+name: simple-scan
+version: "49.1"
+release: 1
+description: The desktop's scanning application
+license: GPL-3.0-or-later
+homepage: https://gitlab.gnome.org/GNOME/simple-scan
+tier: desktop
+# tier: desktop, on the media. This is the application a person opens to
+# scan; the two packages beneath it are a library and a backend nobody types.
+#
+# VERSION: 49.1, not the newer 50.0, because this tree ships GNOME 49
+# (gnome-shell 49.4, libadwaita 1.8.4) and an application built against a
+# newer platform than the desktop it runs on is a mismatch nothing here has
+# tested. 49.1 is the last release of the series this desktop is.
+iso_include: true
+build_style: meson
+source:
+- url: https://download.gnome.org/sources/simple-scan/49/simple-scan-${version}.tar.xz
+  sha256: 9ae8d4151ecaf95845eb9f99b436d579c838f2cf02763fba3bc03780251be334
+dependencies:
+  build:
+  - sane-backends
+  - gtk4
+  - libadwaita1
+  - glib2
+  - cairo
+  - gdk-pixbuf
+  - libgusb
+  - colord
+  - libwebp
+  - zlib
+  - vala
+  - itstool
+  - gettext
+  - pkgconf
+  host: []
+  runtime:
+  - sane-backends
+  - gtk4
+  - libadwaita1
+  - glib2
+  - cairo
+  - gdk-pixbuf
+  - libgusb
+  - colord
+  - libwebp
+  - zlib
+configure_flags:
+- --prefix=/usr
+- --buildtype=release
+- --wrap-mode=nodownload
+tests:
+  enabled: false
+  reason: "upstream ships no test target in its meson build: `meson test` at this release finds no tests to run, and what the application does — drive a scanner and produce an image — needs hardware no machine in this project has. What this package owes is covered by the tree's own test for the scanning stack (the application is present, it declares the SANE library it scans through, and it is the only scanning application shipped) plus the real build itself."
+verify_paths:
+  - /usr/bin/simple-scan
+  - /usr/share/applications/simple-scan.desktop
+  - /usr/share/metainfo/org.gnome.SimpleScan.metainfo.xml

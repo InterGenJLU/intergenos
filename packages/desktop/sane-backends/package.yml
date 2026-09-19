@@ -1,0 +1,54 @@
+name: sane-backends
+version: "1.4.0"
+release: 1
+content_hash: e00253a18447f80a
+description: Scanner drivers and the library every scanning application talks to
+license: GPL-2.0-or-later
+homepage: https://gitlab.com/sane-project/backends
+tier: desktop
+# tier: desktop, on the media. This is the library a scanning application
+# links against and the drivers it drives a scanner with; nothing scans
+# without it, and a machine that has to fetch it before it can scan cannot
+# scan on a network it has not joined yet.
+iso_include: true
+build_style: autotools
+install_func: do_install
+source:
+# The project's OWN release asset, not the repository's source archive: the
+# archive carries configure.ac with no generated ./configure, so building it
+# would mean running autoreconf over a tree upstream publishes ready to
+# configure. The sha256 below equals the one upstream publishes beside the
+# tarball (sane-backends-1.4.0.sha256.txt), fetched and compared 2026-09-19.
+- url: https://gitlab.com/-/project/429008/uploads/843c156420e211859e974f78f64c3ea3/sane-backends-${version}.tar.gz
+  sha256: f99205c903dfe2fb8990f0c531232c9a00ec9c2c66ac7cb0ce50b4af9f407a72
+dependencies:
+  build:
+  - libusb
+  - libjpeg-turbo
+  - libtiff
+  - libpng
+  - libxml2
+  - avahi
+  - systemd
+  - pkgconf
+  host: []
+  runtime:
+  - libusb
+  - libjpeg-turbo
+  - libtiff
+  - libpng
+  - libxml2
+  - avahi
+  - systemd
+tests:
+  enabled: false
+  reason: "upstream's testsuite drives real scanner hardware and a set of recorded device transcripts that the release tarball does not carry: `make check` in testsuite/ skips or fails without them, and the backends it does exercise need a device node. No scanner exists on any machine in this project. What this recipe owes is asserted in do_install on every build instead: the library and its version-suffixed sonames were staged, the scanner access rule was staged, and the network scanner-sharing units were staged so the preset file can decide them."
+verify_paths:
+  - /usr/lib/libsane.so.1
+  - /usr/bin/scanimage
+  - /usr/sbin/saned
+  - /usr/lib/udev/rules.d/60-libsane.rules
+  - /usr/lib/systemd/system/saned.socket
+  - /usr/lib/systemd/system/saned@.service
+  - /usr/lib/systemd/system/saned@.service.d/20-hardening.conf
+  - /etc/sane.d/dll.conf

@@ -895,6 +895,16 @@ GUI_SUBSTRATE_DESKTOP_EXTRA = {
     #     Print Services and Network Discovery choices, never by a build
     #     dependency.
     "ipp-usb", "cups-browsed",
+    # 2026-09-19 scanning. Consumer inference cannot place any of the three:
+    # sane-backends is opened by applications at run time, sane-airscan is a
+    # plugin the SANE loader dlopens (nothing build-depends on it at all), and
+    # simple-scan is a leaf application nothing depends on.
+    #   sane-backends — the scanning library and its drivers; the desktop's
+    #     scanning application links it, and the SANE loader opens the backends.
+    #   sane-airscan — the driverless eSCL/WSD backend, loaded through
+    #     /etc/sane.d/dll.d/airscan rather than linked.
+    #   simple-scan — the GNOME scanning application.
+    "sane-backends", "sane-airscan", "simple-scan",
     # Multimedia decoders
     "libmad", "libmpeg2",
     # GNOME aux apps

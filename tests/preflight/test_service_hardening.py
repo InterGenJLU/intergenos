@@ -167,6 +167,28 @@ CASES = [
         ),
     ),
     (
+        'sane-backends', 'saned@.service',
+        {
+            'NoNewPrivileges': 'yes',
+            'ProtectHome': 'yes',
+            'ProtectSystem': 'full',
+            'ProtectKernelModules': 'yes',
+            'ProtectKernelTunables': 'yes',
+            'RestrictRealtime': 'yes',
+            'RestrictSUIDSGID': 'yes',
+            'LockPersonality': 'yes',
+        },
+        (
+            # The daemon exists to hand a scanner to another machine, so it
+            # keeps the connection the socket gives it and the device.
+            'PrivateNetwork',
+            'PrivateDevices',
+            # Not strict: the backends read their configuration from
+            # /etc/sane.d and some load firmware from /usr/share.
+            'ReadWritePaths',
+        ),
+    ),
+    (
         'cups', 'cups.service',
         {
             'PrivateTmp': 'true',

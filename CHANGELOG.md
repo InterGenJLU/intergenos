@@ -47,6 +47,19 @@ landed is in the repository README, not here.
 
 ### Added
 
+- **A scanner works with no driver, and this machine does not offer it away.**
+  Three packages arrive together. `sane-backends` is the library every scanning
+  application talks to and the drivers behind it; `sane-airscan` speaks the two
+  protocols a scanner made in the last decade actually offers (eSCL and WSD),
+  so scanning needs no vendor driver — over USB it works through the same
+  `ipp-usb` daemon that makes the printer half work; and `simple-scan` is the
+  application you open to scan. None of this runs a daemon: the application
+  loads the library, the library talks to the scanner. The one daemon in the
+  stack, `saned`, exists to let OTHER machines use this machine's scanner, and
+  it ships disabled — its socket would listen on tcp/6566. Which drivers the
+  package contains is decided by the recipe rather than by whatever libraries
+  happened to be installed on the machine that built it: eight drivers are
+  named as excluded, each with its reason.
 - **A USB printer prints without a driver, and nothing new listens by default.**
   Two packages arrive together. `ipp-usb` serves a printer that speaks IPP over
   USB — nearly every printer sold since about 2016 — on this machine's loopback
