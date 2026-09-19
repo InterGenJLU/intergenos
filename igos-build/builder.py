@@ -1177,6 +1177,15 @@ class BuildExecutor(PackageTracker):
             style = get_style("custom")
         else:
             style = get_style(pkg.build_style)
+
+        # Say which tree's shell helper every phase will source. A build driven
+        # from a second checkout takes its recipe from that checkout; the helper
+        # is resolved the same way, and a person reading this log can see which
+        # file actually ran instead of assuming a fixed path.
+        helper_of = getattr(style, "pkg_functions_path", None)
+        if helper_of is not None:
+            self.logger.info(f"Shell helper for every phase: {helper_of(pkg)}")
+
         phases = style.all_phases(pkg)
 
         for phase in phases:
