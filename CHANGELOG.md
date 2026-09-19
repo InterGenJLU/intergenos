@@ -47,6 +47,15 @@ landed is in the repository README, not here.
 
 ### Added
 
+- **The Help key opens something.** Pressing F1 in a GNOME application, or
+  choosing Help from its menu, resolves through the help viewer's desktop file.
+  The stylesheets that viewer renders pages with were already in the tree; the
+  viewer itself was not, so the keystroke and the menu item did nothing at all
+  — no window, no message, no error. `yelp` 49.2 is now packaged in the desktop
+  tier, built against this tree's GTK 4, libadwaita and WebKit 6.0. The pages
+  themselves are a separate matter: the GNOME user documentation is not part of
+  this change, so what the viewer finds to show on an installed machine is not
+  yet established.
 - **A Bluetooth headset can now negotiate aptX, LDAC or LC3, not only SBC.**
   The audio server enabled its Bluetooth backend but left every codec option at
   the build system's `auto` setting, and the encoder libraries for aptX, LDAC

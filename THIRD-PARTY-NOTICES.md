@@ -29,7 +29,7 @@ The aggregate ships on the installed system at
 ## Coverage summary
 
 
-**Total packages:** 1188
+**Total packages:** 1189
 
 **Distribution by tier:**
 
@@ -38,7 +38,7 @@ The aggregate ships on the installed system at
 | toolchain | 28 |
 | core | 315 |
 | base | 37 |
-| desktop | 478 |
+| desktop | 479 |
 | extra | 217 |
 | ai | 58 |
 | compute | 55 |
@@ -50,7 +50,7 @@ The aggregate ships on the installed system at
 | `MIT` | 277 |
 | `GPL-3.0-or-later` | 157 |
 | `LGPL-2.1-or-later` | 155 |
-| `GPL-2.0-or-later` | 145 |
+| `GPL-2.0-or-later` | 146 |
 | `BSD-3-Clause` | 98 |
 | `Apache-2.0` | 76 |
 | `LGPL-2.0-or-later` | 34 |
@@ -5899,6 +5899,13 @@ X server running as a Wayland client
 Window information utility for X
 
 - License: `MIT`
+
+### yelp (49.2)
+
+GNOME help viewer — the window F1 and every Help menu item open
+
+- License: `GPL-2.0-or-later`
+- Homepage: https://gitlab.gnome.org/GNOME/yelp
 
 ### yelp-xsl (49.0)
 
