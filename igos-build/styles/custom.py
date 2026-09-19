@@ -10,7 +10,7 @@ The build.sh lives alongside the package.yml and defines bash functions:
 from pathlib import Path
 
 from ..parser import Package
-from .base import BuildStyle, BuildPhase
+from .base import BuildStyle, BuildPhase, resolve_tree_file
 
 # The repository is bind-mounted at this absolute path inside the build chroot,
 # so a chroot build's own computed root IS this path and resolution below
@@ -19,7 +19,6 @@ from .base import BuildStyle, BuildPhase
 CHROOT_PKG_FUNCTIONS = "/mnt/intergenos/scripts/pkg-functions.sh"
 
 _HELPER_RELATIVE = Path("scripts") / "pkg-functions.sh"
-_MODULE_ROOT = Path(__file__).resolve().parents[2]
 
 
 def resolve_pkg_functions(template_path, module_root=None, fallback=CHROOT_PKG_FUNCTIONS) -> str:
@@ -40,24 +39,7 @@ def resolve_pkg_functions(template_path, module_root=None, fallback=CHROOT_PKG_F
     Inside the chroot step 1 already IS ``/mnt/intergenos``, so the composed
     command is unchanged there.
     """
-    roots: list[Path] = []
-    if template_path is not None:
-        resolved = Path(template_path).resolve()
-        for parent in resolved.parents:
-            if parent.name == "packages":
-                roots.append(parent.parent)
-                break
-    roots.append(Path(module_root) if module_root is not None else _MODULE_ROOT)
-
-    seen: set[Path] = set()
-    for root in roots:
-        if root in seen:
-            continue
-        seen.add(root)
-        candidate = root / _HELPER_RELATIVE
-        if candidate.is_file():
-            return str(candidate)
-    return fallback
+    return resolve_tree_file(template_path, _HELPER_RELATIVE, fallback, module_root)
 
 
 class CustomStyle(BuildStyle):

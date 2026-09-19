@@ -67,7 +67,9 @@ def test_default_64_commands_carry_no_lib32_lane(mod, style_cls):
     assert "lib32" not in flat
     assert "cross-file" not in flat
     assert "ninja -v" not in flat
-    assert base.LIB32_ENV_SOURCE not in flat
+    # The profile source is keyed on elf_class, so a 64-bit package must carry
+    # none of it — asked for through the resolution a 32-bit package uses.
+    assert base.lib32_env_source(_pkg("any", "32")) not in flat
 
 
 # ------------------------------------------------------- meson lane ----
@@ -75,7 +77,8 @@ def test_default_64_commands_carry_no_lib32_lane(mod, style_cls):
 def test_meson_32_gets_cross_file_and_lib32_libdir():
     cmds = _cmds(meson_mod.MesonStyle(), _pkg("meson", "32"))
     cfg = cmds["configure"][0]
-    assert f"--cross-file {base.LIB32_CROSS_FILE}" in cfg
+    pkg = _pkg("meson", "32")
+    assert f"--cross-file {base.lib32_cross_file(pkg)}" in cfg
     assert "--libdir=/usr/lib32" in cfg
     assert "--wrap-mode=nodownload" in cfg, "the offline model must survive the lane"
 
@@ -93,10 +96,11 @@ def test_meson_32_keeps_recipe_flags():
 # --------------------------------------------------- autotools lane ----
 
 def test_autotools_32_sources_profile_on_every_phase():
-    cmds = _cmds(autotools_mod.AutotoolsStyle(), _pkg("autotools", "32"))
+    pkg = _pkg("autotools", "32")
+    cmds = _cmds(autotools_mod.AutotoolsStyle(), pkg)
     for phase in ("configure", "build", "check", "install"):
         for c in cmds[phase]:
-            assert c.startswith(f"{base.LIB32_ENV_SOURCE}; "), (
+            assert c.startswith(f"{base.lib32_env_source(pkg)}; "), (
                 f"{phase} must re-source the profile (each command is its "
                 f"own subprocess): {c}"
             )
@@ -113,9 +117,10 @@ def test_autotools_32_injects_mechanism_flags():
 # --------------------------------------------------------- make lane ----
 
 def test_make_32_sources_profile():
-    cmds = _cmds(make_mod.MakeStyle(), _pkg("make", "32"))
-    assert cmds["build"][0].startswith(f"{base.LIB32_ENV_SOURCE}; ")
-    assert cmds["install"][0].startswith(f"{base.LIB32_ENV_SOURCE}; ")
+    pkg = _pkg("make", "32")
+    cmds = _cmds(make_mod.MakeStyle(), pkg)
+    assert cmds["build"][0].startswith(f"{base.lib32_env_source(pkg)}; ")
+    assert cmds["install"][0].startswith(f"{base.lib32_env_source(pkg)}; ")
 
 
 # ------------------------------------------- install staged-copy ----

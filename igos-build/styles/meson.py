@@ -5,11 +5,21 @@
 import shlex
 
 from ..parser import Package
-from .base import BuildStyle, BuildPhase, LIB32_CROSS_FILE, LIB32_ENV_SOURCE
+from .base import BuildStyle, BuildPhase, lib32_cross_file, lib32_env_script, lib32_env_source
 
 
 class MesonStyle(BuildStyle):
     """Meson + Ninja build system."""
+
+    def lib32_paths(self, pkg: Package) -> dict[str, str]:
+        """The meson lane reads the cross file at configure and the profile at
+        install (the staged-copy assertion), so a log line names both."""
+        if pkg.elf_class != "32":
+            return {}
+        return {
+            "cross file": lib32_cross_file(pkg),
+            "build profile": lib32_env_script(pkg),
+        }
 
     def patch(self, pkg: Package) -> BuildPhase:
         return BuildPhase(
@@ -28,7 +38,7 @@ class MesonStyle(BuildStyle):
             # RT-7 leakage class). libdir passed explicitly too:
             # deterministic over cross-file defaults.
             base = (
-                f"meson setup build --cross-file {LIB32_CROSS_FILE} "
+                f"meson setup build --cross-file {lib32_cross_file(pkg)} "
                 "--prefix=/usr --libdir=/usr/lib32 --buildtype=release "
                 "--wrap-mode=nodownload"
             )
@@ -76,7 +86,7 @@ class MesonStyle(BuildStyle):
                 name="install",
                 commands=[
                     'DESTDIR="$PWD/m32root" ninja -C build install',
-                    f'{LIB32_ENV_SOURCE}; lib32_stage_libs "$PWD/m32root" && lib32_assert_only_lib32',
+                    f'{lib32_env_source(pkg)}; lib32_stage_libs "$PWD/m32root" && lib32_assert_only_lib32',
                 ],
             )
         return BuildPhase(

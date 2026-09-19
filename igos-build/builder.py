@@ -1186,6 +1186,16 @@ class BuildExecutor(PackageTracker):
         if helper_of is not None:
             self.logger.info(f"Shell helper for every phase: {helper_of(pkg)}")
 
+        # Same for the 32-bit lane's own inputs — the meson cross file and the
+        # bash build profile. They decide the compilers, the target triplet and
+        # the pkg-config directory, so a person reading this log can see which
+        # tree they came from instead of assuming a fixed path. Empty on every
+        # 64-bit package, which logs nothing new.
+        lib32_of = getattr(style, "lib32_paths", None)
+        if lib32_of is not None:
+            for label, path in lib32_of(pkg).items():
+                self.logger.info(f"lib32 {label} for every phase: {path}")
+
         phases = style.all_phases(pkg)
 
         for phase in phases:
