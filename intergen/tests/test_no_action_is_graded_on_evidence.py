@@ -126,6 +126,11 @@ class FakeTurn:
     terminal: bool = True
     closed_by: str = "client"
     elapsed_s: float = 2.38
+    # What the harness measures about the end of the turn. A double that
+    # leaves these out makes the grader read a measurement nobody took, so
+    # they are part of the shape rather than optional extras.
+    terminal_at: float | None = 2.31
+    late_frames: int = 0
 
 
 def _turn(frames=None) -> FakeTurn:

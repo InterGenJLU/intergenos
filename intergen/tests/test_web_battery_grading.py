@@ -22,9 +22,14 @@ from intergen.tests import web_battery as wb
 
 
 def _turn(messages, *, text="", terminal=True, closed_by="client",
-          elapsed=1.0):
+          elapsed=1.0, terminal_at=0.9, late_frames=0):
+    # terminal_at and late_frames are what the harness measures about the end
+    # of the turn; the grader reads them straight off the result, so a double
+    # that omitted them would be asking it to record a measurement nobody
+    # took.
     return SimpleNamespace(messages=messages, text=text, terminal=terminal,
                            closed_by=closed_by, elapsed_s=elapsed,
+                           terminal_at=terminal_at, late_frames=late_frames,
                            events=[(0.0, m.get("type")) for m in messages])
 
 

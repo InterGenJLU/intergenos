@@ -364,11 +364,16 @@ async def _drive_turn(ws: Any, r: WSTurnResult, *,
         elif t == "stream_token":
             r.text += d.get("token", "")
         elif t == "response":
+            # The non-streaming fast reply carries its whole answer in one
+            # frame. It used to return here, which meant the turn ended
+            # without ever recording WHEN it ended and without looking for
+            # anything sent after it — so on this path a late frame could not
+            # be seen at all, and a count of zero would have been a zero
+            # nobody measured. It now falls through to the terminal branch
+            # below and is drained like the others.
             r.text += d.get("content", "") or d.get("text", "")
-            r.terminal = True
-            break
 
-        if t in _TERMINAL_TYPES and t != "response":
+        if t in _TERMINAL_TYPES:
             if t == "error":
                 r.text += "[error] " + json.dumps(d)
             r.terminal = True
@@ -382,6 +387,9 @@ async def _drive_turn(ws: Any, r: WSTurnResult, *,
             # stream_token, stream_end, with no tool_executed card, because the
             # card was sent after stream_end and this loop had already broken.
             # The battery's own action-frame set is graded on those frames.
+            # The same reasoning applies to every terminal type, the
+            # non-streaming `response` reply included: a path that returns at
+            # the terminal frame reports an absence it never looked for.
             #
             # Read on for a short settle window instead, and end on whichever
             # comes first: the socket closing, the window expiring, or the

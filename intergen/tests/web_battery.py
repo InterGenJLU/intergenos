@@ -246,6 +246,15 @@ class Verdict:
     origin: str = ""                # model | code | refusal | error | none
     glass_corroborated: str = ""    # yes | no | unreadable
     elapsed_s: float = 0.0
+    # What the harness measured about the END of the turn: when the terminal
+    # frame arrived (seconds into the turn), and how many frames the server
+    # put on the wire after it. Both are computed by the harness for every
+    # turn; before 2026-09-19 neither reached the record, so a reader could
+    # not tell a turn that stopped cleanly from one that kept speaking.
+    # ``terminal_at`` is None when no terminal frame arrived at all — an empty
+    # cell, never a zero, because there was no arrival to time.
+    terminal_at: float | None = None
+    late_frames: int = 0
     text_head: str = ""
 
 
@@ -492,7 +501,38 @@ def _grade(q: Question, r: Any, glass_rows: dict[str, list[dict]] | None,
         verdict="FAIL" if reasons else "PASS", reasons=reasons,
         turn_id=turn_id, terminal=terminal, source=source, origin=origin,
         glass_corroborated=glass_corroborated, elapsed_s=r.elapsed_s,
+        terminal_at=r.terminal_at, late_frames=r.late_frames,
         text_head=text.replace("\n", " ")[:160])
+
+
+VERDICT_COLUMNS: tuple[str, ...] = (
+    "key", "shape", "verdict", "origin", "source", "terminal", "terminal_at",
+    "late_frames", "glass_corroborated", "elapsed_s", "turn_id", "reasons",
+    "text_head", "question",
+)
+
+
+def _verdict_cells(v: Verdict) -> list[str]:
+    """One verdict as the cells of its ``verdicts.tsv`` row, in column order.
+
+    ``terminal_at`` is written empty when the turn never reached a terminal
+    frame: an empty cell says "no arrival to time", where 0 would claim the
+    turn ended the instant it began."""
+    return [
+        v.key, v.shape, v.verdict, v.origin, v.source, v.terminal,
+        "" if v.terminal_at is None else f"{v.terminal_at:g}",
+        str(v.late_frames), v.glass_corroborated, f"{v.elapsed_s:.2f}",
+        v.turn_id, " | ".join(v.reasons), v.text_head, v.question,
+    ]
+
+
+def _write_verdicts(path: Path, verdicts: list[Verdict]) -> None:
+    """Write the per-question table. Header and rows come from the same
+    column list, so a field added to one is present in the other."""
+    with path.open("w", encoding="utf-8") as fh:
+        fh.write("\t".join(VERDICT_COLUMNS) + "\n")
+        for v in verdicts:
+            fh.write("\t".join(_verdict_cells(v)) + "\n")
 
 
 def _target_identity(target: str, ssh_port: int) -> tuple[dict, str]:
@@ -727,15 +767,7 @@ def main(argv: list[str] | None = None) -> int:
                {"memory": truth_reads.get(q.key, ("", 1, ""))[2]
                 if truth_reads.get(q.key, ("", 1, ""))[1] == 0 else ""})
         for q, r in results]
-    with (out / "verdicts.tsv").open("w", encoding="utf-8") as fh:
-        fh.write("key\tshape\tverdict\torigin\tsource\tterminal\t"
-                 "glass_corroborated\telapsed_s\tturn_id\treasons\t"
-                 "text_head\tquestion\n")
-        for v in verdicts:
-            fh.write("\t".join([
-                v.key, v.shape, v.verdict, v.origin, v.source, v.terminal,
-                v.glass_corroborated, f"{v.elapsed_s:.2f}", v.turn_id,
-                " | ".join(v.reasons), v.text_head, v.question]) + "\n")
+    _write_verdicts(out / "verdicts.tsv", verdicts)
 
     passed = sum(1 for v in verdicts if v.verdict == "PASS")
     failed = len(verdicts) - passed
