@@ -907,6 +907,26 @@ def _purge_stale_bytecode(root, file_list):
     return removed
 
 
+# The id at and above which an account is an ORDINARY one rather than a system
+# account. It is the same line igos-build/builder.py's _force_root_ownership
+# draws when it forces root:root on staged content, and the UID_MIN/GID_MIN the
+# shipped login.defs sets. An archive member recording an owner at or above it
+# is the building account's ownership leaking into the package, never a service
+# account a recipe meant to ship.
+_ORDINARY_ID_MIN = 1000
+
+
+def _member_display_path(name):
+    """The absolute path a message should name for an archive member.
+
+    Archive members are recorded with a leading `./`, so the plain
+    f"/{name.lstrip('/')}" this block used to write produced `/./usr/bin` in
+    every warning — a path no one can paste into a command. Normalising first
+    gives the path as it exists on the target.
+    """
+    return "/" + os.path.normpath(name).lstrip("./").lstrip("/")
+
+
 def _read_target_ids(root):
     """name→id maps from the INSTALL TARGET's passwd/group databases (PI-Z11).
 
@@ -1384,6 +1404,12 @@ class PackageInstaller:
             # packages whose own post-install hooks create their users (at,
             # fcron, dbus: the already-ledgered hook-chown class) own that
             # window; failing the whole install here would deadlock them.
+            #
+            # Narrowed 2026-09-20 after an archive's directory ownership was
+            # applied to a running system's real /usr and /usr/bin: the restore
+            # covers FILE members owned by SYSTEM accounts only. Directory
+            # members and ordinary-account owners are reported and left alone —
+            # both cases are commented where they are handled below.
             _ids = None  # lazy: (users{name:uid}, groups{name:gid})
             for member in _special_members:
                 if not (member.isfile() or member.isdir()):
@@ -1401,6 +1427,43 @@ class PackageInstaller:
                     continue  # path escapes install root
                 if not deployed.exists():
                     continue
+                if wants_owner and member.isdir():
+                    # A DIRECTORY'S RECORDED OWNERSHIP IS NEVER APPLIED.
+                    #
+                    # Measured on a running installation 2026-09-20: an archive
+                    # carrying the directory entries `usr/` and `usr/bin/`
+                    # recorded as an ordinary account was installed, and this
+                    # loop chowned the machine's REAL /usr and /usr/bin to that
+                    # account — the check below was only `deployed.exists()`,
+                    # which is true for every directory a running system
+                    # already has. An unprivileged account could then write to
+                    # /usr/bin, and sshd refused its authorized-keys command
+                    # with "bad ownership or modes for directory /usr/bin" on
+                    # every authentication until the owner was restored by hand.
+                    #
+                    # There is nothing to preserve by chowning a directory here.
+                    # The extract runs as root and strips archive ownership, so
+                    # every directory it creates is root-owned already, which is
+                    # what a shipped archive wants; a package that needs a
+                    # service-owned directory applies that in its post-install
+                    # hook, on the live system, after the account exists. No
+                    # shipped recipe stages non-root ownership into its archive:
+                    # every chown to a service account under packages/ runs in
+                    # post_install, and the builder's staging chokepoint
+                    # (igos-build/builder.py, _force_root_ownership) forces
+                    # root:root on anything staged with an id at or above
+                    # _ORDINARY_ID_MIN.
+                    print(
+                        f"  WARNING: archive records the DIRECTORY "
+                        f"{_member_display_path(member.name)} as "
+                        f"{uname or 'root'}:{gname or 'root'} — directory "
+                        f"ownership from an archive is never applied; the "
+                        f"directory is left as it is on the target. A package "
+                        f"that needs a service-owned directory sets that in "
+                        f"its post-install hook.",
+                        file=sys.stderr,
+                    )
+                    wants_owner = False
                 if wants_owner:
                     if _ids is None:
                         _ids = _read_target_ids(self.root)
@@ -1413,11 +1476,39 @@ class PackageInstaller:
                     if unresolved:
                         print(
                             f"  WARNING: archive records "
-                            f"/{member.name.lstrip('/')} as "
+                            f"{_member_display_path(member.name)} as "
                             f"{uname or 'root'}:{gname or 'root'} but the "
                             f"target does not define {', '.join(unresolved)} "
                             f"— left root-owned; the owning package's hook "
                             f"must correct it.",
+                            file=sys.stderr,
+                        )
+                    elif uid >= _ORDINARY_ID_MIN or gid >= _ORDINARY_ID_MIN:
+                        # AN ORDINARY ACCOUNT NEVER RECEIVES A DEPLOYED FILE.
+                        # The same line the builder's staging chokepoint draws:
+                        # an id at or above _ORDINARY_ID_MIN in an archive is
+                        # the build-user leak class, never a service account.
+                        # Applying it hands a file in a system path to a person
+                        # who can then rewrite it.
+                        if special & (stat.S_ISUID | stat.S_ISGID):
+                            return False, (
+                                f"{_member_display_path(member.name)} in {name} carries "
+                                f"setuid/setgid and records the owner "
+                                f"{uname or 'root'}:{gname or 'root'}, which "
+                                f"resolves to an ordinary account "
+                                f"({uid}:{gid}) on the target. A privileged "
+                                f"program owned by an ordinary account is an "
+                                f"escalation primitive — install refused."
+                            )
+                        print(
+                            f"  WARNING: archive records "
+                            f"{_member_display_path(member.name)} as "
+                            f"{uname or 'root'}:{gname or 'root'}, which "
+                            f"resolves to an ordinary account ({uid}:{gid}) "
+                            f"on the target — left root-owned. A shipped "
+                            f"package records only system accounts here; an "
+                            f"ordinary id means the archive carried the "
+                            f"building account's ownership.",
                             file=sys.stderr,
                         )
                     else:
@@ -1428,14 +1519,14 @@ class PackageInstaller:
                                 return False, (
                                     f"Failed to restore ownership "
                                     f"{uname}:{gname} on "
-                                    f"/{member.name.lstrip('/')} for {name}: "
+                                    f"{_member_display_path(member.name)} for {name}: "
                                     f"{e}. Refusing to leave a privileged "
                                     f"file wrongly owned — install aborted."
                                 )
                             print(
                                 f"  WARNING: could not restore ownership "
                                 f"{uname}:{gname} on "
-                                f"/{member.name.lstrip('/')} for {name}: {e}",
+                                f"{_member_display_path(member.name)} for {name}: {e}",
                                 file=sys.stderr,
                             )
                 if not member.isfile() or not special:
@@ -1463,13 +1554,14 @@ class PackageInstaller:
                     if member.mode & (stat.S_ISUID | stat.S_ISGID):
                         return False, (
                             f"Failed to restore the setuid/setgid bit on "
-                            f"/{member.name.lstrip('/')} for {name}: {e}. "
+                            f"{_member_display_path(member.name)} for "
+                            f"{name}: {e}. "
                             f"Refusing to leave a privileged binary non-setuid "
                             f"silently — install aborted."
                         )
                     print(
                         f"  WARNING: could not restore sticky bit on "
-                        f"/{member.name.lstrip('/')} for {name}: {e}",
+                        f"{_member_display_path(member.name)} for {name}: {e}",
                         file=sys.stderr,
                     )
 
