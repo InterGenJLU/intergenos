@@ -210,13 +210,21 @@ def cmd_restore(backend, args, rep):
             return
     res = backend.call("restore", layer=args.layer, version_id=args.version,
                        paths=args.paths, mode=args.mode)
+    # The exit status carries the payload's verdict: a restore in which any
+    # named path was not restored exits non-zero, in plain and --json output
+    # alike. Measured 2026-09-20: a restore that failed on every path exited 0
+    # with the failure only in the printed results, so a script reading the
+    # status was told a failed restore had succeeded.
+    all_ok = bool(res["results"]) and all(r["ok"] for r in res["results"])
     if args.json:
-        return _emit_json(res)
+        _emit_json(res)
+        return 0 if all_ok else 1
     for r in res["results"]:
         if r["ok"]:
             rep.info(f"  restored {r['path']} -> {r['written_to']}")
         else:
             rep.error(f"  {r['path']}: {r['reason']}")
+    return 0 if all_ok else 1
 
 
 def cmd_verify(backend, args, rep):

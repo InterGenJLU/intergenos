@@ -224,6 +224,24 @@ landed is in the repository README, not here.
   `--all` to reach an install's full record.
 
 ### Fixed
+- **A package restore point can restore a package, and a restore that failed
+  says so.** The package manager captures a restore point before every
+  transaction; on an installed machine one held 2402 paths, and not one could be
+  restored. The higher-capability restore leg kept a strict system view and
+  could write only user data, configuration and the media mounts, so restoring
+  `/usr/bin/forge` failed with a read-only file system on a `/usr` mounted
+  read-write, while the same restore of a file under `/etc` wrote it. That
+  `/etc` restore then died: the leg's system-call filter denied the ownership
+  calls its own capability grant was for, so applying the recorded owner killed
+  the process after the bytes had landed, leaving the file with the wrong owner
+  and no record. And the command exited 0 with every path failed, and 1 after
+  the half-done restore. The restore leg may now write wherever a restored file
+  can live — user data, configuration, and the files of packages under `/usr`,
+  `/opt`, `/var` and `/boot` — a tree test derives that set from every recipe;
+  the leg re-allows exactly the ownership calls (the always-on engine still
+  does not); and `chronicle restore` exits non-zero when any named path was not
+  restored. Both unit behaviours were reproduced with transient units on
+  scratch files before the change and after it.
 - **The owner's own account can reach the backup engine again, hours after
   boot.** The engine creates its runtime directory and socket owned by the
   `chronicle` group, which is what lets a person's account connect, and verifies

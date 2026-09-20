@@ -66,7 +66,19 @@ Restore needs to recreate ownership and mode, so it runs in a separate,
 higher-capability transient unit
 .RB ( chronicle-restore@.service :
 .BR CAP_CHOWN ", " CAP_FOWNER ", " CAP_DAC_OVERRIDE )
-rather than granting those powers to the always-on daemon.
+rather than granting those powers to the always-on daemon. That leg keeps the
+strict system view but may write wherever a restored file can live: user data
+under
+.IR /home ,
+configuration under
+.IR /etc ,
+and the files of packages under
+.IR /usr ", " /opt ", " /var " and " /boot
+(a package restore point holds whatever the package manager's transaction
+touches). Its system-call filter re-allows exactly the ownership calls
+.RB ( @chown )
+that the capability grant is for; the always-on daemon does not, because it
+never changes ownership.
 .PP
 Access to the engine is gated twice, and the two gates answer different
 questions.

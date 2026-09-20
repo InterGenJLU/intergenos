@@ -14,10 +14,28 @@
 # restores in-process without this unit; this leg exists for the unprivileged
 # GUI path routed through the daemon socket.
 #
-# ProtectHome=no + writable /home /etc: restore must write back user data and
-# config files across the tree. This is the documented, minimal relaxation for
-# the on-demand restore leg ONLY — the always-on sentinel keeps ProtectHome=
-# read-only. Everything else in the canonical hardening baseline stands.
+# ProtectHome=no + a writable set that covers every layer's contents: user data
+# (/home and the external targets), config state (/etc), and package restore
+# points — the files of the packages a transaction touches, which live under
+# /usr, /opt, /var, /boot and /etc. This is the documented relaxation for the
+# on-demand restore leg ONLY — the always-on sentinel keeps ProtectHome=
+# read-only and writes nothing outside its own state. Everything else in the
+# canonical hardening baseline stands.
+#
+# Two failures measured on an installed machine on 2026-09-20 shaped the lines
+# below. (1) The writable set was /home /etc and the media mounts only, so a
+# restore of any package file — the whole point of the restore point pkm
+# captures before every transaction — failed with a read-only file system
+# although /usr was mounted read-write; the /etc control restored. (2) The
+# syscall filter denied @privileged, which contains @chown, while the unit was
+# granted CAP_CHOWN: applying the recorded ownership was answered with SIGSYS
+# and the process was killed after the bytes had landed, leaving a file with
+# the wrong owner and no completion record. A capability and a syscall filter
+# are two separate gates; granting one does not open the other. The engine's
+# own unit documents the same class and avoids it by never needing a chown;
+# this leg exists to recreate ownership, so it re-allows exactly @chown.
+# tests/chronicle/test_restore_leg_can_restore_what_the_layers_hold.py holds
+# both lines against the tree.
 
 [Unit]
 Description=Chronicle restore (%i) — higher-capability leg
@@ -63,6 +81,14 @@ SystemCallArchitectures=native
 SystemCallFilter=@system-service
 SystemCallFilter=~@privileged
 SystemCallFilter=~@resources
-ReadWritePaths=/var/lib/chronicle /home /etc /mnt /media /run/media
+# Re-allow exactly the ownership calls the capability grant below is for (the
+# deny above removed them as members of @privileged). Measured: without this
+# line os.lchown() from this leg exits 31/SYS; with it the call returns.
+SystemCallFilter=@chown
+# Every place a restored file can live: user data, config state, and the files
+# of packages (a restore point's paths are whatever pkm hands the engine — /usr,
+# /opt, /var, /boot, /etc). Measured: with /usr absent from this list a restore
+# of /usr/bin/forge failed EROFS on a read-write /usr.
+ReadWritePaths=/var/lib/chronicle /home /etc /mnt /media /run/media /usr /opt /var /boot
 CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH
 AmbientCapabilities=CAP_CHOWN CAP_FOWNER CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH
