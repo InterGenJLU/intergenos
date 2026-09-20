@@ -1,0 +1,39 @@
+# InterGenOS — the shipped media player reads the shipped mpv configuration.
+#
+# The mpv package ships /etc/mpv/mpv.conf with hwdec=auto-safe so that video
+# decodes on the card's video engine rather than on the processor. mpv itself
+# reads that file: run from a terminal it logs "Reading config file
+# /etc/mpv/mpv.conf" and sets the option. Celluloid, the player a person
+# actually gets when they double-click a video, does NOT: its own schema ships
+# mpv-config-enable=false, so it starts libmpv with configuration loading off
+# and never sees the file.
+#
+# Measured on an installed machine on 2026-09-20, on a card whose video engine
+# the driver exposes as VCN_ACTIVITY. Idle: 0 %. The same 1080p60 clip played
+# through the shipped player, opened the way a double-click opens it, with
+# /etc/mpv/mpv.conf in place: 0 % across six samples while the graphics engine
+# ran 30-47 % — software decoding. The same player handed the option on its
+# command line: 2, 0, 20, 19, 21 and 100 %. So the player can use the engine;
+# it was never being told to.
+#
+# Two candidate fixes were tried and only one works. Turning configuration
+# loading on ALONE does not: the player then looks in its own configuration
+# directory, not in /etc/mpv, and the engine stayed at 0 % across six samples.
+# Turning it on AND naming the file does: 5, 20, 19, 0, 20 and 20 %. Both keys
+# are therefore required, and /etc/mpv/mpv.conf remains the single place the
+# value is written — this file only tells the player to read it.
+#
+# The schema id below carries a HYPHEN in "celluloid-player" even though the
+# schema FILE is named with an underscore (io.github.celluloid_player.Celluloid
+# .gschema.xml). The id is the one the schema declares, read from that file and
+# confirmed with gsettings; an override naming a schema that does not exist is
+# silently ineffective, which is the failure this whole file exists to end.
+#
+# These are DEFAULTS, not locks: a person who prefers their own mpv settings
+# changes them in the player's preferences and their choice wins.
+#
+# To apply: glib-compile-schemas /usr/share/glib-2.0/schemas/
+
+[io.github.celluloid-player.Celluloid]
+mpv-config-enable=true
+mpv-config-file='/etc/mpv/mpv.conf'

@@ -19,6 +19,9 @@
 #       — GNOME shell extensions enable list + user-theme name
 #   - /usr/share/glib-2.0/schemas/92_intergenos-desktop.gschema.override
 #       — Desktop behavior (clock, touchpad, night light, window manager)
+#   - /usr/share/glib-2.0/schemas/94_intergenos-celluloid.gschema.override
+#       — The shipped media player reads the shipped /etc/mpv/mpv.conf, so a
+#         double-clicked video decodes on the card's video engine
 #
 # post_install runs glib-compile-schemas to compile the overrides into
 # the gschemas.compiled binary GNOME reads at session start.
@@ -80,7 +83,7 @@ do_install() {
     set -e
     local sources_dir="${IGOS_SOURCE_ROOT:-/mnt/intergenos}/config/gsettings"
 
-    # 1. Ship the four gschema overrides to /usr/share/glib-2.0/schemas/.
+    # 1. Ship the five gschema overrides to /usr/share/glib-2.0/schemas/.
     #    glib-compile-schemas (in post_install) picks them up + merges
     #    them into gschemas.compiled, which GNOME reads at session start.
     install -dm755 "${DESTDIR}/usr/share/glib-2.0/schemas"
@@ -96,6 +99,9 @@ do_install() {
     install -m644 \
         "${sources_dir}/93_intergenos-app-folders.gschema.override" \
         "${DESTDIR}/usr/share/glib-2.0/schemas/93_intergenos-app-folders.gschema.override"
+    install -m644 \
+        "${sources_dir}/94_intergenos-celluloid.gschema.override" \
+        "${DESTDIR}/usr/share/glib-2.0/schemas/94_intergenos-celluloid.gschema.override"
 
     # 2. /etc/skel libadwaita bridge — SYMLINK (audit J-005 fix).
     #    Points at the InterGenOS theme's canonical gtk-4.0 stylesheet.
@@ -145,12 +151,12 @@ do_install() {
     install -m644 "${sources_dir%/*}/burn-my-windows/1775735161994164.conf" \
         "${DESTDIR}/etc/skel/.config/burn-my-windows/profiles/1775735161994164.conf"
 
-    # Defensive asserts: confirm the four .gschema.override files
+    # Defensive asserts: confirm the five .gschema.override files
     # actually staged + the symlink staged as a symlink (not a regular
     # file) + the burn-my-windows profile staged. If the source-tree
     # paths drift, halt the build rather than shipping an empty /
     # J-005-regressing / burn-my-windows-empty-default-regressing package.
-    for f in 90_intergenos 91_intergenos-extensions 92_intergenos-desktop 93_intergenos-app-folders; do
+    for f in 90_intergenos 91_intergenos-extensions 92_intergenos-desktop 93_intergenos-app-folders 94_intergenos-celluloid; do
         if [ ! -f "${DESTDIR}/usr/share/glib-2.0/schemas/${f}.gschema.override" ]; then
             echo "FATAL: gschema override missing in DESTDIR: ${f}.gschema.override" >&2
             echo "Source path: ${sources_dir}/${f}.gschema.override" >&2

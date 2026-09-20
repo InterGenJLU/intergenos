@@ -1240,6 +1240,20 @@ instructions are unchanged from R001.
 
 ### Fixed
 
+- A double-clicked video decodes on the card's video engine. The entry below
+  about hardware decoding recorded what was shipped — /etc/mpv/mpv.conf with
+  hwdec=auto-safe — and that file is read by mpv on the command line. It was
+  not read by the player a person actually gets: Celluloid ships with "load mpv
+  configuration file" turned off, so it started the decoder with configuration
+  loading disabled and never saw the file. Measured on an installed machine:
+  the card's video engine read nothing through a real playback while the
+  graphics engine worked, and read a fifth to a full load when the same player
+  was handed the option directly. The desktop-defaults package now ships a
+  GSettings override turning configuration loading on and naming
+  /etc/mpv/mpv.conf, which was the only one of the two candidate settings that
+  was measured to work. The configuration file itself is unchanged and remains
+  the single place the value is written, and both settings are defaults a
+  person can change in the player's preferences.
 - The assistant's model uses only the graphics card it was given. Pinning the
   card told the engine where to put the model's layers; it did not stop the
   graphics runtime from opening every other card in the machine, and the parts
