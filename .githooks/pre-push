@@ -240,6 +240,50 @@ if [ -z "$PUSH_LOCAL" ]; then
     exit 0
 fi
 
+# ---- Which remote is this push actually going to? ------------------------
+# git hands a pre-push hook the remote NAME as $1 and the URL as $2, captured
+# at the top of this file. Until 2026-09-20 the two places below that ask a
+# remote a question -- the baseline the content gates validate against, and
+# the stale-branch/rewrite gate -- both asked "origin", whichever remote was
+# being pushed to. Resolve it ONCE, here, and let both use it.
+#   * a NAME this repository actually has: used as the name, so the remote's
+#     tracking refs remain available to the shortcuts below;
+#   * otherwise the URL, which git passes as both arguments when a push names
+#     no configured remote. A URL has no tracking refs, so the shortcuts are
+#     skipped and the more conservative path is taken -- never a narrower one;
+#   * with neither (a hook invoked by hand): say so, and keep the historical
+#     target rather than inventing one.
+if [ -n "$PUSH_REMOTE_NAME" ] && git config --get "remote.$PUSH_REMOTE_NAME.url" >/dev/null 2>&1; then
+    TARGET_REMOTE="$PUSH_REMOTE_NAME"
+    TARGET_REFS="refs/remotes/$PUSH_REMOTE_NAME"
+elif [ -n "$PUSH_REMOTE_URL" ]; then
+    TARGET_REMOTE="$PUSH_REMOTE_URL"
+    TARGET_REFS=""
+else
+    echo "[pre-push] no remote named for this push; treating it as a push to origin."
+    TARGET_REMOTE="origin"
+    TARGET_REFS="refs/remotes/origin"
+fi
+if [ -n "$TARGET_REFS" ]; then
+    TARGET_TRACKING="$TARGET_REFS/$PUSH_BRANCH"
+else
+    TARGET_TRACKING=""
+fi
+
+# The head of <branch> on the remote being pushed to, printed only when the
+# object is present locally -- a sha whose commit is absent cannot serve as a
+# merge-base and must not be mistaken for one.
+target_head_if_present() {
+    local _branch="$1" _sha=""
+    if [ -n "$TARGET_REFS" ]; then
+        _sha=$(git rev-parse --verify --quiet "$TARGET_REFS/$_branch" 2>/dev/null || echo "")
+    fi
+    if [ -z "$_sha" ]; then
+        _sha=$(git ls-remote "$TARGET_REMOTE" "refs/heads/$_branch" 2>/dev/null | awk 'NR==1 {print $1}')
+    fi
+    [ -n "$_sha" ] && git cat-file -e "${_sha}^{commit}" 2>/dev/null && printf '%s' "$_sha"
+}
+
 # LOCAL/REMOTE drive gates 3-9 (range = merge-base(LOCAL,REMOTE)..LOCAL).
 # A brand-new branch (remote_sha all-zero) has no remote counterpart yet.
 # The gates validate the commits THIS push introduces TO ORIGIN, so:
@@ -256,19 +300,37 @@ fi
 #      dev-ahead-of-master history for any dev-side feature branch and
 #      halted on pre-existing origin/dev commits the push never introduced
 #      (found 2026-07-09 on the first dev-side docs branch).
+#
+#   Both branches of case 1 and case 2 used to be asked of origin alone, and
+#   that is the same defect as the one gate 2 carried, with a quieter effect.
+#   Measured 2026-09-20: a branch pushed to origin first and to the second
+#   remote afterwards was, on the second push, found "already published"
+#   because origin had it -- so the validation range collapsed to empty and
+#   two gates that announce themselves by name, the release-note chain gate
+#   and the changelog accumulation gate, did not run and said nothing about
+#   not running. The second push printed "all gates PASS" having run fewer of
+#   them. The question is now asked of the remote being pushed to.
 LOCAL="$PUSH_LOCAL"
 if [ -z "$PUSH_REMOTE" ] || [ "$PUSH_REMOTE" = "$ZERO" ]; then
-    if [ -n "$(git branch -r --list 'origin/*' --contains "$PUSH_LOCAL" 2>/dev/null)" ]; then
+    _published_here=""
+    if [ -n "$TARGET_REFS" ]; then
+        _published_here=$(git branch -r --list "${TARGET_REFS#refs/remotes/}/*" --contains "$PUSH_LOCAL" 2>/dev/null)
+    fi
+    if [ -n "$_published_here" ]; then
         REMOTE="$PUSH_LOCAL"
     else
-        _mb_dev=$(git merge-base "$PUSH_LOCAL" origin/dev 2>/dev/null || echo "")
-        _mb_master=$(git merge-base "$PUSH_LOCAL" origin/master 2>/dev/null || echo "")
+        _dev_head=$(target_head_if_present dev)
+        _master_head=$(target_head_if_present master)
+        _mb_dev=""
+        _mb_master=""
+        [ -n "$_dev_head" ] && _mb_dev=$(git merge-base "$PUSH_LOCAL" "$_dev_head" 2>/dev/null || echo "")
+        [ -n "$_master_head" ] && _mb_master=$(git merge-base "$PUSH_LOCAL" "$_master_head" 2>/dev/null || echo "")
         if [ -n "$_mb_dev" ] && { [ -z "$_mb_master" ] || git merge-base --is-ancestor "$_mb_master" "$_mb_dev" 2>/dev/null; }; then
             REMOTE="$_mb_dev"
         elif [ -n "$_mb_master" ]; then
             REMOTE="$_mb_master"
         else
-            REMOTE=$(git rev-parse origin/master 2>/dev/null || echo "")
+            REMOTE="$_master_head"
         fi
     fi
 else
@@ -354,56 +416,90 @@ if ! "$PY_BIN" scripts/check-license-spelling.py --range "$REMOTE..$LOCAL"; then
 fi
 
 # ---- 2. Stale-branch check (the pushed branch vs its OWN remote) ----------
-# Require the local branch being pushed to be at-or-ahead of its remote
-# counterpart, catching the "remote moved while we worked → push rejected"
-# loop here with a clear message. Branch-aware: checks origin/$PUSH_BRANCH,
-# not a hardcoded origin/master (the old form spuriously blocked a dev push
-# whenever the local master had drifted). A brand-new branch has no remote
-# head to be stale against, so the check is skipped for it.
+# Require the local branch being pushed to be at-or-ahead of its counterpart
+# ON THE REMOTE THIS PUSH IS GOING TO, catching the "remote moved while we
+# worked -> push rejected" loop here with a clear message. A brand-new branch
+# has no remote head to be stale against, so the check is skipped for it.
 #
-# Fail-closed posture (per §6 C1 review): if git fetch fails (network, auth,
-# remote unreachable), block rather than silently pass against a cached ref;
-# explicit override env var for genuinely-offline scenarios.
+# WHICH REMOTE (corrected 2026-09-20). Until this date every question below
+# was addressed to origin, whatever remote was being pushed to: it asked
+# origin whether the branch existed, fetched origin, and compared against
+# refs/remotes/origin/<branch>. This project publishes to two remotes, and on
+# the second one that is not a wrong label, it is a hole. Measured that day:
+# push a branch to both remotes, rewrite it, declare the rewrite and push it
+# to the first; the local head now equals origin/<branch>, so the divergence
+# arm below was never entered, "all gates PASS" was printed, and a forced push
+# overwrote the second remote's history with no declaration and no warning.
+# The same substitution makes a branch that is BEHIND the second remote look
+# current, so a forced push rewinds it. git hands this hook the remote NAME as
+# $1 and the URL as $2 -- both are captured at the top of this file for gate
+# 10 -- and this gate now uses them.
+#
+# WHICH SHA. The comparison head is read from a FRESH ls-remote of that remote
+# rather than from any local ref. A remote reached by URL has no tracking refs
+# at all, and a tracking ref for a named remote is only as current as the last
+# fetch; the advertised sha is the remote's own answer. The fetch below is
+# still required, because merge-base needs the object present locally.
+#
+# Fail-closed posture (per §6 C1 review): if the remote cannot be reached or
+# the object cannot be obtained, block rather than silently pass against a
+# cached ref; the explicit override env var remains for genuinely-offline
+# scenarios, and it now says which remote it is standing in for.
 if [ -n "$PUSH_BRANCH" ] && [ -n "$PUSH_REMOTE" ] && [ "$PUSH_REMOTE" != "$ZERO" ]; then
     # Brand-new branch vs unreachable remote are DIFFERENT facts. `git fetch` returns
     # 128 for both, so the block below used to fire on every first push of a new
     # branch and pointed the pusher at network/auth (all fine) and at the offline
-    # override (a false premise when origin is reachable). Distinguish them first:
-    # ls-remote --exit-code returns 2 when origin answered and the ref is absent —
-    # that is the brand-new case the comment above describes, and the staleness
-    # check has nothing to compare against, so it is skipped with a named line.
-    # Any other non-zero (origin unreachable, auth) keeps the fail-closed BLOCK.
-    if git ls-remote --exit-code origin "refs/heads/$PUSH_BRANCH" >/dev/null 2>&1; then
+    # override (a false premise when the remote is reachable). Distinguish them
+    # first: ls-remote --exit-code returns 2 when the remote answered and the ref is
+    # absent -- that is the brand-new case, and the staleness check has nothing to
+    # compare against, so it is skipped with a named line. Any other non-zero
+    # (unreachable, auth) keeps the fail-closed BLOCK. The same call carries the
+    # advertised sha, so the remote is asked once and answers both questions.
+    if LSREMOTE_OUT=$(git ls-remote --exit-code "$TARGET_REMOTE" "refs/heads/$PUSH_BRANCH" 2>/dev/null); then
         LSREMOTE_RC=0
     else
-        LSREMOTE_RC=$?   # 2 = origin answered, ref absent; anything else = unreachable/auth
+        LSREMOTE_RC=$?   # 2 = remote answered, ref absent; anything else = unreachable/auth
+        LSREMOTE_OUT=""
     fi
     if [ "$LSREMOTE_RC" = "2" ]; then
-        echo "[pre-push] stale-branch check: origin has no $PUSH_BRANCH yet (brand-new branch) — nothing to be stale against; skipped."
-    elif ! git fetch origin "$PUSH_BRANCH" --quiet 2>/dev/null; then
-        if [ "${GIT_PRE_PUSH_SKIP_FETCH:-0}" = "1" ]; then
-            echo "[pre-push] WARN: git fetch failed; continuing with cached origin/$PUSH_BRANCH per GIT_PRE_PUSH_SKIP_FETCH=1 override."
-        else
-            echo "[pre-push] BLOCK: git fetch origin $PUSH_BRANCH failed."
-            echo "  Stale-branch check requires a fresh origin/$PUSH_BRANCH — cannot run on cached refs."
-            echo "  Investigate: network connectivity, GitHub auth, SSH agent state."
-            echo "  Override (only when network is unreachable AND local is confirmed current):"
-            echo "    GIT_PRE_PUSH_SKIP_FETCH=1 git push origin $PUSH_BRANCH"
-            exit 1
-        fi
-    fi
-    if [ "$LSREMOTE_RC" = "2" ]; then
+        echo "[pre-push] stale-branch check: $TARGET_REMOTE has no $PUSH_BRANCH yet (brand-new branch) — nothing to be stale against; skipped."
         REMOTE_HEAD=""
     else
-        REMOTE_HEAD=$(git rev-parse "origin/$PUSH_BRANCH" 2>/dev/null || echo "")
+        REMOTE_HEAD=$(printf '%s\n' "$LSREMOTE_OUT" | awk 'NR==1 {print $1}')
+        if ! git fetch "$TARGET_REMOTE" "$PUSH_BRANCH" --quiet 2>/dev/null; then
+            if [ "${GIT_PRE_PUSH_SKIP_FETCH:-0}" = "1" ]; then
+                echo "[pre-push] WARN: git fetch failed; continuing against $TARGET_REMOTE per GIT_PRE_PUSH_SKIP_FETCH=1 override."
+                if [ -n "$TARGET_TRACKING" ]; then
+                    REMOTE_HEAD=$(git rev-parse "$TARGET_TRACKING" 2>/dev/null || echo "")
+                else
+                    REMOTE_HEAD=""
+                fi
+            else
+                echo "[pre-push] BLOCK: git fetch $TARGET_REMOTE $PUSH_BRANCH failed."
+                echo "  Stale-branch check requires a fresh $PUSH_BRANCH from $TARGET_REMOTE — cannot run on cached refs."
+                echo "  Investigate: network connectivity, remote auth, SSH agent state."
+                echo "  Override (only when the remote is unreachable AND local is confirmed current):"
+                echo "    GIT_PRE_PUSH_SKIP_FETCH=1 git push $TARGET_REMOTE $PUSH_BRANCH"
+                exit 1
+            fi
+        fi
+    fi
+    # The advertised sha is only usable if the object is here; a check that
+    # cannot run has not passed, so an absent object blocks rather than skips.
+    if [ -n "$REMOTE_HEAD" ] && ! git cat-file -e "${REMOTE_HEAD}^{commit}" 2>/dev/null; then
+        echo "[pre-push] BLOCK: $TARGET_REMOTE says $PUSH_BRANCH is at $REMOTE_HEAD,"
+        echo "  but that commit is not in this repository even after fetching it, so the"
+        echo "  stale-branch and rewrite checks cannot be evaluated against it."
+        echo "  Investigate: a partial/filtered clone, or a remote rewriting under the push."
+        exit 1
     fi
     if [ -n "$REMOTE_HEAD" ] && [ "$PUSH_LOCAL" != "$REMOTE_HEAD" ]; then
         BASE2=$(git merge-base "$PUSH_LOCAL" "$REMOTE_HEAD" 2>/dev/null || echo "")
         if [ "$BASE2" = "$PUSH_LOCAL" ]; then
-            echo "[pre-push] BLOCK: local $PUSH_BRANCH is behind origin/$PUSH_BRANCH."
+            echo "[pre-push] BLOCK: local $PUSH_BRANCH is behind $TARGET_REMOTE's $PUSH_BRANCH."
             echo "  Remote at: $REMOTE_HEAD"
             echo "  Local at:  $PUSH_LOCAL"
-            echo "  Rebase: git pull --rebase origin $PUSH_BRANCH"
+            echo "  Rebase: git pull --rebase $TARGET_REMOTE $PUSH_BRANCH"
             exit 1
         elif [ -n "$BASE2" ] && [ "$BASE2" != "$REMOTE_HEAD" ]; then
             # An authorized history rewrite of one's own non-protected branch
@@ -415,26 +511,35 @@ if [ -n "$PUSH_BRANCH" ] && [ -n "$PUSH_REMOTE" ] && [ "$PUSH_REMOTE" != "$ZERO"
             # be asserted here: the pusher declares intent explicitly instead,
             # every other gate still runs, and the push command itself should
             # carry --force-with-lease for the concurrency protection this
-            # gate approximates. master and dev are never rewritable.
+            # gate approximates. master and dev are never rewritable, and that
+            # is true of every remote, not only the one called origin.
             case "$PUSH_BRANCH" in
                 master|dev) ALLOW_REWRITE=0 ;;
                 *) ALLOW_REWRITE="${GIT_PRE_PUSH_ALLOW_REWRITE:-0}" ;;
             esac
             if [ "$ALLOW_REWRITE" = "1" ]; then
-                echo "[pre-push] WARN: declared rewrite of $PUSH_BRANCH accepted (GIT_PRE_PUSH_ALLOW_REWRITE=1)."
+                echo "[pre-push] WARN: declared rewrite of $PUSH_BRANCH on $TARGET_REMOTE accepted (GIT_PRE_PUSH_ALLOW_REWRITE=1)."
                 echo "  Old remote head: $REMOTE_HEAD"
                 echo "  New local head:  $PUSH_LOCAL"
                 echo "  All remaining gates still apply. Push with --force-with-lease."
             else
-                echo "[pre-push] BLOCK: local and origin $PUSH_BRANCH have diverged."
-                echo "  Resolve: git pull --rebase origin $PUSH_BRANCH (resolve conflicts)"
+                echo "[pre-push] BLOCK: local $PUSH_BRANCH and $TARGET_REMOTE's $PUSH_BRANCH have diverged."
+                echo "  Remote at: $REMOTE_HEAD"
+                echo "  Local at:  $PUSH_LOCAL"
+                echo "  Resolve: git pull --rebase $TARGET_REMOTE $PUSH_BRANCH (resolve conflicts)"
                 if [ "$PUSH_BRANCH" != "master" ] && [ "$PUSH_BRANCH" != "dev" ]; then
-                    echo "  Authorized rewrite of this branch: GIT_PRE_PUSH_ALLOW_REWRITE=1 git push --force-with-lease origin $PUSH_BRANCH"
+                    echo "  Authorized rewrite of this branch: GIT_PRE_PUSH_ALLOW_REWRITE=1 git push --force-with-lease $TARGET_REMOTE $PUSH_BRANCH"
                 fi
                 exit 1
             fi
         fi
     fi
+elif [ -n "$PUSH_BRANCH" ]; then
+    # git reports an all-zero remote sha for a branch THIS remote does not have
+    # yet, which is a per-remote fact and the one case with nothing to compare
+    # against. It is named rather than passed over in silence: a reader of a
+    # second push has to be able to see which remote the check was made about.
+    echo "[pre-push] stale-branch check: $TARGET_REMOTE has no $PUSH_BRANCH yet (brand-new branch) — nothing to be stale against; skipped."
 fi
 
 # ---- 3. Syntax checks on modified files in to-be-pushed commits ---------
