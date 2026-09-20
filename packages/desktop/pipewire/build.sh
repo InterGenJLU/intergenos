@@ -57,4 +57,33 @@ do_install() {
     set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
+
+    # ---- Make the ALSA default device reach PipeWire --------------------
+    # ninja install puts 50-pipewire.conf and 99-pipewire-default.conf into
+    # /usr/share/alsa/alsa.conf.d. alsa-lib does NOT read that directory.
+    # Its shipped alsa.conf loads configuration from /var/lib/alsa/conf.d,
+    # $sysconfdir/alsa/conf.d and $sysconfdir/asound.conf only, and alsa-lib
+    # is configured --prefix=/usr with no --sysconfdir, so $sysconfdir is
+    # /usr/etc. The alsa-plugins package bridges the same gap for its own
+    # eleven files by installing a symlink per file into /usr/etc/alsa/conf.d;
+    # pipewire installed none, so both of its files were installed and never
+    # read. The visible effect: pcm.!default stayed alsa-lib's built-in
+    # dmix/dsnoop pair, "arecord -D default" failed with dsnoop's "unable to
+    # open slave" whenever PipeWire held the capture device, and neither
+    # aplay -L nor arecord -L listed a pipewire PCM at all. Playback still
+    # worked, because dmix can share an output card while dsnoop cannot open
+    # a capture device another process owns — which is why the loss showed up
+    # only on the recording side and went unnoticed.
+    #
+    # The targets are RELATIVE, matching the eleven links alsa-plugins
+    # already places in that directory. pkm rewrites an absolute symlink
+    # target to its relative equivalent at extraction anyway
+    # (pkm/installer.py, _abs_symlink_to_relative), so both forms would land
+    # identically; relative is used so the result does not depend on that
+    # rewrite running, and so every link in the directory has one shape.
+    install -dm755 "${DESTDIR}/usr/etc/alsa/conf.d"
+    ln -sfn ../../../share/alsa/alsa.conf.d/50-pipewire.conf \
+        "${DESTDIR}/usr/etc/alsa/conf.d/50-pipewire.conf"
+    ln -sfn ../../../share/alsa/alsa.conf.d/99-pipewire-default.conf \
+        "${DESTDIR}/usr/etc/alsa/conf.d/99-pipewire-default.conf"
 }

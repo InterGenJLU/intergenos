@@ -1,6 +1,6 @@
 name: pipewire
 version: "1.6.0"
-release: 3  # r3: the three Bluetooth audio codecs ship — aptX, LDAC and LC3 are pinned =enabled in the meson line and their encoder libraries (libfreeaptx, ldacBT, liblc3) are declared deps, so a missing one halts the configure instead of silently dropping the codec. Decided 2026-09-18. # r2: capture wave: libcamera SPA + webrtc echo-cancel enabled
+release: 4  # r4: the ALSA default device reaches PipeWire — the two ALSA configuration files this package installs into /usr/share/alsa/alsa.conf.d are now also linked into /usr/etc/alsa/conf.d, which is the directory alsa-lib actually reads, so `arecord -D default` records instead of failing in dsnoop while PipeWire holds the card. Hand-bumped: this recipe is pinned to an upstream tarball, so scripts/bump-changed-releases.py does not watch it. Decided 2026-09-20. # r3: the three Bluetooth audio codecs ship — aptX, LDAC and LC3 are pinned =enabled in the meson line and their encoder libraries (libfreeaptx, ldacBT, liblc3) are declared deps, so a missing one halts the configure instead of silently dropping the codec. Decided 2026-09-18. # r2: capture wave: libcamera SPA + webrtc echo-cancel enabled
 description: Multimedia processing framework
 license: MIT
 homepage: https://pipewire.org/
@@ -72,3 +72,10 @@ verify_paths:
   - /usr/bin/pipewire
   - /usr/bin/pw-cat
   - /usr/lib/libpipewire-0.3.so
+  # The two ALSA configuration links. alsa-lib reads /usr/etc/alsa/conf.d and
+  # not /usr/share/alsa/alsa.conf.d, so without these the ALSA default device
+  # is not PipeWire and recording through it fails. Declared here so the build
+  # halts if they ever stop being installed, which is how they went missing
+  # unnoticed in the first place.
+  - /usr/etc/alsa/conf.d/50-pipewire.conf
+  - /usr/etc/alsa/conf.d/99-pipewire-default.conf

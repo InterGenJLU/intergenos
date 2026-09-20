@@ -243,6 +243,25 @@ landed is in the repository README, not here.
   traceback, instead of telling the reader their database is corrupt when it is
   not. `pkm verify --detail` also now names every file it reports as missing or
   modified, for the whole-machine run as well as for one named package.
+- **The ALSA default device reaches PipeWire, so recording through it works.**
+  The audio server installs two ALSA configuration files — one defining a
+  `pipewire` device, one pointing the ALSA default at it — into
+  `/usr/share/alsa/alsa.conf.d`. The sound library does not read that
+  directory: its own configuration loads `/var/lib/alsa/conf.d`, its
+  `$sysconfdir/alsa/conf.d` and `$sysconfdir/asound.conf`, and the library is
+  built with `--prefix=/usr` and no `--sysconfdir`, so that directory is
+  `/usr/etc/alsa/conf.d`. The ALSA plugin collection bridges the same gap for
+  its own eleven files by installing one symlink per file there; the audio
+  server installed none, so both of its files were installed and never read.
+  The effect on an installed machine: the ALSA default stayed the library's
+  built-in shared-mixing pair, `arecord -D default` exited 1 with "unable to
+  open slave" whenever the audio server held the capture device, and neither
+  `aplay -L` nor `arecord -L` listed a `pipewire` device at all. Playback kept
+  working, because the built-in output path can share a card while the input
+  path cannot open a capture device another process owns, so the loss showed
+  only when recording. The audio server now installs the two links beside the
+  plugin collection's, with the same relative targets, and declares them among
+  the paths the build verifies so they cannot go missing unnoticed again.
 - **A package restore point can restore a package, and a restore that failed
   says so.** The package manager captures a restore point before every
   transaction; on an installed machine one held 2402 paths, and not one could be
