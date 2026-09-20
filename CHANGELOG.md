@@ -301,6 +301,19 @@ landed is in the repository README, not here.
   default-application list naming Celluloid for video/webm and the common
   audio types (MP3, FLAC, Ogg, WAV).
 
+- The GPU compute toolkit's programs answer by name, and its compiler can find
+  the installed card. Installing the toolkit brings about 450 programs into
+  /opt/rocm/bin, a directory that was on no default PATH, so `rocm-smi`,
+  `amd-smi`, `rocgdb`, `rocprofv3` and `hipify-perl` all replied "command not
+  found" on a machine that had just installed ten gigabytes to get them. A
+  shipped profile drop-in now adds that directory to PATH; it APPENDS, so the
+  three names that also exist in /usr/bin — the CPU-built inference binaries —
+  keep resolving exactly as before. Separately, the HIP compiler driver calls a
+  helper program to discover the card's architecture, and the package that
+  ships that helper was not declared, so on a machine with only the compiler
+  every `hipcc` and `hipconfig` invocation opened with a missing-file message
+  and the compiler could not detect a target by itself. It is declared now.
+
 - A symlink a package ships below the top level keeps the target the package
   gave it. When installing onto a system whose /lib and /bin are symlinks into
   /usr, the package manager rewrites paths that name those directories so they

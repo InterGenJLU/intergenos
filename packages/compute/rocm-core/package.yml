@@ -1,6 +1,6 @@
 name: rocm-core
 version: "7.2.4"
-release: 1
+release: 2  # r2: the toolkit's own programs answer by name. /opt/rocm/bin holds about 450 programs and is on no default PATH, so rocm-smi, amd-smi, rocgdb, rocprofv3 and hipify-perl all returned "command not found" on a machine that had just installed 10.1 GiB of ROCm to get them (measured 2026-09-20 on an installed R001.2 machine). This package owns the /opt/rocm layout, so it ships /etc/profile.d/rocm.sh, which APPENDS /opt/rocm/bin to PATH — appends, because llama-bench, llama-cli and llama-server exist under both /opt/rocm/bin and /usr/bin and prepending would silently change which inference engine a person gets by typing llama-cli. The four /usr/bin symlinks shipped by rocm-hip and rocminfo are unchanged and still serve every non-login process. Bumped BY HAND: this recipe pins an upstream tarball and ships no first-party sibling files, so bump-changed-releases.py does not enumerate it.
 description: ROCm platform base metadata (version header, .info/version, librocm-core path helper)
 license: MIT
 homepage: https://github.com/ROCm/rocm-core
@@ -33,3 +33,5 @@ dependencies:
 verify_paths:
   - /opt/rocm/include/rocm-core/rocm_version.h
   - /opt/rocm/.info/version
+  # the PATH drop-in: without it the toolkit's ~450 programs answer only by full path
+  - /etc/profile.d/rocm.sh
