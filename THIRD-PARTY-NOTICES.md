@@ -7884,7 +7884,7 @@ Zero-effort CLI interfaces and config objects from type hints
 - License: `MIT`
 - Homepage: https://github.com/brentyi/tyro
 
-### unsloth (2026.7.4)
+### unsloth (2026.6.2)
 
 Fast fine-tuning and RL for open LLMs (LoRA/QLoRA on the local GPU stack)
 
