@@ -19,7 +19,9 @@ Coverage:
 """
 
 import hashlib
+import io
 import sys
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
@@ -47,6 +49,27 @@ def _upgrade_args(**overrides):
     return SimpleNamespace(**base)
 
 
+def _cached_archive(path, name="foo", version="1.0", release=1, payload=b"x"):
+    """A real .igos archive carrying this build, written where a test wants it.
+
+    These fixtures used to be raw byte strings under the right FILENAME. That
+    was enough while the rollback save trusted the name — and trusting the name
+    is the defect measured on three machines on 2026-09-19, where the rollback
+    cache held archives of one release under another release's name. The save
+    now reads each candidate's own .PKGINFO, so a fixture has to be an archive
+    that says what it is. What each test below asserts is unchanged.
+    """
+    pkginfo = (f"pkgname={name}\npkgver={version}\npkgrel={release}\n").encode()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(path, "w:gz") as tf:
+        for member_name, body in (("./.PKGINFO", pkginfo),
+                                  ("./usr/bin/stub", payload)):
+            info = tarfile.TarInfo(member_name)
+            info.size = len(body)
+            tf.addfile(info, io.BytesIO(body))
+    return path
+
+
 class SaveRollbackArchiveShaTests(unittest.TestCase):
 
     def setUp(self):
@@ -66,13 +89,13 @@ class SaveRollbackArchiveShaTests(unittest.TestCase):
         self._tmpdir.cleanup()
 
     def test_returns_path_and_sha_of_saved_copy(self):
-        payload = b"rollback-archive-bytes"
-        (self.cache_dir / "foo-1.0-1.igos.tar.gz").write_bytes(payload)
+        src = _cached_archive(self.cache_dir / "foo-1.0-1.igos.tar.gz",
+                              payload=b"rollback-archive-bytes")
         result = _save_rollback_archive("foo", "1.0", 1)
         self.assertIsNotNone(result)
         dest, sha = result
         self.assertTrue(Path(dest).exists())
-        self.assertEqual(sha, hashlib.sha256(payload).hexdigest())
+        self.assertEqual(sha, hashlib.sha256(src.read_bytes()).hexdigest())
 
     def test_missing_cache_archive_returns_none(self):
         self.assertIsNone(_save_rollback_archive("foo", "1.0", 1))
@@ -82,25 +105,27 @@ class SaveRollbackArchiveShaTests(unittest.TestCase):
         # 1,126 entries measured 2026-08-21), so this is the shape the
         # pkg cache actually holds. The pre-fix lookup built only the
         # release-qualified name and missed on every real system.
-        payload = b"release-less-cache-bytes"
-        (self.cache_dir / "foo-1.0.igos.tar.gz").write_bytes(payload)
+        src = _cached_archive(self.cache_dir / "foo-1.0.igos.tar.gz",
+                              payload=b"release-less-cache-bytes")
         result = _save_rollback_archive("foo", "1.0", 1)
         self.assertIsNotNone(result)
         dest, sha = result
         # The saved copy is renamed to the fully-qualified shape the
-        # rollback cache's cleaner parses.
+        # rollback cache's cleaner parses. It qualifies because its own
+        # .PKGINFO names release 1, not because of the filename.
         self.assertEqual(Path(dest).name, "foo-1.0-1.igos.tar.gz")
-        self.assertEqual(sha, hashlib.sha256(payload).hexdigest())
+        self.assertEqual(sha, hashlib.sha256(src.read_bytes()).hexdigest())
 
     def test_release_qualified_shape_preferred_when_both_exist(self):
-        qualified = b"qualified-bytes"
-        bare = b"bare-bytes"
-        (self.cache_dir / "foo-1.0-1.igos.tar.gz").write_bytes(qualified)
-        (self.cache_dir / "foo-1.0.igos.tar.gz").write_bytes(bare)
+        qualified = _cached_archive(self.cache_dir / "foo-1.0-1.igos.tar.gz",
+                                    payload=b"qualified-bytes")
+        _cached_archive(self.cache_dir / "foo-1.0.igos.tar.gz",
+                        payload=b"bare-bytes")
         result = _save_rollback_archive("foo", "1.0", 1)
         self.assertIsNotNone(result)
         _, sha = result
-        self.assertEqual(sha, hashlib.sha256(qualified).hexdigest())
+        self.assertEqual(sha,
+                         hashlib.sha256(qualified.read_bytes()).hexdigest())
 
 
 class UpgradeRehashThreadingTests(unittest.TestCase):
@@ -179,15 +204,15 @@ class UpgradeRehashThreadingTests(unittest.TestCase):
         self.assertEqual(kwargs.get("expected_sha256"), self.REMOTE_SHA)
 
     def test_rollback_install_threads_save_time_sha(self):
-        rollback_payload = b"old-version-archive"
-        (self.cache_dir / "foo-1.0-1.igos.tar.gz").write_bytes(rollback_payload)
+        src = _cached_archive(self.cache_dir / "foo-1.0-1.igos.tar.gz",
+                              payload=b"old-version-archive")
         calls = self._run_upgrade([(False, "install failed"), (True, "ok")])
         self.assertEqual(len(calls), 2)
         rb_name, rb_kwargs = calls[1]
         self.assertEqual(rb_name, "foo")
         self.assertEqual(
             rb_kwargs.get("expected_sha256"),
-            hashlib.sha256(rollback_payload).hexdigest(),
+            hashlib.sha256(src.read_bytes()).hexdigest(),
         )
 
 

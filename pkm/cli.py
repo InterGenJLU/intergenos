@@ -2947,11 +2947,21 @@ def cmd_upgrade(db, args):
         rollback_archive, rollback_sha = (
             rollback_saved if rollback_saved is not None else (None, None)
         )
-        # No per-package warning here: transaction-level rollback coverage
-        # was stated truthfully, once, before the loop. The old per-package
-        # WARN fired on every upgrade of every package (the lookup bug
-        # _cached_old_archive documents) and pointed at `cache clean
-        # --keep-current`, which cannot help a cache that holds nothing.
+        if rollback_archive is None:
+            # SAY IT, ON THE STEP IT APPLIES TO. Writing nothing is the right
+            # answer when no archive of the replaced release is cached — but
+            # writing nothing SILENTLY leaves a person believing the rollback
+            # cache covers this step, which is the same mistake in a quieter
+            # voice. This is an INFO line, not a warning: on a mirror-driven
+            # upgrade the download cache holds the INCOMING archive by now, so
+            # having no copy of the outgoing release is the ordinary case and
+            # not something the person did wrong. The line names the release
+            # so it cannot be mistaken for a different step's.
+            emit_info(
+                f"no pre-upgrade copy of {installed_pkg['name']} "
+                f"{txn.format_vr(installed_pkg)} was available; rollback for "
+                f"this step relies on the chronicle restore point"
+            )
 
         # Remove old, install new
         from .remover import PackageRemover
@@ -3004,7 +3014,32 @@ def cmd_upgrade(db, args):
         # returned not-ok, the old package is gone (removed) and the new
         # package didn't land. Reinstall from the rollback archive to
         # leave the system at its pre-upgrade state.
-        if not ok and rollback_archive is not None and rollback_archive.exists():
+        _rollback_usable = (
+            not ok
+            and rollback_archive is not None
+            and rollback_archive.exists()
+        )
+        if _rollback_usable:
+            # LAST GATE BEFORE THE RESTORE. The copy was qualified when it was
+            # saved; this reads it again at the moment it would be installed,
+            # because the save-to-restore window is exactly when a file can be
+            # replaced, and because a file that reached this directory some
+            # other way must not be trusted on its name. Restoring the wrong
+            # release into a failed upgrade is the worst moment to be wrong.
+            _name_ok, _name_why = rollback_archive_matches_its_name(
+                rollback_archive)
+            if not _name_ok:
+                emit(
+                    f"NOT restoring {installed_pkg['name']} from the rollback "
+                    f"cache: {_name_why}. The upgrade has already failed and "
+                    f"this file would put an unknown release on the machine. "
+                    f"Recover from the chronicle restore point, or install a "
+                    f"known archive with `pkm install "
+                    f"{installed_pkg['name']} --archive=<path>`.",
+                    err=True,
+                )
+                _rollback_usable = False
+        if _rollback_usable:
             emit(
                 f"Install of {remote_pkg['name']} {remote_pkg['version']} "
                 f"failed; restoring {installed_pkg['name']} "
@@ -4208,10 +4243,107 @@ def cmd_restart_services(db, args):
     return 0
 
 
+def archive_pkginfo(path):
+    """The ``.PKGINFO`` key/value pairs inside an .igos archive, or None.
+
+    None means the file could not be read as an archive carrying package
+    metadata — a truncated download, a directory, something that is not a
+    tarball at all. The caller treats that as "this is not the archive I am
+    looking for", never as "close enough".
+    """
+    import tarfile
+
+    try:
+        with tarfile.open(str(path)) as tf:
+            member = None
+            for candidate in ("./.PKGINFO", ".PKGINFO"):
+                try:
+                    member = tf.getmember(candidate)
+                    break
+                except KeyError:
+                    continue
+            if member is None:
+                return None
+            body = tf.extractfile(member)
+            if body is None:
+                return None
+            fields = {}
+            for line in body.read().decode("utf-8", "replace").splitlines():
+                if "=" in line:
+                    key, _, value = line.partition("=")
+                    fields.setdefault(key.strip(), value.strip())
+            return fields or None
+    except (OSError, IOError, tarfile.TarError, UnicodeError):
+        return None
+
+
+def _archive_is(path, name, version, release):
+    """True when this archive's own .PKGINFO names exactly this build."""
+    fields = archive_pkginfo(path)
+    if not fields:
+        return False
+    try:
+        archive_release = int(fields.get("pkgrel", "") or 0)
+    except ValueError:
+        return False
+    return (
+        fields.get("pkgname") == name
+        and fields.get("pkgver") == version
+        and archive_release == int(release or 1)
+    )
+
+
+def rollback_archive_matches_its_name(path):
+    """(ok, reason) — does this rollback file carry the build its name claims?
+
+    A rollback file is named ``<name>-<version>-<release>.igos.tar.gz``. Read
+    the release out of the file's own .PKGINFO and compare. Anything that
+    cannot be read is not ok: an unreadable rollback target is not a rollback
+    target.
+
+    Returns the reason as plain text for printing beside the filename, so a
+    person is told which release the file actually carries rather than being
+    left to guess why it was refused.
+    """
+    path = Path(path)
+    stem = path.name
+    for suffix in (".igos.tar.gz",):
+        if stem.endswith(suffix):
+            stem = stem[: -len(suffix)]
+    claimed_release = stem.rpartition("-")[2]
+    fields = archive_pkginfo(path)
+    if not fields:
+        return False, (
+            f"{path.name} could not be read as a package archive, so what it "
+            f"would restore is unknown"
+        )
+    actual = fields.get("pkgrel", "?")
+    if actual != claimed_release:
+        return False, (
+            f"{path.name} carries release {actual}, not the release "
+            f"{claimed_release} its name claims"
+        )
+    return True, f"{path.name} carries release {actual}, as its name says"
+
+
 def _save_rollback_archive(name, version, release):
-    """Q1 (O-007): copy the installed-version's archive from the pkg
-    cache to the rollback cache so it survives upgrade-time cache
-    cleanup + is available for automatic restore on install failure.
+    """Q1 (O-007): keep the archive of the release being replaced, so an
+    upgrade that fails can be undone to the build the machine actually had.
+
+    THE COPY IS THAT RELEASE OR IT IS NOTHING. Measured on installed machines
+    2026-09-19: /var/cache/pkm/rollback/ held four pkm archives named -71,
+    -73, -76 and -86 that were byte-identical and all carried pkgrel=73, and
+    five intergen archives named -245 through -285 that all carried pkgrel=248.
+    The destination name was built from the release being replaced while the
+    source was taken from the download cache on filename alone — and the live
+    index publishes RELEASE-LESS filenames, so the file that always matched was
+    whatever build the mirror last served. The name asserted one release, the
+    bytes were another, and the file exists precisely to be restored from by
+    someone whose upgrade has already failed. A safety net that names a release
+    it does not carry is worse than no net, because it is believed.
+
+    So the source is now qualified by the archive's OWN .PKGINFO, not by its
+    filename, and no file is written when nothing qualifies.
 
     Args:
         name: package name.
@@ -4222,14 +4354,11 @@ def _save_rollback_archive(name, version, release):
         (Path, sha256) tuple for the rollback archive on success — the
         sha is computed from the saved copy at save time so a later
         rollback install can re-verify the archive was not swapped in
-        the save-to-restore window — or None when the old archive is
-        not in REPO_PKG_CACHE (cache was cleared, --archive install
-        never cached, etc.). Caller treats None as "rollback
-        unavailable" and reports coverage once per transaction, not
-        per package.
+        the save-to-restore window — or None when no archive carrying
+        this exact build is cached. Caller treats None as "rollback
+        unavailable" and says so on the transaction.
     """
     import shutil
-    REPO_PKG_CACHE = repo_pkg_cache()
 
     src = _cached_old_archive(name, version, release)
     if src is None:
@@ -4239,7 +4368,9 @@ def _save_rollback_archive(name, version, release):
         REPO_ROLLBACK_DIR.mkdir(parents=True, exist_ok=True)
         # Destination keeps the fully-qualified name regardless of which
         # cache shape matched, so `cache clean --rollback`'s
-        # name-version-release parsing sees one consistent shape.
+        # name-version-release parsing sees one consistent shape. The name
+        # is safe to build from the arguments now: _cached_old_archive has
+        # already proven the bytes carry this release.
         dest = (REPO_ROLLBACK_DIR
                 / f"{name}-{version}-{int(release or 1)}.igos.tar.gz")
         shutil.copy2(str(src), str(dest))
@@ -4249,16 +4380,20 @@ def _save_rollback_archive(name, version, release):
 
 
 def _cached_old_archive(name, version, release):
-    """The pkg-cache Path holding this installed version's archive, or None.
+    """The pkg-cache Path holding THIS EXACT BUILD's archive, or None.
 
     The cache is written by repo.download_package under the signed index's
     `filename` field, and the live index publishes RELEASE-LESS names
-    (`acl-2.3.2.igos.tar.gz` — all 1,126 entries measured 2026-08-21).
-    The original lookup here built only the release-qualified name, which
-    the cache therefore never contained: the rollback save missed on every
-    upgrade on every system since the mechanism landed. Both shapes are
-    checked, most-specific first, so a future index that publishes
-    release-qualified filenames keeps working too.
+    (`acl-2.3.2.igos.tar.gz` — all 1,126 entries measured 2026-08-21). An
+    earlier lookup built only the release-qualified name, which the cache
+    therefore never contained, so the rollback save missed on every upgrade;
+    adding the release-less shape made it hit, and made it hit the WRONG FILE
+    — the mirror's current build for that version, whatever release that is.
+
+    Both shapes are still checked, most-specific first, and each candidate is
+    then read: it qualifies only when its own .PKGINFO names this package,
+    this version and this release. A filename is a claim; the .PKGINFO is the
+    file saying what it is.
     """
     REPO_PKG_CACHE = repo_pkg_cache()
 
@@ -4267,7 +4402,7 @@ def _cached_old_archive(name, version, release):
         f"{name}-{version}.igos.tar.gz",
     ):
         src = REPO_PKG_CACHE / archive_name
-        if src.exists():
+        if src.exists() and _archive_is(src, name, version, release):
             return src
     return None
 
@@ -5693,6 +5828,52 @@ def _cache_clean_rollback(db):
                 (path, path.stat().st_mtime),
             )
 
+    # A file whose bytes contradict its name is REPORTED AND KEPT, never
+    # pruned and never counted as a package's kept snapshot. Measured on
+    # three machines 2026-09-19: most of this directory was mislabelled, in
+    # two shapes — the mirror's stale release under a newer name, and the
+    # incoming release under the replaced release's name. Deleting them
+    # quietly would destroy the only evidence a person has that their
+    # rollback target is not what it says, and keeping one as "the freshest
+    # snapshot" would hand the next failure a restore that moves the machine
+    # somewhere nobody chose. Refuse it, name what it actually carries, and
+    # leave it on disk for its owner to decide about.
+    # Only a file this routine can READ and that contradicts itself is
+    # treated this way. A file that is not a readable archive at all is left
+    # to the policy that was already here: it says nothing about which
+    # release it holds, so there is nothing to contradict, and re-classifying
+    # it would turn this GC into something that never prunes.
+    mislabelled = []
+    for name, entries in list(by_pkg.items()):
+        kept = []
+        for path, mtime in entries:
+            fields = archive_pkginfo(path)
+            if fields is None:
+                kept.append((path, mtime))
+                continue
+            ok, why = rollback_archive_matches_its_name(path)
+            if ok:
+                kept.append((path, mtime))
+            else:
+                mislabelled.append((path, why))
+        if kept:
+            by_pkg[name] = kept
+        else:
+            del by_pkg[name]
+
+    if mislabelled:
+        emit_warn(
+            f"{len(mislabelled)} rollback archive(s) do not carry the release "
+            f"their name claims. They are NOT restore targets and were left "
+            f"untouched:"
+        )
+        for path, why in sorted(mislabelled):
+            print(f"    {why}")
+        emit_info(
+            "Remove them yourself once you have read them, or leave them: "
+            "pkm will not restore from a file whose release it cannot confirm."
+        )
+
     to_remove = list(orphans)
     for name, entries in by_pkg.items():
         # Keep the most-recent (freshest pre-upgrade snapshot); remove
@@ -5701,8 +5882,9 @@ def _cache_clean_rollback(db):
         to_remove.extend(e[0] for e in entries[1:])
 
     if not to_remove:
-        emit_info("Rollback cache state matches policy "
-                  "(one archive per installed package); nothing to clean.")
+        if not mislabelled:
+            emit_info("Rollback cache state matches policy "
+                      "(one archive per installed package); nothing to clean.")
         return 0
 
     total_bytes = sum(p.stat().st_size for p in to_remove)

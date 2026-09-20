@@ -225,6 +225,32 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **A rollback copy is the release it claims to be, or there is no copy and the
+  transaction says so.** Before an upgrade replaces a package, the package
+  manager keeps a copy of the outgoing archive so a failed upgrade can be
+  undone. Read on three installed machines on 2026-09-19, almost none of those
+  copies held the release their filename claimed, in two shapes: the mirror's
+  older build stored under a newer release's name, and the incoming build
+  stored under the name of the release it was replacing. One cause produced
+  both — the filename was composed from the release being replaced, while the
+  file itself was picked out of the download cache by name alone, and the
+  published index names those files without a release, so the file that always
+  matched was whatever build the mirror had last served. That file exists to be
+  restored from by someone whose upgrade has already failed, and restoring it
+  moved the machine to a release nobody chose while its name promised the one
+  they had. Each candidate is now read rather than trusted: it is kept only
+  when its own package metadata names this package, this version and this
+  release. When nothing qualifies, no file is written and the step says in
+  plain words that rollback for it rests on the restore point instead — writing
+  nothing was already right, writing nothing silently left a person believing a
+  cover that was not there. The restore reads the file once more immediately
+  before installing it and refuses one whose release contradicts its name,
+  because the moment a rollback is needed is the worst moment to be wrong about
+  what is in it. The cache cleaner reports such a file and leaves it on disk
+  rather than pruning it, so the evidence stays with the person who owns the
+  machine. Files already written under the old behaviour are not touched or
+  repaired: they are named, with the release they actually carry.
+
 - **A battery record now says when each turn ended and whether anything arrived
   afterwards.** The instrument that drives the web assistant through a fixed
   set of questions measures two things about the end of every turn — when the
