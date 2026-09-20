@@ -1175,7 +1175,7 @@
             "takes_value": true
           }
         ],
-        "help": "Inspect and prune the pkm caches under /var/cache/pkm/: packages/ (each upgrade adds a new archive and the old one stays) and rollback/ (each `pkm upgrade` writes a pre-upgrade snapshot so failed installs can be reverted). One subcommand: clean (remove archives per policy; --rollback switches target to the rollback cache).",
+        "help": "Inspect and prune the pkm caches under /var/cache/pkm/: packages/ (each archive is named for the build it holds, so an upgrade adds the new release and the one it replaced stays) and rollback/ (before each upgrade step, pkm copies the archive of the release being replaced here, so a failed install can be reverted; when no archive of that release is on the machine the step says so instead). One subcommand: clean (remove archives per policy; --rollback switches target to the rollback cache).",
         "subcommands": {
           "clean": {
             "aliases": [],
