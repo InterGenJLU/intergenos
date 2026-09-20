@@ -1,7 +1,7 @@
 name: lib32-elfutils
 version: '0.194'
-release: 3  # r3: no built-byte change: the shared 32-bit build profile scripts/lib32-env.sh, declared in this recipe's source_tree, now records what the staging root already held before this package stages into it, so its staged-payload assertion judges what THIS build staged instead of everything in the root; r2: sibling patch parity — carry elfutils r2's riscv_disasm const patch (lib32 governance: a dropped sibling patch builds divergent libs; libcpu is not compiled by this libelf-only twin, so built output is unchanged). Decided 2026-08-15.
-content_hash: cb549db81171b563
+release: 4  # r4: no recipe content changed: the two shared 32-bit build inputs the build style injects — scripts/lib32-env.sh and config/lib32/lib32-cross.ini — now fold into this package's content fingerprint, so a change to either rebuilds it instead of leaving it skipped under an older profile; r3: no built-byte change: the shared 32-bit build profile scripts/lib32-env.sh, declared in this recipe's source_tree, now records what the staging root already held before this package stages into it, so its staged-payload assertion judges what THIS build staged instead of everything in the root; r2: sibling patch parity — carry elfutils r2's riscv_disasm const patch (lib32 governance: a dropped sibling patch builds divergent libs; libcpu is not compiled by this libelf-only twin, so built output is unchanged). Decided 2026-08-15.
+content_hash: 724f346847984a4a
 description: ELF object file access library, libelf only (32-bit multilib runtime)
 license: GPL-2.0-or-later
 homepage: https://sourceware.org/elfutils/

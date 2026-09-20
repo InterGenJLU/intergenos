@@ -102,6 +102,23 @@ def url_basename(url: str) -> str:
     return urlparse(url).path.rsplit("/", 1)[-1]
 
 
+# The two repository files a 32-bit build consumes WITHOUT naming them. The
+# build style injects both: the autotools/make lanes prefix every phase command
+# with `source <profile>` and the meson lane passes the cross file as
+# --cross-file (igos-build/styles/base.py, lib32_env_script / lib32_cross_file).
+# Between them they decide the compilers, the target triplet, the pkg-config
+# directory, the staging helpers and the staged-payload assertion.
+#
+# RESTATED HERE rather than imported, for the same reason _HOOK_BUMP_LINE_RE is:
+# this module is loaded STANDALONE by the release tool (and, in --rebaseline
+# mode, a committed older copy of it is loaded the same way), so it cannot
+# import the styles package. tests/igos_build/
+# test_lib32_shared_build_inputs_are_fingerprinted.py holds the two copies
+# equal.
+LIB32_PROFILE_REL = Path("scripts") / "lib32-env.sh"
+LIB32_CROSS_REL = Path("config") / "lib32" / "lib32-cross.ini"
+
+
 def repo_root_of(pkg) -> Path | None:
     """Repo root for a package, from its template path.
 
@@ -285,6 +302,50 @@ def source_content_hash(pkg, sources_dir) -> str:
         h.update(b"\0hooks\0")
         h.update(installer_hooks_fingerprint(repo_root, own_tier, own_name).encode())
         contributed = True
+
+    # (e) the two style-injected 32-bit build inputs, for every elf_class "32"
+    # package. A recipe cannot declare an input the STYLE injects, and that is
+    # exactly what went uncovered: nineteen 32-bit recipes name the profile in
+    # their own source_tree and clause (c) folds it for them, while the
+    # twenty-four driven entirely by a style name nothing — editing the profile
+    # or the cross file moved no fingerprint of theirs, so the release auto-bump
+    # did not bump them and a targeted build skipped them under --skip-built,
+    # leaving bytes built under the previous profile with nothing saying so. The
+    # fold is keyed on the elf class because that is the one place the build's
+    # consumption of these files is knowable without reading the style.
+    #
+    # It goes HERE, in the shared source hash, and not in content_fingerprint,
+    # for the reason sibling_shipped_bytes states in its own words: a fold that
+    # reaches the release gate but not the skip-built key advances a release
+    # while the build is skipped, which ships the previous bytes under a new
+    # release number. From here both template_hash and content_fingerprint see
+    # it and cannot drift apart.
+    #
+    # Over-coverage is deliberate. Two 32-bit recipes in the tree today
+    # (lib32-glibc, which carries its own staging sweep, and lib32-nvidia, which
+    # unpacks a vendor payload) source neither file, so this folds an input they
+    # do not read: the cost is one rebuild we can explain, against a staleness
+    # nobody can see. A rule a person can state in one line — every 32-bit
+    # package's fingerprint includes the 32-bit build inputs — also cannot be
+    # forgotten by the next recipe added.
+    #
+    # ABSENT FILES REFUSE. Folding nothing when the profile is missing would
+    # return the pre-change digest and report a broken tree as in sync, which is
+    # the instrument-that-cannot-see class; a 32-bit build could not run without
+    # these files anyway.
+    if str(getattr(pkg, "elf_class", "") or "") == "32" and repo_root is not None:
+        for rel in (LIB32_PROFILE_REL, LIB32_CROSS_REL):
+            path = repo_root / rel
+            if not path.is_file():
+                raise FileNotFoundError(
+                    f"32-bit build input {rel} is missing from {repo_root}: a "
+                    f"fingerprint computed without it would report a tree that "
+                    f"cannot build 32-bit packages as in sync")
+            h.update(b"\0lib32\0")
+            h.update(str(rel).encode())
+            h.update(b"\0")
+            h.update(path.read_bytes())
+            contributed = True
 
     return h.hexdigest() if contributed else ""
 

@@ -212,11 +212,35 @@ def _is_trackable(pkg) -> bool:
 
     The declaration is itself first-party: upstream did not write it, we did,
     and it changes installed bytes. So it confers trackability on its own.
+
+    THE FIFTH CLAUSE, added 2026-09-20: `elf_class: "32"`. A 32-bit build
+    consumes two repository files the recipe never names, because the build
+    STYLE injects them — scripts/lib32-env.sh, sourced before every phase
+    command on the autotools/make lanes, and config/lib32/lib32-cross.ini,
+    passed as the meson cross file. They decide the compilers, the target
+    triplet, the pkg-config directory, the staging helpers and the
+    staged-payload assertion, and they are ours: upstream did not write either.
+
+    They are folded into the fingerprint (content_hash.source_content_hash
+    clause (e)) — but, exactly as with gpu_targets one clause up, a fold only
+    matters for packages this tool asks about at all, and the clauses above ask
+    only about content the RECIPE carries. A style-driven 32-bit recipe pins an
+    upstream tarball, declares no source_tree, ships no file of its own and
+    declares no gpu_targets, so it fell outside all four.
+
+    MEASURED at 1dd443d82: the tree holds 45 packages with elf_class "32". The
+    19 custom-style ones declare the profile in their own source_tree and the
+    second clause already accepted them. The other 26 were accepted by nothing,
+    so editing the shared profile moved no release for them and the rebuilt
+    package reached no installed machine — the same silent delivery loss the
+    third and fourth clauses were written to end, entered by a third door.
     """
     pinned = any(getattr(s, "sha256", None) for s in (pkg.source or []))
     if (not pinned) or bool(getattr(pkg, "source_tree", None)):
         return True
     if getattr(pkg, "gpu_targets", None):
+        return True
+    if str(getattr(pkg, "elf_class", "") or "") == "32":
         return True
     return bool(sibling_shipped_bytes(pkg))
 

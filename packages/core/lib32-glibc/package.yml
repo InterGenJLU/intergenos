@@ -1,6 +1,7 @@
 name: lib32-glibc
 version: '2.43'
-release: 2  # r2: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+release: 3  # r3: no recipe content changed: the two shared 32-bit build inputs the build style injects — scripts/lib32-env.sh and config/lib32/lib32-cross.ini — now fold into this package's content fingerprint, so a change to either rebuilds it instead of leaving it skipped under an older profile; r2: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+content_hash: 4ad9be4ababf31fe
 description: GNU C Library (32-bit multilib runtime)
 license: LGPL-2.1-or-later
 homepage: https://www.gnu.org/software/libc/
