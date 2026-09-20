@@ -30,8 +30,8 @@ name: usbmuxd
 #
 # Upstream commit: 3ded00c9985a5108cfc7591a309f9a23d57a8cba (2025-12-06)
 version: "1.1.1+master.20251206"
-release: 1
-content_hash: add47933755ecd49
+release: 2  # r2: udev no longer RUNs the daemon (systemd-udevd kills a RUN-started process when the event ends — measured 2026-09-20 with an iPhone on an installed machine: alive at +3 s, gone at +6 s, never paired); the build now uses systemd support, so the rule wants a device-triggered usbmuxd.service with no [Install] section and a PIDFile under /run, the daemon exits by itself with no device and on the last device's removal; do_install asserts the staged unit and rule. r1: initial packaging, udev-only activation.
+content_hash: e57e38aa6ceea28b
 description: Daemon that multiplexes connections over USB to Apple mobile devices
 license: GPL-2.0-only OR GPL-3.0-only
 homepage: https://github.com/libimobiledevice/usbmuxd
@@ -72,4 +72,5 @@ tests:
 verify_paths:
   - /usr/sbin/usbmuxd
   - /usr/lib/udev/rules.d/39-usbmuxd.rules
+  - /usr/lib/systemd/system/usbmuxd.service   # device-triggered by the rule; no [Install] section, so nothing can enable it at boot
   - /usr/lib/sysusers.d/usbmux.conf

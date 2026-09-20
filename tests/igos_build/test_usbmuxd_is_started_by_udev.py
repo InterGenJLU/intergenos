@@ -1,32 +1,39 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 InterGenJLU
-"""The Apple-device multiplexing daemon is started by udev and installs no unit.
+"""The Apple-device multiplexing daemon is a device-triggered unit that udev wants.
 
 The daemon that carries traffic to an attached iPhone or iPad can be activated
 two ways, and its own build system generates a DIFFERENT udev rule for each:
 configured with systemd support it writes ENV{SYSTEMD_WANTS}="usbmuxd.service"
 into the rule and installs a service unit; configured with --without-systemd it
 writes RUN+="<sbindir>/usbmuxd --user usbmux --udev" instead and installs no
-unit at all. Decided 2026-09-18: this system takes the second. The daemon then
-exists only while an Apple device is plugged in — the remove rule runs
-`usbmuxd -x`, which exits it when the last one is unplugged — so there is no
-idle USB-facing daemon at rest and no unit anyone has to remember to disable.
+unit at all.
 
-The two halves of that decision are in different files and can drift apart
+The recipe first took the second (decided 2026-09-18) so that no unit would
+exist to be enabled. Measured on an installed machine on 2026-09-20 with a real
+iPhone attached, that path cannot work under systemd-udevd: udev kills every
+process a RUN rule starts once the event has been handled (udev(7) says so in
+as many words), so the daemon lived about five seconds and the phone never
+paired. This system therefore takes the FIRST method, and keeps what the second
+was chosen for by other means: upstream's unit has no [Install] section, so
+nothing can enable it at boot; the only thing that starts it is the udev add
+event of an Apple device; --systemd implies --enable-exit, so it exits by
+itself with no device attached; and the remove rule still runs `usbmuxd -x`.
+
+The halves of that decision are in different files and can drift apart
 silently, which is what this test exists to prevent:
 
-  * drop --without-systemd from the recipe's configure line and the build
-    installs a unit AND rewrites the udev rule to want it. The package would
-    still build, still install, still pass its verify_paths, and the daemon
-    would now be a service — the opposite of the decision — with nothing in the
-    tree objecting;
-  * add an enable line for it to any preset and the always-on daemon arrives on
-    every installed machine, again with nothing objecting.
+  * put --without-systemd back on the configure line and the build installs
+    no unit and rewrites the udev rule to RUN the daemon — the killed-daemon
+    shape, with nothing in the tree objecting;
+  * add an enable line for it to any preset and the daemon becomes a boot-time
+    service instead of a device-triggered one, again with nothing objecting;
+  * drop the staged-tree checks from do_install and an upstream change to the
+    unit or the rule template would ship unnoticed.
 
-A recipe comment cannot catch either. These assertions can, and they read the
-recipe rather than restating it, so they stay true when the recipe is edited
-for some other reason.
+These assertions read the recipe rather than restating it, so they stay true
+when the recipe is edited for some other reason.
 """
 import re
 from pathlib import Path
@@ -51,6 +58,7 @@ BASE_FILES_ENABLE_PRESET = (
 UDEV_RULES_DIR = "/usr/lib/udev/rules.d"
 UDEV_RULE_PATH = f"{UDEV_RULES_DIR}/39-usbmuxd.rules"
 SYSTEM_UNIT_DIR = "/usr/lib/systemd/system"
+UNIT_PATH = f"{SYSTEM_UNIT_DIR}/usbmuxd.service"
 
 
 def recipe() -> dict:
@@ -89,58 +97,81 @@ def test_recipe_exists_and_is_a_desktop_tier_package_that_ships():
     assert spec.get("iso_include") is True
 
 
-def test_configure_selects_udev_activation_and_no_unit_directory():
+def test_configure_selects_systemd_activation_with_an_explicit_unit_directory():
     code = uncommented(build_script())
-    assert "--without-systemd" in code, (
-        "the configure line no longer passes --without-systemd; the build "
-        "would install a service unit and generate a udev rule that wants it"
+    assert "--without-systemd" not in code, (
+        "the configure line passes --without-systemd again; the build would "
+        "generate a udev rule that RUNs the daemon, and systemd-udevd kills a "
+        "RUN-started daemon when the event ends (measured 2026-09-20)"
+    )
+    assert "--with-systemd " in code or code.rstrip().endswith("--with-systemd") or "--with-systemd\\" in code or re.search(r"--with-systemd\s", code), (
+        "the configure line no longer asks for systemd support explicitly"
+    )
+    assert f"--with-systemdsystemunitdir={SYSTEM_UNIT_DIR}" in code, (
+        "the unit directory is no longer passed explicitly; the build would "
+        "fall back to whatever pkg-config reports on the builder"
+    )
+    assert "--with-systemdsystemunitdir=no" not in code
+    assert "--runstatedir=/run" in code, (
+        "the run-state directory is no longer passed; the unit's PIDFile= would "
+        "fall back to /var/run and systemd would warn on every start"
     )
     assert f"--with-udevrulesdir={UDEV_RULES_DIR}" in code, (
         "the udev rules directory is no longer passed explicitly; the build "
         "would fall back to whatever pkg-config reports"
     )
-    assert "--with-systemdsystemunitdir=no" in code, (
-        "the recipe no longer refuses a unit directory outright"
-    )
-    assert f"--with-systemdsystemunitdir={SYSTEM_UNIT_DIR}" not in code
 
 
-def test_the_recipe_ships_no_service_unit_and_no_preset():
+def test_the_recipe_ships_no_unit_or_preset_of_its_own():
+    """The unit is upstream's, installed by the build; the recipe adds none.
+
+    A recipe-carried unit would be a second definition of how the daemon runs,
+    and a preset would be the one way to make a device-triggered unit start at
+    boot.
+    """
     shipped = sorted(p.name for p in RECIPE_DIR.rglob("*") if p.is_file())
     units = [name for name in shipped if name.endswith((".service", ".socket"))]
     presets = [name for name in shipped if name.endswith(".preset")]
     assert units == [], f"the recipe carries unit files: {units}"
     assert presets == [], f"the recipe carries preset files: {presets}"
 
-    code = uncommented(build_script())
-    assert SYSTEM_UNIT_DIR not in code.replace(
-        f'"$DESTDIR{SYSTEM_UNIT_DIR}"', ""
-    ).replace(f"$DESTDIR{SYSTEM_UNIT_DIR}", ""), (
-        "the recipe installs something into the system unit directory"
-    )
 
-
-def test_do_install_refuses_a_staged_unit_rather_than_trusting_the_flags():
+def test_do_install_asserts_the_staged_unit_and_rule_rather_than_trusting_the_flags():
     """The recipe checks what was STAGED, not what it asked configure for.
 
     A flag can be right and the outcome still wrong — an upstream change could
-    install a unit from somewhere the flags do not govern. The refusal in
-    do_install is the only assertion made against the actual staged tree, so it
-    is pinned here against being dropped as redundant.
+    add an [Install] section to the unit, or reword the rule template. These
+    refusals in do_install are the only assertions made against the actual
+    staged tree, so each is pinned here against being dropped as redundant.
     """
     code = uncommented(build_script())
-    assert re.search(
-        r'if \[ -e "\$DESTDIR/usr/lib/systemd/system" \]', code
-    ), "do_install no longer refuses a staged system unit directory"
-    assert "exit 1" in code
+    assert re.search(r'if \[ ! -f "\$_unit" \]', code), (
+        "do_install no longer refuses a build that staged no service unit"
+    )
+    assert re.search(r"grep -q '\^\\\[Install\\\]' \"\$_unit\"", code), (
+        "do_install no longer refuses a unit that carries an [Install] section"
+    )
+    assert 'ENV{SYSTEMD_WANTS}="usbmuxd.service"' in code, (
+        "do_install no longer checks that the staged udev rule wants the unit"
+    )
+    assert "usbmuxd --user usbmux --udev" in code, (
+        "do_install no longer refuses a udev rule that RUNs the daemon"
+    )
+    assert "usbmuxd -x" in code, (
+        "do_install no longer checks that the remove rule exits the daemon"
+    )
+    assert "PIDFile=/run/usbmuxd.pid" in code, (
+        "do_install no longer checks the staged unit's PIDFile= path"
+    )
+    assert code.count("exit 1") >= 6
 
 
-def test_nothing_in_the_tree_enables_it_as_a_service():
+def test_nothing_in_the_tree_enables_it_at_boot():
     if BASE_FILES_ENABLE_PRESET.is_file():
         enable_text = BASE_FILES_ENABLE_PRESET.read_text(encoding="utf-8")
         assert "usbmuxd" not in enable_text, (
-            f"{BASE_FILES_ENABLE_PRESET} enables the daemon as a service; it "
-            "is started by udev and must not also be a unit"
+            f"{BASE_FILES_ENABLE_PRESET} enables the daemon at boot; it is a "
+            "device-triggered unit that only the udev add event may start"
         )
     hits = []
     for preset in REPO_ROOT.glob("packages/*/*/**/*.preset"):
@@ -149,15 +180,18 @@ def test_nothing_in_the_tree_enables_it_as_a_service():
     assert hits == [], f"a preset names the daemon: {hits}"
 
 
-def test_verify_paths_prove_the_udev_rule_and_the_service_account():
+def test_verify_paths_prove_the_rule_the_unit_and_the_service_account():
     spec = recipe()
     declared = spec.get("verify_paths") or []
     assert UDEV_RULE_PATH in declared, (
-        "the udev rule is the whole activation mechanism; if it does not land, "
-        "the package installs a daemon nothing ever starts"
+        "the udev rule is the whole trigger; if it does not land, the package "
+        "installs a daemon nothing ever starts"
+    )
+    assert UNIT_PATH in declared, (
+        "the unit is what the rule wants; if it does not land, the udev event "
+        "asks systemd for a service that does not exist"
     )
     assert "/usr/lib/sysusers.d/usbmux.conf" in declared, (
         "the unprivileged account the daemon drops to is created from this "
         "fragment; without it the daemon has no account to become"
     )
-    assert not any(path.startswith(SYSTEM_UNIT_DIR) for path in declared)

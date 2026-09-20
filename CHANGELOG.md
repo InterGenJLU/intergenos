@@ -225,6 +225,17 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- An attached iPhone or iPad now pairs and mounts on an installed machine. The
+  daemon that carries Apple-device traffic (`usbmuxd`) was started straight from
+  a udev rule, and udev kills every process a rule starts once the event has
+  been handled — measured on a real machine with a phone attached: the daemon
+  lived about five seconds and the phone never paired. udev now starts a
+  device-triggered service instead, which upstream provides for exactly this;
+  it has no boot-time enablement, exits by itself with no device attached, and
+  is still stopped when the last device is unplugged. The build refuses to
+  stage a unit that could be enabled at boot or a rule that runs the daemon
+  directly.
+
 - **A connection the model server refused is not asked again, and a server that
   is not listening is reported once.** A request that comes back with no tokens
   reads to the quality gate as an empty answer, and an empty answer is worth
