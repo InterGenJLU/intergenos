@@ -1150,6 +1150,26 @@ instructions are unchanged from R001.
 
 ### Fixed
 
+- **The owner's own account can reach the backup engine again, hours after
+  boot.** The engine creates its runtime directory and socket owned by the
+  `chronicle` group, which is what lets a person's account connect, and verifies
+  that at startup. Four sibling units — the hourly capture, the off-peak drain,
+  the scrub and the restore leg — declared the same runtime directory without
+  naming that group, and systemd re-applies a runtime directory's owner, group
+  and mode, the socket inside included, every time any unit that declares it
+  starts. From the first timer after boot until the engine was next restarted,
+  the directory and the socket were root-owned: the command-line tool and the
+  backup application were refused with a message telling the person to join a
+  group they were already in, while root clients (the package manager's
+  restore-point handler) kept working, so captures continued and the owner could
+  neither see nor restore them. Measured on two installed machines on
+  2026-09-20, and the re-application itself measured with transient units on a
+  scratch directory. Every unit that declares the directory now states the
+  engine's group and mode, so whichever starts last leaves it as the engine
+  needs it; a tree test pins that agreement, and an installed gate reads the
+  real socket's group after any timer has fired. The refusal message now reports
+  what it measured — the account's membership and the socket's owner and mode —
+  and names the remedy that matches, instead of asserting a missing membership.
 - **A serial cable now carries the kernel's messages.** On an installed machine a
   login prompt ran on the serial port while the kernel wrote to the screen only,
   so a serial session could log in and saw none of the kernel's output — least

@@ -240,7 +240,14 @@ class AccessDeniedTest(unittest.TestCase):
         with self.assertRaises(_api.EngineAccessDenied) as caught:
             client.call("status")
         self.assertIn("chronicle", str(caught.exception))
-        self.assertIn("usermod", str(caught.exception))
+        # The remedy names what was measured: usermod for an account outside
+        # the group; the socket's measured owner and a restart for one inside.
+        if _api.account_is_in_engine_group():
+            self.assertIn("IS in", str(caught.exception))
+            self.assertIn("measured", str(caught.exception))
+            self.assertNotIn("usermod", str(caught.exception))
+        else:
+            self.assertIn("usermod", str(caught.exception))
 
     def test_the_cli_reports_it_instead_of_falling_back_to_a_local_engine(self):
         from chronicle import cli as _cli

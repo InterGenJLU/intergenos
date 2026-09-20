@@ -530,6 +530,65 @@ ACCESS_DENIED_MESSAGE = (
 )
 
 
+def _owner_line(path):
+    """'root:chronicle 0660' for a path, or the reason it could not be read."""
+    try:
+        st = os.stat(path)
+    except OSError as e:
+        return f"not readable ({e.strerror})"
+    try:
+        import pwd
+        user = pwd.getpwuid(st.st_uid).pw_name
+    except (KeyError, ImportError):
+        user = str(st.st_uid)
+    try:
+        group = grp.getgrgid(st.st_gid).gr_name
+    except KeyError:
+        group = str(st.st_gid)
+    return f"{user}:{group} {stat.S_IMODE(st.st_mode):04o}"
+
+
+def account_is_in_engine_group(groups=None):
+    """Whether THIS process's group set carries the engine socket's group."""
+    try:
+        gid = grp.getgrnam(ENGINE_SOCKET_GROUP).gr_gid
+    except KeyError:
+        return False
+    ids = os.getgroups() if groups is None else groups
+    return gid in ids or os.getgid() == gid
+
+
+def access_denied_message(socket_path, *, in_group=None):
+    """Say what was MEASURED, not what is assumed.
+
+    Before 2026-09-20 a refused connect always produced ACCESS_DENIED_MESSAGE,
+    which asserts the account is not in the group and prescribes usermod. On
+    two installed machines that was false: the account was in the group and
+    the socket's own group had been reset to root by a sibling unit re-applying
+    the runtime directory. A person following the prescribed remedy changed
+    nothing. This message reports the account's measured membership and the
+    measured owner, group and mode of the socket (or, when the socket cannot be
+    read because its directory is closed, of the directory), and prescribes
+    the remedy that matches what it measured.
+    """
+    if in_group is None:
+        in_group = account_is_in_engine_group()
+    if not in_group:
+        return ACCESS_DENIED_MESSAGE
+    sock_line = _owner_line(socket_path)
+    dir_line = _owner_line(os.path.dirname(socket_path) or ".")
+    return (
+        f"not permitted to reach the Chronicle engine, although this account IS in the "
+        f"{ENGINE_SOCKET_GROUP!r} group: the engine socket {socket_path} is {sock_line} "
+        f"and its directory is {dir_line} (measured), so the group grants no access. "
+        f"The engine sets them to root:{ENGINE_SOCKET_GROUP} {ENGINE_SOCKET_MODE:04o} and "
+        f"root:{ENGINE_SOCKET_GROUP} {ENGINE_RUNTIME_DIR_MODE:04o} when it starts; "
+        f"something re-owned them afterwards. An administrator can restore access with: "
+        f"systemctl restart chronicled.service — and if it recurs, an installed unit is "
+        f"re-owning the engine's runtime directory (fixed in intergenos-backup r22)."
+    )
+
+
 class Client:
     """A minimal client for the CLI/GUI/pkm handler."""
 
@@ -545,7 +604,7 @@ class Client:
             s.connect(self.socket_path)
         except PermissionError as e:
             s.close()
-            raise EngineAccessDenied(ACCESS_DENIED_MESSAGE) from e
+            raise EngineAccessDenied(access_denied_message(self.socket_path)) from e
         except OSError:
             s.close()
             raise

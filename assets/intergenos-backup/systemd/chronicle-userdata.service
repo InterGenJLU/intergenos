@@ -24,6 +24,22 @@ StandardError=journal
 
 StateDirectory=chronicle
 RuntimeDirectory=chronicle
+# The engine (chronicled.service) creates /run/chronicle as root:chronicle 0750
+# and its socket inside as root:chronicle 0660 — the group is what lets a
+# person's own account reach the engine. systemd re-applies a RuntimeDirectory's
+# owner, group and mode — recursively, the socket included — every time ANY unit
+# that declares it starts. Before 2026-09-20 this unit declared the directory
+# with no Group= and the default 0755, so its first start after boot handed the
+# directory and the socket back to root:root: from that moment until the engine
+# was next restarted, the CLI and the backup application were refused with a
+# message blaming a group membership the account already had, while root
+# clients (the package manager's restore-point handler) kept working. Measured
+# on two installed machines. Every unit that declares this directory therefore
+# states the same group and mode as the engine, so whichever starts last leaves
+# it as the engine needs it. This grants the unit nothing it lacked: it already
+# runs as root.
+Group=chronicle
+RuntimeDirectoryMode=0750
 RuntimeDirectoryPreserve=yes
 
 # Canonical daemon-hardening baseline + the ratified backup relaxations

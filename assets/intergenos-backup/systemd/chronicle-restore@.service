@@ -32,6 +32,13 @@ StandardError=journal
 
 StateDirectory=chronicle
 RuntimeDirectory=chronicle
+# Same group and mode as the engine: systemd re-applies a RuntimeDirectory's
+# owner, group and mode — the socket inside included — on every start of every
+# unit that declares it, so a restore run without Group= would hand the engine's
+# socket back to root and shut the owner's account out (measured 2026-09-20; the
+# full account is in chronicle-userdata.service). Grants nothing: it runs as root.
+Group=chronicle
+RuntimeDirectoryMode=0750
 RuntimeDirectoryPreserve=yes
 
 # Canonical hardening baseline + the restore-leg relaxations (broader than the
