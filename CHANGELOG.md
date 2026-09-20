@@ -1150,6 +1150,31 @@ instructions are unchanged from R001.
 
 ### Fixed
 
+- **A serial cable now carries the kernel's messages.** On an installed machine a
+  login prompt ran on the serial port while the kernel wrote to the screen only,
+  so a serial session could log in and saw none of the kernel's output — least
+  of all the last lines a dying machine prints, which is the one moment a
+  photograph of the screen cannot be taken (measured on 2026-09-20 on the
+  remote-login surface). The base files now ship a kernel command-line fragment
+  naming the serial port ahead of the screen: every console named receives the
+  messages, and the screen, named last, stays `/dev/console`, so the panic
+  screen, the boot messages and the login prompt on the screen are as before.
+  The same fragment switches off systemd's automatic serial login prompt, which
+  would otherwise have appeared on every machine's serial port the moment the
+  port became a kernel console; a serial login prompt remains the installer's
+  decision alone (it enables one only when the installation itself ran over a
+  serial console). The parameters reach an installed machine at its next kernel
+  update and are visible at `cat /proc/cmdline`.
+- **The shipped explanation of the 2026-09-16 panic no longer says the machine
+  left nothing.** The comment in the panic-record retention file said the second
+  observed panic left nothing and its cause was undeterminable. The firmware
+  store held nothing; the machine's journal from that boot holds the last seven
+  kernel lines before it stopped (an RCU stall detected in the desktop
+  compositor's process, in the cross-CPU call path, on a kernel tainted by an
+  out-of-tree module), read on 2026-09-20. The comment now says so, and records
+  that the same machine ended abnormally four more times in the following four
+  days with no fault line at all. The file's argument for the RAM-backed
+  recorder is unchanged.
 - **Upgrading a download-helper package no longer deletes the application it
   installed.** A package such as the CUDA toolkit ships a small installer
   script; the application itself is fetched from the vendor by that script
