@@ -238,6 +238,20 @@ landed is in the repository README, not here.
   default-application list naming Celluloid for video/webm and the common
   audio types (MP3, FLAC, Ogg, WAV).
 
+- A symlink a package ships below the top level keeps the target the package
+  gave it. When installing onto a system whose /lib and /bin are symlinks into
+  /usr, the package manager rewrites paths that name those directories so they
+  land in the merged location. It was applying that rewrite to the target of
+  every symlink, at any depth. A symlink's relative target is read from the
+  directory the link itself is in, not from the root of the system, so below the
+  top level the rewrite changed a target that was already correct into one that
+  was not — the GPU compiler package's link from /opt/rocm/llvm to its own
+  sibling directory was installed pointing at a path that does not exist, and
+  nothing reported it, because the link was created and the install verified.
+  The rewrite now applies to a symlink only at the top level, where the target
+  really is a path from the root. Hardlinks are unchanged: their target names
+  another file in the archive and must follow it.
+
 - **A follow-up is not a fresh question.** Four of the assistant's routes answer
   before the model is ever asked — the explain gate, the cached system-state
   answer, the keyword match and the semantic match — and each reads the current

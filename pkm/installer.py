@@ -746,7 +746,35 @@ def _safe_extract_tar(archive_path, dest, exclude_paths=None, usrmerge_root=None
             # Hardlinks + same-tree relative symlinks: remap linkname too.
             # Absolute-target symlinks are handled separately below
             # (Relaxation #1).
-            if member.linkname and not member.linkname.startswith("/"):
+            #
+            # The two kinds do NOT get the same treatment, because their
+            # linknames are not the same kind of path.
+            #
+            # A hardlink's linkname names another MEMBER OF THE ARCHIVE, from
+            # the archive root, at whatever depth the hardlink sits — that is
+            # the gdk-pixbuf-pass2 case the comment above describes, and tar
+            # raises KeyError if the linkname is not remapped along with the
+            # member it names. So hardlinks are remapped at any depth.
+            #
+            # A symlink's relative linkname is resolved against the directory
+            # the SYMLINK ITSELF sits in. Only at the root are that directory
+            # and the archive root the same, so only there does a root-relative
+            # remap say anything true about the link. Applied deeper it rewrites
+            # a target that was already correct into one that is not: measured
+            # 2026-09-20, the GPU compiler package's `opt/rocm/llvm -> lib/llvm`
+            # (its own sibling, /opt/rocm/lib/llvm) was installed as
+            # `-> usr/lib/llvm`, meaning /opt/rocm/usr/lib/llvm, which does not
+            # exist. The link was created and the install verified, so nothing
+            # objected; the broken target surfaced only when a person followed
+            # it. `_rel` is the member's name BEFORE the name remap, which is
+            # what the depth has to be read from — remapping turns a one-segment
+            # name into two.
+            _is_root_level = "/" not in _rel.rstrip("/")
+            if (
+                member.linkname
+                and not member.linkname.startswith("/")
+                and (not member.issym() or _is_root_level)
+            ):
                 remapped_link = _remap(member.linkname)
                 if remapped_link is not None:
                     member.linkname = remapped_link
