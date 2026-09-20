@@ -578,7 +578,14 @@ class LlamaManager(LlamaManagerInterface):
         # whose device namespace does not match the device pin computed
         # against this one.
         if server_path is not None:
-            import os
+            # NO `import os` HERE. os is imported at module level; repeating it
+            # inside this function made os a LOCAL name for the whole body, so
+            # on the path where server_path is None the import never ran and
+            # every later use of os in start() raised UnboundLocalError. Until
+            # this change nothing reached such a use — the only one was behind
+            # a filter that is derived solely for callers that pass
+            # server_path — and a CPU-served instance now builds an
+            # environment, which does. Found by the full suite, 2026-09-20.
             if not (os.path.isfile(server_path) and os.access(server_path, os.X_OK)):
                 self._last_error = (
                     f"resolved engine server binary absent: {server_path!r}")
@@ -626,11 +633,46 @@ class LlamaManager(LlamaManagerInterface):
         # Only the ROCm backend is filtered, and the ggml device name is what
         # says which backend this is — ROCR_VISIBLE_DEVICES means nothing to
         # the Vulkan or CUDA builds.
+        # THREE CASES, and none of them leaves this engine seeing a card it
+        # was not given. Only the ROCm backend is filtered: the environment
+        # these variables live in means nothing to the Vulkan or CUDA builds,
+        # and the engine BINARY is what says which backend this is — a launch
+        # with no pin has no device name to read a backend out of.
+        #
+        #   pinned      : hide every card but the pinned one, which the
+        #                 previous release already did.
+        #   not pinned  : hide every card but the largest display-free one.
+        #                 An unpinned GPU launch splits the model across every
+        #                 visible card, and a context-checkpoint restore under
+        #                 a split model faults the GPU and aborts the engine —
+        #                 reproduced 3 of 3 on the two-card AMD machine on
+        #                 2026-09-20, absent 4 of 4 with one card visible.
+        #   no card     : a CPU-served instance (--n-gpu-layers 0, which also
+        #                 passes --device none) opens NO card. It was still
+        #                 initialising the runtime across every card and
+        #                 holding an allocation on each.
+        #
+        # In every case the filter is applied only where re-enumerating the
+        # engine under it has been SEEN to leave exactly the intended card, and
+        # an unverified filter leaves the launch byte-for-byte as it was, with
+        # the reason in the log, so an unfiltered serve is never silent.
         visibility_env: dict[str, str] = {}
-        if gpu_layers > 0 and device and str(device).startswith("ROCm"):
+        from intergen.serving_device import (
+            ENGINE_SERVER_PATHS, NO_CARD_AT_ALL, ROCR_VISIBLE_DEVICES,
+            visibility_filter_for_an_unpinned_launch,
+            visibility_filter_for_pinned_card)
+        hip_engine = (server_path == ENGINE_SERVER_PATHS.get("hip"))
+        pinned_to_rocm = bool(device and str(device).startswith("ROCm"))
+
+        if gpu_layers == 0 and hip_engine:
+            visibility_env = {ROCR_VISIBLE_DEVICES: NO_CARD_AT_ALL}
+            log.info(
+                "this instance serves on the CPU, so it is started with no "
+                "card visible to it (%s empty); the engine will say it found "
+                "no ROCm-capable device, which is the intended state and not "
+                "a failure", ROCR_VISIBLE_DEVICES)
+        elif gpu_layers > 0 and pinned_to_rocm:
             try:
-                from intergen.serving_device import (
-                    visibility_filter_for_pinned_card)
                 verdict = visibility_filter_for_pinned_card(
                     device_pci, server_path)
             except Exception as exc:          # never fail a launch over this
@@ -648,6 +690,21 @@ class LlamaManager(LlamaManagerInterface):
                         "the pinned card is %s unfiltered and %s under the "
                         "filter; --device follows the filtered listing",
                         device, verdict.device)
+                visibility_env = dict(verdict.env)
+                device = verdict.device
+        elif gpu_layers > 0 and hip_engine:
+            try:
+                verdict = visibility_filter_for_an_unpinned_launch(server_path)
+            except Exception as exc:          # never fail a launch over this
+                verdict = ("the filter for an unpinned launch could not be "
+                           f"derived: {exc}")
+            if isinstance(verdict, str):
+                log.warning(
+                    "serving WITHOUT a pinned card and WITHOUT a "
+                    "device-visibility filter: %s — the engine will split the "
+                    "model across every card it can see", verdict)
+            else:
+                log.info("device-visibility filter: %s", verdict.reason)
                 visibility_env = dict(verdict.env)
                 device = verdict.device
 

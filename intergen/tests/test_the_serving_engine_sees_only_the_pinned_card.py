@@ -306,7 +306,11 @@ def test_a_non_rocm_engine_is_not_filtered():
     assert cmd[cmd.index("--device") + 1] == "Vulkan1"
 
 
-def test_a_cpu_pinned_instance_is_untouched():
+def test_a_cpu_pinned_instance_of_another_backend_is_untouched():
+    """The engine binary here is a stand-in, not the recipe's HIP path, so this
+    is a CPU-served instance of some OTHER backend. A CPU-served instance of
+    the ROCm build IS given a filter — one that shows it no card at all — and
+    that case is pinned in test_no_launch_of_the_hip_engine_is_split.py."""
     real_popen = llama_manager.subprocess.Popen
     _LaunchRecorder.real_popen = real_popen
     _LaunchRecorder.last_cmd = None
@@ -324,5 +328,6 @@ def test_a_cpu_pinned_instance_is_untouched():
     cmd = _LaunchRecorder.last_cmd
     assert cmd[cmd.index("--device") + 1] == "none", cmd
     assert _LaunchRecorder.last_env is None, (
-        "a CPU instance opens no card at all and must be given no filter"
+        "a CPU instance of another backend must be given no ROCm filter: "
+        "ROCR_VISIBLE_DEVICES means nothing to the Vulkan or CUDA builds"
     )

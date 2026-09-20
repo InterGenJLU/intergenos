@@ -1739,3 +1739,125 @@ def visibility_filter_for_pinned_card(
         env=env, device=name, pci_id=pci_id,
         reason=(f"{ROCR_VISIBLE_DEVICES}={index} {HIP_VISIBLE_DEVICES}=0 "
                 f"leaves the engine exactly one device, {name} at {pci_id}"))
+
+
+# ── No launch of this engine is ever split across cards ─────────────────────
+#
+# The filter above protects a launch that HAS a pinned card. Two launches do
+# not, and both were measured opening every card on the two-card AMD machine on
+# 2026-09-20:
+#
+#   1. A GPU launch for which no pin could be derived — cards that cannot be
+#      told apart, a listing the engine printed without PCI addresses, a
+#      configured device name that does not resolve. The engine then splits the
+#      model across every card it can see. That is not only a memory-accounting
+#      problem: a context-checkpoint restore under a split model faults the GPU
+#      and aborts the engine, reproduced three times out of three on this
+#      machine (and absent, four times out of four, when one card is visible).
+#
+#   2. A launch that takes NO card at all — the CPU-served embedding instance,
+#      which passes --n-gpu-layers 0 and --device none. It still initialised
+#      the graphics runtime across both cards ("found 2 ROCm devices") and held
+#      a small allocation on each. A server that serves on the CPU has no
+#      business opening a card.
+#
+# Both are answered with the runtime's own filter, the same mechanism and the
+# same verification as the pinned case: nothing is applied that re-enumeration
+# has not confirmed.
+
+#: What ROCR_VISIBLE_DEVICES is set to for a launch that must open NO card.
+#: Measured on 2026-09-20: the engine then reports "failed to initialize ROCm:
+#: no ROCm-capable device is detected" and lists no device, which is the wanted
+#: outcome for a CPU-served instance and is why the launch log says so first.
+NO_CARD_AT_ALL = ""
+
+
+def largest_display_free_card(server: str | None = None,
+                              *,
+                              list_output: str | None = None,
+                              sysfs_root: str = "/sys",
+                              topology_root: str | None = None,
+                              timeout: int = 30) -> "tuple[str, str, int] | str":
+    """The biggest card that is not driving a display, as ``(name, pci, MiB)``.
+
+    Returns a plain sentence instead when there is no such card to choose, and
+    the caller then leaves the launch alone. "Biggest" is the engine's own
+    reported total memory, because that is the number the engine will fit the
+    model against; a tie is broken by the lowest PCI address so the choice is
+    the same on every launch rather than depending on enumeration order.
+
+    A card whose display state cannot be READ is not display-free: claiming it
+    is could pin serving onto the card painting the desktop, which is the very
+    thing :func:`_pci_drives_display` refuses to guess about.
+    """
+    if topology_root is None:
+        topology_root = KFD_TOPOLOGY_NODES
+    if list_output is None:
+        if not server:
+            return "no engine binary to enumerate the cards with"
+        try:
+            proc = subprocess.run([server, "--list-devices"],
+                                  capture_output=True, text=True, timeout=timeout)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return f"the engine could not be enumerated: {exc}"
+        list_output = (proc.stdout or "") + (proc.stderr or "")
+
+    amd_nodes = rocr_index_by_pci(topology_root)
+    candidates: list[tuple[int, str, str]] = []
+    seen = 0
+    for m in _DEVICE_LINE_RE.finditer(list_output):
+        pci = (m.group("pci") or "").lower()
+        if not pci or pci not in amd_nodes:
+            continue
+        seen += 1
+        if _pci_drives_display(pci, sysfs_root) is not False:
+            continue
+        candidates.append((int(m.group("total")), pci, m.group("name")))
+    if seen < 2:
+        return (f"the engine reports {seen} AMD card(s) the kernel also "
+                f"publishes, so there is no split to prevent")
+    if not candidates:
+        return ("every card the engine reports is driving a display or its "
+                "display state cannot be read, so none can be chosen")
+    # Biggest first; among equals the lowest PCI address, so two identical
+    # cards always produce the same choice rather than one that depends on the
+    # order the engine happened to enumerate them in.
+    candidates.sort(key=lambda c: (-c[0], c[1]))
+    total, pci, name = candidates[0]
+    return name, pci, total
+
+
+def visibility_filter_for_an_unpinned_launch(
+        server: str | None,
+        *,
+        sysfs_root: str = "/sys",
+        topology_root: str | None = None,
+        base_env: "dict[str, str] | None" = None,
+        list_output: str | None = None,
+        filtered_list_output: str | None = None,
+        timeout: int = 30) -> "VisibilityFilter | str":
+    """A verified single-card environment for a launch that has NO pin.
+
+    Chooses the largest display-free card and then asks
+    :func:`visibility_filter_for_pinned_card` to prove the filter shows exactly
+    that card, so an unpinned launch gets the same verification a pinned one
+    gets. Returns a sentence when no card can be chosen or the filter cannot be
+    verified; the caller launches unfiltered on a sentence and logs it.
+    """
+    chosen = largest_display_free_card(server, list_output=list_output,
+                                       sysfs_root=sysfs_root,
+                                       topology_root=topology_root,
+                                       timeout=timeout)
+    if isinstance(chosen, str):
+        return chosen
+    _name, pci, total = chosen
+    verdict = visibility_filter_for_pinned_card(
+        pci, server, topology_root=topology_root or KFD_TOPOLOGY_NODES,
+        base_env=base_env, list_output=filtered_list_output, timeout=timeout)
+    if isinstance(verdict, str):
+        return (f"the largest display-free card is {pci} ({total} MiB), but "
+                f"{verdict}")
+    return verdict._replace(
+        reason=(f"no card was pinned, so the largest display-free card was "
+                f"chosen: {verdict.device} at {pci} ({total} MiB); "
+                f"{verdict.reason}"))

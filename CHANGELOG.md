@@ -1240,6 +1240,24 @@ instructions are unchanged from R001.
 
 ### Fixed
 
+- No instance of the assistant's model engine opens a graphics card it was
+  not given. Pinning a card fixed the case where one was chosen; two launches
+  had no pinned card and still opened every card in the machine. The first is a
+  launch where no card could be chosen at all — cards that cannot be told
+  apart, a listing without addresses, a configured card name that names
+  nothing. The engine then spreads the model across every card it can see, and
+  that is not only an accounting problem: with the model spread across two
+  cards, restoring a saved point in a conversation crashed the engine outright,
+  which was measured three times out of three on a two-card machine and did not
+  happen once in four attempts with a single card visible. Such a launch now
+  picks the largest card that is not driving a screen, confirms by asking the
+  engine again that only that card is visible, and says in the log which card
+  it chose and why. The second is the instance that serves the small text-index
+  model on the processor: it opened both cards, started the graphics runtime on
+  each and held memory there, for work that never touches a card. It now starts
+  with no card visible at all. As before, anything that cannot be confirmed
+  leaves the launch exactly as it was with the reason written to the log, and
+  engines for other kinds of card are untouched.
 - A double-clicked video decodes on the card's video engine. The entry below
   about hardware decoding recorded what was shipped — /etc/mpv/mpv.conf with
   hwdec=auto-safe — and that file is read by mpv on the command line. It was
