@@ -207,25 +207,29 @@ class TheDaemonWiringTest(unittest.TestCase):
     def test_the_plan_is_given_the_pinned_cards_memory_when_there_is_one(self):
         """The plan is measured against the PINNED card, not the detector's.
 
-        The change of 2026-09-18 that made a display-driving card weigh its
-        FREE memory moved the expression this used to read: the daemon no
-        longer assigns the pinned card's total directly, it asks
-        ``serving_device.memory_to_plan_against`` which of the card's two
-        figures applies and takes the answer. The property under test is
-        unchanged and is what is pinned here — the figure the plan receives
-        comes from the pinned card's own reading, never from the hardware
-        detector's most-capable card.
+        The expression this reads has moved twice, and the property has not.
+        On 2026-09-18 a display-driving card began weighing its FREE memory,
+        so the daemon stopped assigning the pinned card's total directly and
+        asked which of the card's two figures applies. On 2026-09-20 the whole
+        ladder — pinned card, then detected figure, then the chosen engine's
+        own device list — moved into ``serving_device.
+        memory_for_the_offload_plan``, so the daemon now hands that one
+        function its inputs and takes the answer. What is pinned here is what
+        was always pinned: the figure the plan receives comes from the pinned
+        card's own reading, never from the hardware detector's most-capable
+        card.
         """
         src = self._source()
-        self.assertIn("if isinstance(_device_vram_mb, int) and _device_vram_mb > 0:",
-                      src)
-        self.assertIn("memory_to_plan_against(", src)
-        self.assertIn("total_mb=_device_vram_mb", src)
+        self.assertIn("memory_for_the_offload_plan(", src)
+        self.assertIn("device_total_mb=_device_vram_mb", src)
+        self.assertIn("device_free_mb=_device_free_mb", src)
         self.assertIn("plan_for_model(vram_mb=_plan_vram_mb", src)
 
     def test_it_falls_back_to_the_detected_figure(self):
+        """The detector's figure is still handed in, and is still what the
+        plan gets when the pinned card reported no size of its own."""
         src = self._source()
-        self.assertIn("_plan_vram_mb = _vram_mb", src)
+        self.assertIn("detected_vram_mb=_vram_mb", src)
 
     def test_the_trace_row_names_which_figure_was_used(self):
         src = self._source()

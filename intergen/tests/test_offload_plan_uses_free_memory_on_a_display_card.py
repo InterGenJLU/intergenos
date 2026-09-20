@@ -296,7 +296,17 @@ class TheDaemonWiringTest(unittest.TestCase):
         return Path(mod.__file__).read_text(encoding="utf-8")
 
     def test_it_asks_the_one_function(self):
-        self.assertIn("memory_to_plan_against(", self._source())
+        """One function owns the whole choice of figure.
+
+        It was ``memory_to_plan_against`` when this test was written; on
+        2026-09-20 that function became the innermost step of
+        ``memory_for_the_offload_plan``, which the daemon now asks. The point
+        of the test is that the daemon asks rather than re-deriving, so it
+        also checks that no second copy of the choice is left inline.
+        """
+        src = self._source()
+        self.assertIn("memory_for_the_offload_plan(", src)
+        self.assertNotIn("memory_to_plan_against(", src)
 
     def test_the_trace_row_names_the_free_figure_and_the_display_state(self):
         src = self._source()

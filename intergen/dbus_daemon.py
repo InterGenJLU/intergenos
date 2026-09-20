@@ -1554,7 +1554,7 @@ class InterGenDaemon(InterGenDBusInterface):
                 from intergen.serving_device import (
                     _pci_drives_display,
                     display_state_words,
-                    memory_to_plan_against,
+                    memory_for_the_offload_plan,
                     pci_vram_and_free_for_device_name,
                     resolve_device_pin_for_engine,
                     select_serving_device_name_pci_vram_and_free,
@@ -1678,14 +1678,21 @@ class InterGenDaemon(InterGenDBusInterface):
                 # the choice is NAMED, in the log and in the trace row, so a
                 # recorded plan can never state a size without saying whose it
                 # is and which figure it was.
-                if isinstance(_device_vram_mb, int) and _device_vram_mb > 0:
-                    _plan_vram_mb, _vram_source = memory_to_plan_against(
-                        total_mb=_device_vram_mb, free_mb=_device_free_mb,
-                        drives_display=_device_drives_display)
-                else:
-                    _plan_vram_mb = _vram_mb
-                    _vram_source = ("no card pinned" if _device is None else
-                                    "the pinned card's size was not reported")
+                # WHEN NEITHER THE PIN NOR THE DETECTOR READ THE CARD, the
+                # chosen engine's own device list is asked — the third source
+                # memory_for_the_offload_plan knows about. A machine with one
+                # integrated GPU pins no card (there is nothing to choose
+                # between) and reports no dedicated video memory, and the plan
+                # used to be left deciding blind on a figure the engine about
+                # to launch could print. Measured under three releases on
+                # 2026-09-19.
+                _plan_vram_mb, _vram_source = memory_for_the_offload_plan(
+                    device_name=_device,
+                    device_total_mb=_device_vram_mb,
+                    device_free_mb=_device_free_mb,
+                    device_drives_display=_device_drives_display,
+                    detected_vram_mb=_vram_mb,
+                    server=_server_path if _vulkan_present else None)
                 from intergen.gpu_offload import plan_for_model
                 _plan = plan_for_model(vram_mb=_plan_vram_mb,
                                        model_path=model_path,

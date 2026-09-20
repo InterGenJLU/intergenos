@@ -1156,7 +1156,8 @@ def select_serving_device_name_pci_vram_and_free(
 
 
 def memory_to_plan_against(total_mb: int | None, free_mb: int | None,
-                           drives_display: bool | None
+                           drives_display: bool | None,
+                           *, card_words: str = "the pinned card"
                            ) -> tuple[int | None, str]:
     """Which of a card's two memory figures the offload plan must weigh, and
     the words that say which one it was and why.
@@ -1175,22 +1176,113 @@ def memory_to_plan_against(total_mb: int | None, free_mb: int | None,
     not evidence, and this function never treats it as any.
 
     The returned words are never empty and always name the card, so a recorded
-    plan can never state a figure without saying whose it is.
+    plan can never state a figure without saying whose it is. ``card_words``
+    is how the card is named in them; it defaults to the pin this function was
+    written for, and the engine-enumeration fallback
+    (:func:`memory_for_the_offload_plan`) passes the name of the one card the
+    engine reported, because that card was never pinned and calling it "the
+    pinned card" would be false.
     """
     if drives_display is True and isinstance(free_mb, int):
         return (free_mb,
-                "the free memory of the pinned card, which is driving a "
+                f"the free memory of {card_words}, which is driving a "
                 "display and is already holding the difference")
     if drives_display is True:
         return (total_mb,
-                "the total memory of the pinned card: it is driving a display, "
+                f"the total memory of {card_words}: it is driving a display, "
                 "but the engine reported no free figure for it")
     if drives_display is False:
         return (total_mb,
-                "the total memory of the pinned card, which is display-free")
+                f"the total memory of {card_words}, which is display-free")
     return (total_mb,
-            "the total memory of the pinned card, whose display state could "
+            f"the total memory of {card_words}, whose display state could "
             "not be read")
+
+
+def sole_reported_device(list_output: str | None = None,
+                         server: str | None = None
+                         ) -> tuple[str, str | None, int, int] | None:
+    """The ONE device an engine reports, when it reports exactly one.
+
+    Returns ``(ggml name, PCI address or None, total MiB, free MiB)``, or None
+    when the enumeration names no device, names more than one, or could not be
+    read at all.
+
+    WHY EXACTLY ONE, and not "the first" or "the biggest". This is read on the
+    path where NO card was pinned, and with no ``--device`` llama.cpp spreads
+    the model across every visible card. On a box with several cards there is
+    therefore no single card whose memory describes where the model goes, and
+    picking one would be a guess dressed as a measurement. On a box with one
+    card there is no ambiguity at all: it is the card the model loads onto, and
+    its two figures are the engine's own reading of it.
+
+    The PCI address is None on an engine build without the in-tree
+    list-devices patch — the memory figures are on every line, the address is
+    not — and a caller treats that as "display state unknown", never as an
+    answer.
+    """
+    if list_output is None:
+        list_output = _list_devices_text(server) if server else ""
+    found = [(m.group("name"), m.group("pci"), int(m.group("total")),
+              int(m.group("free")))
+             for m in _DEVICE_LINE_RE.finditer(list_output)]
+    return found[0] if len(found) == 1 else None
+
+
+def memory_for_the_offload_plan(*, device_name: str | None,
+                                device_total_mb: int | None,
+                                device_free_mb: int | None,
+                                device_drives_display: bool | None,
+                                detected_vram_mb: int | None,
+                                server: str | None = None,
+                                list_output: str | None = None,
+                                sysfs_root: str = "/sys"
+                                ) -> tuple[int | None, str]:
+    """The MiB figure the offload plan is weighed against, and the words that
+    say where that figure came from. ONE place decides both.
+
+    The order is by how closely the figure describes the card the model goes
+    onto, and it never guesses:
+
+      1. the PINNED card's own figures, as the engine reported them — the card
+         the model will load onto, weighed by :func:`memory_to_plan_against`;
+      2. the hardware detector's figure, exactly as the launch path used it
+         before this function existed;
+      3. the CHOSEN ENGINE'S OWN device list, when it names exactly one device
+         (:func:`sole_reported_device`) — the case this step was added for,
+         measured on an installed single-GPU laptop under three releases on
+         2026-09-19, where the plan said "video memory could not be read" while
+         ``llama-server --list-devices`` printed the card's total and free
+         figures and the engine's own fit step read them seconds later. Which
+         of the two figures is taken is decided by the SAME function step 1
+         uses, so there is still one rule about totals and free memory;
+      4. nothing readable — today's honest unknown, which
+         :func:`intergen.gpu_offload.plan_offload` turns into "video memory
+         could not be read, so whether the model fits is unknown".
+
+    Step 3 runs the engine's enumeration only when steps 1 and 2 came up empty,
+    so a machine whose card was already read pays nothing for it, and a machine
+    whose card was never read pays one enumeration for a measured decision.
+    """
+    if isinstance(device_total_mb, int) and device_total_mb > 0:
+        return memory_to_plan_against(total_mb=device_total_mb,
+                                      free_mb=device_free_mb,
+                                      drives_display=device_drives_display)
+    unread_words = ("no card pinned" if device_name is None
+                    else "the pinned card's size was not reported")
+    if isinstance(detected_vram_mb, int):
+        return (detected_vram_mb, unread_words)
+    if server or list_output is not None:
+        sole = sole_reported_device(list_output=list_output, server=server)
+        if sole is not None:
+            name, pci, total, free = sole
+            drives = (_pci_drives_display(pci, sysfs_root)
+                      if pci else None)
+            return memory_to_plan_against(
+                total_mb=total, free_mb=free, drives_display=drives,
+                card_words=(f"{name}, the only card this engine reports, "
+                            f"read from its own device list"))
+    return (None, unread_words)
 
 
 def pci_vram_and_free_for_device_name(device_name: str,

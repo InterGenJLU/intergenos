@@ -399,6 +399,14 @@ class LlamaManager(LlamaManagerInterface):
         # first-boot/onboarding window (server deliberately held down), and
         # repeating it at ERROR each call was pure alarm fatigue.
         self._embed_notrunning_logged: bool = False
+        # A STOP THIS MANAGER ASKED FOR. Set by stop() before the child is
+        # signalled, cleared by _mark_ready() when a launch is serving again.
+        # An embedding request already in flight when the stop begins dies with
+        # the server, and that is a planned teardown, not a failure — this is
+        # the fact _embed_one_request needs to tell the two apart. False is the
+        # fail-safe: a manager that cannot say it was stopping reports a
+        # transport failure at ERROR, exactly as before.
+        self._stopping: bool = False
         self._init_embed_slot()
         # READY is not RUNNING. Popen returns the instant the child exists, and
         # is_running() has been true from that moment — so embed() used to post
@@ -859,8 +867,11 @@ class LlamaManager(LlamaManagerInterface):
             # Wait for server to become healthy
             if self._wait_for_healthy(port):
                 # The server has loaded its model and answered /health as our
-                # own child: callers waiting on readiness are released here.
-                self._ready.set()
+                # own child: callers waiting on readiness are released here,
+                # and this manager is serving again (_mark_ready is the one
+                # place that says so, so the stop marker and the ready event
+                # can never disagree).
+                self._mark_ready()
                 self._embed_notready_logged = False
                 # New up-episode: the next embed()-while-down deserves its own
                 # single non-DEBUG line.
@@ -978,6 +989,13 @@ class LlamaManager(LlamaManagerInterface):
             (GPU_TEARDOWN_BUDGET_S), because a five-second wait against a
             98-second teardown never learned anything before declaring failure.
         """
+        # FIRST, before the early return and before any signal: from this
+        # moment every stop is one this manager asked for, and an embedding
+        # request already in flight is entitled to know that when its socket
+        # closes under it. Marking after the SIGTERM would leave exactly the
+        # request this exists for still reading "not stopping".
+        self._stopping = True
+
         if self._process is None:
             # No child to stop. A hold can still be outstanding if a launch
             # failed before Popen returned, so let the card go here too.
@@ -1432,9 +1450,16 @@ class LlamaManager(LlamaManagerInterface):
         return self._ready.is_set()
 
     def _mark_ready(self) -> None:
-        """Declare readiness without a launch (the health wait's own callers and
-        tests that drive embed() with a mocked transport)."""
+        """Declare that this manager is serving: ready, and no longer stopping.
+
+        Used by the health wait at the end of a successful launch, and by
+        callers and tests that drive embed() with a transport of their own.
+        Clearing the stop marker HERE, in the one place readiness is declared,
+        is what keeps a single deliberate stop from lowering the level of every
+        later failure for the rest of the process's life.
+        """
         self._ready.set()
+        self._stopping = False
 
     def _await_ready(self, budget: float) -> bool:
         """Wait up to ``budget`` seconds for readiness. Never longer."""
@@ -1662,6 +1687,55 @@ class LlamaManager(LlamaManagerInterface):
             if marked:
                 slot.release()
 
+    def _planned_teardown_this_request_died_in(self) -> str | None:
+        """Words for the planned teardown an embedding request died in, or
+        None when nothing here says the server was asked to stop.
+
+        WHAT THIS EXISTS FOR. Measured on an installed machine 2026-09-19 and
+        reproduced on 2026-09-20: stopping the assistant while the background
+        documentation-embedding pass had a request in flight wrote
+        "embed() request failed: …" at ERROR. Nothing had failed. An ERROR line
+        that is routine teardown noise teaches a reader to skim ERROR lines,
+        and that is how a real embedding failure becomes invisible.
+
+        TWO FACTS ARE READ, and neither is a guess:
+
+        * ``_stopping`` — this manager has begun stopping the server itself
+          (its own stop(), a restart, or a pause). Set before the child is
+          signalled, so a request already in flight sees it.
+        * the child's EXIT STATUS. Stopping or restarting the service does not
+          reach this code first: the service manager signals every process in
+          the group, so the embedding server is gone while the daemon's own
+          shutdown path has not run yet — reproduced on 2026-09-20, where the
+          request's client timeout expired 373 ms BEFORE the daemon serviced
+          its own shutdown signal, and no flag inside the process could have
+          been true. What IS true, and measurable, is that the child had
+          already exited ON SIGTERM, which is a process that was ASKED to
+          stop. Any other exit — a crash, a SIGKILL, a non-zero status — is
+          NOT a planned teardown and keeps its ERROR, because a server that
+          died on its own is exactly what this level is for.
+
+        A child still running (``poll()`` is None) means there was a server
+        meant to answer, so the failure is a failure. An unreadable status is
+        treated the same way: unknown is never read as planned.
+        """
+        if getattr(self, "_stopping", False):
+            return ("this manager had already begun stopping the embedding "
+                    "server on purpose — its own shutdown, restart or pause")
+        proc = getattr(self, "_process", None)
+        if proc is None:
+            return None
+        try:
+            status = proc.poll()
+        except Exception:  # noqa: BLE001 — an unreadable status is not evidence
+            return None
+        if status == -signal.SIGTERM:
+            return ("the embedding server had already exited on SIGTERM, so "
+                    "it had been asked to stop — which is what stopping or "
+                    "restarting the service does to every process in its "
+                    "group")
+        return None
+
     def _embed_one_request(self, texts: list[str],
                            timeout: float) -> list[list[float]] | None:
         """One POST to /v1/embeddings. Vectors in input order, or None."""
@@ -1675,7 +1749,16 @@ class LlamaManager(LlamaManagerInterface):
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 data = json.loads(resp.read())
         except Exception as e:  # noqa: BLE001 — network/parse; degrade, don't crash
-            log.error("embed() request failed: %s", e)
+            # A request that died inside a planned teardown is reported at
+            # INFO and says which teardown; a request that died while there
+            # was a server meant to answer it keeps its ERROR.
+            planned = self._planned_teardown_this_request_died_in()
+            if planned is None:
+                log.error("embed() request failed: %s", e)
+            else:
+                log.info("embed() request did not complete: %s — %s; this "
+                         "batch is left unembedded and the caller degrades",
+                         e, planned)
             return None
 
         # OpenAI-compatible shape: {"data": [{"embedding": [...], "index": i}, ...]}.

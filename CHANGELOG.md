@@ -225,6 +225,43 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **Stopping the assistant is reported as a stop, not as a failure.** Stopping
+  or restarting the assistant while it was catching up on its documentation
+  index wrote an error line — `embed() request failed: …` — for a request that
+  died because the machine had been asked to shut the embedding server down.
+  Nothing had failed. An error line that is routine teardown noise teaches a
+  reader to skim error lines, and that is how a real embedding failure becomes
+  invisible. Two facts are now read before the level is chosen, and neither is
+  a guess: whether this code had itself begun stopping the server, and how the
+  server's own process ended. A server that had already exited on the stop
+  signal was asked to stop — which is what stopping or restarting the service
+  does to every process in its group, reaching the embedding server before the
+  assistant's own shutdown path runs at all. Either fact makes the line an
+  informational one that names the teardown it died in. A server that was still
+  running, or that ended any other way — a crash, a kill, a non-zero exit —
+  keeps its error line, because that level is exactly for a server that went
+  away without being asked.
+
+- **The layer plan is measured against the card the graphics engine can see.**
+  On a machine whose only graphics processor is the integrated one, the plan
+  that decides how much of the model goes on the card said "video memory could
+  not be read" and then put every layer on it without having measured anything,
+  while the graphics engine it was about to launch would print that card's
+  total and free memory on demand. Neither half was wrong on its own: the
+  automatic card selection correctly pins nothing when there is only one card
+  to choose from, and the hardware detector reports no dedicated video memory
+  for an integrated processor, so the plan was left with nothing. It now asks
+  the chosen engine for its own device list when neither source read the card,
+  and uses it only when that list names exactly one device — with no card
+  pinned and several present the model is spread across all of them, so no
+  single card's figure would describe where it goes. Which of that device's two
+  figures is taken is decided by the same rule that already governs a pinned
+  card, so there is still one place that chooses between a total and a free
+  figure. A list that cannot be read, or that names no device, keeps the honest
+  "could not be read" plan: the change adds a measurement, it never invents
+  one. Measured on an integrated-graphics machine, the same start that used to
+  offload blind now records that the model needs 2917 MiB and the card has
+  10584 MiB free, and reaches the same layer count by having measured it.
 - **The training package points at a source tarball that exists.** The `unsloth`
   recipe pinned version 2026.7.4 at a PyPI source URL that answers 404: that
   release exists but upstream publishes it as a wheel only, and no artifact PyPI
