@@ -161,6 +161,85 @@ def _pin_matches(dest: str, expected_sha256: str, where: str) -> bool:
     return False
 
 
+# How many times an UPSTREAM fetch is attempted before a source is called
+# unfetchable, and how long to wait between attempts. Decided 2026-09-20: on
+# 2026-09-19 a source was recorded as having no fetchable tarball after one
+# failed wget and one failed curl inside the same minute; ten attempts the next
+# morning all succeeded and hashed to the pin. The server had been shedding
+# load. One attempt cannot tell a server having a bad minute from a URL that is
+# gone, so a bounded retry makes that difference visible instead of guessing.
+# The mirror leg keeps its single attempt: it asks with -f, and a 404 there is
+# an answer, not a transient.
+DEFAULT_UPSTREAM_ATTEMPTS = 3
+DEFAULT_UPSTREAM_BACKOFF_SECONDS = 2.0
+
+
+def source_fetch_attempts() -> int:
+    """Upstream attempts per source; at least one. SOURCE_FETCH_ATTEMPTS overrides."""
+    try:
+        n = int(os.environ.get("SOURCE_FETCH_ATTEMPTS", str(DEFAULT_UPSTREAM_ATTEMPTS)))
+    except ValueError:
+        n = DEFAULT_UPSTREAM_ATTEMPTS
+    return max(1, n)
+
+
+def source_fetch_backoff() -> float:
+    """Seconds to wait after a failed attempt, multiplied by the attempt number.
+
+    SOURCE_FETCH_BACKOFF overrides it; 0 disables the wait, which is what the
+    tests use so a retry test does not spend real seconds sleeping.
+    """
+    try:
+        s = float(os.environ.get("SOURCE_FETCH_BACKOFF", str(DEFAULT_UPSTREAM_BACKOFF_SECONDS)))
+    except ValueError:
+        s = DEFAULT_UPSTREAM_BACKOFF_SECONDS
+    return max(0.0, s)
+
+
+def _upstream_attempt(url: str, dest: str, timeout: int, have_pin: bool,
+                      expected_sha256: str) -> tuple:
+    """One upstream attempt — wget, then curl for the sites that block wget.
+
+    Returns (verdict, detail). The verdict is one of:
+      "ok"        the bytes are in place and, where there is a pin, verified;
+      "mismatch"  a COMPLETE transfer whose bytes are not the pinned ones. That
+                  is a definitive answer about what the server serves, so it is
+                  never retried — retrying it would only turn a clear signal
+                  that the bytes changed into a slower clear signal;
+      "transient" the transfer itself failed (refused, reset, timed out, cut
+                  short, or an error page in place of an archive). This is the
+                  only verdict that earns another attempt.
+    A truncated transfer lands here as "transient", not "mismatch", because the
+    tool reports a non-zero exit before its bytes are ever hashed — which is
+    exactly how 2026-09-19's two partials failed.
+    """
+    for tool, argv in (
+        ("wget", ["wget", "-q", "--timeout=30", "--prefer-family=IPv4", "-O", dest, url]),
+        ("curl", ["curl", "-sL", "--connect-timeout", "30",
+                  "--proto", "=https,http", "--tlsv1.2", "-o", dest, url]),
+    ):
+        if os.path.exists(dest):
+            os.unlink(dest)
+        try:
+            result = subprocess.run(argv, capture_output=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return "transient", f"{tool} timed out after {timeout}s"
+        if result.returncode != 0:
+            continue
+        if not os.path.exists(dest) or os.path.getsize(dest) == 0:
+            continue
+        if not validate_download(dest):
+            continue
+        if not have_pin:
+            return "ok", tool
+        if _pin_matches(dest, expected_sha256, ""):
+            return "ok", tool
+        return "mismatch", (
+            f"{tool} transferred {os.path.basename(url)} in full and its sha256 is "
+            "not the pinned one")
+    return "transient", "wget and curl both failed to transfer the file"
+
+
 def download_file(url: str, dest: str, timeout: int = 300, expected_sha256: str = "") -> bool:
     """Download a file: the project mirror first, upstream second.
 
@@ -179,10 +258,16 @@ def download_file(url: str, dest: str, timeout: int = 300, expected_sha256: str 
     mirror entirely (decided 2026-05-30): with nothing to verify against, a
     mirror copy is no safer than an upstream one.
 
+    The upstream leg is attempted up to source_fetch_attempts() times with a
+    short growing pause, and every attempt is printed. A source is only called
+    unfetchable after all of them, and the failure line says how many were
+    made, so "upstream is down right now" stops reading as "this pin is dead".
+
     Security hardening:
     - Warns on HTTP (non-HTTPS) URLs
     - Enforces TLS 1.2+ via --proto/--tlsv1.2; the mirror leg is HTTPS-only
     - Verifies SHA256 against the expected value on every path that has one
+    - A complete transfer whose bytes miss the pin is never retried
     """
     # Warn on insecure URLs
     if url.startswith("http://"):
@@ -194,65 +279,55 @@ def download_file(url: str, dest: str, timeout: int = 300, expected_sha256: str 
         # The recipe already points at the mirror — one fetch, not two.
         mirror_url = ""
 
-    try:
-        # ---- the mirror, first ----------------------------------------
-        if mirror_url:
-            # -f fails on HTTP 404 so a not-yet-mirrored source does not write
-            # an error page; --proto =https forces HTTPS for the mirror fetch.
+    # ---- the mirror, first, one attempt ------------------------------
+    if mirror_url:
+        # -f fails on HTTP 404 so a not-yet-mirrored source does not write
+        # an error page; --proto =https forces HTTPS for the mirror fetch.
+        try:
             mresult = subprocess.run(
                 ["curl", "-sfL", "--connect-timeout", "30",
                  "--proto", "=https", "-o", dest, mirror_url],
                 capture_output=True, timeout=timeout,
             )
-            if (mresult.returncode == 0 and os.path.exists(dest)
-                    and os.path.getsize(dest) > 0 and validate_download(dest)):
-                if _pin_matches(dest, expected_sha256, "MIRROR"):
-                    print(f"    OK from mirror (sha256 pin verified): {mirror_url}", flush=True)
-                    return True
-            elif os.path.exists(dest):
+            mirror_ok = mresult.returncode == 0
+        except subprocess.TimeoutExpired:
+            mirror_ok = False
+        if (mirror_ok and os.path.exists(dest) and os.path.getsize(dest) > 0
+                and validate_download(dest)):
+            if _pin_matches(dest, expected_sha256, "MIRROR"):
+                print(f"    OK from mirror (sha256 pin verified): {mirror_url}", flush=True)
+                return True
+        elif os.path.exists(dest):
+            os.unlink(dest)
+        print(f"    not served by the mirror ({mirror_url}) — pulling from upstream", flush=True)
+
+    # ---- upstream, second, up to N attempts --------------------------
+    attempts = source_fetch_attempts()
+    backoff = source_fetch_backoff()
+    for attempt in range(1, attempts + 1):
+        print(f"    upstream fetch attempt {attempt} of {attempts}: {url}", flush=True)
+        try:
+            verdict, detail = _upstream_attempt(url, dest, timeout, have_pin, expected_sha256)
+        except Exception as e:  # noqa: BLE001 — reported, then the attempt is spent
+            verdict, detail = "transient", f"{type(e).__name__}: {e}"
+        if verdict == "ok":
+            return True
+        if verdict == "mismatch":
+            print(f"    attempt {attempt} of {attempts}: {detail} — NOT RETRIED, "
+                  "the transfer completed and the bytes are not the pinned ones", flush=True)
+            if os.path.exists(dest):
                 os.unlink(dest)
-            print(f"    not served by the mirror ({mirror_url}) — pulling from upstream", flush=True)
+            return False
+        print(f"    attempt {attempt} of {attempts} failed: {detail}", flush=True)
+        if attempt < attempts and backoff:
+            pause = backoff * attempt
+            print(f"    waiting {pause:g}s before the next attempt", flush=True)
+            time.sleep(pause)
 
-        # ---- upstream, second -----------------------------------------
-        print(f"    upstream fetch: {url}", flush=True)
-        # Try wget first — enforce HTTPS protocol preference
-        result = subprocess.run(
-            ["wget", "-q", "--timeout=30", "--prefer-family=IPv4",
-             "-O", dest, url],
-            capture_output=True, timeout=timeout,
-        )
-        if result.returncode == 0 and os.path.exists(dest) and os.path.getsize(dest) > 0:
-            if validate_download(dest):
-                if not have_pin or _pin_matches(dest, expected_sha256, ""):
-                    return True
-                return False
-
-        # wget failed — try curl as fallback (some sites block wget)
-        if os.path.exists(dest):
-            os.unlink(dest)
-        result = subprocess.run(
-            ["curl", "-sL", "--connect-timeout", "30",
-             "--proto", "=https,http", "--tlsv1.2",
-             "-o", dest, url],
-            capture_output=True, timeout=timeout,
-        )
-        if result.returncode == 0 and os.path.exists(dest) and os.path.getsize(dest) > 0:
-            if validate_download(dest):
-                if not have_pin or _pin_matches(dest, expected_sha256, ""):
-                    return True
-                return False
-
-        if os.path.exists(dest):
-            os.unlink(dest)
-        return False
-    except subprocess.TimeoutExpired:
-        print(f"    TIMEOUT: {url}", flush=True)
-        if os.path.exists(dest):
-            os.unlink(dest)
-        return False
-    except Exception as e:
-        print(f"    ERROR: {e}", flush=True)
-        return False
+    if os.path.exists(dest):
+        os.unlink(dest)
+    print(f"    FAILED after {attempts} upstream attempt(s): {url}", flush=True)
+    return False
 
 
 def load_packages(tiers: list[str]) -> list[dict]:
