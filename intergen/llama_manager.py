@@ -367,6 +367,62 @@ class ServerConfig:
     server_path: str | None = None  # the engine's server binary (from select_serving_engine) — the binary that ENUMERATED devices must be the binary that LAUNCHES (device names are backend-local); None = engine-aware _find_server()
 
 
+def planned_teardown_of(manager) -> str | None:
+    """Words for the planned teardown a request to ``manager``'s server died
+    in, or None when nothing says that server was asked to stop.
+
+    ONE MEASUREMENT, SHARED BY EVERY PATH THAT TALKS TO A SERVED ENGINE — the
+    embedding path in this module and the chat path in ``intergen.llm``. It is
+    a module-level function, not a method, precisely so the chat path can ask
+    it about the engine it was handed without growing a second copy that could
+    drift from this one.
+
+    WHAT THIS EXISTS FOR. Measured on an installed machine 2026-09-19 and
+    reproduced 2026-09-20: stopping the assistant while a request was in flight
+    wrote that request's failure at ERROR. Nothing had failed. An ERROR line
+    that is routine teardown noise teaches a reader to skim ERROR lines, and in
+    the chat path it does more than mislead a reader — it makes the assistant
+    record the endpoint as unreachable and then tell the person their model
+    server is not running, about a stop they asked for.
+
+    TWO FACTS ARE READ, and neither is a guess:
+
+    * ``_stopping`` — that manager has begun stopping the server itself (its
+      own stop(), a restart, or a pause). It is set before the child is
+      signalled, so a request already in flight sees it.
+    * the child's EXIT STATUS. Stopping or restarting the service does not
+      reach this code first: the service manager signals every process in the
+      group, so the server is gone while the daemon's own shutdown path has not
+      run — reproduced 2026-09-20, where a request's client timeout expired
+      373 ms BEFORE the daemon serviced its own shutdown signal, and no flag
+      inside the process could have been true. What IS true, and measurable, is
+      that the child had already exited ON SIGTERM, which is a process that was
+      ASKED to stop. Any other exit — a crash, a SIGKILL, a non-zero status —
+      is NOT a planned teardown, because a server that died on its own is
+      exactly what an error level is for.
+
+    A child still running (``poll()`` is None) means there was a server meant
+    to answer, so the failure is a failure. An unreadable status, an object
+    that is not a manager at all, and ``None`` are all treated the same way:
+    unknown is never read as planned.
+    """
+    if getattr(manager, "_stopping", False):
+        return ("this manager had already begun stopping the server on "
+                "purpose — its own shutdown, restart or pause")
+    proc = getattr(manager, "_process", None)
+    if proc is None:
+        return None
+    try:
+        status = proc.poll()
+    except Exception:  # noqa: BLE001 — an unreadable status is not evidence
+        return None
+    if status == -signal.SIGTERM:
+        return ("the server had already exited on SIGTERM, so it had been "
+                "asked to stop — which is what stopping or restarting the "
+                "service does to every process in its group")
+    return None
+
+
 class LlamaManager(LlamaManagerInterface):
     """Manages the llama-server subprocess lifecycle."""
 
@@ -1688,53 +1744,8 @@ class LlamaManager(LlamaManagerInterface):
                 slot.release()
 
     def _planned_teardown_this_request_died_in(self) -> str | None:
-        """Words for the planned teardown an embedding request died in, or
-        None when nothing here says the server was asked to stop.
-
-        WHAT THIS EXISTS FOR. Measured on an installed machine 2026-09-19 and
-        reproduced on 2026-09-20: stopping the assistant while the background
-        documentation-embedding pass had a request in flight wrote
-        "embed() request failed: …" at ERROR. Nothing had failed. An ERROR line
-        that is routine teardown noise teaches a reader to skim ERROR lines,
-        and that is how a real embedding failure becomes invisible.
-
-        TWO FACTS ARE READ, and neither is a guess:
-
-        * ``_stopping`` — this manager has begun stopping the server itself
-          (its own stop(), a restart, or a pause). Set before the child is
-          signalled, so a request already in flight sees it.
-        * the child's EXIT STATUS. Stopping or restarting the service does not
-          reach this code first: the service manager signals every process in
-          the group, so the embedding server is gone while the daemon's own
-          shutdown path has not run yet — reproduced on 2026-09-20, where the
-          request's client timeout expired 373 ms BEFORE the daemon serviced
-          its own shutdown signal, and no flag inside the process could have
-          been true. What IS true, and measurable, is that the child had
-          already exited ON SIGTERM, which is a process that was ASKED to
-          stop. Any other exit — a crash, a SIGKILL, a non-zero status — is
-          NOT a planned teardown and keeps its ERROR, because a server that
-          died on its own is exactly what this level is for.
-
-        A child still running (``poll()`` is None) means there was a server
-        meant to answer, so the failure is a failure. An unreadable status is
-        treated the same way: unknown is never read as planned.
-        """
-        if getattr(self, "_stopping", False):
-            return ("this manager had already begun stopping the embedding "
-                    "server on purpose — its own shutdown, restart or pause")
-        proc = getattr(self, "_process", None)
-        if proc is None:
-            return None
-        try:
-            status = proc.poll()
-        except Exception:  # noqa: BLE001 — an unreadable status is not evidence
-            return None
-        if status == -signal.SIGTERM:
-            return ("the embedding server had already exited on SIGTERM, so "
-                    "it had been asked to stop — which is what stopping or "
-                    "restarting the service does to every process in its "
-                    "group")
-        return None
+        """This manager's own reading of :func:`planned_teardown_of`."""
+        return planned_teardown_of(self)
 
     def _embed_one_request(self, texts: list[str],
                            timeout: float) -> list[list[float]] | None:

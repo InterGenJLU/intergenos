@@ -2013,6 +2013,12 @@ class InterGenDaemon(InterGenDBusInterface):
                 "has_vision": model_has_vision,
             }
             self._llm = LLMRouter(llm_config)
+            # Hand the router the engine that serves it. The router never
+            # drives it; it asks one question when a request has already
+            # failed — was this a fault, or a stop someone asked for — so a
+            # deliberate stop is not recorded as an unreachable endpoint and
+            # then reported to the person as a dead model server.
+            self._llm.set_serving_engine(self._llama)
             # Wire the runtime engine-health reaction ladder. The detector (in
             # the LLM stream) feeds every generation's flags to the monitor's
             # counter via this sink; on sustained corruption the monitor runs

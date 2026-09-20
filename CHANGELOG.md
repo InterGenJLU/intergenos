@@ -225,6 +225,22 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **An engine that was asked to stop is not an engine that failed.** The
+  assistant's chat path had the same defect the embedding path had, and one
+  consequence the embedding path did not: when a model request died because the
+  engine had been stopped on purpose, the failure was written at error level
+  AND recorded as "the model endpoint could not be reached". That record is
+  what the assistant reads when it cannot serve a reply, so a stop the person
+  asked for could make it tell them their model server was not running and that
+  the service needed restarting. The chat path now asks the same measurement
+  the embedding path asks — through one shared function, not a second copy —
+  and when the answer is that the engine was asked to stop, the line is
+  informational, names the teardown, and records no transport failure. A
+  failure with no such answer is unchanged in every respect. The case where
+  this mattered most is pausing the assistant for a game: there the engine is
+  stopped deliberately and the assistant keeps running, so the record would
+  have outlived the stop and been read back to the person afterwards.
+
 - **Stopping the assistant is reported as a stop, not as a failure.** Stopping
   or restarting the assistant while it was catching up on its documentation
   index wrote an error line — `embed() request failed: …` — for a request that

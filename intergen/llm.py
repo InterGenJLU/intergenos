@@ -291,6 +291,14 @@ class LLMRouter(LLMInterface):
         )
         self._cloud_providers: dict[str, Any] = {}
 
+        # THE ENGINE THAT SERVES THIS ROUTER, when the caller has one to give.
+        # It is asked ONE question and never driven: whether a request that
+        # just failed died inside a teardown that was asked for. None — the
+        # default, and what every caller that wires nothing gets — means the
+        # question cannot be asked, and an unanswerable question is never read
+        # as "planned". See set_serving_engine.
+        self._serving_engine: Any = None
+
         self._api_call_count = 0
         self._last_call_info: dict[str, Any] | None = None
         # Token counts are populated by _parse_sse_stream; initialize here so a
@@ -495,11 +503,28 @@ class LLMRouter(LLMInterface):
             )
             response = urllib.request.urlopen(req, timeout=self._request_timeout)
         except Exception as e:
-            logger.error("Local LLM request failed: %s", e)
-            # Record WHY there will be no tokens, so the last-resort text can say
-            # "the server isn't running" instead of "could you rephrase", and so
-            # status() can report the engine as down rather than healthy.
-            self.note_transport_failure(f"{type(e).__name__}: {e}")
+            # WAS THIS A FAULT, OR A STOP SOMEONE ASKED FOR? The engine the
+            # daemon handed us answers that from two measured facts; with no
+            # engine wired the answer is None and everything below behaves
+            # exactly as it did before this question was asked.
+            from intergen.llama_manager import planned_teardown_of
+            planned = planned_teardown_of(getattr(self, "_serving_engine", None))
+            if planned is None:
+                logger.error("Local LLM request failed: %s", e)
+                # Record WHY there will be no tokens, so the last-resort text
+                # can say "the server isn't running" instead of "could you
+                # rephrase". Read at the one place that text is chosen.
+                self.note_transport_failure(f"{type(e).__name__}: {e}")
+            else:
+                logger.info(
+                    "the model request did not complete: %s — %s; this turn "
+                    "degrades and no transport failure is recorded", e, planned)
+                # DELIBERATELY NOT note_transport_failure(). An engine that was
+                # asked to stop is not an engine that failed, and recording it
+                # as unreachable is not a log-level detail: that record is what
+                # the last-resort text reads, so it would make the assistant
+                # tell the person their model server is not running about a
+                # stop they asked for. Measured 2026-09-20.
             # A MODEL CALL THAT GOT NO RESPONSE IS NOW ON THE RECORD. Until this line
             # the only trace of it was the log entry above, so a turn whose model call
             # never happened was indistinguishable, downstream, from one the model
@@ -516,6 +541,9 @@ class LLMRouter(LLMInterface):
                 "endpoint": self._endpoint,
                 "error_type": type(e).__name__,
                 "error": str(e),
+                # A reader of the trace has to be able to tell the two apart
+                # for the same reason a reader of the journal does.
+                "planned_teardown": planned,
             })
             return
         self.note_transport_ok()
@@ -881,6 +909,18 @@ class LLMRouter(LLMInterface):
     # statement about the CURRENT state, so a later successful request clears it
     # — one blip must not mark the session forever.
     _transport_error: str | None = None
+
+    def set_serving_engine(self, engine) -> None:
+        """Tell this router which engine serves it, or None to forget.
+
+        Wired by the daemon after construction, the same way the semantic-flag
+        sink is, because the daemon holds the chat engine's manager at exactly
+        that moment. The router never starts, stops or inspects the engine — it
+        asks ``intergen.llama_manager.planned_teardown_of`` one question when a
+        request has already failed, so that a stop the machine was asked for is
+        not recorded and reported as a fault.
+        """
+        self._serving_engine = engine
 
     def note_transport_failure(self, reason: str) -> None:
         """The model endpoint could not be reached (connection refused, timeout)."""
