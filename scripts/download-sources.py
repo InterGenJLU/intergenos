@@ -214,7 +214,15 @@ def _upstream_attempt(url: str, dest: str, timeout: int, have_pin: bool,
     exactly how 2026-09-19's two partials failed.
     """
     for tool, argv in (
-        ("wget", ["wget", "-q", "--timeout=30", "--prefer-family=IPv4", "-O", dest, url]),
+        # --tries=1 is load-bearing: wget's default is 20 internal retries,
+        # which it makes silently under -q. Measured 2026-09-20 with a local
+        # server that cut two transfers short — the project asked for ONE
+        # attempt and wget made three requests. The retry below then could not
+        # say how many times upstream had really been asked, and "FAILED after
+        # 3 upstream attempts" would have understated it by up to twentyfold.
+        # The bounded retry in download_file() is now the only retry there is.
+        ("wget", ["wget", "-q", "--tries=1", "--timeout=30",
+                  "--prefer-family=IPv4", "-O", dest, url]),
         ("curl", ["curl", "-sL", "--connect-timeout", "30",
                   "--proto", "=https,http", "--tlsv1.2", "-o", dest, url]),
     ):

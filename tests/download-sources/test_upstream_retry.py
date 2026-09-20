@@ -227,3 +227,32 @@ class TestTheBackoff:
         assert _ds.source_fetch_backoff() == _ds.DEFAULT_UPSTREAM_BACKOFF_SECONDS
         monkeypatch.setenv("SOURCE_FETCH_BACKOFF", "-4")
         assert _ds.source_fetch_backoff() == 0.0
+
+
+class TestTheStatedAttemptCountIsTheTruth:
+    """wget retries 20 times by default, silently under -q.
+
+    Measured 2026-09-20 against a local server that cut two transfers short:
+    the project asked for ONE attempt and wget made THREE requests, so the
+    failure line's attempt count would have described a fraction of what
+    upstream was actually asked. The fetcher pins wget to a single try so the
+    number it prints is the number of times upstream was contacted.
+    """
+
+    def test_the_wget_leg_asks_once_per_attempt(self, tmp_path, monkeypatch):
+        dest = tmp_path / "thing-1.0.tar.gz"
+        srv = _Server(["serve"])
+        monkeypatch.setattr(_ds.subprocess, "run", srv)
+        seen = []
+        real = _ds.subprocess.run
+
+        def spy(argv, **kwargs):
+            seen.append(list(argv))
+            return real(argv, **kwargs)
+
+        monkeypatch.setattr(_ds.subprocess, "run", spy)
+        _ds.download_file(UPSTREAM_URL, str(dest), expected_sha256=PAYLOAD_SHA)
+        wget_argv = [a for a in seen if a and a[0] == "wget"]
+        assert wget_argv, "the wget leg never ran"
+        for argv in wget_argv:
+            assert "--tries=1" in argv, argv
