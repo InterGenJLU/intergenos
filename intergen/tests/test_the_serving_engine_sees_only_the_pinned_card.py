@@ -222,18 +222,35 @@ def _free_port() -> int:
 
 
 @contextlib.contextmanager
-def _fake_server():
+def _fake_server(base_engine_installed=False):
     """An executable file standing in for the engine binary.
 
     start() is given this path explicitly, so engine selection never runs and
     the test does not depend on which llama-server builds the host carries.
+
+    The base engine's recipe path is ALSO pointed inside the temporary
+    directory, by default at a file that does not exist. A launch that takes no
+    card now asks whether a base engine is installed, and without this the
+    answer would come from whichever engines the machine running the tests
+    happens to carry — a result that differs between two machines and says
+    nothing about the code.
     """
     with tempfile.TemporaryDirectory() as tmp:
         path = os.path.join(tmp, "llama-server")
         with open(path, "w", encoding="utf-8") as fh:
             fh.write("#!/bin/sh\nexit 0\n")
         os.chmod(path, 0o755)
-        yield path
+        base = os.path.join(tmp, "base-llama-server")
+        if base_engine_installed:
+            with open(base, "w", encoding="utf-8") as fh:
+                fh.write("#!/bin/sh\nexit 0\n")
+            os.chmod(base, 0o755)
+        saved_base = serving_device.ENGINE_SERVER_PATHS["vulkan"]
+        serving_device.ENGINE_SERVER_PATHS["vulkan"] = base
+        try:
+            yield path
+        finally:
+            serving_device.ENGINE_SERVER_PATHS["vulkan"] = saved_base
 
 
 def _launch(device, device_pci, verdict):
@@ -308,9 +325,10 @@ def test_a_non_rocm_engine_is_not_filtered():
 
 def test_a_cpu_pinned_instance_of_another_backend_is_untouched():
     """The engine binary here is a stand-in, not the recipe's HIP path, so this
-    is a CPU-served instance of some OTHER backend. A CPU-served instance of
-    the ROCm build IS given a filter — one that shows it no card at all — and
-    that case is pinned in test_no_launch_of_the_hip_engine_is_split.py."""
+    is a processor-served instance of some OTHER backend, on a machine that
+    carries no base engine build. It must be given no ROCm filter. What a
+    machine that DOES carry the base engine does instead is pinned in
+    test_a_processor_served_instance_holds_nothing_on_any_card.py."""
     real_popen = llama_manager.subprocess.Popen
     _LaunchRecorder.real_popen = real_popen
     _LaunchRecorder.last_cmd = None
@@ -327,7 +345,9 @@ def test_a_cpu_pinned_instance_of_another_backend_is_untouched():
         llama_manager.subprocess.Popen = real_popen
     cmd = _LaunchRecorder.last_cmd
     assert cmd[cmd.index("--device") + 1] == "none", cmd
-    assert _LaunchRecorder.last_env is None, (
-        "a CPU instance of another backend must be given no ROCm filter: "
-        "ROCR_VISIBLE_DEVICES means nothing to the Vulkan or CUDA builds"
+    env = _LaunchRecorder.last_env
+    assert env is None or ROCR_VISIBLE_DEVICES not in env, (
+        "a processor-served instance of another backend must be given no ROCm "
+        "filter: ROCR_VISIBLE_DEVICES means nothing to the Vulkan or CUDA "
+        f"builds. What it was given: {env}"
     )

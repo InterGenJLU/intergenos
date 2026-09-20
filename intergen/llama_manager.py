@@ -659,18 +659,68 @@ class LlamaManager(LlamaManagerInterface):
         visibility_env: dict[str, str] = {}
         from intergen.serving_device import (
             ENGINE_SERVER_PATHS, NO_CARD_AT_ALL, ROCR_VISIBLE_DEVICES,
+            engine_that_opens_no_card,
             visibility_filter_for_an_unpinned_launch,
             visibility_filter_for_pinned_card)
         hip_engine = (server_path == ENGINE_SERVER_PATHS.get("hip"))
         pinned_to_rocm = bool(device and str(device).startswith("ROCm"))
 
-        if gpu_layers == 0 and hip_engine:
-            visibility_env = {ROCR_VISIBLE_DEVICES: NO_CARD_AT_ALL}
-            log.info(
-                "this instance serves on the CPU, so it is started with no "
-                "card visible to it (%s empty); the engine will say it found "
-                "no ROCm-capable device, which is the intended state and not "
-                "a failure", ROCR_VISIBLE_DEVICES)
+        if gpu_layers == 0:
+            # A LAUNCH THAT PUTS NO LAYERS ON A CARD MUST HOLD NOTHING ON ONE.
+            #
+            # Hiding the cards from the engine was not enough. Measured on the
+            # two-card AMD machine on 2026-09-20, on the running daemon: the
+            # embedding instance, started with --n-gpu-layers 0, --device none
+            # and an empty ROCR_VISIBLE_DEVICES exactly as the previous release
+            # ships it, still held /dev/kfd and BOTH render nodes open, with
+            # 28 KiB of video memory and 2088 KiB of system memory charged to
+            # each card. The ROCm engine links its runtime as a direct library
+            # dependency, so that runtime starts with the process — earlier
+            # than any flag or variable can reach.
+            #
+            # So the engine itself changes for such a launch. The engine
+            # preference this start may have been handed answers "which build
+            # should put the layers on the card", and a start with zero layers
+            # never asks that question: it passes --device none and uses no
+            # device name, so the rule that the binary which enumerated the
+            # devices must be the binary that launches has nothing to bind.
+            # What matters instead is which build can be made to open no card,
+            # and serving_device.engine_that_opens_no_card says which that is
+            # and what to add to the environment.
+            #
+            # When no such engine is installed the launch stays exactly as it
+            # was, keeps the ROCm filter it already had, and SAYS in the log
+            # that the cards are still opened — the residue is never silent.
+            try:
+                choice = engine_that_opens_no_card(server_path)
+            except Exception as exc:          # never fail a launch over this
+                choice = ("the engine for a launch that takes no card could "
+                          f"not be derived: {exc}")
+            if isinstance(choice, str):
+                if hip_engine:
+                    visibility_env = {ROCR_VISIBLE_DEVICES: NO_CARD_AT_ALL}
+                    log.warning(
+                        "this instance serves on the processor, and %s — so it "
+                        "keeps the engine it was given with no card visible to "
+                        "it (%s empty). That engine still opens every card and "
+                        "holds a small allocation on each, which this release "
+                        "cannot prevent for that build.",
+                        choice, ROCR_VISIBLE_DEVICES)
+                else:
+                    log.warning(
+                        "this instance serves on the processor, and %s; the "
+                        "launch is unchanged and the engine may open cards it "
+                        "puts no layers on", choice)
+            else:
+                chosen_path, chosen_env, reason = choice
+                if chosen_path != server_path:
+                    log.info(
+                        "engine for a processor-served instance: %s instead of "
+                        "%s — %s", chosen_path, server_path, reason)
+                else:
+                    log.info("processor-served instance: %s", reason)
+                server_path = chosen_path
+                visibility_env = dict(chosen_env)
         elif gpu_layers > 0 and pinned_to_rocm:
             try:
                 verdict = visibility_filter_for_pinned_card(

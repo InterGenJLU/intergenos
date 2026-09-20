@@ -30,12 +30,27 @@ from intergen.serving_device import select_serving_device, select_serving_engine
 
 
 class _CmdRecorder:
-    """Popen stand-in: record argv, then abort the launch."""
+    """Popen stand-in: record the LAUNCH argv, then abort the launch.
+
+    The launch path also asks an engine to LIST ITS DEVICES before deciding how
+    to start it, and that question goes through this same call. Only the
+    invocation carrying ``--model`` is the launch, so only that one is
+    recorded; any other invocation is refused with the same sentinel.
+
+    Refusing it — rather than letting it run — is deliberate. The engine this
+    machine has installed would answer with whatever cards this machine has,
+    which would make every assertion below depend on the hardware of whoever
+    runs the tests. A refused question is what the launch path already handles:
+    it applies no filter and says so, which is the behaviour these tests are
+    about.
+    """
 
     last_cmd: list[str] | None = None
 
     def __init__(self, cmd, **_kwargs):
-        _CmdRecorder.last_cmd = list(cmd)
+        argv = list(cmd)
+        if "--model" in argv:
+            _CmdRecorder.last_cmd = argv
         raise RuntimeError("test sentinel: stop after cmd construction")
 
 

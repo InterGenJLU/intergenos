@@ -1765,6 +1765,117 @@ def visibility_filter_for_pinned_card(
 # same verification as the pinned case: nothing is applied that re-enumeration
 # has not confirmed.
 
+#: The Vulkan loader's own switch for "load no graphics driver at all". The
+#: loader reads it before it opens any driver, so a process started with it
+#: never reaches a card — measured on the two-card AMD machine on 2026-09-20:
+#: the base engine started with it held NO open handle on /dev/dri or /dev/kfd
+#: and no allocation on either card, and still served embeddings normally.
+VK_LOADER_DRIVERS_DISABLE = "VK_LOADER_DRIVERS_DISABLE"
+
+#: The value that disables every graphics driver for one process.
+NO_GRAPHICS_DRIVER_AT_ALL = "*"
+
+
+def engine_that_opens_no_card(current_path: str | None) -> "tuple[str, dict[str, str], str] | str":
+    """The engine to launch an instance that puts no layers on any card.
+
+    Returns ``(server_path, environment_to_add, reason)``, or a plain sentence
+    when no such engine is installed and the caller must leave the launch as it
+    is.
+
+    WHY THE ENGINE CHANGES AND NOT JUST THE ENVIRONMENT. The ROCm and CUDA
+    engine builds link their GPU runtime as a direct library dependency, so
+    that runtime initialises while the process starts — before any command-line
+    flag is parsed and regardless of what the environment says. Measured on the
+    two-card AMD machine on 2026-09-20: the ROCm engine started with
+    ``--n-gpu-layers 0 --device none`` and an empty ROCR_VISIBLE_DEVICES still
+    held /dev/kfd and both render nodes open with 28 KiB of video memory and
+    2088 KiB of system memory on EACH card, and adding HIP_VISIBLE_DEVICES to
+    the same launch changed none of those numbers. The base engine reaches its
+    graphics backend through the Vulkan loader instead, and the loader has a
+    switch that stops it opening any driver at all.
+
+    WHAT A DEVICE LISTING CAN AND CANNOT SETTLE HERE. It cannot choose between
+    the two engines: measured the same day, ``--list-devices`` prints an EMPTY
+    list for the ROCm engine under an empty ROCR_VISIBLE_DEVICES AND for the
+    base engine under the loader switch, yet only the second of those two
+    processes opens no card, so a check on the listing alone would pass for
+    both and certify a state it cannot see. Which engine build it is settles
+    that, and is what this function reads first.
+
+    It CAN settle the remaining question, which is whether the loader switch
+    was understood. The base engine's only route to a card is the Vulkan
+    loader, so if the loader honours the switch it opens no driver and lists
+    nothing, and if it is too old to know the switch it opens its drivers and
+    lists the cards. Re-enumerating the chosen engine UNDER the environment
+    therefore distinguishes exactly the case that matters, and it is the same
+    thing the other filters in this file do. Without it, a machine whose loader
+    predates the switch would keep the whole residue and say nothing — which is
+    the silent failure this change exists to remove.
+
+    So the verification runs, and an engine that still lists a device under the
+    switch is REFUSED with a sentence rather than launched on a belief.
+
+    The preference is stated here rather than at the launch so that a machine
+    with no base engine installed gets a sentence it can put in its log rather
+    than a silently different launch.
+    """
+    base = ENGINE_SERVER_PATHS.get("vulkan")
+    if not base:
+        return "no base engine path is declared"
+    if not (os.path.isfile(base) and os.access(base, os.X_OK)):
+        return (f"the base engine is not installed at {base}, so this launch "
+                "keeps the engine it was given")
+    env = {VK_LOADER_DRIVERS_DISABLE: NO_GRAPHICS_DRIVER_AT_ALL}
+
+    # Re-enumerate the chosen engine UNDER that environment. An empty listing
+    # is what a loader that honoured the switch produces; a listing with a
+    # device in it is a loader that opened its drivers anyway, and launching
+    # under it would leave the residue with nothing said.
+    listed = _devices_listed_under(base, env)
+    if listed is None:
+        return ("the base engine could not be re-enumerated under the "
+                f"graphics-loader switch ({VK_LOADER_DRIVERS_DISABLE}), so "
+                "this launch keeps the engine it was given")
+    if listed:
+        return (f"the base engine still lists {len(listed)} device(s) with "
+                f"{VK_LOADER_DRIVERS_DISABLE} set "
+                f"({', '.join(listed)}) — this graphics loader does not honour "
+                "the switch, so the launch keeps the engine it was given")
+
+    if current_path == base:
+        reason = ("this instance puts no layers on any card, and the base "
+                  "engine reaches its graphics backend only through the "
+                  "Vulkan loader, which is told to open no driver; "
+                  "re-enumerated under that switch it lists no device")
+    else:
+        reason = ("this instance puts no layers on any card, so it is served "
+                  f"by the base engine at {base} rather than a build that "
+                  "links a GPU runtime it cannot avoid initialising; the "
+                  "Vulkan loader is told to open no driver, and re-enumerated "
+                  "under that switch the engine lists no device")
+    return (base, env, reason)
+
+
+def _devices_listed_under(server: str,
+                          env: dict[str, str]) -> "list[str] | None":
+    """The ggml device names ``server`` reports with ``env`` added.
+
+    Returns the list (empty when the engine reports none), or ``None`` when the
+    engine could not be asked at all — a refusal to answer is never read as an
+    answer of "no devices".
+    """
+    child_env = dict(os.environ)
+    child_env.update(env)
+    try:
+        proc = subprocess.run([server, "--list-devices"], env=child_env,
+                              capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    text = (proc.stdout or "") + (proc.stderr or "")
+    return [m.group("name") for m in _DEVICE_LINE_RE.finditer(text)]
+
+
 #: What ROCR_VISIBLE_DEVICES is set to for a launch that must open NO card.
 #: Measured on 2026-09-20: the engine then reports "failed to initialize ROCm:
 #: no ROCm-capable device is detected" and lists no device, which is the wanted

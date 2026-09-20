@@ -200,29 +200,45 @@ def _free_port():
 
 
 @contextlib.contextmanager
-def _fake_server(as_the_hip_engine):
+def _fake_server(as_the_hip_engine, base_engine_installed=False):
     """An executable standing in for the engine binary.
 
     When ``as_the_hip_engine`` is true the recipe-defined HIP path is pointed
     at it for the duration, because the launch decides whether this backend can
     be filtered from the BINARY, not from a device name — an unpinned launch
     has no device name to read.
+
+    The base engine's path is ALWAYS pointed somewhere inside the temporary
+    directory, and by default at a file that does not exist. Without that these
+    tests read whichever engines the machine running them happens to have
+    installed, and a launch that takes no card now asks whether a base engine
+    is present — so the result would differ between two machines and say
+    nothing about the code.
     """
     with tempfile.TemporaryDirectory() as tmp:
         path = os.path.join(tmp, "llama-server")
         with open(path, "w", encoding="utf-8") as fh:
             fh.write("#!/bin/sh\nexit 0\n")
         os.chmod(path, 0o755)
+        base = os.path.join(tmp, "base-llama-server")
+        if base_engine_installed:
+            with open(base, "w", encoding="utf-8") as fh:
+                fh.write("#!/bin/sh\nexit 0\n")
+            os.chmod(base, 0o755)
         saved = serving_device.ENGINE_SERVER_PATHS["hip"]
+        saved_base = serving_device.ENGINE_SERVER_PATHS["vulkan"]
+        serving_device.ENGINE_SERVER_PATHS["vulkan"] = base
         if as_the_hip_engine:
             serving_device.ENGINE_SERVER_PATHS["hip"] = path
         try:
             yield path
         finally:
             serving_device.ENGINE_SERVER_PATHS["hip"] = saved
+            serving_device.ENGINE_SERVER_PATHS["vulkan"] = saved_base
 
 
-def _launch(*, gpu_layers, device, device_pci, hip_engine, unpinned_verdict=None):
+def _launch(*, gpu_layers, device, device_pci, hip_engine,
+            unpinned_verdict=None, base_engine_installed=False):
     _LaunchRecorder.last_cmd = None
     _LaunchRecorder.last_env = None
     real_popen = llama_manager.subprocess.Popen
@@ -234,7 +250,7 @@ def _launch(*, gpu_layers, device, device_pci, hip_engine, unpinned_verdict=None
             lambda *a, **k: unpinned_verdict)
     try:
         with tempfile.NamedTemporaryFile(suffix=".gguf") as model, \
-                _fake_server(hip_engine) as server:
+                _fake_server(hip_engine, base_engine_installed) as server:
             mgr = LlamaManager()
             with contextlib.suppress(Exception):
                 mgr.start(model.name, port=_free_port(), gpu_layers=gpu_layers,
@@ -284,9 +300,16 @@ def test_an_unpinned_launch_of_another_backend_is_untouched():
     assert "--device" not in cmd, cmd
 
 
-def test_a_cpu_served_instance_opens_no_card():
+def test_a_cpu_served_instance_on_a_machine_with_only_this_engine_still_hides_the_cards():
+    """With no other engine build installed, the filter this file added still
+    applies. It does not stop the ROCm runtime opening the cards — measured on
+    2026-09-20, the instance still held 28 KiB of video memory and 2088 KiB of
+    system memory on each — but it is what such a machine can do, and
+    test_a_processor_served_instance_holds_nothing_on_any_card pins what a
+    machine that also carries the base engine does instead.
+    """
     cmd, env = _launch(gpu_layers=0, device="ROCm1", device_pci=BIG_CARD,
-                       hip_engine=True)
+                       hip_engine=True, base_engine_installed=False)
     assert env is not None, (
         "the CPU-served instance still inherits every card: it initialises "
         "the graphics runtime on each one and holds an allocation there")
@@ -298,8 +321,12 @@ def test_a_cpu_served_instance_opens_no_card():
         "the filter must ADD to the daemon's environment, not replace it")
 
 
-def test_a_cpu_served_instance_of_another_backend_is_untouched():
+def test_a_cpu_served_instance_of_another_backend_is_never_given_this_filter():
+    """ROCR_VISIBLE_DEVICES means nothing to a build that is not the ROCm one
+    and must never be set for it. Such a launch does get the graphics-loader
+    switch, which is a different variable and a different file's subject.
+    """
     cmd, env = _launch(gpu_layers=0, device="ROCm1", device_pci=BIG_CARD,
-                       hip_engine=False)
-    assert env is None
+                       hip_engine=False, base_engine_installed=False)
+    assert env is None or ROCR_VISIBLE_DEVICES not in env, env
     assert cmd[cmd.index("--device") + 1] == "none", cmd
