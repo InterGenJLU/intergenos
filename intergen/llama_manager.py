@@ -604,6 +604,53 @@ class LlamaManager(LlamaManagerInterface):
             log.info("Stopping existing llama-server before starting new one")
             self.stop()
 
+        # THE PINNED CARD IS THE ONLY CARD THIS ENGINE SEES.
+        #
+        # --device puts LAYERS on one card; it does not stop the ROCm runtime
+        # from opening every other card and putting allocations the layer pin
+        # does not cover — the vision projector among them — on whichever card
+        # the runtime calls device 0. Measured on the two-card AMD machine on
+        # 2026-09-20: device 0 is the card driving the desktop, so the
+        # projector landed on the display card while the offload plan charged
+        # it to the pinned card. Filtering at the runtime leaves no other card
+        # for a default allocation to reach.
+        #
+        # The device NAME is re-derived under the filter, because the pinned
+        # card becomes device 0 there: on this machine the 7900 XT is ROCm1
+        # unfiltered and ROCm0 filtered, and passing the unfiltered name under
+        # the filter would name a device that does not exist. The filter is
+        # used only when re-enumerating under it has been seen to leave
+        # exactly one device carrying the pinned card's PCI address; anything
+        # else launches exactly as before and says so in the log.
+        #
+        # Only the ROCm backend is filtered, and the ggml device name is what
+        # says which backend this is — ROCR_VISIBLE_DEVICES means nothing to
+        # the Vulkan or CUDA builds.
+        visibility_env: dict[str, str] = {}
+        if gpu_layers > 0 and device and str(device).startswith("ROCm"):
+            try:
+                from intergen.serving_device import (
+                    visibility_filter_for_pinned_card)
+                verdict = visibility_filter_for_pinned_card(
+                    device_pci, server_path)
+            except Exception as exc:          # never fail a launch over this
+                verdict = f"the visibility filter could not be derived: {exc}"
+            if isinstance(verdict, str):
+                log.warning(
+                    "serving on %s WITHOUT a device-visibility filter: %s — "
+                    "other cards stay visible to the engine and an allocation "
+                    "the layer pin does not cover can land on one of them",
+                    device, verdict)
+            else:
+                log.info("device-visibility filter: %s", verdict.reason)
+                if verdict.device != device:
+                    log.info(
+                        "the pinned card is %s unfiltered and %s under the "
+                        "filter; --device follows the filtered listing",
+                        device, verdict.device)
+                visibility_env = dict(verdict.env)
+                device = verdict.device
+
         # Build command.
         # WHY the chat-server flag defaults (M6 leg-3b — the conversational serving
         # profile for a SINGLE-USER embodiment box, not a multi-tenant endpoint):
@@ -913,6 +960,13 @@ class LlamaManager(LlamaManagerInterface):
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                # The child's environment is the daemon's PLUS the visibility
+                # filter, when one was verified. env= is passed only in that
+                # case: with no filter the child inherits exactly what it
+                # inherited before, so a box where the filter cannot be proven
+                # is byte-for-byte unchanged.
+                env=({**os.environ, **visibility_env}
+                     if visibility_env else None),
                 # PI-Z27 facet (ii): the child dies with the daemon (kernel-
                 # enforced), so it can never orphan and hold the port after an
                 # abnormal daemon teardown.

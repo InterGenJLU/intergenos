@@ -1568,3 +1568,174 @@ def release_runtime_pm(pci_id: str, prior: str | None,
     except OSError:
         return False
     return True
+
+
+# ── The visibility filter: the serving engine sees ONE card ─────────────────
+#
+# Pinning with ``--device`` tells the engine which card to PUT LAYERS ON. It
+# does not stop the engine from opening every other card: the ROCm runtime
+# enumerates and initialises all of them at startup, and allocations the layer
+# pin does not cover — the vision projector among them — land wherever the
+# runtime's own default device happens to be. Measured on the two-card AMD
+# machine on 2026-09-20: device 0 is the card driving the desktop, so the
+# projector went onto the display card while the offload plan's arithmetic
+# charged it to the pinned card. The plan was then describing a machine state
+# that did not exist, which is worse than a wrong number: it is a right-looking
+# number about the wrong card.
+#
+# The runtime's own filter is the fix. ROCR_VISIBLE_DEVICES removes cards at
+# the ROCr layer before anything above it sees them, and HIP_VISIBLE_DEVICES
+# filters what remains. With one card visible there is no other card for a
+# default allocation to land on.
+#
+# The whole risk is RENUMBERING. Under the filter the pinned card becomes
+# device 0, so a ``--device ROCm1`` computed from the UNFILTERED listing names
+# a device that no longer exists and the launch dies. The index the filter
+# takes is the ROCr enumeration index, and the name the engine wants is the
+# ggml device name: two different numbering schemes over the same cards. This
+# code does not assume they agree. It derives a candidate index from the
+# kernel's own KFD topology, then RE-ENUMERATES with the filter applied and
+# requires the result to be exactly one device carrying the PCI address of the
+# card that was chosen. The ``--device`` name and the architecture gate are
+# read from that filtered listing. If any of it does not hold, no filter is
+# applied and the launch is exactly what it is today.
+
+ROCR_VISIBLE_DEVICES = "ROCR_VISIBLE_DEVICES"
+HIP_VISIBLE_DEVICES = "HIP_VISIBLE_DEVICES"
+
+
+class VisibilityFilter(NamedTuple):
+    """One verified way to show the engine a single card.
+
+    ``env`` is what to add to the child's environment, ``device`` is the ggml
+    device name to pass as ``--device`` UNDER that environment, ``pci_id`` is
+    the card all of it refers to, and ``reason`` says what was verified — it
+    is written to the log either way, so a machine that is serving unfiltered
+    says so in the same words as one that is filtered.
+    """
+    env: dict[str, str]
+    device: str
+    pci_id: str
+    reason: str
+
+
+def rocr_index_by_pci(topology_root: str = KFD_TOPOLOGY_NODES
+                      ) -> dict[str, int]:
+    """Each AMD GPU's ROCr enumeration index, keyed by its PCI address.
+
+    ROCr numbers the GPU agents in KFD node order, skipping the CPU nodes the
+    driver also publishes (they carry ``gfx_target_version 0``). The node
+    directories are ``node<N>`` and are ordered by N as an INTEGER — sorting
+    them as strings puts node10 before node2, which on a machine with ten or
+    more nodes would hand back indices for the wrong cards.
+
+    An empty dict means nothing was readable, which a caller must treat as
+    "cannot tell", never as "no cards".
+    """
+    order: list[tuple[int, str]] = []
+    try:
+        names = os.listdir(topology_root)
+    except OSError:
+        return {}
+    for node in names:
+        m = re.fullmatch(r"(?:node)?(\d+)", node)
+        if not m:
+            continue
+        props = os.path.join(topology_root, node, "properties")
+        try:
+            with open(props, "r", encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+        except OSError:
+            continue
+        values: dict[str, int] = {}
+        for line in text.splitlines():
+            parts = line.split()
+            if len(parts) == 2 and parts[0] in ("gfx_target_version",
+                                                "location_id", "domain"):
+                try:
+                    values[parts[0]] = int(parts[1])
+                except ValueError:
+                    pass
+        if not values.get("gfx_target_version") or "location_id" not in values:
+            continue
+        order.append((int(m.group(1)),
+                      _pci_address_from_location(values.get("domain", 0),
+                                                 values["location_id"])))
+    order.sort()
+    return {pci: index for index, (_node, pci) in enumerate(order)}
+
+
+def _sole_device_in(list_output: str) -> tuple[str, str | None] | None:
+    """The one ggml device a listing reports, as ``(name, pci)``.
+
+    Returns None when the listing reports no device or more than one, because
+    either answer means the filter did not do what it was asked to do.
+    """
+    matches = list(_DEVICE_LINE_RE.finditer(list_output))
+    if len(matches) != 1:
+        return None
+    return matches[0].group("name"), matches[0].group("pci")
+
+
+def visibility_filter_for_pinned_card(
+        pci_id: str | None,
+        server: str | None,
+        *,
+        topology_root: str = KFD_TOPOLOGY_NODES,
+        base_env: "dict[str, str] | None" = None,
+        list_output: str | None = None,
+        timeout: int = 30) -> "VisibilityFilter | str":
+    """A verified single-card environment for the engine, or why there is none.
+
+    Returns a :class:`VisibilityFilter` when the filter has been PROVEN to
+    show exactly the intended card, and a plain sentence otherwise. The caller
+    launches unfiltered on a sentence — the behaviour before this existed —
+    and logs it, so an unfiltered serve is never silent.
+
+    ``list_output`` is the FILTERED listing, injectable so a test can exercise
+    every outcome without a card. When it is None the engine binary is run
+    with the candidate filter in its environment, which is the verification
+    this function is for.
+    """
+    if not pci_id:
+        return "no PCI address for the pinned card, so no card can be named"
+    index_by_pci = rocr_index_by_pci(topology_root)
+    if not index_by_pci:
+        return ("the kernel's KFD topology reported no AMD compute node, so "
+                "the runtime's device index cannot be derived")
+    if pci_id not in index_by_pci:
+        return (f"the pinned card {pci_id} is not among the AMD compute nodes "
+                f"the kernel publishes ({', '.join(sorted(index_by_pci))})")
+    index = index_by_pci[pci_id]
+    env = {ROCR_VISIBLE_DEVICES: str(index), HIP_VISIBLE_DEVICES: "0"}
+
+    if list_output is None:
+        if not server:
+            return "no engine binary to verify the filter with"
+        child_env = dict(base_env if base_env is not None else os.environ)
+        child_env.update(env)
+        try:
+            proc = subprocess.run([server, "--list-devices"],
+                                  capture_output=True, text=True,
+                                  timeout=timeout, env=child_env)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return (f"the engine could not be re-enumerated under "
+                    f"{ROCR_VISIBLE_DEVICES}={index}: {exc}")
+        list_output = (proc.stdout or "") + (proc.stderr or "")
+
+    sole = _sole_device_in(list_output)
+    if sole is None:
+        count = len(list(_DEVICE_LINE_RE.finditer(list_output)))
+        return (f"{ROCR_VISIBLE_DEVICES}={index} left {count} devices visible "
+                f"to the engine, not 1, so the filter does not name one card")
+    name, filtered_pci = sole
+    if filtered_pci is None:
+        return (f"the engine's filtered listing carries no PCI address, so "
+                f"{name} cannot be shown to be the pinned card {pci_id}")
+    if filtered_pci.lower() != pci_id.lower():
+        return (f"{ROCR_VISIBLE_DEVICES}={index} showed the engine "
+                f"{filtered_pci}, not the pinned card {pci_id}")
+    return VisibilityFilter(
+        env=env, device=name, pci_id=pci_id,
+        reason=(f"{ROCR_VISIBLE_DEVICES}={index} {HIP_VISIBLE_DEVICES}=0 "
+                f"leaves the engine exactly one device, {name} at {pci_id}"))

@@ -1213,6 +1213,21 @@ instructions are unchanged from R001.
 
 ### Fixed
 
+- The assistant's model uses only the graphics card it was given. Pinning the
+  card told the engine where to put the model's layers; it did not stop the
+  graphics runtime from opening every other card in the machine, and the parts
+  of the model the layer pin does not cover — the component that reads images —
+  were placed on whichever card the runtime happened to call the first one. On
+  a two-card machine that is the card driving the screen, so the assistant was
+  quietly using memory on the display card while its own plan said that memory
+  had been taken on the card it was pinned to. A plan that is arithmetically
+  correct about a machine state that does not exist is harder to catch than an
+  obviously wrong number. The engine is now started with the other cards hidden
+  from it, and the card's name is re-read under that filter, because a card
+  that was the second one becomes the first when it is the only one. If any
+  part of that cannot be confirmed on the machine in front of it, the engine
+  starts exactly as it did before and the reason is written to the log.
+
 - **Upgrading a download-helper package no longer deletes the application it
   installed.** A package such as the CUDA toolkit ships a small installer
   script; the application itself is fetched from the vendor by that script
