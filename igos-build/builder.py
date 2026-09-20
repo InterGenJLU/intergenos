@@ -13,6 +13,7 @@ Runs build phases for each package in dependency order. Handles:
 
 import datetime
 import os
+import re
 import shlex
 import shutil
 import stat
@@ -124,6 +125,66 @@ def _validate_tar_members(tarball_path: Path, dest_dir: Path, logger) -> bool:
         logger.error(f"Failed to inspect tar archive: {e}")
         return False
     return True
+
+
+def reprefix_pc_text(text: str, root: str) -> str:
+    """Return a .pc file whose COMPILER AND LINKER FLAGS point into `root`,
+    with its variable definitions left exactly as they are.
+
+    The two halves of a .pc file are read for different purposes and only one
+    of them may be re-prefixed:
+
+    * ``Cflags`` and ``Libs`` are handed to the compiler and the linker, which
+      must reach the copy inside the staging root. Every ``-I``/``-L`` here is
+      expanded and re-prefixed.
+    * the variable definitions (``prefix``, ``libdir``, and the
+      package-specific ones such as sane-backends' ``sanelibdir``) are what a
+      consumer's own build reads to compute WHERE IT WILL INSTALL, and it then
+      prepends DESTDIR to that answer. Measured on this machine 2026-09-19:
+      with those re-prefixed too, sane-airscan installed its backend into
+      ``$DESTDIR/<the whole staging path again>/usr/lib/sane`` and its own
+      staging assertion caught the half-install. They are left alone.
+    """
+    variables: dict[str, str] = {}
+
+    def expand(value: str) -> str:
+        for _ in range(8):  # .pc variables nest a few deep at most
+            new_value = re.sub(
+                r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}",
+                lambda m: variables.get(m.group(1), m.group(0)),
+                value,
+            )
+            if new_value == value:
+                return new_value
+            value = new_value
+        return value
+
+    def reroot(token: str) -> str:
+        m = re.match(r"^-([IL])(.*)$", token)
+        if not m:
+            return token
+        path = expand(m.group(2))
+        if not path.startswith("/") or path.startswith(root):
+            return token
+        return f"-{m.group(1)}{root}{path}"
+
+    out = []
+    for line in text.splitlines(keepends=True):
+        stripped = line.rstrip("\n")
+        var = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$", stripped)
+        if var:
+            variables[var.group(1)] = var.group(2)
+            out.append(line)
+            continue
+        field = re.match(r"^(Cflags|Cflags\.private|Libs|Libs\.private):(.*)$",
+                         stripped)
+        if field:
+            tokens = [reroot(t) for t in field.group(2).split()]
+            rewritten = f"{field.group(1)}: " + " ".join(tokens)
+            out.append(rewritten + line[len(stripped):])
+            continue
+        out.append(line)
+    return "".join(out)
 
 
 class BuildExecutor(PackageTracker):
@@ -273,6 +334,56 @@ class BuildExecutor(PackageTracker):
         else:
             env["PKG_CONFIG_LIBDIR"] = "/usr/lib/pkgconfig:/usr/lib64/pkgconfig:/usr/share/pkgconfig"
         env.pop("PKG_CONFIG_PATH", None)  # ensure only LIBDIR is used
+        # A STAGE-ONLY BUILD MUST SEE THE SIBLINGS IT ALREADY STAGED.
+        # --stage-only writes every package into ONE staging system root
+        # instead of the live filesystem, but nothing above pointed at that
+        # root: pkg-config searched the HOST's /usr/lib/pkgconfig, the
+        # compiler the HOST's /usr/include and the linker the HOST's
+        # /usr/lib. A package whose dependency was staged into the same root
+        # minutes earlier therefore could not find it and configure stopped
+        # — measured twice on a live machine 2026-09-19 (sane-airscan and
+        # simple-scan against a staged sane-backends), which is why those
+        # legs had to be driven in the chroot instead.
+        #
+        # In a chroot the staging root IS "/" and the host paths already ARE
+        # the staged ones, so nothing is added there; the tracked case has
+        # its own per-package DESTDIR block below and is untouched.
+        #
+        # WHY NOT PKG_CONFIG_SYSROOT_DIR, the obvious answer: it re-prefixes
+        # EVERY .pc file pkg-config reads, not only the staged ones. Measured
+        # on this machine 2026-09-19: with the sysroot set, the HOST's
+        # libxml-2.0.pc answered -I<staging root>/usr/include/libxml2, a
+        # directory that does not exist, and sane-backends — which had built
+        # against the host libxml2 a moment earlier — died on a missing
+        # libxml/parser.h. The sysroot variable is for a sysroot that holds a
+        # whole system; a staging root holds only what this run has staged.
+        #
+        # So the staged .pc files are COPIED into an overlay directory with
+        # their own /usr paths re-prefixed onto the staging root, and only
+        # that directory goes in front of the host's search path. Host .pc
+        # files are read exactly as they are.
+        #
+        # The linker gets -rpath-LINK, never -rpath: rpath-link resolves the
+        # dependencies of the libraries being linked at LINK time and writes
+        # nothing into the output, while -rpath would bake this machine's
+        # staging path into the shipped artifact's RUNPATH.
+        if not self.tracked and str(self.system_root) != "/":
+            root = str(self.system_root)
+            libdirname = "lib32" if pkg.elf_class == "32" else "lib"
+            staged_libs = [f"{root}/usr/{libdirname}"]
+            if pkg.elf_class != "32":
+                staged_libs.append(f"{root}/usr/lib64")
+            staged_pc = [f"{d}/pkgconfig" for d in staged_libs]
+            staged_pc.append(f"{root}/usr/share/pkgconfig")
+            overlay = self.staged_pkgconfig_overlay(staged_pc, root)
+            env["PKG_CONFIG_LIBDIR"] = ":".join(
+                [str(overlay), env["PKG_CONFIG_LIBDIR"]])
+            env["CPPFLAGS"] = (
+                f"-I{root}/usr/include " + env.get("CPPFLAGS", "")).strip()
+            ldflags = " ".join(
+                [f"-L{d}" for d in staged_libs]
+                + [f"-Wl,-rpath-link,{d}" for d in staged_libs])
+            env["LDFLAGS"] = (ldflags + " " + env.get("LDFLAGS", "")).strip()
         # GObject Introspection typelib path — needed by g-ir-scanner when
         # building GTK, GStreamer, and other GI-consuming packages
         env["GI_TYPELIB_PATH"] = "/usr/lib/girepository-1.0"
@@ -363,6 +474,43 @@ class BuildExecutor(PackageTracker):
             env["DESTDIR"] = str(self.system_root)
 
         return env
+
+    def staged_pkgconfig_overlay(self, pc_dirs, root: str) -> Path:
+        """Copy the staging root's .pc files into one directory, with their own
+        absolute paths re-prefixed onto the staging root.
+
+        A staged .pc says ``prefix=/usr`` because that is where the package
+        will live once installed, so reading it as-is sends the build to the
+        HOST's /usr. Re-prefixing only these copies — rather than setting
+        PKG_CONFIG_SYSROOT_DIR, which would re-prefix the host's .pc files too
+        — makes the staged sibling findable while leaving every host answer
+        exactly as the host wrote it.
+
+        The overlay is rebuilt on every call, so it always describes what is
+        staged at the moment this package's environment is made, and it lives
+        under the work directory: never inside the staging root, whose contents
+        become the package.
+        """
+        overlay = self.work_dir / ".staged-pkgconfig"
+        if overlay.exists():
+            shutil.rmtree(overlay)
+        overlay.mkdir(parents=True, exist_ok=True)
+        for d in pc_dirs:
+            src = Path(d)
+            if not src.is_dir():
+                continue
+            for pc in sorted(src.glob("*.pc")):
+                dest = overlay / pc.name
+                if dest.exists():
+                    continue  # first directory in the list wins, as in a search path
+                try:
+                    dest.write_text(reprefix_pc_text(pc.read_text(), root))
+                except OSError:
+                    # A staged .pc that cannot be read is reported by the build
+                    # that needs it; it must not take down every other package's
+                    # environment.
+                    continue
+        return overlay
 
     def phase_env(self, env: dict[str, str], phase_name: str) -> dict[str, str]:
         """Return the per-phase environment, scoping DESTDIR to the install phase.
