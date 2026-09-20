@@ -436,6 +436,52 @@ class InterGenDaemon(InterGenDBusInterface):
                             "M8-2: dispatch %s succeeded and the delivered answer is "
                             "wrong about it (%s) — not rewritten, see the glass row",
                             _tr.name, _reason)
+                # THE SINGLE WRITER ON THIS PATH. Record the DELIVERED answer
+                # in the conversation the next turn is assembled from, and in
+                # the verbatim transcript an ordinal question reads — the same
+                # thing the browser server does at its own delivery boundary
+                # (web_server, "The single writer"), for the same reason.
+                #
+                # Until this existed, every answering path inside the router
+                # wrote its own turn, and nine of the router's functions build
+                # a delivered answer without doing so. The web surface did not
+                # depend on that; this one did, so a path that forgot lost the
+                # turn on the command line and kept it in the browser — a
+                # defect that shows on one machine and hides on another.
+                # Measured 2026-09-20 with the real router and no model:
+                # "thanks" and "yes" were both answered, handled=True, and left
+                # the conversation empty, after which the assistant could not
+                # say what had just been said to it.
+                #
+                # It writes the FINAL text, past the identity guard and past
+                # the unconsumed-dispatch repair, so the buffer holds what the
+                # person actually received. The idempotency guard at the top of
+                # _append_history makes it a no-op for the paths that already
+                # wrote this exact exchange, so nothing is doubled; the write
+                # names its conversation for the same reason the browser
+                # server's does.
+                #
+                # IT CANNOT COST THE PERSON THEIR ANSWER. The whole turn runs
+                # under one catch-all below, so a failure in this bookkeeping
+                # would have replaced a good answer with "I encountered an
+                # error" — measured while writing this, against a router that
+                # does not implement the write at all. The answer is delivered
+                # either way and the failure is REPORTED, never swallowed: an
+                # error line names it and the trace carries a row saying this
+                # turn did not reach the conversation, so a later "it does not
+                # remember" has something to read.
+                if result.handled and response_text:
+                    try:
+                        self._router._append_history(
+                            message, response_text, state=self._conversation)
+                    except Exception as exc:
+                        log.error(
+                            "the delivered turn was NOT recorded in the "
+                            "conversation, so the next turn will not see it: "
+                            "%s: %s", type(exc).__name__, exc)
+                        glass.emit("delivery", "history_write_failed", detail={
+                            "error": f"{type(exc).__name__}: {exc}",
+                            "source": result.source})
                 glass.emit("delivery", "final", detail={
                     "text": response_text, "source": result.source,
                     "handled": result.handled, "used_llm": result.used_llm,

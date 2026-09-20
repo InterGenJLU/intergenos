@@ -238,6 +238,26 @@ landed is in the repository README, not here.
   default-application list naming Celluloid for video/webm and the common
   audio types (MP3, FLAC, Ogg, WAV).
 
+- **A turn the assistant answered is a turn it can be asked about.** On the
+  command line, and on every desktop surface that speaks to the assistant's
+  daemon, the exchange a person had was recorded by each answering path for
+  itself — and nine of the router's answering functions build a delivered
+  answer without doing so. Those turns never reached the conversation the next
+  turn is assembled from, nor the verbatim transcript that a question about the
+  conversation reads. The browser never depended on that: it records the
+  delivered answer once, at its own delivery boundary. The daemon now does the
+  same, so no answering path can lose a turn by forgetting to record it.
+  Measured on an integrated-graphics machine with the tree running as the
+  assistant's daemon: a person said "thanks", then asked what the first thing
+  they had asked was, and was told *The first thing you asked me was: "What was
+  the first thing I asked you?"* — the question quoted back as though it were
+  the whole conversation — while the same two turns in the browser answered
+  *Your first question was: "thanks"*. After the change both surfaces answer
+  the same. The record holds the final delivered text, so it matches what the
+  person actually saw, and recording an exchange that is already recorded
+  changes nothing, so nothing is stored twice. Recording also cannot cost
+  anyone their answer: a failure to record is now reported on its own — in the
+  log and in the decision trace — and the answer is still delivered.
 - An attached iPhone or iPad now pairs and mounts on an installed machine. The
   daemon that carries Apple-device traffic (`usbmuxd`) was started straight from
   a udev rule, and udev kills every process a rule starts once the event has
