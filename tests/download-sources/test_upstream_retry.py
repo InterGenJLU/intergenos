@@ -256,3 +256,32 @@ class TestTheStatedAttemptCountIsTheTruth:
         assert wget_argv, "the wget leg never ran"
         for argv in wget_argv:
             assert "--tries=1" in argv, argv
+
+
+class TestTheCurlLegCarriesNoRetryOfItsOwn:
+    """The pair to the wget assertion above, closing the other direction.
+
+    curl does not retry unless it is asked to, which is why the attempt count
+    is honest today. It stops being honest the moment someone adds --retry to
+    the curl leg to make it "more robust": the count printed in the failure
+    line would again describe fewer requests than were made, which is exactly
+    what wget's silent default did. The bounded retry in download_file() is the
+    only retry either tool gets, and this holds that.
+    """
+
+    def test_the_curl_leg_is_not_asked_to_retry(self, tmp_path, monkeypatch):
+        dest = tmp_path / "thing-1.0.tar.gz"
+        seen = []
+
+        def spy(argv, **kwargs):
+            seen.append(list(argv))
+            return subprocess.CompletedProcess(argv, 7, b"", b"connection refused")
+
+        monkeypatch.setenv("SOURCE_FETCH_ATTEMPTS", "1")
+        monkeypatch.setattr(_ds.subprocess, "run", spy)
+        _ds.download_file(UPSTREAM_URL, str(dest), expected_sha256=PAYLOAD_SHA)
+
+        curl_argv = [a for a in seen if a and a[0] == "curl"]
+        assert curl_argv, "the curl leg never ran"
+        for argv in curl_argv:
+            assert not any(a.startswith("--retry") for a in argv), argv
