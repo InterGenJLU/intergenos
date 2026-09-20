@@ -1178,7 +1178,36 @@ class RepoManager:
                 f"{pkg.get('repo')!r} has no url + no mirrors)"
             )
 
-        local_path = self.pkg_cache() / filename
+        # THE CACHE FILE IS NAMED FOR THE BUILD IT HOLDS, not for the name the
+        # index publishes. The published filenames carry no release
+        # (`forge-1.0.0.igos.tar.gz` -- all 1,126 entries measured 2026-08-21),
+        # so every release of a version landed on ONE path: downloading a new
+        # release wrote over the only local copy of the release it was
+        # replacing, and the pre-upgrade snapshot then had nothing to copy.
+        # Measured on an installed machine 2026-09-19: the cached
+        # forge-1.0.0.igos.tar.gz carried pkgrel=241 before `pkm upgrade forge`
+        # and pkgrel=245 after it, and the upgrade reported that no
+        # pre-upgrade copy of 241 was available. The URL still uses the
+        # published filename; only the local name changes, so two releases of
+        # a version can coexist and `pkm cache`'s own
+        # <name>-<version>-<release> parsing sees the shape it already expects.
+        #
+        # An index entry that carries no version cannot name a build, so that
+        # entry keeps the published filename: a name this code cannot justify
+        # would be a claim about bytes it has not identified.
+        _version = pkg.get("version")
+        if _version:
+            try:
+                _release = int(pkg.get("release", 1) or 1)
+            except (TypeError, ValueError):
+                _release = 1
+            local_name = f"{name}-{_version}-{_release}.igos.tar.gz"
+        else:
+            local_name = filename
+        local_path = self.pkg_cache() / local_name
+        # The shape written before this change, still on every machine that has
+        # upgraded. It is a cache-hit CANDIDATE, never an overwrite target.
+        legacy_path = self.pkg_cache() / filename
 
         # Use cached if checksum matches
         if local_path.exists():
@@ -1187,13 +1216,37 @@ class RepoManager:
                     from .output import human_size
                     reporter.step(
                         "Get",
-                        f"{filename}   {human_size(local_path.stat().st_size)} "
-                        f"(cached)",
+                        f"{local_path.name}   "
+                        f"{human_size(local_path.stat().st_size)} (cached)",
                     )
                     reporter.verify("sha256 matches signed index ✓")
                 return True, str(local_path)
             else:
                 local_path.unlink()  # Stale/corrupt cache or missing sha256
+        if legacy_path != local_path and legacy_path.exists():
+            # A legacy file only qualifies when it verifies against THIS
+            # build's sha256 from the signed index, which identifies one exact
+            # release. It is then renamed into the new shape, so the cache
+            # converges and that path stops being a collision target.
+            # A legacy file that does NOT verify is left exactly where it is:
+            # it is some other release, and it may be the only local copy of
+            # the build a rollback would need. Deleting it is what this change
+            # exists to stop.
+            if self._verify_checksum(legacy_path, pkg.get("sha256")):
+                try:
+                    legacy_path.replace(local_path)
+                except OSError:
+                    pass
+                else:
+                    if reporter:
+                        from .output import human_size
+                        reporter.step(
+                            "Get",
+                            f"{local_path.name}   "
+                            f"{human_size(local_path.stat().st_size)} (cached)",
+                        )
+                        reporter.verify("sha256 matches signed index ✓")
+                    return True, str(local_path)
 
         # Q6: walk mirrors in priority order; each mirror gets the full
         # retry-with-backoff budget before failover.

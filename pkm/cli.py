@@ -1238,11 +1238,13 @@ def build_parser():
         help="Manage the pkm download + rollback caches",
         description=(
             "Inspect and prune the pkm caches under /var/cache/pkm/: "
-            "packages/ (each upgrade adds a new archive and the old one "
-            "stays) and rollback/ (each `pkm upgrade` writes a "
-            "pre-upgrade snapshot so failed installs can be reverted). "
-            "One subcommand: clean (remove archives per policy; "
-            "--rollback switches target to the rollback cache)."
+            "packages/ (each archive is named for the build it holds, so an "
+            "upgrade adds the new release and the one it replaced stays) and "
+            "rollback/ (before each upgrade step, pkm copies the archive of "
+            "the release being replaced here, so a failed install can be "
+            "reverted; when no archive of that release is on the machine the "
+            "step says so instead). One subcommand: clean (remove archives "
+            "per policy; --rollback switches target to the rollback cache)."
         ),
     )
     p_cache_sub = p_cache.add_subparsers(dest="cache_action", metavar="action")
@@ -1255,8 +1257,9 @@ def build_parser():
     p_cache_clean_mode.add_argument(
         "--keep-current", action="store_true", dest="cache_keep_current",
         help="Default. Per package: keep the archive matching the installed "
-             "version; remove others. Packages not installed have all their "
-             "cached archives removed.",
+             "version and release, and the previous release of that version "
+             "(the one a rollback restores from); remove others. Packages "
+             "not installed have all their cached archives removed.",
     )
     p_cache_clean_mode.add_argument(
         "--keep", type=int, metavar="N", dest="cache_keep_n",
@@ -1272,9 +1275,9 @@ def build_parser():
         help="Operate on /var/cache/pkm/rollback/ instead of the packages "
              "cache. Per package: keep the most recent rollback archive for "
              "installed packages; remove older entries (and all entries for "
-             "packages no longer installed). Each `pkm upgrade` writes a "
-             "fresh archive here, so without periodic cleanup the directory "
-             "grows unbounded.",
+             "packages no longer installed). An upgrade adds an archive here "
+             "whenever the replaced release is available locally, so without "
+             "periodic cleanup the directory grows unbounded.",
     )
 
     # The waiting options must work in BOTH spellings, `pkm --wait install foo`
@@ -2922,6 +2925,24 @@ def cmd_upgrade(db, args):
                 "a dependency its new release introduces could not be installed"))
             continue
 
+        # THE SNAPSHOT IS TAKEN BEFORE THE DOWNLOAD, not merely before the
+        # remove. Its source is the cached archive of the release being
+        # replaced, and the download writes into that same cache. While this
+        # ran after the download, the two raced over one directory and the
+        # download won: measured on an installed machine 2026-09-19,
+        # `pkm upgrade forge --yes` exited 0 saying no pre-upgrade copy of
+        # 1.0.0-241 was available, because the cached archive it would have
+        # copied had already been replaced by 1.0.0-245's bytes. Release-
+        # qualified cache names (see repo.download_package) stop the two
+        # colliding; taking the copy first means the order no longer has to be
+        # reasoned about at all. Missing archive → rollback unavailable for
+        # this package, said on this step.
+        rollback_saved = _save_rollback_archive(
+            installed_pkg["name"],
+            installed_pkg["version"],
+            installed_pkg.get("release", 1),
+        )
+
         if remote_pkg.get("local_archive"):
             # The file was checked (identity, trust, direction, dependencies)
             # before the plan; its sha256 rides into the install-time re-hash.
@@ -2934,16 +2955,6 @@ def cmd_upgrade(db, args):
                 remote_pkg["name"], f"its archive could not be downloaded: {dl_result}"))
             continue
 
-        # Q1 (O-007): save the old archive to the rollback cache BEFORE
-        # remove. The current pkg-cache archive (either filename shape —
-        # see _cached_old_archive) becomes the restore source on
-        # install-failure (covered below). Missing archive → rollback
-        # unavailable for this package; coverage was reported once above.
-        rollback_saved = _save_rollback_archive(
-            installed_pkg["name"],
-            installed_pkg["version"],
-            installed_pkg.get("release", 1),
-        )
         rollback_archive, rollback_sha = (
             rollback_saved if rollback_saved is not None else (None, None)
         )
@@ -2952,11 +2963,17 @@ def cmd_upgrade(db, args):
             # answer when no archive of the replaced release is cached — but
             # writing nothing SILENTLY leaves a person believing the rollback
             # cache covers this step, which is the same mistake in a quieter
-            # voice. This is an INFO line, not a warning: on a mirror-driven
-            # upgrade the download cache holds the INCOMING archive by now, so
-            # having no copy of the outgoing release is the ordinary case and
-            # not something the person did wrong. The line names the release
-            # so it cannot be mistaken for a different step's.
+            # voice. The line names the release so it cannot be mistaken for a
+            # different step's.
+            #
+            # This USED to be the ordinary case, because the download had
+            # already overwritten the outgoing release's archive by the time
+            # this ran. It is not ordinary any more: the copy is taken before
+            # the download and the two releases no longer share a filename. It
+            # remains an INFO line rather than a warning because the cases that
+            # still reach it are legitimate — the package was installed from a
+            # local archive that was never cached, or `pkm cache clean` removed
+            # it — and none of them is something the person did wrong.
             emit_info(
                 f"no pre-upgrade copy of {installed_pkg['name']} "
                 f"{txn.format_vr(installed_pkg)} was available; rollback for "
@@ -5598,10 +5615,14 @@ def cmd_cache(db, args):
     """pkm cache <action> — manage the pkm download + rollback caches.
 
     Two cache directories under /var/cache/pkm/:
-      packages/   each upgrade adds a fresh archive (the primary
-                  download cache that `pkm install` reads).
-      rollback/   each `pkm upgrade` writes a pre-upgrade snapshot
-                  so failed installs can be reverted.
+      packages/   the primary download cache that `pkm install` reads.
+                  Each archive is named for the build it holds, so an
+                  upgrade adds the new release beside the one it
+                  replaced instead of writing over it.
+      rollback/   before each upgrade step, the archive of the release
+                  being replaced is copied here, so a failed install can
+                  be reverted. When no archive of that release is on the
+                  machine, the step says so in place of writing a file.
 
     Subcommands:
       clean   Remove cached archives by policy. Default target is the
@@ -5629,10 +5650,11 @@ def cmd_cache_clean(db, args):
     for packages no longer installed.
 
     --keep-current  Per package: keep the archive matching the installed
-                    version and release (the one that can serve `pkm reinstall`);
-                    remove all other versions and releases. For packages NOT
-                    currently installed, all cached archives are
-                    removed (no rollback target to preserve).
+                    version and release (the one that can serve `pkm reinstall`)
+                    AND the previous release of that version, which is what an
+                    upgrade's pre-upgrade snapshot copies. Remove everything
+                    else. For packages NOT currently installed, all cached
+                    archives are removed (no rollback target to preserve).
     --keep N        Per package: keep the N most-recent archives by
                     mtime; remove older ones. Useful when the operator
                     wants more than one rollback target available.
@@ -5717,33 +5739,45 @@ def cmd_cache_clean(db, args):
             entries.sort(key=lambda e: e[3], reverse=True)
             to_remove.extend(e[0] for e in entries[keep_n:])
     else:
-        # Default: --keep-current.
+        # Default: --keep-current, WHICH KEEPS THE PREVIOUS RELEASE TOO.
+        #
+        # The previous release is not a spare copy, it is the rollback source:
+        # `pkm upgrade` snapshots the archive of the release it is replacing,
+        # and that archive is exactly the one a clean that kept only the
+        # installed release had just deleted. Keeping one build behind is what
+        # makes the rollback cache's promise survive a clean, and the cost is
+        # one archive per installed package. Exactly one: this keeps the
+        # highest release BELOW the installed one and nothing older.
         for name, entries in by_pkg.items():
             installed = installed_by_name.get(name)
-            if installed:
-                installed_ver = installed["version"]
-                installed_release = int(installed.get("release", 1))
-                matching = [e for e in entries
-                            if e[1] == installed_ver and e[2] == installed_release]
-                if matching:
-                    matching.sort(key=lambda e: e[3], reverse=True)
-                    keep_path = matching[0][0]
-                    to_remove.extend(
-                        e[0] for e in entries if e[0] != keep_path
-                    )
-                else:
-                    # No archive matches installed version and release (installed
-                    # via --archive then archive evicted, perhaps).
-                    # Keep the most-recent archive in case the operator
-                    # wants to roll forward to it.
-                    entries.sort(key=lambda e: e[3], reverse=True)
-                    keep_path = entries[0][0]
-                    to_remove.extend(
-                        e[0] for e in entries if e[0] != keep_path
-                    )
-            else:
+            if not installed:
                 # Package not installed — no rollback target to preserve.
                 to_remove.extend(e[0] for e in entries)
+                continue
+            installed_ver = installed["version"]
+            installed_release = int(installed.get("release", 1))
+            matching = [e for e in entries
+                        if e[1] == installed_ver and e[2] == installed_release]
+            keep_paths = set()
+            if matching:
+                matching.sort(key=lambda e: e[3], reverse=True)
+                keep_paths.add(matching[0][0])
+            else:
+                # No archive matches installed version and release (installed
+                # via --archive then archive evicted, perhaps).
+                # Keep the most-recent archive in case the operator
+                # wants to roll forward to it.
+                entries.sort(key=lambda e: e[3], reverse=True)
+                keep_paths.add(entries[0][0])
+            # The rollback candidate: the same version's highest release below
+            # the installed one. A different version is not what an upgrade of
+            # this build would have replaced, so it is not kept on this rule.
+            previous = [e for e in entries
+                        if e[1] == installed_ver and e[2] < installed_release]
+            if previous:
+                previous.sort(key=lambda e: e[2], reverse=True)
+                keep_paths.add(previous[0][0])
+            to_remove.extend(e[0] for e in entries if e[0] not in keep_paths)
 
     if not to_remove:
         emit_info("Nothing to clean (cache state matches policy).")
