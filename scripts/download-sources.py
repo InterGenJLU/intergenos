@@ -22,6 +22,7 @@ import argparse
 import hashlib
 import json
 import os
+import shlex
 import subprocess
 import sys
 import time
@@ -585,6 +586,67 @@ def generate_sha256sums(sources_dir: Path, dest_path: Path) -> None:
     print(f"  SHA256SUMS written: {len(sums)} entries")
 
 
+def regenerate_remote_sha256sums(mirror_host: str, remote_dir: str,
+                                 ssh_port: str, ssh_key: str, timeout: int = 3600) -> int:
+    """Re-derive SHA256SUMS on the mirror host over the WHOLE served directory.
+
+    Returns the number of lines the new file has, or -1 if it could not be
+    written. The upload uploads only the files it brought; the served directory
+    holds everything ever published there, so a sums file generated from the
+    upload alone describes a subset. Measured 2026-09-20: the served directory
+    held 802 names and its SHA256SUMS had been written on 2026-05-30, so it had
+    silently described a shrinking fraction of the directory for months. A
+    checksum file that falls behind reads as verification while verifying
+    something nobody has counted, which is worse than having none.
+
+    The work happens on the host because the bytes are there; pulling 8 GB back
+    to hash it locally would prove the same thing at a hundred times the cost.
+    """
+    script = (
+        f"cd {shlex.quote(remote_dir)} && "
+        "ls -A | grep -v '^SHA256SUMS$' | LC_ALL=C sort > .sha256sums.names && "
+        "xargs -d'\n' -a .sha256sums.names sha256sum > .SHA256SUMS.new && "
+        "mv .SHA256SUMS.new SHA256SUMS && "
+        "rm -f .sha256sums.names && "
+        "wc -l < SHA256SUMS"
+    )
+    result = subprocess.run(
+        ["ssh", "-p", ssh_port, "-i", ssh_key,
+         "-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes",
+         mirror_host, script],
+        capture_output=True, text=True, timeout=timeout,
+    )
+    if result.returncode != 0:
+        print(f"  SHA256SUMS regeneration FAILED: {result.stderr.strip()[-300:]}", flush=True)
+        return -1
+    for line in reversed(result.stdout.strip().splitlines()):
+        line = line.strip()
+        if line.isdigit():
+            return int(line)
+    print(f"  SHA256SUMS regeneration gave no line count: {result.stdout.strip()[-300:]}", flush=True)
+    return -1
+
+
+def read_back_sha256sums(public_url: str, timeout: int = 300) -> tuple:
+    """Fetch the served SHA256SUMS over https and return (lines, sha256).
+
+    Reading it back over the URL a user reads is the point: the regeneration
+    ran over ssh as the account that owns the files, which says nothing about
+    what the web server actually serves. Returns (-1, "") when it cannot be
+    fetched.
+    """
+    url = f"{public_url.rstrip('/')}/SHA256SUMS"
+    result = subprocess.run(
+        ["curl", "-sfL", "--connect-timeout", "30", "--proto", "=https", url],
+        capture_output=True, timeout=timeout,
+    )
+    if result.returncode != 0 or not result.stdout:
+        print(f"  SHA256SUMS read-back FAILED from {url} (curl rc={result.returncode})", flush=True)
+        return -1, ""
+    body = result.stdout
+    return len(body.splitlines()), hashlib.sha256(body).hexdigest()
+
+
 def cmd_mirror_upload(tiers: list[str], mirror_host: str = "", mirror_path: str = "",
                       dry_run: bool = False):
     """Upload local source tarballs to the VPS source mirror.
@@ -673,6 +735,8 @@ def cmd_mirror_upload(tiers: list[str], mirror_host: str = "", mirror_path: str 
         print(f"  [DRY RUN] Would upload {len(to_upload)} files ({total_size / 1024 / 1024:.1f} MB total)")
         print(f"  [DRY RUN] Destination: {mirror_host or '<--mirror-host required>'}:{upload_dir}/")
         print(f"  [DRY RUN] Served at:   {public_url}/ — where source fetches read")
+        print(f"  [DRY RUN] Would then re-derive SHA256SUMS on {mirror_host or '<host>'} over the whole")
+        print(f"  [DRY RUN] served directory {upload_dir}/ and read it back from {public_url}/SHA256SUMS")
         for item in to_upload[:10]:
             print(f"    {item['filename']} ({item['size'] / 1024 / 1024:.1f} MB)")
         if len(to_upload) > 10:
@@ -721,6 +785,30 @@ def cmd_mirror_upload(tiers: list[str], mirror_host: str = "", mirror_path: str 
             print(result.stdout[-500:] if len(result.stdout) > 500 else result.stdout)
             print(f"\n  UPLOAD COMPLETE — {len(to_upload)} files synced to {remote_dest}")
             print(f"  Public URL: {public_url}/")
+
+            # The upload is not finished until the served directory's own index
+            # describes it. This fails the command rather than warning: a run
+            # that reports success while the index still describes the old
+            # directory is exactly the silent drift being closed here.
+            print(f"\n  Re-deriving SHA256SUMS on {mirror_host} over the whole served directory...")
+            lines = regenerate_remote_sha256sums(mirror_host, upload_dir, ssh_port, ssh_key)
+            if lines < 0:
+                print("  UPLOAD INCOMPLETE — the files are in place but the served index was not"
+                      " regenerated; re-run the upload or regenerate it by hand before relying on it.")
+                sys.exit(1)
+            print(f"  OK — SHA256SUMS regenerated: {lines} lines")
+
+            back_lines, back_sha = read_back_sha256sums(public_url)
+            if back_lines < 0:
+                print("  UPLOAD INCOMPLETE — the index was regenerated but could not be read back over"
+                      " https; the web server may not be serving what was just written.")
+                sys.exit(1)
+            print(f"  OK — read back from {public_url}/SHA256SUMS: {back_lines} lines,"
+                  f" sha256 {back_sha}")
+            if back_lines != lines:
+                print(f"  MISMATCH — the host wrote {lines} lines and the served copy has"
+                      f" {back_lines}; the served directory is not the directory that was written.")
+                sys.exit(1)
         else:
             print(f"  rsync stderr: {result.stderr[-500:]}")
             print(f"  rsync exit code: {result.returncode}")
