@@ -225,6 +225,28 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **A connection the model server refused is not asked again, and a server that
+  is not listening is reported once.** A request that comes back with no tokens
+  reads to the quality gate as an empty answer, and an empty answer is worth
+  retrying with more room — which it is not, when the reason there were no
+  tokens is that nothing accepted the connection. Measured on an
+  integrated-graphics machine with the tree running as the daemon: one stopped
+  engine produced seven identical "connection refused" error lines in 140
+  milliseconds, one per attempt, each also recorded as a separate transport
+  failure. The reply ladder now skips the second local attempt when the connect
+  was refused, and the failure is written at error level once per outage and at
+  debug level on repeats, with the next successful request reopening the
+  episode so a later outage is reported again. A timed-out attempt is the
+  opposite case and keeps its retry: something accepted the connection and may
+  well answer with more room, which is what the retry exists for. Which kind of
+  failure it was is decided in one place, from the error number rather than the
+  message text, so the classification does not depend on the system language.
+  Escalation to a configured cloud provider is unchanged and still happens when
+  the local connect was refused — that is precisely when it is the one route
+  left to an answer — and the decision trace still carries a row for every
+  attempt that got no response, now naming which kind of failure it was.
+  Re-measured the same way after the change: seven error lines became one.
+
 - **An engine that was asked to stop is not an engine that failed.** The
   assistant's chat path had the same defect the embedding path had, and one
   consequence the embedding path did not: when a model request died because the

@@ -12,6 +12,7 @@ Ported from a prior internal AI assistant project. Key differences:
 from __future__ import annotations
 
 import json
+import socket
 import logging
 import re
 import time
@@ -255,6 +256,44 @@ def build_system_prompt(query_type: str = "general",
 # streaming buffer only engages when leading content begins with — or could
 # still grow into — one of these, so normal responses stream unbuffered.
 _DIALECT_OPENERS = ("<function=", "<|action_start|>", "<|plugin|>")
+
+
+def transport_failure_kind(exc: BaseException) -> str:
+    """Which kind of transport failure this is: "refused", "timeout" or
+    "other".
+
+    ONE PLACE DECIDES, because two callers act on the answer: the ladder in
+    chat(), which must not retry a connection nobody accepted, and the log,
+    which says what happened.
+
+    A REFUSED connect is a statement that nothing is listening on that port at
+    that moment. A TIMED-OUT request is the opposite: something accepted the
+    connection and has not answered yet, which is exactly the case the retry
+    with more room was written for. Everything else is "other" and behaves as
+    it did before this function existed — unknown is never read as refused,
+    because reading it that way would drop a retry that used to happen.
+
+    urllib wraps the real error in URLError, so the wrapped reason is unwrapped
+    once before it is read. The refused case is decided on the ERRNO, never on
+    the message text: the text of a system error is locale-dependent and the
+    number is not.
+    """
+    import errno as _errno
+
+    seen = exc
+    for _ in range(4):                      # bounded: reason chains are short
+        if isinstance(seen, ConnectionRefusedError):
+            return "refused"
+        if isinstance(seen, (socket.timeout, TimeoutError)):
+            return "timeout"
+        if isinstance(seen, OSError) and seen.errno == _errno.ECONNREFUSED:
+            return "refused"
+        reason = getattr(seen, "reason", None)
+        if reason is None or reason is seen or not isinstance(reason,
+                                                              BaseException):
+            break
+        seen = reason
+    return "other"
 
 
 class LLMRouter(LLMInterface):
@@ -509,12 +548,26 @@ class LLMRouter(LLMInterface):
             # exactly as it did before this question was asked.
             from intergen.llama_manager import planned_teardown_of
             planned = planned_teardown_of(getattr(self, "_serving_engine", None))
+            kind = transport_failure_kind(e)
             if planned is None:
-                logger.error("Local LLM request failed: %s", e)
+                # ONE LINE PER DOWN-EPISODE. The fact is "nothing is answering
+                # on that port"; it does not become more true, or more useful
+                # to a reader, by being written once per attempt. Measured
+                # 2026-09-20: one stopped engine produced seven identical
+                # error lines in 140 ms. Repeats go to debug, and a later
+                # success reopens the episode.
+                if not self._transport_reported:
+                    self._transport_reported = True
+                    logger.error("Local LLM request failed: %s", e)
+                else:
+                    logger.debug("Local LLM request failed again (%s): %s",
+                                 kind, e)
                 # Record WHY there will be no tokens, so the last-resort text
                 # can say "the server isn't running" instead of "could you
-                # rephrase". Read at the one place that text is chosen.
-                self.note_transport_failure(f"{type(e).__name__}: {e}")
+                # rephrase". Read at the one place that text is chosen, and by
+                # the reply ladder, which must not retry a refused connect.
+                self.note_transport_failure(f"{type(e).__name__}: {e}",
+                                            kind=kind)
             else:
                 logger.info(
                     "the model request did not complete: %s — %s; this turn "
@@ -544,6 +597,10 @@ class LLMRouter(LLMInterface):
                 # A reader of the trace has to be able to tell the two apart
                 # for the same reason a reader of the journal does.
                 "planned_teardown": planned,
+                # Every attempt that got no response still leaves its own row:
+                # the log line is deduplicated, the record is not, so a reader
+                # counting attempts can still count them.
+                "transport": kind,
             })
             return
         self.note_transport_ok()
@@ -909,6 +966,16 @@ class LLMRouter(LLMInterface):
     # statement about the CURRENT state, so a later successful request clears it
     # — one blip must not mark the session forever.
     _transport_error: str | None = None
+    # WHICH KIND the current failure is, so the ladder can act on it without
+    # re-deriving it from the message text.
+    _transport_error_kind: str | None = None
+    # Whether THIS down-episode has already been reported. A server that is not
+    # listening is one fact, and the router may ask it a dozen times inside one
+    # turn (the reply ladder, then the router's own corrective regenerations);
+    # reporting it once per attempt turned one fact into a block of errors.
+    # Cleared by note_transport_ok, so the NEXT episode is reported again. This
+    # is the shape llama_manager already uses for a server that is down.
+    _transport_reported: bool = False
 
     def set_serving_engine(self, engine) -> None:
         """Tell this router which engine serves it, or None to forget.
@@ -922,13 +989,18 @@ class LLMRouter(LLMInterface):
         """
         self._serving_engine = engine
 
-    def note_transport_failure(self, reason: str) -> None:
+    def note_transport_failure(self, reason: str, *,
+                               kind: str = "other") -> None:
         """The model endpoint could not be reached (connection refused, timeout)."""
         self._transport_error = reason or "unreachable"
+        self._transport_error_kind = kind
 
     def note_transport_ok(self) -> None:
-        """A request reached the model endpoint — clear any recorded failure."""
+        """A request reached the model endpoint — clear any recorded failure,
+        and with it the down-episode this router has already reported."""
         self._transport_error = None
+        self._transport_error_kind = None
+        self._transport_reported = False
 
     @property
     def transport_error(self) -> "str | None":
@@ -990,13 +1062,11 @@ class LLMRouter(LLMInterface):
         max_tok = max_tokens or self._estimate_max_tokens(user_msg)
 
         # Attempt 1: local
-        t0 = time.monotonic()
         tokens = list(self.stream(messages, max_tokens=max_tok,
                                    temperature=temperature,
                                    image_data=image_data))
         response_text = self._strip_reasoning_leak(
             self._recover_empty_content("".join(tokens)))
-        elapsed = (time.monotonic() - t0) * 1000
 
         quality_issue = self._gate_reason(response_text, user_msg)
         if not quality_issue:
@@ -1008,34 +1078,59 @@ class LLMRouter(LLMInterface):
                 semantic_flags=list(self._last_semantic_flags),
             )
 
-        # Empty (timed out / no generation) or truncated (hit the cap mid-reply):
-        # give the model more room and retry.
-        if quality_issue in ("empty", "truncated"):
-            logger.warning("Local model response %s — retrying with higher "
-                           "max_tokens.", quality_issue)
-            max_tok = min(max_tok * 2, 8192)
+        # NOBODY ACCEPTED THE CONNECTION, so there is nothing to ask the LOCAL
+        # server again. A request that gets no tokens reads to the gate as an
+        # "empty" answer, and an empty answer is worth retrying with more room
+        # — unless the reason there were no tokens is that nothing is listening
+        # on that port. Then the second attempt is a second refused connect a
+        # few milliseconds later, and the ladder's own agentic half already
+        # says so in as many words: "None means no answer was obtained at all
+        # (timeout, connection refused) and retrying the same request buys
+        # nothing". Measured 2026-09-20: one stopped engine, seven attempts.
+        #
+        # A TIMED-OUT attempt is the opposite case and keeps its retry — the
+        # server accepted the connection and may well answer with more room,
+        # which is what the retry was written for.
+        #
+        # ONLY THE LOCAL RETRY IS SKIPPED. What follows this block is cloud
+        # escalation, and a local server that is not listening is precisely
+        # when a configured cloud provider is the one route left to an answer;
+        # returning here instead would have taken that route away in the one
+        # case it exists for.
+        if self._transport_error_kind == "refused":
+            logger.info(
+                "not retrying the local server: the connection was refused, "
+                "so nothing is listening and a second attempt cannot be "
+                "answered either")
+        else:
+            # Empty (timed out / no generation) or truncated (hit the cap
+            # mid-reply): give the model more room and retry.
+            if quality_issue in ("empty", "truncated"):
+                logger.warning("Local model response %s — retrying with higher "
+                               "max_tokens.", quality_issue)
+                max_tok = min(max_tok * 2, 8192)
 
-        logger.warning("Local LLM quality issue (%s) — retrying", quality_issue)
+            logger.warning("Local LLM quality issue (%s) — retrying",
+                           quality_issue)
 
-        # Attempt 2: retry with higher token budget, same messages
-        t0 = time.monotonic()
-        tokens = list(self.stream(messages, max_tokens=max_tok,
-                                   temperature=temperature,
-                                   image_data=image_data))
-        response_text = self._strip_reasoning_leak(
-            self._recover_empty_content("".join(tokens)))
+            # Attempt 2: retry with higher token budget, same messages
+            tokens = list(self.stream(messages, max_tokens=max_tok,
+                                       temperature=temperature,
+                                       image_data=image_data))
+            response_text = self._strip_reasoning_leak(
+                self._recover_empty_content("".join(tokens)))
 
-        quality_issue = self._gate_reason(response_text, user_msg)
-        if not quality_issue:
-            return LLMResponse(
-                text=self._strip_filler(response_text),
-                model="local", local=True, quality_passed=True,
-                tokens_prompt=self._last_prompt_tokens,
-                tokens_completion=self._last_completion_tokens,
-                semantic_flags=list(self._last_semantic_flags),
-            )
+            quality_issue = self._gate_reason(response_text, user_msg)
+            if not quality_issue:
+                return LLMResponse(
+                    text=self._strip_filler(response_text),
+                    model="local", local=True, quality_passed=True,
+                    tokens_prompt=self._last_prompt_tokens,
+                    tokens_completion=self._last_completion_tokens,
+                    semantic_flags=list(self._last_semantic_flags),
+                )
 
-        logger.warning("Local LLM failed twice (%s)", quality_issue)
+            logger.warning("Local LLM failed twice (%s)", quality_issue)
 
         # Attempt 3: cloud escalation
         if self._escalation_mode == EscalationMode.NEVER:
