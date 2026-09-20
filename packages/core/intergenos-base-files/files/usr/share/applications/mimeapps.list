@@ -1,0 +1,17 @@
+# InterGenOS default applications for media (XDG mime-apps specification,
+# the distribution-level file; a user's ~/.config/mimeapps.list wins over it).
+#
+# Measured on an installed machine 2026-09-20: video/mp4 and video/x-matroska
+# opened in Celluloid, but video/webm opened in the web browser and audio/mpeg
+# in Audacity, an audio EDITOR — because GNOME's own gnome-mimeapps.list names
+# GNOME's Showtime and Decibels players, which this system does not ship, and
+# the next registered handler was whatever installed first. Celluloid is the
+# shipped player and declares every type below, so it is named here.
+# Decided 2026-09-20: these five types; a dedicated audio player is a later
+# release's question.
+[Default Applications]
+video/webm=io.github.celluloid_player.Celluloid.desktop
+audio/mpeg=io.github.celluloid_player.Celluloid.desktop
+audio/flac=io.github.celluloid_player.Celluloid.desktop
+audio/ogg=io.github.celluloid_player.Celluloid.desktop
+audio/x-wav=io.github.celluloid_player.Celluloid.desktop

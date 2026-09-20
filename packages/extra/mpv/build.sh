@@ -5,6 +5,8 @@
 # mpv 0.41.0 — Free media player for the command line and desktop
 # BLFS 13.0
 
+PKG_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+
 configure() {
     set -e
     mkdir -p build
@@ -59,6 +61,17 @@ do_install() {
     echo "NoDisplay=true" >> "$desktop"
     if ! grep -qx 'NoDisplay=true' "$desktop"; then
         echo "FATAL: NoDisplay=true did not land in ${desktop}" >&2
+        return 1
+    fi
+
+    # System-wide defaults: hardware decoding on (see mpv.conf for the
+    # measurement). Installed as a configuration file under /etc, so the
+    # package manager treats a locally edited copy as configuration and never
+    # overwrites it silently. The staged file is read back so a recipe-side
+    # edit that drops the one line this file exists for is caught here.
+    install -Dm644 "${PKG_DIR}/mpv.conf" "${DESTDIR}/etc/mpv/mpv.conf"
+    if ! grep -qx 'hwdec=auto-safe' "${DESTDIR}/etc/mpv/mpv.conf"; then
+        echo "FATAL: ${DESTDIR}/etc/mpv/mpv.conf does not set hwdec=auto-safe" >&2
         return 1
     fi
 }

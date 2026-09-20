@@ -224,6 +224,19 @@ landed is in the repository README, not here.
   `--all` to reach an install's full record.
 
 ### Fixed
+- Video plays with hardware decoding out of the box. The shipped player
+  (Celluloid over mpv) decoded every video in software: mpv's own default is
+  hwdec=no and Celluloid passes no options, measured on a two-card machine
+  whose cards decode H.264, HEVC, VP9 and AV1 in hardware (the card's video
+  engine read zero during playback). mpv now ships /etc/mpv/mpv.conf with
+  hwdec=auto-safe: VA-API where the driver advertises the profile, software
+  elsewhere.
+- A double-clicked WebM opens in the video player and an MP3 in a player, not
+  an audio editor. GNOME's desktop-level defaults name players this system
+  does not ship, so the next registered handler won: WebM went to the web
+  browser and MP3 to Audacity. The base files now ship the distribution-level
+  default-application list naming Celluloid for video/webm and the common
+  audio types (MP3, FLAC, Ogg, WAV).
 
 - An attached iPhone or iPad now pairs and mounts on an installed machine. The
   daemon that carries Apple-device traffic (`usbmuxd`) was started straight from
