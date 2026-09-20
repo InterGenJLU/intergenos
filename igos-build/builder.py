@@ -492,24 +492,34 @@ class BuildExecutor(PackageTracker):
         become the package.
         """
         overlay = self.work_dir / ".staged-pkgconfig"
-        if overlay.exists():
-            shutil.rmtree(overlay)
-        overlay.mkdir(parents=True, exist_ok=True)
+        staged: dict[str, Path] = {}
         for d in pc_dirs:
             src = Path(d)
             if not src.is_dir():
                 continue
             for pc in sorted(src.glob("*.pc")):
-                dest = overlay / pc.name
-                if dest.exists():
-                    continue  # first directory in the list wins, as in a search path
-                try:
-                    dest.write_text(reprefix_pc_text(pc.read_text(), root))
-                except OSError:
-                    # A staged .pc that cannot be read is reported by the build
-                    # that needs it; it must not take down every other package's
-                    # environment.
-                    continue
+                # First directory in the list wins, as in any search path.
+                staged.setdefault(pc.name, pc)
+        if not staged:
+            # Nothing is staged yet — the first package of a run is the usual
+            # case. The directory is not created: pkg-config skips a search
+            # path entry that does not exist, and a build that stages nothing
+            # leaves nothing behind.
+            if overlay.exists():
+                shutil.rmtree(overlay)
+            return overlay
+        if overlay.exists():
+            shutil.rmtree(overlay)
+        overlay.mkdir(parents=True, exist_ok=True)
+        for name, pc in staged.items():
+            try:
+                (overlay / name).write_text(
+                    reprefix_pc_text(pc.read_text(), root))
+            except OSError:
+                # A staged .pc that cannot be read is reported by the build
+                # that needs it; it must not take down every other package's
+                # environment.
+                continue
         return overlay
 
     def phase_env(self, env: dict[str, str], phase_name: str) -> dict[str, str]:

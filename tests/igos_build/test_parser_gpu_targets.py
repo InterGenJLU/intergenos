@@ -127,6 +127,7 @@ class TestGpuTargetsBuildEnv(unittest.TestCase):
         ex.jobs = 1
         ex.sources_dir = Path("/tmp/igos-test-sources")
         ex.patches_dir = Path("/tmp/igos-test-patches")
+        ex.work_dir = Path("/tmp/igos-test-work")
         ex.tracked = False
         return ex.build_env(pkg)
 
