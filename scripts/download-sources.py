@@ -35,7 +35,19 @@ import yaml
 PROJECT_ROOT = Path(__file__).parent.parent
 PACKAGES_DIR = PROJECT_ROOT / "packages"
 SOURCES_DIR = PROJECT_ROOT / "build" / "sources"
-DEFAULT_MIRROR = "intergenos@origin.intergenstudios.com:/home/intergenos/repo/sources"
+# The mirror's web root on the VPS and the URL that serves it. Measured
+# 2026-09-20 over ssh on the publish port: /home/intergenos/repo is the
+# document root for repo.intergenos.org, and repo/sources holds exactly one
+# entry, the plain directory current/ (no symlink, no atomic-swap target —
+# the release publisher swaps only repo/x86_64/current). So an upload under
+# repo/sources/current is served at /sources/current, and that is the one
+# place a source fetch looks.
+MIRROR_SERVED_ROOT_PATH = "/home/intergenos/repo"
+MIRROR_SERVED_ROOT_URL = "https://repo.intergenos.org"
+
+DEFAULT_MIRROR_PATH = f"{MIRROR_SERVED_ROOT_PATH}/sources"
+DEFAULT_MIRROR = f"intergenos@origin.intergenstudios.com:{DEFAULT_MIRROR_PATH}"
+DEFAULT_MIRROR_FETCH_BASE = f"{MIRROR_SERVED_ROOT_URL}/sources/current"
 DEFAULT_UPDATES_JSON = str(PROJECT_ROOT / "build" / "updates.json")
 
 TIERS = ["toolchain", "core", "base", "desktop", "ai", "compute", "extra"]
@@ -99,19 +111,83 @@ def validate_download(dest: str) -> bool:
     return True
 
 
+def _has_pin(expected_sha256: str) -> bool:
+    """True when the recipe carries a real sha256 to verify bytes against."""
+    return bool(expected_sha256) and not expected_sha256.startswith(
+        ("NEEDS_CHECKSUM", "placeholder", "VERIFY_ON_FIRST_BUILD"))
+
+
+def mirror_fetch_base() -> str:
+    """The served directory sources are fetched from, without a trailing slash."""
+    return os.environ.get(
+        "MIRROR_FETCH_BASE", DEFAULT_MIRROR_FETCH_BASE).rstrip("/")
+
+
+def _pin_matches(dest: str, expected_sha256: str, where: str) -> bool:
+    """Check a downloaded file against its pin; delete it and report a miss."""
+    actual = sha256_file(dest)
+    if actual == expected_sha256:
+        return True
+    print(f"    {where} CHECKSUM MISMATCH: expected {expected_sha256[:16]}... "
+          f"got {actual[:16]}...", flush=True)
+    os.unlink(dest)
+    return False
+
+
 def download_file(url: str, dest: str, timeout: int = 300, expected_sha256: str = "") -> bool:
-    """Download a file using wget, falling back to curl. Returns True on success.
+    """Download a file: the project mirror first, upstream second.
+
+    Order decided 2026-09-20. Software comes from the project's own mirror
+    when the mirror serves it, and from upstream only when it does not; every
+    upstream pull prints the URL it is taking bytes from, so a run discloses
+    what it fetched from the internet. Before this, upstream was tried first
+    and the mirror was reached only after wget AND curl had both failed, so an
+    ordinary run pulled from the internet even where the mirror already held a
+    pinned, byte-identical copy.
+
+    The order changes WHERE the bytes come from, never whether they are
+    checked: the sha256 pin is enforced on both paths, so a tampered mirror
+    copy is rejected exactly like a tampered upstream one — the mirror gives
+    availability, the pin gives integrity. A source with no pin skips the
+    mirror entirely (decided 2026-05-30): with nothing to verify against, a
+    mirror copy is no safer than an upstream one.
 
     Security hardening:
     - Warns on HTTP (non-HTTPS) URLs
-    - Enforces TLS 1.2+ via --proto/--tlsv1.2
-    - Verifies SHA256 against expected value if provided
+    - Enforces TLS 1.2+ via --proto/--tlsv1.2; the mirror leg is HTTPS-only
+    - Verifies SHA256 against the expected value on every path that has one
     """
     # Warn on insecure URLs
     if url.startswith("http://"):
         print(f"    WARNING: insecure HTTP URL: {url}", flush=True)
 
+    have_pin = _has_pin(expected_sha256)
+    mirror_url = f"{mirror_fetch_base()}/{os.path.basename(dest)}" if have_pin else ""
+    if mirror_url == url:
+        # The recipe already points at the mirror — one fetch, not two.
+        mirror_url = ""
+
     try:
+        # ---- the mirror, first ----------------------------------------
+        if mirror_url:
+            # -f fails on HTTP 404 so a not-yet-mirrored source does not write
+            # an error page; --proto =https forces HTTPS for the mirror fetch.
+            mresult = subprocess.run(
+                ["curl", "-sfL", "--connect-timeout", "30",
+                 "--proto", "=https", "-o", dest, mirror_url],
+                capture_output=True, timeout=timeout,
+            )
+            if (mresult.returncode == 0 and os.path.exists(dest)
+                    and os.path.getsize(dest) > 0 and validate_download(dest)):
+                if _pin_matches(dest, expected_sha256, "MIRROR"):
+                    print(f"    OK from mirror (sha256 pin verified): {mirror_url}", flush=True)
+                    return True
+            elif os.path.exists(dest):
+                os.unlink(dest)
+            print(f"    not served by the mirror ({mirror_url}) — pulling from upstream", flush=True)
+
+        # ---- upstream, second -----------------------------------------
+        print(f"    upstream fetch: {url}", flush=True)
         # Try wget first — enforce HTTPS protocol preference
         result = subprocess.run(
             ["wget", "-q", "--timeout=30", "--prefer-family=IPv4",
@@ -120,14 +196,9 @@ def download_file(url: str, dest: str, timeout: int = 300, expected_sha256: str 
         )
         if result.returncode == 0 and os.path.exists(dest) and os.path.getsize(dest) > 0:
             if validate_download(dest):
-                # Verify checksum if expected value is available
-                if expected_sha256 and not expected_sha256.startswith(("NEEDS_CHECKSUM", "placeholder", "VERIFY_ON_FIRST_BUILD")):
-                    actual = sha256_file(dest)
-                    if actual != expected_sha256:
-                        print(f"    CHECKSUM MISMATCH: expected {expected_sha256[:16]}... got {actual[:16]}...", flush=True)
-                        os.unlink(dest)
-                        return False
-                return True
+                if not have_pin or _pin_matches(dest, expected_sha256, ""):
+                    return True
+                return False
 
         # wget failed — try curl as fallback (some sites block wget)
         if os.path.exists(dest):
@@ -140,46 +211,12 @@ def download_file(url: str, dest: str, timeout: int = 300, expected_sha256: str 
         )
         if result.returncode == 0 and os.path.exists(dest) and os.path.getsize(dest) > 0:
             if validate_download(dest):
-                # Verify checksum if expected
-                if expected_sha256 and not expected_sha256.startswith(("NEEDS_CHECKSUM", "placeholder", "VERIFY_ON_FIRST_BUILD")):
-                    actual = sha256_file(dest)
-                    if actual != expected_sha256:
-                        print(f"    CHECKSUM MISMATCH: expected {expected_sha256[:16]}... got {actual[:16]}...", flush=True)
-                        os.unlink(dest)
-                        return False
-                return True
-
-        # Upstream unreachable (wget + curl both failed) — fall back to OUR
-        # pinned mirror copy. The sha256 pin is still enforced below, so a
-        # tampered mirror copy is rejected exactly like a tampered upstream one:
-        # the mirror gives availability, the pin gives integrity. Skipped when
-        # there is no pin to verify against (then the mirror is no safer than
-        # upstream). Decided 2026-05-30.
-        have_pin = bool(expected_sha256) and not expected_sha256.startswith(
-            ("NEEDS_CHECKSUM", "placeholder", "VERIFY_ON_FIRST_BUILD"))
-        mirror_base = os.environ.get(
-            "MIRROR_FETCH_BASE", "https://repo.intergenos.org/sources/current")
-        mirror_url = f"{mirror_base.rstrip('/')}/{os.path.basename(dest)}"
-        if have_pin and mirror_url != url:
-            print(f"    upstream unreachable — falling back to mirror: {mirror_url}", flush=True)
-            if os.path.exists(dest):
-                os.unlink(dest)
-            # -f fails on HTTP 404 so a not-yet-mirrored source does not write an
-            # error page; --proto =https forces HTTPS for the mirror fetch.
-            mresult = subprocess.run(
-                ["curl", "-sfL", "--connect-timeout", "30",
-                 "--proto", "=https", "-o", dest, mirror_url],
-                capture_output=True, timeout=timeout,
-            )
-            if (mresult.returncode == 0 and os.path.exists(dest)
-                    and os.path.getsize(dest) > 0 and validate_download(dest)):
-                actual = sha256_file(dest)
-                if actual == expected_sha256:
-                    print("    OK from mirror (sha256 pin verified)", flush=True)
+                if not have_pin or _pin_matches(dest, expected_sha256, ""):
                     return True
-                print(f"    MIRROR CHECKSUM MISMATCH: expected {expected_sha256[:16]}... got {actual[:16]}...", flush=True)
-                os.unlink(dest)
+                return False
 
+        if os.path.exists(dest):
+            os.unlink(dest)
         return False
     except subprocess.TimeoutExpired:
         print(f"    TIMEOUT: {url}", flush=True)
