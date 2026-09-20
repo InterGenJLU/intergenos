@@ -66,6 +66,11 @@ verify_paths:
   # file that loads the recorder at boot. Neither is optional — without the
   # fragment the recorder has no memory, without the load file it never runs,
   # and in both cases a panic is recorded nowhere with nothing said about it.
+  # The kernel console also reaches the serial port (decided 2026-09-20 after
+  # CS-12): ttyS0 named ahead of tty0 so the screen stays /dev/console, plus the
+  # switch that keeps the getty generator from putting a login prompt on every
+  # machine's serial port (row 13 stays the installer's decision).
+  - /etc/kernel/cmdline.d/20-console.conf
   - /etc/kernel/cmdline.d/30-panic-record.conf
   - /etc/modules-load.d/panic-record-ramoops.conf
   # The panic SCREEN, which needs neither the recorder nor a next boot: it
