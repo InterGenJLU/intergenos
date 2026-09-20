@@ -225,6 +225,21 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **The training package points at a source tarball that exists.** The `unsloth`
+  recipe pinned version 2026.7.4 at a PyPI source URL that answers 404: that
+  release exists but upstream publishes it as a wheel only, and no artifact PyPI
+  lists for any `unsloth` release carries the sha256 the recipe pinned. A pinned
+  source nobody can fetch means the package cannot be rebuilt from its declared
+  source by this project or by anyone else, which is the corresponding-source
+  commitment in [SOURCES.md](SOURCES.md). Measured 2026-09-19: the newest
+  release upstream publishes as a source tarball is 2026.6.2 (uploaded
+  2026-06-10); its bytes were downloaded and hashed, and the hash equals the
+  digest PyPI records. The recipe now pins that version and that hash, and its
+  dependency band — read again from 2026.6.2's own `pyproject.toml` — is
+  unchanged by the move. A test pins the version and the hash, and a second,
+  opt-in check (`INTERGENOS_LIVE_SOURCE_CHECK=1`) downloads the pinned URL and
+  verifies the bytes, so the suite stays offline by default.
+
 - **A rollback copy is the release it claims to be, or there is no copy and the
   transaction says so.** Before an upgrade replaces a package, the package
   manager keeps a copy of the outgoing archive so a failed upgrade can be

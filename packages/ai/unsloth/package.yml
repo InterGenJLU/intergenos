@@ -1,5 +1,5 @@
 name: unsloth
-version: "2026.7.4"
+version: "2026.6.2"
 release: 1
 description: Fast fine-tuning and RL for open LLMs (LoRA/QLoRA on the local GPU stack)
 license: Apache-2.0
@@ -8,9 +8,14 @@ tier: ai
 iso_include: false  # the training-apparatus centerpiece — mirror-only (decided 2026-07-20)
 build_style: custom
 install_func: do_install
+# Decided 2026-09-19: pinned to the newest release upstream publishes as a SOURCE
+# tarball. Releases after 2026.6.2 (2026-06-10) ship a wheel only, so the source URL
+# for 2026.7.4 answered 404 and the package could not be rebuilt from its declared
+# source by anyone, including this project. The dependency band below was re-read
+# from 2026.6.2's own pyproject.toml and is unchanged by the move.
 source:
 - url: https://files.pythonhosted.org/packages/source/u/unsloth/unsloth-${version}.tar.gz
-  sha256: dff7ca9e1e2846d325a145759baca0d0b574620e78d0d6541b9931133eb537b9
+  sha256: 4c64575cce1ff999e1a7a5c5d3508bc34b083f05c88bbdeaba298a1877e80bed
 dependencies:
   build:
   - setuptools
