@@ -1,7 +1,7 @@
 """One writer at a time for pkm's mutating operations — the waiting half.
 
 WHAT ALREADY EXISTED, so this file is honest about what it adds. pkm has
-serialized its mutating subcommands since H-023: `_pkm_mutation_lock` takes an
+serialized its mutating subcommands since H-023: `_pkm_command_lock` takes an
 `fcntl.flock` on a lock file at dispatch and holds it around the handler for the
 whole transaction. That is a kernel-held lock, not a check-then-act, and a crash
 releases it by construction. Measured on a real install before any of this was
@@ -99,7 +99,7 @@ def test_a_scratch_lock_is_used_instead_of_the_system_lock(monkeypatch, tmp_path
     """The point of the override: nothing under /var is opened."""
     scratch = tmp_path / "pkm.lock"
     monkeypatch.setenv("IGOS_PKM_LOCK", str(scratch))
-    with cli._pkm_mutation_lock("vacuum"):
+    with cli._pkm_command_lock("vacuum"):
         assert scratch.exists(), "the scratch lock file was not the one taken"
 
 
@@ -117,7 +117,7 @@ def test_without_a_terminal_a_second_mutation_refuses_immediately(
     try:
         started = time.monotonic()
         with pytest.raises(SystemExit) as exc:
-            with cli._pkm_mutation_lock("vacuum"):
+            with cli._pkm_command_lock("vacuum"):
                 pass
         elapsed = time.monotonic() - started
         assert exc.value.code == 1
@@ -143,7 +143,7 @@ def test_at_a_terminal_a_second_mutation_waits_for_the_holder(
     holder = _start_holder(lock, 3, tmp_path)
     try:
         started = time.monotonic()
-        with cli._pkm_mutation_lock("vacuum"):
+        with cli._pkm_command_lock("vacuum"):
             waited = time.monotonic() - started
         assert waited >= 2, (
             f"the second invocation returned after {waited:.1f}s; it cannot have "
@@ -163,7 +163,7 @@ def test_the_wait_names_the_process_that_holds_the_lock(
     monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True, raising=False)
     holder = _start_holder(lock, 3, tmp_path)
     try:
-        with cli._pkm_mutation_lock("vacuum"):
+        with cli._pkm_command_lock("vacuum"):
             pass
         err = capsys.readouterr().err
         assert str(holder.pid) in err, (
@@ -186,7 +186,7 @@ def test_no_wait_refuses_even_at_a_terminal(monkeypatch, tmp_path, capsys):
     try:
         started = time.monotonic()
         with pytest.raises(SystemExit) as exc:
-            with cli._pkm_mutation_lock("vacuum", wait=False):
+            with cli._pkm_command_lock("vacuum", wait=False):
                 pass
         assert exc.value.code == 1
         assert time.monotonic() - started < 5
@@ -203,7 +203,7 @@ def test_wait_waits_even_without_a_terminal(monkeypatch, tmp_path):
     holder = _start_holder(lock, 3, tmp_path)
     try:
         started = time.monotonic()
-        with cli._pkm_mutation_lock("vacuum", wait=True):
+        with cli._pkm_command_lock("vacuum", wait=True):
             waited = time.monotonic() - started
         assert waited >= 2
     finally:
@@ -224,7 +224,7 @@ def test_a_wait_gives_up_at_the_timeout_with_the_refusal_text(
     try:
         started = time.monotonic()
         with pytest.raises(SystemExit) as exc:
-            with cli._pkm_mutation_lock("vacuum", wait=True, wait_timeout=2):
+            with cli._pkm_command_lock("vacuum", wait=True, wait_timeout=2):
                 pass
         elapsed = time.monotonic() - started
         assert exc.value.code == 1
@@ -324,6 +324,6 @@ def test_an_uncontended_lock_is_taken_at_once(monkeypatch, tmp_path, wait):
     monkeypatch.setenv("IGOS_PKM_LOCK", str(lock))
     monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True, raising=False)
     started = time.monotonic()
-    with cli._pkm_mutation_lock("vacuum", wait=wait):
+    with cli._pkm_command_lock("vacuum", wait=wait):
         pass
     assert time.monotonic() - started < 2

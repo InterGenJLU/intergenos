@@ -1,6 +1,6 @@
 """The one path where a pkm mutation runs with no lock held — proved, not argued.
 
-`_pkm_mutation_lock` skips locking entirely when it cannot create the lock file's
+`_pkm_command_lock` skips locking entirely when it cannot create the lock file's
 parent directory. The reasoning is sound and is written down at the call site: at
 chroot-install time /var/lock is a dangling symlink into an unmounted /run, and a
 build chroot runs one pkm at a time, so there is nothing to serialize against.
@@ -65,7 +65,7 @@ def test_the_escape_does_not_fire_when_the_directory_can_be_created(
         monkeypatch, tmp_path, capsys):
     lock = tmp_path / "made" / "here" / "pkm.lock"
     monkeypatch.setenv("IGOS_PKM_LOCK", str(lock))
-    with cli._pkm_mutation_lock("vacuum"):
+    with cli._pkm_command_lock("vacuum"):
         assert lock.exists(), "the lock file was not created, so nothing was held"
     err = capsys.readouterr().err
     assert "without the mutation lock" not in err.lower(), (
@@ -78,7 +78,7 @@ def test_the_escape_fires_when_the_directory_cannot_be_created(
     lock = _uncreatable_lock_path(tmp_path)
     monkeypatch.setenv("IGOS_PKM_LOCK", str(lock))
     ran = False
-    with cli._pkm_mutation_lock("vacuum"):
+    with cli._pkm_command_lock("vacuum"):
         ran = True
     assert ran, "the guarded work did not run; the fallback must be non-fatal"
     err = capsys.readouterr().err.lower()
@@ -90,7 +90,7 @@ def test_the_warning_names_the_condition_and_the_consequence(
         monkeypatch, tmp_path, capsys):
     lock = _uncreatable_lock_path(tmp_path)
     monkeypatch.setenv("IGOS_PKM_LOCK", str(lock))
-    with cli._pkm_mutation_lock("vacuum"):
+    with cli._pkm_command_lock("vacuum"):
         pass
     err = capsys.readouterr().err.lower()
     # the condition: which path, and that it could not be made
@@ -113,7 +113,7 @@ def test_the_escape_is_reached_only_through_the_directory_failure(
     os.chmod(parent, 0o500)  # traversable, not writable
     try:
         with pytest.raises(OSError):
-            with cli._pkm_mutation_lock("vacuum"):
+            with cli._pkm_command_lock("vacuum"):
                 pass
         err = capsys.readouterr().err.lower()
         assert "without the mutation lock" not in err, (
@@ -127,7 +127,7 @@ def test_a_read_only_command_never_reaches_the_escape(monkeypatch, tmp_path,
                                                       capsys):
     lock = _uncreatable_lock_path(tmp_path)
     monkeypatch.setenv("IGOS_PKM_LOCK", str(lock))
-    with cli._pkm_mutation_lock("list"):
+    with cli._pkm_command_lock("list"):
         pass
     assert "mutation lock" not in capsys.readouterr().err.lower(), (
         "a read-only command produced lock output; it takes no lock at all")
@@ -144,7 +144,7 @@ def test_a_dangling_symlink_parent_is_REPAIRED_not_escaped(
     """
     lock = _dangling_lock_path(tmp_path)
     monkeypatch.setenv("IGOS_PKM_LOCK", str(lock))
-    with cli._pkm_mutation_lock("vacuum"):
+    with cli._pkm_command_lock("vacuum"):
         pass
     err = capsys.readouterr().err.lower()
     assert "without the mutation lock" not in err, (

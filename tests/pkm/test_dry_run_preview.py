@@ -42,7 +42,7 @@ class MutationLockDryRunTest(unittest.TestCase):
     def test_dry_run_takes_no_lock(self):
         # dry_run=True must short-circuit before any fcntl.flock call.
         with patch("pkm.cli.fcntl") as fake_fcntl:
-            with cli._pkm_mutation_lock("upgrade", dry_run=True):
+            with cli._pkm_command_lock("upgrade", dry_run=True):
                 pass
             fake_fcntl.flock.assert_not_called()
 

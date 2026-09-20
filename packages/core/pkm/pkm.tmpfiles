@@ -16,3 +16,21 @@
 d /var/cache/pkm          0755 root root -
 d /var/cache/pkm/db       0755 root root -
 d /var/cache/pkm/packages 0700 root root -
+
+# The mutation lock file, created at every boot.
+#
+# pkm serializes its operations on an flock over this path. A WRITER creates it
+# if it is missing, because a writer runs as root. A READER cannot: since the
+# read commands began taking a SHARED lock here, an unprivileged `pkm list` or
+# `pkm verify` needs a file it can open, and /var/lock resolves to /run/lock,
+# which is root-owned 0755 and emptied at every boot. Nothing the reader does
+# can bring the file into existence there, so the package ships it and
+# systemd-tmpfiles recreates it after each boot — the same reason the cache
+# directories above are declared here rather than created on first use.
+#
+# 0644: every user on the machine may read their own system's package state,
+# so every user must be able to open this file. The flock is advisory and the
+# file holds nothing; write access is not needed to take a shared lock, and
+# granting it would let any local user block pkm by taking the lock
+# exclusively.
+f /var/lock/pkm.lock      0644 root root -

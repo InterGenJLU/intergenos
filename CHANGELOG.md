@@ -224,6 +224,25 @@ landed is in the repository README, not here.
   `--all` to reach an install's full record.
 
 ### Fixed
+- **A package-manager read no longer reads a database a package-manager write
+  is changing underneath it.** Only the mutating commands took the lock; every
+  read fell past it and then opened the database with SQLite's `immutable=1` —
+  a promise that the file would not change while it was open, which nothing
+  enforced. Measured on an installed machine: a read beside a write reported 1
+  installed package where the truth was 5002, and a page rewritten under a
+  reader crashed `pkm verify --all --detail` at 512 of 875 packages with
+  "database disk image is malformed" on a database whose own integrity check
+  said it was fine. The read commands now take a SHARED lock on the same file,
+  so any number of reads run together and none runs beside a write, and
+  contention is described in the words the package manager already used. The
+  lock file ships with the package and is recreated at every boot, because the
+  directory it lives in is root-owned and emptied at boot, so an unprivileged
+  reader cannot create it. A read that still cannot open it says so and
+  continues rather than pretending it was serialized. A read interrupted by a
+  concurrent write is now reported as exactly that, with a non-zero exit and no
+  traceback, instead of telling the reader their database is corrupt when it is
+  not. `pkm verify --detail` also now names every file it reports as missing or
+  modified, for the whole-machine run as well as for one named package.
 - **A package restore point can restore a package, and a restore that failed
   says so.** The package manager captures a restore point before every
   transaction; on an installed machine one held 2402 paths, and not one could be

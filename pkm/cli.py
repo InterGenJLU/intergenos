@@ -500,9 +500,75 @@ def _is_dry_run_invocation(args):
     )
 
 
+def report_concurrent_read_failure(command, err):
+    """Report a read that met a concurrent write, in pkm's own words, and exit.
+
+    WHAT SQLITE SAYS AND WHY PKM DOES NOT REPEAT IT. A page rewritten beneath an
+    open reader raises `sqlite3.DatabaseError: database disk image is
+    malformed`. Measured on an installed machine on 2026-09-20, that is exactly
+    what `pkm verify --all --detail` died of at 512 of 875 packages while a
+    `pkm reinstall` ran beside it — and `PRAGMA integrity_check` on the same
+    file said `ok` immediately afterwards. The database was never malformed;
+    the reader's VIEW of it was. Printing SQLite's word for it sends a person to
+    repair something that is not broken, which is worse than saying nothing.
+
+    So the word is not repeated, the traceback is not shown, and the exit status
+    is non-zero because the command genuinely did not answer the question it was
+    asked.
+    """
+    lock_path = resolve_lock_path()
+    emit_error(
+        f"the package database changed while `pkm {command}` was reading it, "
+        f"so this command could not finish and has reported nothing. That "
+        f"happens when another pkm operation writes to the database during a "
+        f"read. Nothing is wrong with the database itself — `pkm verify` and "
+        f"SQLite's own integrity check will both say so. Wait for the other "
+        f"operation to finish and run this again; `fuser {lock_path}` or "
+        f"`lsof {lock_path}` names what is holding it."
+    )
+    if _TRACE_AVAILABLE:
+        try:
+            _trace.trace_event(
+                "pkm_read_concurrent_write",
+                command=command, error=type(err).__name__,
+            )
+        except Exception:
+            pass
+    sys.exit(1)
+
+
+def _run_with_database(open_database, handler, args):
+    """Open the database, run `handler` against it, close it.
+
+    Separate from the dispatch so the read path can put BOTH the open and the
+    handler inside one concurrent-write guard, and still close what it opened.
+    """
+    db = open_database()
+    try:
+        return handler(db, args)
+    finally:
+        db.close()
+
+
+def run_read_handler(command, handler, db, args):
+    """Run a read command's handler with the concurrent-write guard around it.
+
+    One place, so every read command is covered by construction rather than by
+    each handler remembering. A DatabaseError raised anywhere under a read is
+    the concurrent-write case; any other exception is left alone, because a
+    guard that swallowed everything would hide real faults behind a message
+    about locking.
+    """
+    try:
+        return handler(db, args)
+    except sqlite3.DatabaseError as err:
+        report_concurrent_read_failure(command, err)
+
+
 @contextlib.contextmanager
-def _pkm_mutation_lock(command, dry_run=False, wait=None, wait_timeout=None):
-    """Hold the mutation lock for the whole of a mutating subcommand.
+def _pkm_command_lock(command, dry_run=False, wait=None, wait_timeout=None):
+    """Hold the pkm lock for the whole of a subcommand — exclusively for a
+    writer, shared for a reader.
 
     An fcntl.flock on resolve_lock_path(), taken before the handler runs and
     released after it returns. The kernel arbitrates it, so there is no
@@ -525,13 +591,79 @@ def _pkm_mutation_lock(command, dry_run=False, wait=None, wait_timeout=None):
     text an immediate refusal uses, because the outcome is the same: this
     invocation did not get the lock and changed nothing.
     """
-    # A dry-run preview mutates nothing, so it must not take the mutation lock
-    # (which would need write access to /var/lock and defeats the unprivileged
-    # preview). Read-only and lock-free by construction.
-    if command not in PKM_MUTATING_COMMANDS or not _HAS_FLOCK or dry_run:
+    # WHO TAKES WHAT.
+    #
+    # A mutating command takes the lock EXCLUSIVELY, as it always has.
+    #
+    # A read command takes it SHARED. Until 2026-09-20 a read entered nothing
+    # here and then opened the database with `file:...?immutable=1` — a promise
+    # to SQLite that the file will not change while it is open, which nothing
+    # enforced. Both ways of breaking that promise were measured on an installed
+    # machine: a reader beside a writer answered 1 row where the truth was 5002
+    # (and `PRAGMA integrity_check` said `ok`), and a page rewritten under a
+    # reader crashed `pkm verify --all --detail` at 512 of 875 packages with
+    # `sqlite3.DatabaseError: database disk image is malformed` — on a database
+    # that was not malformed. A shared lock lets any number of readers run
+    # together and none of them run beside a writer, which is exactly what the
+    # immutable open was already assuming.
+    #
+    # A --dry-run preview stays lock-free, unchanged. It reads the same
+    # database every read command reads, so it can be handed the same
+    # half-written page this change protects readers from, and it is left
+    # UNPROTECTED here on purpose rather than by oversight: the contract that a
+    # preview takes no lock is pinned by tests/pkm/test_dry_run_preview.py and
+    # changing it is not what this change was asked to do. The gap is recorded
+    # where the change was delivered rather than closed quietly here.
+    if dry_run or not _HAS_FLOCK:
+        yield
+        return
+    mutating = command in PKM_MUTATING_COMMANDS
+    reading = command in PKM_READONLY_COMMANDS
+    if not (mutating or reading):
         yield
         return
     lock_path = resolve_lock_path()
+    if reading:
+        # A READER NEVER CREATES AND NEVER TRUNCATES THE LOCK FILE. /run/lock,
+        # which /var/lock resolves to, is root-owned 0755 and emptied at every
+        # boot, so an unprivileged reader cannot make anything there — opening
+        # for writing would fail for precisely the users this lock protects.
+        # The file is shipped instead, by the package's own tmpfiles entry
+        # (packages/core/pkm/pkm.tmpfiles), the same route the cache
+        # directories already take.
+        try:
+            fd = open(str(lock_path), "r")
+        except OSError as e:
+            # Unlocked is an acceptable outcome for a read. SILENTLY unlocked
+            # is not — that is the masked failure this change exists to remove.
+            # But WHICH silence, measured rather than assumed: warning whenever
+            # the file is absent fired on every read against a scratch install
+            # root, where there is no /var/lock at all and no second pkm to
+            # race. A warning that fires mostly when nothing is wrong teaches
+            # people to skip warnings.
+            #
+            # So the two cases are separated the same way the writer path above
+            # already separates them. NO LOCK DIRECTORY means this root has no
+            # lock infrastructure — an install root, a chroot, a scratch prefix
+            # — and nothing else is operating on it; the writer treats that as
+            # lock-free by construction and so does the reader, quietly. A lock
+            # directory that EXISTS while the file cannot be opened is a
+            # running system that should have the file and does not, which is
+            # worth a line.
+            if lock_path.parent.is_dir():
+                emit_warn(
+                    f"could not open the pkm lock file {lock_path} ({e}), so "
+                    f"this read is NOT serialized against a concurrent pkm "
+                    f"operation and may report state that is already out of "
+                    f"date. The file is created at boot by the pkm package; a "
+                    f"machine that has not rebooted since pkm was installed "
+                    f"will not have it yet."
+                )
+            yield
+            return
+        yield from _hold_pkm_lock(
+            fd, command, lock_path, fcntl.LOCK_SH, wait, wait_timeout)
+        return
     # Chroot-install robustness: /var/lock is conventionally a symlink to
     # /run/lock on systemd systems.
     #
@@ -587,6 +719,21 @@ def _pkm_mutation_lock(command, dry_run=False, wait=None, wait_timeout=None):
                 pass
         yield
         return
+    fd = open(str(lock_path), "w")
+    yield from _hold_pkm_lock(
+        fd, command, lock_path, fcntl.LOCK_EX, wait, wait_timeout)
+
+
+def _hold_pkm_lock(fd, command, lock_path, lock_op, wait, wait_timeout):
+    """Acquire `lock_op` on `fd`, yield once, then release.
+
+    One body for both kinds of lock, so an exclusive writer and a shared
+    reader cannot drift into describing contention differently. `lock_op`
+    is fcntl.LOCK_EX for a mutating command and fcntl.LOCK_SH for a read;
+    everything else here — the wait-or-refuse policy, the bounded wait, the
+    progress lines that name the holder, the release that only unlocks what
+    it acquired — is the behaviour the mutation lock already had.
+    """
     if wait is None:
         # Decided from the caller, not from a default: see the docstring.
         try:
@@ -596,7 +743,6 @@ def _pkm_mutation_lock(command, dry_run=False, wait=None, wait_timeout=None):
     if wait_timeout is None:
         wait_timeout = PKM_LOCK_WAIT_TIMEOUT_DEFAULT
 
-    fd = open(str(lock_path), "w")
     acquired = False
 
     def _refuse(waited=None):
@@ -632,7 +778,7 @@ def _pkm_mutation_lock(command, dry_run=False, wait=None, wait_timeout=None):
 
     try:
         try:
-            fcntl.flock(fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(fd.fileno(), lock_op | fcntl.LOCK_NB)
             acquired = True
             if _TRACE_AVAILABLE:
                 try:
@@ -666,7 +812,7 @@ def _pkm_mutation_lock(command, dry_run=False, wait=None, wait_timeout=None):
                     pass
             while True:
                 try:
-                    fcntl.flock(fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    fcntl.flock(fd.fileno(), lock_op | fcntl.LOCK_NB)
                     acquired = True
                     break
                 except (BlockingIOError, OSError):
@@ -715,7 +861,6 @@ def _pkm_mutation_lock(command, dry_run=False, wait=None, wait_timeout=None):
                 fd.close()
             except (OSError, ValueError):
                 pass
-
 
 
 class _VersionAction(argparse.Action):
@@ -1448,32 +1593,42 @@ def main():
     # who names both is saying "this database, that root". With neither, the
     # path is the shipped one, because install_root() is "/".
     db_path = args.db if args.db else str(rootpaths.db_path(install_root()))
-    try:
-        db = PackageDB(db_path, root=str(install_root()),
-                       create_if_missing=create_if_missing,
-                       read_only=read_only)
-    except FileNotFoundError as e:
-        if _TRACE_AVAILABLE:
-            try:
-                _trace.trace_event(
-                    "pkm_db_open_failed",
-                    subcommand=args.command, error=str(e),
-                )
-            except Exception:
-                pass
-        print(f"pkm: {e}", file=sys.stderr)
-        sys.exit(2)
-    except PermissionError as e:
-        # Belt-and-suspenders for the read-only commands (the mutating set
-        # is already gated above): a non-root user hitting a root-owned DB
-        # gets a clean message, not a traceback.
-        print(f"pkm: cannot access the package database: {e}", file=sys.stderr)
-        print(
-            f"     This usually needs root — try:  sudo "
-            f"{' '.join(['pkm'] + sys.argv[1:])}",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    def _open_database():
+        # OPENED INSIDE THE LOCK, not before it. A read-only open is not a
+        # cheap handle: it runs `PRAGMA table_info` to learn which columns this
+        # database actually has, and that read can meet a page another pkm
+        # process is rewriting. Measured on 2026-09-20 with a writer looping
+        # beside 40 reads against a scratch root: with the lock taken AFTER the
+        # open, one read in forty still died here with a traceback, at
+        # database.py's column snapshot, while the handler itself was fully
+        # protected. A lock acquired after the read has begun protects nothing,
+        # so the caller below takes it first and calls this inside it.
+        try:
+            return PackageDB(db_path, root=str(install_root()),
+                             create_if_missing=create_if_missing,
+                             read_only=read_only)
+        except FileNotFoundError as e:
+            if _TRACE_AVAILABLE:
+                try:
+                    _trace.trace_event(
+                        "pkm_db_open_failed",
+                        subcommand=args.command, error=str(e),
+                    )
+                except Exception:
+                    pass
+            print(f"pkm: {e}", file=sys.stderr)
+            sys.exit(2)
+        except PermissionError as e:
+            # Belt-and-suspenders for the read-only commands (the mutating set
+            # is already gated above): a non-root user hitting a root-owned DB
+            # gets a clean message, not a traceback.
+            print(f"pkm: cannot access the package database: {e}", file=sys.stderr)
+            print(
+                f"     This usually needs root — try:  sudo "
+                f"{' '.join(['pkm'] + sys.argv[1:])}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
     # PKM-A07: dispatch through a table and PROPAGATE the handler's exit code.
     # Several handlers (iso-prep, restart-services, refresh-baseline, cache,
@@ -1510,19 +1665,29 @@ def main():
         "cache": cmd_cache,
         "vacuum": cmd_vacuum,
     }
-    try:
-        with _pkm_mutation_lock(args.command, dry_run=dry_run_preview,
-                                wait=getattr(args, "wait", None),
-                                wait_timeout=getattr(args, "wait_timeout", None)):
-            handler = _dispatch.get(args.command)
-            if handler is None:
-                emit_error(f"unknown command: {args.command}")
-                sys.exit(2)
-            rc = handler(db, args)
-            if rc:
-                sys.exit(rc)
-    finally:
-        db.close()
+    with _pkm_command_lock(args.command, dry_run=dry_run_preview,
+                           wait=getattr(args, "wait", None),
+                           wait_timeout=getattr(args, "wait_timeout", None)):
+        handler = _dispatch.get(args.command)
+        if handler is None:
+            emit_error(f"unknown command: {args.command}")
+            sys.exit(2)
+        if args.command in PKM_READONLY_COMMANDS:
+            # The open is inside the guard as well as inside the lock: it is
+            # a read of the database like any other and fails the same way.
+            rc = run_read_handler(
+                args.command,
+                lambda _db, _args: _run_with_database(
+                    _open_database, handler, _args),
+                None, args)
+        else:
+            db = _open_database()
+            try:
+                rc = handler(db, args)
+            finally:
+                db.close()
+        if rc:
+            sys.exit(rc)
 
 
 # ------------------------------------------------------------------
@@ -3544,6 +3709,31 @@ def _generated_note(count):
     return f"; {count} hook-generated (existence-checked)"
 
 
+def _print_file_problem_detail(result, limit=None):
+    """Under --detail, name every file verify reports as missing or modified.
+
+    A whole-machine `pkm verify --all` printed a COUNT per package and no path,
+    so the one run that checks every package was the one that could not say
+    which file was wrong; a person then had to re-run verify per package to
+    find out. The per-package run has printed these paths all along — this is
+    the same list, under the flag whose whole purpose is to show it.
+
+    `limit` caps the list and says how many were not named. Under --detail it
+    is None, because a list that stops at twenty without saying so is a
+    curated instrument, and the flag exists to ask for all of it.
+    """
+    for kind in ("missing", "modified"):
+        paths = result.get(kind) or []
+        if not paths:
+            continue
+        print(f"  {kind} ({len(paths)}):")
+        shown = paths if limit is None else paths[:limit]
+        for f in shown:
+            print(f"    /{f}")
+        if len(paths) > len(shown):
+            print(f"    … and {len(paths) - len(shown)} more")
+
+
 def _print_generated_detail(paths):
     """Under --detail, list the hook-generated paths verify did not
     content-check."""
@@ -3645,6 +3835,7 @@ def cmd_verify(db, args):
             else:
                 ok_count += 1
             if getattr(args, "verify_detail", False):
+                _print_file_problem_detail(result)
                 _print_expected_absent_detail(
                     result.get("expected_absent_by_class", {}))
                 _print_generated_detail(result.get("generated", []))
@@ -3721,16 +3912,13 @@ def cmd_verify(db, args):
     if _degraded:
         emit_done(f"✗ {args.package}: DEGRADED — critical hook(s) failed at "
                   f"install: {_degraded}")
-    if result["missing"]:
-        print(f"  missing ({len(result['missing'])}):")
-        for f in result["missing"][:20]:
-            print(f"    /{f}")
-        if len(result["missing"]) > 20:
-            print(f"    … and {len(result['missing']) - 20} more")
-    if result["modified"]:
-        print(f"  modified ({len(result['modified'])}):")
-        for f in result["modified"][:20]:
-            print(f"    /{f}")
+    # Without --detail this stays the summary it has always been: the first
+    # twenty of each kind, with the remainder counted. Under --detail nothing
+    # is capped, and `modified` gains the "… and N more" line that `missing`
+    # already had — its list simply stopped at twenty and said nothing, so a
+    # package with more than twenty modified files under-reported itself.
+    _detail = getattr(args, "verify_detail", False)
+    _print_file_problem_detail(result, limit=None if _detail else 20)
     if result.get("unverifiable"):
         print(f"  unverifiable — no recorded content hash "
               f"({len(result['unverifiable'])}):")
