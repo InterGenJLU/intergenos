@@ -904,6 +904,19 @@ class BuildExecutor(PackageTracker):
 
         return True
 
+    @staticmethod
+    def overlay_files_dir(pkg: Package) -> Path | None:
+        """The package's files/ overlay directory, or None when it has none.
+
+        One definition, so the pre-flight in build_package and the deploy in
+        overlay_package_files can never disagree about which packages carry an
+        overlay.
+        """
+        if pkg.template_path is None:
+            return None
+        files_dir = pkg.template_path.parent / "files"
+        return files_dir if files_dir.is_dir() else None
+
     def overlay_package_files(self, pkg: Package, env: dict) -> bool:
         """Auto-deploy packages/<tier>/<pkg>/files/ tree into DESTDIR.
 
@@ -925,14 +938,33 @@ class BuildExecutor(PackageTracker):
         new files never landed in the archives. This phase closes that gap
         for the whole codebase, not just the 20 migrated packages.
         """
-        if pkg.template_path is None:
-            return True
-        files_dir = pkg.template_path.parent / "files"
-        if not files_dir.is_dir():
+        files_dir = self.overlay_files_dir(pkg)
+        if files_dir is None:
             return True
         destdir = env.get("DESTDIR")
         if not destdir:
             return True
+        # Every path this overlay deploys is chowned to root:root below, and
+        # that chown is the security control, not a tidiness step (see the
+        # comment on the loop). A builder that is not root in its own user
+        # namespace cannot perform it, so there is nothing to do but refuse —
+        # and refuse HERE, before the copy, so the build never stops on a
+        # half-deployed overlay. Skipping the chown instead would ship the
+        # build user's uid on /etc content, which is the escalation the chown
+        # exists to prevent.
+        if os.geteuid() != 0:
+            self.logger.error(
+                f"  overlay-files: {pkg.name} ships a files/ overlay, and "
+                f"every path in it must be deployed owned by root:root — the "
+                f"build user's uid on /etc content is a local escalation on "
+                f"the installed system. This builder runs as uid "
+                f"{os.geteuid()} and cannot set that ownership, so nothing "
+                f"was copied. Run the build inside the build chroot, or for a "
+                f"stage-only build on a live machine run it under "
+                f"`unshare -r`, which makes the builder root in its own user "
+                f"namespace."
+            )
+            return False
         if _TRACE_AVAILABLE:
             result = _trace.traced_run(
                 ["cp", "-an", f"{files_dir}/.", f"{destdir}/"],
@@ -971,6 +1003,18 @@ class BuildExecutor(PackageTracker):
                 os.chown(dest, 0, 0, follow_symlinks=False)
             except FileNotFoundError:
                 pass
+            except PermissionError as exc:
+                # euid 0 without the capability (a container without
+                # CAP_CHOWN, a filesystem that refuses it). The copy has
+                # already happened, so the build fails here with the reason
+                # rather than raising out of the middle of a phase.
+                self.logger.error(
+                    f"  overlay-files: {pkg.name} deployed its files/ overlay "
+                    f"but {dest} could not be made owned by root:root "
+                    f"({exc.strerror}). An overlay carrying the build user's "
+                    f"ownership must never ship, so the build stops here."
+                )
+                return False
         # Count what was deployed for visibility.
         n_files = sum(1 for _ in files_dir.rglob("*") if _.is_file())
         if n_files > 0:
@@ -1267,6 +1311,25 @@ class BuildExecutor(PackageTracker):
         """
         build_start = time.monotonic()
         self.logger.start_package(pkg.name, pkg.version, pkg.build_style)
+
+        # A package that ships a files/ overlay has every one of those paths
+        # deployed owned by root:root, and that ownership is a security
+        # control (the comment on the chown loop in overlay_package_files says
+        # why). A builder that is not root in its own user namespace cannot
+        # set it, so this package cannot be built here at all — say so before
+        # the compile rather than after it.
+        if self.overlay_files_dir(pkg) is not None and os.geteuid() != 0:
+            self.logger.error(
+                f"  {pkg.name} ships a files/ overlay, and every path in it "
+                f"must be deployed owned by root:root — the build user's uid "
+                f"on /etc content is a local escalation on the installed "
+                f"system. This builder runs as uid {os.geteuid()} and cannot "
+                f"set that ownership, so the package is not built. Run the "
+                f"build inside the build chroot, or for a stage-only build on "
+                f"a live machine run it under `unshare -r`, which makes the "
+                f"builder root in its own user namespace."
+            )
+            return False
 
         # Set up working directory. Containment belt before the recursive
         # delete: pkg.name is grammar-validated at parse time, but a delete
