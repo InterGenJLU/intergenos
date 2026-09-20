@@ -1,7 +1,7 @@
 name: rocm-llvm
 version: "7.2.4"
-release: 1
-content_hash: 4578c90014b73603
+release: 2  # r2: the compiler is installed where its own driver looks for the ROCm root. The AMD clang driver derives that root from the directory it runs out of — it strips a trailing "bin", then strips one more component if that one is named "llvm" (DeduceROCmPath in clang/lib/Driver/ToolChains/AMDGPU.cpp). Installed at /opt/rocm/lib/llvm, that yielded /opt/rocm/lib, which has no include/ and no lib/ under it, and the documented command `hipcc file.hip -o file` failed with "'hip/hip_runtime.h' file not found" on a machine with a complete, verified toolkit (measured 2026-09-20 on an installed R001.2 machine). The install prefix is now /opt/rocm/llvm, which yields /opt/rocm. A symlink cannot do this: the driver resolves its own path to the real directory first, which was proved by a bind-mounted shadow root compiling the same source at rc=0 while the symlinked layout failed in the same namespace. /opt/rocm/lib/llvm is kept as a compatibility symlink to ../llvm, because 26 other compute recipes and two installed files (MIOpen's config.h, MIGraphX's exported CMake targets) name the compiler under the old path; reaching the driver through that symlink deduces the correct root as well. Both shipped link targets are relative and neither begins with a UsrMerge top-level directory name, so the package manager's linkname remap leaves them alone.
+content_hash: af5b47cf1ec3d482
 description: AMD ROCm LLVM toolchain (amdclang, lld, compiler-rt) for GPU kernel compilation
 license: Apache-2.0 WITH LLVM-exception
 homepage: https://github.com/ROCm/llvm-project
@@ -36,7 +36,8 @@ dependencies:
   - libffi
   - libxml2
 verify_paths:
-  - /opt/rocm/lib/llvm/bin/clang
-  - /opt/rocm/lib/llvm/bin/ld.lld
+  - /opt/rocm/llvm/bin/clang
+  - /opt/rocm/llvm/bin/ld.lld
   - /opt/rocm/bin/amdclang++
-  - /opt/rocm/lib/llvm/lib/libomp.so
+  - /opt/rocm/llvm/lib/libomp.so
+  - /opt/rocm/lib/llvm

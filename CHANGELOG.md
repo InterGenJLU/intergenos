@@ -314,6 +314,20 @@ landed is in the repository README, not here.
   every `hipcc` and `hipconfig` invocation opened with a missing-file message
   and the compiler could not detect a target by itself. It is declared now.
 
+- The documented way to compile a GPU program works. `hipcc file.hip -o file`
+  failed with "'hip/hip_runtime.h' file not found" on a machine carrying a
+  complete, verified compute toolkit, and adding an include path only moved the
+  failure to the linker. The cause was where the compiler was installed: the
+  driver works out the toolkit's root from the directory it is running out of,
+  expecting to sit one level below it in a directory named llvm, and this
+  project installed it two levels below, under lib. The driver therefore looked
+  for the headers and libraries in a directory that holds neither. The compiler
+  is now installed at /opt/rocm/llvm and the old location is kept as a symlink
+  back to it, so recipes and files that name the old path keep working and
+  deduce the correct root as well. A person can compile a HIP program with no
+  --rocm-path argument and no environment variable, in a login shell, in an
+  empty environment, and under sudo.
+
 - A symlink a package ships below the top level keeps the target the package
   gave it. When installing onto a system whose /lib and /bin are symlinks into
   /usr, the package manager rewrites paths that name those directories so they

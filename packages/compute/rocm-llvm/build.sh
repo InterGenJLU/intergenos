@@ -5,10 +5,25 @@
 # rocm-llvm 7.2.4 — AMD's LLVM fork (amdclang/lld/compiler-rt)
 # https://github.com/ROCm/llvm-project (tag rocm-7.2.4)
 #
-# The compute tier's GPU-kernel compiler. Installs to /opt/rocm/lib/llvm
-# (the ROCm >=6 layout every downstream ROCm package expects), with the
-# amdclang* driver symlinks in /opt/rocm/bin. Coexists with the system
-# LLVM by construction — nothing lands in /usr.
+# The compute tier's GPU-kernel compiler. Installs to /opt/rocm/llvm,
+# which is where the AMD clang driver requires it: DeduceROCmPath in
+# clang/lib/Driver/ToolChains/AMDGPU.cpp derives the ROCm root by taking
+# the directory holding the driver binary, stripping a trailing "bin",
+# and stripping a further component if that one is named "llvm". From
+# /opt/rocm/llvm/bin that yields /opt/rocm, so hip/hip_runtime.h, the
+# amdgcn bitcode and libamdhip64 are all found with no --rocm-path and no
+# environment variable. From the old /opt/rocm/lib/llvm/bin it yielded
+# /opt/rocm/lib, a directory with no include/ or lib/ of its own, and
+# `hipcc file.hip` failed with "'hip/hip_runtime.h' file not found".
+# The driver canonicalises its own path, so a symlink at /opt/rocm/llvm
+# pointing into lib/ does NOT work — the install prefix itself has to be
+# the real directory. /opt/rocm/lib/llvm is kept as a compatibility
+# symlink back to it, because downstream recipes and two installed files
+# (MIOpen's config.h and MIGraphX's exported CMake targets) record the
+# compiler under that path. Reaching the driver through that symlink is
+# correct as well: canonicalisation lands on the real /opt/rocm/llvm/bin.
+# The amdclang* driver symlinks stay in /opt/rocm/bin. Coexists with the
+# system LLVM by construction — nothing lands in /usr.
 #
 # Flag set follows AMD's own production build recipe
 # (ROCm/tools/rocm-build/build_lightning.sh, cross-referenced via the
@@ -42,7 +57,7 @@ configure() {
 
     cmake -G Ninja -S llvm -B build \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX=/opt/rocm/lib/llvm \
+        -DCMAKE_INSTALL_PREFIX=/opt/rocm/llvm \
         -DLLVM_HOST_TRIPLE=x86_64-pc-linux-gnu \
         -DLLVM_ENABLE_PROJECTS="clang;lld" \
         -DCLANG_ENABLE_AMDCLANG=ON \
@@ -91,13 +106,19 @@ do_install() {
     DESTDIR="$DESTDIR" cmake --install build
 
     # ROCm layout compatibility symlinks:
-    # - /opt/rocm/llvm -> lib/llvm (pre-6.0 path some downstream CMake probes)
+    # - /opt/rocm/lib/llvm -> ../llvm, the path this package used to
+    #   install to and that every downstream compute recipe still names in
+    #   its -DCMAKE_CXX_COMPILER argument. Both spellings therefore work,
+    #   and both deduce /opt/rocm as the ROCm root.
     # - amdclang* drivers surfaced in /opt/rocm/bin (downstream packages
     #   invoke them from there; matches AMD's shipped layout)
-    mkdir -p "${DESTDIR}/opt/rocm/bin"
-    ln -sv lib/llvm "${DESTDIR}/opt/rocm/llvm"
+    # Both link targets are relative and neither begins with a UsrMerge
+    # top-level directory name, so the installer's UsrMerge linkname remap
+    # leaves them alone.
+    mkdir -p "${DESTDIR}/opt/rocm/bin" "${DESTDIR}/opt/rocm/lib"
+    ln -sv ../llvm "${DESTDIR}/opt/rocm/lib/llvm"
     local _c
     for _c in amdclang amdclang++ amdclang-cl amdclang-cpp amdlld; do
-        ln -sv ../lib/llvm/bin/${_c} "${DESTDIR}/opt/rocm/bin/${_c}"
+        ln -sv ../llvm/bin/${_c} "${DESTDIR}/opt/rocm/bin/${_c}"
     done
 }
