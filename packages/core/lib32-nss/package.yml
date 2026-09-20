@@ -1,7 +1,7 @@
 name: lib32-nss
 version: "3.121"
-release: 1
-content_hash: 461c2c4f64601157
+release: 2  # r2: no built-byte change: the shared 32-bit build profile scripts/lib32-env.sh, declared in this recipe's source_tree, now records what the staging root already held before this package stages into it, so its staged-payload assertion judges what THIS build staged instead of everything in the root
+content_hash: a782c18842a2e248
 description: Network Security Services (32-bit multilib runtime)
 license: MPL-2.0
 homepage: https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS

@@ -69,6 +69,53 @@ export MAKEFLAGS="V=1 VERBOSE=1${MAKEFLAGS:+ ${MAKEFLAGS}}"
 # package died — the mechanism holds regardless of wiring position.
 export IGOS_LIB32_ENV_ACTIVE=1
 
+# lib32_stage_baseline
+#   Record every path the package DESTDIR already holds, immediately before
+#   this build stages anything into it. lib32_assert_only_lib32 subtracts this
+#   record so it judges THIS build's staged payload rather than whatever the
+#   staging root happens to contain.
+#
+#   Why it is needed: DESTDIR is per-package only on the tracked build path
+#   (igos-build/builder.py creates and empties one staging dir per package). A
+#   --stage-only build points DESTDIR at the SHARED system root instead, so the
+#   root legitimately holds other packages' payloads and this package's own
+#   previous run — including the license directory the bundle-license phase
+#   writes after do_install. Measured 2026-09-19: a second --stage-only build of
+#   lib32-libogg refused on
+#   <staging>/usr/share/licenses/lib32-libogg/COPYING, written by its own
+#   previous build. The assertion's contract is the staged PAYLOAD; its
+#   population was the whole root.
+#
+#   The record is a temp FILE (a shared system root holds far too many paths for
+#   a shell variable) and it is keyed to the DESTDIR it was taken against: the
+#   bash drivers run every package in ONE shell, so a record that outlived its
+#   package must never narrow another package's judgement. The assertion clears
+#   it, and lib32_env_end clears it on the success path.
+lib32_stage_baseline() {
+    if [ -z "${DESTDIR:-}" ]; then
+        echo "FATAL: lib32_stage_baseline: DESTDIR is unset — refusing to record a staging baseline" >&2
+        return 1
+    fi
+    lib32_stage_baseline_clear
+    IGOS_LIB32_STAGE_BASELINE=$(mktemp "${TMPDIR:-/tmp}/igos-lib32-baseline.XXXXXXXX") || {
+        echo "FATAL: lib32_stage_baseline: could not create the baseline record" >&2
+        return 1
+    }
+    IGOS_LIB32_STAGE_BASELINE_ROOT="${DESTDIR}"
+    # A missing DESTDIR is not an error here: a fresh per-package staging root
+    # that does not exist yet simply held nothing, and the record is empty.
+    find "${DESTDIR}" -mindepth 1 2>/dev/null | LC_ALL=C sort > "${IGOS_LIB32_STAGE_BASELINE}"
+}
+
+# lib32_stage_baseline_clear
+#   Remove the record and forget it. Safe to call when none was taken.
+lib32_stage_baseline_clear() {
+    if [ -n "${IGOS_LIB32_STAGE_BASELINE:-}" ]; then
+        rm -f "${IGOS_LIB32_STAGE_BASELINE}"
+    fi
+    unset IGOS_LIB32_STAGE_BASELINE IGOS_LIB32_STAGE_BASELINE_ROOT
+}
+
 # lib32_stage_libs <private-install-root> [extra-relative-path ...]
 #   Allowlist-stages ONLY the usr/lib32 tree from a private install root
 #   into the package DESTDIR (D-W0-6: allowlist over denylist). Headers,
@@ -84,6 +131,9 @@ lib32_stage_libs() {
         echo "FATAL: lib32_stage_libs: no usr/lib32 tree under ${root}" >&2
         return 1
     fi
+    # BEFORE the first write into DESTDIR: everything already there belongs to
+    # the staging root, not to this build.
+    lib32_stage_baseline || return 1
     install -dm755 "${DESTDIR}/usr/lib32"
     cp -a "${root}/usr/lib32/." "${DESTDIR}/usr/lib32/"
     local extra
@@ -95,6 +145,21 @@ lib32_stage_libs() {
         install -dm755 "${DESTDIR}/$(dirname "${extra}")"
         cp -a "${root}/${extra}" "${DESTDIR}/${extra}"
     done
+}
+
+# lib32_only_new_paths <baseline-file>
+#   Filter of the two sweeps below: drop every path the staging root already
+#   held when this build began staging. With no record, or an empty one (a
+#   fresh per-package staging root held nothing), every path is this build's
+#   and passes through. grep exits 1 when NOTHING survives the filter, which is
+#   the clean case, not an error — only a real grep failure (exit 2) propagates.
+lib32_only_new_paths() {
+    local baseline="$1"
+    if [ -n "${baseline}" ] && [ -s "${baseline}" ]; then
+        grep -Fxv -f "${baseline}" || [ $? -eq 1 ]
+    else
+        cat
+    fi
 }
 
 # lib32_assert_only_lib32 [extra-relative-path ...]
@@ -116,6 +181,21 @@ lib32_assert_only_lib32() {
     # then excluded from the stray sweep. A real payload file named
     # bin/lib/sbin still refuses; CONTENT inside the skeleton dirs is
     # outside usr/lib32 and still refuses via this same sweep.
+    # WHICH PATHS ARE THIS BUILD'S: the record lib32_stage_libs took before it
+    # staged anything. A record that belongs to a different staging root is a
+    # leak across packages in the drivers' shared shell — refuse rather than
+    # judge this package against another package's paths. No record at all
+    # means no narrowing: every path in the root is judged, which is the
+    # pre-2026-09-20 behaviour and can only refuse MORE, never less.
+    local baseline=""
+    if [ -n "${IGOS_LIB32_STAGE_BASELINE:-}" ]; then
+        if [ "${IGOS_LIB32_STAGE_BASELINE_ROOT:-}" != "${DESTDIR}" ]; then
+            echo "FATAL: lib32_assert_only_lib32: the staging baseline was recorded for '${IGOS_LIB32_STAGE_BASELINE_ROOT:-}', not for DESTDIR '${DESTDIR}' — refusing" >&2
+            lib32_stage_baseline_clear
+            return 1
+        fi
+        baseline="${IGOS_LIB32_STAGE_BASELINE}"
+    fi
     local skel
     for skel in bin lib sbin; do
         if [ -e "${DESTDIR}/${skel}" ] || [ -L "${DESTDIR}/${skel}" ]; then
@@ -134,11 +214,14 @@ lib32_assert_only_lib32() {
     for extra in "$@"; do
         find_args+=('!' -path "${DESTDIR}/${extra}" '!' -path "${DESTDIR}/${extra}/*")
     done
+    # The filter runs BEFORE head: five pre-existing paths would otherwise hide
+    # a real stray behind them.
     local stray
-    stray=$(find "${find_args[@]}" | head -5)
+    stray=$(find "${find_args[@]}" | lib32_only_new_paths "${baseline}" | head -5)
     if [ -n "$stray" ]; then
         echo "FATAL: lib32 package staged non-directory content outside the allowlist:" >&2
         echo "$stray" >&2
+        lib32_stage_baseline_clear
         return 1
     fi
     # Stray EMPTY directories outside the allowlist halt too (the Wave-1
@@ -164,12 +247,16 @@ lib32_assert_only_lib32() {
     for extra in "$@"; do
         straydir_args+=('!' -path "${DESTDIR}/${extra}" '!' -path "${DESTDIR}/${extra}/*")
     done
-    stray=$(find "${straydir_args[@]}" | head -5)
+    stray=$(find "${straydir_args[@]}" | lib32_only_new_paths "${baseline}" | head -5)
     if [ -n "$stray" ]; then
         echo "FATAL: lib32 package staged stray EMPTY director(ies) outside the allowlist:" >&2
         echo "$stray" >&2
+        lib32_stage_baseline_clear
         return 1
     fi
+    # One staging pass, one judgement: the record does not outlive the
+    # assertion that consumed it.
+    lib32_stage_baseline_clear
 }
 
 # lib32_env_end
@@ -183,6 +270,7 @@ lib32_assert_only_lib32() {
 #   driver-side marker-keyed lib32_env_scrub (W1-a — see the marker above).
 lib32_env_end() {
     unset CC CXX PKG_CONFIG_LIBDIR LIB32_HOST IGOS_LIB32_ENV_ACTIVE
+    lib32_stage_baseline_clear
     if [ "${IGOS_LIB32_PREV_MAKEFLAGS-}" = "__unset__" ]; then
         unset MAKEFLAGS
     else

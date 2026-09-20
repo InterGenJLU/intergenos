@@ -1,7 +1,7 @@
 name: lib32-sqlite
 version: '3510200'
-release: 2  # r2: license: Public Domain -> LicenseRef-Public-Domain — a valid SPDX identifier, so the new license-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade.
-content_hash: 1857f43bf618da3c
+release: 3  # r3: no built-byte change: the shared 32-bit build profile scripts/lib32-env.sh, declared in this recipe's source_tree, now records what the staging root already held before this package stages into it, so its staged-payload assertion judges what THIS build staged instead of everything in the root; r2: license: Public Domain -> LicenseRef-Public-Domain — a valid SPDX identifier, so the new license-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade.
+content_hash: 2d7d15c75dc679a0
 description: SQL database engine (32-bit multilib runtime)
 # SPDX has no identifier for a bare public-domain dedication. LicenseRef- is
 # SPDX's own mechanism for a license it does not carry, and preserves the

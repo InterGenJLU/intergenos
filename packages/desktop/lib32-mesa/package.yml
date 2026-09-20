@@ -1,7 +1,7 @@
 name: lib32-mesa
 version: "25.3.5"
-release: 3  # r3: no built-byte change: the shared 32-bit build inputs this recipe reads — scripts/lib32-env.sh, config/lib32/lib32-cross.ini and igos-build/mesa_feature_matrix.py — are now declared in source_tree. They decide the configure surface, so editing one must rebuild this package; none of them has changed, so r3 builds what r2 built.  # r2: drop deprecated -Dshared-glapi (matches mesa r-bump) — post-burn sweep 2026-07-11
-content_hash: 224de0146e68bbcb
+release: 4  # r4: no built-byte change: the shared 32-bit build profile scripts/lib32-env.sh, declared in this recipe's source_tree, now records what the staging root already held before this package stages into it, so its staged-payload assertion judges what THIS build staged instead of everything in the root; r3: no built-byte change: the shared 32-bit build inputs this recipe reads — scripts/lib32-env.sh, config/lib32/lib32-cross.ini and igos-build/mesa_feature_matrix.py — are now declared in source_tree. They decide the configure surface, so editing one must rebuild this package; none of them has changed, so r3 builds what r2 built.  # r2: drop deprecated -Dshared-glapi (matches mesa r-bump) — post-burn sweep 2026-07-11
+content_hash: 52c65495d8baa8ea
 description: OpenGL and Vulkan implementation (32-bit multilib runtime)
 license: MIT
 homepage: https://www.mesa3d.org/

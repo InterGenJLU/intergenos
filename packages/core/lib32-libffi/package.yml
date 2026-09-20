@@ -1,7 +1,7 @@
 name: lib32-libffi
 version: "3.5.2"
-release: 1
-content_hash: 851888a3b83e811e
+release: 2  # r2: no built-byte change: the shared 32-bit build profile scripts/lib32-env.sh, declared in this recipe's source_tree, now records what the staging root already held before this package stages into it, so its staged-payload assertion judges what THIS build staged instead of everything in the root
+content_hash: 49f862eefa90dd12
 description: Foreign Function Interface library (32-bit multilib runtime)
 license: MIT
 homepage: https://sourceware.org/libffi/

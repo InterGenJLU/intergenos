@@ -1,7 +1,7 @@
 name: lib32-llvm
 version: "21.1.8"
-release: 1
-content_hash: b6968884d359f6d0
+release: 2  # r2: no built-byte change: the shared 32-bit build profile scripts/lib32-env.sh, declared in this recipe's source_tree, now records what the staging root already held before this package stages into it, so its staged-payload assertion judges what THIS build staged instead of everything in the root
+content_hash: c6448ce7d0d0b4ec
 description: LLVM compiler infrastructure (32-bit runtime + build interface)
 license: Apache-2.0
 homepage: https://llvm.org/

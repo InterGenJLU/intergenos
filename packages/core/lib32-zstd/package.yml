@@ -1,7 +1,7 @@
 name: lib32-zstd
 version: "1.5.7"
-release: 1
-content_hash: 51c2c8b6d9189651
+release: 2  # r2: no built-byte change: the shared 32-bit build profile scripts/lib32-env.sh, declared in this recipe's source_tree, now records what the staging root already held before this package stages into it, so its staged-payload assertion judges what THIS build staged instead of everything in the root
+content_hash: 6b4d70a36011f5dd
 description: Zstandard real-time compression (32-bit multilib runtime)
 license: BSD-3-Clause
 homepage: https://facebook.github.io/zstd/

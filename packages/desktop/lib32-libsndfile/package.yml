@@ -1,7 +1,7 @@
 name: lib32-libsndfile
 version: "1.2.2"
-release: 1
-content_hash: 5db596f16709db7e
+release: 2  # r2: no built-byte change: the shared 32-bit build profile scripts/lib32-env.sh, declared in this recipe's source_tree, now records what the staging root already held before this package stages into it, so its staged-payload assertion judges what THIS build staged instead of everything in the root
+content_hash: 5dcd071bd714d5e3
 description: Library for reading and writing sound files (32-bit multilib runtime)
 license: LGPL-2.1-or-later
 homepage: https://libsndfile.github.io/libsndfile/
