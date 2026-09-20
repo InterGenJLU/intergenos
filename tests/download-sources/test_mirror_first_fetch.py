@@ -171,3 +171,27 @@ class TestUploadAndFetchNameTheSameDirectory:
     def test_upload_dir_is_stable_under_a_trailing_slash(self):
         assert (_ds.mirror_upload_dir("/home/intergenos/repo/sources/")
                 == _ds.mirror_upload_dir("/home/intergenos/repo/sources"))
+
+
+class TestTheDryRunNamesWhereTheUploadWouldLand:
+    """A check-before-upload that does not name the destination checks nothing."""
+
+    def test_dry_run_prints_the_served_destination(self):
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT_PATH), "--mirror-upload", "--dry-run",
+             "--tier", "desktop"],
+            capture_output=True, text=True, timeout=600,
+        )
+        assert result.returncode == 0, result.stderr
+        assert f"{_ds.DEFAULT_MIRROR_PATH}/current/" in result.stdout
+        assert f"{_ds.DEFAULT_MIRROR_FETCH_BASE}/" in result.stdout
+
+    def test_an_upload_path_nothing_serves_is_refused_before_the_copy(self):
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT_PATH), "--mirror-upload",
+             "user@host:/home/intergenos/private-sources", "--dry-run",
+             "--tier", "desktop"],
+            capture_output=True, text=True, timeout=600,
+        )
+        assert result.returncode == 1
+        assert "outside the mirror web root" in result.stdout

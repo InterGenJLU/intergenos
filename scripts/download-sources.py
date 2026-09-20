@@ -575,9 +575,21 @@ def cmd_mirror_upload(tiers: list[str], mirror_host: str = "", mirror_path: str 
         print("  WARNING: some tarballs are missing or lack checksums. Run --all --update-checksums first.")
         print()
 
+    upload_dir = mirror_upload_dir(mirror_path)
+    try:
+        public_url = served_url_for(upload_dir)
+    except ValueError as exc:
+        # An upload nothing serves is a silent miss for every fetch, so it is
+        # refused here — before the copy, and in a dry run too — rather than
+        # discovered as a 404 months later.
+        print(f"ERROR: {exc}")
+        sys.exit(1)
+
     if dry_run:
         total_size = sum(item["size"] for item in to_upload)
         print(f"  [DRY RUN] Would upload {len(to_upload)} files ({total_size / 1024 / 1024:.1f} MB total)")
+        print(f"  [DRY RUN] Destination: {mirror_host or '<--mirror-host required>'}:{upload_dir}/")
+        print(f"  [DRY RUN] Served at:   {public_url}/ — where source fetches read")
         for item in to_upload[:10]:
             print(f"    {item['filename']} ({item['size'] / 1024 / 1024:.1f} MB)")
         if len(to_upload) > 10:
@@ -604,15 +616,6 @@ def cmd_mirror_upload(tiers: list[str], mirror_host: str = "", mirror_path: str 
             total_size += item["size"]
 
         generate_sha256sums(current_path, current_path / "SHA256SUMS")
-
-        upload_dir = mirror_upload_dir(mirror_path)
-        try:
-            public_url = served_url_for(upload_dir)
-        except ValueError as exc:
-            # An upload nothing serves is a silent miss for every fetch, so it
-            # is refused here rather than discovered as a 404 months later.
-            print(f"ERROR: {exc}")
-            sys.exit(1)
 
         print(f"  Staging complete: {len(to_upload)} files, {total_size / 1024 / 1024:.1f} MB")
         print(f"  Uploading to {mirror_host}:{upload_dir}/ ...")
