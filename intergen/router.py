@@ -204,6 +204,78 @@ def _is_referential_argument(token: str) -> bool:
     return (token or "").strip().strip(".,;:!?'\"").lower() in _REFERENTIAL_ARGUMENT_TOKENS
 
 
+# ── a turn that only makes sense on top of the last one ──────────────────
+#
+# THE SHORTCUT ROUTES CANNOT SEE THE CONVERSATION. Several routes answer before
+# the model is ever asked — the explain gate, the cached-state answer, the
+# keyword match, the semantic match. They read THIS message and nothing else,
+# which is what makes them fast and what makes them wrong for a follow-up: a
+# message whose subject was named in an earlier turn is answered by a route
+# that cannot know there was an earlier turn.
+#
+# Measured in the field on 2026-09-20 (CS-4, a second machine): turn one was
+# answered by the explain route in 19 ms with no model call, turn two by the
+# keyword route in 14 ms — it ran `free -h` — and neither could have known it
+# was continuing anything. The person was having a conversation; the assistant
+# was answering two unrelated sentences.
+#
+# So a message that CARRIES its subject rather than stating it steps past those
+# routes and goes to a path that is assembled with the conversation. The test
+# is deliberately narrow — an explicit back-reference to what was just said, or
+# a referring word standing where the subject belongs — because the cost of
+# firing wrongly is a code-owned answer handed to the model, and the cost of
+# not firing is what it already was.
+_BACK_REFERENCE = re.compile(
+    r"\b(?:you (?:just |already )?(?:said|told me|mentioned|answered)"
+    r"|(?:as|like) you (?:said|mentioned)"
+    r"|did you (?:just )?say"
+    r"|(?:the )?(?:first|second|third|last|previous) (?:thing|one|question|answer)"
+    r"|earlier you)\b", re.I)
+
+# The referring words that can stand where a subject belongs. "one" and "ones"
+# are deliberately absent: "which one is bigger" is as often a fresh question
+# about two things the same sentence names.
+_CARRIED_SUBJECT_WORDS = frozenset({
+    "it", "its", "that", "those", "these", "them", "they", "this",
+})
+
+# A referring word only carries the subject when nothing in the message names
+# one. "is that file in /etc?" refers to something already on the table, but it
+# also NAMES it, so the fast routes can still answer it.
+_NAMES_ITS_OWN_SUBJECT = re.compile(r"[/~]\S|\.\w{2,4}\b|\b[A-Z][a-z]+\b")
+
+
+def depends_on_an_earlier_turn(text: str) -> bool:
+    """True when this message only makes sense on top of an earlier one.
+
+    Two shapes, both narrow:
+
+      * an explicit back-reference to what was said ("which of those did you
+        just say", "what was the first thing I asked");
+      * a referring word standing in the first few words, where the subject
+        belongs, with nothing else in the message naming a subject ("what about
+        it?", "are those installed?").
+
+    It is a question about the MESSAGE, not about the conversation: the caller
+    checks that there IS an earlier turn. A message with no referring word and
+    no back-reference is never one of these, which is the case that has to stay
+    cheap.
+    """
+    if not text:
+        return False
+    if _BACK_REFERENCE.search(text):
+        return True
+    words = re.findall(r"[a-zA-Z']+", text.lower())
+    if not words:
+        return False
+    # "where the subject belongs": inside the opening clause, not anywhere in a
+    # long sentence that has already said what it is about.
+    opening = words[:6]
+    if not any(w in _CARRIED_SUBJECT_WORDS for w in opening):
+        return False
+    return not _NAMES_ITS_OWN_SUBJECT.search(text)
+
+
 def _is_pathlike(tok: str) -> bool:
     """A clean path-like token for the copy extractor — an absolute/relative path or
     a filename with an extension, never a determiner/filler word. So 'the log' (-> tok
@@ -2691,6 +2763,27 @@ class ConversationRouter(RouterInterface):
             if _da is not None:
                 return _da
 
+        # IS THIS A FOLLOW-UP? Everything above this line either reads the
+        # conversation (the ordinal/conversation answers) or is a capability
+        # question about the assistant itself, so it keeps its turns. Below it
+        # are the routes that read THIS MESSAGE AND NOTHING ELSE — explain, the
+        # cached state answer, keyword, semantic. A message that carries its
+        # subject from an earlier turn steps past them and goes to a path that
+        # is assembled with the conversation, because a fast answer to a
+        # question the route could not understand is not a fast answer.
+        #
+        # It is only a follow-up if there was something to follow: with an
+        # empty conversation the message is a first message, whatever its
+        # wording, and the fast routes answer it as they always did.
+        carried_subject = bool(self._conv.history) and depends_on_an_earlier_turn(
+            user_input)
+        if carried_subject:
+            glass.emit("route", "carried_subject", detail={
+                "user_msg": user_input,
+                "history_msgs": len(self._conv.history),
+                "standing_aside": ["explain", "state_cache", "keyword",
+                                   "semantic"]})
+
         # 2B-LANE (operator-found live, 2026-07-09): a CURRENT external-live-data ask
         # ("dow jones right now", "weather right now") on the locked floor gets an
         # honest web-search offer instead of a fabricated/denied freeform answer.
@@ -2708,7 +2801,9 @@ class ConversationRouter(RouterInterface):
         # into actions or dispatched to manage_packages — the exact mis-route
         # PI-218-2 reported. Curated corpus answers beat a 2B improvising commands
         # (security-first); explain-first-then-offer preserves the user's ability to act.
-        explain_result, explain_prior = self._try_explain(user_input)
+        explain_result, explain_prior = (
+            (None, False) if carried_subject
+            else self._try_explain(user_input))
         _span.set_attribute("explain_prior", explain_prior)
         if explain_result is not None:
             self._won("explain", prior=explain_prior,
@@ -2776,9 +2871,10 @@ class ConversationRouter(RouterInterface):
         # or the query is about a PACKAGE — "what version of the kernel package"
         # wants pkm's package release, not the cached uname kernel string, so it
         # must reach the manage_packages route rather than the system-state cache.
-        if self._state_cache_may_serve(user_input, lower_input_raw,
-                                       has_safety_trigger=has_safety_trigger,
-                                       route_compound_whole=route_compound_whole):
+        if not carried_subject and self._state_cache_may_serve(
+                user_input, lower_input_raw,
+                has_safety_trigger=has_safety_trigger,
+                route_compound_whole=route_compound_whole):
             cached_result = self._try_state_cache(user_input, t0)
             if cached_result is not None:
                 return cached_result
@@ -2816,7 +2912,8 @@ class ConversationRouter(RouterInterface):
         system_noun_teach = self._is_system_noun_teach(user_input)
 
         # P1: Keyword/regex match
-        result = self._try_keyword_match(user_input)
+        result = (RouteResult(handled=False) if carried_subject
+                  else self._try_keyword_match(user_input))
         if result.handled and not route_compound_whole and not system_noun_teach:
             self._record(result, t0, "keyword")
             return result
@@ -2849,7 +2946,7 @@ class ConversationRouter(RouterInterface):
         # Deleted with the twin re-check in _try_semantic_match; a match that gets past
         # the matcher's own bar is admitted, and a turn where nothing cleared its bar
         # still arrives with intent_id None and is still refused.
-        if p2_match.intent_id is not None \
+        if p2_match.intent_id is not None and not carried_subject \
                 and not route_compound_whole and not system_noun_teach:
             result = self._try_semantic_match(user_input)
             if result.handled:

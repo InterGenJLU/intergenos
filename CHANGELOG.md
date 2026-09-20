@@ -238,6 +238,24 @@ landed is in the repository README, not here.
   default-application list naming Celluloid for video/webm and the common
   audio types (MP3, FLAC, Ogg, WAV).
 
+- **A follow-up is not a fresh question.** Four of the assistant's routes answer
+  before the model is ever asked — the explain gate, the cached system-state
+  answer, the keyword match and the semantic match — and each reads the current
+  message and nothing else. That is what makes them fast, and what made them
+  wrong for a message whose subject was named in an earlier turn: the route
+  could not know there had been one. Measured on 2026-09-20: one turn was
+  answered by the explain route in 19 milliseconds with no model call, the next
+  by the keyword route in 14 milliseconds — it ran `free -h` — while the person
+  was in the middle of a conversation. A message that carries its subject
+  rather than stating it now steps past those four routes and reaches a path
+  that is assembled with the conversation. The test is deliberately narrow,
+  because a wrong positive hands a code-owned answer to the model: either an
+  explicit back-reference to what was just said, or a referring word standing in
+  the opening words where the subject belongs, with nothing else in the message
+  naming one. With an empty conversation nothing is a follow-up whatever its
+  wording, so a first message is answered exactly as before, and the answers
+  that read the conversation still come from the code that reads it.
+
 - **A turn the assistant answered is a turn it can be asked about.** On the
   command line, and on every desktop surface that speaks to the assistant's
   daemon, the exchange a person had was recorded by each answering path for
