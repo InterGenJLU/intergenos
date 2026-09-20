@@ -8,6 +8,12 @@ served a pinned, byte-identical copy.
 
 The sha256 pin is enforced on BOTH paths, so the order changes where the bytes
 come from, never whether they are verified.
+
+The second group pins the other half of the same defect: the directory the
+upload writes into and the directory the fetch reads from must be the same
+served directory. They were two unrelated string defaults with nothing tying
+them together, so a change to either one could silently send uploads to a
+place no fetch ever looks.
 """
 
 import hashlib
@@ -15,6 +21,8 @@ import importlib.util
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 SCRIPT_PATH = _PROJECT_ROOT / "scripts" / "download-sources.py"
@@ -136,3 +144,30 @@ class TestFetchOrder:
 
         assert _ds.download_file(UPSTREAM_URL, str(dest), expected_sha256=PAYLOAD_SHA)
         assert rec.attempts[0][1] == served
+
+
+class TestUploadAndFetchNameTheSameDirectory:
+    def test_the_fetch_base_default_is_the_served_current_directory(self):
+        assert _ds.DEFAULT_MIRROR_FETCH_BASE == MIRROR_BASE
+
+    def test_upload_destination_is_the_served_fetch_base(self):
+        """The default upload lands exactly where the default fetch reads."""
+        uploaded_to = _ds.mirror_upload_dir(_ds.DEFAULT_MIRROR_PATH)
+        assert _ds.served_url_for(uploaded_to) == _ds.mirror_fetch_base()
+
+    def test_the_default_upload_target_is_inside_the_default_mirror_value(self):
+        assert _ds.DEFAULT_MIRROR.endswith(":" + _ds.DEFAULT_MIRROR_PATH)
+
+    def test_a_custom_upload_path_maps_to_its_own_served_url(self):
+        uploaded_to = _ds.mirror_upload_dir("/home/intergenos/repo/sources-staging")
+        assert uploaded_to == "/home/intergenos/repo/sources-staging/current"
+        assert _ds.served_url_for(uploaded_to) == (
+            "https://repo.intergenos.org/sources-staging/current")
+
+    def test_a_path_outside_the_web_root_has_no_served_url(self):
+        with pytest.raises(ValueError):
+            _ds.served_url_for("/home/intergenos/private-sources/current")
+
+    def test_upload_dir_is_stable_under_a_trailing_slash(self):
+        assert (_ds.mirror_upload_dir("/home/intergenos/repo/sources/")
+                == _ds.mirror_upload_dir("/home/intergenos/repo/sources"))

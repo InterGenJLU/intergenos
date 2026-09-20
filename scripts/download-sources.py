@@ -45,12 +45,39 @@ SOURCES_DIR = PROJECT_ROOT / "build" / "sources"
 MIRROR_SERVED_ROOT_PATH = "/home/intergenos/repo"
 MIRROR_SERVED_ROOT_URL = "https://repo.intergenos.org"
 
+# The upload target is a path on the VPS; the fetch base is a URL. They must
+# name the SAME served directory or an uploaded tarball is a silent miss for
+# every fetch, so both are derived from the pair above and a test holds them
+# together.
 DEFAULT_MIRROR_PATH = f"{MIRROR_SERVED_ROOT_PATH}/sources"
 DEFAULT_MIRROR = f"intergenos@origin.intergenstudios.com:{DEFAULT_MIRROR_PATH}"
 DEFAULT_MIRROR_FETCH_BASE = f"{MIRROR_SERVED_ROOT_URL}/sources/current"
 DEFAULT_UPDATES_JSON = str(PROJECT_ROOT / "build" / "updates.json")
 
 TIERS = ["toolchain", "core", "base", "desktop", "ai", "compute", "extra"]
+
+
+def mirror_upload_dir(mirror_path: str) -> str:
+    """The directory an upload to mirror_path actually writes into.
+
+    The upload stages into current/ and rsyncs that, so the served directory
+    is one level below the path the operator passes.
+    """
+    return f"{mirror_path.rstrip('/')}/current"
+
+
+def served_url_for(remote_dir: str) -> str:
+    """The public URL that serves a directory under the mirror's web root.
+
+    Raises ValueError for a path outside the web root, which is served by
+    nothing and would make an upload invisible to every fetch.
+    """
+    rel = os.path.relpath(remote_dir, MIRROR_SERVED_ROOT_PATH)
+    if rel == os.pardir or rel.startswith(os.pardir + os.sep) or os.path.isabs(rel):
+        raise ValueError(
+            f"{remote_dir} is outside the mirror web root {MIRROR_SERVED_ROOT_PATH}; "
+            "nothing serves it")
+    return f"{MIRROR_SERVED_ROOT_URL}/{rel}"
 
 
 def sha256_file(path: str) -> str:
@@ -483,6 +510,11 @@ def cmd_mirror_upload(tiers: list[str], mirror_host: str = "", mirror_path: str 
     it with verified tarballs from the local cache. Generates SHA256SUMS
     for integrity verification.
 
+    The directory written here is the directory sources are fetched from:
+    mirror_path + /current is served at the fetch base download_file() reads,
+    and a test holds the two defaults together. An upload path outside the
+    mirror's web root is refused, because nothing would serve it.
+
     Q1=B (serve upstream as-is): tarballs are exact copies of upstream
     sources, never repackaged or modified. The SHA256 in the mirror's
     SHA256SUMS matches the SHA256 in package.yml.
@@ -494,7 +526,7 @@ def cmd_mirror_upload(tiers: list[str], mirror_host: str = "", mirror_path: str 
     if not mirror_host:
         mirror_host = os.environ.get("MIRROR_HOST", "")
     if not mirror_path:
-        mirror_path = os.environ.get("MIRROR_PATH", "/home/intergenos/repo/sources")  # canonical served path -> https://repo.intergenos.org/sources/
+        mirror_path = os.environ.get("MIRROR_PATH", DEFAULT_MIRROR_PATH)
 
     packages = load_packages(tiers)
     print(f"\nPreparing mirror upload for {len(packages)} packages across tiers: {', '.join(tiers)}\n")
@@ -573,15 +605,25 @@ def cmd_mirror_upload(tiers: list[str], mirror_host: str = "", mirror_path: str 
 
         generate_sha256sums(current_path, current_path / "SHA256SUMS")
 
+        upload_dir = mirror_upload_dir(mirror_path)
+        try:
+            public_url = served_url_for(upload_dir)
+        except ValueError as exc:
+            # An upload nothing serves is a silent miss for every fetch, so it
+            # is refused here rather than discovered as a 404 months later.
+            print(f"ERROR: {exc}")
+            sys.exit(1)
+
         print(f"  Staging complete: {len(to_upload)} files, {total_size / 1024 / 1024:.1f} MB")
-        print(f"  Uploading to {mirror_host}:{mirror_path}/current/ ...")
+        print(f"  Uploading to {mirror_host}:{upload_dir}/ ...")
+        print(f"  Served at {public_url}/ — the base source fetches read")
         print()
 
         ssh_key = os.environ.get("MIRROR_SSH_KEY",
                                   os.path.expanduser("~/.ssh/id_ed25519"))
         ssh_port = os.environ.get("MIRROR_SSH_PORT", "2200")
 
-        remote_dest = f"{mirror_host}:{mirror_path}/current/"
+        remote_dest = f"{mirror_host}:{upload_dir}/"
         result = subprocess.run(
             ["rsync", "-avz", "--progress",
              "-e", f"ssh -p {ssh_port} -i {ssh_key} -o StrictHostKeyChecking=accept-new",
@@ -592,7 +634,7 @@ def cmd_mirror_upload(tiers: list[str], mirror_host: str = "", mirror_path: str 
         if result.returncode == 0:
             print(result.stdout[-500:] if len(result.stdout) > 500 else result.stdout)
             print(f"\n  UPLOAD COMPLETE — {len(to_upload)} files synced to {remote_dest}")
-            print(f"  Public URL: https://repo.intergenos.org/sources/")
+            print(f"  Public URL: {public_url}/")
         else:
             print(f"  rsync stderr: {result.stderr[-500:]}")
             print(f"  rsync exit code: {result.returncode}")
@@ -681,7 +723,8 @@ def main():
     parser.add_argument("--update-checksums", action="store_true", help="Update package.yml with computed SHAs")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be done")
     parser.add_argument("--mirror-upload", nargs="?", const=DEFAULT_MIRROR, metavar="USER@HOST:PATH",
-                        help="Upload local cache to VPS mirror (default: intergenos@origin.intergenstudios.com:/home/intergenos/repo/sources)")
+                        help=f"Upload local cache to VPS mirror (default: {DEFAULT_MIRROR}, "
+                             f"served at {DEFAULT_MIRROR_FETCH_BASE}/)")
     parser.add_argument("--check-updates", action="store_true",
                         help="Check for upstream updates via vps-source-poller output")
     parser.add_argument("--updates-json", default=DEFAULT_UPDATES_JSON,
