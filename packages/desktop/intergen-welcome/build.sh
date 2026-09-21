@@ -368,4 +368,20 @@ post_install() {
         gtk-update-icon-cache --quiet --force /usr/share/icons/hicolor 2>/dev/null || true
     fi
     update-desktop-database -q /usr/share/applications 2>/dev/null || true
+    # A machine that already chose a name server on the Welcomer's name-lookup
+    # page carries the drop-in that choice writes, and nothing else that the
+    # choice now needs. The Welcomer cannot repair that: it runs once per new
+    # user account, so a machine whose user has already seen it never runs it
+    # again. This hook runs as root at every upgrade, which is the only place
+    # that reaches every machine already in the field.
+    #
+    # The verb re-applies the choice RECORDED ON THIS MACHINE and nothing
+    # else: it reads the Selection line out of the existing drop-in and runs
+    # the same apply verb the page would have run. A machine that never used
+    # the page has no drop-in, the verb does nothing and exits 0. This writes
+    # machine-unique state, not payload — no file this package's manifest
+    # declares is created, copied or edited here.
+    if [ -x /usr/libexec/intergen-welcome/intergen-welcome-privhelper ]; then
+        /usr/libexec/intergen-welcome/intergen-welcome-privhelper dns-reapply-selection
+    fi
 }

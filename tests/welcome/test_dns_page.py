@@ -39,6 +39,7 @@ from gi.repository import Gio, GLib  # noqa: E402,F401
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 WELCOME_PY = REPO_ROOT / "assets" / "intergen-welcome" / "intergen-welcome.py"
 PRIVHELPER = REPO_ROOT / "assets" / "intergen-welcome" / "intergen-welcome-privhelper"
+BUILD_SH = REPO_ROOT / "packages" / "desktop" / "intergen-welcome" / "build.sh"
 
 _spec = importlib.util.spec_from_file_location("intergen_welcome", WELCOME_PY)
 welcome = importlib.util.module_from_spec(_spec)
@@ -474,6 +475,47 @@ class TestSelectionReadBackFromTheDropin(unittest.TestCase):
         # The same validation the privileged write enforces; a file edited by
         # hand does not get to smuggle a value through the repair.
         self._refused(self._dropin("custom", "not-an-address", "no"))
+
+
+class TestTheUpgradeRepairIsWiredUp(unittest.TestCase):
+    """The repair path's wiring.
+
+    Reading the choice back is worth nothing unless something re-applies it on
+    a machine that already made it. That something is the package's own
+    post_install hook, which runs as root at upgrade time on every machine in
+    the field — the Welcomer itself runs once per new user account, so a
+    machine whose user has already seen it would never repair.
+
+    These tests asserts the wiring, not the writing: the write goes to this
+    machine's own configuration, so it is proven on a real machine in the
+    lane's reality leg, never from a unit test.
+    """
+
+    def test_the_helper_offers_a_reapply_verb(self):
+        proc = subprocess.run(["bash", str(PRIVHELPER), "no-such-verb"],
+                              capture_output=True, text=True, timeout=30)
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("dns-reapply-selection", proc.stderr,
+                      "the usage text does not offer the repair verb:\n"
+                      + proc.stderr)
+
+    # NOT TESTED HERE, deliberately: that the verb does nothing on a machine
+    # which never chose a name server, and that it re-applies on one which
+    # did. Both would have to run the verb for real, and the verb reads and
+    # writes THIS machine's resolver configuration. Giving the helper an
+    # environment variable to point it elsewhere was the obvious way to make
+    # it testable and is exactly what its security model refuses — no
+    # caller-supplied path enters this helper. So the decision it makes is
+    # tested above through dns-selection-from-dropin, which is pure, and the
+    # writing is proven on a real machine in this lane's reality leg.
+
+    def test_post_install_calls_the_repair(self):
+        text = BUILD_SH.read_text(encoding="utf-8")
+        hook = text[text.index("post_install()"):]
+        self.assertIn("dns-reapply-selection", hook,
+                      "the package's post_install does not re-apply a name-"
+                      "server choice, so a machine already in the field is "
+                      "never repaired")
 
 
 class TestDescribeCurrent(unittest.TestCase):

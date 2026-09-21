@@ -577,6 +577,31 @@ NFT
         # helper, and a test can still feed it a file of its own.
         mdns_hosts_line "${2:-}" || exit $?
         ;;
+    dns-reapply-selection)
+        # The repair itself, run by this package's post_install at upgrade.
+        #
+        # A machine that chose a name server before this helper learned what
+        # else that choice needs carries the drop-in and nothing else. The
+        # Welcomer cannot repair it: it runs once per new user account, so a
+        # machine whose user has already seen it would never run again. The
+        # package hook runs as root on every machine at its next upgrade,
+        # which is the only place that reaches all of them.
+        #
+        # No choice on this machine means nothing to repair, and that is a
+        # success, not a failure: the hook must not fail an upgrade over a
+        # machine that never used this page.
+        if [ ! -f "$DNS_DROPIN" ]; then
+            exit 0
+        fi
+        if ! _verb=$(selection_from_dropin < "$DNS_DROPIN"); then
+            echo "intergen-welcome-privhelper: the name-server drop-in on this machine could not be read back, so the choice recorded in it was NOT re-applied; the file is left exactly as it is." >&2
+            exit 2
+        fi
+        echo "intergen-welcome-privhelper: re-applying the recorded name-server choice ($_verb)."
+        # shellcheck disable=SC2086 -- the words come from this script's own
+        # reader above, every one of them validated by its own parsers.
+        exec "$0" $_verb
+        ;;
     dns-selection-from-dropin)
         # The repair path's reading half — reads the drop-in on STDIN, prints
         # the verb that applies the same choice, writes nothing, needs no
@@ -599,6 +624,7 @@ NFT
         echo "       intergen-welcome-privhelper check-address <address>" >&2
         echo "       intergen-welcome-privhelper mdns-hosts-line {on|off} < nsswitch.conf" >&2
         echo "       intergen-welcome-privhelper dns-selection-from-dropin < 50-intergen-welcome-dns.conf" >&2
+        echo "       intergen-welcome-privhelper dns-reapply-selection" >&2
         exit 2
         ;;
 esac
