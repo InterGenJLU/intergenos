@@ -14,13 +14,29 @@ plugin collection bridges the same gap for its own eleven files by installing
 one symlink per file there; the audio server installed none, so both of its
 files were installed and never read.
 
-On the machine this was measured on, the ALSA default therefore stayed the
-library's built-in dmix/dsnoop pair: `arecord -D default` exited 1 with
-dsnoop's "unable to open slave" whenever the audio server held the capture
-device, `arecord -D pipewire` reported "Unknown PCM pipewire", and neither
-`aplay -L` nor `arecord -L` listed a `pipewire` device — while `aplay -D
-default` still worked, because dmix can share an output card and dsnoop cannot
-open a capture device another process owns.
+The general effect: `pcm.!default` was never repointed at the audio server, so
+it stayed whatever alsa-lib's own built-in configuration makes it, and neither
+`aplay -L` nor `arecord -L` listed a `pipewire` device at all. What that
+built-in default then does depends on the machine, and both observed forms
+failed to record:
+
+  * On a machine whose first sound card is index 0, the built-in default is the
+    dmix/dsnoop pair on that card. `arecord -D default` exited 1 with dsnoop's
+    "unable to open slave" whenever the audio server held the capture device,
+    while `aplay -D default` still worked, because dmix can share an output
+    card and dsnoop cannot open a capture device another process owns.
+  * On a machine whose cards are not numbered from 0, the built-in default does
+    not resolve at all: alsa.conf sets `defaults.pcm.card 0` and
+    `defaults.ctl.card 0`, so every path through the built-in default names a
+    card that does not exist. Measured on the development machine on
+    2026-09-21, whose cards are index 1 and index 2: `arecord -D default`
+    exited 1 with "cannot find card '0'" and then "Unknown PCM default", and
+    `aplay -D default` failed the same way — there, plain-ALSA playback was
+    broken too.
+
+Both reduce to one statement: the ALSA default did not reach the audio server.
+`99-pipewire-default.conf` fixes both, because the definition it installs names
+no card index at all.
 
 The properties held here are that the recipe installs a link for each of the
 two files, that the links point into the directory the files are installed to,
@@ -30,8 +46,11 @@ collection's links, and that the two paths are declared among the paths the
 build verifies so they cannot silently stop being installed again.
 
 WHAT THEY DO NOT PROVE: that recording through the ALSA default works on an
-installed machine. That needs the archive built and installed, which needs a
-build substrate; it is the unproven residue named in this change's delivery.
+installed machine. That is not provable from a source tree; it was proved
+separately on 2026-09-21 by installing the built archive on the development
+machine, where `arecord -D default` failed before the upgrade and recorded
+after it. The last test here does prove the causal step that claim rests on,
+against the real alsa-lib.
 """
 import os
 import re
@@ -214,10 +233,20 @@ def test_the_sound_library_finds_the_device_once_the_directory_is_read(tmp_path)
 
     The tool under test stays alsa-lib: its own loader, its own hook, its own
     parser, driven through the real `arecord -L`. What this moves is the
-    DESTINATION — which directory the load list names — because that directory
-    is precisely the variable the change alters. The shipped alsa.conf is
-    copied and only its load list is repointed; nothing about the mechanism is
-    replaced or reimplemented.
+    DESTINATION — which directories the load list names — because that is
+    precisely the variable the change alters. The shipped alsa.conf is copied
+    and only the paths in its load list are repointed; nothing about the
+    mechanism is replaced or reimplemented.
+
+    BOTH SIDES ARE BUILT HERE, and that is the point. An earlier version of
+    this test used the untouched shipped alsa.conf as its control. That made
+    the test depend on the machine not having the change installed: once the
+    development machine was upgraded to the fixed package on 2026-09-21, the
+    real /usr/etc/alsa/conf.d held the two links, the control saw a pipewire
+    device and the test failed — on a machine where the software was working
+    correctly. A test that breaks when its subject is deployed is measuring the
+    host, not the change. Both sides now read only directories this test
+    created, so the result is the same whether or not the host carries the fix.
     """
     shipped = Path("/usr/share/alsa/alsa.conf")
     if not shipped.is_file():
@@ -230,39 +259,84 @@ def test_the_sound_library_finds_the_device_once_the_directory_is_read(tmp_path)
             f"{real_conf_d} (found {present})"
         )
 
-    conf_d = tmp_path / "conf.d"
-    conf_d.mkdir()
+    # The directory that holds the two configuration files, and an empty one.
+    populated = tmp_path / "populated"
+    populated.mkdir()
     for name in CONF_FILES:
-        shutil.copy(real_conf_d / name, conf_d / name)
+        shutil.copy(real_conf_d / name, populated / name)
+    empty = tmp_path / "empty"
+    empty.mkdir()
 
-    text = shipped.read_text()
-    # Repoint the FIRST directory in alsa.conf's load list at our copy. The
-    # list, the hook, the loader and the parser are all the shipped ones.
-    text, count = re.subn(
-        r'"/var/lib/alsa/conf\.d"', f'"{conf_d}"', text, count=1
+    # Every directory the shipped load list names, so neither side can read a
+    # directory belonging to this machine. Read out of the file rather than
+    # written from memory: if alsa.conf's list changes, the count assertion
+    # below fails and this test must be re-read.
+    LOAD_DIRS = (
+        '"/var/lib/alsa/conf.d"',
+        '"/usr/etc/alsa/conf.d"',
+        '"/etc/alsa/conf.d"',
     )
-    assert count == 1, (
-        "could not find the load-list entry to repoint in the shipped "
-        "alsa.conf; its shape has changed and this test must be re-read"
-    )
-    patched = tmp_path / "alsa.conf"
-    patched.write_text(text)
+    ASOUND_CONF = '"/etc/asound.conf|||/usr/etc/asound.conf"'
+
+    def config_reading(directory: Path) -> Path:
+        """A copy of the shipped alsa.conf whose load list reads only `directory`."""
+        text = shipped.read_text()
+        for entry in LOAD_DIRS:
+            text, count = re.subn(
+                re.escape(entry), f'"{directory}"', text, count=1
+            )
+            assert count == 1, (
+                f"alsa.conf's load list no longer contains {entry}; its shape "
+                f"has changed and this test must be re-read"
+            )
+        # The per-machine asound.conf would otherwise still be read.
+        text, count = re.subn(
+            re.escape(ASOUND_CONF), f'"{tmp_path / "absent.conf"}"',
+            text, count=1,
+        )
+        assert count == 1, (
+            "alsa.conf's load list no longer contains the asound.conf entry; "
+            "its shape has changed and this test must be re-read"
+        )
+        out = tmp_path / f"alsa-{directory.name}.conf"
+        out.write_text(text)
+        return out
+
+    # ~/.asoundrc and $XDG_CONFIG_HOME/alsa/asoundrc stay in the load list and
+    # are neutralised by pointing HOME and XDG_CONFIG_HOME at empty directories,
+    # rather than by editing them out of the shipped list.
+    home = tmp_path / "home"
+    home.mkdir()
 
     def devices(config: Path) -> str:
-        env = dict(os.environ, ALSA_CONFIG_PATH=str(config))
+        env = dict(
+            os.environ,
+            ALSA_CONFIG_PATH=str(config),
+            HOME=str(home),
+            XDG_CONFIG_HOME=str(home),
+        )
         proc = subprocess.run(
             ["arecord", "-L"], capture_output=True, text=True,
             timeout=60, env=env,
         )
         return proc.stdout
 
-    with_links = devices(patched)
-    without_links = devices(shipped)
+    with_links = devices(config_reading(populated))
+    without_links = devices(config_reading(empty))
 
+    # Without this, an `arecord -L` that printed NOTHING — because the copied
+    # alsa.conf was malformed, say — would satisfy the control by being empty
+    # and prove nothing at all. alsa-lib's own built-in definitions are always
+    # listed, so the control's output must carry them.
+    assert "null" in without_links and "sysdefault" in without_links, (
+        "the control produced no usable listing: alsa-lib printed neither "
+        "`null` nor `sysdefault` when reading the repointed configuration, so "
+        "its silence about a pipewire device means nothing\n" + without_links
+    )
     assert "pipewire" not in without_links, (
-        "the control failed: the shipped configuration already lists a "
-        "pipewire device, so this test cannot show that the directory is what "
-        "makes the difference\n" + without_links
+        "the control failed: alsa-lib lists a pipewire device when its load "
+        "list names only an empty directory, so this test cannot show that "
+        "the directory is what makes the difference\n" + without_links
     )
     assert "pipewire" in with_links, (
         "alsa-lib still does not know the pipewire device when the "

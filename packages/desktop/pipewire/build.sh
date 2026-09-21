@@ -67,13 +67,26 @@ do_install() {
     # /usr/etc. The alsa-plugins package bridges the same gap for its own
     # eleven files by installing a symlink per file into /usr/etc/alsa/conf.d;
     # pipewire installed none, so both of its files were installed and never
-    # read. The visible effect: pcm.!default stayed alsa-lib's built-in
-    # dmix/dsnoop pair, "arecord -D default" failed with dsnoop's "unable to
-    # open slave" whenever PipeWire held the capture device, and neither
-    # aplay -L nor arecord -L listed a pipewire PCM at all. Playback still
-    # worked, because dmix can share an output card while dsnoop cannot open
-    # a capture device another process owns — which is why the loss showed up
-    # only on the recording side and went unnoticed.
+    # read. The visible effect: pcm.!default was never repointed at PipeWire,
+    # so it stayed alsa-lib's built-in default and neither aplay -L nor
+    # arecord -L listed a pipewire PCM at all. What that built-in default does
+    # depends on the machine, and both observed forms failed to record:
+    #
+    #   - cards numbered from 0: the built-in default is the dmix/dsnoop pair
+    #     on card 0. "arecord -D default" failed with dsnoop's "unable to open
+    #     slave" whenever PipeWire held the capture device, while
+    #     "aplay -D default" still worked, because dmix can share an output
+    #     card and dsnoop cannot open a capture device another process owns —
+    #     which is why the loss showed only on the recording side.
+    #   - cards NOT numbered from 0: the built-in default does not resolve at
+    #     all. alsa.conf sets defaults.pcm.card 0 and defaults.ctl.card 0, so
+    #     every path through it names a card that does not exist. Measured on
+    #     the development machine 2026-09-21, whose cards are index 1 and
+    #     index 2: "cannot find card '0'" then "Unknown PCM default", for
+    #     playback as well as capture.
+    #
+    # 99-pipewire-default.conf fixes both: the definition it installs names no
+    # card index at all.
     #
     # The targets are RELATIVE, matching the eleven links alsa-plugins
     # already places in that directory. pkm rewrites an absolute symlink

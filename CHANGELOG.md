@@ -253,15 +253,27 @@ landed is in the repository README, not here.
   `/usr/etc/alsa/conf.d`. The ALSA plugin collection bridges the same gap for
   its own eleven files by installing one symlink per file there; the audio
   server installed none, so both of its files were installed and never read.
-  The effect on an installed machine: the ALSA default stayed the library's
-  built-in shared-mixing pair, `arecord -D default` exited 1 with "unable to
-  open slave" whenever the audio server held the capture device, and neither
-  `aplay -L` nor `arecord -L` listed a `pipewire` device at all. Playback kept
-  working, because the built-in output path can share a card while the input
-  path cannot open a capture device another process owns, so the loss showed
-  only when recording. The audio server now installs the two links beside the
-  plugin collection's, with the same relative targets, and declares them among
-  the paths the build verifies so they cannot go missing unnoticed again.
+  The effect on an installed machine: the ALSA default was never repointed at
+  the audio server, so it stayed the sound library's own built-in default, and
+  neither `aplay -L` nor `arecord -L` listed a `pipewire` device at all. What
+  that built-in default does depends on the machine, and both observed forms
+  failed to record. Where the first sound card is index 0, it is the built-in
+  shared-mixing pair on that card: `arecord -D default` exited 1 with "unable
+  to open slave" whenever the audio server held the capture device, while
+  playback kept working, because the built-in output path can share a card and
+  the input path cannot open a capture device another process owns — so the
+  loss showed only when recording. Where the cards are not numbered from 0, it
+  does not resolve at all: the library's configuration sets its default card to
+  0, so every path through the built-in default names a card that does not
+  exist. On the development machine on 2026-09-21, whose cards are index 1 and
+  index 2, `arecord -D default` exited 1 with "cannot find card '0'" and then
+  "Unknown PCM default", and plain-ALSA playback was broken in the same way.
+  The audio server now installs the two links beside the plugin collection's,
+  with the same relative targets, and declares them among the paths the build
+  verifies so they cannot go missing unnoticed again. The definition that
+  repoints the default names no card index, so it holds on either kind of
+  machine; installing the fixed package on the development machine turned a
+  failing `arecord -D default` into a working one.
 - **A package restore point can restore a package, and a restore that failed
   says so.** The package manager captures a restore point before every
   transaction; on an installed machine one held 2402 paths, and not one could be
