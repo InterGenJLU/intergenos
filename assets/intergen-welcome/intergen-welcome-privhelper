@@ -311,6 +311,68 @@ restart_resolved() {
     systemctl restart systemd-resolved
 }
 
+# selection_from_dropin — read a name-server drop-in on STDIN, print the verb
+# that would apply the same choice again.
+#
+# WHY THIS EXISTS. Every machine already in the field chose its name server
+# before this helper learned to do the rest of what that choice needs. The
+# repair has to know WHICH choice was made, and the only record of it is the
+# `Selection:` line in the drop-in this helper writes. So the reading is split
+# out here: it takes the FILE on stdin, writes nothing, changes nothing and
+# needs no privilege — the same shape as `mdns-hosts-line` and `check-address`,
+# and the same reason. No caller-supplied path enters this helper.
+#
+# It refuses rather than guesses. A file with no `Selection:` line, a selection
+# this helper does not write, a custom choice with no addresses, or an address
+# that does not parse by this script's own parsers all exit 2 with a message
+# and print nothing — a repair that guessed would change what the user chose,
+# which is the one thing it must never do.
+selection_from_dropin() {
+    local line selection='' servers='' over_tls='' address addresses=()
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+            '# Selection: '*) selection="${line#\# Selection: }" ;;
+            'DNS='*)          servers="${line#DNS=}" ;;
+            'DNSOverTLS='*)   over_tls="${line#DNSOverTLS=}" ;;
+        esac
+    done
+    case "$selection" in
+        cloudflare) echo "dns-use-cloudflare"; return 0 ;;
+        quad9)      echo "dns-use-quad9"; return 0 ;;
+        custom)     ;;
+        '')
+            echo "dns-selection-from-dropin: no 'Selection:' line in this file" >&2
+            return 2
+            ;;
+        *)
+            echo "dns-selection-from-dropin: this helper does not write that selection" >&2
+            return 2
+            ;;
+    esac
+    # A custom choice carries its addresses in the DNS= line, each optionally
+    # followed by the certificate name after a '#'. The address is what is
+    # read back; the name is this helper's own and is written again by the
+    # apply verb, so it is not carried through a second time.
+    for address in $servers; do
+        address="${address%%#*}"
+        [ -n "$address" ] || continue
+        if ! valid_address "$address"; then
+            echo "dns-selection-from-dropin: an address in this file does not parse" >&2
+            return 2
+        fi
+        addresses+=("$address")
+    done
+    if [ "${#addresses[@]}" -eq 0 ]; then
+        echo "dns-selection-from-dropin: a custom selection with no address" >&2
+        return 2
+    fi
+    if [ "$over_tls" = "yes" ]; then
+        echo "dns-use-custom encrypted ${addresses[*]}"
+    else
+        echo "dns-use-custom cleartext ${addresses[*]}"
+    fi
+}
+
 # write_dns_dropin <selection-label> <DNS= value> <DNSOverTLS= value>
 # All three arguments come from this script's own fixed branches except the
 # address list for the custom selection, which has already been validated
@@ -515,6 +577,13 @@ NFT
         # helper, and a test can still feed it a file of its own.
         mdns_hosts_line "${2:-}" || exit $?
         ;;
+    dns-selection-from-dropin)
+        # The repair path's reading half — reads the drop-in on STDIN, prints
+        # the verb that applies the same choice, writes nothing, needs no
+        # privilege. Stdin rather than a path for the same reason as
+        # `mdns-hosts-line`: no caller-supplied filename enters this helper.
+        selection_from_dropin || exit $?
+        ;;
     check-address)
         # Validation and nothing else — writes nothing, changes nothing, needs
         # no privilege. Exists so the Welcomer can check an address with the
@@ -529,6 +598,7 @@ NFT
         echo "       intergen-welcome-privhelper dns-use-custom {encrypted|cleartext} <address> [<address>...]" >&2
         echo "       intergen-welcome-privhelper check-address <address>" >&2
         echo "       intergen-welcome-privhelper mdns-hosts-line {on|off} < nsswitch.conf" >&2
+        echo "       intergen-welcome-privhelper dns-selection-from-dropin < 50-intergen-welcome-dns.conf" >&2
         exit 2
         ;;
 esac

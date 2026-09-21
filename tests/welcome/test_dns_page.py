@@ -397,6 +397,85 @@ class TestSelectionFromState(unittest.TestCase):
         self.assertEqual(addresses, [])
 
 
+class TestSelectionReadBackFromTheDropin(unittest.TestCase):
+    """The repair path's reading half.
+
+    A machine that already chose a name server carries this page's drop-in but
+    not whatever else the choice now needs — every machine in the field is in
+    that state until it is upgraded. The repair has to know WHICH choice was
+    made from the file alone, so the helper gains a verb that reads a drop-in
+    on standard input and prints the verb that would apply it again. It writes
+    nothing, needs no privilege and touches no machine state, which is what
+    lets these tests run it directly.
+    """
+
+    def _read_back(self, text):
+        proc = subprocess.run(
+            ["bash", str(PRIVHELPER), "dns-selection-from-dropin"],
+            input=text, capture_output=True, text=True, timeout=30)
+        return proc.returncode, proc.stdout.strip(), proc.stderr
+
+    def _dropin(self, selection, servers, over_tls):
+        return ("# Written by the InterGenOS Welcomer, name-lookup page.\n"
+                "# Selection: " + selection + "\n"
+                "\n[Resolve]\n"
+                "DNS=" + servers + "\n"
+                "Domains=~.\n"
+                "DNSOverTLS=" + over_tls + "\n")
+
+    def _refused(self, text):
+        rc, out, err = self._read_back(text)
+        self.assertEqual(rc, 2)
+        self.assertEqual(out, "")
+        # The message must name THIS verb, so an "unknown verb" usage error
+        # cannot satisfy a test about refusing a particular file.
+        self.assertIn("dns-selection-from-dropin", err)
+
+    def test_cloudflare_is_read_back(self):
+        rc, out, _err = self._read_back(self._dropin(
+            "cloudflare",
+            "1.1.1.1#cloudflare-dns.com 1.0.0.1#cloudflare-dns.com", "yes"))
+        self.assertEqual(rc, 0)
+        self.assertEqual(out, "dns-use-cloudflare")
+
+    def test_quad9_is_read_back(self):
+        rc, out, _err = self._read_back(self._dropin(
+            "quad9", "9.9.9.9#dns.quad9.net", "yes"))
+        self.assertEqual(rc, 0)
+        self.assertEqual(out, "dns-use-quad9")
+
+    def test_a_custom_encrypted_choice_is_read_back_with_its_addresses(self):
+        rc, out, _err = self._read_back(self._dropin(
+            "custom", "192.0.2.53#resolver.example 192.0.2.54#resolver.example",
+            "yes"))
+        self.assertEqual(rc, 0)
+        self.assertEqual(out, "dns-use-custom encrypted 192.0.2.53 192.0.2.54")
+
+    def test_a_custom_cleartext_choice_keeps_being_cleartext(self):
+        # Reading it back as encrypted would silently change what the user
+        # chose, which is the one thing a repair must never do.
+        rc, out, _err = self._read_back(self._dropin("custom", "192.0.2.53",
+                                                     "no"))
+        self.assertEqual(rc, 0)
+        self.assertEqual(out, "dns-use-custom cleartext 192.0.2.53")
+
+    def test_a_file_without_a_selection_line_is_refused(self):
+        # An older drop-in, or somebody else's file under the same name. The
+        # repair must not guess: it exits non-zero and changes nothing.
+        self._refused("[Resolve]\nDNS=192.0.2.53\n")
+
+    def test_an_unknown_selection_is_refused(self):
+        self._refused(self._dropin("whatever", "192.0.2.53", "no"))
+
+    def test_a_custom_choice_with_no_addresses_is_refused(self):
+        self._refused(self._dropin("custom", "", "no"))
+
+    def test_an_address_that_does_not_parse_is_refused(self):
+        # The same validation the privileged write enforces; a file edited by
+        # hand does not get to smuggle a value through the repair.
+        self._refused(self._dropin("custom", "not-an-address", "no"))
+
+
 class TestDescribeCurrent(unittest.TestCase):
     """(a)/(c) the sentences the panel shows — including the one that refuses
     to let an unencrypted lookup look protected."""
