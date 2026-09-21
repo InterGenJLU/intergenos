@@ -472,6 +472,59 @@ class TestBothPushesOfOneCommitRunTheSameGates(_TwoRemoteSandbox):
                               f"{sorted(named)}")
 
 
+class TestARemoteThatHoldsNoDevIsStillPushedTo(_TwoRemoteSandbox):
+    """A remote may legitimately have no dev branch at all.
+
+    A fresh bare mirror, a backup remote, or a push named by URL whose dev tip
+    is not among the local objects all answer "no dev head". The hook asks the
+    remote being pushed to for its dev and master heads in order to pick a
+    baseline; "there is none" is an ANSWER to that question, not a failure of
+    it. Found 2026-09-21 by the second reader of this lane: the helper ended
+    in an && chain, so with no usable head it returned non-zero, and under the
+    file's `set -euo pipefail` the assignment that called it ended the hook
+    there — one line of git's own generic wording, no gate result, no reason.
+    A hook that stops without saying why is the exact failure this project
+    treats as worst: it is indistinguishable from a gate refusing.
+    """
+
+    def _remote_holding_no_dev(self, name: str) -> Path:
+        bare = self.tmp / f"{name}.git"
+        shutil.rmtree(bare, ignore_errors=True)
+        self._git(self.tmp, "init", "-q", "--bare", "-b", "master", str(bare))
+        self._git(self.work, "remote", "add", name, str(bare))
+        self.addCleanup(lambda: self._git(self.work, "remote", "remove", name,
+                                          check=False))
+        self.addCleanup(lambda: shutil.rmtree(bare, ignore_errors=True))
+        return bare
+
+    def test_a_brand_new_branch_reaches_a_remote_that_holds_no_dev(self):
+        bare = self._remote_holding_no_dev("emptyremote")
+        branch = "feature/first-push-to-an-empty-remote"
+        self._git(self.work, "checkout", "-q", "master")
+        self._git(self.work, "checkout", "-q", "-B", branch)
+        head = self._write_commit("the first commit this remote has ever seen")
+
+        r = self._push("emptyremote", branch)
+        said = self._hook_said(r)
+        named = self._gates_named(r)
+        self.assertEqual(
+            r.returncode, 0,
+            "the push to a remote holding no dev did not complete.\n"
+            f"the hook said: {said or '(nothing at all)'}\n"
+            f"full output:\n{r.stdout}{r.stderr}")
+        self.assertTrue(
+            named,
+            "the push to a remote holding no dev named no gate at all, so the "
+            "hook stopped before it ran any: "
+            f"{said or '(the hook printed nothing)'}")
+        for gate in ("release-note chain gate", "changelog accumulation gate"):
+            self.assertIn(gate, named,
+                          f"the push to a remote holding no dev did not run "
+                          f"{gate}; it named {sorted(named)}")
+        self.assertEqual(self._remote_head(bare, branch), head,
+                         "the branch did not arrive on the remote")
+
+
 class TestProtectedBranchesAreProtectedOnEveryRemote(_TwoRemoteSandbox):
     """master and dev are never rewritable, on any remote, declared or not."""
 
