@@ -64,7 +64,7 @@ def test_real_tree_matches_the_committed_contract():
     assert issues == []
     assert surfaces == 187
     assert calls > 0
-    assert shapes == 59
+    assert shapes == 60
     assert safe_launchers == 5
 
 
