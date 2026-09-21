@@ -239,6 +239,28 @@ landed is in the repository README, not here.
   0 dB", on the staged copies after the upstream install, and fails the build
   unless it changed exactly those twelve. The capture element keeps the whole
   range it always had.
+- **The name server you choose in the Welcomer is now the one that answers.**
+  Choosing Cloudflare, Quad9 or your own resolver wrote those servers for the
+  system resolver and stopped there. NetworkManager kept putting the servers
+  each network hands out onto the connection itself, that connection carries
+  the default route for names, and the resolver asked it too — so the servers
+  you chose were configured while your network's were used, and the encrypted
+  connection you asked for was never opened. Measured on two machines, both
+  address families, every connection profile, including one created after the
+  choice was made. Choosing a name server now also tells every connection
+  profile to ignore the servers its network supplies, and installs a small
+  NetworkManager file so a connection you make later is treated the same way
+  on its first connect; "Use what this network provides" sets both back and
+  removes both files, returning the machine exactly to what the network hands
+  out. The page's panel stopped claiming a choice was in effect merely because
+  its own file existed: when a connection is still answering with its
+  network's servers, the panel now says so and names that connection. A
+  machine that already made a choice is repaired at its next upgrade, because
+  the Welcomer runs once per user account and would never come back on its
+  own. The NetworkManager-wide setting whose documentation says it would do
+  all this — `[global-dns-domain-*]` — was tried first and measured doing
+  nothing at all with the resolver backend this system uses: the file is read
+  and then no connection changes.
 - **A package-manager read no longer reads a database a package-manager write
   is changing underneath it.** Only the mutating commands took the lock; every
   read fell past it and then opened the database with SQLite's `immutable=1` —
