@@ -53,6 +53,117 @@ build() {
     ninja
 }
 
+# The twelve mixer-path stanzas whose boost element upstream marks
+# "volume = merge", as "<path file>|<element name>" lines. Kept in one place
+# so the rewrite below and its read-back cannot drift apart.
+boost_volume_stanzas() {
+    cat <<'STANZAS'
+analog-input-internal-mic.conf|Internal Mic Boost
+analog-input-internal-mic.conf|Int Mic Boost
+analog-input-internal-mic-always.conf|Internal Mic Boost
+analog-input-internal-mic-always.conf|Int Mic Boost
+analog-input-mic.conf|Mic Boost
+analog-input-mic.conf|Mic Boost (+20dB)
+analog-input-front-mic.conf|Front Mic Boost
+analog-input-rear-mic.conf|Rear Mic Boost
+analog-input-dock-mic.conf|Dock Mic Boost
+analog-input-headphone-mic.conf|Headphone Mic Boost
+analog-input-headset-mic.conf|Headset Mic Boost
+analog-input-linein.conf|Line Boost
+STANZAS
+}
+
+# Keep the microphone boost out of the audio server's volume walk.
+#
+# The ALSA card-profile mixer path files that this package installs mark BOTH
+# the capture element and the microphone boost element "volume = merge". The
+# format's own documentation, in the shipped analog-output.conf.common lines
+# 31-42, says what merge means: the server walks the merge elements in file
+# order, drives the first one to the top of its range, and puts the remainder
+# on the next one. Capture is listed first and the boost second, so a source
+# volume of 100% is the capture element at its maximum WITH the boost on top.
+# Measured 2026-09-21 on a Realtek ALC285: capture +30.00 dB and boost
+# +30 dB, sixty decibels of analog gain, which saturates the microphone; the
+# same shape was read on a Realtek ALC236. A boost is an amplifier of last
+# resort, not part of a linear volume range.
+#
+# "volume = zero" is the documented key for this. Same file, line 103:
+# "volume = ignore | merge | off | zero | <volume step>", where zero means
+# "always set it to 0 dB". zero is used and not off because off is the
+# element's own minimum, which is 0 dB only where a boost's range happens to
+# start there, while zero is 0 dB on every codec. Upstream already uses zero
+# in four of its own output path files.
+#
+# This runs on the staged copies instead of carrying patched files in the
+# repository, because the files come from the upstream tarball and are put in
+# place by "ninja install": a carried copy would silently discard whatever a
+# newer tarball changes. Running here means a version bump cannot drop the
+# setting. And because the step fails unless it changed exactly the twelve
+# stanzas listed above, an upstream rename or reshuffle stops the build with
+# the file named, instead of quietly shipping a machine back at +60 dB.
+#
+# $1 is the directory holding the installed mixer path files.
+zero_boost_volume_elements() {
+    local paths_dir="$1"
+    local expected=12
+    local changed=0
+    local conf element file mode
+
+    if [ ! -d "$paths_dir" ]; then
+        echo "pipewire: mixer path directory not found: $paths_dir" >&2
+        return 1
+    fi
+
+    while IFS='|' read -r conf element; do
+        [ -n "$conf" ] || continue
+        file="${paths_dir}/${conf}"
+        if [ ! -f "$file" ]; then
+            echo "pipewire: mixer path file not found: $file" >&2
+            return 1
+        fi
+        mode=$(stat -c %a "$file")
+        if ! awk -v want="[Element ${element}]" '
+                BEGIN { inside = 0; hits = 0 }
+                /^\[/ { inside = ($0 == want) }
+                inside && $0 ~ /^volume[[:blank:]]*=[[:blank:]]*merge[[:blank:]]*$/ {
+                    sub(/merge/, "zero"); hits++
+                }
+                { print }
+                END { if (hits != 1) exit 1 }
+            ' "$file" > "${file}.zero-boost"; then
+            rm -f "${file}.zero-boost"
+            echo "pipewire: expected exactly one 'volume = merge' line in [Element ${element}] of ${conf}" >&2
+            return 1
+        fi
+        mv -f "${file}.zero-boost" "$file"
+        chmod "$mode" "$file"
+        changed=$((changed + 1))
+    done <<< "$(boost_volume_stanzas)"
+
+    if [ "$changed" -ne "$expected" ]; then
+        echo "pipewire: changed $changed boost stanzas, expected $expected" >&2
+        return 1
+    fi
+
+    # Read every changed stanza back from the file on disk: exactly one
+    # "volume = zero" and no "volume = merge" left inside it.
+    while IFS='|' read -r conf element; do
+        [ -n "$conf" ] || continue
+        if ! awk -v want="[Element ${element}]" '
+                BEGIN { inside = 0; zero = 0; merge = 0 }
+                /^\[/ { inside = ($0 == want) }
+                inside && $0 ~ /^volume[[:blank:]]*=[[:blank:]]*zero[[:blank:]]*$/ { zero++ }
+                inside && $0 ~ /^volume[[:blank:]]*=[[:blank:]]*merge[[:blank:]]*$/ { merge++ }
+                END { if (zero != 1 || merge != 0) exit 1 }
+            ' "${paths_dir}/${conf}"; then
+            echo "pipewire: read-back failed for [Element ${element}] in ${conf}" >&2
+            return 1
+        fi
+    done <<< "$(boost_volume_stanzas)"
+
+    echo "pipewire: microphone boost taken out of the volume walk in $changed stanzas"
+}
+
 do_install() {
     set -e
     cd build
@@ -99,4 +210,9 @@ do_install() {
         "${DESTDIR}/usr/etc/alsa/conf.d/50-pipewire.conf"
     ln -sfn ../../../share/alsa/alsa.conf.d/99-pipewire-default.conf \
         "${DESTDIR}/usr/etc/alsa/conf.d/99-pipewire-default.conf"
+    # ---- Keep the microphone boost out of the volume walk ---------------
+    # See zero_boost_volume_elements above for what this changes and why.
+    # It fails the build if it does not change exactly its twelve stanzas.
+    zero_boost_volume_elements \
+        "${DESTDIR}/usr/share/alsa-card-profile/mixer/paths"
 }

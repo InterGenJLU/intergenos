@@ -224,6 +224,21 @@ landed is in the repository README, not here.
   `--all` to reach an install's full record.
 
 ### Fixed
+- **The microphone boost is no longer part of the microphone's volume range.**
+  The audio server drives every mixer element its card-profile path file marks
+  `volume = merge`, walking them in file order: the first element goes to the
+  top of its range and the remainder lands on the next one. The input path
+  files list the capture element first and a microphone boost element second,
+  so a source volume of 100% was the capture element at its maximum with the
+  boost stacked on top of it. Measured on 2026-09-21 on a Realtek ALC285:
+  +30.00 dB of capture plus +30 dB of boost, sixty decibels of analog gain,
+  which saturates the microphone and makes speech unusable; the same shape was
+  read on a Realtek ALC236, where a machine sat at that setting by default. The
+  pipewire recipe now sets the twelve boost stanzas across nine of those path
+  files to the format's own `volume = zero`, documented as "always set it to
+  0 dB", on the staged copies after the upstream install, and fails the build
+  unless it changed exactly those twelve. The capture element keeps the whole
+  range it always had.
 - **A package-manager read no longer reads a database a package-manager write
   is changing underneath it.** Only the mutating commands took the lock; every
   read fell past it and then opened the database with SQLite's `immutable=1` —
