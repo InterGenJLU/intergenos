@@ -477,6 +477,82 @@ class TestSelectionReadBackFromTheDropin(unittest.TestCase):
         self._refused(self._dropin("custom", "not-an-address", "no"))
 
 
+class TestTheChoiceReachesEveryConnection(unittest.TestCase):
+    """The half that makes the chosen servers the ones that answer.
+
+    Writing the servers for the resolver is not enough: NetworkManager puts the
+    servers a network hands out onto the interface, that interface carries the
+    default route for names, and the resolver asks it too. The two properties
+    that decide it live on the connection profiles, and NetworkManager offers
+    no default value for them — so a profile made after the choice needs a
+    dispatcher to catch it on its first connect.
+
+    What is asserted here is the helper's text and the dispatcher it prints,
+    both of which are readable without a machine in any particular state. That
+    the properties actually change, and that the reversal puts them back, is
+    proven on a real machine in this lane's reality leg — those writes touch
+    this machine's own connections.
+    """
+
+    def _helper_text(self):
+        return Path(PRIVHELPER).read_text(encoding="utf-8")
+
+    def _dispatcher(self):
+        proc = subprocess.run(["bash", str(PRIVHELPER), "dns-dispatcher-script"],
+                              capture_output=True, text=True, timeout=30)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return proc.stdout
+
+    def test_the_dispatcher_is_printable_and_is_valid_shell(self):
+        text = self._dispatcher()
+        self.assertTrue(text.startswith("#!/bin/bash"), text[:80])
+        check = subprocess.run(["bash", "-n", "/dev/stdin"], input=text,
+                               capture_output=True, text=True, timeout=30)
+        self.assertEqual(check.returncode, 0, check.stderr)
+
+    def test_the_dispatcher_acts_only_on_an_up_event(self):
+        self.assertIn('[ "$ACTION" = "up" ] || exit 0', self._dispatcher())
+
+    def test_the_dispatcher_does_nothing_when_no_choice_was_made(self):
+        # The file can outlive the choice on a machine somebody tidied by hand.
+        # Keyed on the page's own drop-in, not on its own presence.
+        text = self._dispatcher()
+        self.assertIn('[ -f "$DROPIN" ] || exit 0', text)
+        self.assertIn("50-intergen-welcome-dns.conf", text)
+
+    def test_the_dispatcher_stops_when_the_properties_are_already_set(self):
+        # Without this it would modify, reapply, and be called straight back.
+        text = self._dispatcher()
+        self.assertIn('if [ "$current4" = "yes" ] && [ "$current6" = "yes" ]',
+                      text)
+
+    def test_the_dispatcher_sets_both_families(self):
+        self.assertIn("ipv4.ignore-auto-dns yes ipv6.ignore-auto-dns yes",
+                      self._dispatcher())
+
+    def test_applying_a_choice_sets_the_properties_and_installs_the_dispatcher(self):
+        body = self._helper_text()
+        apply_block = body[body.index("write_dns_dropin() {"):]
+        apply_block = apply_block[:apply_block.index("\n}\n")]
+        self.assertIn("set_profiles_ignore_auto_dns yes", apply_block)
+        self.assertIn("install_dispatcher", apply_block)
+
+    def test_the_reversal_puts_both_properties_back_and_removes_the_dispatcher(self):
+        body = self._helper_text()
+        revert = body[body.index("    dns-use-network-default)"):]
+        revert = revert[:revert.index(";;")]
+        self.assertIn("set_profiles_ignore_auto_dns no", revert)
+        self.assertIn("remove_dispatcher", revert)
+        self.assertIn('rm -f "$DNS_DROPIN"', revert)
+
+    def test_the_property_setter_refuses_a_value_of_its_own_devising(self):
+        body = self._helper_text()
+        fn = body[body.index("set_profiles_ignore_auto_dns() {"):]
+        fn = fn[:fn.index("\n}\n")]
+        self.assertIn("yes|no)", fn)
+        self.assertIn("every profile", fn.lower().replace("-", " ") + " every profile")
+
+
 class TestTheUpgradeRepairIsWiredUp(unittest.TestCase):
     """The repair path's wiring.
 

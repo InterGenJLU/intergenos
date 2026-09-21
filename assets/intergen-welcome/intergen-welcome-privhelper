@@ -373,6 +373,124 @@ selection_from_dropin() {
     fi
 }
 
+# ---------------------------------------------------------------------------
+# The other half of a name-server choice: the connections themselves.
+#
+# WHY THIS IS HERE AT ALL. Writing the servers for systemd-resolved is not
+# enough to make them the ones that answer. NetworkManager puts the servers a
+# network hands out onto the interface itself, that interface carries the
+# default route for names, and resolved asks it too -- so the chosen servers
+# are configured and the network's are used. Measured 2026-09-20 on two
+# machines, both families, every profile.
+#
+# WHY NOT A NetworkManager-WIDE SETTING. NetworkManager.conf(5) has
+# [global-dns-domain-*], whose own documentation says its servers override the
+# ones from connections. Measured on this project's NetworkManager 1.56.0 with
+# the systemd-resolved plugin, 2026-09-21: the file is READ -- NetworkManager's
+# log names it -- and then nothing changes. A DNS reload, a device reapply and
+# a full re-activation all leave the network's servers on the interface, and
+# NetworkManager's own /run/NetworkManager/no-stub-resolv.conf never carries a
+# nameserver line. So the setting that claims to do this does not do it here,
+# and the properties on the profiles are where the decision has to be made.
+#
+# THE DISPATCHER FILE exists because NetworkManager offers no default value for
+# these two properties -- the supported list in NetworkManager.conf(5) does not
+# include them -- so a profile created AFTER the choice would be born without
+# them. The file is the same removable-fragment shape as everything else here:
+# written when a choice is made, deleted when the choice is given up.
+NM_DISPATCHER_D=/etc/NetworkManager/dispatcher.d
+NM_DISPATCHER="$NM_DISPATCHER_D/50-intergen-welcome-dns"
+
+# dispatcher_script — print the dispatcher this helper installs. Writes nothing,
+# takes nothing, needs no privilege: it exists as its own verb so the script's
+# text can be read and checked without a machine being configured, the same
+# reason `mdns-hosts-line` prints instead of writing.
+dispatcher_script() {
+    cat <<'DISPATCHER'
+#!/bin/bash
+# Written by the InterGenOS Welcomer, name-lookup page.
+#
+# A name server chosen on that page has to be the one that answers on every
+# connection -- including a connection made after the choice. NetworkManager
+# has no default value for the two properties that decide it, so this file
+# applies them to each connection as it comes up, for as long as the choice
+# stands. Delete the page's file under /etc/systemd/resolved.conf.d and this
+# file, and the machine is back to the servers each network hands out.
+#
+# NetworkManager runs this as root with the interface as $1 and the action as
+# $2, and it runs only for connections it manages.
+set -eu
+
+INTERFACE="${1:-}"
+ACTION="${2:-}"
+DROPIN=/etc/systemd/resolved.conf.d/50-intergen-welcome-dns.conf
+
+[ "$ACTION" = "up" ] || exit 0
+# No choice on this machine means nothing to apply.
+[ -f "$DROPIN" ] || exit 0
+[ -n "${CONNECTION_UUID:-}" ] || exit 0
+
+current4=$(nmcli -t -f ipv4.ignore-auto-dns connection show "$CONNECTION_UUID" 2>/dev/null | cut -d: -f2- || echo "")
+current6=$(nmcli -t -f ipv6.ignore-auto-dns connection show "$CONNECTION_UUID" 2>/dev/null | cut -d: -f2- || echo "")
+# Already applied: stop here rather than re-applying, which would bring this
+# script straight back round on the reapply below.
+if [ "$current4" = "yes" ] && [ "$current6" = "yes" ]; then
+    exit 0
+fi
+
+nmcli connection modify "$CONNECTION_UUID" ipv4.ignore-auto-dns yes ipv6.ignore-auto-dns yes
+[ -n "$INTERFACE" ] && nmcli device reapply "$INTERFACE" >/dev/null 2>&1 || true
+exit 0
+DISPATCHER
+}
+
+# set_profiles_ignore_auto_dns <yes|no> — the two properties, on every profile
+# this machine has, in both address families.
+#
+# Every profile, not only the active one: a laptop carries profiles for
+# networks it is not on, and a choice the user made on this page has to hold
+# when they get there. The value is one of two literals from this script's own
+# branches; nothing a caller supplies reaches it.
+set_profiles_ignore_auto_dns() {
+    local want="$1" uuid
+    case "$want" in
+        yes|no) ;;
+        *)
+            echo "intergen-welcome-privhelper: set_profiles_ignore_auto_dns takes yes|no" >&2
+            return 2
+            ;;
+    esac
+    for uuid in $(nmcli -t -f UUID connection show 2>/dev/null); do
+        # A profile that refuses the change is reported and the verb fails:
+        # a name-server choice that was applied to some connections and not
+        # others is exactly the half-configured state this page must not leave.
+        if ! nmcli connection modify "$uuid" \
+                ipv4.ignore-auto-dns "$want" ipv6.ignore-auto-dns "$want"; then
+            echo "intergen-welcome-privhelper: could not set ignore-auto-dns=$want on connection $uuid" >&2
+            return 1
+        fi
+    done
+    # Apply to what is running now, so the change is not waiting on a reconnect.
+    # The second field of UUID,DEVICE is the DEVICE, which is what `nmcli
+    # device reapply` takes; an active profile with no device prints "--".
+    for device in $(nmcli -t -f UUID,DEVICE connection show --active 2>/dev/null | cut -d: -f2); do
+        [ -n "$device" ] && [ "$device" != "--" ] || continue
+        nmcli device reapply "$device" >/dev/null 2>&1 || true
+    done
+}
+
+# install_dispatcher / remove_dispatcher — the fragment that catches a profile
+# created after the choice was made.
+install_dispatcher() {
+    mkdir -p "$NM_DISPATCHER_D"
+    dispatcher_script > "$NM_DISPATCHER"
+    chmod 0755 "$NM_DISPATCHER"
+}
+
+remove_dispatcher() {
+    rm -f "$NM_DISPATCHER"
+}
+
 # write_dns_dropin <selection-label> <DNS= value> <DNSOverTLS= value>
 # All three arguments come from this script's own fixed branches except the
 # address list for the custom selection, which has already been validated
@@ -400,6 +518,9 @@ write_dns_dropin() {
         > "$DNS_DROPIN"
     chmod 0644 "$DNS_DROPIN"
     restart_resolved
+    # The servers are now configured. These two make them the ones that answer.
+    set_profiles_ignore_auto_dns yes
+    install_dispatcher
 }
 
 # unit_is_enabled <unit> — true when the unit is enabled to start on its own.
@@ -528,9 +649,14 @@ NFT
         reload_firewall
         ;;
     dns-use-network-default)
-        # Removing the fragment IS the revert: the network's own servers were
-        # never edited, they were only outranked while the fragment existed.
+        # Removing the fragments IS the revert: the network's own servers were
+        # never edited, they were only set aside while the fragments existed.
+        # The properties go back to no in the same breath, or the machine would
+        # keep ignoring the servers its networks hand out with nothing left on
+        # disk to explain why.
         rm -f "$DNS_DROPIN"
+        remove_dispatcher
+        set_profiles_ignore_auto_dns no
         restart_resolved
         ;;
     dns-use-cloudflare)
@@ -576,6 +702,12 @@ NFT
         # rather than a path on purpose: no caller-supplied filename enters this
         # helper, and a test can still feed it a file of its own.
         mdns_hosts_line "${2:-}" || exit $?
+        ;;
+    dns-dispatcher-script)
+        # Print the dispatcher this helper installs and exit. Writes nothing,
+        # changes nothing, needs no privilege — it is here so the script can be
+        # read and syntax-checked without a machine configured to use it.
+        dispatcher_script
         ;;
     dns-reapply-selection)
         # The repair itself, run by this package's post_install at upgrade.
@@ -625,6 +757,7 @@ NFT
         echo "       intergen-welcome-privhelper mdns-hosts-line {on|off} < nsswitch.conf" >&2
         echo "       intergen-welcome-privhelper dns-selection-from-dropin < 50-intergen-welcome-dns.conf" >&2
         echo "       intergen-welcome-privhelper dns-reapply-selection" >&2
+        echo "       intergen-welcome-privhelper dns-dispatcher-script" >&2
         exit 2
         ;;
 esac
