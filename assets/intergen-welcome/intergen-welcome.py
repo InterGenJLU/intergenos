@@ -2332,8 +2332,17 @@ def _effective_resolver(state):
     The one thing that overrides that is the routing rule this page writes
     alongside its servers, which sends every name to the global set. So:
 
-      1. this page's own file is present -> the global servers, because the
-         file that put them there also carries the rule that makes them win;
+      1. this page's own file is present AND no network interface carries
+         servers of its own that differ from it -> the global servers, because
+         the file that put them there also carries the rule that sends every
+         name to them. If an interface carrying the default route DOES still
+         have servers of its own, the choice is reported as NOT IN EFFECT and
+         that interface is named: systemd-resolved queries such an interface
+         for every name too, so claiming the chosen servers are the answer
+         would name servers the machine may not be using. Measured 2026-09-20
+         on two machines: with the drop-in written, every profile still had
+         ipv4/ipv6.ignore-auto-dns=no, so the network's own servers stayed on
+         the interface with Default Route: yes and answered;
       2. otherwise the interface carrying the default route, then any other
          interface with servers;
       3. otherwise the global set.
@@ -2344,30 +2353,27 @@ def _effective_resolver(state):
     ``also_global`` carries a global set that exists but is NOT the answer, so
     the panel can mention it rather than pretend it is not there.
 
+    ``competing`` carries the servers an interface is still answering with
+    when the choice is not in effect, so the panel can name them.
+
     Known boundary, stated rather than papered over: routing domains are not
-    read here. systemd-resolved sends a query to every scope whose routing
-    domain matches it best, so a network interface that independently carries
-    the "all names" routing domain would be queried alongside the servers this
-    page wrote. Nothing InterGenOS installs configures that, and the panel does
-    not claim exclusivity — it names the servers in use, which stays true — but
-    a reader extending this function should know the difference.
+    read here, only which scope carries the default route and what servers it
+    has. That is enough to tell "in effect" from "not in effect" for the state
+    this machine can actually be in; a network interface that independently
+    carried the "all names" routing domain WITHOUT servers of its own would
+    still not be noticed, and nothing InterGenOS installs configures that.
 
     Returns ``{'known': False, ...}`` when there is nothing to report, rather
     than an empty list that reads like "no name server configured".
     """
     if not state.get('read'):
         return {'known': False, 'origin': 'unreadable', 'servers': [],
-                'over_tls': 'no', 'ifname': None, 'also_global': []}
+                'over_tls': 'no', 'ifname': None, 'also_global': [],
+                'competing': []}
 
     entries = state.get('entries') or []
     global_entry = next((e for e in entries if e['scope'] == 'global'), None)
     global_servers = list(global_entry['servers']) if global_entry else []
-
-    if state.get('managed') and global_servers:
-        return {'known': True, 'origin': 'chosen-here',
-                'servers': global_servers,
-                'over_tls': global_entry['over_tls'], 'ifname': None,
-                'also_global': []}
 
     link = next((e for e in entries
                  if e['scope'] == 'link' and e['default_route'] and e['servers']),
@@ -2375,20 +2381,40 @@ def _effective_resolver(state):
     if link is None:
         link = next((e for e in entries
                      if e['scope'] == 'link' and e['servers']), None)
+
+    if state.get('managed') and global_servers:
+        chosen = {s['address'] for s in global_servers}
+        # An interface answering with the SAME servers is not competing with
+        # the choice — it is carrying it. Only servers the choice does not
+        # contain mean something else is answering.
+        competing = [s for s in (link['servers'] if link else [])
+                     if s['address'] not in chosen]
+        if competing:
+            return {'known': True, 'origin': 'chosen-here-not-in-effect',
+                    'servers': global_servers,
+                    'over_tls': global_entry['over_tls'],
+                    'ifname': link['ifname'],
+                    'also_global': [], 'competing': competing}
+        return {'known': True, 'origin': 'chosen-here',
+                'servers': global_servers,
+                'over_tls': global_entry['over_tls'], 'ifname': None,
+                'also_global': [], 'competing': []}
+
     if link is not None:
         return {'known': True, 'origin': 'network',
                 'servers': list(link['servers']),
                 'over_tls': link['over_tls'], 'ifname': link['ifname'],
-                'also_global': global_servers}
+                'also_global': global_servers, 'competing': []}
 
     if global_servers:
         return {'known': True, 'origin': 'system-wide',
                 'servers': global_servers,
                 'over_tls': global_entry['over_tls'], 'ifname': None,
-                'also_global': []}
+                'also_global': [], 'competing': []}
 
     return {'known': False, 'origin': 'none', 'servers': [],
-            'over_tls': 'no', 'ifname': None, 'also_global': []}
+            'over_tls': 'no', 'ifname': None, 'also_global': [],
+            'competing': []}
 
 
 def _selection_from_state(state):
@@ -2411,7 +2437,12 @@ def _selection_from_state(state):
     addresses = [s['address'] for s in effective['servers']]
     encrypted = effective['over_tls'] == 'yes'
 
-    if effective['origin'] not in ('chosen-here', 'system-wide'):
+    # A choice that is not in effect is still the choice the user made: the
+    # radio button follows what this page was told to do, and the panel above
+    # it is what says the machine is not obeying. Dropping back to 'network'
+    # here would offer to "change" the setting to the one already written.
+    if effective['origin'] not in ('chosen-here', 'chosen-here-not-in-effect',
+                                   'system-wide'):
         return ('network', addresses, encrypted)
 
     in_use = set(addresses)
@@ -2558,6 +2589,13 @@ def _describe_current(effective):
                        'its own.',
         'network': ('Handed out by the network on ' + (effective['ifname'] or
                     'this machine\'s connection') + '.'),
+        'chosen-here-not-in-effect':
+            ('Chosen on this page, but NOT IN EFFECT: the connection on '
+             + (effective['ifname'] or 'this machine') + ' is still using the '
+             'name servers its network handed out ('
+             + ', '.join(s['address'] for s in
+                         (effective.get('competing') or []))
+             + '), and lookups go there as well.'),
     }.get(effective['origin'], 'Origin unknown.')
 
     # A machine-wide setting that exists but is not what gets used is worth a

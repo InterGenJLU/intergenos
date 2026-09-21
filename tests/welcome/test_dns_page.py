@@ -97,6 +97,34 @@ CLOUDFLARE_IPV4_ONLY = json.dumps([
                  {"addressString": "1.0.0.1"}]},
 ])
 
+# The same machine after the lane's fix, whichever way the fix reaches it: the
+# interface no longer carries servers of its own, so nothing competes with the
+# chosen ones. (A fix that instead pushes the chosen servers down to the
+# interface produces CLOUDFLARE_ENCRYPTED_ON_THE_LINK below; both are "in
+# effect", which is why the rule is written about WHAT the interface carries
+# and not about how it came to carry it.)
+CLOUDFLARE_ENCRYPTED_LINK_QUIET = json.dumps([
+    {"dnsOverTLS": "yes", "dnssec": "allow-downgrade", "resolvConfMode": "stub",
+     "servers": [
+         {"addressString": "1.1.1.1", "name": "cloudflare-dns.com"},
+         {"addressString": "1.0.0.1", "name": "cloudflare-dns.com"},
+     ]},
+    {"ifname": "eno2", "ifindex": 2, "defaultRoute": True, "dnsOverTLS": "no"},
+])
+
+# The chosen servers reached the interface itself.
+CLOUDFLARE_ENCRYPTED_ON_THE_LINK = json.dumps([
+    {"dnsOverTLS": "yes", "dnssec": "allow-downgrade", "resolvConfMode": "stub",
+     "servers": [
+         {"addressString": "1.1.1.1", "name": "cloudflare-dns.com"},
+         {"addressString": "1.0.0.1", "name": "cloudflare-dns.com"},
+     ]},
+    {"ifname": "eno2", "ifindex": 2, "defaultRoute": True, "dnsOverTLS": "yes",
+     "currentServer": {"addressString": "1.1.1.1"},
+     "servers": [{"addressString": "1.1.1.1", "name": "cloudflare-dns.com"},
+                 {"addressString": "1.0.0.1", "name": "cloudflare-dns.com"}]},
+])
+
 QUAD9_ENCRYPTED = json.dumps([
     {"dnsOverTLS": "yes", "resolvConfMode": "stub",
      "servers": [{"addressString": "9.9.9.9"},
@@ -227,12 +255,51 @@ class TestEffectiveResolver(unittest.TestCase):
         self.assertEqual([s["address"] for s in effective["servers"]],
                          ["192.0.2.1"])
 
-    def test_our_dropin_makes_the_global_servers_the_answer(self):
-        effective = self._effective(CLOUDFLARE_ENCRYPTED, managed=True)
+    def test_our_dropin_is_the_answer_when_no_interface_competes(self):
+        # The interface carries no servers of its own, so the servers this
+        # page chose are the ones every name goes to.
+        effective = self._effective(CLOUDFLARE_ENCRYPTED_LINK_QUIET,
+                                    managed=True)
         self.assertEqual(effective["origin"], "chosen-here")
         self.assertEqual(effective["over_tls"], "yes")
         self.assertIn("1.1.1.1",
                       [s["address"] for s in effective["servers"]])
+
+    def test_our_dropin_is_the_answer_when_the_interface_carries_the_same_servers(self):
+        # The chosen servers reached the interface itself. Nothing competes,
+        # so the choice is in effect — the rule is about WHAT the interface
+        # carries, not about how it came to carry it.
+        effective = self._effective(CLOUDFLARE_ENCRYPTED_ON_THE_LINK,
+                                    managed=True)
+        self.assertEqual(effective["origin"], "chosen-here")
+        self.assertIn("1.1.1.1",
+                      [s["address"] for s in effective["servers"]])
+
+    def test_a_choice_the_network_still_overrides_is_reported_as_not_in_effect(self):
+        # THE DEFECT THIS LANE FIXES. The page's file exists, so the machine
+        # has a chosen set of servers in the machine-wide scope — but the
+        # interface carrying the default route still has the servers its
+        # network handed out, and systemd-resolved sends names there too. The
+        # page must say so. Reporting "chosen-here" because the file exists
+        # names servers the machine is not necessarily using, which is the one
+        # thing this panel exists not to do.
+        effective = self._effective(CLOUDFLARE_ENCRYPTED, managed=True)
+        self.assertEqual(effective["origin"], "chosen-here-not-in-effect")
+        self.assertEqual(effective["ifname"], "eno2")
+        self.assertEqual([s["address"] for s in effective["competing"]],
+                         ["192.0.2.1"])
+        self.assertIn("1.1.1.1",
+                      [s["address"] for s in effective["servers"]])
+
+    def test_every_effective_result_carries_the_competing_list(self):
+        # The key is present on every shape, so no caller has to guess whether
+        # it exists before reading it.
+        for stdout, managed in ((CLOUDFLARE_ENCRYPTED, True),
+                                (CLOUDFLARE_ENCRYPTED, False),
+                                (NETWORK_PROVIDED, False),
+                                (NOTHING_CONFIGURED, False)):
+            with self.subTest(managed=managed):
+                self.assertIn("competing", self._effective(stdout, managed))
 
     def test_an_interface_with_servers_outranks_a_machine_wide_setting(self):
         # systemd-resolved consults the machine-wide set only when no
@@ -366,6 +433,22 @@ class TestDescribeCurrent(unittest.TestCase):
     def test_origin_names_the_interface_for_a_network_provided_server(self):
         _servers, origin, _encryption = self._describe(NETWORK_PROVIDED)
         self.assertIn("eno2", origin)
+
+    def test_a_choice_the_network_overrides_is_said_plainly(self):
+        # The panel must not congratulate the user on a choice the machine is
+        # not obeying. It names the interface that is still answering and the
+        # servers it is answering with, in the user's own words.
+        _servers, origin, _encryption = self._describe(CLOUDFLARE_ENCRYPTED,
+                                                       managed=True)
+        self.assertIn("eno2", origin)
+        self.assertIn("192.0.2.1", origin)
+        self.assertIn("not in effect", origin.lower())
+
+    def test_a_choice_in_effect_is_still_said_plainly(self):
+        _servers, origin, _encryption = self._describe(
+            CLOUDFLARE_ENCRYPTED_LINK_QUIET, managed=True)
+        self.assertIn("Chosen on this page", origin)
+        self.assertNotIn("not in effect", origin.lower())
 
     def test_unreadable_state_says_so(self):
         servers, origin, encryption = self._describe_unreadable()
