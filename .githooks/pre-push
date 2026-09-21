@@ -273,6 +273,17 @@ fi
 # The head of <branch> on the remote being pushed to, printed only when the
 # object is present locally -- a sha whose commit is absent cannot serve as a
 # merge-base and must not be mistaken for one.
+#
+# "There is no such head" is an ANSWER this function must be able to give, and
+# it gives it by printing nothing and returning 0. A remote legitimately has no
+# dev branch -- a fresh bare mirror, a backup remote, a push named by URL whose
+# dev tip is not among the local objects -- and the caller already treats empty
+# output as "no baseline from this branch". Ending on an && chain instead made
+# the empty answer a FAILING exit status, and under this file's `set -euo
+# pipefail` the caller's `_dev_head=$(target_head_if_present dev)` ended the
+# hook on the spot: one line of git's generic wording, no gate result, no
+# reason, indistinguishable from a gate refusing. Found 2026-09-21 by the
+# second reader of the change that introduced this helper.
 target_head_if_present() {
     local _branch="$1" _sha=""
     if [ -n "$TARGET_REFS" ]; then
@@ -281,7 +292,10 @@ target_head_if_present() {
     if [ -z "$_sha" ]; then
         _sha=$(git ls-remote "$TARGET_REMOTE" "refs/heads/$_branch" 2>/dev/null | awk 'NR==1 {print $1}')
     fi
-    [ -n "$_sha" ] && git cat-file -e "${_sha}^{commit}" 2>/dev/null && printf '%s' "$_sha"
+    if [ -n "$_sha" ] && git cat-file -e "${_sha}^{commit}" 2>/dev/null; then
+        printf '%s' "$_sha"
+    fi
+    return 0
 }
 
 # LOCAL/REMOTE drive gates 3-9 (range = merge-base(LOCAL,REMOTE)..LOCAL).
@@ -330,7 +344,31 @@ if [ -z "$PUSH_REMOTE" ] || [ "$PUSH_REMOTE" = "$ZERO" ]; then
         elif [ -n "$_mb_master" ]; then
             REMOTE="$_mb_master"
         else
-            REMOTE="$_master_head"
+            # The remote being pushed to shows no dev and no master this
+            # checkout can resolve -- a fresh bare mirror, a backup remote, a
+            # push named by URL whose tips are not among the local objects.
+            # Leaving the baseline empty here would collapse the validation
+            # range to nothing and the range-driven gates would go silent,
+            # which is the very defect this block was rewritten to end. So the
+            # baseline is taken from THIS checkout's own dev, else its master,
+            # and the substitution is PRINTED: a narrower baseline is allowed,
+            # a quiet one is not.
+            _local_dev=$(git rev-parse --verify --quiet refs/heads/dev 2>/dev/null || echo "")
+            _local_master=$(git rev-parse --verify --quiet refs/heads/master 2>/dev/null || echo "")
+            _mb_local_dev=""
+            _mb_local_master=""
+            [ -n "$_local_dev" ] && _mb_local_dev=$(git merge-base "$PUSH_LOCAL" "$_local_dev" 2>/dev/null || echo "")
+            [ -n "$_local_master" ] && _mb_local_master=$(git merge-base "$PUSH_LOCAL" "$_local_master" 2>/dev/null || echo "")
+            if [ -n "$_mb_local_dev" ] && { [ -z "$_mb_local_master" ] || git merge-base --is-ancestor "$_mb_local_master" "$_mb_local_dev" 2>/dev/null; }; then
+                REMOTE="$_mb_local_dev"
+                echo "[pre-push] $TARGET_REMOTE has no dev or master this checkout can read; the gates are measured from the local dev branch instead."
+            elif [ -n "$_mb_local_master" ]; then
+                REMOTE="$_mb_local_master"
+                echo "[pre-push] $TARGET_REMOTE has no dev or master this checkout can read; the gates are measured from the local master branch instead."
+            else
+                REMOTE=""
+                echo "[pre-push] $TARGET_REMOTE has no dev or master this checkout can read, and this checkout has neither either; the gates that need a baseline cannot be measured for this push."
+            fi
         fi
     fi
 else
@@ -468,11 +506,24 @@ if [ -n "$PUSH_BRANCH" ] && [ -n "$PUSH_REMOTE" ] && [ "$PUSH_REMOTE" != "$ZERO"
         REMOTE_HEAD=$(printf '%s\n' "$LSREMOTE_OUT" | awk 'NR==1 {print $1}')
         if ! git fetch "$TARGET_REMOTE" "$PUSH_BRANCH" --quiet 2>/dev/null; then
             if [ "${GIT_PRE_PUSH_SKIP_FETCH:-0}" = "1" ]; then
-                echo "[pre-push] WARN: git fetch failed; continuing against $TARGET_REMOTE per GIT_PRE_PUSH_SKIP_FETCH=1 override."
+                # The override says "carry on without a fresh fetch". What it
+                # can carry on WITH depends on whether this checkout has a
+                # cached head for that remote at all: a remote named by URL has
+                # no tracking refs, so there is nothing to compare against and
+                # the staleness and rewrite checks do not run. Saying
+                # "continuing against <remote>" in that case would describe a
+                # comparison that is not happening, which is the same silence
+                # this file was changed to end -- so the two cases say
+                # different things.
                 if [ -n "$TARGET_TRACKING" ]; then
                     REMOTE_HEAD=$(git rev-parse "$TARGET_TRACKING" 2>/dev/null || echo "")
                 else
                     REMOTE_HEAD=""
+                fi
+                if [ -n "$REMOTE_HEAD" ]; then
+                    echo "[pre-push] WARN: git fetch failed; continuing against $TARGET_REMOTE's cached $PUSH_BRANCH ($REMOTE_HEAD) per GIT_PRE_PUSH_SKIP_FETCH=1 override."
+                else
+                    echo "[pre-push] WARN: git fetch failed and this checkout holds no cached $PUSH_BRANCH for $TARGET_REMOTE, so the stale-branch and rewrite checks CANNOT RUN for this push (GIT_PRE_PUSH_SKIP_FETCH=1 override)."
                 fi
             else
                 echo "[pre-push] BLOCK: git fetch $TARGET_REMOTE $PUSH_BRANCH failed."
