@@ -254,7 +254,14 @@ landed is in the repository README, not here.
   device contributes nothing whatever its field count, and every form of that
   reading is covered by one rule. Both questions asked of the shared read use
   that rule, so the display vendors the package hardware gate reports are read
-  the same way. The answer does not
+  the same way, and that changes what can be installed: before this, a
+  malformed display line beginning with a gated vendor's code (measured with
+  `10de:2484junk`, `10de:zzzz` and `10de:`) was read as that vendor and KEPT
+  its gated packages, the NVIDIA driver and its 32-bit libraries; it is now
+  refused. The display gate also names, in one information line each, a
+  listing that was read but names no device and a listing whose display lines
+  carry no identity (both lines when both hold), so its record no longer reads
+  like a machine without a display device. The answer does not
   change: it stays no, fail-closed, for the same reason the unreadable case
   does. What changes is that the reading is named in one information line, so
   the record of an install says which of the two answers of no it was. A real

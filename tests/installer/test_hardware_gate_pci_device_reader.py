@@ -280,10 +280,12 @@ class TheDisplayGateReadsIdentitiesToo(unittest.TestCase):
     tip before this change, a listing whose only line was
     "01:00.0 0300: not-an-identity" gave the vendor set {"not-an-identity"} —
     a non-empty set, which every caller reads as "this machine was examined
-    and these are its display vendors". No gated package can match such a
-    vendor, so nothing is installed that should not be; what is wrong is that
-    a listing naming no device is indistinguishable from one that does. Both
-    consumers now decide on identities that have the shape of one.
+    and these are its display vendors". Worse, measured by the independent
+    read of that form: a malformed display line beginning with a gated
+    vendor's code — "10de:2484junk", "10de:zzzz", "10de:" — gave {"10de"} and
+    KEPT that vendor's gated packages. Both consumers now decide on identities
+    that have the shape of one, and the display gate names the readings that
+    leave its set empty although the listing was read.
     """
 
     def setUp(self):
@@ -306,6 +308,107 @@ class TheDisplayGateReadsIdentitiesToo(unittest.TestCase):
                                _runner_returning(_INVENTORY)):
             self.assertEqual(packages.detect_display_pci_vendors(),
                              {"8086", "10de"})
+
+    def test_a_malformed_line_beginning_with_a_gated_vendor_names_no_vendor(self):
+        """The case that changed what was installed: at the parent of this
+        change each of these gave {"10de"} and kept nvidia and lib32-nvidia."""
+        for stdout in ("01:00.0 0300: 10de:2484junk (rev a1)\n",
+                       "01:00.0 0300: 10de:zzzz (rev a1)\n",
+                       "01:00.0 0300: 10de:\n"):
+            with self.subTest(stdout=stdout):
+                packages._PCI_VENDOR_CACHE = None
+                with mock.patch.object(packages.subprocess, "run",
+                                       _runner_returning(stdout)):
+                    self.assertEqual(packages.detect_display_pci_vendors(),
+                                     set())
+
+
+class TheDisplayGateNamesAnEmptyReading(unittest.TestCase):
+    """An empty vendor set has three causes once the listing was read, and the
+    install record must say which one it was.
+
+    Found by the independent read of the previous form of this change: after
+    malformed identities stopped naming vendors, a listing whose display lines
+    were all malformed left exactly the same record as a machine with no
+    display device, and a listing naming no device at all did too. The device
+    predicate already names its own empty reading; the display gate now names
+    both of its own. The answer is unchanged in every case: an empty set, and
+    the gated packages skipped.
+    """
+
+    def setUp(self):
+        packages._PCI_VENDOR_CACHE = None
+        self.addCleanup(setattr, packages, "_PCI_VENDOR_CACHE", None)
+
+    def _read(self, stdout):
+        with mock.patch.object(packages.subprocess, "run",
+                               _runner_returning(stdout)):
+            return packages.detect_display_pci_vendors()
+
+    def test_a_listing_that_names_no_device_says_so(self):
+        for stdout in ("", "\n", "   \n", "garbage here\nmore garbage\n",
+                       "cannot open /sys/bus/pci: Permission denied\n"):
+            with self.subTest(stdout=stdout):
+                packages._PCI_VENDOR_CACHE = None
+                with self.assertLogs("forge.packages", level="INFO") as logs:
+                    self.assertEqual(self._read(stdout), set())
+                self.assertTrue(
+                    any("listed no PCI devices" in line
+                        and "gated packages will be skipped" in line
+                        for line in logs.output), logs.output)
+                self.assertFalse(
+                    any("display-class line" in line for line in logs.output),
+                    "a listing with no display-class line said it had one: "
+                    "%s" % logs.output)
+
+    def test_a_listing_whose_only_line_is_a_malformed_display_line_says_both(
+            self):
+        """Both facts hold, so both lines are written; this is what keeps it
+        apart from a listing that holds nothing at all."""
+        with self.assertLogs("forge.packages", level="INFO") as logs:
+            self.assertEqual(self._read("01:00.0 0300: not-an-identity\n"),
+                             set())
+        self.assertTrue(any("listed no PCI devices" in line
+                            for line in logs.output), logs.output)
+        self.assertTrue(
+            any("1 display-class line(s) read and none carries a device "
+                "identity" in line for line in logs.output), logs.output)
+
+    def test_display_lines_that_carry_no_identity_say_so(self):
+        non_display = "00:00.0 0600: 8086:4601 (rev 04)\n"
+        for display in ("01:00.0 0300: not-an-identity\n",
+                        "01:00.0 0300: 10de:2484junk (rev a1)\n",
+                        "01:00.0 0300:\n"):
+            with self.subTest(display=display):
+                packages._PCI_VENDOR_CACHE = None
+                with self.assertLogs("forge.packages", level="INFO") as logs:
+                    self.assertEqual(self._read(non_display + display), set())
+                self.assertTrue(
+                    any("1 display-class line(s) read and none carries a "
+                        "device identity" in line for line in logs.output),
+                    logs.output)
+                self.assertFalse(
+                    any("listed no PCI devices" in line
+                        for line in logs.output),
+                    "a listing that names a device said it named none: "
+                    "%s" % logs.output)
+
+    def test_a_machine_with_no_display_device_stays_silent(self):
+        """That empty set is a true reading, so nothing is said about it."""
+        listing = ("00:00.0 0600: 8086:4601 (rev 04)\n"
+                   "2d:00.0 0805: 17a0:9755 (rev 01)\n")
+        with self.assertNoLogs("forge.packages", level="INFO"):
+            self.assertEqual(self._read(listing), set())
+
+    def test_a_real_listing_with_display_devices_stays_silent(self):
+        with self.assertNoLogs("forge.packages", level="INFO"):
+            self.assertEqual(self._read(_INVENTORY), {"8086", "10de"})
+
+    def test_one_valid_display_line_beside_a_malformed_one_stays_silent(self):
+        """A vendor was read, so the reading named a display device."""
+        listing = _INVENTORY + "\n03:00.0 0300: not-an-identity\n"
+        with self.assertNoLogs("forge.packages", level="INFO"):
+            self.assertEqual(self._read(listing), {"8086", "10de"})
 
 
 if __name__ == "__main__":

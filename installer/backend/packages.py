@@ -127,26 +127,53 @@ def detect_display_pci_vendors():
         _PCI_VENDOR_CACHE = vendors
         return vendors
 
+    identities = 0
+    display_lines = 0
     for line in lines:
+        ident = _pci_id_of(line)
+        if ident is not None:
+            identities += 1
         parts = line.split()
-        if len(parts) < 3:
+        if len(parts) < 2:
             continue
         cls = parts[1].rstrip(":")
         if not cls.startswith("03"):  # 03xx = VGA / 3D / display controllers
             continue
+        display_lines += 1
         # Read the vendor out of a field that is an identity, by the same rule
         # the predicate below uses. Splitting the third field on a colon and
-        # keeping whatever came first accepted anything: measured on the
-        # previous tip, a listing whose one line was
-        # "01:00.0 0300: not-an-identity" gave the vendor set
-        # {"not-an-identity"}, and a non-empty set is what every caller reads
-        # as "this machine was examined". No gated package can match such a
-        # vendor, so nothing was installed that should not have been; what was
-        # wrong is that a listing naming no device looked like one that did.
-        ident = _pci_id_of(line)
+        # keeping whatever came first accepted anything, and it decided what
+        # was installed: measured on the previous form, a malformed display
+        # line that began with a gated vendor's code — "10de:2484junk",
+        # "10de:zzzz", or "10de:" alone — gave the vendor set {"10de"} and KEPT
+        # that vendor's gated packages (nvidia and lib32-nvidia), an install
+        # decision taken on a reading that names no device. Lines with no code
+        # at all ("not-an-identity") gave a vendor nothing matches, and a
+        # non-empty set, which every caller reads as "this machine was
+        # examined". Both are refused now: a field that is not an identity
+        # names no vendor.
         if ident is None:
             continue
         vendors.add(ident.split(":")[0])
+
+    # Name the two readings that leave the vendor set empty although the
+    # listing was read, the way the device predicate below names its own. The
+    # answer does not change — an empty set, gated packages skipped,
+    # fail-closed — but without these lines the install record of a machine
+    # whose listing named no device, or whose display lines carried no
+    # identity, is identical to the record of a machine that truly has no
+    # display device, and only the last of the three is a true reading. The
+    # two are independent and both are written when both hold, so a listing
+    # whose only line is a malformed display line reads differently from one
+    # that holds nothing at all.
+    if identities == 0:
+        LOG.info("hardware-gate: lspci exited 0 but listed no PCI devices "
+                 "(%d line(s) read, none naming a device); gated packages "
+                 "will be skipped", len(lines))
+    if display_lines and not vendors:
+        LOG.info("hardware-gate: %d display-class line(s) read and none "
+                 "carries a device identity; gated packages will be skipped",
+                 display_lines)
 
     _PCI_VENDOR_CACHE = vendors
     return vendors
