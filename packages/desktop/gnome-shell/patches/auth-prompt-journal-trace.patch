@@ -10,9 +10,9 @@ the structured call.
 --- a/js/ui/components/polkitAgent.js
 +++ b/js/ui/components/polkitAgent.js
 @@ -25,20 +25,37 @@
- 
+
  const DELAYED_RESET_TIMEOUT = 200;
- 
+
 +const AUTH_PROMPT_MESSAGE_ID = 'cd6ef3aef777463a86bfb73360865d5d';
 +
 +function logAuthPromptLifecycle(actionId, sequence, event, outcome) {
@@ -32,21 +32,21 @@ the structured call.
 -    _init(actionId, description, cookie, userNames) {
 +    _init(actionId, description, cookie, userNames, authPromptSequence) {
          super._init({styleClass: 'prompt-dialog'});
- 
+
          this.actionId = actionId;
          this.message = description;
          this.userNames = userNames;
 +        this._authPromptSequence = authPromptSequence;
 +        this._authPromptOpened = false;
 +        this._authPromptTerminal = false;
- 
+
          Main.sessionMode.connectObject('updated', () => {
              this.visible = !Main.sessionMode.isLocked;
          }, this);
- 
+
 +        this.connect('opened', this._onOpened.bind(this));
          this.connect('closed', this._onDialogClosed.bind(this));
- 
+
          let title = _('Authentication Required');
 @@ -206,10 +223,32 @@
              log('polkitAuthenticationAgent: Failed to show modal dialog. ' +
@@ -57,7 +57,7 @@ the structured call.
              this._emitDone(true);
          }
      }
- 
+
 +    _onOpened() {
 +        if (this._authPromptOpened || this._authPromptTerminal)
 +            return;
@@ -84,7 +84,7 @@ the structured call.
          if (!this._doneEmitted) {
              this._doneEmitted = true;
 @@ -248,6 +288,7 @@
- 
+
          /* Yay, all done */
          if (gainedAuthorization) {
 +            this._emitAuthPromptTerminal('authorized');
@@ -93,19 +93,19 @@ the structured call.
              /* Unless we are showing an existing error message from the PAM
 @@ -394,9 +435,14 @@
      }
- 
+
      cancel() {
 +        this._emitAuthPromptTerminal('dismissed');
          this._emitDone(true);
      }
- 
+
 +    cancelByAuthority() {
 +        this._emitAuthPromptTerminal('cancelled-by-authority');
 +    }
 +
      _onDialogClosed() {
          Main.sessionMode.disconnectObject(this);
- 
+
 @@ -417,6 +462,8 @@
          super._init();
 
@@ -179,4 +179,3 @@ the structured call.
 +        this._currentDialog?.cancelByAuthority();
          this._completeRequest(false);
      }
-
