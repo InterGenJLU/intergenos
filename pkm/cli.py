@@ -3774,7 +3774,18 @@ def cmd_search(db, args):
 
 
 def cmd_info(db, args):
-    """Describe a package; return 0 when registered as installed, otherwise 1."""
+    """Describe a package; 0 when a report was printed, non-zero when the name
+    is one pkm cannot find at all.
+
+    The exit status answers "did the command do its job". Describing a package
+    that is not installed IS the job — `pkm info` is the verb for asking about
+    a package, installed or not — so a full, correct report about an available
+    package exits 0. It used to exit 1 after printing that report, which told
+    a script the query had failed while the answer sat on stdout.
+
+    The only failure is a name with no installed record and nothing in the
+    index, and that is the case a script actually needs to tell apart.
+    """
     pkg = db.get_installed(args.package)
     if not pkg:
         # Not installed is not the same as nothing to say. The repository index
@@ -3809,7 +3820,10 @@ def cmd_info(db, args):
                 print(f"  {key:20s}: {val}")
         print(f"\n  Install it with: sudo pkm install {available['name']}")
         print()
-        return 1
+        # A report was produced and it is correct. See the docstring for why
+        # this is 0: the status answers whether the command did its job, and
+        # describing an available package is the job.
+        return 0
 
     # PKM-A30: show the full version-release identity (a same-version mirror
     # republish only advances release — version alone hides it, per A06), and

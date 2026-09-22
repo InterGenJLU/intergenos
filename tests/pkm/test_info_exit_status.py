@@ -25,8 +25,21 @@ def info_db(tmp_path):
 
 
 @pytest.mark.parametrize("index_state", ["available", "missing", "unreadable"])
-def test_uninstalled_info_returns_one_and_keeps_its_answer(
+def test_uninstalled_info_keeps_its_answer_and_reports_it_honestly(
         info_db, monkeypatch, capsys, index_state):
+    """REVERSED DELIBERATELY for the "available" case, and only for it.
+
+    This case used to require exit 1 for every not-installed package. For a
+    name nothing knows that is still right and is asserted below. For a
+    package the index DOES carry, the command printed a correct and complete
+    report — version-release, tier, description, license, the status line and
+    the install command — and then reported failure, so a script reading the
+    status was told the query failed while the answer sat on stdout.
+
+    What the old case protected is protected still: the output is unchanged in
+    every state, "not installed" is still said, and a name with no record and
+    no index entry still exits non-zero.
+    """
     root, path = info_db
     manager = Mock()
     if index_state == "available":
@@ -43,7 +56,9 @@ def test_uninstalled_info_returns_one_and_keeps_its_answer(
     with PackageDB(path, root=str(root), read_only=True) as db:
         rc = cli.cmd_info(db, SimpleNamespace(package="example-available"))
     out = capsys.readouterr().out
-    assert rc == 1
+    # 0 when a report was produced; non-zero only when the name is one pkm
+    # cannot find at all, which is the distinction a script needs.
+    assert rc == (0 if index_state == "available" else 1)
     assert "not installed" in out
     if index_state == "available":
         assert "2.0-3" in out
