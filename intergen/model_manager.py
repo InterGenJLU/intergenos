@@ -1093,8 +1093,20 @@ class ModelManager(ModelManagerInterface):
         # is re-reading bytes this process has already read, not the check.
         identity = _file_identity(path)
         computed = cached_digest(identity)
+        # The FIRST verification of a file in this process reads it and is
+        # worth a line at INFO. Every later one re-states an answer that has
+        # not changed, and on an idle machine that is the whole log: measured
+        # on this project's workstation on 2026-09-22, ten idle minutes
+        # produced forty journal lines and all forty were these two sentences.
+        # So a repeat drops to DEBUG — still recorded for anyone who turns
+        # debug logging on, never discarded — while a MISMATCH stays at ERROR
+        # below whether it is the first check or the hundredth. What is quieter
+        # is the sentence, not the check: the digest is compared against the
+        # pin on every call exactly as before.
+        first_in_this_process = computed is None
+        say = log.info if first_in_this_process else log.debug
         if computed is not None:
-            log.info(
+            log.debug(
                 "SHA256 for %s already computed in this process from the same "
                 "file (same path, inode, size and mtime) — comparing against "
                 "the pin without re-reading it",
@@ -1114,7 +1126,7 @@ class ModelManager(ModelManagerInterface):
             record_digest(identity, computed)
 
         if computed == model.sha256:
-            log.info("SHA256 verified: %s", model.filename)
+            say("SHA256 verified: %s", model.filename)
             return True
 
         log.error(
