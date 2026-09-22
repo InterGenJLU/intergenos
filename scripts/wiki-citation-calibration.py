@@ -124,7 +124,7 @@ def main() -> int:
     else:
         from intergen.wiki_retrieval import _chunk_words, html_to_text
         q_words = _content_words(POEM_QUERY)
-        chunks = _chunk_words(html_to_text(page_text)) or [""]
+        chunks = _chunk_words(html_to_text(page_text, source=cited_page)) or [""]
         best = max(chunks, key=lambda c: len(q_words & _content_words(c)))
         support = answer_support(POEM_ANSWER, best, POEM_QUERY)
         own = _content_words(POEM_ANSWER) - _content_words(POEM_QUERY)

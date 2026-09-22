@@ -176,11 +176,14 @@ _SKIP_TAGS = frozenset(("script", "style", "nav", "header", "footer", "head"))
 # wiki ships one page that is the entire book rendered as a single document,
 # so that size grows with the wiki itself. Measured on the installed wiki on
 # 2026-09-22: 88 verified pages, the largest 994,504 characters of markup
-# giving 734,392 characters of text. The ceilings below are eight and five
-# times those figures, so nothing shipped today is cut; a page that grows past
-# them is cut at a word boundary and the cut is LOGGED with the page, its size
-# and the limit. A page silently losing its tail would make the retrieval
-# quietly less complete, which is the failure this is written to avoid.
+# giving 734,392 characters of text. The ceilings below are more than eight and
+# more than five times those figures, so nothing shipped today is cut. A page
+# that grows past one keeps only text that ends on a whole word, and the cut is
+# LOGGED with the page, its size, the limit and the length kept; a page with no
+# word boundary under a ceiling keeps none of its text rather than part of a
+# word. A page silently losing its tail would make the retrieval quietly less
+# complete, and half a word would put a word the page does not contain into the
+# index: those are the two failures this is written to avoid.
 _MAX_PAGE_HTML_CHARS = 8_000_000
 _MAX_PAGE_TEXT_CHARS = 4_000_000
 
@@ -240,28 +243,59 @@ class _WikiTextExtractor(HTMLParser):
         ``re.sub(r"\s+", " ", ...).strip()`` produced — proven over every
         Unicode code point in the tests, so this is not a behaviour change.
 
-        It is done WITHOUT the regular-expression engine on purpose. On
-        2026-09-20 a full test run on one of this project's machines ended in a
-        segmentation fault inside that substitution, running over a whole
-        rendered page; it happened once in about twenty runs and has not been
-        reproduced since, so it cannot be shown on demand and cannot be shown
-        fixed. What can be done is to stop sending whole documents through the
-        engine for work the interpreter's own string code does: a substitution
-        that is never called cannot fault."""
+        The collapse is done with string methods, not with a regular-expression
+        substitution, on purpose. On 2026-09-20 a full test run on one of this
+        project's machines ended in a segmentation fault inside that
+        substitution, running over a whole rendered page; it happened once in
+        about twenty runs and has not been reproduced since, so it cannot be
+        shown on demand and cannot be shown fixed. What can be done is to stop
+        running a substitution over a whole document for work the interpreter's
+        own string code does: a substitution that is never called cannot fault.
+        This method calls nothing in the regular-expression engine. The
+        standard HTML tokenizer this class is built on still does, to find tags,
+        attributes and character references while a page is fed in."""
         return " ".join("".join(self._parts).split())
 
 
 def _cut_on_a_word_boundary(text: str, limit: int) -> str:
     """``text`` cut to at most ``limit`` characters, ending on a whole word.
 
-    A cut in the middle of a word would put a word the page does not contain
+    ``text`` is the extractor's output: words separated by single spaces. A
+    cut in the middle of a word would put a word the page does not contain
     into the retrieval index, where it could be matched and then quoted back as
-    the page's own wording."""
+    the page's own wording. So the text up to the limit is kept when the
+    character just past the limit is a space (the limit falls at the end of a
+    word), and otherwise the cut goes back to the last space inside the limit.
+    Text with no space inside the limit keeps NOTHING: its first word runs past
+    the limit, and part of a word is never returned."""
     if len(text) <= limit:
         return text
-    cut = text[:limit]
-    space = cut.rfind(" ")
-    return (cut[:space] if space > 0 else cut).rstrip()
+    if text[limit] == " ":
+        return text[:limit]
+    space = text.rfind(" ", 0, limit)
+    return text[:space] if space > 0 else ""
+
+
+def _drop_the_last_word(text: str) -> str:
+    """``text`` without its last word. Used only after the MARKUP was cut.
+
+    The markup is cut at a character position, so the last word the parser
+    produced may continue past the cut, either in the same run of text or
+    after an inline tag: ``abc<b>def</b>`` cut after its ``d`` produces
+    ``abcd``, a word the page does not contain. Whether the last word
+    continues cannot be told from the text, so it is dropped. Every word
+    before it is followed by whitespace in the text read, which the whole page
+    has at the same place, so every word kept is a whole word of the page."""
+    space = text.rfind(" ")
+    return text[:space] if space > 0 else ""
+
+
+def _kept(length: int) -> str:
+    """The end of a ceiling log line: how much of the page's text was kept."""
+    if length:
+        return f"{length} characters of text, ending on a whole word"
+    return ("0 characters of text: no word before the cut is known to be "
+            "whole, and part of a word is never indexed")
 
 
 def html_to_text(html: str, *, source: str = "") -> str:
@@ -269,37 +303,62 @@ def html_to_text(html: str, *, source: str = "") -> str:
     a malformed page yields whatever text parsed, never a daemon crash.
 
     BOUNDED, AND NEVER SILENTLY SO. At most ``_MAX_PAGE_HTML_CHARS`` of markup
-    is read and at most ``_MAX_PAGE_TEXT_CHARS`` of text is returned; a page
-    over either ceiling is cut at a word boundary and the cut is logged with the
-    page, the size and the limit. ``source`` is the page name for that log line
+    is read and at most ``_MAX_PAGE_TEXT_CHARS`` of text is returned, and what
+    is returned ends on a whole word of the page:
+
+    * markup over its ceiling is cut at the ceiling and parsed WITHOUT closing
+      the parser, so an unfinished tag, comment or character reference at the
+      cut stays unparsed instead of being passed on as text; the last word the
+      parser produced is then dropped, because it may continue past the cut;
+    * text over its ceiling is cut back to a word boundary inside it.
+
+    A page with no word boundary under a ceiling keeps no text at all. Each cut
+    is logged, after every cut has been made, with the page, its size, the
+    limit and the length kept. ``source`` is the page name for those log lines
     and is only ever used to say which page was cut.
 
     The bound lives HERE, in the one function every caller goes through, rather
     than at any call site: a limit applied at one caller is not a limit on the
     function."""
     html = html or ""
-    if len(html) > _MAX_PAGE_HTML_CHARS:
-        logger.warning(
-            "wiki-retrieval: page %s is %d characters of markup, over the "
-            "%d-character ceiling; reading the first %d and no more",
-            source or "(unnamed)", len(html), _MAX_PAGE_HTML_CHARS,
-            _MAX_PAGE_HTML_CHARS)
+    page = source or "(unnamed)"
+    markup_size = len(html)
+    markup_cut = markup_size > _MAX_PAGE_HTML_CHARS
+    if markup_cut:
         html = html[:_MAX_PAGE_HTML_CHARS]
     parser = _WikiTextExtractor()
     try:
         parser.feed(html)
-        parser.close()
+        if not markup_cut:
+            # Closing makes the parser finish what is left at the end of its
+            # input, and a closing tag or a character reference left part-way
+            # is finished by passing its characters on as text. A whole page
+            # needs the close, because its last text can be held back until
+            # then; a cut page must not have one, because what is left at its
+            # end is the unfinished construct at the cut.
+            parser.close()
     except Exception:  # noqa: BLE001 — a broken page must not take retrieval down
         logger.debug("wiki-retrieval: HTML parse degraded; using partial text",
                      exc_info=True)
     text = parser.text()
-    if len(text) > _MAX_PAGE_TEXT_CHARS:
+    if markup_cut:
+        text = _drop_the_last_word(text)
+    text_size = len(text)
+    text_cut = text_size > _MAX_PAGE_TEXT_CHARS
+    if text_cut:
+        text = _cut_on_a_word_boundary(text, _MAX_PAGE_TEXT_CHARS)
+    # Logged after every cut, so each line states the length actually kept.
+    if markup_cut:
+        logger.warning(
+            "wiki-retrieval: page %s is %d characters of markup, over the "
+            "%d-character ceiling; read the first %d and kept %s",
+            page, markup_size, _MAX_PAGE_HTML_CHARS, _MAX_PAGE_HTML_CHARS,
+            _kept(len(text)))
+    if text_cut:
         logger.warning(
             "wiki-retrieval: page %s produced %d characters of text, over the "
-            "%d-character ceiling; indexing the first %d and no more",
-            source or "(unnamed)", len(text), _MAX_PAGE_TEXT_CHARS,
-            _MAX_PAGE_TEXT_CHARS)
-        text = _cut_on_a_word_boundary(text, _MAX_PAGE_TEXT_CHARS)
+            "%d-character ceiling; kept %s",
+            page, text_size, _MAX_PAGE_TEXT_CHARS, _kept(len(text)))
     return text
 
 

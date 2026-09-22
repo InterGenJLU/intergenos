@@ -625,26 +625,32 @@ landed is in the repository README, not here.
   live directory is reported as absent unless the version holds descendants
   beneath it, rather than suggesting that unsaved files can be restored.
 
-- **The text taken out of a wiki page is bounded, and it no longer goes through
-  the regular-expression engine.** On 2026-09-20 a full test run on one of this
-  project's machines ended in a segmentation fault at 89 percent of the suite,
-  reported inside the whitespace substitution in the wiki page text extraction,
-  running over a whole rendered page. It happened once in roughly twenty runs
-  and has not been reproduced since — 112 processes across both trees on
-  2026-09-22, including sixty isolated runs of the file it was reached through
-  and eight page shapes at up to eighty million characters, produced no fault —
-  so it cannot be shown fixed and this entry does not claim it is. What is fixed
-  are two properties of that code that held either way. The markup read from one
-  page and the text produced from it now have stated ceilings (8,000,000 and
-  4,000,000 characters, several times the largest page the wiki ships); a page
-  over one is cut on a word boundary, never mid-word, and the cut is logged with
-  the page, its size and the limit, so a shortened page is never a silent one.
-  The ceiling is inside the one function every caller goes through. And the
-  whitespace normalisation is done with `str.split()` and `" ".join`, which give
-  a character-for-character identical result — proven over every Unicode code
-  point and against the real installed wiki, where both forms index the same
-  2182 passages with the same digest — while taking the reported crash site off
-  the path entirely.
+- **The text taken out of a wiki page is bounded, and its whitespace is no
+  longer collapsed by a regular-expression substitution over the whole page.**
+  On 2026-09-20 a full test run on one of this project's machines ended in a
+  segmentation fault at 89 percent of the suite, reported inside the whitespace
+  substitution in the wiki page text extraction, running over a whole rendered
+  page. It happened once in roughly twenty runs and has not been reproduced
+  since — 112 processes across both trees on 2026-09-22, including sixty
+  isolated runs of the file it was reached through and eight page shapes at up
+  to eighty million characters, produced no fault — so it cannot be shown fixed
+  and this entry does not claim it is. What is fixed are two properties of that
+  code that held either way. The markup read from one page and the text
+  produced from it now have stated ceilings (8,000,000 and 4,000,000
+  characters, several times the largest page the wiki ships). What a page over
+  either ceiling keeps ends on a whole word of the page: a cut in the markup can
+  fall inside a word, a tag or a character reference, and none of those reaches
+  the index as text; a page with no word boundary under a ceiling keeps none of
+  its text rather than part of a word. Each cut is logged with the page, its
+  size, the limit and the length kept, so a shortened page is never a silent
+  one. The ceiling is inside the one function every caller goes through, and
+  both callers name the page. And the whitespace normalisation is done with
+  `str.split()` and `" ".join`, which give a character-for-character identical
+  result — proven over every Unicode code point and against the real installed
+  wiki, where both forms index the same 2182 passages with the same digest —
+  while taking the reported crash site, that one substitution over the whole
+  page, off the path. The standard HTML tokenizer the extraction is built on
+  still uses regular expressions to find tags and character references.
 - **The web chat keeps the answer it showed you, or says why it does not.** The
   page replaces the text that arrived word by word with the answer on the
   turn's final message, and several checks on the server may rewrite that
