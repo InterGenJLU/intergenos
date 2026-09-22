@@ -35,6 +35,23 @@ from typing import Any
 from intergen import glass
 from intergen.private_state import private_dir, private_touch
 
+# Imported HERE rather than inside the four functions that use it. Those
+# functions run on the indexing worker thread, so the first indexed exchange
+# on a machine paid for loading numpy and every later one did not: measured on
+# this project's workstation on 2026-09-22, the first call took 166 ms and the
+# next five took under a tenth of a millisecond each, with the whole of that
+# difference being the import. Paying it when this module is imported moves the
+# cost to daemon start, where nobody is waiting on an answer.
+#
+# Kept as a guarded import because this module's whole embedding path degrades
+# to None rather than raising when it cannot do its work, and a machine without
+# numpy is that case: `np` is None there, the four sites below return their own
+# empty answer, and importing this module still succeeds.
+try:
+    import numpy as np
+except ImportError:  # pragma: no cover — numpy is a declared dependency
+    np = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -1407,6 +1424,11 @@ class SessionTurnIndex:
         # for an index that had simply never been asked).
         self._last_indexed_at: float | None = None
         self._lock = threading.Lock()
+        # The numeric library this worker needs is imported when this MODULE is
+        # imported, not on the worker's first call, so the first indexed
+        # exchange on a machine costs what every later one costs (see the
+        # guarded import at the top of this file and the numbers beside it).
+        #
         # Bounded worker: ONE daemon thread drains a bounded FIFO queue. The
         # design specified a depth-1 drop-oldest slot; measured, that dropped 26
         # of 30 turns under a burst faster than the embed (which would break the
@@ -1483,8 +1505,9 @@ class SessionTurnIndex:
             return None
         if not vectors:
             return None
+        if np is None:
+            return None
         try:
-            import numpy as np
             arr = np.asarray(vectors, dtype=np.float32)
         except (ValueError, TypeError) as e:
             logger.warning("SessionTurnIndex: malformed embedding shape (%s); "
@@ -1560,8 +1583,9 @@ class SessionTurnIndex:
             return None
         if not vectors:
             return None
+        if np is None:
+            return None
         try:
-            import numpy as np
             arr = np.asarray(vectors, dtype=np.float32)
         except (ValueError, TypeError) as e:
             logger.warning("SessionTurnIndex: malformed embedding shape (%s); "
@@ -1720,8 +1744,9 @@ class SessionTurnIndex:
         # again just as loudly.
         elif query_vector is None:
             self._note_embed_success("retrieve")
+        if np is None:
+            return None
         try:
-            import numpy as np
             q = np.asarray(qv, dtype=np.float32).reshape(-1)
             qn = float(np.linalg.norm(q))
             if qn == 0.0:
@@ -1810,8 +1835,9 @@ class SessionTurnIndex:
         fact texts (<= max_facts), or [] on embedder-down / nothing relevant."""
         if query_vector is None or not facts:
             return []
+        if np is None:
+            return []
         try:
-            import numpy as np
             q = np.asarray(query_vector, dtype=np.float32).reshape(-1)
             qn = float(np.linalg.norm(q))
             if qn == 0.0:
