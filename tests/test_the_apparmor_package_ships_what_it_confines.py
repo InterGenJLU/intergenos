@@ -1,0 +1,136 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 InterGenJLU
+"""The security package ships a profile only for a program the tree installs,
+and it ships the tools that can read the policy back.
+
+WHAT THIS COVERS. Two facts measured on an ordinary installed machine on
+2026-09-22, both of which this file turns into checks that fail in the tree.
+
+First, a profile was shipped for a program nothing installs. The file
+`usr.bin.intergen-mcp` named `/usr/bin/intergen-mcp`, and no recipe anywhere in
+this repository puts a binary of that name on a machine. A profile with no
+program to attach to is loaded into the kernel at every install, is counted in
+every summary of the policy, and confines nothing: it makes the policy look
+wider than it is, which is the one thing a mandatory access control policy must
+never do.
+
+Second, of the AppArmor userspace tools only the parser was installed, so an
+installed machine could not report its own enforce/complain split at all. The
+same machine read 169 profiles loaded, 68 in enforce and 101 in complain with
+the tool built from the same upstream tarball the recipe already uses, and
+could read nothing without it. A policy nobody can read back is a policy nobody
+can check.
+
+WHAT THESE TESTS PROVE: that every profile file the package ships names a
+program some recipe in this tree installs; that the recipe compiles and
+installs the upstream component carrying the status tools; that the package
+declares the status tool among the paths its build is verified against; and
+that the package's own documentation names no profile file the package does not
+ship.
+
+WHAT THEY DO NOT PROVE: that the tools work on an installed machine. That was
+measured separately by building the component and running it against this
+machine's live policy, and it is evidence in the cut, not something a source
+tree can assert.
+"""
+import re
+import subprocess
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[1]
+RECIPE = REPO / "packages/core/apparmor"
+BUILD_SH = RECIPE / "build.sh"
+PACKAGE_YML = RECIPE / "package.yml"
+PROFILES = RECIPE / "profiles"
+
+# The attachment line of an AppArmor profile: the program path, then flags or
+# the opening brace.
+ATTACHMENT = re.compile(r"^(/\S+)\s+(?:flags=\([^)]*\)\s*)?\{", re.MULTILINE)
+
+
+def profile_files() -> list[Path]:
+    return sorted(p for p in PROFILES.iterdir() if p.is_file())
+
+
+def attached_program(profile: Path) -> str:
+    match = ATTACHMENT.search(profile.read_text())
+    assert match, f"{profile.name} has no profile attachment line"
+    return match.group(1)
+
+
+def some_recipe_installs(program: str) -> bool:
+    """True when a recipe's build script puts this path on a machine.
+
+    The search is over the build scripts because that is where a file becomes
+    a file on a machine; a mention in a comment, a document or a profile is not
+    an installation. The security package's own script is excluded: it installs
+    the profiles, not the programs they confine, so leaving it in would let a
+    profile justify itself.
+    """
+    result = subprocess.run(
+        ["git", "grep", "-l", "--fixed-strings", program.lstrip("/"),
+         "--", "packages/*/*/build.sh"],
+        cwd=REPO, capture_output=True, text=True,
+    )
+    providers = [
+        line for line in result.stdout.splitlines()
+        if line and line != "packages/core/apparmor/build.sh"
+    ]
+    return bool(providers)
+
+
+def test_every_shipped_profile_names_a_program_this_tree_installs():
+    orphans = []
+    for profile in profile_files():
+        program = attached_program(profile)
+        if not some_recipe_installs(program):
+            orphans.append(f"{profile.name} -> {program}")
+    assert orphans == [], (
+        "these profiles confine a program no recipe in this tree installs, so "
+        "they load into the kernel on every machine and confine nothing: "
+        f"{orphans}"
+    )
+
+
+def test_the_recipe_compiles_the_component_that_carries_the_status_tools():
+    text = BUILD_SH.read_text()
+    body = "\n".join(
+        line for line in text.splitlines() if not line.strip().startswith("#")
+    )
+    assert "make -C binutils" in body, (
+        "the recipe does not compile the upstream component that carries "
+        "aa-status, aa-enabled, aa-exec and aa-features-abi"
+    )
+    assert "make -C binutils install" in body, (
+        "the recipe compiles the status tools and never installs them"
+    )
+
+
+def test_the_package_verifies_the_status_tool_landed():
+    text = PACKAGE_YML.read_text()
+    assert "/usr/sbin/aa-status" in text, (
+        "the package does not name the status tool among its verify_paths, so "
+        "a build that produced no tool would pass the same gate that was "
+        "strengthened in 2026-05 for exactly this class"
+    )
+
+
+def test_the_package_documentation_names_no_profile_it_does_not_ship():
+    shipped = {p.name for p in profile_files()}
+    named = set()
+    named |= set(re.findall(r"usr\.bin\.[A-Za-z0-9._-]+",
+                            (RECIPE / "README.md").read_text()))
+    # Comment lines of the build script are excluded on purpose: the script
+    # explains there why a profile it once shipped was removed, and an
+    # explanation of a removal is not a claim that the file is still there.
+    code = "\n".join(
+        line for line in BUILD_SH.read_text().splitlines()
+        if not line.strip().startswith("#")
+    )
+    named |= set(re.findall(r"usr\.bin\.[A-Za-z0-9._-]+", code))
+    missing = sorted(named - shipped)
+    assert missing == [], (
+        "the package's own files name profile files it does not ship: "
+        f"{missing}"
+    )

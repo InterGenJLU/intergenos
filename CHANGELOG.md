@@ -257,6 +257,24 @@ landed is in the repository README, not here.
   `--all` to reach an install's full record.
 
 ### Fixed
+- **An installed machine can read its own access-control policy back, and no
+  longer loads a profile that confines nothing.** AppArmor policy is only worth
+  what someone can check, and until now the only AppArmor program installed was
+  the parser that loads profiles: nothing on the machine could report which
+  profiles were loaded or whether each was enforcing or only logging. Measured
+  on an ordinary R001.2 install on 2026-09-22 with the tool built from the same
+  upstream release the package already compiles: 169 profiles loaded, 68
+  enforcing, 101 logging only, and no way to learn any of that from the machine
+  as shipped. The security package now installs the upstream tools that read the
+  policy — `aa-status` (also answering to `apparmor_status`), `aa-enabled`,
+  `aa-exec` and `aa-features-abi` — and names two of them among the paths its
+  build is verified against, so a build that produced no tool fails instead of
+  passing. In the same change, the profile written for a local assistant daemon
+  is removed: no package in this system installs a program of that name, so the
+  profile attached to nothing and confined no process, while still being loaded
+  into the kernel on every machine and counted in every summary of the policy —
+  which makes the policy look wider than it is. A check now refuses any profile
+  the package ships that names a program nothing in the tree installs.
 
 - **An upgraded Python module no longer runs its old code under a bytecode
   cache prefix.** An interpreter started with `PYTHONPYCACHEPREFIX` or

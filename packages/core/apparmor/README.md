@@ -31,8 +31,13 @@ mandatory access control (MAC) framework.
    `package.yml`. Added with a "never overwrite upstream" merge policy.
 
 5. **InterGenOS-specific profiles** (in `profiles/` alongside this README):
-   - `usr.bin.intergen-mcp` — local AI assistant daemon
    - `usr.bin.pkm` — InterGenOS package manager
+
+   A profile for a local assistant daemon was removed 2026-09-22: no recipe in
+   this repository installs a binary of that name, so the profile attached to
+   nothing, loaded into the kernel on every machine and confined no process,
+   while still being counted in every summary of the policy. A profile that
+   confines nothing makes the policy look wider than it is.
 
    The Forge installer is intentionally **not** confined by AppArmor: its
    use of util-linux 2.41's new mount API (`fsopen`/`fsconfig`/`fsmount`/
@@ -70,14 +75,16 @@ To disable a specific profile, symlink it into the `disable/` directory and
 unload it via `apparmor_parser`:
 
 ```bash
-sudo ln -s /etc/apparmor.d/usr.bin.intergen-mcp /etc/apparmor.d/disable/
-sudo apparmor_parser -R /etc/apparmor.d/usr.bin.intergen-mcp
+sudo ln -s /etc/apparmor.d/usr.bin.pkm /etc/apparmor.d/disable/
+sudo apparmor_parser -R /etc/apparmor.d/usr.bin.pkm
 ```
 
-If the apparmor utils package is installed:
+To read back which profiles are loaded and in which mode, use the status tool
+this package installs (it needs privilege to read the kernel's policy and says
+so plainly when it has none):
 
 ```bash
-sudo aa-disable /usr/bin/intergen-mcp
+sudo aa-status
 ```
 
 To globally disable AppArmor (not recommended), append `apparmor=0` to your

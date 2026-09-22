@@ -4,7 +4,7 @@
 #
 # AppArmor v3.1.7 — libapparmor + parser + profile install
 #
-# Three upstream components compiled and installed:
+# Four upstream components compiled and installed:
 #   1. libraries/libapparmor — autotools library, produces libapparmor.so
 #      (consumed by systemd, polkit, dbus and others via -lapparmor and the
 #      libapparmor.pc pkg-config file). systemd-pass2's audit-fix declared
@@ -15,17 +15,30 @@
 #      parser.conf, profile-load helper, rc.apparmor.functions, systemd unit.
 #   3. profiles/ — Makefile-driven, installs upstream profile substrate to
 #      /etc/apparmor.d/ (abi/, abstractions/, tunables/ + top-level profiles).
+#   4. binutils/ — Makefile-driven, the userspace tools that READ the policy:
+#      aa-status (with its apparmor_status compatibility name), aa-enabled,
+#      aa-exec and aa-features-abi. Until 2026-09-22 only the parser was
+#      installed, so an installed machine could not report its own
+#      enforce/complain split at all: measured on an ordinary R001.2 install
+#      that day, the tool built from this same tarball read 169 profiles
+#      loaded, 68 in enforce and 101 in complain, and nothing already on the
+#      machine could read any of it. A policy nobody can read back is a
+#      policy nobody can check.
 #
 # Plus three InterGenOS-specific install steps:
 #   4. apparmor-profiles-extra_1.35 (Debian-derived: irssi, totem, pidgin,
 #      etc.) extracted from the secondary tarball declared in package.yml.
 #      The orchestrator only auto-extracts source[0]; we extract source[1]
 #      ourselves in build().
-#   5. Custom IGOS profiles (intergen-mcp, pkm) shipped in
+#   5. Custom IGOS profiles (pkm) shipped in
 #      $PKG_DIR/profiles/ alongside this script. (first-boot-greeter
 #      profile was removed 2026-05-22 alongside the greeter delete per
 #      audit-row D-002 Path B execution. usr.bin.forge profile was
-#      removed 2026-05-26 — see Section 5 docstring below for rationale.)
+#      removed 2026-05-26 — see Section 5 docstring below for rationale.
+#      The local assistant daemon's profile was removed 2026-09-22: no
+#      recipe in this tree installs a binary of that name, so it attached
+#      to nothing and confined nothing while being counted in every
+#      summary of the loaded policy.)
 #   6. Complain-mode marker file declaring InterGenOS's posture intent
 #      (log-only by default until profiles graduate to enforce per-profile
 #      in future releases). NOTE: marker is read by no orchestrator as of
@@ -58,6 +71,12 @@ build() {
     #    The parser Makefile picks up libraries/libapparmor/include and
     #    libraries/libapparmor/src/.libs automatically via relative paths.
     make -C parser
+
+    # 3. binutils — the userspace tools that read the policy back. Same
+    #    Makefile convention as the parser: it links against libapparmor's
+    #    in-tree build artifacts through relative paths, so it must follow
+    #    the library above.
+    make -C binutils
 
     # 4. Extract apparmor-profiles-extra_1.35 secondary tarball into a known
     #    in-tree directory for do_install() to consume. Tarball layout has
@@ -97,6 +116,15 @@ do_install() {
         APPARMOR_BIN_PREFIX="${DESTDIR}/usr/lib/apparmor" \
         SYSTEMD_UNIT_DIR="${DESTDIR}/usr/lib/systemd/system" \
         USR_SBINDIR="${DESTDIR}/usr/sbin"
+
+    # 2c. binutils — the policy-reading tools. Its Makefile already installs
+    #     into /usr/bin and /usr/sbin under DESTDIR, which is this system's
+    #     layout, so no path override is needed; proven by staging it on
+    #     2026-09-22, which produced aa-enabled, aa-exec and aa-features-abi
+    #     in /usr/bin, aa-status in /usr/sbin with the apparmor_status
+    #     compatibility symlink beside it, five manual pages and thirteen
+    #     message catalogues.
+    make -C binutils install DESTDIR="${DESTDIR}"
 
     # 3. profiles — installs upstream substrate to /etc/apparmor.d/ + abi/,
     #    abstractions/, tunables/, plus extra-profiles to
@@ -177,8 +205,6 @@ do_install() {
     # install-time tools.
     install -vdm 755 "${DESTDIR}/etc/apparmor.d/disable/"
     install -vdm 755 "${DESTDIR}/etc/apparmor.d/local/"
-    install -vm 644 "${PKG_DIR}/profiles/usr.bin.intergen-mcp" \
-        "${DESTDIR}/etc/apparmor.d/"
     install -vm 644 "${PKG_DIR}/profiles/usr.bin.pkm" \
         "${DESTDIR}/etc/apparmor.d/"
 
