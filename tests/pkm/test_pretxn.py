@@ -242,8 +242,12 @@ class RemoveWiringTests(_WiringHarness):
             self.order.append(("remove", name))
             return (True, "removed")
 
+        # The update advisory is not what this case tests; stubbed, as the
+        # other command tests do, so it never resolves to this machine's.
         with patch.object(pretxn, "run_pre_transaction_hook",
                           side_effect=self._record_hook), \
+             patch.object(cli, "refresh_available_updates_after_transaction",
+                          lambda db, **k: None), \
              patch("pkm.remover.PackageRemover.remove",
                    side_effect=record_remove, autospec=True):
             cli.cmd_remove(self.db, args)
@@ -316,9 +320,13 @@ class UpgradeWiringTests(_WiringHarness):
             upgrade_dry_run=False, upgrade_yes=True,
             upgrade_allow_kernel_replace=False,
         )
+        # The update advisory is not what this case tests; stubbed, as the
+        # other command tests do, so it never resolves to this machine's.
         with patch.object(pretxn, "run_pre_transaction_hook",
                           side_effect=self._record_hook), \
              patch.object(cli, "RepoManager", FakeRepo), \
+             patch.object(cli, "refresh_available_updates_after_transaction",
+                          lambda db, **k: None), \
              patch.object(cli.PackageInstaller, "install",
                           side_effect=record_install, autospec=False), \
              patch.object(pkm.repo, "REPO_PKG_CACHE", self.tmp / "cache"), \

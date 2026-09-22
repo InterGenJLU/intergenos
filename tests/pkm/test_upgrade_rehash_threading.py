@@ -198,7 +198,11 @@ class UpgradeRehashThreadingTests(unittest.TestCase):
             def resolve_dependencies(fr, name, db):
                 return True, []
 
+        # The update advisory is not what this case tests; stubbed, as the
+        # other command tests do, so it never resolves to this machine's.
         with patch.object(cli, "RepoManager", FakeRepo), \
+             patch.object(cli, "refresh_available_updates_after_transaction",
+                          lambda db, **k: None), \
              patch.object(cli.PackageInstaller, "install",
                           side_effect=record_install, autospec=False), \
              patch.object(pkm.repo, "REPO_PKG_CACHE", self.cache_dir), \
