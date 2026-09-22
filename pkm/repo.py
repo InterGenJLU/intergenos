@@ -399,6 +399,13 @@ class RepoIndex:
 class RepoManager:
     """Manages repository sync, caching, and package downloads."""
 
+    # Class-level defaults so an instance built without __init__ — the shape
+    # several tests use, as the cache-path accessors below already account
+    # for — answers these rather than raising AttributeError at a caller that
+    # is asking whether the cache worked.
+    cache_ready = True
+    cache_error = None
+
     def __init__(self, root=None):
         # The install root whose cache this manager reads and writes. None is
         # the running system, which is what every caller meant before the
@@ -465,12 +472,20 @@ class RepoManager:
         root-gated (cli.PKM_MUTATING_COMMANDS) so the create always succeeds
         for update/install.
         """
+        # WHY it is unusable, not only THAT it is. `cache_ready` False is
+        # enough for a read path that degrades to "no index synced", but a
+        # command that has to TELL someone its answer could not be
+        # established needs the path and the reason to name (cli's
+        # cmd_check_updates). Recorded here because this is the only place
+        # that sees the error.
+        self.cache_error = None
         try:
             self.db_cache().mkdir(parents=True, exist_ok=True)
             self.pkg_cache().mkdir(parents=True, exist_ok=True)
-        except (PermissionError, FileNotFoundError):
+        except (PermissionError, FileNotFoundError) as e:
             # Non-root with no initialized cache: nothing to create until an
             # update runs as root. Read paths degrade to "no index synced".
+            self.cache_error = (self.cache_dir(), e)
             return False
         try:
             os.chmod(str(self.pkg_cache()), 0o700)

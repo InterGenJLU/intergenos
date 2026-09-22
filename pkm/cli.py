@@ -5687,7 +5687,7 @@ def _write_available_updates_json(summary, output_path):
     """Atomically write the advisory JSON (.tmp sibling + os.replace, atomic on
     POSIX within one filesystem, so a reader never observes a partial file).
     Raises OSError on failure; the caller decides fail-hard (the scheduled
-    check, whose systemd unit wants Restart=on-failure) vs fail-soft (a
+    check, whose systemd unit surfaces a failed run) vs fail-soft (a
     transaction refresh, which must never fail the transaction)."""
     import json
     import os
@@ -5780,10 +5780,16 @@ def cmd_check_updates(db, args, output_path=None):
     of --quiet so the unattended consumers can surface "K packages could
     not be evaluated" instead of silently under-reporting.
 
-    Returns 0 on success, exits with 1 on write failure (so the
-    systemd timer's Restart=on-failure policy sees the error). The
-    --quiet flag suppresses stdout output for unattended timer runs;
-    the JSON is always written regardless of --quiet.
+    Returns 0 on success and non-zero when the advisory could not be
+    established or written, so a scripted caller and the journal both see
+    it. pkm-check-updates.service declares NO Restart= (the timer is the
+    schedule controller and says so in the unit), so a non-zero run shows
+    up as a failed unit in `systemctl --failed` and in
+    `journalctl -u pkm-check-updates.service` rather than being retried at
+    once — this text used to claim a Restart=on-failure policy the unit
+    does not have. The --quiet flag suppresses stdout output for unattended
+    timer runs; the JSON is written on every run that actually established
+    a count, regardless of --quiet.
     """
     if output_path is None:
         output_path = available_updates_path()
@@ -5797,10 +5803,48 @@ def cmd_check_updates(db, args, output_path=None):
             )
 
     repo = repo_manager()
+
+    # A ZERO THIS COMMAND DID NOT ESTABLISH IS NEVER PUBLISHED.
+    #
+    # _compute_available_updates asks the LOCAL cached index about each
+    # installed package and skips every package the index does not answer
+    # for. With no usable index it answers for none, so the computation
+    # returns zero upgradable — and this command used to print "Everything is
+    # up to date.", write count 0 into the advisory the desktop notifier and
+    # the message of the day read, and exit 0. Measured 2026-09-22 with the
+    # cache directory made read-only and a package installed: exactly that. A
+    # machine with pending updates was telling its user there were none.
+    #
+    # refresh_available_updates_after_transaction, which rewrites the SAME
+    # file, already refuses this — in its own words, recomputing with no
+    # synced index "would report zero upgradable and CLOBBER a real
+    # advisory". It is best-effort and warns; this command is the scheduled
+    # check, so it says why, writes nothing at all (no fresh file, no
+    # clobbered previous one) and exits non-zero — which its unit turns into a
+    # failed unit in `systemctl --failed` and a line in the journal, the two
+    # places a person looks when the top-bar count stops moving.
+    _cache_error = getattr(repo, "cache_error", None)
+    if _cache_error is not None:
+        _path, _err = _cache_error
+        print(f"  ERROR: the repository cache at {_path} cannot be used "
+              f"({_err}), so no package could be checked against the index. "
+              f"No update count was written and the previous advisory was "
+              f"left as it is. Correct the permissions on that directory, "
+              f"then re-run.", file=sys.stderr)
+        return 1
+    _has_index = getattr(repo, "has_synced_index", None)
+    if _has_index is not None and not _has_index():
+        print(f"  ERROR: no repository index is synced in the local cache "
+              f"({repo.cache_dir() if hasattr(repo, 'cache_dir') else ''}), "
+              f"so nothing could be compared against it. No update count was "
+              f"written and the previous advisory was left as it is. Run "
+              f"`sudo pkm update` first.", file=sys.stderr)
+        return 1
+
     packages, skipped = _compute_available_updates(db, repo, warn=_warn)
     summary = _available_updates_summary(packages, skipped)
 
-    # Fail-hard on write failure so the timer's Restart=on-failure sees it.
+    # Fail-hard on write failure so the run is recorded as failed.
     try:
         _write_available_updates_json(summary, output_path)
     except OSError as e:

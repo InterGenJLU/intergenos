@@ -113,6 +113,23 @@ session. Exit status 0 on success, 1 if any restart failed or
 .B \-\-all
 could not bound itself to this boot.
 .TP
+.BR check\-updates " [\fB\-\-quiet\fR]"
+Compare every installed package against the LAST\-SYNCED cached index and
+write the update advisory the desktop notifier and the message of the day
+read (/var/lib/pkm/available\-updates.json). Offline by design: it never
+reaches the mirror, so
+.B pkm update
+is what makes new releases visible to it. With
+.B \-\-quiet
+nothing is printed; the advisory is written either way.
+Exit status is 0 when a count was established and written. It is non\-zero,
+with nothing written and any previous advisory left untouched, when the
+count could not be established at all — the repository cache cannot be used,
+no index has been synced, or the advisory file cannot be written. A count of
+zero is only ever published when the check actually ran: reporting an
+unestablished zero would tell a machine with pending updates that it has
+none.
+.TP
 .BR search " \fITERM\fR"
 Search local and remote indexes for packages matching
 .IR TERM .
