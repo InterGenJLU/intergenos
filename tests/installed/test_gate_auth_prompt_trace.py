@@ -128,6 +128,17 @@ def _assert_contract(source: str) -> None:
     assert "cookie" not in helper.lower(), (
         "the PolicyKit cookie reached the structured trace helper")
 
+    journal_calls = re.findall(
+        r"(?:GLib\.log_structured|\blog)\s*\(.*?\);",
+        source,
+        flags=re.DOTALL,
+    )
+    assert journal_calls, "no GNOME Shell journal writes were found"
+    cookie_writes = [call for call in journal_calls if "this._cookie" in call]
+    assert not cookie_writes, (
+        "a GNOME Shell journal write interpolates the PolicyKit cookie: "
+        f"{cookie_writes!r}")
+
     wrapper = _function_body(source, "_writeAuthPromptTrace(event, outcome)")
     normalized_wrapper = " ".join(wrapper.split())
     assert normalized_wrapper == (

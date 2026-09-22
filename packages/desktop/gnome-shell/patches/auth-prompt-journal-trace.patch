@@ -48,10 +48,11 @@ the structured call.
          this.connect('closed', this._onDialogClosed.bind(this));
  
          let title = _('Authentication Required');
-@@ -206,10 +223,33 @@
+@@ -206,10 +223,32 @@
              log('polkitAuthenticationAgent: Failed to show modal dialog. ' +
-                 `Dismissing authentication request for action-id ${this.actionId} ` +
-                 `cookie ${this._cookie}`);
+-                `Dismissing authentication request for action-id ${this.actionId} ` +
+-                `cookie ${this._cookie}`);
++                `Dismissing authentication request for action-id ${this.actionId}`);
 +            this._emitAuthPromptTerminal('failed-to-open');
              this._emitDone(true);
          }
