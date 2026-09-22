@@ -18,16 +18,25 @@ STAGE = REPO_ROOT / "installer" / "smoke" / "ge-eval-stage.sh"
 
 class TestGeEvalStage(unittest.TestCase):
     def _run(self, tmp, *, sync_rc=0, install_rc=0, verify_rc=0,
-             smoke_rc=0):
+             verify_rcs=None, smoke_rc=0):
         t = Path(tmp)
         bindir = t / "bin"
         bindir.mkdir()
         pkm = bindir / "pkm"
+        # verify_rcs gives a per-package status, so a test can say "the meta
+        # verified but this dependency never installed" — the case the stage
+        # has to name by package.
+        per_pkg = "".join(
+            f'    {name}) exit {rc};;\n'
+            for name, rc in (verify_rcs or {}).items())
         pkm.write_text(f"""#!/bin/sh
 case "$1" in
   sync) exit {sync_rc};;
   install) exit {install_rc};;
-  verify) exit {verify_rc};;
+  verify)
+    case "$2" in
+{per_pkg}    esac
+    exit {verify_rc};;
   info) echo "Depends: lib32-glibc"; exit 0;;
 esac
 exit 0
@@ -71,6 +80,49 @@ exit 0
         with tempfile.TemporaryDirectory() as tmp:
             r = self._run(tmp, verify_rc=1)
             self.assertEqual(r.returncode, 1)
+            self.assertIn("not intact", r.stderr)
+            self.assertNotIn("smoke-ran", r.stdout)
+
+    def test_red_verify_not_installed_is_named_as_not_installed(self):
+        """Status 4 means the package is absent, not corrupt — say so.
+
+        The loop read every non-zero status as "not intact" until this
+        release, so an eval reader was told a package that never installed
+        was a corrupt one. Nothing was verified, and the message has to say
+        that.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            r = self._run(tmp, verify_rcs={"lib32-glibc": 4})
+            self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+            self.assertIn("lib32-glibc", r.stderr)
+            self.assertIn("NOT INSTALLED", r.stderr)
+            self.assertIn("status 4", r.stderr)
+            self.assertNotIn("not intact", r.stderr)
+            self.assertNotIn("smoke-ran", r.stdout)
+
+    def test_red_verify_could_not_be_checked_is_environment_unusable(self):
+        """Status 3 means the check could not run — the stage cannot certify.
+
+        Nothing has been found wrong; the stage was prevented from looking
+        (the usual cause is a verify that cannot read root-only files). That
+        is the stage's environment-unusable exit (2), never a fault report.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            r = self._run(tmp, verify_rcs={"lib32-glibc": 3})
+            self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+            self.assertIn("lib32-glibc", r.stderr)
+            self.assertIn("could not complete its checks", r.stderr)
+            self.assertIn("status 3", r.stderr)
+            self.assertNotIn("not intact", r.stderr)
+            self.assertNotIn("smoke-ran", r.stdout)
+
+    def test_red_verify_other_non_zero_names_the_status(self):
+        """Any other non-zero status is a real integrity failure, numbered."""
+        with tempfile.TemporaryDirectory() as tmp:
+            r = self._run(tmp, verify_rcs={"lib32-glibc": 7})
+            self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+            self.assertIn("lib32-glibc", r.stderr)
+            self.assertIn("status 7", r.stderr)
             self.assertIn("not intact", r.stderr)
             self.assertNotIn("smoke-ran", r.stdout)
 
