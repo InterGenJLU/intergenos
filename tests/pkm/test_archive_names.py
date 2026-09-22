@@ -127,6 +127,53 @@ class TestWhereToLookForABuiltArchive(unittest.TestCase):
         )
 
 
+class TestAReleaseIsWrittenInAsciiDigitsWithoutPadding(unittest.TestCase):
+    """Measured 2026-09-22 by a second reader: both functions tested a release
+    with ``str.isdigit``, which accepts every Unicode digit. An Arabic-Indic
+    three read as release 3, a superscript two passed the test and then
+    raised ``ValueError`` out of a function documented to return a name or
+    None, and a padded ``01`` read as release 1 -- two names, one build."""
+
+    ARABIC_INDIC_THREE = "\u0663"
+    SUPERSCRIPT_TWO = "\u00b2"
+    KNOWN = {"demo": "1.0"}
+
+    def test_a_non_ascii_digit_is_not_read_as_a_release(self):
+        parsed = parse_archive_filename(
+            f"demo-1.0-{self.ARABIC_INDIC_THREE}{SUFFIX}", self.KNOWN)
+        self.assertIsNotNone(parsed)
+        self.assertIsNone(parsed.release,
+                          f"a non-ASCII digit was read as release {parsed.release}")
+
+    def test_a_superscript_digit_does_not_raise(self):
+        try:
+            parsed = parse_archive_filename(
+                f"demo-1.0-{self.SUPERSCRIPT_TWO}{SUFFIX}", self.KNOWN)
+        except ValueError as exc:
+            self.fail(f"the parser raised instead of refusing: {exc}")
+        self.assertIsNotNone(parsed)
+        self.assertIsNone(parsed.release)
+
+    def test_a_padded_release_is_not_read_as_the_unpadded_one(self):
+        padded = parse_archive_filename(f"demo-1.0-01{SUFFIX}", self.KNOWN)
+        plain = parse_archive_filename(f"demo-1.0-1{SUFFIX}", self.KNOWN)
+        self.assertEqual(plain.release, 1)
+        self.assertIsNone(padded.release,
+                          "demo-1.0-01 and demo-1.0-1 were read as the same build")
+
+    def test_composing_refuses_a_non_ascii_padded_or_superscript_release(self):
+        for bad in (self.ARABIC_INDIC_THREE, self.SUPERSCRIPT_TWO, "01", "007", "1 "):
+            with self.subTest(release=bad):
+                with self.assertRaises(ValueError):
+                    archive_filename("demo", "1.0", bad)
+
+    def test_ordinary_releases_still_compose_and_read_back(self):
+        for rel in (0, 1, 10, "7", "245"):
+            with self.subTest(release=rel):
+                name = archive_filename("demo", "1.0", rel)
+                self.assertEqual(parse_archive_filename(name, self.KNOWN).release, int(rel))
+
+
 class TestTheTwoDirectionsAgree(unittest.TestCase):
     def test_what_is_composed_is_read_back(self):
         known = {"forge": "1.0.0", "man-pages": "6.9.1",

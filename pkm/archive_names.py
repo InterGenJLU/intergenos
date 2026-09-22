@@ -36,6 +36,14 @@ from typing import Mapping, NamedTuple, Optional, Union
 #: The suffix every binary package archive carries.
 SUFFIX = ".igos.tar.gz"
 
+#: What a release looks like in text: ASCII digits only, with no leading zero
+#: unless the release IS zero. ``str.isdigit`` is not this test -- it accepts
+#: every Unicode digit, so an Arabic-Indic three read as release 3 and a
+#: superscript two passed the test and then raised out of ``int()``; and a
+#: padded ``01`` read as release 1, putting two names on one build. Decided
+#: 2026-09-22 after a second reader measured all three.
+_RELEASE_TEXT = re.compile(r"(?:0|[1-9][0-9]*)")
+
 #: The last resort when no recipe version is known: the shortest leading run
 #: of fields that is followed by something starting with a digit. This is the
 #: reading ``scripts/inject-pkginfo.py`` already applied to recipe-less
@@ -67,8 +75,10 @@ def _normalise_release(release: Union[int, str, None]) -> Optional[int]:
     text = str(release)
     if text == "":
         return None
-    if not text.isdigit():
-        raise ValueError(f"release is not a whole number: {release!r}")
+    if not _RELEASE_TEXT.fullmatch(text):
+        raise ValueError(
+            f"release is not a whole number written in ASCII digits without "
+            f"leading zeros: {release!r}")
     return int(text)
 
 
@@ -125,7 +135,10 @@ def parse_archive_filename(
                 return ArchiveName(name, version, None)
             if stem.startswith(exact + "-"):
                 tail = stem[len(exact) + 1:]
-                if tail.isdigit():
+                # Only a tail written the way a release is written is one. A
+                # tail in other digits, or padded, is not turned into a claim:
+                # it falls through to the release-less reading below.
+                if _RELEASE_TEXT.fullmatch(tail):
                     return ArchiveName(name, version, int(tail))
 
     match = _NAME_THEN_VERSION.match(stem)
