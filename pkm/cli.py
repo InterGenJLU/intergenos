@@ -205,6 +205,12 @@ PKM_ROOT_CAPABLE_COMMANDS = frozenset({
     "hold", "unhold", "mark",
 })
 
+# `pkm verify <name>` for a package that is NOT INSTALLED. Its own code, so a
+# caller can tell an absent package from a corrupt one (1), from one whose
+# files could not be read (3), and from a usage error (2) — the full table and
+# the reason for the number are in cmd_verify.
+VERIFY_EXIT_NOT_INSTALLED = 4
+
 # Why each refused command is refused, in the words the operator is shown. A
 # command absent from this map still refuses — the map only makes the reason
 # specific where a specific reason is known.
@@ -3766,6 +3772,17 @@ def cmd_verify(db, args):
     #       prevented from checking has not found a fault, and reporting it
     #       as one hands the user a fright about a healthy system. The usual
     #       cause is running verify as a non-root user over root-only files.
+    #   4 = the named package is NOT INSTALLED. It printed that and exited 0
+    #       until this release, so a caller gating on the status read an
+    #       absent package as a verified one — measured in
+    #       installer/smoke/ge-eval-stage.sh, whose `pkm verify "$p" || fail`
+    #       loop passed for a member that never installed. Nothing was
+    #       verified, so the status may not say ok; and it is its OWN code
+    #       because a caller must be able to tell "not there" from "there and
+    #       corrupt" (1) and from "there and unreadable" (3). 4 rather than a
+    #       reuse of 2: installer/smoke/checks/pkm.sh branches on 2 by number
+    #       for the missing-`--all` usage error (its H-006 note), and a shared
+    #       code would make those two outcomes indistinguishable to it.
     # API-level EXIT_SUPERSEDED=2 is a dict-level informational code and is
     # NEVER propagated as sys.exit; CLI translates it to message + exit 0.
     verifier = PackageVerifier(db)
@@ -3873,7 +3890,7 @@ def cmd_verify(db, args):
     result = verifier.verify(args.package, mode=mode)
     if result is None:
         emit_info(f"Package '{args.package}' is not installed")
-        return
+        return VERIFY_EXIT_NOT_INSTALLED
     if result.get("superseded_by"):
         emit_info(result["message"])
         return

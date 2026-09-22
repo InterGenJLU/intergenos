@@ -141,6 +141,14 @@ Report which installed package owns a given file.
 Verify package integrity against recorded file hashes. With
 .B \-\-all
 every installed package is verified and a summary is printed.
+Exit status for a named package is 0 when every recorded file was checked and
+passed, 1 when a file is missing or modified or a critical install hook left
+the package degraded, 3 when nothing failed but a check could not run (most
+often files the invoking user may not read), and 4 when the package is
+not installed — nothing was verified, so the status does not report success.
+A missing package name without
+.B \-\-all
+is a usage error and exits 2.
 .TP
 .BR depends " \fIPACKAGE\fR [\fB\-\-reverse\fR]"
 Show the dependencies of a package. With
