@@ -86,6 +86,7 @@ def test_recorded_directory_preview_names_metadata_only(saved_point):
 def test_apply_reports_the_same_directory_limitation_without_restoring_children(
         saved_point, monkeypatch):
     backend, version, directory, document, *_ = saved_point
+    document.write_text("current content\n")
     # Isolate the service boundary; no ownership changes occur for a skipped path.
     monkeypatch.setattr(escalate, "has_cap_chown", lambda: True)
     plan = backend.restore_plan("restore-point", version, [str(directory)])
@@ -93,7 +94,23 @@ def test_apply_reports_the_same_directory_limitation_without_restoring_children(
     assert result["results"][0]["ok"] is False
     assert "directory" in result["results"][0]["reason"].lower()
     assert result["results"][0]["reason"] == plan["actions"][0]["reason"]
-    assert document.read_text() == "saved content\n"
+    assert document.read_text() == "current content\n"
+
+
+def test_recorded_directory_restores_metadata_without_restoring_children(saved_point, monkeypatch):
+    backend, _, directory, document, *_ = saved_point
+    directory.chmod(0o750)
+    version = backend.capture("restore-point", scope={
+        "paths": [str(directory), str(document)], "packages": ["sample"],
+    })["version_id"]
+    directory.chmod(0o700)
+    document.write_text("current content\n")
+    # Exercise native metadata writes as the invoking uid; no service is started.
+    monkeypatch.setattr(escalate, "has_cap_chown", lambda: True)
+    result = backend.restore_apply("restore-point", version, [str(directory)])
+    assert result["results"][0]["ok"] is True, result
+    assert directory.stat().st_mode & 0o777 == 0o750
+    assert document.read_text() == "current content\n"
 
 
 @pytest.mark.parametrize("json_mode", [False, True])
