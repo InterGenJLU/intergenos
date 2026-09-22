@@ -224,6 +224,17 @@ landed is in the repository README, not here.
   `--all` to reach an install's full record.
 
 ### Fixed
+- **The mirror-install eval stage tells an absent package from a corrupt one.**
+  Its verify loop read every non-zero status as one sentence, "the installed GE
+  set is not intact", and a zero as a pass. A member that never installed exited
+  0 from `pkm verify` in the released package manager, so the stage reported
+  GREEN with nothing verified; and a package whose files the running user may
+  not read — where no fault was found and the check was merely prevented — was
+  reported as an integrity failure. The loop now reads the status by number: 4
+  names the package as not installed, 3 says the checks could not be run and
+  exits the stage 2 (its environment-unusable status, because a stage that was
+  not allowed to look has certified nothing), and any other non-zero prints its
+  number as a real integrity failure. (forge r322)
 - **The package manager stops reporting answers it did not establish.** Seven
   places said something true-sounding without checking it, and each is now
   checked. `pkm verify <name>` for a package that is NOT INSTALLED printed
