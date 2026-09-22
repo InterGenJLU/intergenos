@@ -76,10 +76,48 @@ def _read_pci_inventory(runner=None):
     return proc.stdout.splitlines(), None
 
 
-# A PCI device identity as `lspci -n` prints it: four hexadecimal digits for
-# the vendor, a colon, four hexadecimal digits for the device. Matched against
-# the lowercased field, so lspci's upper-case hex is accepted.
+# The three fields of an `lspci -n` device line, each in the shape lspci
+# prints it (pciutils 3.14.0, lspci.c show_slot_name, show_slot_path and
+# show_terse), matched against the lowercased field so upper-case hex is
+# accepted:
+#   slot      "[dddd:]bb:dd.f" - a domain of at least four hexadecimal digits
+#             and a colon, printed on every line once any device on the
+#             machine has a non-zero domain, then bus and device as two
+#             hexadecimal digits each and the function as one digit
+#   class     "cccc:" - four hexadecimal digits and a colon
+#   identity  "vvvv:dddd" - vendor and device, four hexadecimal digits each
+_PCI_SLOT = re.compile(r"(?:[0-9a-f]{4,}:)?[0-9a-f]{2}:[0-9a-f]{2}\.[0-7]")
+_PCI_CLASS = re.compile(r"[0-9a-f]{4}:")
 _PCI_IDENTITY = re.compile(r"[0-9a-f]{4}:[0-9a-f]{4}")
+
+
+def _pci_fields(line):
+    """(class, identity) of one `lspci -n` device line, or None.
+
+    None when the line is not a device line at all: its first field is not a
+    PCI slot. Every line lspci prints for a device begins with the device's
+    slot, so anything else in the output - a message, a stray word - is not a
+    device, whatever its later fields hold. For a device line, the class
+    ("0300", without its colon) and the identity ("10de:2484") are each
+    returned only when the field has that shape, and None otherwise.
+
+    Position alone is not identity, for any of the three fields. Taking the
+    third field verbatim made any line with three or more fields name a
+    device, whatever stood there - a permission error, one of lspci's own
+    messages, or a device line whose identity is malformed - and a listing
+    that named no device read like one that did (found by the independent
+    read of an earlier form of this change, 2026-09-22). Taking the second
+    field as the class by position made a line of prose such as
+    "pcilib: 0300 cannot be read" count as a display-class line, and the
+    install record then described it as one (found by the independent read
+    of the form after it, the same day).
+    """
+    parts = line.lower().split()
+    if not parts or not _PCI_SLOT.fullmatch(parts[0]):
+        return None
+    cls = parts[1][:-1] if len(parts) > 1 and _PCI_CLASS.fullmatch(parts[1]) else None
+    ident = parts[2] if len(parts) > 2 and _PCI_IDENTITY.fullmatch(parts[2]) else None
+    return cls, ident
 
 
 def _pci_id_of(line):
@@ -88,22 +126,14 @@ def _pci_id_of(line):
     lspci -n line: "<slot> <class>: <vendor>:<device> [...]"
       e.g. "01:00.0 0300: 10de:2484 (rev a1)"
 
-    The field is returned only when it HAS the shape of a device identity.
-    Position alone is not identity: taking the third field verbatim made any
-    line with three or more fields name a device, whatever stood there — a
-    permission error, one of lspci's own messages, or a device line whose
-    identity is malformed. The identity list was then not empty, so a listing
-    that named no device was indistinguishable from one that did, and the
-    reading that cannot be true passed in silence. Found by the independent
-    read of the previous form of this change, 2026-09-22.
+    A line names a device only when it has the shape of a device line: a PCI
+    slot, a class and an identity, each in the shape lspci prints (see
+    _pci_fields).
     """
-    parts = line.split()
-    if len(parts) < 3:
+    fields = _pci_fields(line)
+    if fields is None or fields[0] is None:
         return None
-    ident = parts[2].strip().lower()
-    if not _PCI_IDENTITY.fullmatch(ident):
-        return None
-    return ident
+    return fields[1]
 
 
 def detect_display_pci_vendors():
@@ -129,17 +159,30 @@ def detect_display_pci_vendors():
 
     identities = 0
     display_lines = 0
+    display_lines_without_identity = 0
+    device_lines_without_class = 0
     for line in lines:
-        ident = _pci_id_of(line)
+        fields = _pci_fields(line)
+        if fields is None:
+            continue  # not a device line: its first field is not a PCI slot
+        cls, ident = fields
+        if cls is None:
+            # A device line whose class is unreadable names no device, and
+            # whether it is a display device is not known; it is counted so
+            # the record can say so.
+            device_lines_without_class += 1
+            continue
         if ident is not None:
             identities += 1
-        parts = line.split()
-        if len(parts) < 2:
-            continue
-        cls = parts[1].rstrip(":")
-        if not cls.startswith("03"):  # 03xx = VGA / 3D / display controllers
+        # A display-class line is a device line whose class field reads 03xx
+        # (VGA / 3D / display controllers). The class is taken from a device
+        # line only: taken by position from any line, a line of prose whose
+        # second word began with 03 was counted as one.
+        if not cls.startswith("03"):
             continue
         display_lines += 1
+        if ident is None:
+            display_lines_without_identity += 1
         # Read the vendor out of a field that is an identity, by the same rule
         # the predicate below uses. Splitting the third field on a colon and
         # keeping whatever came first accepted anything, and it decided what
@@ -174,6 +217,34 @@ def detect_display_pci_vendors():
         LOG.info("hardware-gate: %d display-class line(s) read and none "
                  "carries a device identity; gated packages will be skipped",
                  display_lines)
+    elif display_lines_without_identity:
+        # The partial reading: some display lines name a vendor and at least
+        # one does not. The answer is the vendors that were read - a gated
+        # package whose vendor is not among them is skipped, fail-closed, as
+        # before - but without this line the install record of a hybrid
+        # machine whose discrete card's line was unreadable says only that the
+        # machine's display vendor is its integrated one, and a record that
+        # presents part of a listing as the whole of it is the reading this
+        # gate exists not to give. Found by the independent read of the
+        # previous form of this change, 2026-09-22.
+        LOG.info("hardware-gate: %d of %d display-class line(s) read carry "
+                 "no device identity; the display vendors are taken from the "
+                 "other %d (%s), and a gated package whose vendor is not "
+                 "among them is skipped",
+                 display_lines_without_identity, display_lines,
+                 display_lines - display_lines_without_identity,
+                 ", ".join(sorted(vendors)))
+    # A device line whose class field is not a class cannot be counted as a
+    # display device or ruled out as one. Taken by its first two characters,
+    # "03zz" once counted as display-class and its vendor decided what was
+    # installed; now such a line names no vendor, and the record says how
+    # many there were, whether or not other lines were read.
+    if device_lines_without_class:
+        LOG.info("hardware-gate: %d device line(s) read carry no readable "
+                 "class, so whether they are display devices is not known; "
+                 "they name no display vendor, and a gated package whose "
+                 "vendor is not read from a display-class line is skipped",
+                 device_lines_without_class)
 
     _PCI_VENDOR_CACHE = vendors
     return vendors
@@ -210,13 +281,26 @@ def target_has_pci_device(vendor, device, runner=None):
     # standard output holding a single newline is one empty line, which is not
     # an empty list, so the branch was skipped and the answer was no in
     # silence (found by the second read of this change, 2026-09-22).
-    identities = [ident for ident in (_pci_id_of(line) for line in lines)
-                  if ident is not None]
+    device_lines = [fields for fields in (_pci_fields(line) for line in lines)
+                    if fields is not None]
+    identities = [ident for cls, ident in device_lines
+                  if cls is not None and ident is not None]
     if not identities:
         LOG.info("hardware-gate: lspci exited 0 but listed no PCI devices "
                  "(%d line(s) read, none naming a device); the check for PCI "
                  "device %s is answered no", len(lines), want)
         return False
+    # The partial reading: some device lines name a device and at least one
+    # does not. The answer is taken from the ones that do, so it can be no for
+    # a machine whose sought device sits on the unreadable line; the record
+    # says so, whatever the answer. Found by the independent read of the
+    # previous form of this change, 2026-09-22.
+    without_identity = len(device_lines) - len(identities)
+    if without_identity:
+        LOG.info("hardware-gate: %d of %d device line(s) read carry no device "
+                 "identity; the check for PCI device %s is answered from the "
+                 "other %d", without_identity, len(device_lines), want,
+                 len(identities))
     return want in identities
 
 

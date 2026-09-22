@@ -502,6 +502,25 @@ landed is in the repository README, not here.
   the record of an install says which of the two answers of no it was. A real
   listing that simply does not hold the device is a true reading and stays
   silent.
+- **A partly unreadable PCI device listing is named in the install record, and
+  a line is read as a device only when it begins with a device slot.** When
+  some lines of `lspci -n` name devices and another cannot be read, both checks
+  the installer makes still answer from the lines that can - the package
+  hardware gate's display vendors and the card-reader check's yes or no - and
+  each now writes one information line saying how many lines carried no device
+  identity. Before, a hybrid-graphics listing whose discrete card's line was
+  malformed read in the record as a machine whose only display device was the
+  integrated one, while the NVIDIA packages were skipped. A line is now a
+  device line only when its first field has the shape of a PCI slot
+  (bus:device.function, with the domain in front of it when lspci prints one),
+  and its class is read only when that field has the shape of a class. So a
+  line of prose whose second word begins with 03 is no longer counted as a
+  display controller; a line that is not a device line names no device even
+  when a later field looks like an identity; and a device line whose class
+  cannot be read names no display vendor, where before a class field such as
+  `03zz` counted as display-class and kept its vendor's gated packages - the
+  gate now says how many such lines it read. A well-formed listing reads
+  exactly as before and writes nothing.
   the record of an install says which of the two answers of no it was.
 
 - **Chronicle refuses malformed restore path lists at every entry point.**

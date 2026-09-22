@@ -275,7 +275,7 @@ class ALineThatNamesNoDeviceIsNotAnIdentity(unittest.TestCase):
 class TheDisplayGateReadsIdentitiesToo(unittest.TestCase):
     """The other consumer of the same reader parses the same field.
 
-    detect_display_pci_vendors does not call the identity parser; it reads the
+    detect_display_pci_vendors did not call the identity parser; it read the
     class field and the vendor half of the third field itself. Measured on the
     tip before this change, a listing whose only line was
     "01:00.0 0300: not-an-identity" gave the vendor set {"not-an-identity"} —
@@ -404,11 +404,210 @@ class TheDisplayGateNamesAnEmptyReading(unittest.TestCase):
         with self.assertNoLogs("forge.packages", level="INFO"):
             self.assertEqual(self._read(_INVENTORY), {"8086", "10de"})
 
-    def test_one_valid_display_line_beside_a_malformed_one_stays_silent(self):
-        """A vendor was read, so the reading named a display device."""
+    def test_one_valid_display_line_beside_a_malformed_one_says_so(self):
+        """The vendors that were read are the answer, and the record says
+        that one display line was not read. This listing stayed silent before:
+        a vendor was read, so the partial reading passed as a whole one."""
         listing = _INVENTORY + "\n03:00.0 0300: not-an-identity\n"
+        with self.assertLogs("forge.packages", level="INFO") as logs:
+            self.assertEqual(self._read(listing), {"8086", "10de"})
+        self.assertTrue(
+            any("1 of 3 display-class line(s) read carry no device identity"
+                in line and "(10de, 8086)" in line for line in logs.output),
+            logs.output)
+
+
+class APartialReadingIsRecorded(unittest.TestCase):
+    """Some lines of the listing name devices and another cannot be read.
+
+    Measured by the independent read of the previous form of this change,
+    2026-09-22: a valid Intel display line beside a malformed display line
+    beginning with 10de (a hybrid-graphics shape) gave {"8086"} and wrote
+    nothing, so the install record read as a machine whose only display
+    device is Intel while the NVIDIA packages were skipped; and the device
+    predicate, given a valid line beside a malformed line for the sought card
+    reader, answered no and wrote nothing. Both answers are fail-closed and
+    are unchanged here; what each consumer now adds is one line naming how
+    many lines carried no identity, whenever at least one did.
+    """
+
+    HYBRID = ("00:02.0 0300: 8086:46a8 (rev 0c)\n"
+              "01:00.0 0300: 10de:2484junk (rev a1)\n")
+
+    def setUp(self):
+        packages._PCI_VENDOR_CACHE = None
+        self.addCleanup(setattr, packages, "_PCI_VENDOR_CACHE", None)
+
+    def _read(self, stdout):
+        with mock.patch.object(packages.subprocess, "run",
+                               _runner_returning(stdout)):
+            return packages.detect_display_pci_vendors()
+
+    def test_the_display_gate_names_the_unreadable_display_line(self):
+        with self.assertLogs("forge.packages", level="INFO") as logs:
+            self.assertEqual(self._read(self.HYBRID), {"8086"})
+        self.assertTrue(
+            any("1 of 2 display-class line(s) read carry no device identity"
+                in line and "taken from the other 1 (8086)" in line
+                for line in logs.output), logs.output)
+        self.assertFalse(
+            any("listed no PCI devices" in line
+                or "none carries a device identity" in line
+                for line in logs.output),
+            "a listing that named a display vendor was reported as empty: "
+            "%s" % logs.output)
+
+    def test_the_line_is_written_once_however_often_the_gate_is_asked(self):
+        with self.assertLogs("forge.packages", level="INFO") as logs:
+            self.assertEqual(self._read(self.HYBRID), {"8086"})
+        self.assertEqual(len(logs.output), 1, logs.output)
+        with self.assertNoLogs("forge.packages", level="INFO"):
+            self.assertEqual(self._read(self.HYBRID), {"8086"})
+
+    def test_the_predicate_names_it_when_its_answer_is_no(self):
+        stdout = ("00:02.0 0300: 8086:46a8 (rev 0c)\n"
+                  "2d:00.0 0805: 17a0:9755junk (rev 01)\n")
+        with self.assertLogs("forge.packages", level="INFO") as logs:
+            answer = packages.target_has_pci_device(
+                "17a0", "9755", runner=_runner_returning(stdout))
+        self.assertFalse(answer)
+        self.assertTrue(
+            any("1 of 2 device line(s) read carry no device identity" in line
+                and "17a0:9755" in line for line in logs.output), logs.output)
+        self.assertFalse(
+            any("listed no PCI devices" in line for line in logs.output),
+            logs.output)
+
+    def test_the_predicate_names_it_when_its_answer_is_yes(self):
+        """The record says the listing was partial whatever the answer."""
+        stdout = ("2d:00.0 0805: 17a0:9755 (rev 01)\n"
+                  "01:00.0 0300: 10de:2484junk (rev a1)\n")
+        with self.assertLogs("forge.packages", level="INFO") as logs:
+            answer = packages.target_has_pci_device(
+                "17a0", "9755", runner=_runner_returning(stdout))
+        self.assertTrue(answer)
+        self.assertTrue(
+            any("1 of 2 device line(s) read carry no device identity" in line
+                for line in logs.output), logs.output)
+
+    def test_a_device_line_whose_class_is_unreadable_is_named(self):
+        """A class field that is not a class names no display vendor: taken
+        by its first two characters, "03zz" counted as display-class and its
+        vendor kept that vendor's gated packages."""
+        with self.assertLogs("forge.packages", level="INFO") as logs:
+            self.assertEqual(
+                self._read("00:02.0 0300: 8086:46a8 (rev 0c)\n"
+                           "01:00.0 03zz: 10de:2484 (rev a1)\n"), {"8086"})
+        self.assertTrue(
+            any("1 device line(s) read carry no readable class" in line
+                for line in logs.output), logs.output)
+
+    def test_a_listing_whose_only_line_has_an_unreadable_class_says_both(self):
+        with self.assertLogs("forge.packages", level="INFO") as logs:
+            self.assertEqual(self._read("01:00.0 03zz: 10de:2484 (rev a1)\n"),
+                             set())
+        self.assertTrue(any("listed no PCI devices" in line
+                            for line in logs.output), logs.output)
+        self.assertTrue(
+            any("1 device line(s) read carry no readable class" in line
+                for line in logs.output), logs.output)
+
+    def test_the_predicate_does_not_take_a_device_from_a_line_without_a_class(
+            self):
+        stdout = ("00:02.0 0300: 8086:46a8 (rev 0c)\n"
+                  "2d:00.0 08zz: 17a0:9755 (rev 01)\n")
+        with self.assertLogs("forge.packages", level="INFO") as logs:
+            answer = packages.target_has_pci_device(
+                "17a0", "9755", runner=_runner_returning(stdout))
+        self.assertFalse(answer)
+        self.assertTrue(
+            any("1 of 2 device line(s) read carry no device identity" in line
+                for line in logs.output), logs.output)
+
+
+class ALineIsADeviceLineOnlyWhenItBeginsWithASlot(unittest.TestCase):
+    """Position alone is not identity, for the class field either.
+
+    Measured by the independent read of the previous form of this change,
+    2026-09-22: a line of prose, "pcilib: 0300 cannot be read", was counted as
+    a display-class line because its second word began with 03, and the
+    install record described it as one. Every line lspci prints for a device
+    begins with the device's slot ("bus:device.function", with the domain in
+    front of it on every line once any device has one), so a line that does
+    not is not a device line, whatever its later fields hold - for the class
+    and for the identity alike.
+    """
+
+    def setUp(self):
+        packages._PCI_VENDOR_CACHE = None
+        self.addCleanup(setattr, packages, "_PCI_VENDOR_CACHE", None)
+
+    def _read(self, stdout):
+        with mock.patch.object(packages.subprocess, "run",
+                               _runner_returning(stdout)):
+            return packages.detect_display_pci_vendors()
+
+    def test_a_line_of_prose_is_not_a_display_class_line(self):
+        with self.assertLogs("forge.packages", level="INFO") as logs:
+            self.assertEqual(self._read("pcilib: 0300 cannot be read\n"),
+                             set())
+        self.assertTrue(any("listed no PCI devices" in line
+                            for line in logs.output), logs.output)
+        self.assertFalse(
+            any("display-class line" in line for line in logs.output),
+            "a line of prose was counted as a display-class line: "
+            "%s" % logs.output)
+
+    def test_a_line_of_prose_beside_a_real_listing_changes_nothing(self):
+        with self.assertNoLogs("forge.packages", level="INFO"):
+            self.assertEqual(
+                self._read("pcilib: 0300 cannot be read\n" + _INVENTORY),
+                {"8086", "10de"})
+
+    def test_an_identity_on_a_line_without_a_slot_names_no_device(self):
+        """The extension of the same rule to the identity: a line that is not
+        a device line names no device on either consumer, even when its third
+        field has the shape of an identity."""
+        stdout = "garbage 0300: 10de:2484 (rev a1)\n"
+        with self.assertLogs("forge.packages", level="INFO") as logs:
+            self.assertEqual(self._read(stdout), set())
+        self.assertTrue(any("listed no PCI devices" in line
+                            for line in logs.output), logs.output)
+        with self.assertLogs("forge.packages", level="INFO") as logs:
+            answer = packages.target_has_pci_device(
+                "10de", "2484", runner=_runner_returning(stdout))
+        self.assertFalse(answer)
+        self.assertTrue(any("listed no PCI devices" in line
+                            for line in logs.output), logs.output)
+
+    def test_slots_carrying_a_domain_are_read_by_both_consumers(self):
+        """lspci prints the domain on every line once any device on the
+        machine has a non-zero one, and a domain can be longer than four
+        digits (a volume-management controller's 10000)."""
+        listing = ("0000:00:02.0 0300: 8086:46a8 (rev 0c)\n"
+                   "0000:01:00.0 0300: 10de:24a0 (rev a1)\n"
+                   "0000:2d:00.0 0805: 17a0:9755 (rev 01)\n"
+                   "10000:e0:17.0 0104: 8086:a77f\n")
         with self.assertNoLogs("forge.packages", level="INFO"):
             self.assertEqual(self._read(listing), {"8086", "10de"})
+        with self.assertNoLogs("forge.packages", level="INFO"):
+            self.assertTrue(packages.target_has_pci_device(
+                "17a0", "9755", runner=_runner_returning(listing)))
+            self.assertTrue(packages.target_has_pci_device(
+                "8086", "a77f", runner=_runner_returning(listing)))
+
+    def test_the_slot_shape(self):
+        for line in ("00:02.0 0300: 8086:46a8", "2D:00.0 0805: 17A0:9755",
+                     "00:1f.7 0c05: 8086:51a3", "0000:00:02.0 0300: 8086:46a8",
+                     "10000:e0:17.0 0104: 8086:a77f"):
+            with self.subTest(line=line):
+                self.assertIsNotNone(packages._pci_id_of(line))
+        for line in ("pcilib: 0300: 8086:46a8", "0:02.0 0300: 8086:46a8",
+                     "00:02 0300: 8086:46a8", "00:02.8 0300: 8086:46a8",
+                     "000:00:02.0 0300: 8086:46a8", "garbage 0300: 8086:46a8",
+                     "00:02.0 03zz: 8086:46a8"):
+            with self.subTest(line=line):
+                self.assertIsNone(packages._pci_id_of(line))
 
 
 if __name__ == "__main__":
