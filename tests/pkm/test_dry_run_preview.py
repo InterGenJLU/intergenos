@@ -17,6 +17,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout, redirect_stderr
 from pathlib import Path
+import unittest.mock
 from unittest.mock import patch
 
 from pkm import cli
@@ -39,12 +40,107 @@ class IsDryRunTest(unittest.TestCase):
 
 
 class MutationLockDryRunTest(unittest.TestCase):
-    def test_dry_run_takes_no_lock(self):
-        # dry_run=True must short-circuit before any fcntl.flock call.
-        with patch("pkm.cli.fcntl") as fake_fcntl:
-            with cli._pkm_command_lock("upgrade", dry_run=True):
-                pass
-            fake_fcntl.flock.assert_not_called()
+    """THE CONTRACT CHANGED, deliberately: a preview takes the SHARED lock.
+
+    It took none at all until the reader lock landed and then for one
+    release after it, where the gap was written down rather than closed. A
+    preview reads exactly the database a read command reads, so it could be
+    handed the same half-written page a reader was — which answered 1 row
+    where the truth was 5002 — and the same rewritten page that crashed a
+    read with "database disk image is malformed". Reading unprotected is
+    what was wrong; the lock is what this asserts now.
+
+    It is the READER'S lock even for a preview of a mutating command,
+    because a preview changes nothing: an exclusive lock would shut out
+    every other reader for the length of a plan, and would need the lock
+    file opened for writing, which the unprivileged account running the
+    notifier's preview may not do.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.lock_path = Path(self.tmp.name) / "pkm.lock"
+        self.lock_path.touch()
+
+    def _observe(self, command, dry_run):
+        """What a SECOND process could do while this lock is held.
+
+        The kernel is the instrument, not a mocked constant: with a shared
+        lock held, another shared lock succeeds and an exclusive one is
+        refused; with an exclusive lock held, both are refused. Returns
+        (shared_possible, exclusive_possible).
+        """
+        import fcntl as real_fcntl
+        with patch("pkm.cli.resolve_lock_path", return_value=self.lock_path):
+            with cli._pkm_command_lock(command, dry_run=dry_run):
+                results = []
+                for op in (real_fcntl.LOCK_SH, real_fcntl.LOCK_EX):
+                    with open(self.lock_path, "r") as probe:
+                        try:
+                            real_fcntl.flock(probe.fileno(),
+                                             op | real_fcntl.LOCK_NB)
+                            results.append(True)
+                            real_fcntl.flock(probe.fileno(),
+                                             real_fcntl.LOCK_UN)
+                        except OSError:
+                            results.append(False)
+        return tuple(results)
+
+    def test_dry_run_takes_the_shared_lock(self):
+        shared_possible, exclusive_possible = self._observe("upgrade",
+                                                            dry_run=True)
+        self.assertTrue(shared_possible,
+                        "another reader was shut out — this is not a shared lock")
+        self.assertFalse(exclusive_possible,
+                         "a writer could run beside the preview — no lock is held")
+
+    def test_dry_run_of_every_preview_command_takes_the_shared_lock(self):
+        for command in ("upgrade", "autoremove", "iso-prep", "vacuum"):
+            with self.subTest(command=command):
+                shared_possible, exclusive_possible = self._observe(
+                    command, dry_run=True)
+                self.assertTrue(shared_possible)
+                self.assertFalse(exclusive_possible)
+
+    def test_dry_run_opens_the_lock_file_for_reading_only(self):
+        """A reader never creates and never truncates the lock file."""
+        opened = []
+        real_open = open
+
+        def _spy(path, mode="r", *a, **kw):
+            if str(path) == str(self.lock_path):
+                opened.append(mode)
+            return real_open(path, mode, *a, **kw)
+
+        with patch("pkm.cli.resolve_lock_path", return_value=self.lock_path):
+            with patch("builtins.open", _spy):
+                with cli._pkm_command_lock("upgrade", dry_run=True):
+                    pass
+        self.assertEqual(opened, ["r"])
+
+    def test_a_real_mutation_still_takes_the_exclusive_lock(self):
+        """The preview's route must not soften the real command's lock."""
+        shared_possible, exclusive_possible = self._observe("upgrade",
+                                                            dry_run=False)
+        self.assertFalse(shared_possible)
+        self.assertFalse(exclusive_possible)
+
+    def test_a_preview_and_a_real_writer_cannot_overlap(self):
+        """The whole point: the page a preview reads is not being rewritten
+        under it."""
+        import fcntl as real_fcntl
+        with open(self.lock_path, "w") as writer:
+            real_fcntl.flock(writer.fileno(),
+                             real_fcntl.LOCK_EX | real_fcntl.LOCK_NB)
+            with patch("pkm.cli.resolve_lock_path",
+                       return_value=self.lock_path):
+                with self.assertRaises(SystemExit) as exc:
+                    with cli._pkm_command_lock("upgrade", dry_run=True,
+                                               wait=False):
+                        pass
+            self.assertEqual(exc.exception.code, 1)
+            real_fcntl.flock(writer.fileno(), real_fcntl.LOCK_UN)
 
 
 class _FakeRepo:

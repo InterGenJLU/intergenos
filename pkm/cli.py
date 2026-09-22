@@ -613,18 +613,27 @@ def _pkm_command_lock(command, dry_run=False, wait=None, wait_timeout=None):
     # together and none of them run beside a writer, which is exactly what the
     # immutable open was already assuming.
     #
-    # A --dry-run preview stays lock-free, unchanged. It reads the same
-    # database every read command reads, so it can be handed the same
-    # half-written page this change protects readers from, and it is left
-    # UNPROTECTED here on purpose rather than by oversight: the contract that a
-    # preview takes no lock is pinned by tests/pkm/test_dry_run_preview.py and
-    # changing it is not what this change was asked to do. The gap is recorded
-    # where the change was delivered rather than closed quietly here.
-    if dry_run or not _HAS_FLOCK:
+    # A --dry-run PREVIEW IS A READ, and takes the shared lock through this
+    # same gate. It was left lock-free when the reader lock landed — recorded
+    # there as a known gap rather than an oversight — and the gap was real:
+    # a preview reads the same database every read command reads, so the
+    # half-written page that answered a reader 1 row where the truth was
+    # 5002, and the rewritten page that crashed a read with "database disk
+    # image is malformed", could both be handed to a preview. The
+    # notifier's top-bar click runs one.
+    #
+    # It takes the READER'S lock even when the command it previews is a
+    # mutating one, because a preview is what that command WOULD do and
+    # changes nothing: an exclusive lock would shut out every other reader
+    # for the length of a plan, and it would have to open the lock file for
+    # writing, which the unprivileged account running the preview may not do
+    # (the reader path below explains why a reader never creates or
+    # truncates that file).
+    if not _HAS_FLOCK:
         yield
         return
-    mutating = command in PKM_MUTATING_COMMANDS
-    reading = command in PKM_READONLY_COMMANDS
+    mutating = command in PKM_MUTATING_COMMANDS and not dry_run
+    reading = (command in PKM_READONLY_COMMANDS) or dry_run
     if not (mutating or reading):
         yield
         return
