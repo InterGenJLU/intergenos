@@ -17,6 +17,11 @@ assistant inside the asking process. That session was never the service the
 machine manages — `systemctl --user is-active intergen` read inactive while it
 answered — so the command now reports the service state and the start command
 and exits non-zero, and the in-process session stays behind --direct.
+
+Both failure paths read the user service state, so both cases below replace
+that read: without it the cases asked this machine's own service manager, and
+their outcome was the same whatever it said — a case that reads the host
+measures the host, not the command.
 """
 
 import json
@@ -44,7 +49,8 @@ class TestCmdAskLiveness(unittest.TestCase):
         # daemon owns the name but the call returns None (still loading / busy):
         # must exit(2), NOT import+start a competing direct daemon.
         with patch.object(cli, "daemon_has_owner", return_value=True), \
-             patch.object(cli, "try_dbus", return_value=None):
+             patch.object(cli, "try_dbus", return_value=None), \
+             patch.object(cli, "_user_service_state", return_value="active"):
             with patch("intergen.dbus_daemon.InterGenDaemon") as m_daemon:
                 with self.assertRaises(SystemExit) as ctx:
                     cli.cmd_ask("hello")
@@ -53,7 +59,8 @@ class TestCmdAskLiveness(unittest.TestCase):
 
     def test_absent_daemon_reports_the_service_and_starts_nothing(self):
         with patch.object(cli, "daemon_has_owner", return_value=False), \
-             patch.object(cli, "try_dbus", return_value=None):
+             patch.object(cli, "try_dbus", return_value=None), \
+             patch.object(cli, "_user_service_state", return_value="inactive"):
             with patch("intergen.dbus_daemon.InterGenDaemon") as m_daemon:
                 with patch("builtins.print"):
                     with self.assertRaises(SystemExit) as caught:
