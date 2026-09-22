@@ -1450,7 +1450,18 @@ class WebServer:
                 "empty_message", "Nothing to send to the frontier model."))
             return
         manager = getattr(self._router, "_escalation", None) if self._router else None
-        if manager is None or manager._primary_provider_name() is None:
+        if manager is None:
+            # No escalation step was built (the daemon logs why at its start).
+            # That is not the same as no provider configured, and a person told
+            # to add one is sent to fix the wrong thing, so the page is told
+            # what the command line is told. Until 2026-09-22 both cases read
+            # "No frontier model is configured".
+            await ctx.ws.send_json({
+                "type": "frontier_response", "sent": False, "answered": False,
+                "content": "Phone-a-friend is not available (no escalation manager).",
+            })
+            return
+        if manager._primary_provider_name() is None:
             await ctx.ws.send_json({
                 "type": "frontier_response", "sent": False, "answered": False,
                 "content": ("No frontier model is configured. Add a provider to "
