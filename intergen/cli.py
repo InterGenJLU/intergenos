@@ -428,11 +428,16 @@ def offline_status() -> dict:
     """
     from intergen import package_record
 
+    _identity, _release_known = package_record.identity()
     status: dict = {
         "running": False,
         # Version AND release, read from the package manager's record, so a
         # stopped machine and a running one answer this question the same way.
-        "version": package_record.identity(),
+        "version": _identity,
+        # Whether the release in that string was actually read. A status that
+        # carries the running version with nothing saying the release is
+        # unknown reads exactly like one that knows the release.
+        "release_known": _release_known,
         "daemon_down": True,
         "requests_handled": 0,
         "last_error": None,
@@ -616,7 +621,15 @@ def print_status(status: dict) -> None:
               "server is not")
     else:
         print(f"  Running:    {status.get('running', False)}")
-    print(f"  Version:    {status.get('version', 'unknown')}")
+    # The release is part of this line or it is explicitly missing from it.
+    # A status that printed the bare running version while the package record
+    # could not be read told the reader the version and let them believe it
+    # was the whole answer.
+    if status.get("release_known", True):
+        print(f"  Version:    {status.get('version', 'unknown')}")
+    else:
+        print(f"  Version:    {status.get('version', 'unknown')} "
+              "(release unknown — the package record was not read)")
 
     tier = status.get("tier")
     if tier:
@@ -1051,11 +1064,20 @@ def cmd_version() -> None:
     version on its own reads like the whole answer.
     """
     from intergen import package_record
-    identity, release_known = package_record.version_line()
+    identity, release_known, state = package_record.version_status()
     print(f"InterGen {identity}")
     if not release_known:
-        print("  This machine has no package record for InterGen, so the "
-              "release could not be read.")
+        # Two different facts, and the command says which one it met. "No
+        # record" is a statement about this machine; a read that did not
+        # happen is a statement about the read. Saying the first when the
+        # second occurred tells the reader something untrue about their
+        # machine — the database may hold a perfectly good row.
+        if state == package_record.READ_NO_RECORD:
+            print("  This machine has no package record for InterGen, so the "
+                  "release could not be read.")
+        else:
+            print("  The package record for InterGen could not be read, so "
+                  "the release is unknown.")
     line = attribution_line()
     if line:
         print(line)

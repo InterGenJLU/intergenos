@@ -65,6 +65,16 @@ def _reader():
     return package_record
 
 
+def _state(name):
+    """The named read state, or None at a tree that has no such name.
+
+    The display cases use this so that a tree without the states still RUNS
+    the display and goes red on what it rendered.
+    """
+    reader = _reader_or_none()
+    return getattr(reader, name, None) if reader is not None else None
+
+
 def _reader_or_none():
     """The module under test, or None at a tree that does not have it yet.
 
@@ -96,8 +106,26 @@ def _pkm_schema():
     return SCHEMA
 
 
+def _supply_point(reader, record, state=None):
+    """Where to supply a package record on the tree being tested.
+
+    The callers read `read_record`, which answers with a STATE as well as a
+    record. A tree that predates that function is supplied at the function it
+    does have, so its command cases still run the command and go red on what
+    the command printed rather than erroring on a name.
+    """
+    if hasattr(reader, "read_record"):
+        if state is None:
+            state = (reader.READ_RECORD if record is not None
+                     else reader.READ_NO_RECORD)
+        return mock.patch.object(reader, "read_record",
+                                 return_value=(state, record))
+    return mock.patch.object(reader, "installed_identity",
+                             return_value=record)
+
+
 @contextlib.contextmanager
-def _record_supplied(record):
+def _record_supplied(record, state=None):
     """Supply the package record for the duration of a case, where there is a
     reader to supply it to; at a tree without one, change nothing and let the
     path under test answer as it does."""
@@ -105,7 +133,7 @@ def _record_supplied(record):
     if reader is None:
         yield
         return
-    with mock.patch.object(reader, "installed_identity", return_value=record):
+    with _supply_point(reader, record, state):
         yield
 
 
@@ -138,7 +166,7 @@ def _model(name: str, tier: HardwareTierLevel) -> ModelInfo:
 QWEN_9B = _model("Qwen3.5-9B", HardwareTierLevel.TIER_2)
 
 
-def _run_version(record=A_RECORD, downloaded=(QWEN_9B,)):
+def _run_version(record=A_RECORD, downloaded=(QWEN_9B,), state=None):
     """`intergen --version` with the package record supplied, not read.
 
     Returns (stdout, exit code).
@@ -148,8 +176,7 @@ def _run_version(record=A_RECORD, downloaded=(QWEN_9B,)):
     reader = _reader_or_none()
     with contextlib.ExitStack() as stack:
         if reader is not None:
-            stack.enter_context(mock.patch.object(
-                reader, "installed_identity", return_value=record))
+            stack.enter_context(_supply_point(reader, record, state))
         stack.enter_context(mock.patch.object(
             ModelManager, "list_downloaded", return_value=list(downloaded)))
         stack.enter_context(mock.patch.object(
@@ -276,18 +303,19 @@ class TheRecordReaderItself(unittest.TestCase):
             self.assertEqual(_reader().installed_identity(db_path=path),
                              ("0.1.0", 296))
 
-    def test_a_row_still_in_the_write_ahead_log_is_not_answered_with_the_old_one(self):
-        """A committed row this read cannot see does not license answering
-        with the row underneath it.
+    def test_a_row_still_in_the_write_ahead_log_is_the_one_that_is_read(self):
+        """A release committed a moment ago is the release that is printed,
+        and the one underneath it is never printed as fact.
 
-        The reader opens the database immutable, and an immutable open ignores
-        the write-ahead log. So between a package operation committing a new
-        release and that log being checkpointed, the newest row is invisible
-        here while the PREVIOUS one reads perfectly — and printing that one is
-        printing a stale release as fact, with nothing on it saying so. The
-        database below is in the write-ahead mode the package manager itself
-        uses, with one release checkpointed into the main file and a newer one
-        committed but still in the log: the exact window.
+        The database below is in the write-ahead mode the package manager
+        itself uses, with one release checkpointed into the main file and a
+        newer one committed but still in the log: the window in which an
+        immutable read — which does not look at that log — answers with the
+        row UNDERNEATH the newest one. An ordinary read-only connection is
+        made first precisely so this window has a correct answer rather than
+        a declined one; where such a connection cannot be made, the reader
+        declines instead of answering from under the log (the cases in
+        TheFallbackDeclinesWhenItCannotBeSure).
         """
         import os
         import sqlite3
@@ -308,10 +336,12 @@ class TheRecordReaderItself(unittest.TestCase):
                     os.path.getsize(path + "-wal"), 0,
                     "no write-ahead log on disk: this case is not in the "
                     "window it means to test")
-                self.assertIsNone(
+                self.assertEqual(
                     _reader().installed_identity(db_path=path),
-                    "release 298 is committed and this read cannot see it, "
-                    "yet the reader answered with the release before it")
+                    ("0.1.0", 298),
+                    "release 298 is committed; the reader answered with "
+                    "something else, which on this path can only be the row "
+                    "underneath it")
             finally:
                 writer.close()
             self.assertEqual(_reader().installed_identity(db_path=path),
@@ -330,6 +360,243 @@ class TheRecordReaderItself(unittest.TestCase):
             path = tmp + "/pkm.db"
             _database_with([("intergen", "0.1.0", 295, "x")], path)
             self.assertIsNone(_reader().installed_identity(db_path=path))
+
+
+class TheReaderIsNotFooledByAnAlias(unittest.TestCase):
+    """A database reached through a symbolic link is read where it really is.
+
+    An independent reader found the earlier form of this reader answering with
+    a stale release when the path it was given was a symbolic link: the check
+    it made was made beside the LINK, where there is no write-ahead log, while
+    the database and its log sat somewhere else. The state of a database is
+    read at the database, after the link is followed.
+    """
+
+    def test_a_release_committed_through_an_alias_is_the_one_that_is_read(self):
+        import os
+        import sqlite3
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            real = tmp + "/real/pkm.db"
+            os.makedirs(tmp + "/real")
+            alias = tmp + "/alias.db"
+            _database_with([("intergen", "0.1.0", 297, None)], real, wal=True)
+            os.symlink(real, alias)
+            writer = sqlite3.connect(real)
+            try:
+                writer.execute("UPDATE installed SET release = 298 "
+                               "WHERE name = 'intergen'")
+                writer.commit()
+                self.assertGreater(
+                    os.path.getsize(real + "-wal"), 0,
+                    "no write-ahead log beside the real database: this case "
+                    "is not in the window it means to test")
+                self.assertFalse(
+                    os.path.exists(alias + "-wal"),
+                    "a log beside the alias would make this case prove "
+                    "nothing about following the link")
+                answer = _reader().installed_identity(db_path=alias)
+                self.assertNotEqual(
+                    answer, ("0.1.0", 297),
+                    "the release underneath the committed one was answered "
+                    "through an alias")
+                self.assertEqual(answer, ("0.1.0", 298))
+            finally:
+                writer.close()
+
+
+class TheReaderSaysWhichFailureItMet(unittest.TestCase):
+    """No record and no readable record are different answers.
+
+    A command that says "this machine has no package record" when the record
+    simply was not read has told the reader something untrue about their
+    machine.
+    """
+
+    def test_a_database_that_is_not_there_is_no_record(self):
+        state, record = _reader().read_record(db_path="/nonexistent/pkm.db")
+        self.assertEqual(state, _reader().READ_NO_RECORD)
+        self.assertIsNone(record)
+
+    def test_a_file_that_is_not_a_database_is_unreadable(self):
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".db") as handle:
+            handle.write(b"this is not a database")
+            handle.flush()
+            state, record = _reader().read_record(db_path=handle.name)
+            self.assertEqual(state, _reader().READ_UNREADABLE)
+            self.assertIsNone(record)
+
+    def test_a_live_row_is_a_record(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            path = tmp + "/pkm.db"
+            _database_with([("intergen", "0.1.0", 296, None)], path)
+            self.assertEqual(_reader().read_record(db_path=path),
+                             (_reader().READ_RECORD, ("0.1.0", 296)))
+
+    def test_a_superseded_row_alone_is_no_record(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            path = tmp + "/pkm.db"
+            _database_with([("intergen", "0.1.0", 295, "x")], path)
+            self.assertEqual(_reader().read_record(db_path=path),
+                             (_reader().READ_NO_RECORD, None))
+
+
+class TheFallbackDeclinesWhenItCannotBeSure(unittest.TestCase):
+    """What happens where an ordinary read-only connection cannot be made.
+
+    On an installed machine the package database is owned by root inside a
+    root-owned directory and is in write-ahead mode, and an ordinary read-only
+    connection by an ordinary user fails there — measured on an installed
+    machine on 2026-09-22. The reader falls back to an immutable read, which
+    is correct only while there is no write-ahead log holding rows it cannot
+    see and nothing about the database moves while it is read. These cases
+    make that connection fail on purpose and pin all three outcomes.
+    """
+
+    def _no_ordinary_read(self):
+        import sqlite3
+        reader = _reader()
+        real = reader._select
+
+        def only_immutable(uri):
+            if "immutable=1" not in uri:
+                raise sqlite3.OperationalError(
+                    "attempt to write a readonly database")
+            return real(uri)
+
+        return mock.patch.object(reader, "_select", only_immutable)
+
+    def test_a_quiet_database_is_still_read(self):
+        """The installed-machine shape: no log, nothing moving, and the
+        release is reported rather than declined."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            path = tmp + "/pkm.db"
+            _database_with([("intergen", "0.1.0", 296, None)], path)
+            with self._no_ordinary_read():
+                self.assertEqual(_reader().read_record(db_path=path),
+                                 (_reader().READ_RECORD, ("0.1.0", 296)))
+
+    def test_a_log_with_bytes_in_it_declines(self):
+        import os
+        import sqlite3
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            path = tmp + "/pkm.db"
+            _database_with([("intergen", "0.1.0", 297, None)], path, wal=True)
+            writer = sqlite3.connect(path)
+            try:
+                writer.execute("UPDATE installed SET release = 298 "
+                               "WHERE name = 'intergen'")
+                writer.commit()
+                self.assertGreater(os.path.getsize(path + "-wal"), 0)
+                with self._no_ordinary_read():
+                    state, record = _reader().read_record(db_path=path)
+                self.assertEqual(state, _reader().READ_UNREADABLE)
+                self.assertIsNone(record)
+            finally:
+                writer.close()
+
+    def test_a_database_that_moves_under_the_read_declines(self):
+        """The timing the independent reader demonstrated: a check that passes
+        and a write that lands before the read. The read is bracketed, so a
+        database that changed across it is declined instead of answered."""
+        import sqlite3
+        import tempfile
+        reader = _reader()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = tmp + "/pkm.db"
+            _database_with([("intergen", "0.1.0", 297, None)], path)
+            real = reader._select
+
+            def commit_then_read(uri):
+                if "immutable=1" not in uri:
+                    raise sqlite3.OperationalError(
+                        "attempt to write a readonly database")
+                writer = sqlite3.connect(path)
+                try:
+                    writer.execute("UPDATE installed SET release = 298 "
+                                   "WHERE name = 'intergen'")
+                    writer.commit()
+                finally:
+                    writer.close()
+                return real(uri)
+
+            with mock.patch.object(reader, "_select", commit_then_read):
+                state, record = reader.read_record(db_path=path)
+            self.assertEqual(state, reader.READ_UNREADABLE)
+            self.assertIsNone(record)
+
+
+class TheDisplaysKeepTheUnknown(unittest.TestCase):
+    """Every surface that shows the identity shows whether the release in it
+    was read."""
+
+    def _unreadable(self):
+        return _record_supplied(None, state=_state("READ_UNREADABLE"))
+
+    def test_the_daemon_down_status_carries_the_unknown(self):
+        with self._unreadable():
+            status = cli.offline_status()
+        self.assertIn("release_known", status,
+                      "the status payload does not say whether the release "
+                      "in it was read: " + repr(sorted(status)))
+        self.assertFalse(status["release_known"])
+        self.assertEqual(status["version"], intergen.__version__)
+
+    def test_the_running_daemon_status_carries_the_unknown(self):
+        with self._unreadable():
+            status = json.loads(_status_daemon().status())
+        self.assertIn("release_known", status,
+                      "the running daemon's status payload does not say "
+                      "whether the release in it was read: "
+                      + repr(sorted(status)))
+        self.assertFalse(status["release_known"])
+        self.assertEqual(status["version"], intergen.__version__)
+
+    def test_the_status_display_says_the_release_is_unknown(self):
+        with self._unreadable():
+            status = cli.offline_status()
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            cli.print_status(status)
+        printed = buf.getvalue()
+        version_line = [ln for ln in printed.splitlines()
+                        if ln.strip().startswith("Version:")]
+        self.assertTrue(version_line, printed)
+        self.assertIn("unknown", version_line[0].lower(),
+                      "the Version line shows the running version with "
+                      "nothing saying the release was not read: "
+                      + version_line[0])
+
+    def test_a_known_release_is_shown_without_a_caveat(self):
+        with _record_supplied(A_RECORD):
+            status = cli.offline_status()
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            cli.print_status(status)
+        version_line = [ln for ln in buf.getvalue().splitlines()
+                        if ln.strip().startswith("Version:")][0]
+        self.assertIn("0.1.0-296", version_line)
+        self.assertNotIn("unknown", version_line.lower())
+
+    def test_the_version_command_does_not_claim_a_record_is_absent(self):
+        out, _code = _run_version(record=None,
+                                  state=_state("READ_UNREADABLE"))
+        self.assertIn(intergen.__version__, out)
+        self.assertIn("could not be read", out)
+        self.assertNotIn("no package record", out.lower(),
+                         "the command said this machine has no package "
+                         "record, when the record was simply not read:\n"
+                         + out)
+
+    def test_the_version_command_still_names_a_missing_record(self):
+        out, _code = _run_version(record=None,
+                                  state=_state("READ_NO_RECORD"))
+        self.assertIn("no package record", out.lower(), out)
 
 
 if __name__ == "__main__":

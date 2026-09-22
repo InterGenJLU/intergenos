@@ -775,6 +775,7 @@ class InterGenDaemon(InterGenDBusInterface):
 
     def status(self) -> str:
         """Return JSON-encoded status."""
+        _identity, _release_known = package_record.identity()
         status = {
             "running": self._running,
             "tier": self._hardware_tier,
@@ -793,7 +794,11 @@ class InterGenDaemon(InterGenDBusInterface):
             # Version AND release, read from the package manager's record —
             # the same value the CLI prints and the same one it reports when
             # this daemon is not running. See intergen/package_record.py.
-            "version": package_record.identity(),
+            "version": _identity,
+            # Whether the release in that string was read, carried so the
+            # renderers cannot lose the difference between a known release
+            # and one that could not be read.
+            "release_known": _release_known,
             # Game-launch pause: True while the model servers are deliberately
             # stopped so a running game has the machine's memory. Reported as a
             # first-class field because "no model loaded" and "model paused on

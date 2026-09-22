@@ -71,8 +71,9 @@ def _run_version(downloaded):
     Returns (stdout, exit_code); exit_code is None when main() returned without
     raising SystemExit.
 
-    The package record is supplied as absent, so these cases exercise the
-    fallback and read nothing about the machine they run on. The cases for a
+    The package record is supplied as absent — at the function the command
+    actually reads, so the supply holds and these cases read nothing about the
+    machine they run on. The cases for a
     machine that HAS a record live in
     test_the_version_names_the_packaged_release.py.
     """
@@ -81,8 +82,9 @@ def _run_version(downloaded):
 
     buf = io.StringIO()
     code = None
-    with mock.patch.object(package_record, "installed_identity",
-                           return_value=None), \
+    with mock.patch.object(package_record, "read_record",
+                           return_value=(package_record.READ_NO_RECORD,
+                                         None)), \
          mock.patch.object(ModelManager, "list_downloaded",
                            return_value=list(downloaded)), \
          mock.patch.object(cli.sys, "argv", ["intergen", "--version"]):

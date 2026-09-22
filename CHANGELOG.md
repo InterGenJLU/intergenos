@@ -237,6 +237,29 @@ landed is in the repository README, not here.
   `--all` to reach an install's full record.
 
 ### Fixed
+- **The release the assistant prints is the installed one, or a stated
+  unknown.** `intergen --version` and the Version line of `intergen status`
+  read the installed release from the package manager's own record. That read
+  is an ordinary read-only database connection, bounded by a busy timeout, so a
+  release committed a moment ago is the release that is printed and a database
+  held busy makes the read fail rather than answer from underneath. Where such
+  a connection cannot be made — on an installed machine the record is owned by
+  root inside a root-owned directory, and reading it the ordinary way needs a
+  sidecar file an ordinary user cannot create there — the read falls back to an
+  immutable open, which is refused whenever the database has a write-ahead log
+  holding rows that open cannot see, and whose result is discarded if the
+  database changed while it was read. Measured on an installed machine on
+  2026-09-22: the ordinary connection fails there and the fallback answers with
+  the installed release in under a millisecond; on a scratch database in the
+  write-ahead mode the package manager uses, a release committed with its
+  writer still connected is now the release that is read, including when the
+  database is reached through a symbolic link. A read that establishes nothing
+  is carried as an unknown to everything a person sees: both status payloads
+  say whether the release in them was read, the status display says the release
+  is unknown instead of showing a bare version, and the version command
+  distinguishes a machine that holds no record from a record it could not read.
+  The one case that still answers unknown is a root-owned record with a
+  write-ahead log holding bytes, read by an unprivileged user.
 - **A machine with a Genesys Logic GL9755 SD card reader is installed with the
   boot parameter that makes its card slot work.** The reader sits behind a PCIe
   root port, and the kernel's port power management puts that port into the
