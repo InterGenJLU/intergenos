@@ -250,19 +250,33 @@ def _deliver_answer(data: dict) -> bool:
     original exists behind the summary — point the user at it.
 
     Returns True when the turn delivered an answer and False when it did not:
-    an empty reply, or a turn the assistant itself says it did not handle (it is
-    starting up, it is paused for a game, it hit an error). The caller exits
-    non-zero on False. Measured on this project's own machines on 2026-09-19:
-    asking with the service stopped printed twenty-six seconds of log lines and
-    no answer, and asking seconds after a start printed the starting-up line —
-    both exited 0, which tells every script and every person that the question
-    was answered.
+    an empty reply, or a turn the reply itself declares produced nothing. The
+    caller exits non-zero on False. Measured on this project's own machines on
+    2026-09-19: asking with the service stopped printed twenty-six seconds of
+    log lines and no answer, and asking seconds after a start printed the
+    starting-up line — both exited 0, which tells every script and every person
+    that the question was answered.
+
+    BOTH QUESTION-ASKING COMMANDS COME THROUGH HERE, and their replies declare
+    "this produced nothing" with different words, so both words are read. The
+    assistant's own answers carry ``handled``, false while it is starting up,
+    while it is paused for a game, and on an error. The frontier replies carry
+    ``sent``, false when there is no escalation manager, when no provider is
+    configured, when the person declined the send, and when the send raised —
+    measured in the daemon on 2026-09-22, where those are the only four ways it
+    answers without sending. Reading only one of the two is how the rule came to
+    be written in general terms on 2026-09-22 while one of the two commands
+    still exited 0 on every reply that answered nothing.
+
+    NEITHER FIELD IS DEFAULTED INTO SILENCE: a reply that does not carry a field
+    is not read as declaring failure, and a reply that carries one is believed.
 
     The always-verifiable-original affordance: the normalised prose is one step
     from the ground truth it was derived from. The hint is shown ONLY after the
     raw has durably landed on disk, so the promise is never a lie (fail-closed)."""
     response = data.get("response", "") or ""
     handled = data.get("handled", True)
+    sent = data.get("sent", True)
     answered = bool(response.strip())
     if answered:
         print(response)
@@ -295,12 +309,20 @@ def _deliver_answer(data: dict) -> bool:
     # the user just read, and it is retrievable.
     if cached_raw and full.strip() and full.strip() != response.strip():
         _hint("original output available — run: intergen last --raw")
+    # Both streams reach the same terminal and the same redirected log, and
+    # the standard output stream is block-buffered when it is redirected while
+    # the error stream is not. Without this flush the explanation the person
+    # needs — the reply's own sentence — lands AFTER the line saying the
+    # question went unanswered, which reads as though the two were unrelated.
+    # Measured on this machine on 2026-09-22 in a redirected capture of the
+    # frontier command.
+    sys.stdout.flush()
     if not answered:
         print("InterGen returned no answer to that question.", file=sys.stderr)
         return False
-    if handled is False:
-        # The line above says what happened in the assistant's own words; this
-        # one is for the exit code and for anyone reading a transcript.
+    if handled is False or sent is False:
+        # The line above says what happened in the reply's own words; this one
+        # is for the exit code and for anyone reading a transcript.
         print("InterGen did not answer that question.", file=sys.stderr)
         return False
     return True
@@ -314,6 +336,7 @@ def _report_service_state_instead_of_starting_one() -> None:
     reads inactive while it answers, and it is gone when the command returns.
     Measured on this project's own machine on 2026-09-19. The command reports
     the state and the start command instead, and exits non-zero."""
+    sys.stdout.flush()   # see _deliver_answer: keep the two streams in order
     state = "unknown"
     try:
         probe = subprocess.run(
@@ -452,7 +475,13 @@ def cmd_ask_frontier(message: str, direct: bool = False) -> None:
         response = try_dbus("Escalate", message, timeout_ms=ASK_TIMEOUT_MS)
         if response is not None:
             data = json.loads(response)
-            print(data.get("response", response))
+            # The same delivery path as the assistant's own question command,
+            # so the two answer the exit code the same way. The reply's own
+            # sentence is printed first either way: on the frontier side that
+            # sentence is what tells the person there is no provider
+            # configured, or that they cancelled the send.
+            if not _deliver_answer(data):
+                sys.exit(2)
             return
         print("InterGen is running but the Escalate call did not complete in "
               "time.", file=sys.stderr)
@@ -471,7 +500,8 @@ def cmd_ask_frontier(message: str, direct: bool = False) -> None:
     daemon.start_service()
     response = daemon.escalate(message)
     data = json.loads(response)
-    print(data.get("response", response))
+    if not _deliver_answer(data):
+        sys.exit(2)
 
 
 def cmd_status() -> None:

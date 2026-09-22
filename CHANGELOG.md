@@ -251,13 +251,25 @@ landed is in the repository README, not here.
   language, and the page shows that reason under the answer. A difference with
   no recorded reason is reported as one all the same, never delivered as though
   the text had never changed.
-- **A question the assistant never answered no longer exits as a success.**
-  Asking with the service stopped printed daemon log lines and no answer, and
-  asking seconds after a start printed a starting-up line; both exited 0, so
-  nothing reading the exit code could tell an answer from silence. A turn that
-  delivered no answer — an empty reply, or one the assistant marks as not
-  handled — now exits non-zero with one plain line, and is not written into the
-  record that `intergen last` reads.
+- **A question that was never answered no longer exits as a success — for
+  either of the two commands that ask one.** Asking with the service stopped
+  printed daemon log lines and no answer, and asking seconds after a start
+  printed a starting-up line; both exited 0, so nothing reading the exit code
+  could tell an answer from silence. Both `intergen ask` and
+  `intergen ask-frontier` now hand their reply to the same delivery step, and it
+  reads whichever way that reply declares it produced nothing: the assistant's
+  own answers carry a `handled` field, false while it is starting up, while it
+  is paused for a game and on an error; the frontier replies carry a `sent`
+  field, false when no escalation manager exists, when no provider is
+  configured, when the send was declined and when it raised. A turn that
+  delivered no answer exits non-zero with one plain line. Neither field is
+  defaulted in the direction that would hide silence: a reply carrying neither
+  is not read as declaring failure. An empty reply is not written into the
+  record that `intergen last` reads, so that command cannot repeat an older
+  answer as though it were the reply to this question; a reply that carries its
+  own explanation is written, because that explanation is the truth about the
+  turn the person just took. The reply's own sentence is flushed before the line
+  about the exit code, so a terminal and a redirected log both read in order.
 - **Asking with the service stopped reports the service instead of starting an
   assistant inside the asking process.** That session was never the service the
   machine manages: `systemctl --user is-active intergen` read inactive while it
