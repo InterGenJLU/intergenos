@@ -87,5 +87,32 @@ class TestTheInstallSetReadsTheRelease(unittest.TestCase):
         self.assertEqual(found["early"][0], "1.2")
 
 
+class TestTwoBuildsOfOnePackageInstallTheNewer(unittest.TestCase):
+    """Two archives resolving to one package: the newer BUILD installs.
+
+    Measured 2026-09-22 by a second reader: the collision kept the later name
+    in sorted order, so release 8 beat 7 but release 9 beat 10. The kept one is
+    now chosen by the (version, release) each sealed header states, and the
+    collision is still reported."""
+
+    setUp = TestTheInstallSetReadsTheRelease.setUp
+    tearDown = TestTheInstallSetReadsTheRelease.tearDown
+
+    def test_release_ten_installs_over_release_nine(self):
+        _archive(self.archives / "demo-1.0-9.igos.tar.gz", "demo", "1.0", 9)
+        _archive(self.archives / "demo-1.0-10.igos.tar.gz", "demo", "1.0", 10)
+        with self.assertLogs(backend.LOG, level="WARNING") as logs:
+            found = backend.get_archives(self.archives)
+        self.assertEqual(found["demo"][1].name, "demo-1.0-10.igos.tar.gz")
+        self.assertTrue(any("DUPLICATE" in line for line in logs.output), logs.output)
+
+    def test_a_newer_upstream_version_installs_over_a_higher_release(self):
+        _archive(self.archives / "demo-10.0-2.igos.tar.gz", "demo", "10.0", 2)
+        _archive(self.archives / "demo-10.0p1-1.igos.tar.gz", "demo", "10.0p1", 1)
+        with self.assertLogs(backend.LOG, level="WARNING"):
+            found = backend.get_archives(self.archives)
+        self.assertEqual(found["demo"], ("10.0p1", self.archives / "demo-10.0p1-1.igos.tar.gz"))
+
+
 if __name__ == "__main__":
     unittest.main()

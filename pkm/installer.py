@@ -1036,6 +1036,33 @@ def _restore_symlink_target_modes(members, dest):
             continue
 
 
+def _archive_build(name, path, tail):
+    """The (version, release) a candidate archive holds, or None to pass it over.
+
+    Read from the archive's sealed header. None, with a line on stderr,
+    when the header names a different package. When the header cannot be
+    read at all the filename's tail is the only reading there is; it is
+    used, and said, so the choice is visible and install() still refuses
+    the unreadable file.
+    """
+    try:
+        meta = _read_package_meta(path)
+    except ArchiveReadError as e:
+        print(f"  WARNING: {path.name}: its header could not be read "
+              f"({e}); it is ordered by its filename, and it cannot be "
+              f"installed as it is.", file=sys.stderr)
+        return (tail, None)
+    if meta and meta.get("version"):
+        header_name = meta.get("name")
+        if header_name and header_name != name:
+            print(f"  WARNING: {path.name} was not considered for {name}: "
+                  f"its sealed header says it holds {header_name}.",
+                  file=sys.stderr)
+            return None
+        return (str(meta["version"]), meta.get("release"))
+    return (tail, None)
+
+
 class PackageInstaller:
     """Install packages from pre-built archives."""
 
@@ -2300,11 +2327,35 @@ class PackageInstaller:
         wrong two ways — (a) it matched a DIFFERENT package by name prefix
         (`bash` -> `bash-completion-2.11`, `go` -> `go-md2man-2.0.5`), and (b) it
         returned the lexically-greatest filename, so a planted
-        `bash-9.9.9.igos.tar.gz` shadowed the real `bash-5.2.37`. This parses
-        `<name>-<version>.igos.tar.gz` and keeps a candidate ONLY when the token
-        after `<name>-` begins a version (a digit) — so a name that is a prefix of
-        a longer package name never matches — then selects the highest version by
-        pkm's own version.compare, never a lexical sort.
+        `bash-9.9.9.igos.tar.gz` shadowed the real `bash-5.2.37`. A candidate is
+        kept ONLY when the token after `<name>-` begins a version (an ASCII
+        digit) — so a name that is a prefix of a longer package name never
+        matches — and the newest is chosen by pkm's own version.compare, never a
+        lexical sort.
+
+        NEWEST BY THE BUILD, NOT BY THE STRING (decided 2026-09-22). Since that
+        date an archive name carries its release,
+        `<name>-<version>-<release>.igos.tar.gz`, and this function used to
+        compare the joined `<version>-<release>` text with a fixed release of 0.
+        That weighs the hyphen against the next character of the other version,
+        so — measured by a second reader — demo-10.0-2 beat demo-10.0p1-1,
+        1.9.17-3 beat 1.9.17p2-1 and 140.9.0-4 beat 140.9.0esr-1: an older
+        upstream version chosen over a newer one, the security release a
+        p-suffix usually is among them. Each candidate is now ordered by the
+        (version, release) pair its own sealed header states — the fields the
+        index and the database also use — with the release as the tie-break,
+        exactly as version.compare defines it. A candidate with no header is an
+        archive from before headers, named without a release; its tail is its
+        version. The cost is one read of each candidate's header, which for this
+        project's archives means decompressing each candidate of this name once.
+
+        A candidate whose header names another package is never chosen. A
+        candidate whose header cannot be read is ordered by its filename as
+        before, and named on stderr: if it is still the newest it is returned,
+        and install() then refuses it loudly as an unreadable archive, rather
+        than this function quietly handing back an older build in its place.
+        Two candidates holding the same build prefer the one whose filename
+        states that build exactly.
 
         The directory searched is the INSTALL ROOT's archive directory, not the
         running system's: resolving a package for a target out of the live
@@ -2315,43 +2366,39 @@ class PackageInstaller:
         if not archive_dir.exists():
             return None
         from .version import compare as _vcompare, VersionParseError
+        from .archive_names import SUFFIX, archive_filename
         prefix = f"{name}-"
-        suffix = ".igos.tar.gz"
         best = None
-        best_ver = None
-        for f in archive_dir.iterdir():
+        best_build = None
+        for f in sorted(archive_dir.iterdir()):
             n = f.name
-            if not (n.startswith(prefix) and n.endswith(suffix)):
+            if not (n.startswith(prefix) and n.endswith(SUFFIX)):
                 continue
-            ver = n[len(prefix):-len(suffix)]
-            # Exact-name guard: a real version starts with a digit, so `bash`
-            # cannot match `bash-completion-*` (the char after `bash-` is a
-            # letter). This is the S5-2 name/version-confusion close.
-            if not ver or not ver[0].isdigit():
+            tail = n[len(prefix):-len(SUFFIX)]
+            # Exact-name guard: a real version starts with an ASCII digit, so
+            # `bash` cannot match `bash-completion-*` (the character after
+            # `bash-` is a letter). This is the S5-2 name/version-confusion close.
+            if not tail or tail[0] not in "0123456789":
+                continue
+            build = _archive_build(name, f, tail)
+            if build is None:
                 continue
             if best is None:
-                best, best_ver = f, ver
+                best, best_build = f, build
                 continue
             try:
-                # version.compare takes (version, release)-bearing entries, not
-                # bare strings — a bare string ALWAYS raises VersionParseError,
-                # which the fail-safe below swallowed, silently degrading
-                # "highest version" to readdir order (the planted-archive
-                # shadowing this matcher exists to prevent, reopened by a type
-                # mismatch). Since 2026-09-22 an archive name carries its
-                # release, so `ver` here may read "1.0-8"; pkm's own comparison
-                # orders that tail numerically (1.0-10 above 1.0-9), which is
-                # what makes the newest BUILD win when a directory holds two
-                # releases of one version. The fixed "0" release keeps the
-                # comparison to the strings the filenames actually carry.
-                newer = _vcompare((ver, "0"), (best_ver, "0")) > 0
+                order = _vcompare(build, best_build)
             except VersionParseError:
-                # Unparseable version string — never let it win by fallback;
-                # keep the already-validated best. (A malformed planted name
-                # cannot displace a real version.)
-                newer = False
-            if newer:
-                best, best_ver = f, ver
+                # An unorderable candidate never wins by fallback; keep the
+                # already-validated best. (A malformed planted name cannot
+                # displace a real version.)
+                order = -1
+            if order == 0:
+                exact = archive_filename(name, build[0], build[1])
+                best_exact = archive_filename(name, best_build[0], best_build[1])
+                order = 1 if (n == exact and best.name != best_exact) else -1
+            if order > 0:
+                best, best_build = f, build
         return best
 
     def _version_from_archive(self, name, archive_name):

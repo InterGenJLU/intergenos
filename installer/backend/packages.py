@@ -399,6 +399,47 @@ def _name_version_from_pkginfo(archive_path):
     return (None, None)
 
 
+def _build_of(archive_path):
+    """The (version, release) an archive's sealed header states, or None."""
+    from pkm.repo import _read_package_meta, ArchiveReadError
+    try:
+        meta = _read_package_meta(archive_path) or {}
+    except ArchiveReadError as e:
+        LOG.warning("get_archives: could not read the header of %r (%s)",
+                    Path(archive_path).name, e)
+        return None
+    if not meta.get("version"):
+        return None
+    return (str(meta["version"]), meta.get("release"))
+
+
+def _newer_of_two_builds(new_path, new_version, old_path, old_version):
+    """(True if the archive at new_path is the newer build, the reason).
+
+    Both builds are read from their sealed headers and ordered by pkm's own
+    (version, release) comparison. When either header cannot be read the two
+    cannot be ordered by what they hold, and the one read later is kept, as
+    before -- said in the reason, so the warning carries it.
+    """
+    from pkm.version import compare, VersionParseError
+    new_build = _build_of(new_path)
+    old_build = _build_of(old_path)
+    if new_build is None or old_build is None:
+        return True, ("the builds could not both be read from their headers, "
+                      "so the later filename was kept")
+    try:
+        order = compare(new_build, old_build)
+    except VersionParseError as e:
+        return True, f"the builds could not be ordered ({e}); the later filename was kept"
+    if order > 0:
+        return True, (f"{new_build[0]}-{new_build[1]} is newer than "
+                      f"{old_build[0]}-{old_build[1]}")
+    if order < 0:
+        return False, (f"{old_build[0]}-{old_build[1]} is newer than "
+                       f"{new_build[0]}-{new_build[1]}")
+    return False, f"both hold {new_build[0]}-{new_build[1]}; the first was kept"
+
+
 def get_archives(archive_dir):
     """Scan archive directory and return dict of {name: (version, path)}.
 
@@ -456,12 +497,24 @@ def get_archives(archive_dir):
         # installs, unlogged). Surface every collision loudly; a clean staged
         # archive set has exactly one archive per name, so a collision is a
         # staging/naming bug the install-set audit must catch.
+        #
+        # Which of the two installs is decided by the build each holds, not by
+        # the order the filenames sort in (decided 2026-09-22). Since archive
+        # names carry their release, "the later name in sorted order" put
+        # release 9 above release 10 (a second reader measured it). The two
+        # are ordered by the (version, release) pair each sealed header
+        # states, with pkm's own comparison; the collision is still reported,
+        # now naming the one that installs and why.
         if name in archives:
             prev_ver, prev_f = archives[name]
-            LOG.warning("get_archives: DUPLICATE package name %r — %r (version "
-                        "%r) overwrites %r (version %r); only one installs. "
+            keep_new, why = _newer_of_two_builds(f, version, prev_f, prev_ver)
+            kept, dropped = (f, prev_f) if keep_new else (prev_f, f)
+            LOG.warning("get_archives: DUPLICATE package name %r — %r and %r "
+                        "both resolve to it; %r installs (%s) and %r does not. "
                         "Staging/naming collision.",
-                        name, f.name, version, prev_f.name, prev_ver)
+                        name, prev_f.name, f.name, kept.name, why, dropped.name)
+            if not keep_new:
+                continue
         archives[name] = (version, f)
 
     return archives
