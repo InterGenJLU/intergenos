@@ -473,7 +473,7 @@ class PackageRemover:
 
     def remove(self, name, force=False, reporter=None, on_file=None,
                run_pre_remove_hook=True, run_post_remove_hook=None,
-               keep_helper_payload=False):
+               keep_helper_payload=False, dry_run=False):
         """Remove an installed package.
 
         Checks reverse dependencies unless force=True.
@@ -521,6 +521,20 @@ class PackageRemover:
         See _run_pre_remove_hook for what the hook is, and each call site for
         why it opts out.
 
+        ``dry_run`` (default False): compute the whole plan and change
+        NOTHING. Every classification below still runs — what would be
+        unlinked, what is retained because another installed package co-owns
+        it, what is retained because this package's own hook created it here,
+        what is refused as system skeleton, which /etc files are preserved
+        because somebody edited them — and the message describes it. No file
+        is unlinked, no directory pruned, no manifest deleted, no database row
+        touched and neither remove hook fires. Removal is the one pkm verb
+        that can delete a file the package cannot put back, so it is the one
+        that most needs a preview; upgrade, autoremove and iso-prep already
+        had one. Directory pruning is SIMULATED against the set this run would
+        unlink, because a directory's emptiness is a consequence of the file
+        pass that a preview deliberately does not perform.
+
         ``on_file`` is an optional callback invoked as
         ``on_file(index, total, path)`` as each recorded path is considered.
         Removing a large package unlinks a hundred thousand files and then
@@ -558,7 +572,7 @@ class PackageRemover:
         if run_post_remove_hook is None:
             run_post_remove_hook = run_pre_remove_hook
 
-        if run_pre_remove_hook:
+        if run_pre_remove_hook and not dry_run:
             self._run_pre_remove_hook(name, pkg["version"])
 
         # Get file list — the UNION of both of pkm's records, not the
@@ -591,12 +605,17 @@ class PackageRemover:
             if rel and rel not in db_recorded and rel not in kept_payload:
                 files.append({"path": rel, "is_dir": False})
         if not files:
+            from . import txn as _txn
+            if dry_run:
+                return True, (
+                    f"Dry run: would remove "
+                    f"{_txn.describe_subject(name, pkg)} (no files tracked). "
+                    f"Nothing was changed.")
             # No files tracked — just remove the DB entry
             self.db.remove_installed(name)
             self.db.log_operation("remove", name, old_version=pkg["version"])
             if run_post_remove_hook:
                 self._run_post_remove_hook(name, pkg["version"])
-            from . import txn as _txn
             return True, (f"Removed {_txn.describe_subject(name, pkg)} "
                           f"(no files tracked)")
 
@@ -627,6 +646,10 @@ class PackageRemover:
 
         removed_count = 0
         removed_paths = []
+        # A preview's directory pass: which directories it would prune, and
+        # the running set of paths it has decided would be gone by then.
+        pruned_dirs = []
+        _simulated_gone = set()
         preserved_configs = []
         unreadable_preserved = []  # PKM-A20: /etc files we could not hash -> kept
 
@@ -742,10 +765,12 @@ class PackageRemover:
                             unreadable_preserved.append(f["path"])
                             continue
 
-            # Remove the file
+            # Remove the file. A preview counts it and records the path
+            # exactly as the real pass would, and does not touch it.
             try:
                 if os.path.lexists(abs_path):
-                    os.remove(abs_path)
+                    if not dry_run:
+                        os.remove(abs_path)
                     removed_count += 1
                     removed_paths.append(f["path"])
             except (OSError, PermissionError) as e:
@@ -753,6 +778,23 @@ class PackageRemover:
                 # the DB row is being removed is a real FS/DB inconsistency the
                 # user must see — never report a bare "Removed" success over it.
                 failed_removals.append((f["path"], str(e)))
+
+        # A real pass has already unlinked its files, so "empty" is what
+        # os.listdir says. A preview has unlinked nothing, so the same
+        # question is answered against the set it WOULD have unlinked —
+        # anything else would report that a directory survives only because
+        # the preview declined to empty it.
+        for _p in removed_paths:
+            _simulated_gone.add(os.path.normpath(str(self.root / _p)))
+
+        def _would_be_empty(abs_dir):
+            entries = os.listdir(abs_dir)
+            if not dry_run:
+                return not entries
+            return all(
+                os.path.normpath(os.path.join(abs_dir, e)) in _simulated_gone
+                for e in entries
+            )
 
         # Remove empty directories (only if they're empty after file removal).
         # Cross-package directory-ownership guard (audit ruling 2026-07-15):
@@ -792,8 +834,12 @@ class PackageRemover:
                 continue
             abs_path = str(self.root / d["path"])
             try:
-                if os.path.isdir(abs_path) and not os.listdir(abs_path):
-                    os.rmdir(abs_path)
+                if os.path.isdir(abs_path) and _would_be_empty(abs_path):
+                    if dry_run:
+                        pruned_dirs.append(d["path"])
+                        _simulated_gone.add(os.path.normpath(abs_path))
+                    else:
+                        os.rmdir(abs_path)
             except (OSError, PermissionError):
                 pass  # Directory not empty or permission denied — leave it
 
@@ -834,8 +880,12 @@ class PackageRemover:
                 try:
                     if (os.path.isdir(abs_path)
                             and not os.path.islink(abs_path)
-                            and not os.listdir(abs_path)):
-                        os.rmdir(abs_path)
+                            and _would_be_empty(abs_path)):
+                        if dry_run:
+                            pruned_dirs.append(rel)
+                            _simulated_gone.add(os.path.normpath(abs_path))
+                        else:
+                            os.rmdir(abs_path)
                 except (OSError, PermissionError):
                     pass  # Non-empty or unreadable — leave it
 
@@ -843,7 +893,7 @@ class PackageRemover:
         # directory; rebase under self.root so Forge / test scenarios
         # find the manifest under the install root rather than the host's.
         manifest = self.root / MANIFEST_DIR.relative_to("/") / f"{name}-{pkg['version']}"
-        if manifest.exists():
+        if manifest.exists() and not dry_run:
             manifest.unlink()
 
         # For a proprietary download-helper, also drop its footprint manifest
@@ -857,17 +907,18 @@ class PackageRemover:
         helper_manifest = (
             self.root / "var/lib/igos/helpers" / f"{name}.manifest"
         )
-        if helper_manifest.exists() and not keep_helper_payload:
+        if helper_manifest.exists() and not keep_helper_payload and not dry_run:
             helper_manifest.unlink()
 
         # Remove from database
-        self.db.remove_installed(name)
-        self.db.log_operation("remove", name, old_version=pkg["version"])
+        if not dry_run:
+            self.db.remove_installed(name)
+            self.db.log_operation("remove", name, old_version=pkg["version"])
 
-        # The payload is off disk and the package is out of the database, so
-        # the post-remove hook sees the finished state it exists for.
-        if run_post_remove_hook:
-            self._run_post_remove_hook(name, pkg["version"])
+            # The payload is off disk and the package is out of the database,
+            # so the post-remove hook sees the finished state it exists for.
+            if run_post_remove_hook:
+                self._run_post_remove_hook(name, pkg["version"])
 
         # Record what was kept on purpose, for a caller that audits whether
         # the removal actually cleared what the package owned. Normalised the
@@ -886,21 +937,46 @@ class PackageRemover:
             self.deliberately_retained.add(_p.strip("/"))
 
         from . import txn as _txn
-        msg = (
-            f"Removed {_txn.describe_subject(name, pkg)} "
-            f"({removed_count} files)"
-        )
+        if dry_run:
+            msg = (
+                f"Dry run: would remove "
+                f"{_txn.describe_subject(name, pkg)} "
+                f"({removed_count} file{'s' if removed_count != 1 else ''})"
+            )
+            for _p in sorted(removed_paths)[:50]:
+                msg += f"\n    would unlink /{_p.strip('/')}"
+            if len(removed_paths) > 50:
+                msg += f"\n    … and {len(removed_paths) - 50} more"
+            if pruned_dirs:
+                msg += (f"\n  would prune {len(pruned_dirs)} "
+                        f"director{'y' if len(pruned_dirs) == 1 else 'ies'} "
+                        f"left empty by those unlinks")
+                for _p in sorted(pruned_dirs)[:20]:
+                    msg += f"\n    /{_p.strip('/')}"
+                if len(pruned_dirs) > 20:
+                    msg += f"\n    … and {len(pruned_dirs) - 20} more"
+        else:
+            msg = (
+                f"Removed {_txn.describe_subject(name, pkg)} "
+                f"({removed_count} files)"
+            )
         # CAPPED. The enumerated owner corpus is gone from the default
         # rendering — see txn.retained_report for why. The counts and the
         # per-path query remain, and -v still lists every path with its
         # owners, so nothing that was knowable became unknowable.
-        for line in _txn.retained_report(retained_co_owned, "path"):
+        # A preview names every retained path with its owners: the cap exists
+        # so a real removal's closing line is readable, and a preview asked
+        # for precisely this detail.
+        for line in _txn.retained_report(retained_co_owned, "path",
+                                         verbose=dry_run):
             msg += f"\n  {line}"
         for line in _txn.retained_report(
-                retained_co_owned_dirs, "directory", "directories"):
+                retained_co_owned_dirs, "directory", "directories",
+                verbose=dry_run):
             msg += f"\n  {line}"
         if retained_generated:
-            msg += (f"\n  kept {len(retained_generated)} hook-generated "
+            msg += (f"\n  {'would keep' if dry_run else 'kept'} "
+                    f"{len(retained_generated)} hook-generated "
                     f"file{'s' if len(retained_generated) != 1 else ''} this "
                     f"package's hook created on this machine "
                     f"(not archive payload; delete by hand if unwanted):")
@@ -933,6 +1009,11 @@ class PackageRemover:
             )
             for cf in unreadable_preserved:
                 msg += f"\n    /{cf}"
+
+        if dry_run:
+            msg += ("\n  Dry run — nothing was unlinked, no directory was "
+                    "pruned, the package is still installed and no remove "
+                    "hook ran.")
 
         if reporter:
             reporter.file_list(

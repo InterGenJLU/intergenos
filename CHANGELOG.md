@@ -257,6 +257,16 @@ landed is in the repository README, not here.
   `--all` to reach an install's full record.
 
 ### Fixed
+
+- **A removal can be previewed before it happens.** `pkm remove --dry-run`
+  prints what the removal would unlink, which directories it would prune,
+  which paths it would keep because another installed package co-owns them or
+  because the package's own hook created them on this machine, and which
+  edited configuration files it would preserve — and changes nothing. Removal
+  is the one operation that can delete a file the package cannot put back, and
+  it was the only destructive command with no preview; upgrade, autoremove and
+  iso-prep already had one. The preview needs no administrator rights, because
+  asking what a removal would take off your own machine is a read.
 - **Removing a package no longer deletes files the package never shipped, and
   undoing a documented choice no longer makes a package look damaged.** A
   package whose lifecycle hook creates files on the machine records them as

@@ -495,6 +495,10 @@ def _is_dry_run_invocation(args):
     and refuses under non-root exactly as before."""
     return bool(
         getattr(args, "upgrade_dry_run", False)
+        # `pkm remove --dry-run` unlinks nothing and writes nothing; a person
+        # is entitled to ask what a removal would take off their own machine
+        # without sudo, which is the same rule the upgrade preview follows.
+        or getattr(args, "remove_dry_run", False)
         or getattr(args, "autoremove_dry_run", False)
         or getattr(args, "iso_prep_dry_run", False)
         # `pkm vacuum --dry-run` reads two PRAGMAs and one file size and
@@ -1025,6 +1029,12 @@ def build_parser():
                               parents=[verbosity])
     p_remove.add_argument("package")
     p_remove.add_argument("--force", action="store_true", help="Remove even if others depend on it")
+    p_remove.add_argument(
+        "--dry-run", action="store_true", dest="remove_dry_run",
+        help="Show what the removal would unlink, prune, retain and preserve, "
+             "and change nothing. Removal is the one verb that can delete a "
+             "file the package cannot put back, so this is the preview for it.",
+    )
 
     # -- reinstall --
     p_reinstall = sub.add_parser("reinstall", help="Remove + reinstall a package (repo-fetched)",
@@ -2602,38 +2612,50 @@ def cmd_reinstall(db, args):
 def cmd_remove(db, args):
     remover = PackageRemover(db)
     reporter = Reporter.from_args(args)
+    dry_run = bool(getattr(args, "remove_dry_run", False))
     # Chronicle: pre-transaction restore point, before the removal mutates the
     # live filesystem (captures the outgoing package's current bytes + pkm.db).
     # No-op without a registered handler; a handler failure is loud, not fatal.
+    # A preview mutates nothing, so it takes no restore point: a restore point
+    # consumes disk, and spending it on an operation that changes nothing is
+    # the cost that would make people stop using the preview.
     from . import pretxn
-    pretxn.run_pre_transaction_hook(
-        db, "remove", [args.package],
-        reason=f"pre-transaction remove: {args.package}",
-        reporter=reporter,
-        handler_dir=pretxn.handler_directory(install_root()),
-    )
+    if not dry_run:
+        pretxn.run_pre_transaction_hook(
+            db, "remove", [args.package],
+            reason=f"pre-transaction remove: {args.package}",
+            reporter=reporter,
+            handler_dir=pretxn.handler_directory(install_root()),
+        )
     # S3 — removing a large package unlinks its whole payload and then walks
     # the ancestor closure of every path it touched, all of it between the
     # command and its one closing line. The per-part progress standard
     # brackets it; the heartbeat only ever appears once the part has been
     # running longer than a person would wait without wondering, so an
     # ordinary small removal still prints just its announce and its outcome.
+    # A preview says "Planning", not "Removing": the announce line is the
+    # first thing a person reads and it may not describe work that will not
+    # happen.
     op = progress.LongOperation(
-        f"Removing {args.package}",
-        detail="unlinking the files this package owns and pruning the "
-               "directories nothing else needs.",
+        f"{'Planning the removal of' if dry_run else 'Removing'} {args.package}",
+        detail=("reading the records this removal would consume; nothing is "
+                "changed." if dry_run else
+                "unlinking the files this package owns and pruning the "
+                "directories nothing else needs."),
         parts=(progress.PART_REMOVE,),
     )
     op.announce()
-    op.step("unlinking recorded files and pruning empty directories")
+    op.step("reading the recorded files and classifying each one" if dry_run
+            else "unlinking recorded files and pruning empty directories")
 
     def _on_file(index, total, path):
         op.tick(note=f"{index:,} of {total:,}")
 
     try:
         ok, msg = remover.remove(
-            args.package, force=args.force, reporter=reporter,
-            on_file=_on_file,
+            args.package, force=args.force,
+            reporter=None if dry_run else reporter,
+            on_file=_on_file, dry_run=dry_run,
         )
     except Exception:
         op.failed()
@@ -2643,6 +2665,13 @@ def cmd_remove(db, args):
         op.failed(msg.splitlines()[0] if msg else None)
         reporter.error(msg)
         sys.exit(1)
+    if dry_run:
+        # The preview's whole output is the plan; print it and stop before
+        # the completion wording, which would claim work that did not happen.
+        op.finish("planned")
+        for line in msg.splitlines():
+            reporter.info(line)
+        return
     # The reporter's own `Removed <name> <version>` line is the completion
     # signal for the package; this states that the long part is over and how
     # long it took, without repeating the subject.
