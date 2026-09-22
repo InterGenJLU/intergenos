@@ -10,7 +10,11 @@ that into "Cancelled — nothing was sent to the frontier model." Measured in a
 second reading on 2026-09-22 with the real consent step and no active session:
 the command line and the web chat both told the person they had cancelled,
 although nobody was asked. The consent step now records which of the two it
-was, and both callers say it.
+was, and both callers say it. Two more ways of asking nobody reported a Cancel
+the same way and are covered here too: content larger than any dialog may show
+in full (the web chat accepts messages up to 4 MiB; the dialog's limit is 1
+MiB), which the branded dialog refused without showing anything, and a zenity
+that could not open the display, which exits with the status a Cancel gives.
 
 AN EMPTY ANSWER. A provider that answers with no text: the command line treats
 that as no answer (exit 2, nothing kept for ``intergen last``), but the web
@@ -41,14 +45,19 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from intergen import cli, consent_modal
+from intergen import cli, consent_dialog_proto, consent_modal
 from intergen.dbus_daemon import InterGenDaemon
 from intergen.escalation import EscalationManager
 from intergen.interfaces.types import LLMResponse
 from intergen.web_server import WebServer
 
-SEND, DECLINED, NOT_SHOWN = "send", "declined", "not-shown"
+SEND, DECLINED, NOT_SHOWN, TOO_LARGE = "send", "declined", "not-shown", "too-large"
 _NOBODY_ASKED = "no way to show you the content for review first"
+_TOO_LARGE_TO_SHOW = "too large to show you in full"
+_OVERSIZE = "x" * (consent_dialog_proto.MAX_PAYLOAD_BYTES + 1)
+# What zenity 4.2.2 wrote to standard error, with exit status 1, when it could
+# not open a display (measured on 2026-09-22 with no display reachable).
+_NO_DISPLAY = "\n(zenity:831381): Gtk-WARNING **: 15:37:30.031: Failed to open display\n"
 _CANCELLED = "Cancelled — nothing was sent to the frontier model."
 
 _ESCALATION_CFG = {"mode": "ask", "primary_provider": "example"}
@@ -156,6 +165,42 @@ class TheConsentStepSaysWhyNothingWasSent(unittest.TestCase):
         self.assertEqual(outcome, [NOT_SHOWN],
                          "a dialog that never started asked nobody")
         notified.assert_called_once_with("example")
+
+    def test_a_dialog_that_could_not_open_the_display_is_recorded_as_not_shown(self) -> None:
+        allowed, outcome, notified = _ask_with(
+            _dialogs(None, "/usr/bin/zenity",
+                     mock.Mock(returncode=1, stdout="", stderr=_NO_DISPLAY)))
+        self.assertIs(allowed, False)
+        self.assertEqual(outcome, [NOT_SHOWN],
+                         "a dialog that never reached the screen asked nobody")
+        notified.assert_called_once_with("example")
+
+    def test_content_too_large_to_show_is_recorded_as_too_large(self) -> None:
+        outcome: list = []
+        zenity_run = mock.Mock(return_value=mock.Mock(returncode=0))
+        patches = [
+            mock.patch.object(consent_modal, "_session_active", return_value=True),
+            mock.patch.object(consent_modal.consent_dialog, "_run_dialog",
+                              side_effect=AssertionError("no dialog may start")),
+            mock.patch.object(consent_modal.shutil, "which",
+                              return_value="/usr/bin/zenity"),
+            mock.patch.object(consent_modal.subprocess, "run", zenity_run),
+            mock.patch.object(consent_modal, "_prompt_consent_libnotify",
+                              return_value=False),
+        ]
+        started = [p.start() for p in patches]
+        try:
+            allowed = consent_modal.prompt_send_consent(
+                _OVERSIZE, "example", "you asked", outcome=outcome)
+        finally:
+            for p in reversed(patches):
+                p.stop()
+        self.assertIs(allowed, False)
+        self.assertEqual(outcome, [TOO_LARGE],
+                         "no dialog may show part of it, so nobody was asked")
+        zenity_run.assert_not_called()
+        started[-1].assert_not_called()   # retrying in a desktop session cannot help
+        self.assertIn(_TOO_LARGE_TO_SHOW, consent_modal.refusal_sentence(outcome))
 
     def test_the_persons_cancel_is_recorded_as_declined(self) -> None:
         allowed, outcome, notified = _ask_with(_dialogs(False, None, None))
@@ -265,7 +310,7 @@ class _Connection:
         self.session_history: list = []
 
 
-async def _press(adapter: _Adapter, consent) -> _Connection:
+async def _press(adapter: _Adapter, consent, content: str = _QUESTION) -> _Connection:
     """The web chat's frontier button, through the real handler. ``consent`` is
     a list of patches that stand for the consent step's surroundings."""
     server = WebServer.__new__(WebServer)   # its constructor opens the listener
@@ -275,7 +320,7 @@ async def _press(adapter: _Adapter, consent) -> _Connection:
     for p in consent:
         p.start()
     try:
-        await server._handle_frontier_escalate(connection, {"content": _QUESTION})
+        await server._handle_frontier_escalate(connection, {"content": content})
     finally:
         for p in reversed(consent):
             p.stop()
@@ -303,6 +348,25 @@ class TheWebChatSaysNobodyWasAsked(unittest.IsolatedAsyncioTestCase):
         frame = connection.ws.frames[-1]
         self.assertIs(frame["sent"], False)
         self.assertIn(_NOBODY_ASKED, frame["content"])
+        self.assertNotIn("Cancelled", frame["content"])
+        self.assertIsNone(frame["provider"])
+        self.assertEqual(connection.session_history, [])
+        self.assertEqual(adapter.sent, [])
+
+    async def test_the_page_is_told_the_content_is_too_large_to_show(self) -> None:
+        adapter = _Adapter()
+        consent = [
+            mock.patch.object(consent_modal, "_session_active", return_value=True),
+            mock.patch.object(consent_modal.consent_dialog, "_run_dialog",
+                              side_effect=AssertionError("no dialog may start")),
+            mock.patch.object(consent_modal.shutil, "which", return_value=None),
+            mock.patch.object(consent_modal, "_prompt_consent_libnotify",
+                              return_value=False),
+        ]
+        connection = await _press(adapter, consent, content=_OVERSIZE)
+        frame = connection.ws.frames[-1]
+        self.assertIs(frame["sent"], False)
+        self.assertIn(_TOO_LARGE_TO_SHOW, frame["content"])
         self.assertNotIn("Cancelled", frame["content"])
         self.assertIsNone(frame["provider"])
         self.assertEqual(connection.session_history, [])

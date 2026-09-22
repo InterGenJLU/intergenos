@@ -29,7 +29,7 @@ import subprocess
 
 # Reuse review_modal's session-active probe so the two consent surfaces behave
 # identically about when a GUI modal is reachable vs the console path.
-from intergen import consent_dialog, eval_consent
+from intergen import consent_dialog, consent_dialog_proto, eval_consent
 from intergen.review_modal import _session_active
 
 logger = logging.getLogger(__name__)
@@ -44,23 +44,47 @@ logger = logging.getLogger(__name__)
 SEND = "send"
 DECLINED = "declined"
 NOT_SHOWN = "not-shown"
+TOO_LARGE = "too-large"
 
 DECLINED_SENTENCE = "Cancelled — nothing was sent to the frontier model."
 NOT_SHOWN_SENTENCE = (
     "Not sent — there was no way to show you the content for review first "
     "(no unlocked desktop session, or no dialog could open), so nothing was "
     "sent to the frontier model.")
+TOO_LARGE_SENTENCE = (
+    "Not sent — the content is too large to show you in full for review first "
+    f"(over {consent_dialog_proto.MAX_PAYLOAD_BYTES:,} bytes), so nothing was "
+    "sent to the frontier model.")
+
+# What GTK writes to standard error when zenity cannot open a display: GTK 4
+# and GTK 3 wording. GTK then exits 1, the status a Cancel also gives.
+_DISPLAY_FAILURE_TEXTS = ("Failed to open display", "cannot open display")
 
 
 def refusal_sentence(outcome: list) -> str:
     """The reply for a send the consent step did not allow.
 
     ``outcome`` is the list passed to :func:`prompt_send_consent`. Only a
-    recorded NOT_SHOWN says the person was never asked; anything else — the
-    person's own Cancel, or a stand-in for the consent step that records
-    nothing — keeps the sentence this reply has always had.
+    recorded NOT_SHOWN or TOO_LARGE says the person was never asked; anything
+    else — the person's own Cancel, or a stand-in for the consent step that
+    records nothing — keeps the sentence this reply has always had.
     """
+    if TOO_LARGE in outcome:
+        return TOO_LARGE_SENTENCE
     return NOT_SHOWN_SENTENCE if NOT_SHOWN in outcome else DECLINED_SENTENCE
+
+
+def _too_large_to_show(content: str) -> bool:
+    """True when no dialog may show the content: the branded dialog refuses a
+    payload over its limit rather than show part of it, and show-before-send
+    forbids a truncated view anywhere. Measured as the dialog measures it."""
+    return (len(content.encode("utf-8", "surrogatepass"))
+            > consent_dialog_proto.MAX_PAYLOAD_BYTES)
+
+
+def _display_unreachable(stderr) -> bool:
+    """True when zenity's standard error says it could not open a display."""
+    return isinstance(stderr, str) and any(t in stderr for t in _DISPLAY_FAILURE_TEXTS)
 
 
 def _format_body(content: str, provider: str, reason: str) -> str:
@@ -93,7 +117,11 @@ def _prompt_consent_zenity(content: str, provider: str, reason: str) -> bool | N
     can route to the fallback.
 
     Button mapping: --ok-label "Send" -> rc 0 (True); --cancel-label "Cancel" /
-    Esc / window-close -> rc != 0 (False). Default + safe action is Cancel.
+    Esc / window-close -> rc != 0 (False). zenity 4.2.2 applies --default-cancel
+    to question dialogs only, so in this text-info dialog the default response
+    is its OK button, labelled Send here. A display zenity cannot open also
+    exits 1; its warning on standard error tells it apart, and that case
+    returns None (nothing was shown).
     """
     zenity = shutil.which("zenity")
     if zenity is None:
@@ -103,7 +131,8 @@ def _prompt_consent_zenity(content: str, provider: str, reason: str) -> bool | N
     try:
         # --text-info renders a SCROLLABLE view of the full body fed on stdin, so the
         # entire outbound payload is reviewable regardless of length (note #2: SHOWN ==
-        # SENT). Send/Cancel via ok/cancel labels; --default-cancel keeps it fail-closed.
+        # SENT). Send/Cancel via ok/cancel labels. --default-cancel has no effect on a
+        # text-info dialog in zenity 4.2.2 (it applies to question dialogs only).
         result = subprocess.run(
             [
                 zenity, "--text-info",
@@ -121,6 +150,14 @@ def _prompt_consent_zenity(content: str, provider: str, reason: str) -> bool | N
         # Cancel. Returning False here told the person they had cancelled.
         logger.error("zenity invocation failed: %s — no dialog could open; "
                      "routing to the fallback (no send)", e)
+        return None
+    if result.returncode != 0 and _display_unreachable(result.stderr):
+        # GTK exits 1 when it cannot open the display, the status a Cancel
+        # also gives. Nothing was shown, so nobody was asked: the fallback's
+        # case, not a Cancel. Until 2026-09-22 this told the person they had
+        # cancelled.
+        logger.error("zenity could not open the display — no dialog could "
+                     "open; routing to the fallback (no send)")
         return None
     return result.returncode == 0
 
@@ -163,18 +200,19 @@ def prompt_send_consent(content: str, provider: str, reason: str = "", *,
     everywhere: the only path to True is the user clicking Send on a dialog that
     showed them the full outbound content.
 
-    ``outcome``, when a list is passed, receives exactly one of SEND, DECLINED
-    or NOT_SHOWN, so a caller can tell the person WHY nothing was sent. It is a
-    list the caller owns rather than a new return type so that every existing
-    caller, and every stand-in that replaces this function with a plain True or
-    False, keeps working unchanged. NOT_SHOWN is recorded when no dialog showed
-    the content: no unlocked desktop session, or neither dialog could open. The
-    unattended evaluation responder's refusal is recorded as DECLINED — it
-    stands in for the person, by design. Two limits: the branded dialog reports
-    an over-size payload, a crash and its deadline as the same False as a
-    Cancel, and zenity reports a failure to reach the display as the same exit
-    status as a Cancel; both are recorded as DECLINED because this function
-    cannot tell them apart.
+    ``outcome``, when a list is passed, receives exactly one of SEND, DECLINED,
+    NOT_SHOWN or TOO_LARGE, so a caller can tell the person WHY nothing was
+    sent. It is a list the caller owns rather than a new return type so that
+    every existing caller, and every stand-in that replaces this function with
+    a plain True or False, keeps working unchanged. NOT_SHOWN is recorded when
+    no dialog showed the content: no unlocked desktop session, or neither
+    dialog could open (zenity unable to open the display included). TOO_LARGE
+    is recorded, before any dialog starts, when the content is over the size a
+    dialog may show in full. The unattended evaluation responder's refusal is
+    recorded as DECLINED — it stands in for the person, by design. One limit:
+    the branded dialog reports a crash and its deadline, both after it has
+    shown the content, as the same False as a Cancel; both are recorded as
+    DECLINED because this function cannot tell them apart.
     """
     allowed = _ask(content, provider, reason)
     if outcome is not None:
@@ -192,6 +230,17 @@ def _ask(content: str, provider: str, reason: str) -> str:
     # False here, so this branch cannot authorize an egress.
     if eval_consent.is_armed():
         return SEND if eval_consent.send_verdict(content, provider, reason) else DECLINED
+    if _too_large_to_show(content):
+        # No dialog may show part of the content, so nobody can be asked.
+        # Until 2026-09-22 the branded dialog's refusal came back as the same
+        # False as a Cancel and the person was told they had cancelled. No
+        # desktop notification: it tells the person to retry in a desktop
+        # session, which cannot help here.
+        logger.warning(
+            "consent: outbound payload exceeds %d bytes — not sent; no dialog "
+            "may show a truncated view, so nobody was asked",
+            consent_dialog_proto.MAX_PAYLOAD_BYTES)
+        return TOO_LARGE
     if _session_active():
         # Log the path BEFORE the blocking modal (same SSH-observable proof signal
         # as review_modal — invariant #7): the dialog blocks on a click, so an
