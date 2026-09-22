@@ -315,6 +315,13 @@
     dom.thinking.classList.add('hidden');
     dom.headerMark.style.animation = '';
     addMessage('assistant', full, source);
+    // The kept answer is not always the text that arrived token by token: a
+    // screen on the server can rewrite it after the tokens were sent, and this
+    // handler replaces what was on the screen with it. When that happens the
+    // server says so on the final frame and gives the reason in plain language,
+    // and the reason is shown here — the text a person watched arrive is never
+    // quietly exchanged for a different one.
+    if (msg.replaced_streamed_text) addReplacementNote(msg.replacement_reason);
     if (msg.stats) addStatsRow(msg.stats, msg.confidence);
     if (msg.escalation_offer) addFrontierOffer(msg.escalation_offer);
     state.streamingContent = '';
@@ -586,6 +593,16 @@
     }
     scrollToBottom();
     return el;
+  }
+
+  // Why the kept answer differs from the text that was streamed. The reason is
+  // server-authored plain language; it is set as TEXT, never as markup.
+  function addReplacementNote(reason) {
+    const el = document.createElement('div');
+    el.className = 'message system replacement-note';
+    el.textContent = 'This answer was rewritten before it was kept: '
+      + (reason || 'the server did not give a reason.');
+    dom.messages.appendChild(el);
   }
 
   function addStatsRow(stats, confidence) {

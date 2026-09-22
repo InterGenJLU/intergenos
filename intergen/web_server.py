@@ -2017,6 +2017,13 @@ class WebServer:
         # call, in _process_llm_stream.
 
         collected_tokens: list[str] = []
+        # Every reason the kept answer ends up differing from the text the
+        # person watched arrive. The screens below may rewrite full_response
+        # AFTER the tokens have been sent, and the page replaces what it showed
+        # with full_response (app.js handleStreamEnd). Each rewrite records here
+        # why it happened, in plain language, and stream_end carries it: a
+        # replacement the person can see the reason for, never a silent swap.
+        kept_answer_reasons: list[str] = []
         tool_calls_made: list[ToolCall] = []
         tool_results: list[ToolResult] = []
         stream_started = time.monotonic()
@@ -2118,6 +2125,9 @@ class WebServer:
                     "delivered answer (%s) — carried the result into the answer, "
                     "turn %s", _tr.name, _reason, turn_id)
                 full_response = _carried
+                kept_answer_reasons.append(
+                    "the answer left out the result of the command that ran, "
+                    "so the result was added to it")
             else:
                 logger.warning(
                     "M8-2: dispatch %s succeeded and the delivered answer is wrong "
@@ -2146,9 +2156,15 @@ class WebServer:
             if _corrected is not None:
                 full_response = _corrected
                 _outcome = "violation_regenerated"
+                kept_answer_reasons.append(
+                    "the answer claimed an action that was never performed, "
+                    "so it was written again")
             else:
                 full_response = safety.honest_action_fallback()
                 _outcome = "violation_regen_failed_fallback"
+                kept_answer_reasons.append(
+                    "the answer claimed an action that was never performed and "
+                    "could not be written again, so a plain statement replaced it")
             glass.emit("decision", "claim_screen", detail={
                 "verdict": _outcome, "marker": _marker,
                 "dispatched": _dispatched, "source": route_result.source})
@@ -2174,9 +2190,16 @@ class WebServer:
             if _off_corrected is not None:
                 full_response = _off_corrected
                 _off_outcome = "violation_regenerated"
+                kept_answer_reasons.append(
+                    "the answer offered to perform an action nothing here can "
+                    "carry out, so it was written again")
             else:
                 full_response = safety.honest_no_selfoffer_fallback()
                 _off_outcome = "violation_regen_failed_fallback"
+                kept_answer_reasons.append(
+                    "the answer offered to perform an action nothing here can "
+                    "carry out and could not be written again, so a plain "
+                    "statement replaced it")
             glass.emit("decision", "model_offer_screen", detail={
                 "verdict": _off_outcome, "marker": _off_marker,
                 "source": route_result.source})
@@ -2198,6 +2221,10 @@ class WebServer:
             if _cap_marker is not None:
                 full_response = safety.capability_unverified_fallback(_cap_marker)
                 _cap_outcome = "unavailable_no_surface_fallback"
+                kept_answer_reasons.append(
+                    "a command named in the answer could not be checked against "
+                    "this machine's own list of commands, so a plain statement "
+                    "replaced it")
             else:
                 _cap_outcome = "unavailable_no_surface"
             glass.emit("decision", "capability_screen", detail={
@@ -2209,6 +2236,9 @@ class WebServer:
             # surface cannot be introspected is stated honestly, not
             # regenerated — there is nothing proven wrong to correct.
             full_response = safety.capability_unintrospectable_fallback(_cap_marker)
+            kept_answer_reasons.append(
+                "a command named in the answer cannot be inspected for its "
+                "options, so a plain statement replaced it")
             glass.emit("decision", "capability_screen", detail={
                 "verdict": "unverifiable_tool_surface", "marker": _cap_marker,
                 "source": route_result.source,
@@ -2224,9 +2254,16 @@ class WebServer:
             if _cap_corrected is not None:
                 full_response = _cap_corrected
                 _cap_outcome = "violation_regenerated"
+                kept_answer_reasons.append(
+                    "the answer named a command or option that does not exist, "
+                    "so it was written again")
             else:
                 full_response = safety.honest_capability_fallback(_cap_marker)
                 _cap_outcome = "violation_regen_failed_fallback"
+                kept_answer_reasons.append(
+                    "the answer named a command or option that does not exist "
+                    "and could not be written again, so a plain statement "
+                    "replaced it")
             glass.emit("decision", "capability_screen", detail={
                 "verdict": _cap_outcome, "marker": _cap_marker,
                 "source": route_result.source})
@@ -2236,6 +2273,8 @@ class WebServer:
         if getattr(route_result, "reoffer_reminder", None):
             full_response = (full_response.rstrip() + "\n\n"
                              + route_result.reoffer_reminder)
+            kept_answer_reasons.append(
+                "a reminder about the offer you answered was added at the end")
 
         # The single writer: record the DELIVERED answer in the router's
         # model-facing buffer — the same list the transcript pane and the
@@ -2283,11 +2322,49 @@ class WebServer:
                 payload["full_output"] = full
             await ctx.ws.send_json(payload)
 
+        # WHAT THE PERSON WATCHED ARRIVE, AGAINST WHAT THEY KEEP. The page
+        # replaces the streamed tokens with full_response, so any screen above
+        # that rewrote the answer after the tokens went out changes the answer
+        # on the screen with no explanation: on 2026-09-20 a recorded web
+        # conversation showed one answer while it typed and kept a different
+        # one, and nothing in the frames said why. The frame now states it.
+        # Either the two texts are the same, or the frame carries the reason
+        # they are not. A difference with NO recorded reason is a defect in
+        # this method itself: it is logged loudly, recorded in the trace, and
+        # still declared to the client — an unexplained replacement is never
+        # delivered as though the text had never changed.
+        _streamed_text = "".join(collected_tokens)
+        _replaced = full_response != _streamed_text
+        if _replaced and not kept_answer_reasons:
+            logger.error(
+                "the delivered answer differs from the streamed text and no "
+                "screen recorded a reason, turn %s", turn_id)
+            glass.emit("delivery", "replacement_unexplained", detail={
+                "source": route_result.source,
+                "streamed_chars": len(_streamed_text),
+                "kept_chars": len(full_response)})
+            kept_answer_reasons.append(
+                "the answer was changed after it was shown and the reason was "
+                "not recorded")
+        elif _replaced:
+            glass.emit("delivery", "replacement_explained", detail={
+                "source": route_result.source,
+                "reasons": list(kept_answer_reasons),
+                "streamed_chars": len(_streamed_text),
+                "kept_chars": len(full_response)})
+        _replacement_reason = ("; ".join(kept_answer_reasons)
+                               if _replaced else None)
+
         # Send stream_end
         await ctx.ws.send_json({
             "type": "stream_end",
             "turn_id": turn_id,
             "full_response": full_response,
+            # True when the kept answer is not the text that was streamed; the
+            # reason is a plain-language sentence the page shows beside it, and
+            # it is never null while replaced_streamed_text is true.
+            "replaced_streamed_text": _replaced,
+            "replacement_reason": _replacement_reason,
             "source": route_result.source,
             "used_llm": True,
             "escalated": route_result.escalated,

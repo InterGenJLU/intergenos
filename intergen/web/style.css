@@ -583,6 +583,19 @@ body {
 }
 .stats-panel.collapsed { display: none; }
 
+/* ── Replacement note ─────────────────────────────────── */
+/* Shown when the answer that is kept is not the text that was streamed. */
+.replacement-note {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--warning);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
 /* ── Modals ───────────────────────────────────────────────────────────── */
 #modal-overlay {
   position: fixed;
