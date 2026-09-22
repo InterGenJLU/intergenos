@@ -190,7 +190,7 @@ def cmd_restore(backend, args, rep):
     rep.info(f"Restore plan for {args.version} (mode: {args.mode}):")
     for a in plan["actions"]:
         if a["action"] == "skip":
-            rep.info(f"  SKIP {a['path']} — {a['reason']}")
+            rep.info(f"  SKIP {a['path']!r} — {a['reason']}")
         elif a.get("type") == "dir":
             rep.info(f"  restore directory metadata only {a['path']} "
                      "— contents are not restored recursively")
@@ -318,8 +318,8 @@ COMMANDS = {
 
 
 def _restore_path(value):
-    if value == "":
-        raise argparse.ArgumentTypeError("Restore paths must not be empty.")
+    if not value.strip():
+        raise argparse.ArgumentTypeError("Restore paths must not be empty or blank.")
     return value
 
 

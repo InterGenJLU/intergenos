@@ -1045,17 +1045,16 @@ class Engine:
 
     @staticmethod
     def _check_restore_paths(paths):
-        if any(path == "" for path in paths):
-            raise EngineError("Restore paths must not be empty.")
+        if any(not path.strip() for path in paths):
+            raise EngineError("Restore paths must not be empty or blank.")
 
     @staticmethod
     def _missing_restore_path_reason(path, entries):
         # A captured file need not have a directory entry for every parent.
-        # Use the saved path boundary even when that directory no longer exists.
+        # Only saved descendants establish directory contents in this version,
+        # regardless of what currently exists at the requested path.
         prefix = path.rstrip("/") + "/"
-        if path and (any(saved.startswith(prefix) for saved in entries)
-                     or (os.path.isdir(path.rstrip("/") or "/")
-                         and not os.path.islink(path.rstrip("/") or "/"))):
+        if path and any(saved.startswith(prefix) for saved in entries):
             return ("directory contents are not restored recursively; "
                     "name the individual stored paths")
         return "not in this version"

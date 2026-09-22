@@ -51,20 +51,39 @@ def test_stored_descendants_identify_a_directory_that_no_longer_exists(saved_poi
     assert not directory.exists()
 
 
-def test_uncaptured_live_directory_is_reported_as_a_directory(saved_point):
-    backend, version, directory, _, *_ = saved_point
-    empty = directory.parent / "empty"
-    empty.mkdir()
-    action = backend.restore_plan("restore-point", version, [str(empty)])["actions"][0]
-    assert "directory" in action["reason"].lower()
-
-
-def test_missing_symlink_to_directory_remains_an_absent_path(saved_point):
-    backend, version, directory, _, *_ = saved_point
-    link = directory.parent / "link"
-    link.symlink_to(directory, target_is_directory=True)
-    action = backend.restore_plan("restore-point", version, [str(link)])["actions"][0]
+@pytest.mark.parametrize("live_type", ["directory", "file", "symlink", "nonexistent"])
+def test_uncaptured_paths_are_not_in_this_version_for_plan_and_apply(
+        saved_point, monkeypatch, live_type):
+    backend, version, directory, document, *_ = saved_point
+    absent = directory.parent / "uncaptured"
+    if live_type == "directory":
+        absent.mkdir()
+    elif live_type == "file":
+        absent.write_text("uncaptured content\n")
+    elif live_type == "symlink":
+        absent.symlink_to(directory, target_is_directory=True)
+    document.write_text("current content\n")
+    # Skipped requests make no metadata writes and must not start a service.
+    monkeypatch.setattr(escalate, "has_cap_chown", lambda: True)
+    monkeypatch.setattr(escalate, "run_restore_via_unit",
+                        lambda *args, **kwargs: pytest.fail("unexpected service escalation"))
+    action = backend.restore_plan("restore-point", version, [str(absent)])["actions"][0]
+    result = backend.restore_apply("restore-point", version, [str(absent)])["results"][0]
+    assert action["action"] == "skip"
     assert action["reason"] == "not in this version"
+    assert result["ok"] is False
+    assert result["reason"] == action["reason"]
+    assert result["path"] == action["path"] == str(absent)
+    assert document.read_text() == "current content\n"
+    if live_type == "file":
+        assert absent.read_text() == "uncaptured content\n"
+    elif live_type == "directory":
+        assert absent.is_dir()
+    elif live_type == "symlink":
+        assert absent.is_symlink()
+        assert absent.readlink() == directory
+    else:
+        assert not absent.exists()
 
 
 def test_recorded_directory_preview_names_metadata_only(saved_point):
@@ -131,3 +150,32 @@ def test_real_cli_preview_explains_directory_and_absent_arguments(saved_point, j
     if json_mode:
         actions = json.loads(result.stdout)["actions"]
         assert actions[0]["reason"] != actions[1]["reason"]
+
+
+@pytest.mark.parametrize("json_mode", [False, True])
+def test_real_cli_preserves_nonblank_path_bytes_and_quotes_skips(saved_point, json_mode):
+    backend, _, directory, _, store, conf = saved_point
+    document = directory / " note with spaces\t "
+    document.write_text("saved content\n")
+    version = backend.capture("restore-point", scope={
+        "paths": [str(document)], "packages": ["sample"],
+    })["version_id"]
+    absent = directory.parent / " missing 'name'\\part\t\n "
+    entry = Path(__file__).resolve().parents[2] / "assets/intergenos-backup/chronicle-cli"
+    result = subprocess.run(
+        [sys.executable, str(entry), "--local-root", str(store), "--config", str(conf),
+         "--socket", str(store / "absent.sock"), "restore", "restore-point", version,
+         str(document), str(absent), "--dry-run", *(["--json"] if json_mode else [])],
+        capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    if json_mode:
+        stored_action, absent_action = json.loads(result.stdout)["actions"]
+        assert stored_action["action"] == "restore"
+        assert stored_action["path"] == str(document)
+        assert absent_action["action"] == "skip"
+        assert absent_action["path"] == str(absent)
+    else:
+        assert f"OVERWRITE (with confirmation) {document}" in result.stdout
+        assert f"  SKIP {str(absent)!r} — not in this version" in result.stdout.splitlines()
+    assert document.read_text() == "saved content\n"

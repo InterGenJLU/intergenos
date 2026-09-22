@@ -238,6 +238,13 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **Chronicle rejects blank restore paths.** Whitespace-only arguments are
+  refused before a restore or service request; skipped paths are quoted so
+  spaces and control characters remain visible.
+- **Chronicle describes what the selected version contains.** An uncaptured
+  live directory is reported as absent unless the version holds descendants
+  beneath it, rather than suggesting that unsaved files can be restored.
+
 - **The text taken out of a wiki page is bounded, and it no longer goes through
   the regular-expression engine.** On 2026-09-20 a full test run on one of this
   project's machines ended in a segmentation fault at 89 percent of the suite,

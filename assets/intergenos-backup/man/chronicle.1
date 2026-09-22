@@ -81,11 +81,13 @@ leg.
 .PP
 Paths match individual entries in the selected version. A recorded directory
 restores its metadata only; its children are not restored recursively.
-A directory without an exact entry is skipped with a directory-specific
-message, distinct from a path absent from the version. Name the individual
-stored paths to restore directory contents.
-An empty path argument is refused with a nonzero exit status before any
-restore is attempted.
+A path without an exact entry but with stored descendants is skipped with
+a directory-specific message. Name the individual stored paths to restore
+directory contents. A path with no entry or stored descendants is absent from
+the version, even if a directory exists there now.
+An empty or blank path argument (only whitespace) is refused with a nonzero
+exit status before any restore is attempted. Other path arguments are used
+exactly as supplied, including leading or trailing spaces.
 .TP
 .BR verify " [\fILAYER\fR] [\fIVERSION\fR] [\fB\-\-scrub\fR]"
 Verify a version's integrity, or with \fB\-\-scrub\fR re-hash the whole store
