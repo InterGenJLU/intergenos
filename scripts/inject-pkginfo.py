@@ -40,9 +40,14 @@ from pathlib import Path
 
 import yaml
 
-SUFFIX = ".igos.tar.gz"
 INTERMEDIATE = re.compile(r"-(pass[123]|tmp|bootstrap)(-|$)")
 HERE = Path(__file__).resolve().parent
+
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
+from pkm.archive_names import SUFFIX, parse_archive_filename  # noqa: E402
 
 
 def load_recipe_names(repo_root: Path) -> dict:
@@ -59,16 +64,38 @@ def load_recipe_names(repo_root: Path) -> dict:
     return names
 
 
-def split_name_version(stem: str, known: list) -> tuple:
-    """Longest recipe name that the stem equals or starts with (name + '-')."""
-    best = None
-    for n in known:
-        if stem == n or stem.startswith(n + "-"):
-            if best is None or len(n) > len(best):
-                best = n
-    if best is None:
+def load_recipe_versions(repo_root: Path) -> dict:
+    """name: field -> version: field.
+
+    What a recipe states is what settles where the version ends and the
+    release begins in an archive filename; the filename alone cannot, because
+    seventeen packages carry an upstream version whose own tail reads as a
+    release suffix. See pkm/archive_names.parse_archive_filename.
+    """
+    versions = {}
+    for yml in sorted(repo_root.glob("packages/*/*/package.yml")):
+        try:
+            d = yaml.safe_load(yml.read_text()) or {}
+        except Exception:
+            continue
+        n, v = d.get("name"), d.get("version")
+        if n and v is not None:
+            versions[n] = str(v)
+    return versions
+
+
+def split_name_version(stem: str, versions: dict) -> tuple:
+    """The recipe name and version a stem carries, or (None, None).
+
+    Delegates to the one parser so this script and backfill-pkginfo.py cannot
+    read the same filename two different ways. A stem no recipe accounts for
+    returns (None, None), which is the recipe-less path the caller already
+    handles.
+    """
+    parsed = parse_archive_filename(stem + SUFFIX, known=versions)
+    if parsed is None or parsed.name not in versions:
         return None, None
-    return best, (stem[len(best) + 1:] if len(stem) > len(best) else "")
+    return parsed.name, parsed.version
 
 
 def has_pkginfo(archive: Path) -> bool:
@@ -167,7 +194,7 @@ def main() -> int:
     arch_dir = Path(args.archive_dir)
     excl_dir = Path(args.exclude_dir)
     names = load_recipe_names(repo_root)
-    known = list(names)
+    versions = load_recipe_versions(repo_root)
 
     buckets = {"EXCLUDE": [], "OK": [], "INJECT": [], "INJECT_MIN": [],
                "UNMATCHED": []}
@@ -176,7 +203,7 @@ def main() -> int:
         if INTERMEDIATE.search(stem):
             buckets["EXCLUDE"].append((a, "intermediate"))
             continue
-        name, version = split_name_version(stem, known)
+        name, version = split_name_version(stem, versions)
         if name is None:
             # Recipe-less core package (LFS-Ch8 hardcoded in bash; no
             # package.yml). Parse name/version off the filename and stamp a

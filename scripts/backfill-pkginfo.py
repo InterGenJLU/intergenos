@@ -40,7 +40,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import re
 import subprocess
 import sys
 import tarfile
@@ -49,9 +48,13 @@ from pathlib import Path
 
 import yaml
 
-SUFFIX = ".igos.tar.gz"
 HERE = Path(__file__).resolve().parent
-NAME_VER = re.compile(r"^(.+)-([0-9].*)$")  # greedy: last '-<digit>' boundary
+
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
+from pkm.archive_names import SUFFIX, parse_archive_filename  # noqa: E402
 
 
 def load_recipe_tiers(repo_root: Path) -> dict:
@@ -66,6 +69,26 @@ def load_recipe_tiers(repo_root: Path) -> dict:
         if n:
             tiers[n] = yml.parent.parent.name
     return tiers
+
+
+def load_recipe_versions(repo_root: Path) -> dict:
+    """name: field -> version: field.
+
+    The archive filename alone cannot say where the version ends and the
+    release begins — seventeen packages carry an upstream version whose own
+    tail reads as a release suffix. The recipe's stated version is what
+    settles it; see pkm/archive_names.parse_archive_filename.
+    """
+    versions = {}
+    for yml in sorted(repo_root.glob("packages/*/*/package.yml")):
+        try:
+            d = yaml.safe_load(yml.read_text()) or {}
+        except Exception:
+            continue
+        n, v = d.get("name"), d.get("version")
+        if n and v is not None:
+            versions[n] = str(v)
+    return versions
 
 
 def wellformed_pkginfo(archive: Path) -> bool:
@@ -160,16 +183,16 @@ def main() -> int:
         return 0  # nothing staged here yet is not an error for this helper
 
     tiers = load_recipe_tiers(repo_root)
+    versions = load_recipe_versions(repo_root)
     missing, unparsed, failed, stamped = [], [], [], 0
     for a in sorted(arch_dir.glob(f"*{SUFFIX}")):
         if wellformed_pkginfo(a):          # MISSING-ONLY: leave good ones be
             continue
-        stem = a.name[:-len(SUFFIX)]
-        m = NAME_VER.match(stem)
-        if not m:
-            unparsed.append(stem)
+        parsed = parse_archive_filename(a.name, known=versions)
+        if parsed is None:
+            unparsed.append(a.name[:-len(SUFFIX)])
             continue
-        name, version = m.group(1), m.group(2)
+        name, version = parsed.name, parsed.version
         # A staged archive whose only recipe is toolchain-tier is the dual-built
         # FINAL core build (toolchain temp-tools are never archived here) — force
         # its tier to core. Recipe-less -> fallback core. Any other recipe keeps

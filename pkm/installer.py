@@ -2338,8 +2338,12 @@ class PackageInstaller:
                 # which the fail-safe below swallowed, silently degrading
                 # "highest version" to readdir order (the planted-archive
                 # shadowing this matcher exists to prevent, reopened by a type
-                # mismatch). Archive names carry no release; a fixed "0" makes
-                # the comparison purely version-ordered.
+                # mismatch). Since 2026-09-22 an archive name carries its
+                # release, so `ver` here may read "1.0-8"; pkm's own comparison
+                # orders that tail numerically (1.0-10 above 1.0-9), which is
+                # what makes the newest BUILD win when a directory holds two
+                # releases of one version. The fixed "0" release keeps the
+                # comparison to the strings the filenames actually carry.
                 newer = _vcompare((ver, "0"), (best_ver, "0")) > 0
             except VersionParseError:
                 # Unparseable version string — never let it win by fallback;
@@ -2351,7 +2355,14 @@ class PackageInstaller:
         return best
 
     def _version_from_archive(self, name, archive_name):
-        """Extract version from archive filename like 'bash-5.2.37.igos.tar.gz'."""
+        """Extract version from an archive filename.
+
+        The fallback for an archive with no .PKGINFO. Since 2026-09-22 a
+        built archive is named <name>-<version>-<release>.igos.tar.gz, so what
+        this returns may carry the release tail; the caller prefers the
+        .PKGINFO's own version whenever the archive states one, which every
+        archive from the project's build tool does.
+        """
         stem = archive_name.replace(".igos.tar.gz", "")
         if stem.startswith(f"{name}-"):
             return stem[len(f"{name}-"):]
