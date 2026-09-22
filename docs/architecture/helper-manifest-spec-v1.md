@@ -204,7 +204,7 @@ existing `pkm/remover.py` path:
   correctly cleaned up + the target files (which appear
   independently in `files[]`) are also deleted.
 - Empty directories left after file removal are cleaned by the
-  existing `dir_paths` loop at `pkm/remover.py:716-733`.
+  existing `dir_paths` loop at `pkm/remover.py:750-769`.
 
 `pkm files <name>`, `pkm verify <name>`, and
 `pkm provides <abs-path>` all read from the same files table, so
