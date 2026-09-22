@@ -93,6 +93,54 @@ class PciDevicePredicate(unittest.TestCase):
             any("listed no PCI devices" in line for line in logs.output),
             logs.output)
 
+    def test_a_listing_of_blank_lines_says_so_too(self):
+        """One newline is not an inventory either, and it is not empty.
+
+        Found by the second read of this change: the first form of it asked
+        whether the LINE LIST was empty, and standard output holding a single
+        newline splits into a list of one empty string, which is not empty. So
+        the branch was skipped, every membership test was false, and the
+        answer was no in silence — the one reading this change exists to name.
+        The question is what the listing PARSES to, not how many lines it
+        printed.
+        """
+        for stdout in ("\n", "\n\n\n", "   \n", "   "):
+            with self.subTest(stdout=stdout):
+                with self.assertLogs("forge.packages", level="INFO") as logs:
+                    answer = packages.target_has_pci_device(
+                        "17a0", "9755", runner=_runner_returning(stdout))
+                self.assertFalse(answer)
+                self.assertTrue(
+                    any("listed no PCI devices" in line
+                        for line in logs.output), logs.output)
+
+    def test_a_listing_of_unparseable_lines_says_so_too(self):
+        """Output that is not an lspci listing at all names no device.
+
+        Two fields where the format has three or more is not a device
+        identity; a listing made only of such lines holds no identity, and the
+        same rule covers it without a case of its own.
+        """
+        with self.assertLogs("forge.packages", level="INFO") as logs:
+            answer = packages.target_has_pci_device(
+                "17a0", "9755",
+                runner=_runner_returning("garbage here\nmore garbage\n"))
+        self.assertFalse(answer)
+        self.assertTrue(
+            any("listed no PCI devices" in line for line in logs.output),
+            logs.output)
+
+    def test_a_real_listing_without_the_device_stays_silent(self):
+        """A machine that really does not have the device is a true reading
+        and must not speak: only an impossible one does."""
+        with self.assertNoLogs("forge.packages", level="INFO"):
+            answer = packages.target_has_pci_device(
+                "17a0", "9755",
+                runner=_runner_returning(
+                    "00:00.0 0600: 8086:4601 (rev 04)\n"
+                    "01:00.0 0300: 10de:24a0 (rev a1)\n"))
+        self.assertFalse(answer)
+
     def test_a_short_line_is_skipped_not_fatal(self):
         answer = packages.target_has_pci_device(
             "17a0", "9755",

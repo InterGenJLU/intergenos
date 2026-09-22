@@ -145,16 +145,23 @@ def target_has_pci_device(vendor, device, runner=None):
         LOG.warning("hardware-gate: %s; the check for PCI device %s is "
                     "answered no (fail-closed)", why, want)
         return False
-    if not lines:
-        # An inventory that could be read and holds nothing is not a fact
-        # about any machine this installer runs on: every one of them has PCI
-        # devices. The answer stays no, but it is said out loud, because the
-        # one reading that must never pass silently is the reading that cannot
-        # be true.
-        LOG.info("hardware-gate: lspci exited 0 but listed no PCI devices; "
-                 "the check for PCI device %s is answered no", want)
+    # Decide on the identities the output PARSES to, not on how many lines it
+    # printed. An inventory that could be read and names no device at all is
+    # not a fact about any machine this installer runs on: every one of them
+    # has PCI devices. The answer stays no, but it is said out loud, because
+    # the one reading that must never pass silently is the reading that cannot
+    # be true. Counting lines instead of identities left that reading open:
+    # standard output holding a single newline is one empty line, which is not
+    # an empty list, so the branch was skipped and the answer was no in
+    # silence (found by the second read of this change, 2026-09-22).
+    identities = [ident for ident in (_pci_id_of(line) for line in lines)
+                  if ident is not None]
+    if not identities:
+        LOG.info("hardware-gate: lspci exited 0 but listed no PCI devices "
+                 "(%d line(s) read, none naming a device); the check for PCI "
+                 "device %s is answered no", len(lines), want)
         return False
-    return any(_pci_id_of(line) == want for line in lines)
+    return want in identities
 
 
 def _read_required_pci_vendor(pkg_yaml_path):

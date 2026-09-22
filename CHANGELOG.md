@@ -238,17 +238,23 @@ landed is in the repository README, not here.
 
 ### Fixed
 - **The installer says so when the machine's PCI device listing can be read but
-  holds nothing.** The one fail-closed inventory read that the package hardware
-  gate and the card-reader check share told two outcomes apart: a listing that
-  could not be read (a warning naming why, the check answered no) and a listing
-  that was read (the answer taken from it). A third case sat between them
-  without a word — `lspci -n` exiting 0 and printing nothing gives an empty
-  list, every membership test over it is false, and the check answered no in
-  silence. An empty listing is not a fact about any machine this installer runs
-  on, because every one of them has PCI devices, so a silent no there is a
-  broken inventory reading exactly like a correct one. The answer does not
+  names no device.** The one fail-closed inventory read that the package
+  hardware gate and the card-reader check share told two outcomes apart: a
+  listing that could not be read (a warning naming why, the check answered no)
+  and a listing that was read (the answer taken from it). A third case sat
+  between them without a word — `lspci -n` exiting 0 and printing nothing, or
+  printing only blank or unreadable lines, gives output that names no device at
+  all, every membership test over it is false, and the check answered no in
+  silence. That is not a fact about any machine this installer runs on, because
+  every one of them has PCI devices, so a silent no there is a broken inventory
+  reading exactly like a correct one. The check now decides on the device
+  identities the output parses to rather than on how many lines it printed, so
+  every form of that reading is covered by one rule. The answer does not
   change: it stays no, fail-closed, for the same reason the unreadable case
   does. What changes is that the reading is named in one information line, so
+  the record of an install says which of the two answers of no it was. A real
+  listing that simply does not hold the device is a true reading and stays
+  silent.
   the record of an install says which of the two answers of no it was.
 
 - **Chronicle refuses malformed restore path lists at every entry point.**
