@@ -466,5 +466,49 @@ class TestTheUpgradeRepairOnlyRepairs(DnsVerbHarness):
         self.assertFalse(self.dropin.exists())
 
 
+class TestWhatTheUserIsTold(DnsVerbHarness):
+    """(finding 4) The public account of the reversal matches what it does.
+
+    Undoing the choice puts back the connections the choice changed. It does
+    not, and must not, force the machine onto the servers its networks hand
+    out on a connection whose owner decided otherwise — so text promising
+    that the machine returns "exactly to what the network hands out" says
+    more than the code does. The drop-in's own comment had the same problem
+    from the other side: deleting the file by hand leaves every connection
+    still ignoring the servers its network supplies.
+    """
+
+    CHANGELOG = REPO_ROOT / "CHANGELOG.md"
+    RECIPE = REPO_ROOT / "packages/desktop/intergen-welcome/package.yml"
+
+    def test_the_dropin_says_how_to_undo_the_whole_choice(self):
+        self.assertEqual(self.run_verb("dns-use-cloudflare").returncode, 0)
+        text = self.dropin.read_text(encoding="utf-8")
+        self.assertIn("Use what this network provides", text)
+        self.assertIn("deleting this file", text.lower(),
+                      "the drop-in does not warn that deleting it by hand "
+                      "leaves the rest of the choice in place:\n" + text)
+
+    def test_the_dispatcher_says_the_same(self):
+        proc = subprocess.run(["bash", str(PRIVHELPER), "dns-dispatcher-script"],
+                              capture_output=True, text=True, timeout=60)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("Use what this network provides", proc.stdout)
+
+    def test_no_public_text_promises_more_than_the_reversal_does(self):
+        claim = "exactly to what the network hands out"
+        other = "exactly what the network hands out"
+        for path in (self.CHANGELOG, self.RECIPE,
+                     Path(PRIVHELPER)):
+            text = path.read_text(encoding="utf-8")
+            for wording in (claim, other):
+                self.assertFalse(
+                    wording in text,
+                    f"{path.name} says \"{wording}\": it promises the whole "
+                    "machine goes back to the servers its networks hand out. "
+                    "The reversal puts back the connections the choice "
+                    "changed, and leaves a connection its owner set alone")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -250,9 +250,12 @@ landed is in the repository README, not here.
   choice was made. Choosing a name server now also tells every connection
   profile to ignore the servers its network supplies, and installs a small
   NetworkManager file so a connection you make later is treated the same way
-  on its first connect; "Use what this network provides" sets both back and
-  removes both files, returning the machine exactly to what the network hands
-  out. The page's panel stopped claiming a choice was in effect merely because
+  on its first connect; "Use what this network provides" removes both files
+  and puts back the connections that choice changed, each to what it said
+  before. A connection whose owner had already told it to ignore the servers
+  its network hands out is left as its owner set it: the page never changed
+  it, so the page does not undo it. A machine where the page never wrote
+  anything is not touched at all. The page's panel stopped claiming a choice was in effect merely because
   its own file existed: when a connection is still answering with its
   network's servers, the panel now says so and names that connection. A
   machine that already made a choice is repaired at its next upgrade, because

@@ -46,8 +46,11 @@
 #
 # Name servers: the dns-* verbs use the same removable-fragment shape — a
 # drop-in under /etc/systemd/resolved.conf.d/. The network's own configuration
-# is never edited, and `dns-use-network-default` deletes the fragment, which
-# returns the machine exactly to what the network hands out.
+# is never edited: `dns-use-network-default` deletes the fragments and puts
+# back the connections the choice changed, to what each of them said before.
+# A connection whose owner set it to ignore the servers its network hands out
+# is left as its owner set it -- this page changed nothing there, so it undoes
+# nothing there.
 set -euo pipefail
 
 # A ROOT OF THE CALLER'S CHOOSING, FOR TESTS, AND WHY IT CANNOT WEAKEN THE
@@ -449,8 +452,10 @@ dispatcher_script() {
 # connection -- including a connection made after the choice. NetworkManager
 # has no default value for the two properties that decide it, so this file
 # applies them to each connection as it comes up, for as long as the choice
-# stands. Delete the page's file under /etc/systemd/resolved.conf.d and this
-# file, and the machine is back to the servers each network hands out.
+# stands. Choose "Use what this network provides" on that page to undo it:
+# that removes this file and the page's file under /etc/systemd/resolved.conf.d
+# AND puts back the connections the choice changed. Deleting the two files by
+# hand leaves those connections ignoring the servers their networks hand out.
 #
 # NetworkManager runs this as root with the interface as $1 and the action as
 # $2, and it runs only for connections it manages.
@@ -645,9 +650,12 @@ render_dns_dropin() {
         '# Written by the InterGenOS Welcomer, name-lookup page.' \
         '#' \
         '# This file chooses the name servers this machine uses to turn names' \
-        '# into addresses. To go back to the servers this network hands out,' \
-        '# delete this file, or choose "Use what this network provides" on the' \
-        '# name-lookup page of the Welcomer.' \
+        '# into addresses. To go back to the servers your networks hand out,' \
+        '# choose "Use what this network provides" on the name-lookup page of' \
+        '# the Welcomer: that also puts back the connections this choice' \
+        '# changed. Deleting this file by hand does not — every connection the' \
+        '# choice changed would go on ignoring the servers its network hands' \
+        '# out, with nothing left on disk saying why.' \
         '#' \
         '# Domains=~. is what makes these servers apply to every name. Without' \
         '# it the servers a network hands out would still be used for most' \
