@@ -25,6 +25,12 @@ recipe links a staged profile, and no profile is linked twice; and that the set
 the unit loads on a machine carrying all six packages is exactly the sixteen
 named below.
 
+The build-time half: the security package declares the names other packages
+link and its own build refuses, naming them, when any is not staged as a
+regular file; the tests prove that refusal, its passing case, and that the
+declared list and the names the owning recipes link are the same set, so no
+link can escape the check.
+
 WHAT THEY DO NOT PROVE: that each linked profile's program is what the owning
 package installs (measured on an installed machine and in the cut's evidence,
 not assertable from a source tree), that the parser loads the linked profiles
@@ -200,8 +206,84 @@ def test_the_security_package_stages_after_both_sets_and_before_its_own_profile(
     profiles = first("make -C profiles install")
     extras = first("profiles-extra/work/profiles -maxdepth 1")
     stage = first('stage_top_level_profiles "${DESTDIR}"')
+    verify = first('verify_linked_profiles_are_staged "${DESTDIR}"')
     own = first("profiles/usr.bin.pkm")
     assert profiles < stage and extras < stage and stage < own, (
         "the staging step must run after the upstream and Debian-derived "
         "profiles are installed and before the package's own profile is"
     )
+    assert stage < verify < own, (
+        "the check that every linked profile is staged must run right after "
+        "the staging step"
+    )
+
+
+def declared_linked_names() -> set[str]:
+    match = re.search(
+        r'^APPARMOR_LINKED_BY_OWNING_PACKAGES="([^"]*)"$',
+        APPARMOR_BUILD.read_text(), re.M,
+    )
+    assert match, "the security package declares no list of linked profiles"
+    return set(match.group(1).split())
+
+
+def test_every_linked_name_is_declared_and_every_declared_name_is_linked():
+    """The source-tree half of the build-time check: the security package's
+    build refuses when a DECLARED name is not staged, so a name an owning
+    recipe links without it being declared would escape that check."""
+    linked = set()
+    for recipe in OWNERS:
+        body = do_install_body(REPO / recipe / "build.sh")
+        match = re.search(
+            r'(install -dm755 "\$\{DESTDIR\}/etc/apparmor\.d"\n'
+            r'\s*for profile in [^\n]*; do\n.*?\n\s*done)',
+            body, re.S,
+        )
+        linked |= set(_run_snippet(match.group(1)))
+    declared = declared_linked_names()
+    assert linked - declared == set(), (
+        f"linked by an owning recipe but not declared by the security "
+        f"package, so its build never checks they are staged: "
+        f"{sorted(linked - declared)}"
+    )
+    assert declared - linked == set(), (
+        f"declared by the security package but linked by no recipe: "
+        f"{sorted(declared - linked)}"
+    )
+
+
+def _verify(tmp: Path, staged_files: set[str], staged_links: set[str] = ()):
+    staged = tmp / "usr/share/apparmor/extra-profiles"
+    staged.mkdir(parents=True)
+    for name in staged_files:
+        (staged / name).write_text(f"profile {name} {{}}\n")
+    for name in staged_links:
+        (staged / name).symlink_to("elsewhere")
+    return subprocess.run(
+        ["bash", "-c",
+         f'source "{APPARMOR_BUILD}" && verify_linked_profiles_are_staged "$1"',
+         "verify", str(tmp)],
+        capture_output=True, text=True,
+    )
+
+
+def test_the_build_refuses_when_a_linked_profile_is_not_staged(tmp_path):
+    names = declared_linked_names()
+    result = _verify(tmp_path, names - {"usr.sbin.smbd"})
+    assert result.returncode == 1, result.stdout
+    assert "usr.sbin.smbd" in result.stderr, result.stderr
+    assert "would dangle" in result.stderr, result.stderr
+
+
+def test_the_build_refuses_a_linked_profile_staged_only_as_a_link(tmp_path):
+    names = declared_linked_names()
+    result = _verify(tmp_path, names - {"zgrep"}, staged_links={"zgrep"})
+    assert result.returncode == 1, result.stdout
+    assert "zgrep" in result.stderr, result.stderr
+
+
+def test_the_check_passes_when_every_linked_profile_is_staged(tmp_path):
+    names = declared_linked_names()
+    result = _verify(tmp_path, names)
+    assert result.returncode == 0, result.stderr
+    assert f"all {len(names)} profiles other packages link are staged" in result.stdout

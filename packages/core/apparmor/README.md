@@ -92,7 +92,12 @@ its program: it installs a symlink at `/etc/apparmor.d/<name>` pointing at the
 copy staged in `/usr/share/apparmor/extra-profiles/<name>`, and it declares
 this package as a runtime dependency so the link cannot dangle. The staged
 copy is upstream's own file, so a new upstream release updates the profile
-under every link at once. Packages that link a profile this way:
+under every link at once. The names other packages link are declared in this
+package's `build.sh` (`APPARMOR_LINKED_BY_OWNING_PACKAGES`), and this package's
+build fails, naming them, if any of them is not staged: an upstream release
+that drops or renames one of these profiles stops the build that brings it in,
+instead of leaving a link that points at nothing. Packages that link a
+profile this way:
 
 | package | profiles |
 |---|---|

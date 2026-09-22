@@ -95,6 +95,34 @@ stage_top_level_profiles() {
     echo "stage_top_level_profiles: ${moved} staged in /usr/share/apparmor/extra-profiles, ${kept} named targets kept in /etc/apparmor.d"
 }
 
+# The profile names OTHER packages link into /etc/apparmor.d, each pointing at
+# the copy this package stages. A link whose staged file is missing dangles, and
+# one dangling file in /etc/apparmor.d fails the boot-time load of the whole
+# directory, so the list is declared here, where the staged set is decided, and
+# checked by this package's own build: an upstream release that drops or renames
+# one of these profiles stops the build that brings it in. The source-tree test
+# holds the other side: every name an owning recipe links must be on this list.
+# The owning packages are named in README.md, "Where a profile lives".
+APPARMOR_LINKED_BY_OWNING_PACKAGES="bin.ping samba-bgqd samba-dcerpcd samba-rpcd samba-rpcd-classic samba-rpcd-spoolss usr.sbin.avahi-daemon usr.sbin.dnsmasq usr.sbin.nmbd usr.sbin.smbd usr.sbin.traceroute usr.sbin.winbindd zgrep"
+
+# Refuse, naming each one, when a profile another package links is not staged
+# as a regular file under <destdir>/usr/share/apparmor/extra-profiles.
+verify_linked_profiles_are_staged() {
+    local staged="$1/usr/share/apparmor/extra-profiles"
+    local name missing="" count=0
+    for name in ${APPARMOR_LINKED_BY_OWNING_PACKAGES}; do
+        count=$((count + 1))
+        if [ ! -f "${staged}/${name}" ] || [ -L "${staged}/${name}" ]; then
+            missing="${missing} ${name}"
+        fi
+    done
+    if [ -n "${missing}" ]; then
+        echo "verify_linked_profiles_are_staged: other packages link these profiles and this build does not stage them, so their links would dangle:${missing}" >&2
+        return 1
+    fi
+    echo "verify_linked_profiles_are_staged: all ${count} profiles other packages link are staged"
+}
+
 configure() {
     set -e
     # Generate libapparmor's autotools machinery, then configure with
@@ -231,8 +259,10 @@ do_install() {
         fi
     fi
 
-    # 4b. Every top-level profile above is staged, not loaded.
+    # 4b. Every top-level profile above is staged, not loaded; then the build
+    #     refuses if a profile another package links is not among them.
     stage_top_level_profiles "${DESTDIR}"
+    verify_linked_profiles_are_staged "${DESTDIR}"
 
     # 5. InterGenOS-specific custom profiles.
     #
