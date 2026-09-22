@@ -73,6 +73,23 @@ analog-input-linein.conf|Line Boost
 STANZAS
 }
 
+# Tell the two cases apart when the rewrite below finds no "volume = merge"
+# line to change in a listed stanza. An upstream rename or reshuffle and a
+# second run over a tree this step has already rewritten both leave the stanza
+# without that line, and only the first is a fault. The message has to name
+# the right one: a refusal that reports an upstream change nobody made sends
+# whoever reads the failed build to look upstream for it. True when the named
+# stanza already carries exactly one "volume = zero" and no "volume = merge".
+stanza_already_zeroed() {
+    awk -v want="[Element $2]" '
+        BEGIN { inside = 0; zero = 0; merge = 0 }
+        /^\[/ { inside = ($0 == want) }
+        inside && $0 ~ /^volume[[:blank:]]*=[[:blank:]]*zero[[:blank:]]*$/ { zero++ }
+        inside && $0 ~ /^volume[[:blank:]]*=[[:blank:]]*merge[[:blank:]]*$/ { merge++ }
+        END { if (zero == 1 && merge == 0) exit 0; exit 1 }
+    ' "$1"
+}
+
 # Keep the microphone boost out of the audio server's volume walk.
 #
 # The ALSA card-profile mixer path files that this package installs mark BOTH
@@ -117,6 +134,17 @@ zero_boost_volume_elements() {
     while IFS='|' read -r conf element; do
         [ -n "$conf" ] || continue
         file="${paths_dir}/${conf}"
+        if [ -L "$file" ]; then
+            # The rewrite writes a new file beside this one and moves it into
+            # place. Done to a symbolic link, that replaces the link with a
+            # regular file while the file it points at keeps "volume = merge",
+            # and the count still reaches twelve: a machine shipped with its
+            # boost in the volume walk and a build that said nothing. No
+            # shipped path set holds one; if upstream ever ships one, this
+            # stops the build instead of passing.
+            echo "pipewire: mixer path file is a symbolic link and is not rewritten: $file" >&2
+            return 1
+        fi
         if [ ! -f "$file" ]; then
             echo "pipewire: mixer path file not found: $file" >&2
             return 1
@@ -132,7 +160,11 @@ zero_boost_volume_elements() {
                 END { if (hits != 1) exit 1 }
             ' "$file" > "${file}.zero-boost"; then
             rm -f "${file}.zero-boost"
-            echo "pipewire: expected exactly one 'volume = merge' line in [Element ${element}] of ${conf}" >&2
+            if stanza_already_zeroed "$file" "$element"; then
+                echo "pipewire: [Element ${element}] of ${conf} already reads 'volume = zero'; this step rewrites a freshly staged path set once and is not idempotent" >&2
+            else
+                echo "pipewire: expected exactly one 'volume = merge' line in [Element ${element}] of ${conf}" >&2
+            fi
             return 1
         fi
         mv -f "${file}.zero-boost" "$file"
@@ -162,6 +194,93 @@ zero_boost_volume_elements() {
     done <<< "$(boost_volume_stanzas)"
 
     echo "pipewire: microphone boost taken out of the volume walk in $changed stanzas"
+}
+
+# Install the boost-zeroing helper and the drop-in that runs it.
+# $1 is the staging root (DESTDIR).
+install_boost_zeroing_helper() {
+    local DESTDIR="$1"
+    # ---- Put a directly written microphone boost back to 0 dB -----------
+    # "volume = zero", installed just below, is asserted by the audio server
+    # when it APPLIES a route — at session start, on a port or profile change,
+    # on a session-manager restart — and not at any other moment. Anything
+    # that writes the mixer directly in between therefore holds a boost up
+    # until the next apply. The one such writer this system ships is
+    # alsa-utils: alsactl restore, run by alsa-restore.service from the saved
+    # state in /var/lib/alsa/asound.state at boot and again from the udev rule
+    # 90-alsa-restore.rules whenever a sound control device appears. A machine
+    # whose saved state carries a non-zero boost — saved by the same unit's
+    # ExecStop at the previous shutdown — comes up with the boost raised, and
+    # a card that appears after the session is already running is restored
+    # after the last route apply, where nothing takes it down again.
+    #
+    # The correction runs where that writer runs: a drop-in on alsa-utils'
+    # own unit, whose ExecStartPost puts every boost element this package
+    # zeroes back to 0 dB after the restore has written it. It needs no new
+    # dependency, because it can only ever run when alsa-utils is installed —
+    # without it there is no alsa-restore.service to drop into, and no
+    # restore to correct. The element list is generated here from
+    # boost_volume_stanzas, so the two cannot drift apart.
+    #
+    # What this does NOT cover, stated plainly: the other state scheme, the
+    # alsactl daemon behind alsa-state.service, which runs only when
+    # /etc/alsa/state-daemon.conf exists. This system ships no such file and
+    # alsa-restore.service's own ConditionPathExists refuses when it does.
+    install -dm755 "${DESTDIR}/usr/libexec"
+    {
+        echo '#!/bin/sh'
+        cat <<'ZERO_BOOST_HEADER'
+# Put every microphone boost element back to 0 dB.
+#
+# Installed by the pipewire package and run from a drop-in on
+# alsa-restore.service, after alsactl has written the saved mixer state.
+# The audio server asserts "volume = zero" on these elements only when it
+# applies a route, so a state restore between two applies would otherwise
+# leave a boost raised. Absent elements and cards are not an error: this
+# runs on every machine and the list names every boost the shipped mixer
+# paths mark, not the ones any one codec has.
+set -u
+
+ZERO_BOOST_HEADER
+        echo 'boost_elements() {'
+        echo "    cat <<'ELEMENTS'"
+        # LC_ALL=C so the order of this list is the same file on every
+        # build host: sort's collation is locale-dependent, and
+        # "Int Mic Boost" and "Internal Mic Boost" swap places between
+        # a C locale and a UTF-8 one, which would make the installed
+        # helper differ between two builds of the same source.
+        boost_volume_stanzas | cut -d'|' -f2 | LC_ALL=C sort -u
+        echo 'ELEMENTS'
+        echo '}'
+        cat <<'ZERO_BOOST_BODY'
+
+# One reading per control device, so the card index comes from the device
+# that exists rather than from a guess about numbering.
+for control in /dev/snd/controlC*; do
+    [ -e "$control" ] || continue
+    card=${control#/dev/snd/controlC}
+    while IFS= read -r element; do
+        [ -n "$element" ] || continue
+        amixer -c "$card" -q sset "$element" 0dB 2>/dev/null || true
+    done <<ELEMENT_LIST
+$(boost_elements)
+ELEMENT_LIST
+done
+exit 0
+ZERO_BOOST_BODY
+    } > "${DESTDIR}/usr/libexec/pipewire-zero-microphone-boost"
+    chmod 755 "${DESTDIR}/usr/libexec/pipewire-zero-microphone-boost"
+
+    install -dm755 "${DESTDIR}/usr/lib/systemd/system/alsa-restore.service.d"
+    cat > "${DESTDIR}/usr/lib/systemd/system/alsa-restore.service.d/10-microphone-boost-to-zero.conf" <<'DROP_IN'
+# The saved ALSA state is written to the mixer by alsactl restore; this puts
+# the microphone boost elements back to 0 dB immediately afterwards, so a
+# stored non-zero boost does not survive a boot or a card appearing later.
+# The leading "-" keeps a failure here from failing the restore itself.
+[Service]
+ExecStartPost=-/usr/libexec/pipewire-zero-microphone-boost
+DROP_IN
+    chmod 644 "${DESTDIR}/usr/lib/systemd/system/alsa-restore.service.d/10-microphone-boost-to-zero.conf"
 }
 
 do_install() {
@@ -210,6 +329,10 @@ do_install() {
         "${DESTDIR}/usr/etc/alsa/conf.d/50-pipewire.conf"
     ln -sfn ../../../share/alsa/alsa.conf.d/99-pipewire-default.conf \
         "${DESTDIR}/usr/etc/alsa/conf.d/99-pipewire-default.conf"
+    # ---- Put a directly written microphone boost back to 0 dB -----------
+    # See install_boost_zeroing_helper above for what this installs and why.
+    install_boost_zeroing_helper "${DESTDIR}"
+
     # ---- Keep the microphone boost out of the volume walk ---------------
     # See zero_boost_volume_elements above for what this changes and why.
     # It fails the build if it does not change exactly its twelve stanzas.

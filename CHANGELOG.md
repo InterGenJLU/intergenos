@@ -237,6 +237,32 @@ landed is in the repository README, not here.
   `--all` to reach an install's full record.
 
 ### Fixed
+- **A microphone boost written straight to the mixer is put back to 0 dB, and
+  the install step that takes the boost out of the volume range refuses two
+  cases it used to get wrong.** The audio server honours `volume = zero` when
+  it applies a route — at session start, on a port or profile change, on a
+  session-manager restart — and at no other moment, so anything that writes
+  those controls directly in between holds a boost up until the next apply.
+  The writer this system ships is `alsactl restore`, run by
+  alsa-restore.service from the saved mixer state at boot and again whenever a
+  sound control device appears; the same unit saves that state at shutdown, so
+  a machine whose boost was raised once comes back up with it raised, and a
+  card that appears after the session is running is restored after the last
+  route apply. Measured on 2026-09-22: a restored state carrying the boost at
+  its maximum left the control at +30.00 dB and it stayed there. The audio
+  server package now installs a small helper and a drop-in on that unit, so
+  the boost elements are set back to 0 dB immediately after the restore has
+  written them; the helper's element list is generated from the same list the
+  path-file rewrite uses, so the two cannot drift apart, and it needs no new
+  dependency because it can only run where alsa-utils is installed. The other
+  state scheme, the `alsactl` daemon behind alsa-state.service, is not
+  covered: this system ships no `/etc/alsa/state-daemon.conf`, the file that
+  unit requires. Two edges of the install step are closed in the same change:
+  a listed mixer path file that is a symbolic link is refused by name instead
+  of being replaced by a regular file while the file it points at kept its
+  old setting, and a second run over a tree the step has already rewritten
+  now says that is what happened instead of reporting an upstream change
+  nobody made.
 - **The installer says so when the machine's PCI device listing can be read but
   names no device.** The one fail-closed inventory read that the package
   hardware gate and the card-reader check share told two outcomes apart: a

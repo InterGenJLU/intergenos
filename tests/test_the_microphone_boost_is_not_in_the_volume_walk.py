@@ -302,3 +302,69 @@ def test_the_step_refuses_a_directory_that_is_not_there(tmp_path):
     assert result.returncode != 0
     assert "mixer path directory not found" in result.stderr, result.stderr
     assert str(missing) in result.stderr, result.stderr
+
+
+def test_the_step_refuses_a_listed_path_file_that_is_a_symbolic_link(tmp_path):
+    """A symbolic link must stop the step, not be replaced by a regular file.
+
+    The rewrite writes a new file beside the old one and moves it into place.
+    Done to a symbolic link that resolves elsewhere, that replaces the link
+    with a regular file while the file it pointed at keeps `volume = merge` —
+    and the step still counts twelve changed stanzas and exits 0, so a build
+    would ship a machine whose boost is still in the volume walk. No shipped
+    path set holds such a link today, which is what makes it the one
+    arrangement that passes instead of refusing.
+    """
+    paths = build_paths_dir(tmp_path)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    target = elsewhere / "analog-input-front-mic.conf"
+    link = paths / "analog-input-front-mic.conf"
+    target.write_text(link.read_text())
+    link.unlink()
+    link.symlink_to(target)
+
+    result = run_step(paths)
+
+    assert result.returncode != 0, (
+        "the step passed on a path file that is a symbolic link; it would "
+        "have replaced the link and left the real file on volume = merge"
+    )
+    assert "analog-input-front-mic.conf" in result.stderr, (
+        f"the refusal does not name the file it refused: {result.stderr}"
+    )
+    assert link.is_symlink(), "the step replaced the symbolic link"
+    assert stanza_volume(target.read_text(), "Front Mic Boost") == "merge", (
+        "the file the link points at was rewritten"
+    )
+    assert list(paths.glob("*.zero-boost")) == [], "a temporary file was left behind"
+
+
+def test_a_second_run_says_the_tree_is_already_rewritten(tmp_path):
+    """The second run's refusal must name its own cause.
+
+    The step rewrites a freshly staged path set once: run again over its own
+    output, every listed stanza reads `volume = zero` and there is no
+    `volume = merge` line left to change. Until now that refusal borrowed the
+    upstream-change wording, which sends whoever reads a failed build looking
+    for a change upstream has not made. The step still refuses — it is not
+    idempotent and nothing should pretend otherwise — but it says which of the
+    two it is.
+    """
+    paths = build_paths_dir(tmp_path)
+
+    first = run_step(paths)
+    assert first.returncode == 0, f"the first run did not pass: {first.stderr}"
+
+    second = run_step(paths)
+
+    assert second.returncode != 0, (
+        "the second run passed; the step must refuse a tree it has already "
+        "rewritten rather than report a change it did not make"
+    )
+    assert "already" in second.stderr and "not idempotent" in second.stderr, (
+        f"the second run does not say the tree is already rewritten: {second.stderr}"
+    )
+    assert "expected exactly one" not in second.stderr, (
+        "the second run still reports an upstream change: " + second.stderr
+    )
