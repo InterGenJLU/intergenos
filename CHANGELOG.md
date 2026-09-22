@@ -275,6 +275,21 @@ landed is in the repository README, not here.
   into the kernel on every machine and counted in every summary of the policy —
   which makes the policy look wider than it is. A check now refuses any profile
   the package ships that names a program nothing in the tree installs.
+- **An access-control profile is loaded only on a machine that has its
+  program.** The AppArmor unit loads every file in `/etc/apparmor.d` at every
+  boot, and the security package put 55 top-level profiles there whatever else
+  was installed: on an ordinary install measured on 2026-09-22, 39 of them named
+  a program that machine did not have, so each was parsed, loaded and counted in
+  every summary of the policy while confining nothing. The security package now
+  stages those profiles in `/usr/share/apparmor/extra-profiles`, which nothing
+  loads, and the package that installs a program links that program's profile
+  into `/etc/apparmor.d` and depends on the security package so the link cannot
+  dangle: inetutils (ping), samba (its eight daemon and helper profiles), avahi,
+  dnsmasq, traceroute and gzip (zgrep). Every program the image installs keeps
+  the profile it had, in the mode it had; the two named profiles other profiles
+  switch to (`lsb_release`, `nvidia_modprobe`) stay loaded. A profile for a
+  program you installed yourself can be linked the same way; the package README
+  shows how.
 
 - **An upgraded Python module no longer runs its old code under a bytecode
   cache prefix.** An interpreter started with `PYTHONPYCACHEPREFIX` or
