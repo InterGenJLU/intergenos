@@ -276,6 +276,49 @@ class TheRecordReaderItself(unittest.TestCase):
             self.assertEqual(_reader().installed_identity(db_path=path),
                              ("0.1.0", 296))
 
+    def test_a_row_still_in_the_write_ahead_log_is_not_answered_with_the_old_one(self):
+        """A committed row this read cannot see does not license answering
+        with the row underneath it.
+
+        The reader opens the database immutable, and an immutable open ignores
+        the write-ahead log. So between a package operation committing a new
+        release and that log being checkpointed, the newest row is invisible
+        here while the PREVIOUS one reads perfectly — and printing that one is
+        printing a stale release as fact, with nothing on it saying so. The
+        database below is in the write-ahead mode the package manager itself
+        uses, with one release checkpointed into the main file and a newer one
+        committed but still in the log: the exact window.
+        """
+        import os
+        import sqlite3
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            path = tmp + "/pkm.db"
+            _database_with([("intergen", "0.1.0", 297, None)], path, wal=True)
+            self.assertEqual(_reader().installed_identity(db_path=path),
+                             ("0.1.0", 297),
+                             "the checkpointed row is not readable, so the "
+                             "window this case builds would prove nothing")
+            writer = sqlite3.connect(path)
+            try:
+                writer.execute("UPDATE installed SET release = 298 "
+                               "WHERE name = 'intergen'")
+                writer.commit()
+                self.assertGreater(
+                    os.path.getsize(path + "-wal"), 0,
+                    "no write-ahead log on disk: this case is not in the "
+                    "window it means to test")
+                self.assertIsNone(
+                    _reader().installed_identity(db_path=path),
+                    "release 298 is committed and this read cannot see it, "
+                    "yet the reader answered with the release before it")
+            finally:
+                writer.close()
+            self.assertEqual(_reader().installed_identity(db_path=path),
+                             ("0.1.0", 298),
+                             "once the log is checkpointed the newest row is "
+                             "what is read")
+
     def test_a_superseded_row_alone_answers_none(self):
         """A row that has been replaced is not what is installed.
 
