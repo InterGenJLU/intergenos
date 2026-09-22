@@ -18,8 +18,11 @@ with different words, and the helper reads both:
     starting up, while it is paused for a game, and on an error;
   * the frontier replies carry a ``sent`` field, false when no escalation
     manager exists, when no provider is configured, when the person declined
-    the send, and when the send raised — measured in the daemon source on
-    2026-09-22, where those are the only four ways it answers without sending.
+    the send, when the send raised past the escalation manager, and when the
+    manager caught a failure of its own (the provider unreachable, or anything
+    else raised during the send) — six ways, measured in the daemon and its
+    manager on 2026-09-22. The last two are pinned end to end in
+    test_a_frontier_send_that_failed_is_reported_as_not_sent.py.
 
 Neither field is ever defaulted in the direction that would hide silence: a
 reply that does not carry a field is not treated as declaring failure, and a

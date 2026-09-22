@@ -1461,7 +1461,8 @@ class WebServer:
 
         def _run():
             from intergen.consent_modal import prompt_send_consent
-            from intergen.interfaces.types import Message, MessageRole
+            from intergen.interfaces.types import (
+                EscalationNotSent, Message, MessageRole)
             if not prompt_send_consent(content, provider,
                                        reason="you asked to reach your frontier model"):
                 return (False, "Cancelled — nothing was sent to the frontier model.")
@@ -1469,6 +1470,13 @@ class WebServer:
                 [Message(role=MessageRole.USER, content=content)],
                 reason="user-invoked phone-a-friend (web)", user_consented=True,
             )
+            if isinstance(resp, EscalationNotSent):
+                # Nothing reached the frontier model: the manager caught the
+                # failure and said so in its own words. The page is told it was
+                # not sent, no provider is named beside it, and the sentence is
+                # not stored in the conversation as though the assistant had
+                # said it. Until 2026-09-22 all three went the other way.
+                return (False, resp.text)
             return (True, resp.text)
 
         loop = asyncio.get_event_loop()

@@ -262,11 +262,15 @@ def _deliver_answer(data: dict) -> bool:
     assistant's own answers carry ``handled``, false while it is starting up,
     while it is paused for a game, and on an error. The frontier replies carry
     ``sent``, false when there is no escalation manager, when no provider is
-    configured, when the person declined the send, and when the send raised —
-    measured in the daemon on 2026-09-22, where those are the only four ways it
-    answers without sending. Reading only one of the two is how the rule came to
-    be written in general terms on 2026-09-22 while one of the two commands
-    still exited 0 on every reply that answered nothing.
+    configured, when the person declined the send, when the send raised past
+    the escalation manager, and when the manager caught a failure of its own —
+    the provider unreachable, or anything else raised during the send — which
+    it returns typed as not sent. Six ways, measured in the daemon and its
+    escalation manager on 2026-09-22; until then the last two were reported as
+    sent, although they are the failures a real machine meets most. Reading
+    only one of the two fields is how the rule came to be written in general
+    terms on 2026-09-22 while one of the two commands still exited 0 on every
+    reply that answered nothing.
 
     NEITHER FIELD IS DEFAULTED INTO SILENCE: a reply that does not carry a field
     is not read as declaring failure, and a reply that carries one is believed.

@@ -325,6 +325,23 @@ class LLMResponse:
 
 
 @dataclass
+class EscalationNotSent(LLMResponse):
+    """A phone-a-friend reply that did NOT come from the frontier model.
+
+    The escalation manager answers every failure with an ordinary response
+    rather than an exception — an escalation must never crash the assistant —
+    so a return without an exception says nothing about whether anything was
+    sent. This type is that fact, recorded where the failure is caught: no
+    provider, the outbound content refused or held by the egress scan, the
+    provider unreachable, or anything else raised during the send. The text is
+    the manager's own sentence about what happened, never an answer. Every
+    consumer of the manager reads this type instead of inferring a send from
+    the absence of an exception; until 2026-09-22 both consumers did infer it,
+    and reported the two commonest real failures as sent.
+    """
+
+
+@dataclass
 class ServerHealth:
     running: bool
     model_loaded: bool

@@ -53,6 +53,7 @@ from intergen.interfaces.cloud import (
 from intergen.interfaces.scanner import ScanContext, ScanDirection, ScanDisposition
 from intergen.interfaces.types import (
     EscalationMode,
+    EscalationNotSent,
     LLMResponse,
     Message,
     ToolSchema,
@@ -396,6 +397,8 @@ class EscalationManager(EscalationManagerInterface):
         return "\n".join(m.content for m in messages if getattr(m, "content", None))
 
     @staticmethod
-    def _error_response(text: str) -> LLMResponse:
-        return LLMResponse(text=text, model="phone-a-friend", local=False,
-                           quality_passed=False)
+    def _error_response(text: str) -> EscalationNotSent:
+        # Every failure this manager catches comes back through here, typed as
+        # not sent, so no consumer has to infer a send from a return.
+        return EscalationNotSent(text=text, model="phone-a-friend", local=False,
+                                 quality_passed=False)

@@ -137,6 +137,10 @@ class EscalationManagerInterface(ABC):
 
         Uses the user's primary provider. Falls back to secondary if configured.
         Logs the call with provider, model, reason, and token count.
+
+        A failure is RETURNED, never raised, and it is returned as an
+        ``EscalationNotSent``: every consumer tells a send from a failure by
+        that type, never by the absence of an exception.
         """
 
     @abstractmethod

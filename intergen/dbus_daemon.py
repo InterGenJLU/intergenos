@@ -701,10 +701,14 @@ class InterGenDaemon(InterGenDBusInterface):
              escalate with the default user_consented=False and BE scanned — that is
              the router's job, never this direct affordance.)
         Fail-safe: no manager / no provider / declined consent / error all return a
-        clean JSON note; nothing is sent without an explicit Send.
+        clean JSON note; nothing is sent without an explicit Send. A send the
+        manager itself reports as not sent (the provider unreachable, or anything
+        raised inside it) is a not-sent reply too, read from the type the manager
+        returns — never inferred from the absence of an exception.
         """
         from intergen.consent_modal import prompt_send_consent
-        from intergen.interfaces.types import Message, MessageRole
+        from intergen.interfaces.types import (
+            EscalationNotSent, Message, MessageRole)
 
         if self._escalation is None:
             return json.dumps({
@@ -731,6 +735,15 @@ class InterGenDaemon(InterGenDBusInterface):
             result = self._escalation.escalate(
                 messages, reason="user-invoked phone-a-friend", user_consented=True,
             )
+            if isinstance(result, EscalationNotSent):
+                # The manager caught a failure and answered with its own
+                # sentence instead of raising. Nothing reached the frontier
+                # model, so the reply says not sent and names no provider as
+                # its source. Until 2026-09-22 this was reported as sent.
+                return json.dumps({
+                    "response": result.text,
+                    "source": "escalation", "sent": False,
+                })
             return json.dumps({
                 "response": result.text,
                 "source": f"frontier:{provider}",
