@@ -72,4 +72,19 @@ do_install() {
                      "${DESTDIR}/etc/openldap/schema"
     install -v -m755 examples/LDAP/{get*,ol*} \
                      "${DESTDIR}/etc/openldap/schema"
+
+    # AppArmor: eight upstream profiles confine the daemons and
+    # RPC helpers this package installs (smbd, nmbd, winbindd, samba-bgqd,
+    # samba-dcerpcd and the rpcd_* helpers). The profile
+    # text is upstream's, staged by the apparmor package in
+    # /usr/share/apparmor/extra-profiles, which nothing loads; this package links
+    # it into /etc/apparmor.d because this package is what puts the program on
+    # the machine, and the apparmor unit loads every file in /etc/apparmor.d at
+    # boot. apparmor is a runtime dependency so the link cannot dangle. See
+    # packages/core/apparmor/README.md, "Where a profile lives".
+    install -dm755 "${DESTDIR}/etc/apparmor.d"
+    for profile in samba-bgqd samba-dcerpcd samba-rpcd samba-rpcd-classic samba-rpcd-spoolss usr.sbin.nmbd usr.sbin.smbd usr.sbin.winbindd; do
+        ln -s "../../usr/share/apparmor/extra-profiles/${profile}" \
+            "${DESTDIR}/etc/apparmor.d/${profile}"
+    done
 }
