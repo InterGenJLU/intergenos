@@ -55,14 +55,12 @@ class _Harness:
         self._stub(bindir / "id", "#!/bin/sh\necho 0\n")
         self._stub(bindir / "wget", "#!/bin/sh\necho 'stand-in wget: refusing' >&2\nexit 1\n")
         self.bindir = bindir
-        # The helper sources the shared helper library from its installed
-        # path. On a machine that is not an InterGenOS install that file is
-        # absent; the copy in this tree is used instead, by rewriting that one
-        # line in a private copy of the script.
+        # Test the helper and library from the same tree. An installed library
+        # may predate an additive API used by this helper, so its presence must
+        # not decide which implementation these terminal tests exercise.
         script = HELPER.read_text()
-        if not SYSTEM_HELPER_LIB.exists():
-            script = script.replace(f"source {SYSTEM_HELPER_LIB}",
-                                    f"source {HELPER_LIB}")
+        script = script.replace(f"source {SYSTEM_HELPER_LIB}",
+                                f"source {HELPER_LIB}")
         self.script = self.tmp / "igos-install-cuda-toolkit"
         self.script.write_text(script)
         self.script.chmod(0o755)
