@@ -4508,6 +4508,98 @@ def archive_pkginfo(path):
         return None
 
 
+def _archive_matches_installed_build(db, name, archive_path):
+    """Is this archive EXACTLY the build the database records for `name`?
+
+    Returns (verdict, detail): verdict is "match", "differs" or
+    "unrecorded", and detail is the sentence a person reads.
+
+    WHAT "THE INSTALLED BUILD'S RECORDED IDENTITY" IS, read off the schema
+    rather than assumed: pkm records no archive-level sha256 anywhere. The
+    installed table carries `manifest_sha256` — the hash of the TEXT
+    MANIFEST's bytes, not of any archive — and nothing else that could
+    stand for the archive a build came from. What it does record, for every
+    installed build, is the sha256 of each file that build deployed, in the
+    `files` table and in the text manifest beside it. That set IS the
+    recorded identity of the installed build, and it is what an archive is
+    compared against here.
+
+    Every regular file the archive carries is hashed and matched against
+    the recorded hash for its path. A member the record does not hold, a
+    member whose bytes differ, or a recorded file the archive does not
+    carry, each make the archive a different build — which is the case this
+    exists for: an archive measured on an installed machine at the same
+    version and release as the installed package, carrying a function twice
+    that was absent on disk.
+
+    A build with no recorded content at all — no file rows, or rows with no
+    hash — is "unrecorded", NOT "match". Identity cannot be asserted from
+    an absence of evidence, and the caller re-deploys rather than claiming
+    the two are the same.
+
+    Directories, hook-generated files and the archive's own metadata are
+    not compared: a directory carries no content, a hook-generated file was
+    never in the payload (it is created on the machine, and verify already
+    excludes it from content checks for the same reason), and .PKGINFO is
+    the archive's own description of itself.
+    """
+    import hashlib
+    import tarfile
+
+    recorded = db.get_file_checksums(name)
+    generated = {
+        r["path"] for r in db.get_files(name) if r.get("source") == "helper"
+    }
+    comparable = {p: h for p, h in recorded.items()
+                  if h and p not in generated}
+    if not comparable:
+        return ("unrecorded", (
+            f"the database records no file content for the installed "
+            f"{name}: {len(recorded)} file(s) are owned and none carries a "
+            f"recorded hash"))
+
+    seen = set()
+    try:
+        with tarfile.open(str(archive_path)) as tf:
+            for member in tf:
+                if not member.isfile():
+                    continue
+                path = member.name.lstrip("./").lstrip("/")
+                if path in (".PKGINFO", "PKGINFO") or path.startswith(".INSTALL"):
+                    continue
+                if path in generated:
+                    continue
+                expected = comparable.get(path)
+                if expected is None:
+                    if path in recorded:
+                        continue  # owned, but no hash was ever recorded for it
+                    return ("differs", (
+                        f"the archive carries {path}, which the installed "
+                        f"{name} does not own"))
+                h = hashlib.sha256()
+                fh = tf.extractfile(member)
+                if fh is None:
+                    continue
+                for chunk in iter(lambda: fh.read(1 << 16), b""):
+                    h.update(chunk)
+                if h.hexdigest() != expected:
+                    return ("differs", (
+                        f"{path} in the archive is not the installed build's "
+                        f"file: archive sha256 {h.hexdigest()}, recorded "
+                        f"{expected}"))
+                seen.add(path)
+    except (OSError, tarfile.TarError) as e:
+        return ("unrecorded",
+                f"the archive could not be read for comparison: {e}")
+
+    missing = sorted(set(comparable) - seen)
+    if missing:
+        return ("differs", (
+            f"the installed {name} owns {len(missing)} file(s) the archive "
+            f"does not carry, starting with {missing[0]}"))
+    return ("match", f"{len(seen)} file(s) compared by sha256")
+
+
 def _archive_is(path, name, version, release):
     """True when this archive's own .PKGINFO names exactly this build."""
     fields = archive_pkginfo(path)
@@ -5020,11 +5112,44 @@ def _local_archive_upgrade_candidates(db, repo, args, archive):
         emit_error(decision.message)
         sys.exit(1)
     if decision.kind == "same":
-        emit_info(
-            f"{txn.describe_subject(name, existing)} is already installed at "
-            f"exactly the archive's build. Nothing to do; nothing was changed."
-        )
-        return [], []
+        # THE VERSION AND RELEASE BEING EQUAL IS NOT THE SAME BUILD.
+        #
+        # This branch used to decide by version comparison alone and print
+        # "exactly the archive's build" for any archive whose numbers
+        # matched. Measured on an installed machine: an archive at the same
+        # version and release as the installed package, whose content
+        # differed from what was on disk — a function present twice in the
+        # archive and absent on the machine — was answered "nothing to do".
+        # A person who has just built that archive and is deploying it is
+        # told, wrongly, that the machine already has it.
+        #
+        # So the claim is now checked before it is made, against the only
+        # record of the installed build's content that exists (see
+        # _archive_matches_installed_build). Identical: nothing to do, as
+        # before. Different, or not establishable: the archive is deployed,
+        # and the reason is stated. Deploying is the fail-closed direction —
+        # the person named this file and asked for it to be installed.
+        _verdict, _detail = _archive_matches_installed_build(db, name, path)
+        if _verdict == "match":
+            emit_info(
+                f"{txn.describe_subject(name, existing)} is already "
+                f"installed at exactly the archive's build ({_detail}). "
+                f"Nothing to do; nothing was changed."
+            )
+            return [], []
+        if _verdict == "differs":
+            emit_warn(
+                f"{name} {txn.format_vr(existing)} is installed at this "
+                f"version and release, but the archive is NOT the installed "
+                f"build: {_detail}. Deploying the archive."
+            )
+        else:
+            emit_warn(
+                f"{name} {txn.format_vr(existing)} is installed at this "
+                f"version and release, but whether it is the archive's build "
+                f"cannot be established: {_detail}. Deploying the archive."
+            )
+        return [(existing, candidate)], []
     if decision.kind == "downgrade":
         emit_warn(decision.message)
 

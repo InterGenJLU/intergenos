@@ -146,7 +146,17 @@ class _Base(unittest.TestCase):
         self.root = self.tmp / "root"
         self.root.mkdir()
         self.db = PackageDB(self.tmp / "pkm.db", root=str(self.root))
-        self.db.add_installed(NAME, "1.0", release=3, tier="core")
+        # The installed build carries its file AND the file's recorded
+        # sha256, which is what a real install leaves behind — and what the
+        # same-release comparison reads. Registering a name with no file
+        # rows leaves a build whose content is unrecorded, which is a
+        # different case with its own tests (see
+        # tests/pkm/test_archive_at_the_same_release_is_compared_not_assumed.py).
+        _pkg_id = self.db.add_installed(NAME, "1.0", release=3, tier="core")
+        _installed = self.root / "usr" / "bin" / "widget"
+        _installed.parent.mkdir(parents=True, exist_ok=True)
+        _installed.write_bytes(b"three")
+        self.db.add_files(_pkg_id, ["usr/bin/widget"])
         self.archive = _make_archive(
             self.tmp / f"{NAME}-1.0-4.igos.tar.gz", NAME, "1.0", 4,
             {"usr/bin/widget": b"#!/bin/sh\necho four\n"})
@@ -322,6 +332,9 @@ class TheDirectionIsChecked(_Base):
         self.assertEqual(installer.calls[0]["archive_path"], str(older))
 
     def test_the_same_build_is_nothing_to_do(self):
+        # The archive holds the same bytes the installed build recorded, so
+        # it IS the same build — which is now checked rather than inferred
+        # from the version and release matching.
         same = _make_archive(self.tmp / f"{NAME}-1.0-3.igos.tar.gz", NAME,
                              "1.0", 3, {"usr/bin/widget": b"three"})
         rc, out, installer, _ = self._run(self._args(same))
