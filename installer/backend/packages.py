@@ -4,6 +4,7 @@
 
 import logging
 import os
+import re
 import subprocess
 import sys
 import time
@@ -75,16 +76,34 @@ def _read_pci_inventory(runner=None):
     return proc.stdout.splitlines(), None
 
 
+# A PCI device identity as `lspci -n` prints it: four hexadecimal digits for
+# the vendor, a colon, four hexadecimal digits for the device. Matched against
+# the lowercased field, so lspci's upper-case hex is accepted.
+_PCI_IDENTITY = re.compile(r"[0-9a-f]{4}:[0-9a-f]{4}")
+
+
 def _pci_id_of(line):
     """The "<vendor>:<device>" field of one `lspci -n` line, lowercase, or None.
 
     lspci -n line: "<slot> <class>: <vendor>:<device> [...]"
       e.g. "01:00.0 0300: 10de:2484 (rev a1)"
+
+    The field is returned only when it HAS the shape of a device identity.
+    Position alone is not identity: taking the third field verbatim made any
+    line with three or more fields name a device, whatever stood there — a
+    permission error, one of lspci's own messages, or a device line whose
+    identity is malformed. The identity list was then not empty, so a listing
+    that named no device was indistinguishable from one that did, and the
+    reading that cannot be true passed in silence. Found by the independent
+    read of the previous form of this change, 2026-09-22.
     """
     parts = line.split()
     if len(parts) < 3:
         return None
-    return parts[2].strip().lower()
+    ident = parts[2].strip().lower()
+    if not _PCI_IDENTITY.fullmatch(ident):
+        return None
+    return ident
 
 
 def detect_display_pci_vendors():
@@ -115,9 +134,19 @@ def detect_display_pci_vendors():
         cls = parts[1].rstrip(":")
         if not cls.startswith("03"):  # 03xx = VGA / 3D / display controllers
             continue
-        vendor = parts[2].split(":")[0].strip().lower()
-        if vendor:
-            vendors.add(vendor)
+        # Read the vendor out of a field that is an identity, by the same rule
+        # the predicate below uses. Splitting the third field on a colon and
+        # keeping whatever came first accepted anything: measured on the
+        # previous tip, a listing whose one line was
+        # "01:00.0 0300: not-an-identity" gave the vendor set
+        # {"not-an-identity"}, and a non-empty set is what every caller reads
+        # as "this machine was examined". No gated package can match such a
+        # vendor, so nothing was installed that should not have been; what was
+        # wrong is that a listing naming no device looked like one that did.
+        ident = _pci_id_of(line)
+        if ident is None:
+            continue
+        vendors.add(ident.split(":")[0])
 
     _PCI_VENDOR_CACHE = vendors
     return vendors

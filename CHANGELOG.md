@@ -248,8 +248,13 @@ landed is in the repository README, not here.
   silence. That is not a fact about any machine this installer runs on, because
   every one of them has PCI devices, so a silent no there is a broken inventory
   reading exactly like a correct one. The check now decides on the device
-  identities the output parses to rather than on how many lines it printed, so
-  every form of that reading is covered by one rule. The answer does not
+  identities the output parses to rather than on how many lines it printed, and
+  a field is a device identity only when it HAS the shape of one — four
+  hexadecimal digits, a colon, four hexadecimal digits — so a line that names no
+  device contributes nothing whatever its field count, and every form of that
+  reading is covered by one rule. Both questions asked of the shared read use
+  that rule, so the display vendors the package hardware gate reports are read
+  the same way. The answer does not
   change: it stays no, fail-closed, for the same reason the unreadable case
   does. What changes is that the reading is named in one information line, so
   the record of an install says which of the two answers of no it was. A real

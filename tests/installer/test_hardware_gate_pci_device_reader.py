@@ -207,5 +207,106 @@ class TheDisplayGateIsUnchanged(unittest.TestCase):
                 self.assertEqual(packages.detect_display_pci_vendors(), set())
 
 
+class ALineThatNamesNoDeviceIsNotAnIdentity(unittest.TestCase):
+    """Three or more fields is not the same as a device identity.
+
+    The reader takes the third whitespace-separated field of an `lspci -n`
+    line. Taking it by POSITION alone made any line with three or more fields
+    yield an identity, whatever stood there: a permission error, one of
+    lspci's own diagnostic messages, or a device line whose identity is
+    malformed. The identity list was then not empty, the check that names an
+    impossible reading did not fire, the membership test was false, and the
+    answer was no with nothing said — the same reading this change exists to
+    name, reached through a different door. The field is an identity only when
+    it HAS the shape of one: four hexadecimal digits, a colon, four
+    hexadecimal digits.
+
+    The three listings below were measured by the independent read of the
+    previous form of this change (2026-09-22); the two-field listing is the
+    case that was already covered and is kept here beside them.
+    """
+
+    LISTINGS_THAT_NAME_NO_DEVICE = (
+        "01:00.0 0300: not-an-identity\n",
+        "cannot open /sys/bus/pci: Permission denied\n",
+        "lspci: Unable to load libkmod resources\n",
+        "garbage here\nmore garbage\n",
+        "01:00.0 0300: notahexpair (rev a1)\n",
+        "01:00.0 0300: 10d:24a (rev a1)\n",
+    )
+
+    def test_the_predicate_answers_no_and_says_so(self):
+        for stdout in self.LISTINGS_THAT_NAME_NO_DEVICE:
+            with self.subTest(stdout=stdout):
+                with self.assertLogs("forge.packages", level="INFO") as logs:
+                    answer = packages.target_has_pci_device(
+                        "17a0", "9755", runner=_runner_returning(stdout))
+                self.assertFalse(answer)
+                self.assertTrue(
+                    any("listed no PCI devices" in line
+                        for line in logs.output), logs.output)
+
+    def test_the_parser_returns_nothing_for_them(self):
+        for stdout in self.LISTINGS_THAT_NAME_NO_DEVICE:
+            for line in stdout.splitlines():
+                with self.subTest(line=line):
+                    self.assertIsNone(packages._pci_id_of(line))
+
+    def test_a_well_formed_identity_is_still_read(self):
+        """The shape check must not reject the lines it exists to admit."""
+        self.assertEqual(
+            packages._pci_id_of("01:00.0 0300: 10de:2484 (rev a1)"),
+            "10de:2484")
+        self.assertEqual(
+            packages._pci_id_of("2D:00.0 0805: 17A0:9755 (rev 01)"),
+            "17a0:9755")
+
+    def test_one_real_device_line_among_them_is_still_found(self):
+        """A listing that names a device is a true reading and stays silent,
+        even when unreadable lines sit beside it."""
+        stdout = ("lspci: Unable to load libkmod resources\n"
+                  "2d:00.0 0805: 17a0:9755 (rev 01)\n")
+        with self.assertNoLogs("forge.packages", level="INFO"):
+            answer = packages.target_has_pci_device(
+                "17a0", "9755", runner=_runner_returning(stdout))
+        self.assertTrue(answer)
+
+
+class TheDisplayGateReadsIdentitiesToo(unittest.TestCase):
+    """The other consumer of the same reader parses the same field.
+
+    detect_display_pci_vendors does not call the identity parser; it reads the
+    class field and the vendor half of the third field itself. Measured on the
+    tip before this change, a listing whose only line was
+    "01:00.0 0300: not-an-identity" gave the vendor set {"not-an-identity"} —
+    a non-empty set, which every caller reads as "this machine was examined
+    and these are its display vendors". No gated package can match such a
+    vendor, so nothing is installed that should not be; what is wrong is that
+    a listing naming no device is indistinguishable from one that does. Both
+    consumers now decide on identities that have the shape of one.
+    """
+
+    def setUp(self):
+        packages._PCI_VENDOR_CACHE = None
+        self.addCleanup(setattr, packages, "_PCI_VENDOR_CACHE", None)
+
+    def test_a_display_line_with_a_malformed_identity_names_no_vendor(self):
+        for stdout in ("01:00.0 0300: not-an-identity\n",
+                       "01:00.0 0300: notahexpair (rev a1)\n",
+                       "01:00.0 0300: 10d:24a (rev a1)\n"):
+            with self.subTest(stdout=stdout):
+                packages._PCI_VENDOR_CACHE = None
+                with mock.patch.object(packages.subprocess, "run",
+                                       _runner_returning(stdout)):
+                    self.assertEqual(packages.detect_display_pci_vendors(),
+                                     set())
+
+    def test_the_real_listing_is_read_exactly_as_before(self):
+        with mock.patch.object(packages.subprocess, "run",
+                               _runner_returning(_INVENTORY)):
+            self.assertEqual(packages.detect_display_pci_vendors(),
+                             {"8086", "10de"})
+
+
 if __name__ == "__main__":
     unittest.main()
