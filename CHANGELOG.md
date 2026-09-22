@@ -258,6 +258,15 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **A removal asks first, and refuses rather than assume.** `pkm remove`
+  now pauses for a yes or no, and with no terminal attached and no `--yes`
+  it stops and says so, naming both the flag that would let it proceed and
+  the flag that shows the plan instead. `pkm upgrade` has worked this way for
+  a long time; removal, which is the destructive direction, had no
+  confirmation at all and removed immediately whether or not anybody was
+  there to see it. The question comes before the restore point, so declining
+  costs nothing, and the default answer is no.
+
 - **A removal can be previewed before it happens.** `pkm remove --dry-run`
   prints what the removal would unlink, which directories it would prune,
   which paths it would keep because another installed package co-owns them or

@@ -246,7 +246,10 @@ class S3RemoveTest(SilentLoopTestBase):
 
     def _run_remove(self, level, name):
         args = argparse.Namespace(package=name, force=True, quiet=False,
-                                  verbose=False)
+                                  verbose=False,
+                                  # Consent is stated: this case is about the
+                                  # progress brackets, not the confirmation.
+                                  remove_yes=True, remove_dry_run=False)
         cap = _CaptureLevel(level)
         with cap, \
              patch.object(cli, "refresh_available_updates_after_transaction",

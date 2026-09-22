@@ -232,7 +232,11 @@ class RemoveWiringTests(_WiringHarness):
     def test_hook_fires_before_remove(self):
         self.db.add_installed("foo", "1.0", release=1, tier="core")
         args = SimpleNamespace(package="foo", force=True, quiet=False,
-                               verbose=False)
+                               verbose=False,
+                               # Consent is stated: this case is about the
+                               # restore-point hook firing before the removal,
+                               # not about the confirmation gate.
+                               remove_yes=True, remove_dry_run=False)
 
         def record_remove(self_remover, name, **k):
             self.order.append(("remove", name))

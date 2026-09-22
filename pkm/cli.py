@@ -1030,6 +1030,12 @@ def build_parser():
     p_remove.add_argument("package")
     p_remove.add_argument("--force", action="store_true", help="Remove even if others depend on it")
     p_remove.add_argument(
+        "--yes", "-y", action="store_true", dest="remove_yes",
+        help="Confirm the removal without the pause. With no terminal "
+             "attached and no --yes, the removal is refused rather than "
+             "assumed — the same rule `pkm upgrade` follows.",
+    )
+    p_remove.add_argument(
         "--dry-run", action="store_true", dest="remove_dry_run",
         help="Show what the removal would unlink, prune, retain and preserve, "
              "and change nothing. Removal is the one verb that can delete a "
@@ -2613,6 +2619,13 @@ def cmd_remove(db, args):
     remover = PackageRemover(db)
     reporter = Reporter.from_args(args)
     dry_run = bool(getattr(args, "remove_dry_run", False))
+    # Ask before the destructive direction, and refuse rather than assume.
+    # This sits BEFORE the restore point and before anything is read for the
+    # removal, so a declined or refused removal costs the machine nothing —
+    # a restore point consumes disk, and taking one for a removal the person
+    # then declines would charge them for changing their mind.
+    if not dry_run and not _confirm_remove(args, args.package):
+        return
     # Chronicle: pre-transaction restore point, before the removal mutates the
     # live filesystem (captures the outgoing package's current bytes + pkm.db).
     # No-op without a registered handler; a handler failure is loud, not fatal.
@@ -5443,6 +5456,39 @@ def _print_upgrade_plan_summary(upgradable, held_excluded_names, db):
         "Configuration-file changes (.pkmnew sidecars) are reported "
         "per-package at install time; review them at end of upgrade."
     )
+
+
+def _confirm_remove(args, subject):
+    """The removal's confirmation gate, on `pkm upgrade`'s rule.
+
+    Returns True to proceed, False when the person declined. Exits 1 when
+    there is no terminal and no --yes: silence is not consent, and removal is
+    the direction that can unlink a file the package cannot put back. The
+    refusal names BOTH flags, because a person who reached it wants one of two
+    things — to proceed anyway, or to see the plan first — and a refusal that
+    names only the first pushes everybody toward proceeding blind.
+
+    A --dry-run never reaches here; a preview changes nothing, so there is
+    nothing to confirm.
+    """
+    if getattr(args, "remove_yes", False):
+        return True
+    if not sys.stdin.isatty():
+        emit_error(
+            f"stdin is not a tty, so nobody can confirm removing {subject}. "
+            f"Pass --yes to confirm non-interactively, or --dry-run to see "
+            f"what the removal would take off this machine without changing "
+            f"anything."
+        )
+        sys.exit(1)
+    try:
+        answer = input(f"  Remove {subject}? [y/N] ").strip().lower()
+    except EOFError:
+        answer = ""
+    if answer not in ("y", "yes"):
+        print("  Aborted. Nothing was removed.")
+        return False
+    return True
 
 
 def _confirm_upgrade(args):

@@ -36,6 +36,9 @@ def _drive_command(monkeypatch, verb, root, expected_directory):
     monkeypatch.setattr(cli, "repo_manager", lambda: repo)
     monkeypatch.setattr(cli, "_print_upgrade_plan_summary", lambda *args: None)
     monkeypatch.setattr(cli, "_confirm_upgrade", lambda args: True)
+    # `pkm remove` now has the same gate as `pkm upgrade`; this case is
+    # about handler-directory isolation, so it states consent the same way.
+    monkeypatch.setattr(cli, "_confirm_remove", lambda args, subject: True)
 
     args = cli.build_parser().parse_args([verb, "example"])
     consulted = []

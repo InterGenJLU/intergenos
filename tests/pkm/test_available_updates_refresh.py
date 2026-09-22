@@ -129,7 +129,12 @@ class RemoveWiringTest(unittest.TestCase):
         db = PackageDB(str(Path(tmp.name) / "t.db"))
         self.addCleanup(db.close)
         args = argparse.Namespace(package="foo", force=False, quiet=True,
-                                  verbose=False, json=False)
+                                  verbose=False, json=False,
+                                  # `pkm remove` now asks before it removes;
+                                  # this case is about the advisory refresh,
+                                  # so it states consent rather than testing
+                                  # the gate.
+                                  remove_yes=True, remove_dry_run=False)
         fake_remover = MagicMock()
         fake_remover.remove.return_value = (True, "removed")
         with patch("pkm.cli.PackageRemover", return_value=fake_remover), \
