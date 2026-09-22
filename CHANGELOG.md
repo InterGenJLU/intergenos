@@ -255,8 +255,15 @@ landed is in the repository README, not here.
   before. A connection whose owner had already told it to ignore the servers
   its network hands out is left as its owner set it: the page never changed
   it, so the page does not undo it. A machine where the page never wrote
-  anything is not touched at all. The page's panel stopped claiming a choice was in effect merely because
-  its own file existed: when a connection is still answering with its
+  anything is not touched at all. A choice that could not be applied to a
+  single connection — because this machine has no network client, or because
+  its client could not answer — now fails and says so, instead of reporting
+  success and leaving the machine using the servers its network hands out;
+  and a choice that fails part way leaves nothing of itself behind. The
+  repair that runs at every upgrade does nothing at all to a machine that is
+  already exactly as its choice says, instead of rewriting the files and
+  restarting the resolver each time. The page's panel stopped claiming a
+  choice was in effect merely because its own file existed: when a connection is still answering with its
   network's servers, the panel now says so and names that connection. A
   machine that already made a choice is repaired at its next upgrade, because
   the Welcomer runs once per user account and would never come back on its
