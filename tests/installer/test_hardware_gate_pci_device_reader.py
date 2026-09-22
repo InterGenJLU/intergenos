@@ -79,6 +79,20 @@ class PciDevicePredicate(unittest.TestCase):
         self.assertFalse(answer)
         self.assertTrue(any("lspci exited 7" in line for line in logs.output))
 
+    def test_an_empty_inventory_says_so_instead_of_answering_silently(self):
+        """lspci exiting 0 with no output is not the same fact as a machine
+        without this device, and it is not a fact about any real machine: every
+        machine the installer runs on has PCI devices. The answer is still no —
+        fail-closed — but it is said out loud, because an empty listing that
+        passes silently is how a broken inventory reads as a correct one."""
+        with self.assertLogs("forge.packages", level="INFO") as logs:
+            answer = packages.target_has_pci_device(
+                "17a0", "9755", runner=_runner_returning(""))
+        self.assertFalse(answer)
+        self.assertTrue(
+            any("listed no PCI devices" in line for line in logs.output),
+            logs.output)
+
     def test_a_short_line_is_skipped_not_fatal(self):
         answer = packages.target_has_pci_device(
             "17a0", "9755",

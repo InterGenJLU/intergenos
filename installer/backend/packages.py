@@ -145,6 +145,15 @@ def target_has_pci_device(vendor, device, runner=None):
         LOG.warning("hardware-gate: %s; the check for PCI device %s is "
                     "answered no (fail-closed)", why, want)
         return False
+    if not lines:
+        # An inventory that could be read and holds nothing is not a fact
+        # about any machine this installer runs on: every one of them has PCI
+        # devices. The answer stays no, but it is said out loud, because the
+        # one reading that must never pass silently is the reading that cannot
+        # be true.
+        LOG.info("hardware-gate: lspci exited 0 but listed no PCI devices; "
+                 "the check for PCI device %s is answered no", want)
+        return False
     return any(_pci_id_of(line) == want for line in lines)
 
 
