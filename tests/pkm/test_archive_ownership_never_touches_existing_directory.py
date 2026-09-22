@@ -12,15 +12,20 @@ ownership or modes for directory /usr/bin" on every authentication.
 
 Two rules follow, and these tests hold the deploy path to both.
 
-1. A directory member's recorded ownership is never applied.  Directories are
-   created by the extract, which runs as root and strips archive ownership, so
-   they are root-owned already; a package that needs a service-owned directory
-   applies that in its post-install hook, on the live system, where the user it
-   names has been created.  No shipped recipe stages non-root ownership into
-   its archive: every ``chown`` to a service account in ``packages/`` runs in
-   ``post_install``, and the builder's staging chokepoint
-   (``igos-build/builder.py``, ``_force_root_ownership``) forces root:root on
-   anything staged with an id at or above 1000.
+1. A directory member's recorded ownership never reaches a directory the
+   TARGET ALREADY HAD.  That directory belongs to the machine, whoever the
+   archive says owns it, and it is the measured case above.  (This rule was
+   once "never applied to any directory", which drew the line by member type
+   rather than by whose the object is; it was completed in the release that
+   added tests/pkm/test_archive_directory_ownership_completes_the_file_rule.py
+   — a directory THIS deploy created is the package's own and takes its
+   recorded system-account ownership, exactly as a file member does.  The
+   tests below are unaffected either way: the directories they name either
+   already exist or record an ordinary account.)  No shipped recipe stages
+   non-root ownership into its archive: every ``chown`` to a service account
+   in ``packages/`` runs in ``post_install``, and the builder's staging
+   chokepoint (``igos-build/builder.py``, ``_force_root_ownership``) forces
+   root:root on anything staged with an id at or above 1000.
 
 2. A file member whose recorded owner resolves to an ORDINARY account on the
    target (uid or gid at or above 1000, the same line the builder's chokepoint

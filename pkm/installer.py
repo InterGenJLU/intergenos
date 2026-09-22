@@ -1369,6 +1369,31 @@ class PackageInstaller:
             # compiled files and they stay.
             _purge_stale_bytecode(self.root, file_list)
 
+            # WHICH DIRECTORIES THE TARGET ALREADY HAD, read BEFORE the
+            # extract because afterwards every directory the archive names
+            # exists and the two cases are indistinguishable. This is the
+            # discriminator the directory-ownership rule below needs: a
+            # directory this deploy created is the package's own to own; one
+            # the machine already had belongs to the machine.
+            _pre_existing_dirs = set()
+            try:
+                with tarfile.open(str(archive_path)) as _tf:
+                    for _m in _tf:
+                        if not _m.isdir():
+                            continue
+                        try:
+                            _p = (self.root / _m.name.lstrip("/")).resolve()
+                            _p.relative_to(self.root.resolve())
+                        except (ValueError, OSError):
+                            continue
+                        if _p.exists():
+                            _pre_existing_dirs.add(_m.name)
+            except (OSError, tarfile.TarError) as e:
+                return False, (
+                    f"cannot read the archive's directory members for {name}: "
+                    f"{e}"
+                )
+
             # The second long part, and the one that writes to the live
             # filesystem — named for the same reason as the extract above.
             if reporter:
@@ -1428,42 +1453,58 @@ class PackageInstaller:
                 if not deployed.exists():
                     continue
                 if wants_owner and member.isdir():
-                    # A DIRECTORY'S RECORDED OWNERSHIP IS NEVER APPLIED.
+                    # A DIRECTORY THE TARGET ALREADY HAD IS NEVER RE-OWNED.
                     #
                     # Measured on a running installation 2026-09-20: an archive
                     # carrying the directory entries `usr/` and `usr/bin/`
                     # recorded as an ordinary account was installed, and this
                     # loop chowned the machine's REAL /usr and /usr/bin to that
-                    # account — the check below was only `deployed.exists()`,
-                    # which is true for every directory a running system
-                    # already has. An unprivileged account could then write to
-                    # /usr/bin, and sshd refused its authorized-keys command
-                    # with "bad ownership or modes for directory /usr/bin" on
-                    # every authentication until the owner was restored by hand.
+                    # account — the check was only `deployed.exists()`, which
+                    # is true for every directory a running system already has.
+                    # An unprivileged account could then write to /usr/bin, and
+                    # sshd refused its authorized-keys command with "bad
+                    # ownership or modes for directory /usr/bin" on every
+                    # authentication until the owner was restored by hand.
                     #
-                    # There is nothing to preserve by chowning a directory here.
-                    # The extract runs as root and strips archive ownership, so
-                    # every directory it creates is root-owned already, which is
-                    # what a shipped archive wants; a package that needs a
-                    # service-owned directory applies that in its post-install
-                    # hook, on the live system, after the account exists. No
-                    # shipped recipe stages non-root ownership into its archive:
+                    # That was answered by refusing EVERY directory, which was
+                    # the right narrowing to make at the time and the wrong
+                    # rule to keep: it drew a line by member type where the
+                    # file rule draws it by what the ownership IS and whose
+                    # the object is. The line is now the same one, in two
+                    # parts. A directory the target already had belongs to the
+                    # target, whoever the archive says owns it. A directory
+                    # THIS deploy created is the package's own, and its
+                    # recorded ownership is applied when it resolves to a
+                    # system account — exactly the test a file member passes.
+                    # An ordinary account is refused for a directory as it is
+                    # for a file, below.
+                    #
+                    # This changes nothing about what the tree ships today:
                     # every chown to a service account under packages/ runs in
-                    # post_install, and the builder's staging chokepoint
+                    # post_install on the live system, after the account
+                    # exists — the enumerated set is /var/spool/atjobs,
+                    # /var/spool/atspool, /var/spool/exim, /var/spool/fcron,
+                    # /var/lib/openldap, /etc/openldap/slapd.d, /var/lib/gdm
+                    # and the service directories of the optional servers —
+                    # and the builder's staging chokepoint
                     # (igos-build/builder.py, _force_root_ownership) forces
                     # root:root on anything staged with an id at or above
-                    # _ORDINARY_ID_MIN.
-                    print(
-                        f"  WARNING: archive records the DIRECTORY "
-                        f"{_member_display_path(member.name)} as "
-                        f"{uname or 'root'}:{gname or 'root'} — directory "
-                        f"ownership from an archive is never applied; the "
-                        f"directory is left as it is on the target. A package "
-                        f"that needs a service-owned directory sets that in "
-                        f"its post-install hook.",
-                        file=sys.stderr,
-                    )
-                    wants_owner = False
+                    # _ORDINARY_ID_MIN. The rule is what an archive would meet
+                    # if one ever did stage a service-owned directory of its
+                    # own making.
+                    if member.name in _pre_existing_dirs:
+                        print(
+                            f"  WARNING: archive records the DIRECTORY "
+                            f"{_member_display_path(member.name)} as "
+                            f"{uname or 'root'}:{gname or 'root'}, but that "
+                            f"directory already existed on the target — its "
+                            f"ownership belongs to the machine and is left as "
+                            f"it is. A package that needs a service-owned "
+                            f"directory of its own sets that in its "
+                            f"post-install hook.",
+                            file=sys.stderr,
+                        )
+                        wants_owner = False
                 if wants_owner:
                     if _ids is None:
                         _ids = _read_target_ids(self.root)
@@ -1484,12 +1525,14 @@ class PackageInstaller:
                             file=sys.stderr,
                         )
                     elif uid >= _ORDINARY_ID_MIN or gid >= _ORDINARY_ID_MIN:
-                        # AN ORDINARY ACCOUNT NEVER RECEIVES A DEPLOYED FILE.
-                        # The same line the builder's staging chokepoint draws:
-                        # an id at or above _ORDINARY_ID_MIN in an archive is
-                        # the build-user leak class, never a service account.
-                        # Applying it hands a file in a system path to a person
-                        # who can then rewrite it.
+                        # AN ORDINARY ACCOUNT NEVER RECEIVES A DEPLOYED FILE,
+                        # AND NEVER A DEPLOYED DIRECTORY EITHER. The same line
+                        # the builder's staging chokepoint draws: an id at or
+                        # above _ORDINARY_ID_MIN in an archive is the
+                        # build-user leak class, never a service account.
+                        # Applying it hands a path in a system location to a
+                        # person who can then rewrite what lives there — which
+                        # is what a directory grants for everything inside it.
                         if special & (stat.S_ISUID | stat.S_ISGID):
                             return False, (
                                 f"{_member_display_path(member.name)} in {name} carries "
@@ -1497,7 +1540,9 @@ class PackageInstaller:
                                 f"{uname or 'root'}:{gname or 'root'}, which "
                                 f"resolves to an ordinary account "
                                 f"({uid}:{gid}) on the target. A privileged "
-                                f"program owned by an ordinary account is an "
+                                f"program, or a directory that passes its "
+                                f"group on to what is created inside it, "
+                                f"owned by an ordinary account is an "
                                 f"escalation primitive — install refused."
                             )
                         print(
