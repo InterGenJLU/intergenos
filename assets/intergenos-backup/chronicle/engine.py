@@ -1043,6 +1043,18 @@ class Engine:
 
     # -- restore --------------------------------------------------------
 
+    @staticmethod
+    def _missing_restore_path_reason(path, entries):
+        # A captured file need not have a directory entry for every parent.
+        # Use the saved path boundary even when that directory no longer exists.
+        prefix = path.rstrip("/") + "/"
+        if path and (any(saved.startswith(prefix) for saved in entries)
+                     or (os.path.isdir(path.rstrip("/") or "/")
+                         and not os.path.islink(path.rstrip("/") or "/"))):
+            return ("directory contents are not restored recursively; "
+                    "name the individual stored paths")
+        return "not in this version"
+
     @_state_locked
     def restore_plan(self, layer, version_id, paths, mode="replace-confirm"):
         """Describe what a restore will change WITHOUT writing (spec §8: never
@@ -1054,7 +1066,7 @@ class Engine:
             e = by_path.get(p)
             if e is None:
                 actions.append({"path": p, "action": "skip",
-                                "reason": "not in this version"})
+                                "reason": self._missing_restore_path_reason(p, by_path)})
                 continue
             live_exists = os.path.lexists(p)
             actions.append({
@@ -1094,7 +1106,8 @@ class Engine:
         for p in paths:
             e = by_path.get(p)
             if e is None:
-                results.append({"path": p, "ok": False, "reason": "not in version"})
+                results.append({"path": p, "ok": False,
+                                "reason": self._missing_restore_path_reason(p, by_path)})
                 continue
             try:
                 dest = self._restore_one(layer, version_id, e, root, store, mode)

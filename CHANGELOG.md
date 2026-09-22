@@ -237,6 +237,10 @@ landed is in the repository README, not here.
   `--all` to reach an install's full record.
 
 ### Fixed
+- **Chronicle explains directory restore requests.** A directory without an
+  exact saved entry is distinguished from an absent path. Previews identify
+  recorded directories as metadata-only restores; contents still require
+  individual saved paths.
 - **`intergen --version` and the Version line of `intergen status` name the
   release that is installed.** Both printed `0.1.0` and stopped there. That
   string has not moved in the life of the project, while the package that

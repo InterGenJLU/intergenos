@@ -191,6 +191,9 @@ def cmd_restore(backend, args, rep):
     for a in plan["actions"]:
         if a["action"] == "skip":
             rep.info(f"  SKIP {a['path']} — {a['reason']}")
+        elif a.get("type") == "dir":
+            rep.info(f"  restore directory metadata only {a['path']} "
+                     "— contents are not restored recursively")
         elif a.get("will_overwrite"):
             rep.info(f"  OVERWRITE (with confirmation) {a['path']}")
         else:

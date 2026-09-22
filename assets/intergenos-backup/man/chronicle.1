@@ -78,6 +78,12 @@ is written. A restore that must recreate ownership is carried out by the
 higher-capability
 .BR chronicle-restore@ (8)
 leg.
+.PP
+Paths match individual entries in the selected version. A recorded directory
+restores its metadata only; its children are not restored recursively.
+A directory without an exact entry is skipped with a directory-specific
+message, distinct from a path absent from the version. Name the individual
+stored paths to restore directory contents.
 .TP
 .BR verify " [\fILAYER\fR] [\fIVERSION\fR] [\fB\-\-scrub\fR]"
 Verify a version's integrity, or with \fB\-\-scrub\fR re-hash the whole store
