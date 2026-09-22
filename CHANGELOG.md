@@ -247,6 +247,21 @@ landed is in the repository README, not here.
   `--all` to reach an install's full record.
 
 ### Fixed
+- **Removing a package no longer deletes files the package never shipped, and
+  undoing a documented choice no longer makes a package look damaged.** A
+  package whose lifecycle hook creates files on the machine records them as
+  its own, and those rows were treated exactly like archive payload. Measured
+  on an installed machine: a desktop package whose hook re-applies a name-server
+  choice had three of that machine's OWN network connection files recorded
+  under it — the hook's edit was what first wrote them to disk — so removing
+  the package would have unlinked the machine's network configuration; and
+  after the documented way of giving the choice up, which deletes the two files
+  the hook itself wrote, `pkm verify` reported the package as damaged to
+  someone who had followed the documentation. A row the hook created is now
+  kept by `pkm remove`, which names every path it keeps so nothing is silently
+  left behind, and an absent one is reported by `pkm verify` in its own named
+  count instead of as a missing file. The package's own payload is still
+  removed, and a payload file that is genuinely missing is still a fault.
 - **A name-server choice whose resolver never restarted no longer leaves the
   machine half-configured.** The choice writes the servers into a file the
   resolver reads only when it starts, so the verb restarts it; if that restart

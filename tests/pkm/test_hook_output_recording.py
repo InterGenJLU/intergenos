@@ -211,7 +211,18 @@ class RecordingTests(_InstallHarness):
         self.assertIsNotNone(row, "hook-created directory left unowned")
         self.assertEqual((row[0], row[1]), (1, 1))
 
-    def test_remove_takes_the_hook_output_with_it(self):
+    def test_remove_leaves_the_hook_output_on_disk_and_names_it(self):
+        """REVERSED DELIBERATELY. This case required the opposite until now:
+        remove unlinked the hook's output so no orphan was left that pkm could
+        no longer see. The orphan is real, and it is why the removal now NAMES
+        every path it keeps. What changed the balance is a measurement: on an
+        installed machine on 2026-09-22, a package's hook was what first
+        persisted three of the MACHINE'S OWN network connection files, so they
+        were recorded as hook-generated under that package, and a remove would
+        have unlinked the machine's network configuration. The attribution rule
+        cannot separate those from a cache — both are files the hook created —
+        so the choice is between an unrecoverable deletion and a recoverable
+        leftover that is reported. It takes the leftover."""
         ok, msg = self.installer.install(
             "demo", archive_path=str(self._archive(hook_body=self.HOOK)))
         self.assertTrue(ok, msg)
@@ -221,10 +232,14 @@ class RecordingTests(_InstallHarness):
         ok, msg = PackageRemover(self.db, root=str(self.root)).remove(
             "demo", force=True)
         self.assertTrue(ok, msg)
-        self.assertFalse(
+        self.assertTrue(
             generated.exists(),
-            "remove left the hook's output on disk — an orphan pkm can no "
-            "longer see, because its owning row went with the package")
+            "remove unlinked a file the package never shipped and cannot put "
+            "back:\n" + msg)
+        self.assertIn("hook-generated", msg,
+                      "the removal kept a file and said nothing about it, "
+                      "which is the orphan this case used to prevent:\n" + msg)
+        self.assertIn("var/cache/demo/index", msg)
 
     def test_a_package_without_a_hook_records_nothing(self):
         ok, msg = self.installer.install(
@@ -308,12 +323,20 @@ class VerifyTests(_InstallHarness):
         result = self.db.verify_package("demo", strict=True)
         self.assertEqual(result["generated"], ["var/cache/demo/index"])
 
-    def test_an_absent_generated_file_still_reports_missing(self):
-        """Existence is checked. The exemption is content only."""
+    def test_an_absent_generated_file_is_named_rather_than_called_missing(self):
+        """REVERSED DELIBERATELY. This case required "missing" until now, so
+        that the content exemption could not grow into an existence exemption.
+        The measurement that changed it: undoing a documented choice on an
+        installed machine deletes the dispatcher fragment and the record the
+        package's own repair wrote, and `pkm verify` then reported the package
+        damaged to a person who had followed the documentation. The absence is
+        still REPORTED — its own bucket, its own count on the summary line —
+        which is what keeps this an exemption and not a mask."""
         self._install()
         (self.root / "var/cache/demo/index").unlink()
         result = self.db.verify_package("demo", strict=True)
-        self.assertIn("var/cache/demo/index", result["missing"])
+        self.assertNotIn("var/cache/demo/index", result["missing"])
+        self.assertIn("var/cache/demo/index", result["generated_absent"])
         self.assertEqual(result["generated"], [])
 
     def test_payload_content_is_still_checked(self):

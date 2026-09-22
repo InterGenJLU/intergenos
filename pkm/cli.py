@@ -3724,6 +3724,32 @@ def _generated_note(count):
     return f"; {count} hook-generated (existence-checked)"
 
 
+def _generated_absent_note(count):
+    """Render the hook-generated-and-absent summary: `; 2 hook-generated not
+    present`. Empty string when there are none.
+
+    A file the package's own hook created on this machine, and that is not
+    there now. The package is not damaged by that — the file was never in the
+    archive — and the usual cause is the documented undo of whatever the hook
+    applied. It is NOT a fault, and it is NOT dropped: it is counted here so a
+    clean verify still says what it saw, which is the difference between an
+    exemption and a silent mask.
+    """
+    if not count:
+        return ""
+    return f"; {count} hook-generated not present"
+
+
+def _print_generated_absent_detail(paths):
+    """Under --detail, name every hook-generated file that is not present."""
+    if not paths:
+        return
+    print(f"  hook-generated, not present ({len(paths)}) — created on this "
+          f"machine by this package's hook, not shipped in the archive:")
+    for f in paths:
+        print(f"    /{f}")
+
+
 def _print_file_problem_detail(result, limit=None):
     """Under --detail, name every file verify reports as missing or modified.
 
@@ -3832,11 +3858,13 @@ def cmd_verify(db, args):
         undetermined_count = 0        # packages whose checks could not run
         expected_absent_classes = {}  # Component B: class_id -> count across all
         generated_total = 0           # D-9: hook-generated across the whole set
+        generated_absent_total = 0    # hook-generated and not present now
         file_problem_names = set()
         for name, version, result in results:
             _merge_expected_absent_classes(
                 expected_absent_classes, result.get("expected_absent_by_class"))
             generated_total += len(result.get("generated", []))
+            generated_absent_total += len(result.get("generated_absent", []))
             und = result.get("undeterminable", [])
             unv = result.get("unverifiable", [])
             if result["missing"] or result["modified"]:
@@ -3865,6 +3893,8 @@ def cmd_verify(db, args):
                 _print_expected_absent_detail(
                     result.get("expected_absent_by_class", {}))
                 _print_generated_detail(result.get("generated", []))
+                _print_generated_absent_detail(
+                    result.get("generated_absent", []))
         # PKM-A25: a degraded package may have intact FILES but a failed
         # critical post-install hook (e.g. an unsigned UKI) — file-integrity
         # alone passes it silently. Surface degraded packages as problems too
@@ -3878,6 +3908,7 @@ def cmd_verify(db, args):
         print()
         ea_note = _expected_absent_note(expected_absent_classes)
         gen_note = _generated_note(generated_total)
+        gen_absent_note = _generated_absent_note(generated_absent_total)
         und_note = (f", {undetermined_count} could not be checked"
                     if undetermined_count else "")
         # The closing line of the long operation IS the outcome line. There
@@ -3886,7 +3917,7 @@ def cmd_verify(db, args):
         # narration (the same rule the completion line for an install
         # follows). It prints at every level, -q included.
         _op.finish(f"{ok_count} ok, {problem_count} with "
-                   f"issues{und_note}{ea_note}{gen_note}")
+                   f"issues{und_note}{ea_note}{gen_note}{gen_absent_note}")
         if undetermined_count and not problem_count:
             emit_info("Some checks could not run — this is not a fault report. "
                       "Re-run as root to check the files this user cannot read.")
@@ -3929,11 +3960,14 @@ def cmd_verify(db, args):
         ea_note = _expected_absent_note(
             {cls: len(paths) for cls, paths in by_class.items()})
         gen_note = _generated_note(len(result.get("generated", [])))
+        gen_absent_note = _generated_absent_note(
+            len(result.get("generated_absent", [])))
         if getattr(args, "verify_detail", False):
             _print_expected_absent_detail(by_class)
             _print_generated_detail(result.get("generated", []))
+            _print_generated_absent_detail(result.get("generated_absent", []))
         emit_done(f"✓ {args.package}: ok ({result['total']} {suffix}"
-                  f"{ea_note}{gen_note})")
+                  f"{ea_note}{gen_note}{gen_absent_note})")
         return
     if _degraded:
         emit_done(f"✗ {args.package}: DEGRADED — critical hook(s) failed at "
@@ -3962,6 +3996,11 @@ def cmd_verify(db, args):
         print(f"    (these files are NOT reported missing or modified — this "
               f"user cannot read them, so their state is unknown. Re-run as "
               f"root to check them.)")
+    if result.get("generated_absent"):
+        # Named on the fault path too: a package with a real problem may also
+        # carry hook-generated absences, and rolling them into the fault would
+        # overstate the damage exactly as this lane's defect did.
+        _print_generated_absent_detail(result["generated_absent"])
     if getattr(args, "verify_detail", False):
         _print_generated_detail(result.get("generated", []))
     elif result.get("generated"):

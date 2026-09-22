@@ -55,7 +55,13 @@ def test_identical_rewrite_persists_and_still_checks_missing_files(state,tmp_pat
         assert result['modified'] == []
         assert result['generated'] == [path]
         target.unlink()
-        assert fresh.verify_package('cache-package')['missing'] == [path]
+        # A hook-managed file that is gone is named in its own bucket rather
+        # than reported as a missing payload file: it was never in the
+        # archive. The absence is still reported, which is the property this
+        # line has always been here to hold.
+        after = fresh.verify_package('cache-package')
+        assert after['missing'] == []
+        assert after['generated_absent'] == [path]
     finally:
         fresh.close()
 

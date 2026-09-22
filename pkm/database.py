@@ -1607,15 +1607,25 @@ class PackageDB:
         # Read-only opens cannot migrate older databases. Their unlabelled
         # files retain the same NULL source as rows created before this field.
         source = "source" if "source" in self._files_cols else "NULL AS source"
+        # is_generated says the row was not deployed from the archive: the
+        # package's own lifecycle hook brought the file into being on this
+        # machine. A removal reads it to decide what it may unlink, so it is
+        # selected here and not only in the verify query. Schema-tolerant for
+        # the same reason `source` is: a read-only open on a database that
+        # predates the column cannot run the migration, and every row on such
+        # a database is a non-generated row anyway.
+        generated = ("is_generated" if "is_generated" in self._files_cols
+                     else "0 AS is_generated")
         rows = self.conn.execute(
-            f"SELECT path, is_dir, {source} FROM files WHERE package_id = ? "
-            "ORDER BY path",
+            f"SELECT path, is_dir, {source}, {generated} FROM files "
+            "WHERE package_id = ? ORDER BY path",
             (pkg["id"],)
         ).fetchall()
         # `source` names which install path deposited the row: 'helper' for a
         # download helper's payload, 'archive' or None for the package
         # archive. A remove that must keep a payload in place selects on it.
-        return [{"path": r[0], "is_dir": bool(r[1]), "source": r[2]}
+        return [{"path": r[0], "is_dir": bool(r[1]), "source": r[2],
+                 "is_generated": bool(r[3])}
                 for r in rows]
 
     def get_file_checksums(self, name):
@@ -2361,6 +2371,7 @@ class PackageDB:
         undeterminable = []
         expected_absent = []
         generated = []
+        generated_absent = []
         expected_absent_by_class = {}  # Component B: class_id -> [paths]
 
         for path, is_dir, is_config, expected_checksum, is_generated in rows:
@@ -2387,6 +2398,20 @@ class PackageDB:
                 if cls:
                     expected_absent.append(path)
                     expected_absent_by_class.setdefault(cls, []).append(path)
+                elif is_generated:
+                    # A file this package's HOOK created on this machine, and
+                    # that is not here now. It was never in the archive, so
+                    # nothing about the installed package is damaged by its
+                    # absence, and the action that removes it is usually the
+                    # documented undo of whatever the hook applied: measured
+                    # 2026-09-22 on an installed machine, undoing a name-server
+                    # choice deletes the dispatcher fragment and the record its
+                    # own repair wrote, after which verify called the package
+                    # damaged. It gets its own status rather than a drop: the
+                    # absence is reported, counted and named, so a person who
+                    # wants to know can see it, and a person who followed the
+                    # documentation is not told their system is broken.
+                    generated_absent.append(path)
                 else:
                     missing.append(path)
                 continue
@@ -2463,6 +2488,10 @@ class PackageDB:
             "expected_absent": expected_absent,
             "expected_absent_by_class": expected_absent_by_class,
             "generated": generated,
+            # Rows whose file the package's hook created here and that are not
+            # present now: reported in their own name, never as a fault and
+            # never dropped.
+            "generated_absent": generated_absent,
             "superseded_by": superseded_by,
         }
 

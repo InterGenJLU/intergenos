@@ -45,12 +45,18 @@ def test_get_files_reads_legacy_rows_without_migration(database, tmp_path):
     path, has_source = database
     before = path.read_bytes()
     with PackageDB(path, root=str(tmp_path), read_only=True) as db:
+        # is_generated joins source as a schema-tolerant column: a database
+        # that predates it reads every row as not generated, which is what a
+        # read-only open on a legacy file must do — it cannot run the ALTER.
         assert db.get_files("example") == [
             {"path": "opt/example/run", "is_dir": False,
-             "source": "helper" if has_source else None},
-            {"path": "usr/bin", "is_dir": True, "source": None},
+             "source": "helper" if has_source else None,
+             "is_generated": False},
+            {"path": "usr/bin", "is_dir": True, "source": None,
+             "is_generated": False},
             {"path": "usr/bin/example", "is_dir": False,
-             "source": "archive" if has_source else None},
+             "source": "archive" if has_source else None,
+             "is_generated": False},
         ]
         assert db.get_files("missing") == []
         assert ("source" in db._table_columns("files")) is has_source

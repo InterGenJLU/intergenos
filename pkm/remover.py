@@ -663,6 +663,20 @@ class PackageRemover:
         # as belt-and-suspenders; its retirement is a separate ruling.)
         co_owned = self._co_owned_paths(pkg["id"], [f["path"] for f in file_paths])
         retained_co_owned = []  # (path, [owner names]) — reported, never unlinked
+        # A row this package's own lifecycle hook created on THIS machine
+        # (is_generated=1) is owned, but it is not payload: it was never in
+        # the archive, and unlinking it deletes something the package cannot
+        # put back. Measured 2026-09-22 on an installed machine: a desktop
+        # package whose hook re-applies a choice the machine's owner made had
+        # three of that machine's own network connection files recorded under
+        # it, because the hook's edit was what first persisted them. A remove
+        # would have unlinked the machine's network configuration. The other
+        # direction of the same error — leaving a hook's cache behind — costs
+        # a stale file that the next run of the same hook rewrites, and a
+        # person can delete it. Between an unrecoverable deletion and a
+        # recoverable leftover, this takes the leftover, and SAYS what it
+        # left, per path, so nothing is quietly kept.
+        retained_generated = []  # paths — reported, never unlinked
 
         # S3 progress accounting. The ancestor closure is derived here rather
         # than at its own loop below so the total spans ALL THREE passes — the
@@ -695,6 +709,9 @@ class PackageRemover:
                 continue
             if f["path"] in co_owned:
                 retained_co_owned.append((f["path"], co_owned[f["path"]]))
+                continue
+            if f.get("is_generated"):
+                retained_generated.append(f["path"])
                 continue
             abs_path = str(self.root / f["path"])
 
@@ -849,6 +866,8 @@ class PackageRemover:
             self.deliberately_retained.add(_p.strip("/"))
         for _p in unreadable_preserved:
             self.deliberately_retained.add(_p.strip("/"))
+        for _p in retained_generated:
+            self.deliberately_retained.add(_p.strip("/"))
         for _p, _owners in retained_co_owned:
             self.deliberately_retained.add(_p.strip("/"))
         for _p, _owners in retained_co_owned_dirs:
@@ -868,6 +887,15 @@ class PackageRemover:
         for line in _txn.retained_report(
                 retained_co_owned_dirs, "directory", "directories"):
             msg += f"\n  {line}"
+        if retained_generated:
+            msg += (f"\n  kept {len(retained_generated)} hook-generated "
+                    f"file{'s' if len(retained_generated) != 1 else ''} this "
+                    f"package's hook created on this machine "
+                    f"(not archive payload; delete by hand if unwanted):")
+            for _p in sorted(retained_generated)[:20]:
+                msg += f"\n    /{_p.strip('/')}"
+            if len(retained_generated) > 20:
+                msg += f"\n    … and {len(retained_generated) - 20} more"
         if protected_skipped:
             msg += (
                 f"\n  NOTE: {len(protected_skipped)} top-level FHS skeleton "
