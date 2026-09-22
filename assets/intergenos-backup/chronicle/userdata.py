@@ -104,6 +104,7 @@ def capture(source_roots, target_root, prev_manifest, sequence, wall_clock,
     ))
 
     entries = []
+    moved = False
     try:
         for root in source_roots:
             root = str(root)
@@ -129,10 +130,22 @@ def capture(source_roots, target_root, prev_manifest, sequence, wall_clock,
                     _capture_file_or_link(
                         ap, staging, prev_index, prev_tree, entries
                     )
+        manifest = _manifest.build_manifest(
+            _paths.LAYER_USER_DATA, sequence, wall_clock, reason, entries
+        )
+        final_tree = userdata_tree(target_root, manifest["version_id"])
+        if final_tree.exists():
+            raise _manifest.ManifestCollision(
+                f"version {manifest['version_id']} already has a user-data tree"
+            )
+        os.rename(staging, final_tree)
+        moved = True
+        _manifest.commit_manifest(target_root, manifest)
     except BaseException as error:
-        # A refused source must not leave a partial version tree behind.
+        # Every pre-commit failure removes only this capture's partial tree.
+        # A collision must leave the previously published tree untouched.
         try:
-            shutil.rmtree(staging)
+            shutil.rmtree(final_tree if moved else staging)
         except OSError as cleanup_error:
             raise RuntimeError(
                 f"capture failed: {error}; "
@@ -140,23 +153,6 @@ def capture(source_roots, target_root, prev_manifest, sequence, wall_clock,
             ) from error
         raise
 
-    manifest = _manifest.build_manifest(
-        _paths.LAYER_USER_DATA, sequence, wall_clock, reason, entries
-    )
-    final_tree = userdata_tree(target_root, manifest["version_id"])
-    if final_tree.exists():
-        shutil.rmtree(staging, ignore_errors=True)
-        raise _manifest.ManifestCollision(
-            f"version {manifest['version_id']} already has a user-data tree"
-        )
-    moved = False
-    try:
-        os.rename(staging, final_tree)
-        moved = True
-        _manifest.commit_manifest(target_root, manifest)
-    except BaseException:
-        shutil.rmtree(final_tree if moved else staging, ignore_errors=True)
-        raise
     return manifest["version_id"]
 
 

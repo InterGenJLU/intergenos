@@ -238,6 +238,10 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **A failed Chronicle user-data capture removes its unpublished tree.**
+  Cleanup covers manifest construction and publication as well as the source
+  walk, preserves existing versions, and reports a cleanup failure alongside
+  the original error.
 - **Chronicle quotes paths throughout restore previews and results.** Newlines
   and terminal control characters in a filename are displayed as escapes, so
   a filename cannot add lines to the plan being confirmed. JSON paths retain
