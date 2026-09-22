@@ -473,7 +473,8 @@ class PackageRemover:
 
     def remove(self, name, force=False, reporter=None, on_file=None,
                run_pre_remove_hook=True, run_post_remove_hook=None,
-               keep_helper_payload=False, dry_run=False):
+               keep_helper_payload=False, dry_run=False,
+               also_removing=()):
         """Remove an installed package.
 
         Checks reverse dependencies unless force=True.
@@ -521,6 +522,15 @@ class PackageRemover:
         See _run_pre_remove_hook for what the hook is, and each call site for
         why it opts out.
 
+        ``also_removing`` (default empty): the other package names going in
+        the SAME transaction. The reverse-dependency refusal ignores them,
+        because a package that is itself on its way out is not a reason to
+        keep what it depends on. Without this, removing a library together
+        with the only application that uses it was refused in one order and
+        allowed in the other, and the way through was ``--force`` — the flag
+        that turns the guard off entirely. A dependant OUTSIDE the set still
+        refuses, unchanged.
+
         ``dry_run`` (default False): compute the whole plan and change
         NOTHING. Every classification below still runs — what would be
         unlinked, what is retained because another installed package co-owns
@@ -555,7 +565,9 @@ class PackageRemover:
 
         # Check reverse dependencies
         if not force:
-            rdeps = self.db.get_reverse_depends(name)
+            going_too = {n for n in also_removing if n != name}
+            rdeps = [d for d in self.db.get_reverse_depends(name)
+                     if d["name"] not in going_too]
             if rdeps:
                 dep_list = ", ".join(f"{d['name']}" for d in rdeps)
                 return False, (

@@ -258,6 +258,16 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **`pkm remove` takes several packages as one transaction.** Install,
+  reinstall and hold all took a list; remove took exactly one name, so
+  removing three packages meant three commands, three restore points and
+  three separate dependency checks that could not see each other. Removing a
+  library together with the only application that uses it was refused in one
+  order and allowed in the other, and the way through was `--force`, which
+  turns the guard off entirely. The check now looks at the whole set, so a
+  dependency that is itself being removed does not block; a package outside
+  the set still does, and it is named.
+
 - **An install that reaches beyond what you asked for no longer proceeds
   unwatched.** When resolving a package pulls in others — `pkm install steam`
   resolving a forty-package closure — and there is no terminal attached,

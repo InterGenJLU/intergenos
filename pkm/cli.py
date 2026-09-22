@@ -1027,7 +1027,11 @@ def build_parser():
     # -- remove --
     p_remove = sub.add_parser("remove", aliases=["uninstall"], help="Remove a package",
                               parents=[verbosity])
-    p_remove.add_argument("package")
+    p_remove.add_argument("packages", nargs="+", metavar="package",
+                          help="One or more installed packages. Several names "
+                               "are ONE transaction: one restore point, one "
+                               "confirmation, and a reverse-dependency check "
+                               "computed across the whole set.")
     p_remove.add_argument("--force", action="store_true", help="Remove even if others depend on it")
     p_remove.add_argument(
         "--yes", "-y", action="store_true", dest="remove_yes",
@@ -2619,27 +2623,38 @@ def cmd_remove(db, args):
     remover = PackageRemover(db)
     reporter = Reporter.from_args(args)
     dry_run = bool(getattr(args, "remove_dry_run", False))
+    # `packages` is the parser's spelling; `package` is what older callers
+    # pass. Both are accepted so a caller that names one package keeps working.
+    names = list(getattr(args, "packages", None)
+                 or [getattr(args, "package", None)])
+    names = [n for n in names if n]
+    if not names:
+        reporter.error("no package named")
+        sys.exit(1)
+    subject = ", ".join(names)
     # Ask before the destructive direction, and refuse rather than assume.
-    # This sits BEFORE the restore point and before anything is read for the
-    # removal, so a declined or refused removal costs the machine nothing —
-    # a restore point consumes disk, and taking one for a removal the person
-    # then declines would charge them for changing their mind.
-    if not dry_run and not _confirm_remove(args, args.package):
+    # ONE question for the whole transaction: asking once per package would
+    # make a three-package removal three separate decisions, which is the
+    # shape that teaches people to reach for --yes.
+    # This sits BEFORE the restore point, so a declined or refused removal
+    # costs the machine nothing — taking a restore point for a removal the
+    # person then declines would charge them for changing their mind.
+    if not dry_run and not _confirm_remove(args, subject):
         return
-    # Chronicle: pre-transaction restore point, before the removal mutates the
-    # live filesystem (captures the outgoing package's current bytes + pkm.db).
-    # No-op without a registered handler; a handler failure is loud, not fatal.
-    # A preview mutates nothing, so it takes no restore point: a restore point
-    # consumes disk, and spending it on an operation that changes nothing is
-    # the cost that would make people stop using the preview.
+    # Chronicle: ONE pre-transaction restore point for the whole set, before
+    # the removal mutates the live filesystem. No-op without a registered
+    # handler; a handler failure is loud, not fatal. A preview takes none:
+    # a restore point consumes disk, and spending it on an operation that
+    # changes nothing is the cost that would stop people previewing.
     from . import pretxn
     if not dry_run:
         pretxn.run_pre_transaction_hook(
-            db, "remove", [args.package],
-            reason=f"pre-transaction remove: {args.package}",
+            db, "remove", names,
+            reason=f"pre-transaction remove: {subject}",
             reporter=reporter,
             handler_dir=pretxn.handler_directory(install_root()),
         )
+    ordered = _removal_order(db, names)
     # S3 — removing a large package unlinks its whole payload and then walks
     # the ancestor closure of every path it touched, all of it between the
     # command and its one closing line. The per-part progress standard
@@ -2650,10 +2665,10 @@ def cmd_remove(db, args):
     # first thing a person reads and it may not describe work that will not
     # happen.
     op = progress.LongOperation(
-        f"{'Planning the removal of' if dry_run else 'Removing'} {args.package}",
+        f"{'Planning the removal of' if dry_run else 'Removing'} {subject}",
         detail=("reading the records this removal would consume; nothing is "
                 "changed." if dry_run else
-                "unlinking the files this package owns and pruning the "
+                "unlinking the files these packages own and pruning the "
                 "directories nothing else needs."),
         parts=(progress.PART_REMOVE,),
     )
@@ -2664,29 +2679,42 @@ def cmd_remove(db, args):
     def _on_file(index, total, path):
         op.tick(note=f"{index:,} of {total:,}")
 
-    try:
-        ok, msg = remover.remove(
-            args.package, force=args.force,
-            reporter=None if dry_run else reporter,
-            on_file=_on_file, dry_run=dry_run,
-        )
-    except Exception:
-        op.failed()
-        raise
+    plans = []
+    for name in ordered:
+        try:
+            ok, msg = remover.remove(
+                name, force=args.force,
+                reporter=None if dry_run else reporter,
+                on_file=_on_file, dry_run=dry_run,
+                also_removing=ordered,
+            )
+        except Exception:
+            op.failed()
+            raise
+        if not ok:
+            # One package refused stops the transaction where it is. The
+            # packages already removed stay removed and are named, because a
+            # person reading this has to know what state the machine is in.
+            op.end_step()
+            op.failed(msg.splitlines()[0] if msg else None)
+            reporter.error(msg)
+            done = [n for n in ordered[:ordered.index(name)]]
+            if done:
+                reporter.error(
+                    "Already removed before this refusal: " + ", ".join(done))
+            sys.exit(1)
+        plans.append(msg)
     op.end_step()
-    if not ok:
-        op.failed(msg.splitlines()[0] if msg else None)
-        reporter.error(msg)
-        sys.exit(1)
     if dry_run:
         # The preview's whole output is the plan; print it and stop before
         # the completion wording, which would claim work that did not happen.
         op.finish("planned")
-        for line in msg.splitlines():
-            reporter.info(line)
+        for plan in plans:
+            for line in plan.splitlines():
+                reporter.info(line)
         return
     # The reporter's own `Removed <name> <version>` line is the completion
-    # signal for the package; this states that the long part is over and how
+    # signal for each package; this states that the long part is over and how
     # long it took, without repeating the subject.
     op.finish("done")
     # On success the reporter already emitted the removed-file list + done
@@ -5456,6 +5484,37 @@ def _print_upgrade_plan_summary(upgradable, held_excluded_names, db):
         "Configuration-file changes (.pkmnew sidecars) are reported "
         "per-package at install time; review them at end of upgrade."
     )
+
+
+def _removal_order(db, names):
+    """The named packages, dependants before what they depend on.
+
+    Within one transaction the order still matters: a package's own
+    pre-remove hook runs while the things it depends on are still installed,
+    which is the state that hook was written against. Anything the set does
+    not settle keeps the order the person typed, so the command is
+    predictable.
+    """
+    remaining = list(names)
+    ordered = []
+    # Each pass takes the packages nothing else still waiting depends on.
+    while remaining:
+        takeable = [
+            n for n in remaining
+            if not any(
+                d["name"] in remaining and d["name"] != n
+                for d in db.get_reverse_depends(n)
+            )
+        ]
+        if not takeable:
+            # A cycle among the named packages. Nothing here can order them,
+            # and refusing would be worse than proceeding: they are all going.
+            ordered.extend(remaining)
+            break
+        for n in takeable:
+            ordered.append(n)
+            remaining.remove(n)
+    return ordered
 
 
 def _confirm_remove(args, subject):
