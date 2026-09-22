@@ -400,6 +400,62 @@ class TestTheChoiceFailsWhenItCannotBeApplied(DnsVerbHarness):
                          "put back later")
 
 
+class TestAResolverThatWillNotRestartLeavesNothingBehind(DnsVerbHarness):
+    """A choice whose resolver restart fails is a choice that was not applied.
+
+    The verb writes the drop-in and then restarts the resolver, because the
+    resolver has no reload path and reads its configuration only at start. If
+    that restart fails, the servers in the drop-in are not the ones answering
+    and nothing else the choice needs has been done yet — the half-configured
+    state the ordinary failure path already refuses to leave. The restart sat
+    OUTSIDE that failure handling, so the script ended on it and the drop-in
+    stayed on disk with no record and no dispatcher.
+
+    The machine this runs against answers `systemctl restart` with a failure
+    on demand, through the service-manager stand-in the harness already
+    writes, so these cases exercise the REAL helper's real failure path.
+    """
+
+    def test_a_failed_restart_removes_the_dropin_it_just_wrote(self):
+        result = self.run_verb("dns-use-cloudflare", resolver_restart_fails=True)
+        self.assertNotEqual(result.returncode, 0,
+                            "the verb reported success although the resolver "
+                            "never restarted:\n" + result.stdout)
+        self.assertFalse(self.dropin.exists(),
+                         "the drop-in was left on disk naming servers that "
+                         "nothing was told to use")
+        self.assertFalse(self.dispatcher.exists(),
+                         "a choice that was not applied left its dispatcher")
+        self.assertFalse(self.record.exists(),
+                         "a choice that was not applied left a record of "
+                         "connections it never changed")
+
+    def test_a_failed_restart_says_the_machine_was_left_as_it_was(self):
+        result = self.run_verb("dns-use-cloudflare", resolver_restart_fails=True)
+        self.assertIn("left as it was", result.stderr,
+                      "nothing told the caller the machine is unchanged:\n"
+                      + result.stderr)
+
+    def test_a_failed_restart_puts_an_earlier_choice_back(self):
+        self.assertEqual(self.run_verb("dns-use-cloudflare").returncode, 0)
+        before = self.dropin.read_text(encoding="utf-8")
+        result = self.run_verb("dns-use-quad9", resolver_restart_fails=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(self.dropin.exists(),
+                        "a failed restart removed the choice that was standing")
+        self.assertEqual(self.dropin.read_text(encoding="utf-8"), before,
+                         "a failed restart left the earlier choice rewritten")
+
+    def test_the_connections_are_not_left_ignoring_their_own_servers(self):
+        result = self.run_verb("dns-use-cloudflare", resolver_restart_fails=True)
+        self.assertNotEqual(result.returncode, 0)
+        for uuid in self.uuids():
+            self.assertNotEqual(
+                self.profile_property(uuid, "ipv4.ignore-auto-dns"), "yes",
+                f"{uuid} was left ignoring the servers its network hands out "
+                "by a choice that was never applied")
+
+
 class TestTheUpgradeRepairOnlyRepairs(DnsVerbHarness):
     """(finding 3) The repair that runs at every upgrade does nothing to a
     machine that is already as its choice says.
@@ -458,6 +514,39 @@ class TestTheUpgradeRepairOnlyRepairs(DnsVerbHarness):
             self.assertEqual(
                 self.profile_property(uuid, "ipv4.ignore-auto-dns"), "yes",
                 f"the repair left {uuid} unrepaired")
+
+    def test_a_repair_with_nothing_to_do_does_not_announce_re_applying(self):
+        """The line is printed into the upgrade's own output. A machine that
+        needed nothing should not be told work was done on it."""
+        self.assertEqual(self.run_verb("dns-use-cloudflare").returncode, 0)
+        result = self.run_verb("dns-reapply-selection")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("already has", result.stdout,
+                      "the repair did not say the machine was already as its "
+                      "choice says:\n" + result.stdout)
+        self.assertNotIn("re-applying", (result.stdout + result.stderr).lower(),
+                         "the repair announced re-applying the choice and "
+                         "then re-applied nothing:\n" + result.stdout
+                         + result.stderr)
+
+    def test_a_repair_that_does_the_work_still_announces_it(self):
+        """The quieting must not reach the case the line exists for.
+
+        On STDERR: the package manager's hook runner surfaces a hook's stderr
+        as its NOTE lines and discards its stdout, so a line printed to stdout
+        here is a line no upgrade ever shows. This repair rewrites the resolver
+        configuration and restarts the resolver; it may not do that silently.
+        """
+        self.assertEqual(self.run_verb("dns-use-cloudflare").returncode, 0)
+        self.dispatcher.unlink()
+        result = self.run_verb("dns-reapply-selection")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("re-applying", result.stderr.lower(),
+                      "a repair that did the work said nothing an upgrade "
+                      "would show:\n" + result.stdout + result.stderr)
+        self.assertNotIn("re-applying", result.stdout.lower(),
+                         "the announcement is on stdout, which the hook "
+                         "runner discards")
 
     def test_a_machine_that_never_chose_is_not_touched_by_the_repair(self):
         result = self.run_verb("dns-reapply-selection")

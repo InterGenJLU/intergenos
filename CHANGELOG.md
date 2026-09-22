@@ -237,6 +237,25 @@ landed is in the repository README, not here.
   `--all` to reach an install's full record.
 
 ### Fixed
+- **A name-server choice whose resolver never restarted no longer leaves the
+  machine half-configured.** The choice writes the servers into a file the
+  resolver reads only when it starts, so the verb restarts it; if that restart
+  failed, the script ended where it stood and left the file on disk naming
+  servers nothing was told to use, with no record of what had been changed and
+  none of the rest of the choice done. The restart is now part of the same
+  step as the connection changes: a failure puts the machine back as it was —
+  the earlier choice restored, or the file removed — says so, and fails. If
+  the resolver cannot be restarted for the putting-back either, that is said
+  too, with what to do about it, instead of the script ending silently.
+- **The upgrade repair stops announcing work it then does not do.** It said it
+  was re-applying the recorded choice before it had established whether the
+  machine needed anything; on a machine already as its choice says, the next
+  line said nothing had changed. The announcement now happens where the work
+  is decided on, so an upgrade log carries one or the other, never both — and
+  it is written where an upgrade actually shows it. The package manager's hook
+  runner shows a hook's standard error and discards its standard output, so on
+  an installed machine this repair rewrote the resolver configuration and
+  restarted the resolver without printing a line anyone saw.
 
 - **Download helpers share one license-acceptance writer.** Records name the
   sudo user when one is supplied, or explicitly identify the effective account
@@ -597,14 +616,14 @@ landed is in the repository README, not here.
   repair that runs at every upgrade does nothing at all to a machine that is
   already exactly as its choice says, instead of rewriting the files and
   restarting the resolver each time. The page's panel stopped claiming a
-  choice was in effect merely because its own file existed: when a connection is still answering with its
-  network's servers, the panel now says so and names that connection. A
-  machine that already made a choice is repaired at its next upgrade, because
-  the Welcomer runs once per user account and would never come back on its
-  own. The NetworkManager-wide setting whose documentation says it would do
-  all this — `[global-dns-domain-*]` — was tried first and measured doing
-  nothing at all with the resolver backend this system uses: the file is read
-  and then no connection changes.
+  choice was in effect merely because its own file existed: when a connection
+  is still answering with its network's servers, the panel now says so and
+  names that connection. A machine that already made a choice is repaired at
+  its next upgrade, because the Welcomer runs once per user account and would
+  never come back on its own. The NetworkManager-wide setting whose
+  documentation says it would do all this — `[global-dns-domain-*]` — was
+  tried first and measured doing nothing at all with the resolver backend this
+  system uses: the file is read and then no connection changes.
 - **A package-manager read no longer reads a database a package-manager write
   is changing underneath it.** Only the mutating commands took the lock; every
   read fell past it and then opened the database with SQLite's `immutable=1` —

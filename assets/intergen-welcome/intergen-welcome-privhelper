@@ -715,19 +715,50 @@ write_dns_dropin() {
         echo "intergen-welcome-privhelper: this machine already has the name servers it was asked for, on every connection; nothing was changed."
         return 0
     fi
+    # Said here rather than before the decision above: the repair runs from
+    # the package hook at every upgrade, and a machine that needed nothing
+    # must not read in its upgrade log that work was done on it. The name in
+    # the sentence is this function's own selection label, never the value of
+    # the variable: an environment a caller controls decides WHETHER the line
+    # is printed, never WHAT it says.
+    if [ "${INTERGEN_WELCOME_REAPPLYING:-}" = 1 ]; then
+        # To STDERR, because this line's whole purpose is to be SEEN, and the
+        # only caller that sets the flag is the package hook: the package
+        # manager's hook runner surfaces a hook's stderr as its NOTE lines and
+        # discards its stdout, so an upgrade that rewrote the resolver
+        # configuration and restarted the resolver said nothing at all on the
+        # two machines it ran on. The no-work line below stays on stdout: it
+        # reports no change, so nothing is hidden by its absence from an
+        # upgrade log. Nothing the page runs sets this flag, so no message the
+        # page reads moves.
+        echo "intergen-welcome-privhelper: re-applying the recorded name-server choice ($selection)." >&2
+    fi
     mkdir -p "$RESOLVED_CONF_D"
     printf '%s\n' "$wanted" > "$DNS_DROPIN"
     chmod 0644 "$DNS_DROPIN"
-    restart_resolved
-    # The servers are now configured. These two make them the ones that answer.
-    if ! apply_ignore_auto_dns; then
+    # The restart and the two properties are ONE step that either takes or does
+    # not. The resolver reads its configuration only at start, so until it has
+    # restarted the servers in the drop-in are not the ones answering; and a
+    # restart that fails used to end this script where it stood, under `set -e`,
+    # leaving the drop-in on disk with no record and no dispatcher — the exact
+    # half-configured machine the failure path below exists to prevent. The
+    # restart is still NOT tolerated: the verb fails either way. What changed
+    # is that it now fails through the same clean-up.
+    if ! restart_resolved || ! apply_ignore_auto_dns; then
         if [ "$had_dropin" = yes ]; then
             printf '%s\n' "$previous_dropin" > "$DNS_DROPIN"
             chmod 0644 "$DNS_DROPIN"
         else
             rm -f "$DNS_DROPIN"
         fi
-        restart_resolved
+        # Putting the machine back needs the resolver restarted again, and if
+        # the resolver is what could not restart, this will not restart either.
+        # Tolerated and SAID, rather than ending the script silently before the
+        # sentence below: on disk the machine is as it was, and the running
+        # resolver is the one fact this cannot put back by itself.
+        if ! restart_resolved; then
+            echo "intergen-welcome-privhelper: the resolver could not be restarted while putting this machine back, so its running name servers may still be the ones that were just removed from disk; restart systemd-resolved, or reboot, to clear that." >&2
+        fi
         echo "intergen-welcome-privhelper: the name-server choice was not applied and this machine has been left as it was." >&2
         return 1
     fi
@@ -948,7 +979,12 @@ NFT
             echo "intergen-welcome-privhelper: the name-server drop-in on this machine could not be read back, so the choice recorded in it was NOT re-applied; the file is left exactly as it is." >&2
             exit 2
         fi
-        echo "intergen-welcome-privhelper: re-applying the recorded name-server choice ($_verb)."
+        # The sentence that announces the work belongs where the work is
+        # decided on, not here: a machine already as its choice says needs
+        # nothing done, and this runs in an upgrade whose log a person reads.
+        # The flag says only THAT this is a repair; the verb prints its own
+        # name for itself.
+        export INTERGEN_WELCOME_REAPPLYING=1
         # shellcheck disable=SC2086 -- the words come from this script's own
         # reader above, every one of them validated by its own parsers.
         exec "$0" $_verb
