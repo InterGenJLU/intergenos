@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 InterGenJLU
-"""A send nobody was asked about is not reported as the person's cancel.
+"""Two frontier replies that said something other than what happened.
 
 A SEND NOBODY WAS ASKED ABOUT. The consent step shows the person the exact
 content and waits for Send. When it cannot show anything — no unlocked desktop
@@ -11,6 +11,13 @@ second reading on 2026-09-22 with the real consent step and no active session:
 the command line and the web chat both told the person they had cancelled,
 although nobody was asked. The consent step now records which of the two it
 was, and both callers say it.
+
+AN EMPTY ANSWER. A provider that answers with no text: the command line treats
+that as no answer (exit 2, nothing kept for ``intergen last``), but the web
+chat marked it sent, named the provider, and appended an empty assistant turn
+to the conversation the next turn is built from. The web chat now does what the
+command line does: the page is told the model returned nothing, and nothing is
+kept.
 
 Replaced in these cases, and nothing else: the session check, the two dialogs,
 the desktop notification and the dialog program's process call (so nothing can
@@ -25,6 +32,9 @@ from __future__ import annotations
 
 import io
 import json
+import shutil
+import subprocess
+import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -49,6 +59,8 @@ _PROVIDERS_CFG = [{
 }]
 _QUESTION = "is my disk encrypted?"
 _ANSWER = "The root filesystem is encrypted."
+
+_APP_JS = Path(__file__).resolve().parents[1] / "web" / "app.js"
 
 
 class _Adapter:
@@ -278,6 +290,11 @@ def _no_screen_patches():
     ]
 
 
+def _consented():
+    return [mock.patch("intergen.consent_modal.prompt_send_consent",
+                       return_value=True)]
+
+
 class TheWebChatSaysNobodyWasAsked(unittest.IsolatedAsyncioTestCase):
 
     async def test_the_page_is_told_nobody_was_asked_and_nothing_is_kept(self) -> None:
@@ -296,6 +313,103 @@ class TheWebChatSaysNobodyWasAsked(unittest.IsolatedAsyncioTestCase):
         frame = connection.ws.frames[-1]
         self.assertIs(frame["sent"], False)
         self.assertEqual(frame["content"], _CANCELLED)
+
+
+class TheWebChatKeepsNoEmptyAnswer(unittest.IsolatedAsyncioTestCase):
+
+    async def test_an_empty_answer_is_not_kept_and_the_page_is_told(self) -> None:
+        for label, text in (("empty", ""), ("only white space", "  \n ")):
+            with self.subTest(label):
+                connection = await _press(_Adapter(text), _consented())
+                frame = connection.ws.frames[-1]
+                self.assertIs(frame["sent"], True,
+                              "the content did reach the provider")
+                self.assertIs(frame.get("answered"), False,
+                              "an empty answer is not an answer")
+                self.assertIn("returned no answer", frame["content"])
+                self.assertEqual(frame["provider"], "example")
+                self.assertEqual(connection.session_history, [],
+                                 "no empty assistant turn goes into the "
+                                 "conversation the next turn is built from")
+
+    async def test_an_answer_is_sent_answered_and_kept(self) -> None:
+        connection = await _press(_Adapter(), _consented())
+        frame = connection.ws.frames[-1]
+        self.assertIs(frame["sent"], True)
+        self.assertIs(frame.get("answered"), True)
+        self.assertEqual(frame["content"], _ANSWER)
+        self.assertEqual([m.content for m in connection.session_history],
+                         [_ANSWER])
+
+
+def _page_function(name: str) -> str | None:
+    """The full source of the page's ``function name(...) { ... }``, taken from
+    the shipped app.js by brace matching, so the code that ships is what runs."""
+    import re
+    text = _APP_JS.read_text(encoding="utf-8")
+    m = re.search(r"^\s*function\s+" + re.escape(name) + r"\s*\([^)]*\)\s*\{",
+                  text, re.MULTILINE)
+    if not m:
+        return None
+    i = text.index("{", m.start())
+    depth = 0
+    for j in range(i, len(text)):
+        if text[j] == "{":
+            depth += 1
+        elif text[j] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[m.start():j + 1]
+    return None
+
+
+@unittest.skipUnless(shutil.which("node"), "node is required to run the page's "
+                                           "own handler")
+class ThePageShowsAnEmptyAnswerAsANotice(unittest.TestCase):
+    """The page's frontier-reply handler, taken from the shipped app.js and run
+    under node with the two things it calls recorded."""
+
+    def _render(self, frames: list) -> list:
+        source = _page_function("handleFrontierResponse")
+        self.assertIsNotNone(source, "the page no longer declares the handler "
+                                     "this case covers")
+        script = (
+            "const calls = [];\n"
+            "function addMessage(role, content, src) { calls.push(['message', role, content, src]); }\n"
+            "function showBanner(text, kind) { calls.push(['banner', text, kind]); }\n"
+            + source + "\n"
+            + "const frames = " + json.dumps(frames) + ";\n"
+            "for (const f of frames) { handleFrontierResponse(f); }\n"
+            "console.log(JSON.stringify(calls));\n")
+        with tempfile.TemporaryDirectory(prefix="frontier-page-") as tmp:
+            probe = Path(tmp) / "probe.js"
+            probe.write_text(script, encoding="utf-8")
+            run = subprocess.run(["node", str(probe)], capture_output=True,
+                                 text=True, timeout=60)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        return json.loads(run.stdout)
+
+    def test_an_empty_answer_is_a_notice_not_a_turn(self) -> None:
+        calls = self._render([{"type": "frontier_response", "sent": True,
+                               "answered": False, "provider": "example",
+                               "content": "Your frontier model (example) "
+                                          "returned no answer."}])
+        self.assertEqual([c[0] for c in calls], ["banner"],
+                         "nothing the model said is shown as its turn")
+        self.assertIn("returned no answer", calls[0][1])
+
+    def test_an_answer_is_a_turn(self) -> None:
+        calls = self._render([{"type": "frontier_response", "sent": True,
+                               "answered": True, "provider": "example",
+                               "content": _ANSWER}])
+        self.assertEqual(calls, [["message", "assistant", _ANSWER,
+                                  "frontier:example"]])
+
+    def test_a_send_that_did_not_happen_is_a_notice(self) -> None:
+        calls = self._render([{"type": "frontier_response", "sent": False,
+                               "answered": False, "provider": None,
+                               "content": _CANCELLED}])
+        self.assertEqual(calls, [["banner", _CANCELLED, "info"]])
 
 
 if __name__ == "__main__":

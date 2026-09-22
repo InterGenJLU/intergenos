@@ -362,12 +362,19 @@
   }
 
   function handleFrontierResponse(msg) {
-    if (msg.sent) {
+    // An answer is shown as the model's turn only when the server says the
+    // send produced one. A send the model answered with nothing, and every
+    // send that did not happen, is a notice in the banner instead: neither is
+    // something the model said.
+    if (msg.sent && msg.answered !== false) {
       const src = msg.provider ? 'frontier:' + msg.provider : 'frontier';
       addMessage('assistant', msg.content, src, { typewriter: true });
-    } else {
-      showBanner(msg.content || 'Nothing was sent to the frontier model.', 'info');
+      return;
     }
+    const fallback = msg.sent
+      ? 'Your frontier model returned no answer.'
+      : 'Nothing was sent to the frontier model.';
+    showBanner(msg.content || fallback, 'info');
   }
 
   function handleGatePrompt(msg) {

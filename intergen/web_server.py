@@ -1452,7 +1452,7 @@ class WebServer:
         manager = getattr(self._router, "_escalation", None) if self._router else None
         if manager is None or manager._primary_provider_name() is None:
             await ctx.ws.send_json({
-                "type": "frontier_response", "sent": False,
+                "type": "frontier_response", "sent": False, "answered": False,
                 "content": ("No frontier model is configured. Add a provider to "
                             "~/.config/intergen/ (the human-only config)."),
             })
@@ -1493,11 +1493,21 @@ class WebServer:
         except Exception as exc:  # noqa: BLE001 — never crash the socket on escalation
             logger.error("frontier_escalate failed: %s", type(exc).__name__)
             sent, text = False, f"Escalation failed: {type(exc).__name__}"
+        # A send the provider answered with no text is not an answer: the
+        # command line has treated it that way since 2026-09-22 (exit 2, nothing
+        # kept for `intergen last`), and this surface now does the same — the
+        # page is told the model returned nothing, and no empty assistant turn
+        # goes into the conversation the next turn is built from. It WAS sent,
+        # so the frame still says sent and names the provider.
+        answered = sent and bool((text or "").strip())
+        if sent and not answered:
+            text = (f"Your frontier model ({provider}) returned no answer — "
+                    "nothing was added to the conversation.")
         await ctx.ws.send_json({
-            "type": "frontier_response", "sent": sent,
+            "type": "frontier_response", "sent": sent, "answered": answered,
             "content": text, "provider": provider if sent else None,
         })
-        if sent:
+        if answered:
             ctx.session_history.append(
                 Message(role=MessageRole.ASSISTANT, content=text))
 
