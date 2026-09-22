@@ -101,10 +101,22 @@ class SaveRollbackArchiveShaTests(unittest.TestCase):
         self.assertIsNone(_save_rollback_archive("foo", "1.0", 1))
 
     def test_release_less_cached_filename_is_found(self):
-        # The live signed index publishes RELEASE-LESS filenames (all
-        # 1,126 entries measured 2026-08-21), so this is the shape the
-        # pkg cache actually holds. The pre-fix lookup built only the
-        # release-qualified name and missed on every real system.
+        # The live signed index publishes RELEASE-LESS filenames, so this is
+        # the shape the pkg cache actually holds. The pre-fix lookup built
+        # only the release-qualified name and missed on every real system.
+        #
+        # The population behind that: every entry of the served signed
+        # repository index, InterGenOS.db — the whole index, not a sample —
+        # each of whose `filename` fields is exactly
+        # <name>-<version>.igos.tar.gz with no release. Measured 2026-08-21
+        # at 1,126 entries; re-derived 2026-09-22 against a machine's synced
+        # copy (index generated 2026-09-03): 1,126 entries, 1,126
+        # release-less, 0 otherwise. To re-derive, read the index with gzip
+        # + json and compare each filename against
+        # <name>-<version>.igos.tar.gz — not with a shape regular
+        # expression, which misreads the seventeen entries whose date or
+        # hyphenated upstream version (dialog-1.3-20260107, re2-2025-11-05,
+        # imagemagick-7.1.2-13) ends in what looks like a release.
         src = _cached_archive(self.cache_dir / "foo-1.0.igos.tar.gz",
                               payload=b"release-less-cache-bytes")
         result = _save_rollback_archive("foo", "1.0", 1)

@@ -4606,8 +4606,22 @@ def _cached_old_archive(name, version, release):
 
     The cache is written by repo.download_package under the signed index's
     `filename` field, and the live index publishes RELEASE-LESS names
-    (`acl-2.3.2.igos.tar.gz` — all 1,126 entries measured 2026-08-21). An
-    earlier lookup built only the release-qualified name, which the cache
+    (`acl-2.3.2.igos.tar.gz`).
+
+    The population behind that statement: every entry of the served signed
+    repository index, InterGenOS.db — the whole index, not a sample. The
+    property counted is each entry's `filename`, which in every entry is
+    exactly <name>-<version>.igos.tar.gz and carries no release. Measured
+    2026-08-21 at 1,126 entries; re-derived 2026-09-22 against a machine's
+    synced copy (index generated 2026-09-03): 1,126 entries, 1,126
+    release-less, 0 otherwise. To re-derive, read the index with gzip + json
+    and compare each entry's filename against <name>-<version>.igos.tar.gz;
+    a filename-shape regular expression gets this wrong, because seventeen
+    entries carry a date or hyphenated upstream version
+    (dialog-1.3-20260107, re2-2025-11-05, imagemagick-7.1.2-13) whose tail
+    reads as a release suffix and is not one.
+
+    An earlier lookup built only the release-qualified name, which the cache
     therefore never contained, so the rollback save missed on every upgrade;
     adding the release-less shape made it hit, and made it hit the WRONG FILE
     — the mirror's current build for that version, whatever release that is.

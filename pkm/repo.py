@@ -1179,9 +1179,26 @@ class RepoManager:
             )
 
         # THE CACHE FILE IS NAMED FOR THE BUILD IT HOLDS, not for the name the
-        # index publishes. The published filenames carry no release
-        # (`forge-1.0.0.igos.tar.gz` -- all 1,126 entries measured 2026-08-21),
-        # so every release of a version landed on ONE path: downloading a new
+        # index publishes.
+        #
+        # THE POPULATION BEHIND THAT STATEMENT, so a reader can check it
+        # rather than take it: the set counted is every entry of the served
+        # signed repository index, InterGenOS.db -- the whole index, not a
+        # sample and not a subset. The property counted is each entry's
+        # `filename` field, and in every entry it is exactly
+        # <name>-<version>.igos.tar.gz, carrying no release. Measured
+        # 2026-08-21 at 1,126 entries; re-derived 2026-09-22 against a
+        # machine's synced copy (index generated 2026-09-03): 1,126 entries,
+        # 1,126 release-less, 0 otherwise. To re-derive: read the index with
+        # gzip + json and count the entries whose filename does not equal
+        # <name>-<version>.igos.tar.gz. Do NOT count with a filename-shape
+        # regular expression -- seventeen entries carry a date or hyphenated
+        # upstream version (dialog-1.3-20260107, re2-2025-11-05,
+        # imagemagick-7.1.2-13) whose tail reads as a release suffix and is
+        # not one. The exact comparison has no such trap.
+        #
+        # Because the published filenames carry no release,
+        # every release of a version landed on ONE path: downloading a new
         # release wrote over the only local copy of the release it was
         # replacing, and the pre-upgrade snapshot then had nothing to copy.
         # Measured on an installed machine 2026-09-19: the cached
