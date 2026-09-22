@@ -38,7 +38,6 @@ from /usr/lib/systemd/system/alsa-restore.service.d on an installed machine.
 That needs the package installed and is measured there, not from a source
 tree.
 """
-import glob
 import os
 import shlex
 import stat
@@ -176,72 +175,272 @@ def test_the_drop_in_runs_the_helper_after_the_restore_and_cannot_fail_it(
     )
 
 
-def test_the_helper_writes_every_listed_element_on_every_control_device(
-        tmp_path):
-    """Behaviour, with a stub mixer program that records what it is asked.
+def mixer_stub(bin_dir: Path, log: Path, controls: list[str],
+               scontrols_status: int = 0, sset_status: int = 0) -> None:
+    """An amixer stand-in that answers both questions the helper asks.
 
-    The expectation is derived from the control devices this host actually
-    has, so the test says something true on a machine with sound cards and on
-    a build host with none: with none, the helper must still exit 0 and write
-    nothing.
+    The real program is asked twice: `scontrols`, which lists the simple
+    controls a card has, and `sset`, which sets one of them. The helper tells
+    an element this codec does not have from an element it has that will not
+    take 0 dB by reading the first answer, so a stand-in that answers only the
+    second would not exercise the distinction at all.
     """
-    root = staged(tmp_path)
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    log = tmp_path / "amixer.log"
+    listing = "\n".join(
+        f"Simple mixer control '{name}',0" for name in controls
+    )
     stub = bin_dir / "amixer"
     stub.write_text(
         "#!/bin/sh\n"
         f'printf "%s\\n" "$*" >> {shlex.quote(str(log))}\n'
-        "exit 0\n"
+        "case \"$*\" in\n"
+        "  *scontrols*)\n"
+        f"    cat <<'LISTING'\n{listing}\nLISTING\n"
+        f"    exit {scontrols_status} ;;\n"
+        "esac\n"
+        f"exit {sset_status}\n"
     )
     stub.chmod(0o755)
 
-    result = subprocess.run(
-        [str(root / HELPER)],
-        capture_output=True,
-        text=True,
-        env={"PATH": f"{bin_dir}:/usr/bin:/bin", "HOME": str(tmp_path)},
+
+def fake_control_devices(root: Path, cards: list[str]) -> str:
+    """A directory of control-device names, and the glob that finds them.
+
+    The helper takes its device glob from the environment so that this can be
+    driven on a build host with no sound card at all. A test that read the
+    host's real /dev/snd would say nothing on such a host, and a check that
+    cannot fail is not a check.
+    """
+    snd = root / "snd"
+    snd.mkdir(parents=True, exist_ok=True)
+    for card in cards:
+        (snd / f"controlC{card}").write_text("")
+    return f"{snd}/controlC*"
+
+
+def run_helper(helper: Path, bin_dir: Path, tmp_path: Path,
+               glob_pattern: str | None = None) -> subprocess.CompletedProcess:
+    env = {"PATH": f"{bin_dir}:/usr/bin:/bin", "HOME": str(tmp_path)}
+    if glob_pattern is not None:
+        env["PIPEWIRE_BOOST_CONTROL_GLOB"] = glob_pattern
+    return subprocess.run(
+        [str(helper)], capture_output=True, text=True, env=env
     )
+
+
+def test_the_helper_writes_every_listed_element_the_card_actually_has(
+        tmp_path):
+    """Behaviour, with a stand-in mixer program that records what it is asked.
+
+    Two control devices are placed in a fixture directory, both reporting
+    every listed element, so the expectation is the same on a machine with
+    sound cards and on a build host with none.
+    """
+    root = staged(tmp_path)
+    helper = root / HELPER
+    elements = [name for name in helper_elements(helper) if name]
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    log = tmp_path / "amixer.log"
+    mixer_stub(bin_dir, log, elements)
+    glob_pattern = fake_control_devices(tmp_path, ["1", "7"])
+
+    result = run_helper(helper, bin_dir, tmp_path, glob_pattern)
 
     assert result.returncode == 0, (
         f"the helper failed: {result.stdout}{result.stderr}"
     )
-    elements = [name for name in helper_elements(root / HELPER) if name]
-    cards = sorted(glob.glob("/dev/snd/controlC*"))
     calls = log.read_text().splitlines() if log.exists() else []
-    assert len(calls) == len(elements) * len(cards), (
-        f"{len(calls)} mixer writes for {len(elements)} elements on "
-        f"{len(cards)} control devices: {calls}"
-    )
-    for card in cards:
-        index = card[len("/dev/snd/controlC"):]
+    for card in ("1", "7"):
+        assert f"-c {card} scontrols" in calls, (
+            f"the helper did not ask card {card} which controls it has: {calls}"
+        )
         for element in elements:
-            assert f'-c {index} -q sset {element} 0dB' in calls, (
-                f"no write of {element} to 0 dB on card {index}: {calls}"
+            assert f"-c {card} -q sset {element} 0dB" in calls, (
+                f"no write of {element} to 0 dB on card {card}: {calls}"
             )
+    assert len(calls) == 2 * (1 + len(elements)), (
+        f"{len(calls)} mixer calls for {len(elements)} elements on two "
+        f"control devices: {calls}"
+    )
+    assert f"{2 * len(elements)} element(s) set to 0 dB" in result.stdout, (
+        f"the helper does not say what it did: {result.stdout}"
+    )
 
 
-def test_the_helper_survives_a_mixer_program_that_refuses(tmp_path):
-    """An element a codec does not have must not fail the restore."""
+def test_the_helper_passes_over_an_element_the_card_does_not_have(tmp_path):
+    """An element this codec has not got is an ordinary fact, not a failure.
+
+    The element list names every boost the shipped mixer path files mark, not
+    the ones any one codec carries, so most machines have most of them absent.
+    The helper must exit 0 and write nothing for them.
+    """
     root = staged(tmp_path)
+    helper = root / HELPER
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    stub = bin_dir / "amixer"
-    stub.write_text("#!/bin/sh\necho 'no such control' >&2\nexit 1\n")
-    stub.chmod(0o755)
+    log = tmp_path / "amixer.log"
+    mixer_stub(bin_dir, log, ["Master", "PCM"])
+    glob_pattern = fake_control_devices(tmp_path, ["3"])
 
-    result = subprocess.run(
-        [str(root / HELPER)],
-        capture_output=True,
-        text=True,
-        env={"PATH": f"{bin_dir}:/usr/bin:/bin", "HOME": str(tmp_path)},
-    )
+    result = run_helper(helper, bin_dir, tmp_path, glob_pattern)
 
     assert result.returncode == 0, (
-        "the helper failed when the mixer program refused; with the drop-in's "
-        "leading '-' removed that would fail a boot-time restore"
+        "the helper failed on a card that simply has no boost element: "
+        f"{result.stdout}{result.stderr}"
     )
+    calls = log.read_text().splitlines() if log.exists() else []
+    assert [c for c in calls if "sset" in c] == [], (
+        f"the helper wrote an element the card does not have: {calls}"
+    )
+    elements = [name for name in helper_elements(helper) if name]
+    assert f"{len(elements)} not present on this machine" in result.stdout, (
+        f"the helper does not say the elements were absent: {result.stdout}"
+    )
+
+
+def test_the_helper_reports_a_write_that_fails_on_an_element_that_is_there(
+        tmp_path):
+    """An element the card HAS that will not take 0 dB is a failure.
+
+    Measured by the independent read of the first form of this change: the
+    helper discarded every diagnostic and every status, so a simulated mixer
+    I/O error produced the same empty, successful run as a machine with no
+    boost at all. A boost that was never zeroed then looks exactly like a
+    boost there was nothing to zero, which is the reading the whole change
+    exists to prevent. The drop-in keeps its leading "-", so the restore is
+    still not failed by this; what changes is that the helper says so.
+    """
+    root = staged(tmp_path)
+    helper = root / HELPER
+    elements = [name for name in helper_elements(helper) if name]
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    log = tmp_path / "amixer.log"
+    mixer_stub(bin_dir, log, elements, sset_status=1)
+    glob_pattern = fake_control_devices(tmp_path, ["2"])
+
+    result = run_helper(helper, bin_dir, tmp_path, glob_pattern)
+
+    assert result.returncode != 0, (
+        "the helper reported success although every mixer write failed: "
+        f"{result.stdout}{result.stderr}"
+    )
+    assert elements[0] in result.stderr and "card 2" in result.stderr, (
+        f"the failure names neither the element nor the card: {result.stderr}"
+    )
+    assert f"{len(elements)} failed" in result.stdout, (
+        f"the helper does not count the failures: {result.stdout}"
+    )
+
+
+def test_the_helper_reports_a_card_whose_controls_cannot_be_read(tmp_path):
+    """If the card cannot be asked at all, nothing about it is known."""
+    root = staged(tmp_path)
+    helper = root / HELPER
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    log = tmp_path / "amixer.log"
+    mixer_stub(bin_dir, log, [], scontrols_status=1)
+    glob_pattern = fake_control_devices(tmp_path, ["5"])
+
+    result = run_helper(helper, bin_dir, tmp_path, glob_pattern)
+
+    assert result.returncode != 0, (
+        "the helper passed on a card it could not read at all: "
+        f"{result.stdout}{result.stderr}"
+    )
+    assert "card 5" in result.stderr, (
+        f"the failure does not name the card: {result.stderr}"
+    )
+
+
+def test_the_helper_writes_nothing_where_there_is_no_control_device(tmp_path):
+    """A build host with no sound card: no calls, exit 0."""
+    root = staged(tmp_path)
+    helper = root / HELPER
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    log = tmp_path / "amixer.log"
+    mixer_stub(bin_dir, log, [])
+    empty = tmp_path / "no-cards"
+    empty.mkdir()
+
+    result = run_helper(helper, bin_dir, tmp_path, f"{empty}/controlC*")
+
+    assert result.returncode == 0, (
+        f"the helper failed with no control device: {result.stderr}"
+    )
+    assert not log.exists() or log.read_text() == "", (
+        f"the helper called the mixer with no control device: {log.read_text()}"
+    )
+
+
+def test_the_helper_is_not_written_through_a_link_at_its_destination(tmp_path):
+    """A link standing where the helper goes must be refused, not followed.
+
+    Measured by the independent read: the step redirected straight into
+    usr/libexec/pipewire-zero-microphone-boost, so a link there was followed,
+    the file it pointed at was overwritten with the helper's text, and the
+    chmod that followed changed that outside file's mode from 0600 to 0755.
+    """
+    root = tmp_path / "root"
+    outside = tmp_path / "outside"
+    outside.mkdir(parents=True)
+    sentinel = outside / "helper-sentinel"
+    sentinel.write_text("this file is not the staging root\n")
+    sentinel.chmod(0o600)
+    (root / "usr/libexec").mkdir(parents=True)
+    (root / HELPER).symlink_to(sentinel)
+
+    result = recipe('install_boost_zeroing_helper "$1"', str(root))
+
+    assert result.returncode != 0, (
+        "the step passed with a symbolic link where the helper goes: "
+        f"{result.stdout}{result.stderr}"
+    )
+    assert (root / HELPER).is_symlink(), "the step replaced the link"
+    assert sentinel.read_text() == "this file is not the staging root\n", (
+        "the file outside the staging root was overwritten"
+    )
+    assert stat.S_IMODE(sentinel.stat().st_mode) == 0o600, (
+        "the mode of the file outside the staging root was changed"
+    )
+
+
+def test_the_drop_in_is_not_written_through_a_link_at_its_destination(
+        tmp_path):
+    """The same rule at the second generated file."""
+    root = tmp_path / "root"
+    outside = tmp_path / "outside"
+    outside.mkdir(parents=True)
+    sentinel = outside / "drop-in-sentinel"
+    sentinel.write_text("this file is not the staging root\n")
+    sentinel.chmod(0o600)
+    (root / DROP_IN).parent.mkdir(parents=True)
+    (root / DROP_IN).symlink_to(sentinel)
+
+    result = recipe('install_boost_zeroing_helper "$1"', str(root))
+
+    assert result.returncode != 0, (
+        "the step passed with a symbolic link where the drop-in goes: "
+        f"{result.stdout}{result.stderr}"
+    )
+    assert (root / DROP_IN).is_symlink(), "the step replaced the link"
+    assert sentinel.read_text() == "this file is not the staging root\n", (
+        "the file outside the staging root was overwritten"
+    )
+    assert stat.S_IMODE(sentinel.stat().st_mode) == 0o600, (
+        "the mode of the file outside the staging root was changed"
+    )
+
+
+def test_no_staging_temporary_is_left_behind(tmp_path):
+    """The temporaries the step creates are published, never left."""
+    root = staged(tmp_path)
+    leftovers = sorted(
+        str(p.relative_to(root)) for p in root.rglob(".pipewire-staging.*")
+    )
+    assert leftovers == [], f"temporaries were left behind: {leftovers}"
 
 
 def test_the_helper_is_the_same_file_whatever_the_build_host_locale(tmp_path):

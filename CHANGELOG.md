@@ -262,7 +262,22 @@ landed is in the repository README, not here.
   of being replaced by a regular file while the file it points at kept its
   old setting, and a second run over a tree the step has already rewritten
   now says that is what happened instead of reporting an upstream change
-  nobody made.
+  nobody made, and says that a part-rewritten set cannot be continued from
+  and the path files must be staged again.
+
+  Every file this step writes now follows one rule, not just the input files
+  it checks. Each is written to a name the step creates itself in the
+  directory the file belongs to and is then moved into place, so a symbolic
+  link left at a scratch name or at either of the two generated files is
+  refused rather than followed: before this, a link at the fixed scratch name
+  was written through, the file it pointed at was rewritten and the staged
+  name itself became a link, and a link at the helper or at the drop-in had
+  its target overwritten and its mode changed. And the helper now tells an
+  element this machine's codec does not have, which is ordinary and silent,
+  from an element it has that will not take 0 dB, which is reported and makes
+  the helper exit non-zero; it prints one line saying how many elements it
+  set, how many were absent and how many failed. The drop-in keeps the
+  leading `-` that stops any of this from failing the state restore itself.
 - **The installer says so when the machine's PCI device listing can be read but
   names no device.** The one fail-closed inventory read that the package
   hardware gate and the card-reader check share told two outcomes apart: a

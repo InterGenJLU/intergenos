@@ -368,3 +368,93 @@ def test_a_second_run_says_the_tree_is_already_rewritten(tmp_path):
     assert "expected exactly one" not in second.stderr, (
         "the second run still reports an upstream change: " + second.stderr
     )
+
+
+def test_a_link_left_at_the_temporary_name_is_not_written_through(tmp_path):
+    """The rewrite must not follow a link standing at its scratch name.
+
+    Measured by the independent read of the first form of this change: the
+    step wrote its rewritten copy to the fixed name "<file>.zero-boost" and
+    then moved that name over the input. A symbolic link placed at that
+    predictable name was followed by the redirect, so the file it pointed at
+    was rewritten, and the move then carried the LINK onto the staged
+    filename, which left the staged path set holding a link to something
+    outside it. Six of the nine files returned 0 that way, and the three the
+    list names twice refused only on the second visit, after the referent had
+    already been changed.
+
+    The step now writes to a name it creates itself in the directory it
+    publishes into, so nothing can be waiting at that name.
+    """
+    paths = build_paths_dir(tmp_path)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+
+    referents = {}
+    for conf in sorted({conf for conf, _ in EXPECTED_STANZAS}):
+        referent = outside / f"{conf}.referent"
+        referent.write_text("this file is not part of the staged path set\n")
+        referents[conf] = referent
+        (paths / f"{conf}.zero-boost").symlink_to(referent)
+
+    result = run_step(paths)
+
+    assert result.returncode == 0, (
+        "the step did not complete with a link standing at its scratch name: "
+        f"{result.stdout}{result.stderr}"
+    )
+    for conf, referent in referents.items():
+        assert referent.read_text() == (
+            "this file is not part of the staged path set\n"
+        ), f"the file outside the staged set was rewritten through {conf}"
+        staged = paths / conf
+        assert staged.is_file() and not staged.is_symlink(), (
+            f"the staged file {conf} is a symbolic link after the rewrite"
+        )
+    for conf, element in EXPECTED_STANZAS:
+        assert stanza_volume((paths / conf).read_text(), element) == "zero", (
+            f"[Element {element}] of {conf} was not rewritten"
+        )
+    assert list(paths.glob(".zero-boost.*")) == [], (
+        "a temporary file was left behind"
+    )
+
+
+def test_the_refusal_on_a_partly_rewritten_set_names_what_is_needed(tmp_path):
+    """A run stopped part way leaves a set this step cannot carry on from.
+
+    The independent read stopped a first run at two real rename boundaries,
+    after one and after six stanzas, and ran it again. The second run refuses
+    at the first already-zeroed stanza and changes nothing further, which is
+    correct — the count guard is what catches an upstream rename and a step
+    that skipped what looked done would lose it. What was missing is that the
+    refusal did not say a partly rewritten set cannot be continued, so whoever
+    reads a failed build is not told that the path files must be staged again.
+    """
+    paths = build_paths_dir(tmp_path)
+    # the state an interrupted run leaves: the first listed stanza rewritten,
+    # every other stanza still on merge.
+    first_conf, first_element = EXPECTED_STANZAS[0]
+    text = (paths / first_conf).read_text()
+    marker = f"[Element {first_element}]"
+    out, inside = [], False
+    for line in text.splitlines():
+        if line.startswith("["):
+            inside = line == marker
+        if inside and line.strip() == "volume = merge":
+            line = "volume = zero"
+        out.append(line)
+    (paths / first_conf).write_text("\n".join(out) + "\n")
+
+    result = run_step(paths)
+
+    assert result.returncode != 0, (
+        "the step passed over a partly rewritten set"
+    )
+    assert "already" in result.stderr and "not idempotent" in result.stderr, (
+        f"the refusal does not name its own cause: {result.stderr}"
+    )
+    assert "stage the mixer path files again" in result.stderr, (
+        "the refusal does not say that a partly rewritten set cannot be "
+        f"carried on from and what to do instead: {result.stderr}"
+    )

@@ -90,6 +90,58 @@ stanza_already_zeroed() {
     ' "$1"
 }
 
+# Write a file without ever following a symbolic link standing at its name.
+#
+# Content is read from standard input. The temporary is created by mktemp in
+# the directory the file is published into: mktemp creates it exclusively and
+# fails if it cannot, so the name it returns is a regular file this step has
+# just made and can never be an existing link pointing outside the staging
+# root, and the rename that publishes it is on one filesystem. rename(2)
+# replaces a link standing at the destination rather than writing through it;
+# the destination is checked as well, so a link there is refused in words
+# instead of being quietly replaced.
+#
+# Written after the independent read of the first form of this change measured
+# what the previous shape did: a link left at the fixed temporary name
+# "<file>.zero-boost" was followed by the redirect, the file it pointed at was
+# rewritten, and the staged name then became a link, because the move carried
+# the link rather than a regular file. The two generated files below were
+# written by direct redirection and had the same hole, and the chmod that
+# followed each of them crossed it too.
+#
+# $1 is the path to write, $2 the mode it must end up with.
+write_file_without_following_a_link() {
+    local dest="$1" mode="$2" dir tmp
+    dir=$(dirname "$dest")
+    if [ ! -d "$dir" ]; then
+        echo "pipewire: directory not found for $dest" >&2
+        return 1
+    fi
+    if [ -L "$dest" ]; then
+        echo "pipewire: destination is a symbolic link and is not written: $dest" >&2
+        return 1
+    fi
+    tmp=$(mktemp "${dir}/.pipewire-staging.XXXXXX") || return 1
+    if ! cat > "$tmp"; then
+        rm -f "$tmp"
+        echo "pipewire: the staged copy of $dest could not be written" >&2
+        return 1
+    fi
+    if ! chmod "$mode" "$tmp"; then
+        rm -f "$tmp"
+        return 1
+    fi
+    if [ -L "$dest" ]; then
+        rm -f "$tmp"
+        echo "pipewire: destination is a symbolic link and is not written: $dest" >&2
+        return 1
+    fi
+    if ! mv -f "$tmp" "$dest"; then
+        rm -f "$tmp"
+        return 1
+    fi
+}
+
 # Keep the microphone boost out of the audio server's volume walk.
 #
 # The ALSA card-profile mixer path files that this package installs mark BOTH
@@ -124,7 +176,7 @@ zero_boost_volume_elements() {
     local paths_dir="$1"
     local expected=12
     local changed=0
-    local conf element file mode
+    local conf element file mode tmp
 
     if [ ! -d "$paths_dir" ]; then
         echo "pipewire: mixer path directory not found: $paths_dir" >&2
@@ -150,6 +202,11 @@ zero_boost_volume_elements() {
             return 1
         fi
         mode=$(stat -c %a "$file")
+        # A name this step has just created, in the directory the file is
+        # published into: it cannot be a link someone left at a predictable
+        # name, and the move that publishes it replaces the staged file rather
+        # than writing through anything.
+        tmp=$(mktemp "${paths_dir}/.zero-boost.XXXXXX") || return 1
         if ! awk -v want="[Element ${element}]" '
                 BEGIN { inside = 0; hits = 0 }
                 /^\[/ { inside = ($0 == want) }
@@ -158,17 +215,17 @@ zero_boost_volume_elements() {
                 }
                 { print }
                 END { if (hits != 1) exit 1 }
-            ' "$file" > "${file}.zero-boost"; then
-            rm -f "${file}.zero-boost"
+            ' "$file" > "$tmp"; then
+            rm -f "$tmp"
             if stanza_already_zeroed "$file" "$element"; then
-                echo "pipewire: [Element ${element}] of ${conf} already reads 'volume = zero'; this step rewrites a freshly staged path set once and is not idempotent" >&2
+                echo "pipewire: [Element ${element}] of ${conf} already reads 'volume = zero'; this step rewrites a freshly staged path set once, it is not idempotent, and it cannot carry on from a partly rewritten set: stage the mixer path files again before running it" >&2
             else
                 echo "pipewire: expected exactly one 'volume = merge' line in [Element ${element}] of ${conf}" >&2
             fi
             return 1
         fi
-        mv -f "${file}.zero-boost" "$file"
-        chmod "$mode" "$file"
+        chmod "$mode" "$tmp"
+        mv -f "$tmp" "$file"
         changed=$((changed + 1))
     done <<< "$(boost_volume_stanzas)"
 
@@ -254,25 +311,60 @@ ZERO_BOOST_HEADER
         echo '}'
         cat <<'ZERO_BOOST_BODY'
 
+# The control devices to work on. Overridable so this helper can be exercised
+# against a directory of fixtures on a build host that has no sound card at
+# all; nothing in the product sets it, and the default is the real one.
+: "${PIPEWIRE_BOOST_CONTROL_GLOB:=/dev/snd/controlC*}"
+
+zeroed=0
+absent=0
+failed=0
+
 # One reading per control device, so the card index comes from the device
 # that exists rather than from a guess about numbering.
-for control in /dev/snd/controlC*; do
+for control in $PIPEWIRE_BOOST_CONTROL_GLOB; do
     [ -e "$control" ] || continue
-    card=${control#/dev/snd/controlC}
+    card=${control##*/controlC}
+    # Ask the card which simple controls it has, ONCE. An element this codec
+    # does not have is an ordinary fact -- this list names every boost the
+    # shipped mixer paths mark, not the ones any one codec carries -- and an
+    # element the card DOES have that will not take 0 dB is a failure. Without
+    # this reading the two are the same non-zero status from amixer, and
+    # discarding it made a machine whose boost was never zeroed look exactly
+    # like a machine that has no boost to zero.
+    if ! controls=$(amixer -c "$card" scontrols 2>/dev/null); then
+        echo "the mixer controls of card $card could not be read" >&2
+        failed=$((failed + 1))
+        continue
+    fi
     while IFS= read -r element; do
         [ -n "$element" ] || continue
-        amixer -c "$card" -q sset "$element" 0dB 2>/dev/null || true
+        case "$controls" in
+            *"'$element'"*) ;;
+            *) absent=$((absent + 1)); continue ;;
+        esac
+        if amixer -c "$card" -q sset "$element" 0dB 2>/dev/null; then
+            zeroed=$((zeroed + 1))
+        else
+            echo "card $card has $element and setting it to 0 dB failed" >&2
+            failed=$((failed + 1))
+        fi
     done <<ELEMENT_LIST
 $(boost_elements)
 ELEMENT_LIST
 done
+
+echo "microphone boost: $zeroed element(s) set to 0 dB, $absent not present on this machine, $failed failed"
+[ "$failed" -eq 0 ] || exit 1
 exit 0
 ZERO_BOOST_BODY
-    } > "${DESTDIR}/usr/libexec/pipewire-zero-microphone-boost"
-    chmod 755 "${DESTDIR}/usr/libexec/pipewire-zero-microphone-boost"
+    } | write_file_without_following_a_link \
+        "${DESTDIR}/usr/libexec/pipewire-zero-microphone-boost" 755 || return 1
 
     install -dm755 "${DESTDIR}/usr/lib/systemd/system/alsa-restore.service.d"
-    cat > "${DESTDIR}/usr/lib/systemd/system/alsa-restore.service.d/10-microphone-boost-to-zero.conf" <<'DROP_IN'
+    write_file_without_following_a_link \
+        "${DESTDIR}/usr/lib/systemd/system/alsa-restore.service.d/10-microphone-boost-to-zero.conf" \
+        644 <<'DROP_IN' || return 1
 # The saved ALSA state is written to the mixer by alsactl restore; this puts
 # the microphone boost elements back to 0 dB immediately afterwards, so a
 # stored non-zero boost does not survive a boot or a card appearing later.
@@ -280,7 +372,6 @@ ZERO_BOOST_BODY
 [Service]
 ExecStartPost=-/usr/libexec/pipewire-zero-microphone-boost
 DROP_IN
-    chmod 644 "${DESTDIR}/usr/lib/systemd/system/alsa-restore.service.d/10-microphone-boost-to-zero.conf"
 }
 
 do_install() {
