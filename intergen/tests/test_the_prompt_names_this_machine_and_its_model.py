@@ -118,6 +118,17 @@ class TheNameComesFromTheEngine(unittest.TestCase):
         self.assertIn(MACHINE_NAME, content)
         self.assertIn("local model", content)
 
+    def test_a_router_built_without_its_constructor_still_builds_a_prompt(self):
+        """Routers ARE built that way — the router cases construct one with
+        __new__ and set only the fields they need. A prompt that could not be
+        assembled because the engine field was absent would turn a partially
+        built router into one that cannot answer at all. Found by the full
+        suite: eighteen router cases failed on exactly this."""
+        bare = LLMRouter.__new__(LLMRouter)
+        content = bare.build_system_messages()[0].content
+        self.assertIn(MACHINE_NAME, content)
+        self.assertIn("local model", content)
+
     def test_an_engine_that_raises_means_no_name_and_no_failure(self):
         engine = _Engine(RuntimeError("the engine is mid-restart"))
         content = _router_with(engine).build_system_messages()[0].content

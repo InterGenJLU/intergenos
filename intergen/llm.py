@@ -2025,8 +2025,15 @@ class LLMRouter(LLMInterface):
         a running daemon cannot leave this answering with the old name. Every
         read is defensive — a prompt must not fail to be built because an
         engine attribute was not what this expected.
+
+        Including the read of the field itself. A router built without running
+        its constructor does not carry it, and routers ARE built that way: the
+        router cases construct one with __new__ and set the handful of fields
+        they need, and start_service can fail part-way through. A prompt that
+        could not be assembled because this field was missing would turn a
+        partially built router into one that cannot answer at all.
         """
-        engine = self._serving_engine
+        engine = getattr(self, "_serving_engine", None)
         if engine is None:
             return None
         try:
