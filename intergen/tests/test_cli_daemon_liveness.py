@@ -21,7 +21,9 @@ and exits non-zero, and the in-process session stays behind --direct.
 Both failure paths read the user service state, so both cases below replace
 that read: without it the cases asked this machine's own service manager, and
 their outcome was the same whatever it said — a case that reads the host
-measures the host, not the command.
+measures the host, not the command. The busy-daemon path also asks the bus
+which process holds the name and the service manager for the service's main
+process; that case replaces those two reads as well.
 """
 
 import json
@@ -50,7 +52,11 @@ class TestCmdAskLiveness(unittest.TestCase):
         # must exit(2), NOT import+start a competing direct daemon.
         with patch.object(cli, "daemon_has_owner", return_value=True), \
              patch.object(cli, "try_dbus", return_value=None), \
-             patch.object(cli, "_user_service_state", return_value="active"):
+             patch.object(cli, "_user_service_state", return_value="active"), \
+             patch.object(cli, "_who_holds_the_name",
+                          return_value=(None, None)), \
+             patch.object(cli, "_managed_service_main_pid",
+                          return_value=None):
             with patch("intergen.dbus_daemon.InterGenDaemon") as m_daemon:
                 with self.assertRaises(SystemExit) as ctx:
                     cli.cmd_ask("hello")

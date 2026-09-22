@@ -632,9 +632,11 @@ landed is in the repository README, not here.
   exist, so `intergen --version` told such a machine it had no package record
   at all — a false statement about the machine, since the database may hold a
   good row. A file that is not there is now "no record" and any other failure
-  to look is "unreadable", and the command says which it met. Not reachable on
-  a default installation, where `/var/lib/igos` and `pkm.db` are both
-  world-readable.
+  to look is "unreadable", and the command says which it met. A symbolic link
+  that points at nothing, at the record's path or at a directory on the way to
+  it, reads as "unreadable" too: the location is broken, which says nothing
+  about whether a record exists. Not reachable on a default installation,
+  where `/var/lib/igos` and `pkm.db` are both world-readable.
 - **`intergen status` no longer reads an absent answer as a confident one.** The
   status payload carries a field saying whether the release in the version
   string was really read from the package record. A payload built by a daemon
@@ -649,17 +651,19 @@ landed is in the repository README, not here.
   message-bus name has an owner but the request does not complete, the
   question command said the assistant was running, that it might still be
   loading, and to try again in a moment, and `intergen ask-frontier` said the
-  assistant was running. Where that name is held by something other than the
-  managed service, waiting will not clear it. Both commands now read the user
-  service state and say which reading holds: they offer the wait only where
-  the service really is active, name the command that starts it only where
-  the service is really stopped or failed, and where the state is in
-  transition or could not be read they show that state and assert neither.
-  And where the assistant answered the request with its own error — a question
-  over its size limit, or an internal error it has logged — both commands used
-  to report a request that did not complete in time; they now print the
-  assistant's own sentence, since waiting never makes an over-long question
-  fit.
+  assistant was running. Both commands now read the user service state and
+  ask the message bus which process holds the name, and say only what those
+  establish: they name the process holding the name; where it is not the
+  managed service they say the service cannot take the name while that
+  process holds it, and that the name is released when that process ends;
+  they offer the wait only where the service is active and no other process
+  is shown holding the name; and where the state is in transition or could
+  not be read they show that state and assert neither. A request answered with
+  an error is reported as that error, with its name and text — for the
+  assistant's own error, a question over its size limit or an internal error it
+  has logged, the assistant's own sentence, since waiting never makes an
+  over-long question fit — and "did not complete in time" is kept for a
+  request that got no answer before the time limit.
 
 - **The text taken out of a wiki page is bounded, and its whitespace is no
   longer collapsed by a regular-expression substitution over the whole page.**

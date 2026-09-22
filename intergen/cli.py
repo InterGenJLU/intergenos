@@ -243,6 +243,66 @@ def _the_assistants_own_error(failure: list) -> str | None:
     return None
 
 
+# The error the message bus library answers with for a call to an object path
+# nothing has registered, as the assistant's path is until its start finishes.
+_UNKNOWN_METHOD = "org.freedesktop.DBus.Error.UnknownMethod"
+
+
+def _the_error_that_answered(failure: list) -> tuple[str, str] | None:
+    """``(name, text)`` of the error a call was answered with, when that error
+    is not the assistant's own; None when no error answered the call.
+
+    An error from the other end is an answer: whatever holds the name replied,
+    with an error instead of a value. Until 2026-09-22 such an answer reached
+    the no-reply report looking like a call that got no answer at all, and
+    with the service active both question commands said the call did not
+    complete in time, the question command adding that the assistant might
+    still be loading, for calls answered in a fraction of a second.
+    """
+    try:
+        import gi
+        gi.require_version("Gio", "2.0")
+        from gi.repository import Gio, GLib
+    except Exception:  # noqa: BLE001 — no bus library, so no bus error to read
+        return None
+    for exc in failure:
+        if not isinstance(exc, GLib.Error):
+            continue
+        if not Gio.DBusError.is_remote_error(exc):
+            continue
+        name = Gio.DBusError.get_remote_error(exc) or ""
+        if name == _ASSISTANT_ERROR_NAME:
+            continue
+        text = exc.message or ""
+        prefix = f"GDBus.Error:{name}: "
+        return name, (text[len(prefix):] if text.startswith(prefix) else text)
+    return None
+
+
+def _the_call_timed_out(failure: list) -> bool:
+    """Whether the call ended at its own time limit with no answer: the one
+    failure after which "did not complete in time" is what happened."""
+    try:
+        import gi
+        gi.require_version("Gio", "2.0")
+        from gi.repository import Gio, GLib
+    except Exception:  # noqa: BLE001 — no bus library, so no bus error to read
+        return False
+    return any(isinstance(exc, GLib.Error)
+               and exc.matches(Gio.io_error_quark(), Gio.IOErrorEnum.TIMED_OUT)
+               for exc in failure)
+
+
+def _the_failure_text(failure: list) -> str:
+    """The text of the first recorded failure, for a call that neither was
+    answered nor reached its time limit — a connection that closed, say."""
+    for exc in failure:
+        text = getattr(exc, "message", None) or str(exc)
+        if text:
+            return text
+    return ""
+
+
 def _last_answer_path() -> Path:
     """Cache file holding the last CLI answer + its raw original.
 
@@ -394,6 +454,66 @@ def _user_service_state() -> str:
         return "unknown"
 
 
+#: How much of the holding process's command line the no-reply report shows.
+_COMMAND_SHOWN_MAX = 200
+
+
+def _who_holds_the_name() -> tuple[int | None, str | None]:
+    """``(process id, command line)`` of whatever holds the assistant's name on
+    the message bus, as the bus itself reports it.
+
+    The process id is None when the bus could not say, and the command line is
+    None when it could not be read. Like the ownership check (see
+    daemon_has_owner) this is answered by the bus, not by the holder, so it
+    returns at once however busy the holder is. A failure is answered with
+    None rather than raised: a lookup must not mask the report it is part of.
+    """
+    try:
+        import gi
+        gi.require_version("Gio", "2.0")
+        from gi.repository import Gio, GLib
+
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION)
+        result = bus.call_sync(
+            "org.freedesktop.DBus",
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus",
+            "GetConnectionUnixProcessID",
+            GLib.Variant("(s)", (INTERGEN_BUS_NAME,)),
+            GLib.VariantType("(u)"),
+            Gio.DBusCallFlags.NONE,
+            2000,
+        )
+        pid = int(result.unpack()[0])
+    except Exception:  # noqa: BLE001 — a lookup failure must not mask the report
+        return None, None
+    try:
+        raw = Path(f"/proc/{pid}/cmdline").read_bytes()
+    except OSError:
+        return pid, None
+    command = " ".join(part.decode("utf-8", "replace")
+                       for part in raw.split(b"\0") if part)
+    if len(command) > _COMMAND_SHOWN_MAX:
+        command = command[:_COMMAND_SHOWN_MAX] + " ..."
+    return pid, command or None
+
+
+def _managed_service_main_pid() -> int | None:
+    """The managed service's main process id, as the service manager reports
+    it: 0 when the service has no main process, None when the service manager
+    could not be asked or answered with something that is not a number."""
+    try:
+        probe = subprocess.run(
+            ["systemctl", "--user", "show", "-p", "MainPID", "--value",
+             "intergen"],
+            capture_output=True, text=True, timeout=5, check=False)
+        if probe.returncode != 0:
+            return None
+        return int((probe.stdout or "").strip())
+    except Exception:  # noqa: BLE001 — a probe failure must not mask the report
+        return None
+
+
 def _report_service_state_instead_of_starting_one() -> None:
     """Say what the service is doing and how to start it, and start nothing.
 
@@ -417,56 +537,119 @@ def _report_service_state_instead_of_starting_one() -> None:
 def _report_a_call_that_did_not_complete(what: str, when_running: str,
                                          failure: list | None = None) -> None:
     """Say what is known when the assistant's bus name has an owner and a call
-    to it returned nothing, for both question commands.
+    to it returned no value, for both question commands.
 
-    When the assistant answered the call with its own error, that answer is
-    what is reported, in its own words (see _the_assistants_own_error); the
-    service-state reading below is for every other way a call returns nothing.
+    Four things are read, and every line printed rests on one of them: how the
+    call ended (the failure it recorded), the state the service manager gives
+    the managed service, the process the bus says holds the name, and the
+    managed service's main process.
 
-    Whether the managed service is running is read from the service manager,
-    never assumed from the name having an owner. Until 2026-09-22 the question
-    command said the assistant was running and might still be loading, and
-    told the person to try again in a moment, and the frontier command said it
-    was running; where the name is owned by something that is NOT the managed
-    service, the first is advice to wait for a condition that will not clear on
-    its own and both are statements nobody checked.
+    How the call ended. The assistant's own error is reported in its own words
+    (see _the_assistants_own_error). Any other error was an answer as well, and
+    is reported with its name and text (see _the_error_that_answered). Only a
+    call that reached its time limit is called one that did not complete in
+    time.
 
-    Only two answers establish a reading: "active" says the service is
-    running, "inactive" or "failed" says it is not. Anything else — a state in
-    transition, or no state at all because the service manager could not be
-    asked or answered with an error — establishes neither, and is reported as
-    exactly that rather than as either reading.
+    The service state. Only two answers establish a reading: "active" says the
+    service is running, "inactive" or "failed" says it is not. Anything else —
+    a state in transition, or no state at all because the service manager could
+    not be asked or answered with an error — establishes neither, and is
+    reported as exactly that rather than as either reading.
+
+    Who holds the name. The holding process is named. Where it is not the
+    managed service's main process, or the service is not running at all, the
+    report says the service cannot take the name while that process holds it:
+    the daemon claims the name as the first step of its start, and exits
+    without serving when something else already holds it. The name is released
+    when the holding process ends; whether that happens by itself depends on
+    what the process is, and the report names it rather than guessing. The
+    advice to wait is given only for a call that reached its time limit with
+    the service active and no other process shown holding the name.
+
+    Until 2026-09-22 this routine told a person whose service was stopped or
+    failed that waiting would not clear the condition, and to start the
+    service. Neither was read from anything: a start is refused while the name
+    is held, and waiting does clear it when the holder is this command's own
+    in-process session (the --direct option), which gives the name up when its
+    command ends. And with the service active, every failure but the
+    assistant's own error was reported as a call that did not complete in
+    time, including calls answered at once.
     """
     sys.stdout.flush()   # see _deliver_answer: keep the two streams in order
-    refused = _the_assistants_own_error(failure or [])
+    failure = failure or []
+    refused = _the_assistants_own_error(failure)
     if refused is not None:
         print(f"InterGen answered {what} with an error instead of a reply: "
               f"{refused}", file=sys.stderr)
         print("Check the daemon logs for details:", file=sys.stderr)
         print("  journalctl --user -u intergen -n 50", file=sys.stderr)
         return
+    answered = _the_error_that_answered(failure)
+    timed_out = answered is None and _the_call_timed_out(failure)
     state = _user_service_state()
-    if state == "active":
-        print(when_running, file=sys.stderr)
-        print(f"  service state: intergen.service (user) is {state}",
-              file=sys.stderr)
-    elif state in ("inactive", "failed"):
-        print("Something holds InterGen's name on the message bus, but the "
-              f"managed service is not running and {what} did not complete.",
-              file=sys.stderr)
-        print(f"  service state: intergen.service (user) is {state}",
-              file=sys.stderr)
-        print("  waiting will not clear this on its own.", file=sys.stderr)
-        print("  start the service with: systemctl --user start intergen",
-              file=sys.stderr)
+    stopped = state in ("inactive", "failed")
+    holder_pid, holder_command = _who_holds_the_name()
+    main_pid = _managed_service_main_pid()
+    # Whether the holder is the managed service, only where that was read.
+    if (holder_pid is not None and main_pid is not None and main_pid != 0
+            and holder_pid == main_pid and not stopped):
+        holder_is = "the service"
+    elif stopped or (holder_pid is not None and main_pid is not None):
+        holder_is = "another process"
     else:
-        print(f"Something holds InterGen's name on the message bus and {what} "
-              "did not complete; the state read for the managed service does "
-              "not say whether it is running.", file=sys.stderr)
-        print(f"  service state: intergen.service (user) is {state}",
+        holder_is = "not identified"
+
+    subject = what[:1].upper() + what[1:]
+    if answered is not None:
+        name, text = answered
+        print(f"{subject} was answered with an error instead of a reply: "
+              f"{name}: {text}", file=sys.stderr)
+    elif timed_out and state == "active" and holder_is != "another process":
+        print(when_running, file=sys.stderr)
+    elif timed_out:
+        print(f"{subject} did not complete in time.", file=sys.stderr)
+    else:
+        detail = _the_failure_text(failure)
+        print(f"{subject} did not complete" + (f": {detail}" if detail else "."),
               file=sys.stderr)
-        print("  read it with: systemctl --user status intergen",
+
+    print(f"  service state: intergen.service (user) is {state}",
+          file=sys.stderr)
+    if stopped:
+        print("  the managed service is not running", file=sys.stderr)
+    elif state != "active":
+        print("  that state does not say whether the managed service is "
+              "running; read it with: systemctl --user status intergen",
               file=sys.stderr)
+
+    if holder_pid is None:
+        print("  the process holding InterGen's name on the message bus could "
+              "not be identified", file=sys.stderr)
+    elif holder_command:
+        print(f"  InterGen's name on the message bus is held by process "
+              f"{holder_pid}: {holder_command}", file=sys.stderr)
+    else:
+        print(f"  InterGen's name on the message bus is held by process "
+              f"{holder_pid} (its command line could not be read)",
+              file=sys.stderr)
+
+    if holder_is == "another process" and holder_pid is not None:
+        print(f"  process {holder_pid} is not the managed service, and the "
+              f"service cannot take the name while process {holder_pid} holds "
+              f"it; the name is released when process {holder_pid} ends",
+              file=sys.stderr)
+    elif holder_is == "another process":
+        print("  the service cannot take the name while another process holds "
+              "it; the name is released when that process ends",
+              file=sys.stderr)
+    elif holder_is == "the service":
+        print(f"  process {holder_pid} is the managed service's own main "
+              "process", file=sys.stderr)
+        if answered is not None and answered[0] == _UNKNOWN_METHOD:
+            print("  the service registers the interface this call uses at "
+                  "the end of its start and answers this way until it has; "
+                  "the daemon log shows whether its start is still running or "
+                  "the registration failed", file=sys.stderr)
     print("Check the daemon logs for details:", file=sys.stderr)
     print("  journalctl --user -u intergen -n 50", file=sys.stderr)
 
@@ -491,9 +674,9 @@ def cmd_ask(message: str, direct: bool = False) -> None:
             if not _deliver_answer(data):
                 sys.exit(2)
             return
-        # Something owns the bus name but the call did not complete even
-        # within the model timeout. Do NOT start a competing daemon — and do
-        # not assert which reading holds without looking.
+        # Something owns the bus name and the call returned no value: it was
+        # answered with an error, reached its time limit, or failed on the
+        # way. Do NOT start a competing daemon — and say only what was read.
         _report_a_call_that_did_not_complete(
             "the request",
             "InterGen is running but the request did not complete in time (it "

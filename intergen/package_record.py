@@ -68,6 +68,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+import stat
 from pathlib import Path
 
 #: The package database, as the package manager itself locates it.
@@ -111,6 +112,32 @@ def _fingerprint(path: Path, wal: Path) -> tuple | None:
     return (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, wal_size)
 
 
+def _a_link_on_the_way_points_at_nothing(configured: Path) -> bool:
+    """Whether the path as configured, or a directory on the way to it, is a
+    symbolic link whose target does not exist.
+
+    Each step of the path is looked at without following a link at that step
+    (os.lstat), and a link found there is then followed (os.stat) to see
+    whether anything is at its other end. The walk stops at the first step it
+    cannot look at, a step that does not exist among them: nothing past a
+    missing step can be a link.
+    """
+    steps = list(reversed(configured.parents))[1:] + [configured]
+    for step in steps:
+        try:
+            mode = os.lstat(step).st_mode
+        except OSError:
+            return False
+        if stat.S_ISLNK(mode):
+            try:
+                os.stat(step)
+            except FileNotFoundError:
+                return True
+            except OSError:
+                return False
+    return False
+
+
 def _select(uri: str):
     """Run the one query on a connection opened at `uri`.
 
@@ -135,24 +162,35 @@ def read_record(db_path=None):
     printing a version must not be able to fail over a database read.
     """
     try:
-        path = Path(db_path) if db_path else PKM_DB
-        path = path.resolve()
+        configured = Path(db_path) if db_path else PKM_DB
+        path = configured.resolve()
     except OSError:
         return READ_UNREADABLE, None
     try:
         path.stat()
     except FileNotFoundError:
+        if _a_link_on_the_way_points_at_nothing(configured):
+            # A symbolic link at the record's path, or at a directory on the
+            # way to it, points at nothing: the location is broken, which
+            # says nothing about whether a record exists. resolve() does not
+            # raise for such a link — it returns the missing target — so
+            # until 2026-09-22 this read exactly like a database that is not
+            # there.
+            return READ_UNREADABLE, None
         # Nothing at that path. A machine with no package database — a
         # checkout, a container — holds no record of this package, and that
-        # is something established rather than something unknown.
+        # is something established rather than something unknown. An empty
+        # directory where a volume is not mounted reads the same way: nothing
+        # this reader can see tells it from a machine with no database.
         return READ_NO_RECORD, None
     except OSError:
         # Something is in the way: a directory this user cannot traverse, a
-        # mount that is not there, a name too long for the filesystem. The
-        # database may well hold a record; this process cannot look. Asking
-        # whether the path was a regular file, as this did until 2026-09-22,
-        # answered no to BOTH cases alike, so a machine whose record was out of
-        # reach was told it had no record at all. The two are told apart here.
+        # file standing where a directory should be, a loop of symbolic
+        # links, a name too long for the filesystem. The database may well
+        # hold a record; this process cannot look. Asking whether the path was
+        # a regular file, as this did until 2026-09-22, answered no to BOTH
+        # cases alike, so a machine whose record was out of reach was told it
+        # had no record at all. The two are told apart here.
         return READ_UNREADABLE, None
 
     try:
