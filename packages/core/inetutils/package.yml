@@ -1,6 +1,6 @@
 name: inetutils
 version: '2.7'
-release: 5  # r5: ping6 drops setuid for cap_net_raw+ep restored and read back after deployment; libcap is an explicit runtime dependency.
+release: 6  # r6: links the ping profile (bin.ping, enforce) into /etc/apparmor.d, because this package installs /usr/bin/ping. HAND bump: no content_hash; the release tool does not watch this recipe. The profile text is upstream's, staged by apparmor in /usr/share/apparmor/extra-profiles, which nothing loads; apparmor r4 stopped loading top-level profiles for programs it does not install, because the apparmor unit loads every file in /etc/apparmor.d at every boot and on an ordinary install 39 of the 55 it shipped named a program that machine did not have. apparmor is now a runtime dependency so the link cannot dangle. The profile is unchanged and keeps upstream's mode. # r5: ping6 drops setuid for cap_net_raw+ep restored and read back after deployment; libcap is an explicit runtime dependency.
 description: GNU network utilities
 license: GPL-3.0-or-later
 source:
@@ -10,6 +10,7 @@ dependencies:
   build: []
   host: []
   runtime:
+  - apparmor
   - libcap
   - ncurses
   - readline
