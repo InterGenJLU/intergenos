@@ -125,7 +125,8 @@ def test_real_cli_preview_explains_directory_and_absent_arguments(saved_point, j
         capture_output=True, text=True, check=False,
     )
     assert result.returncode == 0, result.stderr
-    assert "directory" in result.stdout.lower()
+    assert "directory contents are not restored recursively" in result.stdout.lower()
+    assert "name the individual stored paths" in result.stdout.lower()
     assert "not in this version" in result.stdout
     if json_mode:
         actions = json.loads(result.stdout)["actions"]
