@@ -547,9 +547,19 @@ reapply_active_devices() {
 # A profile that already says yes is left alone and is NOT recorded: this page
 # did not set it, so this page must not unset it later.
 apply_ignore_auto_dns() {
-    local uuid prior4 prior6
+    local uuid prior4 prior6 listing
     local -a changed=()
-    for uuid in $(nmcli -t -f UUID connection show 2>/dev/null); do
+    # The listing's EXIT STATUS, before anything is done with what it printed.
+    # A machine with no network client installed, and one whose client cannot
+    # answer, both print nothing here — and so does a machine that genuinely
+    # has no connection profiles. Only the status tells those apart, and a
+    # choice that was applied to no connection because nothing could be read
+    # is a failure, not an empty success.
+    if ! listing=$(nmcli -t -f UUID connection show 2>/dev/null); then
+        echo "intergen-welcome-privhelper: this machine's connections could not be listed, so the chosen name servers were not applied to any of them." >&2
+        return 1
+    fi
+    for uuid in $listing; do
         prior4=$(connection_ignore_auto_dns "$uuid" ipv4)
         prior6=$(connection_ignore_auto_dns "$uuid" ipv6)
         if [ "$prior4" = "yes" ] && [ "$prior6" = "yes" ]; then
@@ -558,7 +568,13 @@ apply_ignore_auto_dns() {
         # A profile that refuses the change is reported and the verb fails:
         # a name-server choice applied to some connections and not others is
         # exactly the half-configured state this page must not leave.
-        set_connection_ignore_auto_dns "$uuid" yes || return 1
+        if ! set_connection_ignore_auto_dns "$uuid" yes; then
+            # Put back what this run has already changed. The list is held
+            # here, in this run, so a record left by an EARLIER choice that
+            # still stands is not touched.
+            put_connections_back "${changed[@]:-}"
+            return 1
+        fi
         changed+=("$uuid ${prior4:-unset} ${prior6:-unset}")
     done
     # One write, after the loop: a record written a line at a time would be
@@ -571,21 +587,37 @@ apply_ignore_auto_dns() {
     reapply_active_devices
 }
 
-# restore_recorded_connections — put back exactly the connections the record
-# names, and forget them. A connection that no longer exists is said and
-# stepped over: the machine has moved on, and that is not a failure of the
-# reversal.
-restore_recorded_connections() {
-    local uuid prior4 prior6
-    [ -f "$DNS_APPLIED_RECORD" ] || return 0
-    while read -r uuid prior4 prior6; do
+# put_connections_back <"uuid prior4 prior6"> ... — put the named connections
+# back to what they said before. Used both by the reversal, which reads the
+# record, and by a choice that failed part way through, which knows what it
+# changed without having written anything down yet.
+put_connections_back() {
+    local entry uuid prior4 prior6
+    for entry in "$@"; do
+        [ -n "$entry" ] || continue
+        read -r uuid prior4 prior6 <<< "$entry"
         [ -n "$uuid" ] || continue
         if ! nmcli connection modify "$uuid" \
                 ipv4.ignore-auto-dns "$(ignore_auto_dns_value "${prior4:-unset}")" \
                 ipv6.ignore-auto-dns "$(ignore_auto_dns_value "${prior6:-unset}")"; then
             echo "intergen-welcome-privhelper: connection $uuid could not be put back; it may no longer exist" >&2
         fi
+    done
+}
+
+# restore_recorded_connections — put back exactly the connections the record
+# names, and forget them. A connection that no longer exists is said and
+# stepped over: the machine has moved on, and that is not a failure of the
+# reversal.
+restore_recorded_connections() {
+    local entry
+    local -a recorded=()
+    [ -f "$DNS_APPLIED_RECORD" ] || return 0
+    while read -r entry; do
+        [ -n "$entry" ] || continue
+        recorded+=("$entry")
     done < "$DNS_APPLIED_RECORD"
+    put_connections_back "${recorded[@]:-}"
     rm -f "$DNS_APPLIED_RECORD"
     reapply_active_devices
 }
@@ -608,6 +640,15 @@ remove_dispatcher() {
 # address by address above.
 write_dns_dropin() {
     local selection="$1" servers="$2" over_tls="$3"
+    # What this machine looked like before this run, so that a choice which
+    # cannot be applied leaves nothing of itself behind: a drop-in naming
+    # servers that nothing was told to use is exactly the half-configured
+    # state this page must not leave.
+    local previous_dropin="" had_dropin=no
+    if [ -f "$DNS_DROPIN" ]; then
+        had_dropin=yes
+        previous_dropin=$(cat "$DNS_DROPIN")
+    fi
     mkdir -p "$RESOLVED_CONF_D"
     printf '%s\n' \
         '# Written by the InterGenOS Welcomer, name-lookup page.' \
@@ -630,7 +671,17 @@ write_dns_dropin() {
     chmod 0644 "$DNS_DROPIN"
     restart_resolved
     # The servers are now configured. These two make them the ones that answer.
-    apply_ignore_auto_dns
+    if ! apply_ignore_auto_dns; then
+        if [ "$had_dropin" = yes ]; then
+            printf '%s\n' "$previous_dropin" > "$DNS_DROPIN"
+            chmod 0644 "$DNS_DROPIN"
+        else
+            rm -f "$DNS_DROPIN"
+        fi
+        restart_resolved
+        echo "intergen-welcome-privhelper: the name-server choice was not applied and this machine has been left as it was." >&2
+        return 1
+    fi
     install_dispatcher
 }
 

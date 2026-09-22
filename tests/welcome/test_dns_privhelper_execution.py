@@ -335,5 +335,70 @@ class TestTheReversalUndoesOnlyItsOwnWork(DnsVerbHarness):
                          "was left ignoring the servers its network hands out")
 
 
+class TestTheChoiceFailsWhenItCannotBeApplied(DnsVerbHarness):
+    """(finding 2) A choice that reached no connection is not a choice made.
+
+    The verb writes the servers for the resolver and then makes them the ones
+    that answer by setting two properties on every connection profile. On a
+    machine whose network client is not installed, or whose client cannot
+    answer, the second half silently did nothing and the verb still exited 0 —
+    so the page told the user their name server had been changed while the
+    machine went on using the one its network hands out.
+    """
+
+    def assert_nothing_was_left_behind(self, result):
+        self.assertNotEqual(result.returncode, 0,
+                            "the verb reported success")
+        self.assertFalse(self.dropin.exists(),
+                         "a failed choice left its drop-in on disk")
+        self.assertFalse(self.dispatcher.exists(),
+                         "a failed choice left its dispatcher on disk")
+        self.assertFalse(self.record.exists(),
+                         "a failed choice left a record of connections it did "
+                         "not end up changing")
+
+    def test_a_machine_with_no_network_client_fails_the_choice(self):
+        result = self.run_verb("dns-use-cloudflare", with_nmcli=False)
+        self.assert_nothing_was_left_behind(result)
+        self.assertIn("connections", result.stderr.lower(),
+                      "nothing told the caller why:\n" + result.stderr)
+
+    def test_a_client_that_cannot_answer_fails_the_choice(self):
+        result = self.run_verb("dns-use-cloudflare", client_fails=True)
+        self.assert_nothing_was_left_behind(result)
+
+    def test_a_profile_that_refuses_puts_the_others_back(self):
+        self.add_profile("55555555-5555-5555-5555-555555555555",
+                         name="read-only-one", readonly=True)
+        result = self.run_verb("dns-use-cloudflare")
+        self.assert_nothing_was_left_behind(result)
+        for uuid in ("11111111-1111-1111-1111-111111111111",
+                     "22222222-2222-2222-2222-222222222222"):
+            self.assertNotEqual(
+                self.profile_property(uuid, "ipv4.ignore-auto-dns"), "yes",
+                f"{uuid} was left ignoring the servers its network hands out "
+                "by a choice that failed")
+
+    def test_a_failed_choice_leaves_an_earlier_choice_standing(self):
+        self.assertEqual(self.run_verb("dns-use-cloudflare").returncode, 0)
+        before = self.dropin.read_text(encoding="utf-8")
+        result = self.run_verb("dns-use-quad9", client_fails=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(self.dropin.exists(),
+                        "a failed choice removed the choice that was standing")
+        self.assertEqual(self.dropin.read_text(encoding="utf-8"), before,
+                         "a failed choice left the earlier choice rewritten")
+
+    def test_a_machine_with_no_connection_profiles_still_takes_the_choice(self):
+        for profile in self.profiles.glob("*.profile"):
+            profile.unlink()
+        result = self.run_verb("dns-use-cloudflare")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(self.dropin.is_file())
+        self.assertFalse(self.record.exists(),
+                         "there was nothing to change, so there is nothing to "
+                         "put back later")
+
+
 if __name__ == "__main__":
     unittest.main()
