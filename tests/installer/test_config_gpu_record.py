@@ -27,6 +27,7 @@ _OTHER_GENERATORS = [
     "generate_fstab",
     "generate_crypttab",
     "generate_kernel_cmdline",
+    "generate_sd_reader_cmdline_fragment",
     "generate_hostname",
     "generate_machine_id",
     "generate_locale",

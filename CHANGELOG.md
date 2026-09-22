@@ -237,6 +237,28 @@ landed is in the repository README, not here.
   `--all` to reach an install's full record.
 
 ### Fixed
+- **A machine with a Genesys Logic GL9755 SD card reader is installed with the
+  boot parameter that makes its card slot work.** The reader sits behind a PCIe
+  root port, and the kernel's port power management puts that port into the
+  D3cold state before the card driver arrives; the link never trains again, the
+  endpoint's configuration space reads all ones, no driver binds, and the slot
+  does not exist as far as the installed system is concerned. Measured across
+  three boots of one machine on 2026-09-22, with the slot, the reader and the
+  card proven good by another operating system on the same hardware: switching
+  ASPM off under the kernel's own control, with all four L1 substates off,
+  leaves the link down, so the bus-wide `pcie_aspm=off` this system already
+  ships is unrelated to the fault; adding `pcie_port_pm=off` brings the link up
+  at 5 GT/s, binds the driver and makes the card appear; and that parameter on
+  its own, with the shipped ASPM setting untouched, is sufficient. The
+  installer now writes `/etc/kernel/cmdline.d/40-sd-reader-port-power.conf`
+  carrying that one parameter when, and only when, the target's PCI inventory
+  lists `17a0:9755`, and the kernel package's post-install hook merges it into
+  the signed image as it does every other fragment. A machine whose inventory
+  cannot be read is not given the parameter and the skip is logged with the
+  reason — the same fail-closed rule the package hardware gate uses, which now
+  shares one PCI inventory read with this check. The fragment says inside
+  itself what it sets, why, what it costs (PCIe port runtime power management
+  is off machine-wide; the kernel has no per-port form) and how to undo it.
 - **Chronicle refuses empty restore paths.** The command and engine reject an
   empty path before restoring any files or requesting a restore service.
 - **Chronicle explains directory restore requests.** A directory without an

@@ -154,6 +154,7 @@ What the rebuild does, on your machine and with your key: the hook reads the bas
 Two things worth knowing before you rely on a parameter:
 
 - **Sorted order is the whole of the ordering rule.** `40-` comes before `50-`. Packages that need a boot parameter ship their own fragment here rather than editing a shared file, so `ls /etc/kernel/cmdline.d/` is a complete list of what the system adds to your command line.
+- **Some fragments are written by the installer for your machine in particular**, not shipped by a package: `40-sd-reader-port-power.conf` is written only on a machine whose PCI inventory lists the Genesys Logic GL9755 SD host controller, whose card slot does not work unless the kernel leaves that PCIe port's power management alone. Every such fragment says inside itself what it sets, why, what it costs and how to undo it, and deleting it plus a rebuild is always the way back.
 - **With Secure Boot enabled, the kernel runs in integrity lockdown and refuses some module parameters** — specifically the ones a driver marks as hardware parameters, such as a physical memory address. The parameter is accepted on the command line, the module simply does not take it, and the boot log records `Lockdown: unsafe module parameters is restricted`. If a parameter appears in `/proc/cmdline` but plainly had no effect, that log line is the first place to look. (Measured 2026-09-16 on this project's hardware, which is why it is written down here.)
 
 ## ESP sizing

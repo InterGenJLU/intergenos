@@ -960,6 +960,100 @@ def generate_kernel_cmdline(target, partitions):
     (kernel_dir / "cmdline").write_text(cmdline + "\n")
 
 
+# A PCIe SD host controller that is unusable on an installed system unless the
+# kernel is told to leave its root port's power management alone. Vendor 17a0
+# is Genesys Logic; device 9755 is the GL9755. See
+# generate_sd_reader_cmdline_fragment for the measurement.
+SD_READER_PCI_VENDOR = "17a0"
+SD_READER_PCI_DEVICE = "9755"
+
+SD_READER_CMDLINE_FRAGMENT = "40-sd-reader-port-power.conf"
+
+# Written verbatim onto the target. The house style of the fragments already
+# shipped under /etc/kernel/cmdline.d/ is followed on purpose: a person who
+# finds an unexplained boot parameter on their own machine has no way to judge
+# it, so each fragment says what it sets, why, what it costs and how to undo it.
+_SD_READER_FRAGMENT_TEXT = """\
+# This machine's SD card reader needs the kernel to leave its PCIe port alone.
+#
+# WHAT THIS SETS. pcie_port_pm=off turns off the kernel's runtime power
+# management for PCIe ports. Without it the kernel is free to put a port into
+# the D3cold power state while nothing is using the device behind it.
+#
+# WHY IT IS HERE. This machine has a Genesys Logic GL9755 SD host controller
+# (PCI 17a0:9755) behind a PCIe root port. The port is put into D3cold before
+# the card driver arrives, and the link never trains again: the endpoint's
+# configuration space reads all ones, no driver binds, and the card slot does
+# not exist as far as the system is concerned. Measured 2026-09-22 across three
+# boots of the same machine, with the card and the slot proven good by another
+# operating system on the same hardware:
+#   * ASPM taken over by the kernel and switched off, with all four L1
+#     substates off, and no port power-management setting: the link stayed
+#     down. ASPM is not the cause and the bus-wide pcie_aspm=off this system
+#     already ships is unrelated to this fault.
+#   * The same, plus this parameter: the link trained at 5 GT/s, the driver
+#     bound, and the card appeared.
+#   * This parameter alone, with the shipped ASPM setting left exactly as it
+#     is and the firmware's own L1 substates still enabled: the link trained
+#     and the card appeared. One parameter is enough.
+#
+# WHAT IT COSTS. PCIe port runtime power management is off for every port on
+# this machine, not only the one in front of the card reader — the kernel
+# offers no per-port form of this setting. Ports that would otherwise have been
+# suspended while idle stay powered, which costs a small amount of idle power.
+# Nothing else about the machine changes.
+#
+# WHO GETS THIS FILE. The installer writes it only on a machine whose PCI
+# inventory lists 17a0:9755, and only when that inventory could be read. A
+# machine without this reader never gets the parameter.
+#
+# HOW TO UNDO IT. Delete this file and rebuild the boot image with
+# `sudo pkm reinstall linux-kernel`, then reboot. The card reader goes back to
+# being unusable; nothing else is affected.
+#
+# WHEN IT TAKES EFFECT. This file is merged into the signed kernel image's
+# command line at image build time by the linux-kernel package's post-install
+# hook, which concatenates /etc/kernel/cmdline.d/*.conf in sorted order. It
+# therefore reaches a machine at install time, and an already-installed machine
+# at its next kernel update, after that machine reboots. It is visible at
+# `cat /proc/cmdline`, which is the point.
+pcie_port_pm=off
+"""
+
+
+def generate_sd_reader_cmdline_fragment(target, lspci_runner=None):
+    """Give a machine with the GL9755 card reader the one boot parameter that
+    makes its card slot work, and give every other machine nothing.
+
+    The parameter has to reach the signed kernel image, which means a fragment
+    under /etc/kernel/cmdline.d/ rather than an edit to anything the bootloader
+    reads: the command line is inside the image and covered by its signature.
+    The linux-kernel post-install hook merges the fragments when it builds and
+    signs that image.
+
+    The detection is the installer's shared PCI inventory read, so this is
+    fail-closed in the same way the package hardware gate is: a machine whose
+    inventory cannot be read is NOT given the parameter, and the skip is
+    logged with the reason. Guessing here would mean changing the power
+    management of a machine nobody examined.
+
+    lspci_runner: passed through to the inventory read, for tests.
+    """
+    from .packages import target_has_pci_device
+
+    if not target_has_pci_device(SD_READER_PCI_VENDOR, SD_READER_PCI_DEVICE,
+                                 runner=lspci_runner):
+        return None
+
+    fragment_dir = Path(target) / "etc" / "kernel" / "cmdline.d"
+    fragment_dir.mkdir(parents=True, exist_ok=True)
+    path = fragment_dir / SD_READER_CMDLINE_FRAGMENT
+    path.write_text(_SD_READER_FRAGMENT_TEXT)
+    LOG.info("card reader %s:%s present — wrote %s (pcie_port_pm=off)",
+             SD_READER_PCI_VENDOR, SD_READER_PCI_DEVICE, path)
+    return path
+
+
 def generate_all(target, partitions, hostname="intergenos",
                  locale="en_US.UTF-8", keymap="us", timezone="UTC",
                  detect_other_oses=True):
@@ -978,6 +1072,10 @@ def generate_all(target, partitions, hostname="intergenos",
     generate_fstab(target, partitions)
     generate_crypttab(target, partitions)   # D-001 LUKS-at-install
     generate_kernel_cmdline(target, partitions)  # B-041 UKI source-of-truth
+    # Per-machine kernel parameters, written beside the base command line and
+    # merged into the signed image by the linux-kernel post-install hook. Only
+    # machines whose PCI inventory says they need one get one.
+    generate_sd_reader_cmdline_fragment(target)
     generate_hostname(target, hostname)
     generate_machine_id(target)
     generate_locale(target, locale)

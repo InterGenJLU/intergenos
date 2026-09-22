@@ -47,6 +47,46 @@ LOG = logging.getLogger("forge.packages")
 _PCI_VENDOR_CACHE = None
 
 
+def _read_pci_inventory(runner=None):
+    """Run `lspci -n` and return (lines, reason_it_could_not_be_read).
+
+    The ONE place this installer asks the machine what PCI devices it has.
+    Two questions are asked of the answer — which display vendors are present
+    (the package hardware gate below) and whether one particular vendor:device
+    pair is present (target_has_pci_device) — and sharing the call means one
+    command to audit, one set of failure cases, and one wording for the log
+    line that says a check could not be made.
+
+    On success the reason is None. On failure the LINES are None, never an
+    empty list: "the machine has no PCI devices" and "the machine could not be
+    read" are different facts and a caller that cannot tell them apart will
+    eventually treat the second as the first.
+
+    runner: the callable used in place of subprocess.run, for tests. Nothing
+    in the product passes it.
+    """
+    run = runner if runner is not None else subprocess.run
+    try:
+        proc = run(["lspci", "-n"], capture_output=True, text=True, timeout=10)
+    except (FileNotFoundError, OSError, subprocess.SubprocessError) as exc:
+        return None, "lspci unavailable (%s)" % (exc,)
+    if proc.returncode != 0:
+        return None, "lspci exited %d" % proc.returncode
+    return proc.stdout.splitlines(), None
+
+
+def _pci_id_of(line):
+    """The "<vendor>:<device>" field of one `lspci -n` line, lowercase, or None.
+
+    lspci -n line: "<slot> <class>: <vendor>:<device> [...]"
+      e.g. "01:00.0 0300: 10de:2484 (rev a1)"
+    """
+    parts = line.split()
+    if len(parts) < 3:
+        return None
+    return parts[2].strip().lower()
+
+
 def detect_display_pci_vendors():
     """Return the set of PCI vendor IDs (lowercase 4-hex, no 0x) for display
     controllers (lspci class 03xx) present on this machine. Empty set if
@@ -61,25 +101,14 @@ def detect_display_pci_vendors():
         return _PCI_VENDOR_CACHE
 
     vendors = set()
-    try:
-        proc = subprocess.run(
-            ["lspci", "-n"], capture_output=True, text=True, timeout=10
-        )
-    except (FileNotFoundError, OSError, subprocess.SubprocessError) as exc:
-        LOG.warning("hardware-gate: lspci unavailable (%s); gated packages "
-                    "will be skipped (fail-closed)", exc)
+    lines, why = _read_pci_inventory()
+    if lines is None:
+        LOG.warning("hardware-gate: %s; gated packages will be skipped "
+                    "(fail-closed)", why)
         _PCI_VENDOR_CACHE = vendors
         return vendors
 
-    if proc.returncode != 0:
-        LOG.warning("hardware-gate: lspci exited %d; gated packages will be "
-                    "skipped (fail-closed)", proc.returncode)
-        _PCI_VENDOR_CACHE = vendors
-        return vendors
-
-    # lspci -n line: "<slot> <class>: <vendor>:<device> [...]"
-    #   e.g. "01:00.0 0300: 10de:2484 (rev a1)"
-    for line in proc.stdout.splitlines():
+    for line in lines:
         parts = line.split()
         if len(parts) < 3:
             continue
@@ -92,6 +121,31 @@ def detect_display_pci_vendors():
 
     _PCI_VENDOR_CACHE = vendors
     return vendors
+
+
+def target_has_pci_device(vendor, device, runner=None):
+    """True when `lspci -n` lists this exact vendor:device pair.
+
+    Both halves are required. A vendor alone is the wrong question for a
+    device-specific workaround: the same vendor ships parts that do not have
+    the defect being worked around, and applying a machine-wide setting to
+    them would be a guess.
+
+    FAIL-CLOSED, and deliberately not memoized. An unreadable inventory
+    answers no with a log line naming why, so a machine that could not be
+    examined is never given a setting on the strength of an assumption. The
+    display gate above caches because it is asked the SAME question once per
+    package group inside one install; this one is asked about whatever device
+    a caller names, so a cache here would answer the second caller with the
+    first caller's result.
+    """
+    want = "%s:%s" % (str(vendor).strip().lower(), str(device).strip().lower())
+    lines, why = _read_pci_inventory(runner)
+    if lines is None:
+        LOG.warning("hardware-gate: %s; the check for PCI device %s is "
+                    "answered no (fail-closed)", why, want)
+        return False
+    return any(_pci_id_of(line) == want for line in lines)
 
 
 def _read_required_pci_vendor(pkg_yaml_path):
