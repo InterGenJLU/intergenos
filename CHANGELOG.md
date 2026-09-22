@@ -278,6 +278,11 @@ landed is in the repository README, not here.
   the helper exit non-zero; it prints one line saying how many elements it
   set, how many were absent and how many failed. The drop-in keeps the
   leading `-` that stops any of this from failing the state restore itself.
+  The helper is generated in full and checked before it is published, so a
+  failure in listing the boost elements, or a list that comes out empty,
+  stops the build step and leaves whatever was at the destination as it was;
+  before, that failure was discarded and a helper that zeroes nothing and
+  reports success was published.
 - **The installer says so when the machine's PCI device listing can be read but
   names no device.** The one fail-closed inventory read that the package
   hardware gate and the card-reader check share told two outcomes apart: a

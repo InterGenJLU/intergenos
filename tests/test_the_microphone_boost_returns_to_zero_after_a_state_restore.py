@@ -31,7 +31,9 @@ GENERATED from the same list the path-file rewrite uses, so the two cannot
 drift apart; that it names no capture element; that the drop-in runs the
 helper after the restore and cannot fail it; and that the helper issues one
 mixer write per listed element per control device present, and exits 0 when a
-device or an element is not there.
+device or an element is not there; and that a failure while listing the
+elements, or a list that comes out empty, stops the step before anything is
+published and leaves a helper already at the destination as it was.
 
 WHAT THEY DO NOT PROVE: that the drop-in is picked up by the system manager
 from /usr/lib/systemd/system/alsa-restore.service.d on an installed machine.
@@ -458,3 +460,85 @@ def test_the_helper_is_the_same_file_whatever_the_build_host_locale(tmp_path):
     assert (first / HELPER).read_text() == (second / HELPER).read_text(), (
         "the generated helper differs between two build-host locales"
     )
+
+
+def failing_sort(bin_dir: Path) -> dict:
+    """A `sort` that fails, placed first on PATH: the command that lists the
+    boost elements then fails, the case the independent read measured."""
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    stub = bin_dir / "sort"
+    stub.write_text("#!/bin/sh\necho 'sort: stand-in failure' >&2\nexit 19\n")
+    stub.chmod(0o755)
+    return {"PATH": f"{bin_dir}:{os.environ.get('PATH', '/usr/bin:/bin')}"}
+
+
+def test_a_failure_listing_the_elements_stops_the_step_and_keeps_the_previous_helper(
+        tmp_path):
+    """The generation must succeed before anything is published.
+
+    Measured by the independent read of the previous form: with a failing sort
+    the step returned 0 and published a helper with an EMPTY element list, which
+    runs, zeroes nothing and reports success. The step must fail instead, and a
+    helper already at the destination must be left exactly as it was.
+    """
+    root = tmp_path / "root"
+    (root / "usr/libexec").mkdir(parents=True)
+    previous = root / HELPER
+    previous.write_text("#!/bin/sh\n# the helper a previous build published\n")
+    previous.chmod(0o755)
+
+    result = recipe('install_boost_zeroing_helper "$1"', str(root),
+                    env=failing_sort(tmp_path / "bin"))
+
+    assert result.returncode != 0, (
+        "the step passed although the element list could not be generated: "
+        f"{result.stdout}{result.stderr}"
+    )
+    assert "could not be generated" in result.stderr, result.stderr
+    assert previous.read_text() == (
+        "#!/bin/sh\n# the helper a previous build published\n"
+    ), "the helper already at the destination was replaced"
+    assert stat.S_IMODE(previous.stat().st_mode) == 0o755
+    leftovers = sorted(
+        str(p.relative_to(root)) for p in root.rglob(".pipewire-staging.*")
+    )
+    assert leftovers == [], f"temporaries were left behind: {leftovers}"
+
+
+def test_a_failure_listing_the_elements_publishes_nothing_on_a_first_install(
+        tmp_path):
+    """With nothing at the destination, a failed generation leaves nothing."""
+    root = tmp_path / "root"
+
+    result = recipe('install_boost_zeroing_helper "$1"', str(root),
+                    env=failing_sort(tmp_path / "bin"))
+
+    assert result.returncode != 0, (
+        "the step passed although the element list could not be generated: "
+        f"{result.stdout}{result.stderr}"
+    )
+    assert not (root / HELPER).exists() and not (root / HELPER).is_symlink(), (
+        "a helper was published from a failed generation"
+    )
+    assert not (root / DROP_IN).exists(), (
+        "the drop-in that runs the helper was published after the helper "
+        "generation failed"
+    )
+
+
+def test_an_empty_element_list_is_refused(tmp_path):
+    """A list that comes out empty without any command failing is refused too:
+    a helper with nothing to zero reports success on every machine."""
+    root = tmp_path / "root"
+
+    result = recipe(
+        'boost_volume_stanzas() { :; }\ninstall_boost_zeroing_helper "$1"',
+        str(root),
+    )
+
+    assert result.returncode != 0, (
+        "the step published a helper from an empty element list: "
+        f"{result.stdout}{result.stderr}"
+    )
+    assert "came out empty" in result.stderr, result.stderr
+    assert not (root / HELPER).exists(), "a helper that zeroes nothing was published"

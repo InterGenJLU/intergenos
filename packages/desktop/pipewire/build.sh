@@ -284,6 +284,27 @@ install_boost_zeroing_helper() {
     # /etc/alsa/state-daemon.conf exists. This system ships no such file and
     # alsa-restore.service's own ConditionPathExists refuses when it does.
     install -dm755 "${DESTDIR}/usr/libexec"
+    # The helper is generated IN FULL and checked BEFORE anything is
+    # published. It used to be produced by a brace group piped straight into
+    # the writer: a pipeline's status is its last command's, and a group's is
+    # its last command's, so a failure of the command that lists the elements
+    # was discarded and a helper with an EMPTY element list was published,
+    # which runs, zeroes nothing and reports success. Measured by the
+    # independent read of the previous form: with a failing sort the step
+    # returned 0 and published exactly that. Now a failure anywhere in the
+    # generation, or an element list that came out empty, stops the step
+    # before the destination is touched, so whatever was there stays.
+    local elements helper_text
+    if ! elements=$(set -o pipefail
+                    boost_volume_stanzas | cut -d'|' -f2 | LC_ALL=C sort -u); then
+        echo "pipewire: the list of microphone boost elements could not be generated; the helper is not published" >&2
+        return 1
+    fi
+    if [ -z "$elements" ]; then
+        echo "pipewire: the list of microphone boost elements came out empty; a helper that zeroes nothing is not published" >&2
+        return 1
+    fi
+    if ! helper_text=$(set -e
     {
         echo '#!/bin/sh'
         cat <<'ZERO_BOOST_HEADER'
@@ -305,8 +326,9 @@ ZERO_BOOST_HEADER
         # build host: sort's collation is locale-dependent, and
         # "Int Mic Boost" and "Internal Mic Boost" swap places between
         # a C locale and a UTF-8 one, which would make the installed
-        # helper differ between two builds of the same source.
-        boost_volume_stanzas | cut -d'|' -f2 | LC_ALL=C sort -u
+        # helper differ between two builds of the same source. The list
+        # was generated and checked above.
+        printf '%s\n' "$elements"
         echo 'ELEMENTS'
         echo '}'
         cat <<'ZERO_BOOST_BODY'
@@ -358,7 +380,11 @@ echo "microphone boost: $zeroed element(s) set to 0 dB, $absent not present on t
 [ "$failed" -eq 0 ] || exit 1
 exit 0
 ZERO_BOOST_BODY
-    } | write_file_without_following_a_link \
+    }); then
+        echo "pipewire: the microphone boost helper could not be generated; it is not published" >&2
+        return 1
+    fi
+    printf '%s\n' "$helper_text" | write_file_without_following_a_link \
         "${DESTDIR}/usr/libexec/pipewire-zero-microphone-boost" 755 || return 1
 
     install -dm755 "${DESTDIR}/usr/lib/systemd/system/alsa-restore.service.d"
