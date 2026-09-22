@@ -625,6 +625,33 @@ landed is in the repository README, not here.
   live directory is reported as absent unless the version holds descendants
   beneath it, rather than suggesting that unsaved files can be restored.
 
+- **A frontier send nobody was asked about is no longer reported as your
+  cancel.** Before anything leaves the machine for your frontier model,
+  InterGen shows you the exact content and waits for Send. When it cannot show
+  it at all — no unlocked desktop session, or no dialog could open, including
+  the dialog program failing to start or failing to open the display — it
+  refuses and sends a desktop notification, but `intergen ask-frontier` and
+  the web chat's frontier button then both said "Cancelled — nothing was sent
+  to the frontier model.", recording a refusal the product made on its own as
+  your decision. Both now say that nothing was sent because there was no way
+  to show you the content first. Content too large to show in full (over
+  1 MiB, which the web chat accepts) was also reported as your cancel; it now
+  says the content is too large to show you in full. Your own Cancel keeps its
+  sentence, and nothing is sent in any of these cases.
+- **An empty answer from the frontier model is no longer kept in the web chat
+  as its reply.** When the provider answers with no text, `intergen
+  ask-frontier` treats it as no answer (exit status 2, nothing kept for
+  `intergen last`), but the web chat showed an empty reply from the model and
+  added it to the conversation the next turn is built from. The web chat now
+  tells you the model returned no answer and keeps nothing.
+- **A phone-a-friend that could not be set up is no longer reported in the web
+  chat as one with no provider.** InterGen sets up its phone-a-friend step when
+  it starts. When that fails, `intergen ask-frontier` says phone-a-friend is
+  not available, but the web chat's frontier button said "No frontier model is
+  configured. Add a provider ...", which can send you to add a provider you
+  already have. The web chat now says what the command line says; the
+  add-a-provider message stays for when no provider is configured. Nothing is
+  sent in either case.
 - **A package record that cannot be looked at is no longer reported as a record
   that is not there.** The reader asked whether the path was a regular file
   before opening it, and that answers no for a database behind a directory the
