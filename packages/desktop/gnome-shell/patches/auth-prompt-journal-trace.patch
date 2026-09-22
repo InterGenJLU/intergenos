@@ -106,27 +106,77 @@ the structured call.
      _onDialogClosed() {
          Main.sessionMode.disconnectObject(this);
  
-@@ -417,6 +463,7 @@
+@@ -417,6 +462,8 @@
          super._init();
- 
+
          this._currentDialog = null;
++        this._deferredRequest = null;
 +        this._authPromptSequence = 0;
          this.connect('initiate', this._onInitiate.bind(this));
          this.connect('cancel', this._onCancel.bind(this));
          this._sessionUpdatedId = 0;
-@@ -449,11 +496,14 @@
+@@ -438,22 +485,61 @@
+         }
+     }
+
+-    _onInitiate(nativeAgent, actionId, message, iconName, cookie, userNames) {
++    _onInitiate(_nativeAgent, actionId, message, _iconName, cookie, userNames) {
++        const sequence = ++this._authPromptSequence;
++
+         // Don't pop up a dialog while locked
+         if (Main.sessionMode.isLocked) {
++            this._deferredRequest = {
++                actionId,
++                message,
++                cookie,
++                userNames,
++                sequence,
++            };
+             Main.sessionMode.connectObject('updated', () => {
++                if (Main.sessionMode.isLocked)
++                    return;
++
+                 Main.sessionMode.disconnectObject(this);
+
+-                this._onInitiate(nativeAgent, actionId, message, iconName, cookie, userNames);
++                const deferredRequest = this._deferredRequest;
++                if (!deferredRequest)
++                    return;
++
++                this._deferredRequest = null;
++                this._showAuthenticationDialog(
++                    deferredRequest.actionId,
++                    deferredRequest.message,
++                    deferredRequest.cookie,
++                    deferredRequest.userNames,
++                    deferredRequest.sequence);
+             }, this);
              return;
          }
- 
+
 -        this._currentDialog = new AuthenticationDialog(actionId, message, cookie, userNames);
-+        const sequence = ++this._authPromptSequence;
++        this._showAuthenticationDialog(
++            actionId, message, cookie, userNames, sequence);
++    }
++
++    _showAuthenticationDialog(actionId, message, cookie, userNames, sequence) {
 +        this._currentDialog = new AuthenticationDialog(
 +            actionId, message, cookie, userNames, sequence);
          this._currentDialog.connect('done', this._onDialogDone.bind(this));
      }
- 
+
      _onCancel(_nativeAgent) {
++        if (this._deferredRequest) {
++            const {actionId, sequence} = this._deferredRequest;
++            this._deferredRequest = null;
++            Main.sessionMode.disconnectObject(this);
++            logAuthPromptLifecycle(
++                actionId, sequence, 'not-shown', 'deferred-session-locked');
++            this.complete(false);
++            return;
++        }
++
 +        this._currentDialog?.cancelByAuthority();
          this._completeRequest(false);
      }
- 
+

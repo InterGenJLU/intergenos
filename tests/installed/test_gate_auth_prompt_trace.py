@@ -37,6 +37,7 @@ EXPECTED_TERMINAL_OUTCOMES = {
     "authorized",
     "dismissed",
     "cancelled-by-authority",
+    "deferred-session-locked",
     "failed-to-open",
 }
 
@@ -159,6 +160,11 @@ def _assert_contract(source: str) -> None:
 
     outcomes = set(re.findall(
         r"_emitAuthPromptTerminal\('([^']+)'\)", source))
+    outcomes.update(re.findall(
+        r"logAuthPromptLifecycle\(\s*actionId,\s*sequence,\s*"
+        r"'not-shown',\s*'([^']+)'\s*\)",
+        source,
+    ))
     assert outcomes == EXPECTED_TERMINAL_OUTCOMES, (
         "terminal outcomes differ from the fixed contract: "
         f"{sorted(outcomes)!r}")
@@ -174,7 +180,36 @@ def _assert_contract(source: str) -> None:
             "the authority-cancellation branch is not traced")
 
     assert "this._authPromptSequence = 0;" in source
-    assert "const sequence = ++this._authPromptSequence;" in source
+    assert "this._deferredRequest = null;" in source
+    initiate = _function_body(
+        source,
+        "_onInitiate(_nativeAgent, actionId, message, _iconName, cookie, userNames)",
+    )
+    sequence_assignment = "const sequence = ++this._authPromptSequence;"
+    assert sequence_assignment in initiate
+    assert initiate.index(sequence_assignment) < initiate.index(
+        "if (Main.sessionMode.isLocked)"
+    ), "the sequence is not allocated before a locked-session deferral"
+    assert "this._deferredRequest = {" in initiate
+    assert "sequence," in initiate
+    assert "'deferred-session-locked'" not in initiate, (
+        "temporarily deferring a request must not emit a terminal record")
+
+    cancellation = _function_body(source, "_onCancel(_nativeAgent)")
+    for fragment in (
+        "if (this._deferredRequest)",
+        "const {actionId, sequence} = this._deferredRequest;",
+        "this._deferredRequest = null;",
+        "Main.sessionMode.disconnectObject(this);",
+        "logAuthPromptLifecycle( actionId, sequence, 'not-shown', "
+        "'deferred-session-locked');",
+        "this.complete(false);",
+        "this._currentDialog?.cancelByAuthority();",
+    ):
+        assert " ".join(fragment.split()) in " ".join(cancellation.split()), (
+            "the deferred cancellation contract is incomplete: "
+            f"missing {fragment!r}")
+
     constructor = re.search(
         r"new AuthenticationDialog\(\s*"
         r"actionId, message, cookie, userNames, sequence\s*\)",
@@ -182,8 +217,8 @@ def _assert_contract(source: str) -> None:
     )
     assert constructor, "the generated sequence does not reach the dialog"
 
-    assert source.count("logAuthPromptLifecycle(") == 2, (
-        "the structured helper must have one definition and one bounded caller")
+    assert source.count("logAuthPromptLifecycle(") == 3, (
+        "the structured helper must have one definition and two bounded callers")
 
 
 def test_installed_authentication_prompt_trace_contract() -> None:
