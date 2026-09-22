@@ -1861,6 +1861,11 @@ pkg_install() {
         pkg_run_pkm_single_flight import
     fi
 
+    # The mirror image of a failed install: once this build is deployed and
+    # registered, an earlier build of the SAME version left beside its
+    # archive is removed, as the overwrite of the release-less name used to.
+    pkg_retire_superseded_archives "$name" "$version" "$release"
+
     # Clean up staging directory
     pkg_cleanup "$name" "$version"
 
@@ -1868,6 +1873,76 @@ pkg_install() {
     pkg_log "Package ${name}-${version} installed successfully (${elapsed}s)"
     pkg_log ""
 
+    return 0
+}
+
+# ============================================================================
+# pkg_retire_superseded_archives — remove the earlier builds of one version
+#
+# Usage: pkg_retire_superseded_archives <name> <version> [release]
+#
+# Decided 2026-09-22. A rebuild of one version used to write the same
+# <name>-<version>.igos.tar.gz and replace the earlier build in place. The
+# name now carries the release, so the earlier build stays beside the new
+# one, and a lineage build substrate -- every archive banked under the
+# release-less name -- would keep both builds of every package rebuilt at an
+# unchanged version; the manifest phase signs every archive in the directory
+# and the squashfs ships them. Called after the package deployed and
+# registered, this does what the overwrite did.
+#
+# A file is removed only when its NAME is one a build of exactly this name
+# and version carries (the release-less name, or that stem, a hyphen and a
+# release in ASCII digits without leading zeros -- the rule of
+# pkm/archive_names.same_version_filenames) AND its own sealed .PKGINFO
+# states this package and version. Anything else is left where it is and
+# named in the log; the squashfs gates still refuse it. Archives of other
+# versions are never touched. Never fails the install: returns 0.
+# ============================================================================
+
+pkg_retire_superseded_archives() {
+    local name="$1"
+    local version="$2"
+    local release="${3:-}"
+    local plain="${name}-${version}.igos.tar.gz"
+    local keep="$plain"
+    if [ -n "$release" ]; then
+        keep="${name}-${version}-${release}.igos.tar.gz"
+    fi
+    [ -f "${IGOS_PKG_ARCHIVES}/${keep}" ] || return 0
+
+    local stem="${name}-${version}-"
+    local f base tail header hname hver hrel
+    for f in "${IGOS_PKG_ARCHIVES}/${plain}" "${IGOS_PKG_ARCHIVES}/${stem}"*.igos.tar.gz; do
+        [ -f "$f" ] || continue
+        base="${f##*/}"
+        [ "$base" = "$keep" ] && continue
+        if [ "$base" != "$plain" ]; then
+            tail="${base#"$stem"}"
+            tail="${tail%.igos.tar.gz}"
+            [[ "$tail" =~ ^(0|[1-9][0-9]*)$ ]] || continue
+        fi
+        header=$(tar -xzOf "$f" ./.PKGINFO 2>/dev/null \
+                 || tar -xzOf "$f" .PKGINFO 2>/dev/null) || header=""
+        hname=$(printf '%s\n' "$header" \
+                | sed -n 's/^[[:space:]]*pkgname[[:space:]]*=[[:space:]]*//p' | head -n 1)
+        hver=$(printf '%s\n' "$header" \
+               | sed -n 's/^[[:space:]]*pkgver[[:space:]]*=[[:space:]]*//p' | head -n 1)
+        hrel=$(printf '%s\n' "$header" \
+               | sed -n 's/^[[:space:]]*pkgrel[[:space:]]*=[[:space:]]*//p' | head -n 1)
+        if [ -z "$header" ]; then
+            pkg_log "left ${f} in place: its header cannot be read, so nothing proves it is an earlier build of ${name} ${version}; the squashfs gates refuse it until it is removed"
+            continue
+        fi
+        if [ "$hname" != "$name" ] || [ "$hver" != "$version" ]; then
+            pkg_log "left ${f} in place: its header states ${hname:-no name} ${hver:-no version}, not ${name} ${version}"
+            continue
+        fi
+        if rm -f -- "$f"; then
+            pkg_log "removed the earlier build ${f} (its header states ${name} ${version} release ${hrel:-unstated}); this build's archive is ${keep}"
+        else
+            pkg_error "FAILED to remove the earlier build ${f} -- remove it before the image is assembled, or the squashfs gates refuse it"
+        fi
+    done
     return 0
 }
 

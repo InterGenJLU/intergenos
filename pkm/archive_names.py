@@ -147,6 +147,37 @@ def parse_archive_filename(
     return ArchiveName(match.group(1), match.group(2), None)
 
 
+def same_version_filenames(name: str, version: str, filenames) -> list:
+    """The names among ``filenames`` that name a build of exactly this
+    ``name`` and ``version``, whatever its release.
+
+    Decided 2026-09-22. A rebuild of the same version used to overwrite the
+    one archive of that version in place. Since the name carries the release,
+    the earlier build stays on disk beside the new one, and a build directory
+    that holds two builds of one version ships both; a builder uses this to
+    find the earlier builds of what it has just written.
+
+    A name matches by composition, never by guessing: the release-less name is
+    exactly ``archive_filename(name, version)``, and a release-carrying one is
+    exactly that stem, a hyphen and a release written as :func:`archive_filename`
+    writes one. Whether a matching file really holds this package is for the
+    caller to prove from the file's own header: a package whose upstream
+    version ends in what reads as a release (``dialog-1.3-20260107``) composes
+    the same text as another version of the same name with a release.
+    """
+    plain = archive_filename(name, version, None)
+    stem = plain[:-len(SUFFIX)] + "-"
+    matched = []
+    for entry in filenames:
+        base = str(entry).rsplit("/", 1)[-1]
+        if base == plain:
+            matched.append(entry)
+        elif base.startswith(stem) and base.endswith(SUFFIX):
+            if _RELEASE_TEXT.fullmatch(base[len(stem):-len(SUFFIX)]):
+                matched.append(entry)
+    return matched
+
+
 def candidate_filenames(name: str, version: str,
                         release: Union[int, str, None] = None) -> list:
     """Every name one built package may be on disk under, best first.

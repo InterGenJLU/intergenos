@@ -24,7 +24,7 @@ import time
 from pathlib import Path
 from urllib.parse import urlparse
 
-from pkm.archive_names import archive_filename
+from pkm.archive_names import archive_filename, same_version_filenames
 from .parser import Package
 from . import elfaudit
 from . import time64audit
@@ -187,6 +187,28 @@ def reprefix_pc_text(text: str, root: str) -> str:
         out.append(line)
     return "".join(out)
 
+
+
+def _sealed_header(path):
+    """The key = value pairs of an archive's own ./.PKGINFO, or None when the
+    archive cannot be read or carries none."""
+    try:
+        with tarfile.open(path, "r:gz") as tar:
+            for member in tar:
+                if member.name in ("./.PKGINFO", ".PKGINFO") and member.isfile():
+                    handle = tar.extractfile(member)
+                    text = handle.read().decode("utf-8", "replace") if handle else ""
+                    break
+            else:
+                return None
+    except (tarfile.TarError, OSError, EOFError):
+        return None
+    fields = {}
+    for line in text.splitlines():
+        key, sep, value = line.partition("=")
+        if sep and key.strip() and not key.lstrip().startswith("#"):
+            fields.setdefault(key.strip(), value.strip())
+    return fields
 
 class BuildExecutor(PackageTracker):
     """Executes package builds with full logging and validation.
@@ -1666,6 +1688,12 @@ class BuildExecutor(PackageTracker):
         # the manual-recovery artifact pkg_deploy's error text points at.
         if not success and self.tracked and not pkg.skip_tracking:
             self._remove_failed_tracking_artifacts(pkg)
+        # The mirror image of the failure path: once this build has passed
+        # every gate, an earlier build of the SAME version left beside it
+        # (the name carries the release since 2026-09-22, so a rebuild no
+        # longer overwrites it) is removed, as the overwrite used to.
+        elif success and self.tracked and not pkg.skip_tracking:
+            self._retire_superseded_archives(pkg)
 
         elapsed = time.monotonic() - build_start
         self.logger.end_package(success)
@@ -1707,6 +1735,74 @@ class BuildExecutor(PackageTracker):
                 )
         except OSError as e:
             self.logger.error(f"  FAILED to quarantine archive {archive}: {e}")
+
+    def _retire_superseded_archives(self, pkg):
+        """Remove the earlier builds of this package version from the archive
+        directory, now that this build has passed every gate.
+
+        Decided 2026-09-22. Before that date a rebuild of one version wrote
+        the same <name>-<version>.igos.tar.gz and replaced the earlier build
+        in place, so a build directory held one archive per version. The name
+        now carries the release, the earlier build is no longer overwritten,
+        and a lineage build substrate -- every archive banked under the
+        release-less name -- would keep BOTH builds of every package rebuilt
+        at an unchanged version. The manifest phase signs every archive in
+        the directory and the squashfs ships them, so the metadata gate would
+        halt the image on each one. This does what the overwrite did, and
+        only after the new build passed its gates, where the overwrite came
+        before them.
+
+        A file is removed only when its name is one a build of this exact
+        name and version carries (pkm/archive_names.same_version_filenames)
+        AND its own sealed header states this package and version. A file
+        whose header names something else, or cannot be read, is left where
+        it is and named in the log; the ownership and metadata gates at
+        squashfs time still refuse it. Archives of OTHER versions are not
+        touched: a version bump's older twin is the pre-pipeline stale-archive
+        sweep's, exactly as before.
+        """
+        keep = archive_filename(pkg.name, pkg.version, pkg.release)
+        if not (self.pkg_archives / keep).is_file():
+            return
+        try:
+            present = sorted(p.name for p in self.pkg_archives.iterdir())
+        except OSError as e:
+            self.logger.error(
+                f"  could not list {self.pkg_archives} to retire earlier "
+                f"builds of {pkg.name} {pkg.version}: {e}")
+            return
+        for fname in same_version_filenames(pkg.name, pkg.version, present):
+            if fname == keep:
+                continue
+            path = self.pkg_archives / fname
+            header = _sealed_header(path)
+            if header is None:
+                self.logger.warning(
+                    f"  left {path} in place: its header cannot be read, so "
+                    f"nothing proves it is an earlier build of {pkg.name} "
+                    f"{pkg.version}; the squashfs gates refuse it until it "
+                    f"is removed")
+                continue
+            if (header.get("pkgname") != pkg.name
+                    or header.get("pkgver") != str(pkg.version)):
+                self.logger.warning(
+                    f"  left {path} in place: its header states "
+                    f"{header.get('pkgname')} {header.get('pkgver')}, not "
+                    f"{pkg.name} {pkg.version}")
+                continue
+            try:
+                path.unlink()
+            except OSError as e:
+                self.logger.error(
+                    f"  FAILED to remove the earlier build {path}: {e} -- "
+                    f"remove it before the image is assembled, or the "
+                    f"squashfs gates refuse it")
+                continue
+            self.logger.info(
+                f"  removed the earlier build {path} (its header states "
+                f"{pkg.name} {pkg.version} release "
+                f"{header.get('pkgrel', 'unstated')}); this build's archive "
+                f"is {keep}")
 
     def _auto_derive_verify_paths(self, pkg, new_files):
         """Best-effort auto-derive verify_paths sidecar from direct_install diff.
