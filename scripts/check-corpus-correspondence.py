@@ -29,13 +29,30 @@ glibc, m4 and ncurses were then the NAMES of toolchain recipes while their
 plain archives publish, the Chapter-8 recipe-less class. Those three were
 renamed to glibc-tmp / m4-tmp / ncurses-tmp on 2026-08-25, so every toolchain
 recipe now carries one of these suffixes; the name-pattern rule here is
-unchanged, and it remains the derivation that does not depend on the recipe
-tree at all. An unanticipated future intermediate shape fails loud as
-MISSING-from-staging rather than slipping through.)
+unchanged, and which archives are intermediates is still decided by the
+name pattern alone, never by a recipe directory. An unanticipated future
+intermediate shape fails loud as MISSING-from-staging rather than slipping
+through.)
+
+Reading the package name out of an archive filename (decided 2026-09-22):
+since that date an archive is named <name>-<version>-<release>.igos.tar.gz
+wherever its recipe states a release, and a name taken apart by "everything
+before the last hyphen-and-digits run" then keeps the version:
+gcc-pass1-15.2.0-1 read as gcc-pass1-15.2.0, which is no intermediate, and the
+gate failed on an archive that is never published. The name is now read by
+pkm/archive_names.py against the versions the recipes state (--packages,
+default this script's own tree) -- the one parser every producer and reader
+of the name uses -- so both shapes read the same, including an upstream
+version whose own tail looks like a release. A filename no recipe accounts
+for is read the module's release-less way. The recipe tree supplies only
+versions here; it never decides what is an intermediate.
 
 Inputs:
   --staging DIR          the staging archive dir (the corpus about to be
                          indexed and signed).
+  --packages DIR         the recipe tree whose versions settle where a
+                         filename's name ends (default: this script's own
+                         packages/ tree).
   --chroot-manifest FILE sha256sum output taken INSIDE the build chroot's
                          archive dir (the evaluated corpus's own bytes):
                            ssh <builder>@<build-vm> \
@@ -53,14 +70,52 @@ import re
 import sys
 from pathlib import Path
 
+import yaml
+
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
+# The one place that knows what an archive is called; see its docstring.
+from pkm.archive_names import SUFFIX, parse_archive_filename  # noqa: E402
+
 INTERMEDIATE_RE = re.compile(r"^(?P<base>.+?)-(pass\d+|tmp|bootstrap)$")
 
 
-def archive_pkgname(filename: str) -> str:
-    """<name>-<version>.igos.tar.gz -> <name> (version = trailing dotted run)."""
-    stem = filename[: -len(".igos.tar.gz")]
-    m = re.match(r"^(?P<name>.+)-(?P<ver>[0-9][0-9A-Za-z.+_]*)$", stem)
-    return m.group("name") if m else stem
+def load_recipe_versions(packages_dir: Path) -> dict:
+    """Package name -> the version its recipe states.
+
+    Both the recipe's own name and its ships_as name are keyed, because an
+    archive carries the ship name. A recipe that does not parse contributes
+    nothing; its archives are then read the module's release-less way.
+    """
+    versions: dict = {}
+    # The C loader where the system has it: the same safe subset, a tenth
+    # of the time over twelve hundred recipes.
+    loader = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+    for yml in sorted(packages_dir.glob("*/*/package.yml")):
+        try:
+            d = yaml.load(yml.read_text(), Loader=loader) or {}
+        except (OSError, yaml.YAMLError):
+            continue
+        if not isinstance(d, dict):
+            continue
+        version = d.get("version")
+        if version is None:
+            continue
+        for key in (d.get("name"), d.get("ships_as")):
+            if key:
+                versions.setdefault(str(key), str(version))
+    return versions
+
+
+def archive_pkgname(filename: str, versions: dict) -> str:
+    """The package name an archive filename carries, read by the one parser
+    against the recipe versions; the bare stem when it is no archive name."""
+    parsed = parse_archive_filename(filename, known=versions)
+    if parsed is not None:
+        return parsed.name
+    return filename[: -len(SUFFIX)] if filename.endswith(SUFFIX) else filename
 
 
 def sha256_file(path: Path) -> str:
@@ -95,20 +150,27 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="staged<->built corpus byte gate")
     ap.add_argument("--staging", required=True, type=Path)
     ap.add_argument("--chroot-manifest", required=True, type=Path)
+    ap.add_argument("--packages", type=Path, default=_project_root / "packages",
+                    help="recipe tree whose versions settle where a filename's "
+                         "name ends (default: this script's own tree)")
     args = ap.parse_args()
 
-    for p, what in ((args.staging, "staging dir"), (args.chroot_manifest, "manifest")):
+    for p, what in ((args.staging, "staging dir"), (args.chroot_manifest, "manifest"),
+                    (args.packages, "packages dir")):
         if not p.exists():
             print(f"ERROR: {what} not found: {p}", file=sys.stderr)
             return 1
 
+    versions = load_recipe_versions(args.packages)
+    print(f"[corpus-gate] recipe versions: {len(versions)} package names "
+          f"from {args.packages}")
     built = load_manifest(args.chroot_manifest)
     staged = {p.name: p for p in sorted(args.staging.glob("*.igos.tar.gz"))}
 
     excluded = []
     publishable = {}
     for fname, digest in built.items():
-        pkg = archive_pkgname(fname)
+        pkg = archive_pkgname(fname, versions)
         if INTERMEDIATE_RE.match(pkg):
             excluded.append(fname)
             continue

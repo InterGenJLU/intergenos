@@ -16,10 +16,16 @@ Checks, in order, for every entry in the shipping tree (the chroot minus the
 mksquashfs exclusions):
 
   1. path recorded by any installed package (either is_dir flag) -> OK
-  2. var/lib/igos/archives/*  -> basename must be exactly
-     "<name>-<version>.igos.tar.gz" for an INSTALLED (name, version), or be
-     listed in --archive-excludes (mirror-only, excluded from the squashfs).
-     Catches stale version twins, mirror leftovers, and unknown junk.
+  2. var/lib/igos/archives/*  -> basename must be a name the archive of an
+     INSTALLED (name, version, release) carries, composed by
+     pkm/archive_names.py: "<name>-<version>-<release>.igos.tar.gz", or the
+     release-less "<name>-<version>.igos.tar.gz" every archive built before
+     2026-09-22 carries -- or be listed in --archive-excludes (mirror-only,
+     excluded from the squashfs). Catches stale version twins, mirror
+     leftovers, and unknown junk. A release-less archive lying beside the
+     archive named for the installed release is a stale twin too: it is an
+     earlier build of the same version, which a same-version rebuild used to
+     overwrite and, since the name carries the release, no longer does.
   3. var/lib/igos/packages/*  -> basename must be "<name>-<version>" of an
      installed row (a manifest for a package that is not installed is a
      removal/registration defect).
@@ -51,6 +57,13 @@ import sqlite3
 import sys
 from collections import defaultdict
 from pathlib import Path
+
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
+# The one place that knows what an archive is called; see its docstring.
+from pkm.archive_names import candidate_filenames  # noqa: E402
 
 # Trees mksquashfs excludes (build-squashfs Step 5) or that are pseudo-fs
 # mount points — they do not ship, so they are outside the gate's scope.
@@ -159,12 +172,32 @@ def main() -> int:
 
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     owned = {p.strip("/") for (p,) in conn.execute("SELECT path FROM files")}
+    try:
+        rows = conn.execute(
+            "SELECT name, version, release FROM installed").fetchall()
+    except sqlite3.OperationalError:
+        # A schema without the release column states no release.
+        rows = [(n, v, None) for n, v in
+                conn.execute("SELECT name, version FROM installed")]
+    conn.close()
     installed_nv = set()
     installed_names = set()
-    for name, version in conn.execute("SELECT name, version FROM installed"):
+    # archive name -> the name of the installed build's own archive when this
+    # one is the release-less twin of it, else None.
+    installed_archives: dict[str, str | None] = {}
+    for name, version, release in rows:
         installed_nv.add(f"{name}-{version}")
         installed_names.add(name)
-    conn.close()
+        try:
+            names = candidate_filenames(name, str(version), release)
+        except ValueError:
+            # A release the database holds that is not a whole number names
+            # no archive; the plain name is still this row's.
+            names = candidate_filenames(name, str(version), None)
+        exact = names[0]
+        installed_archives.setdefault(exact, None)
+        for other in names[1:]:
+            installed_archives.setdefault(other, exact)
 
     violations: dict[str, list[str]] = defaultdict(list)
     counts = {"files": 0, "dirs": 0}
@@ -175,8 +208,16 @@ def main() -> int:
         if rel.startswith("var/lib/igos/archives/"):
             if rel in excluded_archives:
                 return True  # mirror-only: excluded from the squashfs
-            m = ARCHIVE_RE.match(os.path.basename(rel))
-            if m and m.group("base") in installed_nv:
+            base = os.path.basename(rel)
+            if ARCHIVE_RE.match(base) and base in installed_archives:
+                build_archive = installed_archives[base]
+                if (build_archive is not None
+                        and (args.chroot / os.path.dirname(rel)
+                             / build_archive).is_file()):
+                    violations["release-less archive beside the archive of "
+                               "the installed release (stale twin of the "
+                               "same version)"].append(rel)
+                    return False
                 return True
             violations["archive not owned by an installed package "
                        "(stale twin, mirror leftover, or unknown)"].append(rel)
@@ -259,7 +300,7 @@ def main() -> int:
     total = sum(len(v) for v in violations.values())
     print(f"[squashfs-ownership] scanned {counts['files']} files; "
           f"owned-path set {len(owned)}; installed {len(installed_names)}; "
-          f"excluded archives {len(excluded_archives)}")
+          f"archive names on the exclusion list {len(excluded_archives)}")
     if not total:
         print("[squashfs-ownership] PASS — every shipping file traces to an "
               "installed package, pkm state rules, or a reviewed allowlist "

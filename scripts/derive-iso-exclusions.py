@@ -29,17 +29,29 @@ Two output modes:
     state IS the final ISO state.
 
   --mode=archive-excludes (F41, decided 2026-07-22)
-    Emit `var/lib/igos/archives/<name>-<version>.igos.tar.gz` lines —
-    the EXACT archive basenames of every MIRROR package, built from
-    the parsed package.yml name + version (the same fields pkg_archive
-    names archives from), never from filename-splitting heuristics.
-    Consumed by build-squashfs as per-file mksquashfs `-e` entries so
-    iso_include:false ARCHIVES stop shipping inside the squashfs
-    (pkm iso-prep removes installed payloads only; it never touched
-    /var/lib/igos/archives, and every prior ISO carried the full
-    archive corpus — mirror-only included). Exclusion, not deletion:
-    the chroot's archive corpus stays intact as the mirror-publish
-    source and the snapshot's banked state.
+    Emit `var/lib/igos/archives/<archive name>` lines — the EXACT
+    archive basenames of every MIRROR package, composed by
+    pkm/archive_names.py from the parsed package.yml name, version and
+    release (the same fields the producers name archives from), never
+    from filename-splitting heuristics. Consumed by build-squashfs as
+    per-file mksquashfs `-e` entries so iso_include:false ARCHIVES stop
+    shipping inside the squashfs (pkm iso-prep removes installed
+    payloads only; it never touched /var/lib/igos/archives, and every
+    prior ISO carried the full archive corpus — mirror-only included).
+    Exclusion, not deletion: the chroot's archive corpus stays intact
+    as the mirror-publish source and the snapshot's banked state.
+
+    Each package is listed under EVERY name its archive may be on disk
+    under (decided 2026-09-22): <name>-<version>-<release>.igos.tar.gz,
+    which the producers write for a recipe that states a release, and
+    then <name>-<version>.igos.tar.gz, which every archive built before
+    that date carries — a lineage build substrate holds both shapes
+    until each package is rebuilt. Listing one shape only leaves the
+    other shape's mirror-only archives on the squashfs. The names of one
+    package follow a `# package: <name> <version> <release>` comment
+    line; every consumer skips comment lines and reads the names as one
+    set, and derive-iso-archive-manifest.py uses the grouping to report
+    a package with no built archive once, not once per name.
 
 Usage:
     derive-iso-exclusions.py [--mode {paths,names,archive-excludes}]
@@ -73,6 +85,12 @@ _project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_project_root))
 _parser_mod = importlib.import_module("igos-build.parser")
 parse_template = _parser_mod.parse_template
+
+# The one place that knows what an archive is called; see its docstring.
+from pkm.archive_names import candidate_filenames  # noqa: E402
+
+#: Chroot-relative directory every archive name below is emitted under.
+ARCHIVES_DIR = "var/lib/igos/archives"
 
 
 def find_manifest(chroot: Path, name: str, version: str) -> Path | None:
@@ -142,9 +160,10 @@ def main() -> int:
         help=(
             "Output mode. 'names' (DEFAULT, Path-b 2026-05-28): emit one "
             "package name per line for `pkm iso-prep --packages-from`. "
-            "'archive-excludes' (F41 2026-07-22): emit exact "
-            "var/lib/igos/archives/<name>-<version>.igos.tar.gz basenames "
-            "of every MIRROR package for mksquashfs -e. "
+            "'archive-excludes' (F41 2026-07-22): emit the exact "
+            "var/lib/igos/archives/ basenames of every MIRROR package for "
+            "mksquashfs -e, each package under every name its archive may "
+            "carry (with its release, then without). "
             "'paths' (Path-a, historical): emit file paths for "
             "`mksquashfs -ef`."
         ),
@@ -186,6 +205,7 @@ def main() -> int:
     excluded_paths: list[str] = []
     mirror_packages: list[str] = []
     mirror_versions: dict[str, str] = {}
+    mirror_releases: dict[str, int] = {}
     iso_packages: list[str] = []
     missing_manifests: list[str] = []
     parse_failures: list[str] = []
@@ -230,6 +250,7 @@ def main() -> int:
             continue
         mirror_packages.append(ship_name)
         mirror_versions[ship_name] = pkg.version
+        mirror_releases[ship_name] = pkg.release
         if args.mode == "paths":
             manifest = find_manifest(args.chroot, ship_name, pkg.version)
             if manifest is None:
@@ -280,14 +301,29 @@ def main() -> int:
         return 0
 
     if args.mode == "archive-excludes":
-        # Exact basenames from the parsed (name, version) — the same two
-        # fields pkg_archive composes archive filenames from. No filename
-        # splitting, so a mirror name that prefixes a shipped package's
-        # name (the go / go-md2man class) can never over-match.
-        lines = sorted(
-            f"var/lib/igos/archives/{n}-{mirror_versions[n]}.igos.tar.gz"
-            for n in set(mirror_packages)
-        )
+        # Exact basenames composed from the parsed (name, version, release)
+        # by the one module the producers use. No filename splitting, so a
+        # mirror name that prefixes a shipped package's name (the go /
+        # go-md2man class) can never over-match. Every name the package's
+        # archive may carry is listed, best first, under a comment line
+        # naming the package (see the module docstring above).
+        lines = [
+            "# Mirror-only archive names (derive-iso-exclusions.py "
+            "--mode=archive-excludes).",
+            "# One block per package: a '# package: <name> <version> "
+            "<release>' line, then every",
+            "# name its archive may be on disk under, with its release "
+            "first, then without it.",
+            "# Consumers read the names as one set and skip every comment "
+            "line.",
+        ]
+        name_count = 0
+        for n in sorted(set(mirror_packages)):
+            version, release = mirror_versions[n], mirror_releases[n]
+            lines.append(f"# package: {n} {version} {release}")
+            for fname in candidate_filenames(n, version, release):
+                lines.append(f"{ARCHIVES_DIR}/{fname}")
+                name_count += 1
         args.output.write_text("\n".join(lines) + "\n")
         print(
             f"[derive-iso-exclusions] ISO packages:     {len(iso_packages)}",
@@ -295,6 +331,11 @@ def main() -> int:
         )
         print(
             f"[derive-iso-exclusions] MIRROR packages:  {len(mirror_packages)}",
+            file=sys.stderr,
+        )
+        print(
+            f"[derive-iso-exclusions] Archive names:    {name_count} "
+            f"(every name a mirror-only archive may carry)",
             file=sys.stderr,
         )
         print(

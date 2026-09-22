@@ -51,6 +51,7 @@ def main() -> int:
         return 1
     try:
         excludes = mc.read_excludes(args.archive_excludes)
+        blocks = mc.read_exclude_blocks(args.archive_excludes)
     except OSError as e:
         print(f"[{PROG}] error: cannot read exclusion list: {e}", file=sys.stderr)
         return 1
@@ -70,12 +71,21 @@ def main() -> int:
           f"({len(excludes)} archive names declared)", file=sys.stderr)
     print(f"[{PROG}] ISO manifest:   {args.output} — kept {r.kept}, "
           f"excluded {len(r.dropped)}", file=sys.stderr)
-    if r.excludes_absent:
-        print(f"[{PROG}] note: {len(r.excludes_absent)} declared exclusion(s) "
-              f"name no archive in the full manifest (declared mirror "
-              f"packages with no built archive):", file=sys.stderr)
-        for name in r.excludes_absent:
-            print(f"    {name}", file=sys.stderr)
+    # One line per declared mirror package that has no archive under ANY of
+    # its names. The exclusion list names each package once per shape its
+    # archive may carry, so a name absent from the census is normal when the
+    # package was built under its other name; counting names would report
+    # every built package too.
+    present = set(r.dropped)
+    unbuilt = [label for label, names in blocks
+               if not any(name in present for name in names)]
+    if unbuilt:
+        print(f"[{PROG}] note: {len(unbuilt)} declared mirror package(s) have "
+              f"no archive in the full manifest under any of their names "
+              f"(declared mirror packages with no built archive):",
+              file=sys.stderr)
+        for label in unbuilt:
+            print(f"    {label}", file=sys.stderr)
     return 0
 
 

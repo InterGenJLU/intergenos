@@ -34,9 +34,13 @@ from pathlib import Path
 from typing import Iterable
 
 #: Exclusion lines from derive-iso-exclusions --mode=archive-excludes are
-#: chroot-relative (``var/lib/igos/archives/<name>-<ver>.igos.tar.gz``);
-#: manifest entries are relative to the archive dir. Strip this to compare.
+#: chroot-relative (``var/lib/igos/archives/<archive name>``); manifest
+#: entries are relative to the archive dir. Strip this to compare.
 ARCHIVES_PREFIX = "var/lib/igos/archives/"
+
+#: The comment line derive-iso-exclusions.py writes before the names of one
+#: package: ``# package: <name> <version> <release>``.
+PACKAGE_BLOCK_PREFIX = "# package:"
 
 MANIFEST_VERSION_LINE = "# Manifest-version: 1"
 TERMINATOR_LINE = "# End of manifest."
@@ -68,6 +72,35 @@ def read_excludes(path: Path) -> set[str]:
             continue
         out.add(normalize_archive_path(line))
     return out
+
+
+def read_exclude_blocks(path: Path) -> list[tuple[str, list[str]]]:
+    """The exclusion names grouped by the package they belong to.
+
+    derive-iso-exclusions.py lists each mirror-only package under every name
+    its archive may carry (with its release, then without), after a
+    ``# package: <name> <version> <release>`` line. Returns
+    ``[(label, [names...]), ...]`` in file order, each name normalised exactly
+    as read_excludes() normalises it. A name that follows no package line — a
+    list written before the grouping existed — is a block of its own labelled
+    with the name, so a per-block report reads one line per name as before.
+    """
+    blocks: list[tuple[str, list[str]]] = []
+    current: list[str] | None = None
+    for raw in Path(path).read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if line.startswith(PACKAGE_BLOCK_PREFIX):
+            current = []
+            blocks.append((line[len(PACKAGE_BLOCK_PREFIX):].strip(), current))
+            continue
+        if not line or line.startswith("#"):
+            continue
+        name = normalize_archive_path(line)
+        if current is None:
+            blocks.append((name, [name]))
+        else:
+            current.append(name)
+    return blocks
 
 
 @dataclass

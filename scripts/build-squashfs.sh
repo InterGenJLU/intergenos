@@ -615,8 +615,12 @@ fi
 # mirror-publish source and part of the snapshot's banked state — the
 # squashfs simply does not take the mirror-only members. Basenames come
 # from derive-iso-exclusions --mode=archive-excludes (parsed package.yml
-# name+version — the same fields archives are named from; no filename
-# splitting, so a name that prefixes another name can never over-match).
+# name, version and release, composed by pkm/archive_names.py — the fields
+# archives are named from; no filename splitting, so a name that prefixes
+# another name can never over-match). Each mirror-only package is listed
+# under every name its archive may carry (with its release, then without):
+# a lineage substrate holds both shapes, so only the names present below
+# become -e entries, and the count logged is of names, not packages.
 # The Step 4.85 ownership gate independently fail-closes on any archive
 # left in the tree that doesn't belong to an installed package.
 MIRROR_ARCHIVE_EXCLUDES=()
@@ -637,7 +641,7 @@ if [ "$ISO_PREP" = "1" ] && [ -f /mnt/intergenos/scripts/derive-iso-exclusions.p
             _ARC_PRESENT=$((_ARC_PRESENT + 1))
         fi
     done < "$MIRROR_ARCHIVE_EXCLUDES_FILE"
-    log "mirror-only archive exclusion: $_ARC_PRESENT archive(s) excluded from the squashfs ($_ARC_LISTED mirror packages declared)"
+    log "mirror-only archive exclusion: $_ARC_PRESENT archive(s) excluded from the squashfs ($_ARC_LISTED archive names declared for the mirror-only packages)"
     status_line "mirror-only archive exclusion" DONE
 else
     warn "mirror-only archive exclusion SKIPPED (ISO_PREP=$ISO_PREP) — this squashfs will carry the FULL archive corpus"
