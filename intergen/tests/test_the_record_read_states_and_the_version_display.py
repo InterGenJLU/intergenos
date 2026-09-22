@@ -33,7 +33,10 @@ a command asserts a condition it has not checked.
    in a moment. Where the name is owned by something that is not the managed
    service, that is advice to wait for a condition that will not clear. The
    service state is one call away and this tree already carries the routine
-   that reads it.
+   that reads it. Only "active" establishes that the service is running and
+   only "inactive" or "failed" that it is not; a state in transition, an error
+   from the service manager, or no answer at all establishes neither, and is
+   reported as establishing neither.
 """
 
 from __future__ import annotations
@@ -173,17 +176,24 @@ class TheCommandAsksTheServiceStateBeforeSayingWhatIsRunning(unittest.TestCase):
     """Finding 3."""
 
     @staticmethod
-    def _ask_with_a_stale_owner(service_state: str):
+    def _ask_with_a_stale_owner(service_state: str = "", *,
+                                manager_error: str = "",
+                                probe_raises: BaseException | None = None):
         """The bus name has an owner, the call never finishes, and the user
-        service reports ``service_state``."""
+        service reports ``service_state`` — or the service manager answers
+        only with ``manager_error``, or cannot be asked at all."""
         out, err = io.StringIO(), io.StringIO()
         code = None
         probe = mock.Mock()
-        probe.stdout = service_state + "\n"
-        probe.stderr = ""
+        probe.stdout = service_state + "\n" if service_state else ""
+        probe.stderr = manager_error
+        if probe_raises is not None:
+            run = mock.Mock(side_effect=probe_raises)
+        else:
+            run = mock.Mock(return_value=probe)
         with mock.patch.object(cli, "daemon_has_owner", return_value=True), \
                 mock.patch.object(cli, "try_dbus", return_value=None), \
-                mock.patch.object(cli.subprocess, "run", return_value=probe), \
+                mock.patch.object(cli.subprocess, "run", run), \
                 mock.patch.object(cli, "_AskFillers", _NoFillers, create=True):
             with redirect_stdout(out), redirect_stderr(err):
                 try:
@@ -204,10 +214,40 @@ class TheCommandAsksTheServiceStateBeforeSayingWhatIsRunning(unittest.TestCase):
     def test_it_still_offers_to_wait_when_the_service_is_running(self) -> None:
         code, said = self._ask_with_a_stale_owner("active")
         self.assertEqual(code, 2)
-        self.assertIn("active", said)
+        # "is active", not "active": the shorter text is inside "inactive".
+        self.assertIn("is active", said)
         self.assertIn("loading", said,
                       "with the service really running, still loading is the "
                       "reading that holds")
+
+    def test_a_state_that_establishes_neither_reading_asserts_neither(self) -> None:
+        """A start or a stop in progress, an error from the service manager,
+        and no answer at all say neither that the service is running nor that
+        it is not, so the command must say neither."""
+        cases = [
+            ("a start in progress", {"service_state": "activating"},
+             "activating"),
+            ("a stop in progress", {"service_state": "deactivating"},
+             "deactivating"),
+            ("the service manager answered with an error",
+             {"manager_error": "Failed to connect to user scope bus via local "
+                               "transport: No such file or directory"},
+             "Failed to connect to user scope bus"),
+            ("the service manager could not be asked",
+             {"probe_raises": FileNotFoundError("systemctl")}, "unknown"),
+        ]
+        for label, arrangement, shown in cases:
+            with self.subTest(label):
+                code, said = self._ask_with_a_stale_owner(**arrangement)
+                self.assertEqual(code, 2)
+                self.assertIn(shown, said,
+                              "the state that was read must be shown")
+                self.assertNotIn("not running", said,
+                                 "a state that does not say the service is "
+                                 "stopped must not be reported as stopped")
+                self.assertNotIn("waiting will not clear", said)
+                self.assertNotIn("InterGen is running", said,
+                                 "nor may it be reported as running")
 
 
 class _NoFillers:

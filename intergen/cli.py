@@ -394,6 +394,11 @@ def cmd_ask(message: str, direct: bool = False) -> None:
         # is owned by something that is NOT the managed service, that is advice
         # to wait for a condition that will not clear on its own. The service
         # state is one call away and this file already reads it elsewhere.
+        # Only two answers establish a reading: "active" says the service is
+        # running, "inactive" or "failed" says it is not. Anything else — a
+        # state in transition, or no state at all because the service manager
+        # could not be asked or answered with an error — establishes neither,
+        # and is reported as exactly that rather than as "not running".
         sys.stdout.flush()
         state = _user_service_state()
         if state == "active":
@@ -402,7 +407,7 @@ def cmd_ask(message: str, direct: bool = False) -> None:
                   "moment).", file=sys.stderr)
             print(f"  service state: intergen.service (user) is {state}",
                   file=sys.stderr)
-        else:
+        elif state in ("inactive", "failed"):
             print("Something holds InterGen's name on the message bus, but "
                   "the managed service is not running and the request did "
                   "not complete.", file=sys.stderr)
@@ -410,6 +415,15 @@ def cmd_ask(message: str, direct: bool = False) -> None:
                   file=sys.stderr)
             print("  waiting will not clear this on its own.", file=sys.stderr)
             print("  start the service with: systemctl --user start intergen",
+                  file=sys.stderr)
+        else:
+            print("Something holds InterGen's name on the message bus and the "
+                  "request did not complete; the state read for the managed "
+                  "service does not say whether it is running.",
+                  file=sys.stderr)
+            print(f"  service state: intergen.service (user) is {state}",
+                  file=sys.stderr)
+            print("  read it with: systemctl --user status intergen",
                   file=sys.stderr)
         print("Check the daemon logs for details:", file=sys.stderr)
         print("  journalctl --user -u intergen -n 50", file=sys.stderr)
