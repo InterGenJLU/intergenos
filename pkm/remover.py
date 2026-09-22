@@ -778,6 +778,18 @@ class PackageRemover:
                     (d["path"], co_owned_dirs[d["path"]])
                 )
                 continue
+            if d.get("is_generated"):
+                # The same rule as the file loop, and it has to be applied
+                # HERE because an on-disk directory never reaches that loop:
+                # it is classified into this list first. An empty directory
+                # the package's hook created on this machine was therefore
+                # removed by the ordinary empty-directory pass and named
+                # nowhere in the report, which is the file defect in the shape
+                # that hides better — nobody notices an empty directory going,
+                # and a directory a hook made is often where a person's own
+                # state lives.
+                retained_generated.append(d["path"])
+                continue
             abs_path = str(self.root / d["path"])
             try:
                 if os.path.isdir(abs_path) and not os.listdir(abs_path):

@@ -163,3 +163,123 @@ class TestVerifyAfterASupportedUndo(HookGeneratedRows):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HookGeneratedDirectories(unittest.TestCase):
+    """A DIRECTORY the package's hook created here is not payload either.
+
+    A second read of this lane found the other half. The same is_generated
+    flag applies to directories — the hook recorder derives the directories a
+    hook created, with their trailing slash, and records them through the same
+    call — but the removal classifies an on-disk directory into its own list
+    BEFORE the file loop's retain-and-report rule is ever consulted. So an
+    empty hook-generated directory below a package-owned parent was removed by
+    the ordinary empty-directory pass, and the report said nothing: the run
+    ended "Removed demo 1.0-1 (0 files)" with the directory gone.
+
+    That is the same defect as the file one, in the shape that hides better:
+    a file's absence is noticed, an empty directory's is not, and the
+    directory a hook made is often the place a person's own state lives.
+    """
+
+    OWNED_PARENT = "var/lib/example"
+    HOOK_MADE_DIR = "var/lib/example/made-here"
+    HOOK_MADE_CHILD = "var/lib/example/kept/state.json"
+    HOOK_MADE_NONEMPTY = "var/lib/example/kept"
+
+    def setUp(self):
+        self._tmp = tempfile.mkdtemp(prefix="pkm-generated-dirs-")
+        self.root = Path(self._tmp) / "root"
+        self.db_path = Path(self._tmp) / "pkm.db"
+        (self.root / self.HOOK_MADE_DIR).mkdir(parents=True)
+        child = self.root / self.HOOK_MADE_CHILD
+        child.parent.mkdir(parents=True, exist_ok=True)
+        child.write_text("state this machine accumulated\n")
+        self.db = PackageDB(self.db_path, root=str(self.root))
+        pid = self.db.add_installed("example", "1.0", release=1, tier="desktop")
+        # The package owns the parent directory as ordinary payload.
+        self.db.add_files(pid, [self.OWNED_PARENT + "/"])
+        # Its hook created these HERE: an empty directory, and one with the
+        # machine's own state below it.
+        self.db.record_generated_files(
+            pid, [self.HOOK_MADE_DIR + "/", self.HOOK_MADE_NONEMPTY + "/"])
+
+    def tearDown(self):
+        try:
+            self.db.close()
+        except Exception:
+            pass
+        shutil.rmtree(self._tmp, ignore_errors=True)
+
+    def _remove(self):
+        remover = PackageRemover(self.db, root=str(self.root))
+        return remover.remove("example", run_pre_remove_hook=False,
+                              run_post_remove_hook=False)
+
+
+class TestRemoveDoesNotUnlinkADirectoryTheHookMade(HookGeneratedDirectories):
+
+    def test_an_empty_hook_created_directory_survives(self):
+        ok, msg = self._remove()
+        self.assertTrue(ok, msg)
+        self.assertTrue(
+            (self.root / self.HOOK_MADE_DIR).is_dir(),
+            "the removal deleted an empty directory the package's hook "
+            "created on this machine, and the package cannot put it back:\n"
+            + msg)
+
+    def test_a_hook_created_directory_holding_state_survives(self):
+        ok, msg = self._remove()
+        self.assertTrue(ok, msg)
+        self.assertTrue((self.root / self.HOOK_MADE_CHILD).is_file(),
+                        "the removal reached the machine's own state below a "
+                        "hook-created directory:\n" + msg)
+
+    def test_the_removal_says_which_directories_it_kept(self):
+        ok, msg = self._remove()
+        self.assertTrue(ok, msg)
+        self.assertIn(self.HOOK_MADE_DIR, msg,
+                      "a directory was kept on disk and the report said "
+                      "nothing about it — the run looked like it removed "
+                      "everything:\n" + msg)
+
+    def test_the_report_is_not_silent_about_the_count(self):
+        ok, msg = self._remove()
+        self.assertTrue(ok, msg)
+        self.assertIn("generated", msg.lower(),
+                      "nothing in the report names the class:\n" + msg)
+
+
+class TestVerifySeesTheDirectoryShapeToo(HookGeneratedDirectories):
+
+    def test_an_absent_hook_created_directory_is_not_reported_missing(self):
+        (self.root / self.HOOK_MADE_DIR).rmdir()
+        result = self.db.verify_package("example")
+        self.assertNotIn(
+            self.HOOK_MADE_DIR + "/", result["missing"],
+            "a hook-created directory a person deleted made verify call the "
+            "package damaged")
+        self.assertNotIn(self.HOOK_MADE_DIR, result["missing"])
+
+    def test_it_is_counted_in_its_own_bucket(self):
+        (self.root / self.HOOK_MADE_DIR).rmdir()
+        result = self.db.verify_package("example")
+        named = [p.rstrip("/") for p in result.get("generated_absent", [])]
+        self.assertIn(self.HOOK_MADE_DIR, named,
+                      "the absence was neither reported as missing nor "
+                      "counted in the hook-generated bucket, so it vanished "
+                      f"from the report entirely: {result!r}")
+
+
+class TestOrdinaryDirectoriesAreStillRemoved(HookGeneratedDirectories):
+    """The non-masking control: this is still a removal."""
+
+    def test_the_packages_own_directory_is_still_removed(self):
+        # Empty the hook-made ones so only ownership decides the outcome.
+        shutil.rmtree(self.root / self.HOOK_MADE_NONEMPTY)
+        (self.root / self.HOOK_MADE_DIR).rmdir()
+        ok, msg = self._remove()
+        self.assertTrue(ok, msg)
+        self.assertFalse(
+            (self.root / self.OWNED_PARENT).exists(),
+            "the package's own directory was left on disk:\n" + msg)

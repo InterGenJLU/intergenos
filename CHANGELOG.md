@@ -260,6 +260,13 @@ landed is in the repository README, not here.
   someone who had followed the documentation. A row the hook created is now
   kept by `pkm remove`, which names every path it keeps so nothing is silently
   left behind, and an absent one is reported by `pkm verify` in its own named
+  count instead of as a missing file. A DIRECTORY the hook created is covered
+  by the same rule: an empty one used to be swept away by the ordinary
+  tidy-up of empty directories and named nowhere in the report, which is the
+  same mistake in the shape that hides better — nobody notices an empty
+  directory going, and a directory a hook made is often where a machine's own
+  state lives. The package's own payload is still removed, and a payload file
+  that is genuinely missing is still a fault.
   count instead of as a missing file. The package's own payload is still
   removed, and a payload file that is genuinely missing is still a fault.
 - **A name-server choice whose resolver never restarted no longer leaves the

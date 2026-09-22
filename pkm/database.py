@@ -2359,8 +2359,20 @@ class PackageDB:
                    if "is_generated" in getattr(self, "_files_cols", ())
                    else "0")
         rows = self.conn.execute(
+            # Directories are excluded because they carry no content hash and
+            # their existence is implied by what is inside them — reporting an
+            # ordinary missing directory would make a finding out of every
+            # package whose empty tree was tidied away.
+            #
+            # A HOOK-GENERATED directory is the exception, and it costs
+            # nothing: rows carrying is_generated never reach `missing` (the
+            # loop routes them to their own bucket either way), so including
+            # them adds REPORTING without adding a fault class. Without this,
+            # a directory the package's hook created on this machine and that
+            # is now gone appeared in no bucket at all — not missing, not
+            # generated, not expected-absent — so it left the report entirely.
             f"SELECT path, is_dir, is_config, checksum, {gen_col} FROM files "
-            f"WHERE package_id = ? AND is_dir = 0",
+            f"WHERE package_id = ? AND (is_dir = 0 OR {gen_col} = 1)",
             (pkg["id"],)
         ).fetchall()
 
@@ -2414,6 +2426,15 @@ class PackageDB:
                     generated_absent.append(path)
                 else:
                     missing.append(path)
+                continue
+            # A hook-generated DIRECTORY that is HERE needs no line of its
+            # own: a directory carries no content to check, and its presence
+            # is implied by what is inside it — which is why verify excludes
+            # directories in the first place. Only its ABSENCE was vanishing
+            # from the report, and that is handled above. Reporting present
+            # ones as well would put every hook-created directory on the
+            # summary of every healthy package.
+            if is_dir:
                 continue
             if not strict:
                 continue
