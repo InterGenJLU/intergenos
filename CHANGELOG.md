@@ -47,6 +47,19 @@ landed is in the repository README, not here.
 
 ### Added
 
+- **The assistant's system prompt now states the machine it runs on and the
+  model serving the conversation.** Asked what it is, the assistant answered
+  out of whatever its weights had absorbed, and a local model trained by
+  somebody else names that somebody else — in the assistant's own voice, about
+  the machine you are sitting at. Both facts that make the answer true are
+  known when the prompt is built, so the prompt states them, on every path,
+  with the instruction not to attribute itself to another vendor or product.
+  The model name is asked of the serving engine each time the prompt is built,
+  so a model changed under a running assistant cannot leave it naming the old
+  one; when no model can be named, the prompt says a local model on this
+  machine and names none rather than guessing. The per-path prompt-size
+  ceilings are re-measured in the same change, with a model name present,
+  which is the path that actually runs.
 - **A scanner works with no driver, and this machine does not offer it away.**
   Three packages arrive together. `sane-backends` is the library every scanning
   application talks to and the drivers behind it; `sane-airscan` speaks the two
@@ -224,6 +237,35 @@ landed is in the repository README, not here.
   `--all` to reach an install's full record.
 
 ### Fixed
+- **`intergen --version` and the Version line of `intergen status` name the
+  release that is installed.** Both printed `0.1.0` and stopped there. That
+  string has not moved in the life of the project, while the package that
+  places the assistant is on its 296th release, so neither command could tell
+  two builds apart and a machine whose upgrade half-finished still sounded
+  correct. Both now print version and release together, in the form the
+  package manager uses everywhere else, read from the package manager's own
+  record — the running code cannot know a release, because a release is
+  assigned when the package is built. The running assistant and a machine whose
+  assistant is stopped answer this question the same way. On a machine with no
+  such record the version the code carries is printed with a line saying the
+  release could not be read; no release is ever invented.
+- **An idle machine stops narrating a check whose answer has not changed.** The
+  assistant re-verifies its embedding model's digest twice a minute and wrote
+  two lines every time. Measured over ten idle minutes on this project's
+  workstation: forty log lines, every one of them one of those two, and nothing
+  else at all — a log nobody reads, in which the line that matters would look
+  the same size as the rest. The first verification after a start still speaks;
+  a repeat that re-read nothing is recorded at debug level instead. The check
+  itself is unchanged and a digest that does NOT match is still reported
+  loudly, first time or hundredth.
+- **The first exchange the assistant remembers no longer costs more than every
+  later one.** The conversation index embeds each exchange on a background
+  worker, and the numeric library that work needs was loaded on the worker's
+  first call — so the first exchange a machine ever indexed paid for it and no
+  later exchange did, with nothing in the tree saying so. Measured in three
+  fresh processes: 166 ms for the first, under a tenth of a millisecond for
+  each of the next five. The library is now loaded when the assistant starts,
+  where nobody is waiting on an answer.
 - **The mirror-install eval stage tells an absent package from a corrupt one.**
   Its verify loop read every non-zero status as one sentence, "the installed GE
   set is not intact", and a zero as a pass. A member that never installed exited
