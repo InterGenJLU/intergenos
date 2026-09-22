@@ -49,6 +49,11 @@ landed is in the repository README, not here.
 
 - **Authentication prompts leave a bounded journal trace.** GNOME Shell records
   when its PolicyKit dialog finishes opening and when the request reaches one
+  terminal outcome. A request cancelled while the session is locked leaves one
+  not-shown record without constructing a dialog. The record carries the action
+  identifier, a process-local sequence, and fixed event and outcome values. It
+  excludes prompt text, cookies, identities, credentials, commands, and
+  environment data.
   terminal outcome. The record carries the action identifier, a process-local
   sequence, and fixed event and outcome values. It excludes prompt text,
   cookies, identities, credentials, commands, and environment data.
