@@ -69,21 +69,21 @@ def test_verified_lookup_keeps_epoch_and_payload_digest(repository):
     result = lookup(repository, "sha512-a")
     assert result.returncode == 0, result.stderr
     fields = result.stdout.strip().split("|")
-    assert fields == [signed_repo_fixture.DEB_FILENAME, "1:1.0.0.85",
+    assert fields == [signed_repo_fixture.DEB_FILENAME, "1:1.0.85",
                       signed_repo_fixture.POOL_PATH, repository.deb_sha]
 
 
 @pytest.mark.parametrize("installed,comparison", [
-    ("1:1.0.0.85", 0), ("2:0.1", -1), ("1.999.0", 1),
+    ("1:1.0.85", 0), ("2:0.1", -1), ("1.999.0", 1),
 ])
 def test_upgrade_query_orders_verified_version(repository, installed, comparison):
     result = lookup(repository, "sha512-a", query_installed=installed)
     assert result.returncode == 0, result.stderr
-    assert json.loads(result.stdout) == {"version": "1:1.0.0.85", "comparison": comparison}
+    assert json.loads(result.stdout) == {"version": "1:1.0.85", "comparison": comparison}
 
 
 def test_reinstall_selects_only_the_requested_version(repository):
-    result = lookup(repository, "sha512-a", requested="1:1.0.0.85")
+    result = lookup(repository, "sha512-a", requested="1:1.0.85")
     assert result.returncode == 0, result.stderr
     absent = lookup(repository, "sha512-a", requested="1:0.9")
     assert absent.returncode != 0
@@ -100,7 +100,7 @@ def test_bad_signature_never_produces_a_version(repository):
 def test_modified_packages_never_produce_a_version(repository):
     path = repository._build_repo("modified-packages", "keyA@igos.test", "SHA512")
     packages = path / "dists/stable/steam/binary-amd64/Packages"
-    packages.write_text(packages.read_text().replace("Version: 1:1.0.0.85", "Version: 99:1.0"))
+    packages.write_text(packages.read_text().replace("Version: 1:1.0.85", "Version: 99:1.0"))
     result = lookup(repository, "modified-packages")
     assert result.returncode != 0
     assert result.stdout == ""

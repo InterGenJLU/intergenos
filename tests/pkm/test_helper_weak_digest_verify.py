@@ -38,7 +38,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 HELPER_LIB_SH = REPO_ROOT / "packages/core/intergenos-helper-lib/helper-lib.sh"
 
-DEB_FILENAME = "steam-launcher_1.0.0.85_amd64.deb"
+DEB_FILENAME = "steam-launcher_1.0.85_amd64.deb"
 POOL_PATH = f"pool/steam/s/steam/{DEB_FILENAME}"
 PACKAGES_RELPATH = "steam/binary-amd64/Packages"
 
@@ -141,7 +141,7 @@ class WeakDigestScopedVerifyTests(unittest.TestCase):
         pkgdir.mkdir(parents=True)
         packages = (
             f"Package: steam-launcher\n"
-            f"Version: 1:1.0.0.85\n"
+            f"Version: 1:1.0.85\n"
             f"Architecture: amd64\n"
             f"Filename: {POOL_PATH}\n"
             f"SHA256: {cls.deb_sha}\n"
