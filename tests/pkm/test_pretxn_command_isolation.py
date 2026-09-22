@@ -22,13 +22,19 @@ def _drive_command(monkeypatch, verb, root, expected_directory):
     remote = {"name": "example", "version": "2.0", "release": 1,
               "depends": [], "size": 0}
     db = SimpleNamespace(
-        list_held=lambda: [], list_installed=lambda: [installed])
+        list_held=lambda: [], list_installed=lambda: [installed],
+        # `pkm remove` orders and checks the whole set before its restore
+        # point; nothing here depends on the example package.
+        get_reverse_depends=lambda name: [])
 
     def forbidden_mutation(*args, **kwargs):
         pytest.fail("command reached package mutation")
 
     installer = SimpleNamespace(install=forbidden_mutation)
-    remover = SimpleNamespace(remove=forbidden_mutation)
+    # The whole-set check refuses nothing, so the command reaches the
+    # restore point this case is about; remove() itself is never reached.
+    remover = SimpleNamespace(remove=forbidden_mutation,
+                              refusal=lambda *args, **kwargs: None)
     repo = SimpleNamespace(get_package=lambda name: remote)
     monkeypatch.setattr(cli, "_INSTALL_ROOT", root)
     monkeypatch.setattr(cli, "package_installer", lambda db: installer)

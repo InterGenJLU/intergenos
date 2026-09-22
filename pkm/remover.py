@@ -471,6 +471,34 @@ class PackageRemover:
                 file=sys.stderr,
             )
 
+    def refusal(self, name, force=False, also_removing=()):
+        """Why ``name`` cannot be removed, or None when nothing refuses it.
+
+        The two refusals a removal can meet before it touches anything: the
+        package is not installed, or something installed and NOT also going
+        in this transaction depends on it (unless ``force``). :meth:`remove`
+        applies exactly this check first, and a caller removing several
+        packages as one transaction applies it to EVERY name before the first
+        removal, so a set that cannot be removed whole is refused before any
+        of it is. Decided 2026-09-22: checking one name at a time inside the
+        removal loop removed the first package and then refused the second,
+        which is two transactions, and a preview then reported the first as
+        already removed when nothing had been.
+        """
+        if not self.db.get_installed(name):
+            return f"Package '{name}' is not installed"
+        if not force:
+            going_too = {n for n in also_removing if n != name}
+            rdeps = [d for d in self.db.get_reverse_depends(name)
+                     if d["name"] not in going_too]
+            if rdeps:
+                dep_list = ", ".join(f"{d['name']}" for d in rdeps)
+                return (
+                    f"Cannot remove {name}: {len(rdeps)} package(s) depend on it: {dep_list}\n"
+                    f"  Use 'pkm remove {name} --force' to remove anyway."
+                )
+        return None
+
     def remove(self, name, force=False, reporter=None, on_file=None,
                run_pre_remove_hook=True, run_post_remove_hook=None,
                keep_helper_payload=False, dry_run=False,
@@ -559,21 +587,10 @@ class PackageRemover:
         Returns:
             (success: bool, message: str)
         """
+        refused = self.refusal(name, force=force, also_removing=also_removing)
+        if refused:
+            return False, refused
         pkg = self.db.get_installed(name)
-        if not pkg:
-            return False, f"Package '{name}' is not installed"
-
-        # Check reverse dependencies
-        if not force:
-            going_too = {n for n in also_removing if n != name}
-            rdeps = [d for d in self.db.get_reverse_depends(name)
-                     if d["name"] not in going_too]
-            if rdeps:
-                dep_list = ", ".join(f"{d['name']}" for d in rdeps)
-                return False, (
-                    f"Cannot remove {name}: {len(rdeps)} package(s) depend on it: {dep_list}\n"
-                    f"  Use 'pkm remove {name} --force' to remove anyway."
-                )
 
         # Pre-remove hook, ahead of every filesystem change this method
         # makes. Placed after the two checks that can still refuse the

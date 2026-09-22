@@ -2665,6 +2665,28 @@ def cmd_remove(db, args):
         reporter.error("no package named")
         sys.exit(1)
     subject = ", ".join(names)
+    ordered = _removal_order(db, names)
+    # ONE TRANSACTION means the whole set is checked before any of it goes.
+    # Every name meets the same refusal check a removal applies to itself
+    # (not installed; depended on by something that is not also going),
+    # computed across the whole set, and ANY refusal refuses the set with
+    # nothing changed. Decided 2026-09-22: the check used to run inside the
+    # removal loop, one name at a time, so a set whose second name had an
+    # outside dependant lost its first package and then stopped, and a
+    # preview of that set reported the first package as already removed
+    # when nothing had been. It sits before the question and the restore
+    # point: a set that cannot be removed is not asked about and costs
+    # nothing.
+    refusals = [msg for msg in (
+        remover.refusal(n, force=args.force, also_removing=ordered)
+        for n in ordered) if msg]
+    if refusals:
+        for msg in refusals:
+            reporter.error(msg)
+        reporter.error(
+            f"Nothing was removed: {subject} cannot be removed as one "
+            f"transaction." if len(names) > 1 else "Nothing was removed.")
+        sys.exit(1)
     # Ask before the destructive direction, and refuse rather than assume.
     # ONE question for the whole transaction: asking once per package would
     # make a three-package removal three separate decisions, which is the
@@ -2687,7 +2709,6 @@ def cmd_remove(db, args):
             reporter=reporter,
             handler_dir=pretxn.handler_directory(install_root()),
         )
-    ordered = _removal_order(db, names)
     # S3 — removing a large package unlinks its whole payload and then walks
     # the ancestor closure of every path it touched, all of it between the
     # command and its one closing line. The per-part progress standard
@@ -2725,16 +2746,21 @@ def cmd_remove(db, args):
             op.failed()
             raise
         if not ok:
-            # One package refused stops the transaction where it is. The
-            # packages already removed stay removed and are named, because a
-            # person reading this has to know what state the machine is in.
+            # Every refusal the set can meet was checked above, before
+            # anything changed; what can still stop the loop here is a failure
+            # partway through a real removal. The packages already removed
+            # stay removed and are named, because a person reading this has
+            # to know what state the machine is in. A preview removed nothing,
+            # so it never claims it did.
             op.end_step()
             op.failed(msg.splitlines()[0] if msg else None)
             reporter.error(msg)
             done = [n for n in ordered[:ordered.index(name)]]
-            if done:
+            if done and not dry_run:
                 reporter.error(
                     "Already removed before this refusal: " + ", ".join(done))
+            elif dry_run:
+                reporter.error("Nothing was removed: this was a preview.")
             sys.exit(1)
         plans.append(msg)
     op.end_step()

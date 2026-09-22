@@ -136,6 +136,9 @@ class RemoveWiringTest(unittest.TestCase):
                                   # the gate.
                                   remove_yes=True, remove_dry_run=False)
         fake_remover = MagicMock()
+        # The whole-set check runs before any removal; this fake's set is
+        # removable, so it answers "nothing refuses".
+        fake_remover.refusal.return_value = None
         fake_remover.remove.return_value = (True, "removed")
         with patch("pkm.cli.PackageRemover", return_value=fake_remover), \
                 patch("pkm.cli.refresh_available_updates_after_transaction") as ref:
@@ -150,6 +153,9 @@ class RemoveWiringTest(unittest.TestCase):
         args = argparse.Namespace(package="foo", force=False, quiet=True,
                                   verbose=False, json=False)
         fake_remover = MagicMock()
+        # The whole-set check passes and the removal itself then fails, which
+        # is the failure that can still reach the loop.
+        fake_remover.refusal.return_value = None
         fake_remover.remove.return_value = (False, "not installed")
         with patch("pkm.cli.PackageRemover", return_value=fake_remover), \
                 patch("pkm.cli.refresh_available_updates_after_transaction") as ref:

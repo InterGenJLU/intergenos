@@ -199,6 +199,88 @@ class TestOneTransaction(MultiRemovalFixture):
         self.assertIn("appfoo", asked[0])
 
 
+class TestTheWholeSetIsCheckedBeforeAnythingGoes(MultiRemovalFixture):
+    """A set that cannot be removed whole loses nothing, and its preview says so.
+
+    Measured 2026-09-22 by the second reader of this change: with a second
+    name whose dependant is outside the set, `pkm remove appfoo libfoo --yes`
+    removed appfoo, then refused libfoo and exited 1 -- appfoo gone, libfoo
+    still installed, two transactions where the help text promises one. The
+    same set under --dry-run printed "Already removed before this refusal:
+    appfoo" although nothing had been removed.
+    """
+
+    def _add_unrelated(self):
+        rel = "usr/lib/unrelated/payload"
+        p = self.root / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("unrelated\n")
+        self.paths["unrelated"] = rel
+        pkg = self.db.add_installed("unrelated", "1.0", release=1, tier="desktop")
+        self.db.add_files(pkg, [rel])
+
+    def test_a_set_with_an_outside_dependant_loses_nothing(self):
+        self._add_outsider()
+        code, out = self._run(self._args(["appfoo", "libfoo"]))
+        self.assertNotEqual(code, 0, out)
+        self.assertTrue(self._installed("appfoo"),
+                        "appfoo was removed before the set was refused:\n" + out)
+        self.assertTrue((self.root / self.paths["appfoo"]).exists(),
+                        "appfoo's payload was unlinked before the set was refused")
+        self.assertTrue(self._installed("libfoo"), out)
+        self.assertIn("outsider", out, out)
+        self.assertIn("Nothing was removed", out, out)
+        self.assertNotIn("Already removed", out, out)
+
+    def test_the_preview_of_that_set_claims_nothing_was_removed(self):
+        self._add_outsider()
+        code, out = self._run(self._args(["appfoo", "libfoo"],
+                                         remove_dry_run=True, remove_yes=False))
+        self.assertNotEqual(code, 0, out)
+        self.assertNotIn("Already removed", out,
+                         "the preview reported a removal that did not happen:\n" + out)
+        self.assertIn("outsider", out, out)
+        self.assertIn("Nothing was removed", out, out)
+        self.assertTrue(self._installed("appfoo"), out)
+
+    def test_three_names_lose_nothing_and_the_preview_claims_nothing(self):
+        self._add_outsider()
+        self._add_unrelated()
+        code, out = self._run(self._args(["unrelated", "appfoo", "libfoo"]))
+        self.assertNotEqual(code, 0, out)
+        for name in ("unrelated", "appfoo", "libfoo"):
+            self.assertTrue(self._installed(name), f"{name} was removed:\n{out}")
+        code, out = self._run(self._args(["unrelated", "appfoo", "libfoo"],
+                                         remove_dry_run=True, remove_yes=False))
+        self.assertNotEqual(code, 0, out)
+        self.assertNotIn("Already removed", out, out)
+
+    def test_a_name_that_is_not_installed_refuses_the_set_before_anything_goes(self):
+        code, out = self._run(self._args(["appfoo", "no-such-package"]))
+        self.assertNotEqual(code, 0, out)
+        self.assertTrue(self._installed("appfoo"),
+                        "appfoo was removed before the unknown name refused the set:\n" + out)
+        self.assertIn("no-such-package", out, out)
+
+    def test_a_set_that_cannot_be_removed_is_not_asked_about_and_takes_no_restore_point(self):
+        from pkm import pretxn
+        self._add_outsider()
+        asked, points = [], []
+        real_confirm, real_hook = cli._confirm_remove, pretxn.run_pre_transaction_hook
+        cli._confirm_remove = lambda args, subject: (asked.append(subject) or True)
+        pretxn.run_pre_transaction_hook = lambda *a, **k: points.append(a)
+        try:
+            code, out = self._run(self._args(["appfoo", "libfoo"], remove_yes=False),
+                                  tty=True)
+        finally:
+            cli._confirm_remove, pretxn.run_pre_transaction_hook = real_confirm, real_hook
+        self.assertNotEqual(code, 0, out)
+        self.assertEqual(asked, [], "the person was asked to confirm a removal "
+                                    "that was going to be refused")
+        self.assertEqual(points, [], "a restore point was taken for a removal "
+                                     "that was going to be refused")
+
+
 class TestADryRunOverSeveralPackages(MultiRemovalFixture):
 
     def test_the_preview_covers_every_named_package_and_changes_nothing(self):
