@@ -290,7 +290,8 @@ def _read_runtime_deps(pkg_yaml_path):
 
 def _read_pkg_name(pkg_yaml_path):
     """Return the authoritative package `name:` from a package.yml — the field
-    the build uses to name the archive `<name>-<version>.igos.tar.gz`
+    the build uses to name the archive
+    `<name>-<version>-<release>.igos.tar.gz`
     (igos-build/tracker.py pkg_archive). Returns None if absent/unreadable.
     Never raises — a malformed manifest must not abort package selection."""
     if pkg_yaml_path is None:

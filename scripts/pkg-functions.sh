@@ -12,7 +12,8 @@ set -e
 #   5. Run post-install hooks on the live system
 #
 # Database: /var/lib/igos/packages/<name>-<version>  (one text file per package)
-# Archives: /var/lib/igos/archives/<name>-<version>.igos.tar.gz
+# Archives: /var/lib/igos/archives/<name>-<version>-<release>.igos.tar.gz
+#           (<name>-<version>.igos.tar.gz when no release is stated)
 #
 # Design: Slackware-style manifests — human-readable, cat-inspectable,
 # no binary database, no dependency resolution at install time.

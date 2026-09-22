@@ -93,3 +93,43 @@ class TestLoadConfig:
         cfg_file.write_text("min_size_bytes: 500000\n")
         cfg = _vpa.load_config(str(cfg_file))
         assert cfg["min_size_bytes"] == 500000
+
+
+class TestReleaseCarryingNames:
+    """Since 2026-09-22 an archive is named <name>-<version>-<release>.igos.tar.gz.
+    The validator split the name at the last hyphen, which then kept the
+    version in it (apparmor-3.1.7-1 read as apparmor-3.1.7); no recipe matched,
+    the build style came back empty and the size check was skipped for every
+    archive, without a word. The name is now read by pkm/archive_names.py
+    against the versions the real recipes state."""
+
+    @staticmethod
+    def _compiled_recipe():
+        import yaml
+        for pkg_yml in sorted((_PROJECT_ROOT / "packages").glob("*/*/package.yml")):
+            data = yaml.safe_load(pkg_yml.read_text()) or {}
+            if (data.get("build_style") in _vpa.COMPILED_STYLES
+                    and data.get("name") == pkg_yml.parent.name
+                    and "-" not in str(data.get("version"))):
+                return data
+        raise AssertionError("the real tree has a compiled-style recipe")
+
+    def test_the_name_is_read_the_way_the_producers_write_it(self):
+        from pkm.archive_names import archive_filename
+        recipe = self._compiled_recipe()
+        name, version = recipe["name"], str(recipe["version"])
+        for release in (recipe["release"], None):
+            arc = archive_filename(name, version, release)
+            assert _vpa.archive_package_name(Path(arc)) == name, arc
+
+    def test_a_tiny_compiled_archive_named_with_its_release_is_suspect(self, tmp_path):
+        from pkm.archive_names import archive_filename
+        recipe = self._compiled_recipe()
+        archive = tmp_path / archive_filename(
+            recipe["name"], str(recipe["version"]), recipe["release"])
+        _make_archive(archive, [("usr/bin/tiny", "tiny", False)])
+        result = _vpa.validate_archive(archive, _vpa.load_config())
+        assert result is not None, "the size check must fire"
+        assert result["pkg_name"] == recipe["name"]
+        assert result["build_style"] == recipe["build_style"]
+        assert any("size" in i.lower() for i in result["issues"])

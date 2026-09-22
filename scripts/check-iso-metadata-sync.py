@@ -53,8 +53,7 @@ if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
 from pkm.database import _is_expected_absent  # the PI-E4/Component-B policy
-
-ARCHIVE_RE = re.compile(r"^(?P<name>.+)-(?P<version>[^-]+)\.igos\.tar\.gz$")
+from pkm.archive_names import parse_archive_filename  # the one name parser
 METADATA_MEMBERS = {".PKGINFO", "package.yml"}
 # Archive-bundled metadata DIRECTORIES — the same contract as
 # pkm/installer.py's _ARCHIVE_METADATA_DIRS: `.scripts/` carries the sealed
@@ -307,15 +306,18 @@ def main() -> int:
     for i, archive in enumerate(archives, 1):
         if args.progress_every and i % args.progress_every == 0:
             print(f"[iso-metadata-sync]   ...{i}/{len(archives)}")
-        m = ARCHIVE_RE.match(archive.name)
+        # Only an archive whose own header cannot be read is keyed by its
+        # filename, read by the one parser: a name that carries its release
+        # (<name>-<version>-<release>, since 2026-09-22) must not be filed
+        # under "<name>-<version>" as a package of its own.
+        parsed = parse_archive_filename(archive.name)
+        key = parsed.name if parsed else archive.name
         try:
             pkginfo, entries = stream_archive(archive)
         except (tarfile.TarError, OSError, EOFError) as e:
-            key = m.group("name") if m else archive.name
             violations[key].append(f"unreadable archive {archive.name}: {e}")
             continue
         if not pkginfo or "pkgname" not in pkginfo:
-            key = m.group("name") if m else archive.name
             violations[key].append(
                 f"{archive.name}: no .PKGINFO — archive is not self-describing")
             continue

@@ -16,7 +16,8 @@ It also segregates archives that must NOT be published to a user mirror:
   - toolchain tier (LFS Ch5-7 cross-tools — build-only)
   - intermediate build-stage variants (-pass1/-pass2/-pass3/-tmp/-bootstrap)
 
-Classification per archive (<name>-<version>.igos.tar.gz):
+Classification per archive (<name>-<version>-<release>.igos.tar.gz, or
+<name>-<version>.igos.tar.gz where no release is stated):
   EXCLUDE     intermediate name marker, or recipe tier == toolchain
   OK          publishable + already has .PKGINFO        (left untouched)
   INJECT      publishable + missing .PKGINFO            (synthesize + repack)

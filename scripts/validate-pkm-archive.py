@@ -38,6 +38,56 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
+# The one place that knows what an archive is called; see its docstring.
+from pkm.archive_names import SUFFIX, parse_archive_filename  # noqa: E402
+
+#: This script's own recipe tree, never the caller's working directory.
+PACKAGES_DIR = _PROJECT_ROOT / "packages"
+
+_recipe_versions_cache = None
+
+
+def recipe_versions():
+    """Package name (and ships_as name) -> the version its recipe states.
+
+    What settles where the name ends in an archive filename: since
+    2026-09-22 an archive is <name>-<version>-<release>.igos.tar.gz, and
+    splitting at the last hyphen then keeps the version in the name
+    (apparmor-3.1.7-1 read as apparmor-3.1.7), which matched no recipe, so
+    the build-style lookup returned nothing and the size check below was
+    skipped for every archive without a word. Read once per run.
+    """
+    global _recipe_versions_cache
+    if _recipe_versions_cache is None:
+        import yaml
+        loader = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+        versions = {}
+        for pkg_yml in sorted(PACKAGES_DIR.glob("*/*/package.yml")):
+            try:
+                data = yaml.load(pkg_yml.read_text(), Loader=loader) or {}
+            except Exception:
+                continue
+            if not isinstance(data, dict) or data.get("version") is None:
+                continue
+            for key in (data.get("name"), data.get("ships_as")):
+                if key:
+                    versions.setdefault(str(key), str(data["version"]))
+        _recipe_versions_cache = versions
+    return _recipe_versions_cache
+
+
+def archive_package_name(archive_path):
+    """The package name an archive filename carries, read by the one parser
+    against the recipe versions; the old last-hyphen split only for a name
+    the parser cannot read at all."""
+    parsed = parse_archive_filename(Path(archive_path).name,
+                                    known=recipe_versions())
+    if parsed is not None:
+        return parsed.name
+    stem = Path(archive_path).name
+    stem = stem[:-len(SUFFIX)] if stem.endswith(SUFFIX) else stem
+    return stem.rsplit("-", 1)[0]
+
 
 def load_config(config_path=None):
     cfg = {"min_size_bytes": DEFAULT_SIZE_MIN_BYTES, "payload_dirs": PAYLOAD_DIRS}
@@ -53,7 +103,7 @@ def load_config(config_path=None):
 
 
 def get_build_style(name):
-    for tier_dir in sorted(Path("packages").iterdir()):
+    for tier_dir in sorted(PACKAGES_DIR.iterdir()):
         if not tier_dir.is_dir():
             continue
         pkg_yml = tier_dir / name / "package.yml"
@@ -86,8 +136,8 @@ def validate_archive(archive_path, cfg):
     try:
         with tarfile.open(archive_path, "r:gz") as tar:
             archive_size = archive_path.stat().st_size
-            name = archive_path.stem.split(".igos")[0]  # e.g., "apparmor-3.1.7"
-            pkg_name = name.rsplit("-", 1)[0]  # e.g., "apparmor"
+            name = archive_path.stem.split(".igos")[0]  # e.g., "apparmor-3.1.7-1"
+            pkg_name = archive_package_name(archive_path)  # e.g., "apparmor"
 
             # Check 1: size sanity
             build_style = get_build_style(pkg_name)
