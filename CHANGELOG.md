@@ -238,6 +238,11 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **Chronicle captures filenames containing bytes that are not UTF-8.**
+  One such name previously failed the entire capture. Manifest hashes now
+  cover the original filename bytes, stored paths use JSON escapes, and the
+  reader accepts escaped and raw-byte spellings. Previously supported names
+  retain their hashes, so existing versions remain readable.
 - **A failed Chronicle user-data capture removes its unpublished tree.**
   Cleanup covers manifest construction and publication as well as the source
   walk, preserves existing versions, and reports a cleanup failure alongside

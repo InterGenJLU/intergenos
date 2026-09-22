@@ -83,11 +83,17 @@ def capture_entry(abs_path, rel_path, store):
 
 def canonical_bytes(entries):
     """Deterministic serialization of the entry list for hashing: entries
-    sorted by path, keys sorted, compact separators, UTF-8."""
+    sorted by path, keys sorted, compact separators, UTF-8 with surrogateescape.
+
+    Filesystem names may contain arbitrary bytes. Surrogateescape returns
+    those bytes to the hash input without changing the encoding or hashes of
+    previously supported UTF-8 names. The stored JSON uses escapes instead;
+    hashing always operates on the decoded entries, independent of spelling.
+    """
     ordered = sorted(entries, key=lambda e: e["path"])
     return json.dumps(
         ordered, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-    ).encode("utf-8")
+    ).encode("utf-8", "surrogateescape")
 
 
 def compute_root_hash(entries):
@@ -143,7 +149,9 @@ def commit_manifest(store_root, manifest):
     fd, tmp = tempfile.mkstemp(prefix=".tmp-", dir=str(vdir))
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(manifest, f, sort_keys=True)
+            # Keep the stored document valid ASCII JSON, including names that
+            # contain surrogate-escaped filesystem bytes (e.g. \\udcff).
+            json.dump(manifest, f, sort_keys=True, ensure_ascii=True)
             f.flush()
             os.fsync(f.fileno())
         try:
@@ -170,7 +178,9 @@ def commit_manifest(store_root, manifest):
 
 
 def load_manifest(path):
-    with open(path, "r", encoding="utf-8") as f:
+    # Both JSON escapes and raw filesystem bytes decode to the same entries.
+    # Previously written manifests and their root hashes remain unchanged.
+    with open(path, "r", encoding="utf-8", errors="surrogateescape") as f:
         return json.load(f)
 
 

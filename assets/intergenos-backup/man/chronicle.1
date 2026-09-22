@@ -122,10 +122,18 @@ Errors only.
 .TP
 .B \-\-json
 Machine-readable JSON output.
+Filename bytes that are not UTF-8 use JSON surrogate escapes (for example,
+byte 0xFF is written as \(rsudcff). Restore paths in text output are quoted,
+with newlines and terminal control characters shown as escapes.
 .TP
 .BR \-y ", " \-\-yes
 Skip the restore confirmation prompt.
 .SH FILES
+.PP
+Version manifests store paths as escaped JSON strings. Their root hashes cover
+the original filename bytes, including bytes that are not UTF-8. The reader
+accepts escaped and raw-byte path spellings; earlier manifests retain their
+original hashes and remain readable.
 .TP
 .I /var/lib/chronicle/
 The always-on local store (config-state + restore points, engine state).
