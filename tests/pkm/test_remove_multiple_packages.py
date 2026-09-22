@@ -63,6 +63,11 @@ class MultiRemovalFixture(unittest.TestCase):
         app = self.db.add_installed("appfoo", "1.0", release=1, tier="desktop")
         self.db.add_files(app, [self.paths["appfoo"]])
         self.db.add_depends(app, [("libfoo", "runtime")])
+        # Drive the command the way `pkm --root <this root>` drives it. With
+        # no install root named, what a removal writes after its transaction
+        # (the update advisory) resolves to the machine running the test.
+        cli.set_install_root(self.root)
+        self.addCleanup(cli.set_install_root, None)
 
     def _add_outsider(self):
         out = self.db.add_installed("outsider", "1.0", release=1,

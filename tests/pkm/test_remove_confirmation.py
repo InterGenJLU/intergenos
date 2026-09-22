@@ -55,6 +55,11 @@ class RemoveConfirmationFixture(unittest.TestCase):
         self.db = PackageDB(Path(self._tmp) / "pkm.db", root=str(self.root))
         pid = self.db.add_installed("example", "1.0", release=1, tier="desktop")
         self.db.add_files(pid, [self.PAYLOAD])
+        # Drive the command the way `pkm --root <this root>` drives it. With
+        # no install root named, what a removal writes after its transaction
+        # (the update advisory) resolves to the machine running the test.
+        cli.set_install_root(self.root)
+        self.addCleanup(cli.set_install_root, None)
 
     def tearDown(self):
         try:
