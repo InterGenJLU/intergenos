@@ -283,3 +283,50 @@ class TestOrdinaryDirectoriesAreStillRemoved(HookGeneratedDirectories):
         self.assertFalse(
             (self.root / self.OWNED_PARENT).exists(),
             "the package's own directory was left on disk:\n" + msg)
+
+
+class TestThePersonWatchingIsToldWhatWasKept(HookGeneratedDirectories):
+    """The returned message is not what a person sees.
+
+    `pkm remove` closes through the Reporter, and the reporter path said
+    nothing about the retained hook-generated paths: a real removal against a
+    scratch root printed "Removed example 1.0-1" and no mention of what had
+    been left on the machine. Keeping something and not saying so is the half
+    of this rule the rule exists to prevent, so the seam a person actually
+    reads is pinned here and not only the string the function returns.
+    """
+
+    class _Reporter:
+        def __init__(self):
+            self.lines = []
+
+        def file_list(self, *a, **k):
+            pass
+
+        def note(self, line):
+            self.lines.append(str(line))
+
+        def info(self, line):
+            self.lines.append(str(line))
+
+        def warn(self, line):
+            self.lines.append(str(line))
+
+        def done(self, line):
+            self.lines.append(str(line))
+
+        def text(self):
+            return "\n".join(self.lines)
+
+    def test_the_reporter_names_every_kept_path(self):
+        rep = self._Reporter()
+        remover = PackageRemover(self.db, root=str(self.root))
+        ok, _msg = remover.remove("example", reporter=rep,
+                                  run_pre_remove_hook=False,
+                                  run_post_remove_hook=False)
+        self.assertTrue(ok)
+        said = rep.text()
+        self.assertIn(self.HOOK_MADE_DIR, said,
+                      "the removal kept a directory on this machine and the "
+                      "person watching was told nothing:\n" + said)
+        self.assertIn("hook-generated", said.lower(), said)

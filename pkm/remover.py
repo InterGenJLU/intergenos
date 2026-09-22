@@ -952,6 +952,26 @@ class PackageRemover:
                     retained_co_owned_dirs, "directory", "directories",
                     verbose=_verbose):
                 reporter.note(line)
+            if retained_generated:
+                # The returned message has carried this since r96, but nothing
+                # PRINTED it: `pkm remove` closes through the reporter, so a
+                # person watching a real removal saw "Removed example 1.0-1"
+                # and no mention of what had been kept on their disk. Measured
+                # at r96 against a scratch root on 2026-09-22 — the paths
+                # survived, correctly, and the run said nothing about them.
+                # Keeping something and not saying so is the half of this rule
+                # that the rule exists to prevent.
+                reporter.note(
+                    f"Kept {len(retained_generated)} hook-generated "
+                    f"path{'s' if len(retained_generated) != 1 else ''} this "
+                    f"package's hook created on this machine (not archive "
+                    f"payload; delete by hand if unwanted):"
+                )
+                for _p in sorted(retained_generated)[:20]:
+                    reporter.info(f"    /{_p.strip('/')}")
+                if len(retained_generated) > 20:
+                    reporter.info(
+                        f"    … and {len(retained_generated) - 20} more")
             if failed_removals:
                 reporter.warn(
                     f"{len(failed_removals)} file(s) could not be removed and "
