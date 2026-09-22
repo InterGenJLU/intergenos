@@ -249,9 +249,15 @@ landed is in the repository README, not here.
   permissions, taken from a copy rather than re-typed, so a resolver file its
   owner had made readable only by root is not widened to readable by everyone,
   and a file's trailing-newline shape is not rewritten, because an unrelated
-  choice failed. If the resolver cannot be restarted for the putting-back
-  either, that is said too, with what to do about it, instead of the script
-  ending silently.
+  choice failed. Taking that copy and putting it back are both checked rather
+  than assumed: if the copy cannot be taken completely, the existing file is
+  not replaced at all and the choice refuses, saying nothing was changed; and
+  the restored file's contents and permissions are read back and compared
+  before anything claims the machine was left as it was. If they cannot be
+  put back, the machine is told so plainly, the copy is kept instead of
+  removed, and the message names the kept file and how to move it back. If
+  the resolver cannot be restarted for the putting-back either, that is said
+  too, with what to do about it, instead of the script ending silently.
 - **The upgrade repair stops announcing work it then does not do.** It said it
   was re-applying the recorded choice before it had established whether the
   machine needed anything; on a machine already as its choice says, the next
