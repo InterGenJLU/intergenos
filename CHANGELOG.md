@@ -237,6 +237,27 @@ landed is in the repository README, not here.
   `--all` to reach an install's full record.
 
 ### Fixed
+
+- **The text taken out of a wiki page is bounded, and it no longer goes through
+  the regular-expression engine.** On 2026-09-20 a full test run on one of this
+  project's machines ended in a segmentation fault at 89 percent of the suite,
+  reported inside the whitespace substitution in the wiki page text extraction,
+  running over a whole rendered page. It happened once in roughly twenty runs
+  and has not been reproduced since — 112 processes across both trees on
+  2026-09-22, including sixty isolated runs of the file it was reached through
+  and eight page shapes at up to eighty million characters, produced no fault —
+  so it cannot be shown fixed and this entry does not claim it is. What is fixed
+  are two properties of that code that held either way. The markup read from one
+  page and the text produced from it now have stated ceilings (8,000,000 and
+  4,000,000 characters, several times the largest page the wiki ships); a page
+  over one is cut on a word boundary, never mid-word, and the cut is logged with
+  the page, its size and the limit, so a shortened page is never a silent one.
+  The ceiling is inside the one function every caller goes through. And the
+  whitespace normalisation is done with `str.split()` and `" ".join`, which give
+  a character-for-character identical result — proven over every Unicode code
+  point and against the real installed wiki, where both forms index the same
+  2182 passages with the same digest — while taking the reported crash site off
+  the path entirely.
 - **The web chat keeps the answer it showed you, or says why it does not.** The
   page replaces the text that arrived word by word with the answer on the
   turn's final message, and several checks on the server may rewrite that
