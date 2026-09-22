@@ -243,6 +243,39 @@ class TheTwoStreamsReachTheReaderInOrder(unittest.TestCase):
                         "the reply's own explanation must be readable before "
                         "the line about the exit code, in a joined capture")
 
+    def test_the_request_line_is_written_before_the_no_reply_complaint(self) -> None:
+        """The frontier command's third branch: the bus name has an owner and
+        the call returns nothing. It writes its request line to standard output
+        first and its complaint to standard error after; measured in a second
+        reading on 2026-09-22, the complaint arrived first in a joined capture
+        at both trees, because this branch had no flush."""
+        import subprocess
+        import sys as _sys
+        from pathlib import Path as _Path
+
+        tree = str(_Path(__file__).resolve().parents[2])
+        program = (
+            "import sys\n"
+            "sys.path.insert(0, %r)\n"
+            "from unittest import mock\n"
+            "from intergen import cli\n"
+            "with mock.patch.object(cli, 'daemon_has_owner', return_value=True), \\\n"
+            "        mock.patch.object(cli, 'try_dbus', return_value=None):\n"
+            "    try:\n"
+            "        cli.cmd_ask_frontier('is my disk encrypted?')\n"
+            "    except SystemExit:\n"
+            "        pass\n" % tree)
+        joined = subprocess.run(
+            [_sys.executable, "-c", program],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            timeout=120, check=False).stdout.decode()
+        self.assertIn("Requesting your frontier model", joined)
+        self.assertIn("did not complete", joined)
+        self.assertLess(joined.index("Requesting your frontier model"),
+                        joined.index("did not complete"),
+                        "the request line must be readable before the "
+                        "complaint about it, in a joined capture")
+
 
 if __name__ == "__main__":
     unittest.main()

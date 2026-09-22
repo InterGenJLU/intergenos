@@ -487,6 +487,11 @@ def cmd_ask_frontier(message: str, direct: bool = False) -> None:
             if not _deliver_answer(data):
                 sys.exit(2)
             return
+        # The request line above went to standard output, which is
+        # block-buffered once redirected; without this flush a joined capture
+        # shows the complaint BEFORE the request it is about. The same
+        # correction as the delivery step's and the no-service report's.
+        sys.stdout.flush()
         print("InterGen is running but the Escalate call did not complete in "
               "time.", file=sys.stderr)
         print("Check the daemon logs for details:", file=sys.stderr)
