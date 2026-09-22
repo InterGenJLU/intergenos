@@ -1,7 +1,7 @@
 name: avahi
 version: "0.8"
 release: 5  # r5: links the avahi-daemon profile (usr.sbin.avahi-daemon, enforce) into /etc/apparmor.d, because this package installs /usr/sbin/avahi-daemon. The profile text is upstream's, staged by apparmor in /usr/share/apparmor/extra-profiles, which nothing loads; apparmor r4 stopped loading top-level profiles for programs it does not install, because the apparmor unit loads every file in /etc/apparmor.d at every boot and on an ordinary install 39 of the 55 it shipped named a program that machine did not have. apparmor is now a runtime dependency so the link cannot dangle. The profile is unchanged and keeps upstream's mode. # r4: install daemon restrictions while retaining network discovery and runtime state.  # r3: post_install removed. It contained one call, systemctl enable avahi-daemon.service, which the install-time systemctl preset-all reverted. The responder's default now comes only from the preset files: off, because enabling it is the welcome application's network-discovery switch, which turns the daemon on together with the firewall rule that lets it answer. No installed bytes beyond the retired hook change.  # r2: post_install no longer masks the service enable, so a missing avahi-daemon.service fails the package instead of being absorbed.
-content_hash: dac3bad51ca4d2e4
+content_hash: ea23caf7f9956aa6
 description: Service Discovery for Linux using mDNS/DNS-SD
 license: LGPL-2.1-or-later
 homepage: https://avahi.org/
