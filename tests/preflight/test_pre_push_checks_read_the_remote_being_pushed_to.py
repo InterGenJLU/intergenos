@@ -55,7 +55,9 @@ about what the hook SAYS and what the remotes CONTAIN afterwards.
   sentence that says the gates cannot be measured, and the three range gates
   are never invoked (recorded, not inferred from silence);
 * a range gate that any path hands an empty baseline refuses the push rather
-  than passing over an empty range.
+  than passing over an empty range;
+* a commit already on the remote being pushed to says so, and says the gates
+  driven by the push range have nothing new to validate.
 
 HOW THE SANDBOX IS BUILT, AND WHY IT IS NOT A CLONE OF THIS REPOSITORY
 ----------------------------------------------------------------------
@@ -745,6 +747,35 @@ class TestAPushWithNoBaselineIsRefused(_TwoRemoteSandbox):
         self.assertIn("the public-language gate could not run", self._hook_said(r), full)
         self.assertEqual(self._remote_head(bare, branch), "",
                          "the branch reached the remote although the push was refused")
+
+
+class TestACommitAlreadyOnTheRemoteSaysSo(_TwoRemoteSandbox):
+    """A commit already published on the remote has nothing new to validate -- and says so.
+
+    Pushing a commit that is already on the remote being pushed to under
+    another branch name (a rename, a second name for the same work) is the one
+    case where an empty validation range is correct: every commit already
+    passed these gates on its way there. It used to be taken without a word,
+    so "all gates PASS" on this path meant the range gates had read nothing
+    and the gates guarded on a baseline had not run. Found 2026-09-21 by the
+    second reader of the change that rewrote the baseline block.
+    """
+
+    def test_a_commit_already_on_the_remote_says_the_range_gates_have_nothing_to_validate(self):
+        published = self._branch_on_both_remotes("feature/published-once")
+        head = self._git(self.work, "rev-parse", "HEAD").stdout.strip()
+        alias = "feature/published-under-a-second-name"
+        self._git(self.work, "branch", "-f", alias, head)
+
+        r = self._push(SECOND, alias)
+        said = self._hook_said(r)
+        self.assertEqual(r.returncode, 0, (r.stdout or "") + (r.stderr or ""))
+        self.assertIn(f"{head} is already on {SECOND}", said,
+                      "the hook did not say the commit is already on the remote being "
+                      f"pushed to:\n{said or '(the hook printed nothing)'}")
+        self.assertIn(f"contained in {SECOND}/{published}", said, said)
+        self.assertIn("no new commits to validate", said, said)
+        self.assertEqual(self._remote_head(self.second_bare, alias), head)
 
 
 if __name__ == "__main__":

@@ -348,7 +348,13 @@ if [ -z "$PUSH_REMOTE" ] || [ "$PUSH_REMOTE" = "$ZERO" ]; then
         _published_here=$(git branch -r --list "${TARGET_REFS#refs/remotes/}/*" --contains "$PUSH_LOCAL" 2>/dev/null)
     fi
     if [ -n "$_published_here" ]; then
+        # Case 1 is correct to validate nothing -- every commit here already
+        # passed these gates on its way to this remote -- but it used to do so
+        # without a word, so "all gates PASS" on this path meant the gates
+        # driven by the push range had run over nothing. It is now said.
+        _published_as=$(printf '%s\n' "$_published_here" | awk 'NF && !found {print $1; found = 1}')
         REMOTE="$PUSH_LOCAL"
+        echo "[pre-push] $PUSH_LOCAL is already on $TARGET_REMOTE (contained in $_published_as); the gates driven by the push range have no new commits to validate for this push."
     else
         _dev_head=$(target_head_if_present dev)
         _master_head=$(target_head_if_present master)
