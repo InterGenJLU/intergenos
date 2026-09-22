@@ -1,6 +1,6 @@
 name: traceroute
 version: "2.1.6"
-release: 1
+release: 2  # r2: links the traceroute profile (usr.sbin.traceroute, enforce) into /etc/apparmor.d, because this package installs /usr/bin/traceroute. HAND bump: no content_hash; the release tool does not watch this recipe. The profile text is upstream's, staged by apparmor in /usr/share/apparmor/extra-profiles, which nothing loads; apparmor r4 stopped loading top-level profiles for programs it does not install, because the apparmor unit loads every file in /etc/apparmor.d at every boot and on an ordinary install 39 of the 55 it shipped named a program that machine did not have. apparmor is now a runtime dependency so the link cannot dangle. The profile is unchanged and keeps upstream's mode.
 description: Trace the network path packets take to a host
 license: GPL-2.0-or-later
 homepage: https://traceroute.sourceforge.net/
@@ -10,7 +10,8 @@ source:
 dependencies:
   build: []
   host: []
-  runtime: []
+  runtime:
+  - apparmor
 tier: base
 build_style: custom
 verify_paths:
