@@ -1185,7 +1185,8 @@ class RepoManager:
 
         filename = pkg.get("filename")
         if not filename:
-            filename = f"{name}-{pkg['version']}-{pkg.get('release', 1)}.igos.tar.gz"
+            filename = archive_filename(
+                name, pkg["version"], pkg.get("release", 1))
 
         urls = self._mirror_urls_for_pkg(pkg, filename)
         if not urls:
