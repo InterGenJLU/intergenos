@@ -625,6 +625,42 @@ landed is in the repository README, not here.
   live directory is reported as absent unless the version holds descendants
   beneath it, rather than suggesting that unsaved files can be restored.
 
+- **A package record that cannot be looked at is no longer reported as a record
+  that is not there.** The reader asked whether the path was a regular file
+  before opening it, and that answers no for a database behind a directory the
+  user cannot traverse exactly as it answers no for a database that does not
+  exist, so `intergen --version` told such a machine it had no package record
+  at all — a false statement about the machine, since the database may hold a
+  good row. A file that is not there is now "no record" and any other failure
+  to look is "unreadable", and the command says which it met. Not reachable on
+  a default installation, where `/var/lib/igos` and `pkm.db` are both
+  world-readable.
+- **`intergen status` no longer reads an absent answer as a confident one.** The
+  status payload carries a field saying whether the release in the version
+  string was really read from the package record. A payload built by a daemon
+  older than that field carries no such field, and the display treated its
+  absence as "known" — printing a bare version with nothing marking it, byte for
+  byte what it prints when the release IS known. The absence is now answered
+  from the payload itself: the record's form carries the release after a hyphen
+  and the running code's bare version does not. The default is not flipped the
+  other way, which would mark a good identity as unknown for the same reason.
+- **Asking a question no longer asserts whether the assistant is running
+  without looking, and no longer calls a refusal a delay.** Where the
+  message-bus name has an owner but the request does not complete, the
+  question command said the assistant was running, that it might still be
+  loading, and to try again in a moment, and `intergen ask-frontier` said the
+  assistant was running. Where that name is held by something other than the
+  managed service, waiting will not clear it. Both commands now read the user
+  service state and say which reading holds: they offer the wait only where
+  the service really is active, name the command that starts it only where
+  the service is really stopped or failed, and where the state is in
+  transition or could not be read they show that state and assert neither.
+  And where the assistant answered the request with its own error — a question
+  over its size limit, or an internal error it has logged — both commands used
+  to report a request that did not complete in time; they now print the
+  assistant's own sentence, since waiting never makes an over-long question
+  fit.
+
 - **The text taken out of a wiki page is bounded, and its whitespace is no
   longer collapsed by a regular-expression substitution over the whole page.**
   On 2026-09-20 a full test run on one of this project's machines ended in a
