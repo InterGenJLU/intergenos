@@ -139,11 +139,21 @@ def read_record(db_path=None):
         path = path.resolve()
     except OSError:
         return READ_UNREADABLE, None
-    if not path.is_file():
+    try:
+        path.stat()
+    except FileNotFoundError:
         # Nothing at that path. A machine with no package database — a
         # checkout, a container — holds no record of this package, and that
         # is something established rather than something unknown.
         return READ_NO_RECORD, None
+    except OSError:
+        # Something is in the way: a directory this user cannot traverse, a
+        # mount that is not there, a name too long for the filesystem. The
+        # database may well hold a record; this process cannot look. Asking
+        # whether the path was a regular file, as this did until 2026-09-22,
+        # answered no to BOTH cases alike, so a machine whose record was out of
+        # reach was told it had no record at all. The two are told apart here.
+        return READ_UNREADABLE, None
 
     try:
         uri = path.as_uri()

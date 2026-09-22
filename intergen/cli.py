@@ -332,6 +332,22 @@ def _deliver_answer(data: dict) -> bool:
     return True
 
 
+def _user_service_state() -> str:
+    """What the machine's own service manager says about the assistant service.
+
+    One word, or "unknown" when the question could not be put. A probe failure
+    is never allowed to mask the report it is part of, so every failure is
+    caught and answered with "unknown" rather than raised.
+    """
+    try:
+        probe = subprocess.run(
+            ["systemctl", "--user", "is-active", "intergen"],
+            capture_output=True, text=True, timeout=5, check=False)
+        return (probe.stdout or probe.stderr or "").strip() or "unknown"
+    except Exception:  # noqa: BLE001 — a probe failure must not mask the report
+        return "unknown"
+
+
 def _report_service_state_instead_of_starting_one() -> None:
     """Say what the service is doing and how to start it, and start nothing.
 
@@ -341,14 +357,7 @@ def _report_service_state_instead_of_starting_one() -> None:
     Measured on this project's own machine on 2026-09-19. The command reports
     the state and the start command instead, and exits non-zero."""
     sys.stdout.flush()   # see _deliver_answer: keep the two streams in order
-    state = "unknown"
-    try:
-        probe = subprocess.run(
-            ["systemctl", "--user", "is-active", "intergen"],
-            capture_output=True, text=True, timeout=5, check=False)
-        state = (probe.stdout or probe.stderr or "").strip() or "unknown"
-    except Exception:  # noqa: BLE001 — a probe failure must not mask the report
-        state = "unknown"
+    state = _user_service_state()
     print("InterGen is not running, so there is nothing to answer your "
           "question.", file=sys.stderr)
     print(f"  service state: intergen.service (user) is {state}",
@@ -377,11 +386,31 @@ def cmd_ask(message: str, direct: bool = False) -> None:
             if not _deliver_answer(data):
                 sys.exit(2)
             return
-        # The daemon owns the name but the call did not complete even within the
-        # LLM timeout — surface the symptom; do NOT start a competing daemon.
-        print("InterGen is running but the request did not complete in time "
-              "(it may still be loading the model — try again in a moment).",
-              file=sys.stderr)
+        # Something owns the bus name but the call did not complete even
+        # within the model timeout. Do NOT start a competing daemon — and do
+        # not assert which of the two readings holds without looking. Until
+        # 2026-09-22 this said the assistant was running and might still be
+        # loading, and told the person to try again in a moment; where the name
+        # is owned by something that is NOT the managed service, that is advice
+        # to wait for a condition that will not clear on its own. The service
+        # state is one call away and this file already reads it elsewhere.
+        sys.stdout.flush()
+        state = _user_service_state()
+        if state == "active":
+            print("InterGen is running but the request did not complete in "
+                  "time (it may still be loading the model — try again in a "
+                  "moment).", file=sys.stderr)
+            print(f"  service state: intergen.service (user) is {state}",
+                  file=sys.stderr)
+        else:
+            print("Something holds InterGen's name on the message bus, but "
+                  "the managed service is not running and the request did "
+                  "not complete.", file=sys.stderr)
+            print(f"  service state: intergen.service (user) is {state}",
+                  file=sys.stderr)
+            print("  waiting will not clear this on its own.", file=sys.stderr)
+            print("  start the service with: systemctl --user start intergen",
+                  file=sys.stderr)
         print("Check the daemon logs for details:", file=sys.stderr)
         print("  journalctl --user -u intergen -n 50", file=sys.stderr)
         sys.exit(2)
@@ -702,6 +731,30 @@ def _memory_measured_line(mem: dict) -> str:
     return "; ".join(parts)
 
 
+def _release_is_known(status: dict) -> bool:
+    """Whether the release in this payload's version string was really read.
+
+    The payload says so in a field of its own, and where it does that field is
+    believed, in both directions. Where it does NOT — a payload built by a
+    daemon older than the field — the answer is taken FROM THE PAYLOAD rather
+    than assumed: the package record's form carries the release after a hyphen
+    (0.1.0-296) and the version the running code carries does not (0.1.0), so
+    the string itself says which one it is.
+
+    Until 2026-09-22 an absent field was read as "known", and a payload from an
+    older daemon therefore printed a bare version with nothing marking it —
+    byte for byte what is printed when the release IS known. The default is not
+    simply flipped the other way here: that would mark a perfectly good
+    identity as unknown for the same reason, in the other direction.
+    """
+    said = status.get("release_known")
+    if said is not None:
+        return bool(said)
+    version = str(status.get("version") or "")
+    stem, _, tail = version.rpartition("-")
+    return bool(stem) and tail.isdigit()
+
+
 def print_status(status: dict) -> None:
     """Render a status payload. Pure over the dict — no bus, no daemon.
 
@@ -773,7 +826,7 @@ def print_status(status: dict) -> None:
     # A status that printed the bare running version while the package record
     # could not be read told the reader the version and let them believe it
     # was the whole answer.
-    if status.get("release_known", True):
+    if _release_is_known(status):
         print(f"  Version:    {status.get('version', 'unknown')}")
     else:
         print(f"  Version:    {status.get('version', 'unknown')} "
