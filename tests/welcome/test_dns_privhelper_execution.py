@@ -335,6 +335,101 @@ class TestTheReversalUndoesOnlyItsOwnWork(DnsVerbHarness):
                          "was left ignoring the servers its network hands out")
 
 
+class TestTheRollbackPutsBackExactlyWhatWasThere(DnsVerbHarness):
+    """A rollback that says the machine was left as it was must mean it.
+
+    A second read of this lane measured the gap. The failure path restores a
+    prior drop-in by writing a shell variable back with `printf '%s\n'` and
+    then `chmod 0644`. Both of those are the helper describing its OWN file
+    shape, not the file it found:
+
+      * `$(cat file)` strips every trailing newline and `printf '%s\n'` adds
+        exactly one back, so a file with none, or with two, comes back with
+        one. The bytes are not the bytes.
+      * `chmod 0644` on a drop-in that was 0600 WIDENS it. A resolver
+        configuration file that its owner had made owner-only becomes
+        world-readable because an unrelated choice failed.
+
+    The existing case that covers this path could not see either, because the
+    drop-in it compares against was written by this same helper a moment
+    earlier — so it already had the helper's own shape and the helper's own
+    mode, and writing them back looked like preservation.
+
+    The sentence on the failure path says "this machine has been left as it
+    was". These cases hold it to that: byte for byte, and mode for mode.
+    """
+
+    #: A prior drop-in that this helper did not write: owner-only, and with a
+    #: trailing-newline shape of its own.
+    PRIOR_BYTES = b"[Resolve]\nDNS=192.0.2.1\n\n"
+    PRIOR_MODE = 0o600
+
+    def write_prior_dropin(self, data=None, mode=None):
+        path = self.dropin
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(self.PRIOR_BYTES if data is None else data)
+        path.chmod(self.PRIOR_MODE if mode is None else mode)
+        return path
+
+    def test_the_bytes_come_back_exactly(self):
+        path = self.write_prior_dropin()
+        before = path.read_bytes()
+        result = self.run_verb("dns-use-cloudflare", resolver_restart_fails=True)
+        self.assertNotEqual(result.returncode, 0,
+                            "the failing restart did not fail the choice")
+        self.assertEqual(
+            path.read_bytes(), before,
+            "the rollback said the machine was left as it was and rewrote the "
+            "prior drop-in's bytes:\n" + result.stderr)
+
+    def test_the_mode_comes_back_exactly(self):
+        import stat
+        path = self.write_prior_dropin()
+        before = stat.S_IMODE(path.stat().st_mode)
+        result = self.run_verb("dns-use-cloudflare", resolver_restart_fails=True)
+        self.assertNotEqual(result.returncode, 0)
+        after = stat.S_IMODE(path.stat().st_mode)
+        self.assertEqual(
+            after, before,
+            f"the rollback changed the prior drop-in's mode from "
+            f"{before:04o} to {after:04o}; a resolver configuration file its "
+            f"owner had made owner-only is now readable by everyone because "
+            f"an unrelated choice failed:\n" + result.stderr)
+
+    def test_a_prior_dropin_with_no_trailing_newline_is_not_given_one(self):
+        path = self.write_prior_dropin(data=b"[Resolve]\nDNS=192.0.2.1")
+        before = path.read_bytes()
+        self.run_verb("dns-use-cloudflare", resolver_restart_fails=True)
+        self.assertEqual(path.read_bytes(), before,
+                         "the rollback added a trailing newline the file did "
+                         "not have")
+
+    def test_the_failure_still_says_the_machine_was_left_as_it_was(self):
+        """The non-masking control: the sentence, and the failure, both stay."""
+        self.write_prior_dropin()
+        result = self.run_verb("dns-use-cloudflare", resolver_restart_fails=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("left as it was", result.stderr, result.stderr)
+
+    def test_a_machine_with_no_prior_dropin_still_ends_with_none(self):
+        """The other non-masking control: nothing of the failed choice stays."""
+        self.assertFalse(self.dropin.exists())
+        result = self.run_verb("dns-use-cloudflare", resolver_restart_fails=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(self.dropin.exists(),
+                         "a failed choice left its drop-in on a machine that "
+                         "had none:\n" + result.stderr)
+
+    def test_nothing_of_the_captured_copy_is_left_behind(self):
+        """Whatever the helper uses to remember the file must not survive."""
+        self.write_prior_dropin()
+        self.run_verb("dns-use-cloudflare", resolver_restart_fails=True)
+        strays = [p for p in self.dropin.parent.iterdir()
+                  if p.name != self.dropin.name]
+        self.assertEqual(strays, [],
+                         f"the rollback left files behind: {strays}")
+
+
 class TestTheChoiceFailsWhenItCannotBeApplied(DnsVerbHarness):
     """(finding 2) A choice that reached no connection is not a choice made.
 

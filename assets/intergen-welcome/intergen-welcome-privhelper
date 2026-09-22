@@ -699,10 +699,22 @@ write_dns_dropin() {
     # cannot be applied leaves nothing of itself behind: a drop-in naming
     # servers that nothing was told to use is exactly the half-configured
     # state this page must not leave.
-    local previous_dropin="" had_dropin=no
+    #
+    # Kept as a COPY of the file, not as its text in a variable. `$(cat f)`
+    # strips every trailing newline and a `printf '%s\n'` on the way back adds
+    # exactly one, so a drop-in with none — or with two — did not come back as
+    # it was; and writing it back with a fixed `chmod 0644` WIDENED a drop-in
+    # its owner had made 0600, because an unrelated choice failed. A copy
+    # carries the bytes and the mode without this helper having an opinion
+    # about either. The copy lives beside the file, like the nsswitch edit's
+    # temporary above, and its name does not end in .conf so the resolver
+    # never reads it as configuration.
+    local previous_copy="" had_dropin=no
     if [ -f "$DNS_DROPIN" ]; then
         had_dropin=yes
-        previous_dropin=$(cat "$DNS_DROPIN")
+        previous_copy="$(mktemp "${DNS_DROPIN}.XXXXXX")"
+        cat "$DNS_DROPIN" > "$previous_copy"
+        chmod --reference="$DNS_DROPIN" "$previous_copy" 2>/dev/null || true
     fi
     local wanted
     wanted=$(render_dns_dropin "$selection" "$servers" "$over_tls")
@@ -712,6 +724,7 @@ write_dns_dropin() {
     # resolver and reapplying devices there is work with no effect in the one
     # place where a failure stops an upgrade.
     if dns_choice_already_in_place "$wanted"; then
+        if [ -n "$previous_copy" ]; then rm -f "$previous_copy"; fi
         echo "intergen-welcome-privhelper: this machine already has the name servers it was asked for, on every connection; nothing was changed."
         return 0
     fi
@@ -746,11 +759,16 @@ write_dns_dropin() {
     # is that it now fails through the same clean-up.
     if ! restart_resolved || ! apply_ignore_auto_dns; then
         if [ "$had_dropin" = yes ]; then
-            printf '%s\n' "$previous_dropin" > "$DNS_DROPIN"
-            chmod 0644 "$DNS_DROPIN"
+            # Exactly what was read: the same bytes, and the same mode. The
+            # sentence below says this machine has been left as it was, and
+            # that has to be true of the file's permissions as well as its
+            # contents.
+            cat "$previous_copy" > "$DNS_DROPIN"
+            chmod --reference="$previous_copy" "$DNS_DROPIN" 2>/dev/null || true
         else
             rm -f "$DNS_DROPIN"
         fi
+        if [ -n "$previous_copy" ]; then rm -f "$previous_copy"; fi
         # Putting the machine back needs the resolver restarted again, and if
         # the resolver is what could not restart, this will not restart either.
         # Tolerated and SAID, rather than ending the script silently before the
@@ -762,6 +780,7 @@ write_dns_dropin() {
         echo "intergen-welcome-privhelper: the name-server choice was not applied and this machine has been left as it was." >&2
         return 1
     fi
+    if [ -n "$previous_copy" ]; then rm -f "$previous_copy"; fi
     install_dispatcher
 }
 

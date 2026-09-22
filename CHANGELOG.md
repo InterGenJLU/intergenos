@@ -244,9 +244,14 @@ landed is in the repository README, not here.
   servers nothing was told to use, with no record of what had been changed and
   none of the rest of the choice done. The restart is now part of the same
   step as the connection changes: a failure puts the machine back as it was —
-  the earlier choice restored, or the file removed — says so, and fails. If
-  the resolver cannot be restarted for the putting-back either, that is said
-  too, with what to do about it, instead of the script ending silently.
+  the earlier choice restored, or the file removed — says so, and fails. What
+  it puts back is exactly what was there: the same bytes and the same
+  permissions, taken from a copy rather than re-typed, so a resolver file its
+  owner had made readable only by root is not widened to readable by everyone,
+  and a file's trailing-newline shape is not rewritten, because an unrelated
+  choice failed. If the resolver cannot be restarted for the putting-back
+  either, that is said too, with what to do about it, instead of the script
+  ending silently.
 - **The upgrade repair stops announcing work it then does not do.** It said it
   was re-applying the recorded choice before it had established whether the
   machine needed anything; on a machine already as its choice says, the next
