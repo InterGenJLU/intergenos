@@ -5576,7 +5576,16 @@ class ConversationRouter(RouterInterface):
             # render so the FIRE->OBSERVE loop can judge it per turn.
             _ws = next((tr for tr in tool_results
                         if tr.name == "web_search" and tr.success), None)
-            _full = _ws.content if _ws is not None else ""
+            # The raw original for EVERY dispatch on this route, not only a web
+            # search: the first dispatch that ran and succeeded carries what it
+            # printed. Until this line the field was empty on a turn that ran a
+            # command, and `intergen last --raw` printed the summary of that
+            # command while saying the turn had been a direct answer.
+            _raw = next((tr for tr in tool_results
+                         if tr.success and getattr(tr, "executed", False)
+                         and (tr.content or "").strip()), None)
+            _full = (_ws.content if _ws is not None
+                     else (_raw.content if _raw is not None else ""))
             if _ws is not None:
                 glass.emit("delivery", "web_search_render", detail={
                     "result_chars": len(_ws.content),

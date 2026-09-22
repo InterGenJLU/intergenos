@@ -215,6 +215,32 @@ def _hint(text: str) -> None:
         print(f"\033[2m  {text}\033[0m", file=sys.stderr, flush=True)
 
 
+def _raw_original(data: dict) -> str:
+    """The unsummarised output behind the answer, from whichever field carries it.
+
+    ``full_output`` is the route's own declaration of the original. Not every
+    route sets it: the model-driven tool route carried it only for a web search,
+    so a turn that really ran a command left it empty while the command's output
+    sat in ``tool_results``. ``intergen last --raw`` then printed the summary and
+    said the turn had been a direct answer — a false statement about a turn that
+    dispatched. The dispatch results are read here as the second witness, so the
+    raw a person is promised is the raw they get on every route that produced
+    one, present and future."""
+    full = data.get("full_output") or ""
+    if full.strip():
+        return full
+    parts = []
+    for tr in (data.get("tool_results") or []):
+        if not isinstance(tr, dict):
+            continue
+        if not tr.get("success") or not tr.get("executed"):
+            continue
+        content = tr.get("content") or ""
+        if content.strip():
+            parts.append(content)
+    return "\n".join(parts)
+
+
 class _NothingToCache(Exception):
     """Raised inside the cache write when the turn produced no answer to keep."""
 
@@ -240,7 +266,7 @@ def _deliver_answer(data: dict) -> bool:
     answered = bool(response.strip())
     if answered:
         print(response)
-    full = data.get("full_output") or ""
+    full = _raw_original(data)
     # Persist for `intergen last [--raw]`. Best-effort + atomic: a cache-write
     # failure must never break the answer, and we advertise the raw only if it
     # actually landed.
@@ -366,13 +392,19 @@ def cmd_last(args: list[str]) -> None:
               'intergen ask "..."', file=sys.stderr)
         sys.exit(1)
     if "--raw" in args:
+        # The cache carries the output the tool produced, taken from the route's
+        # own declaration or, where a route declared none, from the dispatch
+        # results themselves (see _raw_original).
         full = (data.get("full_output") or "").rstrip("\n")
         if full.strip():
             print(full)
             return
-        # No richer raw than the answer itself — the prose IS the ground truth.
-        _hint("the last answer had no separate raw output — it was a direct "
-              "answer, not summarised tool output.")
+        # Nothing behind the answer was recorded for this turn. Say exactly
+        # that: the line used to say the turn had been a direct answer rather
+        # than summarised output, which is a claim about a turn this command
+        # cannot see and was false whenever a route recorded no raw.
+        _hint("no separate raw output was recorded for the last answer — "
+              "showing the answer itself.")
         print(data.get("response", ""))
     else:
         print(data.get("response", ""))
