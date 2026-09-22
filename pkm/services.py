@@ -180,6 +180,95 @@ _SYSTEMD_UNIT_RE = re.compile(
 )
 _SYSVINIT_RE = re.compile(r"^etc/init\.d/([^/]+)$")
 
+# A UNIT DEFINITION, in either manager's scope. Wider than _SYSTEMD_UNIT_RE
+# above, which looks only for .service files a package might need RESTARTED:
+# a timer, a socket, a path unit, a target and a drop-in under <unit>.d/ all
+# change what a manager has parsed, and all of them ship in this tree. The
+# suffix list is the set systemd defines; a file whose suffix is not a unit
+# type is not a unit.
+_UNIT_DEFINITION_RE = re.compile(
+    r"^(?:usr/lib|etc)/systemd/(system|user)/"
+    r"(?:[^/]+\.(?:service|socket|timer|path|mount|automount"
+    r"|target|slice|scope|swap|device)"
+    r"|[^/]+\.d/[^/]+\.conf)$"
+)
+
+
+def unit_definitions(file_list):
+    """The unit definitions this file list replaces, as (scope, unit) pairs.
+
+    `scope` is "system" or "user"; `unit` is the unit's own name, so a
+    drop-in at <unit>.d/<something>.conf is reported as the unit it
+    configures. Empty for a package that ships no unit definition, which is
+    the common case and the one that must cost nothing.
+    """
+    found = set()
+    for path in file_list:
+        if path.endswith("/"):
+            continue
+        m = _UNIT_DEFINITION_RE.match(path)
+        if not m:
+            continue
+        scope, parts = m.group(1), path.rsplit("/", 2)
+        if path.endswith(".conf"):
+            found.add((scope, parts[-2][:-2]))  # "<unit>.d" -> "<unit>"
+        else:
+            found.add((scope, parts[-1]))
+    return found
+
+
+def unit_definition_scopes(file_list):
+    """Just the manager scopes touched — a subset of {"system", "user"}."""
+    return {scope for scope, _unit in unit_definitions(file_list)}
+
+
+def daemon_reload_needed(unit, scope="system"):
+    """Ask systemd whether `unit` in `scope`'s manager needs daemon-reload.
+
+    Returns True, False, or None for "could not be established".
+
+    READ, NEVER COMPUTED. A reload requirement cannot be derived from what a
+    package wrote: measured against a live user manager 2026-09-22, a
+    LOADED unit whose file was merely touched — contents byte-identical,
+    sha256 equal before and after — answered yes. The same was measured on
+    an installed machine 2026-09-19 across a real upgrade. Anything computed
+    here would be a guess.
+
+    WHAT THE PROPERTY IS, measured rather than assumed. It belongs to a
+    UNIT, not to the manager: `systemctl show --property=NeedDaemonReload`
+    with no unit named returns an EMPTY value and exit 0, which is why this
+    asks per unit. A unit the manager has never heard of, and a unit whose
+    file exists but which the manager has not loaded, both answer "no" with
+    exit 0 — so a "no" does not prove the unit was seen, and this function
+    can only ever support saying a reload IS owed. A template name
+    (`foo@.service`) is refused by systemd outright ("neither a valid
+    invocation ID nor unit name") and comes back as not established.
+
+    None covers every outcome that is not a plain yes or no: no systemctl (a
+    chroot or a container), a manager that cannot be reached (`--user` with
+    no session bus), a non-zero exit, a timeout, an empty value. It is
+    deliberately not folded into False — reporting an unestablished state as
+    "nothing is owed" is the unchecked-answer class.
+    """
+    argv = [SYSTEMCTL]
+    if scope == "user":
+        argv.append("--user")
+    argv += ["show", "-p", "NeedDaemonReload", "--value", "--", unit]
+    try:
+        result = subprocess.run(  # trace-coverage: allow — read-only property query
+            argv, capture_output=True, text=True, timeout=10,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return None
+    if result.returncode != 0:
+        return None
+    answer = (result.stdout or "").strip().lower()
+    if answer == "yes":
+        return True
+    if answer == "no":
+        return False
+    return None
+
 # Boot / kernel artifacts whose upgrade takes effect only on the next boot —
 # the manifest-inference fallback for reboot when a package is not in the
 # structural REBOOT_TRIGGER_PACKAGES name set (e.g. an out-of-tree module pkg
@@ -283,6 +372,24 @@ def query_active_services(unit_names):
 def classify_restart_requirement(package_name, file_list,
                                  declared_reboot_required=False):
     """Classify what the user must do after installing/upgrading this package.
+
+    Every verdict below also carries `unit_definitions`: the (scope, unit)
+    pairs, if any, whose definitions this package replaced. They are
+    recorded beside the verdict rather than folded into it because a reload
+    is a DIFFERENT owed action from a restart — a manager can be running an
+    older definition while no running service needs restarting, and both
+    can be owed at once.
+    """
+    result = _classify_restart_requirement(
+        package_name, file_list,
+        declared_reboot_required=declared_reboot_required)
+    result["unit_definitions"] = sorted(unit_definitions(file_list))
+    return result
+
+
+def _classify_restart_requirement(package_name, file_list,
+                                  declared_reboot_required=False):
+    """The verdict itself. See classify_restart_requirement.
 
     Args:
         package_name: name of the package being installed/upgraded.
@@ -609,6 +716,7 @@ def format_next_steps(classifications, estimate=False, color=False):
     restart_services = []
     relogin_names = []
     none_count = 0
+    replaced_units = {"system": [], "user": []}
     for name, c in classifications:
         req = c.get("requirement")
         if req == "reboot":
@@ -619,8 +727,32 @@ def format_next_steps(classifications, estimate=False, color=False):
             relogin_names.append(name)
         else:
             none_count += 1
+        for scope, unit in c.get("unit_definitions", ()):
+            if scope in replaced_units:
+                replaced_units[scope].append(unit)
 
-    if not (reboot_names or restart_services or relogin_names):
+    # THE RELOAD THIS TRANSACTION LEAVES OWED.
+    #
+    # Asked only about units this transaction actually replaced, and only
+    # AFTER it: a property read before the change describes the state
+    # before the change, so the pre-transaction estimate carries no reload
+    # line at all. Each answer is systemd's own — daemon_reload_needed says
+    # why it is never computed, and why only a "yes" is ever acted on.
+    reload_sections = []
+    if not estimate:
+        for scope in ("system", "user"):
+            owed, unknown = [], []
+            for unit in sorted(set(replaced_units[scope])):
+                answer = daemon_reload_needed(unit, scope)
+                if answer is True:
+                    owed.append(unit)
+                elif answer is None:
+                    unknown.append(unit)
+            if owed or unknown:
+                reload_sections.append((scope, owed, unknown))
+
+    if not (reboot_names or restart_services or relogin_names
+            or reload_sections):
         return ""
 
     rule = "=" * _REBOOT_BANNER_WIDTH
@@ -645,6 +777,22 @@ def format_next_steps(classifications, estimate=False, color=False):
             "  cannot activate on the running system until you reboot:"))
         lines.extend(f"    - {n}" for n in sorted(set(reboot_names)))
         lines.append(paint("  Run: sudo reboot"))
+
+    for scope, owed, unknown in reload_sections:
+        command = ("sudo systemctl daemon-reload" if scope == "system"
+                   else "systemctl --user daemon-reload")
+        manager = ("the system manager" if scope == "system"
+                   else "your own user manager")
+        lines.append("")
+        lines.append(f"  RELOAD SYSTEMD — {manager} is running an older")
+        lines.append("  definition of unit(s) this transaction replaced:")
+        lines.extend(f"    - {u}" for u in owed)
+        for u in unknown:
+            lines.append(f"    - {u} (systemd did not answer; state unknown)")
+        lines.append(f"  Run: {command}")
+        if scope == "user":
+            lines.append("  Each logged-in user reloads their own manager;")
+            lines.append("  a system-wide reload does not reach it.")
 
     if restart_services:
         # De-dupe unit names preserving discovery order across packages.
