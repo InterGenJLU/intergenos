@@ -634,22 +634,13 @@ remove_dispatcher() {
     rm -f "$NM_DISPATCHER"
 }
 
-# write_dns_dropin <selection-label> <DNS= value> <DNSOverTLS= value>
-# All three arguments come from this script's own fixed branches except the
-# address list for the custom selection, which has already been validated
-# address by address above.
-write_dns_dropin() {
+# render_dns_dropin <selection-label> <DNS= value> <DNSOverTLS= value> —
+# print the drop-in this helper would write, and write nothing. It exists so
+# that "is this machine already as the choice says" can be answered by
+# comparing against the very text the write would produce, rather than by a
+# second description of it that could drift.
+render_dns_dropin() {
     local selection="$1" servers="$2" over_tls="$3"
-    # What this machine looked like before this run, so that a choice which
-    # cannot be applied leaves nothing of itself behind: a drop-in naming
-    # servers that nothing was told to use is exactly the half-configured
-    # state this page must not leave.
-    local previous_dropin="" had_dropin=no
-    if [ -f "$DNS_DROPIN" ]; then
-        had_dropin=yes
-        previous_dropin=$(cat "$DNS_DROPIN")
-    fi
-    mkdir -p "$RESOLVED_CONF_D"
     printf '%s\n' \
         '# Written by the InterGenOS Welcomer, name-lookup page.' \
         '#' \
@@ -666,8 +657,58 @@ write_dns_dropin() {
         '[Resolve]' \
         "DNS=${servers}" \
         'Domains=~.' \
-        "DNSOverTLS=${over_tls}" \
-        > "$DNS_DROPIN"
+        "DNSOverTLS=${over_tls}"
+}
+
+# dns_choice_already_in_place <wanted-drop-in-text> — true when this machine
+# already carries this exact choice AND everything that choice needs: the
+# drop-in as it would be written, the dispatcher as this helper prints it,
+# and both properties reading yes on every connection profile. A machine
+# whose connections cannot be listed is NOT in place: that cannot be
+# established, and an unestablished yes is the failure this whole page exists
+# to avoid.
+dns_choice_already_in_place() {
+    local wanted="$1" uuid listing
+    [ -f "$DNS_DROPIN" ] || return 1
+    [ "$(cat "$DNS_DROPIN")" = "$wanted" ] || return 1
+    [ -f "$NM_DISPATCHER" ] || return 1
+    [ "$(cat "$NM_DISPATCHER")" = "$(dispatcher_script)" ] || return 1
+    listing=$(nmcli -t -f UUID connection show 2>/dev/null) || return 1
+    for uuid in $listing; do
+        [ "$(connection_ignore_auto_dns "$uuid" ipv4)" = "yes" ] || return 1
+        [ "$(connection_ignore_auto_dns "$uuid" ipv6)" = "yes" ] || return 1
+    done
+    return 0
+}
+
+# write_dns_dropin <selection-label> <DNS= value> <DNSOverTLS= value>
+# All three arguments come from this script's own fixed branches except the
+# address list for the custom selection, which has already been validated
+# address by address above.
+write_dns_dropin() {
+    local selection="$1" servers="$2" over_tls="$3"
+    # What this machine looked like before this run, so that a choice which
+    # cannot be applied leaves nothing of itself behind: a drop-in naming
+    # servers that nothing was told to use is exactly the half-configured
+    # state this page must not leave.
+    local previous_dropin="" had_dropin=no
+    if [ -f "$DNS_DROPIN" ]; then
+        had_dropin=yes
+        previous_dropin=$(cat "$DNS_DROPIN")
+    fi
+    local wanted
+    wanted=$(render_dns_dropin "$selection" "$servers" "$over_tls")
+    # A machine already exactly as this choice says needs nothing done to it.
+    # This verb runs from the package's post_install hook at every upgrade,
+    # as root, inside a package transaction: rewriting files, restarting the
+    # resolver and reapplying devices there is work with no effect in the one
+    # place where a failure stops an upgrade.
+    if dns_choice_already_in_place "$wanted"; then
+        echo "intergen-welcome-privhelper: this machine already has the name servers it was asked for, on every connection; nothing was changed."
+        return 0
+    fi
+    mkdir -p "$RESOLVED_CONF_D"
+    printf '%s\n' "$wanted" > "$DNS_DROPIN"
     chmod 0644 "$DNS_DROPIN"
     restart_resolved
     # The servers are now configured. These two make them the ones that answer.

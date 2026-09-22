@@ -400,5 +400,71 @@ class TestTheChoiceFailsWhenItCannotBeApplied(DnsVerbHarness):
                          "put back later")
 
 
+class TestTheUpgradeRepairOnlyRepairs(DnsVerbHarness):
+    """(finding 3) The repair that runs at every upgrade does nothing to a
+    machine that is already as its choice says.
+
+    The repair exists for machines that chose a name server before this
+    helper learned what else that choice needs. It runs from the package's
+    post_install hook, as root, inside a package transaction, on every
+    upgrade. On a machine already in order it rewrote the drop-in, restarted
+    the resolver, wrote both properties on every profile and reapplied the
+    device — work with no effect, in the one place where a failure stops an
+    upgrade.
+    """
+
+    def writing_commands(self):
+        """The calls that CHANGE this machine. Reading is how the repair
+        establishes that there is nothing to do, so reads are not touches."""
+        return [c for c in self.commands()
+                if ("connection modify" in c or "device reapply" in c
+                    or "systemctl" in c)]
+
+    def state(self):
+        return {path: path.stat().st_mtime_ns
+                for path in (self.dropin, self.dispatcher, self.record)
+                if path.exists()}
+
+    def test_a_machine_already_as_its_choice_says_is_left_untouched(self):
+        self.assertEqual(self.run_verb("dns-use-cloudflare").returncode, 0)
+        before = self.state()
+        self.calls.write_text("", encoding="utf-8")
+        result = self.run_verb("dns-reapply-selection")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.writing_commands(), [],
+                         "the repair changed this machine although it needed "
+                         "no repair")
+        self.assertEqual(self.state(), before,
+                         "the repair rewrote files on a machine that needed "
+                         "no repair")
+
+    def test_a_machine_that_needs_the_repair_still_gets_it(self):
+        self.assertEqual(self.run_verb("dns-use-cloudflare").returncode, 0)
+        # What a machine that chose before this half existed looks like: the
+        # drop-in, and nothing else the choice now needs.
+        self.dispatcher.unlink()
+        self.record.unlink()
+        for uuid in self.uuids():
+            path = self.profiles / f"{uuid}.profile"
+            path.write_text("".join(
+                line + "\n" for line in
+                path.read_text(encoding="utf-8").splitlines()
+                if "ignore-auto-dns" not in line), encoding="utf-8")
+        result = self.run_verb("dns-reapply-selection")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(self.dispatcher.is_file(),
+                        "the repair did not install the dispatcher")
+        for uuid in self.uuids():
+            self.assertEqual(
+                self.profile_property(uuid, "ipv4.ignore-auto-dns"), "yes",
+                f"the repair left {uuid} unrepaired")
+
+    def test_a_machine_that_never_chose_is_not_touched_by_the_repair(self):
+        result = self.run_verb("dns-reapply-selection")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.writing_commands(), [])
+        self.assertFalse(self.dropin.exists())
+
+
 if __name__ == "__main__":
     unittest.main()
