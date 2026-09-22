@@ -246,6 +246,48 @@ class TestEmitPackageArchivesNamesTheRelease(unittest.TestCase):
             ["demo-1.0.igos.tar.gz"])
 
 
+class TestTheEmittedHeaderAgreesWithTheName(unittest.TestCase):
+    """The sealed header must state the release the filename carries."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.chroot = self.tmp / "chroot"
+        (self.chroot / "usr/bin").mkdir(parents=True)
+        (self.chroot / "usr/bin/demo").write_text("#!/bin/sh\nexit 0\n")
+        self.manifests = self.tmp / "manifests"
+        self.manifests.mkdir()
+        self.out = self.tmp / "archives"
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_the_pkginfo_release_is_the_manifests_release(self):
+        manifest = self.manifests / "demo-1.0"
+        manifest.write_text(
+            "PACKAGE NAME: demo-1.0\n"
+            "PACKAGE VERSION: 1.0\n"
+            "PACKAGE RELEASE: 7\n"
+            "FILE LIST:\n"
+            "usr/bin/demo\n"
+        )
+        mod = _load_emitter()
+        mod.emit_archive(manifest, self.chroot, self.out)
+        archive = self.out / "demo-1.0-7.igos.tar.gz"
+        self.assertTrue(archive.is_file(),
+                        sorted(p.name for p in self.out.iterdir()))
+        import tarfile as _tarfile
+        with _tarfile.open(archive, "r:gz") as tar:
+            member = next(m for m in tar.getmembers()
+                          if m.name.endswith(".PKGINFO"))
+            text = tar.extractfile(member).read().decode()
+        fields = dict(line.split("=", 1) for line in text.splitlines()
+                      if "=" in line)
+        self.assertEqual(
+            fields.get("pkgrel"), "7",
+            "the sealed header contradicts the release in the filename")
+
+
 def _load_emitter():
     import importlib.util
     spec = importlib.util.spec_from_file_location(

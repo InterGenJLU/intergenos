@@ -260,7 +260,7 @@ landed is in the repository README, not here.
 
 - **`pkm info` no longer reports failure after answering correctly.** Asked
   about a package the mirror carries but this machine has not installed, it
-  printed the full report — version and release, tier, description, licence,
+  printed the full report — version and release, tier, description, license,
   the status line and the command that installs it — and then exited 1, so a
   script reading the status was told the query had failed while the answer
   was on screen. It now exits 0 whenever it produced a report. A name with no

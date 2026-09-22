@@ -26,6 +26,28 @@ IGOS_PKG_DB="/var/lib/igos/packages"
 IGOS_PKG_ARCHIVES="/var/lib/igos/archives"
 IGOS_PKG_STAGING="/tmp/igos-staging"
 
+# WHICH CHECKOUT THIS HELPER'S OWN PYTHON HELPERS COME FROM.
+#
+# The absolute path /mnt/intergenos IS the repository inside the build chroot,
+# so it has always been right there. On a live machine it is right only by
+# accident: a --stage-only build out of a second checkout — a lane worktree, a
+# clone, a review tree — took the recipe from that checkout and the helper
+# from /mnt/intergenos, a different tree at a different commit, and nothing
+# reported the mixture. The same resolution the builder adopted 2026-09-19
+# applies here: prefer the tree this file itself lives in, fall back to the
+# literal path. Inside the chroot the two are the same string, so nothing
+# about a chroot build changes. An explicit IGOS_REPO_ROOT in the environment
+# wins over both, which is what lets a proof state which tree it ran against.
+if [ -z "${IGOS_REPO_ROOT:-}" ]; then
+    _igos_self_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)"
+    if [ -n "$_igos_self_root" ] && [ -f "$_igos_self_root/scripts/gen-pkginfo.py" ]; then
+        IGOS_REPO_ROOT="$_igos_self_root"
+    else
+        IGOS_REPO_ROOT="/mnt/intergenos"
+    fi
+    unset _igos_self_root
+fi
+
 # The build's single-flight assertion for pkm lives in its own file so the
 # config phases can source it too. pkg-functions.sh sets errexit at its top, and
 # a phase script that sourced this whole library to reach one function would
@@ -1130,10 +1152,16 @@ pkg_archive() {
     local gen_pkginfo_ran=0
     if command -v python3 >/dev/null 2>&1 \
        && python3 -I -c 'import yaml' >/dev/null 2>&1 \
-       && [ -f /mnt/intergenos/scripts/gen-pkginfo.py ]; then
-        if ! python3 /mnt/intergenos/scripts/gen-pkginfo.py \
+       && [ -f "${IGOS_REPO_ROOT:-/mnt/intergenos}/scripts/gen-pkginfo.py" ]; then
+        # The release is passed when the caller stated one, so the sealed
+        # .PKGINFO cannot contradict the release this archive's own filename
+        # carries. Unstated, gen-pkginfo keeps deriving it from the recipe.
+        local _relargs=()
+        [ -n "$release" ] && _relargs=(--release "$release")
+        if ! python3 "${IGOS_REPO_ROOT:-/mnt/intergenos}/scripts/gen-pkginfo.py" \
             --name "$name" --version "$version" --files-dir "$dest" \
-            --repo-root /mnt/intergenos --fallback-tier core; then
+            --repo-root "${IGOS_REPO_ROOT:-/mnt/intergenos}" --fallback-tier core \
+            ${_relargs[@]+"${_relargs[@]}"}; then
             pkg_error "gen-pkginfo failed for ${name}-${version} — .PKGINFO not emitted"
             return 1
         fi

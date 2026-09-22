@@ -164,6 +164,13 @@ def main() -> int:
                          "this tier (name/version/size only, no deps). For the "
                          "recipe-less LFS-Ch8 core packages built by hardcoded "
                          "bash logic (binutils/gcc/coreutils/…).")
+    ap.add_argument("--release", default=None,
+                    help="The release this build IS. The archive step knows it "
+                         "and passes it so the sealed .PKGINFO cannot "
+                         "contradict the release the archive's own filename "
+                         "carries (decided 2026-09-22). Omitted, the release "
+                         "is the matched recipe's, and 1 when no recipe "
+                         "matches — the behaviour before this option existed.")
     ap.add_argument("--force-tier", default=None,
                     help="Override the tier of a MATCHED recipe (other recipe "
                          "fields are kept). For a package whose matched recipe "
@@ -206,6 +213,18 @@ def main() -> int:
     # packages whose shipped archive is the final core build.
     if args.force_tier:
         recipe["_tier"] = args.force_tier
+
+    # A stated release wins over the recipe's, because the caller that states
+    # it is the archive step, which is also what writes the release into the
+    # filename. Refused rather than coerced if it is not a whole number: a
+    # header that disagrees with the name is worse than a build that stops.
+    if args.release is not None:
+        if not str(args.release).isdigit():
+            sys.stderr.write(
+                f"gen-pkginfo: --release is not a whole number: "
+                f"{args.release!r}\n")
+            return 2
+        recipe["release"] = int(args.release)
 
     if args.size is not None and args.filecount is not None:
         size, count = args.size, args.filecount

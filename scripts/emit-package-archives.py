@@ -139,7 +139,11 @@ def _render_pkginfo(meta, yml_fields):
     )
     license_ = yml_fields.get("license", "")
     tier = yml_fields.get("tier", "")
-    release = yml_fields.get("release", "1")
+    # The manifest's own PACKAGE RELEASE, when it carries one, is what the
+    # build that produced these staged files actually was — and it is also
+    # what names the archive. The recipe's release: field may have moved on
+    # since; taking it here would seal a header that contradicts the filename.
+    release = meta.get("release") or yml_fields.get("release", "1")
     build_date = meta.get("build_date", "")
     installed_size = meta.get("installed_size", 0)
     file_count = len(meta.get("files", []))
