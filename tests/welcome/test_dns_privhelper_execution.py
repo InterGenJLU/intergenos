@@ -60,7 +60,7 @@ case "$*" in
         ;;
     "-t -f ipv4.ignore-auto-dns connection show "*|"-t -f ipv6.ignore-auto-dns connection show "*)
         family=$3
-        uuid=${*##* }
+        uuid=${!#}   # the LAST argument; ${*##* } does not strip a word off $*
         f="$profiles/$uuid.profile"
         [ -e "$f" ] || exit 1
         printf '%s:%s\n' "$family" "$(prop_of "$f" "$family")"
@@ -197,6 +197,10 @@ class DnsVerbHarness(unittest.TestCase):
         return self.root / "etc/systemd/resolved.conf.d/50-intergen-welcome-dns.conf"
 
     @property
+    def record(self):
+        return self.root / "var/lib/intergen/welcome/dns-connections"
+
+    @property
     def dispatcher(self):
         return self.root / "etc/NetworkManager/dispatcher.d/50-intergen-welcome-dns"
 
@@ -247,6 +251,88 @@ class TestTheVerbsRunAgainstATestRoot(DnsVerbHarness):
         self.assertEqual(before, after,
                          "a verb reached this machine's own resolver "
                          "configuration")
+
+
+class TestTheReversalUndoesOnlyItsOwnWork(DnsVerbHarness):
+    """(finding 1) Giving up a choice puts back what the choice changed, and
+    nothing else.
+
+    The two properties are not this page's private property. A profile can
+    carry ignore-auto-dns=yes because its owner set it — a work connection
+    whose name servers must not be mixed with a network's, for one. A
+    reversal that writes `no` across every profile destroys that, and it did
+    so on machines where this page had never written anything at all.
+    """
+
+    OWNER = "33333333-3333-3333-3333-333333333333"
+
+    def add_owner_profile(self):
+        self.add_profile(self.OWNER, name="work-vpn", properties={
+            "ipv4.ignore-auto-dns": "yes", "ipv6.ignore-auto-dns": "yes"})
+
+    def test_a_machine_that_never_chose_is_left_alone(self):
+        self.add_owner_profile()
+        result = self.run_verb("dns-use-network-default")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.profile_property(self.OWNER,
+                                               "ipv4.ignore-auto-dns"), "yes")
+        self.assertEqual(self.profile_property(self.OWNER,
+                                               "ipv6.ignore-auto-dns"), "yes")
+        self.assertEqual(
+            [c for c in self.commands() if "connection modify" in c], [],
+            "the reversal changed connection profiles on a machine that never "
+            "chose a name server")
+
+    def test_the_reversal_puts_back_only_what_the_choice_changed(self):
+        self.add_owner_profile()
+        self.assertEqual(self.run_verb("dns-use-cloudflare").returncode, 0)
+        result = self.run_verb("dns-use-network-default")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for uuid in ("11111111-1111-1111-1111-111111111111",
+                     "22222222-2222-2222-2222-222222222222"):
+            self.assertEqual(self.profile_property(uuid,
+                                                   "ipv4.ignore-auto-dns"),
+                             "no", f"{uuid} was not put back")
+        self.assertEqual(
+            self.profile_property(self.OWNER, "ipv4.ignore-auto-dns"), "yes",
+            "the reversal destroyed a setting its owner made, which this page "
+            "never changed")
+        self.assertEqual(
+            self.profile_property(self.OWNER, "ipv6.ignore-auto-dns"), "yes")
+
+    def test_the_reversal_removes_both_fragments(self):
+        self.assertEqual(self.run_verb("dns-use-cloudflare").returncode, 0)
+        self.assertEqual(self.run_verb("dns-use-network-default").returncode, 0)
+        self.assertFalse(self.dropin.exists(), "the drop-in survived")
+        self.assertFalse(self.dispatcher.exists(), "the dispatcher survived")
+
+    def test_a_connection_the_dispatcher_caught_is_put_back_too(self):
+        # A profile made AFTER the choice is set by the dispatcher, not by the
+        # verb, so the verb's own record cannot know about it. The dispatcher
+        # records what it changed for the same reason the verb does.
+        self.assertEqual(self.run_verb("dns-use-cloudflare").returncode, 0)
+        later = "44444444-4444-4444-4444-444444444444"
+        self.add_profile(later, name="a-network-met-later", device="wlan0",
+                         active=True)
+        dispatcher = subprocess.run(
+            ["bash", str(self.dispatcher), "wlan0", "up"],
+            capture_output=True, text=True, timeout=120,
+            env={"PATH": str(self.bin), "HOME": str(self.root),
+                 "CONNECTION_UUID": later,
+                 "WELCOME_STUB_LOG": str(self.calls),
+                 "WELCOME_STUB_PROFILES": str(self.profiles)})
+        self.assertEqual(dispatcher.returncode, 0, dispatcher.stderr)
+        self.assertEqual(self.profile_property(later, "ipv4.ignore-auto-dns"),
+                         "yes", "the dispatcher did not apply the choice")
+        self.assertIn(later, self.record.read_text(encoding="utf-8"),
+                      "the dispatcher applied the choice to a connection and "
+                      "left no record of it, so the reversal cannot know it "
+                      "has to be put back")
+        self.assertEqual(self.run_verb("dns-use-network-default").returncode, 0)
+        self.assertEqual(self.profile_property(later, "ipv4.ignore-auto-dns"),
+                         "no",
+                         "a connection the dispatcher applied the choice to "
+                         "was left ignoring the servers its network hands out")
 
 
 if __name__ == "__main__":

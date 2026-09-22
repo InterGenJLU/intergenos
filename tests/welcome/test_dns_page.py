@@ -534,23 +534,24 @@ class TestTheChoiceReachesEveryConnection(unittest.TestCase):
         body = self._helper_text()
         apply_block = body[body.index("write_dns_dropin() {"):]
         apply_block = apply_block[:apply_block.index("\n}\n")]
-        self.assertIn("set_profiles_ignore_auto_dns yes", apply_block)
+        self.assertIn("apply_ignore_auto_dns", apply_block)
         self.assertIn("install_dispatcher", apply_block)
 
-    def test_the_reversal_puts_both_properties_back_and_removes_the_dispatcher(self):
+    def test_the_reversal_puts_back_what_it_changed_and_removes_the_dispatcher(self):
         body = self._helper_text()
         revert = body[body.index("    dns-use-network-default)"):]
         revert = revert[:revert.index(";;")]
-        self.assertIn("set_profiles_ignore_auto_dns no", revert)
+        self.assertIn("restore_recorded_connections", revert)
         self.assertIn("remove_dispatcher", revert)
         self.assertIn('rm -f "$DNS_DROPIN"', revert)
+        # What the reversal does to connection profiles is proven by running
+        # it, in tests/welcome/test_dns_privhelper_execution.py.
 
     def test_the_property_setter_refuses_a_value_of_its_own_devising(self):
         body = self._helper_text()
-        fn = body[body.index("set_profiles_ignore_auto_dns() {"):]
+        fn = body[body.index("set_connection_ignore_auto_dns() {"):]
         fn = fn[:fn.index("\n}\n")]
         self.assertIn("yes|no)", fn)
-        self.assertIn("every profile", fn.lower().replace("-", " ") + " every profile")
 
 
 class TestTheUpgradeRepairIsWiredUp(unittest.TestCase):

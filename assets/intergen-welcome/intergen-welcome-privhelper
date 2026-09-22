@@ -78,6 +78,16 @@ SSH_DROPIN="$NFTD/40-intergen-ssh.conf"
 RESOLVED_CONF_D="${WELCOME_ROOT}/etc/systemd/resolved.conf.d"
 DNS_DROPIN="$RESOLVED_CONF_D/50-intergen-welcome-dns.conf"
 
+# THE RECORD OF WHAT A CHOICE CHANGED. The two ignore-auto-dns properties are
+# not this page's private property: a profile can carry yes because its owner
+# set it, for a connection whose name servers must not be mixed with a
+# network's. So the apply writes down which connections it changed and what
+# they said before, and giving the choice up puts back exactly those and
+# nothing else. It is state about this machine, so it lives under /var/lib
+# with the rest of this project's machine state, not in a configuration
+# directory where a parser would meet a file it cannot read.
+DNS_APPLIED_RECORD="${WELCOME_ROOT}/var/lib/intergen/welcome/dns-connections"
+
 NSSWITCH=/etc/nsswitch.conf
 
 # The IPP-over-USB daemon's configuration. It advertises the printer it serves
@@ -427,7 +437,11 @@ NM_DISPATCHER="$NM_DISPATCHER_D/50-intergen-welcome-dns"
 # text can be read and checked without a machine being configured, the same
 # reason `mdns-hosts-line` prints instead of writing.
 dispatcher_script() {
-    cat <<'DISPATCHER'
+    # The two paths are printed in, so that the script this prints is the one
+    # this run would install -- including when a test has pointed the helper
+    # at a root of its own. They are this script's own constants; nothing a
+    # caller supplies reaches them.
+    cat <<'DISPATCHER_HEAD'
 #!/bin/bash
 # Written by the InterGenOS Welcomer, name-lookup page.
 #
@@ -441,10 +455,13 @@ dispatcher_script() {
 # NetworkManager runs this as root with the interface as $1 and the action as
 # $2, and it runs only for connections it manages.
 set -eu
+DISPATCHER_HEAD
+    printf 'DROPIN=%s\n' "$DNS_DROPIN"
+    printf 'RECORD=%s\n' "$DNS_APPLIED_RECORD"
+    cat <<'DISPATCHER'
 
 INTERFACE="${1:-}"
 ACTION="${2:-}"
-DROPIN=/etc/systemd/resolved.conf.d/50-intergen-welcome-dns.conf
 
 [ "$ACTION" = "up" ] || exit 0
 # No choice on this machine means nothing to apply.
@@ -460,44 +477,117 @@ if [ "$current4" = "yes" ] && [ "$current6" = "yes" ]; then
 fi
 
 nmcli connection modify "$CONNECTION_UUID" ipv4.ignore-auto-dns yes ipv6.ignore-auto-dns yes
+# What this connection said before goes into the same record the choice
+# itself writes, so that giving the choice up puts this connection back too.
+# Without it a connection first seen after the choice would be left ignoring
+# the servers its network hands out, with nothing on disk saying why.
+mkdir -p "${RECORD%/*}"
+printf '%s %s %s\n' "$CONNECTION_UUID" "${current4:-unset}" "${current6:-unset}" >> "$RECORD"
 [ -n "$INTERFACE" ] && nmcli device reapply "$INTERFACE" >/dev/null 2>&1 || true
 exit 0
 DISPATCHER
 }
 
-# set_profiles_ignore_auto_dns <yes|no> — the two properties, on every profile
-# this machine has, in both address families.
-#
-# Every profile, not only the active one: a laptop carries profiles for
-# networks it is not on, and a choice the user made on this page has to hold
-# when they get there. The value is one of two literals from this script's own
-# branches; nothing a caller supplies reaches it.
-set_profiles_ignore_auto_dns() {
-    local want="$1" uuid
+# THE PROPERTY WRITES. Every profile, not only the active one: a laptop
+# carries profiles for networks it is not on, and a choice made on this page
+# has to hold when the user gets there. The value written is one of two
+# literals from this script's own branches; nothing a caller supplies reaches
+# it.
+
+# ignore_auto_dns_value <recorded> — what to put back for a recorded value.
+# `unset` is what a profile that never carried the property looks like, and
+# NetworkManager's own default for it is no.
+ignore_auto_dns_value() {
+    case "$1" in
+        yes) echo yes ;;
+        *)   echo no ;;
+    esac
+}
+
+# connection_ignore_auto_dns <uuid> <ipv4|ipv6> — what the profile says now.
+# A property that is unset, or a profile that cannot be read, prints nothing.
+connection_ignore_auto_dns() {
+    nmcli -t -f "$2.ignore-auto-dns" connection show "$1" 2>/dev/null \
+        | cut -d: -f2- || true
+}
+
+# set_connection_ignore_auto_dns <uuid> <yes|no> — the two properties, both
+# address families, on ONE connection profile.
+set_connection_ignore_auto_dns() {
+    local uuid="$1" want="$2"
     case "$want" in
         yes|no) ;;
         *)
-            echo "intergen-welcome-privhelper: set_profiles_ignore_auto_dns takes yes|no" >&2
+            echo "intergen-welcome-privhelper: set_connection_ignore_auto_dns takes yes|no" >&2
             return 2
             ;;
     esac
-    for uuid in $(nmcli -t -f UUID connection show 2>/dev/null); do
-        # A profile that refuses the change is reported and the verb fails:
-        # a name-server choice that was applied to some connections and not
-        # others is exactly the half-configured state this page must not leave.
-        if ! nmcli connection modify "$uuid" \
-                ipv4.ignore-auto-dns "$want" ipv6.ignore-auto-dns "$want"; then
-            echo "intergen-welcome-privhelper: could not set ignore-auto-dns=$want on connection $uuid" >&2
-            return 1
-        fi
-    done
-    # Apply to what is running now, so the change is not waiting on a reconnect.
-    # The second field of UUID,DEVICE is the DEVICE, which is what `nmcli
-    # device reapply` takes; an active profile with no device prints "--".
+    if ! nmcli connection modify "$uuid" \
+            ipv4.ignore-auto-dns "$want" ipv6.ignore-auto-dns "$want"; then
+        echo "intergen-welcome-privhelper: could not set ignore-auto-dns=$want on connection $uuid" >&2
+        return 1
+    fi
+}
+
+# reapply_active_devices — apply to what is running now, so a change is not
+# waiting on a reconnect. The second field of UUID,DEVICE is the DEVICE, which
+# is what `nmcli device reapply` takes; an active profile with no device
+# prints "--".
+reapply_active_devices() {
+    local device
     for device in $(nmcli -t -f UUID,DEVICE connection show --active 2>/dev/null | cut -d: -f2); do
         [ -n "$device" ] && [ "$device" != "--" ] || continue
         nmcli device reapply "$device" >/dev/null 2>&1 || true
     done
+}
+
+# apply_ignore_auto_dns — make the chosen servers the ones that answer, on
+# every connection, and write down which connections that changed.
+#
+# A profile that already says yes is left alone and is NOT recorded: this page
+# did not set it, so this page must not unset it later.
+apply_ignore_auto_dns() {
+    local uuid prior4 prior6
+    local -a changed=()
+    for uuid in $(nmcli -t -f UUID connection show 2>/dev/null); do
+        prior4=$(connection_ignore_auto_dns "$uuid" ipv4)
+        prior6=$(connection_ignore_auto_dns "$uuid" ipv6)
+        if [ "$prior4" = "yes" ] && [ "$prior6" = "yes" ]; then
+            continue
+        fi
+        # A profile that refuses the change is reported and the verb fails:
+        # a name-server choice applied to some connections and not others is
+        # exactly the half-configured state this page must not leave.
+        set_connection_ignore_auto_dns "$uuid" yes || return 1
+        changed+=("$uuid ${prior4:-unset} ${prior6:-unset}")
+    done
+    # One write, after the loop: a record written a line at a time would be
+    # half written if the loop stopped in the middle.
+    if [ "${#changed[@]}" -gt 0 ]; then
+        mkdir -p "${DNS_APPLIED_RECORD%/*}"
+        printf '%s\n' "${changed[@]}" >> "$DNS_APPLIED_RECORD"
+        chmod 0644 "$DNS_APPLIED_RECORD"
+    fi
+    reapply_active_devices
+}
+
+# restore_recorded_connections — put back exactly the connections the record
+# names, and forget them. A connection that no longer exists is said and
+# stepped over: the machine has moved on, and that is not a failure of the
+# reversal.
+restore_recorded_connections() {
+    local uuid prior4 prior6
+    [ -f "$DNS_APPLIED_RECORD" ] || return 0
+    while read -r uuid prior4 prior6; do
+        [ -n "$uuid" ] || continue
+        if ! nmcli connection modify "$uuid" \
+                ipv4.ignore-auto-dns "$(ignore_auto_dns_value "${prior4:-unset}")" \
+                ipv6.ignore-auto-dns "$(ignore_auto_dns_value "${prior6:-unset}")"; then
+            echo "intergen-welcome-privhelper: connection $uuid could not be put back; it may no longer exist" >&2
+        fi
+    done < "$DNS_APPLIED_RECORD"
+    rm -f "$DNS_APPLIED_RECORD"
+    reapply_active_devices
 }
 
 # install_dispatcher / remove_dispatcher — the fragment that catches a profile
@@ -540,7 +630,7 @@ write_dns_dropin() {
     chmod 0644 "$DNS_DROPIN"
     restart_resolved
     # The servers are now configured. These two make them the ones that answer.
-    set_profiles_ignore_auto_dns yes
+    apply_ignore_auto_dns
     install_dispatcher
 }
 
@@ -672,12 +762,20 @@ NFT
     dns-use-network-default)
         # Removing the fragments IS the revert: the network's own servers were
         # never edited, they were only set aside while the fragments existed.
-        # The properties go back to no in the same breath, or the machine would
-        # keep ignoring the servers its networks hand out with nothing left on
-        # disk to explain why.
+        # The connections this page changed go back to what they said before
+        # in the same breath, or the machine would keep ignoring the servers
+        # its networks hand out with nothing left on disk to explain why.
+        #
+        # A machine with neither fragment nor record never made a choice here,
+        # and this verb is then not an undo of anything: it says so and stops,
+        # rather than writing `no` across profiles it has never seen.
+        if [ ! -f "$DNS_DROPIN" ] && [ ! -f "$DNS_APPLIED_RECORD" ]; then
+            echo "intergen-welcome-privhelper: no name-server choice was made on this machine; nothing to undo." >&2
+            exit 0
+        fi
         rm -f "$DNS_DROPIN"
         remove_dispatcher
-        set_profiles_ignore_auto_dns no
+        restore_recorded_connections
         restart_resolved
         ;;
     dns-use-cloudflare)
