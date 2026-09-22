@@ -358,6 +358,14 @@ landed is in the repository README, not here.
   `set -e` inside a command substitution tested as a condition, and a helper
   missing its header and `set -u` was published in place of the one already
   there.
+- **The audio server's install step names the file it could not stage.** When
+  the step cannot make the staged copy of the microphone boost helper or of
+  the drop-in that runs it, it now says which one, and where it was to be
+  published, before it stops. Before, if bash could not make the pipe that
+  either staging step is read through, all it printed was its own error,
+  naming the recipe and the failed command substitution - the same text for
+  both files - so the refusal did not say which file it was. What is
+  published does not change: the step still stops with nothing published.
 - **The installer says so when the machine's PCI device listing can be read but
   names no device.** The one fail-closed inventory read that the package
   hardware gate and the card-reader check share told two outcomes apart: a

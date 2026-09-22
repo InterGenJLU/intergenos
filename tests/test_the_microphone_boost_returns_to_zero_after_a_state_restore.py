@@ -37,8 +37,10 @@ and leaves a helper already at the destination as it was; that the same holds
 for a failure producing any other part of the text - the helper's header, its
 body, the drop-in - and for a failure writing either staged copy, so the files
 already at the destination keep their bytes and modes, and for a part that
-comes out empty although its producer reported success; and that the helper
-is published before the drop-in that runs it.
+comes out empty although its producer reported success; that a staging
+capture starved of file descriptors publishes nothing and its refusal names
+the file it was staging; and that the helper is published before the drop-in
+that runs it.
 
 WHAT THEY DO NOT PROVE: that the drop-in is picked up by the system manager
 from /usr/lib/systemd/system/alsa-restore.service.d on an installed machine.
@@ -748,6 +750,91 @@ def test_a_failure_writing_either_staged_copy_publishes_nothing(
     )
     assert f"the staged copy of {root / destination} could not be written" in (
         result.stderr), result.stderr
+
+
+# The two captures that stage a file for publication, each named by the text
+# its command begins with, and the words the refusal must use for its file.
+STAGING_CAPTURES = {
+    "the helper": ("helper_tmp=$(stage_file_without_following_a_link", HELPER,
+                   "the microphone boost helper could not be staged for "
+                   "publication at"),
+    "the drop-in": ("drop_in_tmp=$(stage_file_without_following_a_link",
+                    DROP_IN,
+                    "the drop-in that runs the microphone boost helper could "
+                    "not be staged for publication at"),
+}
+
+
+def starved(root: Path, command: str) -> subprocess.CompletedProcess:
+    """Run the install step with ONE command starved of file descriptors.
+
+    A DEBUG trap, inherited into functions by `set -T`, lowers the soft limit
+    to three descriptors immediately before the command that begins with
+    `command` and restores it before every other one, so the real bash cannot
+    make the pipe that command's substitution is read through and every other
+    command runs as usual. Nothing stands in for bash, the recipe or the
+    failure.
+    """
+    script = (
+        "set -e\n"
+        f"source {shlex.quote(str(BUILD_SH))}\n"
+        "orig=$(ulimit -S -n)\n"
+        "set -T\n"
+        "trap 'if [[ \"$BASH_COMMAND\" == \"$STARVED_COMMAND\"* ]]; then "
+        "ulimit -S -n 3; else ulimit -S -n \"$orig\"; fi' DEBUG\n"
+        'install_boost_zeroing_helper "$1"\n'
+    )
+    return subprocess.run(
+        ["bash", "-c", script, "_", str(root)],
+        capture_output=True,
+        text=True,
+        env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+             "STARVED_COMMAND": command},
+    )
+
+
+@pytest.mark.parametrize("already_published", [False, True],
+                         ids=["first-install", "previous-files-present"])
+@pytest.mark.parametrize("staged_file", sorted(STAGING_CAPTURES))
+def test_a_starved_staging_capture_names_the_file_it_was_staging(
+        tmp_path, staged_file, already_published):
+    """Each refusal to stage names its own file.
+
+    Measured by the independent read of the previous form: with either of the
+    two staging captures starved of file descriptors, the step refused and
+    published nothing, but all it printed was bash's own error, naming the
+    recipe and the failed substitution - the same text for both files - so
+    the refusal did not say which file it was.
+    """
+    command, destination, words = STAGING_CAPTURES[staged_file]
+    other = next(dest for name, (_, dest, _) in STAGING_CAPTURES.items()
+                 if name != staged_file)
+    root = tmp_path / "root"
+    root.mkdir()
+    if already_published:
+        previous_outputs(root)
+    before = files_under(root)
+
+    result = starved(root, command)
+
+    assert "cannot make pipe for command substitution" in result.stderr, (
+        f"the capture of {staged_file} was not starved, so this proves "
+        f"nothing: {result.stdout}{result.stderr}"
+    )
+    assert result.returncode != 0, (
+        f"the step passed although {staged_file} could not be staged: "
+        f"{result.stdout}{result.stderr}"
+    )
+    assert files_under(root) == before, (
+        f"a starved capture staging {staged_file} changed what is published: "
+        f"{sorted(set(files_under(root)) ^ set(before)) or 'bytes or modes'}"
+    )
+    assert f"{words} {root / destination}" in result.stderr, (
+        f"the refusal does not name {staged_file}: {result.stderr}"
+    )
+    assert str(root / other) not in result.stderr, (
+        f"the refusal for {staged_file} names the other file: {result.stderr}"
+    )
 
 
 def test_the_helper_is_published_before_the_drop_in_that_runs_it(tmp_path):

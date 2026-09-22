@@ -393,13 +393,21 @@ ${body}"
     # A here-string is supplied by the shell itself: if it cannot be, the
     # redirection fails, the command is not run, and its status is non-zero.
     # It adds the one trailing newline each text lost to its substitution.
+    #
+    # Each refusal names the file it was staging. When bash cannot make the
+    # pipe a capture is read through, all it prints is its own error, naming
+    # this recipe and the failed substitution, and that error is the same for
+    # both files; measured by the independent read of the previous form, the
+    # two refusals could not be told apart.
     if ! helper_tmp=$(stage_file_without_following_a_link "$helper" 755 \
                           <<< "$helper_text") || [ -z "$helper_tmp" ]; then
+        echo "pipewire: the microphone boost helper could not be staged for publication at $helper; nothing is published" >&2
         return 1
     fi
     if ! drop_in_tmp=$(stage_file_without_following_a_link "$drop_in_file" 644 \
                            <<< "$drop_in") || [ -z "$drop_in_tmp" ]; then
         rm -f "$helper_tmp"
+        echo "pipewire: the drop-in that runs the microphone boost helper could not be staged for publication at $drop_in_file; nothing is published" >&2
         return 1
     fi
     # Two renames cannot be one atomic operation, so their order is chosen:
