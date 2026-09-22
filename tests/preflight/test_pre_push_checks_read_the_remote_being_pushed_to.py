@@ -109,6 +109,22 @@ SECOND = "hub"
 _SANDBOX_DIRS = (".githooks", "scripts", "config")
 
 
+def _sandbox_parent():
+    """Where this file's sandboxes are built: ordinary disk, never the
+    temporary filesystem.
+
+    The repository's parent is the natural place and is used when it can be
+    written to. It cannot be at the standard checkout path, where the parent
+    is a root-owned mount point, and a test that cannot make its sandbox
+    reports an error that says nothing about the hook it is checking. The
+    home directory is the fallback: also ordinary disk, and writable by the
+    user running the tests.
+    """
+    if os.access(REPO.parent, os.W_OK):
+        return REPO.parent
+    return Path.home()
+
+
 class _TwoRemoteSandbox(unittest.TestCase):
     """A small real repository with two real bare remotes and the real hook."""
 
@@ -118,9 +134,15 @@ class _TwoRemoteSandbox(unittest.TestCase):
             if not required.is_file():
                 raise unittest.SkipTest(f"{required} is absent")
 
-        # Beside the repository, not under the system temporary directory:
-        # this project keeps git trees off the temporary filesystem.
-        cls.tmp = Path(tempfile.mkdtemp(prefix=".pre-push-two-remotes-", dir=str(REPO.parent)))
+        # Not under the system temporary directory: this project keeps git
+        # trees off the temporary filesystem. Beside the repository is the
+        # first choice, and the home directory is the second — at the standard
+        # checkout path the repository's parent is /mnt, which is root-owned,
+        # so the first choice is not writable and every test in this file
+        # errored out before reaching the hook it exists to check. Both
+        # choices are ordinary disk; neither is the temporary filesystem.
+        cls.tmp = Path(tempfile.mkdtemp(prefix=".pre-push-two-remotes-",
+                                        dir=str(_sandbox_parent())))
         cls.home = cls.tmp / "home"
         cls.home.mkdir()
         cls._write_private_lists()
