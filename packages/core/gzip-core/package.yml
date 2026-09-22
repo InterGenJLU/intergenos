@@ -1,7 +1,7 @@
 name: gzip-core
 ships_as: gzip  # ch8 dual-name twin — the driver archives this recipe under the ship name (chroot-build-ch8.sh run_package arg 2; runtime deps elsewhere may name 'gzip')
 version: '1.14'
-release: 1
+release: 2  # r2: links the zgrep profile (zgrep, enforce) into /etc/apparmor.d, because this package installs /usr/bin/zgrep. HAND bump: no content_hash; the release tool does not watch this recipe. The profile text is upstream's, staged by apparmor in /usr/share/apparmor/extra-profiles, which nothing loads; apparmor r4 stopped loading top-level profiles for programs it does not install, because the apparmor unit loads every file in /etc/apparmor.d at every boot and on an ordinary install 39 of the 55 it shipped named a program that machine did not have. apparmor is now a runtime dependency so the link cannot dangle. The profile is unchanged and keeps upstream's mode.
 description: GNU gzip compression
 license: GPL-3.0-or-later
 source:
@@ -10,7 +10,8 @@ source:
 dependencies:
   build: []
   host: []
-  runtime: []
+  runtime:
+  - apparmor
 tier: core
 build_style: autotools
 verify_paths:
