@@ -1319,13 +1319,27 @@
         "ask": {
           "aliases": [],
           "positionals": [],
-          "flags": [],
+          "flags": [
+            {
+              "names": [
+                "--direct"
+              ],
+              "takes_value": false
+            }
+          ],
           "help": ""
         },
         "ask-frontier": {
           "aliases": [],
           "positionals": [],
-          "flags": [],
+          "flags": [
+            {
+              "names": [
+                "--direct"
+              ],
+              "takes_value": false
+            }
+          ],
           "help": ""
         },
         "console": {

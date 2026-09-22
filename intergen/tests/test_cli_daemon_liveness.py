@@ -11,6 +11,12 @@ GLib main loop cannot service a second call while doing inference, so the old
 path mis-fired. The fix decides liveness with NameHasOwner (served by the
 dbus-daemon, instant even while InterGen is busy) and waits ASK_TIMEOUT_MS for
 the LLM. These tests pin that branching.
+
+Amended 2026-09-22: with nothing on the bus the command no longer starts an
+assistant inside the asking process. That session was never the service the
+machine manages — `systemctl --user is-active intergen` read inactive while it
+answered — so the command now reports the service state and the start command
+and exits non-zero, and the in-process session stays behind --direct.
 """
 
 import json
@@ -45,14 +51,25 @@ class TestCmdAskLiveness(unittest.TestCase):
         self.assertEqual(ctx.exception.code, 2)
         m_daemon.assert_not_called()
 
-    def test_absent_daemon_falls_back_to_direct(self):
+    def test_absent_daemon_reports_the_service_and_starts_nothing(self):
+        with patch.object(cli, "daemon_has_owner", return_value=False), \
+             patch.object(cli, "try_dbus", return_value=None):
+            with patch("intergen.dbus_daemon.InterGenDaemon") as m_daemon:
+                with patch("builtins.print"):
+                    with self.assertRaises(SystemExit) as caught:
+                        cli.cmd_ask("hello")
+        self.assertEqual(caught.exception.code, 2)
+        m_daemon.assert_not_called()
+
+    def test_absent_daemon_still_answers_in_process_behind_direct(self):
         with patch.object(cli, "daemon_has_owner", return_value=False), \
              patch.object(cli, "try_dbus", return_value=None):
             with patch("intergen.dbus_daemon.InterGenDaemon") as m_daemon:
                 inst = m_daemon.return_value
-                inst.ask.return_value = json.dumps({"response": "direct"})
+                inst.ask.return_value = json.dumps({"response": "direct",
+                                                    "handled": True})
                 with patch("builtins.print"):
-                    cli.cmd_ask("hello")
+                    cli.cmd_ask("hello", direct=True)
         m_daemon.assert_called_once()
         inst.start_service.assert_called_once()
         inst.ask.assert_called_once_with("hello")

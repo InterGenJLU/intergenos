@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import threading
 from pathlib import Path
@@ -80,8 +81,12 @@ def print_usage() -> None:
     print("Usage: intergen <command> [args]")
     print()
     print("Commands:")
-    print("  ask <message>    Ask InterGen a question")
-    print("  ask-frontier <message>")
+    print("  ask [--direct] <message>")
+    print("                   Ask InterGen a question. Without the service")
+    print("                   running the command reports how to start it and")
+    print("                   exits non-zero; --direct answers in this process")
+    print("                   instead (not managed by the service manager)")
+    print("  ask-frontier [--direct] <message>")
     print("                   Ask your configured frontier model (phone-a-friend).")
     print("                   Shows the outbound content for your approval before")
     print("                   anything leaves the machine.")
@@ -275,7 +280,33 @@ def _deliver_answer(data: dict) -> bool:
     return True
 
 
-def cmd_ask(message: str) -> None:
+def _report_service_state_instead_of_starting_one() -> None:
+    """Say what the service is doing and how to start it, and start nothing.
+
+    A session started from this command runs inside this process: it is not the
+    service the machine manages, `systemctl --user is-active intergen` still
+    reads inactive while it answers, and it is gone when the command returns.
+    Measured on this project's own machine on 2026-09-19. The command reports
+    the state and the start command instead, and exits non-zero."""
+    state = "unknown"
+    try:
+        probe = subprocess.run(
+            ["systemctl", "--user", "is-active", "intergen"],
+            capture_output=True, text=True, timeout=5, check=False)
+        state = (probe.stdout or probe.stderr or "").strip() or "unknown"
+    except Exception:  # noqa: BLE001 — a probe failure must not mask the report
+        state = "unknown"
+    print("InterGen is not running, so there is nothing to answer your "
+          "question.", file=sys.stderr)
+    print(f"  service state: intergen.service (user) is {state}",
+          file=sys.stderr)
+    print("  start it with: systemctl --user start intergen", file=sys.stderr)
+    print('  or ask without the service: intergen ask --direct "..." '
+          "(one question, in this process, not managed by the service manager)",
+          file=sys.stderr)
+
+
+def cmd_ask(message: str, direct: bool = False) -> None:
     """Ask InterGen a question.
 
     Liveness is decided by NameHasOwner (instant, daemon-busy-proof), NOT by a
@@ -302,8 +333,17 @@ def cmd_ask(message: str) -> None:
         print("  journalctl --user -u intergen -n 50", file=sys.stderr)
         sys.exit(2)
 
-    # No daemon owns the bus name → genuinely down. Safe to start direct mode.
-    print("InterGen daemon not running. Starting direct session...")
+    # No daemon owns the bus name → genuinely down. This command does NOT start
+    # one: an in-process session answers once and disappears while the machine's
+    # own record of what is running says nothing started, and a person who asked
+    # a question is left believing the service came up. Report the state and the
+    # command that starts the service. --direct keeps the in-process session for
+    # development and for the tests that need it, and says what it is.
+    if not direct:
+        _report_service_state_instead_of_starting_one()
+        sys.exit(2)
+    print("Answering in this process (--direct): this session is not the "
+          "managed service and ends with this command.")
     from intergen.dbus_daemon import InterGenDaemon
     daemon = InterGenDaemon()
     daemon.start_service()
@@ -366,7 +406,7 @@ def cmd_reset() -> None:
         sys.exit(2)
 
 
-def cmd_ask_frontier(message: str) -> None:
+def cmd_ask_frontier(message: str, direct: bool = False) -> None:
     """Phone-a-friend: ask the configured frontier model (CLI parity for the GUI
     'Ask my frontier model' button — decision #4's user-invoked affordance).
 
@@ -388,7 +428,12 @@ def cmd_ask_frontier(message: str) -> None:
         print("  journalctl --user -u intergen -n 50", file=sys.stderr)
         sys.exit(2)
 
-    print("InterGen daemon not running. Starting direct session...")
+    # Same rule as `ask`: this command starts no daemon of its own.
+    if not direct:
+        _report_service_state_instead_of_starting_one()
+        sys.exit(2)
+    print("Asking in this process (--direct): this session is not the managed "
+          "service and ends with this command.")
     from intergen.dbus_daemon import InterGenDaemon
     daemon = InterGenDaemon()
     daemon.start_service()
@@ -1134,15 +1179,19 @@ def main() -> None:
         pass
 
     if command == "ask":
-        if len(sys.argv) < 3:
-            print("Usage: intergen ask <message>")
+        # --direct is the developer path: answer in this process instead of
+        # reporting that the service is not running. It is never implied.
+        rest = [a for a in sys.argv[2:] if a != "--direct"]
+        if not rest:
+            print("Usage: intergen ask [--direct] <message>")
             sys.exit(1)
-        cmd_ask(" ".join(sys.argv[2:]))
+        cmd_ask(" ".join(rest), direct="--direct" in sys.argv[2:])
     elif command == "ask-frontier":
-        if len(sys.argv) < 3:
-            print("Usage: intergen ask-frontier <message>")
+        rest = [a for a in sys.argv[2:] if a != "--direct"]
+        if not rest:
+            print("Usage: intergen ask-frontier [--direct] <message>")
             sys.exit(1)
-        cmd_ask_frontier(" ".join(sys.argv[2:]))
+        cmd_ask_frontier(" ".join(rest), direct="--direct" in sys.argv[2:])
     elif command == "last":
         cmd_last(sys.argv[2:])
     elif command == "reset":
