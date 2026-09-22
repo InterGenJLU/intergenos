@@ -33,7 +33,7 @@ import threading
 import time
 from typing import Any, Callable
 
-from intergen import eval_consent, glass, private_state, safety
+from intergen import eval_consent, glass, package_record, private_state, safety
 from intergen.interfaces.dbus import InterGenDBusInterface
 from intergen.interfaces.types import (
     AnswerLinkage,
@@ -790,7 +790,10 @@ class InterGenDaemon(InterGenDBusInterface):
             # itself active while nothing can generate a reply is the state this
             # field exists to end.
             "model_server_down": self._model_server_down_now(),
-            "version": "0.1.0",
+            # Version AND release, read from the package manager's record —
+            # the same value the CLI prints and the same one it reports when
+            # this daemon is not running. See intergen/package_record.py.
+            "version": package_record.identity(),
             # Game-launch pause: True while the model servers are deliberately
             # stopped so a running game has the machine's memory. Reported as a
             # first-class field because "no model loaded" and "model paused on

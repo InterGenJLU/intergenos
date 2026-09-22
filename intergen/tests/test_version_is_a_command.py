@@ -16,7 +16,13 @@ These cases pin four properties:
   literal typed into the CLI a second time. The derivation case changes
   `__version__` and requires the printed line to follow it, so a hard-coded
   string cannot pass — a second copy would drift silently the first time the
-  release is bumped.
+  release is bumped. Since 2026-09-22 the command prints version AND release
+  on a machine that has a package record, and the release comes from that
+  record; these cases supply NO record, so what they pin is the fallback — the
+  version the running code carries — and they no longer depend on whether the
+  machine the tests run on happens to have the package installed. The
+  record-derived form has its own cases in
+  test_the_version_names_the_packaged_release.py.
 * The attribution is rendered when a Qwen-family model is actually on this
   machine, and is NOT rendered when none is. An attribution printed on a box
   serving InternVL3.5-2B would be a false statement about what powers it, so
@@ -64,12 +70,20 @@ def _run_version(downloaded):
 
     Returns (stdout, exit_code); exit_code is None when main() returned without
     raising SystemExit.
+
+    The package record is supplied as absent, so these cases exercise the
+    fallback and read nothing about the machine they run on. The cases for a
+    machine that HAS a record live in
+    test_the_version_names_the_packaged_release.py.
     """
+    from intergen import package_record
     from intergen.model_manager import ModelManager
 
     buf = io.StringIO()
     code = None
-    with mock.patch.object(ModelManager, "list_downloaded",
+    with mock.patch.object(package_record, "installed_identity",
+                           return_value=None), \
+         mock.patch.object(ModelManager, "list_downloaded",
                            return_value=list(downloaded)), \
          mock.patch.object(cli.sys, "argv", ["intergen", "--version"]):
         with redirect_stdout(buf):
@@ -96,7 +110,10 @@ class VersionIsACommandTests(unittest.TestCase):
     def test_the_printed_version_is_derived_from_the_package_version(self):
         """A literal typed into cli.py would pass a fixed-string assertion and
         then drift silently. Move `__version__` and the printed line has to
-        move with it."""
+        move with it.
+
+        With no package record this is the whole of what is printed, so it is
+        the fallback this case pins."""
         sentinel = "9.9.9-test"
         with mock.patch.object(intergen, "__version__", sentinel):
             out, _ = _run_version([QWEN_9B])

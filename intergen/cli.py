@@ -426,9 +426,13 @@ def offline_status() -> dict:
     (the file is read in full and nothing is loaded), start a model server, or
     claim the bus name.
     """
+    from intergen import package_record
+
     status: dict = {
         "running": False,
-        "version": "0.1.0",
+        # Version AND release, read from the package manager's record, so a
+        # stopped machine and a running one answer this question the same way.
+        "version": package_record.identity(),
         "daemon_down": True,
         "requests_handled": 0,
         "last_error": None,
@@ -1035,12 +1039,23 @@ __all__ = ["QWEN_ATTRIBUTION", "attribution_line", "qwen_models_present"]
 
 
 def cmd_version() -> None:
-    """`intergen --version` — the running package version, plus the model
-    attribution when one is owed."""
-    # Read through the module so the printed value is the package's own
-    # version at call time, not a second copy typed into this file.
-    import intergen
-    print(f"InterGen {intergen.__version__}")
+    """`intergen --version` — what is installed, plus the model attribution
+    when one is owed.
+
+    The identity is version AND release, the way the package manager names
+    every other component ("0.1.0-296"). The release is a packaging fact the
+    running code cannot know, so it is read from the package manager's own
+    record; see intergen/package_record.py. On a machine with no such record —
+    a checkout, a container — the version the running code carries is printed
+    and the next line says the release could not be read, because a bare
+    version on its own reads like the whole answer.
+    """
+    from intergen import package_record
+    identity, release_known = package_record.version_line()
+    print(f"InterGen {identity}")
+    if not release_known:
+        print("  This machine has no package record for InterGen, so the "
+              "release could not be read.")
     line = attribution_line()
     if line:
         print(line)
