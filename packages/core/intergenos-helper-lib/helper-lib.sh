@@ -103,6 +103,80 @@ igos_helper_internal_fault() {
     igos_helper_emit "detail for the maintainer: $*"
 }
 
+# ---- License acceptance -------------------------------------------------
+#
+# Additive v1 API. This record is separate from the payload manifest and may
+# be written before igos_helper_init. Additional metadata is passed as string
+# key/value pairs, never interpolated into JSON by an individual helper.
+igos_helper_write_acceptance() {
+    # <absolute-record-path> <helper> <version> <license> [<key> <value> ...]
+    if [ "$#" -lt 4 ] || [ "$(( ($# - 4) % 2 ))" -ne 0 ]; then
+        igos_helper_internal_fault "igos_helper_write_acceptance requires a path, helper, version, license and optional metadata pairs"
+        return 1
+    fi
+    local acceptance_user acceptance_source
+    if [ -n "${SUDO_USER:-}" ]; then
+        acceptance_user=$SUDO_USER
+        acceptance_source=SUDO_USER
+    else
+        acceptance_user=$(id -un) || {
+            igos_helper_emit "Could not identify the account recording license acceptance."
+            return 1
+        }
+        acceptance_source=effective_uid
+    fi
+    if [ -z "$acceptance_user" ]; then
+        igos_helper_emit "Could not identify the account recording license acceptance."
+        return 1
+    fi
+    python3 - "$@" "$acceptance_user" "$acceptance_source" <<'PYACCEPTANCE'
+import datetime
+import json
+import os
+import sys
+import tempfile
+
+record_path, helper, version, license_name, *metadata = sys.argv[1:-2]
+user, source = sys.argv[-2:]
+temporary = None
+try:
+    if not os.path.isabs(record_path):
+        raise ValueError("acceptance record path must be absolute")
+    record = {
+        "helper": helper,
+        "version": version,
+        "payload_license": license_name,
+        "accepted_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "user": user,
+        "consenting_user_named": source == "SUDO_USER",
+        "user_source": source,
+    }
+    for key, value in zip(metadata[::2], metadata[1::2]):
+        if not key or key in record:
+            raise ValueError("acceptance metadata contains an empty or repeated field")
+        record[key] = value
+    # Resolve identity and encode every field before opening any output.
+    document = json.dumps(record, indent=2) + "\n"
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False,
+                                     prefix=".acceptance-", dir=os.path.dirname(record_path)) as stream:
+        temporary = stream.name
+        stream.write(document)
+        stream.flush()
+        os.fchmod(stream.fileno(), 0o644)
+        os.fsync(stream.fileno())
+    os.replace(temporary, record_path)
+    temporary = None
+except (OSError, ValueError) as error:
+    print(f"Could not record license acceptance: {error}", file=sys.stderr)
+    if temporary is not None:
+        try:
+            os.unlink(temporary)
+        except OSError as cleanup_error:
+            print(f"Could not remove the incomplete acceptance record: {cleanup_error}", file=sys.stderr)
+    sys.exit(1)
+PYACCEPTANCE
+}
+
 # ---- Internal state -----------------------------------------------------
 #
 # A single helper invocation accumulates state into a per-invocation

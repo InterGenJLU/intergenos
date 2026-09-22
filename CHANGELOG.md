@@ -237,6 +237,11 @@ landed is in the repository README, not here.
   `--all` to reach an install's full record.
 
 ### Fixed
+
+- **Download helpers share one license-acceptance writer.** Records name the
+  sudo user when one is supplied, or explicitly identify the effective account
+  when nobody was named. Every field is JSON-encoded before the complete record
+  is published; helpers explain how to update an older library before proceeding.
 - **A microphone boost written straight to the mixer is put back to 0 dB, and
   the install step that takes the boost out of the volume range refuses two
   cases it used to get wrong.** The audio server honours `volume = zero` when

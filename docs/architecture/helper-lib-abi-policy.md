@@ -53,7 +53,7 @@ v1 library and helpers that don't use them are unaffected).
 
 ## API surface (v1)
 
-The v1 API consists of seven shell functions:
+The original v1 recording API and its additive acceptance writer are:
 
 | Function | Required args | Purpose |
 |---|---|---|
@@ -64,6 +64,14 @@ The v1 API consists of seven shell functions:
 | `igos_helper_record_dep <pkg_name>` | 1 | Append a runtime dependency package name. pkm threads through `add_depends` so reverse-dep tracking works. |
 | `igos_helper_record_post_install_action <description>` | 1 | Append a descriptive action string. v1.0 stores these as a transparency-log artifact; not replayed on remove (teardown lives in a v1.x hook surface). |
 | `igos_helper_commit` | 0 | Assemble staging state into the JSON manifest at `/var/lib/igos/helpers/<name>.manifest`. Atomic mv from sibling `.tmp` path. |
+| `igos_helper_write_acceptance <abs_record_path> <helper> <version> <license> [<key> <value> ...]` | 4 | Write a complete license-acceptance JSON record, with optional string metadata pairs. Uses a nonempty `SUDO_USER`, otherwise the effective account with `consenting_user_named: false`; records `user_source` explicitly. Resolves and JSON-encodes identity and metadata before opening output, then publishes through a sibling temporary file. May run before `igos_helper_init`; this record is separate from the manifest. |
+
+The acceptance writer is an additive v1 function. The API marker remains 1,
+all existing signatures and the manifest schema remain unchanged, and older
+helpers continue to work with the updated library. A helper using the new
+writer checks for its presence and asks for a library update if it is absent;
+it never substitutes a private copy of the writer. Metadata cannot replace
+the writer's identity or standard record fields.
 
 Any function not in this table is **not** part of the v1 API surface
 and MAY be removed or restructured without a v2 supersede.

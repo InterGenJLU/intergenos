@@ -50,6 +50,7 @@ do_install() {
         igos_helper_record_dep
         igos_helper_record_post_install_action
         igos_helper_commit
+        igos_helper_write_acceptance
         igos_helper_verify_deb_via_signed_release
         igos_helper_find_latest_deb_in_packages
     )

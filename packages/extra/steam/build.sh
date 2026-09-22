@@ -220,6 +220,11 @@ WRAPEOF
 set -e
 
 source /usr/share/igos/helpers/helper-lib.sh
+if ! declare -F igos_helper_write_acceptance >/dev/null; then
+    echo "  This installer needs an updated install helper library." >&2
+    echo "  Run 'sudo pkm upgrade intergenos-helper-lib' and try again." >&2
+    exit 1
+fi
 
 ACCEPTANCE_DIR="/var/lib/intergen/legal"
 ACCEPTANCE_FILE="$ACCEPTANCE_DIR/steam-1.0-accepted.json"
@@ -266,32 +271,8 @@ else
         exit 10
     fi
     mkdir -p "$ACCEPTANCE_DIR"
-    # Resolve and encode identity before opening the acceptance record.
-    # A direct root invocation has no named consenting user without SUDO_USER.
-    # Keep this writer compatible with already-installed helper libraries.
-    ACCEPTANCE_USER=${SUDO_USER:-$(id -un)}
-    ACCEPTANCE_IDENTITY=$(python3 - "$ACCEPTANCE_USER" "${SUDO_USER:+SUDO_USER}" <<'PYIDENTITY'
-import json
-import sys
-
-user, source = sys.argv[1:]
-print(json.dumps({
-    "user": user,
-    "consenting_user_named": bool(source),
-    "user_source": source or "effective_uid",
-})[1:-1])
-PYIDENTITY
-    )
-    cat > "$ACCEPTANCE_FILE" <<JSON
-{
-  "helper": "steam",
-  "version": "1.0",
-  "payload_license": "LicenseRef-Valve-SSA",
-  "accepted_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-$ACCEPTANCE_IDENTITY
-}
-JSON
-    chmod 644 "$ACCEPTANCE_FILE"
+    igos_helper_write_acceptance "$ACCEPTANCE_FILE" \
+        steam 1.0 LicenseRef-Valve-SSA
     echo "  Acceptance recorded at $ACCEPTANCE_FILE"
 fi
 

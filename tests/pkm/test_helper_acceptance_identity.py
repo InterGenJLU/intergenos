@@ -32,13 +32,12 @@ WRITERS = [REPO / f"packages/extra/{name}/build.sh" for name in EXTRA] + [
 
 def _writer(source):
     """Extract only the actual record-writing block, without any downloads."""
-    match = re.search(
-        r'(?:    ACCEPTANCE_USER=[^\n]*\n)?'
-        r'(?:    ACCEPTANCE_IDENTITY=.*?\n)?'
-        r'    cat > "\$ACCEPTANCE_FILE" <<JSON\n.*?\nJSON\n',
-        source.read_text(), re.S,
-    )
+    text = source.read_text()
+    match = re.search(r'    igos_helper_write_acceptance "\$ACCEPTANCE_FILE" \\\n'
+                      r'        [^\n]+\n(?:        [^\n]+\n)?', text)
     assert match, f"No acceptance writer found in {source}"
+    assert "ACCEPTANCE_IDENTITY=" not in text
+    assert 'cat > "$ACCEPTANCE_FILE"' not in text
     return match.group()
 
 
@@ -117,13 +116,31 @@ def test_unavailable_identity_does_not_write_acceptance(
 
 
 @pytest.mark.parametrize("source", WRITERS, ids=lambda p: p.parent.name)
-def test_record_writer_needs_no_new_library_api(source, tmp_path, monkeypatch):
-    # A helper upgrade does not upgrade an already-installed library. The
-    # record writer must therefore work without calling any new library API.
-    result, record = _run_writer(
-        source, tmp_path, monkeypatch, "alice", source_library=False,
-    )
+def test_helper_refuses_an_older_library_with_an_update_instruction(source, tmp_path):
+    guard = re.search(r'if ! declare -F igos_helper_write_acceptance.*?\nfi\n',
+                      source.read_text(), re.S)
+    assert guard, f"No library capability check in {source}"
+    result = subprocess.run(["/bin/bash", "-c", guard.group()], cwd=tmp_path,
+                            capture_output=True, text=True)
+    assert result.returncode != 0
+    assert "sudo pkm upgrade intergenos-helper-lib" in result.stderr
+
+
+@pytest.mark.parametrize("source", WRITERS, ids=lambda p: p.parent.name)
+def test_helper_specific_metadata_is_preserved(source, tmp_path, monkeypatch):
+    result, record = _run_writer(source, tmp_path, monkeypatch, "alice")
     assert result.returncode == 0, result.stderr
     data = json.loads(record.read_text())
-    assert data["user"] == "alice"
-    assert data["consenting_user_named"] is True
+    if data["helper"] == "cuda-toolkit":
+        assert data["artifact_sha256"] == "fixture"
+        assert data["artifact"] == "fixture.run"
+        assert data["source_url"] == "https://example.invalid/fixture"
+        assert data["license_text"] == "fixture.txt"
+    elif data["helper"] == "ffmpeg-nonfree":
+        assert data["ffmpeg_url_sha256"] == "fixture"
+        assert data["ffmpeg_version"] == "1"
+    elif data["helper"] == "ge-proton":
+        assert data["version"] == "fixture"
+    elif data["helper"] == "discord":
+        assert data["k21_f_option"] == "B"
+        assert data["trust_anchor"] == "HTTPS-only (no cryptographic signature on tarball)"
