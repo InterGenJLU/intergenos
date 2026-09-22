@@ -238,6 +238,10 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **Chronicle quotes paths throughout restore previews and results.** Newlines
+  and terminal control characters in a filename are displayed as escapes, so
+  a filename cannot add lines to the plan being confirmed. JSON paths retain
+  their existing escaped representation.
 - **Chronicle rejects blank restore paths.** Whitespace-only arguments are
   refused before a restore or service request; skipped paths are quoted so
   spaces and control characters remain visible.

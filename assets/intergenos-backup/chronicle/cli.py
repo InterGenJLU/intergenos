@@ -192,12 +192,12 @@ def cmd_restore(backend, args, rep):
         if a["action"] == "skip":
             rep.info(f"  SKIP {a['path']!r} — {a['reason']}")
         elif a.get("type") == "dir":
-            rep.info(f"  restore directory metadata only {a['path']} "
+            rep.info(f"  restore directory metadata only {a['path']!r} "
                      "— contents are not restored recursively")
         elif a.get("will_overwrite"):
-            rep.info(f"  OVERWRITE (with confirmation) {a['path']}")
+            rep.info(f"  OVERWRITE (with confirmation) {a['path']!r}")
         else:
-            rep.info(f"  restore {a['path']}")
+            rep.info(f"  restore {a['path']!r}")
     if args.dry_run:
         rep.info("Dry run — nothing was changed.")
         return
@@ -224,9 +224,9 @@ def cmd_restore(backend, args, rep):
         return 0 if all_ok else 1
     for r in res["results"]:
         if r["ok"]:
-            rep.info(f"  restored {r['path']} -> {r['written_to']}")
+            rep.info(f"  restored {r['path']!r} -> {r['written_to']!r}")
         else:
-            rep.error(f"  {r['path']}: {r['reason']}")
+            rep.error(f"  {r['path']!r}: {r['reason']}")
     return 0 if all_ok else 1
 
 

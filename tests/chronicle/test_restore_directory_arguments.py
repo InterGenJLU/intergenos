@@ -176,6 +176,6 @@ def test_real_cli_preserves_nonblank_path_bytes_and_quotes_skips(saved_point, js
         assert absent_action["action"] == "skip"
         assert absent_action["path"] == str(absent)
     else:
-        assert f"OVERWRITE (with confirmation) {document}" in result.stdout
+        assert f"OVERWRITE (with confirmation) {str(document)!r}" in result.stdout
         assert f"  SKIP {str(absent)!r} — not in this version" in result.stdout.splitlines()
     assert document.read_text() == "saved content\n"
