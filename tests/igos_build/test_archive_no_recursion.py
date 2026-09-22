@@ -31,6 +31,13 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from .factories import make_package, make_tracker_stub  # noqa: E402
+from pkm.archive_names import archive_filename  # noqa: E402
+
+# The archive name comes from the one place that composes it
+# (pkm/archive_names.py, decided 2026-09-22) rather than from a literal, so a
+# change to the naming rule cannot leave these cases asserting a file the
+# producer no longer writes. make_package()'s defaults are demo 1.0 release 1.
+ARCHIVE_NAME = archive_filename("demo", "1.0", 1)
 _tracker_mod = importlib.import_module("igos-build.tracker")
 PackageTracker = _tracker_mod.PackageTracker
 
@@ -101,7 +108,7 @@ class ArchiveNoRecursionTest(unittest.TestCase):
                      str(self.payload / "mybin")]
         self.assertTrue(stub.pkg_archive_from_files(pkg, new_files),
                         msg=f"errors: {stub.logger.errors}")
-        archive = stub.pkg_archives / "demo-1.0.igos.tar.gz"
+        archive = stub.pkg_archives / ARCHIVE_NAME
         members = self._members(archive)
         rel = str(self.payload).lstrip("/")
         self.assertIn(f"{rel}/shared.d", members)
@@ -133,10 +140,10 @@ class ArchiveNoRecursionTest(unittest.TestCase):
         self.assertTrue(any("member-count gate FAILED" in e
                             for e in stub.logger.errors), stub.logger.errors)
         self.assertFalse(
-            (stub.pkg_archives / "demo-1.0.igos.tar.gz").exists(),
+            (stub.pkg_archives / ARCHIVE_NAME).exists(),
             "a refused seal must not leave the archive in place")
         self.assertTrue(
-            (stub.pkg_archives / "demo-1.0.igos.tar.gz.failed").exists(),
+            (stub.pkg_archives / (ARCHIVE_NAME + ".failed")).exists(),
             "a refused seal must quarantine as .failed")
 
     def test_detect_overwrites_skips_directories(self):
@@ -248,7 +255,7 @@ class ArchiveSealedHookMemberCountTest(unittest.TestCase):
             f"a correct archive with a sealed hook failed the seal — the "
             f"member-count gate is not counting ./.scripts/ members; "
             f"errors: {stub.logger.errors}")
-        archive = stub.pkg_archives / "demo-1.0.igos.tar.gz"
+        archive = stub.pkg_archives / ARCHIVE_NAME
         with tarfile.open(archive, "r:gz") as t:
             members = sorted(t.getnames())
         self.assertIn("./.scripts/post_install.sh", members,

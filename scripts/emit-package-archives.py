@@ -29,6 +29,12 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
+from pkm.archive_names import archive_filename  # noqa: E402
+
 # A FILE LIST entry's optional content annotation, anchored at end of line so
 # paths containing whitespace survive intact (linux-firmware ships several).
 _SHA256_SUFFIX_RE = re.compile(r" sha256:[0-9a-f]{64}$")
@@ -184,6 +190,12 @@ def _read_manifest(manifest_path):
                 meta["full_name"] = val
             elif line.startswith("PACKAGE VERSION:"):
                 meta["version"] = line.split(":", 1)[1].strip()
+            elif line.startswith("PACKAGE RELEASE:"):
+                # Written by pkg_manifest when the caller supplied the
+                # recipe's release (the release-honesty rider). A manifest
+                # from a recipe-less package has no such header, and the
+                # archive it describes keeps the release-less name.
+                meta["release"] = line.split(":", 1)[1].strip()
             elif line.startswith("UNCOMPRESSED SIZE:"):
                 size_str = line.split(":", 1)[1].strip()
                 meta["uncompressed_size"] = size_str
@@ -327,7 +339,7 @@ def emit_archive(manifest_path, chroot, output_dir):
     meta = _read_manifest(manifest_path)
     name = meta.get("name", manifest_path.stem.split("-")[0])
     version = meta.get("version", "unknown")
-    archive_name = f"{name}-{version}.igos.tar.gz"
+    archive_name = archive_filename(name, version, meta.get("release"))
     archive_path = output_dir / archive_name
 
     # Filter to files that actually exist in chroot

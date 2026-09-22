@@ -16,6 +16,7 @@ import unittest
 from pkm.archive_names import (
     SUFFIX,
     archive_filename,
+    candidate_filenames,
     parse_archive_filename,
 )
 
@@ -110,6 +111,20 @@ class TestTheNameIsTakenApartWithoutGuessing(unittest.TestCase):
 
     def test_a_stem_with_no_version_at_all_is_not_parsed(self):
         self.assertIsNone(parse_archive_filename("forge" + SUFFIX))
+
+
+class TestWhereToLookForABuiltArchive(unittest.TestCase):
+    def test_the_release_carrying_name_is_tried_first(self):
+        self.assertEqual(
+            candidate_filenames("forge", "1.0.0", 245),
+            ["forge-1.0.0-245.igos.tar.gz", "forge-1.0.0.igos.tar.gz"],
+        )
+
+    def test_an_unstated_release_has_one_candidate_only(self):
+        self.assertEqual(
+            candidate_filenames("man-pages", "6.9.1", None),
+            ["man-pages-6.9.1.igos.tar.gz"],
+        )
 
 
 class TestTheTwoDirectionsAgree(unittest.TestCase):

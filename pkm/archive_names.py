@@ -132,3 +132,23 @@ def parse_archive_filename(
     if not match:
         return None
     return ArchiveName(match.group(1), match.group(2), None)
+
+
+def candidate_filenames(name: str, version: str,
+                        release: Union[int, str, None] = None) -> list:
+    """Every name one built package may be on disk under, best first.
+
+    A staging directory during and after this change holds both shapes: a
+    package whose recipe states a release is archived under the
+    release-carrying name, and the recipe-less packages the bash tier builds
+    are archived under the release-less one, as is every archive published
+    before this change. A reader looking for "the archive of this package"
+    must therefore try both, in that order, rather than assume either.
+
+    The order is what makes this safe to use: the exact, release-carrying
+    name is always preferred, so a reader never settles for a file that
+    cannot name its build while the one that can is sitting beside it.
+    """
+    exact = archive_filename(name, version, release)
+    plain = archive_filename(name, version, None)
+    return [exact] if exact == plain else [exact, plain]

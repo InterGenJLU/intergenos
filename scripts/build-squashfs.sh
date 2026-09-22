@@ -549,9 +549,19 @@ if [ "$ISO_PREP" = "1" ] && [ -x /mnt/intergenos/scripts/derive-iso-exclusions.p
             for _nv in $HEAL_LIST; do
                 _ver=$(awk -F': ' '/^PACKAGE VERSION:/{print $2; exit}' "$CHROOT/var/lib/igos/packages/$_nv")
                 _name="${_nv%-$_ver}"
+                # The manifest is named <name>-<version>; the archive beside it
+                # carries the release when the recipe stated one (decided
+                # 2026-09-22, pkm/archive_names.py) and does not when it did
+                # not. Read the release off the manifest's own header and
+                # prefer the exact name, then fall back to the release-less
+                # one — never a glob, which would pick an arbitrary release.
+                _rel=$(awk -F': ' '/^PACKAGE RELEASE:/{print $2; exit}' "$CHROOT/var/lib/igos/packages/$_nv")
                 _arc="/var/lib/igos/archives/${_nv}.igos.tar.gz"
+                if [ -n "$_rel" ] && [ -f "$CHROOT/var/lib/igos/archives/${_nv}-${_rel}.igos.tar.gz" ]; then
+                    _arc="/var/lib/igos/archives/${_nv}-${_rel}.igos.tar.gz"
+                fi
                 [ -f "$CHROOT$_arc" ] || die "co-ownership heal: archive $_arc missing for $_name — cannot restore prune-deleted files"
-                log "co-ownership heal: prune deleted files co-owned by shipped '$_name' — restoring from ${_nv}.igos.tar.gz"
+                log "co-ownership heal: prune deleted files co-owned by shipped '$_name' — restoring from $(basename "$_arc")"
                 chroot "$CHROOT" /usr/bin/python3 -c "from pkm.database import PackageDB; PackageDB().remove_installed('$_name')" 2>&1 | logpipe "[heal]"
                 chroot "$CHROOT" /usr/bin/pkm install "$_name" --archive "$_arc" --archive-trust loose 2>&1 | logpipe "[heal]" \
                     || die "co-ownership heal: pkm install $_name failed — see error above"

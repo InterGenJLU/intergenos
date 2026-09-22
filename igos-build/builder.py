@@ -24,6 +24,7 @@ import time
 from pathlib import Path
 from urllib.parse import urlparse
 
+from pkm.archive_names import archive_filename
 from .parser import Package
 from . import elfaudit
 from . import time64audit
@@ -1693,7 +1694,8 @@ class BuildExecutor(PackageTracker):
                 f"--skip-built would wrongly skip this failed package; "
                 f"remove the file manually before the next run"
             )
-        archive = self.pkg_archives / f"{pkg.name}-{pkg.version}.igos.tar.gz"
+        archive = self.pkg_archives / archive_filename(
+            pkg.name, pkg.version, pkg.release)
         try:
             if archive.exists():
                 quarantined = Path(str(archive) + ".failed")

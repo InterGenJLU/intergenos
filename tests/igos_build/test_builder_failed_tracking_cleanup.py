@@ -24,6 +24,13 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from .factories import make_package  # noqa: E402
+from pkm.archive_names import archive_filename  # noqa: E402
+
+# The archive name comes from the one place that composes it
+# (pkm/archive_names.py, decided 2026-09-22) rather than from a literal, so a
+# change to the naming rule cannot leave these cases asserting a file the
+# producer no longer writes. make_package()'s defaults are demo 1.0 release 1.
+ARCHIVE_NAME = archive_filename("demo", "1.0", 1)
 _builder_mod = importlib.import_module("igos-build.builder")
 BuildExecutor = _builder_mod.BuildExecutor
 
@@ -73,12 +80,12 @@ class TestRemoveFailedTrackingArtifacts(unittest.TestCase):
                          "failed build left the --skip-built completion marker")
 
     def test_archive_quarantined_not_deleted(self):
-        archive = self.stub.pkg_archives / "demo-1.0.igos.tar.gz"
+        archive = self.stub.pkg_archives / ARCHIVE_NAME
         archive.write_bytes(b"payload")
         self._call()
         self.assertFalse(archive.exists(),
                          "unverified archive left in the ship namespace")
-        quarantined = self.stub.pkg_archives / "demo-1.0.igos.tar.gz.failed"
+        quarantined = self.stub.pkg_archives / (ARCHIVE_NAME + ".failed")
         self.assertTrue(quarantined.exists(),
                         "recovery artifact was deleted instead of quarantined")
         self.assertEqual(quarantined.read_bytes(), b"payload")

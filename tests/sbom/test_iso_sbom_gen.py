@@ -83,8 +83,10 @@ class FixtureTree:
         self.archives.mkdir()
         self.output = self.root / "out" / "sbom.spdx.json"
 
-    def stage_archive(self, name: str, version: str, payload: bytes) -> Path:
-        path = self.archives / f"{name}-{version}.igos.tar.gz"
+    def stage_archive(self, name: str, version: str, payload: bytes,
+                      release=None) -> Path:
+        path = self.archives / sbom.archive_basenames(
+            name, version, release)[0]
         path.write_bytes(payload)
         return path
 
@@ -324,19 +326,34 @@ class TestArchiveChecksums(TreeTestCase):
             [{"algorithm": "SHA256",
               "checksumValue": hashlib.sha256(payload).hexdigest()}])
 
-    def test_the_archive_name_omits_the_release(self):
-        """Binary archives are <name>-<version>.igos.tar.gz — four places in the
-        build compose them that way. Looking for the source-archive shape
-        (which does carry the release) would find nothing."""
-        self.assertEqual(sbom.archive_basename("foo", "1.2"),
-                         "foo-1.2.igos.tar.gz")
+    def test_the_archive_name_carries_the_release(self):
+        """Binary archives are <name>-<version>-<release>.igos.tar.gz (decided
+        2026-09-22). Every producer composes them that way, so that is what a
+        staged archive is called and what the next published index names."""
+        self.assertEqual(sbom.archive_basenames("foo", "1.2", 7),
+                         ["foo-1.2-7.igos.tar.gz", "foo-1.2.igos.tar.gz"])
         write_pkg(self.tree.packages, "core", "foo", version="1.2", release=7)
-        self.tree.stage_archive("foo", "1.2", b"X")
+        self.tree.stage_archive("foo", "1.2", b"X", release=7)
         self.tree.run(archives=True)
         entry = [p for p in self.tree.doc()["packages"] if p["name"] == "foo"][0]
-        self.assertIn("foo-1.2.igos.tar.gz", entry["downloadLocation"])
+        self.assertIn("foo-1.2-7.igos.tar.gz", entry["downloadLocation"])
         self.assertEqual(entry["versionInfo"], "1.2-7")
         self.assertEqual(len(entry["checksums"]), 1)
+
+    def test_an_archive_staged_under_the_older_release_less_name_is_found(self):
+        """The bash tier archives recipe-less packages without a release, and
+        every archive published before this change carries the release-less
+        name. A reader that saw only the new shape would report a staged
+        archive as absent and hash nothing."""
+        write_pkg(self.tree.packages, "core", "bar", version="2.0", release=3)
+        payload = b"Y"
+        self.tree.stage_archive("bar", "2.0", payload)   # no release in the name
+        self.tree.run(archives=True)
+        entry = [p for p in self.tree.doc()["packages"] if p["name"] == "bar"][0]
+        self.assertEqual(
+            entry["checksums"],
+            [{"algorithm": "SHA256",
+              "checksumValue": hashlib.sha256(payload).hexdigest()}])
 
     def test_an_absent_archive_yields_no_checksum_and_says_so(self):
         """Recorded honestly rather than refused: the generator must be runnable

@@ -110,6 +110,7 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 _parser_mod = importlib.import_module("igos-build.parser")
 parse_template = _parser_mod.parse_template
+from pkm.archive_names import candidate_filenames  # noqa: E402
 
 TOOL_NAME = "scripts/iso-sbom-gen.py-1.0"
 MIRROR_BASE = "https://repo.intergenos.org/x86_64/current"
@@ -320,18 +321,28 @@ def derive_shipped_set(packages_dir: Path) -> tuple[list, list[Refusal], int]:
     return shipped, refusals, mirror_count
 
 
-def archive_basename(name: str, version: str) -> str:
-    """The binary archive filename for a package.
+def archive_basenames(name: str, version: str, release=None) -> list:
+    """Every name a package's staged binary archive may be on disk under.
 
-    ``<name>-<version>.igos.tar.gz`` — no release component. That is what
-    igos-build/tracker.py, igos-build/builder.py and
-    scripts/emit-package-archives.py all compose, so it is what a staged
-    archive is actually called. (The corresponding-SOURCE archive DOES carry
-    the release: ``<name>-<version>-<release>.igos.src.tar.gz``. The two
-    conventions differ, and using the source one here would look for files
-    that do not exist.)
+    Best first: ``<name>-<version>-<release>.igos.tar.gz``, then the
+    release-less ``<name>-<version>.igos.tar.gz``. The producers write the
+    release-carrying name whenever the recipe states a release (decided
+    2026-09-22, pkm/archive_names.py); the recipe-less packages the bash
+    tier builds state none and keep the release-less name, and so does every
+    archive published before that change. Reading only one of the two shapes
+    would look for files that are not there.
     """
-    return f"{name}-{version}.igos.tar.gz"
+    return candidate_filenames(name, version, release)
+
+
+def find_staged_archive(archives_dir: Path, name: str, version: str,
+                        release=None) -> Path | None:
+    """The staged archive for one package, or None when none is present."""
+    for basename in archive_basenames(name, version, release):
+        candidate = archives_dir / basename
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def ship_name(pkg) -> str:
@@ -350,14 +361,20 @@ def build_package_entry(pkg, archives_dir: Path | None) -> tuple[dict, list[dict
     """Build one SPDX package entry. Returns (entry, licensing_infos, hashed)."""
     expr, infos = resolve_license(pkg.license)
     shipped_name = ship_name(pkg)
-    basename = archive_basename(shipped_name, pkg.version)
+    # The name this package's archive is expected to have. When one is
+    # actually staged, the entry is rewritten to name THAT file: a download
+    # location must name the file whose checksum the entry states, never the
+    # name the build would have preferred.
+    basename = archive_basenames(shipped_name, pkg.version, pkg.release)[0]
 
     checksums: list[dict] = []
     hashed = False
     archive_note = "no staged archive was present when this SBOM was generated"
     if archives_dir is not None:
-        candidate = archives_dir / basename
-        if candidate.is_file():
+        candidate = find_staged_archive(
+            archives_dir, shipped_name, pkg.version, pkg.release)
+        if candidate is not None:
+            basename = candidate.name
             checksums.append({
                 "algorithm": "SHA256",
                 "checksumValue": sha256_file(candidate),
@@ -555,12 +572,14 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.require_archives:
         for pkg in shipped:
-            candidate = args.archives / archive_basename(ship_name(pkg), pkg.version)
-            if not candidate.is_file():
+            candidate = find_staged_archive(
+                args.archives, ship_name(pkg), pkg.version, pkg.release)
+            if candidate is None:
                 refusals.append(Refusal(
                     packages_dir / pkg.tier / pkg.name / "package.yml",
-                    f"--require-archives: no staged archive "
-                    f"{archive_basename(ship_name(pkg), pkg.version)}",
+                    f"--require-archives: no staged archive, looked for "
+                    + " or ".join(archive_basenames(
+                        ship_name(pkg), pkg.version, pkg.release)),
                     pkg.name,
                 ))
         refused = {r.name for r in refusals if r.name}

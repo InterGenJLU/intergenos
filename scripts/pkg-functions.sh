@@ -1062,7 +1062,8 @@ EOF
 #
 # Usage: pkg_archive <name> <version>
 #
-# Creates: $IGOS_PKG_ARCHIVES/<name>-<version>.igos.tar.gz
+# Creates: $IGOS_PKG_ARCHIVES/<name>-<version>-<release>.igos.tar.gz
+#          (<name>-<version>.igos.tar.gz when no release is stated)
 #
 # Uses gzip during initial build (available from Chapter 7).
 # Archives can be re-compressed to zstd later if desired.
@@ -1071,8 +1072,18 @@ EOF
 pkg_archive() {
     local name="$1"
     local version="$2"
+    # Optional 3rd arg, same idiom and the same reason as pkg_manifest's
+    # optional release: the recipe-less LFS-Ch8 core packages this tier builds
+    # carry no `release:` field, and an archive must never assert a build
+    # number nothing recorded. Stated -> the name carries it and two releases
+    # of one version are two files; unstated -> the release-less name, which
+    # is what every published R001.2 archive is already called.
+    local release="${3:-}"
     local dest="${IGOS_PKG_STAGING}/${name}-${version}"
     local archive="${IGOS_PKG_ARCHIVES}/${name}-${version}.igos.tar.gz"
+    if [ -n "$release" ]; then
+        archive="${IGOS_PKG_ARCHIVES}/${name}-${version}-${release}.igos.tar.gz"
+    fi
 
     if [ ! -d "$dest" ]; then
         pkg_error "No staging directory found for ${name}-${version}"
@@ -1778,10 +1789,13 @@ pkg_install() {
     fi
     if [ "$manifest_rc" -ne 0 ]; then return 1; fi
 
-    pkg_archive "$name" "$version"
+    pkg_archive "$name" "$version" "$release"
     local archive_rc=$?
     if [ "${IGOS_TRACE_LIB_LOADED:-0}" = "1" ]; then
         local _archive_path="${IGOS_PKG_ARCHIVES}/${name}-${version}.igos.tar.gz"
+        if [ -n "$release" ]; then
+            _archive_path="${IGOS_PKG_ARCHIVES}/${name}-${version}-${release}.igos.tar.gz"
+        fi
         local _asize=0 _asha=""
         if [ -f "$_archive_path" ]; then
             _asize=$(stat -c%s "$_archive_path" 2>/dev/null || echo 0)

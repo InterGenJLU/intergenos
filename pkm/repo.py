@@ -83,6 +83,7 @@ except ImportError:
 # software version). Importing via the package surface keeps this single-sourced.
 from . import __version__
 
+from .archive_names import archive_filename
 from .database import PackageDB
 from .version import compare
 
@@ -1233,7 +1234,7 @@ class RepoManager:
                 _release = int(pkg.get("release", 1) or 1)
             except (TypeError, ValueError):
                 _release = 1
-            local_name = f"{name}-{_version}-{_release}.igos.tar.gz"
+            local_name = archive_filename(name, _version, _release)
         else:
             local_name = filename
         local_path = self.pkg_cache() / local_name

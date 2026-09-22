@@ -34,6 +34,7 @@ from pathlib import Path
 
 # Reuse pkm's hash function to guarantee tracker/verifier parity
 # (GP review nit, RFC ratification 2026-05-01).
+from pkm.archive_names import archive_filename
 from pkm.database import _sha256, PackageDB, _parse_manifest_line
 
 from . import hookseal
@@ -422,7 +423,7 @@ class PackageTracker:
     def pkg_archive(self, pkg: Package, staging_dir: Path) -> bool:
         """Create a .igos.tar.gz archive from staged files.
 
-        Creates: /var/lib/igos/archives/<name>-<version>.igos.tar.gz
+        Creates: /var/lib/igos/archives/<name>-<version>-<release>.igos.tar.gz
         """
         # Runtime-dir gate (2026-07-17): an archive must never carry var/run
         # or var/lock members (on installed systems both are symlinks into
@@ -444,7 +445,8 @@ class PackageTracker:
                     f"{bad} — refusing to archive ({hint})"
                 )
                 return False
-        archive_path = self.pkg_archives / f"{pkg.name}-{pkg.version}.igos.tar.gz"
+        archive_path = self.pkg_archives / archive_filename(
+            pkg.name, pkg.version, pkg.release)
 
         try:
             from . import _trace
@@ -624,7 +626,8 @@ class PackageTracker:
             )
             return False
 
-        archive_path = self.pkg_archives / f"{pkg.name}-{pkg.version}.igos.tar.gz"
+        archive_path = self.pkg_archives / archive_filename(
+            pkg.name, pkg.version, pkg.release)
 
         # B4: validate staging paths before archiving for deploy to /.
         if not self._validate_staging_paths(pkg, staging_dir):
@@ -1413,7 +1416,8 @@ class PackageTracker:
 
     def pkg_archive_from_files(self, pkg: Package, new_files: list[str]) -> bool:
         """Create .igos.tar.gz archive from a list of files on the live filesystem."""
-        archive_path = self.pkg_archives / f"{pkg.name}-{pkg.version}.igos.tar.gz"
+        archive_path = self.pkg_archives / archive_filename(
+            pkg.name, pkg.version, pkg.release)
 
         import tempfile, shutil
         with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:

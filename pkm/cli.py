@@ -23,6 +23,7 @@ from . import preflight as preflight_module
 from . import progress
 from . import rootpaths
 from . import txn
+from .archive_names import candidate_filenames
 from .configprotect import summary_lines as configprotect_summary_lines
 from .database import PackageDB, _sha256
 from .installer import (
@@ -4978,10 +4979,8 @@ def _cached_old_archive(name, version, release):
     """
     REPO_PKG_CACHE = repo_pkg_cache()
 
-    for archive_name in (
-        f"{name}-{version}-{int(release or 1)}.igos.tar.gz",
-        f"{name}-{version}.igos.tar.gz",
-    ):
+    for archive_name in candidate_filenames(
+            name, version, int(release or 1)):
         src = REPO_PKG_CACHE / archive_name
         if src.exists() and _archive_is(src, name, version, release):
             return src
