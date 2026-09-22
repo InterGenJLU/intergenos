@@ -34,6 +34,35 @@ from intergen.review_modal import _session_active
 
 logger = logging.getLogger(__name__)
 
+# WHAT THE CONSENT STEP ESTABLISHED, for a caller that passes ``outcome=[]``.
+# A send that did not happen has two different causes, and the reply must say
+# which: the person saw the content and did not send it, or the content could
+# not be shown to them at all (no unlocked desktop session, or no dialog could
+# open) and so nobody was asked. Until 2026-09-22 both came back as the same
+# False and both callers told the person "Cancelled", which records a refusal
+# the product made on its own behalf as the person's decision.
+SEND = "send"
+DECLINED = "declined"
+NOT_SHOWN = "not-shown"
+
+DECLINED_SENTENCE = "Cancelled — nothing was sent to the frontier model."
+NOT_SHOWN_SENTENCE = (
+    "Not sent — there was no way to show you the content for review first "
+    "(no unlocked desktop session, or no dialog could open), so nothing was "
+    "sent to the frontier model.")
+
+
+def refusal_sentence(outcome: list) -> str:
+    """The reply for a send the consent step did not allow.
+
+    ``outcome`` is the list passed to :func:`prompt_send_consent`. Only a
+    recorded NOT_SHOWN says the person was never asked; anything else — the
+    person's own Cancel, or a stand-in for the consent step that records
+    nothing — keeps the sentence this reply has always had.
+    """
+    return NOT_SHOWN_SENTENCE if NOT_SHOWN in outcome else DECLINED_SENTENCE
+
+
 def _format_body(content: str, provider: str, reason: str) -> str:
     """Render the consent dialog body: destination + reason + the VERBATIM payload.
 
@@ -87,8 +116,12 @@ def _prompt_consent_zenity(content: str, provider: str, reason: str) -> bool | N
             input=body, capture_output=True, text=True,
         )
     except OSError as e:
-        logger.error("zenity invocation failed: %s — consent denied (no send)", e)
-        return False
+        # zenity could not be started, so nothing was shown and nobody was
+        # asked: that is the fallback's case (a notification, no send), not a
+        # Cancel. Returning False here told the person they had cancelled.
+        logger.error("zenity invocation failed: %s — no dialog could open; "
+                     "routing to the fallback (no send)", e)
+        return None
     return result.returncode == 0
 
 
@@ -121,14 +154,36 @@ def _prompt_consent_libnotify(provider: str) -> bool:
     return False
 
 
-def prompt_send_consent(content: str, provider: str, reason: str = "") -> bool:
+def prompt_send_consent(content: str, provider: str, reason: str = "", *,
+                        outcome: list | None = None) -> bool:
     """Show-before-send consent gate. Return True only on an explicit human Send.
 
     Routes to the branded GTK send-confirm dialog when the desktop session is
     active (zenity as fallback), else the fail-closed libnotify path. Fail-closed
     everywhere: the only path to True is the user clicking Send on a dialog that
     showed them the full outbound content.
+
+    ``outcome``, when a list is passed, receives exactly one of SEND, DECLINED
+    or NOT_SHOWN, so a caller can tell the person WHY nothing was sent. It is a
+    list the caller owns rather than a new return type so that every existing
+    caller, and every stand-in that replaces this function with a plain True or
+    False, keeps working unchanged. NOT_SHOWN is recorded when no dialog showed
+    the content: no unlocked desktop session, or neither dialog could open. The
+    unattended evaluation responder's refusal is recorded as DECLINED — it
+    stands in for the person, by design. Two limits: the branded dialog reports
+    an over-size payload, a crash and its deadline as the same False as a
+    Cancel, and zenity reports a failure to reach the display as the same exit
+    status as a Cancel; both are recorded as DECLINED because this function
+    cannot tell them apart.
     """
+    allowed = _ask(content, provider, reason)
+    if outcome is not None:
+        outcome.append(allowed)
+    return allowed == SEND
+
+
+def _ask(content: str, provider: str, reason: str) -> str:
+    """The consent decision as SEND, DECLINED or NOT_SHOWN."""
     # Eval-mode deny-and-record. UNARMED in production, where this guard is False
     # and the function continues into the identical code path below — so shipped
     # consent behavior is unchanged. When an unattended baseline run has armed the
@@ -136,7 +191,7 @@ def prompt_send_consent(content: str, provider: str, reason: str = "") -> bool:
     # a dialog no one is present to answer. The responder can only ever return
     # False here, so this branch cannot authorize an egress.
     if eval_consent.is_armed():
-        return eval_consent.send_verdict(content, provider, reason)
+        return SEND if eval_consent.send_verdict(content, provider, reason) else DECLINED
     if _session_active():
         # Log the path BEFORE the blocking modal (same SSH-observable proof signal
         # as review_modal — invariant #7): the dialog blocks on a click, so an
@@ -146,15 +201,18 @@ def prompt_send_consent(content: str, provider: str, reason: str = "") -> bool:
             "dialog (zenity fallback ready)")
         gtk_result = consent_dialog.run_consent_dialog(content, provider, reason)
         if gtk_result is not None:
-            return gtk_result
+            return SEND if gtk_result else DECLINED
         logger.warning(
             "consent: branded GTK send-confirm did not render — falling back to "
             "the zenity show-before-send modal")
         result = _prompt_consent_zenity(content, provider, reason)
         if result is not None:
-            return result
+            return SEND if result else DECLINED
     else:
         logger.warning(
             "consent: NO active session — phone-a-friend send blocked "
             "(show-before-send cannot be honored headless; nothing sent)")
-    return _prompt_consent_libnotify(provider)
+    # Nothing showed the content, so nobody was asked. The fallback only
+    # notifies and always denies.
+    _prompt_consent_libnotify(provider)
+    return NOT_SHOWN

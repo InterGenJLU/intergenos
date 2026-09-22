@@ -706,7 +706,7 @@ class InterGenDaemon(InterGenDBusInterface):
         raised inside it) is a not-sent reply too, read from the type the manager
         returns — never inferred from the absence of an exception.
         """
-        from intergen.consent_modal import prompt_send_consent
+        from intergen.consent_modal import prompt_send_consent, refusal_sentence
         from intergen.interfaces.types import (
             EscalationNotSent, Message, MessageRole)
 
@@ -724,10 +724,14 @@ class InterGenDaemon(InterGenDBusInterface):
                 "source": "escalation", "sent": False,
             })
         # Show-before-send: the human must SEE the outbound content and click Send.
+        # The reply says which of the two refusals it was: the person's Cancel,
+        # or no way to show the content at all, in which case nobody was asked.
+        consent: list = []
         if not prompt_send_consent(message, provider,
-                                   reason="you asked to reach your frontier model"):
+                                   reason="you asked to reach your frontier model",
+                                   outcome=consent):
             return json.dumps({
-                "response": "Cancelled — nothing was sent to the frontier model.",
+                "response": refusal_sentence(consent),
                 "source": "escalation", "sent": False,
             })
         try:

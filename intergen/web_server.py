@@ -1460,12 +1460,16 @@ class WebServer:
         provider = manager._primary_provider_name()
 
         def _run():
-            from intergen.consent_modal import prompt_send_consent
+            from intergen.consent_modal import prompt_send_consent, refusal_sentence
             from intergen.interfaces.types import (
                 EscalationNotSent, Message, MessageRole)
+            # The page is told which refusal it was: the person's Cancel, or no
+            # way to show the content at all, in which case nobody was asked.
+            consent: list = []
             if not prompt_send_consent(content, provider,
-                                       reason="you asked to reach your frontier model"):
-                return (False, "Cancelled — nothing was sent to the frontier model.")
+                                       reason="you asked to reach your frontier model",
+                                       outcome=consent):
+                return (False, refusal_sentence(consent))
             resp = manager.escalate(
                 [Message(role=MessageRole.USER, content=content)],
                 reason="user-invoked phone-a-friend (web)", user_consented=True,
