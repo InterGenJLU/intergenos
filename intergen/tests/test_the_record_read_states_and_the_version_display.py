@@ -39,6 +39,14 @@ a command asserts a condition it has not checked.
    reported as establishing neither. The frontier question command had the
    same branch and said the assistant was running whenever the name had an
    owner; it reads the service state the same way.
+
+   And a call the assistant ANSWERED, with the error it returns on purpose —
+   a question over the size limit, or an internal error it has logged — came
+   back to both commands looking like a call that never finished, so each said
+   the call did not complete in time, and the question command added that the
+   assistant might still be loading and to try again in a moment. For a
+   question over the size limit that advice can never succeed. The commands
+   now report the assistant's own sentence instead.
 """
 
 from __future__ import annotations
@@ -52,7 +60,12 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from intergen import cli, package_record
+import gi
+
+gi.require_version("Gio", "2.0")
+from gi.repository import Gio, GLib  # noqa: E402
+
+from intergen import cli, package_record  # noqa: E402
 
 
 def _write_record(path: Path, version: str = "0.1.0", release: int = 296) -> None:
@@ -297,6 +310,93 @@ class TheFrontierCommandReadsTheServiceStateToo(unittest.TestCase):
                               "the state that was read must be shown")
                 self.assertNotIn("not running", said)
                 self.assertNotIn("InterGen is running", said)
+
+
+def _answered_with(error, service_state: str = "active"):
+    """Run both commands where the bus name has an owner and the call comes
+    back with ``error`` instead of a value. The service manager says
+    ``service_state``, so a command that ignores the error and reads the state
+    instead is caught saying the wrong thing. Returns, per command, the exit
+    code and everything the command printed."""
+    def call(method, *args, **options):
+        failure = options.get("failure")
+        if failure is not None:
+            failure.append(error)
+        return None
+
+    probe = mock.Mock()
+    probe.stdout = service_state + "\n"
+    probe.stderr = ""
+    said = {}
+    for name, command in (("ask", cli.cmd_ask),
+                          ("ask-frontier", cli.cmd_ask_frontier)):
+        out, err = io.StringIO(), io.StringIO()
+        code = None
+        with mock.patch.object(cli, "daemon_has_owner", return_value=True), \
+                mock.patch.object(cli, "try_dbus", side_effect=call), \
+                mock.patch.object(cli.subprocess, "run", return_value=probe), \
+                mock.patch.object(cli, "_AskFillers", _NoFillers, create=True):
+            with redirect_stdout(out), redirect_stderr(err):
+                try:
+                    command("is my disk encrypted?")
+                except SystemExit as exc:
+                    code = exc.code
+        said[name] = (code, out.getvalue() + err.getvalue())
+    return said
+
+
+class TheAssistantsOwnRefusalIsReportedAsARefusal(unittest.TestCase):
+    """A call the assistant answered with its own error is not a call that
+    never came back."""
+
+    def test_a_question_over_the_size_limit_is_reported_in_its_own_words(self) -> None:
+        refusal = Gio.DBusError.new_for_dbus_error(
+            "com.intergenos.InterGen.Error",
+            "Message too large (max 4096 bytes).")
+        for name, (code, said) in _answered_with(refusal).items():
+            with self.subTest(name):
+                self.assertEqual(code, 2)
+                self.assertIn("Message too large (max 4096 bytes).", said,
+                              "the assistant's own sentence must be shown")
+                self.assertNotIn("GDBus.Error", said,
+                                 "the bus library's prefix is not the sentence")
+                self.assertNotIn("did not complete", said,
+                                 "the call completed: it was answered")
+                self.assertNotIn("try again in a moment", said,
+                                 "waiting never makes an over-long question fit")
+
+    def test_an_internal_error_is_reported_in_its_own_words(self) -> None:
+        refusal = Gio.DBusError.new_for_dbus_error(
+            "com.intergenos.InterGen.Error",
+            "Internal error — check daemon logs for details.")
+        for name, (code, said) in _answered_with(refusal).items():
+            with self.subTest(name):
+                self.assertEqual(code, 2)
+                self.assertIn("Internal error", said)
+                self.assertNotIn("loading", said)
+
+    def test_an_error_from_anything_else_is_left_to_the_service_state(self) -> None:
+        # A name owned by something that is not the assistant answers with the
+        # bus's own error; that is the stale-owner case, read from the state.
+        foreign = Gio.DBusError.new_for_dbus_error(
+            "org.freedesktop.DBus.Error.UnknownMethod", "No such interface")
+        for name, (code, said) in _answered_with(foreign, "inactive").items():
+            with self.subTest(name):
+                self.assertEqual(code, 2)
+                self.assertIn("is inactive", said)
+                self.assertIn("not running", said)
+                self.assertNotIn("No such interface", said)
+
+    def test_a_call_that_timed_out_is_left_to_the_service_state(self) -> None:
+        timed_out = GLib.Error.new_literal(
+            Gio.io_error_quark(), "Timeout was reached",
+            int(Gio.IOErrorEnum.TIMED_OUT))
+        code, said = _answered_with(timed_out, "active")["ask"]
+        self.assertEqual(code, 2)
+        self.assertIn("is active", said)
+        self.assertIn("loading", said,
+                      "a call that really did not finish, with the service "
+                      "running, may still be loading")
 
 
 class _NoFillers:

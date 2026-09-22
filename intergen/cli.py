@@ -170,12 +170,18 @@ def daemon_has_owner() -> bool:
         return False
 
 
-def try_dbus(method: str, *args: str, timeout_ms: int = 5000) -> str | None:
+def try_dbus(method: str, *args: str, timeout_ms: int = 5000,
+             failure: list | None = None) -> str | None:
     """Try to call a method on the InterGen D-Bus service.
 
     timeout_ms defaults to 5s for the cheap informational methods; callers that
     drive the LLM (Ask/Escalate) pass ASK_TIMEOUT_MS so a slow-but-healthy
-    daemon is not mistaken for a dead one."""
+    daemon is not mistaken for a dead one.
+
+    Returns None whenever no value came back. A caller that must say WHY passes
+    a list as ``failure`` and finds the exception that stopped the call in it:
+    a call the assistant answered with its own error is not a call that never
+    came back, and the two question commands report them differently."""
     try:
         import gi
         gi.require_version("Gio", "2.0")
@@ -193,8 +199,48 @@ def try_dbus(method: str, *args: str, timeout_ms: int = 5000) -> str | None:
             timeout_ms,
         )
         return result.unpack()[0]
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 — every failure is "no value"
+        if failure is not None:
+            failure.append(exc)
         return None
+
+
+# The error name the assistant's own bus methods return on purpose: a question
+# over the size limit, or an internal error it has already logged.
+_ASSISTANT_ERROR_NAME = "com.intergenos.InterGen.Error"
+
+
+def _the_assistants_own_error(failure: list) -> str | None:
+    """The assistant's own sentence when a call was answered with the error it
+    returns on purpose, or None when the call failed any other way.
+
+    Such an answer is not a call that did not complete: the assistant is
+    running and has said why it will not answer. Until 2026-09-22 both question
+    commands reported it as a call that did not complete in time, and the
+    question command added that the assistant might still be loading and to try
+    again in a moment; for a question over the size limit that advice can
+    never succeed. Any other failure — a timeout, an owner that is not the
+    assistant, a dropped connection — is left to the service-state reading.
+    """
+    try:
+        import gi
+        gi.require_version("Gio", "2.0")
+        from gi.repository import Gio, GLib
+    except Exception:  # noqa: BLE001 — no bus library, so no bus error to read
+        return None
+    for exc in failure:
+        if not isinstance(exc, GLib.Error):
+            continue
+        if not Gio.DBusError.is_remote_error(exc):
+            continue
+        if Gio.DBusError.get_remote_error(exc) != _ASSISTANT_ERROR_NAME:
+            continue
+        # The bus library prefixes the name to the text; the binding does not
+        # hand back the stripped copy, so the prefix is removed here.
+        text = exc.message or ""
+        prefix = f"GDBus.Error:{_ASSISTANT_ERROR_NAME}: "
+        return text[len(prefix):] if text.startswith(prefix) else text
+    return None
 
 
 def _last_answer_path() -> Path:
@@ -368,9 +414,14 @@ def _report_service_state_instead_of_starting_one() -> None:
           file=sys.stderr)
 
 
-def _report_a_call_that_did_not_complete(what: str, when_running: str) -> None:
+def _report_a_call_that_did_not_complete(what: str, when_running: str,
+                                         failure: list | None = None) -> None:
     """Say what is known when the assistant's bus name has an owner and a call
     to it returned nothing, for both question commands.
+
+    When the assistant answered the call with its own error, that answer is
+    what is reported, in its own words (see _the_assistants_own_error); the
+    service-state reading below is for every other way a call returns nothing.
 
     Whether the managed service is running is read from the service manager,
     never assumed from the name having an owner. Until 2026-09-22 the question
@@ -387,6 +438,13 @@ def _report_a_call_that_did_not_complete(what: str, when_running: str) -> None:
     exactly that rather than as either reading.
     """
     sys.stdout.flush()   # see _deliver_answer: keep the two streams in order
+    refused = _the_assistants_own_error(failure or [])
+    if refused is not None:
+        print(f"InterGen answered {what} with an error instead of a reply: "
+              f"{refused}", file=sys.stderr)
+        print("Check the daemon logs for details:", file=sys.stderr)
+        print("  journalctl --user -u intergen -n 50", file=sys.stderr)
+        return
     state = _user_service_state()
     if state == "active":
         print(when_running, file=sys.stderr)
@@ -425,7 +483,9 @@ def cmd_ask(message: str, direct: bool = False) -> None:
     """
     if daemon_has_owner():
         with _AskFillers():
-            response = try_dbus("Ask", message, timeout_ms=ASK_TIMEOUT_MS)
+            failure: list = []
+            response = try_dbus("Ask", message, timeout_ms=ASK_TIMEOUT_MS,
+                                failure=failure)
         if response is not None:
             data = json.loads(response)
             if not _deliver_answer(data):
@@ -437,7 +497,8 @@ def cmd_ask(message: str, direct: bool = False) -> None:
         _report_a_call_that_did_not_complete(
             "the request",
             "InterGen is running but the request did not complete in time (it "
-            "may still be loading the model — try again in a moment).")
+            "may still be loading the model — try again in a moment).",
+            failure)
         sys.exit(2)
 
     # No daemon owns the bus name → genuinely down. This command does NOT start
@@ -530,7 +591,9 @@ def cmd_ask_frontier(message: str, direct: bool = False) -> None:
     """
     print("Requesting your frontier model — approve the send in the consent dialog…")
     if daemon_has_owner():
-        response = try_dbus("Escalate", message, timeout_ms=ASK_TIMEOUT_MS)
+        failure: list = []
+        response = try_dbus("Escalate", message, timeout_ms=ASK_TIMEOUT_MS,
+                            failure=failure)
         if response is not None:
             data = json.loads(response)
             # The same delivery path as the assistant's own question command,
@@ -549,7 +612,7 @@ def cmd_ask_frontier(message: str, direct: bool = False) -> None:
         _report_a_call_that_did_not_complete(
             "the Escalate call",
             "InterGen is running but the Escalate call did not complete in "
-            "time.")
+            "time.", failure)
         sys.exit(2)
 
     # Same rule as `ask`: this command starts no daemon of its own.
