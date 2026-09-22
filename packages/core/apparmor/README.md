@@ -23,12 +23,18 @@ mandatory access control (MAC) framework.
      aa-teardown(8), apparmor_xattrs(7)
 
 3. **profiles/** — Makefile-driven, installs the upstream profile substrate
-   to `/etc/apparmor.d/` (top-level profiles, `abi/`, `abstractions/`,
-   `tunables/`) plus extra-profiles to `/usr/share/apparmor/extra-profiles/`.
+   to `/etc/apparmor.d/` (`abi/`, `abstractions/`, `tunables/`, `local/`)
+   plus upstream's extra-profiles to `/usr/share/apparmor/extra-profiles/`.
 
 4. **apparmor-profiles-extra_1.35** — Debian-derived extras (irssi,
    pidgin, totem, etc.) extracted from the secondary tarball declared in
    `package.yml`. Added with a "never overwrite upstream" merge policy.
+
+4b. **Top-level profiles are staged, not loaded.** Every top-level profile
+   from steps 3 and 4 is moved to `/usr/share/apparmor/extra-profiles/`,
+   except `lsb_release` and `nvidia_modprobe`: those two attach to no program
+   and exist to be switched to by other profiles, so they stay loaded. See
+   "Where a profile lives" below.
 
 5. **InterGenOS-specific profiles** (in `profiles/` alongside this README):
    - `usr.bin.pkm` — InterGenOS package manager
@@ -58,8 +64,11 @@ mandatory access control (MAC) framework.
 ## Posture: complain-by-default
 
 In keeping with InterGenOS's goal of giving you a system you understand,
-can modify, and can trust, InterGenOS ships all AppArmor profiles in
-**complain mode (learning mode)** by default.
+can modify, and can trust, the InterGenOS-authored profile (`usr.bin.pkm`)
+ships in **complain mode (learning mode)** by default. Upstream profiles keep
+upstream's mode: the thirteen that owning packages link into `/etc/apparmor.d`
+(see "Where a profile lives") carry no complain flag and load in **enforce**
+mode, as they did before they moved.
 
 This posture provides a graceful rollout: it logs policy violations to the
 journal (`/var/log/audit/audit.log` or `dmesg`) without blocking execution,
@@ -68,6 +77,39 @@ without breaking user systems.
 
 As confidence builds, profiles graduate to `enforce` mode per-profile in
 future releases.
+
+## Where a profile lives
+
+The apparmor unit loads every file in `/etc/apparmor.d` at every boot. A
+profile whose program is not on the machine is still parsed, loaded and counted
+in every summary of the policy, and confines nothing. On an ordinary install
+measured on 2026-09-22, 39 of the 55 top-level profiles this package then
+shipped named a program that machine did not have.
+
+Only the package that installs a program knows whether that program is on the
+machine, so a profile is placed in `/etc/apparmor.d` by the package that owns
+its program: it installs a symlink at `/etc/apparmor.d/<name>` pointing at the
+copy staged in `/usr/share/apparmor/extra-profiles/<name>`, and it declares
+this package as a runtime dependency so the link cannot dangle. The staged
+copy is upstream's own file, so a new upstream release updates the profile
+under every link at once. Packages that link a profile this way:
+
+| package | profiles |
+|---|---|
+| inetutils | `bin.ping` |
+| samba | `samba-bgqd`, `samba-dcerpcd`, `samba-rpcd`, `samba-rpcd-classic`, `samba-rpcd-spoolss`, `usr.sbin.nmbd`, `usr.sbin.smbd`, `usr.sbin.winbindd` |
+| avahi | `usr.sbin.avahi-daemon` |
+| dnsmasq | `usr.sbin.dnsmasq` |
+| traceroute | `usr.sbin.traceroute` |
+| gzip | `zgrep` |
+
+To confine a program you installed yourself with one of the staged profiles,
+link it the same way and load it:
+
+```bash
+sudo ln -s /usr/share/apparmor/extra-profiles/<name> /etc/apparmor.d/
+sudo apparmor_parser -r /etc/apparmor.d/<name>
+```
 
 ## Disabling profiles (user control)
 

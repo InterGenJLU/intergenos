@@ -14,7 +14,8 @@
 #   2. parser/ — Makefile-driven, produces apparmor_parser binary plus
 #      parser.conf, profile-load helper, rc.apparmor.functions, systemd unit.
 #   3. profiles/ — Makefile-driven, installs upstream profile substrate to
-#      /etc/apparmor.d/ (abi/, abstractions/, tunables/ + top-level profiles).
+#      /etc/apparmor.d/ (abi/, abstractions/, tunables/ + top-level profiles;
+#      the top-level profiles are then staged by stage_top_level_profiles).
 #   4. binutils/ — Makefile-driven, the userspace tools that READ the policy:
 #      aa-status (with its apparmor_status compatibility name), aa-enabled,
 #      aa-exec and aa-features-abi. Until 2026-09-22 only the parser was
@@ -45,6 +46,54 @@
 #      2026-05-15 — wiring tracked separately. See do_install() step 6.
 
 PKG_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+
+# Top-level profiles that stay in /etc/apparmor.d although this package installs
+# no program they attach to. Neither attaches to a program at all: each is a
+# named profile that another profile switches to when it runs a helper
+# (abstractions/opencl-nvidia runs nvidia-modprobe "Px -> nvidia_modprobe", and
+# lsb_release exists to be reached as "Px -> lsb_release"). A switch to a
+# profile that is not loaded is denied, so moving either would break every
+# profile that uses it.
+APPARMOR_NAMED_TARGETS="lsb_release nvidia_modprobe"
+
+# Move every top-level profile under <destdir>/etc/apparmor.d into
+# <destdir>/usr/share/apparmor/extra-profiles, except the named targets above.
+#
+# Why: the apparmor unit loads EVERY file in /etc/apparmor.d at every boot, so
+# a profile whose program is not on the machine is still parsed, loaded and
+# counted in every summary while confining nothing. Measured on an ordinary
+# install on 2026-09-22: of 55 top-level profiles this package shipped, 39
+# named a program the machine does not have. Whether a program is on a machine
+# is known only by the package that installs it, so a profile's place in
+# /etc/apparmor.d is decided there: the owning package installs a symlink at
+# /etc/apparmor.d/<name> pointing at the staged copy, and declares this package
+# as a runtime dependency so the link cannot dangle. Upstream already uses
+# /usr/share/apparmor/extra-profiles for exactly this class, and nothing loads
+# from it.
+#
+# Refuses, rather than overwrites, when a staged file of the same name already
+# exists, and never moves a symlink or a directory.
+stage_top_level_profiles() {
+    local destdir="$1"
+    local loaded="${destdir}/etc/apparmor.d"
+    local staged="${destdir}/usr/share/apparmor/extra-profiles"
+    local f name moved=0 kept=0
+    install -dm 755 "${staged}"
+    for f in "${loaded}"/*; do
+        [ -f "$f" ] && [ ! -L "$f" ] || continue
+        name="$(basename "$f")"
+        case " ${APPARMOR_NAMED_TARGETS} " in
+            *" ${name} "*) kept=$((kept + 1)); continue ;;
+        esac
+        if [ -e "${staged}/${name}" ] || [ -L "${staged}/${name}" ]; then
+            echo "stage_top_level_profiles: ${staged}/${name} already exists; refusing to overwrite it" >&2
+            return 1
+        fi
+        mv "$f" "${staged}/${name}"
+        moved=$((moved + 1))
+    done
+    echo "stage_top_level_profiles: ${moved} staged in /usr/share/apparmor/extra-profiles, ${kept} named targets kept in /etc/apparmor.d"
+}
 
 configure() {
     set -e
@@ -128,7 +177,8 @@ do_install() {
 
     # 3. profiles — installs upstream substrate to /etc/apparmor.d/ + abi/,
     #    abstractions/, tunables/, plus extra-profiles to
-    #    /usr/share/apparmor/extra-profiles/. The 'local' target generates
+    #    /usr/share/apparmor/extra-profiles/. The top-level profiles it puts
+    #    in /etc/apparmor.d/ are moved out again by step 4b. The 'local' target generates
     #    local/ override stubs from each top-level profile and runs as a
     #    dependency of 'install'.
     make -C profiles install DESTDIR="${DESTDIR}"
@@ -180,6 +230,9 @@ do_install() {
             done
         fi
     fi
+
+    # 4b. Every top-level profile above is staged, not loaded.
+    stage_top_level_profiles "${DESTDIR}"
 
     # 5. InterGenOS-specific custom profiles.
     #
