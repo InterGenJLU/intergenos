@@ -65,6 +65,23 @@ require_gate_can_run() {
     fi
 }
 
+# A range gate reads "$REMOTE..$LOCAL". With REMOTE empty that is "..<sha>",
+# which git reads as HEAD..<sha> -- an empty range whenever HEAD is the commit
+# being pushed -- so the gate prints PASS having read nothing. The baseline
+# block further down refuses before any gate runs when it has no baseline;
+# this guard makes the same refusal at each range gate, so no later path can
+# hand one an empty range. The gates after the stale-branch check skip on an
+# empty baseline instead; a skip here would be the same quiet pass again, so
+# this guard refuses. Decided 2026-09-22.
+require_range_baseline() {
+    local label="$1"
+    if [ -z "${REMOTE:-}" ]; then
+        echo "[pre-push] BLOCK: the $label could not run — this push has no baseline to measure its range from."
+        echo "  Reason: the range would be empty, and a check that read nothing has not passed."
+        exit 1
+    fi
+}
+
 # Read the two positional arguments git passes a pre-push hook:
 #   $1 = the remote NAME being pushed to (e.g. "origin")
 #   $2 = the remote URL being pushed to  (e.g. git@github.com:owner/repo.git)
@@ -366,8 +383,16 @@ if [ -z "$PUSH_REMOTE" ] || [ "$PUSH_REMOTE" = "$ZERO" ]; then
                 REMOTE="$_mb_local_master"
                 echo "[pre-push] $TARGET_REMOTE has no dev or master this checkout can read; the gates are measured from the local master branch instead."
             else
-                REMOTE=""
-                echo "[pre-push] $TARGET_REMOTE has no dev or master this checkout can read, and this checkout has neither either; the gates that need a baseline cannot be measured for this push."
+                # Nothing is left to measure from. This branch used to set an
+                # empty baseline, print the sentence below and carry on: the
+                # three range gates then ran over an empty range and printed
+                # PASS, the gates guarded on a baseline did not run at all, and
+                # the push ended "all gates PASS" with exit status 0 -- the
+                # hook contradicting its own sentence. A gate that cannot run
+                # refuses the push; decided 2026-09-22.
+                echo "[pre-push] BLOCK: $TARGET_REMOTE has no dev or master this checkout can read, and this checkout has neither either; the gates that need a baseline cannot be measured for this push."
+                echo "  Resolve: give this checkout a local dev or master branch that this push descends from -- for example, fetch dev from a remote that has it and run: git branch dev FETCH_HEAD -- then push again."
+                exit 1
             fi
         fi
     fi
@@ -417,6 +442,7 @@ fi
 # closed on; since 2026-09-17 a missing script or interpreter fails closed here
 # too, so the gate is never absent without saying so.
 require_gate_can_run scripts/check-public-language.py "public-language gate"
+require_range_baseline "public-language gate"
 if ! "$PY_BIN" scripts/check-public-language.py --range "$REMOTE..$LOCAL"; then
     echo "[pre-push] BLOCK: public-language gate failed (see above)"
     exit 1
@@ -433,6 +459,7 @@ fi
 # it is missing — an undefined exclusion set is never a silent wider scan).
 # A missing script or interpreter blocks the push, matching the gates above.
 require_gate_can_run scripts/check-register.py "writing-register gate"
+require_range_baseline "writing-register gate"
 if ! "$PY_BIN" scripts/check-register.py --range "$REMOTE..$LOCAL"; then
     echo "[pre-push] BLOCK: writing-register gate failed (see above)"
     exit 1
@@ -448,6 +475,7 @@ fi
 # surface is reachable before a push. A missing script or interpreter blocks
 # the push, matching the gates above.
 require_gate_can_run scripts/check-license-spelling.py "license-spelling gate"
+require_range_baseline "license-spelling gate"
 if ! "$PY_BIN" scripts/check-license-spelling.py --range "$REMOTE..$LOCAL"; then
     echo "[pre-push] BLOCK: license-spelling gate failed (see above)"
     exit 1

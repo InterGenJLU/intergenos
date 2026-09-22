@@ -49,7 +49,13 @@ about what the hook SAYS and what the remotes CONTAIN afterwards.
   by name (the release-note chain gate and the changelog accumulation gate)
   did not run and said nothing about not running.  The push printed
   "all gates PASS" having run fewer of them;
-* ``master`` and ``dev`` are not rewritable on a remote that is not ``origin``.
+* ``master`` and ``dev`` are not rewritable on a remote that is not ``origin``;
+* a push with no baseline anywhere -- the remote holds no dev or master this
+  checkout can read, and the checkout has neither -- is REFUSED with the
+  sentence that says the gates cannot be measured, and the three range gates
+  are never invoked (recorded, not inferred from silence);
+* a range gate that any path hands an empty baseline refuses the push rather
+  than passing over an empty range.
 
 HOW THE SANDBOX IS BUILT, AND WHY IT IS NOT A CLONE OF THIS REPOSITORY
 ----------------------------------------------------------------------
@@ -570,6 +576,175 @@ class TestProtectedBranchesAreProtectedOnEveryRemote(_TwoRemoteSandbox):
                             f"remote:\n{r.stdout}{r.stderr}")
         self.assertEqual(self._remote_head(self.second_bare, protected), before,
                          f"{protected} was overwritten on the second remote")
+
+
+class TestAPushWithNoBaselineIsRefused(_TwoRemoteSandbox):
+    """No baseline anywhere means the range gates cannot run, so the push is refused.
+
+    Measured 2026-09-21 by the second reader of the change that added the
+    local-baseline fallback, and confirmed at the landed tree 2026-09-22: when
+    the remote being pushed to holds no dev or master this checkout can read,
+    and the checkout itself has neither, the hook printed that the gates that
+    need a baseline cannot be measured for this push -- and then ran the three
+    range gates over an empty range, where each printed PASS, skipped the gates
+    guarded on a baseline without a word, and ended "all gates PASS" with exit
+    status 0. The hook contradicted its own sentence, and git published.
+
+    The range gates are observed through a stand-in ``python3`` placed first on
+    PATH for the push under test. It appends one line per range-gate invocation
+    -- one of the three scripts called with ``--range``; the ref-name check,
+    which calls the language script with ``--label``, is not a range gate and
+    is not recorded -- to a record file, and then runs the real interpreter on
+    the real gate, so nothing about the gates changes. "Never invoked" is read
+    from that record, and a control in this class proves the record does see an
+    invocation.
+    """
+
+    RANGE_GATES = ("scripts/check-public-language.py", "scripts/check-register.py",
+                   "scripts/check-license-spelling.py")
+    SENTENCE = ("has no dev or master this checkout can read, and this checkout "
+                "has neither either; the gates that need a baseline cannot be "
+                "measured for this push")
+
+    def _checkout_with_no_dev_or_master(self, name: str):
+        """A second checkout of the sandbox tree whose only branch is a feature
+        branch, with a remote that holds no branch at all."""
+        repo = self.tmp / name
+        bare = self.tmp / f"{name}.git"
+        for path in (repo, bare):
+            shutil.rmtree(path, ignore_errors=True)
+            self.addCleanup(shutil.rmtree, path, True)
+        shutil.copytree(self.work, repo, symlinks=True,
+                        ignore=shutil.ignore_patterns(".git"))
+        branch = f"feature/{name}"
+        self._git(repo, "init", "-q", "-b", branch, ".")
+        self._git(repo, "add", "-A")
+        self._git(repo, "commit", "-qn", "-m", "chore(test): a checkout with no dev and no master")
+        self._git(self.tmp, "init", "-q", "--bare", "-b", "master", str(bare))
+        self._git(repo, "remote", "add", "nobaseline", str(bare))
+        self._git(repo, "config", "core.hooksPath", ".githooks")
+        heads = self._git(repo, "for-each-ref", "--format=%(refname)", "refs/heads").stdout.split()
+        self.assertEqual(heads, [f"refs/heads/{branch}"],
+                         f"the checkout was meant to hold no dev and no master: {heads}")
+        return repo, bare, branch
+
+    def _recording_env(self, name: str):
+        """The sandbox environment plus a python3 stand-in that records range gates."""
+        shim_dir = self.tmp / f"{name}-shim"
+        record = self.tmp / f"{name}-range-gates.txt"
+        shim_dir.mkdir()
+        self.addCleanup(shutil.rmtree, shim_dir, True)
+        record.write_text("", encoding="utf-8")
+        self.addCleanup(record.unlink, missing_ok=True)
+        real = shutil.which("python3")
+        self.assertTrue(real, "no python3 on PATH to hand the gates to")
+        gates = "|".join(self.RANGE_GATES)
+        shim = shim_dir / "python3"
+        shim.write_text(
+            "#!/bin/sh\n"
+            f'case "$1" in {gates})\n'
+            f'    case " $* " in *" --range "*) printf \'%s\\n\' "$*" >> "{record}" ;; esac ;;\n'
+            "esac\n"
+            f'exec "{real}" "$@"\n',
+            encoding="utf-8",
+        )
+        shim.chmod(0o755)
+        env = self._sandbox_env({"PATH": f"{shim_dir}{os.pathsep}{os.environ.get('PATH', '')}"})
+        return env, record
+
+    def _push_from(self, repo: Path, remote: str, branch: str, env: dict):
+        return subprocess.run(["git", "push", remote, branch], cwd=str(repo),
+                              capture_output=True, text=True, env=env)
+
+    def test_a_push_with_no_baseline_anywhere_is_refused_with_the_sentence(self):
+        repo, bare, branch = self._checkout_with_no_dev_or_master("no-baseline-refused")
+        env, _ = self._recording_env("no-baseline-refused")
+
+        r = self._push_from(repo, "nobaseline", branch, env)
+        said = self._hook_said(r)
+        full = (r.stdout or "") + (r.stderr or "")
+        self.assertIn(self.SENTENCE, said,
+                      "the hook did not say the gates cannot be measured:\n"
+                      f"{said or '(the hook printed nothing)'}")
+        self.assertNotEqual(r.returncode, 0,
+                            "a push the hook says it cannot measure was allowed:\n" + full)
+        after = full.split(self.SENTENCE, 1)[1]
+        self.assertNotIn("PASS", after,
+                         "a gate printed PASS after the hook said the gates cannot be "
+                         f"measured:\n{after}")
+        self.assertEqual(self._remote_head(bare, branch), "",
+                         "the branch reached the remote although the push was refused")
+
+    def test_the_range_gates_are_never_invoked_without_a_baseline(self):
+        repo, _, branch = self._checkout_with_no_dev_or_master("no-baseline-no-gates")
+        env, record = self._recording_env("no-baseline-no-gates")
+
+        r = self._push_from(repo, "nobaseline", branch, env)
+        invoked = [line for line in record.read_text(encoding="utf-8").splitlines() if line]
+        self.assertEqual(
+            [], invoked,
+            "with no baseline the range gates were still invoked, each over an "
+            "empty range:\n" + "\n".join(invoked) + "\n\nhook output:\n"
+            + (r.stdout or "") + (r.stderr or ""))
+
+    def test_the_record_sees_the_range_gates_when_there_is_a_baseline(self):
+        """The control: the record is not blind. A local dev one commit behind
+        gives the push a baseline, and all three range gates are recorded, each
+        with a range that has a left side."""
+        repo, bare, branch = self._checkout_with_no_dev_or_master("baseline-control")
+        env, record = self._recording_env("baseline-control")
+        self._git(repo, "branch", "dev")
+        (repo / "marker.txt").write_text("one commit ahead of the local dev\n", encoding="utf-8")
+        self._git(repo, "add", "marker.txt")
+        self._git(repo, "commit", "-qn", "-m", "chore(test): one commit ahead of dev")
+        head = self._git(repo, "rev-parse", "HEAD").stdout.strip()
+
+        r = self._push_from(repo, "nobaseline", branch, env)
+        self.assertEqual(r.returncode, 0, (r.stdout or "") + (r.stderr or ""))
+        invoked = [line for line in record.read_text(encoding="utf-8").splitlines() if line]
+        for gate in self.RANGE_GATES:
+            calls = [line for line in invoked if line.startswith(gate + " ")]
+            self.assertEqual(len(calls), 1, f"{gate} was not recorded exactly once: {invoked}")
+            rng = calls[0].split("--range ", 1)[1]
+            self.assertFalse(rng.startswith(".."), f"{gate} ran with no left side: {rng}")
+            self.assertTrue(rng.endswith(".." + head), f"{gate} ran over {rng}")
+        self.assertEqual(self._remote_head(bare, branch), head)
+
+    def test_a_range_gate_handed_an_empty_baseline_refuses_instead_of_passing(self):
+        """The guard at the range gates, fired: a baseline emptied just before them.
+
+        Once the no-baseline branch refuses, no path in the hook reaches the
+        range gates with an empty baseline; the guard is there so that no later
+        path can. This stands in for such a path: the checkout's copy of the
+        hook gets one line inserted -- REMOTE="" directly before the
+        public-language gate -- and a push that does have a baseline is made
+        through it. The guard must refuse at the first range gate, and none of
+        the three may be invoked. Without the guard the three gates run over the
+        empty range, each prints PASS, and the push is published.
+        """
+        repo, bare, branch = self._checkout_with_no_dev_or_master("emptied-before-the-gates")
+        env, record = self._recording_env("emptied-before-the-gates")
+        self._git(repo, "branch", "dev")
+        (repo / "marker.txt").write_text("one commit ahead of the local dev\n", encoding="utf-8")
+        self._git(repo, "add", "marker.txt")
+        self._git(repo, "commit", "-qn", "-m", "chore(test): one commit ahead of dev")
+        hook = repo / ".githooks" / "pre-push"
+        anchor = 'require_gate_can_run scripts/check-public-language.py "public-language gate"\n'
+        text = hook.read_text(encoding="utf-8")
+        self.assertEqual(text.count(anchor), 1,
+                         "the public-language gate's line is not where this test expects it")
+        hook.write_text(text.replace(anchor, 'REMOTE=""\n' + anchor), encoding="utf-8")
+
+        r = self._push_from(repo, "nobaseline", branch, env)
+        full = (r.stdout or "") + (r.stderr or "")
+        invoked = [line for line in record.read_text(encoding="utf-8").splitlines() if line]
+        self.assertNotEqual(r.returncode, 0,
+                            "a push whose range gates had no baseline was allowed:\n" + full)
+        self.assertEqual([], invoked,
+                         "the range gates ran with no baseline:\n" + "\n".join(invoked))
+        self.assertIn("the public-language gate could not run", self._hook_said(r), full)
+        self.assertEqual(self._remote_head(bare, branch), "",
+                         "the branch reached the remote although the push was refused")
 
 
 if __name__ == "__main__":
