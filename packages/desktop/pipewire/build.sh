@@ -90,16 +90,17 @@ stanza_already_zeroed() {
     ' "$1"
 }
 
-# Write a file without ever following a symbolic link standing at its name.
+# Stage a file for publication without ever following a symbolic link
+# standing at its name. Nothing is published here: the content, read from
+# standard input, is written to a staged copy, and the path of that copy is
+# printed on standard output for publish_staged_file below.
 #
-# Content is read from standard input. The temporary is created by mktemp in
-# the directory the file is published into: mktemp creates it exclusively and
-# fails if it cannot, so the name it returns is a regular file this step has
-# just made and can never be an existing link pointing outside the staging
-# root, and the rename that publishes it is on one filesystem. rename(2)
-# replaces a link standing at the destination rather than writing through it;
-# the destination is checked as well, so a link there is refused in words
-# instead of being quietly replaced.
+# The staged copy is created by mktemp in the directory the file is published
+# into: mktemp creates it exclusively and fails if it cannot, so the name it
+# returns is a regular file this step has just made and can never be an
+# existing link pointing outside the staging root, and the rename that
+# publishes it is on one filesystem. The destination is checked as well, so a
+# link there is refused in words instead of being quietly replaced.
 #
 # Written after the independent read of the first form of this change measured
 # what the previous shape did: a link left at the fixed temporary name
@@ -109,10 +110,14 @@ stanza_already_zeroed() {
 # written by direct redirection and had the same hole, and the chmod that
 # followed each of them crossed it too.
 #
-# $1 is the path to write, $2 the mode it must end up with.
-write_file_without_following_a_link() {
+# Staging and publishing are two steps so that a caller publishing more than
+# one file can stage every one of them before it publishes any.
+#
+# $1 is the path the file will be published at, $2 the mode it must end up
+# with.
+stage_file_without_following_a_link() {
     local dest="$1" mode="$2" dir tmp
-    dir=$(dirname "$dest")
+    dir=$(dirname "$dest") || return 1
     if [ ! -d "$dir" ]; then
         echo "pipewire: directory not found for $dest" >&2
         return 1
@@ -121,7 +126,9 @@ write_file_without_following_a_link() {
         echo "pipewire: destination is a symbolic link and is not written: $dest" >&2
         return 1
     fi
-    tmp=$(mktemp "${dir}/.pipewire-staging.XXXXXX") || return 1
+    if ! tmp=$(mktemp "${dir}/.pipewire-staging.XXXXXX") || [ -z "$tmp" ]; then
+        return 1
+    fi
     if ! cat > "$tmp"; then
         rm -f "$tmp"
         echo "pipewire: the staged copy of $dest could not be written" >&2
@@ -131,6 +138,21 @@ write_file_without_following_a_link() {
         rm -f "$tmp"
         return 1
     fi
+    if ! printf '%s\n' "$tmp"; then
+        rm -f "$tmp"
+        return 1
+    fi
+}
+
+# Publish a copy staged by stage_file_without_following_a_link at its name.
+# rename(2) replaces a link standing at the destination rather than writing
+# through it; a link that has appeared there since the copy was staged is
+# refused in words, like one that was there before. The staged copy does not
+# outlive a failure.
+#
+# $1 is the staged copy, $2 the path to publish it at.
+publish_staged_file() {
+    local tmp="$1" dest="$2"
     if [ -L "$dest" ]; then
         rm -f "$tmp"
         echo "pipewire: destination is a symbolic link and is not written: $dest" >&2
@@ -283,18 +305,54 @@ install_boost_zeroing_helper() {
     # alsactl daemon behind alsa-state.service, which runs only when
     # /etc/alsa/state-daemon.conf exists. This system ships no such file and
     # alsa-restore.service's own ConditionPathExists refuses when it does.
-    install -dm755 "${DESTDIR}/usr/libexec"
-    # The helper is generated IN FULL and checked BEFORE anything is
-    # published. It used to be produced by a brace group piped straight into
-    # the writer: a pipeline's status is its last command's, and a group's is
-    # its last command's, so a failure of the command that lists the elements
-    # was discarded and a helper with an EMPTY element list was published,
-    # which runs, zeroes nothing and reports success. Measured by the
-    # independent read of the previous form: with a failing sort the step
-    # returned 0 and published exactly that. Now a failure anywhere in the
-    # generation, or an element list that came out empty, stops the step
-    # before the destination is touched, so whatever was there stays.
-    local elements helper_text
+    #
+    # Everything this step publishes is generated IN FULL and checked BEFORE
+    # anything is published. The helper used to be produced by a brace group
+    # piped straight into the writer: a pipeline's status is its last
+    # command's, and a group's is its last command's, so a failure of the
+    # command that lists the elements was discarded and a helper with an EMPTY
+    # element list was published, which runs, zeroes nothing and reports
+    # success. Measured by the independent read of that form: with a failing
+    # sort the step returned 0 and published exactly that.
+    #
+    # The form after it generated the whole helper text in ONE substitution
+    # tested by "if !", with "set -e" inside. That does not do what it reads
+    # as: bash ignores errexit inside a command substitution that is tested as
+    # a condition, so the substitution's status was its LAST command's and an
+    # earlier failure was discarded again. Measured by the independent read of
+    # that form: a native cat failure at the helper's first here-document
+    # returned 0 and published a helper with no header and no "set -u" in
+    # place of the one already there, while a failure at the last one was
+    # refused. The drop-in's text was read by the writer that published it,
+    # after the helper had already been published.
+    #
+    # So every piece of text is now produced by exactly ONE command in a
+    # substitution of its own - a here-document read by cat, or for the
+    # element list one pipeline under pipefail - and that command's status is
+    # checked on the line that captures it: the element list, the helper's
+    # header and body, and the drop-in. No substitution holds two commands
+    # that produce text, so no failure can be hidden behind a later success.
+    #
+    # A status alone is not enough, though. When bash cannot make the pipe a
+    # substitution is read through, it says so on standard error and the
+    # assignment still succeeds, with an empty value: measured with bash 5.3
+    # and the file descriptors exhausted, "if ! x=$(echo text)" took the
+    # success branch with x empty. Every part has content, so each is refused
+    # when it comes out empty as well.
+    #
+    # Then both files are staged, and only then is either published; any
+    # failure before the first publication leaves the destination exactly as
+    # it was.
+    local elements header body drop_in helper_text helper_tmp drop_in_tmp
+    local helper="${DESTDIR}/usr/libexec/pipewire-zero-microphone-boost"
+    local drop_in_dir="${DESTDIR}/usr/lib/systemd/system/alsa-restore.service.d"
+    local drop_in_file="${drop_in_dir}/10-microphone-boost-to-zero.conf"
+    # LC_ALL=C so this list comes out in the same order on every build host:
+    # sort's collation is locale-dependent, and "Int Mic Boost" and
+    # "Internal Mic Boost" swap places between a C locale and a UTF-8 one,
+    # which would make the installed helper differ between two builds of the
+    # same source. Under pipefail, a failure of any command in the pipeline
+    # is the pipeline's status, and so the substitution's.
     if ! elements=$(set -o pipefail
                     boost_volume_stanzas | cut -d'|' -f2 | LC_ALL=C sort -u); then
         echo "pipewire: the list of microphone boost elements could not be generated; the helper is not published" >&2
@@ -304,10 +362,63 @@ install_boost_zeroing_helper() {
         echo "pipewire: the list of microphone boost elements came out empty; a helper that zeroes nothing is not published" >&2
         return 1
     fi
-    if ! helper_text=$(set -e
-    {
-        echo '#!/bin/sh'
-        cat <<'ZERO_BOOST_HEADER'
+    if ! header=$(zero_boost_helper_header) || [ -z "$header" ]; then
+        echo "pipewire: the header of the microphone boost helper could not be generated; nothing is published" >&2
+        return 1
+    fi
+    if ! body=$(zero_boost_helper_body) || [ -z "$body" ]; then
+        echo "pipewire: the body of the microphone boost helper could not be generated; nothing is published" >&2
+        return 1
+    fi
+    if ! drop_in=$(zero_boost_drop_in) || [ -z "$drop_in" ]; then
+        echo "pipewire: the drop-in that runs the microphone boost helper could not be generated; nothing is published" >&2
+        return 1
+    fi
+    # The parts are joined by an assignment, which runs no command and so has
+    # no failure of its own. A substitution drops the trailing newlines of
+    # what it captures, so the blank lines between the parts are written here,
+    # where they are joined, and none of the parts begins or ends with one.
+    helper_text="#!/bin/sh
+${header}
+
+boost_elements() {
+    cat <<'ELEMENTS'
+${elements}
+ELEMENTS
+}
+
+${body}"
+    install -dm755 "${DESTDIR}/usr/libexec" || return 1
+    install -dm755 "$drop_in_dir" || return 1
+    # A here-string is supplied by the shell itself: if it cannot be, the
+    # redirection fails, the command is not run, and its status is non-zero.
+    # It adds the one trailing newline each text lost to its substitution.
+    if ! helper_tmp=$(stage_file_without_following_a_link "$helper" 755 \
+                          <<< "$helper_text") || [ -z "$helper_tmp" ]; then
+        return 1
+    fi
+    if ! drop_in_tmp=$(stage_file_without_following_a_link "$drop_in_file" 644 \
+                           <<< "$drop_in") || [ -z "$drop_in_tmp" ]; then
+        rm -f "$helper_tmp"
+        return 1
+    fi
+    # Two renames cannot be one atomic operation, so their order is chosen:
+    # the helper first, so the drop-in that runs it never names a helper that
+    # is not there. If the drop-in's rename fails after the helper's
+    # succeeded, the step fails with the new helper in place and the drop-in
+    # as it was.
+    if ! publish_staged_file "$helper_tmp" "$helper"; then
+        rm -f "$drop_in_tmp"
+        return 1
+    fi
+    publish_staged_file "$drop_in_tmp" "$drop_in_file" || return 1
+}
+
+# The fixed first part of the helper, from after its interpreter line down to
+# "set -u". One command, so the status of the substitution that captures it is
+# that command's status.
+zero_boost_helper_header() {
+    cat <<'ZERO_BOOST_HEADER'
 # Put every microphone boost element back to 0 dB.
 #
 # Installed by the pipewire package and run from a drop-in on
@@ -318,21 +429,13 @@ install_boost_zeroing_helper() {
 # runs on every machine and the list names every boost the shipped mixer
 # paths mark, not the ones any one codec has.
 set -u
-
 ZERO_BOOST_HEADER
-        echo 'boost_elements() {'
-        echo "    cat <<'ELEMENTS'"
-        # LC_ALL=C so the order of this list is the same file on every
-        # build host: sort's collation is locale-dependent, and
-        # "Int Mic Boost" and "Internal Mic Boost" swap places between
-        # a C locale and a UTF-8 one, which would make the installed
-        # helper differ between two builds of the same source. The list
-        # was generated and checked above.
-        printf '%s\n' "$elements"
-        echo 'ELEMENTS'
-        echo '}'
-        cat <<'ZERO_BOOST_BODY'
+}
 
+# The fixed last part of the helper, after its element list. One command, like
+# the header above.
+zero_boost_helper_body() {
+    cat <<'ZERO_BOOST_BODY'
 # The control devices to work on. Overridable so this helper can be exercised
 # against a directory of fixtures on a build host that has no sound card at
 # all; nothing in the product sets it, and the default is the real one.
@@ -380,17 +483,12 @@ echo "microphone boost: $zeroed element(s) set to 0 dB, $absent not present on t
 [ "$failed" -eq 0 ] || exit 1
 exit 0
 ZERO_BOOST_BODY
-    }); then
-        echo "pipewire: the microphone boost helper could not be generated; it is not published" >&2
-        return 1
-    fi
-    printf '%s\n' "$helper_text" | write_file_without_following_a_link \
-        "${DESTDIR}/usr/libexec/pipewire-zero-microphone-boost" 755 || return 1
+}
 
-    install -dm755 "${DESTDIR}/usr/lib/systemd/system/alsa-restore.service.d"
-    write_file_without_following_a_link \
-        "${DESTDIR}/usr/lib/systemd/system/alsa-restore.service.d/10-microphone-boost-to-zero.conf" \
-        644 <<'DROP_IN' || return 1
+# The drop-in on alsa-restore.service that runs the helper. One command, like
+# the two parts of the helper above.
+zero_boost_drop_in() {
+    cat <<'DROP_IN'
 # The saved ALSA state is written to the mixer by alsactl restore; this puts
 # the microphone boost elements back to 0 dB immediately afterwards, so a
 # stored non-zero boost does not survive a boot or a card appearing later.

@@ -278,11 +278,19 @@ landed is in the repository README, not here.
   the helper exit non-zero; it prints one line saying how many elements it
   set, how many were absent and how many failed. The drop-in keeps the
   leading `-` that stops any of this from failing the state restore itself.
-  The helper is generated in full and checked before it is published, so a
-  failure in listing the boost elements, or a list that comes out empty,
-  stops the build step and leaves whatever was at the destination as it was;
-  before, that failure was discarded and a helper that zeroes nothing and
-  reports success was published.
+  Both files are generated in full and checked before either is published.
+  Each part of their text - the element list, the helper's header and body,
+  and the drop-in - is produced by one command whose status is checked on its
+  own, and a part that comes out empty is refused as well; both files are
+  then staged, and only then published, the helper first. So a failure
+  producing any part, or writing either staged copy, stops the build step and
+  leaves whatever was at the destination as it was. Before, a failure in
+  listing the elements was discarded and a helper that zeroes nothing and
+  reports success was published; and after that was corrected, a failure at
+  the helper's first here-document was still discarded, because bash ignores
+  `set -e` inside a command substitution tested as a condition, and a helper
+  missing its header and `set -u` was published in place of the one already
+  there.
 - **The installer says so when the machine's PCI device listing can be read but
   names no device.** The one fail-closed inventory read that the package
   hardware gate and the card-reader check share told two outcomes apart: a
