@@ -317,6 +317,12 @@ COMMANDS = {
 }
 
 
+def _restore_path(value):
+    if value == "":
+        raise argparse.ArgumentTypeError("Restore paths must not be empty.")
+    return value
+
+
 def build_parser():
     common = argparse.ArgumentParser(add_help=False)
     g = common.add_mutually_exclusive_group()
@@ -363,7 +369,7 @@ def build_parser():
                        help="restore paths from a version (never silent)")
     p.add_argument("layer", choices=LAYER_CHOICES)
     p.add_argument("version")
-    p.add_argument("paths", nargs="+")
+    p.add_argument("paths", nargs="+", type=_restore_path)
     p.add_argument("--mode", choices=["replace-confirm", "beside"],
                    default="replace-confirm")
     p.add_argument("--dry-run", action="store_true", help="show the plan only")

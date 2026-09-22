@@ -237,6 +237,8 @@ landed is in the repository README, not here.
   `--all` to reach an install's full record.
 
 ### Fixed
+- **Chronicle refuses empty restore paths.** The command and engine reject an
+  empty path before restoring any files or requesting a restore service.
 - **Chronicle explains directory restore requests.** A directory without an
   exact saved entry is distinguished from an absent path. Previews identify
   recorded directories as metadata-only restores; contents still require

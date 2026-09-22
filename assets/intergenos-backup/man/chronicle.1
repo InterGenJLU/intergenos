@@ -84,6 +84,8 @@ restores its metadata only; its children are not restored recursively.
 A directory without an exact entry is skipped with a directory-specific
 message, distinct from a path absent from the version. Name the individual
 stored paths to restore directory contents.
+An empty path argument is refused with a nonzero exit status before any
+restore is attempted.
 .TP
 .BR verify " [\fILAYER\fR] [\fIVERSION\fR] [\fB\-\-scrub\fR]"
 Verify a version's integrity, or with \fB\-\-scrub\fR re-hash the whole store

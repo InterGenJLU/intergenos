@@ -1044,6 +1044,11 @@ class Engine:
     # -- restore --------------------------------------------------------
 
     @staticmethod
+    def _check_restore_paths(paths):
+        if any(path == "" for path in paths):
+            raise EngineError("Restore paths must not be empty.")
+
+    @staticmethod
     def _missing_restore_path_reason(path, entries):
         # A captured file need not have a directory entry for every parent.
         # Use the saved path boundary even when that directory no longer exists.
@@ -1059,6 +1064,7 @@ class Engine:
     def restore_plan(self, layer, version_id, paths, mode="replace-confirm"):
         """Describe what a restore will change WITHOUT writing (spec §8: never
         a silent overwrite — the plan is shown and confirmed first)."""
+        self._check_restore_paths(paths)
         m = self.get_manifest(layer, version_id)
         by_path = {e["path"]: e for e in m["entries"]}
         actions = []
@@ -1092,6 +1098,7 @@ class Engine:
         dropping ownership (spec §6, §16.2). A caller that already holds the
         capability — a root CLI, or the restore unit itself — runs it directly.
         """
+        self._check_restore_paths(paths)
         if not _escalate.has_cap_chown():
             return _escalate.run_restore_via_unit(layer, version_id, paths, mode)
         with self._state_transaction():
