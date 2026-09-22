@@ -261,15 +261,25 @@ landed is in the repository README, not here.
   own answers carry a `handled` field, false while it is starting up, while it
   is paused for a game and on an error; the frontier replies carry a `sent`
   field, false when no escalation manager exists, when no provider is
-  configured, when the send was declined and when it raised. A turn that
-  delivered no answer exits non-zero with one plain line. Neither field is
-  defaulted in the direction that would hide silence: a reply carrying neither
-  is not read as declaring failure. An empty reply is not written into the
-  record that `intergen last` reads, so that command cannot repeat an older
-  answer as though it were the reply to this question; a reply that carries its
-  own explanation is written, because that explanation is the truth about the
-  turn the person just took. The reply's own sentence is flushed before the line
-  about the exit code, so a terminal and a redirected log both read in order.
+  configured, when the send was declined, when it raised, when the provider
+  could not be reached and when anything else failed during the send. The last
+  two used to come back as sent: the escalation step turns every failure into
+  an ordinary reply rather than an exception, and both of its consumers read
+  "no exception" as "sent". It now returns every failure it catches typed as
+  not sent, and both consumers read that type, so `intergen ask-frontier`
+  exits non-zero on them and the web chat's frontier button no longer names
+  the provider beside the failure or keeps the failure sentence in the
+  conversation as though the assistant had said it. A turn that delivered no
+  answer exits non-zero with one plain line. Neither field is defaulted in the
+  direction that would hide silence: a reply carrying neither is not read as
+  declaring failure. An empty reply is not written into the record that
+  `intergen last` reads, so that command cannot repeat an older answer as
+  though it were the reply to this question; a reply that carries its own
+  explanation is written, because that explanation is the truth about the turn
+  the person just took. The reply's own sentence is flushed before the line
+  about the exit code, and the frontier command's request line before its
+  complaint when the call returns nothing, so a terminal and a redirected log
+  both read in order.
 - **Asking with the service stopped reports the service instead of starting an
   assistant inside the asking process.** That session was never the service the
   machine manages: `systemctl --user is-active intergen` read inactive while it
