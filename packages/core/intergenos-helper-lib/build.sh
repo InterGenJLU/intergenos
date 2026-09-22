@@ -5,8 +5,8 @@
 # intergenos-helper-lib 1.0.0 — InterGenOS pkm install-helper API
 # https://github.com/InterGenJLU/intergenos
 #
-# Installs /usr/share/igos/helpers/helper-lib.sh, the sourceable bash
-# library install-helpers use to record their install footprint into
+# Installs /usr/share/igos/helpers/helper-lib.sh and deb-metadata.py.
+# The sourceable bash library lets install-helpers record their footprint into
 # /var/lib/igos/helpers/<name>.manifest. pkm reads the manifest on
 # helper success and threads the file list through add_files /
 # add_depends so pkm files/verify/remove work as users expect for

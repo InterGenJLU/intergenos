@@ -258,6 +258,9 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **Helper library verification includes its metadata reader.** The package
+  declares both installed helper files so verification detects either one
+  missing from the installed system.
 - **The archive validator finds the payload of a real archive.**
   `scripts/validate-pkm-archive.py` compared each archive member's raw name
   with `usr/bin/` and the other payload directories, but every producer writes
