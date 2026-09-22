@@ -258,6 +258,15 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **A mistyped flag now shows the flags that command actually takes.**
+  `pkm remove example --dry-runn` answered with the whole-program usage
+  block, which lists the commands and not the options of the command being
+  used — so the one thing the person needed was the one thing missing. The
+  error now comes from that subcommand's own parser: `usage: pkm remove`,
+  its own options, and the argument that was not recognised. Typing a
+  command with no subcommand is unchanged, because there the whole-program
+  usage is the right answer.
+
 - **`pkm remove` takes several packages as one transaction.** Install,
   reinstall and hold all took a list; remove took exactly one name, so
   removing three packages meant three commands, three restore points and

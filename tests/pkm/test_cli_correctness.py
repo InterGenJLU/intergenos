@@ -169,16 +169,20 @@ def test_history_rejects_invalid_or_conflicting_limits(options):
 def test_real_cli_entry_preserves_parsed_verbosity(flag, attribute):
     # Observe the actual CLI entry and parser, stopping before a mutation can
     # be dispatched. This runs safely even when the suite is invoked as root.
+    # The observer wraps cli.parse_command_line, which is the seam main() now
+    # uses: an unknown flag is reported against the SUBCOMMAND's usage, so the
+    # entry parses permissively first. Wrapping parser.parse_args would no
+    # longer observe anything, and the case would pass by never running.
     code = """
 import json
 from pkm import cli
 parser = cli.build_parser()
-parse = parser.parse_args
+parse = cli.parse_command_line
 def observe(*args, **kwargs):
     result = parse(*args, **kwargs)
     print(json.dumps(vars(result)))
     raise SystemExit(0)
-parser.parse_args = observe
+cli.parse_command_line = observe
 cli.build_parser = lambda: parser
 cli.main()
 """

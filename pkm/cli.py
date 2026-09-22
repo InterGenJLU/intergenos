@@ -1505,9 +1505,41 @@ def build_parser():
     return parser
 
 
+def parse_command_line(parser, argv=None):
+    """Parse argv, reporting an unknown flag against the SUBCOMMAND's usage.
+
+    argparse collects an unrecognised option at the top level, so
+    `pkm remove example --dry-runn` answered with the whole-program usage
+    block and the line "unrecognized arguments: --dry-runn". The one thing a
+    person in that position needs is the list of flags `remove` takes, and
+    that is the one thing the answer did not contain — it sent them to
+    `pkm --help`, which lists the commands, not the options of the command
+    they were already using.
+
+    So: parse permissively, and when something is left over AND a subcommand
+    was chosen, hand the error to that subcommand's parser. Its own error()
+    prints its own usage, names the argument, and exits 2 — the same exit
+    status a command-line error has always had. With no subcommand chosen the
+    top-level usage IS the answer, so nothing changes there.
+    """
+    args, extra = parser.parse_known_args(argv)
+    if not extra:
+        return args
+    command = getattr(args, "command", None)
+    subparsers = [
+        action for action in parser._actions
+        if isinstance(action, argparse._SubParsersAction)
+    ]
+    for action in subparsers:
+        child = action.choices.get(command)
+        if child is not None:
+            child.error("unrecognized arguments: " + " ".join(extra))
+    parser.error("unrecognized arguments: " + " ".join(extra))
+
+
 def main():
     parser = build_parser()
-    args = parser.parse_args()
+    args = parse_command_line(parser)
 
     # Natural-language aliases — pkm's "Natural-language CLI" positioning
     # (README.md:39) accepts what users naturally type. Each alias resolves
