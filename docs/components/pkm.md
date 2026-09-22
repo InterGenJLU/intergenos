@@ -53,6 +53,26 @@ Removals process files cautiously:
 
 ### Upgrades and Supersede Semantics
 
+For `vscode`, `chrome`, `edge`, `brave`, `signal`, `spotify`, `steam`, and
+`chatgpt`, `sudo pkm upgrade <name>` checks the application version recorded
+as `payload_version`. It verifies the vendor's InRelease signature and the
+Packages digest before reading a version, then compares the complete Debian
+version, including its epoch and revision. It prints both versions. An equal
+or locally newer version exits successfully without installing; a newer
+vendor version enters the existing verified installation path. Unreachable
+or unverifiable metadata is an error, never an up-to-date result.
+
+`sudo pkm reinstall <name>` requests the recorded payload version from that
+same verified metadata. If the vendor no longer lists it, reinstall fails
+instead of substituting the latest version. The usual license acceptance and
+installation checks still apply. An older helper or library must be updated
+before using these version-aware operations.
+
+`pkm upgrade --all`, `--archive`, and `--security-only` retain their package
+archive behavior, including preserving an installed helper payload. A named
+payload upgrade also honors holds, confirmation, and `--dry-run`. Neither
+upgrade nor reinstall gains support for an explicit alternate `--root`.
+
 `pkm` handles package upgrades through a "supersede" model. When package `B` supersedes package `A`:
 1.  Files that exist in *both* `A` and `B` are overwritten on disk by `B`. In the database, the ownership of these files is explicitly transferred from `A` to `B`, along with updated SHA-256 hashes.
 2.  Files that existed in `A` but are *not* present in `B` are left alone. They remain owned by `A`'s historical record.

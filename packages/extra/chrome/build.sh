@@ -75,6 +75,27 @@ CHROME_APT_BASE="https://dl.google.com/linux/chrome/deb"
 CHROME_DIST="stable"
 CHROME_PKG_NAME="google-chrome-stable"
 CHROME_KEYRING="/usr/share/igos/helpers/keyrings/chrome-keyring.gpg"
+# pkm-apt-helper-api: 1
+# Queries happen before any acceptance record, manifest or payload write.
+if ! declare -F igos_helper_query_deb_upgrade >/dev/null; then
+    echo "  ERROR: update intergenos-helper-lib before using this installer." >&2
+    echo "  The installer stopped; nothing on this machine was changed." >&2
+    exit 1
+fi
+REQUESTED_VERSION=""
+case "${1:-}" in
+    --check-upgrade)
+        [ "$#" -eq 2 ] || { echo "ERROR: --check-upgrade requires the recorded version." >&2; exit 2; }
+        igos_helper_query_deb_upgrade "$2" "$CHROME_PKG_NAME" "$CHROME_APT_BASE" "$CHROME_KEYRING" "$CHROME_DIST" main ""
+        exit $? ;;
+    --install-version)
+        [ "$#" -eq 2 ] && [ -n "$2" ] || { echo "ERROR: --install-version requires a version." >&2; exit 2; }
+        REQUESTED_VERSION="$2" ;;
+    "")
+        [ "$#" -eq 0 ] || { echo "ERROR: unexpected empty argument." >&2; exit 2; } ;;
+    *) echo "ERROR: unrecognized installer argument." >&2; exit 2 ;;
+esac
+
 TMPDIR=$(mktemp -d)
 # BLOCKING-D fix (2026-05-19): register TMPDIR cleanup via the
 # helper-lib's IGOS_HELPER_USER_CLEANUP env var instead of `trap EXIT`.
@@ -134,8 +155,8 @@ igos_helper_init "chrome"
 igos_helper_record_post_install_action \
     "User accepted Google license terms (acceptance artifact at $ACCEPTANCE_FILE)"
 
-echo "  Finding latest Google Chrome release in signed apt metadata..."
-LATEST=$(igos_helper_find_latest_deb_in_packages "$CHROME_PKG_NAME" "$CHROME_APT_BASE" "$CHROME_DIST")
+echo "  Finding the requested Google Chrome release in signed apt metadata..."
+LATEST=$(igos_helper_find_verified_deb_in_packages "$CHROME_PKG_NAME" "$CHROME_APT_BASE" "$CHROME_KEYRING" "$CHROME_DIST" main "$REQUESTED_VERSION" "")
 if [ -z "$LATEST" ]; then
     echo "  ERROR: Could not locate google-chrome-stable in the official"
     echo "         apt Packages metadata at ${CHROME_APT_BASE}/dists/${CHROME_DIST}/"

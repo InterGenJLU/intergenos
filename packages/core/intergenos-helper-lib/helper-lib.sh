@@ -719,6 +719,134 @@ PYEOF
 #       step fails closed; non-zero return forces caller to refuse
 #       install with a loud error.
 
+# Retrieve and verify metadata before either a version decision or a payload check.
+# The output directory is fresh and owned by the caller; errors never yield data.
+_igos_helper_fetch_verified_packages() {
+    local apt_base="$1" keyring="$2" dist="$3" component="$4" workdir="$5"
+    # Strip trailing slash from apt_base so URL composition is clean
+    local base="${apt_base%/}"
+
+    # ---- Step 1: Download InRelease ----
+    local inrelease_url="${base}/dists/${dist}/InRelease"
+    if ! wget --timeout=30 --tries=1 -q -O "$workdir/InRelease" "$inrelease_url"; then
+        igos_helper_emit "igos_helper_verify_deb_via_signed_release: STEP 1 FAIL -- could not download InRelease from $inrelease_url"
+        return 1
+    fi
+    if [ ! -s "$workdir/InRelease" ]; then
+        igos_helper_emit "igos_helper_verify_deb_via_signed_release: STEP 1 FAIL -- InRelease is empty at $inrelease_url"
+        return 1
+    fi
+
+    # ---- Step 2: Verify InRelease GPG signature against pinned keyring ----
+    # Optional 7th arg `sha1_scoped_fpr` (steam helper ONLY — operator
+    # decision 2, 2026-07-02): when EMPTY (every existing caller —
+    # chrome/brave/edge/spotify), step 2 is a single STRICT gpgv that
+    # rejects SHA1 digests outright (hardened 2026-07-02, operator-
+    # authorized — see the branch comment below) with NO retry.
+    # When SET to a pinned key fingerprint, the
+    # SCOPED weak-digest posture applies: a STRICT attempt that REJECTS
+    # SHA1 runs first, and ONLY on the specific weak-digest failure does a
+    # permissive retry run — gated on the InRelease being Good AND signed
+    # by the pinned fingerprint, logged loudly. The sha256 chain (steps
+    # 3-6) binds the bytes regardless, so a weak SIGNATURE digest never
+    # weakens content integrity. Self-retiring: the day Valve's signature
+    # digest is SHA256+ (it is SHA512 as of 2026-06-26), the strict attempt
+    # passes and the permissive path never executes.
+    local sha1_scoped_fpr="${6:-}"
+    if [ -n "$sha1_scoped_fpr" ]; then
+        # The scoped pin must be a FULL 40-hex fingerprint. A short or
+        # malformed value would degrade the retry's stderr pin-match to
+        # a substring accident -- checked gate, not an assumption.
+        if ! printf '%s' "${sha1_scoped_fpr// /}" | grep -qiE '^[0-9a-f]{40}$'; then
+            igos_helper_emit "igos_helper_verify_deb_via_signed_release: sha1_scoped_fpr must be a full 40-hex GPG fingerprint (got: ${sha1_scoped_fpr})"
+            return 2
+        fi
+    fi
+    if [ -z "$sha1_scoped_fpr" ]; then
+        # HARDENED 2026-07-02 (authorized): the unscoped path
+        # rejects SHA1 signature digests outright. Default gpgv rejects
+        # only MD5, so the pre-hardening path silently accepted SHA1 --
+        # measured before landing: all four callers' vendors (brave/
+        # chrome/edge/spotify) sign SHA256 today and their live InRelease
+        # strict-verified identically under this flag in the shipped
+        # chroot gpgv 2.5.17, so this ships behavior-identical and only
+        # ever diverges by refusing a future vendor regression to SHA1
+        # loudly. If a vendor DOES regress, that is an operator decision
+        # (the scoped 7th-arg exception below is the sanctioned shape).
+        if ! gpgv --weak-digest SHA1 --keyring "$keyring" --output "$workdir/Release" "$workdir/InRelease" 2>"$workdir/gpgv.err"; then
+            igos_helper_emit "igos_helper_verify_deb_via_signed_release: STEP 2 FAIL -- InRelease GPG signature verification FAILED. SHA-1 signature digests are refused here; if the message below reports a weak digest, this vendor has moved to SHA-1 and nothing will install from it until that is resolved:"
+            igos_helper_emit "$(cat "$workdir/gpgv.err")"
+            return 1
+        fi
+    else
+        # Strict-first: reject SHA1 (the hardened posture). LC_ALL=C on
+        # every gpgv whose stderr is PARSED below (the weak-digest
+        # classifier + the Good-signature/fingerprint pin) -- a localized
+        # message would otherwise dodge the greps (fail-closed, but
+        # wrongly refusing on non-English locales).
+        if LC_ALL=C gpgv --weak-digest SHA1 --keyring "$keyring" --output "$workdir/Release" "$workdir/InRelease" 2>"$workdir/gpgv.err"; then
+            : # strict passed — the weak path is dormant (the expected case today)
+        else
+            # Strict failed. Only a SPECIFIC weak-digest rejection may
+            # trigger the scoped retry; any other failure is a real bad
+            # signature and hard-fails here.
+            if ! grep -qiE 'weak|SHA1|digest algorithm' "$workdir/gpgv.err"; then
+                igos_helper_emit "igos_helper_verify_deb_via_signed_release: STEP 2 FAIL -- InRelease signature invalid (not a weak-digest condition):"
+                igos_helper_emit "$(cat "$workdir/gpgv.err")"
+            return 1
+            fi
+            # Permissive retry (default gpgv permits SHA1), pinned to the
+            # Valve fingerprint: the InRelease must verify Good AND carry
+            # the pinned key. Loud, self-documenting log.
+            if ! LC_ALL=C gpgv --keyring "$keyring" --output "$workdir/Release" "$workdir/InRelease" 2>"$workdir/gpgv.retry.err"; then
+                igos_helper_emit "igos_helper_verify_deb_via_signed_release: STEP 2 FAIL -- permissive retry still could not verify InRelease:"
+                igos_helper_emit "$(cat "$workdir/gpgv.retry.err")"
+            return 1
+            fi
+            local fpr_nospace="${sha1_scoped_fpr// /}"
+            if ! grep -qi 'Good signature' "$workdir/gpgv.retry.err" \
+               || ! tr -d ' ' < "$workdir/gpgv.retry.err" | grep -qi "$fpr_nospace"; then
+                igos_helper_emit "igos_helper_verify_deb_via_signed_release: STEP 2 FAIL -- weak-digest retry did NOT resolve to the pinned Valve key ${sha1_scoped_fpr}:"
+                igos_helper_emit "$(cat "$workdir/gpgv.retry.err")"
+            return 1
+            fi
+            igos_helper_emit "SECURITY NOTICE: Valve signs its package index with a SHA-1 signature digest, which is weak and is not accepted for any other vendor here (upstream report: steam-for-linux#12050). The signature was checked against Valve's pinned key ${sha1_scoped_fpr} and is good, and every downloaded byte is still bound by SHA-256 checksums from that signed index, which are verified below. This narrower acceptance applies to Steam only, and stops applying as soon as Valve moves to a stronger digest."
+        fi
+    fi
+
+    # ---- Step 3: Parse Packages sha256 from InRelease SHA256 section ----
+    local packages_relpath="${component}/binary-amd64/Packages"
+    local expected_packages_sha256
+    expected_packages_sha256=$(awk -v target="$packages_relpath" '
+        /^MD5Sum:|^SHA1:|^SHA512:/ { p = 0; next }
+        /^SHA256:/ { p = 1; next }
+        /^[A-Z][a-zA-Z0-9-]*:/ { p = 0 }
+        p && $3 == target { print $1; exit }
+    ' "$workdir/Release")
+
+    if [ -z "$expected_packages_sha256" ]; then
+        igos_helper_emit "igos_helper_verify_deb_via_signed_release: STEP 3 FAIL -- could not find ${packages_relpath} sha256 in InRelease SHA256 section"
+        return 1
+    fi
+
+    # ---- Step 4: Download Packages + verify sha256 ----
+    local packages_url="${base}/dists/${dist}/${packages_relpath}"
+    if ! wget --timeout=30 --tries=1 -q -O "$workdir/Packages" "$packages_url"; then
+        igos_helper_emit "igos_helper_verify_deb_via_signed_release: STEP 4 FAIL -- could not download Packages from $packages_url"
+        return 1
+    fi
+    local actual_packages_sha256
+    actual_packages_sha256=$(sha256sum "$workdir/Packages" | awk '{print $1}')
+    if [ "$actual_packages_sha256" != "$expected_packages_sha256" ]; then
+        igos_helper_emit "igos_helper_verify_deb_via_signed_release: STEP 4 FAIL -- Packages sha256 MISMATCH:"
+        echo "  expected (per InRelease): $expected_packages_sha256" >&2
+        echo "  actual:                   $actual_packages_sha256" >&2
+        return 1
+    fi
+
+    return 0
+}
+
 igos_helper_verify_deb_via_signed_release() {
     # Verify a downloaded .deb's integrity via the apt signed-Release
     # chain. Caller MUST refuse install on non-zero return.
@@ -802,141 +930,16 @@ igos_helper_verify_deb_via_signed_release() {
 
     # ---- Per-call workdir (caller cleanup via explicit rm at exit paths) ----
     local workdir
-    workdir=$(mktemp -d -t igos-verify-deb-XXXXXXXX) || {
-        igos_helper_emit "igos_helper_verify_deb_via_signed_release: mktemp failed"
+    if ! workdir=$(mktemp -d -t igos-verify-deb-XXXXXXXX) || [ -z "$workdir" ]; then
+        igos_helper_emit "ERROR: could not create the temporary directory for payload verification."
         return 2
+    fi
+
+    _igos_helper_fetch_verified_packages "$apt_base" "$keyring" "$dist" "$component" "$workdir" "${7:-}" || {
+        local metadata_status=$?
+        rm -rf "$workdir"
+        return "$metadata_status"
     }
-
-    # Strip trailing slash from apt_base so URL composition is clean
-    local base="${apt_base%/}"
-
-    # ---- Step 1: Download InRelease ----
-    local inrelease_url="${base}/dists/${dist}/InRelease"
-    if ! wget -q -O "$workdir/InRelease" "$inrelease_url"; then
-        igos_helper_emit "igos_helper_verify_deb_via_signed_release: STEP 1 FAIL -- could not download InRelease from $inrelease_url"
-        rm -rf "$workdir"
-        return 1
-    fi
-    if [ ! -s "$workdir/InRelease" ]; then
-        igos_helper_emit "igos_helper_verify_deb_via_signed_release: STEP 1 FAIL -- InRelease is empty at $inrelease_url"
-        rm -rf "$workdir"
-        return 1
-    fi
-
-    # ---- Step 2: Verify InRelease GPG signature against pinned keyring ----
-    # Optional 7th arg `sha1_scoped_fpr` (steam helper ONLY — operator
-    # decision 2, 2026-07-02): when EMPTY (every existing caller —
-    # chrome/brave/edge/spotify), step 2 is a single STRICT gpgv that
-    # rejects SHA1 digests outright (hardened 2026-07-02, operator-
-    # authorized — see the branch comment below) with NO retry.
-    # When SET to a pinned key fingerprint, the
-    # SCOPED weak-digest posture applies: a STRICT attempt that REJECTS
-    # SHA1 runs first, and ONLY on the specific weak-digest failure does a
-    # permissive retry run — gated on the InRelease being Good AND signed
-    # by the pinned fingerprint, logged loudly. The sha256 chain (steps
-    # 3-6) binds the bytes regardless, so a weak SIGNATURE digest never
-    # weakens content integrity. Self-retiring: the day Valve's signature
-    # digest is SHA256+ (it is SHA512 as of 2026-06-26), the strict attempt
-    # passes and the permissive path never executes.
-    local sha1_scoped_fpr="${7:-}"
-    if [ -n "$sha1_scoped_fpr" ]; then
-        # The scoped pin must be a FULL 40-hex fingerprint. A short or
-        # malformed value would degrade the retry's stderr pin-match to
-        # a substring accident -- checked gate, not an assumption.
-        if ! printf '%s' "${sha1_scoped_fpr// /}" | grep -qiE '^[0-9a-f]{40}$'; then
-            igos_helper_emit "igos_helper_verify_deb_via_signed_release: sha1_scoped_fpr must be a full 40-hex GPG fingerprint (got: ${sha1_scoped_fpr})"
-            rm -rf "$workdir"
-            return 2
-        fi
-    fi
-    if [ -z "$sha1_scoped_fpr" ]; then
-        # HARDENED 2026-07-02 (authorized): the unscoped path
-        # rejects SHA1 signature digests outright. Default gpgv rejects
-        # only MD5, so the pre-hardening path silently accepted SHA1 --
-        # measured before landing: all four callers' vendors (brave/
-        # chrome/edge/spotify) sign SHA256 today and their live InRelease
-        # strict-verified identically under this flag in the shipped
-        # chroot gpgv 2.5.17, so this ships behavior-identical and only
-        # ever diverges by refusing a future vendor regression to SHA1
-        # loudly. If a vendor DOES regress, that is an operator decision
-        # (the scoped 7th-arg exception below is the sanctioned shape).
-        if ! gpgv --weak-digest SHA1 --keyring "$keyring" "$workdir/InRelease" 2>"$workdir/gpgv.err"; then
-            igos_helper_emit "igos_helper_verify_deb_via_signed_release: STEP 2 FAIL -- InRelease GPG signature verification FAILED. SHA-1 signature digests are refused here; if the message below reports a weak digest, this vendor has moved to SHA-1 and nothing will install from it until that is resolved:"
-            igos_helper_emit "$(cat "$workdir/gpgv.err")"
-            rm -rf "$workdir"
-            return 1
-        fi
-    else
-        # Strict-first: reject SHA1 (the hardened posture). LC_ALL=C on
-        # every gpgv whose stderr is PARSED below (the weak-digest
-        # classifier + the Good-signature/fingerprint pin) -- a localized
-        # message would otherwise dodge the greps (fail-closed, but
-        # wrongly refusing on non-English locales).
-        if LC_ALL=C gpgv --weak-digest SHA1 --keyring "$keyring" "$workdir/InRelease" 2>"$workdir/gpgv.err"; then
-            : # strict passed — the weak path is dormant (the expected case today)
-        else
-            # Strict failed. Only a SPECIFIC weak-digest rejection may
-            # trigger the scoped retry; any other failure is a real bad
-            # signature and hard-fails here.
-            if ! grep -qiE 'weak|SHA1|digest algorithm' "$workdir/gpgv.err"; then
-                igos_helper_emit "igos_helper_verify_deb_via_signed_release: STEP 2 FAIL -- InRelease signature invalid (not a weak-digest condition):"
-                igos_helper_emit "$(cat "$workdir/gpgv.err")"
-                rm -rf "$workdir"
-                return 1
-            fi
-            # Permissive retry (default gpgv permits SHA1), pinned to the
-            # Valve fingerprint: the InRelease must verify Good AND carry
-            # the pinned key. Loud, self-documenting log.
-            if ! LC_ALL=C gpgv --keyring "$keyring" "$workdir/InRelease" 2>"$workdir/gpgv.retry.err"; then
-                igos_helper_emit "igos_helper_verify_deb_via_signed_release: STEP 2 FAIL -- permissive retry still could not verify InRelease:"
-                igos_helper_emit "$(cat "$workdir/gpgv.retry.err")"
-                rm -rf "$workdir"
-                return 1
-            fi
-            local fpr_nospace="${sha1_scoped_fpr// /}"
-            if ! grep -qi 'Good signature' "$workdir/gpgv.retry.err" \
-               || ! tr -d ' ' < "$workdir/gpgv.retry.err" | grep -qi "$fpr_nospace"; then
-                igos_helper_emit "igos_helper_verify_deb_via_signed_release: STEP 2 FAIL -- weak-digest retry did NOT resolve to the pinned Valve key ${sha1_scoped_fpr}:"
-                igos_helper_emit "$(cat "$workdir/gpgv.retry.err")"
-                rm -rf "$workdir"
-                return 1
-            fi
-            igos_helper_emit "SECURITY NOTICE: Valve signs its package index with a SHA-1 signature digest, which is weak and is not accepted for any other vendor here (upstream report: steam-for-linux#12050). The signature was checked against Valve's pinned key ${sha1_scoped_fpr} and is good, and every downloaded byte is still bound by SHA-256 checksums from that signed index, which are verified below. This narrower acceptance applies to Steam only, and stops applying as soon as Valve moves to a stronger digest."
-        fi
-    fi
-
-    # ---- Step 3: Parse Packages sha256 from InRelease SHA256 section ----
-    local packages_relpath="${component}/binary-amd64/Packages"
-    local expected_packages_sha256
-    expected_packages_sha256=$(awk -v target="$packages_relpath" '
-        /^MD5Sum:|^SHA1:|^SHA512:/ { p = 0; next }
-        /^SHA256:/ { p = 1; next }
-        /^[A-Z][a-zA-Z0-9-]*:/ { p = 0 }
-        p && $3 == target { print $1; exit }
-    ' "$workdir/InRelease")
-
-    if [ -z "$expected_packages_sha256" ]; then
-        igos_helper_emit "igos_helper_verify_deb_via_signed_release: STEP 3 FAIL -- could not find ${packages_relpath} sha256 in InRelease SHA256 section"
-        rm -rf "$workdir"
-        return 1
-    fi
-
-    # ---- Step 4: Download Packages + verify sha256 ----
-    local packages_url="${base}/dists/${dist}/${packages_relpath}"
-    if ! wget -q -O "$workdir/Packages" "$packages_url"; then
-        igos_helper_emit "igos_helper_verify_deb_via_signed_release: STEP 4 FAIL -- could not download Packages from $packages_url"
-        rm -rf "$workdir"
-        return 1
-    fi
-    local actual_packages_sha256
-    actual_packages_sha256=$(sha256sum "$workdir/Packages" | awk '{print $1}')
-    if [ "$actual_packages_sha256" != "$expected_packages_sha256" ]; then
-        igos_helper_emit "igos_helper_verify_deb_via_signed_release: STEP 4 FAIL -- Packages sha256 MISMATCH:"
-        echo "  expected (per InRelease): $expected_packages_sha256" >&2
-        echo "  actual:                   $actual_packages_sha256" >&2
-        rm -rf "$workdir"
-        return 1
-    fi
 
     # ---- Step 5: Parse Packages for deb_filename + extract its sha256 ----
     # Packages is RFC 822-style stanzas separated by blank lines. Each stanza
@@ -984,6 +987,48 @@ igos_helper_verify_deb_via_signed_release() {
     echo "  Verified: $deb_filename (sha256 $expected_deb_sha256)"
     rm -rf "$workdir"
     return 0
+}
+
+# Additive v1 lookup: the version and download path come only from metadata
+# authenticated by the same chain used for the downloaded payload.
+igos_helper_find_verified_deb_in_packages() (
+    local package="${1:-}" apt_base="${2:-}" keyring="${3:-}" dist="${4:-}"
+    local component="${5:-main}" requested="${6:-}" scoped_fpr="${7:-}"
+    if [ -z "$package" ] || [ -z "$apt_base" ] || [ ! -f "$keyring" ] || [ -z "$dist" ]; then
+        igos_helper_emit "ERROR: verified vendor lookup requires a package, repository, keyring and distribution."
+        return 2
+    fi
+    local tool
+    for tool in wget gpgv sha256sum awk mktemp python3; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            igos_helper_emit "ERROR: verified vendor lookup requires $tool."
+            return 2
+        fi
+    done
+    local reader="${BASH_SOURCE[0]%/*}/deb-metadata.py"
+    if [ ! -f "$reader" ]; then
+        igos_helper_emit "ERROR: the verified vendor metadata reader is missing; update intergenos-helper-lib."
+        return 2
+    fi
+    local workdir
+    if ! workdir=$(mktemp -d -t igos-vendor-metadata-XXXXXXXX) || [ -z "$workdir" ]; then
+        igos_helper_emit "ERROR: could not create the temporary directory for verified vendor metadata."
+        return 2
+    fi
+    trap 'rm -rf -- "$workdir"' EXIT
+    _igos_helper_fetch_verified_packages "$apt_base" "$keyring" "$dist" "$component" "$workdir" "$scoped_fpr" || return $?
+    python3 "$reader" select "$workdir/Packages" "$package" "$requested"
+)
+
+# Print one JSON reply for pkm's non-interactive version check. No license
+# record, manifest or payload is written by this query.
+igos_helper_query_deb_upgrade() {
+    local installed="${1:-}"
+    shift
+    local selected filename version pool digest
+    selected=$(igos_helper_find_verified_deb_in_packages "$1" "$2" "$3" "$4" "${5:-main}" "" "${6:-}") || return $?
+    IFS='|' read -r filename version pool digest <<< "$selected"
+    python3 "${BASH_SOURCE[0]%/*}/deb-metadata.py" query "$version" "$installed"
 }
 
 # K21.E helper: find the latest version of a package in apt Packages and

@@ -196,6 +196,21 @@ HELPER_MANIFEST_SCHEMA_VERSION = 1
 # system (one per app: /usr/bin/igos-install-<name>). build.sh for each helper
 # package installs it here.
 HELPER_BIN_DIR = Path("/usr/bin")
+APT_DOWNLOAD_HELPERS = frozenset({
+    "vscode", "chrome", "edge", "brave", "signal", "spotify", "steam", "chatgpt",
+})
+
+
+def helper_supports_version_queries(path):
+    """Check the installed helper's declared API before passing new arguments.
+
+    Older helpers ignored arguments and started an installation, so executing
+    one to discover this capability would already be too late.
+    """
+    try:
+        return "# pkm-apt-helper-api: 1" in Path(path).read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError):
+        return False
 
 
 def is_download_helper(name, root=None):
@@ -2541,7 +2556,38 @@ class PackageInstaller:
             )
         return False, msg
 
-    def _run_helper(self, name, helper_path):
+    def query_helper_version(self, name, installed_version):
+        """Ask a capable helper for a version from authenticated vendor data."""
+        helper = self._find_helper(name)
+        if name not in APT_DOWNLOAD_HELPERS or not helper or not helper_supports_version_queries(helper):
+            return None, (
+                f"'{name}' needs an updated installer package and intergenos-helper-lib "
+                "before its vendor version can be checked."
+            )
+        if not isinstance(installed_version, str) or not installed_version:
+            return None, f"'{name}' has no recorded payload version to compare."
+        try:
+            env = helper_environment()
+            env["PKM_HELPER_INVOCATION"] = "1"
+            result = subprocess.run(
+                [str(helper), "--check-upgrade", installed_version], env=env,
+                capture_output=True, text=True, timeout=180,
+            )
+            if result.stderr:
+                print(result.stderr, end="", file=sys.stderr)
+            if result.returncode:
+                return None, f"'{name}' vendor metadata could not be verified (exit {result.returncode})."
+            value = json.loads(result.stdout)
+            if (not isinstance(value, dict) or set(value) != {"version", "comparison"}
+                    or type(value["comparison"]) is not int or value["comparison"] not in (-1, 0, 1)
+                    or not isinstance(value["version"], str)
+                    or not re.fullmatch(r"[0-9][A-Za-z0-9.:+~\-]*", value["version"])):
+                return None, f"'{name}' installer returned an invalid vendor-version result."
+            return value, ""
+        except (HelperEnvironmentError, OSError, subprocess.TimeoutExpired, ValueError) as error:
+            return None, f"'{name}' vendor version could not be checked: {error}"
+
+    def _run_helper(self, name, helper_path, target_version=None):
         """Run an install helper script with transparent output.
 
         The user sees exactly what the helper is doing — no hidden steps.
@@ -2560,6 +2606,12 @@ class PackageInstaller:
         commit cluster) flips missing-manifest to a hard failure once
         all bundled helpers have migrated.
         """
+        if target_version is not None:
+            if (name not in APT_DOWNLOAD_HELPERS or not helper_supports_version_queries(helper_path)
+                    or not isinstance(target_version, str)
+                    or not re.fullmatch(r"[0-9][A-Za-z0-9.:+~\-]*", target_version)):
+                return False, "Installer cannot select the requested payload version; update its package and intergenos-helper-lib.", False
+
         # The environment is checked BEFORE the banner: a refused value is
         # reported as the install's failure and the helper never starts.
         try:
@@ -2601,7 +2653,10 @@ class PackageInstaller:
                 )
             except Exception:
                 pass
-        result = subprocess.run([str(helper_path)], env=helper_env)  # trace-coverage: allow — interactive helper (license prompt + stdin read); capturing would deadlock the accept/decline flow
+        command = [str(helper_path)]
+        if target_version is not None:
+            command += ["--install-version", target_version]
+        result = subprocess.run(command, env=helper_env)  # trace-coverage: allow — interactive helper (license prompt + stdin read); capturing would deadlock the accept/decline flow
         if _TRACE_AVAILABLE:
             try:
                 _trace.trace_event(

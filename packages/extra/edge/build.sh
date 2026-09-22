@@ -54,15 +54,36 @@ ACCEPTANCE_FILE="$ACCEPTANCE_DIR/edge-1.0-accepted.json"
 # K21.E: signed-Release verification chain. Source-of-truth for the
 # latest .deb filename + sha256 is the apt-style metadata under
 # /repos/edge/dists/stable/ on Microsoft's official PMC service
-# (packages.microsoft.com). Helper-lib's
-# igos_helper_find_latest_deb_in_packages reads Packages (untrusted
-# at this stage; verify function re-fetches + verifies); the
+# (packages.microsoft.com).
+# The initial lookup verifies InRelease and the Packages digest before
+# choosing a version and path; the
 # subsequent igos_helper_verify_deb_via_signed_release call signs
 # off on InRelease GPG + Packages sha256 + .deb sha256.
 EDGE_APT_BASE="https://packages.microsoft.com/repos/edge"
 EDGE_DIST="stable"
 EDGE_PKG_NAME="microsoft-edge-stable"
 EDGE_KEYRING="/usr/share/igos/helpers/keyrings/edge-keyring.gpg"
+# pkm-apt-helper-api: 1
+# Queries happen before any acceptance record, manifest or payload write.
+if ! declare -F igos_helper_query_deb_upgrade >/dev/null; then
+    echo "  ERROR: update intergenos-helper-lib before using this installer." >&2
+    echo "  The installer stopped; nothing on this machine was changed." >&2
+    exit 1
+fi
+REQUESTED_VERSION=""
+case "${1:-}" in
+    --check-upgrade)
+        [ "$#" -eq 2 ] || { echo "ERROR: --check-upgrade requires the recorded version." >&2; exit 2; }
+        igos_helper_query_deb_upgrade "$2" "$EDGE_PKG_NAME" "$EDGE_APT_BASE" "$EDGE_KEYRING" "$EDGE_DIST" main ""
+        exit $? ;;
+    --install-version)
+        [ "$#" -eq 2 ] && [ -n "$2" ] || { echo "ERROR: --install-version requires a version." >&2; exit 2; }
+        REQUESTED_VERSION="$2" ;;
+    "")
+        [ "$#" -eq 0 ] || { echo "ERROR: unexpected empty argument." >&2; exit 2; } ;;
+    *) echo "ERROR: unrecognized installer argument." >&2; exit 2 ;;
+esac
+
 TMPDIR=$(mktemp -d)
 # BLOCKING-D fix (2026-05-19): register TMPDIR cleanup via the
 # helper-lib's IGOS_HELPER_USER_CLEANUP env var instead of `trap EXIT`.
@@ -120,8 +141,8 @@ igos_helper_init "edge"
 igos_helper_record_post_install_action \
     "User accepted Microsoft Edge license terms (acceptance artifact at $ACCEPTANCE_FILE)"
 
-echo "  Finding latest Microsoft Edge release in signed apt metadata..."
-LATEST=$(igos_helper_find_latest_deb_in_packages "$EDGE_PKG_NAME" "$EDGE_APT_BASE" "$EDGE_DIST")
+echo "  Finding the requested Microsoft Edge release in signed apt metadata..."
+LATEST=$(igos_helper_find_verified_deb_in_packages "$EDGE_PKG_NAME" "$EDGE_APT_BASE" "$EDGE_KEYRING" "$EDGE_DIST" main "$REQUESTED_VERSION" "")
 if [ -z "$LATEST" ]; then
     echo "  ERROR: Could not locate microsoft-edge-stable in the official"
     echo "         PMC apt Packages metadata at ${EDGE_APT_BASE}/dists/${EDGE_DIST}/"

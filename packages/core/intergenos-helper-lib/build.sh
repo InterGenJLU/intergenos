@@ -34,6 +34,9 @@ do_install() {
     install -m644 \
         "${IGOS_SOURCE_ROOT:-/mnt/intergenos}/packages/core/intergenos-helper-lib/helper-lib.sh" \
         "${DESTDIR}/usr/share/igos/helpers/helper-lib.sh"
+    install -m644 \
+        "${IGOS_SOURCE_ROOT:-/mnt/intergenos}/packages/core/intergenos-helper-lib/deb-metadata.py" \
+        "${DESTDIR}/usr/share/igos/helpers/deb-metadata.py"
 
     # Defensive assert: the installed library exports the documented
     # API. If a future edit accidentally renames a function or drops a
@@ -53,6 +56,8 @@ do_install() {
         igos_helper_write_acceptance
         igos_helper_verify_deb_via_signed_release
         igos_helper_find_latest_deb_in_packages
+        igos_helper_find_verified_deb_in_packages
+        igos_helper_query_deb_upgrade
     )
     for fn in "${REQUIRED_FUNCTIONS[@]}"; do
         if ! grep -q "^${fn}()" "${DESTDIR}/usr/share/igos/helpers/helper-lib.sh"; then

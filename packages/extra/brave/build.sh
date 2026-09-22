@@ -58,6 +58,32 @@ fi
 ACCEPTANCE_DIR="/var/lib/intergen/legal"
 ACCEPTANCE_FILE="$ACCEPTANCE_DIR/brave-1.0-accepted.json"
 
+BRAVE_APT_BASE="https://brave-browser-apt-release.s3.brave.com"
+BRAVE_DIST="stable"
+BRAVE_PKG_NAME="brave-browser"
+BRAVE_KEYRING="/usr/share/igos/helpers/keyrings/brave-keyring.gpg"
+
+# pkm-apt-helper-api: 1
+# Queries happen before any acceptance record, manifest or payload write.
+if ! declare -F igos_helper_query_deb_upgrade >/dev/null; then
+    echo "  ERROR: update intergenos-helper-lib before using this installer." >&2
+    echo "  The installer stopped; nothing on this machine was changed." >&2
+    exit 1
+fi
+REQUESTED_VERSION=""
+case "${1:-}" in
+    --check-upgrade)
+        [ "$#" -eq 2 ] || { echo "ERROR: --check-upgrade requires the recorded version." >&2; exit 2; }
+        igos_helper_query_deb_upgrade "$2" "$BRAVE_PKG_NAME" "$BRAVE_APT_BASE" "$BRAVE_KEYRING" "$BRAVE_DIST" main ""
+        exit $? ;;
+    --install-version)
+        [ "$#" -eq 2 ] && [ -n "$2" ] || { echo "ERROR: --install-version requires a version." >&2; exit 2; }
+        REQUESTED_VERSION="$2" ;;
+    "")
+        [ "$#" -eq 0 ] || { echo "ERROR: unexpected empty argument." >&2; exit 2; } ;;
+    *) echo "ERROR: unrecognized installer argument." >&2; exit 2 ;;
+esac
+
 TMPDIR=$(mktemp -d)
 # BLOCKING-D fix (2026-05-19): register TMPDIR cleanup via the
 # helper-lib's IGOS_HELPER_USER_CLEANUP env var instead of `trap EXIT`.
@@ -117,22 +143,17 @@ igos_helper_record_post_install_action \
 
 # K21.E: signed-Release verification chain. Source-of-truth for the
 # latest .deb filename + sha256 is the apt-style metadata under
-# /dists/stable/ on Brave's official apt repo. Helper-lib's
-# igos_helper_find_latest_deb_in_packages reads Packages (untrusted
-# at this stage; verify function re-fetches + verifies); the
+# /dists/stable/ on Brave's official apt repo. The initial lookup verifies
+# InRelease and the Packages digest before choosing a version and path; the
 # subsequent igos_helper_verify_deb_via_signed_release call signs
 # off on InRelease GPG + Packages sha256 + .deb sha256 in a single
 # fail-closed chain. Do NOT add fallback repositories without a
 # security review: alternate download sources are a supply-chain
 # vector (an earlier revision of this installer referenced an
 # unrelated third-party mirror, now removed).
-BRAVE_APT_BASE="https://brave-browser-apt-release.s3.brave.com"
-BRAVE_DIST="stable"
-BRAVE_PKG_NAME="brave-browser"
-BRAVE_KEYRING="/usr/share/igos/helpers/keyrings/brave-keyring.gpg"
 
-echo "  Finding latest Brave release in signed apt metadata..."
-LATEST=$(igos_helper_find_latest_deb_in_packages "$BRAVE_PKG_NAME" "$BRAVE_APT_BASE" "$BRAVE_DIST")
+echo "  Finding the requested Brave release in signed apt metadata..."
+LATEST=$(igos_helper_find_verified_deb_in_packages "$BRAVE_PKG_NAME" "$BRAVE_APT_BASE" "$BRAVE_KEYRING" "$BRAVE_DIST" main "$REQUESTED_VERSION" "")
 if [ -z "$LATEST" ]; then
     echo "  ERROR: Could not locate a Brave package in the official apt"
     echo "         Packages metadata at ${BRAVE_APT_BASE}/dists/${BRAVE_DIST}/"

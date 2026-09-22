@@ -76,6 +76,27 @@ VSCODE_APT_BASE="https://packages.microsoft.com/repos/vscode"
 VSCODE_DIST="stable"
 VSCODE_PKG_NAME="code"
 VSCODE_KEYRING="/usr/share/igos/helpers/keyrings/vscode-keyring.gpg"
+# pkm-apt-helper-api: 1
+# Queries happen before any acceptance record, manifest or payload write.
+if ! declare -F igos_helper_query_deb_upgrade >/dev/null; then
+    echo "  ERROR: update intergenos-helper-lib before using this installer." >&2
+    echo "  The installer stopped; nothing on this machine was changed." >&2
+    exit 1
+fi
+REQUESTED_VERSION=""
+case "${1:-}" in
+    --check-upgrade)
+        [ "$#" -eq 2 ] || { echo "ERROR: --check-upgrade requires the recorded version." >&2; exit 2; }
+        igos_helper_query_deb_upgrade "$2" "$VSCODE_PKG_NAME" "$VSCODE_APT_BASE" "$VSCODE_KEYRING" "$VSCODE_DIST" main ""
+        exit $? ;;
+    --install-version)
+        [ "$#" -eq 2 ] && [ -n "$2" ] || { echo "ERROR: --install-version requires a version." >&2; exit 2; }
+        REQUESTED_VERSION="$2" ;;
+    "")
+        [ "$#" -eq 0 ] || { echo "ERROR: unexpected empty argument." >&2; exit 2; } ;;
+    *) echo "ERROR: unrecognized installer argument." >&2; exit 2 ;;
+esac
+
 TMPDIR=$(mktemp -d)
 # BLOCKING-D fix (2026-05-19): register TMPDIR cleanup via the
 # helper-lib's IGOS_HELPER_USER_CLEANUP env var instead of `trap EXIT`.
@@ -134,8 +155,8 @@ igos_helper_init "vscode"
 igos_helper_record_post_install_action \
     "User accepted Microsoft VS Code license (acceptance artifact at $ACCEPTANCE_FILE)"
 
-echo "  Finding latest Visual Studio Code release in signed apt metadata..."
-LATEST=$(igos_helper_find_latest_deb_in_packages "$VSCODE_PKG_NAME" "$VSCODE_APT_BASE" "$VSCODE_DIST")
+echo "  Finding the requested Visual Studio Code release in signed apt metadata..."
+LATEST=$(igos_helper_find_verified_deb_in_packages "$VSCODE_PKG_NAME" "$VSCODE_APT_BASE" "$VSCODE_KEYRING" "$VSCODE_DIST" main "$REQUESTED_VERSION" "")
 if [ -z "$LATEST" ]; then
     echo "  ERROR: Could not locate code package in the official PMC apt"
     echo "         Packages metadata at ${VSCODE_APT_BASE}/dists/${VSCODE_DIST}/"

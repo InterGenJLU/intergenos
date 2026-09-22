@@ -71,6 +71,27 @@ CHATGPT_APT_BASE="https://persistent.oaistatic.com/codex-app-prod/linux/deb"
 CHATGPT_DIST="stable"
 CHATGPT_PKG_NAME="chatgpt"
 CHATGPT_KEYRING="/usr/share/igos/helpers/keyrings/chatgpt-keyring.gpg"
+# pkm-apt-helper-api: 1
+# Queries happen before any acceptance record, manifest or payload write.
+if ! declare -F igos_helper_query_deb_upgrade >/dev/null; then
+    echo "  ERROR: update intergenos-helper-lib before using this installer." >&2
+    echo "  The installer stopped; nothing on this machine was changed." >&2
+    exit 1
+fi
+REQUESTED_VERSION=""
+case "${1:-}" in
+    --check-upgrade)
+        [ "$#" -eq 2 ] || { echo "ERROR: --check-upgrade requires the recorded version." >&2; exit 2; }
+        igos_helper_query_deb_upgrade "$2" "$CHATGPT_PKG_NAME" "$CHATGPT_APT_BASE" "$CHATGPT_KEYRING" "$CHATGPT_DIST" main ""
+        exit $? ;;
+    --install-version)
+        [ "$#" -eq 2 ] && [ -n "$2" ] || { echo "ERROR: --install-version requires a version." >&2; exit 2; }
+        REQUESTED_VERSION="$2" ;;
+    "")
+        [ "$#" -eq 0 ] || { echo "ERROR: unexpected empty argument." >&2; exit 2; } ;;
+    *) echo "ERROR: unrecognized installer argument." >&2; exit 2 ;;
+esac
+
 TMPDIR=$(mktemp -d)
 # Register TMPDIR cleanup via the helper library's cleanup variable instead
 # of `trap EXIT`; the library installs its own EXIT trap for partial-manifest
@@ -130,7 +151,7 @@ igos_helper_record_post_install_action \
     "User accepted OpenAI's Terms of Use (acceptance artifact at $ACCEPTANCE_FILE)"
 
 echo "  Finding the latest ChatGPT desktop app release in signed repository metadata..."
-LATEST=$(igos_helper_find_latest_deb_in_packages "$CHATGPT_PKG_NAME" "$CHATGPT_APT_BASE" "$CHATGPT_DIST")
+LATEST=$(igos_helper_find_verified_deb_in_packages "$CHATGPT_PKG_NAME" "$CHATGPT_APT_BASE" "$CHATGPT_KEYRING" "$CHATGPT_DIST" main "$REQUESTED_VERSION" "")
 if [ -z "$LATEST" ]; then
     echo "  ERROR: Could not locate the chatgpt package in OpenAI's repository"
     echo "         metadata at ${CHATGPT_APT_BASE}/dists/${CHATGPT_DIST}/"

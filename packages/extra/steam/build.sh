@@ -239,6 +239,27 @@ STEAM_KEYRING="/usr/share/igos/helpers/keyrings/steam-keyring.gpg"
 # weak SIGNATURE digest ONLY when the InRelease resolves Good to THIS key.
 STEAM_KEY_FPR="BA1816EF8E75005FCF5E27A1F24AEA9FB05498B7"
 
+# pkm-apt-helper-api: 1
+# Queries happen before any acceptance record, manifest or payload write.
+if ! declare -F igos_helper_query_deb_upgrade >/dev/null; then
+    echo "  ERROR: update intergenos-helper-lib before using this installer." >&2
+    echo "  The installer stopped; nothing on this machine was changed." >&2
+    exit 1
+fi
+REQUESTED_VERSION=""
+case "${1:-}" in
+    --check-upgrade)
+        [ "$#" -eq 2 ] || { echo "ERROR: --check-upgrade requires the recorded version." >&2; exit 2; }
+        igos_helper_query_deb_upgrade "$2" "$STEAM_PKG_NAME" "$STEAM_APT_BASE" "$STEAM_KEYRING" "$STEAM_DIST" "$STEAM_COMPONENT" "$STEAM_KEY_FPR"
+        exit $? ;;
+    --install-version)
+        [ "$#" -eq 2 ] && [ -n "$2" ] || { echo "ERROR: --install-version requires a version." >&2; exit 2; }
+        REQUESTED_VERSION="$2" ;;
+    "")
+        [ "$#" -eq 0 ] || { echo "ERROR: unexpected empty argument." >&2; exit 2; } ;;
+    *) echo "ERROR: unrecognized installer argument." >&2; exit 2 ;;
+esac
+
 TMPDIR=$(mktemp -d)
 IGOS_HELPER_USER_CLEANUP="rm -rf $TMPDIR"
 
@@ -281,7 +302,7 @@ igos_helper_record_post_install_action \
     "User accepted the Steam Subscriber Agreement (acceptance artifact at $ACCEPTANCE_FILE)"
 
 echo "  Finding steam-launcher in Valve's signed apt metadata (component ${STEAM_COMPONENT})..."
-LATEST=$(igos_helper_find_latest_deb_in_packages "$STEAM_PKG_NAME" "$STEAM_APT_BASE" "$STEAM_DIST" "$STEAM_COMPONENT")
+LATEST=$(igos_helper_find_verified_deb_in_packages "$STEAM_PKG_NAME" "$STEAM_APT_BASE" "$STEAM_KEYRING" "$STEAM_DIST" "$STEAM_COMPONENT" "$REQUESTED_VERSION" "$STEAM_KEY_FPR")
 if [ -z "$LATEST" ]; then
     echo "  ERROR: Steam could not be found in Valve's own package listing, so"
     echo "  there was nothing to download. Nothing was installed and nothing on"

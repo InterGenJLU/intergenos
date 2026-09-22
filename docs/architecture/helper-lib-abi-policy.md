@@ -73,8 +73,30 @@ writer checks for its presence and asks for a library update if it is absent;
 it never substitutes a private copy of the writer. Metadata cannot replace
 the writer's identity or standard record fields.
 
-Any function not in this table is **not** part of the v1 API surface
+Any function not in this section's API tables is **not** part of the v1 API surface
 and MAY be removed or restructured without a v2 supersede.
+
+### Verified vendor metadata lookup
+
+The v1 library also provides these optional functions for apt download helpers:
+
+| Function | Arguments | Result |
+|---|---|---|
+| `igos_helper_find_verified_deb_in_packages` | package, apt base, keyring, distribution, optional component, optional exact version, optional scoped fingerprint | `filename|version|pool-path|sha256`, after verifying InRelease and the Packages digest; nonzero on failure or an absent requested version. |
+| `igos_helper_query_deb_upgrade` | recorded version, package, apt base, keyring, distribution, optional component, optional scoped fingerprint | One JSON object containing the verified vendor version and its Debian comparison with the recorded version; no acceptance, footprint or payload write. |
+
+The installed `deb-metadata.py` reader supplies Debian epoch, upstream and
+revision ordering. The API marker remains 1. Existing function signatures,
+including the downloaded-payload verifier and its scoped digest option, are
+unchanged. The older unverified lookup remains for compatibility; the eight
+apt helpers use the new verified lookup for both queries and installation.
+An updated helper refuses a library that lacks the query function.
+
+The helper scripts declare `pkm-apt-helper-api: 1`. Their `--check-upgrade`
+mode runs before installation begins; `--install-version` selects the exact
+requested version from verified metadata. The package manager checks this
+declaration before invoking either mode because an older script may ignore
+unknown arguments and start its ordinary installation.
 
 ## Crash recovery: partial-manifest sidecar
 

@@ -26,7 +26,7 @@ from . import txn
 from .configprotect import summary_lines as configprotect_summary_lines
 from .database import PackageDB, _sha256
 from .installer import (
-    PackageInstaller, is_download_helper, payload_installed,
+    PackageInstaller, is_download_helper, payload_installed, APT_DOWNLOAD_HELPERS,
     acceptance_record_exists,
 )
 from .remover import PackageRemover, ancestor_chain, prune_empty_unowned_dirs
@@ -1724,7 +1724,7 @@ def _rollback_proprietary(db, pkg_name, reporter):
 
 
 def _proprietary_install(db, installer, repo, reporter, pkg_name, payload_license,
-                         replace=False):
+                         replace=False, target_version=None):
     """pkm 2b items 1+3 — unified `pkm install <app>` for a proprietary-download
     package (one whose .PKGINFO carries payload_license).
 
@@ -1734,7 +1734,7 @@ def _proprietary_install(db, installer, repo, reporter, pkg_name, payload_licens
     DB entry. A declined EULA (or a helper failure) rolls the package back. Never
     auto-accepts a EULA non-interactively (security-first + PRIME DIRECTIVE).
 
-    replace=True is the `pkm reinstall <app>` path (PKM-A19): it skips the
+    replace=True is used by reinstall and a verified vendor upgrade: it skips the
     "already installed" refusal so the helper RE-RUNS and re-fetches the
     proprietary payload. The stub infra is already present (existing row), so
     `laid_down` stays False and only the helper re-download happens.
@@ -1863,7 +1863,11 @@ def _proprietary_install(db, installer, repo, reporter, pkg_name, payload_licens
         if laid_down:
             _rollback_proprietary(db, pkg_name, reporter)
         return "failed"
-    ok, msg, declined = installer._run_helper(pkg_name, helper)
+    if target_version is None:
+        ok, msg, declined = installer._run_helper(pkg_name, helper)
+    else:
+        ok, msg, declined = installer._run_helper(
+            pkg_name, helper, target_version=target_version)
     if ok:
         reporter.info(msg)
         return "ok"
@@ -2468,12 +2472,22 @@ def cmd_reinstall(db, args):
         # payload), and lays the stub back: the exact opposite of "replace",
         # and contradicting the advice _proprietary_install gives the user.
         if helper_is_present(pkg_name):
+            requested = {}
+            if pkg_name in APT_DOWNLOAD_HELPERS:
+                recorded = existing.get("payload_version")
+                if not isinstance(recorded, str) or not recorded:
+                    reporter.error(
+                        f"'{pkg_name}' has no recorded payload version to reinstall. "
+                        f"Use `pkm install {pkg_name}` to install its application."
+                    )
+                    sys.exit(1)
+                requested["target_version"] = recorded
             _rp = repo.get_package(pkg_name)
             _payload_license = (_rp or {}).get("payload_license") or \
                 "a proprietary vendor license (shown during install)"
             if _proprietary_install(
                     db, installer, repo, reporter, pkg_name, _payload_license,
-                    replace=True) == "failed":
+                    replace=True, **requested) == "failed":
                 sys.exit(1)
             continue
 
@@ -2793,6 +2807,65 @@ def _reexec_upgrade_all_under_new_pkm(args, installed_pkg, remote_pkg, db,
         sys.exit(1)
 
 
+def _upgrade_named_helper_payloads(db, args, installer, repo, names):
+    """Check all named vendor payloads before replacing any of them.
+
+    Archive upgrades (--all, --archive, and --security-only) retain their
+    repository plan. An explicit application name checks its vendor payload,
+    whose version is independent of the installer package's release.
+    """
+    if not getattr(args, "ignore_holds", False):
+        held = set(args.packages) & set(db.list_held())
+        if held:
+            emit_error(
+                f"{', '.join(sorted(held))} is held. Run `pkm unhold <name>` "
+                "first, or pass --ignore-holds."
+            )
+            sys.exit(1)
+    plan = []
+    for name in names:
+        existing = db.get_installed(name)
+        recorded = (existing or {}).get("payload_version")
+        if not isinstance(recorded, str) or not recorded:
+            emit_error(
+                f"'{name}' has no recorded payload version to upgrade. "
+                f"Use `pkm install {name}` to install its application."
+            )
+            sys.exit(1)
+        result, error = installer.query_helper_version(name, recorded)
+        if result is None:
+            emit_error(error)
+            sys.exit(1)
+        latest = result["version"]
+        if result["comparison"] <= 0:
+            emit_info(
+                f"{name}: installed payload {recorded}; verified vendor version "
+                f"{latest}. No payload upgrade is needed."
+            )
+        else:
+            emit_info(f"{name}: installed payload {recorded}; verified vendor version {latest}.")
+            plan.append((name, latest))
+    if not plan:
+        return True
+    if not _confirm_upgrade(args):
+        return False
+    from . import pretxn
+    pretxn.run_pre_transaction_hook(
+        db, "upgrade", [name for name, _ in plan],
+        reason="pre-transaction upgrade of vendor payloads",
+        handler_dir=pretxn.handler_directory(install_root()),
+    )
+    reporter = Reporter.from_args(args)
+    for name, latest in plan:
+        package = repo.get_package(name) or {}
+        license_name = package.get("payload_license") or "a vendor license (shown during install)"
+        if _proprietary_install(
+                db, installer, repo, reporter, name, license_name,
+                replace=True, target_version=latest) == "failed":
+            sys.exit(1)
+    return True
+
+
 def cmd_upgrade(db, args):
     # Q3 (O-027): refuse bare `pkm upgrade` invocations. Bare = no
     # positional packages AND no --all. Default-deny on destructive
@@ -2822,6 +2895,22 @@ def cmd_upgrade(db, args):
 
     repo = repo_manager()
     installer = package_installer(db)
+
+    # Explicit vendor payload requests are independent of the mirror's
+    # installer-archive versions. The all/archive/security plans below keep
+    # their existing meaning and preserve already installed payloads.
+    helper_names = list(dict.fromkeys(
+        name for name in args.packages if name in APT_DOWNLOAD_HELPERS
+    )) if not (getattr(args, "archive", None)
+               or getattr(args, "upgrade_security_only", False)) else []
+    if helper_names:
+        if not _upgrade_named_helper_payloads(db, args, installer, repo, helper_names):
+            return 0
+        remaining = [name for name in args.packages if name not in helper_names]
+        if not remaining:
+            return 0
+        args = argparse.Namespace(**vars(args))
+        args.packages = remaining
 
     # Where the replacement comes from. A local archive names ONE installed
     # package and is checked for identity, direction, trust and dependencies

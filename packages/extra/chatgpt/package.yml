@@ -1,7 +1,7 @@
 name: chatgpt
 version: "1.0"
-release: 3  # r3: write license acceptance through the shared helper library, preserving the named sudo user or explicit effective-account identity and this helper's metadata; refuse an older library with the command to update it. r2: The helper acceptance record names SUDO_USER when supplied, otherwise the effective account with an explicit indication that no consenting user was named. Identity is JSON-encoded before opening the record; this writer works with the existing helper library.
-content_hash: be770c0fafbc192b
+release: 4  # r4: Add a read-only vendor-version query before the installation flow. Select the latest or explicitly requested version only from Packages verified through the signed InRelease, and refuse an older helper library. The existing verified payload installation and license checks remain in force.  # r3: write license acceptance through the shared helper library, preserving the named sudo user or explicit effective-account identity and this helper's metadata; refuse an older library with the command to update it. r2: The helper acceptance record names SUDO_USER when supplied, otherwise the effective account with an explicit indication that no consenting user was named. Identity is JSON-encoded before opening the record; this writer works with the existing helper library.
+content_hash: 6b2dfc36faa7ed62
 description: Helper to download and install the ChatGPT desktop app with Codex
 license: GPL-3.0-or-later
 payload_license: LicenseRef-OpenAI-Terms-of-Use

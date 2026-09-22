@@ -47,6 +47,16 @@ landed is in the repository README, not here.
 
 ### Added
 
+- **Named apt download-helper upgrades check the verified vendor version.**
+  The eight apt helpers verify InRelease and the Packages digest before
+  reading a version. A named upgrade compares that version with the recorded
+  payload using Debian epoch, upstream and revision ordering; equal or
+  locally newer versions print both and stop, while unreachable or invalid
+  metadata fails. A newer version enters the existing verified install path.
+  Reinstall selects the recorded payload version and refuses if it is absent
+  from the verified index. Package archive upgrades retain their existing
+  behavior, and the helper library keeps its v1 interfaces.
+
 - **Authentication prompts leave a bounded journal trace.** GNOME Shell records
   when its PolicyKit dialog finishes opening and when the request reaches one
   terminal outcome. A request cancelled while the session is locked leaves one

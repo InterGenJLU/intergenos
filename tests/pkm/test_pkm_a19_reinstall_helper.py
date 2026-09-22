@@ -31,7 +31,8 @@ class ReinstallHelperRoutingTest(unittest.TestCase):
 
     def test_helper_reinstall_routes_to_proprietary_replace(self):
         db = MagicMock()
-        db.get_installed.return_value = {"name": "vscode", "version": "1.0"}
+        db.get_installed.return_value = {"name": "vscode", "version": "1.0",
+                                         "payload_version": "1.100.0"}
         with patch("pkm.cli.is_download_helper", return_value=True), \
              patch("pkm.cli._proprietary_install") as prop, \
              patch("pkm.cli.PackageInstaller"), \
@@ -43,6 +44,7 @@ class ReinstallHelperRoutingTest(unittest.TestCase):
         prop.assert_called_once()
         # routed with replace=True...
         self.assertTrue(prop.call_args.kwargs.get("replace"))
+        self.assertEqual(prop.call_args.kwargs.get("target_version"), "1.100.0")
         # ...and the DESTRUCTIVE generic remove was NOT used (the A19 bug).
         Remover.return_value.remove.assert_not_called()
 
