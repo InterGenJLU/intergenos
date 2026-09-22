@@ -237,6 +237,42 @@ landed is in the repository README, not here.
   `--all` to reach an install's full record.
 
 ### Fixed
+- **The web chat keeps the answer it showed you, or says why it does not.** The
+  page replaces the text that arrived word by word with the answer on the
+  turn's final message, and several checks on the server may rewrite that
+  answer after the words have already been sent: one carries a command's result
+  into an answer that dropped it, one removes a claim of an action nobody
+  performed, one removes an offer to act that nothing can carry out, and two
+  handle a command named in the answer that does not exist or cannot be
+  checked. Each correction is right and each was silent, so a person could
+  watch one answer arrive and be left holding another. Every rewrite now
+  records why it happened, the final message says whether the kept answer
+  differs from the text that was streamed and gives the reason in plain
+  language, and the page shows that reason under the answer. A difference with
+  no recorded reason is reported as one all the same, never delivered as though
+  the text had never changed.
+- **A question the assistant never answered no longer exits as a success.**
+  Asking with the service stopped printed daemon log lines and no answer, and
+  asking seconds after a start printed a starting-up line; both exited 0, so
+  nothing reading the exit code could tell an answer from silence. A turn that
+  delivered no answer — an empty reply, or one the assistant marks as not
+  handled — now exits non-zero with one plain line, and is not written into the
+  record that `intergen last` reads.
+- **Asking with the service stopped reports the service instead of starting an
+  assistant inside the asking process.** That session was never the service the
+  machine manages: `systemctl --user is-active intergen` read inactive while it
+  answered, and it was gone when the command returned. The command now names
+  the state of the user service and the exact command that starts it, and exits
+  non-zero; the in-process session remains available for development behind
+  `--direct`, which is never implied and says what it is.
+- **`intergen last --raw` shows what the tool printed, not a summary of it.**
+  The model-driven tool route declared its raw original only for a web search,
+  so a turn that ran a command left that field empty while the command's own
+  output sat unused in the turn's results, and `--raw` printed the summary
+  again while saying the turn had been a direct answer. The route now carries
+  the output of the dispatch it answered from, for any tool, and the command
+  reads the turn's results as a second witness; where nothing behind an answer
+  was recorded, the line says only that.
 - **The release the assistant prints is the installed one, or a stated
   unknown.** `intergen --version` and the Version line of `intergen status`
   read the installed release from the package manager's own record. That read
