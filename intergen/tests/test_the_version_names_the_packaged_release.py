@@ -33,6 +33,7 @@ tests happen to run on.
 
 from __future__ import annotations
 
+import contextlib
 import io
 import json
 import unittest
@@ -40,13 +41,90 @@ from contextlib import redirect_stdout
 from unittest import mock
 
 import intergen
-from intergen import cli, package_record
+from intergen import cli
 from intergen.dbus_daemon import InterGenDaemon
 from intergen.hardware import HardwareTierLevel
 from intergen.model_manager import ModelInfo, ModelManager
 
 #: What the package manager records for the assistant on a real machine.
 A_RECORD = ("0.1.0", 296)
+
+
+def _reader():
+    """The module under test, imported inside the case that uses it.
+
+    Imported here rather than at the top of this file on purpose. At a tree
+    where this module does not exist yet, a module-level import makes every
+    case in this file an ERROR AT COLLECTION — the file never runs, so it
+    never goes red on what the commands PRINT, which is the whole thing these
+    cases exist to pin. Imported inside the case, the same tree is red case by
+    case, and the cases below that exercise a COMMAND are red on the output
+    that command produced.
+    """
+    from intergen import package_record
+    return package_record
+
+
+def _reader_or_none():
+    """The module under test, or None at a tree that does not have it yet.
+
+    The command cases use this so that such a tree still RUNS the command and
+    fails on what it printed. Supplying the record is how those cases avoid
+    reading the machine they run on; a tree with no reader has no record to
+    supply and no reader to read the machine with, so running the command
+    unsupplied is both safe and the point.
+    """
+    try:
+        from intergen import package_record
+    except ImportError:
+        return None
+    return package_record
+
+
+def _pkm_schema():
+    """The package database's real table definitions, from the package manager
+    itself.
+
+    Taken from `pkm.database.SCHEMA` rather than written out here, because a
+    fixture that carries its own copy of a schema is a copy that drifts. The
+    earlier form of these cases built a four-column table with no constraints
+    and inserted two rows for one package — a pair the real table forbids,
+    since it carries UNIQUE(name) — so the case proved a choice between rows
+    that cannot both exist on an installed machine.
+    """
+    from pkm.database import SCHEMA
+    return SCHEMA
+
+
+@contextlib.contextmanager
+def _record_supplied(record):
+    """Supply the package record for the duration of a case, where there is a
+    reader to supply it to; at a tree without one, change nothing and let the
+    path under test answer as it does."""
+    reader = _reader_or_none()
+    if reader is None:
+        yield
+        return
+    with mock.patch.object(reader, "installed_identity", return_value=record):
+        yield
+
+
+def _database_with(rows, path, wal=False):
+    """A package database at `path`, built to the real schema, holding `rows`.
+
+    Each row is (name, version, release, superseded_by).
+    """
+    import sqlite3
+    con = sqlite3.connect(path)
+    if wal:
+        con.execute("PRAGMA journal_mode = WAL")
+    con.executescript(_pkm_schema())
+    for name, version, release, superseded_by in rows:
+        con.execute("INSERT INTO installed (name, version, release, "
+                    "superseded_by) VALUES (?, ?, ?, ?)",
+                    (name, version, release, superseded_by))
+    con.commit()
+    con.close()
 
 
 def _model(name: str, tier: HardwareTierLevel) -> ModelInfo:
@@ -67,11 +145,15 @@ def _run_version(record=A_RECORD, downloaded=(QWEN_9B,)):
     """
     buf = io.StringIO()
     code = None
-    with mock.patch.object(package_record, "installed_identity",
-                           return_value=record), \
-         mock.patch.object(ModelManager, "list_downloaded",
-                           return_value=list(downloaded)), \
-         mock.patch.object(cli.sys, "argv", ["intergen", "--version"]):
+    reader = _reader_or_none()
+    with contextlib.ExitStack() as stack:
+        if reader is not None:
+            stack.enter_context(mock.patch.object(
+                reader, "installed_identity", return_value=record))
+        stack.enter_context(mock.patch.object(
+            ModelManager, "list_downloaded", return_value=list(downloaded)))
+        stack.enter_context(mock.patch.object(
+            cli.sys, "argv", ["intergen", "--version"]))
         with redirect_stdout(buf):
             try:
                 cli.main()
@@ -141,16 +223,14 @@ class TheVersionCommandNamesTheRelease(unittest.TestCase):
 class StatusCarriesTheSameIdentity(unittest.TestCase):
 
     def test_the_daemon_down_path_carries_the_release(self):
-        with mock.patch.object(package_record, "installed_identity",
-                               return_value=A_RECORD):
+        with _record_supplied(A_RECORD):
             status = cli.offline_status()
         self.assertEqual(status["version"], "0.1.0-296",
                          "the daemon-down status names a version with no "
                          "release: " + repr(status["version"]))
 
     def test_the_running_daemon_carries_the_release(self):
-        with mock.patch.object(package_record, "installed_identity",
-                               return_value=A_RECORD):
+        with _record_supplied(A_RECORD):
             status = json.loads(_status_daemon().status())
         self.assertEqual(status["version"], "0.1.0-296",
                          "the running daemon's status names a version with no "
@@ -159,8 +239,7 @@ class StatusCarriesTheSameIdentity(unittest.TestCase):
     def test_the_two_paths_agree(self):
         """A reader comparing a running machine with a stopped one must not be
         shown two different answers to the same question."""
-        with mock.patch.object(package_record, "installed_identity",
-                               return_value=("3.2.1", 7)):
+        with _record_supplied(("3.2.1", 7)):
             down = cli.offline_status()["version"]
             up = json.loads(_status_daemon().status())["version"]
         self.assertEqual(down, up)
@@ -171,7 +250,7 @@ class TheRecordReaderItself(unittest.TestCase):
 
     def test_a_database_that_is_not_there_answers_none(self):
         self.assertIsNone(
-            package_record.installed_identity(db_path="/nonexistent/pkm.db"))
+            _reader().installed_identity(db_path="/nonexistent/pkm.db"))
 
     def test_a_file_that_is_not_a_database_answers_none(self):
         import tempfile
@@ -179,38 +258,35 @@ class TheRecordReaderItself(unittest.TestCase):
             handle.write(b"this is not a database")
             handle.flush()
             self.assertIsNone(
-                package_record.installed_identity(db_path=handle.name))
+                _reader().installed_identity(db_path=handle.name))
 
     def test_a_real_database_shape_is_read(self):
-        """Built here to the shape the package manager uses, so the reader is
-        exercised against a database and not only against failures."""
-        import sqlite3
+        """Built to the package manager's own schema, so the reader is
+        exercised against a database of the shape it will meet and not only
+        against failures.
+
+        One row, because the real table carries UNIQUE(name): a machine has
+        one record per package, and a case that inserts two is describing a
+        machine that cannot exist.
+        """
         import tempfile
         with tempfile.TemporaryDirectory() as tmp:
             path = tmp + "/pkm.db"
-            con = sqlite3.connect(path)
-            con.execute("CREATE TABLE installed (name TEXT, version TEXT, "
-                        "release INTEGER, superseded_by TEXT)")
-            con.execute("INSERT INTO installed VALUES ('intergen','0.1.0',296,NULL)")
-            con.execute("INSERT INTO installed VALUES ('intergen','0.1.0',295,'x')")
-            con.commit()
-            con.close()
-            self.assertEqual(package_record.installed_identity(db_path=path),
+            _database_with([("intergen", "0.1.0", 296, None)], path)
+            self.assertEqual(_reader().installed_identity(db_path=path),
                              ("0.1.0", 296))
 
     def test_a_superseded_row_alone_answers_none(self):
-        """A row that has been replaced is not what is installed."""
-        import sqlite3
+        """A row that has been replaced is not what is installed.
+
+        One row, on the real schema: this is the reachable case, a machine
+        whose only record for this package has been superseded.
+        """
         import tempfile
         with tempfile.TemporaryDirectory() as tmp:
             path = tmp + "/pkm.db"
-            con = sqlite3.connect(path)
-            con.execute("CREATE TABLE installed (name TEXT, version TEXT, "
-                        "release INTEGER, superseded_by TEXT)")
-            con.execute("INSERT INTO installed VALUES ('intergen','0.1.0',295,'x')")
-            con.commit()
-            con.close()
-            self.assertIsNone(package_record.installed_identity(db_path=path))
+            _database_with([("intergen", "0.1.0", 295, "x")], path)
+            self.assertIsNone(_reader().installed_identity(db_path=path))
 
 
 if __name__ == "__main__":
