@@ -1045,6 +1045,8 @@ class Engine:
 
     @staticmethod
     def _check_restore_paths(paths):
+        if not isinstance(paths, list) or any(not isinstance(path, str) for path in paths):
+            raise EngineError("Restore paths must be a list of strings.")
         if any(not path.strip() for path in paths):
             raise EngineError("Restore paths must not be empty or blank.")
 

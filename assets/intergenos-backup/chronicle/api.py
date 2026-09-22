@@ -267,9 +267,7 @@ def dispatch(engine, request):
     kwargs = {k: args[k] for k in arg_names if k in args}
     try:
         if "paths" in arg_names:
-            paths = kwargs.get("paths")
-            if not isinstance(paths, list) or any(not isinstance(p, str) for p in paths):
-                raise _engine.EngineError("Restore paths must not be empty or blank.")
+            _engine.Engine._check_restore_paths(kwargs.get("paths"))
         result = getattr(engine, method_name)(**kwargs)
         return {"ok": True, "result": result}
     except _engine.EngineError as e:

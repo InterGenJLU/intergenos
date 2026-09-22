@@ -119,24 +119,29 @@ def main(argv=None):
     elif args.task == "scrub":
         out = eng.scrub()
     elif args.task == "restore":
-        if args.request:
-            req = json.loads(open(args.request, encoding="utf-8").read())
-            out = eng.restore_apply(
-                req["layer"], req.get("version_id") or req.get("version"),
-                req["paths"], req.get("mode", "replace-confirm"))
-            # Write the result beside the request so the escalating caller (a
-            # low-capability daemon) can read it back after `systemctl --wait`.
-            res_path = args.request
-            if res_path.endswith(".json"):
-                res_path = res_path[:-len(".json")]
-            res_path = res_path + ".result.json"
-            with open(res_path, "w", encoding="utf-8") as rf:
-                json.dump(out, rf)
-        else:
-            if not (args.layer and args.version and args.path):
-                ap.error("--task restore requires --layer, --version, and "
-                         "--path (or --request FILE)")
-            out = eng.restore_apply(args.layer, args.version, args.path, args.mode)
+        try:
+            if args.request:
+                with open(args.request, encoding="utf-8") as rf:
+                    req = json.load(rf)
+                out = eng.restore_apply(
+                    req["layer"], req.get("version_id") or req.get("version"),
+                    req.get("paths"), req.get("mode", "replace-confirm"))
+                # Write the result beside the request so the escalating caller (a
+                # low-capability daemon) can read it back after `systemctl --wait`.
+                res_path = args.request
+                if res_path.endswith(".json"):
+                    res_path = res_path[:-len(".json")]
+                res_path = res_path + ".result.json"
+                with open(res_path, "w", encoding="utf-8") as rf:
+                    json.dump(out, rf)
+            else:
+                if not (args.layer and args.version and args.path):
+                    ap.error("--task restore requires --layer, --version, and "
+                             "--path (or --request FILE)")
+                out = eng.restore_apply(args.layer, args.version, args.path, args.mode)
+        except _engine.EngineError as exc:
+            print(f"chronicled: {exc}", file=sys.stderr)
+            return 1
     else:  # pragma: no cover
         ap.error(f"unhandled task {args.task}")
     print(json.dumps(out, indent=2, sort_keys=True))

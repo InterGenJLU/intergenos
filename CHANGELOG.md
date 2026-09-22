@@ -238,9 +238,11 @@ landed is in the repository README, not here.
 
 ### Fixed
 
-- **Chronicle refuses malformed restore path lists before dispatching them.**
-  A bare string, a missing list or a non-string element now receives the same
-  clear refusal as a blank path, before the restore engine is called.
+- **Chronicle refuses malformed restore path lists at every entry point.**
+  Dispatch, direct engine calls and the daemon's restore request file share
+  the same check before restore work or escalation. A bare string, a missing
+  list or a non-string element receives a type-specific refusal; blank paths
+  keep their own message. The daemon reports the refusal without a traceback.
 - **Chronicle captures filenames containing bytes that are not UTF-8.**
   One such name previously failed the entire capture. Manifest hashes now
   cover the original filename bytes, stored paths use JSON escapes, and the

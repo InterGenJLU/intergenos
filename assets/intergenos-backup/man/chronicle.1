@@ -123,7 +123,10 @@ Errors only.
 .B \-\-json
 Machine-readable JSON output.
 Filename bytes that are not UTF-8 use JSON surrogate escapes (for example,
-byte 0xFF is written as \(rsudcff). Restore paths in text output are quoted,
+byte 0xFF is written as \(rsudcff).
+After parsing, these lone surrogates cannot be encoded with strict UTF-8; recover
+the original filename bytes with a filesystem encoder such as Python's os.fsencode.
+Restore paths in text output are quoted,
 with newlines and terminal control characters shown as escapes.
 .TP
 .BR \-y ", " \-\-yes
