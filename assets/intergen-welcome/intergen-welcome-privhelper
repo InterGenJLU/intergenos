@@ -709,12 +709,37 @@ write_dns_dropin() {
     # about either. The copy lives beside the file, like the nsswitch edit's
     # temporary above, and its name does not end in .conf so the resolver
     # never reads it as configuration.
-    local previous_copy="" had_dropin=no
+    #
+    # TAKING THE COPY IS A CHECKED OPERATION. It was not: the read and the
+    # mode-carrying chmod were written `2>/dev/null || true`, so a failure of
+    # either was silent and the helper went on to overwrite the live file
+    # anyway. Measured: when saving the mode failed, the copy kept the mode
+    # mktemp gave it and the rollback put THAT on the drop-in, so a 0640 file
+    # came back 0600; and a failed read left a half-written copy beside the
+    # drop-in. A snapshot that was not taken completely is not a snapshot, and
+    # the live file is not replaced until there is one.
+    local previous_copy="" previous_mode="" had_dropin=no
     if [ -f "$DNS_DROPIN" ]; then
         had_dropin=yes
         previous_copy="$(mktemp "${DNS_DROPIN}.XXXXXX")"
-        cat "$DNS_DROPIN" > "$previous_copy"
-        chmod --reference="$DNS_DROPIN" "$previous_copy" 2>/dev/null || true
+        local snapshot=yes
+        cat "$DNS_DROPIN" > "$previous_copy" || snapshot=no
+        if [ "$snapshot" = yes ]; then
+            previous_mode="$(stat -c %a "$DNS_DROPIN")" || snapshot=no
+        fi
+        if [ "$snapshot" = yes ] && [ -n "$previous_mode" ]; then
+            chmod "$previous_mode" "$previous_copy" || snapshot=no
+            cmp -s "$DNS_DROPIN" "$previous_copy" || snapshot=no
+        else
+            snapshot=no
+        fi
+        if [ "$snapshot" = no ]; then
+            # Removing the copy here cannot destroy the only recoverable
+            # original: the drop-in itself has not been touched.
+            rm -f "$previous_copy"
+            echo "intergen-welcome-privhelper: the existing name-server configuration could not be copied, so the name-server choice was not applied and nothing on this machine was changed." >&2
+            return 1
+        fi
     fi
     local wanted
     wanted=$(render_dns_dropin "$selection" "$servers" "$over_tls")
@@ -758,17 +783,27 @@ write_dns_dropin() {
     # restart is still NOT tolerated: the verb fails either way. What changed
     # is that it now fails through the same clean-up.
     if ! restart_resolved || ! apply_ignore_auto_dns; then
+        # PUTTING IT BACK IS A CHECKED OPERATION TOO, and for the same reason:
+        # the sentence at the end of this block says this machine has been
+        # left as it was, and that is a claim about the file's permissions as
+        # well as its contents. It is now READ BACK before it is made.
+        local restored=yes
         if [ "$had_dropin" = yes ]; then
-            # Exactly what was read: the same bytes, and the same mode. The
-            # sentence below says this machine has been left as it was, and
-            # that has to be true of the file's permissions as well as its
-            # contents.
-            cat "$previous_copy" > "$DNS_DROPIN"
-            chmod --reference="$previous_copy" "$DNS_DROPIN" 2>/dev/null || true
+            cat "$previous_copy" > "$DNS_DROPIN" || restored=no
+            chmod "$previous_mode" "$DNS_DROPIN" || restored=no
+            if [ "$restored" = yes ]; then
+                cmp -s "$previous_copy" "$DNS_DROPIN" || restored=no
+                [ "$(stat -c %a "$DNS_DROPIN")" = "$previous_mode" ] || restored=no
+            fi
         else
             rm -f "$DNS_DROPIN"
         fi
-        if [ -n "$previous_copy" ]; then rm -f "$previous_copy"; fi
+        # The copy is removed only when the restoration was VERIFIED. When it
+        # was not, the copy is the only thing on the machine that still holds
+        # the original, so it stays and is named.
+        if [ -n "$previous_copy" ] && [ "$restored" = yes ]; then
+            rm -f "$previous_copy"
+        fi
         # Putting the machine back needs the resolver restarted again, and if
         # the resolver is what could not restart, this will not restart either.
         # Tolerated and SAID, rather than ending the script silently before the
@@ -777,7 +812,11 @@ write_dns_dropin() {
         if ! restart_resolved; then
             echo "intergen-welcome-privhelper: the resolver could not be restarted while putting this machine back, so its running name servers may still be the ones that were just removed from disk; restart systemd-resolved, or reboot, to clear that." >&2
         fi
-        echo "intergen-welcome-privhelper: the name-server choice was not applied and this machine has been left as it was." >&2
+        if [ "$restored" = yes ]; then
+            echo "intergen-welcome-privhelper: the name-server choice was not applied and this machine has been left as it was." >&2
+        else
+            echo "intergen-welcome-privhelper: the name-server choice was not applied, and the name-server configuration that was there could NOT be put back as it was. A copy of it, with its original contents and permissions, is kept at ${previous_copy}; move that file back over ${DNS_DROPIN} to restore it." >&2
+        fi
         return 1
     fi
     if [ -n "$previous_copy" ]; then rm -f "$previous_copy"; fi

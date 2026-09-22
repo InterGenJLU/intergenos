@@ -104,9 +104,65 @@ exit 0
 # directory that stands in for a machine WITHOUT a network client holds these
 # and nothing else, so the real /usr/bin/nmcli cannot be reached through it.
 BORROWED_PROGRAMS = (
-    "awk", "basename", "bash", "cat", "chmod", "chown", "cut", "getent",
-    "grep", "id", "ls", "mkdir", "mktemp", "rm", "sed", "sort", "tail",
+    "awk", "basename", "bash", "cat", "chmod", "chown", "cmp", "cut",
+    "getent", "grep", "id", "ls", "mkdir", "mktemp", "rm", "sed",
+    "sort", "stat", "tail",
 )
+
+# Two pass-through stand-ins that exist so a case can make ONE named call
+# fail the way the real program fails, and leave every other call alone.
+# Without an instruction in the environment each simply runs the real
+# program, so a case that does not ask for a failure sees no difference.
+#
+# The real program's path is baked in when the stub is written, never looked
+# up on PATH: the stub IS what PATH finds under that name, so resolving by
+# name would call itself.
+CHMOD_STUB = r'''#!/bin/bash
+# The file a chmod acts on is its last argument.
+target="${@: -1}"
+case "${WELCOME_STUB_CHMOD_FAIL:-}" in
+    copy)
+        # The copy the helper takes of the existing drop-in: the drop-in's
+        # own name with mktemp's suffix after it.
+        case "$target" in
+            "$WELCOME_STUB_DROPIN".??????)
+                echo "chmod: cannot access '$target': No such file or directory" >&2
+                exit 1 ;;
+        esac ;;
+    restore)
+        # The SECOND chmod of the drop-in itself. On the failing path the
+        # first is the helper setting the mode of the drop-in it just wrote,
+        # and the second is the rollback putting the prior mode back.
+        if [ "$target" = "$WELCOME_STUB_DROPIN" ]; then
+            n=0
+            [ -f "$WELCOME_STUB_CHMOD_COUNT" ] && n=$(@REAL_CAT@ "$WELCOME_STUB_CHMOD_COUNT")
+            n=$((n + 1))
+            printf '%s' "$n" > "$WELCOME_STUB_CHMOD_COUNT"
+            if [ "$n" -ge 2 ]; then
+                echo "chmod: cannot access '$target': No such file or directory" >&2
+                exit 1
+            fi
+        fi ;;
+esac
+exec @REAL_CHMOD@ "$@"
+'''
+
+CAT_STUB = r'''#!/bin/bash
+# The helper reads the existing drop-in exactly once before it writes
+# anything: the copy it takes so it can put the machine back.
+if [ "${WELCOME_STUB_CAT_FAIL:-}" = "backup" ] && [ "$1" = "$WELCOME_STUB_DROPIN" ]; then
+    n=0
+    [ -f "$WELCOME_STUB_CAT_COUNT" ] && n=$(@REAL_CAT@ "$WELCOME_STUB_CAT_COUNT")
+    n=$((n + 1))
+    printf '%s' "$n" > "$WELCOME_STUB_CAT_COUNT"
+    if [ "$n" -eq 1 ]; then
+        echo "cat: $1: No such file or directory" >&2
+        exit 1
+    fi
+fi
+exec @REAL_CAT@ "$@"
+'''
+
 
 
 class DnsVerbHarness(unittest.TestCase):
@@ -128,6 +184,10 @@ class DnsVerbHarness(unittest.TestCase):
 
         self.bin = self.root / "bin"
         self.bin_without_nmcli = self.root / "bin-without-nmcli"
+        real_chmod = shutil.which("chmod")
+        real_cat = shutil.which("cat")
+        self.chmod_count = self.root / "chmod-calls-on-the-dropin"
+        self.cat_count = self.root / "cat-calls-on-the-dropin"
         for directory in (self.bin, self.bin_without_nmcli):
             directory.mkdir()
             self._write_program(directory / "systemctl", SYSTEMCTL_STUB)
@@ -135,6 +195,19 @@ class DnsVerbHarness(unittest.TestCase):
                 found = shutil.which(program)
                 if found:
                     (directory / program).symlink_to(found)
+            # These two replace the symlinks just made. They run the real
+            # program unless a case asks for one named call to fail.
+            if real_chmod:
+                (directory / "chmod").unlink()
+                self._write_program(
+                    directory / "chmod",
+                    CHMOD_STUB.replace("@REAL_CHMOD@", real_chmod)
+                              .replace("@REAL_CAT@", real_cat or "/bin/cat"))
+            if real_cat:
+                (directory / "cat").unlink()
+                self._write_program(
+                    directory / "cat",
+                    CAT_STUB.replace("@REAL_CAT@", real_cat))
         self._write_program(self.bin / "nmcli", NMCLI_STUB)
 
         self.add_profile("11111111-1111-1111-1111-111111111111",
@@ -174,18 +247,26 @@ class DnsVerbHarness(unittest.TestCase):
     # -- running a verb ----------------------------------------------------
 
     def run_verb(self, *args, with_nmcli=True, client_fails=False,
-                 resolver_restart_fails=False):
+                 resolver_restart_fails=False, chmod_fails=None,
+                 backup_read_fails=False):
         env = {
             "PATH": str(self.bin if with_nmcli else self.bin_without_nmcli),
             "HOME": str(self.root),
             "INTERGEN_WELCOME_ROOT": str(self.root),
             "WELCOME_STUB_LOG": str(self.calls),
             "WELCOME_STUB_PROFILES": str(self.profiles),
+            "WELCOME_STUB_DROPIN": str(self.dropin),
+            "WELCOME_STUB_CHMOD_COUNT": str(self.chmod_count),
+            "WELCOME_STUB_CAT_COUNT": str(self.cat_count),
         }
         if client_fails:
             env["WELCOME_STUB_FAIL"] = "1"
         if resolver_restart_fails:
             env["WELCOME_STUB_SYSTEMCTL_FAIL"] = "1"
+        if chmod_fails:
+            env["WELCOME_STUB_CHMOD_FAIL"] = chmod_fails
+        if backup_read_fails:
+            env["WELCOME_STUB_CAT_FAIL"] = "backup"
         return subprocess.run(["bash", str(PRIVHELPER), *args],
                               capture_output=True, text=True, timeout=120,
                               env=env)
@@ -428,6 +509,171 @@ class TestTheRollbackPutsBackExactlyWhatWasThere(DnsVerbHarness):
                   if p.name != self.dropin.name]
         self.assertEqual(strays, [],
                          f"the rollback left files behind: {strays}")
+
+
+class TestASnapshotThatCouldNotBeTakenOrPutBackSaysSo(DnsVerbHarness):
+    """Preserving a file is only preservation if it is checked.
+
+    A second read of the previous correction measured what its own delivery
+    had named as untested residue, and it is worse than untested. The two
+    expressions that carry the prior file's mode were written
+    `chmod --reference=... 2>/dev/null || true`, so when the reference lookup
+    fails the helper says nothing and carries on:
+
+      * failing while SAVING the mode leaves the copy carrying the mode the
+        temporary file was created with, and the rollback then puts THAT on
+        the drop-in — a 0640 file comes back 0600;
+      * failing while RESTORING it leaves the drop-in with the 0644 this
+        helper wrote a moment earlier — a 0600 file, owner-only, comes back
+        readable by everyone.
+
+    In both cases the helper prints that the machine has been left as it was,
+    and removes the copy although the restoration was never verified. A third
+    boundary sits beside them: when the read that takes the copy fails, the
+    helper stops before touching anything — which is right — but leaves the
+    half-written copy behind, which contradicts what it says about that
+    copy's lifetime.
+
+    These cases make each named call fail the way the real program fails, and
+    then read the file's bytes and mode off the disk.
+    """
+
+    PRIOR_BYTES = b"[Resolve]\nDNS=192.0.2.1\n\n"
+
+    def write_prior_dropin(self, mode):
+        path = self.dropin
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(self.PRIOR_BYTES)
+        path.chmod(mode)
+        return path
+
+    def strays(self):
+        return sorted(p.name for p in self.dropin.parent.iterdir()
+                      if p.name != self.dropin.name)
+
+    def mode_of(self, path):
+        import stat as _stat
+        return _stat.S_IMODE(path.stat().st_mode)
+
+    # -- saving the mode ---------------------------------------------------
+
+    def test_a_snapshot_whose_mode_could_not_be_saved_stops_before_writing(self):
+        path = self.write_prior_dropin(0o640)
+        before = path.read_bytes()
+        result = self.run_verb("dns-use-cloudflare", chmod_fails="copy")
+        self.assertNotEqual(result.returncode, 0,
+                            "the choice reported success although the machine "
+                            "could not be remembered:\n" + result.stdout)
+        self.assertEqual(self.mode_of(path), 0o640,
+                         "the prior drop-in's mode changed although the "
+                         "helper could not record what it was:\n"
+                         + result.stderr)
+        self.assertEqual(path.read_bytes(), before,
+                         "the prior drop-in was rewritten although the helper "
+                         "could not record it:\n" + result.stderr)
+
+    def test_it_says_the_snapshot_failed_rather_than_nothing(self):
+        self.write_prior_dropin(0o640)
+        result = self.run_verb("dns-use-cloudflare", chmod_fails="copy")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("could not", result.stderr.lower(), result.stderr)
+
+    def test_the_incomplete_copy_is_not_left_behind(self):
+        self.write_prior_dropin(0o640)
+        result = self.run_verb("dns-use-cloudflare", chmod_fails="copy")
+        self.assertEqual(self.strays(), [],
+                         "an incomplete copy of the drop-in was left beside "
+                         "it:\n" + result.stderr)
+
+    # -- restoring the mode ------------------------------------------------
+
+    def test_a_restoration_that_failed_is_not_reported_as_success(self):
+        path = self.write_prior_dropin(0o600)
+        result = self.run_verb("dns-use-cloudflare",
+                               resolver_restart_fails=True,
+                               chmod_fails="restore")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn(
+            "left as it was", result.stderr,
+            "the helper said the machine was left as it was although it "
+            "could not put the prior mode back:\n" + result.stderr)
+
+    def test_a_restoration_that_failed_keeps_a_recovery_copy(self):
+        self.write_prior_dropin(0o600)
+        result = self.run_verb("dns-use-cloudflare",
+                               resolver_restart_fails=True,
+                               chmod_fails="restore")
+        self.assertNotEqual(result.returncode, 0)
+        kept = self.strays()
+        self.assertEqual(
+            len(kept), 1,
+            "the copy of the prior drop-in was removed although the "
+            "restoration was never verified, so nothing holds the original "
+            "any more:\n" + result.stderr)
+
+    def test_the_recovery_copy_is_named_where_a_person_can_read_it(self):
+        self.write_prior_dropin(0o600)
+        result = self.run_verb("dns-use-cloudflare",
+                               resolver_restart_fails=True,
+                               chmod_fails="restore")
+        kept = self.strays()
+        self.assertTrue(kept, result.stderr)
+        self.assertIn(kept[0], result.stderr,
+                      "the kept copy is not named in anything the person "
+                      "running this is told:\n" + result.stderr)
+
+    def test_the_recovery_copy_holds_the_original_bytes_and_mode(self):
+        self.write_prior_dropin(0o600)
+        result = self.run_verb("dns-use-cloudflare",
+                               resolver_restart_fails=True,
+                               chmod_fails="restore")
+        kept = self.strays()
+        self.assertTrue(kept, result.stderr)
+        copy = self.dropin.parent / kept[0]
+        self.assertEqual(copy.read_bytes(), self.PRIOR_BYTES,
+                         "the kept copy does not hold the original bytes")
+        self.assertEqual(self.mode_of(copy), 0o600,
+                         "the kept copy does not carry the original mode, so "
+                         "it is not a usable recovery copy")
+
+    # -- reading the file into the copy ------------------------------------
+
+    def test_a_backup_read_that_failed_leaves_nothing_behind(self):
+        path = self.write_prior_dropin(0o600)
+        before = path.read_bytes()
+        result = self.run_verb("dns-use-cloudflare", backup_read_fails=True)
+        self.assertNotEqual(result.returncode, 0,
+                            "the choice reported success although the machine "
+                            "could not be remembered:\n" + result.stdout)
+        self.assertEqual(self.strays(), [],
+                         "a half-written copy of the drop-in was left beside "
+                         "it:\n" + result.stderr)
+        self.assertEqual(path.read_bytes(), before,
+                         "the prior drop-in was rewritten although the helper "
+                         "could not read it first")
+        self.assertEqual(self.mode_of(path), 0o600)
+
+    # -- the non-masking controls -----------------------------------------
+
+    def test_with_no_call_made_to_fail_the_ordinary_rollback_is_unchanged(self):
+        path = self.write_prior_dropin(0o600)
+        before = path.read_bytes()
+        result = self.run_verb("dns-use-cloudflare",
+                               resolver_restart_fails=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(path.read_bytes(), before)
+        self.assertEqual(self.mode_of(path), 0o600)
+        self.assertIn("left as it was", result.stderr, result.stderr)
+        self.assertEqual(self.strays(), [],
+                         "a verified rollback kept a copy it did not need")
+
+    def test_with_no_call_made_to_fail_the_choice_still_takes(self):
+        self.write_prior_dropin(0o600)
+        result = self.run_verb("dns-use-cloudflare")
+        self.assertEqual(result.returncode, 0,
+                         result.stdout + result.stderr)
+        self.assertEqual(self.strays(), [],
+                         "a successful choice left a copy behind")
 
 
 class TestTheChoiceFailsWhenItCannotBeApplied(DnsVerbHarness):
