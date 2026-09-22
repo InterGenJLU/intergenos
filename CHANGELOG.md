@@ -224,6 +224,42 @@ landed is in the repository README, not here.
   `--all` to reach an install's full record.
 
 ### Fixed
+- **The package manager stops reporting answers it did not establish.** Seven
+  places said something true-sounding without checking it, and each is now
+  checked. `pkm verify <name>` for a package that is NOT INSTALLED printed
+  "is not installed" and exited 0, so a script gating on the status treated an
+  absent package as a verified one; it exits 4 now, which a caller can tell
+  from a package that is present but corrupt (1), one whose files it may not
+  read (3), and a usage error (2). `pkm check-updates` with an unusable
+  repository cache, or with no index synced, consulted nothing, printed
+  "Everything is up to date", wrote a count of 0 into the advisory the desktop
+  notifier and the message of the day read, and exited 0 — a machine with
+  pending updates telling its user it had none; it now names the cache path
+  and the reason, writes nothing at all (no new file, no clobbered previous
+  one) and exits non-zero. `pkm upgrade <name> --archive <file>` at the
+  installed version and release answered "already installed at exactly the
+  archive's build" from the numbers alone, whatever the archive held; it now
+  compares the archive's files against the hashes the installed build
+  recorded, and deploys when they differ or when identity cannot be
+  established. A `--dry-run` preview read the database without the shared lock
+  every other read takes, so it could be handed the half-written page that
+  answered a reader 1 row where the truth was 5002; it takes the lock now. An
+  archive's recorded ownership for a DIRECTORY is judged the way a file's is:
+  a directory the target already had is never re-owned (the case that once
+  gave an ordinary account /usr and /usr/bin on a running machine), a
+  directory the install itself created takes its recorded system-account
+  ownership, an ordinary account is refused, and a setgid directory naming one
+  fails the install.
+- **An upgrade that replaced a systemd unit says which reload it leaves
+  owed.** The package manager's own hook reloads the system manager, and
+  deliberately reaches no user manager, because a system-wide reload cannot.
+  That left every user manager running an older definition with nothing said.
+  The end-of-transaction advisory now asks systemd, per unit and in both
+  scopes, whether its manager is running an older definition, and names the
+  exact reload to run for the units it says yes about. The answer is read from
+  systemd's NeedDaemonReload property and never computed: measured against a
+  live manager, a loaded unit whose file was merely touched — its contents
+  byte-identical — answers yes.
 - **The microphone boost is no longer part of the microphone's volume range.**
   The audio server drives every mixer element its card-profile path file marks
   `volume = merge`, walking them in file order: the first element goes to the
