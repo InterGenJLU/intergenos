@@ -585,14 +585,44 @@ class Part6ConfirmationGate(unittest.TestCase):
             self.assertFalse(txn.confirm(self._plan(), r,
                                          stdin=_FakeStdin(tty=True)))
 
-    def test_headless_states_the_acceptance_rather_than_asking(self):
+    def test_headless_refuses_rather_than_assuming(self):
+        """REVERSED DELIBERATELY, and the case it replaces was right to exist.
+
+        This case used to require the opposite: with no terminal attached the
+        transaction STATED its acceptance and proceeded, because there is
+        nobody there to warn and warning nobody helps no one. That reasoning
+        is real and it is why the behaviour lasted.
+
+        What changed is the weighing, not the reasoning. Refusing costs one
+        re-run with --yes. Proceeding installs a closure nobody approved onto a
+        machine whose owner is not present, and the install record is the only
+        way they would ever find out. It also makes ONE rule out of three:
+        `pkm upgrade` and `pkm remove` both refuse on a non-tty without --yes
+        and name the flag, and a person should not have to remember which verb
+        guesses.
+
+        What the old case protected is protected still: headless never calls
+        input(), the plan is printed before the decision, and --yes proceeds
+        exactly as before (the next case).
+        """
+        import contextlib
         buf = io.StringIO()
+        err = io.StringIO()
         r = output.Reporter(stream=buf)
         with patch("builtins.input", side_effect=AssertionError(
-                "headless must never call input()")):
+                "headless must never call input()")), \
+                contextlib.redirect_stderr(err):
             ok = txn.confirm(self._plan(), r, stdin=_FakeStdin(tty=False))
-        self.assertTrue(ok)
-        self.assertIn("no terminal attached", buf.getvalue())
+        self.assertFalse(ok)
+        # The plan still goes to the normal stream: a log has to show WHAT was
+        # refused, not only that something was.
+        self.assertIn("40 packages", buf.getvalue())
+        # The refusal itself is an error, so it goes to the error stream.
+        # Normalised because the reporter wraps the sentence across lines.
+        said = " ".join(err.getvalue().split())
+        self.assertIn("no terminal attached", said)
+        self.assertIn("--yes", said)
+        self.assertIn("Nothing was downloaded or changed", said)
 
     def test_yes_states_the_acceptance_rather_than_asking(self):
         r = output.Reporter(stream=io.StringIO())

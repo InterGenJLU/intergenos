@@ -407,12 +407,24 @@ def confirm(plan, reporter, assume_yes=False, stream=None, stdin=None):
     a transaction, not to make routine installs adversarial: someone who reads
     the summary and presses Return meant to proceed.
 
-    HEADLESS: acceptance is STATED, not asked. There is nobody to warn, so the
-    run says what it is doing and continues — the same pattern the
-    proprietary-payload pause already uses. ``assume_yes`` states it the same
-    way for an explicit ``--yes``.
+    HEADLESS: REFUSED, not assumed. This reverses an earlier decision, and the
+    earlier reasoning was real — there is nobody there to warn, so warning
+    nobody and stopping helps no one. What decides it is the asymmetry of the
+    two mistakes. Refusing costs one re-run with ``--yes``. Proceeding installs
+    a closure nobody approved onto a machine whose owner is not present, and
+    the install record is the only way they would ever find out. It also makes
+    one rule out of three: ``pkm upgrade`` and ``pkm remove`` both refuse on a
+    non-tty without ``--yes`` and name the flag, and a person should not have
+    to remember which verb guesses.
 
-    Returns True to proceed, False when the user declined.
+    The refusal prints the plan first. A person reading a log needs to see what
+    was refused, not only that something was.
+
+    ``assume_yes`` states acceptance the same way it always did, so every
+    unattended caller keeps working by saying ``--yes``.
+
+    Returns True to proceed, False when the user declined or when there was
+    nobody to ask.
     """
     _stdin = stdin if stdin is not None else sys.stdin
 
@@ -430,11 +442,13 @@ def confirm(plan, reporter, assume_yes=False, stream=None, stdin=None):
         interactive = False
 
     if not interactive:
-        reporter.info(
-            "Accept? [Y/n] — no terminal attached; proceeding. Re-run "
-            "interactively to review this transaction before it starts."
+        reporter.error(
+            "Accept? [Y/n] — no terminal attached, so nobody can accept this. "
+            "This transaction reaches beyond the package that was named. Pass "
+            "--yes to accept it non-interactively, or re-run it in a terminal "
+            "to review it first. Nothing was downloaded or changed."
         )
-        return True
+        return False
 
     try:
         reply = input("  Accept? [Y/n] ").strip().lower()

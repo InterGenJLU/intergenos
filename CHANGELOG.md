@@ -258,6 +258,16 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **An install that reaches beyond what you asked for no longer proceeds
+  unwatched.** When resolving a package pulls in others — `pkm install steam`
+  resolving a forty-package closure — and there is no terminal attached,
+  pkm now prints the plan and stops, naming `--yes`, instead of announcing
+  that it is proceeding and installing all forty. Installing exactly what was
+  asked for is unchanged and still needs no confirmation. Refusing costs one
+  re-run; proceeding adds packages nobody approved to a machine whose owner
+  is not there. `pkm upgrade`, `pkm remove` and `pkm install` now follow one
+  rule instead of three.
+
 - **A removal asks first, and refuses rather than assume.** `pkm remove`
   now pauses for a yes or no, and with no terminal attached and no `--yes`
   it stops and says so, naming both the flag that would let it proceed and
