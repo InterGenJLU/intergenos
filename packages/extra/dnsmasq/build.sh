@@ -33,4 +33,18 @@ do_install() {
         "$DESTDIR/usr/lib/systemd/system/dnsmasq.service"
     install -Dm644 dnsmasq.conf.example \
         "$DESTDIR/usr/share/doc/dnsmasq/dnsmasq.conf.example"
+
+    # AppArmor: usr.sbin.dnsmasq confines /usr/sbin/dnsmasq,
+    # which this package installs. The profile
+    # text is upstream's, staged by the apparmor package in
+    # /usr/share/apparmor/extra-profiles, which nothing loads; this package links
+    # it into /etc/apparmor.d because this package is what puts the program on
+    # the machine, and the apparmor unit loads every file in /etc/apparmor.d at
+    # boot. apparmor is a runtime dependency so the link cannot dangle. See
+    # packages/core/apparmor/README.md, "Where a profile lives".
+    install -dm755 "${DESTDIR}/etc/apparmor.d"
+    for profile in usr.sbin.dnsmasq; do
+        ln -s "../../usr/share/apparmor/extra-profiles/${profile}" \
+            "${DESTDIR}/etc/apparmor.d/${profile}"
+    done
 }

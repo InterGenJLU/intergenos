@@ -1,6 +1,6 @@
 name: dnsmasq
 version: "2.93"
-release: 1
+release: 2  # r2: links the dnsmasq profile (usr.sbin.dnsmasq, enforce) into /etc/apparmor.d, because this package installs /usr/sbin/dnsmasq. The profile text is upstream's, staged by apparmor in /usr/share/apparmor/extra-profiles, which nothing loads; apparmor r4 stopped loading top-level profiles for programs it does not install, because the apparmor unit loads every file in /etc/apparmor.d at every boot and on an ordinary install 39 of the 55 it shipped named a program that machine did not have. apparmor is now a runtime dependency so the link cannot dangle. The profile is unchanged and keeps upstream's mode.
 content_hash: 2237c4f1852376f2
 description: Lightweight DNS forwarder and DHCP server
 license: GPL-2.0-only OR GPL-3.0-only
@@ -16,7 +16,8 @@ dependencies:
   build:
     - pkgconf
   host: []
-  runtime: []
+  runtime:
+    - apparmor
 verify_paths:
   - /usr/sbin/dnsmasq
   - /usr/share/man/man8/dnsmasq.8
