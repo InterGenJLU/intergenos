@@ -210,22 +210,43 @@ def _hint(text: str) -> None:
         print(f"\033[2m  {text}\033[0m", file=sys.stderr, flush=True)
 
 
-def _deliver_answer(data: dict) -> None:
+class _NothingToCache(Exception):
+    """Raised inside the cache write when the turn produced no answer to keep."""
+
+
+def _deliver_answer(data: dict) -> bool:
     """Print the answer, cache it for `intergen last`, and — when a distinct raw
     original exists behind the summary — point the user at it.
+
+    Returns True when the turn delivered an answer and False when it did not:
+    an empty reply, or a turn the assistant itself says it did not handle (it is
+    starting up, it is paused for a game, it hit an error). The caller exits
+    non-zero on False. Measured on this project's own machines on 2026-09-19:
+    asking with the service stopped printed twenty-six seconds of log lines and
+    no answer, and asking seconds after a start printed the starting-up line —
+    both exited 0, which tells every script and every person that the question
+    was answered.
 
     The always-verifiable-original affordance: the normalised prose is one step
     from the ground truth it was derived from. The hint is shown ONLY after the
     raw has durably landed on disk, so the promise is never a lie (fail-closed)."""
-    response = data.get("response", "")
-    print(response)
+    response = data.get("response", "") or ""
+    handled = data.get("handled", True)
+    answered = bool(response.strip())
+    if answered:
+        print(response)
     full = data.get("full_output") or ""
     # Persist for `intergen last [--raw]`. Best-effort + atomic: a cache-write
     # failure must never break the answer, and we advertise the raw only if it
     # actually landed.
+    # A turn that answered nothing is NOT cached: keeping it would make
+    # `intergen last` repeat an older answer as though it were the reply to
+    # this question.
     cached_raw = False
     try:
-        path = _last_answer_path()
+        path = _last_answer_path() if answered else None
+        if path is None:
+            raise _NothingToCache
         # Owner-only, and the mode is set at creation: this file holds the
         # answer AND the raw model output behind it, which is the same class of
         # material as a session transcript. The temporary file is the one that
@@ -243,6 +264,15 @@ def _deliver_answer(data: dict) -> None:
     # the user just read, and it is retrievable.
     if cached_raw and full.strip() and full.strip() != response.strip():
         _hint("original output available — run: intergen last --raw")
+    if not answered:
+        print("InterGen returned no answer to that question.", file=sys.stderr)
+        return False
+    if handled is False:
+        # The line above says what happened in the assistant's own words; this
+        # one is for the exit code and for anyone reading a transcript.
+        print("InterGen did not answer that question.", file=sys.stderr)
+        return False
+    return True
 
 
 def cmd_ask(message: str) -> None:
@@ -260,7 +290,8 @@ def cmd_ask(message: str) -> None:
             response = try_dbus("Ask", message, timeout_ms=ASK_TIMEOUT_MS)
         if response is not None:
             data = json.loads(response)
-            _deliver_answer(data)
+            if not _deliver_answer(data):
+                sys.exit(2)
             return
         # The daemon owns the name but the call did not complete even within the
         # LLM timeout — surface the symptom; do NOT start a competing daemon.
@@ -278,7 +309,8 @@ def cmd_ask(message: str) -> None:
     daemon.start_service()
     response = daemon.ask(message)
     data = json.loads(response)
-    _deliver_answer(data)
+    if not _deliver_answer(data):
+        sys.exit(2)
 
 
 def cmd_last(args: list[str]) -> None:
