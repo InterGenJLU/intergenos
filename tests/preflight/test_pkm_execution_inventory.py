@@ -57,6 +57,34 @@ def _inventory_row(key="canonical:demo"):
     return row
 
 
+def _row_by_key(path: Path, key: str) -> dict:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    columns = lines[0].split("\t")
+    for line in lines[1:]:
+        values = line.split("\t")
+        if values[0] == key:
+            return dict(zip(columns, values))
+    raise AssertionError(f"{key} is not in {path}")
+
+
+def test_the_welcomer_hook_row_names_every_effect_it_has():
+    """The row is the record a reviewer reads instead of running the hook.
+
+    That hook re-applies a name-server choice through the privileged helper,
+    and the helper restarts the resolver and writes down which connections
+    the choice changed. A row that names the profiles and the dispatcher but
+    not those two describes a hook that does less than this one does.
+    """
+    for path, key in ((INVENTORY_PATH, "archive:intergen-welcome:post_install"),
+                      (SHAPES_PATH, "desktop-caches-and-resolver-repair")):
+        writes = _row_by_key(path, key)["writes"]
+        assert "systemd-resolved" in writes, (
+            f"{path.name} does not say the hook restarts the resolver: {writes}")
+        assert "/var/lib/intergen/welcome/dns-connections" in writes, (
+            f"{path.name} does not say the hook writes the record of the "
+            f"connections the choice changed: {writes}")
+
+
 def test_real_tree_matches_the_committed_contract():
     issues, surfaces, calls, shapes, safe_launchers = inventory.check_tree(
         REPO_ROOT, INVENTORY_PATH, PROCESS_PATH, SHAPES_PATH, SAFE_LAUNCH_PATH
