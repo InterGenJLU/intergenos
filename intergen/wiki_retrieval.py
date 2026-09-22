@@ -169,6 +169,21 @@ _STOPWORDS = frozenset((
 # scripts are chrome we must NOT index (retrieving the nav would match every
 # query). Content inside these tags is dropped wholesale.
 _SKIP_TAGS = frozenset(("script", "style", "nav", "header", "footer", "head"))
+# HOW MUCH OF ONE PAGE THIS MODULE WILL READ, AND PRODUCE.
+# Until 2026-09-22 there was no answer to that question in the code: every
+# verified page went into the extraction whole and came out whole, so the
+# largest input was whatever the largest installed page happened to be. The
+# wiki ships one page that is the entire book rendered as a single document,
+# so that size grows with the wiki itself. Measured on the installed wiki on
+# 2026-09-22: 88 verified pages, the largest 994,504 characters of markup
+# giving 734,392 characters of text. The ceilings below are eight and five
+# times those figures, so nothing shipped today is cut; a page that grows past
+# them is cut at a word boundary and the cut is LOGGED with the page, its size
+# and the limit. A page silently losing its tail would make the retrieval
+# quietly less complete, which is the failure this is written to avoid.
+_MAX_PAGE_HTML_CHARS = 8_000_000
+_MAX_PAGE_TEXT_CHARS = 4_000_000
+
 # Block-level tags whose boundaries should become whitespace so words on either
 # side do not fuse ("...disk</li><li>Encryption..." -> two words, not one).
 _BLOCK_TAGS = frozenset((
@@ -218,12 +233,58 @@ class _WikiTextExtractor(HTMLParser):
         self._parts.append(data)
 
     def text(self) -> str:
-        return re.sub(r"\s+", " ", "".join(self._parts)).strip()
+        r"""The collected parts as one line of text, whitespace collapsed.
+
+        ``str.split()`` with no argument splits on runs of whitespace and drops
+        the leading and trailing runs, which is character for character what
+        ``re.sub(r"\s+", " ", ...).strip()`` produced — proven over every
+        Unicode code point in the tests, so this is not a behaviour change.
+
+        It is done WITHOUT the regular-expression engine on purpose. On
+        2026-09-20 a full test run on one of this project's machines ended in a
+        segmentation fault inside that substitution, running over a whole
+        rendered page; it happened once in about twenty runs and has not been
+        reproduced since, so it cannot be shown on demand and cannot be shown
+        fixed. What can be done is to stop sending whole documents through the
+        engine for work the interpreter's own string code does: a substitution
+        that is never called cannot fault."""
+        return " ".join("".join(self._parts).split())
 
 
-def html_to_text(html: str) -> str:
+def _cut_on_a_word_boundary(text: str, limit: int) -> str:
+    """``text`` cut to at most ``limit`` characters, ending on a whole word.
+
+    A cut in the middle of a word would put a word the page does not contain
+    into the retrieval index, where it could be matched and then quoted back as
+    the page's own wording."""
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    space = cut.rfind(" ")
+    return (cut[:space] if space > 0 else cut).rstrip()
+
+
+def html_to_text(html: str, *, source: str = "") -> str:
     """Visible body text of a rendered wiki page (chrome stripped). Never raises —
-    a malformed page yields whatever text parsed, never a daemon crash."""
+    a malformed page yields whatever text parsed, never a daemon crash.
+
+    BOUNDED, AND NEVER SILENTLY SO. At most ``_MAX_PAGE_HTML_CHARS`` of markup
+    is read and at most ``_MAX_PAGE_TEXT_CHARS`` of text is returned; a page
+    over either ceiling is cut at a word boundary and the cut is logged with the
+    page, the size and the limit. ``source`` is the page name for that log line
+    and is only ever used to say which page was cut.
+
+    The bound lives HERE, in the one function every caller goes through, rather
+    than at any call site: a limit applied at one caller is not a limit on the
+    function."""
+    html = html or ""
+    if len(html) > _MAX_PAGE_HTML_CHARS:
+        logger.warning(
+            "wiki-retrieval: page %s is %d characters of markup, over the "
+            "%d-character ceiling; reading the first %d and no more",
+            source or "(unnamed)", len(html), _MAX_PAGE_HTML_CHARS,
+            _MAX_PAGE_HTML_CHARS)
+        html = html[:_MAX_PAGE_HTML_CHARS]
     parser = _WikiTextExtractor()
     try:
         parser.feed(html)
@@ -231,7 +292,15 @@ def html_to_text(html: str) -> str:
     except Exception:  # noqa: BLE001 — a broken page must not take retrieval down
         logger.debug("wiki-retrieval: HTML parse degraded; using partial text",
                      exc_info=True)
-    return parser.text()
+    text = parser.text()
+    if len(text) > _MAX_PAGE_TEXT_CHARS:
+        logger.warning(
+            "wiki-retrieval: page %s produced %d characters of text, over the "
+            "%d-character ceiling; indexing the first %d and no more",
+            source or "(unnamed)", len(text), _MAX_PAGE_TEXT_CHARS,
+            _MAX_PAGE_TEXT_CHARS)
+        text = _cut_on_a_word_boundary(text, _MAX_PAGE_TEXT_CHARS)
+    return text
 
 
 def _chunk_words(text: str, size: int = _CHUNK_WORDS,
@@ -369,7 +438,7 @@ class WikiRetrieval:
                 # verify-then-cite gate already logged loud on tamper. Skip it.
                 excluded += 1
                 continue
-            text = html_to_text(html)
+            text = html_to_text(html, source=rel_html)
             if not text:
                 continue
             title = _title_for_page(rel_html)
