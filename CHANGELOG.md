@@ -638,10 +638,11 @@ landed is in the repository README, not here.
   code that held either way. The markup read from one page and the text
   produced from it now have stated ceilings (8,000,000 and 4,000,000
   characters, several times the largest page the wiki ships). What a page over
-  either ceiling keeps ends on a whole word of the page: a cut in the markup can
-  fall inside a word, a tag or a character reference, and none of those reaches
-  the index as text; a page with no word boundary under a ceiling keeps none of
-  its text rather than part of a word. Each cut is logged with the page, its
+  either ceiling keeps is the first words of its text, each one whole: a cut in
+  the markup can fall inside a word, a tag, a character reference, a comment or
+  an attribute value, and no part of any of those reaches the index as text; a
+  page with no word boundary under a ceiling keeps none of its text rather than
+  part of a word. Each cut is logged with the page, its
   size, the limit and the length kept, so a shortened page is never a silent
   one. The ceiling is inside the one function every caller goes through, and
   both callers name the page. And the whitespace normalisation is done with

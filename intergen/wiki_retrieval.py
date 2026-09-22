@@ -186,6 +186,10 @@ _SKIP_TAGS = frozenset(("script", "style", "nav", "header", "footer", "head"))
 # index: those are the two failures this is written to avoid.
 _MAX_PAGE_HTML_CHARS = 8_000_000
 _MAX_PAGE_TEXT_CHARS = 4_000_000
+# Read after cut markup so that a comment or a tag still open at the cut ends
+# there: the end of a comment, both quote marks (for a quoted attribute value)
+# and the end of a tag. See _text_read_before_the_cut.
+_CLOSING_MARKUP = "-->\"'>"
 
 # Block-level tags whose boundaries should become whitespace so words on either
 # side do not fuse ("...disk</li><li>Encryption..." -> two words, not one).
@@ -201,16 +205,53 @@ class _WikiTextExtractor(HTMLParser):
     Prefers the ``<main>`` region (mdBook's article body) when present so the
     sidebar navigation is excluded; falls back to all non-chrome text on a page
     with no ``<main>``. Dependency-free (stdlib ``html.parser``) — the mirror-
-    first, no-new-runtime-dep path."""
+    first, no-new-runtime-dep path.
 
-    def __init__(self) -> None:
+    Given ``cut``, the markup read before a cut, it also records the last
+    construct that begins before the cut: where it begins, whether it is text,
+    and how many parts had been collected before it (see
+    _text_read_before_the_cut)."""
+
+    def __init__(self, cut: "str | None" = None) -> None:
         super().__init__(convert_charrefs=True)
         self._skip_depth = 0
         self._has_main = False
         self._in_main_depth = 0
         self._parts: list[str] = []
+        # The cut as the parser counts positions: (line, column), lines from 1.
+        self._cut_at: "tuple[int, int] | None" = None
+        if cut is not None:
+            self._cut_at = (cut.count("\n") + 1,
+                            len(cut) - (cut.rfind("\n") + 1))
+        self.last_before_cut: "tuple[tuple[int, int], bool, int] | None" = None
+
+    def _begin(self, is_text: bool) -> None:
+        """Note a construct beginning, when a cut is being watched for.
+
+        The parser's position during a handler is where that construct
+        begins. A start-and-end tag such as ``<br/>`` reaches two handlers at
+        one position; the first is kept."""
+        if self._cut_at is None:
+            return
+        at = self.getpos()
+        if at < self._cut_at and (self.last_before_cut is None
+                                  or at > self.last_before_cut[0]):
+            self.last_before_cut = (at, is_text, len(self._parts))
+
+    def handle_comment(self, data: str) -> None:
+        self._begin(False)
+
+    def handle_decl(self, decl: str) -> None:
+        self._begin(False)
+
+    def handle_pi(self, data: str) -> None:
+        self._begin(False)
+
+    def unknown_decl(self, data: str) -> None:
+        self._begin(False)
 
     def handle_starttag(self, tag: str, attrs: object) -> None:
+        self._begin(False)
         if tag in _SKIP_TAGS:
             self._skip_depth += 1
         elif tag == "main":
@@ -220,6 +261,7 @@ class _WikiTextExtractor(HTMLParser):
             self._parts.append(" ")
 
     def handle_endtag(self, tag: str) -> None:
+        self._begin(False)
         if tag in _SKIP_TAGS and self._skip_depth:
             self._skip_depth -= 1
         elif tag == "main" and self._in_main_depth:
@@ -228,6 +270,7 @@ class _WikiTextExtractor(HTMLParser):
             self._parts.append(" ")
 
     def handle_data(self, data: str) -> None:
+        self._begin(True)
         if self._skip_depth:
             return
         # Once a <main> has been seen, only its text counts (drop the sidebar).
@@ -235,8 +278,9 @@ class _WikiTextExtractor(HTMLParser):
             return
         self._parts.append(data)
 
-    def text(self) -> str:
-        r"""The collected parts as one line of text, whitespace collapsed.
+    def text(self, parts: "int | None" = None) -> str:
+        r"""The collected parts as one line of text, whitespace collapsed;
+        with ``parts``, only that many of them, from the first.
 
         ``str.split()`` with no argument splits on runs of whitespace and drops
         the leading and trailing runs, which is character for character what
@@ -254,7 +298,7 @@ class _WikiTextExtractor(HTMLParser):
         This method calls nothing in the regular-expression engine. The
         standard HTML tokenizer this class is built on still does, to find tags,
         attributes and character references while a page is fed in."""
-        return " ".join("".join(self._parts).split())
+        return " ".join("".join(self._parts[:parts]).split())
 
 
 def _cut_on_a_word_boundary(text: str, limit: int) -> str:
@@ -279,15 +323,76 @@ def _cut_on_a_word_boundary(text: str, limit: int) -> str:
 def _drop_the_last_word(text: str) -> str:
     """``text`` without its last word. Used only after the MARKUP was cut.
 
-    The markup is cut at a character position, so the last word the parser
-    produced may continue past the cut, either in the same run of text or
-    after an inline tag: ``abc<b>def</b>`` cut after its ``d`` produces
-    ``abcd``, a word the page does not contain. Whether the last word
-    continues cannot be told from the text, so it is dropped. Every word
-    before it is followed by whitespace in the text read, which the whole page
-    has at the same place, so every word kept is a whole word of the page."""
+    ``text`` is what _text_read_before_the_cut kept: text of the page's own
+    constructs, in the page's order, the last of which may run past the cut.
+    Its last word may therefore continue past the cut, either in the same run
+    of text or after an inline tag: ``abc<b>def</b>`` cut after its ``d``
+    gives ``abcd``, a word the page does not contain.
+    Whether the last word continues cannot be told from the text, so it is
+    dropped. Every word before it is followed by whitespace that the whole
+    page's text has at the same place, so every word kept is a whole word of
+    the page, in the page's order."""
     space = text.rfind(" ")
     return text[:space] if space > 0 else ""
+
+
+def _read(parser: _WikiTextExtractor, markup: str, *,
+          close: bool) -> _WikiTextExtractor:
+    """``parser`` after being fed ``markup``, and closed when ``close`` is
+    true. Never raises: a malformed page yields whatever text parsed."""
+    try:
+        parser.feed(markup)
+        if close:
+            parser.close()
+    except Exception:  # noqa: BLE001 — a broken page must not take retrieval down
+        logger.debug("wiki-retrieval: HTML parse degraded; using partial text",
+                     exc_info=True)
+    return parser
+
+
+def _text_read_before_the_cut(markup: str) -> str:
+    """The text of ``markup``, the first part of a page cut at the markup
+    ceiling, keeping only whole words of the page's text, in its order.
+
+    WHAT THIS RESTS ON, measured on the standard tokenizer of Python 3.14.3.
+    The tokenizer ends a comment at the first ``-->`` or ``--!>`` after it,
+    and a tag at the first ``>`` outside its quoted attribute values; when
+    that closing markup is inside the markup read, the construct ends in the
+    same place in the whole page. Two constructs end differently when it is
+    not. A comment that opens as ``<!-->`` or ``<!--->`` is ended at once when
+    no ``-->`` follows it, and what follows is read as text; in a whole page
+    that has a later ``-->``, the comment runs to it. A quoted attribute value
+    still open at the cut, with whitespace or a quote mark just before its
+    equals sign or whitespace just after it, lets the tag end at a ``>``
+    inside the value, and the rest of the value is read as text; in the whole
+    page, the value runs to its closing quote.
+
+    So the markup is first read with ``_CLOSING_MARKUP`` after it, and the
+    last construct that begins before the cut is recorded. With those
+    characters present, no construct that ends inside the markup read can end
+    in either of the two ways above: a comment always has a later ``-->``, and
+    a quoted value always has its closing quote. Every construct before the
+    recorded one ended inside the markup read, where the whole page ends it.
+    If the recorded construct is text, the markup is read again on its own and
+    its text is kept up to the cut; otherwise the text collected before that
+    construct is kept, and the construct and everything after it are left
+    out. The last word is then dropped, because it may continue past the cut
+    (see _drop_the_last_word).
+
+    Nothing is closed here: the end of the markup read is the cut, not the end
+    of the page, so what the tokenizer is holding at the cut is never passed
+    on as text."""
+    probe = _read(_WikiTextExtractor(cut=markup), markup + _CLOSING_MARKUP,
+                  close=False)
+    last = probe.last_before_cut
+    if last is None:
+        return ""
+    _, is_text, parts = last
+    if is_text:
+        text = _read(_WikiTextExtractor(), markup, close=False).text()
+    else:
+        text = probe.text(parts)
+    return _drop_the_last_word(text)
 
 
 def _kept(length: int) -> str:
@@ -304,12 +409,14 @@ def html_to_text(html: str, *, source: str = "") -> str:
 
     BOUNDED, AND NEVER SILENTLY SO. At most ``_MAX_PAGE_HTML_CHARS`` of markup
     is read and at most ``_MAX_PAGE_TEXT_CHARS`` of text is returned, and what
-    is returned ends on a whole word of the page:
+    is returned is the first words of the page's text, each one whole, in the
+    page's order:
 
-    * markup over its ceiling is cut at the ceiling and parsed WITHOUT closing
-      the parser, so an unfinished tag, comment or character reference at the
-      cut stays unparsed instead of being passed on as text; the last word the
-      parser produced is then dropped, because it may continue past the cut;
+    * markup over its ceiling is cut at the ceiling. Markup still open at the
+      cut, such as a comment or a tag, is left out with everything after it;
+      text still open at the cut is kept up to it; the last word is then
+      dropped, because it may continue past the cut
+      (_text_read_before_the_cut says what this rests on);
     * text over its ceiling is cut back to a word boundary inside it.
 
     A page with no word boundary under a ceiling keeps no text at all. Each cut
@@ -325,24 +432,17 @@ def html_to_text(html: str, *, source: str = "") -> str:
     markup_size = len(html)
     markup_cut = markup_size > _MAX_PAGE_HTML_CHARS
     if markup_cut:
-        html = html[:_MAX_PAGE_HTML_CHARS]
-    parser = _WikiTextExtractor()
-    try:
-        parser.feed(html)
-        if not markup_cut:
-            # Closing makes the parser finish what is left at the end of its
-            # input, and a closing tag or a character reference left part-way
-            # is finished by passing its characters on as text. A whole page
-            # needs the close, because its last text can be held back until
-            # then; a cut page must not have one, because what is left at its
-            # end is the unfinished construct at the cut.
-            parser.close()
-    except Exception:  # noqa: BLE001 — a broken page must not take retrieval down
-        logger.debug("wiki-retrieval: HTML parse degraded; using partial text",
-                     exc_info=True)
-    text = parser.text()
-    if markup_cut:
-        text = _drop_the_last_word(text)
+        text = _text_read_before_the_cut(html[:_MAX_PAGE_HTML_CHARS])
+    else:
+        # close() tells the parser that its input has ended, and it then
+        # finishes what it was holding back: a run of text that could end in
+        # part of a character reference, a lone "<", a "</" with nothing after
+        # it and the unfinished content of an element such as a script are
+        # passed on as text; a comment, declaration or processing instruction
+        # left open is passed on as one; a tag left part-way is dropped. A
+        # whole page is closed, because its last text can be held back until
+        # then. A cut page is never closed (see _text_read_before_the_cut).
+        text = _read(_WikiTextExtractor(), html, close=True).text()
     text_size = len(text)
     text_cut = text_size > _MAX_PAGE_TEXT_CHARS
     if text_cut:

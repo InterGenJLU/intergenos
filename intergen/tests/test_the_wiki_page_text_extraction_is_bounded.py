@@ -20,11 +20,12 @@ whether or not the crash ever returns, and both are checked here.
      the code said how large it was allowed to get. A ceiling that is never
      stated is a ceiling nobody can check. There is now a stated ceiling on the
      markup read and on the text produced. What a page over either ceiling
-     keeps ends on a whole word of the page: the markup ceiling can fall inside
-     a word, a tag or a character reference, and none of those may reach the
-     index as text. A page with no word boundary under a ceiling keeps nothing.
-     Every cut is logged with the page, its size, the limit and the length
-     kept, so a truncated page is never a silent one.
+     keeps is the first words of the page's text, each one whole, in order:
+     the markup ceiling can fall inside a word, a tag, a character reference,
+     a comment or an attribute value, and no part of any of those may reach
+     the index as text. A page with no word boundary under a ceiling keeps
+     nothing. Every cut is logged with the page, its size, the limit and the
+     length kept, so a truncated page is never a silent one.
 
   2. THE NORMALISATION DID NOT NEED A REGULAR EXPRESSION AT ALL. Collapsing
      runs of whitespace to single spaces and trimming the ends is exactly what
@@ -195,6 +196,98 @@ class TheMarkupCeilingKeepsOnlyWholeWords(unittest.TestCase):
             text = html_to_text(html)
         self.assertEqual(text.split(), ["abcdefgh"] * 10)
         warned.assert_not_called()
+
+
+class NoTextFromACommentOrAttributeValueOpenAtTheCut(unittest.TestCase):
+    """Over the MARKUP ceiling, nothing the whole page holds inside a comment
+    or an attribute value is kept as text.
+
+    The tokenizer ends two constructs differently when their closing markup
+    lies past the cut: a comment opened as ``<!-->`` or ``<!--->`` with its
+    ``-->`` further on, and a quoted attribute value with whitespace or a
+    quote mark just before its equals sign, or whitespace just after it.
+    Measured on 2026-09-22: cut markup of either shape made the words inside
+    them text. The pages below carry line breaks, so a cut also falls on a
+    later line than the one the open construct began on."""
+
+    FILLER_UNIT = '<span class="w">abcdefgh</span> '
+
+    def _kept(self, html: str, ceiling: int) -> list[str]:
+        with mock.patch.object(wiki_retrieval, "_MAX_PAGE_HTML_CHARS", ceiling), \
+                self.assertLogs(wiki_retrieval.logger, level="WARNING"):
+            return html_to_text(html, source="open-at-the-cut.html").split()
+
+    def _assert_every_cut_keeps_the_first_words(self, page: str,
+                                                whole: list[str]) -> None:
+        self.assertEqual(html_to_text(page).split(), whole)
+        for ceiling in range(1, len(page)):
+            kept = self._kept(page, ceiling)
+            self.assertEqual(kept, whole[:len(kept)],
+                             f"a cut after {page[:ceiling][-24:]!r} kept "
+                             f"{kept[-3:]!r}, which are not the page's first "
+                             f"words in order")
+
+    def test_every_cut_of_a_comment_opened_as_empty_keeps_none_of_it(self) -> None:
+        for opener in ("<!-->", "<!--->"):
+            with self.subTest(opener=opener):
+                page = ("<main><p>one two</p>\n" + opener + "three\nfour five"
+                        "<p>six</p>-->\n<p>seven eight</p></main>")
+                self._assert_every_cut_keeps_the_first_words(
+                    page, ["one", "two", "seven", "eight"])
+
+    def test_every_cut_of_an_open_quoted_value_keeps_none_of_it(self) -> None:
+        shapes = {
+            "whitespace before the equals sign":
+                '<a title\n="x> three four five">link</a>',
+            "whitespace after the equals sign":
+                '<a title= "x>\nthree four five">link</a>',
+            "single quotes, spaces around the equals sign":
+                "<a title = 'x> three four five'>link</a>",
+            "a name that ends in a quote mark":
+                '<a b"="x> three four five">link</a>',
+            "an end tag carrying such a value":
+                '<a>link</a title ="x> three four five">',
+        }
+        for shape, markup in shapes.items():
+            with self.subTest(shape=shape):
+                page = ("<main><p>one two</p>\n" + markup
+                        + "\n<p>six seven</p></main>")
+                self._assert_every_cut_keeps_the_first_words(
+                    page, ["one", "two", "link", "six", "seven"])
+
+    def test_a_quoted_value_with_no_space_at_its_equals_sign(self) -> None:
+        # The control: this spacing ends the same way at every cut, and did
+        # before this correction too.
+        page = ('<main><p>one two</p>\n<a title="x> three four five">link</a>'
+                "\n<p>six seven</p></main>")
+        self._assert_every_cut_keeps_the_first_words(
+            page, ["one", "two", "link", "six", "seven"])
+
+    def _at_the_real_ceiling(self, opener: str, closer: str) -> None:
+        head = "<main><p>"
+        units = (_MAX_PAGE_HTML_CHARS - len(head) - 200) // len(self.FILLER_UNIT)
+        page = (head + self.FILLER_UNIT * units + "</p>" + opener
+                + "hidden " * 100 + closer + "<p>" + "after " * 50
+                + "</p></main>")
+        opened = page.index(opener)
+        self.assertLess(opened, _MAX_PAGE_HTML_CHARS)
+        self.assertGreater(page.index(closer, opened + len(opener)),
+                           _MAX_PAGE_HTML_CHARS,
+                           "the construct must still be open at the ceiling")
+        with self.assertLogs(wiki_retrieval.logger, level="WARNING"):
+            kept = html_to_text(page, source="real-ceiling.html").split()
+        self.assertNotIn("hidden", kept,
+                         "text the whole page holds inside the construct "
+                         "was kept")
+        self.assertEqual(kept, ["abcdefgh"] * (units - 1))
+
+    def test_a_comment_open_at_the_real_ceiling_keeps_none_of_it(self) -> None:
+        for opener in ("<!-->", "<!--->"):
+            with self.subTest(opener=opener):
+                self._at_the_real_ceiling(opener, "-->")
+
+    def test_a_quoted_value_open_at_the_real_ceiling_keeps_none_of_it(self) -> None:
+        self._at_the_real_ceiling('<a title ="x> ', '">link</a>')
 
 
 class TheTextCeilingKeepsOnlyWholeWords(unittest.TestCase):
