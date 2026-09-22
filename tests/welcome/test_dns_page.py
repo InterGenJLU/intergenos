@@ -575,15 +575,13 @@ class TestTheUpgradeRepairIsWiredUp(unittest.TestCase):
                       "the usage text does not offer the repair verb:\n"
                       + proc.stderr)
 
-    # NOT TESTED HERE, deliberately: that the verb does nothing on a machine
-    # which never chose a name server, and that it re-applies on one which
-    # did. Both would have to run the verb for real, and the verb reads and
-    # writes THIS machine's resolver configuration. Giving the helper an
-    # environment variable to point it elsewhere was the obvious way to make
-    # it testable and is exactly what its security model refuses — no
-    # caller-supplied path enters this helper. So the decision it makes is
-    # tested above through dns-selection-from-dropin, which is pure, and the
-    # writing is proven on a real machine in this lane's reality leg.
+    # WHAT THE VERB DOES — that it touches nothing on a machine which never
+    # chose a name server, and re-applies on one which did — is tested by
+    # RUNNING it, in tests/welcome/test_dns_privhelper_execution.py. The
+    # helper takes a root of the caller's choosing for that, honoured only
+    # when it is not running as root, so no caller-supplied path can reach it
+    # on the privileged path. This file keeps the assertions that read the
+    # helper's text; they are not a substitute for running it.
 
     def test_post_install_calls_the_repair(self):
         text = BUILD_SH.read_text(encoding="utf-8")

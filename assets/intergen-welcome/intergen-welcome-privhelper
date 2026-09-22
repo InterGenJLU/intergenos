@@ -50,11 +50,32 @@
 # returns the machine exactly to what the network hands out.
 set -euo pipefail
 
+# A ROOT OF THE CALLER'S CHOOSING, FOR TESTS, AND WHY IT CANNOT WEAKEN THE
+# PRIVILEGED PATH. The name-server verbs read and write four files under /etc
+# and the machine's own connection profiles, so nothing that runs them could
+# be exercised by a test without putting a real machine into a real state.
+# That is how two defects in the name-server half reached a second read with
+# the suite green: the half was pinned by assertions on this file's TEXT.
+#
+# INTERGEN_WELCOME_ROOT moves every path the NAME-SERVER verbs touch under a
+# directory the caller names, and it is read ONLY when this script is not
+# running as root. pkexec runs it as root, so on the privileged path the
+# value is read and discarded; whoever could set it for a root run is already
+# root. Measured on this machine 2026-09-22: a variable set before pkexec does
+# not survive into the program pkexec runs at all -- pkexec(1) says it sets "a
+# minimal known and safe environment" -- so the variable is stripped before
+# this check is even reached. An unprivileged run cannot write under /etc in
+# the first place, which is why there is nothing here for it to weaken.
+WELCOME_ROOT=""
+if [ "$(id -u)" -ne 0 ]; then
+    WELCOME_ROOT="${INTERGEN_WELCOME_ROOT:-}"
+fi
+
 NFTD=/etc/nftables.d
 MDNS_DROPIN="$NFTD/50-intergen-mdns.conf"
 SSH_DROPIN="$NFTD/40-intergen-ssh.conf"
 
-RESOLVED_CONF_D=/etc/systemd/resolved.conf.d
+RESOLVED_CONF_D="${WELCOME_ROOT}/etc/systemd/resolved.conf.d"
 DNS_DROPIN="$RESOLVED_CONF_D/50-intergen-welcome-dns.conf"
 
 NSSWITCH=/etc/nsswitch.conf
@@ -398,7 +419,7 @@ selection_from_dropin() {
 # include them -- so a profile created AFTER the choice would be born without
 # them. The file is the same removable-fragment shape as everything else here:
 # written when a choice is made, deleted when the choice is given up.
-NM_DISPATCHER_D=/etc/NetworkManager/dispatcher.d
+NM_DISPATCHER_D="${WELCOME_ROOT}/etc/NetworkManager/dispatcher.d"
 NM_DISPATCHER="$NM_DISPATCHER_D/50-intergen-welcome-dns"
 
 # dispatcher_script — print the dispatcher this helper installs. Writes nothing,
