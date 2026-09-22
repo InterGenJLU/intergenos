@@ -28,17 +28,79 @@ EXTRA = (
 WRITERS = [REPO / f"packages/extra/{name}/build.sh" for name in EXTRA] + [
     REPO / "packages/compute/cuda-toolkit/helper/igos-install-cuda-toolkit",
 ]
+EXPECTED_RECORDS = {
+    "brave": {"version": "1.0", "payload_license": "LicenseRef-Brave-EULA"},
+    "chatgpt": {"version": "1.0", "payload_license": "LicenseRef-OpenAI-Terms-of-Use"},
+    "chrome": {"version": "1.0", "payload_license": "LicenseRef-Google-Chrome-ToS"},
+    "claude-code": {
+        "version": "1.0", "payload_license": "LicenseRef-Anthropic-Commercial-Terms",
+    },
+    "codex": {
+        "version": "1.0", "payload_license": "Apache-2.0 AND LicenseRef-OpenAI-Terms-of-Use",
+    },
+    "discord": {
+        "version": "1.0", "payload_license": "LicenseRef-Discord-ToS",
+        "trust_anchor": "HTTPS-only (no cryptographic signature on tarball)",
+        "trust_chain_caveat": (
+            "Discord does not publish a signed apt repository; the Snap-Store "
+            "alternative is rejected by the project-canonical no-snapd directive "
+            "(decided 2026-05-21); the K21.F Option B trust-gap disclosure was "
+            "presented and accepted at install time."
+        ),
+        "k21_f_option": "B",
+    },
+    "edge": {"version": "1.0", "payload_license": "LicenseRef-Microsoft-Edge-EULA"},
+    "ffmpeg-nonfree": {
+        "version": "1.0", "payload_license": "GPL-3.0-or-later AND FDK-AAC",
+        "ffmpeg_version": "1", "ffmpeg_url_sha256": "fixture",
+    },
+    "ge-proton": {"version": "fixture", "payload_license": "LicenseRef-GE-Proton-Mixed"},
+    "signal": {"version": "1.0", "payload_license": "AGPL-3.0-only"},
+    "spotify": {"version": "1.0", "payload_license": "LicenseRef-Spotify-ToS"},
+    "steam": {"version": "1.0", "payload_license": "LicenseRef-Valve-SSA"},
+    "vscode": {
+        "version": "1.0", "payload_license": "LicenseRef-Microsoft-VSCode-Software-License",
+    },
+    "zoom": {"version": "1.0", "payload_license": "LicenseRef-Zoom-Terms-of-Service"},
+    "cuda-toolkit": {
+        "version": "1", "payload_license": "LicenseRef-NVIDIA-CUDA-EULA",
+        "license_text": "fixture.txt", "artifact": "fixture.run",
+        "artifact_sha256": "fixture", "source_url": "https://example.invalid/fixture",
+    },
+}
 
 
 def _writer(source):
     """Extract only the actual record-writing block, without any downloads."""
     text = source.read_text()
-    match = re.search(r'    igos_helper_write_acceptance "\$ACCEPTANCE_FILE" \\\n'
-                      r'        [^\n]+\n(?:        [^\n]+\n)?', text)
-    assert match, f"No acceptance writer found in {source}"
     assert "ACCEPTANCE_IDENTITY=" not in text
     assert 'cat > "$ACCEPTANCE_FILE"' not in text
-    return match.group()
+    lines = text.splitlines(keepends=True)
+    starts = [index for index, line in enumerate(lines)
+              if re.match(r'\s*igos_helper_write_acceptance\s+"\$ACCEPTANCE_FILE"(?:\s|$)', line)]
+    assert len(starts) == 1, f"Expected one acceptance writer in {source}"
+    block = []
+    for line in lines[starts[0]:]:
+        block.append(line)
+        if not line.rstrip("\r\n").endswith("\\"):
+            break
+    snippet = "".join(block)
+    assert not snippet.rstrip().endswith("\\"), f"Unterminated acceptance writer in {source}"
+    return snippet
+
+
+def _assert_complete_record(source, data, sudo_user):
+    helper = source.relative_to(REPO).parts[2]
+    expected = {
+        "helper": helper, **EXPECTED_RECORDS[helper],
+        "user": sudo_user or "root",
+        "consenting_user_named": bool(sudo_user),
+        "user_source": "SUDO_USER" if sudo_user else "effective_uid",
+    }
+    assert set(data) == set(expected) | {"accepted_at"}
+    assert {key: data[key] for key in expected} == expected
+    assert data["consenting_user_named"] is bool(sudo_user)
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", data["accepted_at"])
 
 
 def _run_writer(source, tmp_path, monkeypatch, sudo_user, identity_fails=False,
@@ -84,6 +146,7 @@ def test_sudo_records_the_named_user(source, sudo_user, tmp_path, monkeypatch):
     result, record = _run_writer(source, tmp_path, monkeypatch, sudo_user)
     assert result.returncode == 0, result.stderr
     data = json.loads(record.read_text())
+    _assert_complete_record(source, data, sudo_user)
     assert data["user"] == sudo_user
     assert data["consenting_user_named"] is True
     assert data["user_source"] == "SUDO_USER"
@@ -97,6 +160,7 @@ def test_direct_root_explicitly_has_no_named_consenting_user(
     result, record = _run_writer(source, tmp_path, monkeypatch, sudo_user)
     assert result.returncode == 0, result.stderr
     data = json.loads(record.read_text())
+    _assert_complete_record(source, data, sudo_user)
     assert data["user"] == "root"
     assert data["consenting_user_named"] is False
     assert data["user_source"] == "effective_uid"
@@ -131,16 +195,37 @@ def test_helper_specific_metadata_is_preserved(source, tmp_path, monkeypatch):
     result, record = _run_writer(source, tmp_path, monkeypatch, "alice")
     assert result.returncode == 0, result.stderr
     data = json.loads(record.read_text())
-    if data["helper"] == "cuda-toolkit":
-        assert data["artifact_sha256"] == "fixture"
-        assert data["artifact"] == "fixture.run"
-        assert data["source_url"] == "https://example.invalid/fixture"
-        assert data["license_text"] == "fixture.txt"
-    elif data["helper"] == "ffmpeg-nonfree":
-        assert data["ffmpeg_url_sha256"] == "fixture"
-        assert data["ffmpeg_version"] == "1"
-    elif data["helper"] == "ge-proton":
-        assert data["version"] == "fixture"
-    elif data["helper"] == "discord":
-        assert data["k21_f_option"] == "B"
-        assert data["trust_anchor"] == "HTTPS-only (no cryptographic signature on tarball)"
+    _assert_complete_record(source, data, "alice")
+
+
+def test_writer_extraction_keeps_a_third_continuation_line(tmp_path):
+    source = tmp_path / "helper.sh"
+    source.write_text(
+        '    igos_helper_write_acceptance "$ACCEPTANCE_FILE" \\\n'
+        '        sample 1.0 MIT \\\n'
+        '        first_key first_value \\\n'
+        '        second_key second_value\n'
+        '    exit 37\n'
+    )
+    record = tmp_path / "accepted.json"
+    snippet = _writer(source)
+    result = subprocess.run(
+        ["/bin/bash", "-c", f"set -eu\nsource {shlex.quote(str(LIBRARY))}\n"
+         f"ACCEPTANCE_FILE={shlex.quote(str(record))}\n" + snippet],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    data = json.loads(record.read_text())
+    assert data["first_key"] == "first_value"
+    assert data["second_key"] == "second_value"
+    assert not snippet.rstrip().endswith("\\")
+
+
+def test_writer_extraction_refuses_an_unterminated_continuation(tmp_path):
+    source = tmp_path / "helper.sh"
+    source.write_text(
+        '    igos_helper_write_acceptance "$ACCEPTANCE_FILE" \\\n'
+        '        sample 1.0 MIT \\\n'
+    )
+    with pytest.raises(AssertionError, match="[Uu]nterminated"):
+        _writer(source)

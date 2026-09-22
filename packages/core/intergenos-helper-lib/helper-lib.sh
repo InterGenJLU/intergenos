@@ -167,7 +167,8 @@ try:
     os.replace(temporary, record_path)
     temporary = None
 except (OSError, ValueError) as error:
-    print(f"Could not record license acceptance: {error}", file=sys.stderr)
+    reason = error.strerror if isinstance(error, OSError) and error.strerror else str(error)
+    print(f"Could not record license acceptance at {record_path}: {reason}", file=sys.stderr)
     if temporary is not None:
         try:
             os.unlink(temporary)

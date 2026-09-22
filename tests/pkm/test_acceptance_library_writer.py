@@ -78,3 +78,13 @@ def test_existing_record_symlink_is_replaced_without_touching_referent(tmp_path)
     assert not path.is_symlink()
     assert outside.read_bytes() == b"keep\n"
     assert json.loads(path.read_text())["user"] == "alice"
+
+
+def test_missing_record_directory_names_the_destination_and_reason(tmp_path):
+    missing = tmp_path / "absent-directory"
+    result, path = write_record(missing, "alice")
+    assert result.returncode != 0
+    assert not missing.exists()
+    assert str(path) in result.stderr
+    assert "No such file or directory" in result.stderr
+    assert ".acceptance-" not in result.stderr
