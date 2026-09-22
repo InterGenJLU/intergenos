@@ -124,7 +124,12 @@ def has_real_payload(tar, payload_dirs):
     members = tar.getmembers()
     for pd in payload_dirs:
         for m in members:
-            if m.name.startswith(pd + "/") and m.isfile():
+            # Every producer archives its staging tree with `tar -C <dir> .`,
+            # so a real member is named ./usr/bin/x; comparing that raw name
+            # against usr/bin/ matched nothing, and every real archive read
+            # as having no payload at all.
+            name = m.name[2:] if m.name.startswith("./") else m.name
+            if name.startswith(pd + "/") and m.isfile():
                 return True
     return False
 

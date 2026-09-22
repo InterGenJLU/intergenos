@@ -133,3 +133,31 @@ class TestReleaseCarryingNames:
         assert result["pkg_name"] == recipe["name"]
         assert result["build_style"] == recipe["build_style"]
         assert any("size" in i.lower() for i in result["issues"])
+
+
+class TestMembersNamedTheWayTheProducersNameThem:
+    """Every producer archives its staging tree with `tar -C <dir> .`, so a
+    real member is ./usr/bin/x. The payload check compared that raw name with
+    usr/bin/ and matched nothing: every real archive read as having no payload,
+    which buried any real finding under one per archive."""
+
+    def test_a_dot_slash_payload_member_is_payload(self, tmp_path):
+        archive = tmp_path / "normpkg-1.0-1.igos.tar.gz"
+        _make_archive(archive, [
+            ("./usr/lib/", None, True),
+            ("./usr/lib/libfoo.so", "ELF\x02...", False),
+        ])
+        with tarfile.open(archive, "r:gz") as tar:
+            assert _vpa.has_real_payload(tar, _vpa.PAYLOAD_DIRS)
+
+    def test_an_archive_written_by_tar_itself_is_read_the_same_way(self, tmp_path):
+        import subprocess
+        staging = tmp_path / "staging"
+        (staging / "usr/bin").mkdir(parents=True)
+        (staging / "usr/bin/tool").write_text("#!/bin/sh\n")
+        archive = tmp_path / "tool-1.0-1.igos.tar.gz"
+        subprocess.run(["tar", "-C", str(staging), "-czf", str(archive), "."],
+                       check=True)
+        with tarfile.open(archive, "r:gz") as tar:
+            assert any(m.name == "./usr/bin/tool" for m in tar.getmembers())
+            assert _vpa.has_real_payload(tar, _vpa.PAYLOAD_DIRS)
