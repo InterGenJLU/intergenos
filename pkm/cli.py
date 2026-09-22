@@ -1978,6 +1978,16 @@ def _continue_into_payload_if_helper(db, installer, repo, reporter, name):
         db, installer, repo, reporter, name, payload_license)
 
 
+def _name_header_mode(args):
+    """What an archive whose filename and sealed header disagree does to this
+    install: 'report' (name both, install the header's build) only for a local
+    archive installed deliberately with --archive-trust loose; 'refuse' for
+    everything else, strict and repo-only included."""
+    if getattr(args, "archive", None) and getattr(args, "archive_trust", "strict") == "loose":
+        return "report"
+    return "refuse"
+
+
 def cmd_install(db, args):
     installer = package_installer(db)
     repo = repo_manager()
@@ -2227,10 +2237,14 @@ def cmd_install(db, args):
 
         # L-021: pass the SHA256 we computed for --archive path through
         # to installer.install for the TOCTOU re-verification gate.
+        # A filename that disagrees with its sealed header is refused, except
+        # for a local archive installed deliberately under --archive-trust
+        # loose, where it is named and the header's build is installed.
         ok, msg = installer.install(
             pkg_name, archive_path=archive,
             expected_sha256=(archive_sha if archive else None),
             reporter=reporter,
+            name_header_mismatch=_name_header_mode(args),
         )
         if ok:
             # reporter already emitted the deploy file-list + completion line.

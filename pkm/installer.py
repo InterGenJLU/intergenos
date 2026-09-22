@@ -1036,6 +1036,36 @@ def _restore_symlink_target_modes(members, dest):
             continue
 
 
+def _name_header_disagreement(filename, meta):
+    """A sentence naming both builds when an archive's filename and its sealed
+    header disagree; None when they agree or there is no header to compare.
+
+    The filename is read against the header's own name and version, so a
+    version whose upstream tail looks like a release is not mis-split. A
+    release-less filename agrees with any header release: it asserts none.
+    """
+    header_name = (meta or {}).get("name")
+    header_version = (meta or {}).get("version")
+    if not header_name or not header_version:
+        return None          # an archive from before headers: nothing to compare
+    from .archive_names import parse_archive_filename
+    header_version = str(header_version)
+    header_release = meta.get("release")
+    parsed = parse_archive_filename(filename, {header_name: header_version})
+    if (parsed is not None and parsed.name == header_name
+            and parsed.version == header_version
+            and (parsed.release is None or parsed.release == header_release)):
+        return None
+    if parsed is None:
+        said = "does not name a package archive"
+    else:
+        said = f"says {parsed.name} {parsed.version}" + (
+            f" release {parsed.release}" if parsed.release is not None else "")
+    rel = f" release {header_release}" if header_release is not None else ""
+    return (f"its filename {said}, but its sealed header says "
+            f"{header_name} {header_version}{rel}.")
+
+
 def _archive_build(name, path, tail):
     """The (version, release) a candidate archive holds, or None to pass it over.
 
@@ -1091,7 +1121,8 @@ class PackageInstaller:
         return format_note_fold_summary(self.note_fold)
 
     def install(self, name, archive_path=None, queue=None, expected_sha256=None,
-                install_reason="manual", reporter=None, sidecars_out=None):
+                install_reason="manual", reporter=None, sidecars_out=None,
+                name_header_mismatch="refuse"):
         """Install a package from its .igos.tar.gz archive.
 
         Args:
@@ -1114,6 +1145,12 @@ class PackageInstaller:
                    second hash check. Mismatch → fail-closed return.
                    None means no expected hash (legacy / archive-trust=
                    loose path); install proceeds without the gate.
+            name_header_mismatch: what an archive whose FILENAME and sealed
+                   header name different builds does to this install —
+                   'refuse' (the default, for every caller) returns False
+                   naming both; 'report' names both and installs what the
+                   header states. Only `pkm install --archive ...
+                   --archive-trust loose` asks for 'report'.
             install_reason: Q9 install_reason field — 'manual' (user-
                    requested install) or 'dependency' (dep-resolution-
                    pulled). Default 'manual'. cmd_install threads
@@ -1228,6 +1265,27 @@ class PackageInstaller:
                 f"may be corrupt or truncated — re-fetch with "
                 f"`pkm install {name}`."
             )
+        # AN ARCHIVE'S NAME AND ITS SEALED HEADER MUST NAME THE SAME BUILD
+        # (decided 2026-09-22). The name identifies the build on disk and in
+        # the resolvers; the header is what gets recorded. A second reader
+        # measured a byte copy of demo 1.0 release 7 named as release 11
+        # installing as "demo 1.0-7", exit 0, with no word about the name.
+        # Checked here, before anything is extracted.
+        disagreement = _name_header_disagreement(archive_path.name, early_pkginfo)
+        if disagreement:
+            if name_header_mismatch == "report":
+                line = (f"{disagreement} Installing the build the header "
+                        f"states, as --archive-trust loose allows.")
+                if reporter:
+                    reporter.warn(line)
+                else:
+                    print(f"  WARNING: {line}", file=sys.stderr)
+            else:
+                return False, (
+                    f"Refusing to install {archive_path.name}: {disagreement} "
+                    f"Nothing was changed. Rename the file to what its header "
+                    f"states, or install it deliberately with `pkm install "
+                    f"--archive {archive_path} --archive-trust loose`.")
         eula_helper_name = early_pkginfo.get("eula_helper")
         if eula_helper_name:
             # PI-Z6: pass the archive so the gate can fall back to the copy
