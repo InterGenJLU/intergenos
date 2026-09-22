@@ -1,0 +1,131 @@
+InterGenOS: record authentication prompt lifecycle boundaries in the
+user journal with a fixed message identifier and bounded fields.
+
+The record is emitted only after the modal reports that it opened and at
+one terminal boundary. It carries the PolicyKit action identifier, a
+process-local sequence, and fixed event and outcome values. Prompt text,
+the PolicyKit cookie, identities, credentials, and commands never enter
+the structured call.
+
+--- a/js/ui/components/polkitAgent.js
++++ b/js/ui/components/polkitAgent.js
+@@ -25,20 +25,37 @@
+ 
+ const DELAYED_RESET_TIMEOUT = 200;
+ 
++const AUTH_PROMPT_MESSAGE_ID = 'cd6ef3aef777463a86bfb73360865d5d';
++
++function logAuthPromptLifecycle(actionId, sequence, event, outcome) {
++    GLib.log_structured('GNOME Shell', GLib.LogLevelFlags.LEVEL_MESSAGE, {
++        'MESSAGE': 'Authentication prompt lifecycle event',
++        'MESSAGE_ID': AUTH_PROMPT_MESSAGE_ID,
++        'POLKIT_ACTION_ID': actionId,
++        'INTERGENOS_AUTH_PROMPT_SEQUENCE': `${sequence}`,
++        'INTERGENOS_AUTH_PROMPT_EVENT': event,
++        'INTERGENOS_AUTH_PROMPT_OUTCOME': outcome,
++    });
++}
++
+ const AuthenticationDialog = GObject.registerClass({
+     Signals: {'done': {param_types: [GObject.TYPE_BOOLEAN]}},
+ }, class AuthenticationDialog extends ModalDialog.ModalDialog {
+-    _init(actionId, description, cookie, userNames) {
++    _init(actionId, description, cookie, userNames, authPromptSequence) {
+         super._init({styleClass: 'prompt-dialog'});
+ 
+         this.actionId = actionId;
+         this.message = description;
+         this.userNames = userNames;
++        this._authPromptSequence = authPromptSequence;
++        this._authPromptOpened = false;
++        this._authPromptTerminal = false;
+ 
+         Main.sessionMode.connectObject('updated', () => {
+             this.visible = !Main.sessionMode.isLocked;
+         }, this);
+ 
++        this.connect('opened', this._onOpened.bind(this));
+         this.connect('closed', this._onDialogClosed.bind(this));
+ 
+         let title = _('Authentication Required');
+@@ -206,10 +223,33 @@
+             log('polkitAuthenticationAgent: Failed to show modal dialog. ' +
+                 `Dismissing authentication request for action-id ${this.actionId} ` +
+                 `cookie ${this._cookie}`);
++            this._emitAuthPromptTerminal('failed-to-open');
+             this._emitDone(true);
+         }
+     }
+ 
++    _onOpened() {
++        if (this._authPromptOpened || this._authPromptTerminal)
++            return;
++
++        this._authPromptOpened = true;
++        this._writeAuthPromptTrace('opened', 'pending');
++    }
++
++    _writeAuthPromptTrace(event, outcome) {
++        logAuthPromptLifecycle(
++            this.actionId, this._authPromptSequence, event, outcome);
++    }
++
++    _emitAuthPromptTerminal(outcome) {
++        if (this._authPromptTerminal)
++            return;
++
++        this._authPromptTerminal = true;
++        const event = this._authPromptOpened ? 'completed' : 'not-shown';
++        this._writeAuthPromptTrace(event, outcome);
++    }
++
+     _emitDone(dismissed) {
+         if (!this._doneEmitted) {
+             this._doneEmitted = true;
+@@ -248,6 +288,7 @@
+ 
+         /* Yay, all done */
+         if (gainedAuthorization) {
++            this._emitAuthPromptTerminal('authorized');
+             this._emitDone(false);
+         } else {
+             /* Unless we are showing an existing error message from the PAM
+@@ -394,9 +435,14 @@
+     }
+ 
+     cancel() {
++        this._emitAuthPromptTerminal('dismissed');
+         this._emitDone(true);
+     }
+ 
++    cancelByAuthority() {
++        this._emitAuthPromptTerminal('cancelled-by-authority');
++    }
++
+     _onDialogClosed() {
+         Main.sessionMode.disconnectObject(this);
+ 
+@@ -417,6 +463,7 @@
+         super._init();
+ 
+         this._currentDialog = null;
++        this._authPromptSequence = 0;
+         this.connect('initiate', this._onInitiate.bind(this));
+         this.connect('cancel', this._onCancel.bind(this));
+         this._sessionUpdatedId = 0;
+@@ -449,11 +496,14 @@
+             return;
+         }
+ 
+-        this._currentDialog = new AuthenticationDialog(actionId, message, cookie, userNames);
++        const sequence = ++this._authPromptSequence;
++        this._currentDialog = new AuthenticationDialog(
++            actionId, message, cookie, userNames, sequence);
+         this._currentDialog.connect('done', this._onDialogDone.bind(this));
+     }
+ 
+     _onCancel(_nativeAgent) {
++        this._currentDialog?.cancelByAuthority();
+         this._completeRequest(false);
+     }
+ 

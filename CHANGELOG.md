@@ -47,6 +47,11 @@ landed is in the repository README, not here.
 
 ### Added
 
+- **Authentication prompts leave a bounded journal trace.** GNOME Shell records
+  when its PolicyKit dialog finishes opening and when the request reaches one
+  terminal outcome. The record carries the action identifier, a process-local
+  sequence, and fixed event and outcome values. It excludes prompt text,
+  cookies, identities, credentials, commands, and environment data.
 - **The assistant's system prompt now states the machine it runs on and the
   model serving the conversation.** Asked what it is, the assistant answered
   out of whatever its weights had absorbed, and a local model trained by
