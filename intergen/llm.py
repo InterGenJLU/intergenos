@@ -100,14 +100,23 @@ _PROVENANCE_DIRECTIVE = (
 # change (including the new toolless-diagnostic honest modifier, which is the
 # (diagnostic, False) delta) + the same ~8% headroom convention as every prior
 # re-baseline.
+# Re-baselined 2026-09-22: every path gained the runtime identity line, which
+# names the operating system and the model actually serving the turn so that an
+# answer attributing the assistant to another vendor is screened where the
+# prompt is built rather than after the words are out. The line is 178 chars
+# with no model known and 251 with a model name the length of the one this
+# project serves, so these ceilings are measured with a model name present —
+# the path that actually runs — and carry the same ~8% headroom convention as
+# every prior re-baseline. Measuring them with no model would leave a ceiling
+# the real path clears by less than the convention claims.
 _SYSTEM_PROMPT_CHAR_BUDGETS = {
-    ("general", False): 2306, ("general", True): 3240,
-    ("identity", False): 2062, ("identity", True): 2996,
-    ("diagnostic", False): 2159, ("diagnostic", True): 2916,
-    ("safety", False): 1966, ("safety", True): 2900,
-    ("system_map", False): 2386,
+    ("general", False): 2583, ("general", True): 3517,
+    ("identity", False): 2339, ("identity", True): 3273,
+    ("diagnostic", False): 2436, ("diagnostic", True): 3193,
+    ("safety", False): 2243, ("safety", True): 3177,
+    ("system_map", False): 2663,
 }
-_DEFAULT_SYSTEM_PROMPT_CHAR_BUDGET = 3240  # ceiling for any unlisted (qt, tools)
+_DEFAULT_SYSTEM_PROMPT_CHAR_BUDGET = 3517  # ceiling for any unlisted (qt, tools)
 
 
 def system_prompt_char_budget(query_type: str, with_tools: bool) -> int:
@@ -218,8 +227,43 @@ _TOOLLESS_MODIFIER_OVERRIDES = {name: _number_modifier_rules(bodies)
                                 _TOOLLESS_MODIFIER_RULES.items()}
 
 
+#: The name of the operating system this assistant is part of. One literal,
+#: used by the runtime identity line below and by the cases that pin it.
+MACHINE_NAME = "InterGenOS"
+
+
+def runtime_identity_line(served_model: str | None) -> str:
+    """The sentence that says WHERE this assistant runs and WHAT serves it.
+
+    WHY IT IS IN THE PROMPT. Asked what it is, the assistant answered from
+    whatever its weights had absorbed, and a local model trained by somebody
+    else will name that somebody else — a false statement about the machine the
+    person is sitting at, made in the assistant's own voice. The two facts that
+    make the answer true are known at the moment the prompt is built, so they
+    are stated there: the system it is part of, and the model actually serving
+    the turn. Screening at the prompt is cheaper and earlier than screening the
+    output, and it leaves the model a true answer to give rather than only
+    forbidding a false one.
+
+    WHEN THE MODEL IS NOT KNOWN — no engine wired yet, a path that builds a
+    prompt outside a served turn — the line says a local model on this machine
+    and names none. It never guesses a name, because a guessed name is the
+    failure this line exists to prevent.
+    """
+    if served_model:
+        return (f"You are running on {MACHINE_NAME}, and the model serving "
+                f"this conversation is {served_model}, running on this "
+                f"machine. Answer questions about what you are with those "
+                f"two names, and never attribute yourself to another vendor "
+                f"or product.\n")
+    return (f"You are running on {MACHINE_NAME}, served by a local model on "
+            f"this machine. Answer questions about what you are with that, "
+            f"and never attribute yourself to another vendor or product.\n")
+
+
 def build_system_prompt(query_type: str = "general",
-                        with_tools: bool = True) -> str:
+                        with_tools: bool = True,
+                        served_model: str | None = None) -> str:
     """Build adaptive system prompt based on query classification.
 
     Base prompt (~250 tokens, composed from the persona home — intergen/persona.py)
@@ -246,6 +290,7 @@ def build_system_prompt(query_type: str = "general",
         modifier = _TOOLLESS_MODIFIER_OVERRIDES[query_type]
     provenance = _PROVENANCE_DIRECTIVE if with_tools else ""
     return (
+        f"{runtime_identity_line(served_model)}"
         f"{_BASE_PROMPT}{modifier}{provenance}\n"
         f"Today is {now.strftime('%A, %B %d, %Y')}. "
         f"Time: {now.strftime('%I:%M %p').lstrip('0')}."
@@ -1972,11 +2017,32 @@ class LLMRouter(LLMInterface):
             text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.DOTALL)
         return text.rstrip()
 
+    def served_model_name(self) -> str | None:
+        """The model serving this router right now, or None when unknown.
+
+        Asked of the engine the daemon wired in, never stored a second time:
+        the engine is what actually loaded the file, so a model swapped under
+        a running daemon cannot leave this answering with the old name. Every
+        read is defensive — a prompt must not fail to be built because an
+        engine attribute was not what this expected.
+        """
+        engine = self._serving_engine
+        if engine is None:
+            return None
+        try:
+            name = engine.model_name
+        except Exception:  # noqa: BLE001 — an unreadable engine means unknown
+            return None
+        if not name or not isinstance(name, str) or name.strip() in ("", "—"):
+            return None
+        return name.strip()
+
     def build_system_messages(self, query_type: str = "general",
                               extra_context: str = "",
                               with_tools: bool = True) -> list[Message]:
         """Build the system prompt as a Message list."""
-        prompt = build_system_prompt(query_type, with_tools=with_tools)
+        prompt = build_system_prompt(query_type, with_tools=with_tools,
+                                     served_model=self.served_model_name())
         if extra_context:
             prompt += f"\n\n{extra_context}"
         return [Message(role=MessageRole.SYSTEM, content=prompt)]
