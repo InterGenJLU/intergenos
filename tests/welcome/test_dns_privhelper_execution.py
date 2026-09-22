@@ -471,7 +471,7 @@ class TestWhatTheUserIsTold(DnsVerbHarness):
 
     Undoing the choice puts back the connections the choice changed. It does
     not, and must not, force the machine onto the servers its networks hand
-    out on a connection whose owner decided otherwise — so text promising
+    out on a connection its owner set that way on purpose — so text promising
     that the machine returns "exactly to what the network hands out" says
     more than the code does. The drop-in's own comment had the same problem
     from the other side: deleting the file by hand leaves every connection
