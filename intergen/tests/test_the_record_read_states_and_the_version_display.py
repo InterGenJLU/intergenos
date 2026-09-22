@@ -36,7 +36,9 @@ a command asserts a condition it has not checked.
    that reads it. Only "active" establishes that the service is running and
    only "inactive" or "failed" that it is not; a state in transition, an error
    from the service manager, or no answer at all establishes neither, and is
-   reported as establishing neither.
+   reported as establishing neither. The frontier question command had the
+   same branch and said the assistant was running whenever the name had an
+   owner; it reads the service state the same way.
 """
 
 from __future__ import annotations
@@ -70,6 +72,48 @@ def _write_record(path: Path, version: str = "0.1.0", release: int = 296) -> Non
                 ("intergen", version, release))
     con.commit()
     con.close()
+
+
+def _with_a_stale_owner(command, service_state: str = "", *,
+                        manager_error: str = "",
+                        probe_raises: BaseException | None = None):
+    """Run ``command`` where the bus name has an owner, the call never
+    finishes, and the user service reports ``service_state`` — or the service
+    manager answers only with ``manager_error``, or cannot be asked at all.
+    Returns the exit code and everything the command printed."""
+    out, err = io.StringIO(), io.StringIO()
+    code = None
+    probe = mock.Mock()
+    probe.stdout = service_state + "\n" if service_state else ""
+    probe.stderr = manager_error
+    if probe_raises is not None:
+        run = mock.Mock(side_effect=probe_raises)
+    else:
+        run = mock.Mock(return_value=probe)
+    with mock.patch.object(cli, "daemon_has_owner", return_value=True), \
+            mock.patch.object(cli, "try_dbus", return_value=None), \
+            mock.patch.object(cli.subprocess, "run", run), \
+            mock.patch.object(cli, "_AskFillers", _NoFillers, create=True):
+        with redirect_stdout(out), redirect_stderr(err):
+            try:
+                command()
+            except SystemExit as exc:
+                code = exc.code
+    return code, out.getvalue() + err.getvalue()
+
+
+# Answers from the service manager that say neither that the service is
+# running nor that it is not: (label, arrangement, the text that must be shown).
+_STATES_THAT_ESTABLISH_NEITHER = [
+    ("a start in progress", {"service_state": "activating"}, "activating"),
+    ("a stop in progress", {"service_state": "deactivating"}, "deactivating"),
+    ("the service manager answered with an error",
+     {"manager_error": "Failed to connect to user scope bus via local "
+                       "transport: No such file or directory"},
+     "Failed to connect to user scope bus"),
+    ("the service manager could not be asked",
+     {"probe_raises": FileNotFoundError("systemctl")}, "unknown"),
+]
 
 
 class TheReaderTellsNotThereFromCannotLook(unittest.TestCase):
@@ -176,31 +220,10 @@ class TheCommandAsksTheServiceStateBeforeSayingWhatIsRunning(unittest.TestCase):
     """Finding 3."""
 
     @staticmethod
-    def _ask_with_a_stale_owner(service_state: str = "", *,
-                                manager_error: str = "",
-                                probe_raises: BaseException | None = None):
-        """The bus name has an owner, the call never finishes, and the user
-        service reports ``service_state`` — or the service manager answers
-        only with ``manager_error``, or cannot be asked at all."""
-        out, err = io.StringIO(), io.StringIO()
-        code = None
-        probe = mock.Mock()
-        probe.stdout = service_state + "\n" if service_state else ""
-        probe.stderr = manager_error
-        if probe_raises is not None:
-            run = mock.Mock(side_effect=probe_raises)
-        else:
-            run = mock.Mock(return_value=probe)
-        with mock.patch.object(cli, "daemon_has_owner", return_value=True), \
-                mock.patch.object(cli, "try_dbus", return_value=None), \
-                mock.patch.object(cli.subprocess, "run", run), \
-                mock.patch.object(cli, "_AskFillers", _NoFillers, create=True):
-            with redirect_stdout(out), redirect_stderr(err):
-                try:
-                    cli.cmd_ask("is my disk encrypted?")
-                except SystemExit as exc:
-                    code = exc.code
-        return code, out.getvalue() + err.getvalue()
+    def _ask_with_a_stale_owner(service_state: str = "", **arrangement):
+        return _with_a_stale_owner(
+            lambda: cli.cmd_ask("is my disk encrypted?"), service_state,
+            **arrangement)
 
     def test_it_says_the_service_is_not_running_when_it_is_not(self) -> None:
         code, said = self._ask_with_a_stale_owner("inactive")
@@ -224,19 +247,7 @@ class TheCommandAsksTheServiceStateBeforeSayingWhatIsRunning(unittest.TestCase):
         """A start or a stop in progress, an error from the service manager,
         and no answer at all say neither that the service is running nor that
         it is not, so the command must say neither."""
-        cases = [
-            ("a start in progress", {"service_state": "activating"},
-             "activating"),
-            ("a stop in progress", {"service_state": "deactivating"},
-             "deactivating"),
-            ("the service manager answered with an error",
-             {"manager_error": "Failed to connect to user scope bus via local "
-                               "transport: No such file or directory"},
-             "Failed to connect to user scope bus"),
-            ("the service manager could not be asked",
-             {"probe_raises": FileNotFoundError("systemctl")}, "unknown"),
-        ]
-        for label, arrangement, shown in cases:
+        for label, arrangement, shown in _STATES_THAT_ESTABLISH_NEITHER:
             with self.subTest(label):
                 code, said = self._ask_with_a_stale_owner(**arrangement)
                 self.assertEqual(code, 2)
@@ -248,6 +259,44 @@ class TheCommandAsksTheServiceStateBeforeSayingWhatIsRunning(unittest.TestCase):
                 self.assertNotIn("waiting will not clear", said)
                 self.assertNotIn("InterGen is running", said,
                                  "nor may it be reported as running")
+
+
+class TheFrontierCommandReadsTheServiceStateToo(unittest.TestCase):
+    """Finding 3, on the other question command. It said the assistant was
+    running whenever the name had an owner and the call returned nothing."""
+
+    @staticmethod
+    def _escalate_with_a_stale_owner(service_state: str = "", **arrangement):
+        return _with_a_stale_owner(
+            lambda: cli.cmd_ask_frontier("what changed in the last kernel?"),
+            service_state, **arrangement)
+
+    def test_it_does_not_say_running_when_the_service_is_not(self) -> None:
+        code, said = self._escalate_with_a_stale_owner("inactive")
+        self.assertEqual(code, 2)
+        self.assertIn("is inactive", said,
+                      "the state that was read must be shown")
+        self.assertNotIn("InterGen is running", said,
+                         "the service manager says it is not")
+        self.assertIn("not running", said)
+
+    def test_it_says_running_when_the_service_is(self) -> None:
+        code, said = self._escalate_with_a_stale_owner("active")
+        self.assertEqual(code, 2)
+        self.assertIn("is active", said)
+        self.assertIn("InterGen is running", said,
+                      "with the service really running, that is the reading "
+                      "that holds")
+
+    def test_a_state_that_establishes_neither_reading_asserts_neither(self) -> None:
+        for label, arrangement, shown in _STATES_THAT_ESTABLISH_NEITHER:
+            with self.subTest(label):
+                code, said = self._escalate_with_a_stale_owner(**arrangement)
+                self.assertEqual(code, 2)
+                self.assertIn(shown, said,
+                              "the state that was read must be shown")
+                self.assertNotIn("not running", said)
+                self.assertNotIn("InterGen is running", said)
 
 
 class _NoFillers:

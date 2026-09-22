@@ -368,6 +368,51 @@ def _report_service_state_instead_of_starting_one() -> None:
           file=sys.stderr)
 
 
+def _report_a_call_that_did_not_complete(what: str, when_running: str) -> None:
+    """Say what is known when the assistant's bus name has an owner and a call
+    to it returned nothing, for both question commands.
+
+    Whether the managed service is running is read from the service manager,
+    never assumed from the name having an owner. Until 2026-09-22 the question
+    command said the assistant was running and might still be loading, and
+    told the person to try again in a moment, and the frontier command said it
+    was running; where the name is owned by something that is NOT the managed
+    service, the first is advice to wait for a condition that will not clear on
+    its own and both are statements nobody checked.
+
+    Only two answers establish a reading: "active" says the service is
+    running, "inactive" or "failed" says it is not. Anything else — a state in
+    transition, or no state at all because the service manager could not be
+    asked or answered with an error — establishes neither, and is reported as
+    exactly that rather than as either reading.
+    """
+    sys.stdout.flush()   # see _deliver_answer: keep the two streams in order
+    state = _user_service_state()
+    if state == "active":
+        print(when_running, file=sys.stderr)
+        print(f"  service state: intergen.service (user) is {state}",
+              file=sys.stderr)
+    elif state in ("inactive", "failed"):
+        print("Something holds InterGen's name on the message bus, but the "
+              f"managed service is not running and {what} did not complete.",
+              file=sys.stderr)
+        print(f"  service state: intergen.service (user) is {state}",
+              file=sys.stderr)
+        print("  waiting will not clear this on its own.", file=sys.stderr)
+        print("  start the service with: systemctl --user start intergen",
+              file=sys.stderr)
+    else:
+        print(f"Something holds InterGen's name on the message bus and {what} "
+              "did not complete; the state read for the managed service does "
+              "not say whether it is running.", file=sys.stderr)
+        print(f"  service state: intergen.service (user) is {state}",
+              file=sys.stderr)
+        print("  read it with: systemctl --user status intergen",
+              file=sys.stderr)
+    print("Check the daemon logs for details:", file=sys.stderr)
+    print("  journalctl --user -u intergen -n 50", file=sys.stderr)
+
+
 def cmd_ask(message: str, direct: bool = False) -> None:
     """Ask InterGen a question.
 
@@ -388,45 +433,11 @@ def cmd_ask(message: str, direct: bool = False) -> None:
             return
         # Something owns the bus name but the call did not complete even
         # within the model timeout. Do NOT start a competing daemon — and do
-        # not assert which of the two readings holds without looking. Until
-        # 2026-09-22 this said the assistant was running and might still be
-        # loading, and told the person to try again in a moment; where the name
-        # is owned by something that is NOT the managed service, that is advice
-        # to wait for a condition that will not clear on its own. The service
-        # state is one call away and this file already reads it elsewhere.
-        # Only two answers establish a reading: "active" says the service is
-        # running, "inactive" or "failed" says it is not. Anything else — a
-        # state in transition, or no state at all because the service manager
-        # could not be asked or answered with an error — establishes neither,
-        # and is reported as exactly that rather than as "not running".
-        sys.stdout.flush()
-        state = _user_service_state()
-        if state == "active":
-            print("InterGen is running but the request did not complete in "
-                  "time (it may still be loading the model — try again in a "
-                  "moment).", file=sys.stderr)
-            print(f"  service state: intergen.service (user) is {state}",
-                  file=sys.stderr)
-        elif state in ("inactive", "failed"):
-            print("Something holds InterGen's name on the message bus, but "
-                  "the managed service is not running and the request did "
-                  "not complete.", file=sys.stderr)
-            print(f"  service state: intergen.service (user) is {state}",
-                  file=sys.stderr)
-            print("  waiting will not clear this on its own.", file=sys.stderr)
-            print("  start the service with: systemctl --user start intergen",
-                  file=sys.stderr)
-        else:
-            print("Something holds InterGen's name on the message bus and the "
-                  "request did not complete; the state read for the managed "
-                  "service does not say whether it is running.",
-                  file=sys.stderr)
-            print(f"  service state: intergen.service (user) is {state}",
-                  file=sys.stderr)
-            print("  read it with: systemctl --user status intergen",
-                  file=sys.stderr)
-        print("Check the daemon logs for details:", file=sys.stderr)
-        print("  journalctl --user -u intergen -n 50", file=sys.stderr)
+        # not assert which reading holds without looking.
+        _report_a_call_that_did_not_complete(
+            "the request",
+            "InterGen is running but the request did not complete in time (it "
+            "may still be loading the model — try again in a moment).")
         sys.exit(2)
 
     # No daemon owns the bus name → genuinely down. This command does NOT start
@@ -530,15 +541,15 @@ def cmd_ask_frontier(message: str, direct: bool = False) -> None:
             if not _deliver_answer(data):
                 sys.exit(2)
             return
-        # The request line above went to standard output, which is
-        # block-buffered once redirected; without this flush a joined capture
-        # shows the complaint BEFORE the request it is about. The same
-        # correction as the delivery step's and the no-service report's.
-        sys.stdout.flush()
-        print("InterGen is running but the Escalate call did not complete in "
-              "time.", file=sys.stderr)
-        print("Check the daemon logs for details:", file=sys.stderr)
-        print("  journalctl --user -u intergen -n 50", file=sys.stderr)
+        # The same reading as the question command's: whether the service is
+        # running is looked up, never assumed from the name having an owner.
+        # The routine flushes standard output before anything else, so the
+        # request line above stays ahead of the complaint in a joined capture;
+        # that is the flush this branch was given earlier on 2026-09-22.
+        _report_a_call_that_did_not_complete(
+            "the Escalate call",
+            "InterGen is running but the Escalate call did not complete in "
+            "time.")
         sys.exit(2)
 
     # Same rule as `ask`: this command starts no daemon of its own.
