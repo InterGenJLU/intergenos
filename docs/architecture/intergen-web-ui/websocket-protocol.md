@@ -356,19 +356,38 @@ part of the streaming flow. Each shape is verified against
 
 **`frontier_response`** — reply to `frontier_escalate`
 (`_handle_frontier_escalate`). An empty `frontier_escalate` returns an
-`empty_message` error (§11) instead. If no frontier provider is configured
-the reply is unsent; otherwise the server runs a show-before-send consent
-modal, and the reply carries the frontier model's text (or a cancel/error
-line) with `sent` reflecting whether anything actually left the machine:
+`empty_message` error (§11) instead. If no escalation step could be built
+when the assistant started, or no frontier provider is configured, the reply
+is unsent and says which; otherwise the server runs a show-before-send
+consent modal, and the reply carries the frontier model's text (or a cancel,
+not-shown, too-large or error line), with `sent` reflecting whether anything
+actually left the machine and `answered` whether the reply is text the model
+said:
 
 ```json
-{"type": "frontier_response", "sent": false,
+{"type": "frontier_response", "sent": false, "answered": false,
+ "content": "Phone-a-friend is not available (no escalation manager)."}
+{"type": "frontier_response", "sent": false, "answered": false,
  "content": "No frontier model is configured. Add a provider to ~/.config/intergen/ (the human-only config)."}
-{"type": "frontier_response", "sent": true, "content": "…frontier model reply…", "provider": "anthropic"}
+{"type": "frontier_response", "sent": false, "answered": false, "provider": null,
+ "content": "Not sent — there was no way to show you the content for review first (no unlocked desktop session, or no dialog could open), so nothing was sent to the frontier model."}
+{"type": "frontier_response", "sent": true, "answered": false, "provider": "anthropic",
+ "content": "Your frontier model (anthropic) returned no answer — nothing was added to the conversation."}
+{"type": "frontier_response", "sent": true, "answered": true, "content": "…frontier model reply…", "provider": "anthropic"}
 ```
 
-`provider` is the primary provider name when `sent` is true, else `null`.
-On decline/error `sent` is `false` and `content` carries the reason.
+`provider` is the primary provider name when `sent` is true, else `null`;
+the first two frames, sent before the consent step, carry no `provider` key.
+The person's Cancel gives "Cancelled — nothing was sent to the frontier
+model."; content too large for any dialog to show in full gives "Not sent —
+the content is too large to show you in full for review first (over
+1,048,576 bytes), so nothing was sent to the frontier model."; any other
+refusal or error gives its reason in `content`. Only a
+frame with `answered` true is the model's turn: the page shows it as an
+assistant message and the server appends it to the conversation. Every other
+frame is shown as a notice and nothing is appended. The page treats a frame
+with `sent` true and no `answered` key, which a server older than this field
+sends, as the model's turn.
 
 **`model_changed`** — reply to `switch_model` (`_handle_switch_model`):
 
