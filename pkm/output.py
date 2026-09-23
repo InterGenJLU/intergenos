@@ -28,6 +28,7 @@ threads it in.
 """
 
 import os
+import re
 import sys
 
 # Verbosity levels.
@@ -102,13 +103,25 @@ def _paint_prefix(wrapped, prefix, color, stream):
     return wrapped.replace(prefix, f"{_C_BOLD}{color}{prefix}{_C_RESET}", 1)
 
 
+# A command quoted in a message, `like this`. Its spaces are not places to
+# wrap: a command split over two lines, copied from the terminal, runs as two
+# broken commands — the first line alone can even be a different valid
+# command. While a line is wrapped, each space inside a quoted command stands
+# as this character, which is not whitespace to textwrap, so the command is
+# one unbreakable word; the spaces are put back afterwards.
+_QUOTED_COMMAND = re.compile(r"`[^`\n]*`")
+_HELD_SPACE = "\x00"
+
+
 def _wrap_prose(text, base_indent="  "):
     """Wrap each logical line of a prose message with a hanging indent.
 
     Splits on embedded newlines, preserves each line's own leading indent on
     top of base_indent, wraps to min(terminal, WRAP_WIDTH), and indents
     continuation lines two spaces past their line's indent. Long unbreakable
-    tokens (paths/URLs) are kept whole rather than split mid-token.
+    tokens (paths/URLs) are kept whole rather than split mid-token, and so is
+    a command quoted in backticks, which may therefore run past the width on
+    a line of its own.
     """
     import shutil
     import textwrap
@@ -121,9 +134,12 @@ def _wrap_prose(text, base_indent="  "):
             continue
         embedded = raw[: len(raw) - len(raw.lstrip())]
         ind = base_indent + embedded
+        held = _QUOTED_COMMAND.sub(
+            lambda m: m.group(0).replace(" ", _HELD_SPACE), stripped)
         out.extend(
-            textwrap.wrap(
-                stripped,
+            line.replace(_HELD_SPACE, " ")
+            for line in textwrap.wrap(
+                held,
                 width=width,
                 initial_indent=ind,
                 subsequent_indent=ind + "  ",

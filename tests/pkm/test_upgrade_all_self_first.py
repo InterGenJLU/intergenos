@@ -102,8 +102,11 @@ class ReexecTest(unittest.TestCase):
         self.assertIn("76", seen["env"][CONTINUATION_ENV])
         self.assertIn("77", seen["env"][CONTINUATION_ENV])
         self.assertEqual(self.closed, [True])
-        self.assertIn("Re-executing", out.getvalue() + err.getvalue())
-        self.assertIn("3 package(s)", out.getvalue() + err.getvalue())
+        # The words of the message, not its lines: the reporter wraps it to
+        # the terminal, and a line break can fall inside any phrase.
+        words = " ".join((out.getvalue() + err.getvalue()).split())
+        self.assertIn("Re-executing", words)
+        self.assertIn("3 package(s)", words)
 
     def test_a_failed_exec_is_a_loud_error_naming_what_stands(self):
         def fake_execve(path, argv, env):
@@ -116,7 +119,8 @@ class ReexecTest(unittest.TestCase):
             cli._reexec_upgrade_all_under_new_pkm(
                 _args(), self.installed, self.remote, self.db, remaining=2)
         self.assertEqual(cm.exception.code, 1)
-        text = out.getvalue() + err.getvalue()
+        # The words of the messages, not their lines (see the test above).
+        text = " ".join((out.getvalue() + err.getvalue()).split())
         self.assertIn("pkm itself IS upgraded", text)
         self.assertIn("were NOT touched", text)
         self.assertIn("remaining 2", text)

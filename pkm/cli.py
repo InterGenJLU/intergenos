@@ -28,7 +28,7 @@ from .configprotect import summary_lines as configprotect_summary_lines
 from .database import PackageDB, _sha256
 from .installer import (
     PackageInstaller, is_download_helper, payload_installed, APT_DOWNLOAD_HELPERS,
-    acceptance_record_exists,
+    acceptance_record_exists, deliberate_install_command,
 )
 from .remover import PackageRemover, ancestor_chain, prune_empty_unowned_dirs
 from .verifier import PackageVerifier
@@ -2229,22 +2229,26 @@ def cmd_install(db, args):
                         f"cached archive {_local.name} does not match the signed "
                         f"index for {pkg_name} — fetching the verified package")
                 else:
+                    _cmd = deliberate_install_command(
+                        pkg_name, _local, installer.root)
                     reporter.warn(
                         f"cached archive {_local.name} for {pkg_name} is not in the "
                         f"signed index — fetching the verified package (use "
-                        f"`pkm install --archive {_local} --archive-trust loose` to "
-                        f"force a deliberate local install)")
+                        f"`{_cmd}` to force a deliberate local install)")
 
         # L-021: pass the SHA256 we computed for --archive path through
         # to installer.install for the TOCTOU re-verification gate.
         # A filename that disagrees with its sealed header is refused, except
         # for a local archive installed deliberately under --archive-trust
-        # loose, where it is named and the header's build is installed.
+        # loose, where it is named and the header's build is installed. The
+        # refusal offers the loose-trust command only to a person who named
+        # the archive here with --archive, never for a cached archive.
         ok, msg = installer.install(
             pkg_name, archive_path=archive,
             expected_sha256=(archive_sha if archive else None),
             reporter=reporter,
             name_header_mismatch=_name_header_mode(args),
+            named_on_command_line=bool(getattr(args, "archive", None)),
         )
         if ok:
             # reporter already emitted the deploy file-list + completion line.

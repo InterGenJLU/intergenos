@@ -21,6 +21,7 @@ import argparse
 import json
 import sys
 import tarfile
+import zlib
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -134,12 +135,33 @@ def has_real_payload(tar, payload_dirs):
     return False
 
 
+def _unreadable(archive_path, reason):
+    """The report entry for an archive this tool could not read to its end.
+
+    It carries every field the TSV and JSON writers read, so one unreadable
+    archive is reported with the rest instead of ending the run. The size is
+    a value (st_size is an int, not a method; calling it ended every run that
+    met an unreadable archive in a TypeError, with no report written).
+    """
+    return {"name": archive_path.stem.split(".igos")[0],
+            "pkg_name": archive_package_name(archive_path),
+            "archive": str(archive_path),
+            "size": archive_path.stat().st_size if archive_path.exists() else 0,
+            "build_style": "", "issues": [reason]}
+
+
 def validate_archive(archive_path, cfg):
     """Return None if pass, or a dict describing the failure."""
     issues = []
 
     try:
         with tarfile.open(archive_path, "r:gz") as tar:
+            # Every member header, then the rest of the compressed stream to
+            # its end: a file cut short anywhere, even after its last member,
+            # fails here instead of passing on the members it still holds.
+            tar.getmembers()
+            while tar.fileobj.read(1 << 20):
+                pass
             archive_size = archive_path.stat().st_size
             name = archive_path.stem.split(".igos")[0]  # e.g., "apparmor-3.1.7-1"
             pkg_name = archive_package_name(archive_path)  # e.g., "apparmor"
@@ -156,13 +178,11 @@ def validate_archive(archive_path, cfg):
             if issues:
                 return {"name": name, "pkg_name": pkg_name, "archive": str(archive_path),
                         "size": archive_size, "build_style": build_style, "issues": issues}
-    except tarfile.ReadError as e:
-        return {"name": archive_path.stem, "archive": str(archive_path),
-                "size": archive_path.stat().st_size() if archive_path.exists() else 0,
-                "issues": [f"corrupt archive: {e}"]}
+    except (tarfile.TarError, EOFError, zlib.error, OSError) as e:
+        # Empty, cut short, not gzip, not tar, or not readable by this user.
+        return _unreadable(archive_path, f"unreadable archive: {e}")
     except Exception as e:
-        return {"name": archive_path.stem, "archive": str(archive_path),
-                "issues": [f"error: {e}"]}
+        return _unreadable(archive_path, f"error: {e}")
 
     return None
 

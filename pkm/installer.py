@@ -29,6 +29,7 @@ import os
 import re
 import sqlite3
 import stat
+import shlex
 import shutil
 import subprocess
 import sys
@@ -1036,6 +1037,26 @@ def _restore_symlink_target_modes(members, dest):
             continue
 
 
+def deliberate_install_command(name, archive_path, root="/"):
+    """The command that installs one local archive deliberately under loose
+    trust, as pkm's own messages print it.
+
+    It names the package, because `pkm install` requires one: the messages
+    that printed `pkm install --archive PATH --archive-trust loose` printed a
+    command that exits 2 (measured by a second reader, 2026-09-22). It names
+    the install root whenever that is not "/", because the same command
+    without it installs into the running system instead of the root the
+    person was working on. Each part is quoted for a POSIX shell, so a path
+    with a space in it stays one argument.
+    """
+    words = ["pkm"]
+    if str(root) != "/":
+        words += ["--root", str(root)]
+    words += ["install", str(name), "--archive", str(archive_path),
+              "--archive-trust", "loose"]
+    return " ".join(shlex.quote(w) for w in words)
+
+
 def _name_header_disagreement(filename, meta):
     """A sentence naming both builds when an archive's filename and its sealed
     header disagree; None when they agree or there is no header to compare.
@@ -1122,7 +1143,7 @@ class PackageInstaller:
 
     def install(self, name, archive_path=None, queue=None, expected_sha256=None,
                 install_reason="manual", reporter=None, sidecars_out=None,
-                name_header_mismatch="refuse"):
+                name_header_mismatch="refuse", named_on_command_line=False):
         """Install a package from its .igos.tar.gz archive.
 
         Args:
@@ -1151,6 +1172,15 @@ class PackageInstaller:
                    naming both; 'report' names both and installs what the
                    header states. Only `pkm install --archive ...
                    --archive-trust loose` asks for 'report'.
+            named_on_command_line: True only when a person named this
+                   archive on pkm's command line (`pkm install NAME --archive
+                   PATH`). Only then does the refusal above offer the
+                   loose-trust install command. Every other caller -- the
+                   repository download inside `pkm install`, reinstall,
+                   upgrade, the proprietary-helper install, the graphical
+                   installer -- gets the refusal and the rename advice,
+                   because loose trust skips the repository verification
+                   those paths rely on.
             install_reason: Q9 install_reason field — 'manual' (user-
                    requested install) or 'dependency' (dep-resolution-
                    pulled). Default 'manual'. cmd_install threads
@@ -1221,8 +1251,8 @@ class PackageInstaller:
                 f"refusing to install '{name}' from the local archive "
                 f"{archive_path.name}: no signed-index verification reference. "
                 f"Run `pkm sync` then retry, or install a local archive "
-                f"deliberately with `pkm install --archive {archive_path} "
-                f"--archive-trust loose`."
+                f"deliberately with "
+                f"`{deliberate_install_command(name, archive_path, self.root)}`."
             )
 
         # L-021: re-hash archive immediately before any tar extract.
@@ -1281,11 +1311,14 @@ class PackageInstaller:
                 else:
                     print(f"  WARNING: {line}", file=sys.stderr)
             else:
+                remedy = "Rename the file to what its header states"
+                if named_on_command_line:
+                    remedy += (
+                        f", or install it deliberately with `"
+                        f"{deliberate_install_command(name, archive_path, self.root)}`")
                 return False, (
                     f"Refusing to install {archive_path.name}: {disagreement} "
-                    f"Nothing was changed. Rename the file to what its header "
-                    f"states, or install it deliberately with `pkm install "
-                    f"--archive {archive_path} --archive-trust loose`.")
+                    f"Nothing was changed. {remedy}.")
         eula_helper_name = early_pkginfo.get("eula_helper")
         if eula_helper_name:
             # PI-Z6: pass the archive so the gate can fall back to the copy

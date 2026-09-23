@@ -161,3 +161,74 @@ class TestMembersNamedTheWayTheProducersNameThem:
         with tarfile.open(archive, "r:gz") as tar:
             assert any(m.name == "./usr/bin/tool" for m in tar.getmembers())
             assert _vpa.has_real_payload(tar, _vpa.PAYLOAD_DIRS)
+
+
+class TestAnArchiveItCannotRead:
+    """An archive the validator cannot read to its end is reported as
+    unreadable, with the others, and the run still writes its report.
+
+    Measured 2026-09-22 by a second reader: the unreadable branch called the
+    size as a method, so the first unreadable archive ended the run in a
+    TypeError and no report was written. Measured while correcting it: an
+    archive cut short raises EOFError, which fell to the catch-all branch
+    whose entry lacked the fields the report writer reads; and an archive
+    missing only its last bytes passed as readable, because the members were
+    all there and nothing read the stream to its end."""
+
+    SHAPES = ("empty", "cut short", "missing its last bytes", "not gzip",
+              "not tar")
+
+    @staticmethod
+    def _shape(tmp_path, shape):
+        import gzip
+        import subprocess
+        staging = tmp_path / "staging"
+        (staging / "usr/bin").mkdir(parents=True)
+        (staging / "usr/bin/tool").write_bytes(b"\x7fELF" + bytes(range(256)) * 400)
+        real = tmp_path / "real.igos.tar.gz"
+        subprocess.run(["tar", "-C", str(staging), "-czf", str(real), "."],
+                       check=True)
+        data = real.read_bytes()
+        return {"empty": b"",
+                "cut short": data[: len(data) // 2],
+                "missing its last bytes": data[:-8],
+                "not gzip": b"not a gzip stream\n" * 64,
+                "not tar": gzip.compress(b"not a tar archive\n" * 100)}[shape]
+
+    @pytest.mark.parametrize("shape", SHAPES)
+    def test_it_is_reported_unreadable(self, tmp_path, shape):
+        data = self._shape(tmp_path, shape)
+        archive = tmp_path / "demo-1.0-1.igos.tar.gz"
+        archive.write_bytes(data)
+        result = _vpa.validate_archive(archive, _vpa.load_config())
+        assert result is not None, f"an archive {shape} passed"
+        assert len(result["issues"]) == 1, result
+        assert result["issues"][0].startswith("unreadable archive: "), result
+        assert result["size"] == len(data), result
+        assert result["pkg_name"] == "demo", result
+        assert result["name"] == "demo-1.0-1", result
+
+    def test_the_run_reports_them_with_the_others(self, tmp_path):
+        import json
+        import subprocess
+        archives = tmp_path / "archives"
+        archives.mkdir()
+        for i, shape in enumerate(self.SHAPES):
+            (archives / f"demo{i}-1.0-1.igos.tar.gz").write_bytes(
+                self._shape(tmp_path / f"s{i}", shape))
+        _make_archive(archives / "good-1.0-1.igos.tar.gz",
+                      [("./usr/bin/good", "#!/bin/sh\n", False)])
+        out = tmp_path / "out"
+        run = subprocess.run(
+            [sys.executable, str(SCRIPT_PATH), "--archives-dir", str(archives),
+             "-o", str(out)], capture_output=True, text=True)
+        assert run.returncode == 1, run.stderr
+        assert "Traceback" not in run.stderr, run.stderr
+        assert run.stderr.count("unreadable archive: ") == 5, run.stderr
+        assert "OK: good-1.0-1.igos.tar.gz" in run.stderr, run.stderr
+        (report,) = out.glob("pkm-archive-validation-*.json")
+        findings = json.loads(report.read_text())
+        assert (findings["total"], findings["passed"], findings["suspects"]) == (6, 1, 5)
+        (tsv,) = out.glob("pkm-archive-validation-*.tsv")
+        rows = tsv.read_text().splitlines()[1:]
+        assert len(rows) == 5 and all("unreadable archive: " in r for r in rows), rows

@@ -265,7 +265,14 @@ landed is in the repository README, not here.
   payload at all, burying any real finding under one per archive. It also read
   a package's name by splitting the filename at its last hyphen, which keeps the
   version in a release-carrying name, so its size check for compiled packages
-  never ran. Both now read the archive the way the producers write it.
+  never ran. Both now read the archive the way the producers write it. An
+  archive it cannot read to its end — an empty file, one cut short, one missing
+  only its gzip trailer, one that is not a gzip or tar stream — is now reported
+  as unreadable with the others, and the run still writes both reports.
+  Before, an empty file or one that was not a gzip or tar stream ended the run
+  with a TypeError and no report; one cut short ended it with a KeyError,
+  leaving a table report with no rows and no JSON report; and one missing only
+  its trailer was reported as readable.
 
 - **`pkm info` no longer reports failure after answering correctly.** Asked
   about a package the mirror carries but this machine has not installed, it
@@ -1656,9 +1663,24 @@ landed is in the repository README, not here.
   one directory, pkm and the installer choose the newest by the version and
   release each archive's own sealed header states, not by the text of its name,
   so 10.0p1 release 1 is chosen over 10.0 release 2 and release 10 over release
-  9. An archive whose filename names a different build than its sealed header
-  is refused, or, for a local archive installed under loose trust, installed as
-  the header's build with the disagreement named. The ISO build's list of
+  9. An archive whose header cannot be read cannot be ordered by what it holds,
+  and there the two differ. pkm orders it by the text of its filename and says
+  so; if that makes it the newest, pkm still never installs it — `pkm install`
+  and `pkm reinstall` turn to the repository for the verified package, and an
+  install straight from the file refuses it. The installer, given two archives
+  of one package, keeps the one whose filename sorts later and says so in its
+  DUPLICATE log line; if that is the unreadable one, its install of the package
+  fails as unreadable. An archive whose filename names a different build than
+  its sealed header is refused, or, for a local archive installed under loose
+  trust, installed as the header's build with the disagreement named. The
+  refusal offers the loose-trust install command only to a person who named the
+  archive with `--archive`. The three messages that offer a deliberate install
+  of a local archive — that refusal, the refusal of a cached archive nothing
+  verifies, and the warning about a cached archive the signed index does not
+  list — print a command that names the package, and the install root when it
+  is not `/`, with each part quoted for the shell, so it runs as printed. pkm
+  wraps its messages to the width of the terminal, and the wrap never splits a
+  command quoted in a message across two lines. The ISO build's list of
   mirror-only archives names each mirror-only package under both shapes,
   because a build machine holds archives made before this change until each
   package is rebuilt; the squashfs ownership check, the publish check that
