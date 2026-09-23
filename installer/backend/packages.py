@@ -120,20 +120,24 @@ def _pci_fields(line):
     return cls, ident
 
 
-def _pci_id_of(line):
-    """The "<vendor>:<device>" field of one `lspci -n` line, lowercase, or None.
+def _unslotted_fields(line):
+    """(class, identity) of a line that does NOT begin with a PCI slot but whose
+    third field has the shape of a device identity, or None for any other line.
 
-    lspci -n line: "<slot> <class>: <vendor>:<device> [...]"
-      e.g. "01:00.0 0300: 10de:2484 (rev a1)"
-
-    A line names a device only when it has the shape of a device line: a PCI
-    slot, a class and an identity, each in the shape lspci prints (see
-    _pci_fields).
+    Such a line names no device (see _pci_fields). It is still counted, because
+    the reader before the slot rule took the third field as a device identity
+    whatever the first field held, so these are exactly the lines that rule
+    stopped reading. A line with no identity-shaped third field - prose, a
+    message, a stray word - is not one of them and returns None. The class is
+    returned only when the second field has the shape of one.
     """
-    fields = _pci_fields(line)
-    if fields is None or fields[0] is None:
+    parts = line.lower().split()
+    if not parts or _PCI_SLOT.fullmatch(parts[0]):
         return None
-    return fields[1]
+    if len(parts) < 3 or not _PCI_IDENTITY.fullmatch(parts[2]):
+        return None
+    cls = parts[1][:-1] if _PCI_CLASS.fullmatch(parts[1]) else None
+    return cls, parts[2]
 
 
 def detect_display_pci_vendors():
@@ -161,10 +165,21 @@ def detect_display_pci_vendors():
     display_lines = 0
     display_lines_without_identity = 0
     device_lines_without_class = 0
+    unslotted_lines = 0
+    unslotted_display_lines = 0
     for line in lines:
         fields = _pci_fields(line)
         if fields is None:
-            continue  # not a device line: its first field is not a PCI slot
+            # Not a device line: its first field is not a PCI slot. It names no
+            # device, but when it carries an identity-shaped field it is one of
+            # the lines the reader before the slot rule took as a device, and
+            # it is counted so the record can say so.
+            unslotted = _unslotted_fields(line)
+            if unslotted is not None:
+                unslotted_lines += 1
+                if unslotted[0] is not None and unslotted[0].startswith("03"):
+                    unslotted_display_lines += 1
+            continue
         cls, ident = fields
         if cls is None:
             # A device line whose class is unreadable names no device, and
@@ -245,6 +260,24 @@ def detect_display_pci_vendors():
                  "they name no display vendor, and a gated package whose "
                  "vendor is not read from a display-class line is skipped",
                  device_lines_without_class)
+    # A line that does not begin with a PCI slot names no device, however its
+    # later fields read. The reader before the slot rule took such a line's
+    # third field as a device identity and its second as its class, so a
+    # malformed slot on a discrete card's line ("1:00.0 0300: 10de:2484" beside
+    # an Intel display line) gave that card's vendor and kept its gated
+    # packages; now it gives nothing. Without this line such a listing, beside
+    # valid lines, left the install record reading as a machine whose only
+    # display device is the one that was read (found by the independent read
+    # of the previous form of this change, 2026-09-22). Written beside valid
+    # lines as well as alone; a line with no identity-shaped field is prose,
+    # not a device line that could not be read, and is not counted.
+    if unslotted_lines:
+        LOG.info("hardware-gate: %d line(s) read do not begin with a PCI slot "
+                 "but carry a field with the shape of a device identity (%d "
+                 "of them with a display class); they name no device and no "
+                 "display vendor, and a gated package whose vendor appears "
+                 "only on such a line is skipped",
+                 unslotted_lines, unslotted_display_lines)
 
     _PCI_VENDOR_CACHE = vendors
     return vendors
@@ -281,25 +314,57 @@ def target_has_pci_device(vendor, device, runner=None):
     # standard output holding a single newline is one empty line, which is not
     # an empty list, so the branch was skipped and the answer was no in
     # silence (found by the second read of this change, 2026-09-22).
-    device_lines = [fields for fields in (_pci_fields(line) for line in lines)
-                    if fields is not None]
+    device_lines = []
+    unslotted = []
+    for line in lines:
+        fields = _pci_fields(line)
+        if fields is None:
+            extra = _unslotted_fields(line)
+            if extra is not None:
+                unslotted.append(extra[1])
+            continue
+        device_lines.append(fields)
     identities = [ident for cls, ident in device_lines
                   if cls is not None and ident is not None]
+    without_class = sum(1 for cls, _ident in device_lines if cls is None)
+    without_identity = sum(1 for cls, ident in device_lines
+                           if cls is not None and ident is None)
     if not identities:
         LOG.info("hardware-gate: lspci exited 0 but listed no PCI devices "
                  "(%d line(s) read, none naming a device); the check for PCI "
                  "device %s is answered no", len(lines), want)
-        return False
-    # The partial reading: some device lines name a device and at least one
-    # does not. The answer is taken from the ones that do, so it can be no for
-    # a machine whose sought device sits on the unreadable line; the record
-    # says so, whatever the answer. Found by the independent read of the
+    # The partial reading: some lines name a device and at least one that
+    # could have named one does not. The answer is taken from the ones that
+    # do, so it can be no for a machine whose sought device sits on a line
+    # that could not be read; the record says so, whatever the answer, and
+    # alone as well as beside valid lines. Each kind of unreadable line is
+    # named for the field that could not be read, the way the display gate
+    # names its own: a line whose class cannot be read was once described
+    # here as carrying no identity although its identity was well-formed, so
+    # the record named the wrong field. Found by the independent read of the
     # previous form of this change, 2026-09-22.
-    without_identity = len(device_lines) - len(identities)
+    if without_class:
+        LOG.info("hardware-gate: %d of %d device line(s) read carry no "
+                 "readable class, so they name no device; the check for PCI "
+                 "device %s is answered from the %d line(s) that name one",
+                 without_class, len(device_lines), want, len(identities))
     if without_identity:
         LOG.info("hardware-gate: %d of %d device line(s) read carry no device "
                  "identity; the check for PCI device %s is answered from the "
-                 "other %d", without_identity, len(device_lines), want,
+                 "%d line(s) that name one", without_identity,
+                 len(device_lines), want, len(identities))
+    # A line that does not begin with a PCI slot names no device. The reader
+    # before the slot rule took such a line's third field as the device
+    # identity, so the card reader on a malformed slot ("2d:00.8 ...", a
+    # function above 7) answered yes and now answers no; without this line the
+    # boot parameter was left out and nothing in the record said why. A line
+    # with no identity-shaped field is prose and is not counted.
+    if unslotted:
+        LOG.info("hardware-gate: %d line(s) read do not begin with a PCI slot "
+                 "but carry a field with the shape of a device identity (%d "
+                 "of them carry %s); they name no device, and the check for "
+                 "PCI device %s is answered from the %d line(s) that name one",
+                 len(unslotted), unslotted.count(want), want, want,
                  len(identities))
     return want in identities
 

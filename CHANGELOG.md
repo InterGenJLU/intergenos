@@ -503,14 +503,37 @@ landed is in the repository README, not here.
   listing that simply does not hold the device is a true reading and stays
   silent.
 - **A partly unreadable PCI device listing is named in the install record, and
-  a line is read as a device only when it begins with a device slot.** When
-  some lines of `lspci -n` name devices and another cannot be read, both checks
-  the installer makes still answer from the lines that can - the package
-  hardware gate's display vendors and the card-reader check's yes or no - and
-  each now writes one information line saying how many lines carried no device
-  identity. Before, a hybrid-graphics listing whose discrete card's line was
+  a line is read as a device only when it begins with a device slot and its
+  class field is a class.** Both checks the installer makes of `lspci -n` -
+  the package hardware gate's display vendors and the card-reader check's yes
+  or no - answer from the lines they can read, and each now writes, for every
+  kind of line it could not read, one information line saying how many such
+  lines there were and which field could not be read: a device line with no
+  device identity, a device line whose class cannot be read, or a line that
+  does not begin with a PCI slot although its third field has the shape of a
+  device identity. Each line is written beside readable lines as well as
+  alone. Before, a hybrid-graphics listing whose discrete card's identity was
   malformed read in the record as a machine whose only display device was the
   integrated one, while the NVIDIA packages were skipped. A line is now a
+  device line only when its first field has the shape of a PCI slot as lspci
+  prints it (bus:device.function - two hexadecimal digits each for the bus and
+  the device and a function from 0 to 7 - with a domain of at least four
+  hexadecimal digits in front of it when lspci prints one), and its class is
+  read only when that field has the shape of a class (four hexadecimal digits
+  and a colon). That changes answers on both checks, always toward fewer
+  devices. A line whose first field is not such a slot - no slot at all, a
+  one-digit bus, a function above 7, a three-digit domain - and a device line
+  whose class field is not a class (`03zz`, `08zz`, a five-digit class, a
+  class without its colon) were each read as a device before, from the
+  identity in the third field, and now neither is: a vendor that appears only
+  on such lines is no longer a display vendor, so its gated packages are
+  skipped where before a class field beginning with 03 kept them, and the
+  card-reader check answers no for a card reader that appears only on such a
+  line, so its boot parameter is not written where before it was. A line of
+  prose whose second word begins with 03 is no longer counted as a display
+  controller, and a line with no field shaped like an identity is not counted
+  as a line that could not be read. A well-formed listing reads exactly as
+  before and writes nothing.
   device line only when its first field has the shape of a PCI slot
   (bus:device.function, with the domain in front of it when lspci prints one),
   and its class is read only when that field has the shape of a class. So a
