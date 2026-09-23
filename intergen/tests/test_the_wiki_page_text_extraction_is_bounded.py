@@ -290,6 +290,50 @@ class NoTextFromACommentOrAttributeValueOpenAtTheCut(unittest.TestCase):
         self._at_the_real_ceiling('<a title ="x> ', '">link</a>')
 
 
+class TextHeldByTheTokenizerAtTheCutIsLeftOut(unittest.TestCase):
+    """Over the MARKUP ceiling, a run of text the tokenizer is still holding
+    at the cut is left out, so what is kept can stop short of the cut.
+
+    A cut page is never closed, and the tokenizer holds back a run of text
+    whose last ``&`` is near enough to the end of what it has to begin a
+    character reference. Such a run is never passed on, and the text kept ends
+    before it. Measured on 2026-09-22, on the tree this case was written for
+    and on the one before it — the behaviour is older than the case, which
+    pins it: a cut inside ``caf&eacute;`` keeps one word where the same markup,
+    read as a page of its own and closed, gives four. What is kept is still the
+    page's first words, in order, and the cut is logged with the length kept,
+    so keeping less than the cut allows is not silent."""
+
+    PAGE = "<main><p>one two</p><p>alpha beta caf&eacute; gamma</p></main>"
+
+    def test_a_cut_inside_a_character_reference_leaves_the_run_out(self) -> None:
+        whole = html_to_text(self.PAGE).split()
+        self.assertEqual(whole, ["one", "two", "alpha", "beta", "café", "gamma"])
+        ceiling = self.PAGE.index("caf&eac") + len("caf&eac")
+        # The markup read before the cut, parsed as a page of its own and
+        # closed: closing passes the held run on, which a cut page never does.
+        self.assertEqual(html_to_text(self.PAGE[:ceiling]).split(),
+                         ["one", "two", "alpha", "beta", "caf&eac"])
+        with mock.patch.object(wiki_retrieval, "_MAX_PAGE_HTML_CHARS", ceiling), \
+                self.assertLogs(wiki_retrieval.logger, level="WARNING") as logged:
+            text = html_to_text(self.PAGE, source="held-run.html")
+        kept = text.split()
+        self.assertEqual(kept, ["one"],
+                         "the run held at the cut is left out with the "
+                         f"construct it follows; kept {kept!r}")
+        self.assertEqual(kept, whole[:len(kept)],
+                         "what is kept must still be the page's first words")
+        for word in ("two", "alpha", "beta", "caf&eac", "café"):
+            self.assertNotIn(word, kept)
+        self.assertNotIn("&", text)
+        (line,) = logged.output
+        self.assertIn("held-run.html", line)
+        # The kept length is neither the ceiling nor the page's size, so a
+        # line that states only those two cannot pass.
+        self.assertNotIn(len(text), (ceiling, len(self.PAGE)))
+        self.assertIn(len(text), {int(n) for n in re.findall(r"\d+", line)})
+
+
 class TheTextCeilingKeepsOnlyWholeWords(unittest.TestCase):
     """Over the TEXT ceiling, the longest run of whole words that fits is kept."""
 

@@ -374,14 +374,20 @@ def _text_read_before_the_cut(markup: str) -> str:
     a quoted value always has its closing quote. Every construct before the
     recorded one ended inside the markup read, where the whole page ends it.
     If the recorded construct is text, the markup is read again on its own and
-    its text is kept up to the cut; otherwise the text collected before that
-    construct is kept, and the construct and everything after it are left
-    out. The last word is then dropped, because it may continue past the cut
-    (see _drop_the_last_word).
+    the text that reading passes on is kept; otherwise the text collected
+    before that construct is kept, and the construct and everything after it
+    are left out. The last word is then dropped, because it may continue past
+    the cut (see _drop_the_last_word).
 
     Nothing is closed here: the end of the markup read is the cut, not the end
     of the page, so what the tokenizer is holding at the cut is never passed
-    on as text."""
+    on as text. A run it is still holding — one that may end in part of a
+    character reference, or the content of an element such as a textarea — is
+    left out with the construct it follows when that construct is the one
+    recorded, and left out on its own when the recorded construct is the run
+    itself: either way the text kept can stop short of the cut. What is kept
+    is still the page's first words, in order, and the ceiling log line states
+    the length kept."""
     probe = _read(_WikiTextExtractor(cut=markup), markup + _CLOSING_MARKUP,
                   close=False)
     last = probe.last_before_cut
@@ -414,9 +420,11 @@ def html_to_text(html: str, *, source: str = "") -> str:
 
     * markup over its ceiling is cut at the ceiling. Markup still open at the
       cut, such as a comment or a tag, is left out with everything after it;
-      text still open at the cut is kept up to it; the last word is then
-      dropped, because it may continue past the cut
-      (_text_read_before_the_cut says what this rests on);
+      text the tokenizer is still holding at the cut — a run that may end in
+      part of a character reference, or the content of an element such as a
+      textarea — is left out too, so what is kept can stop short of the cut;
+      the last word of what is kept is then dropped, because it may continue
+      past the cut (_text_read_before_the_cut says what this rests on);
     * text over its ceiling is cut back to a word boundary inside it.
 
     A page with no word boundary under a ceiling keeps no text at all. Each cut
