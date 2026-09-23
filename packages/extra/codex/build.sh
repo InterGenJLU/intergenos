@@ -129,12 +129,12 @@ igos_helper_record_post_install_action \
 #     refuses the install with a loud error.
 
 # Pinned npm CLI version (bump in a helper release on an OpenAI release).
-# Set 2026-09-05 to 0.153.4 (npm dist-tags.latest = 0.153.4, present on
-# registry.npmjs.org; registry dist.integrity sha512-wbHDmit7S/YvBGVX1DQmk1
-# 3xtWblZ2cApeJ/pB7xDZ10Cna+DZc5ij7f0F4OxdsXN4FW1oLT48OpogUI1+8Y2w==).
+# Set 2026-09-22 to 0.156.0 from registry.npmjs.org/@openai/codex/0.156.0:
+# dist.shasum e7c29bfd4e94973af2ea116c98a1f8f7b387e53b;
+# dist.integrity sha512-47dfpl2e8F47baSQTE+QaWzF/kKoOeR9YQ2fIBdRGzZZP2/QZ6D0uwLY2ZamS8ypov4UFtg92jZh8m+w65bsGg==.
 # This is the npm CLI pin ONLY; the VS Code extension is versioned
 # independently and pinned separately in the extension block below.
-CODEX_PINNED_VERSION="0.153.4"
+CODEX_PINNED_VERSION="0.156.0"
 
 # Pre-install audit against critical-severity npm advisories. Runs
 # `npm audit` against a transient package.json in a temporary directory
@@ -234,11 +234,11 @@ igos_helper_record_dep nodejs
 # manual command. Bump on an extension release: update CODEX_VSIX_VERSION
 # and _SHA256 together. The asset is platform-specific, so _SHA256 is the
 # sha of the ${CODEX_VSIX_PLATFORM} asset.
-# Pinned 2026-09-05: gallery version 26.5901.22334 (the extension's own
+# Pinned 2026-09-22: gallery version 26.5917.61114 (the extension's own
 # package.json carries the same string), publisher openai, name chatgpt.
-CODEX_VSIX_VERSION="26.5901.22334"
+CODEX_VSIX_VERSION="26.5917.61114"
 CODEX_VSIX_PLATFORM="linux-x64"
-CODEX_VSIX_SHA256="cd9cd06c5bfcc8e18972587d04ac9d08b04152ebf6de426233ddc812b05933ff"
+CODEX_VSIX_SHA256="7bb793ad1c37d89234ba1f90791b64ee146d9288ea4098136df0f4cc61e9dcac"
 
 ext_installed=0
 # Reason class for an extension that ends up NOT installed, from the fixed

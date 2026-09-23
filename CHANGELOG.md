@@ -1646,6 +1646,7 @@ landed is in the repository README, not here.
 
 ### Changed
 
+- **The OpenAI coding agent helper now pins CLI 0.156.0 and the Linux x64 VS Code extension 26.5917.61114.** The extension download is verified against the pinned SHA-256 before installation.
 - **A built package archive is named for the build it is.** The file is now
   `<name>-<version>-<release>.igos.tar.gz` everywhere it is created — the two
   builders, the shell archive step and the manifest-driven emitter — and the
