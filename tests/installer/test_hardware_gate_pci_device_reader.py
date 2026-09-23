@@ -839,5 +839,103 @@ class ALineTheSlotRuleStopsReadingIsRecordedBesideValidLines(unittest.TestCase):
                 "10de", "2484", runner=_runner_returning(listing)))
 
 
+class AClassThatCannotBeReadIsNamedOnALineWithoutASlotToo(unittest.TestCase):
+    """One field, one rule: a class field that is not a class is "not known",
+    whether or not the line begins with a slot.
+
+    The display gate's line for lines without a slot counted them as "(N of
+    them with a display class)", and N counts only a class field that reads
+    03xx. A line whose class cannot be read was therefore counted among the
+    lines WITHOUT a display class - the same field that, on a line with a
+    slot, is recorded as "whether they are display devices is not known".
+
+    The count was true word for word, and it read wrong: on this lane's own
+    hybrid-graphics shape - a discrete card's line with the slot AND the class
+    malformed, beside an Intel display line - a person reading the install
+    record sees the machine's NVIDIA packages skipped and one line said to
+    carry no display class, which points away from the line that held the
+    card. Found by the independent read of the previous form of this change,
+    2026-09-22. The answers do not change: such a line names no device and no
+    vendor, and the gated packages are skipped, fail-closed, as before.
+    """
+
+    # (listing, the display vendors, lines with a display class, lines whose
+    # class cannot be read). Every listing holds a host bridge and an Intel
+    # display line, so the reading is partial, not empty.
+    CASES = (
+        # a one-digit bus AND a class that is not a class, on the discrete
+        # card's line beside Intel
+        (_HOST + _INTEL + "1:00.0 03zz: 10de:2484 (rev a1)\n", {"8086"}, 0, 1),
+        # no slot at all, same class
+        (_HOST + _INTEL + "garbage 03zz: 10de:2484 (rev a1)\n", {"8086"}, 0, 1),
+        # a class without its colon, which is not a class field either
+        (_HOST + _INTEL + "garbage 0300 10de:2484\n", {"8086"}, 0, 1),
+        # two such lines at once: one display class, one unreadable class -
+        # the counts stay separate
+        (_HOST + _INTEL + "garbage 0300: 1002:73bf\n"
+         + "garbage 03zz: 17a0:9755\n", {"8086"}, 1, 1),
+    )
+
+    def setUp(self):
+        packages._PCI_VENDOR_CACHE = None
+        self.addCleanup(setattr, packages, "_PCI_VENDOR_CACHE", None)
+
+    def _read(self, stdout):
+        packages._PCI_VENDOR_CACHE = None
+        with mock.patch.object(packages.subprocess, "run",
+                               _runner_returning(stdout)):
+            return packages.detect_display_pci_vendors()
+
+    def test_the_display_gate_says_the_class_could_not_be_read(self):
+        for listing, vendors, with_class, unread in self.CASES:
+            with self.subTest(listing=listing):
+                with self.assertLogs("forge.packages", level="INFO") as logs:
+                    self.assertEqual(self._read(listing), vendors)
+                wanted = ("(%d of them with a display class, %d whose class "
+                          "cannot be read, so whether they are display "
+                          "devices is not known)" % (with_class, unread))
+                self.assertTrue(
+                    any("do not begin with a PCI slot" in line
+                        and wanted in line for line in logs.output),
+                    logs.output)
+
+    def test_it_no_longer_counts_them_as_lines_without_a_display_class(self):
+        for listing, vendors, with_class, _unread in self.CASES:
+            with self.subTest(listing=listing):
+                with self.assertLogs("forge.packages", level="INFO") as logs:
+                    self.assertEqual(self._read(listing), vendors)
+                folded = "(%d of them with a display class)" % with_class
+                self.assertFalse(
+                    any(folded in line for line in logs.output), logs.output)
+
+    def test_the_card_reader_line_is_unchanged(self):
+        """The card-reader check names the identity it was asked for, which it
+        can read on these lines; its record is exact and this change does not
+        touch it."""
+        for listing, _vendors, _with_class, _unread in self.CASES:
+            with self.subTest(listing=listing):
+                with self.assertLogs("forge.packages", level="INFO") as logs:
+                    self.assertFalse(packages.target_has_pci_device(
+                        "10de", "2484", runner=_runner_returning(listing)))
+                self.assertTrue(
+                    any("do not begin with a PCI slot" in line
+                        and "of them carry 10de:2484)" in line
+                        for line in logs.output), logs.output)
+
+    def test_a_readable_class_still_reads_exactly_as_before(self):
+        """The clause is written only when there is such a line, as the record
+        for device lines with an unreadable class is."""
+        listing = _HOST + _INTEL + "garbage 0300: 1002:73bf\n"
+        with self.assertLogs("forge.packages", level="INFO") as logs:
+            self.assertEqual(self._read(listing), {"8086"})
+        self.assertTrue(
+            any("1 line(s) read do not begin with a PCI slot" in line
+                and "(1 of them with a display class)" in line
+                for line in logs.output), logs.output)
+        self.assertFalse(
+            any("cannot be read" in line for line in logs.output),
+            logs.output)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -167,6 +167,7 @@ def detect_display_pci_vendors():
     device_lines_without_class = 0
     unslotted_lines = 0
     unslotted_display_lines = 0
+    unslotted_lines_without_class = 0
     for line in lines:
         fields = _pci_fields(line)
         if fields is None:
@@ -177,7 +178,12 @@ def detect_display_pci_vendors():
             unslotted = _unslotted_fields(line)
             if unslotted is not None:
                 unslotted_lines += 1
-                if unslotted[0] is not None and unslotted[0].startswith("03"):
+                if unslotted[0] is None:
+                    # Its class field is not a class, so whether it is a
+                    # display line is not known - the same reading the record
+                    # above gives a device line with an unreadable class.
+                    unslotted_lines_without_class += 1
+                elif unslotted[0].startswith("03"):
                     unslotted_display_lines += 1
             continue
         cls, ident = fields
@@ -272,12 +278,29 @@ def detect_display_pci_vendors():
     # lines as well as alone; a line with no identity-shaped field is prose,
     # not a device line that could not be read, and is not counted.
     if unslotted_lines:
+        # The breakdown says what was read AND what could not be. Counting
+        # only the lines whose class reads 03xx put a line whose class field
+        # is not a class among the lines WITHOUT a display class, although
+        # the record for a device line with the same field says that whether
+        # it is a display device is not known. One field, one rule: on this
+        # lane's own hybrid shape - a discrete card's line with the slot and
+        # the class both malformed, beside an Intel display line - the folded
+        # count read as a machine with no unread display line, and pointed a
+        # person away from the line that held the card whose packages were
+        # skipped (found by the independent read of the previous form of this
+        # change, 2026-09-22). Written only when there is such a line, as the
+        # device-line record above is.
+        unread_class = ""
+        if unslotted_lines_without_class:
+            unread_class = (", %d whose class cannot be read, so whether they "
+                            "are display devices is not known"
+                            % unslotted_lines_without_class)
         LOG.info("hardware-gate: %d line(s) read do not begin with a PCI slot "
                  "but carry a field with the shape of a device identity (%d "
-                 "of them with a display class); they name no device and no "
+                 "of them with a display class%s); they name no device and no "
                  "display vendor, and a gated package whose vendor appears "
                  "only on such a line is skipped",
-                 unslotted_lines, unslotted_display_lines)
+                 unslotted_lines, unslotted_display_lines, unread_class)
 
     _PCI_VENDOR_CACHE = vendors
     return vendors
