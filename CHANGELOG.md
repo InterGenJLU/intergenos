@@ -258,6 +258,15 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **The archive validator finds the payload of a real archive.**
+  `scripts/validate-pkm-archive.py` compared each archive member's raw name
+  with `usr/bin/` and the other payload directories, but every producer writes
+  members as `./usr/bin/...`, so every real archive was reported as having no
+  payload at all, burying any real finding under one per archive. It also read
+  a package's name by splitting the filename at its last hyphen, which keeps the
+  version in a release-carrying name, so its size check for compiled packages
+  never ran. Both now read the archive the way the producers write it.
+
 - **`pkm info` no longer reports failure after answering correctly.** Asked
   about a package the mirror carries but this machine has not installed, it
   printed the full report — version and release, tier, description, license,
@@ -284,7 +293,11 @@ landed is in the repository README, not here.
   order and allowed in the other, and the way through was `--force`, which
   turns the guard off entirely. The check now looks at the whole set, so a
   dependency that is itself being removed does not block; a package outside
-  the set still does, and it is named.
+  the set still does, and it is named. Every name in the set is checked before
+  the question is asked and before the restore point is taken: a name that is
+  not installed, or a package outside the set that still depends on one in it,
+  refuses the whole set and nothing is removed, and the preview reports the
+  same refusal without claiming that anything was removed.
 
 - **An install that reaches beyond what you asked for no longer proceeds
   unwatched.** When resolving a package pulls in others — `pkm install steam`
@@ -1636,6 +1649,25 @@ landed is in the repository README, not here.
   on working exactly as they are. The archive's own sealed metadata now states
   the same release its filename carries, so a machine records the build it
   actually installed.
+
+  Everything that reads the name reads it the same way. A release is written
+  and read in ASCII digits without leading zeros, so no other digit and no
+  padded number is taken for one. Where several archives of one package lie in
+  one directory, pkm and the installer choose the newest by the version and
+  release each archive's own sealed header states, not by the text of its name,
+  so 10.0p1 release 1 is chosen over 10.0 release 2 and release 10 over release
+  9. An archive whose filename names a different build than its sealed header
+  is refused, or, for a local archive installed under loose trust, installed as
+  the header's build with the disagreement named. The ISO build's list of
+  mirror-only archives names each mirror-only package under both shapes,
+  because a build machine holds archives made before this change until each
+  package is rebuilt; the squashfs ownership check, the publish check that
+  compares the staged archives with the built ones, the archive validator and
+  the image metadata check all read the new name with the same parser. A
+  rebuild of one version now removes the earlier build of that version from the
+  build directory once the new build has passed its checks — which the old,
+  release-less name did by overwriting it — and only when the earlier file's
+  own sealed header states that package and version.
 
   For the mirror: the archives already published for R001.2 keep their present
   names and are not renamed — a published release set does not change. The next
