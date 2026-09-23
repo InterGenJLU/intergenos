@@ -212,8 +212,8 @@
         ],
         "positionals": [
           {
-            "name": "package",
-            "nargs": null
+            "name": "packages",
+            "nargs": "+"
           }
         ],
         "flags": [
@@ -241,6 +241,19 @@
           {
             "names": [
               "--force"
+            ],
+            "takes_value": false
+          },
+          {
+            "names": [
+              "--yes",
+              "-y"
+            ],
+            "takes_value": false
+          },
+          {
+            "names": [
+              "--dry-run"
             ],
             "takes_value": false
           },
