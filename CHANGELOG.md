@@ -1622,6 +1622,27 @@ landed is in the repository README, not here.
 
 ### Changed
 
+- **A built package archive is named for the build it is.** The file is now
+  `<name>-<version>-<release>.igos.tar.gz` everywhere it is created — the two
+  builders, the shell archive step and the manifest-driven emitter — and the
+  repository index names whatever file the publisher placed on the mirror.
+  Before this, every release of a version shared one filename, so downloading a
+  new release wrote over the only local copy of the release it replaced and a
+  pre-upgrade snapshot had nothing to roll back to. Two releases of one version
+  are now two files that can sit side by side. A package whose recipe states no
+  release — the recipe-less core packages built by the shell tier — keeps the
+  shorter name rather than being given a release number nothing recorded, and
+  every reader accepts both shapes, so archives published before this change go
+  on working exactly as they are. The archive's own sealed metadata now states
+  the same release its filename carries, so a machine records the build it
+  actually installed.
+
+  For the mirror: the archives already published for R001.2 keep their present
+  names and are not renamed — a published release set does not change. The next
+  publish writes the new names, and its index names them; a machine that has
+  the old file cached re-fetches when the checksum in the new index does not
+  match what it holds.
+
 - Linux kernel 6.18.10 → 6.18.51, the current release of the 6.18 long-term
   series (`linux-kernel` and `linux-kernel-pass2`, release restarted at 1, so
   the kernel release string becomes `6.18.51-igos-<release>`). Five backport
