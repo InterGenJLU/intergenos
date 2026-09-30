@@ -1778,6 +1778,60 @@ def _rollback_proprietary(db, pkg_name, reporter):
         reporter.warn(f"could not fully roll back {pkg_name}: {e}")
 
 
+# What the signed index has to say about an archive a person named, as three
+# answers rather than a pair of booleans each site re-derives.
+ARCHIVE_TRUST_MATCHES = "matches"            # the index vouches for THIS file
+ARCHIVE_TRUST_CONTRADICTED = "contradicted"  # the index has a hash and it differs
+ARCHIVE_TRUST_UNVOUCHED = "unvouched"        # the index offers no hash to compare
+
+# The trust modes that require a match. Named rather than inferred, because what
+# the code has always done is refuse under exactly these two and permit under
+# anything else — see _explicit_archive_trust.
+ARCHIVE_TRUST_MODES_REQUIRING_A_MATCH = ("strict", "repo-only")
+
+
+def _explicit_archive_trust(index_entry, archive_sha256, trust_mode):
+    """H3, once: what an archive a PERSON named is held to (trust gate).
+
+    Two paths let someone install a file they chose themselves — `pkm install
+    --archive` and the local-archive upgrade candidate — and both hold it to the
+    same gate: compare its sha256 with the signed index's entry, then apply the
+    mode. Each carried its own copy of that, and the docstring of the second said
+    so in words ("the trust gate `pkm install --archive` applies, same modes,
+    same words"). Two implementations of one trust gate drift apart silently, and
+    a mode added to or tightened in one would leave the other weaker with nothing
+    saying so (second-read finding, 2026-09-30) — the same shape as the
+    cached-archive rule above, and the sibling of it.
+
+    Returns `(standing, permitted)`. The standing is one of the three constants
+    above and is what the caller's own sentence is chosen from; `permitted` is
+    whether the mode lets the install go on.
+
+    It DECIDES and does not report, for the same reason as the rule above: the
+    two paths do not say the same words — one refuses a package inside a
+    multi-package transaction and carries on, the other stops the command and
+    says "Nothing was changed" — and one of them names both hashes when they
+    disagree while the other prints one warning line. Those differences are the
+    sites', and they stay there.
+
+    ONE THING THIS PRESERVES RATHER THAN FIXES: a mode that is neither "strict"
+    nor "repo-only" permits, match or no match. That is what both copies have
+    always done, and argparse admits only the three modes, so no caller can
+    reach it today; closing it would be a change of behaviour and is not this
+    function's to make.
+    """
+    expected = (index_entry or {}).get("sha256")
+    if expected and expected == archive_sha256:
+        standing = ARCHIVE_TRUST_MATCHES
+    elif expected:
+        standing = ARCHIVE_TRUST_CONTRADICTED
+    else:
+        standing = ARCHIVE_TRUST_UNVOUCHED
+    permitted = (standing == ARCHIVE_TRUST_MATCHES
+                 or trust_mode not in ARCHIVE_TRUST_MODES_REQUIRING_A_MATCH)
+    return standing, permitted
+
+
 def _trusted_cached_archive(archive, index_entry):
     """S5-1, once: what a cached archive may be trusted as (security-review
     2026-07-01).
@@ -2209,16 +2263,9 @@ def cmd_install(db, args):
             reporter.step("SHA256", archive_sha)
 
             # Cross-check against repo index
-            repo_match = False
             repo_pkg = None
             try:
                 repo_pkg = repo.get_package(pkg_name)
-                if repo_pkg and repo_pkg.get("sha256") == archive_sha:
-                    repo_match = True
-                    reporter.verify(
-                        f"sha256 matches repository index for {pkg_name} "
-                        f"{repo_pkg.get('version','?')} ✓"
-                    )
             except OSError as e:
                 # The ONE failure that genuinely means "there is no entry to
                 # compare this archive against": the index cache could not be
@@ -2234,6 +2281,17 @@ def cmd_install(db, args):
                     f"against it"
                 )
                 repo_pkg = None
+            # H3: the gate is _explicit_archive_trust above, the one copy both
+            # person-named-archive paths apply; only the sentences below are
+            # this path's own.
+            _standing, _permitted = _explicit_archive_trust(
+                repo_pkg, archive_sha, trust_mode)
+            repo_match = _standing == ARCHIVE_TRUST_MATCHES
+            if repo_match:
+                reporter.verify(
+                    f"sha256 matches repository index for {pkg_name} "
+                    f"{repo_pkg.get('version','?')} ✓"
+                )
             # NOTHING ELSE IS CAUGHT HERE. This used to be a bare
             # `except Exception: repo_pkg = None`, which renamed every error
             # as "no index entry". Measured 2026-09-19: a TypeError raised
@@ -2243,36 +2301,37 @@ def cmd_install(db, args):
             # anywhere. An error that reports itself as an ordinary absence is
             # a silent failure; the error now travels with its own message.
 
-            if not repo_match and repo_pkg and repo_pkg.get("sha256"):
+            if _standing == ARCHIVE_TRUST_CONTRADICTED:
                 reporter.error("archive SHA256 does not match repository index!")
                 reporter.info(f"    archive: {archive_sha}")
                 reporter.info(f"    repo:    {repo_pkg['sha256']}")
 
-            # Trust gate (H3)
-            if trust_mode == "repo-only" and not repo_match:
-                reporter.error(
-                    "--archive-trust=repo-only requires archive SHA256 to "
-                    "match the repository index. Use --archive-trust=loose "
-                    "to override."
-                )
-                refused_this_txn.append((
-                    pkg_name,
-                    "the archive's SHA256 does not match the repository "
-                    "index (--archive-trust=repo-only)",
-                ))
+            # Trust gate (H3): the decision is the rule's; the words and what a
+            # refusal does to the rest of this transaction are this path's.
+            if not _permitted:
+                if trust_mode == "repo-only":
+                    reporter.error(
+                        "--archive-trust=repo-only requires archive SHA256 to "
+                        "match the repository index. Use --archive-trust=loose "
+                        "to override."
+                    )
+                    refused_this_txn.append((
+                        pkg_name,
+                        "the archive's SHA256 does not match the repository "
+                        "index (--archive-trust=repo-only)",
+                    ))
+                else:
+                    reporter.error(
+                        "--archive-trust=strict requires SHA256 match against "
+                        "repository index. Use --archive-trust=loose to override."
+                    )
+                    refused_this_txn.append((
+                        pkg_name,
+                        "the archive's SHA256 does not match the repository "
+                        "index (--archive-trust=strict)",
+                    ))
                 continue
-            elif trust_mode == "strict" and not repo_match:
-                reporter.error(
-                    "--archive-trust=strict requires SHA256 match against "
-                    "repository index. Use --archive-trust=loose to override."
-                )
-                refused_this_txn.append((
-                    pkg_name,
-                    "the archive's SHA256 does not match the repository "
-                    "index (--archive-trust=strict)",
-                ))
-                continue
-            elif trust_mode == "loose":
+            if trust_mode == "loose":
                 reporter.warn(
                     "--archive-trust=loose — skipping repo verification. "
                     "Verify SHA256 independently before trusting this archive."
@@ -5530,31 +5589,33 @@ def _local_archive_upgrade_candidates(db, repo, args, archive):
         repo_pkg = repo.get_package(name)
     except Exception:
         repo_pkg = None
-    repo_match = bool(repo_pkg and repo_pkg.get("sha256") == archive_sha)
+    # H3: the gate is _explicit_archive_trust; this path's words are its own.
+    standing, permitted = _explicit_archive_trust(repo_pkg, archive_sha, trust_mode)
+    repo_match = standing == ARCHIVE_TRUST_MATCHES
     if repo_match:
         emit_info(
             f"sha256 matches the repository index for {name} "
             f"{txn.format_vr(repo_pkg)}"
         )
-    elif repo_pkg and repo_pkg.get("sha256"):
+    elif standing == ARCHIVE_TRUST_CONTRADICTED:
         emit_warn(
             f"archive sha256 does not match the repository index entry for "
             f"{name} {txn.format_vr(repo_pkg)}: archive {archive_sha}, "
             f"index {repo_pkg['sha256']}"
         )
-    if trust_mode == "repo-only" and not repo_match:
-        emit_error(
-            "--archive-trust=repo-only requires archive SHA256 to match the "
-            "repository index. Use --archive-trust=loose to override. "
-            "Nothing was changed."
-        )
-        sys.exit(1)
-    if trust_mode == "strict" and not repo_match:
-        emit_error(
-            "--archive-trust=strict requires SHA256 match against repository "
-            "index. Use --archive-trust=loose to override. Nothing was "
-            "changed."
-        )
+    if not permitted:
+        if trust_mode == "repo-only":
+            emit_error(
+                "--archive-trust=repo-only requires archive SHA256 to match the "
+                "repository index. Use --archive-trust=loose to override. "
+                "Nothing was changed."
+            )
+        else:
+            emit_error(
+                "--archive-trust=strict requires SHA256 match against repository "
+                "index. Use --archive-trust=loose to override. Nothing was "
+                "changed."
+            )
         sys.exit(1)
     if trust_mode == "loose":
         emit_warn(
