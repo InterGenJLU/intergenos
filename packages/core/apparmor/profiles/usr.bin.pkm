@@ -19,6 +19,24 @@ profile pkm /usr/bin/pkm flags=(complain) {
 
   # Executable
   /usr/bin/pkm r,
+
+  # The program this profile confines is a shell script that execs the
+  # Python interpreter, so the interpreter is the process that does the
+  # work and every rule below applies to it only if this domain keeps it.
+  # Measured on kernel 6.18.10 with parser 3.1.7, in complain mode, with
+  # the records read back from the kernel log: with no rule here the exec
+  # is recorded as entering a learning child (target="...//null-
+  # /usr/bin/python3.14"), whose domain mediates no network, unix socket,
+  # signal, mount or user namespace at all, so the rules written here are
+  # unreachable for the work; under enforce the same missing rule denies
+  # the exec and the package manager cannot start. A rule naming the
+  # symlink the launcher writes (/usr/bin/python3) does NOT match - the
+  # kernel matches the file it resolves to - and the script's own
+  # interpreter needs no rule, because this profile attaches at the
+  # script and that interpreter runs inside it. ix keeps the interpreter
+  # in this domain rather than granting it one of its own; the launcher
+  # runs it with -P, so the working directory is not on its import path.
+  /usr/bin/python3.14 rix,
   
   # Allow reading and modifying the entire filesystem (it's a package manager)
   /usr/ rwl,

@@ -43,6 +43,10 @@ RECIPE = REPO / "packages/core/apparmor"
 BUILD_SH = RECIPE / "build.sh"
 PACKAGE_YML = RECIPE / "package.yml"
 PROFILES = RECIPE / "profiles"
+# The package manager's launcher and the interpreter it runs are decided in two
+# other recipes, so the check below reads them there rather than repeating them.
+PKM_BUILD = REPO / "packages/core/pkm/build.sh"
+PYTHON_YML = REPO / "packages/core/python/package.yml"
 
 # The attachment line of an AppArmor profile: an optional profile NAME, then
 # the program path, then flags or the opening brace. Both forms are read,
@@ -222,4 +226,54 @@ def test_every_shipped_profile_declares_the_feature_abi_its_abstractions_use():
     assert wrong == {}, (
         "these profiles are compiled against a feature set nobody chose: "
         f"{wrong}"
+    )
+
+
+def test_the_profile_covers_the_interpreter_its_own_launcher_runs():
+    """The confined program is a shell script that execs an interpreter, and a
+    profile that grants the interpreter no execute permission does not confine
+    the program that does the work.
+
+    Two facts measured on this kernel (parser 3.1.7, kernel 6.18.10, complain
+    mode, records read back from the kernel log):
+
+      - with no execute rule for the interpreter, the exec is recorded as
+        entering a learning child of the profile
+        (target="<profile>//null-/usr/bin/python3.14"), and inside that child
+        the network, unix-socket, signal, mount and user-namespace classes are
+        not mediated at all, so every transition rule written in the profile is
+        unreachable for the program that does the work; under enforce the same
+        missing rule denies the exec and the package manager cannot start.
+
+      - a rule naming the SYMLINK the launcher writes (/usr/bin/python3) does
+        not match: the kernel matches the file the symlink resolves to, so the
+        rule must name /usr/bin/python3.14. The launcher's own interpreter needs
+        no rule, and has none: no record in that measurement named it, because
+        the profile attaches at the script and the interpreter runs inside it.
+
+    The expected path is derived here from the two recipes that decide it - the
+    launcher line in the package manager's recipe and the interpreter version in
+    python's - so an interpreter version move fails this case in the tree
+    instead of silently putting the program back in a learning child.
+    """
+    launcher = re.search(r"^exec (/usr/bin/python3)\b", PKM_BUILD.read_text(),
+                         re.MULTILINE)
+    assert launcher, "the package manager's recipe no longer writes the launcher line this reads"
+    version = re.search(r'^version:\s*"(\d+)\.(\d+)\.', PYTHON_YML.read_text(),
+                        re.MULTILINE)
+    assert version, "python's recipe no longer states a version this can read"
+    resolved = f"/usr/bin/python{version.group(1)}.{version.group(2)}"
+    rule = re.compile(r"^\s*" + re.escape(resolved) + r"\s+([a-zA-Z]*x)\s*,\s*$",
+                      re.MULTILINE)
+    text = (PROFILES / "usr.bin.pkm").read_text()
+    match = rule.search(text)
+    assert match, (
+        f"the profile grants no execute permission to {resolved}, the file the "
+        f"launcher's {launcher.group(1)} resolves to, so the program that does "
+        "the work runs outside this profile's rules"
+    )
+    assert "i" in match.group(1), (
+        f"the rule for {resolved} is '{match.group(1)}', which sends the "
+        "interpreter somewhere other than this profile's own domain; the "
+        "measurement above is of an inherited execution (ix)"
     )
