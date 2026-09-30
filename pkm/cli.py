@@ -1884,13 +1884,46 @@ def _proprietary_install(db, installer, repo, reporter, pkg_name, payload_licens
     if laid_down:
         archive = installer._find_archive(pkg_name)
         expected_sha = None
+        refused = None
+        if archive:
+            # S5-1 (security-review 2026-07-01): trust the cached archive ONLY
+            # when its sha256 matches the signed index, and hand that sha256 to
+            # install() so its install-time re-hash guards the file; otherwise
+            # leave it and fetch the verified package. This path passes
+            # archive_path explicitly, so install()'s implicit-resolution
+            # backstop does not fire here — this is the helper install's own
+            # copy of the gate cmd_install and cmd_reinstall apply. Without it
+            # a cached archive the index does not list, or lists with another
+            # sha256, was installed as root with no expected hash.
+            _rp = repo.get_package(pkg_name)
+            if _rp and _rp.get("sha256") == _sha256(str(archive)):
+                expected_sha = _rp["sha256"]
+                reporter.verify(
+                    f"cached archive {archive.name} matches the signed index ✓")
+            else:
+                if _rp and _rp.get("sha256"):
+                    reporter.warn(
+                        f"cached archive {archive.name} does not match the "
+                        f"signed index for {pkg_name} — fetching the verified package")
+                else:
+                    reporter.warn(
+                        f"cached archive {archive.name} for {pkg_name} is not "
+                        f"in the signed index — fetching the verified package")
+                refused, archive = archive, None
         if not archive:
             repo_pkg = repo.get_package(pkg_name)
             if not repo_pkg:
-                reporter.error(
-                    f"'{pkg_name}' is not available locally or from any configured "
-                    f"repository."
-                )
+                if refused is None:
+                    reporter.error(
+                        f"'{pkg_name}' is not available locally or from any "
+                        f"configured repository."
+                    )
+                else:
+                    reporter.error(
+                        f"'{pkg_name}' is not available from any configured "
+                        f"repository, and the cached archive {refused.name} "
+                        f"cannot be verified without it. Nothing was installed."
+                    )
                 return "failed"
             dl_ok, dl_result = repo.download_package(pkg_name, reporter=reporter)
             if not dl_ok:
