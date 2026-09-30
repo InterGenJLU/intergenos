@@ -35,6 +35,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 from pathlib import Path
 
 # Forensic-trace shim — defensive import.
@@ -923,6 +924,111 @@ def _purge_stale_bytecode(root, file_list):
     return removed
 
 
+def _shipped_bytecode_sources(file_list):
+    """The Python sources an archive ships a compiled copy of.
+
+    A compiled copy is ``<dir>/__pycache__/<stem>.<tag>.pyc`` or its
+    ``.opt-N`` variant; the source it belongs to is ``<dir>/<stem>.py``.
+    Returns the set of those source paths, relative like ``file_list``.
+    """
+    sources = set()
+    for entry in file_list:
+        if entry.endswith("/") or not entry.endswith(".pyc"):
+            continue
+        rel = entry.lstrip("/")
+        parent, _, name = rel.rpartition("/")
+        cache_dir, _, cache_name = parent.rpartition("/")
+        if cache_name != "__pycache__":
+            continue
+        base = name[: -len(".pyc")]
+        head, _, last = base.rpartition(".")
+        if last.startswith("opt-") and last[4:].isdigit():
+            base = head
+        stem, _, tag = base.rpartition(".")
+        if not stem or not tag:
+            continue
+        sources.add(f"{cache_dir}/{stem}.py" if cache_dir else f"{stem}.py")
+    return sources
+
+
+def _stamp_deployed_python_sources(root, file_list, skip=()):
+    """Give each Python source this deploy wrote the deploy time as its
+    modification time.
+
+    CPython accepts a cached compiled copy while the source's recorded
+    modification time (whole seconds) and size still match. The purge above
+    drops the replaced module's copy from its directory's __pycache__, but an
+    interpreter can keep its cache elsewhere: PYTHONPYCACHEPREFIX or
+    ``-X pycache_prefix`` move every compiled file into a separate tree that
+    no deploy can know. A deployed file's time comes out of the archive, so a
+    new build that kept the old size and time left such an interpreter running
+    the code the upgrade had just replaced — measured 2026-09-29 with a real
+    interpreter: the upgraded module still answered with its old code. A time
+    no cached copy was built against makes every such copy miss, wherever it
+    lives. The purge stays: in __pycache__ it removes the stale copy whatever
+    the times say, including after two deploys inside one second.
+
+    A source whose archive ships its own compiled copy keeps the archive's
+    time. That copy is checked against it, and a new time would make it stale:
+    the first import able to write the directory — pkm runs as root — would
+    rewrite a file pkm tracks and verifies by content.
+
+    Only regular files are touched and a symbolic link is never followed; the
+    content is not changed. Paths in ``skip`` (config-protected files the
+    deploy did not write) are left alone. Nothing here fails an install: a
+    time that cannot be set is reported, like a purge that cannot remove.
+
+    Args:
+        root: install root (Path or str) the file_list paths are relative to.
+        file_list: tracked entries, POSIX-relative, '/'-suffixed for dirs.
+        skip: relative paths the deploy excluded.
+
+    Returns:
+        list[str] — the relative paths given the deploy time.
+    """
+    root = Path(root)
+    real_root = os.path.realpath(root)
+    shipped = _shipped_bytecode_sources(file_list)
+    excluded = {p.lstrip("/") for p in skip}
+    deployed_at = time.time_ns()
+    stamped = []
+    problems = []
+    for entry in file_list:
+        if entry.endswith("/") or not entry.endswith(".py"):
+            continue
+        rel = entry.lstrip("/")
+        if rel in shipped or rel in excluded:
+            continue
+        path = root / rel
+        try:
+            st = os.lstat(path)
+        except FileNotFoundError:
+            continue
+        except OSError as e:
+            problems.append(f"{path}: {e}")
+            continue
+        if not stat.S_ISREG(st.st_mode):
+            continue
+        if os.path.commonpath([real_root, os.path.realpath(path)]) != real_root:
+            problems.append(f"{path}: resolves outside the install root")
+            continue
+        try:
+            os.utime(path, ns=(st.st_atime_ns, deployed_at),
+                     follow_symlinks=False)
+            stamped.append(rel)
+        except OSError as e:
+            problems.append(f"{path}: {e}")
+    if problems:
+        print(
+            f"  WARNING: {len(problems)} deployed Python source(s) kept the "
+            f"archive's modification time; an interpreter with a bytecode "
+            f"cache prefix may run a stale compiled copy of them: "
+            + "; ".join(problems[:5]),
+            file=sys.stderr,
+        )
+    return stamped
+
+
 # The id at and above which an account is an ORDINARY one rather than a system
 # account. It is the same line igos-build/builder.py's _force_root_ownership
 # draws when it forces root:root on staged content, and the UID_MIN/GID_MIN the
@@ -1536,6 +1642,17 @@ class PackageInstaller:
             )
             if not ok:
                 return False, f"Failed to deploy: {err}"
+
+            # A cached compiled copy of a module this deploy replaced can live
+            # where the purge above never looks (a bytecode cache prefix); the
+            # deploy time on each Python source it wrote, other than one the
+            # archive ships a compiled copy of, makes every such copy miss.
+            # ORDER IS LOAD-BEARING: after the extract, which writes the
+            # archive's time, and before the hook's snapshot below, which would
+            # otherwise read this change as a write of the hook's own.
+            _stamp_deployed_python_sources(
+                self.root, file_list, skip=config_plan["protect"],
+            )
 
             # Restore setuid/setgid/sticky bits that hardened-tar dropped.
             try:
