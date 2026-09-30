@@ -773,7 +773,7 @@ GNU TLS library
 - License: `LGPL-2.1-or-later`
 - Homepage: https://gnutls.org/
 
-### go (1.26.4)
+### go (1.26.8)
 
 The Go programming language compiler and toolchain
 
