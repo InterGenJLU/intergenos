@@ -154,14 +154,30 @@ List files owned by an installed package.
 .BR provides " \fIFILE\fR"
 Report which installed package owns a given file.
 .TP
-.BR verify " [\fIPACKAGE\fR] [\fB\-\-all\fR]"
+.BR verify " [\fIPACKAGE\fR] [\fB\-\-all\fR] [\fB\-\-strict\fR | \fB\-\-fast\fR] [\fB\-\-detail\fR]"
 Verify package integrity against recorded file hashes. With
 .B \-\-all
 every installed package is verified and a summary is printed.
+.B \-\-strict
+(the default) checks that every owned file exists and that its content
+matches the recorded hash;
+.B \-\-fast
+checks existence only.
+.B \-\-detail
+lists every path behind the summary.
+In both modes an owned symbolic link must resolve: a link whose target does
+not exist, runs through something that is not a directory, or passes through
+more than 40 links is reported as a dangling link, with the text it points
+to, and counts as a failure. The link is followed inside the root being
+verified, as that system would follow it, never on the machine running the
+check.
 Exit status for a named package is 0 when every recorded file was checked and
-passed, 1 when a file is missing or modified or a critical install hook left
-the package degraded, 3 when nothing failed but a check could not run (most
-often files the invoking user may not read), and 4 when the package is
+passed, 1 when a file is missing or modified, an owned link is dangling, or a
+critical install hook left the package degraded, 3 when nothing failed but a
+check could not run (most often files the invoking user may not read, or a
+link whose target is under
+.IR /proc ", " /sys ", " /dev " or " /run
+while that directory is not mounted under the root), and 4 when the package is
 not installed — nothing was verified, so the status does not report success.
 A missing package name without
 .B \-\-all

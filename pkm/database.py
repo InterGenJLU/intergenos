@@ -12,6 +12,7 @@ import hashlib
 import os
 import re
 import sqlite3
+import stat
 import sys
 import time
 from datetime import datetime, timezone
@@ -2323,12 +2324,34 @@ class PackageDB:
               - undeterminable: owned paths whose state this process was not
                           permitted to establish. Either the path could not
                           be stat'd (a parent directory it may not search,
-                          so existence itself is unknown) or the file is
+                          so existence itself is unknown), or the file is
                           present but its bytes could not be read for the
-                          content check. NOT missing and NOT verified: the
-                          check could not run. A non-root verify over
-                          root-only files lands here, and that is the point —
-                          it used to report those files as missing
+                          content check, or it is a symbolic link whose
+                          target could not be followed — a directory on the
+                          way that this process may not search, or a target
+                          under /proc, /sys, /dev or /run while that
+                          directory is not a mount point under the root (an
+                          offline root, where the filesystem the target
+                          lives on does not exist yet). NOT missing and NOT
+                          verified: the check could not run. A non-root
+                          verify over root-only files lands here, and that
+                          is the point — it used to report those files as
+                          missing
+              - dangling: owned paths that are symbolic links whose target
+                          does not resolve: nothing exists at the path the
+                          link names, that path runs through something that
+                          is not a directory, or it passes through more than
+                          40 links. The link is present; what the package
+                          shipped it to reach is not. A failure, in strict
+                          and fast mode alike — resolving is part of
+                          existence, not of content. The rule is RESOLVE,
+                          not ownership: a link that reaches anything real
+                          passes whether or not a package owns the target
+              - link_targets: {path: the link's own text} for every link
+                          reported in dangling or in undeterminable, so a
+                          report can show where it points
+              - link_reasons: {path: why, in one sentence} for the same
+                          links
               - expected_absent: owned paths the package's own post_install
                           hook removes/relocates — legitimately absent on a
                           clean install (PI-E4 / Class 4), not "missing"
@@ -2381,10 +2404,14 @@ class PackageDB:
         modified = []
         unverifiable = []
         undeterminable = []
+        dangling = []
+        link_targets = {}   # owned link path -> its own text, when reported
+        link_reasons = {}   # owned link path -> why it was reported
         expected_absent = []
         generated = []
         generated_absent = []
         expected_absent_by_class = {}  # Component B: class_id -> [paths]
+        root_is_system = _is_system_root(self.root)
 
         for path, is_dir, is_config, expected_checksum, is_generated in rows:
             abs_path = str(self.root / path)
@@ -2426,6 +2453,23 @@ class PackageDB:
                     generated_absent.append(path)
                 else:
                     missing.append(path)
+                continue
+            # An owned symbolic link is present as soon as the LINK is — the
+            # lstat above answers for the link alone — but what a package
+            # ships a link for is the thing it names. A link that reaches
+            # nothing used to pass here as present, so a package whose links
+            # point at files it never shipped verified ok. Resolving is part
+            # of existence, not of content, so this runs in fast mode too;
+            # the rule is RESOLVE, not ownership.
+            link = _probe_link(self.root, path, abs_path, root_is_system)
+            if link is not None and link[0] != LINK_RESOLVES:
+                outcome, link_text, reason = link
+                link_targets[path] = link_text
+                link_reasons[path] = reason
+                if outcome == LINK_DANGLING:
+                    dangling.append(path)
+                else:
+                    undeterminable.append(path)
                 continue
             # A hook-generated DIRECTORY that is HERE needs no line of its
             # own: a directory carries no content to check, and its presence
@@ -2506,6 +2550,9 @@ class PackageDB:
             "modified": modified,
             "unverifiable": unverifiable,
             "undeterminable": undeterminable,
+            "dangling": dangling,
+            "link_targets": link_targets,
+            "link_reasons": link_reasons,
             "expected_absent": expected_absent,
             "expected_absent_by_class": expected_absent_by_class,
             "generated": generated,
@@ -2622,6 +2669,168 @@ def _probe_path(abs_path):
             return PATH_ABSENT
         return PATH_UNDETERMINABLE
     return PATH_PRESENT
+
+
+# Owned-link outcomes. A present link can name something that is not there,
+# and verify asks that second question separately — with three answers, for
+# the same reason _probe_path has three.
+LINK_RESOLVES = "resolves"
+LINK_DANGLING = "dangling"
+LINK_UNDETERMINABLE = "undeterminable"
+
+# The most symbolic links one resolution may follow: Linux's MAXSYMLINKS.
+# Measured on the kernel this project builds: a chain of 40 resolves, 41 is
+# ELOOP.
+_MAX_LINK_HOPS = 40
+
+# The directories a running system mounts its runtime filesystems over. What
+# lives in them is made by the running kernel and service manager, so where
+# one is not a mount point under the root being verified — an offline root —
+# a target inside it cannot exist yet, and whether a link to it resolves on
+# the running system cannot be told from here.
+_RUNTIME_FS_DIRS = ("proc", "sys", "dev", "run")
+
+_DANGLING_REASONS = {
+    errno.ENOENT: "nothing exists at the path it names",
+    errno.ENOTDIR: ("the path it names runs through something that is not "
+                    "a directory"),
+    errno.ELOOP: (f"the path it names passes through more than "
+                  f"{_MAX_LINK_HOPS} symbolic links"),
+}
+
+
+def _is_system_root(root):
+    """True when `root` is this process's own "/", however it was spelled."""
+    try:
+        return os.path.samefile(os.fspath(root), "/")
+    except OSError:
+        return False
+
+
+def _probe_link(root, rel_path, abs_path, root_is_system):
+    """Decide whether an owned path that is a symbolic link resolves.
+
+    Returns None when abs_path is not a symbolic link. Otherwise returns
+    (outcome, link_text, reason): outcome is LINK_RESOLVES, LINK_DANGLING or
+    LINK_UNDETERMINABLE; link_text is the link's own text (None if it could
+    not be read); reason is one plain sentence, None when it resolves.
+
+    When the root is this process's "/", os.stat is the kernel's own answer,
+    and a success settles it. Every other case — a failure there, or any
+    other root — is decided by _resolve_in_root, which follows the path
+    inside the root: os.stat would follow an absolute target to the machine
+    running the check instead of the root being verified.
+    """
+    try:
+        link_text = os.readlink(abs_path)
+    except OSError as exc:
+        if exc.errno in (errno.EINVAL, errno.ENOENT, errno.ENOTDIR):
+            # EINVAL: present and not a symbolic link. ENOENT/ENOTDIR: gone
+            # since the lstat a moment ago; the checks that follow meet the
+            # same absence and report it as they always have.
+            return None
+        return (LINK_UNDETERMINABLE, None,
+                f"the link itself could not be read ({exc.strerror})")
+    if root_is_system:
+        try:
+            os.stat(abs_path)
+        except OSError:
+            pass  # the walk says why, and whether the rule below applies
+        else:
+            return (LINK_RESOLVES, link_text, None)
+    outcome, reason = _resolve_in_root(root, rel_path)
+    return (outcome, link_text, reason)
+
+
+def _resolve_in_root(root, rel_path):
+    """Follow rel_path under root the way the kernel would if root were "/".
+
+    Every symbolic link on the way is followed, the last one included. An
+    absolute link text starts again at root; a relative one continues from
+    the directory holding the link. ".." never climbs above root, and after
+    a link it starts from where the link led, not from the text that led
+    there. Every step is one lstat or one readlink of a path under root, so
+    nothing is ever looked up on the machine running the check — which is
+    what os.stat does with an absolute target whenever root is not "/".
+
+    Returns (outcome, reason):
+      LINK_RESOLVES        the path reaches something that exists
+      LINK_DANGLING        the kernel's ENOENT, ENOTDIR or ELOOP — including
+                           more path after something that is not a directory
+                           ("file/..", "file/.", "file/"), which the kernel
+                           refuses with ENOTDIR and path arithmetic would not
+      LINK_UNDETERMINABLE  the walk was refused (a directory this process may
+                           not search), or it failed inside a runtime
+                           filesystem directory that is not mounted under root
+    """
+    base = os.fspath(root).rstrip("/")
+    pending = rel_path.split("/")
+    pending.reverse()  # pop() yields the next component
+    reached = []       # the components walked so far, every link resolved
+    reached_is_dir = True
+    hops = 0
+    while pending:
+        name = pending.pop()
+        if not reached_is_dir:
+            # More path after a regular file (or anything else that is not a
+            # directory): "file/x", "file/..", "file/." and "file/" alike.
+            return _unresolved(base, reached, errno.ENOTDIR)
+        if name in ("", "."):
+            continue
+        if name == "..":
+            if reached:
+                reached.pop()
+            continue
+        step = reached + [name]
+        here = base + "/" + "/".join(step)
+        try:
+            st = os.lstat(here)
+        except OSError as exc:
+            if exc.errno in (errno.ENOENT, errno.ENOTDIR):
+                return _unresolved(base, step, exc.errno)
+            return (LINK_UNDETERMINABLE, _refusal(exc))
+        if not stat.S_ISLNK(st.st_mode):
+            reached = step
+            reached_is_dir = stat.S_ISDIR(st.st_mode)
+            continue
+        hops += 1
+        if hops > _MAX_LINK_HOPS:
+            return (LINK_DANGLING, _DANGLING_REASONS[errno.ELOOP])
+        try:
+            target = os.readlink(here)
+        except OSError as exc:
+            return (LINK_UNDETERMINABLE, _refusal(exc))
+        if not target:
+            # The kernel answers an empty link text with ENOENT; splitting it
+            # would read as "this directory" and call the link resolved.
+            return _unresolved(base, reached, errno.ENOENT)
+        if target.startswith("/"):
+            reached = []
+        pending.extend(reversed(target.split("/")))
+    return (LINK_RESOLVES, None)
+
+
+def _unresolved(base, components, err):
+    """The outcome of a walk that failed at `components` (under the root
+    `base`) with `err`: dangling, unless the failure lies inside a runtime
+    filesystem directory that is not a mount point under that root."""
+    if components and components[0] in _RUNTIME_FS_DIRS:
+        top = components[0]
+        if not os.path.ismount(base + "/" + top):
+            return (LINK_UNDETERMINABLE,
+                    f"the path it names is under /{top}, which is not "
+                    f"mounted under this root; what lives there is made "
+                    f"while the system runs, so the link can be judged "
+                    f"only on the running system")
+    return (LINK_DANGLING, _DANGLING_REASONS[err])
+
+
+def _refusal(exc):
+    """One sentence for a walk the filesystem refused."""
+    if exc.errno in (errno.EACCES, errno.EPERM):
+        return (f"this user may not follow the path it names "
+                f"({exc.strerror})")
+    return f"the path it names could not be followed ({exc.strerror})"
 
 
 def _parse_manifest(content):

@@ -88,7 +88,11 @@ class VerifyNullChecksumTests(unittest.TestCase):
         self.db.add_files(pkg_id, ["usr/bin/gamma-link"])
         target = self.root / "usr" / "bin" / "gamma-target"
         target.write_bytes(b"target-bytes")
-        (self.root / "usr" / "bin" / "gamma-link").symlink_to(target)
+        # Relative, so the link resolves inside the root being verified. The
+        # absolute form this used to take was the machine's own path INTO
+        # the scratch root, which names nothing when the root is judged as a
+        # system of its own — verify now reports such a link as dangling.
+        (self.root / "usr" / "bin" / "gamma-link").symlink_to("gamma-target")
         result = self.verifier.verify("gamma", mode="strict")
         self.assertEqual(result["unverifiable"], [])
         self.assertEqual(result["exit_code"], EXIT_OK)

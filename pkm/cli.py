@@ -1160,7 +1160,8 @@ def build_parser():
     p_verify.add_argument("--all", action="store_true", dest="verify_all")
     p_verify.add_argument(
         "--detail", action="store_true", dest="verify_detail",
-        help="List the expected-absent paths under each named class",
+        help="List every path behind the summary: missing, modified, "
+             "dangling, expected-absent (by named class) and hook-generated",
     )
     p_verify_mode = p_verify.add_mutually_exclusive_group()
     p_verify_mode.add_argument(
@@ -1169,7 +1170,8 @@ def build_parser():
     )
     p_verify_mode.add_argument(
         "--fast", action="store_const", const="fast", dest="verify_mode",
-        help="Existence (lexists) only — sub-second per package",
+        help="Existence only, no content hashing (an owned link must "
+             "still resolve) — sub-second per package",
     )
     p_verify.set_defaults(verify_mode="strict")
 
@@ -4001,7 +4003,8 @@ def _print_generated_absent_detail(paths):
 
 
 def _print_file_problem_detail(result, limit=None):
-    """Under --detail, name every file verify reports as missing or modified.
+    """Under --detail, name every file verify reports as missing or modified,
+    and every owned link it reports as dangling, with where the link points.
 
     A whole-machine `pkm verify --all` printed a COUNT per package and no path,
     so the one run that checks every package was the one that could not say
@@ -4023,6 +4026,25 @@ def _print_file_problem_detail(result, limit=None):
             print(f"    /{f}")
         if len(paths) > len(shown):
             print(f"    … and {len(paths) - len(shown)} more")
+    paths = result.get("dangling") or []
+    if paths:
+        print(f"  dangling links — the link is there, what it names is not "
+              f"({len(paths)}):")
+        _print_link_lines(result, paths, limit)
+
+
+def _print_link_lines(result, paths, limit=None):
+    """One line per reported link: `/path -> its text (why)`."""
+    targets = result.get("link_targets") or {}
+    reasons = result.get("link_reasons") or {}
+    shown = paths if limit is None else paths[:limit]
+    for f in shown:
+        text = targets.get(f)
+        why = reasons.get(f)
+        print(f"    /{f} -> {text if text is not None else '?'}"
+              f"{f' ({why})' if why else ''}")
+    if len(paths) > len(shown):
+        print(f"    … and {len(paths) - len(shown)} more")
 
 
 def _print_generated_detail(paths):
@@ -4047,13 +4069,15 @@ def _print_expected_absent_detail(by_class):
 def cmd_verify(db, args):
     # Exit codes (CLI-local; differ from verifier.py API EXIT_* dict codes):
     #   0 = OK (incl. single-pkg routed-to-superseded-successor message)
-    #   1 = verification FAILED — files are missing or modified, or a
+    #   1 = verification FAILED — files are missing or modified, an owned
+    #       symbolic link is dangling (present, naming nothing), or a
     #       critical install hook left the package degraded
     #   2 = usage error (no package + no --all)
     #   3 = verification COULD NOT BE COMPLETED — nothing failed, but at
     #       least one check could not run: files this process may not read
-    #       (undeterminable) or files with no recorded hash to compare
-    #       against (unverifiable). Distinct from 1 because a run that was
+    #       or links whose target it could not follow (undeterminable), or
+    #       files with no recorded hash to compare against (unverifiable).
+    #       Distinct from 1 because a run that was
     #       prevented from checking has not found a fault, and reporting it
     #       as one hands the user a fright about a healthy system. The usual
     #       cause is running verify as a non-root user over root-only files.
@@ -4117,13 +4141,17 @@ def cmd_verify(db, args):
             generated_absent_total += len(result.get("generated_absent", []))
             und = result.get("undeterminable", [])
             unv = result.get("unverifiable", [])
-            if result["missing"] or result["modified"]:
+            dng = result.get("dangling", [])
+            if result["missing"] or result["modified"] or dng:
                 problem_count += 1
                 file_problem_names.add(name)
+                dng_note = (f", {len(dng)} dangling "
+                            f"link{'' if len(dng) == 1 else 's'}" if dng else "")
                 unv_note = f", {len(unv)} unverifiable" if unv else ""
                 und_note = (f", {len(und)} could not be checked" if und else "")
                 print(f"  ✗ {name} {version} — {len(result['missing'])} missing, "
-                      f"{len(result['modified'])} modified{unv_note}{und_note}")
+                      f"{len(result['modified'])} modified{dng_note}{unv_note}"
+                      f"{und_note}")
             elif und or unv:
                 # Nothing is wrong that we can see; we were prevented from
                 # looking. A separate marker and a separate count, so this
@@ -4189,6 +4217,7 @@ def cmd_verify(db, args):
     _row = db.get_installed(args.package)
     _degraded = _row.get("degraded") if _row else None
     if (not result["missing"] and not result["modified"]
+            and not result.get("dangling")
             and not result.get("unverifiable")
             and not result.get("undeterminable")):
         if _degraded:
@@ -4236,16 +4265,31 @@ def cmd_verify(db, args):
             print(f"    /{f}")
         print(f"    (existence confirmed; content cannot be checked. "
               f"Reinstall the package to record hashes.)")
-    if result.get("undeterminable"):
+    # A link lands in undeterminable when its TARGET could not be followed,
+    # which is not always a permission this user lacks (a target under an
+    # unmounted /run is the other cause), so links are listed apart, each
+    # with its own reason, and the files keep the note that is true of them.
+    _link_texts = result.get("link_targets") or {}
+    _und_files = [f for f in result.get("undeterminable") or []
+                  if f not in _link_texts]
+    _und_links = [f for f in result.get("undeterminable") or []
+                  if f in _link_texts]
+    if _und_files:
         print(f"  could not be checked — not readable by this user "
-              f"({len(result['undeterminable'])}):")
-        for f in result["undeterminable"][:20]:
+              f"({len(_und_files)}):")
+        for f in _und_files[:20]:
             print(f"    /{f}")
-        if len(result["undeterminable"]) > 20:
-            print(f"    … and {len(result['undeterminable']) - 20} more")
+        if len(_und_files) > 20:
+            print(f"    … and {len(_und_files) - 20} more")
         print(f"    (these files are NOT reported missing or modified — this "
               f"user cannot read them, so their state is unknown. Re-run as "
               f"root to check them.)")
+    if _und_links:
+        print(f"  links whose target could not be followed "
+              f"({len(_und_links)}):")
+        _print_link_lines(result, _und_links, None if _detail else 20)
+        print(f"    (these links are NOT reported dangling — where they lead "
+              f"could not be established here.)")
     if result.get("generated_absent"):
         # Named on the fault path too: a package with a real problem may also
         # carry hook-generated absences, and rolling them into the fault would
@@ -4258,7 +4302,8 @@ def cmd_verify(db, args):
               f"({len(result['generated'])}); --detail to list")
     # A real fault outranks an unknown. Only when nothing failed and nothing
     # is degraded does the run report "could not be completed" instead.
-    if (not result["missing"] and not result["modified"] and not _degraded):
+    if (not result["missing"] and not result["modified"]
+            and not result.get("dangling") and not _degraded):
         sys.exit(3)
     sys.exit(1)
 

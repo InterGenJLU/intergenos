@@ -6,9 +6,10 @@ Two modes per RFC §5a:
   - strict (default): existence + SHA-256 content hash check. Catches both
     missing files and tampered/stale content. Roughly 10-15s for a
     full-system verify.
-  - fast: existence (lexists) only. Sub-second per package; matches the
-    pre-RFC behavior. Reserved for cases where speed matters and content
-    integrity is checked elsewhere.
+  - fast: existence only, no content hashing. An owned symbolic link must
+    still resolve — a link that reaches nothing does not establish that
+    anything exists. Sub-second per package. Reserved for cases where speed
+    matters and content integrity is checked elsewhere.
 
 Superseded packages are surfaced explicitly per RFC §5b: queries against a
 retired package return a {superseded_by, superseded_at, message} payload
@@ -28,7 +29,8 @@ except ImportError:
 
 # Verifier exit codes per RFC §5b
 EXIT_OK = 0            # every owned file was checked and passed
-EXIT_MODIFIED = 1      # at least one file is missing or modified — a failure
+EXIT_MODIFIED = 1      # a file is missing or modified, or an owned link is
+                       # dangling — a failure
 EXIT_SUPERSEDED = 2    # package was superseded; verify the successor instead
 EXIT_UNDETERMINED = 3  # nothing failed, but at least one check could not run
 
@@ -38,7 +40,8 @@ EXIT_UNDETERMINED = 3  # nothing failed, but at least one check could not run
 # fail to run: the file's bytes or even its existence could not be read
 # (undeterminable), and no reference hash was ever recorded to compare against
 # (unverifiable). A real failure outranks an unknown, so a result carrying both
-# a missing file and an unreadable one reports EXIT_MODIFIED.
+# a missing file and an unreadable one reports EXIT_MODIFIED. A dangling owned
+# link — present, but naming nothing — is a real failure like a missing file.
 
 
 class PackageVerifier:
@@ -53,13 +56,17 @@ class PackageVerifier:
         Args:
             name: Package name.
             mode: "strict" (default; SHA-256 content check) or "fast"
-                  (lexists only).
+                  (existence only; an owned link must still resolve).
 
         Returns:
             dict with keys:
               - total, missing, modified — file accounting
               - undeterminable — owned paths whose state could not be
-                established because this process may not read them
+                established because this process may not read them, or
+                links whose target could not be followed from here
+              - dangling — owned symbolic links whose target does not
+                resolve; link_targets and link_reasons map each reported
+                link to its own text and to why
               - superseded_by — name of successor if retired, else None
               - superseded_at — ISO8601 timestamp when superseded, else None
               - exit_code — EXIT_OK / EXIT_MODIFIED / EXIT_SUPERSEDED /
@@ -78,6 +85,9 @@ class PackageVerifier:
                 "modified": [],
                 "unverifiable": [],
                 "undeterminable": [],
+                "dangling": [],
+                "link_targets": {},
+                "link_reasons": {},
                 "expected_absent": [],
                 "expected_absent_by_class": {},
                 "generated": [],
@@ -97,7 +107,7 @@ class PackageVerifier:
             return None
         result["superseded_by"] = result.get("superseded_by")  # already set by DB layer
         result["superseded_at"] = pkg.get("superseded_at")
-        if result["missing"] or result["modified"]:
+        if result["missing"] or result["modified"] or result.get("dangling"):
             result["exit_code"] = EXIT_MODIFIED
         elif result.get("undeterminable") or result.get("unverifiable"):
             result["exit_code"] = EXIT_UNDETERMINED
@@ -113,6 +123,7 @@ class PackageVerifier:
                     modified=len(result.get("modified", [])),
                     unverifiable=len(result.get("unverifiable", [])),
                     undeterminable=len(result.get("undeterminable", [])),
+                    dangling=len(result.get("dangling", [])),
                     expected_absent=len(result.get("expected_absent", [])),
                     generated=len(result.get("generated", [])),
                     exit_code=result["exit_code"],
