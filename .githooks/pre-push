@@ -13,6 +13,17 @@
 
 set -euo pipefail
 
+# Under pipefail a pipeline fails when its writer is killed by SIGPIPE, and
+# that happens whenever the reader exits before the writer has finished:
+# `grep -q` at its first match, `head -1` after one line. Input longer than a
+# pipe holds is enough — a long commit message, a long file list. Inside an
+# assignment that ended this hook on the spot with no gate result and no
+# reason; inside an `if` it turned a match into the wrong answer. So no
+# pipeline in this file ends in a reader that stops early: a check that stops
+# at its first match reads from a process substitution, whose writer's exit
+# status does not decide the result, and a first line is taken with parameter
+# expansion.
+
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "$REPO_ROOT"
 
@@ -30,7 +41,7 @@ if python3 --version >/dev/null 2>&1; then
     PY_BIN=python3
 elif command -v py >/dev/null 2>&1; then
     PY_BIN=py
-elif python --version 2>&1 | grep -q "Python 3"; then
+elif grep -q "Python 3" < <(python --version 2>&1); then
     PY_BIN=python
 else
     PY_BIN=""
@@ -681,7 +692,7 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
         msg=$(git log -1 --format=%B "$sha")
 
         # Skip if NO-GATE override is present
-        if echo "$msg" | grep -qE '^NO-GATE:'; then
+        if grep -qE '^NO-GATE:' < <(printf '%s\n' "$msg"); then
             continue
         fi
 
@@ -693,7 +704,7 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
             total=$((added + removed))
             if [ "$total" -gt "$THRESHOLD" ]; then
                 base=$(basename "$file")
-                if ! echo "$msg" | grep -qF "$file" && ! echo "$msg" | grep -qF "$base"; then
+                if ! grep -qF "$file" < <(printf '%s\n' "$msg") && ! grep -qF "$base" < <(printf '%s\n' "$msg"); then
                     echo "[pre-push] BLOCK: commit $sha touches $file ($total lines changed) but message doesn't mention it."
                     echo "  Reason: under-documentation risk (>$THRESHOLD lines = significant scope; must appear in message)."
                     echo "  Resolve: amend message to reference $file, OR add 'NO-GATE: <reason>' line for legitimate bulk-mechanical changes."
@@ -719,11 +730,11 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
     BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
     for sha in $(git rev-list --no-merges --reverse "$BASE".."$LOCAL"); do
         msg=$(git log -1 --format=%B "$sha")
-        if echo "$msg" | grep -qE '^NO-GATE:'; then
+        if grep -qE '^NO-GATE:' < <(printf '%s\n' "$msg"); then
             continue
         fi
-        subject=$(echo "$msg" | head -1)
-        if ! echo "$subject" | grep -qE "$COMMIT_TYPE_RE"; then
+        subject=${msg%%$'\n'*}
+        if ! grep -qE "$COMMIT_TYPE_RE" < <(printf '%s\n' "$subject"); then
             echo "[pre-push] BLOCK: commit $sha subject doesn't match conventional-commit format."
             echo "  Expected: <type>(<scope>): <description>  OR  <type>: <description>"
             echo "  Valid types: feat, fix, docs, refactor, test, chore, perf, infra, build, ci, revert, phase<N>"
@@ -744,13 +755,13 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
     BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
     for sha in $(git rev-list --no-merges --reverse "$BASE".."$LOCAL"); do
         msg=$(git log -1 --format=%B "$sha")
-        if echo "$msg" | grep -qE '^NO-GATE:'; then
+        if grep -qE '^NO-GATE:' < <(printf '%s\n' "$msg"); then
             continue
         fi
         # Compute total lines changed in this commit
         total=$(git show --numstat --format='' "$sha" | awk 'BEGIN{s=0} $1!="-" && $2!="-" {s += $1 + $2} END{print s+0}')
         if [ "$total" -gt "$COAUTH_THRESHOLD" ]; then
-            if ! echo "$msg" | grep -qiE '^Co-Authored-By:'; then
+            if ! grep -qiE '^Co-Authored-By:' < <(printf '%s\n' "$msg"); then
                 echo "[pre-push] BLOCK: commit $sha ($total lines changed) lacks Co-Authored-By trailer."
                 echo "  Reason: provenance — substantive commits must declare authorship."
                 echo "  Resolve: amend the commit to add (example):"
@@ -798,7 +809,7 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
     NEW_YMLS=()
     for sha in $(git rev-list --no-merges --reverse "$BASE".."$LOCAL"); do
         msg=$(git log -1 --format=%B "$sha")
-        if echo "$msg" | grep -qE '^NO-GATE:'; then
+        if grep -qE '^NO-GATE:' < <(printf '%s\n' "$msg"); then
             continue
         fi
         # Find files ADDED in this commit (status A) matching packages/*/*/package.yml
@@ -816,7 +827,7 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
         file="${entry#*:}"
         # Read the file at the version that was committed
         content=$(git show "$sha:$file" 2>/dev/null)
-        if ! echo "$content" | grep -qE '^(verify_paths|pending_acquisition)\s*:'; then
+        if ! grep -qE '^(verify_paths|pending_acquisition)\s*:' < <(printf '%s\n' "$content"); then
             BAD_PKGS+=("$sha:$file")
         fi
     done
@@ -861,13 +872,13 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
     SHADOW_BAD=()
     for sha in $(git rev-list --no-merges --reverse "$BASE".."$LOCAL"); do
         msg=$(git log -1 --format=%B "$sha")
-        echo "$msg" | grep -qE '^NO-GATE:' && continue
+        grep -qE '^NO-GATE:' < <(printf '%s\n' "$msg") && continue
         while IFS=$'\t' read -r status file; do
             case "$status" in A|M) ;; *) continue ;; esac
             [[ "$file" =~ ^packages/[^/]+/[^/]+/build\.sh$ ]] || continue
             content=$(git show "$sha:$file" 2>/dev/null) || continue
-            if echo "$content" | grep -qE '^install\(\)' \
-               && echo "$content" | grep -qE '^[[:space:]]+install[[:space:]]+-'; then
+            if grep -qE '^install\(\)' < <(printf '%s\n' "$content") \
+               && grep -qE '^[[:space:]]+install[[:space:]]+-' < <(printf '%s\n' "$content"); then
                 SHADOW_BAD+=("$sha:$file")
             fi
         done < <(git show --name-status --format='' "$sha")
@@ -899,17 +910,17 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
     V11_VIOLATIONS=()
     for sha in $(git rev-list --no-merges --reverse "$BASE".."$LOCAL"); do
         msg=$(git log -1 --format=%B "$sha")
-        if echo "$msg" | grep -qE '^NO-GATE:'; then
+        if grep -qE '^NO-GATE:' < <(printf '%s\n' "$msg"); then
             continue
         fi
         # Patterns that flag a v1.1 / post-v1.0 deferral
-        if echo "$msg" | grep -qiE 'deferred to v1\.1|post-v1\.0|in v1\.1|v1\.1 follow-?up|defer.{0,40}v1\.1'; then
+        if grep -qiE 'deferred to v1\.1|post-v1\.0|in v1\.1|v1\.1 follow-?up|defer.{0,40}v1\.1' < <(printf '%s\n' "$msg"); then
             has_fnnn=0
             has_doc_mod=0
-            if echo "$msg" | grep -qE 'F-[0-9]{3,}'; then
+            if grep -qE 'F-[0-9]{3,}' < <(printf '%s\n' "$msg"); then
                 has_fnnn=1
             fi
-            if git show --name-only --format='' "$sha" | grep -qx 'docs/v1.1-deferred-followups.md'; then
+            if grep -qx 'docs/v1.1-deferred-followups.md' < <(git show --name-only --format='' "$sha"); then
                 has_doc_mod=1
             fi
             if [ "$has_fnnn" -eq 0 ] && [ "$has_doc_mod" -eq 0 ]; then
@@ -1243,8 +1254,8 @@ if [ -n "$RELVAL_MASTER" ]; then
         echo "  anything, so it cannot validate anything."
         exit 1
     fi
-    RELVAL_RELEASE=$(printf '%s\n' "$RELVAL_RECIPE_TEXT" | sed -n 's/^release:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -1)
-    RELVAL_HASH=$(printf '%s\n' "$RELVAL_RECIPE_TEXT" | sed -n 's/^content_hash:[[:space:]]*\([0-9a-f][0-9a-f]*\).*/\1/p' | head -1)
+    RELVAL_RELEASE=$(printf '%s\n' "$RELVAL_RECIPE_TEXT" | sed -n 's/^release:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | sed -n 1p)
+    RELVAL_HASH=$(printf '%s\n' "$RELVAL_RECIPE_TEXT" | sed -n 's/^content_hash:[[:space:]]*\([0-9a-f][0-9a-f]*\).*/\1/p' | sed -n 1p)
     if [ -z "$RELVAL_RELEASE" ] || [ -z "$RELVAL_HASH" ]; then
         echo "[pre-push] BLOCK: the pushed commit's package.yml carries no"
         echo "  parseable release/content_hash pair."
