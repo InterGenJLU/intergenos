@@ -1052,14 +1052,56 @@ class Engine:
 
     @staticmethod
     def _missing_restore_path_reason(path, entries):
-        # A captured file need not have a directory entry for every parent.
-        # Only saved descendants establish directory contents in this version,
-        # regardless of what currently exists at the requested path.
-        prefix = path.rstrip("/") + "/"
-        if path and any(saved.startswith(prefix) for saved in entries):
-            return ("directory contents are not restored recursively; "
-                    "name the individual stored paths")
+        # A path with neither an entry of its own nor a saved descendant is not
+        # in this version, whatever exists at that path now. A path WITH saved
+        # descendants is a directory request and never reaches here: it is
+        # expanded by _expand_restore_request before the lookup.
         return "not in this version"
+
+    @staticmethod
+    def _expand_restore_request(path, by_path):
+        """The stored paths one requested path stands for, parents first.
+
+        A requested FILE stands for itself. A requested DIRECTORY stands for its
+        own entry, when the version holds one, plus every entry beneath it —
+        matched on the separator, so a sibling whose name merely begins the same
+        way ("documents-other" beside "documents") is never carried along. A
+        request with neither an entry nor a descendant expands to itself, so the
+        caller reports it absent exactly as before.
+
+        Sorting by path puts a parent before its children, because the separator
+        sorts below every character that can follow it in a name.
+        """
+        bare = path.rstrip("/") or path
+        prefix = bare + "/"
+        beneath = sorted(saved for saved in by_path if saved.startswith(prefix))
+        if not beneath:
+            return [bare] if bare in by_path else [path]
+        return ([bare] if bare in by_path else []) + beneath
+
+    @classmethod
+    def _restore_work_list(cls, paths, by_path):
+        """Every requested path expanded, in request order, each stored path once.
+
+        The subtree count rides on the requested directory's own action so a
+        reader — a person at a dry run, or a script reading the JSON — sees that
+        the request stood for more than itself, and how much more.
+        """
+        work = []
+        seen = set()
+        for requested in paths:
+            expanded = cls._expand_restore_request(requested, by_path)
+            subtree = len([p for p in expanded if p != requested.rstrip("/")])
+            for resolved in expanded:
+                if resolved in seen:
+                    continue
+                seen.add(resolved)
+                work.append({
+                    "path": resolved,
+                    "requested_as": requested,
+                    "subtree": subtree if resolved == requested.rstrip("/") else None,
+                })
+        return work
 
     @_state_locked
     def restore_plan(self, layer, version_id, paths, mode="replace-confirm"):
@@ -1069,20 +1111,26 @@ class Engine:
         m = self.get_manifest(layer, version_id)
         by_path = {e["path"]: e for e in m["entries"]}
         actions = []
-        for p in paths:
+        for item in self._restore_work_list(paths, by_path):
+            p = item["path"]
             e = by_path.get(p)
             if e is None:
                 actions.append({"path": p, "action": "skip",
                                 "reason": self._missing_restore_path_reason(p, by_path)})
                 continue
             live_exists = os.path.lexists(p)
-            actions.append({
+            action = {
                 "path": p, "type": e.get("type"),
                 "action": "restore",
                 "mode": mode,
                 "live_exists": live_exists,
                 "will_overwrite": live_exists and mode == "replace-confirm",
-            })
+            }
+            if item["requested_as"] != p:
+                action["requested_as"] = item["requested_as"]
+            if item["subtree"]:
+                action["subtree"] = item["subtree"]
+            actions.append(action)
         return {"version_id": version_id, "mode": mode, "actions": actions}
 
     def restore_apply(self, layer, version_id, paths, mode="replace-confirm"):
@@ -1111,7 +1159,8 @@ class Engine:
         root = self._store_root_for(layer)
         store = _cas.ContentStore(root)
         results = []
-        for p in paths:
+        for item in self._restore_work_list(paths, by_path):
+            p = item["path"]
             e = by_path.get(p)
             if e is None:
                 results.append({"path": p, "ok": False,
@@ -1119,9 +1168,12 @@ class Engine:
                 continue
             try:
                 dest = self._restore_one(layer, version_id, e, root, store, mode)
-                results.append({"path": p, "ok": True, "written_to": str(dest)})
+                result = {"path": p, "ok": True, "written_to": str(dest)}
             except Exception as exc:  # loud per-file abort, keep going
-                results.append({"path": p, "ok": False, "reason": str(exc)})
+                result = {"path": p, "ok": False, "reason": str(exc)}
+            if item["requested_as"] != p:
+                result["requested_as"] = item["requested_as"]
+            results.append(result)
         return {"version_id": version_id, "results": results}
 
     def _restore_one(self, layer, version_id, entry, root, store, mode):

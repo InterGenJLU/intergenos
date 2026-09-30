@@ -45,6 +45,18 @@ stopped, or refused with nothing removed) is listed here.
 Browse a layer's timeline. \fILAYER\fR is
 .IR config-state ", " user-data ", or " restore-point .
 .TP
+.BR contents " \fILAYER\fR \fIVERSION\fR"
+List what one version holds: the kind of each entry, a file's size in bytes, and
+the path. With
+.B \-\-json
+the entry list is emitted as the engine records it. A version's entry list is a
+path list, and one user-data store holds every account's home directory, so this
+command needs the same administrator authorization as
+.B diff
+and
+.BR restore \(em
+reading backup status does not grant it.
+.TP
 .BR capture " \fILAYER\fR [\fIPATH...\fR] [\fB\-\-reason\fR \fITEXT\fR] [\fB\-\-async\fR]"
 Take a version now. \fB\-\-async\fR enqueues the capture for the off-peak window
 instead of running it immediately. \fB\-\-reason\fR text is stored with the
@@ -79,12 +91,19 @@ higher-capability
 .BR chronicle-restore@ (8)
 leg.
 .PP
-Paths match individual entries in the selected version. A recorded directory
-restores its metadata only; its children are not restored recursively.
-A path without an exact entry but with stored descendants is skipped with
-a directory-specific message. Name the individual stored paths to restore
-directory contents. A path with no entry or stored descendants is absent from
-the version, even if a directory exists there now.
+A named directory restores everything the version holds beneath it: its own
+recorded metadata, when the version has an entry for it, and every stored path
+under it, parents before children. The match is on the path separator, so a
+directory named
+.I documents
+never carries along a sibling named
+.IR documents-other .
+The plan names each path that rides with the directory and states how many there
+are, so
+.B \-\-dry-run
+shows the whole set before anything is written. A path with no entry and no
+stored descendants is absent from the version, even if a directory exists there
+now, and is reported as such rather than restored.
 An empty or blank path argument (only whitespace) is refused with a nonzero
 exit status before any restore is attempted. Other path arguments are used
 exactly as supplied, including leading or trailing spaces.
@@ -162,6 +181,8 @@ Restore a file to how it was at a point in time (preview first):
 .PP
 .RS
 .nf
+chronicle contents user-data v42
+chronicle restore user-data v42 /home/ada/documents \-\-dry-run
 chronicle restore user-data v42 /home/ada/notes.md \-\-dry-run
 chronicle restore user-data v42 /home/ada/notes.md
 .fi

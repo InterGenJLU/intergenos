@@ -182,6 +182,32 @@ def cmd_diff(backend, args, rep):
     rep.info(f"  live   : {d['live_sha256'] or '(absent)'}")
 
 
+def cmd_contents(backend, args, rep):
+    """What a version holds. The graphical client has always been able to show
+    this (it reads the same manifest verb); a person at a terminal could only
+    restore something and see, or open the store by hand."""
+    m = backend.call("manifest", layer=args.layer, version_id=args.version)
+    if args.json:
+        return _emit_json(m)
+    entries = m.get("entries", [])
+    if not entries:
+        rep.info(f"{args.version} holds no entries.")
+        return
+    rep.info(f"{args.version} holds {len(entries)} entr"
+             f"{'y' if len(entries) == 1 else 'ies'}:")
+    for e in entries:
+        kind = e.get("type", "?")
+        size = e.get("size")
+        # Exact bytes, not a rounded human size: a listing is read to compare
+        # entries against each other and against the live file.
+        shown = str(size) if kind == "file" and size is not None else "-"
+        # The path is quoted, as every other path this CLI prints is: a manifest
+        # carries filesystem bytes as a surrogate-escaped string, and writing one
+        # bare to a UTF-8 stream raises UnicodeEncodeError on exactly the names a
+        # real home directory holds (a foreign archive, a bad rename).
+        rep.info(f"  {kind:<7} {shown:>9}  {e.get('path')!r}")
+
+
 def cmd_restore(backend, args, rep):
     plan = backend.call("restore-plan", layer=args.layer,
                         version_id=args.version, paths=args.paths, mode=args.mode)
@@ -191,9 +217,11 @@ def cmd_restore(backend, args, rep):
     for a in plan["actions"]:
         if a["action"] == "skip":
             rep.info(f"  SKIP {a['path']!r} — {a['reason']}")
+        elif a.get("type") == "dir" and a.get("subtree"):
+            rep.info(f"  restore directory {a['path']!r} and the "
+                     f"{a['subtree']} path(s) beneath it")
         elif a.get("type") == "dir":
-            rep.info(f"  restore directory metadata only {a['path']!r} "
-                     "— contents are not restored recursively")
+            rep.info(f"  restore directory {a['path']!r} (nothing is stored beneath it)")
         elif a.get("will_overwrite"):
             rep.info(f"  OVERWRITE (with confirmation) {a['path']!r}")
         else:
@@ -310,10 +338,10 @@ def cmd_queue(backend, args, rep):
 
 
 COMMANDS = {
-    "status": cmd_status, "list": cmd_list, "capture": cmd_capture,
-    "diff": cmd_diff, "restore": cmd_restore, "verify": cmd_verify,
-    "target": cmd_target, "pin": cmd_pin, "unpin": cmd_unpin,
-    "queue": cmd_queue,
+    "status": cmd_status, "list": cmd_list, "contents": cmd_contents,
+    "capture": cmd_capture, "diff": cmd_diff, "restore": cmd_restore,
+    "verify": cmd_verify, "target": cmd_target, "pin": cmd_pin,
+    "unpin": cmd_unpin, "queue": cmd_queue,
 }
 
 
@@ -352,6 +380,11 @@ def build_parser():
     p.add_argument("layer", choices=LAYER_CHOICES)
     p.add_argument("--since", type=int, default=None, help="epoch lower bound")
     p.add_argument("--until", type=int, default=None, help="epoch upper bound")
+
+    p = sub.add_parser("contents", parents=[common],
+                       help="list what one version holds")
+    p.add_argument("layer", choices=LAYER_CHOICES)
+    p.add_argument("version")
 
     p = sub.add_parser("capture", parents=[common], help="take a version now")
     p.add_argument("layer", choices=LAYER_CHOICES)

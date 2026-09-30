@@ -47,6 +47,16 @@ landed is in the repository README, not here.
 
 ### Added
 
+- **Chronicle can show what one backup version holds.** `chronicle contents
+  LAYER VERSION` lists the kind of each entry, a file's size in bytes and the
+  path, plain or as JSON. The graphical client had always been able to show a
+  version's file list; at a terminal the only ways to learn what a version held
+  were to restore something and look, or to read the store by hand. The command
+  needs the same administrator authorization as `diff` and `restore`, because a
+  version's entry list is a path list and one user-data store holds every
+  account's home directory. Paths are quoted, so a filename whose bytes are not
+  valid UTF-8 is listed instead of ending the command.
+
 - **Named apt download-helper upgrades check the verified vendor version.**
   The eight apt helpers verify InRelease and the Packages digest before
   reading a version. A named upgrade compares that version with the recorded
@@ -257,6 +267,19 @@ landed is in the repository README, not here.
   `--all` to reach an install's full record.
 
 ### Fixed
+- **A restored folder comes back with everything in it.** Asking Chronicle to
+  restore a directory recreated the directory's recorded permissions and none of
+  its files, and told the person to name every stored path individually — an
+  instruction that is unusable on a version holding thousands of them, and one
+  that sent people to the store itself. A named directory now restores its own
+  recorded metadata plus every stored path beneath it, parents before children,
+  matched on the path separator so a sibling whose name merely begins the same
+  way is never carried along. The plan states how many paths ride with the
+  directory and names each one, so a dry run shows the whole set before anything
+  is written, and a path the version does not hold is still reported absent
+  rather than restored. Measured on a 2,780-entry corpus: one request restored
+  2,412 paths byte for byte, including a deleted folder of 200 files, while a
+  file beside the request kept its changes.
 - **The package manager's own access-control profile enforces what it says.**
   The one profile this system authors itself confines `pkm`, and three things in
   it did not hold. It declared no feature abi, so the parser compiled its two

@@ -19,6 +19,7 @@ from chronicle import cli as _cli
 _ACTION_TO_ENGINE_VERBS = {
     "status": ["status"],
     "list": ["list"],
+    "contents": ["manifest"],
     "capture": ["capture"],
     "diff": ["diff"],
     "restore": ["restore-plan", "restore"],

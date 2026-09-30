@@ -43,7 +43,7 @@ def test_all_restore_plan_and_result_paths_are_quoted(tmp_path, monkeypatch, cap
     assert preview.err == ""
     assert preview.out.splitlines() == [
         f"Restore plan for {version} (mode: replace-confirm):",
-        f"  restore directory metadata only {str(directory)!r} — contents are not restored recursively",
+        f"  restore directory {str(directory)!r} (nothing is stored beneath it)",
         f"  OVERWRITE (with confirmation) {str(existing)!r}",
         f"  restore {str(missing)!r}",
         f"  SKIP {str(absent)!r} — not in this version",
