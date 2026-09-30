@@ -342,20 +342,23 @@ landed is in the repository README, not here.
   packages, `pkm verify` reports them damaged until their corrected releases
   are installed; that report is true.**
 
-- **An upgraded Python module no longer runs its old code under a bytecode
-  cache prefix.** An interpreter started with `PYTHONPYCACHEPREFIX` or
-  `-X pycache_prefix` keeps its compiled copies in a separate tree, and the
-  step that clears a replaced module's stale compiled copy looked only in the
+- **An upgraded Python module no longer runs its old code under a bytecode cache
+  prefix.** An interpreter started with `PYTHONPYCACHEPREFIX` or `-X
+  pycache_prefix` keeps its compiled copies in a separate tree, and the step
+  that clears a replaced module's stale compiled copy looked only in the
   module's own `__pycache__`. CPython accepts a cached copy while the source's
   recorded modification time and size still match, and a deployed file's time
   came from the archive, so an upgrade whose new build kept the old size and
   time left such an interpreter running the code the upgrade had just replaced
-  (measured with a real interpreter: the upgraded module still answered with
-  its old code). The deploy now gives each Python source it writes the deploy
-  time as its modification time, so a copy compiled from the file it replaced
-  no longer matches, wherever it is kept. A module whose archive ships its own
+  (measured with a real interpreter: the upgraded module still answered with its
+  old code). The deploy now gives each Python source it writes the deploy time
+  as its modification time, so a copy compiled from the file it replaced no
+  longer matches, wherever it is kept. A module whose archive ships its own
   compiled copy keeps the archive's time, because that copy is checked against
-  it. `pkm verify` compares content, not times, and is unaffected.
+  it. Under a cache prefix that shipped copy is not read, so such a module still
+  runs its old code there when a new build keeps its size and whole-second time;
+  that case needs the build to change. `pkm verify` compares content, not times,
+  and is unaffected.
 
 - **Helper library verification includes its metadata reader.** The package
   declares both installed helper files so verification detects either one

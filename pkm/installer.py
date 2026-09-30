@@ -971,7 +971,10 @@ def _stamp_deployed_python_sources(root, file_list, skip=()):
     A source whose archive ships its own compiled copy keeps the archive's
     time. That copy is checked against it, and a new time would make it stale:
     the first import able to write the directory — pkm runs as root — would
-    rewrite a file pkm tracks and verifies by content.
+    rewrite a file pkm tracks and verifies by content. Under a cache prefix
+    that shipped copy is never read, so such a module still runs its old code
+    there when a new build keeps its size and whole-second time; closing that
+    needs the build to change.
 
     Only regular files are touched and a symbolic link is never followed; the
     content is not changed. Paths in ``skip`` (config-protected files the
