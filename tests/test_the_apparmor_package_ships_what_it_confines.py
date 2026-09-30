@@ -44,9 +44,19 @@ BUILD_SH = RECIPE / "build.sh"
 PACKAGE_YML = RECIPE / "package.yml"
 PROFILES = RECIPE / "profiles"
 
-# The attachment line of an AppArmor profile: the program path, then flags or
-# the opening brace.
-ATTACHMENT = re.compile(r"^(/\S+)\s+(?:flags=\([^)]*\)\s*)?\{", re.MULTILINE)
+# The attachment line of an AppArmor profile: an optional profile NAME, then
+# the program path, then flags or the opening brace. Both forms are read,
+# because naming a profile by a file path is deprecated (apparmor_parser 3.1.7
+# warns on it) and the profiles this package ships give the profile a name of
+# its own; the group this returns is always the program path, whichever form
+# the line uses.
+ATTACHMENT = re.compile(
+    r"^(?:profile\s+\S+\s+)?(/\S+)\s+(?:flags=\([^)]*\)\s*)?\{",
+    re.MULTILINE)
+
+# The include form apparmor_parser 3.1.7 warns about, and the one it wants.
+DEPRECATED_INCLUDE = re.compile(r"^\s*#include\s+<", re.MULTILINE)
+CURRENT_INCLUDE = re.compile(r"^\s*include\s+<", re.MULTILINE)
 
 
 def profile_files() -> list[Path]:
@@ -133,4 +143,53 @@ def test_the_package_documentation_names_no_profile_it_does_not_ship():
     assert missing == [], (
         "the package's own files name profile files it does not ship: "
         f"{missing}"
+    )
+
+
+def test_the_attachment_reader_reads_both_forms():
+    """The reader above is the thing every check here depends on, so it is
+    pinned itself: a line that names the profile and a line that does not both
+    yield the program path, and a line that is neither yields nothing."""
+    named = "profile pkm /usr/bin/pkm flags=(complain) {\n"
+    bare = "/usr/bin/pkm flags=(complain) {\n"
+    no_flags = "profile pkm /usr/bin/pkm {\n"
+    for text in (named, bare, no_flags):
+        match = ATTACHMENT.search(text)
+        assert match, f"the attachment reader read nothing in {text!r}"
+        assert match.group(1) == "/usr/bin/pkm", match.group(1)
+    assert ATTACHMENT.search("include <tunables/global>\n") is None
+
+
+def test_every_shipped_profile_uses_the_current_include_form():
+    """apparmor_parser 3.1.7 warns once per line on the '#include' form, and a
+    warning on every load is noise a person learns to read past - which is how
+    a real warning goes unread. The current form is 'include <...>', which the
+    53 upstream profiles on an installed machine already use."""
+    offenders = {}
+    for profile in profile_files():
+        text = profile.read_text()
+        hits = len(DEPRECATED_INCLUDE.findall(text))
+        if hits:
+            offenders[profile.name] = hits
+    assert offenders == {}, (
+        "these profiles use the include form the parser warns about, once per "
+        f"line: {offenders}"
+    )
+
+
+def test_every_shipped_profile_names_its_profile_rather_than_a_file_path():
+    """A profile whose name IS the program path is the deprecated form (the
+    parser says so, once per profile) and the name is what the kernel puts in
+    every audit record, so it is also the name a person reads. The shipped
+    documentation already calls this one 'pkm'."""
+    unnamed = []
+    for profile in profile_files():
+        text = profile.read_text()
+        match = ATTACHMENT.search(text)
+        assert match, f"{profile.name} has no profile attachment line"
+        if not text[match.start():].startswith("profile "):
+            unnamed.append(f"{profile.name} -> {match.group(1)}")
+    assert unnamed == [], (
+        "these profiles are named by a file path, the form the parser warns "
+        f"about: {unnamed}"
     )

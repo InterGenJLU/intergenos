@@ -1,11 +1,11 @@
-#include <tunables/global>
+include <tunables/global>
 
-/usr/bin/pkm flags=(complain) {
-  #include <abstractions/base>
-  #include <abstractions/nameservice>
-  #include <abstractions/python>
-  #include <abstractions/ssl_certs>
-  #include <abstractions/gnupg>
+profile pkm /usr/bin/pkm flags=(complain) {
+  include <abstractions/base>
+  include <abstractions/nameservice>
+  include <abstractions/python>
+  include <abstractions/ssl_certs>
+  include <abstractions/gnupg>
 
   capability chown,
   capability dac_override,
