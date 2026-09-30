@@ -49,8 +49,16 @@ _ge_present_runtimes() {
 }
 
 check_gaming_composed_path() {
-    # 1. Is the GE surface expected on this box at all?
-    if ! pkm info gaming >/dev/null 2>&1; then
+    # 1. Is the GE surface expected on this box at all? Read the installed
+    #    record, not the exit status: pkm info exits zero for a package the
+    #    index describes and this machine has not installed. Installed entries
+    #    alone carry the numeric Files footer (check_pkm_info_marker reads the
+    #    same one).
+    local _info _files
+    _info="$(pkm info gaming 2>/dev/null)" || _info=""
+    _files="$(printf '%s\n' "$_info" \
+        | sed -nE 's/^[[:space:]]*Files:[[:space:]]*([0-9]+)[[:space:]]*$/\1/p')"
+    if [[ ! "$_files" =~ ^[0-9]+$ ]] || [ "$_files" -eq 0 ]; then
         check_skip "gaming/composed-path" \
             "gaming meta not installed — GE surface not expected on this box"
         return

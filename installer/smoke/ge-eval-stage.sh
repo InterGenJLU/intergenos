@@ -49,7 +49,10 @@ step "1/4 pkm sync (signed index refresh)"
 pkm sync || fail "pkm sync failed — cannot trust the mirror state; refusing to install"
 
 step "2/4 pkm install ${META} (mirror-only GE surface)"
-pkm install "${META}" || fail "pkm install ${META} failed — the GE surface did not install; nothing to evaluate"
+# --yes: this stage runs unattended and exists to install the meta's whole
+# closure; with no terminal attached pkm refuses an install that reaches beyond
+# the named package unless --yes says the closure was meant.
+pkm install --yes "${META}" || fail "pkm install ${META} failed — the GE surface did not install; nothing to evaluate"
 
 step "3/4 pkm verify the installed GE set"
 # Targeted fast-fail: the meta + its DIRECTLY-declared deps. This step is

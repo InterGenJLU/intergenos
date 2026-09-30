@@ -281,7 +281,8 @@ landed is in the repository README, not here.
   script reading the status was told the query had failed while the answer
   was on screen. It now exits 0 whenever it produced a report. A name with no
   installed record and nothing in the index still exits non-zero, which is
-  the case a script actually needs to tell apart.
+  the case a script actually needs to tell apart. A script that asks whether a
+  package is installed reads the installed record, not the status.
 
 - **A mistyped flag now shows the flags that command actually takes.**
   `pkm remove example --dry-runn` answered with the whole-program usage

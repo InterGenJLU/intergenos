@@ -314,7 +314,13 @@ class ManagePackagesTool(BaseTool):
         elif action in ("install", "remove", "uninstall"):
             if not package:
                 return None
-            return [pkm, action, package]
+            # --yes, because the consent is already given and bound: the
+            # person approved this exact action in the assistant's dialog and
+            # the approval token carries it to the runner. The command then
+            # runs with no terminal attached, where pkm refuses a removal, and
+            # an install that pulls in more than the package named, unless
+            # --yes says the question has been answered.
+            return [pkm, action, "--yes", package]
         elif action in ("update", "upgrade"):
             if package:
                 return [pkm, "update", package]

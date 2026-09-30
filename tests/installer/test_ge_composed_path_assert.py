@@ -187,8 +187,14 @@ class TestGamingCheckBash(unittest.TestCase):
         bindir = t / "bin"
         bindir.mkdir()
         pkm = bindir / "pkm"
+        # `pkm info` as it answers now: an installed package's record ends in
+        # the numeric Files footer; a package the index describes and this
+        # machine has not installed is described too, exits zero, and has no
+        # footer. The check must read the record, not the status.
         pkm.write_text("#!/bin/sh\n" +
-                       ("exit 0\n" if gaming_installed else "exit 1\n"))
+                       ("printf 'gaming 1.0.0-2\\n  Files: 3\\n'\nexit 0\n"
+                        if gaming_installed else
+                        "printf 'gaming 1.0.0-2 (available, not installed)\\n'\nexit 0\n"))
         pkm.chmod(pkm.stat().st_mode | stat.S_IEXEC)
 
         home = t / "home"
