@@ -112,8 +112,10 @@ def compute_root_hash(entries, unreadable=()):
 
     A capture that could not read part of its source is not the same version as
     one that read all of it, so the two cannot share a hash. The omission is
-    therefore INSIDE the integrity hash: anything that edits a committed
-    manifest to hide what was dropped makes it stop verifying.
+    therefore INSIDE the integrity hash: an edit that hides what was dropped
+    makes a committed manifest stop verifying unless its root hash is rewritten
+    too; the hash is unkeyed, so it detects corruption and such an edit, not a
+    writer who recomputes it.
 
     With nothing unreadable the input is the entry serialization alone, byte for
     byte as this engine has always computed it, so every manifest already on

@@ -165,18 +165,27 @@ def cmd_capture(backend, args, rep):
     res = backend.call("capture", layer=args.layer, scope=scope,
                        reason=args.reason or f"manual {args.layer} capture",
                        sync=not args.async_)
+    # A capture that could not read part of its source says so here, at the
+    # moment it happens, and names what it missed. Without this the only
+    # signal is a file count the person has no way to check against their
+    # own tree, and the status is the difference between a backup a script
+    # can trust and one it cannot.
+    #
+    # The verdict is read BEFORE the output branches, and both branches return
+    # it, because a script is exactly the caller that asks for --json: this
+    # branch used to return before the check below, so `capture --json` exited
+    # 0 for a version short of its source while the same capture without --json
+    # exited 1. Release 23 set the same rule for restore — the exit status
+    # follows the payload in plain and --json output alike — and the man page
+    # this command ships says a script is told.
+    missed = res.get("unreadable") or []
     if args.json:
-        return _emit_json(res)
+        _emit_json(res)
+        return 1 if missed else 0
     if "queued" in res:
         rep.info(f"Queued for the off-peak window: {res['queued']}")
     else:
         rep.info(f"Captured {args.layer} version {res['version_id']}")
-        # A capture that could not read part of its source says so here, at the
-        # moment it happens, and names what it missed. Without this the only
-        # signal is a file count the person has no way to check against their
-        # own tree, and the status is the difference between a backup a script
-        # can trust and one it cannot.
-        missed = res.get("unreadable") or []
         if missed:
             rep.error(f"{len(missed)} path(s) could not be read and are NOT in "
                       "this version:")

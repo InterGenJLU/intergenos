@@ -11,11 +11,34 @@ timers or a real disk.
 
 import hashlib
 import json
+import logging
 import os
 import stat
 import time
 
 from . import paths as _paths
+
+_LOG = logging.getLogger("chronicle.sentinel")
+
+
+def report_unreadable(result, where):
+    """Log every path a capture could not read and hand the record back.
+
+    The capture surfaces a person drives already report this. The captures this
+    machine makes on its own had nowhere to report it: the hourly trigger below
+    returned a version id and nothing else, and the off-peak drain returned
+    only whether it had committed. Both threw away the one field that says the
+    version is short of its source, so a backup could be incomplete with no
+    trace in the unit, its journal or its exit status.
+
+    WARNING, not INFO: this is the line a person reads when they ask why a
+    restore is missing a folder, and the journal's default filter keeps it.
+    """
+    missed = list((result or {}).get("unreadable") or [])
+    for u in missed:
+        _LOG.warning("%s: %s could not be read and is NOT in this version — %s",
+                     where, u.get("path"), u.get("error"))
+    return missed
 
 
 def minutes_of_day(now_fn=time.time):
@@ -60,41 +83,48 @@ def userdata_trigger(engine, now_min=None):
     if target_root is None:
         engine.capture(_paths.LAYER_USER_DATA, reason="hourly user-data",
                        sync=False, estimate=0)
-        return "queued-absent"
+        return {"outcome": "queued-absent", "unreadable": []}
     estimate = estimate_userdata_change(engine)
     free = _free_bytes(target_root)
     if cfg.exceeds_threshold(estimate, free) and not cfg.is_off_peak(now_min):
         engine.capture(_paths.LAYER_USER_DATA, reason="hourly user-data (large)",
                        sync=False, estimate=estimate)
-        return "queued-offpeak"
+        return {"outcome": "queued-offpeak", "unreadable": []}
     res = engine.capture(_paths.LAYER_USER_DATA, reason="hourly user-data",
                          sync=True)
-    return "captured:" + res["version_id"]
+    return {"outcome": "captured:" + res["version_id"],
+            "unreadable": report_unreadable(res, "hourly user-data capture")}
 
 
 def drain_offpeak(engine, now_min=None):
     """Drain the queue during the off-peak window. Outside the window it is a
     no-op. An intent whose target is still absent is left queued (quiet
-    catch-up); a captured intent is removed. Returns (drained, remaining)."""
+    catch-up); a captured intent is removed. Returns (drained, remaining,
+    unreadable) — the third being every path the captures it made could not
+    read, which this function used to discard along with the whole result."""
     cfg = engine.config
     if now_min is None:
         now_min = minutes_of_day(engine._now_fn)
     if not cfg.is_off_peak(now_min):
-        return (0, engine.queue.count())
+        return (0, engine.queue.count(), [])
+
+    unreadable = []
 
     def _run(intent):
         layer = intent.get("layer")
         if layer in _paths.TARGET_ONLY_LAYERS and engine.target_root() is None:
             return False  # target still absent: leave queued (quiet catch-up)
         try:
-            engine.capture(layer, scope=intent.get("scope"),
-                           reason=intent.get("reason", "off-peak drain"),
-                           sync=True)
+            res = engine.capture(layer, scope=intent.get("scope"),
+                                 reason=intent.get("reason", "off-peak drain"),
+                                 sync=True)
+            unreadable.extend(report_unreadable(res, "off-peak drain"))
             return True
         except Exception:
             return False
 
-    return engine.queue.drain(_run)
+    drained, remaining = engine.queue.drain(_run)
+    return (drained, remaining, unreadable)
 
 
 def config_set_fingerprint(config_paths, excludes=None):

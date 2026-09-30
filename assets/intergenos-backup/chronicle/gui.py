@@ -87,6 +87,26 @@ def _human(n):
         n /= 1024
 
 
+def timeline_subtitle(v):
+    """One timeline row's subtitle, including the count of paths the capture
+    could not read.
+
+    A separate function, and not an f-string inside the row, because this is
+    the one surface a person looks at: `chronicle list` had carried the count
+    since the omission was first recorded, and the window had not, so the same
+    version read as complete here and short on the command line. A named
+    function is also the only way a case can state what the row says without a
+    display.
+
+    The count, never the paths: the timeline is built from the .read-tier list
+    verb, and the shipped policy keeps paths out of that tier.
+    """
+    short = v.get("unreadable") or 0
+    warn = f" · {short} path(s) could not be read" if short else ""
+    return (f"{v['version_id']} · {v['files']} files · "
+            f"{v.get('reason','')}{warn}")
+
+
 def _ts(epoch):
     if not epoch:
         return "never"
@@ -567,7 +587,7 @@ class ChronicleWindow(Adw.ApplicationWindow):
         for v in reversed(versions):  # newest first
             row = Adw.ActionRow(
                 title=_ts(v["wall_clock"]),
-                subtitle=f"{v['version_id']} · {v['files']} files · {v.get('reason','')}")
+                subtitle=timeline_subtitle(v))
             if v.get("pinned"):
                 row.add_prefix(Gtk.Image.new_from_icon_name("view-pin-symbolic"))
             rbtn = Gtk.Button(label="Restore…", valign=Gtk.Align.CENTER)

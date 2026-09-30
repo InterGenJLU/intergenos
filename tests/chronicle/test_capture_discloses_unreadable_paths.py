@@ -112,8 +112,9 @@ def test_the_root_hash_of_a_clean_capture_is_what_it_always_was(corpus, tmp_path
 
 
 def test_an_unreadable_path_changes_the_root_hash(corpus, tmp_path):
-    """And the record is covered by the integrity hash, so it cannot be stripped
-    from a committed manifest without the manifest ceasing to verify."""
+    """And the record is covered by the integrity hash, so stripping it from a
+    committed manifest while leaving the root hash makes the manifest stop
+    verifying."""
     locked = corpus / "locked"
     os.chmod(locked, 0o000)
     try:
