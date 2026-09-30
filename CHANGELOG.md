@@ -1963,6 +1963,23 @@ landed is in the repository README, not here.
 
 ### Security
 
+- **tailscale moves to 1.102.4, and the package manager is the installer of
+  record for its two binaries.** Measured on five installed machines on
+  2026-09-22: four that had installed tailscale 1.98.5 through the package
+  manager were running 1.102.4, with `/usr/bin/tailscale` and
+  `/usr/sbin/tailscaled` replaced in place on 2026-09-11 by tailscaled's own
+  updater at the coordination server's request, while the package database
+  still recorded 1.98.5; the fifth still ran 1.98.5. The package now ships
+  tailscaled's device policy file, `/etc/tailscale/syspolicy.json`, with
+  `CheckUpdates` and `InstallUpdates` at `never`: tailscaled reads that path by
+  default and enforces both settings over the node's own preference and the
+  tailnet's default, so the node neither checks for nor applies updates of its
+  own, and an update request from the coordination server is answered "not
+  enabled". New releases come through `pkm upgrade tailscale`; `tailscale
+  update` run by hand still bypasses the package manager. A running tailscaled
+  reads the file at its next start. 1.102.4 is the vendor's newest stable
+  client release; it needs go 1.26.6, which the toolchain move to go 1.26.8
+  provides.
 - **The Go toolchain moves to 1.26.8, the newest 1.26 patch release.** The
   tree's go was 1.26.4; go.dev has since published 1.26.5 through 1.26.8, and
   1.26.5 and 1.26.6 carry security fixes to crypto/tls, os, the go command,

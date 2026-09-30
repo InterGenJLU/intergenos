@@ -1,7 +1,7 @@
 name: tailscale
 version: "1.102.4"
-release: 2  # r2: defaults select the native nftables backend through the upstream firewall-mode setting; the existing unit reads that file. Runtime join and rule creation remain to be validated on an installed system.
-content_hash: fe9b0ed2777f67dd
+release: 3  # r3: moves to 1.102.4 and turns the node's own updater off: the package manager is the installer of record for /usr/bin/tailscale and /usr/sbin/tailscaled. Measured on five installed machines on 2026-09-22: four that had installed 1.98.5 through the package manager ran 1.102.4, both binaries replaced in place on 2026-09-11 by tailscaled's own updater at the coordination server's request while the package database still recorded 1.98.5; the fifth still ran 1.98.5. The package now ships /etc/tailscale/syspolicy.json with CheckUpdates and InstallUpdates at never, which tailscaled reads by default and enforces over the node's preference and the tailnet default, so the node neither checks for nor applies updates of its own and an update request from the coordination server is answered not enabled; releases come through pkm upgrade tailscale. 1.102.4 is the vendor's newest stable client release; its go.mod floor, go 1.26.6, is met by the in-tree go 1.26.8.  # r2: defaults select the native nftables backend through the upstream firewall-mode setting; the existing unit reads that file. Runtime join and rule creation remain to be validated on an installed system.
+content_hash: 7f6b369e56abb84a
 description: WireGuard-based mesh VPN — tailscale CLI + tailscaled node agent
 license: BSD-3-Clause
 homepage: https://tailscale.com
