@@ -1965,6 +1965,21 @@ landed is in the repository README, not here.
 
 ### Security
 
+- **`pkm install <app>` for a proprietary-download package no longer installs
+  a cached archive the signed index does not vouch for.** When the helper
+  package's database row was missing, the install laid the helper package down
+  from whatever archive of that name sat in `/var/lib/igos/archives`, with no
+  expected hash: the one path that skipped the rule a bare `pkm install` and
+  `pkm reinstall` apply to a cached archive. An archive the signed index does
+  not list, or lists with another sha256, was deployed as root without a
+  check. The helper install now uses a cached archive only when its sha256
+  matches the signed index, and passes that sha256 on to the install-time
+  re-hash, so a file swapped after the check is refused. Otherwise it says why
+  the archive was passed over and installs the verified download, or, when no
+  configured repository offers the package, says that the cached archive
+  cannot be verified and installs nothing. The step has worked the old way
+  since the initial source import. The payload step after a deploy and
+  `pkm reinstall <app>` never lay the helper package down and are unchanged.
 - **tailscale moves to 1.102.4, and the package manager is the installer of
   record for its two binaries.** Measured on five installed machines on
   2026-09-22: four that had installed tailscale 1.98.5 through the package
