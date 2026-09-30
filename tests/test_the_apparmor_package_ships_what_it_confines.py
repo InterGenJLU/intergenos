@@ -35,8 +35,11 @@ machine's live policy, and it is evidence in the cut, not something a source
 tree can assert.
 """
 import re
+import shutil
 import subprocess
 from pathlib import Path
+
+import pytest
 
 REPO = Path(__file__).resolve().parents[1]
 RECIPE = REPO / "packages/core/apparmor"
@@ -47,6 +50,31 @@ PROFILES = RECIPE / "profiles"
 # other recipes, so the check below reads them there rather than repeating them.
 PKM_BUILD = REPO / "packages/core/pkm/build.sh"
 PYTHON_YML = REPO / "packages/core/python/package.yml"
+
+# The parser is in /usr/sbin, which a non-login shell's PATH need not carry, so
+# it is looked for by name and then at its own path. Compiling a profile also
+# needs the policy substrate this package installs, because every profile here
+# includes abstractions from it.
+PARSER = shutil.which("apparmor_parser") or "/usr/sbin/apparmor_parser"
+ABSTRACTIONS = Path("/etc/apparmor.d/abstractions/base")
+PARSER_USABLE = Path(PARSER).is_file() and ABSTRACTIONS.is_file()
+
+# The one warning class the parser prints on these profiles that no change to
+# them can remove, with what it costs and what removes it.
+#
+# The rule that produces it is in abstractions/base, which every profile here
+# includes: four extended unix socket rules. apparmor_parser 3.1.7 enforces such
+# a rule only when the feature "network/af_unix" is in BOTH the kernel's feature
+# set and the abi the policy declares (parser/parser_main.c, features_intersect
+# of "network/af_unix"). The abi this package installs carries it; kernel 6.18
+# publishes af_unix under network_v9 and has no "network" node at all, so the
+# intersection is empty and the parser downgrades each of the four to a generic
+# network rule. Measured: the rule is still compiled into the policy - the
+# downgrade is a weaker form, not a dropped rule - and compiling the same
+# profile against a feature set that carries network/af_unix produces no warning
+# at all. So what removes these four is a parser version that reads network_v9,
+# not an edit to any profile.
+KNOWN_DOWNGRADE = "downgrading extended network unix socket rule to generic network rule"
 
 # The attachment line of an AppArmor profile: an optional profile NAME, then
 # the program path, then flags or the opening brace. Both forms are read,
@@ -276,4 +304,39 @@ def test_the_profile_covers_the_interpreter_its_own_launcher_runs():
         f"the rule for {resolved} is '{match.group(1)}', which sends the "
         "interpreter somewhere other than this profile's own domain; the "
         "measurement above is of an inherited execution (ix)"
+    )
+
+
+@pytest.mark.skipif(
+    not PARSER_USABLE,
+    reason="apparmor_parser or the installed policy substrate is absent on this "
+           "machine, so the shipped profiles cannot be compiled here")
+def test_the_parser_reads_every_shipped_profile_with_no_unexpected_warning():
+    """The real consumer, over the shipped bytes: the program that compiles
+    these profiles at every install and every boot, asked to print every warning
+    it has.
+
+    A profile that compiles with warnings compiles with warnings on every
+    machine that installs it, at every boot, and a warning that always prints is
+    one a person learns to read past. The budget is exactly one class, the one
+    no edit to these files can remove (see KNOWN_DOWNGRADE above); anything else
+    fails here, in the tree, rather than in a log nobody reads.
+    """
+    unexpected = {}
+    for profile in profile_files():
+        # No -S: that writes the compiled binary policy to stdout, which is
+        # not text. The warnings come from the compile either way.
+        run = subprocess.run(
+            [PARSER, "-Q", "-K", "--warn=all", str(profile)],
+            capture_output=True, text=True,
+        )
+        assert run.returncode == 0, (
+            f"{profile.name} does not compile: exit {run.returncode}\n{run.stderr}")
+        lines = [line for line in run.stderr.splitlines() if line.strip()]
+        others = [line for line in lines if KNOWN_DOWNGRADE not in line]
+        if others:
+            unexpected[profile.name] = others
+    assert unexpected == {}, (
+        "the parser prints warnings on these shipped profiles that are not the "
+        f"one known class: {unexpected}"
     )

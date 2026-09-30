@@ -60,7 +60,25 @@ profile pkm /usr/bin/pkm flags=(complain) {
   /etc/pkm/keys/** r,
   /usr/bin/gpg ix,
   
-  # Network access for downloading packages
+  # Network access for downloading packages. These two take effect only
+  # because this file declares a feature abi above; with no abi line the
+  # parser compiles them to nothing and says so.
   network inet stream,
   network inet6 stream,
+
+  # WHAT THIS PROFILE CANNOT ENFORCE AS WRITTEN, on the shipped kernel
+  # with the parser this package builds (3.1.7), measured rather than
+  # assumed: abstractions/base above carries four extended unix socket
+  # rules, and the parser enforces such a rule only when the feature
+  # network/af_unix is in both the kernel's feature set and the abi the
+  # policy declares. The abi carries it; kernel 6.18 publishes af_unix
+  # under network_v9 and has no network node at all, so each of the four
+  # is downgraded to a generic network rule and the parser prints one
+  # warning per rule. The downgraded rule IS compiled into the policy, so
+  # those four are enforced in a weaker form, not dropped; and no edit to
+  # any profile changes it - compiling this same file against a feature
+  # set that carries network/af_unix produces no warning at all. What
+  # removes them is a parser version that reads this kernel's network_v9
+  # feature. The source-tree check for this package allows exactly that
+  # one warning class and no other.
 }
