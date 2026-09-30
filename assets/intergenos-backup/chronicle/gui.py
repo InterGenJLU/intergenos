@@ -107,6 +107,27 @@ def timeline_subtitle(v):
             f"{v.get('reason','')}{warn}")
 
 
+def capture_toast(layer, result):
+    """The toast a capture driven from the window ends in, including the count
+    of paths the capture could not read.
+
+    A separate function for the same reason `timeline_subtitle` is one. The
+    handler used to render this inline as "Captured {layer} {version_id}" and
+    throw the rest of the result away, so the moment a person is told how their
+    own capture went was the one moment that could not say it had been short —
+    while the same version read short in the timeline row beside it and on the
+    command line. A named function is also the only way a case can state what
+    the toast says without a display.
+
+    The capture verb is .manage-tier and returns the paths themselves; the
+    toast states the COUNT, as every other surface does, and the paths stay
+    where the tier put them.
+    """
+    short = len(result.get("unreadable") or ())
+    warn = f" · {short} path(s) could not be read" if short else ""
+    return f"Captured {layer} {result.get('version_id', '')}{warn}"
+
+
 def _ts(epoch):
     if not epoch:
         return "never"
@@ -308,6 +329,11 @@ class ChronicleWindow(Adw.ApplicationWindow):
         if state == _protection.PROTECTED:
             text = text.format(
                 when=_ts_verdict(_protection.latest_capture_epoch(status)))
+            # The verdict stays PROTECTED — versions exist and the captures are
+            # reaching the target — and says in the same breath when the newest
+            # version of a layer is short of its source, so the first line a
+            # person reads does not disagree with the timeline below it.
+            text += _protection.short_version_note(status)
         row = Adw.ActionRow(title=text)
         dot = Gtk.Label(label="●", valign=Gtk.Align.CENTER)
         dot.add_css_class(_protection.TONE[state])
@@ -526,9 +552,7 @@ class ChronicleWindow(Adw.ApplicationWindow):
         if error is not None:
             self._toast(f"Capture failed: {error}")
         else:
-            self._toast(
-                f"Captured {layer} {result.get('version_id', '')}"
-            )
+            self._toast(capture_toast(layer, result))
         self._start_next_capture()
         return GLib.SOURCE_REMOVE
 

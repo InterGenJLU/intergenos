@@ -21,10 +21,12 @@ looks at, nor a script reading `--json`:
   * The window's timeline row showed the file count and no omission count, so
     the one surface a person looks at read a short version as a complete one.
 
-Each case below is red at this lane's parent and green after. The controls are
-the clean runs beside them: a capture that read everything must keep exit 0, an
-empty record and a row that says nothing about omissions, or the reporting would
-be noise a person learns to ignore.
+Seven cases below are red at this lane's parent, one for each defect and the
+timeline row's control, which has no function to ask there; all twelve are
+green after. The other controls are the clean runs beside them, green on both:
+a capture that read everything must keep exit 0, an empty record and a row that
+says nothing about omissions, or the reporting would be noise a person learns
+to ignore.
 """
 
 import importlib.util

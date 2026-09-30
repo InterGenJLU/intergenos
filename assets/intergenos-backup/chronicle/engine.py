@@ -1268,11 +1268,38 @@ class Engine:
             "target_present": target_root is not None,
             "target_free_bytes": free,
             "last_capture": self.state.get("last_capture", {}),
+            "newest_unreadable": self._newest_unreadable_by_layer(),
             "queue": self.queue_status(),
             "clock_skew_events": self.state.get("clock_skew_events", []),
             "retention_events": self.state.get("retention_events", []),
             "pins": self.state.get("pins", []),
         }
+
+    def _newest_unreadable_by_layer(self):
+        """Per layer, the newest version and the number of paths it could not
+        read, so a caller that only asks for status learns that the newest
+        version is short of its source.
+
+        A COUNT only, exactly as the list verb carries it: status is a
+        .read-tier verb and the shipped policy keeps paths out of that tier.
+        The manifests are read here rather than through the list verb so that
+        this stays inside the lock the caller already holds.
+        """
+        out = {}
+        for layer in _paths.LAYERS:
+            root = self._store_root_for(layer)
+            if not root:
+                continue
+            versions = _manifest.list_versions(root, layer)
+            if not versions:
+                continue
+            newest = max(versions, key=lambda m: (m.get("sequence", 0),
+                                                  m.get("wall_clock", 0)))
+            out[layer] = {
+                "version_id": newest["version_id"],
+                "unreadable": len(newest.get("unreadable", [])),
+            }
+        return out
 
     # -- helpers --------------------------------------------------------
 

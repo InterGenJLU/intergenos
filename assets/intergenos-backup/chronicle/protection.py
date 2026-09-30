@@ -144,6 +144,33 @@ def classify(status):
     return NO_CAPTURES
 
 
+def short_version_note(status):
+    """The verdict row's clause about a newest version that could not read
+    everything — or "" when every layer's newest version is complete.
+
+    The verdict itself does not move: versions exist and captures are reaching
+    the target, so PROTECTED is the true state and a person's remedy is not to
+    treat the machine as unprotected. What was wrong is that the first line a
+    person reads about their backup said only that, while the timeline said the
+    newest version was short of its source. The count comes from the status
+    payload's `newest_unreadable` map, which the engine fills per layer.
+
+    A named function, not an f-string inside the row, for the same reason
+    `timeline_subtitle` is one: it is the only way a case can state what the
+    verdict says without a display.
+
+    The count, never the paths: status is a .read-tier verb and the shipped
+    policy keeps paths out of that tier.
+    """
+    short = []
+    for layer, newest in sorted((status.get("newest_unreadable") or {}).items()):
+        count = (newest or {}).get("unreadable") or 0
+        if count:
+            short.append(f"the newest {layer} version could not read "
+                         f"{count} path(s)")
+    return f" — {'; '.join(short)}" if short else ""
+
+
 def latest_capture_epoch(status):
     """The newest wall-clock across the per-layer last_capture map, or None."""
     values = [w for w in (status.get("last_capture") or {}).values() if w]
