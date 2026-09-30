@@ -249,7 +249,8 @@ class VerifyPackageStrictModeTests(unittest.TestCase):
         with mock.patch("pkm.database._probe_path",
                            return_value=PATH_PRESENT), \
                 mock.patch(
-                    "pkm.database._sha256", return_value="different_actual_hash",
+                    "pkm.database._sha256_regular",
+                    return_value="different_actual_hash",
                 ):
             result = self.db.verify_package("pkg", strict=True)
         self.assertEqual(result["modified"], ["usr/bin/x"])
@@ -263,7 +264,7 @@ class VerifyPackageStrictModeTests(unittest.TestCase):
         sha256_mock = mock.MagicMock(return_value="any")
         with mock.patch("pkm.database._probe_path",
                            return_value=PATH_PRESENT), \
-                mock.patch("pkm.database._sha256", sha256_mock):
+                mock.patch("pkm.database._sha256_regular", sha256_mock):
             result = self.db.verify_package("pkg", strict=False)
         self.assertEqual(result["modified"], [])
         self.assertEqual(result["missing"], [])

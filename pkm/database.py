@@ -2463,7 +2463,7 @@ class PackageDB:
             # the rule is RESOLVE, not ownership.
             link = _probe_link(self.root, path, abs_path, root_is_system)
             if link is not None and link[0] != LINK_RESOLVES:
-                outcome, link_text, reason = link
+                outcome, link_text, reason, _ = link
                 link_targets[path] = link_text
                 link_reasons[path] = reason
                 if outcome == LINK_DANGLING:
@@ -2515,8 +2515,14 @@ class PackageDB:
                 if os.path.isfile(abs_path) and not os.path.islink(abs_path):
                     unverifiable.append(path)
                 continue
+            # An owned link's bytes are read where the link leads inside the
+            # root being verified. Opening abs_path would hand an absolute
+            # link text to the kernel of the machine running the check, which
+            # reads its OWN file: an intact root then reported "modified" and
+            # a changed one passed whenever the host's file matched.
+            content_path = link[3] if link is not None else abs_path
             try:
-                actual = _sha256(abs_path)
+                actual = _sha256_regular(content_path)
             except OSError:
                 # The file is there and a content check was expected, but its
                 # bytes could not be read — an unreadable mode, a parent that
@@ -2526,6 +2532,14 @@ class PackageDB:
                 # the unknown is the same dishonesty as calling it missing, so
                 # it joins the could-not-determine bucket.
                 undeterminable.append(path)
+                continue
+            if actual is None:
+                # A FIFO, a device, a socket or a directory stands where a
+                # file with recorded bytes was installed. It is not that file,
+                # and reading it would wait for a writer that may never come
+                # (a FIFO held strict verify open forever) or never reach an
+                # end (a device).
+                modified.append(path)
                 continue
             if actual == expected_checksum:
                 continue
@@ -2637,6 +2651,33 @@ def _sha256(filepath):
     return sha.hexdigest()
 
 
+def _sha256_regular(path):
+    """SHA-256 of the regular file at `path`; None when what is there is
+    not a regular file.
+
+    Judged before a byte is read, and opened without blocking: a blocking
+    open() of a FIFO waits for a writer that may never come, a device may
+    never reach an end, and a socket cannot be opened at all. The type is
+    checked again on the open descriptor, so a file swapped for one of those
+    between the two looks is caught too. Raises OSError when the path cannot
+    be examined, opened or read.
+    """
+    if not stat.S_ISREG(os.stat(path).st_mode):
+        return None
+    fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_CLOEXEC)
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            return None
+        sha = hashlib.sha256()
+        while True:
+            chunk = os.read(fd, 65536)
+            if not chunk:
+                return sha.hexdigest()
+            sha.update(chunk)
+    finally:
+        os.close(fd)
+
+
 # Path-probe outcomes. Three, not two: a check that cannot run must say so
 # rather than answer "absent" — see _probe_path.
 PATH_PRESENT = "present"
@@ -2711,15 +2752,19 @@ def _probe_link(root, rel_path, abs_path, root_is_system):
     """Decide whether an owned path that is a symbolic link resolves.
 
     Returns None when abs_path is not a symbolic link. Otherwise returns
-    (outcome, link_text, reason): outcome is LINK_RESOLVES, LINK_DANGLING or
-    LINK_UNDETERMINABLE; link_text is the link's own text (None if it could
-    not be read); reason is one plain sentence, None when it resolves.
+    (outcome, link_text, reason, content_path): outcome is LINK_RESOLVES,
+    LINK_DANGLING or LINK_UNDETERMINABLE; link_text is the link's own text
+    (None if it could not be read); reason is one plain sentence, None when
+    it resolves; content_path, when it resolves, is where the bytes the link
+    reaches are read, None otherwise.
 
     When the root is this process's "/", os.stat is the kernel's own answer,
-    and a success settles it. Every other case — a failure there, or any
-    other root — is decided by _resolve_in_root, which follows the path
-    inside the root: os.stat would follow an absolute target to the machine
-    running the check instead of the root being verified.
+    and a success settles it; the kernel then also reads the bytes, through
+    abs_path. Every other case — a failure there, or any other root — is
+    decided by _resolve_in_root, which follows the path inside the root:
+    os.stat would follow an absolute target to the machine running the check
+    instead of the root being verified, and so would an open() of abs_path,
+    so the bytes are read at the path the walk reached.
     """
     try:
         link_text = os.readlink(abs_path)
@@ -2730,16 +2775,16 @@ def _probe_link(root, rel_path, abs_path, root_is_system):
             # same absence and report it as they always have.
             return None
         return (LINK_UNDETERMINABLE, None,
-                f"the link itself could not be read ({exc.strerror})")
+                f"the link itself could not be read ({exc.strerror})", None)
     if root_is_system:
         try:
             os.stat(abs_path)
         except OSError:
             pass  # the walk says why, and whether the rule below applies
         else:
-            return (LINK_RESOLVES, link_text, None)
-    outcome, reason = _resolve_in_root(root, rel_path)
-    return (outcome, link_text, reason)
+            return (LINK_RESOLVES, link_text, None, abs_path)
+    outcome, reason, reached = _resolve_in_root(root, rel_path)
+    return (outcome, link_text, reason, reached)
 
 
 def _resolve_in_root(root, rel_path):
@@ -2753,7 +2798,9 @@ def _resolve_in_root(root, rel_path):
     nothing is ever looked up on the machine running the check — which is
     what os.stat does with an absolute target whenever root is not "/".
 
-    Returns (outcome, reason):
+    Returns (outcome, reason, reached): reached is the path under root the
+    walk arrived at, with every link on the way resolved, when the outcome
+    is LINK_RESOLVES, and None otherwise.
       LINK_RESOLVES        the path reaches something that exists
       LINK_DANGLING        the kernel's ENOENT, ENOTDIR or ELOOP — including
                            more path after something that is not a directory
@@ -2788,18 +2835,18 @@ def _resolve_in_root(root, rel_path):
         except OSError as exc:
             if exc.errno in (errno.ENOENT, errno.ENOTDIR):
                 return _unresolved(base, step, exc.errno)
-            return (LINK_UNDETERMINABLE, _refusal(exc))
+            return (LINK_UNDETERMINABLE, _refusal(exc), None)
         if not stat.S_ISLNK(st.st_mode):
             reached = step
             reached_is_dir = stat.S_ISDIR(st.st_mode)
             continue
         hops += 1
         if hops > _MAX_LINK_HOPS:
-            return (LINK_DANGLING, _DANGLING_REASONS[errno.ELOOP])
+            return (LINK_DANGLING, _DANGLING_REASONS[errno.ELOOP], None)
         try:
             target = os.readlink(here)
         except OSError as exc:
-            return (LINK_UNDETERMINABLE, _refusal(exc))
+            return (LINK_UNDETERMINABLE, _refusal(exc), None)
         if not target:
             # The kernel answers an empty link text with ENOENT; splitting it
             # would read as "this directory" and call the link resolved.
@@ -2807,7 +2854,7 @@ def _resolve_in_root(root, rel_path):
         if target.startswith("/"):
             reached = []
         pending.extend(reversed(target.split("/")))
-    return (LINK_RESOLVES, None)
+    return (LINK_RESOLVES, None, base + "/" + "/".join(reached))
 
 
 def _unresolved(base, components, err):
@@ -2821,8 +2868,8 @@ def _unresolved(base, components, err):
                     f"the path it names is under /{top}, which is not "
                     f"mounted under this root; what lives there is made "
                     f"while the system runs, so the link can be judged "
-                    f"only on the running system")
-    return (LINK_DANGLING, _DANGLING_REASONS[err])
+                    f"only on the running system", None)
+    return (LINK_DANGLING, _DANGLING_REASONS[err], None)
 
 
 def _refusal(exc):

@@ -4047,6 +4047,48 @@ def _print_link_lines(result, paths, limit=None):
         print(f"    … and {len(paths) - len(shown)} more")
 
 
+def _split_unknowns(result):
+    """The could-not-be-checked paths, parted into files and links.
+
+    A link lands there when its target could not be followed, and root
+    cannot always change that: a target under an offline root's unmounted
+    /run is not there for anyone. A file lands there when this user could
+    not read it, which root can. A link whose target was reached but could
+    not be read counts as a file here, and root is its remedy too.
+    """
+    texts = result.get("link_targets") or {}
+    unknown = result.get("undeterminable") or []
+    return ([f for f in unknown if f not in texts],
+            [f for f in unknown if f in texts])
+
+
+def _print_unfollowed_links(result, links, limit=None):
+    """Each link whose target could not be followed: `/path -> text (why)`."""
+    print(f"  links whose target could not be followed ({len(links)}):")
+    _print_link_lines(result, links, limit)
+    print(f"    (these links are NOT reported dangling — where they lead "
+          f"could not be established here.)")
+
+
+def _print_unknown_files_detail(result):
+    """Under --detail, list the files behind the could-not-be-checked and the
+    unverifiable counts. The whole-machine form counted them and named none,
+    so --detail, whose purpose is the path behind every count, left the one
+    question a person has about them unanswered."""
+    unreadable, _ = _split_unknowns(result)
+    if unreadable:
+        print(f"  could not be checked — not readable by this user "
+              f"({len(unreadable)}):")
+        for f in unreadable:
+            print(f"    /{f}")
+    unverifiable = result.get("unverifiable") or []
+    if unverifiable:
+        print(f"  unverifiable — no recorded content hash "
+              f"({len(unverifiable)}):")
+        for f in unverifiable:
+            print(f"    /{f}")
+
+
 def _print_generated_detail(paths):
     """Under --detail, list the hook-generated paths verify did not
     content-check."""
@@ -4134,6 +4176,7 @@ def cmd_verify(db, args):
         generated_total = 0           # D-9: hook-generated across the whole set
         generated_absent_total = 0    # hook-generated and not present now
         file_problem_names = set()
+        unreadable_seen = False       # a file this user could not read
         for name, version, result in results:
             _merge_expected_absent_classes(
                 expected_absent_classes, result.get("expected_absent_by_class"))
@@ -4142,6 +4185,8 @@ def cmd_verify(db, args):
             und = result.get("undeterminable", [])
             unv = result.get("unverifiable", [])
             dng = result.get("dangling", [])
+            und_files, und_links = _split_unknowns(result)
+            unreadable_seen = unreadable_seen or bool(und_files)
             if result["missing"] or result["modified"] or dng:
                 problem_count += 1
                 file_problem_names.add(name)
@@ -4166,8 +4211,14 @@ def cmd_verify(db, args):
                       f"(no fault found; the check could not run)")
             else:
                 ok_count += 1
+            # Every link that could not be followed is named with its reason,
+            # --detail or not: a count alone left the person to re-run verify
+            # per package to learn which link, and why.
+            if und_links:
+                _print_unfollowed_links(result, und_links)
             if getattr(args, "verify_detail", False):
                 _print_file_problem_detail(result)
+                _print_unknown_files_detail(result)
                 _print_expected_absent_detail(
                     result.get("expected_absent_by_class", {}))
                 _print_generated_detail(result.get("generated", []))
@@ -4196,9 +4247,18 @@ def cmd_verify(db, args):
         # follows). It prints at every level, -q included.
         _op.finish(f"{ok_count} ok, {problem_count} with "
                    f"issues{und_note}{ea_note}{gen_note}{gen_absent_note}")
+        # Root is offered only where root is the remedy: a file this user
+        # could not read. A link into a runtime directory an offline root
+        # lacks cannot be followed by root either, and saying otherwise sent
+        # a person to re-run a command that could not change the answer.
         if undetermined_count and not problem_count:
-            emit_info("Some checks could not run — this is not a fault report. "
-                      "Re-run as root to check the files this user cannot read.")
+            if unreadable_seen:
+                emit_info("Some checks could not run — this is not a fault "
+                          "report. Re-run as root to check the files this "
+                          "user cannot read.")
+            else:
+                emit_info("Some checks could not run — this is not a fault "
+                          "report.")
         if problem_count > 0:
             sys.exit(1)
         if undetermined_count > 0:
@@ -4259,37 +4319,33 @@ def cmd_verify(db, args):
     _detail = getattr(args, "verify_detail", False)
     _print_file_problem_detail(result, limit=None if _detail else 20)
     if result.get("unverifiable"):
-        print(f"  unverifiable — no recorded content hash "
-              f"({len(result['unverifiable'])}):")
-        for f in result["unverifiable"][:20]:
+        _unv = result["unverifiable"]
+        print(f"  unverifiable — no recorded content hash ({len(_unv)}):")
+        _shown = _unv if _detail else _unv[:20]
+        for f in _shown:
             print(f"    /{f}")
+        if len(_unv) > len(_shown):
+            print(f"    … and {len(_unv) - len(_shown)} more")
         print(f"    (existence confirmed; content cannot be checked. "
               f"Reinstall the package to record hashes.)")
     # A link lands in undeterminable when its TARGET could not be followed,
     # which is not always a permission this user lacks (a target under an
     # unmounted /run is the other cause), so links are listed apart, each
     # with its own reason, and the files keep the note that is true of them.
-    _link_texts = result.get("link_targets") or {}
-    _und_files = [f for f in result.get("undeterminable") or []
-                  if f not in _link_texts]
-    _und_links = [f for f in result.get("undeterminable") or []
-                  if f in _link_texts]
+    _und_files, _und_links = _split_unknowns(result)
     if _und_files:
         print(f"  could not be checked — not readable by this user "
               f"({len(_und_files)}):")
-        for f in _und_files[:20]:
+        _shown = _und_files if _detail else _und_files[:20]
+        for f in _shown:
             print(f"    /{f}")
-        if len(_und_files) > 20:
-            print(f"    … and {len(_und_files) - 20} more")
+        if len(_und_files) > len(_shown):
+            print(f"    … and {len(_und_files) - len(_shown)} more")
         print(f"    (these files are NOT reported missing or modified — this "
               f"user cannot read them, so their state is unknown. Re-run as "
               f"root to check them.)")
     if _und_links:
-        print(f"  links whose target could not be followed "
-              f"({len(_und_links)}):")
-        _print_link_lines(result, _und_links, None if _detail else 20)
-        print(f"    (these links are NOT reported dangling — where they lead "
-              f"could not be established here.)")
+        _print_unfollowed_links(result, _und_links, None if _detail else 20)
     if result.get("generated_absent"):
         # Named on the fault path too: a package with a real problem may also
         # carry hook-generated absences, and rolling them into the fault would
