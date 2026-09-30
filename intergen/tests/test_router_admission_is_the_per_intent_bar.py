@@ -58,6 +58,8 @@ import urllib.request
 from pathlib import Path
 from unittest import mock
 
+import pytest
+
 from intergen.interfaces.semantic import MatchResult
 from intergen.interfaces.types import Provenance, ToolCall, ToolResult
 from intergen.intents import register_all_intents
@@ -419,6 +421,7 @@ def _real_embedder(texts: list[str]):
     return [r["embedding"] for r in sorted(rows, key=lambda r: r.get("index", 0))]
 
 
+@pytest.mark.reaches_the_machines_embedding_server(_LIVE_ENV)
 @unittest.skipUnless(
     os.environ.get(_LIVE_ENV) == "1",
     f"live field-sentence router gate is opt-in: set {_LIVE_ENV}=1 with the embedding "

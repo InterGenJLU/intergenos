@@ -34,6 +34,8 @@ import os
 import unittest
 import urllib.request
 
+import pytest
+
 _ENABLED = os.environ.get("INTERGEN_PR_HARNESS") == "1"
 _EMBED_URL = os.environ.get("INTERGEN_PR_EMBED_URL",
                             "http://127.0.0.1:8081/v1/embeddings")
@@ -232,11 +234,28 @@ def _loser_standalone_score(m, q, loser) -> float:
                for e in emb)
 
 
-@unittest.skipUnless(_ENABLED and _embedder_reachable(),
-                     "INTERGEN_PR_HARNESS=1 + a reachable nomic-embed required")
+@pytest.mark.reaches_the_machines_embedding_server("INTERGEN_PR_HARNESS")
+@unittest.skipUnless(_ENABLED, "INTERGEN_PR_HARNESS=1 + a reachable nomic-embed required")
 class MatcherPrecisionRecallTests(unittest.TestCase):
+    """Precision and recall of the shipped matcher against a real embedding server.
+
+    WHY THE REACHABILITY PROBE IS NOT IN THE DECORATOR ANY MORE. It used to be:
+    the class was skipped unless the variable was set AND a probe request came
+    back. A decorator is evaluated at import, which is collection time, where no
+    case is running and no marker can speak for the request — the directory's
+    boundary (intergen/tests/conftest.py) refuses anything this directory reaches
+    out with there, and rightly, since a marker is a property of a case. The
+    probe therefore moved into setUpClass, which runs inside the case and under
+    this class's marker, and an unreachable server now SKIPS from there with the
+    same sentence the decorator used to carry. Nothing about what the gate
+    measures changed.
+    """
+
     @classmethod
     def setUpClass(cls):
+        if not _embedder_reachable():
+            raise unittest.SkipTest(
+                "INTERGEN_PR_HARNESS=1 + a reachable nomic-embed required")
         cls.m, cls.r = _build()
 
     def test_recall(self):
