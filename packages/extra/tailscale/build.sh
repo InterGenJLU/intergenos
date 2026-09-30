@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2015-2016, 2026 InterGenJLU
 #
-# tailscale 1.98.5 — WireGuard-based mesh VPN (BSD-3-Clause)
+# tailscale 1.102.4 — WireGuard-based mesh VPN (BSD-3-Clause)
 # Upstream: https://github.com/tailscale/tailscale
 #
 # Build profile: custom. ONE Go module (tailscale.com) produces TWO binaries:
@@ -19,15 +19,27 @@
 #
 # Go-vendor pattern (established extra-tier Go precedent — lego/lazygit/caddy/
 # etcd): the chroot is OFFLINE, so deps are pre-vendored into a reproducible
-# tailscale-1.98.5-vendor.tar.xz (host-side `go mod vendor`, packed with
+# tailscale-1.102.4-vendor.tar.xz (host-side `go mod vendor`, packed with
 # --sort=name --owner=0 --group=0 --numeric-owner --mtime=@SOURCE_DATE_EPOCH;
 # same discipline as cargo-vendor-gen.sh). GOFLAGS=-mod=vendor short-circuits
 # the module-cache lookup to vendor/ — never reaches proxy.golang.org.
 #
-# GOTOOLCHAIN=local: tailscale's go.mod declares `go 1.26.3`; pinning to local
-# forces the in-tree go (packages/core/go = 1.26.4, bumped from 1.26.2 expressly
-# to clear this floor — 1.26.4 >= 1.26.3, satisfied). CGO_ENABLED=0 →
+# GOTOOLCHAIN=local: tailscale's go.mod declares `go 1.26.6`; pinning to local
+# forces the in-tree go (packages/core/go = 1.26.8, bumped from 1.26.4 expressly
+# to clear this floor — 1.26.8 >= 1.26.6, satisfied). CGO_ENABLED=0 →
 # fully-static binaries (no runtime libc dep).
+#
+# UPDATES: the package manager is the installer of record for both binaries.
+# tailscaled carries its own updater, which replaces /usr/bin/tailscale and
+# /usr/sbin/tailscaled in place when the coordination server asks it to (on an
+# unrecognized distribution it falls back to the vendor's tarball updater), and
+# the package database would go on describing the build pkm installed. The
+# package ships tailscaled's device policy file, /etc/tailscale/syspolicy.json,
+# with CheckUpdates and InstallUpdates at "never": tailscaled reads that path by
+# default at start (its --syspolicy-file flag) and enforces it over the node's
+# own preference and the tailnet's default, so the node neither checks for nor
+# applies updates of its own, and a control-plane update request is answered
+# "not enabled". Updates arrive with `pkm upgrade tailscale`.
 #
 # SERVICE PACKAGE (08-adding-packages "Service packages"): tailscaled is a
 # daemon. We ship upstream's own systemd unit (ExecStart=/usr/sbin/tailscaled)
@@ -44,7 +56,7 @@ BUILD_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 configure() {
     set -e
     # Unpack the pre-vendored Go module deps (wrapper dir
-    # tailscale-1.98.5/ holds vendor/ + go.mod + go.sum).
+    # tailscale-1.102.4/ holds vendor/ + go.mod + go.sum).
     if [ -f "${IGOS_SOURCES}/tailscale-${PKG_VERSION}-vendor.tar.xz" ]; then
         tar -xJf "${IGOS_SOURCES}/tailscale-${PKG_VERSION}-vendor.tar.xz" \
             --strip-components=1
@@ -86,10 +98,16 @@ do_install() {
     install -Dm755 tailscaled "$DESTDIR/usr/sbin/tailscaled"
 
     # Daemon env file referenced by EnvironmentFile= in the unit.
-    # Tailscale 1.98.5 supports TS_DEBUG_FIREWALL_MODE=nftables:
+    # Tailscale 1.102.4 supports TS_DEBUG_FIREWALL_MODE=nftables:
     # https://tailscale.com/docs/features/firewall-mode
     install -Dm644 "$BUILD_DIR/tailscaled.defaults" \
         "$DESTDIR/etc/default/tailscaled"
+
+    # tailscaled's device policy: its own updater off (see UPDATES above).
+    # Plain JSON, so it parses with or without the daemon's comment-tolerant
+    # reader; tailscaled reads this path by default, no flag needed.
+    install -Dm644 "$BUILD_DIR/syspolicy.json" \
+        "$DESTDIR/etc/tailscale/syspolicy.json"
 
     # systemd unit (tracked copy of upstream's; NO preset — see header).
     install -Dm644 "$BUILD_DIR/tailscaled.service" \

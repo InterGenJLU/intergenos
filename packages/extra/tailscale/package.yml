@@ -1,5 +1,5 @@
 name: tailscale
-version: "1.98.5"
+version: "1.102.4"
 release: 2  # r2: defaults select the native nftables backend through the upstream firewall-mode setting; the existing unit reads that file. Runtime join and rule creation remain to be validated on an installed system.
 content_hash: fe9b0ed2777f67dd
 description: WireGuard-based mesh VPN — tailscale CLI + tailscaled node agent
@@ -11,9 +11,9 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://github.com/tailscale/tailscale/archive/refs/tags/v${version}.tar.gz
-  sha256: 58407eb29a1d5a6f5baf3784ac6d3e3d55e0af514e012f2cde1c6afbc5e6bcea
+  sha256: 784b023e825e1cca7b146ac6a7aff08b179d60d10839b51019f315dab426c871
 - url: file:///tailscale-${version}-vendor.tar.xz
-  sha256: 8b3ec3d9262218dd470a21166a746efc8c05c1ec5b88ab561aa15356b46730a7
+  sha256: 314be06eb0793c922def5e30831a53fbe7b4694b25057112ba605dad70955502
 build_artifacts:
 - name: tailscale-${version}-vendor.tar.xz
   generated_by: go-vendor
@@ -26,3 +26,4 @@ verify_paths:
 - /usr/bin/tailscale
 - /usr/sbin/tailscaled
 - /usr/lib/systemd/system/tailscaled.service
+- /etc/tailscale/syspolicy.json
