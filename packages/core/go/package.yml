@@ -1,5 +1,5 @@
 name: go
-version: "1.26.4"
+version: "1.26.8"
 # release 2: elf_class_exempt declaration added (L9) — same-version content
 # change; mirror carries 1.26.4-1 from the GBC004.4 refresh, publish gate
 # requires monotonic (version, release).
@@ -12,11 +12,16 @@ tier: core
 build_style: custom
 install_func: do_install
 source:
-  # Bumped 1.26.2 → 1.26.4 (latest 1.26.x) so tailscale (go.mod floor 1.26.3)
-  # builds under GOTOOLCHAIN=local; gh (floor 1.26.0) is unaffected. Core-tier
-  # bump → recompiles go-built packages on the next from-scratch build (WC review).
+  # Bumped 1.26.4 → 1.26.8 (the newest 1.26.x on go.dev/dl, read 2026-09-30):
+  # tailscale 1.102.4's go.mod floor is 1.26.6, which GOTOOLCHAIN=local cannot
+  # meet with 1.26.4, and 1.26.5 through 1.26.8 are the standard-library patch
+  # releases every go-built package was missing (security fixes in 1.26.5 and
+  # 1.26.6). gh (floor go 1.26.0; its `toolchain go1.26.4` line is a minimum,
+  # met by 1.26.8) is unaffected. Core-tier bump → recompiles the 17 go-built
+  # packages on the next from-scratch build. (Before: 1.26.2 → 1.26.4 for
+  # tailscale's then floor of 1.26.3.)
   - url: https://go.dev/dl/go${version}.linux-amd64.tar.gz
-    sha256: 1153d3d50e0ac764b447adfe05c2bcf08e889d42a02e0fe0259bd47f6733ad7f
+    sha256: d0f743b33e8d8945e6b1f432edd15785c70507121d6e2a723b21285eddf8b57b
     filename: go${version}.linux-amd64.tar.gz
 dependencies:
   build: []

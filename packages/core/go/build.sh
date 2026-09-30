@@ -2,16 +2,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2015-2016, 2026 InterGenJLU
 #
-# go 1.26.4 — The Go programming language compiler and toolchain
+# go 1.26.8 — The Go programming language compiler and toolchain
 # Not in BLFS — InterGenOS core tier toolchain
 #
 # Go is self-hosted: compiling Go requires an existing Go installation.
-# Bootstrap strategy: extract the upstream binary tarball (go1.26.4.linux-amd64.tar.gz)
+# Bootstrap strategy: extract the upstream binary tarball (go1.26.8.linux-amd64.tar.gz)
 # to provide a working Go toolchain. The binary distribution includes the
 # compiler, standard library (pre-compiled), and tool source.
 #
 # For a full source-based rebuild, set GOROOT_BOOTSTRAP to a previous Go
-# installation and build from go1.26.4.src.tar.gz with ./make.bash.
+# installation and build from go1.26.8.src.tar.gz with ./make.bash.
 # The binary bootstrap path is the default for this recipe.
 
 BUILD_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
