@@ -312,6 +312,36 @@ landed is in the repository README, not here.
   program you installed yourself can be linked the same way; the package README
   shows how.
 
+- **`pkm verify` reports an owned symbolic link that points at nothing,
+  instead of calling the package ok.** Verify checked each owned path with
+  `lstat`, which answers for a link itself, so a link whose target does not
+  exist counted as present. Measured on installed systems: 72 links in
+  `whitesur-icon-theme`, 12 in `nordic-theme`, 2 in `cuda-toolkit` and 2 in
+  `rocm-hip` point at files those packages never shipped, and all four
+  packages verified ok. An owned link must now resolve — reach something that
+  exists, whichever package owns it, or none — and a link that does not is
+  listed as a dangling link, with its path and the text it points to, and
+  counts as a failure (status 1), in the default mode and with `--fast` alike,
+  because resolving is part of existence rather than of content. The link is
+  followed the way the kernel follows it inside the root being verified: an
+  absolute target is looked up under that root, never on the machine running
+  the check, and in the default mode the bytes it reaches are read there too;
+  `..` never leaves the root and, after a link, starts from where the link
+  led; more path after a regular file does not resolve; more than 40 links in
+  a row do not resolve. A link whose target this user may not reach, or whose
+  target is under `/proc`, `/sys`, `/dev` or `/run` while that directory is not
+  mounted under the root, is reported as not checked (status 3) with the
+  reason, not as damaged — by `pkm verify --all` too, which names each such
+  link. `--detail` lists the path behind every count, and the closing line
+  suggests running as root only when a file this user cannot read is among
+  the unknowns. A link whose target was removed after installation, which
+  verify used to file as "could not be checked", is now reported as dangling.
+  Where a content hash is recorded, a FIFO, a device, a socket or a directory
+  at the path is reported modified rather than read, so the default mode no
+  longer waits forever on a FIFO. **On a machine that holds any of those four
+  packages, `pkm verify` reports them damaged until their corrected releases
+  are installed; that report is true.**
+
 - **An upgraded Python module no longer runs its old code under a bytecode
   cache prefix.** An interpreter started with `PYTHONPYCACHEPREFIX` or
   `-X pycache_prefix` keeps its compiled copies in a separate tree, and the
