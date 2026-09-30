@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
 import types
 import unittest
 import urllib.request
@@ -208,6 +209,171 @@ class TheTwoOptInGatesCarryTheirMarker(unittest.TestCase):
             with self.subTest(module=name):
                 module = __import__(f"intergen.tests.{name}", fromlist=["*"])
                 self.assertTrue(hasattr(module, "_EMBED_URL"))
+
+
+def _code_compiled_as(filename: str):
+    """A caller and a frame that name ``filename``, for the boundary to classify.
+
+    The file itself need not exist: what the boundary reads is a frame's
+    ``__file__``, so compiling the caller under a chosen name is the only way to
+    hand the PRODUCTION path a caller from a chosen directory. The cases above
+    hand the rule a frame directly, which proves the rule; these prove the call
+    that uses it.
+    """
+    namespace = {"__file__": filename}
+    source = ("import sys\n"
+              "def frame_here():\n"
+              "    return sys._getframe(0)\n"
+              "def open_from_here(opener, address):\n"
+              "    return opener(address)\n"
+              # Records the outcome and then hands it back, rather than letting
+              # a thread swallow it: the refusal is a BaseException by design,
+              # and a control that lost it would report a clean run for a
+              # request that happened. This runs in the compiled file too, so
+              # that a thread started on it carries no frame of the case's own
+              # module up its stack.
+              "def record_opening_from_here(opener, address, outcome):\n"
+              "    try:\n"
+              "        outcome.append(('returned', opener(address)))\n"
+              "    except BaseException as caught:\n"
+              "        outcome.append(('raised', caught))\n")
+    exec(compile(source, filename, "exec"), namespace)
+    return namespace
+
+
+class TheBoundaryJudgesTheCallerThatMadeTheRequest(unittest.TestCase):
+    """Where a request came from, decided on the PRODUCTION path.
+
+    The cases above exercise the rule with a frame handed to it. That leaves the
+    call the boundary actually makes unproven, and the two went different ways:
+    the installed opener asked the rule about its OWN frame, which lives in this
+    directory, so every request made outside a case was refused — this
+    directory's, the directory below it, and another test directory's alike
+    (measured 2026-09-30). These cases make the request through the real
+    `urllib.request.urlopen` with no case running, which is what collection, a
+    module import and a class-level setup look like, from code compiled as a file
+    in a chosen directory, and read what the boundary did with it.
+
+    The real opener is replaced with a recorder first, so a request that PASSES
+    the boundary is counted here rather than sent anywhere.
+
+    Two of the cases open from a NEW THREAD, and that is not decoration: a case
+    of this directory has this directory's frames all the way up its own stack,
+    so from here a foreign caller could never be seen as foreign. A thread's
+    stack begins at its own target, and the walk ends in the threading module,
+    which is how a caller outside this directory is put in front of the
+    installed boundary at all.
+    """
+
+    ADDRESS = "http://127.0.0.1:1/v1/embeddings"
+    PASSED = "passed the boundary"
+
+    def setUp(self):
+        self.boundary = _the_live_boundary()
+        self.calls = []
+        self._real_opener = self.boundary._REAL_URLOPEN
+        self._running_item = self.boundary._RUNNING["item"]
+
+        def recorder(request, *args, **kwargs):
+            self.calls.append(getattr(request, "full_url", None) or str(request))
+            return self.PASSED
+
+        self.boundary._REAL_URLOPEN = recorder
+        self.boundary._RUNNING["item"] = None
+
+    def tearDown(self):
+        self.boundary._REAL_URLOPEN = self._real_opener
+        self.boundary._RUNNING["item"] = self._running_item
+
+    def _here(self, *parts):
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), *parts)
+
+    def _in_the_tree(self, *parts):
+        """A path under the source tree's root, outside this directory.
+
+        Spelled from this file rather than from a working directory, so the case
+        means the same thing wherever the suite is run from: this file sits in
+        ``<root>/intergen/tests``, so the root is three levels up.
+        """
+        root = os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))))
+        return os.path.join(root, *parts)
+
+    def _open_from(self, filename):
+        code = _code_compiled_as(filename)
+        return code["open_from_here"](urllib.request.urlopen, self.ADDRESS)
+
+    def _open_from_on_its_own_thread(self, filename):
+        """What the boundary does with that caller, off this case's stack.
+
+        Everything the thread runs is compiled as ``filename``, this method's
+        own frame included by its absence: a helper of this module on the
+        thread's stack would put this directory back in the walk's way and the
+        case would measure nothing.
+        """
+        code = _code_compiled_as(filename)
+        outcome = []
+        thread = threading.Thread(
+            target=code["record_opening_from_here"],
+            args=(urllib.request.urlopen, self.ADDRESS, outcome),
+            name="boundary-caller")
+        thread.start()
+        thread.join(timeout=30)
+        self.assertFalse(thread.is_alive(), "the caller thread did not finish")
+        self.assertEqual(len(outcome), 1, f"the thread recorded {outcome!r}")
+        return outcome[0]
+
+    def test_a_request_from_this_directory_is_refused(self):
+        with self.assertRaises(self.boundary.ModelServerReachedInAUnitTest) as caught:
+            self._open_from(self._here("a_root_caller_of_this_directory.py"))
+        self.assertIn("outside any case", str(caught.exception))
+        self.assertEqual(self.calls, [], "a refused request must not reach the opener")
+
+    def test_a_request_from_a_directory_below_this_one_is_refused(self):
+        # scenario/ is one of this directory's own subtrees; a request made while
+        # it is imported or collected is this directory's request.
+        nested = self._here("scenario", "a_nested_caller_of_this_directory.py")
+        with self.assertRaises(self.boundary.ModelServerReachedInAUnitTest) as caught:
+            self._open_from(nested)
+        self.assertIn("outside any case", str(caught.exception))
+        self.assertEqual(self.calls, [])
+
+        # The same claim one level down, where the walk cannot stand in for it:
+        # the rule itself must call a file below this directory this
+        # directory's, or correcting the walk alone would let collection and
+        # import code in the subtrees reach a server.
+        self.assertTrue(
+            self.boundary.request_is_this_directory_s(
+                _code_compiled_as(nested)["frame_here"](), depth=1),
+            "a frame from a directory below this one is this directory's")
+
+    def test_a_request_from_another_test_directory_passes_untouched(self):
+        # The suite's other test root. This boundary is this directory's and
+        # says so: another directory's request goes through unchanged.
+        how, what = self._open_from_on_its_own_thread(
+            self._in_the_tree("tests", "a_caller_in_the_other_test_root.py"))
+        self.assertEqual((how, what), ("returned", self.PASSED),
+                         f"another test directory was governed by this boundary: {what!r}")
+        self.assertEqual(self.calls, [self.ADDRESS])
+
+    def test_a_directory_whose_name_only_begins_like_this_one_is_outside(self):
+        # The subtree rule is about path components, not about the text of a
+        # path: a sibling that merely starts the same way is not below this
+        # directory and must stay outside the boundary.
+        beside = os.path.dirname(os.path.abspath(__file__)) + "-and-then-some"
+        how, what = self._open_from_on_its_own_thread(
+            os.path.join(beside, "a_caller_in_a_similarly_named_directory.py"))
+        self.assertEqual((how, what), ("returned", self.PASSED),
+                         f"a sibling directory was governed by this boundary: {what!r}")
+        self.assertEqual(self.calls, [self.ADDRESS])
+
+    def test_the_rule_will_not_guess_which_frame_to_start_from(self):
+        # The frame is required, and this is the case that keeps it required: a
+        # default of "my own caller" is what made the installed boundary ask
+        # about its own frame and refuse everything. A caller with no frame to
+        # name fails here, loudly, instead of being answered wrongly.
+        with self.assertRaises(TypeError):
+            self.boundary.request_is_this_directory_s()
 
 
 if __name__ == "__main__":

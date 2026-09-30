@@ -89,7 +89,7 @@ def _with_the_model_replaced(router: ConversationRouter) -> ConversationRouter:
     two places. After an offer is accepted the search dispatches and
     `_synthesize_tool_result` hands the tool's output back to it to be turned
     into a sentence (four cases here); a turn no route claims reaches it through
-    the free-form rung (three cases here). Those calls were live until now — on
+    the free-form rung (three cases here). Those calls were live until now - on
     a machine with a server up they went out, and on a machine without one they
     failed quietly, so the same case measured two different programs. The
     streaming method is replaced with it, not because a case here reaches it

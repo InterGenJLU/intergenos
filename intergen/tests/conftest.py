@@ -51,9 +51,13 @@ installed when THIS FILE is imported — which happens before any module in this
 directory is imported — and it stays installed: what changes per case is only
 whether it is armed. A request made while one of this directory's cases is
 running is judged by that case's permissions; a request made outside a case by
-code that lives in this directory, at collection or at import, is refused with
-the same refusal; a request from anywhere else in the suite is not this
-directory's business and passes untouched.
+code that lives in this directory or anywhere below it, at collection or at
+import, is refused with the same refusal; a request from anywhere else in the
+suite is not this directory's business and passes untouched. Which of those a
+request is gets decided on the frame of the CODE THAT MADE IT, never on this
+file's own frame: a first version of the rule started its walk here and so
+refused every request it saw outside a case, another test directory's included
+(measured 2026-09-30).
 
 THE TWO PERMISSIONS, AND WHAT THEY ARE NOT. Both are registered markers
 (pytest.ini) and both are visible, greppable, reviewable acts.
@@ -118,7 +122,27 @@ def permission_for(item) -> str | None:
     return None
 
 
-def request_is_this_directory_s(frame=None, depth: int = 40) -> bool:
+def file_is_this_directory_s(filename: str) -> bool:
+    """True when ``filename`` is a file of this directory or of one below it.
+
+    The whole subtree counts, not the top level alone: this directory carries
+    Python and tests under ``demand_corpus/``, ``judge_calibration/``,
+    ``scenario/`` and ``training_bank/``, and a request made while one of those
+    is imported or collected is this directory's request as much as one from the
+    top level. Treating only the top level as this directory's left that code
+    outside the boundary (measured 2026-09-30).
+
+    The test is on whole path components, never on the text of the path: a
+    sibling directory whose name merely begins the same way is not below this
+    one and stays outside the boundary, which is why the separator is part of
+    the comparison.
+    """
+    directory = os.path.dirname(os.path.abspath(filename))
+    return (directory == _THIS_DIRECTORY
+            or directory.startswith(_THIS_DIRECTORY + os.sep))
+
+
+def request_is_this_directory_s(frame, depth: int = 40) -> bool:
     """True when a frame of the code making this request lives in this directory.
 
     Used only for a request made while no case of this directory is running: at
@@ -128,17 +152,25 @@ def request_is_this_directory_s(frame=None, depth: int = 40) -> bool:
     rather than at the immediate caller alone, because module-level code here
     can reach a server through the product, several frames down.
 
+    THE WALK STARTS AT THE FRAME IT IS HANDED, and the frame is required rather
+    than defaulted for one measured reason: a default of "my own caller" made
+    this function start at ``_refuse`` below, which lives in this file, so the
+    first frame was always this directory's and every request the boundary saw
+    outside a case was refused — including another test directory's, which this
+    boundary is supposed to leave alone (measured 2026-09-30). ``_refuse`` hands
+    over the frame of the code that made the request, not its own. A caller with
+    no frame to name now fails loudly instead of being answered wrongly.
+
     The bound is stated rather than hidden: the walk gives up after ``depth``
     frames, so a request made by this directory's code deeper than that, with no
     case running, would pass. Nothing in this directory is built that way today.
     The frame is a parameter so a case can judge a known one instead of
     inferring the rule from its own stack, which always contains this directory.
     """
-    frame = sys._getframe(1) if frame is None else frame
     seen = 0
     while frame is not None and seen < depth:
         filename = frame.f_globals.get("__file__") or ""
-        if filename and os.path.dirname(os.path.abspath(filename)) == _THIS_DIRECTORY:
+        if filename and file_is_this_directory_s(filename):
             return True
         frame = frame.f_back
         seen += 1
@@ -153,7 +185,9 @@ def _refuse(request, *args, **kwargs):
             return _REAL_URLOPEN(request, *args, **kwargs)
         opened_by = item.nodeid
     else:
-        if not request_is_this_directory_s():
+        # The frame of the code that called this boundary, never this frame:
+        # see request_is_this_directory_s.
+        if not request_is_this_directory_s(sys._getframe(1)):
             return _REAL_URLOPEN(request, *args, **kwargs)
         opened_by = (f"code in {_THIS_DIRECTORY} running outside any case "
                      f"(class-level setup, module import or collection)")
