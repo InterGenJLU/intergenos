@@ -93,8 +93,13 @@ class ConsentModalTests(unittest.TestCase):
         body = consent_modal._format_body(payload, "openai", "")
         self.assertIn(secret, body)
 
-    def test_default_cancel_flag_present(self):
-        # the zenity modal must default to Cancel (fail-closed) — assert the flag.
+    def test_the_send_response_starts_disabled(self):
+        # The dialog must not open with the send as the response a bare Return
+        # activates. The dialog program enables its OK response from the
+        # checkbox alone, so the argument list carrying that box IS the claim;
+        # what the box says and the absence of the flag this dialog type ignores
+        # are asserted in
+        # test_the_consent_fallback_dialog_does_not_default_to_send.py.
         with mock.patch.object(consent_modal, "_session_active", return_value=True), \
              mock.patch.object(consent_modal.consent_dialog, "run_consent_dialog",
                                return_value=None), \
@@ -103,7 +108,7 @@ class ConsentModalTests(unittest.TestCase):
                                return_value=_completed(1)) as run:
             consent_modal.prompt_send_consent("hi", "openai")
         argv = run.call_args[0][0]
-        self.assertIn("--default-cancel", argv)
+        self.assertIn(f"--checkbox={consent_modal.REVIEW_ACKNOWLEDGED}", argv)
         self.assertIn("--ok-label=Send", argv)
 
 

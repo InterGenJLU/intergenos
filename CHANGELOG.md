@@ -1965,6 +1965,32 @@ landed is in the repository README, not here.
 
 ### Security
 
+- **The dialog that asks before anything goes to a frontier model no longer
+  carries the send as the answer it gives by itself.** Before conversation
+  content leaves the machine for the configured frontier model, the consent step
+  shows the exact outbound content and waits for an explicit Send; that hop is
+  deliberately not egress-scanned, so the dialog is the only thing between a
+  secret already sitting in the conversation and the network. When the branded
+  dialog cannot render, the step falls back to a stock text-info dialog — and
+  that dialog type is defined with its OK button, labelled Send here, as the
+  window's default response, so a single Return, with the content never
+  scrolled, sent the whole payload. The command line passed the option that asks
+  for a Cancel default and the code's own comment said the dialog defaulted to
+  Cancel because of it; in the pinned dialog program that option is bound to
+  question dialogs only, so it was accepted, ignored, and read as a safeguard by
+  everyone after. The fallback dialog now passes the one option that dialog type
+  does honour: the send response is disabled while the dialog is built and is
+  enabled only while a box labelled "I have read the content above and want to
+  send it" is ticked. What the person does is tick that box and then press Send.
+  Measured on a virtual display with the shipped dialog program, with the real
+  consent path opening the real dialog: before the change, one keypress on an
+  unread dialog returned a send; after it, the same keypress sends nothing and
+  the dialog stays open, ticking the box is what makes Send available, and the
+  send then goes through. Nothing else about the consent step changes — the
+  whole payload is still shown in a scrollable view, Cancel, Escape and closing
+  the window still send nothing, the branded dialog is still tried first, and a
+  send nobody was asked about is still reported as that rather than as the
+  person's own cancel.
 - **`pkm install <app>` for a proprietary-download package no longer installs
   a cached archive the signed index does not vouch for.** When the helper
   package's database row was missing, the install laid the helper package down

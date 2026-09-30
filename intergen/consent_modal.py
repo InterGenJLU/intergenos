@@ -18,7 +18,10 @@ libnotify-degrade discipline.
 
 Fail-closed: anything other than an explicit Send is denied. zenity
 unavailable / session inactive / notify-send unavailable / any error -> deny.
-An egress to a third party must never default to send.
+An egress to a third party must never default to send, and the dialog this
+module opens must not carry the send as its default response: the zenity
+fallback opens with Send disabled and a box the person ticks to say they have
+read the content, which is the only thing that enables it.
 """
 
 from __future__ import annotations
@@ -55,6 +58,14 @@ TOO_LARGE_SENTENCE = (
     "Not sent — the content is too large to show you in full for review first "
     f"(over {consent_dialog_proto.MAX_PAYLOAD_BYTES:,} bytes), so nothing was "
     "sent to the frontier model.")
+
+# WHAT THE PERSON DOES IN THE FALLBACK DIALOG BEFORE A SEND IS POSSIBLE.
+# The text-info dialog's default response is its OK button, labelled Send here,
+# so Return on the freshly opened dialog used to send the content. This is the
+# label of the box that has to be ticked first: with it the OK response opens
+# DISABLED and is enabled only while the box is ticked, so the default response
+# cannot send and the person states that they have read what is about to leave.
+REVIEW_ACKNOWLEDGED = "I have read the content above and want to send it"
 
 # What GTK writes to standard error when zenity cannot open a display: GTK 4
 # and GTK 3 wording. GTK then exits 1, the status a Cancel also gives.
@@ -117,11 +128,16 @@ def _prompt_consent_zenity(content: str, provider: str, reason: str) -> bool | N
     or cannot open the display, so the caller can route to the fallback.
 
     Button mapping: --ok-label "Send" -> rc 0 (True); --cancel-label "Cancel" /
-    Esc / window-close -> rc != 0 (False). zenity 4.2.2 applies --default-cancel
-    to question dialogs only, so in this text-info dialog the default response
-    is its OK button, labelled Send here. A display zenity cannot open also
-    exits 1; its warning on standard error tells it apart, and that case
-    returns None (nothing was shown).
+    Esc / window-close -> rc != 0 (False). The text-info dialog's default
+    response is its OK button, labelled Send here, and zenity 4.2.2 applies
+    --default-cancel to question dialogs only — so passing that flag here, as
+    this code did, left the send as the response a bare Return activates on a
+    dialog nobody had read yet. What this dialog type does honour is
+    --checkbox: zenity disables the OK response while the dialog is built and
+    re-enables it only from the box's own state, so the default response cannot
+    send until the person ticks REVIEW_ACKNOWLEDGED. A display zenity cannot
+    open also exits 1; its warning on standard error tells it apart, and that
+    case returns None (nothing was shown).
     """
     zenity = shutil.which("zenity")
     if zenity is None:
@@ -131,8 +147,12 @@ def _prompt_consent_zenity(content: str, provider: str, reason: str) -> bool | N
     try:
         # --text-info renders a SCROLLABLE view of the full body fed on stdin, so the
         # entire outbound payload is reviewable regardless of length (note #2: SHOWN ==
-        # SENT). Send/Cancel via ok/cancel labels. --default-cancel has no effect on a
-        # text-info dialog in zenity 4.2.2 (it applies to question dialogs only).
+        # SENT). Send/Cancel via ok/cancel labels. --checkbox is what makes the send
+        # something the person has to reach for: zenity opens the OK response disabled
+        # and enables it from the box alone, so the dialog's default response is not a
+        # send. --default-cancel is NOT passed: a text-info dialog in zenity 4.2.2
+        # ignores it (it applies to question dialogs only), and a flag that reads as a
+        # safeguard while doing nothing is worse than its absence.
         result = subprocess.run(
             [
                 zenity, "--text-info",
@@ -140,7 +160,7 @@ def _prompt_consent_zenity(content: str, provider: str, reason: str) -> bool | N
                 "--width=760", "--height=520",
                 "--ok-label=Send",
                 "--cancel-label=Cancel",
-                "--default-cancel",
+                f"--checkbox={REVIEW_ACKNOWLEDGED}",
             ],
             input=body, capture_output=True, text=True,
         )
