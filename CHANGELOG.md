@@ -1963,6 +1963,18 @@ landed is in the repository README, not here.
 
 ### Security
 
+- **The Go toolchain moves to 1.26.8, the newest 1.26 patch release.** The
+  tree's go was 1.26.4; go.dev has since published 1.26.5 through 1.26.8, and
+  1.26.5 and 1.26.6 carry security fixes to crypto/tls, os, the go command,
+  encoding/asn1, encoding/xml, html/template, net, net/http and net/url. Every
+  go-built package the tree ships was compiled without them, and tailscale
+  1.102.4, which declares go 1.26.6 as its floor, could not be built at all
+  under the recipes' `GOTOOLCHAIN=local`. The recipe keeps its bootstrap from
+  the vendor's linux-amd64 binary tarball, pinned by the sha256 go.dev
+  publishes, which equals the sha256 measured on the download. The 17 packages
+  that build with go pick up the new toolchain when they are next built from
+  scratch; until then each keeps the toolchain it was built with.
+
 - An encrypted install no longer writes a discard permission into
   `/etc/crypttab`, and weekly discard is decided from the disk layout the
   install wrote. Two things were true at once before this change: the installer

@@ -3,8 +3,8 @@ version: "1.26.8"
 # release 2: elf_class_exempt declaration added (L9) — same-version content
 # change; mirror carries 1.26.4-1 from the GBC004.4 refresh, publish gate
 # requires monotonic (version, release).
-release: 3  # r3: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
-content_hash: d6787db6c0a9f49d
+release: 4  # r4: the toolchain moves to 1.26.8, the newest 1.26 patch release. tailscale 1.102.4 declares go 1.26.6 and the recipes build with GOTOOLCHAIN=local, which 1.26.4 could not satisfy; and 1.26.5 through 1.26.8 carry the standard-library fixes every go-built package was missing, security fixes among them in 1.26.5 and 1.26.6 (crypto/tls, os, the go command, encoding/asn1, encoding/xml, html/template, net, net/http and net/url). The binary bootstrap tarball is pinned by the sha256 go.dev publishes for it, measured equal on the download. The 17 packages that build with go recompile at the next from-scratch build; until then each keeps the toolchain it was built with.  # r3: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+content_hash: 84e1f3662bc0d6cf
 description: The Go programming language compiler and toolchain
 license: BSD-3-Clause
 homepage: https://go.dev/
