@@ -300,11 +300,60 @@ def test_the_profile_covers_the_interpreter_its_own_launcher_runs():
         f"launcher's {launcher.group(1)} resolves to, so the program that does "
         "the work runs outside this profile's rules"
     )
-    assert "i" in match.group(1), (
-        f"the rule for {resolved} is '{match.group(1)}', which sends the "
-        "interpreter somewhere other than this profile's own domain; the "
-        "measurement above is of an inherited execution (ix)"
+    assert match.group(1) == "rix", (
+        f"the rule for {resolved} is '{match.group(1)}', not 'rix': px, cx and "
+        "ux send the interpreter to another profile or out of confinement, and "
+        "the fallback modes pix and cix inherit only when the profile they name "
+        "does not exist, so none of them keeps the interpreter in this "
+        "profile's own domain; the measurement above is of an inherited "
+        "execution carrying the read permission the kernel requires (rix)"
     )
+
+
+def profile_dir_granting(tmp_path: Path, mode: str) -> Path:
+    """A directory holding one usr.bin.pkm whose interpreter rule uses <mode>.
+
+    Only the one line the case above reads is varied, and the interpreter path
+    is derived from the same recipe the case derives it from, so this control
+    moves with the tree exactly as the case does.
+    """
+    version = re.search(r'^version:\s*"(\d+)\.(\d+)\.', PYTHON_YML.read_text(),
+                        re.MULTILINE)
+    assert version, "python's recipe no longer states a version this can read"
+    resolved = f"/usr/bin/python{version.group(1)}.{version.group(2)}"
+    (tmp_path / "usr.bin.pkm").write_text(
+        f"abi <abi/{ABSTRACTION_ABI}>,\n"
+        "\n"
+        "profile pkm /usr/bin/pkm {\n"
+        f"  {resolved} {mode},\n"
+        "}\n"
+    )
+    return tmp_path
+
+
+@pytest.mark.parametrize("mode,keeps_the_domain",
+                         [("rix", True), ("pix", False), ("cix", False)])
+def test_the_interpreter_case_accepts_only_the_mode_that_keeps_the_domain(
+        mode, keeps_the_domain, tmp_path, monkeypatch):
+    """The control for the case above: it has to say no to a mode that does not
+    keep the interpreter in this profile's own domain.
+
+    The installed manual defines pix as a transition to a discrete profile and
+    cix as a transition to a subprofile, each falling back to inherited
+    execution only when that target profile does not exist. Neither of them
+    keeps the interpreter in the domain the case's measurements were taken in,
+    so a case that accepts them reports green on a profile that has stopped
+    confining the program that does the work. This fires the case itself on a
+    profile granting each mode, and is the instrument that proves the case can
+    fail.
+    """
+    monkeypatch.setitem(globals(), "PROFILES",
+                        profile_dir_granting(tmp_path, mode))
+    if keeps_the_domain:
+        test_the_profile_covers_the_interpreter_its_own_launcher_runs()
+        return
+    with pytest.raises(AssertionError):
+        test_the_profile_covers_the_interpreter_its_own_launcher_runs()
 
 
 @pytest.mark.skipif(
