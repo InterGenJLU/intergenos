@@ -257,6 +257,27 @@ landed is in the repository README, not here.
   `--all` to reach an install's full record.
 
 ### Fixed
+- **The package manager's own access-control profile enforces what it says.**
+  The one profile this system authors itself confines `pkm`, and three things in
+  it did not hold. It declared no feature abi, so the parser compiled its two
+  network rules to nothing while the file said the package manager's domain
+  mediated network access — measured by compiling the same profile with and
+  without one network rule and getting a byte-identical policy. It granted no
+  execute permission to the Python interpreter its own launcher runs, so the
+  process that does the work ran in a learning child of the profile, where none
+  of the profile's rules applied and where the kernel mediates no network, unix
+  socket, signal, mount or user namespace at all; under enforcement that same
+  gap would have denied the interpreter and the package manager could not have
+  started. And it used an include form the parser has deprecated, on every one
+  of its six include lines, and named itself by a file path, which the parser
+  deprecates too: fourteen warning lines at every parse and every boot, now
+  four. The four that remain are one class the parser version this system builds
+  cannot enforce as written on this kernel — unix socket rules inherited from the
+  shared abstraction, which it downgrades to generic network rules, still
+  enforced but in a weaker form — and they are now written down in the profile
+  with what they cost and what removes them. A check in the source tree compiles
+  every profile this package ships with the parser itself and allows that one
+  class and no other.
 - **An installed machine can read its own access-control policy back, and no
   longer loads a profile that confines nothing.** AppArmor policy is only worth
   what someone can check, and until now the only AppArmor program installed was
