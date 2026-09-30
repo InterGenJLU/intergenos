@@ -58,6 +58,13 @@ ATTACHMENT = re.compile(
 DEPRECATED_INCLUDE = re.compile(r"^\s*#include\s+<", re.MULTILINE)
 CURRENT_INCLUDE = re.compile(r"^\s*include\s+<", re.MULTILINE)
 
+# A profile's feature abi declaration. The version matters: the abstractions
+# this package installs declare abi/3.0, and a profile that declares a
+# different one makes the parser say so and use the profile's, for every
+# abstraction it includes.
+ABI = re.compile(r"^abi\s+<abi/([0-9.]+)>\s*,\s*$", re.MULTILINE)
+ABSTRACTION_ABI = "3.0"
+
 
 def profile_files() -> list[Path]:
     return sorted(p for p in PROFILES.iterdir() if p.is_file())
@@ -192,4 +199,27 @@ def test_every_shipped_profile_names_its_profile_rather_than_a_file_path():
     assert unnamed == [], (
         "these profiles are named by a file path, the form the parser warns "
         f"about: {unnamed}"
+    )
+
+
+def test_every_shipped_profile_declares_the_feature_abi_its_abstractions_use():
+    """A profile with no abi line is compiled against the parser's built-in
+    default feature set, and that set's network feature is a form this kernel
+    does not publish, so the parser says 'network rules not enforced' and the
+    profile's network rules are dead text: the domain mediates no network at
+    all. Declaring the abi the shipped abstractions declare makes those rules
+    take effect and removes the two warnings the fallback prints.
+    """
+    wrong = {}
+    for profile in profile_files():
+        match = ABI.search(profile.read_text())
+        if match is None:
+            wrong[profile.name] = "no abi declaration"
+        elif match.group(1) != ABSTRACTION_ABI:
+            wrong[profile.name] = (
+                f"declares abi/{match.group(1)}, while the abstractions this "
+                f"package installs declare abi/{ABSTRACTION_ABI}")
+    assert wrong == {}, (
+        "these profiles are compiled against a feature set nobody chose: "
+        f"{wrong}"
     )
