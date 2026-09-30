@@ -40,6 +40,7 @@ import json
 import unittest
 
 from intergen.conversation_state import new_conversation_state
+from intergen.interfaces.types import LLMResponse
 from intergen.llm import LLMRouter
 from intergen.router import ConversationRouter, RouteResult
 from intergen.semantic import SemanticMatcher
@@ -47,6 +48,36 @@ from intergen.tool_registry import ToolRegistry
 
 _REG = ToolRegistry()
 _REG.discover_tools()
+
+
+# What a model would have answered, where a case does not care what it says.
+_MODEL_STAND_IN = "(the model's answer, withheld in this test)"
+
+
+def _replace_the_model(router) -> None:
+    """Replace every model entry point a stand-in daemon can reach.
+
+    The cases below stubbed the STREAMING method where they cared what the
+    model said, and left the COMPLETION method alone everywhere else — so the
+    free-form rung, which is the one a turn reaches when no route claims it,
+    went to whatever model server the machine running the suite had up.
+    Measured: one case here sent a request out per run on a machine with a
+    server listening, and got a quiet failure and a different answer on a
+    machine without one.
+
+    Both entry points are replaced here, at the seam where the router is built,
+    so a case that sets its own streaming stub afterwards still overrides it and
+    reads exactly as it did before. What no case can do any more is reach a
+    server by forgetting.
+    """
+    def _chat(messages, **kwargs):
+        return LLMResponse(text=_MODEL_STAND_IN, model="stand-in")
+
+    def _stream_with_tools(messages, *, tools=(), **kwargs):
+        yield _MODEL_STAND_IN
+
+    router._llm.chat = _chat
+    router._llm.stream_with_tools = _stream_with_tools
 
 
 class _DaemonStandIn:
@@ -71,6 +102,7 @@ class _DaemonStandIn:
             semantic_matcher=SemanticMatcher(embedder=None),
             llm=LLMRouter(config=None),
             lock_dispatch=True)
+        _replace_the_model(self._router)
 
     # The daemon starts a bounded wiki-index pass after a turn. It is not part
     # of delivery and needs no daemon here.
@@ -156,6 +188,7 @@ class TheToolPathAnswerThatUsedNoTool(unittest.TestCase):
             semantic_matcher=SemanticMatcher(embedder=None),
             llm=LLMRouter(config=None),
             lock_dispatch=False)
+        _replace_the_model(d._router)
         d._router._llm.stream_with_tools = (
             lambda messages, tools=None, **kw: iter([text]))
         return d

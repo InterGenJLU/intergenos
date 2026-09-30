@@ -22,6 +22,8 @@ import sys
 import time
 import unittest
 import urllib.request
+
+import pytest
 from pathlib import Path
 
 logging.basicConfig(level=logging.INFO, format="%(name)s %(levelname)s %(message)s")
@@ -92,6 +94,11 @@ class TestLlamaServerLifecycle(unittest.TestCase):
         self.model = min(llm_models, key=lambda m: m.size_gb)
         log.info("Using model: %s (%s)", self.model.name, self.model.local_path)
 
+    # This case starts its OWN server on a free ephemeral port and polls that
+    # server; it is not reaching for the machine's model server, which is the
+    # thing intergen/tests/conftest.py exists to refuse. The marker is the
+    # visible way to say so, and it is registered in pytest.ini.
+    @pytest.mark.reaches_a_server_it_starts_itself
     def test_server_lifecycle(self):
         # Start — on a free ephemeral port: this box's resident daemon
         # legitimately holds 8080, and the manager's foreign-holder guard
@@ -232,6 +239,11 @@ class TestToolExecution(unittest.TestCase):
 class TestDBusDaemon(unittest.TestCase):
     """Test D-Bus daemon initializes all subsystems."""
 
+    # Same as the lifecycle case above: this one brings up its own daemon on a
+    # per-run bus name and asks that daemon for its health, so its requests are
+    # its own. Marked rather than exempted by file name, and registered in
+    # pytest.ini.
+    @pytest.mark.reaches_a_server_it_starts_itself
     def test_daemon_startup(self):
         # A unique per-run bus name: the resident production daemon owns
         # com.intergenos.InterGen on this box, and the single-instance guard

@@ -44,6 +44,7 @@ from unittest import mock
 
 from intergen.interfaces.types import ToolResult
 from intergen.intents import register_all_intents
+from intergen.interfaces.types import LLMResponse
 from intergen.llm import LLMRouter
 from intergen.router import ConversationRouter
 from intergen.semantic import SemanticMatcher
@@ -57,6 +58,9 @@ GENERATOR_YES = "please do"
 SUNSET_ASK = "What time will the sun set in Mount Olive, AL, today?"
 
 OFFER_SOURCE = "current_data_offer"
+
+# What the model would have written over the tool's output, had one been asked.
+_SYNTHESIS_STAND_IN = "(the model's synthesis of the tool result, withheld in this test)"
 
 _REG = ToolRegistry()
 _REG.discover_tools()
@@ -72,9 +76,40 @@ def _router() -> ConversationRouter:
     """
     matcher = SemanticMatcher(embedder=None)
     register_all_intents(matcher)
-    return ConversationRouter(
+    router = ConversationRouter(
         tool_registry=_REG, semantic_matcher=matcher,
         llm=LLMRouter(config=None), lock_dispatch=True)
+    return _with_the_model_replaced(router)
+
+
+def _with_the_model_replaced(router: ConversationRouter) -> ConversationRouter:
+    """Replace every model entry point this file can reach.
+
+    WHICH ONE IT WAS, measured rather than guessed: after the offer is accepted
+    the search dispatches, and `_synthesize_tool_result` hands the tool's output
+    back to the model's COMPLETION method to be turned into a sentence. That
+    call was live until now — on a machine with a server up it went out, and on
+    a machine without one it failed quietly and the reply came from the tool's
+    own output instead, so the same case measured two different programs. The
+    streaming method is replaced with it, not because a case here reaches it
+    today but because the next one might, and the guard in this directory's
+    conftest would then stop the run rather than let it drift again.
+
+    WHAT THIS DOES NOT CHANGE: every assertion in this file is about the ROUTING
+    — which tool was dispatched, with which query, and which rung answered. The
+    synthesis text was never the thing under test; the case that says the reply
+    must not deny knowing the location now measures the assistant's own composed
+    reply rather than a sentence a live model happened to produce.
+    """
+    def _chat(messages, **kwargs):
+        return LLMResponse(text=_SYNTHESIS_STAND_IN, model="stand-in")
+
+    def _stream_with_tools(messages, *, tools=(), **kwargs):
+        yield _SYNTHESIS_STAND_IN
+
+    router._llm.chat = _chat
+    router._llm.stream_with_tools = _stream_with_tools
+    return router
 
 
 class _DispatchRecorder:

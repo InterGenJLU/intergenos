@@ -61,6 +61,7 @@ from unittest import mock
 from intergen.interfaces.semantic import MatchResult
 from intergen.interfaces.types import Provenance, ToolCall, ToolResult
 from intergen.intents import register_all_intents
+from intergen.interfaces.types import LLMResponse
 from intergen.llm import LLMRouter
 from intergen.router import ConversationRouter
 from intergen.semantic import SemanticMatcher
@@ -163,9 +164,39 @@ class _FixedLayerTwoMatcher(SemanticMatcher):
         return self._fixed_verdict
 
 
+# What the model would have written over the tool's output, had one been asked.
+_SYNTHESIS_STAND_IN = "(the model's synthesis of the tool result, withheld in this test)"
+
+
 def _router(matcher: SemanticMatcher) -> ConversationRouter:
-    return ConversationRouter(tool_registry=_REGISTRY, semantic_matcher=matcher,
-                              llm=LLMRouter(config=None), lock_dispatch=True)
+    """A router whose admission decision is under test and whose model is not.
+
+    WHICH MODEL CALL THIS REPLACES, measured rather than guessed: once a
+    candidate is admitted the tool runs, and `_synthesize_tool_result` hands its
+    output to the model's COMPLETION method to be turned into a sentence. That
+    call was live until now, so on a machine with a server up these cases sent
+    it eight requests per run, and on a machine without one the synthesis failed
+    quietly and the reply fell back to the tool's own output — the same cases
+    measuring two different programs. Every assertion here is about the
+    ADMISSION and the score it reports, never about the sentence, so replacing
+    the model changes what the cases depend on and not what they state.
+
+    The streaming method is replaced with it, not because a case here reaches it
+    today but because the next one might, and this directory's conftest would
+    then stop the run rather than let it drift again.
+    """
+    router = ConversationRouter(tool_registry=_REGISTRY, semantic_matcher=matcher,
+                                llm=LLMRouter(config=None), lock_dispatch=True)
+
+    def _chat(messages, **kwargs):
+        return LLMResponse(text=_SYNTHESIS_STAND_IN, model="stand-in")
+
+    def _stream_with_tools(messages, *, tools=(), **kwargs):
+        yield _SYNTHESIS_STAND_IN
+
+    router._llm.chat = _chat
+    router._llm.stream_with_tools = _stream_with_tools
+    return router
 
 
 def _selected(intent_id: str, tool_name: str, score: float) -> MatchResult:
