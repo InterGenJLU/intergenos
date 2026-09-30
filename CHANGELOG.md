@@ -1990,6 +1990,13 @@ landed is in the repository README, not here.
   whole payload is still shown in a scrollable view, Cancel, Escape and closing
   the window still send nothing, the branded dialog is still tried first, and a
   send nobody was asked about is still reported as that rather than as the
+  person's own cancel. The same dialog also no longer waits for ever: it is
+  opened with the one-hour limit the branded dialog already carried, and a
+  dialog nobody answers in that time is closed with nothing sent and reported as
+  content that could not be shown for review — not as a cancel the person never
+  made. Before this it was opened with no limit at all, so a dialog program that
+  never came back held the thread that was going to answer for as long as it
+  lived, with nothing recorded anywhere.
   person's own cancel.
 - **`pkm install <app>` for a proprietary-download package no longer installs
   a cached archive the signed index does not vouch for.** When the helper

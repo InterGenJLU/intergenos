@@ -138,6 +138,17 @@ def _prompt_consent_zenity(content: str, provider: str, reason: str) -> bool | N
     send until the person ticks REVIEW_ACKNOWLEDGED. A display zenity cannot
     open also exits 1; its warning on standard error tells it apart, and that
     case returns None (nothing was shown).
+
+    The call carries the deadline the branded dialog already carries,
+    ``consent_dialog_proto.POST_RENDER_DEADLINE_SECONDS`` — the same constant,
+    read from there rather than restated, whose own comment says the branded
+    path and the fallback expire identically. They did not: this call had no
+    deadline at all, so a dialog program that never returned held the calling
+    thread for as long as the process lived, with no record anywhere that a
+    person had been asked and had not answered. At the deadline the program is
+    killed (``subprocess.run`` kills and reaps it before raising) and the
+    answer is None, which the caller records as the content not having been
+    shown — never as the person's decline, and never as a send.
     """
     zenity = shutil.which("zenity")
     if zenity is None:
@@ -163,7 +174,19 @@ def _prompt_consent_zenity(content: str, provider: str, reason: str) -> bool | N
                 f"--checkbox={REVIEW_ACKNOWLEDGED}",
             ],
             input=body, capture_output=True, text=True,
+            timeout=consent_dialog_proto.POST_RENDER_DEADLINE_SECONDS,
         )
+    except subprocess.TimeoutExpired:
+        # Nobody answered inside the deadline. subprocess.run has already
+        # killed the dialog program and reaped it, so nothing is left holding
+        # the display or the payload. This is not the person's Cancel: they
+        # were shown the content and said nothing, so the honest record is the
+        # one for a send nobody was asked about, and the reply says that.
+        logger.error("zenity did not return within %.0fs — the dialog was killed "
+                     "at the deadline and nothing was sent; nobody answered, so "
+                     "this is recorded as the content not having been shown",
+                     consent_dialog_proto.POST_RENDER_DEADLINE_SECONDS)
+        return None
     except OSError as e:
         # zenity could not be started, so nothing was shown and nobody was
         # asked: that is the fallback's case (a notification, no send), not a
