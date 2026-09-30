@@ -7242,7 +7242,7 @@ Software TPM emulator with socket and control channel interfaces
 - License: `BSD-3-Clause`
 - Homepage: https://github.com/stefanberger/swtpm
 
-### tailscale (1.98.5)
+### tailscale (1.102.4)
 
 WireGuard-based mesh VPN — tailscale CLI + tailscaled node agent
 
