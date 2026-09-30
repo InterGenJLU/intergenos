@@ -243,11 +243,6 @@ def _the_assistants_own_error(failure: list) -> str | None:
     return None
 
 
-# The error the message bus library answers with for a call to an object path
-# nothing has registered, as the assistant's path is until its start finishes.
-_UNKNOWN_METHOD = "org.freedesktop.DBus.Error.UnknownMethod"
-
-
 def _the_error_that_answered(failure: list) -> tuple[str, str] | None:
     """``(name, text)`` of the error a call was answered with, when that error
     is not the assistant's own; None when no error answered the call.
@@ -645,11 +640,6 @@ def _report_a_call_that_did_not_complete(what: str, when_running: str,
     elif holder_is == "the service":
         print(f"  process {holder_pid} is the managed service's own main "
               "process", file=sys.stderr)
-        if answered is not None and answered[0] == _UNKNOWN_METHOD:
-            print("  the service registers the interface this call uses at "
-                  "the end of its start and answers this way until it has; "
-                  "the daemon log shows whether its start is still running or "
-                  "the registration failed", file=sys.stderr)
     print("Check the daemon logs for details:", file=sys.stderr)
     print("  journalctl --user -u intergen -n 50", file=sys.stderr)
 

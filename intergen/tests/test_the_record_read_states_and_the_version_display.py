@@ -519,10 +519,26 @@ class TheHolderOfTheNameIsReadBeforeAnythingIsAdvised(unittest.TestCase):
 class AnAnsweredErrorIsReportedAsTheErrorItIs(unittest.TestCase):
     """Finding 4, second half: an error the holder of the name answered with
     is an answer, reported with its name and text; "did not complete in time"
-    is kept for a call that reached its time limit."""
+    is kept for a call that reached its time limit.
+
+    The error name alone is also not read as a state of the service: one bus
+    error name covers both an object or interface nothing has registered and a
+    registered interface that lacks the method the call asked for, so neither
+    answer is followed by a reading of whether the start has finished."""
 
     UNKNOWN_OBJECT = ("org.freedesktop.DBus.Error.UnknownMethod",
                       "Object does not exist at path “/com/intergenos/InterGen”")
+
+    # The same error name, answered by an interface that finished registering
+    # and does not have the method the call asked for. Measured on a private
+    # message bus against a stand-in that registered an interface without the
+    # newer method, with the stand-in service manager reporting the holder as
+    # the service's own main process: the call is answered at once, and the
+    # state the old reading named - a start that has not finished - is not the
+    # state the machine was in.
+    UNKNOWN_METHOD_ON_A_REGISTERED_INTERFACE = (
+        "org.freedesktop.DBus.Error.UnknownMethod",
+        "No such method “Escalate”")
 
     def _answer(self, name: str, text: str):
         return Gio.DBusError.new_for_dbus_error(name, text)
@@ -543,7 +559,7 @@ class AnAnsweredErrorIsReportedAsTheErrorItIs(unittest.TestCase):
                                  "the call was answered, at once")
                 self.assertNotIn("try again in a moment", said)
 
-    def test_the_services_own_unknown_object_answer_points_at_its_start(self) -> None:
+    def test_the_services_own_unknown_object_answer_reads_no_further(self) -> None:
         answers = _answered_with(self._answer(*self.UNKNOWN_OBJECT), "active",
                                  holder=(5151, "python3 /usr/bin/intergen "
                                                "daemon"),
@@ -551,12 +567,43 @@ class AnAnsweredErrorIsReportedAsTheErrorItIs(unittest.TestCase):
         for name, (code, said) in answers.items():
             with self.subTest(name):
                 self.assertEqual(code, 2)
+                self.assertIn(": ".join(self.UNKNOWN_OBJECT), said)
                 self.assertIn("process 5151 is the managed service's own main "
                               "process", said)
-                self.assertIn("at the end of its start", said,
-                              "the service holds its name before it registers "
-                              "the interface")
+                self.assertNotIn("registers the interface", said,
+                                 "this error name does not establish that a "
+                                 "registration is unfinished")
+                self.assertNotIn("at the end of its start", said)
                 self.assertNotIn("did not complete in time", said)
+                self.assertNotIn("loading", said)
+
+    def test_a_registered_interface_missing_the_method_reads_no_further(self) -> None:
+        """The counterexample: the same error name from an interface that
+        finished registering. The report gives the error and the process
+        facts, and adds nothing about a start."""
+        answers = _answered_with(
+            self._answer(*self.UNKNOWN_METHOD_ON_A_REGISTERED_INTERFACE),
+            "active", holder=(5151, "python3 /usr/bin/intergen daemon"),
+            main_pid=5151)
+        for name, (code, said) in answers.items():
+            with self.subTest(name):
+                self.assertEqual(code, 2)
+                self.assertIn("was answered with an error instead of a reply",
+                              said)
+                self.assertIn(
+                    ": ".join(self.UNKNOWN_METHOD_ON_A_REGISTERED_INTERFACE),
+                    said)
+                self.assertIn("service state: intergen.service (user) is "
+                              "active", said)
+                self.assertIn("process 5151 is the managed service's own main "
+                              "process", said)
+                self.assertNotIn("registers the interface", said,
+                                 "the interface here is registered; the error "
+                                 "is the method it does not have")
+                self.assertNotIn("at the end of its start", said)
+                self.assertNotIn("did not complete in time", said,
+                                 "the call was answered, at once")
+                self.assertNotIn("loading", said)
 
     def test_other_errors_are_reported_as_answered_too(self) -> None:
         # An error the bus itself sends, and a name one character away from
