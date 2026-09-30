@@ -464,6 +464,74 @@ class UndeterminableLinks(_ScratchRoot):
         self.assertEqual(result["exit_code"], EXIT_MODIFIED)
 
 
+class HookGeneratedDirectoryRows(_ScratchRoot):
+    """A hook-generated directory row meets the resolve rule like every owned path.
+
+    verify selects a directory row only when the package's own hook created
+    it, and passes a present one without a line of its own: a directory holds
+    no content to check. The link probe runs BEFORE that pass, so a row whose
+    path is now a link to nothing is reported dangling instead of passing as a
+    present directory. These two cases hold that order; with the pass moved
+    ahead of the probe, every other test in tests/pkm still passes.
+    """
+
+    def _generated_dir(self, name, rel):
+        pkg_id = self._own(name, [rel + "/"])
+        self.db.mark_files_generated(pkg_id, [rel + "/"])
+        rows = self.db.conn.execute(
+            "SELECT path, is_dir, is_generated FROM files WHERE package_id = ?",
+            (pkg_id,)).fetchall()
+        self.assertEqual([(rel, 1, 1)], [tuple(r) for r in rows],
+                         "precondition: one hook-generated directory row")
+
+    def _cli(self, package):
+        from pkm import cli
+
+        class _Args:
+            verify_mode = "strict"
+            verify_all = False
+            verify_detail = False
+
+        args = _Args()
+        args.package = package
+        out = io.StringIO()
+        code = 0
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+            try:
+                code = cli.cmd_verify(self.db, args) or 0
+            except SystemExit as exc:
+                code = exc.code
+        return code, out.getvalue()
+
+    def test_a_generated_directory_row_that_is_a_link_to_nothing_is_dangling(self):
+        self._link("usr/share/gd2", "no-such-directory")
+        self._generated_dir("gd2", "usr/share/gd2")
+        for mode in ("strict", "fast"):
+            with self.subTest(mode=mode):
+                result = self._verify("gd2", mode=mode)
+                self.assertEqual(result.get("dangling"), ["usr/share/gd2"])
+                self.assertEqual(result["missing"], [])
+                self.assertEqual(result["exit_code"], EXIT_MODIFIED)
+        code, text = self._cli("gd2")
+        self.assertEqual(code, 1)
+        self.assertIn("/usr/share/gd2 -> no-such-directory", text)
+
+    def test_a_real_generated_directory_gets_no_line(self):
+        (self.root / "usr/share/gd1").mkdir(parents=True)
+        self._generated_dir("gd1", "usr/share/gd1")
+        for mode in ("strict", "fast"):
+            with self.subTest(mode=mode):
+                result = self._verify("gd1", mode=mode)
+                for key in ("dangling", "missing", "modified", "undeterminable",
+                            "generated", "generated_absent"):
+                    self.assertEqual(result.get(key, []), [], key)
+                self.assertEqual(result["exit_code"], EXIT_OK)
+        code, text = self._cli("gd1")
+        self.assertEqual(code, 0)
+        self.assertIn("gd1: ok", text)
+        self.assertNotIn("usr/share/gd1", text)
+
+
 class ResultShapeAndTrace(_ScratchRoot):
 
     def test_trace_event_carries_the_dangling_count(self):
