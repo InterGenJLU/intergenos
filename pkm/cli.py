@@ -1778,6 +1778,43 @@ def _rollback_proprietary(db, pkg_name, reporter):
         reporter.warn(f"could not fully roll back {pkg_name}: {e}")
 
 
+def _trusted_cached_archive(archive, index_entry):
+    """S5-1, once: what a cached archive may be trusted as (security-review
+    2026-07-01).
+
+    A cached archive is trusted ONLY when its sha256 equals the one the signed
+    index carries for that package. Returns `(archive, expected_sha256)` when it
+    is — the caller hands that sha256 to `install()`, whose install-time re-hash
+    then guards the file against a swap between this check and the extraction —
+    and None when it is not, which is the caller's signal to fetch the verified
+    package instead. An archive the index does not list, or lists with another
+    hash, is never used.
+
+    ONE function because the rule had grown three copies — the helper-install
+    lay-down step, `pkm install` and `pkm reinstall` — each reading the index,
+    comparing the hash and threading it onward. Three implementations of one
+    security rule drift apart silently, and a tightening applied to two of them
+    would leave the third weaker with nothing saying so (second-read finding,
+    2026-09-30). The three paths differ only in how the archive reaches them,
+    which is what this takes as its argument.
+
+    It DECIDES and does not report: each call site keeps the sentence its own
+    person reads, because those sentences are deliberately not identical — only
+    `pkm install`, where a person can have named an archive themselves, names the
+    deliberate-local-install command, and that advice must not spread to a
+    proprietary download helper's path where there is nothing for it to mean.
+
+    The file is hashed only once the index has offered a hash to compare it
+    against, so an unlisted archive costs no read.
+    """
+    if not archive:
+        return None
+    expected = (index_entry or {}).get("sha256")
+    if expected and expected == _sha256(str(archive)):
+        return archive, expected
+    return None
+
+
 def _proprietary_install(db, installer, repo, reporter, pkg_name, payload_license,
                          replace=False, target_version=None):
     """pkm 2b items 1+3 — unified `pkm install <app>` for a proprietary-download
@@ -1886,18 +1923,17 @@ def _proprietary_install(db, installer, repo, reporter, pkg_name, payload_licens
         expected_sha = None
         refused = None
         if archive:
-            # S5-1 (security-review 2026-07-01): trust the cached archive ONLY
-            # when its sha256 matches the signed index, and hand that sha256 to
-            # install() so its install-time re-hash guards the file; otherwise
-            # leave it and fetch the verified package. This path passes
+            # S5-1: the rule is _trusted_cached_archive above, the one copy all
+            # three cached-archive paths now apply. This path passes
             # archive_path explicitly, so install()'s implicit-resolution
-            # backstop does not fire here — this is the helper install's own
-            # copy of the gate cmd_install and cmd_reinstall apply. Without it
-            # a cached archive the index does not list, or lists with another
+            # backstop does not fire here — which is why the gate has to be
+            # applied before the call rather than relied upon inside it. Without
+            # it a cached archive the index does not list, or lists with another
             # sha256, was installed as root with no expected hash.
             _rp = repo.get_package(pkg_name)
-            if _rp and _rp.get("sha256") == _sha256(str(archive)):
-                expected_sha = _rp["sha256"]
+            _trusted = _trusted_cached_archive(archive, _rp)
+            if _trusted:
+                archive, expected_sha = _trusted
                 reporter.verify(
                     f"cached archive {archive.name} matches the signed index ✓")
             else:
@@ -2254,9 +2290,12 @@ def cmd_install(db, args):
         if not archive:
             _local = installer._find_archive(pkg_name)
             if _local:
+                # S5-1: _trusted_cached_archive above is the rule; only the
+                # sentences below are this path's own.
                 _rp = repo.get_package(pkg_name)
-                if _rp and _rp.get("sha256") == _sha256(str(_local)):
-                    archive, archive_sha = str(_local), _rp["sha256"]
+                _trusted = _trusted_cached_archive(_local, _rp)
+                if _trusted:
+                    archive, archive_sha = str(_trusted[0]), _trusted[1]
                     reporter.verify(
                         f"cached archive {_local.name} matches the signed index ✓")
                 elif _rp and _rp.get("sha256"):
@@ -2635,14 +2674,13 @@ def cmd_reinstall(db, args):
         archive_path = installer._find_archive(pkg_name)
         expected_sha = None
         if archive_path:
-            # S5-1 (security-review 2026-07-01): trust the cached archive ONLY
-            # when its sha256 matches the signed index; otherwise discard it and
-            # fetch the verified package. Reinstall passes archive_path
-            # explicitly, so install()'s implicit-resolution backstop does not
-            # fire here — this is reinstall's own copy of the same gate.
+            # S5-1: the rule is _trusted_cached_archive above. Reinstall passes
+            # archive_path explicitly, so install()'s implicit-resolution
+            # backstop does not fire here either.
             _rp = repo.get_package(pkg_name)
-            if _rp and _rp.get("sha256") == _sha256(str(archive_path)):
-                expected_sha = _rp["sha256"]
+            _trusted = _trusted_cached_archive(archive_path, _rp)
+            if _trusted:
+                archive_path, expected_sha = _trusted
                 reporter.verify(
                     f"cached archive {archive_path.name} matches the signed index ✓")
             else:
