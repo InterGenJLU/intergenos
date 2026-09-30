@@ -61,12 +61,16 @@ of the ladder cannot be exercised and registration logs nine "Embedding intent
 about a clause that NO carrier claims, which is forced deterministically here —
 but the semantic carrier's own behaviour is not measured by this file.
 
-Model stubbed at the LLM boundary; no engine, no bus, no dispatch execution.
+Model stubbed at BOTH LLM boundaries — `chat` for the freeform rung and
+`stream_with_tools` for the native tier's tools rung; no engine, no bus, no
+dispatch execution. `TheseCasesReachNothingLive` asserts that against a
+network boundary armed to raise, so the isolation is measured, not claimed.
 """
 
 from __future__ import annotations
 
 import unittest
+from unittest import mock
 
 from intergen.decomposer import analyze_query, split_compound
 from intergen.dispatch_policy import (
@@ -115,7 +119,24 @@ def _router(tier: HardwareTierLevel, *, replies=()) -> ConversationRouter:
         calls["n"] += 1
         return seq[min(calls["n"] - 1, len(seq) - 1)] if seq else _Resp("")
 
+    def _stream_with_tools(messages, *, tools=(), **kw):
+        """The rung `chat` does not cover, stubbed at the same boundary.
+
+        `_try_llm_tools` calls THIS method, not `chat`, and only the native
+        tier reaches it — the other two floor to LOCKED and are refused at its
+        entry gate — so a chat-only stub left exactly one tier of this file
+        talking to whatever model server the machine running the suite happens
+        to have up. It yields the reply as streamed text and no ToolCall: the
+        "the model answered without calling a tool" shape, which dispatches
+        nothing.
+        """
+        calls["with_tools"].append(len(tools))
+        text = seq[min(len(calls["with_tools"]) - 1, len(seq) - 1)].text if seq else ""
+        if text:
+            yield text
+
     r._llm.chat = _chat
+    r._llm.stream_with_tools = _stream_with_tools
     r._chat_calls = calls
     return r
 
@@ -152,6 +173,62 @@ class _Resp:
 
 # The two clauses the re-drive recorded reaching a no-tool model turn.
 UNCARRIED_ACTION_CLAUSES = ("find a pdf editor", "check if docker is installed")
+
+
+class _NetworkBoundaryReached(BaseException):
+    """Deliberately NOT an Exception.
+
+    Every HTTP call in intergen/llm.py sits inside `except Exception`, which
+    logs the failure and returns an empty stream; the router reads that as an
+    unhandled rung and walks on. A control that raised a plain Exception would
+    therefore be swallowed and the case would pass WITH the connection already
+    made — measured on this file before the stub below covered both boundaries.
+    """
+
+
+class TheseCasesReachNothingLive(unittest.TestCase):
+    """The isolation this file's header claims, asserted rather than assumed.
+
+    `_router` replaces both model entry points because the ladder's last two
+    rungs take different ones: `_try_llm_freeform` calls `chat`, and the native
+    tier's `_try_llm_tools` calls `stream_with_tools`. While only `chat` was
+    replaced, one cell of the nine below — the native tier answering the
+    knowledge clause — opened the daemon's own chat-completions endpoint with
+    the real tool schemas attached, so whether these cases passed depended on
+    whether a model server happened to be listening on the machine running
+    them, and a live answer could have chosen a tool during a unit test.
+
+    `urllib.request.urlopen` is the single boundary every one of those paths
+    takes, so arming it to record and refuse states the whole claim at once.
+    """
+
+    CLAUSES = ("what is a pdf",) + UNCARRIED_ACTION_CLAUSES
+
+    def test_no_routed_clause_opens_a_connection(self) -> None:
+        for name, tier in TIERS:
+            for clause in self.CLAUSES:
+                with self.subTest(tier=name, clause=clause):
+                    r = _router(tier, replies=[_Resp("A PDF is a document format.")])
+                    opened: list[str] = []
+
+                    def _refuse(req, *_a, **_kw):
+                        opened.append(getattr(req, "full_url", repr(req)))
+                        raise _NetworkBoundaryReached(opened[-1])
+
+                    result = None
+                    try:
+                        with mock.patch("urllib.request.urlopen", _refuse):
+                            result = _route_clause(r, clause)
+                    except _NetworkBoundaryReached:
+                        pass
+                    self.assertEqual(
+                        opened, [],
+                        f"[{name}] {clause!r} reached the network — a model "
+                        f"entry point this file believes it has stubbed")
+                    self.assertTrue(
+                        result.handled,
+                        f"[{name}] {clause!r} was not handled with the model "
+                        f"stubbed at both boundaries")
 
 
 class TheTierPostureIsTheProductsOwn(unittest.TestCase):
