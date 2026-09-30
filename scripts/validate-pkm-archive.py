@@ -66,7 +66,10 @@ def recipe_versions():
         for pkg_yml in sorted(PACKAGES_DIR.glob("*/*/package.yml")):
             try:
                 data = yaml.load(pkg_yml.read_text(), Loader=loader) or {}
-            except Exception:
+            except Exception as e:
+                # A recipe skipped here is read the release-less way; say which.
+                print(f"validate-pkm-archive: skipped {pkg_yml}: it could not be parsed "
+                      f"({e})", file=sys.stderr)
                 continue
             if not isinstance(data, dict) or data.get("version") is None:
                 continue

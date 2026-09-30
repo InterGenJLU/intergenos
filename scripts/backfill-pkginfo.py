@@ -63,7 +63,10 @@ def load_recipe_tiers(repo_root: Path) -> dict:
     for yml in sorted(repo_root.glob("packages/*/*/package.yml")):
         try:
             d = yaml.safe_load(yml.read_text()) or {}
-        except Exception:
+        except Exception as e:
+            # A recipe skipped here has no tier in this map; say which.
+            print(f"backfill-pkginfo: skipped {yml}: it could not be parsed "
+                  f"({e})", file=sys.stderr)
             continue
         n = d.get("name")
         if n:
@@ -83,7 +86,10 @@ def load_recipe_versions(repo_root: Path) -> dict:
     for yml in sorted(repo_root.glob("packages/*/*/package.yml")):
         try:
             d = yaml.safe_load(yml.read_text()) or {}
-        except Exception:
+        except Exception as e:
+            # A recipe skipped here is read the release-less way; say which.
+            print(f"backfill-pkginfo: skipped {yml}: it could not be parsed "
+                  f"({e})", file=sys.stderr)
             continue
         n, v = d.get("name"), d.get("version")
         if n and v is not None:
