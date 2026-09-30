@@ -85,7 +85,8 @@ _GROUP_RESOLVER = None
 # user's business.
 #
 #   status        — target identity, whether the target is attached, free bytes,
-#                   last-capture time, clock-skew events, pinned version ids,
+#                   last-capture time, each layer's newest version id and
+#                   unreadable-path COUNT, clock-skew events, pinned version ids,
 #                   and a queue COUNT plus a human sentence. Machine-level backup
 #                   health. Path-bearing fields are stripped (see _redact_for_read).
 #   queue-status  — the same queue view, same stripping.

@@ -25,9 +25,10 @@ Both sentences are rendered by named functions beside `timeline_subtitle`, so
 these cases state what the window says without opening a display — the window
 itself is drawn by a toolkit these cases do not start.
 
-Every case below is red at this lane's parent, each with the clean run beside
-it as a control, and the controls are red there too for the toast and the
-verdict note, because the functions that render them do not exist there.
+Nine cases below are red at this lane's parent: the two rendering functions
+and the engine helper do not exist there, so the clean-run controls for the
+toast and verdict note are red there too. The control that the verdict stays
+PROTECTED passes on both.
 """
 
 import os

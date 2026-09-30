@@ -115,6 +115,20 @@ def cmd_status(backend, args, rep):
         rep.info(f"  Target free: {_human(free)}")
     for layer, w in sorted(st.get("last_capture", {}).items()):
         rep.info(f"  Last {layer}: {_ts(w)}")
+    # The newest version of a layer can be short of its source, and this payload
+    # has carried that fact all along: `status --json` shows newest_unreadable
+    # while this surface printed the capture time alone — the same misleading
+    # omission the window correction removed, on the surface a person reads when
+    # they ask whether the machine is protected. A COUNT only, in the wording
+    # every other shipped path uses, and only where there is something to
+    # disclose: a zero printed for every layer on every status call would be
+    # noise a person learns to read past.
+    for layer, newest in sorted((st.get("newest_unreadable") or {}).items()):
+        short = newest.get("unreadable") or 0
+        if not short:
+            continue
+        rep.info(f"  Newest {layer}: {newest.get('version_id')} — "
+                 f"{short} path(s) could not be read")
     q = st.get("queue", {})
     if q.get("summary"):
         rep.info(f"  {q['summary']}")
