@@ -129,12 +129,14 @@ igos_helper_record_post_install_action \
 #     refuses the install with a loud error.
 
 # Pinned npm CLI version (bump in a helper release on an OpenAI release).
-# Set 2026-09-22 to 0.156.0 from registry.npmjs.org/@openai/codex/0.156.0:
-# dist.shasum e7c29bfd4e94973af2ea116c98a1f8f7b387e53b;
-# dist.integrity sha512-47dfpl2e8F47baSQTE+QaWzF/kKoOeR9YQ2fIBdRGzZZP2/QZ6D0uwLY2ZamS8ypov4UFtg92jZh8m+w65bsGg==.
+# Set 2026-09-30 to 0.159.2 from registry.npmjs.org/@openai/codex/0.159.2:
+# dist.shasum 2ebb1aa655e94cf870dc59905a067e797d7fb627;
+# dist.integrity sha512-SE13C3nZCYoVL569BdegoOl6vwjb7o2sXOo7ivwVzaVoY0cswwi0/6pIE0TyO/C0vIkQh3jslExitET7PBTfIg==.
+# The registry served 0.159.2 as its latest tag when this pin was taken.
+# Set 2026-09-22 to 0.156.0: dist.shasum e7c29bfd4e94973af2ea116c98a1f8f7b387e53b.
 # This is the npm CLI pin ONLY; the VS Code extension is versioned
 # independently and pinned separately in the extension block below.
-CODEX_PINNED_VERSION="0.156.0"
+CODEX_PINNED_VERSION="0.159.2"
 
 # Pre-install audit against critical-severity npm advisories. Runs
 # `npm audit` against a transient package.json in a temporary directory
@@ -234,11 +236,15 @@ igos_helper_record_dep nodejs
 # manual command. Bump on an extension release: update CODEX_VSIX_VERSION
 # and _SHA256 together. The asset is platform-specific, so _SHA256 is the
 # sha of the ${CODEX_VSIX_PLATFORM} asset.
-# Pinned 2026-09-22: gallery version 26.5917.61114 (the extension's own
-# package.json carries the same string), publisher openai, name chatgpt.
-CODEX_VSIX_VERSION="26.5917.61114"
+# Pinned 2026-09-30: gallery version 26.5917.62051 (the extension's own
+# package.json and its .vsixmanifest carry the same string, and that manifest
+# gives TargetPlatform linux-x64), publisher openai, name chatgpt. The sha256
+# below is of the downloaded ${CODEX_VSIX_PLATFORM} asset, 292583802 bytes.
+# The previous pin was gallery version 26.5917.61114; its own sha256 stays in
+# that pin's own commit rather than being repeated here.
+CODEX_VSIX_VERSION="26.5917.62051"
 CODEX_VSIX_PLATFORM="linux-x64"
-CODEX_VSIX_SHA256="7bb793ad1c37d89234ba1f90791b64ee146d9288ea4098136df0f4cc61e9dcac"
+CODEX_VSIX_SHA256="fa1dbd62788feb7bac15bc86e165aa1e6f0b56be7e364b1754310ef1d576e60c"
 
 ext_installed=0
 # Reason class for an extension that ends up NOT installed, from the fixed
