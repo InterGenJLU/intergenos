@@ -286,7 +286,21 @@ class Engine:
             result = {"queued": self.queue.enqueue(intent)}
             self._save_state()
             return result
-        return {"version_id": self._capture_now(layer, scope, reason)}
+        vid = self._capture_now(layer, scope, reason)
+        return {"version_id": vid, "unreadable": self._unreadable_of(layer, vid)}
+
+    def _unreadable_of(self, layer, version_id):
+        """The paths the capture could not read, from the committed manifest.
+
+        Read back from what was written rather than carried out of the capture
+        in memory, so the answer a person is given is the answer the manifest
+        holds. Capture is a .manage-tier verb, which is the tier the polkit
+        policy reserves for responses that can name paths, so returning them
+        here discloses nothing the caller was not already authorized for.
+        """
+        root = self._store_root_for(layer)
+        m = _manifest.find_version(root, layer, version_id) if root else None
+        return list((m or {}).get("unreadable", []))
 
     def _capture_now(self, layer, scope, reason):
         seq = self._next_sequence()
@@ -493,6 +507,12 @@ class Engine:
                 "pinned": m["version_id"] in pins,
                 "files": sum(1 for e in m.get("entries", [])
                              if e.get("type") == _manifest.T_FILE),
+                # A COUNT only. list is a .read-tier verb and the policy keeps
+                # paths out of that tier; the count is what makes a short
+                # version visible in the timeline, while capture and the
+                # manifest verb carry the paths for callers authorized to see
+                # them.
+                "unreadable": len(m.get("unreadable", [])),
             })
         return out
 

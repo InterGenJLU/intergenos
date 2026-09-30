@@ -96,15 +96,48 @@ def canonical_bytes(entries):
     ).encode("utf-8", "surrogateescape")
 
 
-def compute_root_hash(entries):
-    """The version's root hash: sha256 over the canonical entry serialization.
-    Recomputing it from the entries proves the manifest intact."""
-    return _cas.sha256_bytes(canonical_bytes(entries))
+def canonical_unreadable_bytes(unreadable):
+    """Deterministic serialization of the unreadable-path list, same rules as
+    canonical_bytes: sorted, keys sorted, compact, surrogateescape so a name
+    that is not valid UTF-8 is recorded rather than lost."""
+    ordered = sorted(unreadable, key=lambda u: u["path"])
+    return json.dumps(
+        ordered, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8", "surrogateescape")
 
 
-def build_manifest(layer, sequence, wall_clock, reason, entries):
-    """Assemble a manifest dict with its computed root hash."""
-    root = compute_root_hash(entries)
+def compute_root_hash(entries, unreadable=()):
+    """The version's root hash: sha256 over the canonical entry serialization,
+    and over the unreadable-path list when there is one.
+
+    A capture that could not read part of its source is not the same version as
+    one that read all of it, so the two cannot share a hash. The omission is
+    therefore INSIDE the integrity hash: anything that edits a committed
+    manifest to hide what was dropped makes it stop verifying.
+
+    With nothing unreadable the input is the entry serialization alone, byte for
+    byte as this engine has always computed it, so every manifest already on
+    disk keeps its hash and its version id.
+    """
+    payload = canonical_bytes(entries)
+    if unreadable:
+        payload += b"\n" + canonical_unreadable_bytes(unreadable)
+    return _cas.sha256_bytes(payload)
+
+
+def build_manifest(layer, sequence, wall_clock, reason, entries, unreadable=()):
+    """Assemble a manifest dict with its computed root hash.
+
+    `unreadable` is the list of paths the capture could not read, each a dict of
+    `path` and `error`. It is always present in the manifest, empty when the
+    capture read everything, so a reader never has to distinguish "nothing was
+    dropped" from "this engine did not record it".
+    """
+    unreadable = sorted(
+        ({"path": u["path"], "error": u["error"]} for u in unreadable),
+        key=lambda u: u["path"],
+    )
+    root = compute_root_hash(entries, unreadable)
     return {
         "chronicle_manifest_version": 1,
         "layer": layer,
@@ -112,6 +145,7 @@ def build_manifest(layer, sequence, wall_clock, reason, entries):
         "wall_clock": wall_clock,
         "reason": reason,
         "entries": entries,
+        "unreadable": unreadable,
         "root_hash": root,
         "version_id": _version_id(sequence, root),
     }
@@ -223,9 +257,12 @@ def _manifest_problem(path, layer, manifest):
             entry.get("sha256"), str
         ):
             return invalid(f"file entry {index} has no string sha256")
+    unreadable = manifest.get("unreadable", ())
+    if not isinstance(unreadable, (list, tuple)):
+        return invalid("unreadable is not a list")
     try:
-        recomputed = compute_root_hash(entries)
-    except (TypeError, ValueError) as exc:
+        recomputed = compute_root_hash(entries, unreadable)
+    except (TypeError, ValueError, KeyError) as exc:
         return invalid(
             f"entries cannot be hashed: {type(exc).__name__}: {exc}"
         )
@@ -338,7 +375,12 @@ def verify_version(store_root, manifest, store, file_checker=None):
     Returns (ok, problems).
     """
     problems = []
-    recomputed = compute_root_hash(manifest["entries"])
+    # The recompute must use the SAME inputs build_manifest used, or a version
+    # that recorded an unreadable path fails its own integrity check. A
+    # manifest written before this field existed has none, and compute_root_hash
+    # then hashes the entries alone exactly as it always did.
+    recomputed = compute_root_hash(
+        manifest["entries"], manifest.get("unreadable", ()))
     if recomputed != manifest.get("root_hash"):
         problems.append(
             f"root hash mismatch: manifest claims {manifest.get('root_hash')}, "

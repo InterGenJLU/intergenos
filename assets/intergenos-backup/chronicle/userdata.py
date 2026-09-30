@@ -104,13 +104,31 @@ def capture(source_roots, target_root, prev_manifest, sequence, wall_clock,
     ))
 
     entries = []
+    unreadable = []
     moved = False
+
+    def record_unreadable(error):
+        """os.walk's error hook. WITHOUT this argument os.walk swallows the
+        error from its own listing and yields nothing for that subtree, so a
+        directory the engine cannot read leaves no trace anywhere and the
+        version commits looking complete. Measured on an installed machine on
+        2026-09-30: one locked directory turned a 2762-file corpus into a
+        committed version of 2562 files with nothing said. An unreadable FILE
+        already fails the capture loudly, because the open() raises; this makes
+        the directory case visible instead of silent."""
+        unreadable.append({
+            "path": error.filename if error.filename is not None else "",
+            "error": f"{type(error).__name__}: {error.strerror or error}",
+        })
+
     try:
         for root in source_roots:
             root = str(root)
             if not os.path.exists(root):
                 continue
-            for dirpath, dirnames, filenames in os.walk(root, topdown=True):
+            for dirpath, dirnames, filenames in os.walk(
+                root, topdown=True, onerror=record_unreadable
+            ):
                 # Prune excluded directories so we never descend into them.
                 if is_excluded:
                     dirnames[:] = [
@@ -131,7 +149,8 @@ def capture(source_roots, target_root, prev_manifest, sequence, wall_clock,
                         ap, staging, prev_index, prev_tree, entries
                     )
         manifest = _manifest.build_manifest(
-            _paths.LAYER_USER_DATA, sequence, wall_clock, reason, entries
+            _paths.LAYER_USER_DATA, sequence, wall_clock, reason, entries,
+            unreadable
         )
         final_tree = userdata_tree(target_root, manifest["version_id"])
         if final_tree.exists():

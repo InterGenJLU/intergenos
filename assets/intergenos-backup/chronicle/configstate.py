@@ -61,20 +61,22 @@ def capture(config_paths, store_root, store, sequence, wall_clock, reason,
     """
     ex = tuple(excludes or ())
     entries = []
+    unreadable = []
     for base in config_paths:
         if not os.path.lexists(base):
             continue
         if _excluded(base, ex):
             continue
         if os.path.isdir(base) and not os.path.islink(base):
-            _walk_into(base, store, entries, ex)
+            _walk_into(base, store, entries, ex, unreadable)
         else:
             e = _manifest.capture_entry(base, base, store)
             if e is not None:
                 entries.append(e)
 
     m = _manifest.build_manifest(
-        _paths.LAYER_CONFIG_STATE, sequence, wall_clock, reason, entries
+        _paths.LAYER_CONFIG_STATE, sequence, wall_clock, reason, entries,
+        unreadable
     )
     _manifest.commit_manifest(store_root, m)
     return m["version_id"]
@@ -85,8 +87,22 @@ def _excluded(path, excludes):
     return any(p == e or p.startswith(e.rstrip("/") + "/") for e in excludes)
 
 
-def _walk_into(base, store, entries, excludes):
-    for dirpath, dirnames, filenames in os.walk(base, topdown=True):
+def _walk_into(base, store, entries, excludes, unreadable=None):
+    """Walk one config base. `unreadable` collects the paths the walk could not
+    read, for the same reason userdata.capture collects them: without an
+    onerror, os.walk drops an unreadable directory silently and the committed
+    config-state version is short with nothing said."""
+    def record_unreadable(error):
+        if unreadable is None:
+            return
+        unreadable.append({
+            "path": error.filename if error.filename is not None else "",
+            "error": f"{type(error).__name__}: {error.strerror or error}",
+        })
+
+    for dirpath, dirnames, filenames in os.walk(
+        base, topdown=True, onerror=record_unreadable
+    ):
         # Prune excluded subtrees.
         dirnames[:] = [
             d for d in dirnames

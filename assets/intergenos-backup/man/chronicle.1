@@ -73,6 +73,15 @@ hardlink, even when the size and nanosecond timestamp match. If a source
 changes during capture, the capture fails without committing that version;
 retry after the writer has finished. This checks individual files and does
 not make a filesystem-wide atomic snapshot.
+.PP
+A capture that could not read part of its source still commits \(em refusing
+would let one unreadable directory destroy all coverage \(em but it never does
+so silently. Each unreadable path is recorded in the committed manifest, named
+on standard error with the reason it could not be read, and counted in the
+.B list
+timeline for that version; the command exits non-zero so a script is told the
+version is short of its source. An unreadable file has always failed the
+capture outright; an unreadable directory used to be dropped without a trace.
 .TP
 .BR diff " \fILAYER\fR \fIVERSION\fR \fIPATH\fR"
 Show a then-vs-now diff for a path against a stored version.

@@ -154,8 +154,10 @@ def cmd_list(backend, args, rep):
     rep.info(f"{args.layer} timeline ({len(vs)} version(s)):")
     for v in vs:
         pin = " [pinned]" if v.get("pinned") else ""
+        short = v.get("unreadable") or 0
+        warn = f"  [{short} path(s) could not be read]" if short else ""
         rep.info(f"  {v['version_id']}  {_ts(v['wall_clock'])}  "
-                 f"{v['files']} files  {v.get('reason','')}{pin}")
+                 f"{v['files']} files  {v.get('reason','')}{pin}{warn}")
 
 
 def cmd_capture(backend, args, rep):
@@ -169,6 +171,18 @@ def cmd_capture(backend, args, rep):
         rep.info(f"Queued for the off-peak window: {res['queued']}")
     else:
         rep.info(f"Captured {args.layer} version {res['version_id']}")
+        # A capture that could not read part of its source says so here, at the
+        # moment it happens, and names what it missed. Without this the only
+        # signal is a file count the person has no way to check against their
+        # own tree, and the status is the difference between a backup a script
+        # can trust and one it cannot.
+        missed = res.get("unreadable") or []
+        if missed:
+            rep.error(f"{len(missed)} path(s) could not be read and are NOT in "
+                      "this version:")
+            for u in missed:
+                rep.error(f"  {u['path']} — {u['error']}")
+            return 1
 
 
 def cmd_diff(backend, args, rep):
