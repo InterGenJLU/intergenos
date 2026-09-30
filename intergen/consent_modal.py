@@ -16,9 +16,9 @@ consent is a different decision (an egress payload + a provider, Send/Cancel), s
 gets its own modal but REUSES review_modal's proven session-detect + zenity-primary +
 libnotify-degrade discipline.
 
-Fail-closed: anything other than an explicit Send is a Cancel (deny). zenity
-unavailable / session inactive / notify-send unavailable / any error -> Cancel. An
-egress to a third party must never default to send.
+Fail-closed: anything other than an explicit Send is denied. zenity
+unavailable / session inactive / notify-send unavailable / any error -> deny.
+An egress to a third party must never default to send.
 """
 
 from __future__ import annotations
@@ -113,8 +113,8 @@ def _format_body(content: str, provider: str, reason: str) -> str:
 
 def _prompt_consent_zenity(content: str, provider: str, reason: str) -> bool | None:
     """Synchronous zenity --text-info modal (scrollable, full payload). Returns
-    True (Send) / False (Cancel), or None if zenity is unavailable so the caller
-    can route to the fallback.
+    True (Send) / False (Cancel), or None if zenity is unavailable, cannot start,
+    or cannot open the display, so the caller can route to the fallback.
 
     Button mapping: --ok-label "Send" -> rc 0 (True); --cancel-label "Cancel" /
     Esc / window-close -> rc != 0 (False). zenity 4.2.2 applies --default-cancel
@@ -221,7 +221,7 @@ def prompt_send_consent(content: str, provider: str, reason: str = "", *,
 
 
 def _ask(content: str, provider: str, reason: str) -> str:
-    """The consent decision as SEND, DECLINED or NOT_SHOWN."""
+    """The consent decision as SEND, DECLINED, NOT_SHOWN or TOO_LARGE."""
     # Eval-mode deny-and-record. UNARMED in production, where this guard is False
     # and the function continues into the identical code path below — so shipped
     # consent behavior is unchanged. When an unattended baseline run has armed the
