@@ -290,6 +290,11 @@ class ConsoleShell:
                     title = "InterGen"
                     if source:
                         title += f"  [{source}]"
+                    # The reply's own declaration, when it made one: a turn it
+                    # says it did not answer is not titled as an answer.
+                    unanswered = msg.get("handled") is False
+                    if unanswered:
+                        title += "  — not an answer to this turn"
                     # Route by the message's KNOWN source, never by sniffing the
                     # model's own bytes (a model that emits an ESC could route
                     # ITSELF to the more-permissive from_ansi path and spoof a
@@ -305,7 +310,7 @@ class ConsoleShell:
                     r.print(Panel(
                         body,
                         title=f"{title}  {ts}",
-                        border_style=ACCENT,
+                        border_style="#f59e0b" if unanswered else ACCENT,
                         padding=(0, 1),
                     ))
                     tele = msg.get("telemetry")
@@ -330,14 +335,21 @@ class ConsoleShell:
     # -- Message helpers ----------------------------------------------------
 
     def _add_message(self, role: str, content: str, source: str = "",
-                     telemetry: dict | None = None) -> None:
-        self._messages.append({
+                     telemetry: dict | None = None,
+                     handled: bool | None = None) -> None:
+        entry = {
             "role": role,
             "content": content,
             "source": source,
             "timestamp": datetime.now().strftime("%H:%M:%S"),
             "telemetry": telemetry,
-        })
+        }
+        # Only a turn whose reply carried the declaration gets the key, so an
+        # entry without it is "nothing was declared" rather than "declared
+        # answered" — the distinction the command line's own reader keeps.
+        if handled is not None:
+            entry["handled"] = handled
+        self._messages.append(entry)
         self._app.invalidate()
 
     def _build_telemetry(self, msg: dict) -> dict:
@@ -348,7 +360,15 @@ class ConsoleShell:
         stats = msg.get("stats") or {}
         used_llm = bool(msg.get("used_llm", False))
         tools = stats.get("tool_calls_count", 0)
-        self._session["turns"] += 1
+        # The reply's own declaration that it did not answer the turn. The web
+        # delivery stamps it on every non-streamed response frame; the command
+        # line reads it (cli._deliver_answer) and exits non-zero on False. The
+        # console is its own renderer over the same wire, so it keeps the
+        # declaration too — dropping it here is what let an unanswered turn be
+        # filed as an answer and counted in the rollup.
+        handled = msg.get("handled", True)
+        if handled is not False:
+            self._session["turns"] += 1
         if used_llm:
             self._session["llm_hits"] += 1
         if tools:
@@ -356,6 +376,7 @@ class ConsoleShell:
         return {
             "source": msg.get("source", ""),
             "used_llm": used_llm,
+            "handled": handled,
             "total_ms": stats.get("total_ms"),
             "tokens": stats.get("tokens"),
             "tools": tools,
@@ -662,7 +683,12 @@ class ConsoleShell:
             # gets the raw with a "raw …" re-ask (handled server-side).
             if msg.get("full_output"):
                 content = f"{content}\n  (full output available — ask for the raw output)"
-            self._add_message("assistant", content, source, tele)
+            # A turn the reply itself declares it did not handle is still shown
+            # — the person should read what came back — but the entry keeps the
+            # declaration, so neither the stored record nor the view presents it
+            # as an answer.
+            self._add_message("assistant", content, source, tele,
+                              handled=tele.get("handled"))
 
         elif msg_type == "disconnected":
             self._add_message("system", "Disconnected from InterGen server.", "")
