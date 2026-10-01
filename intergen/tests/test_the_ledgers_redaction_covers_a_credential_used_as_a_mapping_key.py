@@ -35,13 +35,34 @@ file.
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from intergen import audit_log
+from intergen import glass
+from intergen import trace
 from intergen.glass import redact_persisted, redact_secret_shapes
-from intergen.interfaces.provenance import AuditRecord, Provenance
+from intergen.interfaces.provenance import (
+    AuditRecord,
+    DispatchDecision,
+    IngressTracker,
+    Provenance,
+    ToolRiskTier,
+)
+from intergen.interfaces.types import ToolCall
+from intergen.tool_registry import ToolRegistry
+
+# The corpus credential and its DERIVATION, imported rather than copied, from the
+# module that owns both. A literal copied beside an imported command goes stale
+# the moment the command changes, which is the defect a second reader found in
+# that module and which is corrected there.
+from intergen.tests.test_the_dispatch_ledger_redacts_at_its_write_boundary import (
+    BEARER_COMMAND,
+    bearer_secret,
+)
 
 # Synthetic, never a real credential. Two distinct values of the same shape, so
 # the no-silent-drop property can be measured.
@@ -108,6 +129,55 @@ class ACredentialUsedAsAMappingKeyIsNotPersisted(unittest.TestCase):
                          "the credential-shaped mapping key reached the file")
         self.assertNotIn(SECRET_B, written,
                          "the bare secret mapping key reached the file")
+        row = self._rows()[-1]
+        # Present with a named replacement, not merely absent: a writer that
+        # dropped the mapping would also pass an absence-only assertion.
+        self.assertIn("env", row["arguments"])
+        self.assertIn("headers", row["arguments"])
+        self.assertEqual(list(row["arguments"]["env"].values()), ["<redacted:credential-shaped-key>"])
+        self.assertEqual(list(row["arguments"]["headers"].values()), ["bearer"])
+
+    def test_the_production_caller_itself_keeps_a_mapping_key_credential_out(self):
+        """The dispatcher's own method, not a reproduction of what it does.
+
+        The corpus credential is used here, derived at use time, so this cell
+        cannot drift from the shared corpus; and the state home is redirected so
+        the production default path lands in this test's throwaway directory.
+        """
+        secret = bearer_secret()
+        # The derivation really is the shared corpus's, not a value invented here.
+        self.assertIn(secret, BEARER_COMMAND)
+        call = ToolCall(
+            name="probe",
+            arguments={"headers": {f"Authorization: Bearer {secret}": "present"}},
+            call_id="mapping-key-production-caller",
+            source_of_request=Provenance.USER_DIRECT,
+        )
+        decision = DispatchDecision(
+            action="execute",
+            effective_provenance=Provenance.USER_DIRECT,
+            needs_pkexec=False,
+            reason="no ingress fired this turn",
+            risk_tier=ToolRiskTier.READ_ONLY,
+        )
+        state_home = self.log_path.parent.parent
+        with mock.patch.dict(os.environ, {"XDG_STATE_HOME": str(state_home)}):
+            self.assertEqual(audit_log.default_log_path(), self.log_path)
+            ToolRegistry._audit_log_decision(
+                call, decision, IngressTracker(),
+                user_outcome="executed",
+                exit_code=0,
+                result_summary="ok",
+                source_attribution="",
+                excerpt="",
+            )
+        written = self.log_path.read_text(encoding="utf-8")
+        self.assertTrue(written, "the production caller wrote nothing at all")
+        self.assertNotIn(secret, written,
+                         "the production caller persisted a mapping-key credential")
+        row = self._rows()[-1]
+        self.assertIn("headers", row["arguments"])
+        self.assertEqual(len(row["arguments"]["headers"]), 1)
 
     # ---- the controls, which must pass before the fix as well as after ----
 
@@ -148,6 +218,103 @@ class ACredentialUsedAsAMappingKeyIsNotPersisted(unittest.TestCase):
                          "both values must still be present and paired")
         self.assertNotIn(SECRET_A, json.dumps(row))
         self.assertNotIn(SECRET_B, json.dumps(row))
+
+
+class EveryPersistedWriterIsCoveredForMappingKeys(unittest.TestCase):
+    """The key path, through EVERY persisted writer, with its ordinary control.
+
+    The chokepoint is shared, so a key-path gap is a gap in all three records at
+    once: the tool-dispatch ledger, the turn record and the decision tracer. One
+    writer proving the point would leave the other two asserted by argument
+    rather than by measurement, so each is driven here with the same pair -- a
+    credential used as a mapping key, which must not survive, and an ordinary
+    mapping whose keys must survive exactly.
+    """
+
+    def setUp(self) -> None:
+        self._td = tempfile.TemporaryDirectory(prefix="every-writer-keys-")
+        self.addCleanup(self._td.cleanup)
+        self.state_home = Path(self._td.name)
+        self.secret = bearer_secret()
+        self.assertIn(self.secret, BEARER_COMMAND)
+        self.key_with_secret = f"Authorization: Bearer {self.secret}"
+
+    # ---- writer 1: the tool-dispatch ledger ---------------------------------
+
+    def _ledger_row(self, arguments: dict) -> dict:
+        path = self.state_home / "intergen" / "tool-dispatch.jsonl"
+        record = AuditRecord(
+            timestamp="2026-10-01T00:00:00+00:00",
+            tool_name="probe",
+            arguments=arguments,
+            declared_provenance=Provenance.USER_DIRECT.value,
+            effective_provenance=Provenance.USER_DIRECT.value,
+            ingress_tools_this_turn=[],
+            user_decision="executed",
+        )
+        self.assertTrue(audit_log.write_record(record, path))
+        return json.loads(path.read_text(encoding="utf-8").splitlines()[-1])
+
+    def test_the_tool_dispatch_ledger_covers_the_key_path(self):
+        row = self._ledger_row({"headers": {self.key_with_secret: "present"}})
+        self.assertNotIn(self.secret, json.dumps(row))
+
+    def test_the_tool_dispatch_ledger_leaves_an_ordinary_mapping_alone(self):
+        ordinary = {"path": "/etc/fstab", "timeout": 30, "retries": 2}
+        row = self._ledger_row({"options": dict(ordinary)})
+        self.assertEqual(row["arguments"]["options"], ordinary)
+
+    # ---- writer 2: the turn record -----------------------------------------
+
+    def _glass_detail(self, detail: dict) -> dict:
+        previous = glass._glass
+        self.addCleanup(setattr, glass, "_glass", previous)
+        with mock.patch.dict(os.environ,
+                             {"XDG_STATE_HOME": str(self.state_home)}):
+            os.environ.pop("INTERGEN_GLASS", None)
+            glass._glass = None
+            logger = glass.get_glass()
+            logger._write_row({
+                "v": 1, "turn_id": "t", "seq": 0, "run": "r", "ts": 0.0,
+                "t_rel_ms": None, "iface": "daemon", "phase": "probe",
+                "event": "hand_built", "detail": detail, "dur_ms": None,
+            })
+        path = self.state_home / "intergen" / "glass.jsonl"
+        rows = [json.loads(line) for line
+                in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        return rows[-1]["detail"]
+
+    def test_the_turn_record_covers_the_key_path(self):
+        detail = self._glass_detail({"headers": {self.key_with_secret: "yes"}})
+        self.assertNotIn(self.secret, json.dumps(detail))
+
+    def test_the_turn_record_leaves_an_ordinary_mapping_alone(self):
+        ordinary = {"command": "pkm install firefox", "count": 3, "ok": True}
+        self.assertEqual(self._glass_detail({"detail": dict(ordinary)})["detail"],
+                         ordinary)
+
+    # ---- writer 3: the decision tracer -------------------------------------
+
+    def _traced_attributes(self, name: str, value) -> dict:
+        with mock.patch.dict(os.environ, {"INTERGEN_TRACE": "1"}):
+            tracer = trace.Tracer(
+                log_dir=str(self.state_home / "intergen"))
+            with tracer.span("route") as span:
+                span.set_attribute(name, value)
+        rows = [json.loads(line) for line
+                in Path(tracer._log_file).read_text(
+                    encoding="utf-8").splitlines() if line.strip()]
+        return rows[-1]["attributes"]
+
+    def test_the_decision_tracer_covers_the_key_path(self):
+        attributes = self._traced_attributes(
+            "headers", {self.key_with_secret: "present"})
+        self.assertNotIn(self.secret, json.dumps(attributes))
+
+    def test_the_decision_tracer_leaves_an_ordinary_mapping_alone(self):
+        ordinary = {"intent": "install", "clauses": 2}
+        self.assertEqual(self._traced_attributes("route", dict(ordinary)),
+                         {"route": ordinary})
 
 
 if __name__ == "__main__":
