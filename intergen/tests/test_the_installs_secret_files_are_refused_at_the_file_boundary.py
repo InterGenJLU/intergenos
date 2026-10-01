@@ -211,9 +211,16 @@ class TheSecretFilesAreRefusedAtTheFileBoundary(unittest.TestCase):
             "an ordinary directory argument does not name a secret file, and a "
             "check that claimed otherwise would be guessing",
         )
-        source = Path(dt.__file__).read_text(encoding="utf-8")
-        self.assertIn(
-            "outside what argument inspection can establish", source,
+        # Whitespace collapsed before the search: the sentence is a wrapped
+        # paragraph, so a needle that crossed one of its line breaks would report
+        # the text absent when it is present — the same mistake the reader of the
+        # previous range recorded against its own first attempt. assertTrue on the
+        # membership rather than assertIn on the source, because a failing
+        # assertIn prints the whole module into every capture that holds it.
+        source = " ".join(
+            Path(dt.__file__).read_text(encoding="utf-8").split())
+        self.assertTrue(
+            "outside what argument inspection can establish" in source,
             "the token module has to state the limit of the argument screen "
             "where a reader of the module will see it, because this route "
             "stays open until the tool's own process is confined",

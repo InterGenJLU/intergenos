@@ -38,14 +38,23 @@ startup-reliability reason) and is transparent + inspectable by the user
 the threat is prompt-INJECTION (which can only make the LLM emit a ToolCall — it
 cannot read the key file or call the mint), not RCE.
 
-THAT LAST CLAUSE IS ENFORCED, NOT ASSUMED, AS OF 2026-10-01. A ToolCall can read
-any file the daemon's own account can read, and this key is owned by that account,
-so "it cannot read the key file" was an intention until something refused the
-read: a file-reading tool dispatched at the key returned it in the tool result and
-in the audit record, with no review surface consulted. `secret_file_reason` below
-names the install's own secret files, and the dispatcher consults it for every
-tool call before any tool runs — so the sentence above is now a property of the
-code rather than a claim about the attacker.
+DIRECT CANONICAL SPELLINGS OF THE INSTALL CREDENTIAL FILES ARE SCREENED AS DEFENCE
+IN DEPTH. The dispatcher checks string argument values for the canonical relative
+names before execution. This is not a file-identity boundary: alternate path
+spellings and paths derived inside a tool are outside what argument inspection can
+establish.
+
+WHERE THE BOUNDARY IS, AS OF 2026-10-01. A ToolCall can read any file the daemon's
+own account can read, and this key is owned by that account, so "it cannot read
+the key file" held only as an intention until something refused the read. What
+refuses it is further down this module, at the point a file is actually opened:
+`open_descriptor_secret_reason` decides from the open descriptor, and the tools
+that open a path a caller supplied ask it after the open and before any read or
+write. One route stays outside every check this package can make: a tool that runs
+as its own process can be given an ordinary containing directory and derive the
+protected child itself, so nothing here is ever shown the protected name. That
+route is closed only by a boundary the tool's process cannot step outside, and
+this module claims nothing about it.
 
 DIVISION OF LABOR (AI-6 build, branch off master 5ce0dc41):
   * User side (this module + the mint call-site) — key gen-on-first-run, the canonical
@@ -90,11 +99,12 @@ TOKEN_VERSION = 1
 KEY_RELATIVE_PATH = (".config", "intergen", "dispatch-key")
 
 #: The install's OWN secret files, each relative to the owning user's home, with
-#: the reason a refusal states. The threat model in this module's header rests on
-#: a tool call being unable to read the key; `secret_file_reason` below is what
-#: makes that true rather than intended, and the dispatcher consults it for every
-#: tool call. The web-token is here for the same reason the header cites it as the
-#: precedent: it is the credential the browser surface authenticates with.
+#: the reason a refusal states. One list, read by both the dispatcher's screen
+#: (`secret_file_reason`, on argument text) and the file boundary
+#: (`open_descriptor_secret_reason`, on an open descriptor), so there is one
+#: answer to what this install's own secrets are. The web-token is here for the
+#: same reason the header cites it as the precedent: it is the credential the
+#: browser surface authenticates with.
 SECRET_RELATIVE_PATHS = {
     KEY_RELATIVE_PATH:
         "the per-install dispatch signing key, which is what lets the root side "

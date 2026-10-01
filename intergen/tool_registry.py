@@ -863,16 +863,18 @@ class ToolRegistry:
             _gspan.set_attribute("needs_pkexec", decision.needs_pkexec)
             _gspan.set_content("gate_reason", decision.reason)
 
-        # THE INSTALL'S OWN SECRET FILES ARE REFUSED HERE, FOR EVERY TOOL.
+        # DIRECT ARGUMENT REFERENCES ARE SCREENED HERE. This check can reject a
+        # canonical textual reference before review or execution, but it does not
+        # prove which files a tool will open and must not be described as
+        # covering every tool or the whole argument structure.
         #
         # intergen/dispatch_token.py justifies keeping the per-install signing key
         # in a mode-0600 file on the ground that prompt injection "can only make
         # the LLM emit a ToolCall -- it cannot read the key file". A ToolCall can
         # read any file this account can read, and the key is owned by this
-        # account, so that sentence held only as an intention: a file-reading tool
-        # declares the automatic safety tier, the behaviour matrix executes that
-        # tier for every provenance, and the key came back in the tool result and
-        # in the audit record with no review surface consulted.
+        # account, so that sentence held only as an intention. What makes it a
+        # property of the code is the boundary in the consumers, which decides on
+        # the file that opened; this screen is defence in depth in front of it.
         #
         # This screen is HERE, at the one place every tool call passes, so a
         # direct textual reference is rejected before review or execution and a
