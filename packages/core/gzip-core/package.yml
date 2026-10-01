@@ -1,12 +1,12 @@
 name: gzip-core
 ships_as: gzip  # ch8 dual-name twin — the driver archives this recipe under the ship name (chroot-build-ch8.sh run_package arg 2; runtime deps elsewhere may name 'gzip')
-version: '1.14'
-release: 2  # r2: links the zgrep profile (zgrep, enforce) into /etc/apparmor.d, because this package installs /usr/bin/zgrep. HAND bump: no content_hash; the release tool does not watch this recipe. The profile text is upstream's, staged by apparmor in /usr/share/apparmor/extra-profiles, which nothing loads; apparmor r4 stopped loading top-level profiles for programs it does not install, because the apparmor unit loads every file in /etc/apparmor.d at every boot and on an ordinary install 39 of the 55 it shipped named a program that machine did not have. apparmor is now a runtime dependency so the link cannot dangle. The profile is unchanged and keeps upstream's mode.
+version: '1.15'
+release: 3  # r3: the recipe moves to upstream gzip 1.15 to close CVE-2026-41992 (an out-of-bounds read when an .lzh member is decompressed after a .Z member in one invocation; NVD primary CVSS 3.1 7.5 HIGH) and CVE-2026-41991 (gzexe, zdiff and znew racing on a temporary file where mktemp is absent), both first fixed in 1.15 (2026-09-20) together with a further fix for an .lzh member decoded after another .lzh member reusing the previous member's decoding table. The shipped gzip 1.14 binary was measured exposed: the .lzh member decoded to 0x61 after a .Z member and to 0x00 alone, while 1.15 decodes it to 0x00 either way, which is the invariant upstream's own regression tests assert. The recipe moves version and pin only: no build step, option, dependency or installed path changes. This core recipe otherwise tracks the version the LFS section cited in build.sh names; the move to 1.15 is a deliberate security exception to that, recorded here rather than left as drift. The release NUMBER continues across the version move, as this tree's convention does, and r2's note stands beneath unchanged and still applies. HAND bump: no content_hash; the release tool does not watch a sha-pinned recipe, and scripts/check-pinned-recipe-bumps.py is satisfied by the version advance.  # r2: links the zgrep profile (zgrep, enforce) into /etc/apparmor.d, because this package installs /usr/bin/zgrep. HAND bump: no content_hash; the release tool does not watch this recipe. The profile text is upstream's, staged by apparmor in /usr/share/apparmor/extra-profiles, which nothing loads; apparmor r4 stopped loading top-level profiles for programs it does not install, because the apparmor unit loads every file in /etc/apparmor.d at every boot and on an ordinary install 39 of the 55 it shipped named a program that machine did not have. apparmor is now a runtime dependency so the link cannot dangle. The profile is unchanged and keeps upstream's mode.
 description: GNU gzip compression
 license: GPL-3.0-or-later
 source:
 - url: https://ftpmirror.gnu.org/gzip/gzip-${version}.tar.xz
-  sha256: 01a7b881bd220bfdf615f97b8718f80bdfd3f6add385b993dcf6efd14e8c0ac6
+  sha256: 9aa0cc780dec156b8282844833b342ab7cb08c25d2cd9a1869cdd0df31deff48
 dependencies:
   build: []
   host: []

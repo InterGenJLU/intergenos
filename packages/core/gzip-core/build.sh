@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2015-2016, 2026 InterGenJLU
 #
-# Gzip 1.14
-# LFS 13.0 Section 8.67
+# Gzip 1.15
+# LFS 13.0 Section 8.67 — the version deliberately departs from the one that section names, to
+# close CVE-2026-41992 and CVE-2026-41991; see the release note in package.yml.
 
 configure() {
     set -e
