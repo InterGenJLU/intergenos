@@ -1734,9 +1734,9 @@ class RepoManager:
 # Index generation (for repo maintainers / build system)
 # ---------------------------------------------------------------------------
 
-# The corresponding-source archive's name, as SOURCES.md section 2 fixes it
-# and scripts/build-source-archives.py emits it. One place, because the index
-# writer below and anything that reads the index have to agree on it.
+# The index writer's expected corresponding-source archive name, matching
+# SOURCES.md and scripts/build-source-archives.py. The producer lives in a
+# separate module, so the integration proof must keep the formulas aligned.
 SOURCE_ARCHIVE_SUFFIX = ".igos.src.tar.gz"
 
 

@@ -177,9 +177,7 @@ under this same policy.
 ## 4. Provenance and verification
 
 Every InterGenOS source archive's SHA256 hash is recorded in the
-signed package index that pkm uses to verify binary archives. Each
-package entry carries two fields about its source archive, both covered
-by the index signature:
+signed package index that pkm uses to verify binary archives. Each package entry whose corresponding-source archive is in the published set carries two fields about that archive, both covered by the index signature:
 
 - `source_filename` — the archive's published filename
 - `source_sha256` — the SHA256 of that archive's own bytes, measured
