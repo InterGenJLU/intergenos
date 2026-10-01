@@ -180,8 +180,14 @@ class ConnectionContext:
     connected_at: float = field(default_factory=time.monotonic)
     conversation: ConversationState = None      # set in __post_init__
     cmd_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
-    pending_gate: str | None = None            # tool_call_id awaiting decision
-    gate_future: asyncio.Future | None = None  # resolved when gate_decision arrives
+    # One waiter per review card on screen, keyed by the tool_call_id the card
+    # itself carries. A connection can hold several at once — _spawn_tool_task
+    # detaches each user-invoked tool into tool_tasks and the receive loop's busy
+    # guard covers only "message" frames — and the person can answer any card
+    # that is showing. A single pending_gate/gate_future slot was overwritten by
+    # each new card and resolved without comparing ids, so one action's Approve
+    # authorised a different action and the answered card was left orphaned.
+    open_gates: dict[str, asyncio.Future] = field(default_factory=dict)
     tool_tasks: set = field(default_factory=set)  # in-flight user-invoked tools;
     #                                            held so a detached task is not
     #                                            garbage-collected mid-gate
@@ -1158,8 +1164,8 @@ class WebServer:
                 {route_future}, timeout=_ROUTE_DEADLINE_TICK_S)
             if done:
                 return route_future.result()
-            if ctx.pending_gate is not None:
-                continue  # the person is deciding; their time is not ours
+            if ctx.open_gates:
+                continue  # a card is on screen; the person's time is not ours
             charged += _ROUTE_DEADLINE_TICK_S
             if charged >= SERVER_ROUTE_DEADLINE_S:
                 raise TimeoutError(
@@ -1552,18 +1558,26 @@ class WebServer:
         logger.info("Gate decision for %s: %s (client=%s)",
                      tool_call_id, decision, ctx.client_id)
 
-        # Signal the streaming coroutine waiting on this gate
-        if ctx.gate_future is not None and not ctx.gate_future.done():
-            ctx.gate_future.set_result(decision)
-        else:
-            # No awaiting stream — send resolved directly
-            await ctx.ws.send_json({
-                "type": "gate_resolved",
-                "tool_call_id": tool_call_id,
-                "decision": decision,
-            })
+        # Signal the coroutine waiting on THIS card and no other. The id the
+        # frame carries is the card the person pressed; resolving any other
+        # card's waiter would apply their decision to an action they never saw,
+        # and would leave the card they did answer waiting for its own.
+        future = ctx.open_gates.get(tool_call_id)
+        if future is not None and not future.done():
+            future.set_result(decision)
+            return
 
-        ctx.pending_gate = None
+        # No card of that id is awaiting a decision: a stale click from a card
+        # already resolved, or a replayed frame. A gate_resolved frame here
+        # would be untrue twice over — both clients clear the card they are
+        # showing on any gate_resolved (web/app.js handleGateResolved,
+        # console/shell.py) and the console prints the decision as made — so the
+        # frame says what actually happened instead.
+        await ctx.ws.send_json(_make_error(
+            "no_open_gate",
+            f"No review card is awaiting a decision under tool_call_id "
+            f"{tool_call_id}. Nothing was authorised."
+        ))
 
     async def _handle_switch_model(self, ctx: ConnectionContext,
                                     data: dict[str, Any]) -> None:
@@ -2892,16 +2906,18 @@ class WebServer:
             "blocked_by": "provenance_gate",
         }
 
+        # Register this card's own waiter under this card's own id BEFORE the
+        # prompt goes out: a decision that arrives between the frame and the
+        # registration would otherwise find no open card.
+        future = asyncio.get_running_loop().create_future()
+        ctx.open_gates[tool_call_id] = future
+
         # Send gate prompt to client
         await ctx.ws.send_json(gate_prompt_msg)
 
-        # Wait for user decision via Future
-        ctx.pending_gate = tool_call_id
-        ctx.gate_future = asyncio.get_running_loop().create_future()
-
         try:
             user_decision = await asyncio.wait_for(
-                ctx.gate_future, timeout=300.0  # 5 minute gate timeout
+                future, timeout=300.0  # 5 minute gate timeout
             )
         except asyncio.TimeoutError:
             user_decision = "deny"
@@ -2912,8 +2928,7 @@ class WebServer:
                 "reason": "Gate prompt timed out after 5 minutes.",
             })
         finally:
-            ctx.gate_future = None
-            ctx.pending_gate = None
+            ctx.open_gates.pop(tool_call_id, None)
 
         # Send resolved message
         await ctx.ws.send_json({
