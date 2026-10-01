@@ -22,13 +22,26 @@ to compare against" are absorbed — an unreadable index cache, which the trust
 gate then refuses on — and every other error travels with its own message
 instead of being renamed.
 
+Since 2026-09-30 this module holds the PAIR. `pkm upgrade <name> --archive
+<file>` reaches the same lookup through `_local_archive_upgrade_candidates`, and
+there the bare `except Exception` had never been narrowed: every error was renamed
+as an absent entry, so an index that could not be read was announced to the person
+as a package the index does not list, and a programming error inside the lookup
+vanished entirely. The install cases below stand unchanged and are now also the
+pair's control — green before and after — while the upgrade cases hold that path
+to the same rule in its OWN words, which are deliberately not the install path's.
+
 Executed against the shipped command code with its collaborators stood in; the
-archive is a real file on disk, because the code hashes it before it decides.
+archive is a real file on disk, because the code hashes it before it decides. The
+upgrade cases carry a real .igos.tar.gz, because that path reads the archive's
+own .PKGINFO before it reaches the lookup at all.
 """
 
 import argparse
+import ast
 import hashlib
 import io
+import tarfile
 import tempfile
 import unittest
 from contextlib import redirect_stdout, redirect_stderr
@@ -44,6 +57,26 @@ INDEX_SHA = "b" * 64
 def _index_entry(name):
     return {"name": name, "version": "1.0", "release": 1,
             "sha256": INDEX_SHA, "size": 1000, "installed_size": 4000}
+
+
+def _real_archive(directory, version):
+    """A real .igos.tar.gz of NAME that a reader of .PKGINFO will accept."""
+    lines = [f"pkgname={NAME}", f"pkgver={version}", "pkgrel=1",
+             "pkgdesc=a package for the index-lookup cases", "license=GPL",
+             "tier=extra", "builddate=2026-09-30T00:00:00Z", "size=2",
+             "filecount=1"]
+    out = directory / f"{NAME}-{version}.igos.tar.gz"
+    with tarfile.open(out, "w:gz") as tf:
+        data = ("\n".join(lines) + "\n").encode()
+        info = tarfile.TarInfo("./.PKGINFO")
+        info.size = len(data)
+        tf.addfile(info, io.BytesIO(data))
+        payload = b"x\n"
+        info = tarfile.TarInfo(f"./usr/share/{NAME}/marker")
+        info.size = len(payload)
+        info.mode = 0o644
+        tf.addfile(info, io.BytesIO(payload))
+    return out
 
 
 def _install_args(archive, trust):
@@ -123,6 +156,209 @@ class TheIndexLookupDoesNotRenameItsErrors(unittest.TestCase):
         self.assertNotIn("does not match repository index", err)
         self.assertNotIn("could not be read", err)
         self.assertIn("--archive-trust=strict requires SHA256 match", err)
+
+
+class TheUpgradePathDoesNotRenameItsErrorsEither(unittest.TestCase):
+    """The other half of the pair: `pkm upgrade <name> --archive <file>`.
+
+    Same lookup, same rule, this path's own words. Everything here was RED at
+    this lane's parent except the two controls that say so.
+    """
+
+    INSTALLED_VERSION = "0.9"
+    ARCHIVE_VERSION = "1.0"
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self._tmp.name)
+        self.archive = _real_archive(self.dir, self.ARCHIVE_VERSION)
+        self.archive_sha = hashlib.sha256(self.archive.read_bytes()).hexdigest()
+        self.assertNotEqual(
+            self.archive_sha, INDEX_SHA,
+            "the fixture archive must not match the index, or it proves nothing")
+        self.addCleanup(self._tmp.cleanup)
+
+    def _run(self, trust, lookup):
+        """Run the upgrade candidate step with a stood-in index lookup.
+
+        Returns (raised, queue, stdout, stderr). The lookup is stood in because
+        this is the one place the error class can be presented at the call site:
+        the real mechanism reports an unreadable cached index in `pkm`'s own
+        words and skips the repo, so it reaches this call as a true absence —
+        see the seal's real-mechanism capture, which says so plainly.
+        """
+        db = MagicMock()
+        db.get_installed.return_value = {
+            "name": NAME, "version": self.INSTALLED_VERSION, "release": 1}
+        db.list_held.return_value = []
+        db.get_installed_files.return_value = []
+        repo = MagicMock()
+        repo.get_package.side_effect = lookup
+        args = cli.build_parser().parse_args(
+            ["upgrade", NAME, "--archive", str(self.archive),
+             "--archive-trust", trust])
+        out, err = io.StringIO(), io.StringIO()
+        raised, queue = None, None
+        with redirect_stdout(out), redirect_stderr(err):
+            try:
+                queue = cli._local_archive_upgrade_candidates(
+                    db, repo, args, str(self.archive))
+            except BaseException as exc:      # noqa: BLE001 — recorded
+                raised = exc
+        return raised, queue, out.getvalue(), err.getvalue()
+
+    def test_an_unexpected_error_is_not_read_as_a_missing_entry(self):
+        """THE DEFECT, this side of the pair. A TypeError from the lookup became
+        None here long after the install path stopped doing it."""
+        def _boom(_name):
+            raise TypeError("get_package() got an unexpected keyword argument")
+        raised, queue, out, err = self._run("strict", _boom)
+        self.assertIsInstance(raised, TypeError, (queue, out, err))
+
+    def test_an_unreadable_index_is_reported_as_unreadable(self):
+        """The one error that does mean "no entry to compare against": said, in
+        this path's words, and the refusal that follows is the gate's."""
+        def _unreadable(_name):
+            raise OSError(13, "Permission denied")
+        raised, queue, out, err = self._run("strict", _unreadable)
+        self.assertIn("the repository index could not be read", err)
+        self.assertIn("Permission denied", err)
+        self.assertIsNone(queue)
+        self.assertIsInstance(raised, SystemExit, (out, err))
+        self.assertNotEqual(raised.code, 0)
+        # The gate's refusal, not this report's: the two are separate sentences.
+        self.assertIn("--archive-trust=strict requires", err)
+        self.assertIn("Nothing was changed", err)
+
+    def test_the_report_does_not_decide_the_command(self):
+        """It reports and carries on to the gate: under loose the upgrade still
+        proceeds, with the index fault named and the gate's own warning."""
+        def _unreadable(_name):
+            raise OSError(13, "Permission denied")
+        raised, queue, out, err = self._run("loose", _unreadable)
+        self.assertIsNone(raised, (out, err))
+        self.assertTrue(queue, f"loose refused the archive: {err}")
+        self.assertIn("the repository index could not be read", err)
+        self.assertIn("skipping repo verification", err)
+
+    def test_a_missing_entry_is_still_an_ordinary_absence(self):
+        """CONTROL, green at both ends: a package the index has never heard of
+        is not an error, and nothing claims the index could not be read."""
+        _raised, queue, _out, err = self._run("strict", lambda _name: None)
+        self.assertIsNone(queue)
+        self.assertNotIn("could not be read", err)
+        self.assertIn("--archive-trust=strict requires", err)
+
+    def test_a_working_lookup_is_untouched(self):
+        """CONTROL, green at both ends: an index that answers is read, and the
+        contradiction is named in this path's own words."""
+        _raised, queue, out, err = self._run("strict", _index_entry)
+        self.assertIsNone(queue)
+        self.assertIn("does not match the repository index entry", out + err)
+        self.assertIn(INDEX_SHA, out + err)
+        self.assertNotIn("could not be read", err)
+
+
+class TheTwoPathsSayItInTheirOwnWords(unittest.TestCase):
+    """The pair, held apart on purpose and together in substance."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+
+    def test_both_paths_name_an_unreadable_index_and_neither_borrows_the_other(self):
+        def _unreadable(_name):
+            raise OSError(13, "Permission denied")
+
+        install_case = TheIndexLookupDoesNotRenameItsErrors(
+            "test_an_unreadable_index_cache_is_an_absent_entry_and_is_said_so")
+        install_case.setUp()
+        self.addCleanup(install_case.doCleanups)
+        _raised, install_out, install_err = install_case._run("strict", _unreadable)
+
+        upgrade_case = TheUpgradePathDoesNotRenameItsErrorsEither(
+            "test_an_unreadable_index_is_reported_as_unreadable")
+        upgrade_case.setUp()
+        self.addCleanup(upgrade_case.doCleanups)
+        _r, _queue, upgrade_out, upgrade_err = upgrade_case._run("strict", _unreadable)
+
+        for where, said in (("install", install_out + install_err),
+                            ("upgrade", upgrade_out + upgrade_err)):
+            with self.subTest(path=where):
+                self.assertIn("the repository index could not be read", said)
+                self.assertIn("Permission denied", said)
+
+        def _the_sentence(said):
+            """The report, whitespace collapsed — both reporters WRAP it, and
+            the first physical line of the two is identical up to the wrap."""
+            collapsed = " ".join(said.split())
+            start = collapsed.find("the repository index could not be read")
+            if start < 0:
+                return ""
+            rest = collapsed[start:]
+            gate = rest.find("--archive-trust")
+            return (rest[:gate] if gate > 0 else rest).strip()
+
+        install_line = _the_sentence(install_out + install_err)
+        upgrade_line = _the_sentence(upgrade_out + upgrade_err)
+        self.assertTrue(install_line and upgrade_line)
+        self.assertNotEqual(
+            install_line, upgrade_line,
+            "the two paths print the SAME sentence; each keeps its own words, "
+            "and a reporter inside the lookup would have forced one on both")
+        self.assertIn("cannot be checked against it", install_line)
+        self.assertIn("this archive cannot be checked against the index entry",
+                      upgrade_line)
+
+    def test_every_guarded_lookup_in_the_module_is_inventoried(self):
+        """The source read by a parser, not by counting a string.
+
+        A handler written as `except (TypeError, Exception)`, or with the call
+        bound to a name a line earlier, passes a textual search. This walks
+        pkm/cli.py's own syntax tree for every `get_package` call inside a `try`
+        and pins the exception types each handler catches. `cmd_info` catching
+        Exception is DELIBERATE and carries its reason in the source — an index
+        fault must not break a read-only report — and it is listed here so that
+        it stays a decision rather than becoming a habit; the day someone
+        narrows it, this line is what they edit.
+        """
+        source = Path(cli.__file__).read_text(encoding="utf-8")
+        tree = ast.parse(source)
+
+        def is_lookup(node):
+            return (isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "get_package")
+
+        def caught_by(handler):
+            if handler.type is None:
+                return ["<bare except>"]
+            kinds = (handler.type.elts if isinstance(handler.type, ast.Tuple)
+                     else [handler.type])
+            return [ast.unparse(kind) for kind in kinds]
+
+        found = []
+        for function in [n for n in ast.walk(tree)
+                         if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]:
+            for node in ast.walk(function):
+                if not isinstance(node, ast.Try):
+                    continue
+                if not any(is_lookup(c) for stmt in node.body
+                           for c in ast.walk(stmt)):
+                    continue
+                found.append((function.name,
+                              tuple(name for handler in node.handlers
+                                    for name in caught_by(handler))))
+
+        self.assertEqual(
+            sorted(found),
+            [("_local_archive_upgrade_candidates", ("OSError",)),
+             ("cmd_info", ("Exception",)),
+             ("cmd_install", ("OSError",))],
+            f"the guarded index lookups in pkm/cli.py are {sorted(found)!r}: a "
+            f"lookup that catches Exception renames every error as an absent "
+            f"entry, which is the defect this module exists for")
 
 
 if __name__ == "__main__":

@@ -5644,7 +5644,32 @@ def _local_archive_upgrade_candidates(db, repo, args, archive):
     repo_pkg = None
     try:
         repo_pkg = repo.get_package(name)
-    except Exception:
+    except OSError as e:
+        # The ONE failure that genuinely means "there is no entry to compare
+        # this archive against": the index could not be read. It is reported as
+        # a failure and the command carries on to the trust gate below, which
+        # refuses under strict and repo-only — an unreadable index is not the
+        # same fact as a package the index has never heard of, and a person told
+        # the second when the first is true cannot act on it.
+        #
+        # It was a bare `except Exception` until 2026-09-30: the unfixed half of
+        # a pair. The install path's identical shape was measured and narrowed on
+        # 2026-09-19, when a TypeError raised inside the lookup arrived here as
+        # an absent entry, the refusal lost its reason and nothing anywhere
+        # reported an error. This path renamed every error the same way, so a
+        # programming error in the lookup vanished and an unreadable index was
+        # announced as a package the index does not list. An error that reports
+        # itself as an ordinary absence is a silent failure; everything that is
+        # not an unreadable index now travels with its own message.
+        #
+        # The words are this path's own, as the gate's refusals are: it names the
+        # archive it cannot check, and it does not say "Nothing was changed",
+        # because nothing has been decided yet.
+        emit_error(
+            f"the repository index could not be read ({type(e).__name__}: "
+            f"{e}); this archive cannot be checked against the index entry "
+            f"for {name}"
+        )
         repo_pkg = None
     # H3: the gate is _explicit_archive_trust; this path's words are its own.
     standing, permitted = _explicit_archive_trust(repo_pkg, archive_sha, trust_mode)
