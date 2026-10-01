@@ -646,27 +646,63 @@ def redact_secret_shapes(text: str) -> str:
 _redact_shapes = redact_secret_shapes
 
 
-def _redact_mapping_key(key: Any, taken: dict) -> Any:
-    """Scrub one mapping key, keeping distinct keys distinct.
+def _redact_mapping(value: dict) -> dict:
+    """Scrub a mapping's KEYS and values, keeping every entry of it.
 
     A scrub maps every secret of one shape onto the same placeholder, so two
-    different credentials used as keys in the same mapping would collapse into
-    one entry and a row would vanish. This module never drops content silently,
+    different credentials used as keys in the same mapping would be given one
+    spelling and a row would vanish. This module never drops content silently,
     so a collision is made VISIBLE with an occurrence marker rather than
-    resolved by overwrite. A non-string key is left alone: there is nothing to
-    scan, and rewriting it would change the shape of the row.
+    resolved by overwrite.
+
+    WHICH SPELLINGS A MARKER HAS TO AVOID. A key the scanner leaves alone keeps
+    its own spelling, and the keys are the CALLER'S: an argument mapping carries
+    whatever text a caller put there, including text that spells a placeholder
+    this module generates, or one of these markers. Such a key is as much a
+    claim on that spelling as a scrubbed key is, and it is a claim this function
+    cannot refuse — rewriting an ordinary field name would cost a reader the one
+    thing they use to find the field. So every spelling that passes the scanner
+    unchanged is collected BEFORE any key is placed, and a marker is chosen
+    against that whole set as well as against the entries already written.
+
+    Deciding against the entries already written alone is not enough, and that
+    is why the collection comes first: the key that claims the same spelling may
+    still be AHEAD in the mapping, and placing it then overwrites an entry
+    already there. The outcome would depend on the order a caller happened to
+    build a dict in — surviving one order and losing a row in its reverse.
+
+    Each key is scanned exactly once: the scan is the expensive part of this
+    function and it runs on every mapping of every persisted row.
+
+    A non-string key is left alone. There is nothing to scan, rewriting it would
+    change the shape of the row, and it cannot be given a placeholder spelling
+    by this function, so it needs no reservation. The ORIGINAL key is what the
+    value's own redaction is given, because that decision is about what the
+    field is called.
     """
-    if not isinstance(key, str):
-        return key
-    scrubbed = redact_secret_shapes(key)
-    if scrubbed == key:
-        return key
-    if scrubbed not in taken:
-        return scrubbed
-    occurrence = 2
-    while f"{scrubbed}#{occurrence}" in taken:
-        occurrence += 1
-    return f"{scrubbed}#{occurrence}"
+    scanned: list[tuple[Any, Any]] = []
+    reserved: set[str] = set()
+    for key in value:
+        placeholder = None
+        if isinstance(key, str):
+            scrubbed = redact_secret_shapes(key)
+            if scrubbed == key:
+                reserved.add(key)
+            else:
+                placeholder = scrubbed
+        scanned.append((key, placeholder))
+    out: dict = {}
+    for key, placeholder in scanned:
+        if placeholder is None:
+            out[key] = _redact(value[key], key if isinstance(key, str) else "")
+            continue
+        spelling = placeholder
+        occurrence = 1
+        while spelling in out or spelling in reserved:
+            occurrence += 1
+            spelling = f"{placeholder}#{occurrence}"
+        out[spelling] = _redact(value[key], key)
+    return out
 
 
 def redact_persisted(value: Any, key: str = "") -> Any:
@@ -699,13 +735,9 @@ def redact_persisted(value: Any, key: str = "") -> Any:
         # caller-supplied text can carry the credential in the key -- an
         # environment mapping, a header mapping -- and a key never reached the
         # shape scanner, so it was written out verbatim however the value was
-        # treated. The ORIGINAL key is still what the predicate above is given,
-        # because that decision is about what the field is called.
-        scrubbed: dict = {}
-        for k, v in value.items():
-            scrubbed[_redact_mapping_key(k, scrubbed)] = _redact(
-                v, k if isinstance(k, str) else "")
-        return scrubbed
+        # treated. Scrubbing keys is also where an entry can be lost, so the
+        # whole mapping is handed to one function that keeps every entry of it.
+        return _redact_mapping(value)
     if isinstance(value, (list, tuple)):
         return [_redact(v) for v in value]
     if isinstance(value, str):
