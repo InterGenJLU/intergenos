@@ -25,6 +25,10 @@ OUTPUT_DIR="dry-run-output"
 TEST_KEY_NAME="TESTING-DO-NOT-TRUST-First-Publish-$(date +%Y%m%d)"
 ARCHIVES_DIR=""
 SOURCES_DIR="${PUBLISH_SOURCES_DIR:-build/sources-archives}"
+SOURCES_EXPLICIT=false
+if [ -n "${PUBLISH_SOURCES_DIR:-}" ]; then
+    SOURCES_EXPLICIT=true
+fi
 SYNTHETIC=false
 PASS_COUNT=0
 FAIL_COUNT=0
@@ -34,13 +38,14 @@ usage() {
     echo "  --archives-dir DIR   Path to .igos.tar.gz archives"
     echo "  --sources-dir DIR    Source archives (default: PUBLISH_SOURCES_DIR or build/sources-archives)"
     echo "  --synthetic           Create synthetic test fixture"
+    echo "                        Creates matching sources unless a source directory is supplied"
     exit 1
 }
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --archives-dir) ARCHIVES_DIR="$2"; shift 2 ;;
-        --sources-dir)  SOURCES_DIR="$2"; shift 2 ;;
+        --sources-dir)  SOURCES_DIR="$2"; SOURCES_EXPLICIT=true; shift 2 ;;
         --synthetic)    SYNTHETIC=true; shift ;;
         -h|--help)      usage ;;
         *) echo "Unknown: $1"; usage ;;
@@ -90,6 +95,10 @@ if $SYNTHETIC; then
     OUTPUT_ABS="$(cd "$OUTPUT_DIR" && pwd)"
     SYNTH_DIR="$OUTPUT_ABS/synthetic-archives"
     mkdir -p "$SYNTH_DIR"
+    if ! $SOURCES_EXPLICIT; then
+        SOURCES_DIR="$OUTPUT_ABS/synthetic-sources"
+        mkdir -p "$SOURCES_DIR"
+    fi
 
     # Create 2 synthetic .igos.tar.gz files with valid .PKGINFO
     for data in "testpkg:1.0:Test Package A" "testpkg2:2.0:Test Package B"; do
@@ -99,7 +108,8 @@ if $SYNTHETIC; then
         (
             cd "$TMPDIR"
             echo "pkgname = $pkg" > .PKGINFO
-            echo "pkgver = ${ver}-1" >> .PKGINFO
+            echo "pkgver = $ver" >> .PKGINFO
+            echo "pkgrel = 1" >> .PKGINFO
             echo "pkgdesc = $desc" >> .PKGINFO
             echo "tier = core" >> .PKGINFO
             echo "license = MIT" >> .PKGINFO
@@ -107,6 +117,10 @@ if $SYNTHETIC; then
             echo "size = 1000" >> .PKGINFO
             tar -czf "$archive" .PKGINFO
         )
+        if ! $SOURCES_EXPLICIT; then
+            printf 'Synthetic source fixture for %s %s\n' "$pkg" "$ver" > "$TMPDIR/SOURCE.txt"
+            tar -czf "$SOURCES_DIR/${pkg}-${ver}-1.igos.src.tar.gz" -C "$TMPDIR" SOURCE.txt
+        fi
         rm -rf "$TMPDIR"
     done
     ARCHIVES_DIR="$SYNTH_DIR"
@@ -129,7 +143,7 @@ echo "[3/6] Generating InterGenOS.db..."
 INDEX_OUTPUT="$OUTPUT_DIR/InterGenOS.db"
 
 python3 - "$PROJECT_ROOT" "$ARCHIVES_DIR" "$INDEX_OUTPUT" "$SOURCES_DIR" <<'PYINDEX' 2>&1
-import gzip, json, sys
+import gzip, json, os, sys
 sys.path.insert(0, sys.argv[1])
 from pkm.repo import generate_index
 path = generate_index(sys.argv[2], arch='x86_64', output=sys.argv[3], sources_dir=sys.argv[4])
@@ -139,6 +153,10 @@ with gzip.open(path, 'rt', encoding='utf-8') as handle:
 without = sorted(name for name, entry in packages.items() if 'source_sha256' not in entry)
 print(f'Source index read-back: {len(packages) - len(without)} with source_sha256; {len(without)} without')
 print('Packages without source_sha256: ' + (', '.join(without) or 'none'))
+if not os.path.isdir(sys.argv[4]):
+    raise SystemExit(f'ERROR: sources directory is missing: {sys.argv[4]}; refusing to sign the rehearsal index')
+if len(packages) == len(without):
+    raise SystemExit('ERROR: no indexed package carries source_sha256; refusing to sign the rehearsal index')
 PYINDEX
 
 if [ -f "$INDEX_OUTPUT" ] && [ "$(stat -c%s "$INDEX_OUTPUT")" -gt 0 ]; then

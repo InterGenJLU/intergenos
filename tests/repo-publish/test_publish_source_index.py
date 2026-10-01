@@ -136,3 +136,70 @@ def test_resumed_publish_reads_existing_index_and_refuses_zero(publisher):
     assert "Source index read-back: 0 with source_sha256; 1 without" in output
     assert "no indexed package carries source_sha256" in output
     assert "=== DRY RUN" not in output
+
+
+def run_rehearsal(directory, arguments, sources_env=None):
+    directory.mkdir()
+    environment = os.environ.copy()
+    environment.pop("PUBLISH_SOURCES_DIR", None)
+    if sources_env is not None:
+        environment["PUBLISH_SOURCES_DIR"] = str(sources_env)
+    keyring = directory / "dry-run-output/gpg-home"
+    try:
+        return subprocess.run(
+            ["bash", str(ROOT / "scripts/dry-run-first-publish.sh"), *arguments],
+            cwd=directory, env=environment, stdin=subprocess.DEVNULL,
+            capture_output=True, text=True, timeout=90,
+        )
+    finally:
+        if keyring.exists():
+            subprocess.run(["gpgconf", "--homedir", str(keyring), "--kill", "all"],
+                           check=True, capture_output=True)
+
+
+@pytest.mark.parametrize("mode", ["absent", "zero"])
+@pytest.mark.parametrize("synthetic", [False, True])
+@pytest.mark.parametrize("source_option", [False, True])
+def test_rehearsal_refuses_uncovered_sources_before_signing(tmp_path, mode, synthetic, source_option):
+    sources = tmp_path / "sources' directory"
+    if mode == "zero":
+        sources.mkdir()
+    if synthetic:
+        arguments = ["--synthetic"]
+    else:
+        binaries = tmp_path / "binary archives"
+        binaries.mkdir()
+        write_binary(binaries / "demo-2.0-1.igos.tar.gz")
+        arguments = ["--archives-dir", str(binaries)]
+    directory = tmp_path / "rehearsal"
+    if source_option:
+        arguments += ["--sources-dir", str(sources)]
+    result = run_rehearsal(directory, arguments, sources_env=None if source_option else sources)
+    output = result.stdout + result.stderr
+    assert result.returncode != 0, output
+    reason = "sources directory is missing" if mode == "absent" else "no indexed package carries source_sha256"
+    assert reason in output
+    assert "[4/6] Signing" not in output
+    assert not (directory / "dry-run-output/InterGenOS.db.sig").exists()
+    assert not sources.exists() if mode == "absent" else not list(sources.iterdir())
+
+
+def test_synthetic_rehearsal_indexes_the_sources_it_creates(tmp_path):
+    directory = tmp_path / "synthetic rehearsal"
+    result = run_rehearsal(directory, ["--synthetic"])
+    output = result.stdout + result.stderr
+    assert result.returncode == 0, output
+    assert "Total: 6 checks, 6 pass, 0 fail" in output
+    assert "GPG signature verified" in output
+    assert "pkm.repo.RepoIndex roundtrip parse OK" in output
+    with gzip.open(directory / "dry-run-output/InterGenOS.db", "rt") as handle:
+        packages = json.load(handle)["packages"]
+    assert len(packages) == 2
+    assert {name: (entry["version"], entry["release"]) for name, entry in packages.items()} == {
+        "testpkg": ("1.0", 1), "testpkg2": ("2.0", 1),
+    }
+    for entry in packages.values():
+        source = directory / "dry-run-output/synthetic-sources" / entry["source_filename"]
+        assert entry["source_sha256"] == hashlib.sha256(source.read_bytes()).hexdigest()
+        with tarfile.open(source, "r:gz") as archive:
+            assert archive.getnames() == ["SOURCE.txt"]
