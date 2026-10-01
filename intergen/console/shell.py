@@ -237,7 +237,11 @@ class ConsoleShell:
 
     def _render_hud(self) -> list[tuple[str, str]]:
         parts: list[tuple[str, str]] = []
-        if self._client and self._client.connected:
+        # Connected means the console is still READING the connection, not just
+        # that the client's flag is set. A fault in the read loop ends the
+        # session while that flag stays as it was, and the header used to go on
+        # saying connected above a pane that said the session had ended.
+        if self._client and self._client.connected and self._running:
             parts.append(("class:status-green", " ● connected "))
         else:
             parts.append(("class:status-red", " ● disconnected "))
@@ -857,15 +861,33 @@ class ConsoleShell:
             return
 
         self._running = True
+        fault: BaseException | None = None
         try:
             async for msg in self._client.messages():
                 await self._process_server_message(msg)
                 if msg.get("type") == "disconnected":
                     break
-        except Exception:
+        except Exception as exc:
+            # A fault here ended the session. The traceback goes to the log as
+            # before, but the log is not the surface the person is looking at:
+            # reporting only "Disconnected." told them the session ended and
+            # nothing about a failure having ended it, which reads as a clean
+            # close. The fault is named in the view as well.
+            fault = exc
             logger.exception("Message processing error")
         finally:
+            self._running = False
+            if fault is not None:
+                self._add_message(
+                    "system",
+                    "Error: the console could not process a message from "
+                    f"InterGen and stopped reading ({type(fault).__name__}: "
+                    f"{fault}).", "error")
             self._add_message("system", "Disconnected.", "")
+            # The HUD reads the client's own flag, and nothing on this path
+            # cleared it, so the header kept saying connected above a pane
+            # saying the session had ended. The two now agree.
+            self._hud_text = "disconnected"
             self._app.invalidate()
 
 
