@@ -691,3 +691,277 @@ class TestTheDefectClassIsReal:
             "this control cannot demonstrate the defect: the second reading did "
             f"not differ from the first ({raised.value})"
         )
+
+
+# ---------------------------------------------------------------------------
+# The signed index records every package's corresponding-source archive.
+#
+# SOURCES.md §4 already documents the verification a user runs:
+#
+#     gunzip -c InterGenOS.db | jq -r '.packages."<name>".source_sha256'
+#     sha256sum <name>-<version>-<release>.igos.src.tar.gz
+#
+# and the README written into every source archive already claims "This
+# archive's own SHA256 is recorded in the signed package index". Until this
+# change no index entry carried any field about sources at all, so the
+# documented command returned `null` and the claim was not true. These cases
+# fix the index to the documented names and prove the documented command end
+# to end, including the negative control that a tampered archive fails it.
+# ---------------------------------------------------------------------------
+
+_SRC_SUFFIX = ".igos.src.tar.gz"
+
+
+def _write_binary_archive(path, name, version, release):
+    """A valid .igos.tar.gz whose .PKGINFO carries name, version AND release.
+
+    The release matters here and not in the older helpers above: the source
+    archive's filename is <name>-<version>-<release>.igos.src.tar.gz, so an
+    entry with no release cannot name its own source archive.
+    """
+    import io
+    import tarfile
+
+    pkginfo = (
+        f"pkgname = {name}\n"
+        f"pkgver = {version}\n"
+        f"pkgrel = {release}\n"
+    ).encode()
+    with tarfile.open(path, "w:gz") as tar:
+        info = tarfile.TarInfo(name=".PKGINFO")
+        info.size = len(pkginfo)
+        tar.addfile(info, io.BytesIO(pkginfo))
+
+
+def _write_source_archive(sources_dir, name, version, release, body=b"source bytes"):
+    """A corresponding-source archive under the documented name. Returns its path."""
+    path = Path(sources_dir) / f"{name}-{version}-{release}{_SRC_SUFFIX}"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(body)
+    return path
+
+
+def _sha256_of(path):
+    import hashlib
+
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def _fixture_publish_set(tmp_path, sources_dir_name="sources-archives"):
+    """A publish set with source archives for SOME packages and not others.
+
+    alpha and beta have one; gamma does not. That asymmetry is the point: the
+    absence has to be visible in the generator's own summary rather than
+    appearing as a silent null in an entry.
+    """
+    pkg_dir = tmp_path / "archives"
+    pkg_dir.mkdir()
+    src_dir = tmp_path / sources_dir_name
+    src_dir.mkdir()
+
+    _write_binary_archive(pkg_dir / "alpha-1.0-1.igos.tar.gz", "alpha", "1.0", 1)
+    _write_binary_archive(pkg_dir / "beta-2.0-3.igos.tar.gz", "beta", "2.0", 3)
+    _write_binary_archive(pkg_dir / "gamma-3.0-1.igos.tar.gz", "gamma", "3.0", 1)
+
+    srcs = {
+        "alpha": _write_source_archive(src_dir, "alpha", "1.0", 1, b"alpha source bytes"),
+        "beta": _write_source_archive(src_dir, "beta", "2.0", 3, b"beta source bytes, longer"),
+    }
+    return pkg_dir, src_dir, srcs
+
+
+def _run_generator(pkg_dir, output, sources_dir=None, extra=()):
+    argv = [
+        sys.executable, str(_PROJECT_ROOT / "scripts" / "generate-repodb.py"),
+        "--no-sign", "-o", str(output),
+    ]
+    if sources_dir is not None:
+        argv += ["--sources-dir", str(sources_dir)]
+    argv += list(extra)
+    argv.append(str(pkg_dir))
+    return subprocess.run(argv, capture_output=True, text=True, cwd=str(_PROJECT_ROOT))
+
+
+def _read_index(output):
+    with gzip.open(output, "rt", encoding="utf-8") as f:
+        return json.load(f)
+
+
+class TestTheIndexRecordsTheCorrespondingSourceArchive:
+    """RED at the base, GREEN at the tip: the two documented fields."""
+
+    def test_a_package_with_a_source_archive_carries_both_fields(self, tmp_path):
+        pkg_dir, src_dir, srcs = _fixture_publish_set(tmp_path)
+        output = tmp_path / "InterGenOS.db"
+        result = _run_generator(pkg_dir, output, src_dir)
+        assert result.returncode == 0, result.stderr
+
+        packages = _read_index(output)["packages"]
+        for name, archive in srcs.items():
+            entry = packages[name]
+            assert entry["source_filename"] == archive.name, (
+                f"{name}: index names {entry.get('source_filename')!r}, "
+                f"archive is {archive.name!r}"
+            )
+            assert entry["source_sha256"] == _sha256_of(archive), (
+                f"{name}: index records {entry.get('source_sha256')!r}, the "
+                f"archive's own bytes hash to {_sha256_of(archive)!r}"
+            )
+
+    def test_the_hash_comes_from_the_archive_bytes_and_not_from_a_sidecar(self, tmp_path):
+        """A .sha256 sidecar carrying a WRONG value must not be believed."""
+        pkg_dir, src_dir, srcs = _fixture_publish_set(tmp_path)
+        lie = "0" * 64
+        (src_dir / f"{srcs['alpha'].name}.sha256").write_text(
+            f"{lie}  {srcs['alpha'].name}\n"
+        )
+        output = tmp_path / "InterGenOS.db"
+        assert _run_generator(pkg_dir, output, src_dir).returncode == 0
+
+        recorded = _read_index(output)["packages"]["alpha"]["source_sha256"]
+        assert recorded != lie, "the generator read a manifest instead of the bytes"
+        assert recorded == _sha256_of(srcs["alpha"])
+
+    def test_a_package_with_no_source_archive_carries_neither_field(self, tmp_path):
+        """Absent, not null: a reader must not see an empty field at all."""
+        pkg_dir, src_dir, _ = _fixture_publish_set(tmp_path)
+        output = tmp_path / "InterGenOS.db"
+        assert _run_generator(pkg_dir, output, src_dir).returncode == 0
+
+        entry = _read_index(output)["packages"]["gamma"]
+        assert "source_filename" not in entry, f"gamma carries {entry.get('source_filename')!r}"
+        assert "source_sha256" not in entry, f"gamma carries {entry.get('source_sha256')!r}"
+
+    def test_the_summary_counts_and_names_the_packages_with_no_source_archive(self, tmp_path):
+        pkg_dir, src_dir, _ = _fixture_publish_set(tmp_path)
+        output = tmp_path / "InterGenOS.db"
+        result = _run_generator(pkg_dir, output, src_dir)
+        assert result.returncode == 0, result.stderr
+
+        summary = result.stderr
+        assert "gamma" in summary, f"the absence is not named in the summary:\n{summary}"
+        assert "2" in summary and "3" in summary, (
+            f"the summary does not carry the two counts:\n{summary}"
+        )
+        for carried in ("alpha", "beta"):
+            assert carried not in summary.split("no corresponding-source archive")[-1], (
+                f"{carried} has an archive and must not be listed as missing one:\n{summary}"
+            )
+
+    def test_a_run_given_no_sources_directory_says_so_and_adds_no_fields(self, tmp_path):
+        """The loud zero: never a silent absence of the whole feature."""
+        pkg_dir, _src_dir, _ = _fixture_publish_set(tmp_path)
+        output = tmp_path / "InterGenOS.db"
+        missing = tmp_path / "there-is-no-such-directory"
+        result = _run_generator(pkg_dir, output, missing)
+        assert result.returncode == 0, result.stderr
+
+        assert str(missing) in result.stderr, (
+            f"the path it looked at is not named:\n{result.stderr}"
+        )
+        for entry in _read_index(output)["packages"].values():
+            assert "source_filename" not in entry
+            assert "source_sha256" not in entry
+
+    def test_the_default_sources_directory_is_beside_the_index(self, tmp_path):
+        """With no flag, the PUBLISHED layout's <package_dir>/sources is read."""
+        pkg_dir = tmp_path / "archives"
+        pkg_dir.mkdir()
+        _write_binary_archive(pkg_dir / "delta-4.0-2.igos.tar.gz", "delta", "4.0", 2)
+        archive = _write_source_archive(pkg_dir / "sources", "delta", "4.0", 2, b"delta src")
+
+        output = tmp_path / "InterGenOS.db"
+        assert _run_generator(pkg_dir, output).returncode == 0
+
+        entry = _read_index(output)["packages"]["delta"]
+        assert entry["source_filename"] == archive.name
+        assert entry["source_sha256"] == _sha256_of(archive)
+
+    def test_the_envelope_fields_are_unchanged(self, tmp_path):
+        """The two fields are ADDITIVE: nothing in the envelope moves."""
+        pkg_dir, src_dir, _ = _fixture_publish_set(tmp_path)
+        output = tmp_path / "InterGenOS.db"
+        assert _run_generator(pkg_dir, output, src_dir).returncode == 0
+
+        data = _read_index(output)
+        assert data["version"] == 1
+        assert data["min_pkm_version"] == "0.1.0"
+        assert data["signature_format"] == "gpg-detached-armored"
+        assert data["arch"] == "x86_64"
+        assert data["package_count"] == 3
+
+
+class TestTheDocumentedVerificationReturnsARealValue:
+    """SOURCES.md §4's command, run end to end, with both controls."""
+
+    @staticmethod
+    def _documented_lookup(output, name):
+        """Exactly the pipeline SOURCES.md writes, as a shell pipeline."""
+        return subprocess.run(
+            ["bash", "-c",
+             f"gunzip -c {output} | jq -r '.packages.\"{name}\".source_sha256'"],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+
+    @staticmethod
+    def _documented_sha256sum(archive):
+        return subprocess.run(
+            ["sha256sum", str(archive)], capture_output=True, text=True, check=True,
+        ).stdout.split()[0]
+
+    def test_the_documented_command_returns_the_archives_own_hash(self, tmp_path):
+        pkg_dir, src_dir, srcs = _fixture_publish_set(tmp_path)
+        output = tmp_path / "InterGenOS.db"
+        assert _run_generator(pkg_dir, output, src_dir).returncode == 0
+
+        from_index = self._documented_lookup(output, "alpha")
+        from_disk = self._documented_sha256sum(srcs["alpha"])
+        assert from_index == from_disk, (
+            f"the documented verification does not match: index {from_index!r} "
+            f"against disk {from_disk!r}"
+        )
+        assert from_index != "null", "the documented command still returns null"
+
+    def test_a_tampered_source_archive_fails_the_documented_verification(self, tmp_path):
+        """The negative control. Without it a match proves nothing."""
+        pkg_dir, src_dir, srcs = _fixture_publish_set(tmp_path)
+        output = tmp_path / "InterGenOS.db"
+        assert _run_generator(pkg_dir, output, src_dir).returncode == 0
+
+        from_index = self._documented_lookup(output, "alpha")
+        archive = srcs["alpha"]
+        with open(archive, "ab") as fh:          # one appended byte, after indexing
+            fh.write(b"\x00")
+        from_disk = self._documented_sha256sum(archive)
+        assert from_index != from_disk, (
+            "a tampered archive still verified against the index, so the "
+            "documented verification detects nothing"
+        )
+
+    def test_a_package_with_no_archive_still_reads_null_and_that_is_honest(self, tmp_path):
+        """gamma has no archive: the documented command says null, by design."""
+        pkg_dir, src_dir, _ = _fixture_publish_set(tmp_path)
+        output = tmp_path / "InterGenOS.db"
+        assert _run_generator(pkg_dir, output, src_dir).returncode == 0
+        assert self._documented_lookup(output, "gamma") == "null"
+
+
+class TestThePackageManagerStillLoadsTheIndex:
+    """The additive control: pkm's own loader, unchanged, reads the new index."""
+
+    def test_repoindex_loads_the_new_index_and_reports_its_packages(self, tmp_path):
+        pkg_dir, src_dir, srcs = _fixture_publish_set(tmp_path)
+        output = tmp_path / "InterGenOS.db"
+        assert _run_generator(pkg_dir, output, src_dir).returncode == 0
+
+        sys.path.insert(0, str(_PROJECT_ROOT))
+        from pkm.repo import RepoIndex
+
+        index = RepoIndex("test", "https://example.com/x86_64", _read_index(output))
+        assert index.version == 1
+        assert index.arch == "x86_64"
+        assert index.package_count == 3
+        assert set(index.packages) == {"alpha", "beta", "gamma"}
+        assert index.packages["alpha"]["source_sha256"] == _sha256_of(srcs["alpha"])
+        assert index.packages["alpha"]["sha256"]            # the binary hash still there
+        assert index.packages["alpha"]["filename"].endswith(".igos.tar.gz")
