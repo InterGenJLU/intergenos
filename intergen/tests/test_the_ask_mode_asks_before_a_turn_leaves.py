@@ -85,9 +85,14 @@ class _Consent:
     def __init__(self, answer):
         self.answer = answer
         self.asked_with: list[list[Message]] = []
+        # The destination each question was about. The mechanism is asked once
+        # per destination, with the payload that destination will receive; the
+        # module beside this one holds that rule and its cases.
+        self.asked_about: list[str | None] = []
 
-    def __call__(self, messages):
+    def __call__(self, messages, destination=None):
         self.asked_with.append(list(messages))
+        self.asked_about.append(destination)
         if isinstance(self.answer, BaseException):
             raise self.answer
         return self.answer

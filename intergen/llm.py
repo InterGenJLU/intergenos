@@ -447,7 +447,8 @@ class LLMRouter(LLMInterface):
         # the default, and what every caller that wires nothing gets, the
         # daemon included — means there is nobody to ask, and nobody to ask
         # means nothing is sent. See set_escalation_consent and
-        # _an_unprompted_send_is_authorised.
+        # _an_unprompted_send_is_authorised and
+        # _this_destination_is_authorised.
         self._escalation_consent: Any = None
 
         # THE ENGINE THAT SERVES THIS ROUTER, when the caller has one to give.
@@ -1280,8 +1281,11 @@ class LLMRouter(LLMInterface):
 
         # Attempt 3: cloud escalation — only under a mode that authorises this
         # conversation leaving the machine, and in ASK mode only once somebody
-        # has been asked and said yes.
-        if not self._an_unprompted_send_is_authorised(messages):
+        # has been asked and said yes. The asking itself happens per
+        # destination, inside the escalation path, where the payload is final
+        # and the destination is known; this gate only decides whether there is
+        # anything to ask about at all.
+        if not self._an_unprompted_send_is_authorised():
             return LLMResponse(
                 text=self._servable_text(response_text, quality_issue),
                 model="local", local=True, quality_passed=False,
@@ -1746,8 +1750,8 @@ class LLMRouter(LLMInterface):
         logger.info("Escalation consent hook %s",
                     "registered" if consent is not None else "cleared")
 
-    def _an_unprompted_send_is_authorised(self, messages: list[Message]) -> bool:
-        """Whether THIS mode lets this conversation leave the machine now.
+    def _an_unprompted_send_is_authorised(self) -> bool:
+        """Whether THIS mode lets this conversation leave the machine at all.
 
         The four modes are the project's own: NEVER never offers or sends;
         FALLBACK auto-escalates when the local quality gate fails; ASK offers
@@ -1775,14 +1779,23 @@ class LLMRouter(LLMInterface):
         The test is an ALLOW LIST of the modes that authorise, so a mode added
         later authorises nothing until this method is taught about it, and says
         so rather than falling through.
+
+        THIS METHOD DOES NOT ASK. It cannot: at the point the ladder reaches it
+        the payload is not final — an image supplied with the turn is attached
+        further down, inside the escalation path — and no destination has been
+        chosen. Asking here approved a text-only payload while a picture left
+        with it, and approved one destination's answer for every destination a
+        failover afterwards reached. So ASK is authorised here only as far as
+        "there is somebody to ask", and the question itself is put once per
+        destination, with the payload as that destination will receive it, by
+        _this_destination_is_authorised.
         """
         mode = self._escalation_mode
         if mode in (EscalationMode.FALLBACK, EscalationMode.AUTO):
             return True
 
         if mode is EscalationMode.ASK:
-            consent = self._escalation_consent
-            if consent is None:
+            if self._escalation_consent is None:
                 logger.warning(
                     "escalation mode is '%s' and no consent hook is "
                     "registered, so nobody can be asked: this turn was NOT "
@@ -1790,18 +1803,7 @@ class LLMRouter(LLMInterface):
                     "answer is served instead",
                     mode.value, len(self._cloud_providers))
                 return False
-            try:
-                answered = bool(consent(messages))
-            except Exception as e:
-                logger.error(
-                    "the escalation consent hook raised (%s: %s), which is "
-                    "not consent: this turn was NOT sent to a cloud provider",
-                    type(e).__name__, e)
-                return False
-            logger.warning(
-                "escalation consent was %s for this turn under mode '%s'",
-                "GIVEN" if answered else "REFUSED", mode.value)
-            return answered
+            return True
 
         if mode is not EscalationMode.NEVER:
             logger.warning(
@@ -1809,6 +1811,45 @@ class LLMRouter(LLMInterface):
                 "to authorise, so nothing is sent off the machine; the local "
                 "answer is served", mode.value)
         return False
+
+    def _this_destination_is_authorised(self, messages: list[Message],
+                                        destination: str) -> bool:
+        """Whether THIS payload may leave for THIS destination.
+
+        The mechanism is asked with the message list exactly as the destination
+        will receive it, image included, because a mechanism shown something
+        else has consented to something else. It is asked once per destination:
+        a failover is a different place for the same conversation to end up in,
+        and approving the one is not approving the other, so each is its own
+        question and each answer is recorded with the destination it was about.
+
+        The modes that authorise an unprompted send authorise it for every
+        destination, which is what their own definitions say. Any other mode is
+        refused here as well as at the gate above, so this method is safe to
+        call from anywhere the payload is final.
+        """
+        mode = self._escalation_mode
+        if mode in (EscalationMode.FALLBACK, EscalationMode.AUTO):
+            return True
+        if mode is not EscalationMode.ASK:
+            return False
+
+        consent = self._escalation_consent
+        if consent is None:
+            return False
+        try:
+            answered = bool(consent(messages, destination))
+        except Exception as e:
+            logger.error(
+                "the escalation consent hook raised (%s: %s) for destination "
+                "'%s', which is not consent: this turn was NOT sent there",
+                type(e).__name__, e, destination)
+            return False
+        logger.warning(
+            "escalation consent was %s for this turn under mode '%s' and "
+            "destination '%s'",
+            "GIVEN" if answered else "REFUSED", mode.value, destination)
+        return answered
 
     # ── Cloud escalation ──
 
@@ -1879,6 +1920,17 @@ class LLMRouter(LLMInterface):
                 logger.error("skipped cloud provider %s: %s, so a turn that "
                              "ends could not stop its call", name, why)
                 continue
+            # The payload is final here — the image above is attached — and the
+            # destination is this one, so this is where the question belongs.
+            if not self._this_destination_is_authorised(messages, name):
+                continue
+            # The question can wait on a person, and the turn can end while it
+            # does. A yes that arrives after its turn ended sends nothing: the
+            # stop is recorded here, before the send, rather than left to the
+            # provider's own reading of the stop.
+            if turn_ended():
+                self._note_cloud_stopped(name, "before_send")
+                return self._stopped_response()
             try:
                 logger.info("Escalating to cloud provider: %s", name)
                 result = adapter.send(messages, max_tokens=max_tokens,
