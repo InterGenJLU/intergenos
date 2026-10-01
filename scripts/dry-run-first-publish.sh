@@ -24,6 +24,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 OUTPUT_DIR="dry-run-output"
 TEST_KEY_NAME="TESTING-DO-NOT-TRUST-First-Publish-$(date +%Y%m%d)"
 ARCHIVES_DIR=""
+SOURCES_DIR="${PUBLISH_SOURCES_DIR:-build/sources-archives}"
 SYNTHETIC=false
 PASS_COUNT=0
 FAIL_COUNT=0
@@ -31,6 +32,7 @@ FAIL_COUNT=0
 usage() {
     echo "Usage: $0 --archives-dir DIR | --synthetic"
     echo "  --archives-dir DIR   Path to .igos.tar.gz archives"
+    echo "  --sources-dir DIR    Source archives (default: PUBLISH_SOURCES_DIR or build/sources-archives)"
     echo "  --synthetic           Create synthetic test fixture"
     exit 1
 }
@@ -38,6 +40,7 @@ usage() {
 while [ $# -gt 0 ]; do
     case "$1" in
         --archives-dir) ARCHIVES_DIR="$2"; shift 2 ;;
+        --sources-dir)  SOURCES_DIR="$2"; shift 2 ;;
         --synthetic)    SYNTHETIC=true; shift ;;
         -h|--help)      usage ;;
         *) echo "Unknown: $1"; usage ;;
@@ -125,13 +128,18 @@ echo "  Archives found: $ARCHIVE_COUNT"
 echo "[3/6] Generating InterGenOS.db..."
 INDEX_OUTPUT="$OUTPUT_DIR/InterGenOS.db"
 
-python3 -c "
-import sys
-sys.path.insert(0, '$PROJECT_ROOT')
+python3 - "$PROJECT_ROOT" "$ARCHIVES_DIR" "$INDEX_OUTPUT" "$SOURCES_DIR" <<'PYINDEX' 2>&1
+import gzip, json, sys
+sys.path.insert(0, sys.argv[1])
 from pkm.repo import generate_index
-path = generate_index('$ARCHIVES_DIR', arch='x86_64', output='$INDEX_OUTPUT')
+path = generate_index(sys.argv[2], arch='x86_64', output=sys.argv[3], sources_dir=sys.argv[4])
 print(f'Index written: {path}')
-" 2>&1
+with gzip.open(path, 'rt', encoding='utf-8') as handle:
+    packages = json.load(handle)['packages']
+without = sorted(name for name, entry in packages.items() if 'source_sha256' not in entry)
+print(f'Source index read-back: {len(packages) - len(without)} with source_sha256; {len(without)} without')
+print('Packages without source_sha256: ' + (', '.join(without) or 'none'))
+PYINDEX
 
 if [ -f "$INDEX_OUTPUT" ] && [ "$(stat -c%s "$INDEX_OUTPUT")" -gt 0 ]; then
     report_pass "InterGenOS.db generated ($(stat -c%s "$INDEX_OUTPUT") bytes)"

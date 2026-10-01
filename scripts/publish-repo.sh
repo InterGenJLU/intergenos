@@ -824,13 +824,13 @@ else
         trap "cp -p '$_DR_SAVED_INDEX' '$INDEX_PATH' 2>/dev/null; rm -f '$_DR_SAVED_INDEX'" EXIT
     fi
 
-    python3 -c "
+    python3 - "$ARCHIVE_DIR" "$SOURCES_DIR" <<'PYINDEX' || { echo "ERROR: Index generation failed" >&2; exit 1; }
 import sys
 sys.path.insert(0, '.')
 from pkm.repo import generate_index
-path = generate_index('$ARCHIVE_DIR', arch='x86_64')
+path = generate_index(sys.argv[1], arch='x86_64', sources_dir=sys.argv[2])
 print(f'Index written: {path}')
-" || { echo "ERROR: Index generation failed" >&2; exit 1; }
+PYINDEX
 
     if [ ! -f "$INDEX_PATH" ]; then
         echo "ERROR: Index not found after generation: $INDEX_PATH" >&2
