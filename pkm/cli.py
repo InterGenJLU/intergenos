@@ -6590,7 +6590,7 @@ def _write_available_updates_json(summary, output_path):
         raise
 
 
-# The three sentences the end-of-transaction refresh can end in, and the two
+# The three index/computation/write sentences of the end-of-transaction refresh, and the two
 # fragments they all share. The refresh is advisory and must never fail the
 # transaction, so every fault below ends in a warning — but a warning that
 # names the WRONG cause is worse than a quiet one, because the person acts on
@@ -6647,10 +6647,10 @@ def refresh_available_updates_after_transaction(db, output_path=None):
     synced index (e.g. a purely-local `--archive` install before any
     `pkm update`) recomputing would report zero upgradable and CLOBBER a real
     advisory, so the last-good file is left untouched and the reason is stated.
-    Every other fault is reported in the words of ITS OWN cause — an index that
-    could not be read, an advisory that could not be written, or an internal
-    error in pkm — and the previous advisory is left byte-identical in all
-    three."""
+    Every other fault is reported in the words of ITS OWN cause — repository
+    configuration/setup, an index that could not be read, an advisory that could
+    not be written, or an internal error in pkm — and the previous advisory is
+    left byte-identical in each case."""
     if output_path is None:
         output_path = available_updates_path()
     # Best-effort by contract: the transaction has already committed, so a
@@ -6663,11 +6663,24 @@ def refresh_available_updates_after_transaction(db, output_path=None):
     # sentence with a bare errno or driver message appended. Two of those are
     # I/O on two different files, fixed in two different places; the third is
     # a defect in pkm that no permission change will help. Each stage is now
-    # bounded on its own: OSError gets the I/O words of the file that stage
-    # touches, anything else is named as an internal error with its type, and
-    # nothing propagates out of any of them.
+    # bounded on its own. Construction reads configuration and prepares the
+    # cache before index loading, so its failures need their own setup words.
+    # In the later stages, OSError gets the I/O words of the file that stage
+    # touches and anything else is named as an internal error with its type.
+    # Nothing propagates out of any of them.
     try:
         repo = repo_manager()
+    except Exception as e:
+        from .repo import REPO_CONFIG_PATH
+        emit_warn(
+            f"{_REFRESH_STEM} {output_path}: repository setup failed using "
+            f"configuration {REPO_CONFIG_PATH} ({type(e).__name__}: {e}). "
+            f"{_REFRESH_TAIL} Check the configuration file and the reported "
+            f"setup error."
+        )
+        return
+
+    try:
         synced = repo.has_synced_index()
     except OSError as e:
         # Loading the cache is this stage's only I/O: _ensure_synced raises the

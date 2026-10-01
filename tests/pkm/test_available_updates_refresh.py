@@ -321,6 +321,40 @@ class CausesApartTest(unittest.TestCase):
         self.assertEqual(data["skipped_count"], 0)
         self.assertNotEqual(self.out.read_bytes(), self.previous_bytes)
 
+    def _assert_configuration_failure(self, content, mode, error_name):
+        config = Path(self.tmp.name) / "repos.conf"
+        config.write_text(content, encoding="utf-8")
+        config.chmod(mode)
+        self.addCleanup(config.chmod, 0o600)
+        root = Path(self.tmp.name) / "target"
+        root.mkdir()
+        cli.set_install_root(str(root))
+        self.addCleanup(cli.set_install_root, None)
+        err = io.StringIO()
+        with patch("pkm.repo.REPO_CONFIG_PATH", config), redirect_stderr(err):
+            answer = refresh_available_updates_after_transaction(self.db, self.out)
+        said = " ".join(err.getvalue().split())
+        self.assertIsNone(answer)
+        self.assertIn("repository setup failed", said)
+        self.assertIn(f"configuration {config}", said)
+        self.assertIn(f"({error_name}:", said)
+        self.assertNotIn("the repository index in the local cache could not be READ", said)
+        self.assertNotIn("the advisory file could not be WRITTEN", said)
+        self.assertNotIn("INTERNAL ERROR", said)
+        self.assertNotIn("This is a defect in pkm", said)
+        self.assertNotIn("pkm sync", said)
+        self._assert_advisory_untouched()
+
+    def test_an_unreadable_configuration_names_its_own_failure(self):
+        self._assert_configuration_failure(
+            "[intergenos-current]\nurl = https://repo.invalid/\n",
+            0o000, "PermissionError")
+
+    def test_a_malformed_configuration_names_its_own_failure(self):
+        self._assert_configuration_failure(
+            "this is not an INI section\nurl = https://repo.invalid/\n",
+            0o600, "MissingSectionHeaderError")
+
 
 class TransactionExitUnchangedTest(unittest.TestCase):
     """A refresh that cannot write is advisory, not transactional: the command
