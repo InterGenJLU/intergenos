@@ -704,6 +704,15 @@ class ConsoleShell:
         elif msg_type == "error":
             code = msg.get("code", "")
             message = msg.get("message", "")
+            # An error frame IS the end of the turn: the no-wedge backstop sends
+            # it instead of a stream_end when the worker raises mid-stream, so no
+            # stream_end ever arrives for that turn. Leaving the stream state set
+            # kept the thinking indicator running and kept drawing the partial
+            # text with a live cursor, so a failed turn went on looking like an
+            # answer still arriving.
+            self._is_streaming = False
+            self._streaming_buffer = ""
+            self._thinking_text = "thinking..."
             self._add_message("system", f"Error [{code}]: {message}", "error")
 
         elif msg_type == "response":
