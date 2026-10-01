@@ -350,6 +350,33 @@ class _NothingToCache(Exception):
     """Raised inside the cache write when the turn produced no answer to keep."""
 
 
+def _for_the_terminal(text: str) -> str:
+    """Text safe to hand a terminal: control bytes removed, content kept.
+
+    The console surface already holds this line — it renders a model reply with
+    any stray escape stripped, because a reply carrying one could clear the
+    screen, reposition the cursor and paint a line that reads as the assistant's
+    own or as a governance line. The command line delivers the same material to
+    the same terminal and had no such rule: the answer, the cached answer, the
+    raw output behind it and a recorded excerpt were all printed as given.
+
+    Only the DISPLAY is filtered. Nothing here touches what is written to the
+    cache or to the audit record, which stay byte-exact so the original remains
+    verifiable; a reader that wants the bytes reads the file.
+
+    Newline and tab are layout and are kept. Everything else below the printable
+    range, and the escape character itself, is removed rather than replaced, so
+    the visible text is what the sender wrote and no sequence survives to be
+    interpreted.
+    """
+    if not text:
+        return text
+    return "".join(
+        ch for ch in text
+        if ch in "\n\t" or (ord(ch) >= 32 and ord(ch) != 127)
+    )
+
+
 def _reply_object(response: str, what: str) -> dict:
     """The reply, read as the object the delivery path needs, or exit 2.
 
@@ -415,7 +442,7 @@ def _deliver_answer(data: dict) -> bool:
     sent = data.get("sent", True)
     answered = bool(response.strip())
     if answered:
-        print(response)
+        print(_for_the_terminal(response))
     full = _raw_original(data)
     # Persist for `intergen last [--raw]`. Best-effort + atomic: a cache-write
     # failure must never break the answer, and we advertise the raw only if it
@@ -760,7 +787,7 @@ def cmd_last(args: list[str]) -> None:
         # results themselves (see _raw_original).
         full = (data.get("full_output") or "").rstrip("\n")
         if full.strip():
-            print(full)
+            print(_for_the_terminal(full))
             return
         # Nothing behind the answer was recorded for this turn. Say exactly
         # that: the line used to say the turn had been a direct answer rather
@@ -768,9 +795,9 @@ def cmd_last(args: list[str]) -> None:
         # cannot see and was false whenever a route recorded no raw.
         _hint("no separate raw output was recorded for the last answer — "
               "showing the answer itself.")
-        print(data.get("response", ""))
+        print(_for_the_terminal(data.get("response", "")))
     else:
-        print(data.get("response", ""))
+        print(_for_the_terminal(data.get("response", "")))
 
 
 def cmd_reset() -> None:
@@ -1453,14 +1480,14 @@ def cmd_tool_log(args: list[str]) -> None:
             print(f"    source:       {source}")
         if excerpt:
             snippet = excerpt[:200] + ("..." if len(excerpt) > 200 else "")
-            print(f"    excerpt:      {snippet}")
+            print(f"    excerpt:      {_for_the_terminal(snippet)}")
         args_summary = r.get("arguments", {})
         if args_summary:
             print(f"    arguments:    {args_summary}")
         result = r.get("result_summary", "")
         if result:
             snippet = result[:160] + ("..." if len(result) > 160 else "")
-            print(f"    result:       {snippet}")
+            print(f"    result:       {_for_the_terminal(snippet)}")
         print()
 
 
