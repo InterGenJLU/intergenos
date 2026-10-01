@@ -350,6 +350,33 @@ class _NothingToCache(Exception):
     """Raised inside the cache write when the turn produced no answer to keep."""
 
 
+def _reply_object(response: str, what: str) -> dict:
+    """The reply, read as the object the delivery path needs, or exit 2.
+
+    Both question commands used a bare json.loads and handed the result straight
+    on, so a reply that is not a JSON object — the case the code itself
+    contemplates, an owner of the assistant's bus name that is not the assistant
+    — left the command as an uncaught decoding error or attribute error: a
+    person read a traceback and a script read the interpreter's own failure code
+    instead of the number this contract uses. A reply that cannot be read is a
+    question with no answer, which is the condition every other no-answer path
+    here reports and exits 2 on, so it leaves the same way.
+    """
+    try:
+        data = json.loads(response)
+    except Exception as exc:
+        print(f"InterGen's reply to {what} could not be read as a reply "
+              f"({type(exc).__name__}: {exc}). The question was not answered.",
+              file=sys.stderr)
+        sys.exit(2)
+    if not isinstance(data, dict):
+        print(f"InterGen's reply to {what} was readable but is not a reply: it "
+              f"holds {type(data).__name__}. The question was not answered.",
+              file=sys.stderr)
+        sys.exit(2)
+    return data
+
+
 def _deliver_answer(data: dict) -> bool:
     """Print the answer, cache it for `intergen last`, and — when a distinct raw
     original exists behind the summary — point the user at it.
@@ -664,7 +691,7 @@ def cmd_ask(message: str, direct: bool = False) -> None:
             response = try_dbus("Ask", message, timeout_ms=ASK_TIMEOUT_MS,
                                 failure=failure)
         if response is not None:
-            data = json.loads(response)
+            data = _reply_object(response, "the request")
             if not _deliver_answer(data):
                 sys.exit(2)
             return
@@ -693,7 +720,7 @@ def cmd_ask(message: str, direct: bool = False) -> None:
     daemon = InterGenDaemon()
     daemon.start_service()
     response = daemon.ask(message)
-    data = json.loads(response)
+    data = _reply_object(response, "the request")
     if not _deliver_answer(data):
         sys.exit(2)
 
@@ -789,7 +816,7 @@ def cmd_ask_frontier(message: str, direct: bool = False) -> None:
         response = try_dbus("Escalate", message, timeout_ms=ASK_TIMEOUT_MS,
                             failure=failure)
         if response is not None:
-            data = json.loads(response)
+            data = _reply_object(response, "the Escalate call")
             # The same delivery path as the assistant's own question command,
             # so the two answer the exit code the same way. The reply's own
             # sentence is printed first either way: on the frontier side that
@@ -819,7 +846,7 @@ def cmd_ask_frontier(message: str, direct: bool = False) -> None:
     daemon = InterGenDaemon()
     daemon.start_service()
     response = daemon.escalate(message)
-    data = json.loads(response)
+    data = _reply_object(response, "the Escalate call")
     if not _deliver_answer(data):
         sys.exit(2)
 
