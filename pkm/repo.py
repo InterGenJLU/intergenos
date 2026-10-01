@@ -35,6 +35,8 @@ Index Format (InterGenOS.db — gzipped JSON):
                 "installed_size": 215000000,
                 "sha256": "a1b2c3d4e5f6...",
                 "filename": "firefox-138.0-1.igos.tar.gz",
+                "source_filename": "firefox-138.0-1.igos.src.tar.gz",   # present iff the publish set carries one
+                "source_sha256": "f6e5d4c3b2a1...",                     # of the corresponding-source archive's own bytes
                 "build_date": "2026-04-08T10:00:00Z",
                 "source_url": "https://archive.mozilla.org/pub/firefox/releases/138.0/source/firefox-138.0.source.tar.xz",
                 "security": true,                   # Q7: present iff this version is a security release
@@ -46,7 +48,9 @@ Index Format (InterGenOS.db — gzipped JSON):
 
 Security Model:
     1. Repository index is GPG-signed with the InterGenOS release key
-    2. Each package entry includes SHA256 checksum
+    2. Each package entry includes SHA256 checksum -- of the binary archive,
+       and, where the publish set carries one, of the corresponding-source
+       archive too, so ONE signature covers both (SOURCES.md section 4)
     3. On sync: verify GPG signature of index
     4. On install: verify SHA256 of downloaded package against signed index
     5. Chain of trust: GPG key → signed index → SHA256 → package file
@@ -1730,8 +1734,35 @@ class RepoManager:
 # Index generation (for repo maintainers / build system)
 # ---------------------------------------------------------------------------
 
+# The corresponding-source archive's name, as SOURCES.md section 2 fixes it
+# and scripts/build-source-archives.py emits it. One place, because the index
+# writer below and anything that reads the index have to agree on it.
+SOURCE_ARCHIVE_SUFFIX = ".igos.src.tar.gz"
+
+
+def source_archive_name(name, version, release):
+    """The corresponding-source archive's filename for one package build."""
+    return f"{name}-{version}-{release}{SOURCE_ARCHIVE_SUFFIX}"
+
+
+def _source_archive_for(sources_dir, name, meta):
+    """That archive inside sources_dir, or None when the set carries none.
+
+    An entry with no `release` cannot name its archive at all, because the
+    published filename carries one. None is returned there rather than a
+    guessed name: the caller reports every package it got None for, so the
+    absence is counted and named instead of becoming an empty field.
+    """
+    version = meta.get("version")
+    release = meta.get("release")
+    if version is None or release is None:
+        return None
+    candidate = Path(sources_dir) / source_archive_name(name, version, release)
+    return candidate if candidate.is_file() else None
+
+
 def generate_index(package_dir, arch="x86_64", output=None,
-                   security_advisories=None):
+                   security_advisories=None, sources_dir=None):
     """Generate a repository index from a directory of packages.
 
     Scans package_dir for .igos.tar.gz files, reads their metadata,
@@ -1747,6 +1778,14 @@ def generate_index(package_dir, arch="x86_64", output=None,
             `security: true` + `cves: [list]` fields (Q7 / O-030).
             Caller parses the YAML file at docs/governance/security-
             advisories.yml and passes the parsed dict.
+        sources_dir: Directory holding the corresponding-source archives
+            (`<name>-<version>-<release>.igos.src.tar.gz`). Default:
+            `<package_dir>/sources`, which is where the published layout puts
+            them (`x86_64/current/sources/`). Each entry whose archive is
+            present gains `source_filename` + `source_sha256`; an entry with
+            no archive gains NEITHER field, so a reader can tell "no source
+            published" from "published, hash unknown". The caller reports the
+            packages with none, by name -- see scripts/generate-repodb.py.
 
     Returns:
         Path to the generated index
@@ -1776,6 +1815,31 @@ def generate_index(package_dir, arch="x86_64", output=None,
             # Keep the existing filename tie order for identical versions.
             if name not in packages or compare(meta, packages[name]) >= 0:
                 packages[name] = meta
+
+    # The corresponding-source archive's name and hash, for every entry whose
+    # archive the publish set carries. SOURCES.md section 4 documents exactly
+    # these two field names and tells a reader to check a source archive
+    # against `source_sha256` in THIS signed index, and the README written into
+    # every source archive makes the same claim; the fields have to be in the
+    # index that gets signed or the documented verification returns null.
+    #
+    # The hash is taken from the archive's own bytes, here, at index time, and
+    # never from a sidecar `.sha256` or any other manifest: a manifest is a
+    # CLAIM about the file, and what the release signature must cover is a
+    # MEASUREMENT of it. The binary archive's hash on the line above is
+    # computed the same way for the same reason.
+    sources_path = Path(sources_dir) if sources_dir else (package_dir / "sources")
+    if sources_path.is_dir():
+        for name, meta in packages.items():
+            src_archive = _source_archive_for(sources_path, name, meta)
+            if src_archive is None:
+                continue
+            src_sha = hashlib.sha256()
+            with open(src_archive, "rb") as f:
+                for chunk in iter(lambda: f.read(8192), b""):
+                    src_sha.update(chunk)
+            meta["source_filename"] = src_archive.name
+            meta["source_sha256"] = src_sha.hexdigest()
 
     # Q7 (O-030): apply hand-curated security advisories. Match each
     # advisory key <name>-<version> against packages[name]["version"];

@@ -10,6 +10,8 @@ Usage:
     python3 scripts/generate-repodb.py /var/lib/igos/archives/
     python3 scripts/generate-repodb.py --gpg-key S2 /path/to/archives/
     python3 scripts/generate-repodb.py --no-sign /path/to/archives/
+    python3 scripts/generate-repodb.py --sources-dir build/sources-archives \
+        /var/lib/igos/archives/
 
 GPG keys (canonical names from pkm/release-keys.json):
     S1 — primary signing (Nitrokey NK1)  — also accepts legacy alias 'NK1'
@@ -17,6 +19,14 @@ GPG keys (canonical names from pkm/release-keys.json):
 
 Required files in package_dir:
     *.igos.tar.gz — per-package archives (output of E1.B.5 emit-package-archives.py)
+
+Read from --sources-dir (default <package_dir>/sources):
+    *.igos.src.tar.gz — corresponding-source archives (output of
+    scripts/build-source-archives.py). Every entry whose archive is present
+    gains source_filename + source_sha256, which is what SOURCES.md section 4
+    tells a user to verify a source archive against. Packages with no archive
+    gain neither field and are COUNTED AND NAMED in this script's summary, so
+    the absence is visible rather than a silent null in the signed index.
 
 Outputs:
     InterGenOS.db — gzipped JSON index (pkm fetchable)
@@ -26,6 +36,7 @@ Library functions at pkm/repo.py:414 (generate_index) and :467 (sign_index).
 Schema documented at pkm/repo.py:14-38.
 """
 
+import gzip
 import json
 import sys
 from pathlib import Path
@@ -58,6 +69,45 @@ def _load_release_keys():
     return keys
 
 
+def _report_source_archives(index_path, sources_dir):
+    """Name and count the corresponding-source archives the index records.
+
+    Reads the WRITTEN index, so what is reported is what was signed. Prints the
+    sources directory used, how many of the entries carry the two source
+    fields, and the name of every package that carries neither. A run whose
+    sources directory does not exist says so and states the zero explicitly: a
+    publish that quietly recorded nothing about sources, while SOURCES.md
+    promises the index records them, is the failure this summary exists to make
+    impossible to miss.
+    """
+    with gzip.open(index_path, "rt", encoding="utf-8") as f:
+        written = json.load(f)
+    entries = written.get("packages", {})
+    recorded = sorted(n for n, e in entries.items() if "source_sha256" in e)
+    missing = sorted(n for n in entries if n not in set(recorded))
+
+    print(f"Corresponding-source archives read from {sources_dir}", file=sys.stderr)
+    if not Path(sources_dir).is_dir():
+        print(
+            f"WARNING: no such sources directory: {sources_dir} — 0 of "
+            f"{len(entries)} entries carry source_filename/source_sha256. "
+            f"SOURCES.md section 4 documents that this index records them; "
+            f"generate them with scripts/build-source-archives.py and pass "
+            f"--sources-dir.",
+            file=sys.stderr,
+        )
+    print(
+        f"Source archive recorded for {len(recorded)} of {len(entries)} packages",
+        file=sys.stderr,
+    )
+    if missing:
+        print(
+            f"  {len(missing)} with no corresponding-source archive: "
+            f"{', '.join(missing)}",
+            file=sys.stderr,
+        )
+
+
 def main():
     import argparse
 
@@ -77,6 +127,15 @@ def main():
         help="Release key to sign with (default: S1, canonical names from pkm/release-keys.json)",
     )
     parser.add_argument("--no-sign", action="store_true", help="Skip signing")
+    parser.add_argument(
+        "--sources-dir",
+        help="Directory holding the corresponding-source archives "
+             "(<name>-<version>-<release>.igos.src.tar.gz, as emitted by "
+             "scripts/build-source-archives.py). Default: <package_dir>/sources, "
+             "which is where the published layout puts them. Each index entry "
+             "whose archive is present records its source_filename and "
+             "source_sha256.",
+    )
     parser.add_argument(
         "--security-advisories",
         default=str(_project_root / "docs" / "governance" / "security-advisories.yml"),
@@ -155,13 +214,21 @@ def main():
             )
 
     # Step 1: Generate index
+    sources_dir = Path(args.sources_dir) if args.sources_dir else package_dir / "sources"
     print(f"Generating index from {len(archives)} archives...", file=sys.stderr)
     index_path = generate_index(
         str(package_dir), arch="x86_64", output=output,
-        security_advisories=advisories,
+        security_advisories=advisories, sources_dir=str(sources_dir),
     )
     index_path = Path(index_path)
     print(f"Index: {index_path} ({index_path.stat().st_size} bytes)", file=sys.stderr)
+
+    # Step 1b: the corresponding-source summary, READ BACK OUT OF THE FILE that
+    # was just written rather than out of what was passed in. The index is the
+    # artifact; anything else is an echo of an intention. A package with no
+    # source archive carries no source field at all, so the only way that
+    # absence is visible is this summary naming it.
+    _report_source_archives(index_path, sources_dir)
 
     # Step 2: Sign
     if not args.no_sign:
