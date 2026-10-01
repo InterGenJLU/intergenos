@@ -13,8 +13,6 @@ from chronicle import config, engine, escalate
 
 
 @pytest.fixture
-
-
 def saved_point(tmp_path):
     directory = tmp_path / "documents"
     directory.mkdir()
@@ -60,8 +58,6 @@ def test_stored_descendants_identify_a_directory_that_no_longer_exists(saved_poi
 
 
 @pytest.mark.parametrize("live_type", ["directory", "file", "symlink", "nonexistent"])
-
-
 def test_uncaptured_paths_are_not_in_this_version_for_plan_and_apply(
         saved_point, monkeypatch, live_type):
     backend, version, directory, document, *_ = saved_point
@@ -178,8 +174,6 @@ def test_real_cli_preview_explains_directory_and_absent_arguments(saved_point, j
 
 
 @pytest.mark.parametrize("json_mode", [False, True])
-
-
 def test_real_cli_preserves_nonblank_path_bytes_and_quotes_skips(saved_point, json_mode):
     backend, _, directory, _, store, conf = saved_point
     document = directory / " note with spaces\t "
