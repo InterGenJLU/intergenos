@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from intergen import dispatch_token
 from intergen.interfaces.tool import BaseTool
 from intergen.interfaces.types import SafetyTier, ToolResult, ToolSchema
 
@@ -321,7 +322,11 @@ class WriteFileTool(BaseTool):
         diff_text = ""
         if path.exists():
             try:
-                old_content = path.read_text(errors="replace")
+                # Reading the old bytes to build a diff is a read like any
+                # other, and the diff is handed straight back to the model, so
+                # the same boundary applies to it.
+                old_content = dispatch_token.read_text_refusing_install_secrets(
+                    path)
                 if old_content == content:
                     return ToolResult(
                         call_id="", name=self.name,
@@ -335,6 +340,13 @@ class WriteFileTool(BaseTool):
                     tofile=f"b/{path.name}",
                 )
                 diff_text = "".join(diff_lines)
+            except dispatch_token.InstallSecretRefused as refused:
+                return ToolResult(
+                    call_id="", name=self.name,
+                    content=dispatch_token.opened_file_refusal_text(
+                        refused.reason),
+                    success=False,
+                )
             except OSError as e:
                 return ToolResult(
                     call_id="", name=self.name,
@@ -353,9 +365,24 @@ class WriteFileTool(BaseTool):
                     success=False,
                 )
 
-        # Write the file
+        # Write the file. The open comes first and the truncation second, on
+        # the descriptor the open returned: a flag set carrying O_TRUNC would
+        # empty the file inside the open, which on one of the install's own
+        # credential files would destroy it before any refusal could run. A new
+        # file is created as before, and an existing one is emptied only once
+        # the object it names has been established.
         try:
-            path.write_text(content)
+            fd = dispatch_token.opened_refusing_install_secrets(
+                path, os.O_WRONLY | os.O_CREAT | os.O_CLOEXEC)
+            with os.fdopen(fd, "w") as handle:
+                os.ftruncate(handle.fileno(), 0)
+                handle.write(content)
+        except dispatch_token.InstallSecretRefused as refused:
+            return ToolResult(
+                call_id="", name=self.name,
+                content=dispatch_token.opened_file_refusal_text(refused.reason),
+                success=False,
+            )
         except OSError as e:
             return ToolResult(
                 call_id="", name=self.name,

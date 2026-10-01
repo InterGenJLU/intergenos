@@ -198,8 +198,20 @@ def dispatch_key_path(home: Path | None = None) -> Path:
     a stripped/forged HOME in the daemon's environment.
     """
     if home is None:
-        home = Path(pwd.getpwuid(os.getuid()).pw_dir)
+        home = _owning_home()
     return home.joinpath(*KEY_RELATIVE_PATH)
+
+
+def _owning_home() -> Path:
+    """The home directory of the account this process runs as.
+
+    Resolved through the password database rather than HOME, for the reason
+    dispatch_key_path above states: a stripped or forged HOME in the daemon's
+    environment must not be able to move where the install's own files are
+    believed to live. One function, so the mint side and the file boundary below
+    cannot come to different answers.
+    """
+    return Path(pwd.getpwuid(os.getuid()).pw_dir)
 
 
 def secret_file_reason(candidate: object) -> str | None:
@@ -251,6 +263,187 @@ def secret_file_reason(candidate: object) -> str | None:
         if tail in text.replace("\\", "/"):
             return reason
     return None
+
+
+# --- The file boundary: deciding on the object, not on the name --------------
+#
+# `secret_file_reason` above reads argument text, which is all a dispatcher has.
+# What returns a file is an OPEN, and an open resolves parent components, follows
+# symbolic links, and accepts any one of the names a single file may have. A text
+# comparison made before that open therefore answers a different question from
+# the one that matters, in both directions: it misses a spelling it has not been
+# shown, and it refuses a string that was never going to open anything.
+#
+# What follows decides on the object a consumer actually opened. The decision is
+# taken from the open descriptor, so there is no interval between resolving a
+# name and using it in which the name can be made to mean something else.
+
+
+class InstallSecretRefused(Exception):
+    """What was opened IS one of the install's own secret files.
+
+    Carries the reason a refusal states, so a consumer hands the person the same
+    sentence the dispatcher's own screen would have used.
+    """
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+def opened_file_refusal_text(reason: str) -> str:
+    """The sentence a consumer returns when it refuses one of these files.
+
+    It lives here, beside the reasons themselves, so the three consumers cannot
+    drift into three different explanations of the same refusal.
+    """
+    return (
+        f"Refused: the file this path opens is {reason}. The assistant does not "
+        "read or replace its own credential files, and no approval can "
+        "authorise it to."
+    )
+
+
+def canonical_path_secret_reason(candidate: object) -> str | None:
+    """Why an ALREADY-CANONICAL path is one of the install's secret files, or None.
+
+    The tail comparison of `secret_file_reason`, with its text-matching half
+    dropped. By the time this is asked the path came from the kernel for an
+    object that is already open, so there is nothing hostile left to interpret:
+    the only question is whether the final components are the ones the install
+    keeps its credentials under, and a longer filename that merely begins with
+    one of those names is a different file and stays readable.
+
+    The comparison is on the tail rather than against one resolved home for the
+    reasons `secret_file_reason` gives: the daemon may run for any account, and a
+    staged install or a test puts the same files under another base.
+    """
+    if isinstance(candidate, Path):
+        text = str(candidate)
+    elif isinstance(candidate, str):
+        text = candidate
+    else:
+        return None
+    if not text:
+        return None
+    try:
+        parts = Path(text).parts
+    except (ValueError, RuntimeError):
+        return None
+    for relative, reason in SECRET_RELATIVE_PATHS.items():
+        if len(parts) >= len(relative) and tuple(parts[-len(relative):]) == relative:
+            return reason
+    return None
+
+
+def secret_file_identities() -> dict[tuple[int, int], str]:
+    """The (device, inode) identity of each of this install's secret files.
+
+    The leg a name cannot launder. A hard link gives one file a second name whose
+    own canonical path says nothing about what it points at, so a comparison on
+    that name finds nothing to refuse; the identity of the object is the same
+    either way.
+
+    This leg speaks only for the files of THIS install, since it has to resolve
+    them to stat them; the tail comparison above is what covers a staged install
+    or a test under another base. A file that does not exist contributes nothing:
+    an install before its first run has no key to protect yet.
+    """
+    identities: dict[tuple[int, int], str] = {}
+    try:
+        home = _owning_home()
+    except (KeyError, OSError):
+        return identities
+    for relative, reason in SECRET_RELATIVE_PATHS.items():
+        try:
+            st = home.joinpath(*relative).stat()
+        except OSError:
+            continue
+        identities[(st.st_dev, st.st_ino)] = reason
+    return identities
+
+
+def open_descriptor_secret_reason(fd: int) -> str | None:
+    """Why the object behind this OPEN DESCRIPTOR is one of the install's secrets.
+
+    Both legs are asked of the descriptor and never of the caller's string, which
+    is what removes the window a check-then-open sequence leaves open: between a
+    name being resolved and that name being opened, the name can be made to point
+    elsewhere, and a descriptor cannot.
+
+    Fails CLOSED, and says what it lacked. If neither the kernel's own path for
+    the object nor the object's identity can be read, the refusal stands with
+    that stated: a consumer that cannot establish what it is holding must not
+    hand back its bytes.
+    """
+    try:
+        canonical: str | None = os.readlink(f"/proc/self/fd/{fd}")
+    except OSError:
+        canonical = None
+    if canonical is not None:
+        reason = canonical_path_secret_reason(canonical)
+        if reason is not None:
+            return reason
+    try:
+        st = os.fstat(fd)
+    except OSError as exc:
+        return (
+            "a file whose identity this install could not establish "
+            f"({exc}), so its own secret files cannot be ruled out"
+        )
+    reason = secret_file_identities().get((st.st_dev, st.st_ino))
+    if reason is not None:
+        return reason
+    if canonical is None:
+        return (
+            "a file whose canonical path this install could not read, so its "
+            "own secret files cannot be ruled out"
+        )
+    return None
+
+
+def opened_refusing_install_secrets(path: object, flags: int,
+                                    mode: int = 0o666) -> int:
+    """Open `path`, then refuse if what opened is one of the install's secrets.
+
+    The refusal lands after the open and before any read or write. That order is
+    the mechanism: the open is what resolves every spelling of a name, and the
+    descriptor it returns is the only thing that can be asked what it actually
+    is.
+
+    O_TRUNC is refused outright. Truncation happens inside the open, so a flag
+    set that carried it would empty the credential before any check could refuse
+    it; a caller that needs an empty file truncates the descriptor this returns.
+
+    Returns the open descriptor, which the caller owns and must close. Raises
+    InstallSecretRefused if the object is one of the install's secret files, and
+    OSError from the open itself.
+    """
+    if flags & os.O_TRUNC:
+        raise ValueError(
+            "opened_refusing_install_secrets refuses O_TRUNC: the open would "
+            "empty the file before the refusal could run. Truncate the returned "
+            "descriptor instead."
+        )
+    fd = os.open(path, flags, mode)
+    try:
+        reason = open_descriptor_secret_reason(fd)
+    except BaseException:
+        os.close(fd)
+        raise
+    if reason is not None:
+        os.close(fd)
+        logger.warning("Refused a tool's open of %s: %s", path, reason)
+        raise InstallSecretRefused(reason)
+    return fd
+
+
+def read_text_refusing_install_secrets(path: object, *,
+                                       errors: str = "replace") -> str:
+    """Read `path` as text, unless what opens is one of the install's secrets."""
+    fd = opened_refusing_install_secrets(path, os.O_RDONLY | os.O_CLOEXEC)
+    with os.fdopen(fd, "r", errors=errors) as handle:
+        return handle.read()
 
 
 def dispatch_key_path_for_user(username: str) -> Path:

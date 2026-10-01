@@ -21,6 +21,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from intergen import dispatch_token
 from intergen.interfaces.tool import BaseTool
 from intergen.interfaces.types import SafetyTier, ToolResult, ToolSchema
 
@@ -119,7 +120,17 @@ class AnalyzeFileTool(BaseTool):
         log.info("Analyzing %s (%d bytes): %s", path, size, question)
 
         try:
-            content = path.read_text(errors="replace")
+            # Refused on the object that opens, before a single byte can reach
+            # the analysis prompt. This tool posts the whole file body to a model
+            # server, so a refusal that landed any later would already have put
+            # the credential on a request.
+            content = dispatch_token.read_text_refusing_install_secrets(path)
+        except dispatch_token.InstallSecretRefused as refused:
+            return ToolResult(
+                call_id="", name=self.name,
+                content=dispatch_token.opened_file_refusal_text(refused.reason),
+                success=False, executed=False,
+            )
         except OSError as e:
             log.error("Cannot read %s: %s", path, e)
             return ToolResult(

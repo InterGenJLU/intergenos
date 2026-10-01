@@ -8,6 +8,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from intergen import dispatch_token
 from intergen.interfaces.tool import BaseTool
 from intergen.interfaces.types import SafetyTier, ToolResult, ToolSchema
 
@@ -149,7 +150,17 @@ class ReadFileTool(BaseTool):
         # Read
         log.info("Reading %s (%d bytes)", path, size)
         try:
-            text = path.read_text(errors="replace")
+            # The install's own credential files are refused on the object this
+            # opens, not on the path that was asked for: the open is what
+            # resolves a parent component, follows a link, or arrives at a file
+            # by a second name, and only the descriptor can be asked what it is.
+            text = dispatch_token.read_text_refusing_install_secrets(path)
+        except dispatch_token.InstallSecretRefused as refused:
+            return ToolResult(
+                call_id="", name=self.name,
+                content=dispatch_token.opened_file_refusal_text(refused.reason),
+                success=False, executed=False,
+            )
         except OSError as e:
             log.error("Cannot read %s: %s", path, e)
             return ToolResult(
