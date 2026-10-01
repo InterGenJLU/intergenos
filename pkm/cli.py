@@ -2306,6 +2306,7 @@ def cmd_install(db, args):
 
             # Cross-check against repo index
             repo_pkg = None
+            _index_read_failed = False
             try:
                 repo_pkg = repo.get_package(pkg_name)
             except OSError as e:
@@ -2323,6 +2324,7 @@ def cmd_install(db, args):
                     f"against it"
                 )
                 repo_pkg = None
+                _index_read_failed = True
             # H3: the gate is _explicit_archive_trust above, the one copy both
             # person-named-archive paths apply; only the sentences below are
             # this path's own.
@@ -2351,6 +2353,14 @@ def cmd_install(db, args):
             # Trust gate (H3): the decision is the rule's; the words and what a
             # refusal does to the rest of this transaction are this path's.
             if not _permitted:
+                if _index_read_failed:
+                    _refusal_reason = "the repository index could not be read"
+                elif _standing == ARCHIVE_TRUST_CONTRADICTED:
+                    _refusal_reason = "the archive's SHA256 does not match the repository index"
+                elif repo_pkg is None:
+                    _refusal_reason = "the repository index does not list this package"
+                else:
+                    _refusal_reason = "the repository index provides no SHA256 for this package"
                 if trust_mode not in ARCHIVE_TRUST_MODES:
                     # Not strict's sentence: the mode itself is the refusal, and
                     # naming a mode the person did not ask for would misreport
@@ -2374,8 +2384,7 @@ def cmd_install(db, args):
                     )
                     refused_this_txn.append((
                         pkg_name,
-                        "the archive's SHA256 does not match the repository "
-                        "index (--archive-trust=repo-only)",
+                        f"{_refusal_reason} (--archive-trust=repo-only)",
                     ))
                 else:
                     reporter.error(
@@ -2384,8 +2393,7 @@ def cmd_install(db, args):
                     )
                     refused_this_txn.append((
                         pkg_name,
-                        "the archive's SHA256 does not match the repository "
-                        "index (--archive-trust=strict)",
+                        f"{_refusal_reason} (--archive-trust=strict)",
                     ))
                 continue
             if trust_mode == "loose":

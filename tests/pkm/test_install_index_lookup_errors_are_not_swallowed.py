@@ -157,6 +157,31 @@ class TheIndexLookupDoesNotRenameItsErrors(unittest.TestCase):
         self.assertNotIn("could not be read", err)
         self.assertIn("--archive-trust=strict requires SHA256 match", err)
 
+    def test_the_refused_package_summary_names_the_lookup_cause(self):
+        def unreadable(_name):
+            raise OSError(13, "Permission denied")
+
+        def without_hash(name):
+            entry = _index_entry(name)
+            del entry["sha256"]
+            return entry
+
+        cases = (
+            ("unlisted", lambda _name: None, "the repository index does not list this package"),
+            ("unreadable", unreadable, "the repository index could not be read"),
+            ("contradicted", _index_entry, "the archive's SHA256 does not match the repository index"),
+            ("without-hash", without_hash, "the repository index provides no SHA256 for this package"),
+        )
+        for mode in ("strict", "repo-only"):
+            for cause, lookup, reason in cases:
+                with self.subTest(mode=mode, cause=cause):
+                    raised, out, err = self._run(mode, lookup)
+                    self.assertIsInstance(raised, SystemExit, (out, err))
+                    self.assertEqual(raised.code, 1)
+                    self.assertEqual(out.count(f"{NAME}:"), 1)
+                    summary = " ".join(out.split(f"{NAME}:", 1)[1].split())
+                    self.assertIn(f"{reason} (--archive-trust={mode})", summary)
+
 
 class TheUpgradePathDoesNotRenameItsErrorsEither(unittest.TestCase):
     """The other half of the pair: `pkm upgrade <name> --archive <file>`.
@@ -300,8 +325,8 @@ class TheTwoPathsSayItInTheirOwnWords(unittest.TestCase):
             gate = rest.find("--archive-trust")
             return (rest[:gate] if gate > 0 else rest).strip()
 
-        install_line = _the_sentence(install_out + install_err)
-        upgrade_line = _the_sentence(upgrade_out + upgrade_err)
+        install_line = _the_sentence(install_err)
+        upgrade_line = _the_sentence(upgrade_err)
         self.assertTrue(install_line and upgrade_line)
         self.assertNotEqual(
             install_line, upgrade_line,
