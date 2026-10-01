@@ -59,13 +59,26 @@ class HealthAggregator:
                  watchdog: Any = None,
                  governance: Any = None,
                  audit_log_count: int | None = None,
-                 web_connections: int = 0,
+                 web_connections: int | Callable[[], int] | None = None,
+                 web_server: Any = None,
                  ) -> None:
         self._llama = llama_manager
         self._watchdog = watchdog
         self._governance = governance
         self._audit_log_count = audit_log_count
         self._web_connections = web_connections
+        self._web_server = web_server
+
+    def set_web_server(self, web_server: Any) -> None:
+        """Bind the live web server after construction.
+
+        The daemon builds this aggregator BEFORE the web server exists -- the
+        web server takes the aggregator -- and every later health request is
+        served from this same instance, so a connection count captured at
+        construction could never become true. The handle is bound here instead,
+        and read at each collect().
+        """
+        self._web_server = web_server
 
     def collect(self) -> dict[str, Any]:
         """Run all health checks and return the protocol §8 report."""
@@ -230,12 +243,8 @@ class HealthAggregator:
         # Audit log
         checks.append(self._check_audit_log())
 
-        # Web server connections
-        checks.append(HealthCheck(
-            name="Web server",
-            status="green" if self._web_connections >= 0 else "yellow",
-            summary=f"{self._web_connections} active connections",
-        ))
+        # Web server
+        checks.append(self._check_web_server())
 
         return HealthLayer(name="Daemon", checks=checks)
 
@@ -302,6 +311,66 @@ class HealthAggregator:
             status="green",
             summary=f"{parsed} entries read from the dispatch ledger",
         )
+
+    def _check_web_server(self) -> HealthCheck:
+        """The web server as something observed, or not observed at all.
+
+        This check asked whether `self._web_connections >= 0`, where the
+        attribute was an int assigned once in __init__ and never written again,
+        and the one construction in the tree passed the literal 0. That
+        comparison is true for every value that call can produce, so the yellow
+        branch was unreachable and the check was green by construction: a
+        machine whose bind attempts were exhausted, whose web thread never
+        reached run_forever, still answered "Web server - green - 0 active
+        connections" to the very client that had asked for it. The same process
+        already counted its live web connections for /api/status, and that
+        number never reached here.
+
+        A count of 0 carries nothing on its own, because a server that never
+        bound and a bound server with no clients produce the same figure. So the
+        status follows the SOURCE of the reading: the web server itself, or a
+        callable that reads it, is an observation, and so is a positive static
+        count, which no unbound server could have produced. Anything else is
+        reported yellow as not observed, because nothing was.
+        """
+        count = self._web_connection_reading()
+        if count is None:
+            return HealthCheck(
+                name="Web server",
+                status="yellow",
+                summary="Not observed - no live web-server reading available",
+            )
+        return HealthCheck(
+            name="Web server",
+            status="green",
+            summary=f"{count} active connections",
+        )
+
+    def _web_connection_reading(self) -> int | None:
+        """The live web-connection count, or None when nothing was observed.
+
+        The web server answers None itself when its own bind never succeeded,
+        and that is carried through rather than flattened to 0.
+        """
+        if self._web_server is not None:
+            try:
+                count = self._web_server.web_connection_count()
+            except Exception as exc:  # noqa: BLE001 -- a check never raises
+                logger.debug(
+                    "health: the web server did not answer its count: %s", exc)
+                return None
+            return int(count) if count is not None else None
+        source = self._web_connections
+        if callable(source):
+            try:
+                return int(source())
+            except Exception as exc:  # noqa: BLE001 -- a check never raises
+                logger.debug(
+                    "health: the web-connection source raised: %s", exc)
+                return None
+        if isinstance(source, int) and source > 0:
+            return source
+        return None
 
     def _check_system(self) -> HealthLayer:
         checks: list[HealthCheck] = []

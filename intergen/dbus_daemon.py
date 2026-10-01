@@ -2312,7 +2312,6 @@ class InterGenDaemon(InterGenDBusInterface):
                 llama_manager=self._llama,
                 watchdog=self._watchdog,
                 governance=self._governance,
-                web_connections=0,
             )
 
             self._web_server = WebServer(
@@ -2335,6 +2334,12 @@ class InterGenDaemon(InterGenDBusInterface):
                 after_turn=self._resume_wiki_embedding_after_turn,
             )
             self._web_server.mark_ready()
+            # The aggregator above is built before this server exists, because
+            # the server takes the aggregator, and every later health request is
+            # served from that one instance. The live reading is bound here, so
+            # the Web server check reports this server's own state instead of
+            # the literal 0 this call used to freeze into it.
+            self._health_agg.set_web_server(self._web_server)
             self._web_thread = threading.Thread(
                 target=self._run_web_server,
                 name="intergen-web",

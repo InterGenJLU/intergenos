@@ -384,6 +384,21 @@ class WebServer:
         self._ready = True
         logger.info("Web server marked ready — serving requests")
 
+    def web_connection_count(self) -> int | None:
+        """Live web clients, or None when this server is not serving.
+
+        The health aggregator's live source, so that the health surface reports
+        a reading instead of a figure frozen when the daemon built it. None
+        rather than 0 when our bind never succeeded: _running is set only after
+        OUR bind holds the port, and 0 from a server that never bound is
+        indistinguishable from a bound server with no clients, which is how the
+        health surface came to report green for both.
+        """
+        if not self._running:
+            return None
+        return sum(1 for c in self._connections.values()
+                   if c.source_interface == "web")
+
     # -- Route setup --------------------------------------------------------
 
     def _setup_routes(self) -> None:
