@@ -666,66 +666,7 @@ class LLMRouter(LLMInterface):
             )
             response = urllib.request.urlopen(req, timeout=self._request_timeout)
         except Exception as e:
-            # WAS THIS A FAULT, OR A STOP SOMEONE ASKED FOR? The engine the
-            # daemon handed us answers that from two measured facts; with no
-            # engine wired the answer is None and everything below behaves
-            # exactly as it did before this question was asked.
-            from intergen.llama_manager import planned_teardown_of
-            planned = planned_teardown_of(getattr(self, "_serving_engine", None))
-            kind = transport_failure_kind(e)
-            if planned is None:
-                # ONE LINE PER DOWN-EPISODE. The fact is "nothing is answering
-                # on that port"; it does not become more true, or more useful
-                # to a reader, by being written once per attempt. Measured
-                # 2026-09-20: one stopped engine produced seven identical
-                # error lines in 140 ms. Repeats go to debug, and a later
-                # success reopens the episode.
-                if not self._transport_reported:
-                    self._transport_reported = True
-                    logger.error("Local LLM request failed: %s", e)
-                else:
-                    logger.debug("Local LLM request failed again (%s): %s",
-                                 kind, e)
-                # Record WHY there will be no tokens, so the last-resort text
-                # can say "the server isn't running" instead of "could you
-                # rephrase". Read at the one place that text is chosen, and by
-                # the reply ladder, which must not retry a refused connect.
-                self.note_transport_failure(f"{type(e).__name__}: {e}",
-                                            kind=kind)
-            else:
-                logger.info(
-                    "the model request did not complete: %s — %s; this turn "
-                    "degrades and no transport failure is recorded", e, planned)
-                # DELIBERATELY NOT note_transport_failure(). An engine that was
-                # asked to stop is not an engine that failed, and recording it
-                # as unreachable is not a log-level detail: that record is what
-                # the last-resort text reads, so it would make the assistant
-                # tell the person their model server is not running about a
-                # stop they asked for. Measured 2026-09-20.
-            # A MODEL CALL THAT GOT NO RESPONSE IS NOW ON THE RECORD. Until this line
-            # the only trace of it was the log entry above, so a turn whose model call
-            # never happened was indistinguishable, downstream, from one the model
-            # answered — every reader of the decision trace saw a turn with no
-            # model/complete event and no reason for its absence. Measured 2026-08-26:
-            # an engine died mid-run, every subsequent call was refused, and the
-            # scenario harness graded four scenarios PASS with nothing behind them.
-            #
-            # Emitting here does not change what is served — the degraded fallback is
-            # unchanged and this returns exactly as before. It makes the failure
-            # VISIBLE, which is the whole difference between a system that fails and a
-            # system that fails silently.
-            glass.emit("model", "no_response", detail={
-                "endpoint": self._endpoint,
-                "error_type": type(e).__name__,
-                "error": str(e),
-                # A reader of the trace has to be able to tell the two apart
-                # for the same reason a reader of the journal does.
-                "planned_teardown": planned,
-                # Every attempt that got no response still leaves its own row:
-                # the log line is deduplicated, the record is not, so a reader
-                # counting attempts can still count them.
-                "transport": kind,
-            })
+            self._record_a_model_call_that_got_no_response(e)
             return
         self.note_transport_ok()
 
@@ -856,14 +797,25 @@ class LLMRouter(LLMInterface):
                     )
                     response = urllib.request.urlopen(req, timeout=self._request_timeout)
                 except Exception as e2:
-                    logger.error("Retry after context overflow failed: %s", e2)
+                    # The retry after a context overflow is still a model call
+                    # that got no response, and it is recorded as one.
+                    self._record_a_model_call_that_got_no_response(
+                        e2, what="tool request retried after a context overflow")
                     return
             else:
-                logger.error("LLM returned status %d", e.code)
+                self._record_a_model_call_that_got_no_response(
+                    e, what="tool request")
                 return
         except Exception as e:
-            logger.error("Local LLM tool request failed: %s", e)
+            self._record_a_model_call_that_got_no_response(
+                e, what="tool request")
             return
+        # A TOOL REQUEST THAT REACHED THE ENDPOINT CLEARS THE RECORD, for the
+        # same reason the conversational path clears it: the record is what the
+        # serving floor and the reply ladder read, so an engine that has come
+        # back must not keep being reported as unreachable by every tool turn
+        # until some conversational turn happens to clear it.
+        self.note_transport_ok()
 
         allowed_tool_names = {t.name for t in tools}
         tool_call_id = ""
@@ -1131,6 +1083,88 @@ class LLMRouter(LLMInterface):
         not recorded and reported as a fault.
         """
         self._serving_engine = engine
+
+    def _record_a_model_call_that_got_no_response(self, e: Exception, *,
+                                                  what: str = "request") -> None:
+        """Write down that a model call got no response — one way, for every path.
+
+        EVERY path that asks the model and gets nothing owes the same three
+        things, and this is the one place they are written: a single log line per
+        down-episode, a recorded transport failure that the serving floor and the
+        reply ladder read, and a ("model", "no_response") row on the decision
+        trace. This is a method because it used to be a block inside one path:
+        the conversational path recorded all three and the tool-enabled path
+        recorded none of them, so a tool turn whose model call never happened was
+        indistinguishable downstream from one the model answered — the endpoint
+        stayed marked healthy, the trace carried no row, and the serving floor
+        offered to rephrase the question to a server that was not running. One
+        method cannot drift from itself.
+
+        `what` names the kind of call for the log lines only; nothing downstream
+        reads it, and the dedup flag, the record and the row are shared, because
+        "nothing is answering on that port" is one fact however the call was made.
+        """
+        # WAS THIS A FAULT, OR A STOP SOMEONE ASKED FOR? The engine the
+        # daemon handed us answers that from two measured facts; with no
+        # engine wired the answer is None and everything below behaves
+        # exactly as it did before this question was asked.
+        from intergen.llama_manager import planned_teardown_of
+        planned = planned_teardown_of(getattr(self, "_serving_engine", None))
+        kind = transport_failure_kind(e)
+        if planned is None:
+            # ONE LINE PER DOWN-EPISODE. The fact is "nothing is answering
+            # on that port"; it does not become more true, or more useful
+            # to a reader, by being written once per attempt. Measured
+            # 2026-09-20: one stopped engine produced seven identical
+            # error lines in 140 ms. Repeats go to debug, and a later
+            # success reopens the episode.
+            if not self._transport_reported:
+                self._transport_reported = True
+                logger.error("Local LLM %s failed: %s", what, e)
+            else:
+                logger.debug("Local LLM %s failed again (%s): %s",
+                             what, kind, e)
+            # Record WHY there will be no tokens, so the last-resort text
+            # can say "the server isn't running" instead of "could you
+            # rephrase". Read at the one place that text is chosen, and by
+            # the reply ladder, which must not retry a refused connect.
+            self.note_transport_failure(f"{type(e).__name__}: {e}",
+                                        kind=kind)
+        else:
+            logger.info(
+                "the model %s did not complete: %s — %s; this turn "
+                "degrades and no transport failure is recorded",
+                what, e, planned)
+            # DELIBERATELY NOT note_transport_failure(). An engine that was
+            # asked to stop is not an engine that failed, and recording it
+            # as unreachable is not a log-level detail: that record is what
+            # the last-resort text reads, so it would make the assistant
+            # tell the person their model server is not running about a
+            # stop they asked for. Measured 2026-09-20.
+        # A MODEL CALL THAT GOT NO RESPONSE IS NOW ON THE RECORD. Until this line
+        # the only trace of it was the log entry above, so a turn whose model call
+        # never happened was indistinguishable, downstream, from one the model
+        # answered — every reader of the decision trace saw a turn with no
+        # model/complete event and no reason for its absence. Measured 2026-08-26:
+        # an engine died mid-run, every subsequent call was refused, and the
+        # scenario harness graded four scenarios PASS with nothing behind them.
+        #
+        # Emitting here does not change what is served — the degraded fallback is
+        # unchanged and this returns exactly as before. It makes the failure
+        # VISIBLE, which is the whole difference between a system that fails and a
+        # system that fails silently.
+        glass.emit("model", "no_response", detail={
+            "endpoint": self._endpoint,
+            "error_type": type(e).__name__,
+            "error": str(e),
+            # A reader of the trace has to be able to tell the two apart
+            # for the same reason a reader of the journal does.
+            "planned_teardown": planned,
+            # Every attempt that got no response still leaves its own row:
+            # the log line is deduplicated, the record is not, so a reader
+            # counting attempts can still count them.
+            "transport": kind,
+        })
 
     def note_transport_failure(self, reason: str, *,
                                kind: str = "other") -> None:
