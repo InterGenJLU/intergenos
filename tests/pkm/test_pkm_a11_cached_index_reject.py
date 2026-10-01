@@ -52,11 +52,12 @@ import contextlib
 import io
 import os
 import tempfile
+import errno
 import types
 import unittest
 from contextlib import redirect_stderr
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pkm.repo as repo_mod
 from pkm.repo import RepoManager, IndexFormatError
@@ -234,6 +235,34 @@ class SyncKeepsWhatNothingCouldCheck(unittest.TestCase):
         self.assertIn(self.REPO, self.mgr.indexes)
 
 
+class _PartWayHandle:
+    """A file handle whose FIRST read returns bytes and whose second raises.
+
+    No mode can present a read that fails part-way through on a small file, and
+    that is exactly the fault the read check reads to the end to catch.
+    """
+
+    def __init__(self, blocks_before_the_fault=1):
+        self._left = blocks_before_the_fault
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        return False
+
+    def read(self, _size=None):
+        if self._left > 0:
+            self._left -= 1
+            return b"x" * 1024
+        raise OSError(errno.EIO, "Input/output error")
+
+
+def _handle_that_fails_part_way(_path, *_args, **_kwargs):
+    """Stands in for Path.open, returning the handle above."""
+    return _PartWayHandle()
+
+
 class AnUnreadableCachedIndexIsReportedNotDeleted(unittest.TestCase):
     """The cases for the branch that runs when the verification did not succeed.
 
@@ -289,11 +318,13 @@ class AnUnreadableCachedIndexIsReportedNotDeleted(unittest.TestCase):
         sig_path.write_bytes(b"sig")
         return db_path, sig_path
 
-    def _run(self, verify=False, parse=None):
+    def _run(self, verify=False, parse=None, extra=()):
         """Run the real method over the real files.
 
         Returns (stderr, raised); `raised` is whatever left the method, which
-        for an unreadable index is the error itself."""
+        for an unreadable index is the error itself. `extra` holds patches a
+        case needs on top of these, entered last, for the faults no mode can
+        present on this filesystem as this uid."""
         verifier = verify if callable(verify) else (lambda *_a, **_k: verify)
         buf = io.StringIO()
         raised = None
@@ -305,6 +336,7 @@ class AnUnreadableCachedIndexIsReportedNotDeleted(unittest.TestCase):
         if parse is not None:
             patches.append(
                 patch.object(self.mgr, "_parse_index", return_value=parse))
+        patches.extend(extra)
         with contextlib.ExitStack() as stack:
             for one in patches:
                 stack.enter_context(one)
@@ -345,6 +377,11 @@ class AnUnreadableCachedIndexIsReportedNotDeleted(unittest.TestCase):
         self.assertIn(self.REPO, err)
         self.assertTrue(db_path.is_dir(),
                         "the artefact must be left exactly as it was")
+        self.assertNotIn(
+            "REMOVED", err,
+            "a read failure that is reported and then falls through to the "
+            "removal would still say this; the raise is what stops it, and "
+            "this is the assertion that holds the raise for every uid")
 
     def test_a_second_call_reports_again_rather_than_answering_from_a_part_load(self):
         """The early `if self.indexes: return` must not turn a reported read
@@ -370,12 +407,15 @@ class AnUnreadableCachedIndexIsReportedNotDeleted(unittest.TestCase):
             "the next call answers silently from the repos that happened to "
             "load first")
         self.assertTrue(first_db.exists())
+        self.assertNotIn("REMOVED", err,
+                         "the second repo's index was read, not removed")
 
         err2, raised2 = self._run(verify=verify, parse=sentinel)
         self.assertIsInstance(
             raised2, OSError,
             "the fault is still true, so the second call must report it too")
         self.assertIn("could not be READ", err2)
+        self.assertNotIn("REMOVED", err2)
 
     def test_a_signature_that_does_not_verify_is_still_removed_and_now_said(self):
         db_path, sig_path = self._cached_pair()
@@ -428,6 +468,170 @@ class AnUnreadableCachedIndexIsReportedNotDeleted(unittest.TestCase):
         self.assertIs(self.mgr.indexes[self.REPO], sentinel)
         self.assertTrue(db_path.exists())
         self.assertTrue(sig_path.exists())
+
+    # ---- the removal is reported from what happened, not from the intention
+
+    @unittest.skipIf(os.geteuid() == 0,
+                     "a directory root may write refuses nobody; the "
+                     "stood-in case below holds the same rule for every uid")
+    def test_a_removal_the_cache_directory_refuses_is_said_in_its_own_words(self):
+        """The shipped layout, for anyone who is not root.
+
+        /var/cache/pkm/db is root-owned and mode 755, so a reader who is not
+        root cannot unlink anything inside it. Until 2026-10-01 this branch
+        wrote "was REMOVED" before trying, so that reader was told a security
+        artefact was gone while both files were still on disk, and through
+        `pkm info` — which absorbs the error — the false sentence was the only
+        thing said.
+        """
+        db_path, sig_path = self._cached_pair()
+        self.addCleanup(self.cache.chmod, 0o755)
+        self.cache.chmod(0o555)
+        err, raised = self._run(verify=False)
+        self.assertIsNone(
+            raised,
+            "a failed removal is not a read error and must not be raised as "
+            "one: every caller's decision is already the one for an index "
+            "that is not there")
+        self.assertTrue(db_path.exists(),
+                        "the file the sentence talks about is still here")
+        self.assertTrue(sig_path.exists())
+        self.assertNotIn("was REMOVED", err,
+                         "nothing was removed, so nothing may say it was")
+        self.assertIn("could not be removed", err)
+        self.assertIn("PermissionError", err)
+        self.assertIn("did not verify", err)
+        self.assertIn("NOT trusted and was NOT loaded", err)
+        self.assertIn("sudo pkm sync", err)
+        self.assertIn(self.REPO, err, "the repo must be named")
+        self.assertEqual(self.mgr.indexes, {},
+                         "an index that did not verify is never loaded")
+
+    def test_a_removal_that_fails_for_every_uid_is_said_not_claimed_done(self):
+        """The same rule where no mode can present it: a read-only filesystem
+        refuses root too, and that is the state this case stands in."""
+        db_path, sig_path = self._cached_pair()
+        refusal = OSError(errno.EROFS, "Read-only file system")
+
+        def refuse(_self, **_kwargs):
+            raise refusal
+
+        err, raised = self._run(
+            verify=False,
+            extra=[patch.object(Path, "unlink", refuse)])
+        self.assertIsNone(raised)
+        self.assertTrue(db_path.exists())
+        self.assertTrue(sig_path.exists())
+        self.assertNotIn("was REMOVED", err)
+        self.assertIn("could not be removed", err)
+        self.assertIn("Read-only file system", err)
+        self.assertEqual(self.mgr.indexes, {})
+
+    # ---- what the read check reads, and when it is asked at all
+
+    def test_a_signature_that_cannot_be_read_is_reported_like_the_index(self):
+        """The read check asks about BOTH files. A narrowing of it to the index
+        alone would delete an unreadable signature with no word, and the
+        signature is half of what a later comparison needs."""
+        db_path = self.cache / f"{self.REPO}.db"
+        db_path.write_bytes(b"cached-index-bytes")
+        sig_path = self.cache / f"{self.REPO}.db.sig"
+        sig_path.mkdir()                      # unreadable for every uid
+        err, raised = self._run(verify=False)
+        self.assertIsInstance(
+            raised, OSError,
+            "an index whose signature cannot be read has not been shown to be "
+            "untrustworthy either")
+        self.assertIn("could not be READ", err)
+        self.assertIn("IsADirectoryError", err)
+        self.assertTrue(db_path.exists(), "neither file is destroyed")
+        self.assertTrue(sig_path.is_dir())
+        self.assertNotIn("was REMOVED", err)
+
+    def test_a_read_that_fails_part_way_through_is_reported(self):
+        """The check reads each file THROUGH TO THE END, which is the reason
+        the module gives for a full read: a read that fails part-way through
+        shows up nowhere else. One block and a stop would call this file
+        readable and delete it."""
+        self._cached_pair()
+        err, raised = self._run(
+            verify=False,
+            extra=[patch.object(Path, "open", _handle_that_fails_part_way)])
+        self.assertIsInstance(raised, OSError)
+        self.assertIn("could not be READ", err)
+        self.assertIn("Input/output error", err)
+        self.assertNotIn("was REMOVED", err)
+
+    def test_the_path_that_verifies_asks_no_read_check(self):
+        """The control for the cost the module claims: when the signature
+        verifies, nothing extra is read at all."""
+        self._cached_pair()
+        sentinel = object()
+        spy = MagicMock(return_value=None)
+        err, raised = self._run(
+            verify="FPR", parse=sentinel,
+            extra=[patch.object(self.mgr, "_unreadable_cause", spy)])
+        self.assertIsNone(raised)
+        self.assertEqual(err, "")
+        spy.assert_not_called()
+        self.assertIs(self.mgr.indexes[self.REPO], sentinel)
+
+    # ---- the cache directory itself
+
+    @unittest.skipIf(os.geteuid() == 0,
+                     "a directory root may search refuses nobody; the "
+                     "stood-in case below holds the same rule for every uid")
+    def test_a_cache_directory_that_cannot_be_searched_is_reported(self):
+        """The one unreadable-cache state the branch above never sees.
+
+        Path.exists() answers False for every file inside a directory with no
+        traverse bit, so before this the layer reported no index at all: the
+        install path refused the archive as one the index does not list, and
+        the loose path simply proceeded.
+        """
+        db_path, _sig = self._cached_pair()
+        self.addCleanup(self.cache.chmod, 0o755)
+        self.cache.chmod(0o000)
+        err, raised = self._run(verify=False)
+        self.assertIsInstance(
+            raised, OSError,
+            "a cache pkm cannot look inside is not a cache with nothing in it")
+        self.assertIn("could not be READ", err)
+        self.assertIn("PermissionError", err)
+        self.assertIn(str(self.cache), err, "the directory must be named")
+        self.assertIn("LEFT IN PLACE", err)
+        self.assertEqual(self.mgr.indexes, {})
+        self.cache.chmod(0o755)
+        self.assertTrue(db_path.exists(), "nothing was touched")
+
+    def test_a_cache_directory_the_walk_cannot_list_is_reported_for_every_uid(self):
+        """The same rule where no mode can present it (a root reader searches
+        any directory): the listing itself is refused."""
+        db_path, _sig = self._cached_pair()
+        err, raised = self._run(
+            verify=False,
+            extra=[patch("pkm.repo.os.listdir",
+                         side_effect=PermissionError(errno.EACCES,
+                                                     "Permission denied"))])
+        self.assertIsInstance(raised, OSError)
+        self.assertIn("could not be READ", err)
+        self.assertIn(str(self.cache), err)
+        self.assertTrue(db_path.exists())
+        self.assertEqual(self.mgr.indexes, {})
+
+    def test_an_absent_cache_directory_is_still_an_absence(self):
+        """The control for the check above: a cache directory that is not there
+        is the state of a fresh system before the first update, and it stays an
+        absence — silent here, explained by each read command in its own
+        words."""
+        missing = Path(self._td.name) / "not-synced-yet"
+        err, raised = self._run(
+            verify=False,
+            extra=[patch.object(repo_mod, "REPO_DB_CACHE", missing)])
+        self.assertIsNone(raised)
+        self.assertEqual(err, "")
+        self.assertEqual(self.mgr.indexes, {})
+
 
 
 if __name__ == "__main__":

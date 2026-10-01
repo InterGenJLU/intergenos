@@ -1195,6 +1195,42 @@ class RepoManager:
         # before the failure — the read error masked by the very guard that
         # exists to avoid re-reading the cache. Published at the end, every call
         # either answers from a complete walk or reports the fault again.
+        # A DIRECTORY THE PROCESS CANNOT SEARCH ANSWERS "NOT THERE" TO EVERY
+        # QUESTION BELOW. Path.exists() is False for a cached index inside a
+        # cache directory with no traverse bit, so the whole branch this method
+        # keeps for an artefact it cannot read is never reached and the layer
+        # reports no index at all — the one unreadable-cache state still
+        # renamed as an absence, measured at both ends on 2026-10-01: the
+        # manager said nothing and answered None, the install path refused the
+        # archive as one "the repository index does not list", and the loose
+        # path simply proceeded. So ask the directory itself, in the same terms
+        # as a file that cannot be read.
+        cache_dir = self.db_cache()
+        try:
+            os.listdir(cache_dir)
+        except FileNotFoundError:
+            # Genuinely absent — a fresh system before the first `pkm update`.
+            # That IS an absence, and the walk below states it by loading
+            # nothing, which every read command already explains in its own
+            # words.
+            pass
+        except OSError as exc:
+            sys.stderr.write(
+                f"pkm: the repository index cache at {cache_dir} could not be "
+                f"READ ({type(exc).__name__}: {exc}).\n"
+                f"     Whatever it holds is LEFT IN PLACE: a directory the "
+                f"system will not let pkm look inside has not been shown to "
+                f"hold anything untrustworthy, and an index pkm cannot look "
+                f"for is not an index that is not there.\n"
+                f"     Fix the read error (permissions, ownership, the "
+                f"filesystem itself), then run `pkm sync` if the index needs "
+                f"replacing.\n"
+            )
+            # The caller is told, exactly as it is for a cached index that
+            # cannot be read: an absence it did not establish is never
+            # published as one.
+            raise
+
         loaded = {}
         for name, config in self.repos.items():
             db_path = self.db_cache() / f"{name}.db"
@@ -1276,15 +1312,62 @@ class RepoManager:
                             f"verify or replace the index.\n"
                         )
                         continue
+                    # REMOVE FIRST, THEN SAY SO — and say something else when
+                    # the removal does not happen. Until 2026-10-01 the
+                    # sentence below was written BEFORE these two unlinks, with
+                    # nothing around them. The shipped cache directory is
+                    # root-owned and mode 755, so every reader who is not root
+                    # met EACCES on the unlink and was told the index "was
+                    # REMOVED" while both files were still on disk: a false
+                    # statement about a security artefact, from the branch
+                    # whose whole purpose is that what is said is what
+                    # happened. Measured at the real mechanism: the manager
+                    # alone, both archive-trust paths, and `pkm info`, which
+                    # absorbs the error so the false sentence was all it said.
+                    reason = ("its signature did not verify against the "
+                              "pinned release keys")
+                    failure = self._remove_cached_pair(db_path, sig_path)
+                    if failure is not None:
+                        sys.stderr.write(
+                            f"pkm: cached index for repo '{name}' did not "
+                            f"verify — {reason} — and could not be removed "
+                            f"({type(failure).__name__}: {failure}).\n"
+                            f"     It is NOT trusted and was NOT loaded: it is "
+                            f"still on disk and nothing reads it, so the repo "
+                            f"behaves as one with no index at all.\n"
+                            f"     Run `sudo pkm sync` to replace it.\n"
+                        )
+                        # Carried on, not raised: every caller's decision is
+                        # already the decision for an index that is not there,
+                        # and raising here made the two narrowed archive-trust
+                        # paths misname a failed removal as an unreadable file.
+                        continue
                     sys.stderr.write(
-                        f"pkm: cached index for repo '{name}' was REMOVED: its "
-                        f"signature did not verify against the pinned release "
-                        f"keys. An index pkm cannot verify is never trusted.\n"
+                        f"pkm: cached index for repo '{name}' was REMOVED: "
+                        f"{reason}. An index pkm cannot verify is never "
+                        f"trusted.\n"
                         f"     Run `pkm sync` to fetch one that verifies.\n"
                     )
-                    db_path.unlink(missing_ok=True)
-                    sig_path.unlink(missing_ok=True)
         self.indexes.update(loaded)
+
+    def _remove_cached_pair(self, *paths):
+        """Unlink each path; return the first OSError the filesystem raised, or
+        None when every one of them is gone.
+
+        A removal that did not happen must not be reported as one that did, so
+        the caller writes its sentence from this answer rather than before the
+        attempt. Every path is attempted even after one fails: an index that
+        could not be verified is never trusted or loaded either way, so there
+        is nothing to gain by leaving the half that CAN be removed on disk.
+        """
+        failure = None
+        for path in paths:
+            try:
+                path.unlink(missing_ok=True)
+            except OSError as exc:
+                if failure is None:
+                    failure = exc
+        return failure
 
     def _unreadable_cause(self, *paths):
         """The OSError the filesystem raises when these files are read, or None
