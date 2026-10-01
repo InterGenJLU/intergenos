@@ -211,6 +211,52 @@ class InterGenIndicator extends PanelMenu.Button {
 const SHELL_BUS = "com.intergenos.InterGenShell";
 const SHELL_PATH = "/com/intergenos/InterGenShell";
 
+// WHO MAY CALL. "The tool calls this method" was the whole of the access model
+// and the code kept no part of it: the handler declared `sender` and never read
+// it, nothing asked the bus who the peer was, and the interface carried no
+// secret, so every peer on the user's session bus got the full-frame grab that
+// org.gnome.Shell.Screenshot answers AccessDenied for out of process — without
+// the consent the daemon's own take_screenshot tool carries — and could aim the
+// write at any absolute path it named.
+//
+// The surface now answers exactly one peer: whoever the bus reports as owning
+// the daemon's own well-known name. The daemon owns that name on the connection
+// Gio.bus_get_sync(SESSION) shares across its process, and its screenshot tool
+// calls on that same connection, so the caller's unique name IS that owner. The
+// watch enable() sets up keeps the name current across daemon restarts; until
+// the bus has answered, this is null and the surface answers nobody, which is
+// what a surface registered ahead of its own readiness gate must do.
+let _intergenOwner = null;
+
+// WHERE THE BYTES MAY LAND. The caller's path is no longer taken on trust: the
+// destination must be a file directly inside the temp directory this process
+// resolves, named with the prefix and suffix the daemon's tool creates it with
+// (tempfile.mkstemp(prefix="intergen-shot-", suffix=".png")), and it must not
+// be a symbolic link — Gio.File.replace would follow one out of the directory.
+const SHOT_PREFIX = "intergen-shot-";
+const SHOT_SUFFIX = ".png";
+
+function _shotDirs() {
+  // GLib.get_tmp_dir() honours TMPDIR, as Python's tempfile does; "/tmp" is
+  // what both resolve to when it is unset, and is listed so a compositor and a
+  // daemon that disagree about TMPDIR still meet on the default.
+  const dirs = [GLib.get_tmp_dir(), "/tmp"];
+  return dirs.filter((d, i) => !!d && dirs.indexOf(d) === i);
+}
+
+// True when the path is a symbolic link; a link at the destination would carry
+// Gio.File.replace out of the directory the caller was confined to. A path that
+// is not there yet is not a link.
+function _isSymlink(filename) {
+  try {
+    return Gio.File.new_for_path(filename).query_info(
+      "standard::is-symlink", Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, null
+    ).get_is_symlink();
+  } catch (_e) {
+    return false;
+  }
+}
+
 const SHELL_DBUS_IFACE = `
 <node>
   <interface name="com.intergenos.InterGenShell">
@@ -283,6 +329,21 @@ function _onShellMethodCall(
     return;
   }
 
+  // The caller, before anything else is read from the call.
+  if (!sender || !_intergenOwner || sender !== _intergenOwner) {
+    console.log(
+      "[InterGen] Shell D-Bus service refused Screenshot from " +
+      (sender || "an unnamed peer") + " (the InterGen daemon is " +
+      (_intergenOwner ? _intergenOwner : "not on this bus") + ")"
+    );
+    invocation.return_dbus_error(
+      "com.intergenos.InterGenShell.Error.AccessDenied",
+      "Screenshot is answered only for the InterGen daemon, the owner of " +
+      "com.intergenos.InterGen on this bus. This peer is not it."
+    );
+    return;
+  }
+
   let filename, includeCursor;
   try {
     filename = params.get_child_value(0).get_string()[0];
@@ -294,6 +355,34 @@ function _onShellMethodCall(
   if (!filename || !GLib.path_is_absolute(filename)) {
     _screenshotErrorReturn(
       invocation, "filename must be a non-empty absolute path"
+    );
+    return;
+  }
+  // The destination, decided here beside the caller and not in a helper: these
+  // are the two things this method authorises, and a reader checking that it
+  // authorises them should find both in the one function.
+  const dir = GLib.path_get_dirname(filename);
+  const base = GLib.path_get_basename(filename);
+  const dirs = _shotDirs();
+  if (!dirs.includes(dir)) {
+    _screenshotErrorReturn(
+      invocation,
+      `refusing ${filename}: the destination must be a file directly inside ` +
+      dirs.join(" or ")
+    );
+    return;
+  }
+  if (!base.startsWith(SHOT_PREFIX) || !base.endsWith(SHOT_SUFFIX)) {
+    _screenshotErrorReturn(
+      invocation,
+      `refusing ${filename}: the destination name must start with ` +
+      `${SHOT_PREFIX} and end with ${SHOT_SUFFIX}`
+    );
+    return;
+  }
+  if (_isSymlink(filename)) {
+    _screenshotErrorReturn(
+      invocation, `refusing ${filename}: the destination is a symbolic link`
     );
     return;
   }
@@ -341,6 +430,7 @@ export default class InterGenExtension extends Extension {
     // if any later setup step fails.
     this._shellDbusRegId = 0;
     this._shellDbusNameId = 0;
+    this._shellCallerWatchId = 0;
     try {
       const nodeInfo = Gio.DBusNodeInfo.new_for_xml(SHELL_DBUS_IFACE);
       this._shellDbusRegId = Gio.DBus.session.register_object(
@@ -348,6 +438,15 @@ export default class InterGenExtension extends Extension {
       );
       this._shellDbusNameId = Gio.bus_own_name_on_connection(
         Gio.DBus.session, SHELL_BUS, Gio.BusNameOwnerFlags.NONE, null, null
+      );
+      // The one peer this surface answers, kept current by the bus itself. It
+      // is set up here, beside the registration, because a surface that cannot
+      // name its caller must refuse every call rather than guess: _intergenOwner
+      // stays null until the bus answers, and null refuses.
+      this._shellCallerWatchId = Gio.bus_watch_name_on_connection(
+        Gio.DBus.session, INTERGEN_BUS, Gio.BusNameWatcherFlags.NONE,
+        (_connection, _name, owner) => { _intergenOwner = owner || null; },
+        () => { _intergenOwner = null; }
       );
       console.log("[InterGen] Shell D-Bus service enabled (" + SHELL_BUS + ")");
     } catch (e) {
@@ -475,6 +574,12 @@ export default class InterGenExtension extends Extension {
   }
 
   disable() {
+    if (this._shellCallerWatchId) {
+      Gio.bus_unwatch_name(this._shellCallerWatchId);
+      this._shellCallerWatchId = 0;
+    }
+    // The surface is going away; so is any memory of who was allowed to use it.
+    _intergenOwner = null;
     if (this._shellDbusNameId) {
       Gio.bus_unown_name(this._shellDbusNameId);
       this._shellDbusNameId = 0;
