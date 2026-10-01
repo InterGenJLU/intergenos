@@ -617,63 +617,48 @@ class RepoManager:
             url = config["url"].rstrip("/")
             db_url = f"{url}/InterGenOS.db"
             sig_url = f"{url}/InterGenOS.db.sig"
-
+            staging = None
+            keep_staging = False
+            stage = "staging directory"
+            preserved = "previous cached index and signature unchanged"
             try:
-                # Download index
                 db_path = self.db_cache() / f"{name}.db"
                 sig_path = self.db_cache() / f"{name}.db.sig"
+                staging = Path(tempfile.mkdtemp(prefix=f".{name}.sync-", dir=self.db_cache()))
+                downloaded_db = staging / f"{name}.db"
+                downloaded_sig = staging / f"{name}.db.sig"
 
                 if reporter:
                     reporter.step("Hit", f"{name}   {url}")
-                try:
-                    self._download(db_url, db_path)
-                    self._download(sig_url, sig_path)
-                except Exception:
-                    # Cleanup orphan .db on partial download (C1.2)
-                    db_path.unlink(missing_ok=True)
-                    sig_path.unlink(missing_ok=True)
-                    raise
+                stage = "index download"
+                self._download(db_url, downloaded_db)
+                stage = "signature download"
+                self._download(sig_url, downloaded_sig)
                 if reporter:
                     from .output import human_size
                     reporter.step(
                         "Index",
-                        f"InterGenOS.db   {human_size(db_path.stat().st_size)}",
+                        f"InterGenOS.db   {human_size(downloaded_db.stat().st_size)}",
                     )
 
-                # Verify GPG signature — fail closed if keyring missing (C1.1)
+                stage = "signature verification"
                 if not GPG_KEYRING.exists():
-                    # FAIL CLOSED, WITHOUT DESTROYING THE ARTEFACT. Nothing
-                    # checked this index, which is not the same fact as a check
-                    # that failed, and only the second justifies deleting the
-                    # file: with the keyring absent the fault is the keyring's,
-                    # and the body the mirror served is the only thing anyone can
-                    # look at afterwards. It is LEFT in the cache, unverified, and
-                    # nothing trusts it — _ensure_synced re-verifies every cached
-                    # index before it is loaded and refuses this one by the same
-                    # rule, in its own words (2026-10-01).
-                    #
-                    # What this does NOT recover: _download moves the completed
-                    # body onto the cached path, so by this line the index that
-                    # was there before — the one that DID verify — has already
-                    # been overwritten. Keeping the new body preserves what the
-                    # mirror served, not the previous good index. Measured in this
-                    # item's seal, and recommended there as its own change.
+                    # An unchecked download remains available for inspection,
+                    # separately from the previously verified cache.
+                    keep_staging = True
                     if reporter:
                         reporter.signature(False)
                     results.append((name, False,
                         f"GPG keyring not found at {GPG_KEYRING} — cannot "
-                        f"verify index; the downloaded index was LEFT in the "
-                        f"cache unverified, and nothing trusts it until a "
-                        f"keyring verifies it"))
+                        f"verify index; the downloaded pair was LEFT at "
+                        f"{staging} unverified and is not loaded; {preserved}"))
                     continue
-                signing_fp = self._verify_signature(db_path, sig_path)
+                signing_fp = self._verify_signature(downloaded_db, downloaded_sig)
                 if not signing_fp:
                     if reporter:
                         reporter.signature(False)
                     results.append((name, False,
-                        "GPG signature verification FAILED"))
-                    db_path.unlink(missing_ok=True)
-                    sig_path.unlink(missing_ok=True)
+                        f"GPG signature verification FAILED; {preserved}"))
                     continue
                 if reporter:
                     reporter.signature(
@@ -681,15 +666,53 @@ class RepoManager:
                         key_label=release_key_label(signing_fp),
                     )
 
-                # Parse index
-                index = self._parse_index(name, config["url"], db_path)
+                stage = "index validation"
+                index = self._parse_index(name, config["url"], downloaded_db,
+                                          persist_generation=False)
+                state_path = _state_dir(self._root_or_none()) / f"{name}.json"
+                backups = {}
+                stage = "saving prior cache and generation state"
+                for path in (db_path, sig_path, state_path):
+                    backup = staging / f"previous-{path.name}"
+                    if path.exists():
+                        shutil.copy2(path, backup)
+                        backups[path] = backup
+                    else:
+                        backups[path] = None
+
+                replaced = []
+                try:
+                    stage = "generation state"
+                    if not _save_last_seen_state(name, index.generated, self._root_or_none()):
+                        raise OSError(f"generation state could not be written to {state_path}")
+                    replaced.append(state_path)
+                    stage = "cache replacement"
+                    os.replace(downloaded_db, db_path)
+                    replaced.append(db_path)
+                    os.replace(downloaded_sig, sig_path)
+                    replaced.append(sig_path)
+                    stage = "reporting completed sync"
+                    if reporter:
+                        from .output import format_generated
+                        reporter.done(
+                            f"{index.package_count} packages · "
+                            f"generated {format_generated(index.generated)}"
+                        )
+                except BaseException:
+                    failed_stage = stage
+                    stage = "cache rollback"
+                    keep_staging = True
+                    preserved = f"cache restoration incomplete; saved files LEFT at {staging}"
+                    for path in reversed(replaced):
+                        if backups[path] is None:
+                            path.unlink(missing_ok=True)
+                        else:
+                            os.replace(backups[path], path)
+                    preserved = "previous cached index and signature unchanged"
+                    keep_staging = False
+                    stage = failed_stage
+                    raise
                 self.indexes[name] = index
-                if reporter:
-                    from .output import format_generated
-                    reporter.done(
-                        f"{index.package_count} packages · "
-                        f"generated {format_generated(index.generated)}"
-                    )
                 results.append((
                     name, True,
                     f"synced — {index.package_count} packages, "
@@ -697,18 +720,18 @@ class RepoManager:
                 ))
 
             except IndexFormatError as e:
-                # L-020: schema-envelope rejection. Fail-closed per-repo;
-                # leave the cached artifact in place so an operator can
-                # inspect what was rejected without re-downloading.
-                results.append((name, False, f"index rejected: {e}"))
+                keep_staging = True
+                results.append((name, False,
+                    f"index rejected: {e}; downloaded pair LEFT at {staging}; {preserved}"))
             except urllib.error.URLError as e:
-                results.append((name, False, f"network error: {e.reason}"))
-                db_path.unlink(missing_ok=True)
-                sig_path.unlink(missing_ok=True)
+                results.append((name, False,
+                    f"{stage} failed: network error: {e.reason}; {preserved}"))
             except Exception as e:
-                results.append((name, False, f"error: {e}"))
-                db_path.unlink(missing_ok=True)
-                sig_path.unlink(missing_ok=True)
+                results.append((name, False,
+                    f"{stage} failed ({type(e).__name__}: {e}); {preserved}"))
+            finally:
+                if staging is not None and not keep_staging:
+                    shutil.rmtree(staging)
 
         return results
 
@@ -943,7 +966,7 @@ class RepoManager:
         # status-fd stream. Local-root keyring-swap class attack defeated.
         return None
 
-    def _parse_index(self, name, url, db_path):
+    def _parse_index(self, name, url, db_path, *, persist_generation=True):
         """Parse a gzipped JSON repository index.
 
         L-020: enforces schema-version + min_pkm_version +
@@ -1051,7 +1074,8 @@ class RepoManager:
         # All envelope + freshness gates passed. Persist last-seen
         # state AFTER all checks succeed so a failed parse doesn't
         # poison subsequent runs.
-        _save_last_seen_state(name, generated_str, self._root_or_none())
+        if persist_generation:
+            _save_last_seen_state(name, generated_str, self._root_or_none())
 
         return RepoIndex(name, url, data)
 

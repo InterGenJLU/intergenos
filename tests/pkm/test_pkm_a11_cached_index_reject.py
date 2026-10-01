@@ -145,12 +145,10 @@ class SyncKeepsWhatNothingCouldCheck(unittest.TestCase):
     unit test reaches no mirror — while the cache paths, the keyring check, the
     removal and the result tuples are the shipped ones.
 
-    One thing this site does not share with `_ensure_synced`: `_download` moves
-    the completed body onto the cached path, so the index that verified before is
-    already overwritten by the time the keyring is checked. Keeping the new body
-    preserves what the mirror served, which is what can still be inspected; it
-    does not recover the previous index. That is recorded as its own
-    recommendation in this item's evidence, not fixed here.
+    Downloads remain in staging until the signature and index are accepted.
+    A missing keyring keeps the unverified pair there for inspection without
+    replacing a previously verified cache; a failed signature removes only
+    that new pair.
     """
 
     REPO = "intergenos"
@@ -169,17 +167,21 @@ class SyncKeepsWhatNothingCouldCheck(unittest.TestCase):
 
     def _served(self, url, dest):
         """The stood-in fetch: a body on disk, exactly as _download leaves it."""
+        self.downloads.append(Path(dest))
         Path(dest).write_bytes(b"the index the mirror served\n")
 
     def _sync(self, verify=False, parse=None):
         """Run the real sync with the fetch stood in; return (results, state)."""
         parsed = parse if parse is not None else types.SimpleNamespace(
             package_count=1, generated="2026-10-01T00:00:00Z")
+        self.downloads = []
         with contextlib.ExitStack() as stack:
             stack.enter_context(
                 patch.object(repo_mod, "REPO_DB_CACHE", self.cache))
             stack.enter_context(
                 patch.object(repo_mod, "GPG_KEYRING", self.keyring))
+            stack.enter_context(
+                patch.object(repo_mod, "PKM_STATE_DIR", Path(self._td.name) / "state"))
             stack.enter_context(
                 patch.object(self.mgr, "_download", side_effect=self._served))
             stack.enter_context(
@@ -201,9 +203,13 @@ class SyncKeepsWhatNothingCouldCheck(unittest.TestCase):
         self.assertIn("keyring not found", message)
         self.assertIn(str(self.keyring), message, "the keyring is named")
         self.assertIn("LEFT", message)
-        self.assertTrue(db_there,
-                        "a missing keyring must not destroy the index served")
-        self.assertTrue(sig_there)
+        self.assertFalse(db_there, "an unverified download must not become the canonical cache")
+        self.assertFalse(sig_there)
+        self.assertEqual(len(self.downloads), 2)
+        for path in self.downloads:
+            self.assertTrue(path.exists(), "a missing keyring must not destroy the index served")
+            self.assertIn(self.cache, path.parents)
+            self.assertIn(str(path.parent), message)
         self.assertEqual(self.mgr.indexes, {},
                          "kept is not loaded and is not trusted")
 
@@ -216,6 +222,7 @@ class SyncKeepsWhatNothingCouldCheck(unittest.TestCase):
         self.assertFalse(db_there, "an index that FAILED a check is removed")
         self.assertFalse(sig_there)
         self.assertEqual(self.mgr.indexes, {})
+        self.assertTrue(all(not path.exists() for path in self.downloads))
 
     def test_a_healthy_sync_still_loads_and_reports_its_count(self):
         """The control that the command still does its job."""
