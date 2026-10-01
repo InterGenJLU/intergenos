@@ -704,11 +704,28 @@ def cmd_last(args: list[str]) -> None:
     The verifiable-original companion to `ask`: the normalised prose the user
     saw is one step from the ground truth it was derived from."""
     path = _last_answer_path()
-    try:
-        data = json.loads(path.read_text())
-    except Exception:
+    # Absent and unreadable are different facts. One bare handler answered both
+    # with "nothing is cached yet", which is a claim about the machine's state
+    # the command had not established: a record truncated by an unclean
+    # shutdown, one whose mode no longer permits a read, and a directory
+    # standing where the file should be all reached it, so a person holding a
+    # damaged record was told to ask another question and the record was never
+    # named. What is established is reported, and the path is named either way.
+    if not path.exists():
         print('No recent InterGen answer is cached yet — ask something first: '
               'intergen ask "..."', file=sys.stderr)
+        sys.exit(1)
+    try:
+        data = json.loads(path.read_text())
+    except Exception as exc:
+        print(f"The cached InterGen answer at {path} could not be read "
+              f"({type(exc).__name__}: {exc}). Nothing was shown. Inspect or "
+              "remove that file, or ask again to replace it.", file=sys.stderr)
+        sys.exit(1)
+    if not isinstance(data, dict):
+        print(f"The cached InterGen answer at {path} could not be read: it "
+              f"holds {type(data).__name__}, not an answer record. Nothing was "
+              "shown.", file=sys.stderr)
         sys.exit(1)
     if "--raw" in args:
         # The cache carries the output the tool produced, taken from the route's
