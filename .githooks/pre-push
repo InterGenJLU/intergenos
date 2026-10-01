@@ -1454,5 +1454,5 @@ if [ "$ANCHOR_NEEDED" = "1" ]; then
     fi
 fi
 
-echo "[pre-push] all gates PASS"
+if [ "$PUSH_LOCAL" = "$PUSH_REMOTE" ]; then echo "[pre-push] local ref equals remote ref; the push range is empty; gates 3 (syntax), 4 (commit-message scope), 5 (conventional subject), 6 (trailer), 7 (commit-message audit), 8 (new package verify_paths), 8b (recipe phase shadowing), 9 (v1.1 follow-up consistency), 9.6 (note chain), and 9.7 (changelog) were not run."; else echo "[pre-push] all gates PASS"; fi
 exit 0
