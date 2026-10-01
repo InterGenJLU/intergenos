@@ -210,6 +210,9 @@ def _readme_sources(
     """
     nvr = f"{name} {version}-{release}"
     binary = f"{name}-{version}-{release}.igos.tar.gz"
+    # This archive's own published filename, which the signed index records as
+    # `source_filename` and the VERIFYING section below tells a reader to hash.
+    source = f"{name}-{version}-{release}.igos.src.tar.gz"
 
     # CONTENTS column: member names padded to one deterministic width so the
     # annotations align regardless of filename length.
@@ -269,7 +272,11 @@ CONTENTS
 VERIFYING THIS ARCHIVE
   1. This archive's own SHA256 is recorded in the signed package index
      (InterGenOS.db, signature InterGenOS.db.sig) alongside the binary
-     archive's hash — one signature covers both.
+     archive's hash — one signature covers both. The index entry for this
+     package carries the two fields `source_filename` (this archive's
+     published name) and `source_sha256` (the SHA256 of its bytes):
+         gunzip -c InterGenOS.db | jq -r '.packages."{name}".source_sha256'
+         sha256sum {source}
   2. Each upstream tarball here can be checked with
      `sha256sum -c <upstream-tarball>.sha256`; the same value is pinned in
      package.yml's source entry.

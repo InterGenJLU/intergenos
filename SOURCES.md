@@ -177,7 +177,19 @@ under this same policy.
 ## 4. Provenance and verification
 
 Every InterGenOS source archive's SHA256 hash is recorded in the
-signed package index that pkm uses to verify binary archives:
+signed package index that pkm uses to verify binary archives. Each
+package entry carries two fields about its source archive, both covered
+by the index signature:
+
+- `source_filename` — the archive's published filename
+- `source_sha256` — the SHA256 of that archive's own bytes, measured
+  when the index is generated
+
+A package whose source archive is not in the published set carries
+neither field, so the commands below return `null` for it rather than an
+empty value that could be mistaken for a hash.
+
+The index lives at:
 
 ```
 https://repo.intergenos.org/x86_64/current/InterGenOS.db
@@ -205,6 +217,10 @@ curl -O https://repo.intergenos.org/x86_64/current/sources/<name>-<version>-<rel
 # 4. Verify SHA256 against the index entry
 gunzip -c InterGenOS.db | jq -r '.packages."<name>".source_sha256'
 sha256sum <name>-<version>-<release>.igos.src.tar.gz
+
+# The index also names the file it hashed, so step 3's filename can be
+# taken from the signed index rather than constructed by hand:
+gunzip -c InterGenOS.db | jq -r '.packages."<name>".source_filename'
 ```
 
 The upstream tarball contained inside the archive can be cross-verified
