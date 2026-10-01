@@ -1288,14 +1288,28 @@ def print_status(status: dict) -> None:
 
 
 def cmd_tier() -> None:
-    """Show hardware tier info."""
+    """Show hardware tier info.
+
+    Whether anything owned the assistant's bus name is established BEFORE the
+    GetTier call, for the reason cmd_status states: the name is D-Bus
+    activatable, so on a machine with nothing running the call itself starts the
+    assistant — a model server, the hardware probe, the lot. The mechanism is
+    legitimate and is left alone; doing it in silence is not, because the person
+    asked what the machine was and got back a reading their question created.
+    The block also says which instrument read the hardware, since the daemon's
+    answer and this process's own probe otherwise print identical characters and
+    the source is unrecoverable from the output.
+    """
+    ran_before_call = daemon_has_owner()
     response = try_dbus("GetTier")
     if response:
-        tier = json.loads(response)
+        tier = _reply_object(response, "the tier request")
+        source = "the assistant on the bus"
     else:
         from intergen.hardware import HardwareDetector
         detector = HardwareDetector()
         t = detector.detect()
+        source = "this command's own hardware probe"
         tier = {
             "level": t.tier.value,
             "ram_gb": t.ram_gb,
@@ -1308,6 +1322,10 @@ def cmd_tier() -> None:
 
     print("Hardware Tier")
     print("=" * 40)
+    if response and not ran_before_call:
+        print("  Started:    the assistant was NOT running when this tier call "
+              "began — the call started it (D-Bus activation)")
+    print(f"  Read by:    {source}")
     print(f"  Level:      Tier {tier.get('level', '?')}")
     print(f"  RAM:        {tier.get('ram_gb', '?')} GB")
     print(f"  GPU:        {tier.get('gpu_vendor', 'none')} ({tier.get('gpu_model', '')})")
