@@ -646,6 +646,29 @@ def redact_secret_shapes(text: str) -> str:
 _redact_shapes = redact_secret_shapes
 
 
+def _redact_mapping_key(key: Any, taken: dict) -> Any:
+    """Scrub one mapping key, keeping distinct keys distinct.
+
+    A scrub maps every secret of one shape onto the same placeholder, so two
+    different credentials used as keys in the same mapping would collapse into
+    one entry and a row would vanish. This module never drops content silently,
+    so a collision is made VISIBLE with an occurrence marker rather than
+    resolved by overwrite. A non-string key is left alone: there is nothing to
+    scan, and rewriting it would change the shape of the row.
+    """
+    if not isinstance(key, str):
+        return key
+    scrubbed = redact_secret_shapes(key)
+    if scrubbed == key:
+        return key
+    if scrubbed not in taken:
+        return scrubbed
+    occurrence = 2
+    while f"{scrubbed}#{occurrence}" in taken:
+        occurrence += 1
+    return f"{scrubbed}#{occurrence}"
+
+
 def redact_persisted(value: Any, key: str = "") -> Any:
     """Attested in-place redaction: a credential-shaped key's value becomes
     ``<redacted:key-name>``; a secret-shaped run inside any string becomes
@@ -663,9 +686,26 @@ def redact_persisted(value: Any, key: str = "") -> Any:
     the same treatment without knowing this function exists.
     """
     if key and _SECRET_KEY_RE.search(key):
+        safe_key = redact_secret_shapes(key)
+        if safe_key != key:
+            # The key itself carries credential material, so it cannot be named
+            # here: naming it IS how the credential reached the record. The
+            # reader still learns why the value went, without being handed the
+            # secret inside the attestation that claims it was removed.
+            return "<redacted:credential-shaped-key>"
         return f"<redacted:{key}>"
     if isinstance(value, dict):
-        return {k: _redact(v, k) for k, v in value.items()}
+        # KEYS are scrubbed too, not only values. A mapping built from
+        # caller-supplied text can carry the credential in the key -- an
+        # environment mapping, a header mapping -- and a key never reached the
+        # shape scanner, so it was written out verbatim however the value was
+        # treated. The ORIGINAL key is still what the predicate above is given,
+        # because that decision is about what the field is called.
+        scrubbed: dict = {}
+        for k, v in value.items():
+            scrubbed[_redact_mapping_key(k, scrubbed)] = _redact(
+                v, k if isinstance(k, str) else "")
+        return scrubbed
     if isinstance(value, (list, tuple)):
         return [_redact(v) for v in value]
     if isinstance(value, str):
