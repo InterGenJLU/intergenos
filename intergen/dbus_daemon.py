@@ -570,12 +570,25 @@ class InterGenDaemon(InterGenDBusInterface):
                     "trace_id": result.trace_id or _gturn,
                 })
         except Exception as e:
-            log.error("Ask failed: %s", e)
+            # F5 ON THIS PATH TOO. The bus handler's sanitiser never sees this
+            # reply, because the failure is caught here and a successful return
+            # value is handed back: the exception's own text became the
+            # assistant's answer, so a library message naming a path under the
+            # user's home was printed by the command line and cached in the
+            # last-answer record. The caller is owed a sentence that says the
+            # turn failed and where the detail is; the detail itself, with its
+            # traceback, goes to the daemon log, which carried no traceback
+            # before either. The internal text stays available to the operator
+            # through Status's last-error field, which is not a reply.
+            log.error("Ask failed: %s", e, exc_info=True)
             self._last_error = str(e)
             if self._metrics:
                 self._metrics.record_error(str(e))
             return json.dumps({
-                "response": f"I encountered an error: {e}",
+                "response": ("InterGen could not answer that: something failed "
+                             "inside the assistant while the turn was being "
+                             "handled. Nothing of the failure is repeated here; "
+                             "the daemon log carries it with its traceback."),
                 "source": "error",
                 "handled": False,
             })
