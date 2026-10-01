@@ -1150,14 +1150,41 @@ def print_status(status: dict) -> None:
     # The daemon-down case keeps its own statement: "no daemon at all" and "a
     # daemon with no chat server" are different facts and must not collapse
     # into one word.
+    #
+    # A PAUSE IS NOT HEALTH AND IT IS NOT A FAILURE. The daemon carries the
+    # game-launch pause as two first-class fields precisely so that "no model
+    # loaded" and "model stopped on purpose" never look the same to anything
+    # reading status, and this command is the surface a person actually reads.
+    # It read neither field: while a game held the pause the report said
+    # Running: True, Last Error: None, and showed [-] llama_server two lines
+    # below -- byte for byte the report of a machine whose model failed to
+    # load. The degraded branch cannot cover it either, because the daemon
+    # deliberately reports model_server_down as None while paused (calling a
+    # deliberate stop a failure would be a lie in the other direction), so the
+    # pause suppressed the one signal this renderer did read.
     server_down = status.get("model_server_down")
+    paused = bool(status.get("paused"))
+    paused_for = status.get("paused_for") or []
     if status.get("daemon_down") or not status.get("running", False):
         print(f"  Running:    {status.get('running', False)}")
+    elif paused:
+        print("  Running:    PAUSED — the daemon is up and the model servers "
+              "are stopped on purpose")
     elif server_down:
         print("  Running:    DEGRADED — the daemon is up but the chat model "
               "server is not")
     else:
         print(f"  Running:    {status.get('running', False)}")
+    if paused:
+        # paused_for is the daemon's answer to "why", carried so a reader can
+        # be told which window to close to get the assistant back.
+        holding = ", ".join(str(g) for g in paused_for)
+        if holding:
+            print(f"  Paused for: {holding} — close it and InterGen loads "
+                  "again by itself")
+        else:
+            print("  Paused for: a game that did not name itself — the pause "
+                  "lifts when it ends")
     # The release is part of this line or it is explicitly missing from it.
     # A status that printed the bare running version while the package record
     # could not be read told the reader the version and let them believe it
