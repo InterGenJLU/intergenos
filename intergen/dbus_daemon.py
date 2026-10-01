@@ -756,12 +756,33 @@ class InterGenDaemon(InterGenDBusInterface):
         from intergen.interfaces.types import (
             EscalationNotSent, Message, MessageRole)
 
-        if self._escalation is None:
+        # THE FAIL-SAFE HOLDS ON A DAEMON WHOSE START STOPPED EARLY. This
+        # method's own contract is that no manager, no provider, a declined
+        # consent and an error all return a clean note. The attribute it reads
+        # is written at step 5c of the start, so a daemon whose start returned
+        # at the single-instance guard -- which is exactly what the direct
+        # frontier route builds on a box where ownership cannot be verified --
+        # never had it, and the no-manager guard itself raised instead of
+        # answering. The reads that follow sat outside the try below and
+        # escaped the same way. Both are now inside the contract.
+        escalation = getattr(self, "_escalation", None)
+        if escalation is None:
             return json.dumps({
                 "response": "Phone-a-friend is not available (no escalation manager).",
                 "source": "escalation", "sent": False,
             })
-        provider = self._escalation._primary_provider_name()
+        try:
+            provider = escalation._primary_provider_name()
+        except Exception as exc:  # noqa: BLE001 -- the contract answers, never raises
+            log.error("Escalate: the provider table could not be read: %s",
+                      exc, exc_info=True)
+            return json.dumps({
+                "response": ("Phone-a-friend is not available: the configured "
+                             "providers could not be read. Nothing was sent and "
+                             "nobody was asked; the daemon log carries the "
+                             "reason."),
+                "source": "escalation", "sent": False,
+            })
         if provider is None:
             return json.dumps({
                 "response": ("No frontier model is configured. Add a provider to "
@@ -773,16 +794,28 @@ class InterGenDaemon(InterGenDBusInterface):
         # The reply says which of the two refusals it was: the person's Cancel,
         # or no way to show the content at all, in which case nobody was asked.
         consent: list = []
-        if not prompt_send_consent(message, provider,
-                                   reason="you asked to reach your frontier model",
-                                   outcome=consent):
+        try:
+            approved = prompt_send_consent(
+                message, provider,
+                reason="you asked to reach your frontier model",
+                outcome=consent)
+        except Exception as exc:  # noqa: BLE001 -- the contract answers, never raises
+            log.error("Escalate: the consent step failed: %s", exc,
+                      exc_info=True)
+            return json.dumps({
+                "response": ("Phone-a-friend is not available: the send could "
+                             "not be put in front of you to approve, so nobody "
+                             "was asked and nothing was sent."),
+                "source": "escalation", "sent": False,
+            })
+        if not approved:
             return json.dumps({
                 "response": refusal_sentence(consent),
                 "source": "escalation", "sent": False,
             })
         try:
             messages = [Message(role=MessageRole.USER, content=message)]
-            result = self._escalation.escalate(
+            result = escalation.escalate(
                 messages, reason="user-invoked phone-a-friend", user_consented=True,
             )
             if isinstance(result, EscalationNotSent):
