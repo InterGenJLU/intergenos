@@ -546,10 +546,31 @@ class ConsoleShell:
             if self._client:
                 await self._client.send({"type": "slash_command", "command": "/tier"})
         elif cmd == "/model":
-            tier = args if args in ("small", "medium", "large") else "medium"
-            if self._client:
-                await self._client.send({"type": "switch_model", "tier": tier})
-            self._add_message("system", f"Model tier requested: {tier}", "")
+            # An argument outside the three tiers used to be discarded and
+            # replaced with "medium": the console sent a switch nobody asked for
+            # and reported a request the person never made, and the daemon's own
+            # guard sits one hop downstream of the coercion so it could never see
+            # the value to refuse it. An unrecognised argument is refused here,
+            # naming what was not understood; a bare command is a question.
+            tiers = ("small", "medium", "large")
+            if not args:
+                # The console does not hold the daemon's tier, so it does not
+                # claim one: it says how to set one and changes nothing.
+                self._add_message(
+                    "system",
+                    "/model needs a tier to change anything. Nothing was "
+                    f"changed. The tiers are: {', '.join(tiers)}.",
+                    "")
+            elif args in tiers:
+                if self._client:
+                    await self._client.send({"type": "switch_model", "tier": args})
+                self._add_message("system", f"Model tier requested: {args}", "")
+            else:
+                self._add_message(
+                    "system",
+                    f"Not a model tier: {args!r}. Nothing was changed. "
+                    f"The tiers are: {', '.join(tiers)}.",
+                    "error")
         elif cmd == "/paste":
             self._paste_mode = True
             self._paste_lines = []
