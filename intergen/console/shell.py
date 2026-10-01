@@ -515,6 +515,21 @@ class ConsoleShell:
             if self._client:
                 await self._client.send({"type": "new_session", "session_id": ""})
                 self._messages.clear()
+                # The document buffer is conversation content: it is prepended to
+                # every outbound message, so leaving it loaded carried the old
+                # conversation's document — possibly private — into the first and
+                # every message of the new one, silently. /new exists to END a
+                # conversation, and the server's own handler ends everything it
+                # owns; this is the piece the console owns.
+                if self._doc_buffer:
+                    chars = len(self._doc_buffer)
+                    self._doc_buffer = ""
+                    self._paste_lines = []
+                    self._paste_mode = False
+                    self._add_message(
+                        "system",
+                        f"New conversation. The document buffer ({chars} chars) "
+                        "was cleared with it.", "")
         elif cmd == "/health":
             if self._client:
                 await self._client.send({"type": "request_health"})
