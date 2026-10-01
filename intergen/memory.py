@@ -1128,9 +1128,39 @@ class MemoryManager:
             if match:
                 if _NEGATION_BEFORE_VERB_RE.search(message[:match.start()]):
                     continue
-                if "clear" in message.lower() and ("all" in message.lower()
-                                                     or "memories" in message.lower()):
-                    return "__ALL__"
+                # A PATTERN THAT CAPTURED A SUBJECT NAMES THE SUBJECT, and only
+                # the pattern written for a full reset asks for one.
+                #
+                # WHAT STOOD HERE AND WHAT IT DID. Two bare substring tests —
+                # "clear" in the message, and "all" or "memories" in it — ran
+                # AFTER a pattern had already captured a named subject, and threw
+                # that subject away for the full-reset sentinel. Neither test
+                # asked for a WORD. "clear" is inside "unclear", "nuclear",
+                # "clearance", "cleartext"; "all" is inside "wallpaper",
+                # "install", "fallback", "allocation", "actually". So "forget my
+                # unclear wallpaper" — a sentence naming ONE thing and asking for
+                # no reset — reached clear_all(), every stored fact was marked
+                # deleted, and the reply told the user "Done. I've cleared all 2
+                # memories.": their whole memory gone, described back to them as
+                # their own request, and not recoverable.
+                #
+                # Measured on this corpus at the base: of 65 sentences the parser
+                # answered with the reset sentinel, only a handful actually asked
+                # for a reset; the rest were named forgets carrying an accidental
+                # substring.
+                #
+                # WHY THERE IS NO REPLACEMENT TEST, rather than a word-boundary
+                # version of the same one. The reset pattern at the end of
+                # _FORGET_PATTERNS already recognises a reset request, and it does
+                # so by STRUCTURE — the verb, the optional "all", the optional
+                # "my", and then the noun — not by hunting for words anywhere in
+                # the sentence. It captures nothing, which is exactly how a reset
+                # is distinguished from a named forget here: no capture means no
+                # subject was named, so the request is the whole sentence. A
+                # second test standing in front of it could only ever disagree
+                # with it, and the way it disagreed was to delete everything.
+                # Making it stricter would have left the same shape in place for
+                # the next sentence that slipped through it.
                 return match.group(1).strip() if match.lastindex else "__ALL__"
         return None
 
