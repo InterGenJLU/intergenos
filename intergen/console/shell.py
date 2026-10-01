@@ -825,8 +825,34 @@ class ConsoleShell:
             connected_msg = await self._client.connect()
             # Process the connected message
             await self._process_server_message(connected_msg)
-        except Exception:
-            self._add_message("system", "Failed to connect to InterGen. Is the daemon running?")
+        except ConnectionRefusedError as exc:
+            # The socket itself said no: that IS the question about the daemon,
+            # and the refusal's own text does not say so. Both, so neither the
+            # diagnosis nor the cause is lost.
+            self._add_message(
+                "system",
+                "Failed to connect to InterGen. Is the daemon running? "
+                f"({exc})")
+            self._app.invalidate()
+            return
+        except ConnectionError as exc:
+            # The client raises this with the cause AND the remedy already in
+            # it — an absent, empty or unreadable web token names itself and
+            # names 'intergen setup'. Replacing that with a question about the
+            # daemon sent the person to look at a service that is running, so
+            # the sentence the client wrote is the sentence they read.
+            detail = str(exc).strip()
+            self._add_message(
+                "system",
+                f"Failed to connect to InterGen: {detail}" if detail
+                else "Failed to connect to InterGen. Is the daemon running?")
+            self._app.invalidate()
+            return
+        except Exception as exc:
+            self._add_message(
+                "system",
+                "Failed to connect to InterGen. Is the daemon running? "
+                f"({type(exc).__name__}: {exc})")
             self._app.invalidate()
             return
 
