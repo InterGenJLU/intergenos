@@ -24,8 +24,7 @@ gracefully.
 
 REDACTION IS AT THE WRITE BOUNDARY, not at the call sites. Every row this
 module writes passes through `intergen.glass.redact_persisted`, the same
-single function the package's other two persisted records --
-`glass.jsonl` and `decisions.jsonl` -- pass their whole row through. The
+shared function used at the package's other persistence boundaries. The
 rule it enforces is the one `intergen/trace.py` states: credentials are
 never persisted, secrets stay out of logs. This writer did not enforce it
 until 2026-10-01, and nothing above it did either: `arguments` is the

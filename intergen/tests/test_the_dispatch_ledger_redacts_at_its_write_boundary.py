@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 InterGenJLU
-"""The dispatch ledger is the third persisted record and nothing redacts it.
+"""The dispatch ledger lacked persistence-boundary redaction before this correction.
 
 THE RULE AS THE TREE STATES IT. ``intergen/trace.py`` says of the credential
 predicate: "credentials are never persisted to a trace (security-alignment
@@ -11,19 +11,12 @@ of writing, "not at the moment a caller hands a value over", so that "a writer
 that adds a field tomorrow gets the same treatment without knowing this
 function exists".
 
-WHAT THIS FILE MEASURES. Two persisted records in this package pass their row
-through that chokepoint: ``glass.jsonl`` in ``GlassLogger._write_row`` and
-``decisions.jsonl`` in ``Span.as_record``. There is a THIRD persisted record in
-the same package, on the same owner-only per-user footing, written by the same
-kind of best-effort appender: the tool-dispatch ledger,
-``$XDG_STATE_HOME/intergen/tool-dispatch.jsonl``, written by
-:func:`intergen.audit_log.write_record`. That writer serialises
-``AuditRecord.to_jsonl_dict()`` directly, so ``arguments`` (the tool call's full
-argument dict), ``excerpt`` (raw ingress content) and ``details`` (a raw
-governance payload) reach the file exactly as the caller handed them over. The
-credential shapes the tree already measured reaching the turn record --
-password-option, bearer-token, credential-assignment -- land in this file
-verbatim and are kept for the ledger's 30-day logrotate retention.
+WHAT THIS FILE MEASURES. Other per-user records already used the shared
+persistence transformation. Before this correction, this writer serialised its
+complete record directly, so caller-supplied fields could reach durable storage
+unchanged. These cases demonstrate the former behavior and assert that the
+corrected persistence boundary transforms the complete record before
+serialisation.
 
 These are the same three assertions
 ``TheTurnRecordRedactsAtTheWriteBoundary`` makes for ``glass.jsonl``, asked of
