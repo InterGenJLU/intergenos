@@ -21,6 +21,21 @@ The writer is best-effort: failures while writing the log MUST NOT crash
 the dispatcher. The gate must continue working even if the log filesystem
 is full, read-only, or otherwise unavailable; observability degrades
 gracefully.
+
+REDACTION IS AT THE WRITE BOUNDARY, not at the call sites. Every row this
+module writes passes through `intergen.glass.redact_persisted`, the same
+single function the package's other two persisted records --
+`glass.jsonl` and `decisions.jsonl` -- pass their whole row through. The
+rule it enforces is the one `intergen/trace.py` states: credentials are
+never persisted, secrets stay out of logs. This writer did not enforce it
+until 2026-10-01, and nothing above it did either: `arguments` is the
+tool call's full argument dict, `excerpt` is raw ingress content,
+`result_summary` is free text and `details` is a raw governance payload,
+so a credential typed into a command line reached this file verbatim and
+was kept for the retention above, while the same bytes written to either
+other record came back as a named placeholder. Applying the function HERE
+rather than at each caller is the whole point: a writer that adds a field
+tomorrow gets the same treatment without knowing the function exists.
 """
 
 from __future__ import annotations
@@ -31,6 +46,7 @@ import os
 from pathlib import Path
 from typing import Iterator
 
+from intergen.glass import redact_persisted
 from intergen.interfaces.provenance import AuditRecord
 from intergen.private_state import private_dir, private_open
 
@@ -61,7 +77,16 @@ def write_record(record: AuditRecord, log_path: Path | None = None) -> bool:
         # was never corrected.
         private_dir(path.parent)
 
-        line = json.dumps(record.to_jsonl_dict(), separators=(",", ":"))
+        # THE CHOKEPOINT, on the whole row. Not on `arguments` alone: every
+        # field here can carry caller-supplied text, and a field added later
+        # would otherwise arrive unscanned. The function names what it removed
+        # rather than dropping it, so the ledger stays readable; none of this
+        # record's own field names is credential-shaped, so no field of a plain
+        # dispatch record is replaced -- which the test module asserts, because
+        # a reader shown a placeholder where a timestamp belongs would be worse
+        # off than before.
+        line = json.dumps(
+            redact_persisted(record.to_jsonl_dict()), separators=(",", ":"))
         with private_open(path, "a", encoding="utf-8") as f:
             f.write(line + "\n")
         return True
