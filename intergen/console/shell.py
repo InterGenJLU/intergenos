@@ -791,7 +791,17 @@ class ConsoleShell:
                               handled=tele.get("handled"))
 
         elif msg_type == "disconnected":
-            self._add_message("system", "Disconnected from InterGen server.", "")
+            # The client distinguishes a read that failed from a clean close and
+            # says which on the frame; a console that printed one sentence for
+            # both threw that distinction away at the last step.
+            reason = msg.get("reason") or msg.get("error") or ""
+            if reason:
+                self._add_message(
+                    "system",
+                    f"Disconnected from InterGen server: {reason}", "error")
+            else:
+                self._add_message("system",
+                                  "Disconnected from InterGen server.", "")
 
     # -- Formatters for Rich views ------------------------------------------
 

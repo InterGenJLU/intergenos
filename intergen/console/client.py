@@ -98,7 +98,17 @@ class ConsoleClient:
         return raw
 
     async def _reader_loop(self) -> None:
-        """Background task: read messages from WebSocket into the queue."""
+        """Background task: read messages from WebSocket into the queue.
+
+        A read that FAILS and a read that ends cleanly are different events and
+        leave by the same door, so the door carries which one it was: the frame
+        handed to the shell names the fault, and the log records it at a level
+        the console's own entry point emits, with the traceback. Recording it at
+        DEBUG and handing up a bare disconnect meant a timed-out heartbeat and a
+        clean close reached the person as the same sentence, with nothing
+        anywhere to tell them apart.
+        """
+        fault: BaseException | None = None
         try:
             async for msg in self._ws:
                 if msg.type == aiohttp.WSMsgType.TEXT:
@@ -110,11 +120,22 @@ class ConsoleClient:
                 elif msg.type in (aiohttp.WSMsgType.CLOSED,
                                   aiohttp.WSMsgType.ERROR):
                     break
-        except Exception:
-            logger.debug("WebSocket reader loop ended")
+        except asyncio.CancelledError:
+            # close() cancels this task deliberately; that is not a fault.
+            raise
+        except Exception as exc:
+            fault = exc
+            logger.warning("WebSocket reader loop failed: %s: %s",
+                            type(exc).__name__, exc, exc_info=True)
         finally:
             self._connected = False
-            await self._message_queue.put({"type": "disconnected"})
+            frame: dict[str, Any] = {"type": "disconnected"}
+            if fault is not None:
+                frame["error"] = f"{type(fault).__name__}: {fault}"
+                frame["reason"] = (
+                    "the connection to InterGen failed while reading: "
+                    f"{type(fault).__name__}: {fault}")
+            await self._message_queue.put(frame)
 
     # -- Send ---------------------------------------------------------------
 
