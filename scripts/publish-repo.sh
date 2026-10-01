@@ -843,8 +843,7 @@ else
     if [ "$DRY_RUN" = true ] && [ -f "$INDEX_PATH" ]; then
         _DR_SAVED_INDEX=$(mktemp)
         cp -p "$INDEX_PATH" "$_DR_SAVED_INDEX"
-        # shellcheck disable=SC2064
-        trap "cp -p '$_DR_SAVED_INDEX' '$INDEX_PATH' 2>/dev/null; rm -f '$_DR_SAVED_INDEX'" EXIT
+        trap 'cp -p -- "$_DR_SAVED_INDEX" "$INDEX_PATH" && rm -f -- "$_DR_SAVED_INDEX"' EXIT
     fi
 
     python3 - "$ARCHIVE_DIR" "$SOURCES_DIR" <<'PYINDEX' || { echo "ERROR: Index generation failed" >&2; exit 1; }
@@ -935,13 +934,13 @@ PYINDEX
             echo "        InterGenOS.db directly (subkey FINGERPRINT, not the NK1 alias) and" >&2
             echo "        resume with --skip-sign." >&2
         fi
-        python3 -c "
+        python3 - "$INDEX_PATH" "$GPG_FP" <<'PYSIGN' || { echo "ERROR: Index signing failed" >&2; exit 1; }
 import sys
 sys.path.insert(0, '.')
 from pkm.repo import sign_index
-path = sign_index('$INDEX_PATH', gpg_key_id='$GPG_FP')
+path = sign_index(sys.argv[1], gpg_key_id=sys.argv[2])
 print(f'Signature written: {path}')
-" || { echo "ERROR: Index signing failed" >&2; exit 1; }
+PYSIGN
 
         echo "  OK — $(stat -c%s "$SIG_PATH") bytes"
     fi

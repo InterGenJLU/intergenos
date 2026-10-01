@@ -178,25 +178,26 @@ fi
 
 # Step 6: Roundtrip parse via pkm/repo.py
 echo "[6/6] Roundtrip parse with pkm/repo.py..."
-python3 -c "
+python3 - "$PROJECT_ROOT" "$INDEX_OUTPUT" "$ARCHIVE_COUNT" <<'PYLOAD' 2>&1
 import gzip, json, sys
-sys.path.insert(0, '$PROJECT_ROOT')
+sys.path.insert(0, sys.argv[1])
 from pkm.repo import RepoIndex
 
-with gzip.open('$INDEX_OUTPUT', 'rt') as f:
+with gzip.open(sys.argv[2], 'rt') as f:
     data = json.load(f)
 
+archive_count = int(sys.argv[3])
 index = RepoIndex('test', 'https://example.com/x86_64', data)
 assert index.version == 1, f'Expected version 1, got {index.version}'
 assert index.arch == 'x86_64', f'Expected arch x86_64, got {index.arch}'
-assert index.package_count == $ARCHIVE_COUNT, f'Expected $ARCHIVE_COUNT packages, got {index.package_count}'
+assert index.package_count == archive_count, f'Expected {archive_count} packages, got {index.package_count}'
 for name, pkg in index.packages.items():
     assert 'sha256' in pkg, f'{name}: missing sha256'
     assert 'filename' in pkg, f'{name}: missing filename'
     assert 'size' in pkg, f'{name}: missing size'
-    print(f'  {name}: sha256={pkg[\"sha256\"][:16]}... size={pkg[\"size\"]} filename={pkg[\"filename\"]}')
+    print(f'  {name}: sha256={pkg["sha256"][:16]}... size={pkg["size"]} filename={pkg["filename"]}')
 print('OK')
-" 2>&1
+PYLOAD
 
 if [ $? -eq 0 ]; then
     report_pass "pkm.repo.RepoIndex roundtrip parse OK"
