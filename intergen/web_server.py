@@ -1621,11 +1621,18 @@ class WebServer:
         cmd_lower = command.lower()
 
         if cmd_lower == "/new":
-            ctx.session_history.clear()
-            await ctx.ws.send_json({
-                "type": "session_created",
-                "client_id": ctx.client_id,
-            })
+            # The same promise as the new_session frame, so the same door. This
+            # branch used to clear session_history and send session_created
+            # itself: session_history is a property over conversation.history,
+            # so that emptied the model buffer and nothing else, and the staged
+            # offers, the allow-conversation consent record, the cross-turn
+            # ingress watermark, the handed-off set, the transcript and the
+            # first-interaction flag all survived into the conversation the
+            # person had just been told was new — where a bare "yes" reached
+            # back and dispatched the ended conversation's staged command.
+            # _handle_new_session is where the ending is written; /new is a
+            # second door to it, not a second implementation of it.
+            await self._handle_new_session(ctx, data)
         elif cmd_lower == "/clear":
             ctx.session_history.clear()
             await ctx.ws.send_json({"type": "buffer_cleared"})
