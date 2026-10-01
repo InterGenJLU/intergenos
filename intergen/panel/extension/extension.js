@@ -219,14 +219,92 @@ const SHELL_PATH = "/com/intergenos/InterGenShell";
 // the consent the daemon's own take_screenshot tool carries — and could aim the
 // write at any absolute path it named.
 //
-// The surface now answers exactly one peer: whoever the bus reports as owning
-// the daemon's own well-known name. The daemon owns that name on the connection
-// Gio.bus_get_sync(SESSION) shares across its process, and its screenshot tool
-// calls on that same connection, so the caller's unique name IS that owner. The
-// watch enable() sets up keeps the name current across daemon restarts; until
-// the bus has answered, this is null and the surface answers nobody, which is
-// what a surface registered ahead of its own readiness gate must do.
+// The first correction answered whoever the bus reported as OWNING the daemon's
+// well-known name. A second, independent read showed that is not an identity: a
+// well-known name belongs to whoever asks for it first and is free the moment
+// nobody holds it, so while the daemon is not running any peer in the session can
+// take that name — and this watch then names that peer, and the surface answers
+// it with a full-frame grab. The owner is kept, because it is a cheap first
+// refusal and because null must refuse while the bus has not answered, but it is
+// no longer what admits a call: _senderIsTheDaemon asks the bus for the things a
+// peer cannot claim — the uid and the pid behind the connection — and requires
+// the pid to be a process running the daemon's own program.
 let _intergenOwner = null;
+
+// The program the daemon runs, as its own D-Bus and systemd units start it
+// (intergen/data/com.intergenos.InterGen.service, intergen/data/intergen.service:
+// "/usr/bin/intergen daemon"). The pid's /proc entry is compared against this,
+// not against an interpreter: the program is a Python script, so its exe link
+// reads as the interpreter on every machine and would admit any Python process.
+const INTERGEN_DAEMON_PROGRAM = "/usr/bin/intergen";
+const INTERGEN_DAEMON_ARGUMENT = "daemon";
+
+// One uint out of org.freedesktop.DBus about a connection, or null if the bus
+// will not say. A peer that has already gone is a null, which refuses.
+function _busUintAbout(connection, method, name) {
+  try {
+    const reply = connection.call_sync(
+      "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
+      method, new GLib.Variant("(s)", [name]), new GLib.VariantType("(u)"),
+      Gio.DBusCallFlags.NONE, 1000, null);
+    return reply.deepUnpack()[0];
+  } catch (e) {
+    console.log("[InterGen] the bus would not answer " + method + ": " + e);
+    return null;
+  }
+}
+
+// The argument vector of a pid, as NUL-separated bytes in its own /proc entry,
+// or null when there is nothing there to read.
+function _argvOfPid(pid) {
+  try {
+    const [ok, bytes] = GLib.file_get_contents("/proc/" + pid + "/cmdline");
+    if (!ok || !bytes || bytes.length === 0) return null;
+    return new TextDecoder().decode(bytes).split("\0").filter((a) => a !== "");
+  } catch (_e) {
+    return null;
+  }
+}
+
+// WHO THE PEER IS, from what the bus vouches for rather than from what it was
+// able to claim. Three conditions, each refusing on its own: the peer belongs to
+// this user; the bus can name a pid behind the connection; and that pid is
+// running the daemon's program with its daemon argument. A pid is not a permanent
+// identity — a peer that exits frees it — so this is the narrowest window the
+// surface can be given from inside the compositor, not a proof of identity for
+// all time; the call it admits is a single screenshot into the daemon's own temp
+// path, and the destination guard stands independently of this one.
+function _senderIsTheDaemon(connection, sender) {
+  if (!sender) return false;
+  const own = connection.get_unique_name();
+  const ourUid = own ? _busUintAbout(connection, "GetConnectionUnixUser", own) : null;
+  const theirUid = _busUintAbout(connection, "GetConnectionUnixUser", sender);
+  if (ourUid === null || theirUid === null || ourUid !== theirUid) {
+    console.log("[InterGen] Screenshot refused: the caller is not this user");
+    return false;
+  }
+  const pid = _busUintAbout(connection, "GetConnectionUnixProcessID", sender);
+  if (pid === null) {
+    console.log("[InterGen] Screenshot refused: the bus names no pid for the caller");
+    return false;
+  }
+  const argv = _argvOfPid(pid);
+  if (!argv) {
+    console.log("[InterGen] Screenshot refused: pid " + pid + " has no argument vector");
+    return false;
+  }
+  const runsTheProgram = argv.some((a) => a === INTERGEN_DAEMON_PROGRAM
+                                   || a.endsWith("/" + GLib.path_get_basename(
+                                        INTERGEN_DAEMON_PROGRAM)));
+  const carriesTheArgument = argv.includes(INTERGEN_DAEMON_ARGUMENT);
+  if (!runsTheProgram || !carriesTheArgument) {
+    console.log("[InterGen] Screenshot refused: pid " + pid
+                + " is not running " + INTERGEN_DAEMON_PROGRAM + " "
+                + INTERGEN_DAEMON_ARGUMENT);
+    return false;
+  }
+  return true;
+}
 
 // WHERE THE BYTES MAY LAND. The caller's path is no longer taken on trust: the
 // destination must be a file directly inside the temp directory this process
@@ -341,8 +419,12 @@ function _onShellMethodCall(
     return;
   }
 
-  // The caller, before anything else is read from the call.
-  if (!sender || !_intergenOwner || sender !== _intergenOwner) {
+  // The caller, before anything else is read from the call. The name's owner is
+  // the cheap first refusal and _senderIsTheDaemon is what admits the call: a
+  // peer that claimed the name while the daemon was away passes the first and is
+  // refused by the second.
+  if (!sender || !_intergenOwner || sender !== _intergenOwner
+      || !_senderIsTheDaemon(connection, sender)) {
     console.log(
       "[InterGen] Shell D-Bus service refused Screenshot from " +
       (sender || "an unnamed peer") + " (the InterGen daemon is " +
@@ -350,8 +432,9 @@ function _onShellMethodCall(
     );
     invocation.return_dbus_error(
       "com.intergenos.InterGenShell.Error.AccessDenied",
-      "Screenshot is answered only for the InterGen daemon, the owner of " +
-      "com.intergenos.InterGen on this bus. This peer is not it."
+      "Screenshot is answered only for the InterGen daemon: the peer must hold " +
+      "the daemon's name on this bus AND be the daemon's own process, as this " +
+      "bus reports the connection's user and pid. This peer is not it."
     );
     return;
   }
