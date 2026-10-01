@@ -6590,6 +6590,51 @@ def _write_available_updates_json(summary, output_path):
         raise
 
 
+# The three sentences the end-of-transaction refresh can end in, and the two
+# fragments they all share. The refresh is advisory and must never fail the
+# transaction, so every fault below ends in a warning — but a warning that
+# names the WRONG cause is worse than a quiet one, because the person acts on
+# it. The stem and the tail live here so the three cannot drift apart, and each
+# cause's own words live in exactly one function so a stage cannot borrow
+# another stage's explanation.
+_REFRESH_STEM = "could not refresh the available-updates advisory at"
+_REFRESH_TAIL = ("The previous advisory is unchanged, and the top-bar update "
+                 "count may be stale until the next scheduled check.")
+
+
+def _warn_refresh_unreadable_index(output_path, e):
+    """An I/O cause: the cached repository index could not be read."""
+    emit_warn(
+        f"{_REFRESH_STEM} {output_path}: the repository index in the local "
+        f"cache could not be READ ({type(e).__name__}: {e}). {_REFRESH_TAIL} "
+        f"Fix the read error (permissions, ownership, the filesystem itself), "
+        f"or run `pkm sync` to replace the index."
+    )
+
+
+def _warn_refresh_unwritable_advisory(output_path, e):
+    """The other I/O cause: the advisory file itself could not be written."""
+    emit_warn(
+        f"{_REFRESH_STEM} {output_path}: the advisory file could not be "
+        f"WRITTEN ({type(e).__name__}: {e}). The new update count was computed "
+        f"from the index without trouble; only the file the notifier reads "
+        f"could not be replaced. {_REFRESH_TAIL} Fix the write error "
+        f"(permissions, ownership, a full or read-only filesystem)."
+    )
+
+
+def _warn_refresh_internal_error(output_path, e):
+    """NOT an I/O cause: pkm's own computation raised. Named as what it is —
+    a defect in pkm — because sending someone to check permissions for a
+    programming error costs them the one thing the message owes them."""
+    emit_warn(
+        f"{_REFRESH_STEM} {output_path}: an INTERNAL ERROR in pkm's update "
+        f"computation ({type(e).__name__}: {e}). This is a defect in pkm, not "
+        f"a fault in this system, its files or their permissions. "
+        f"{_REFRESH_TAIL}"
+    )
+
+
 def refresh_available_updates_after_transaction(db, output_path=None):
     """Recompute the update advisory from the DB against the LOCAL cached index
     and rewrite it atomically at the end of a state-changing transaction, so the
@@ -6601,32 +6646,72 @@ def refresh_available_updates_after_transaction(db, output_path=None):
     Degrades loudly-informationally, never failing the transaction: with no
     synced index (e.g. a purely-local `--archive` install before any
     `pkm update`) recomputing would report zero upgradable and CLOBBER a real
-    advisory, so the last-good file is left untouched and the reason is stated;
-    an unwritable path is likewise reported and tolerated."""
+    advisory, so the last-good file is left untouched and the reason is stated.
+    Every other fault is reported in the words of ITS OWN cause — an index that
+    could not be read, an advisory that could not be written, or an internal
+    error in pkm — and the previous advisory is left byte-identical in all
+    three."""
     if output_path is None:
         output_path = available_updates_path()
     # Best-effort by contract: the transaction has already committed, so a
-    # cosmetic re-count must NEVER propagate an error and undo/abort it. A
-    # deliberate single broad boundary (not bulk hardening) — every failure
-    # mode degrades loudly-informationally, never silently.
+    # cosmetic re-count must NEVER propagate an error and undo/abort it. That
+    # guarantee is unchanged. What changed is that it no longer costs the
+    # person the reason: ONE broad boundary used to report every fault as
+    # "could not refresh ... : <message>", and measured at the real function
+    # under a throwaway root on 2026-10-01 a cached index at mode 000, an
+    # advisory directory at mode 500 and a closed database produced that same
+    # sentence with a bare errno or driver message appended. Two of those are
+    # I/O on two different files, fixed in two different places; the third is
+    # a defect in pkm that no permission change will help. Each stage is now
+    # bounded on its own: OSError gets the I/O words of the file that stage
+    # touches, anything else is named as an internal error with its type, and
+    # nothing propagates out of any of them.
     try:
         repo = repo_manager()
-        if not repo.has_synced_index():
-            emit_warn(
-                "skipped refreshing the available-updates advisory: no synced "
-                "repository index in the local cache. The top-bar update count "
-                "reflects the last scheduled check until `pkm update` runs."
-            )
-            return
+        synced = repo.has_synced_index()
+    except OSError as e:
+        # Loading the cache is this stage's only I/O: _ensure_synced raises the
+        # filesystem's own error here rather than presenting an unreadable
+        # index as a repository with nothing in it.
+        _warn_refresh_unreadable_index(output_path, e)
+        return
+    except Exception as e:
+        _warn_refresh_internal_error(output_path, e)
+        return
+
+    if not synced:
+        emit_warn(
+            "skipped refreshing the available-updates advisory: no synced "
+            "repository index in the local cache. The top-bar update count "
+            "reflects the last scheduled check until `pkm update` runs."
+        )
+        return
+
+    try:
         packages, skipped = _compute_available_updates(db, repo)
         summary = _available_updates_summary(packages, skipped)
-        _write_available_updates_json(summary, output_path)
+    except OSError as e:
+        # The only file this stage can fail to read is the same index: every
+        # get_package re-enters _ensure_synced. The installed-package database
+        # is sqlite, which reports its faults as sqlite3.Error, not OSError —
+        # those arrive at the internal-error boundary below, where they belong.
+        _warn_refresh_unreadable_index(output_path, e)
+        return
     except Exception as e:
-        emit_warn(
-            f"could not refresh the available-updates advisory at "
-            f"{output_path}: {e}. The top-bar update count may be stale until "
-            f"the next scheduled check."
-        )
+        _warn_refresh_internal_error(output_path, e)
+        return
+
+    try:
+        _write_available_updates_json(summary, output_path)
+    except OSError as e:
+        # The atomic write already removed its own temporary file and left the
+        # previous advisory in place; all that is owed here is saying which
+        # file the system refused.
+        _warn_refresh_unwritable_advisory(output_path, e)
+        return
+    except Exception as e:
+        _warn_refresh_internal_error(output_path, e)
+        return
 
 
 def cmd_check_updates(db, args, output_path=None):
