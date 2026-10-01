@@ -442,7 +442,31 @@ class ConsoleShell:
 
     # -- Input handling -----------------------------------------------------
 
+    # The keys the consent card tells the person to press, and the decision each
+    # one sends. A consent surface is a trust surface: every key its card names
+    # has to be a key the console acts on, so the card is rendered FROM this map
+    # and the input path decides the gate FROM this map — one table, so the two
+    # cannot drift apart again.
+    _GATE_KEYS: "dict[str, tuple[str, str]]" = {
+        "a": ("allow", "allow"),
+        "y": ("allow_conversation", "allow conversation"),
+        "n": ("deny", "deny"),
+    }
+
     async def _on_user_input(self, text: str) -> None:
+        # A card is on screen and the person typed exactly one of the keys it
+        # names: that is the decision, not a chat message. Only while a card is
+        # pending, and only for those exact keys, so nothing else a person types
+        # changes meaning.
+        if self._gate_pending:
+            key = text.strip().lower()
+            if key in self._GATE_KEYS:
+                decision, spoken = self._GATE_KEYS[key]
+                await self._send_gate_decision(decision)
+                self._gate_pending = None
+                self._add_message("system", f"Gate decision sent: {spoken}", "gate")
+                return
+
         if text.startswith("/"):
             await self._handle_slash_command(text)
             return
@@ -629,10 +653,14 @@ class ConsoleShell:
             self._gate_pending = msg
             self._is_streaming = False
 
+            # Rendered from the same table the input path decides from, so the
+            # card can only ever name keys the console acts on.
+            offered = ", ".join(
+                f"'{key}' to {spoken}" for key, (_d, spoken) in self._GATE_KEYS.items())
             gate_text = (
                 f"⚠️  Gate: {tool} wants to: {action}\n"
                 f"    Blocked by: {blocked}\n"
-                f"    Press 'a' to allow, 'y' to allow conversation, 'n' to deny"
+                f"    Press {offered}, then Enter"
             )
             if governance:
                 checks = governance.get("checks", [])
