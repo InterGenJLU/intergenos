@@ -1356,18 +1356,30 @@ class WebServer:
             await self._persist_and_list(ctx)
             return
 
-        # LLM path (P3/P4) — streaming required
-        if result.source in ("llm_tools", "llm_freeform"):
+        # LLM path (P3/P4) — streaming required. system_map belongs to this
+        # group and to no other: under decide_only the router returns it as a
+        # decision with NO text, exactly as it returns the other two, because
+        # the synthesis is meant to happen once in the streaming caller, and
+        # _stream_llm_response carries the matching branch that builds its
+        # grounded, tool-free prompt from the cached data. It used to fall to
+        # the fallback below, which sends the verdict's own text — and a
+        # streamed verdict's text is the empty string, so the page rendered
+        # nothing (app.js handleResponse draws only on truthy content), no
+        # terminal frame arrived, and an assistant message with no content went
+        # into the conversation, the transcript and the saved session, which are
+        # one list.
+        if result.source in ("llm_tools", "llm_freeform", "system_map"):
             await self._stream_llm_response(ctx, turn_id, user_msg,
                                              result, image_data)
             await self._persist_and_list(ctx)
             return
 
         # Fallback — send whatever we got. This catches every source outside the
-        # fast-path allowlist and the streamed pair (direct_answer, explain,
-        # system_map, current_data_offer, capability_question, safety_decline,
+        # fast-path allowlist and the streamed group (direct_answer, explain,
+        # current_data_offer, capability_question, safety_decline,
         # file_lifecycle_offer, ip_answer, …), and it delivers real bytes to the
-        # user, so it records them like the other two dispositions do.
+        # user, so it records them like the other two dispositions do. A source
+        # whose decide_only verdict carries no text does not belong here.
         await ctx.ws.send_json({
             "type": "response",
             "turn_id": turn_id,
