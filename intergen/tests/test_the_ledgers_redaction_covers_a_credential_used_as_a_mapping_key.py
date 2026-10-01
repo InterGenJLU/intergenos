@@ -2,24 +2,13 @@
 # Copyright (C) 2026 InterGenJLU
 """A credential used as a MAPPING KEY must not survive the write boundary.
 
-``intergen.glass.redact_persisted`` is the chokepoint every persisted row
-passes through, and it scrubs VALUES: a credential-shaped key name turns its
-value into ``<redacted:key-name>``, and a secret-shaped run inside any string
-turns into ``<redacted:shape-name>``. Dicts are walked recursively.
-
-What it does not do is scrub the KEY. Two consequences, both of which put a
-credential into a file the function exists to keep credentials out of:
-
-1. A credential-shaped key is copied verbatim INTO the placeholder that
-   replaces its value (``<redacted:{key}>``), so a key such as
-   ``api_key=<secret>`` is persisted twice over -- once as the key and once
-   inside the attestation that claims the secret was removed.
-2. A key that is simply the secret itself is never scanned at all, because
-   only values reach ``redact_secret_shapes``.
-
-Both are reachable through ``arguments``, which is a tool call's own argument
-structure: an environment mapping, a header mapping, or any dict a caller
-builds with caller-supplied text for keys.
+Before this correction, the shared persistence transformation scrubbed mapping
+values but left mapping keys unchanged. That former asymmetry let credential
+material survive as a key and, for a credential-shaped key name, reappear
+inside the value's redaction label. A bare secret used as a key did not reach
+the content scanner. Both former paths are reachable through caller-supplied
+argument mappings; the cases below preserve those reds and assert the corrected
+boundary.
 
 The cells below hold the function and the REAL writer to the rule the module
 states in its own words: credentials are never persisted. They also pin the two
@@ -111,7 +100,8 @@ class ACredentialUsedAsAMappingKeyIsNotPersisted(unittest.TestCase):
             f"{json.dumps(row)}")
 
     def test_a_bare_secret_used_as_a_mapping_key_is_not_persisted(self):
-        """A key that IS the secret is never scanned, because only values are."""
+        """Before this correction, a key that was itself the secret never
+        reached the shape scanner."""
         row = redact_persisted({"arguments": {"headers": {SECRET_A: "bearer"}}})
         self.assertNotIn(
             SECRET_A, json.dumps(row),
