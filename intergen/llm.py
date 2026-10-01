@@ -1738,17 +1738,67 @@ class LLMRouter(LLMInterface):
     def set_escalation_consent(self, consent: Any) -> None:
         """Register (or clear with None) the one thing ASK mode asks.
 
-        `consent` is called with the message list about to leave the machine
-        and answers truthily to allow that send. It exists because ASK is
-        defined as "OFFER on recognition; the user consents before anything is
-        sent" and this path has no way to offer: the only consent flow in the
-        tree is behind the separate escalate() entry point, which chat() never
-        reaches. A front end that CAN ask registers itself here; until one
-        does, ASK sends nothing, which is the shipped state.
+        `consent` is called with TWO positional arguments — the payload that
+        would leave and the destination's name — and answers with a Boolean
+        true, and nothing else, to allow that one send to that one destination.
+        It exists because ASK is defined as "OFFER on recognition; the user
+        consents before anything is sent" and this path has no way to offer:
+        the only consent flow in the tree is behind the separate escalate()
+        entry point, which chat() never reaches. A front end that CAN ask
+        registers itself here; until one does, ASK sends nothing, which is the
+        shipped state.
+
+        WHAT IS REFUSED HERE, and why at registration. This path is
+        synchronous: it calls the mechanism and reads the answer. A coroutine
+        function cannot answer it — calling one returns a coroutine whose body
+        has not run and whose truth value is True, so a mechanism written to
+        REFUSE would have authorised the very send it meant to stop. A
+        mechanism that cannot be asked about a destination cannot answer the
+        question this router asks either. Both are refused here, loudly, so a
+        front end learns at setup rather than at the first turn whose local
+        attempts failed: a mechanism that fails at the moment of asking is a
+        refusal, which is safe, but it is also a consent dialog nobody will
+        ever see. A signature that cannot be read is recorded and allowed
+        through, because the send path refuses anything it cannot ask.
         """
+        if consent is None:
+            self._escalation_consent = None
+            logger.info("Escalation consent hook cleared")
+            return
+
+        if not callable(consent):
+            raise TypeError(
+                "an escalation consent hook must be callable; "
+                f"{type(consent).__name__} cannot be asked anything")
+
+        called = consent if (inspect.isfunction(consent)
+                             or inspect.ismethod(consent)) else getattr(
+                                 consent, "__call__", consent)
+        if inspect.iscoroutinefunction(consent) or \
+                inspect.iscoroutinefunction(called):
+            raise TypeError(
+                "an asynchronous escalation consent hook cannot answer this "
+                "path: calling it returns a coroutine whose body has not run "
+                "and whose truth value is True, so a refusal would authorise "
+                "the send it meant to stop. Register a synchronous hook that "
+                "has already resolved its answer")
+
+        try:
+            inspect.signature(consent).bind(["the payload that would leave"],
+                                            "the destination's name")
+        except TypeError as e:
+            raise TypeError(
+                "an escalation consent hook is asked with the payload that "
+                "would leave and the destination's name, and this one cannot "
+                f"be asked that: {e}") from e
+        except (ValueError, KeyError) as e:
+            logger.warning(
+                "the escalation consent hook's signature could not be read "
+                "(%s: %s), so it was not checked here; the send path refuses "
+                "anything it cannot ask", type(e).__name__, e)
+
         self._escalation_consent = consent
-        logger.info("Escalation consent hook %s",
-                    "registered" if consent is not None else "cleared")
+        logger.info("Escalation consent hook registered")
 
     def _an_unprompted_send_is_authorised(self) -> bool:
         """Whether THIS mode lets this conversation leave the machine at all.
@@ -1812,6 +1862,18 @@ class LLMRouter(LLMInterface):
                 "answer is served", mode.value)
         return False
 
+    @staticmethod
+    def _consent_envelope(messages: list[Message]) -> tuple:
+        """Everything of a turn that would leave, in a form that cannot change.
+
+        An answer is about content, not about a list object. The envelope is
+        taken before the question is put and compared again before the payload
+        is handed over, so an approval cannot be made to cover content that
+        arrived after it was given — which is how an image supplied separately
+        used to travel on an approval that had never seen it.
+        """
+        return tuple((m.role.value, m.content, m.image_data) for m in messages)
+
     def _this_destination_is_authorised(self, messages: list[Message],
                                         destination: str) -> bool:
         """Whether THIS payload may leave for THIS destination.
@@ -1838,18 +1900,41 @@ class LLMRouter(LLMInterface):
         if consent is None:
             return False
         try:
-            answered = bool(consent(messages, destination))
+            answer = consent(messages, destination)
         except Exception as e:
             logger.error(
                 "the escalation consent hook raised (%s: %s) for destination "
                 "'%s', which is not consent: this turn was NOT sent there",
                 type(e).__name__, e, destination)
             return False
+
+        if inspect.isawaitable(answer):
+            # The body of a coroutine returned here has not run: the answer it
+            # was written to give does not exist yet, and the object standing in
+            # for it is truthy. Close it, so it cannot warn from wherever the
+            # collector reaches it, and refuse.
+            closer = getattr(answer, "close", None)
+            if callable(closer):
+                closer()
+            logger.error(
+                "the escalation consent hook answered with an awaitable (%s) "
+                "for destination '%s', which is not consent: nothing in it has "
+                "run, so this turn was NOT sent there",
+                type(answer).__name__, destination)
+            return False
+
+        if answer is not True:
+            logger.warning(
+                "escalation consent was REFUSED for this turn under mode '%s' "
+                "and destination '%s': the mechanism answered with %s, and "
+                "only a Boolean true is consent",
+                mode.value, destination, type(answer).__name__)
+            return False
+
         logger.warning(
-            "escalation consent was %s for this turn under mode '%s' and "
-            "destination '%s'",
-            "GIVEN" if answered else "REFUSED", mode.value, destination)
-        return answered
+            "escalation consent was GIVEN for this turn under mode '%s' and "
+            "destination '%s'", mode.value, destination)
+        return True
 
     # ── Cloud escalation ──
 
@@ -1922,6 +2007,7 @@ class LLMRouter(LLMInterface):
                 continue
             # The payload is final here — the image above is attached — and the
             # destination is this one, so this is where the question belongs.
+            approved = self._consent_envelope(messages)
             if not self._this_destination_is_authorised(messages, name):
                 continue
             # The question can wait on a person, and the turn can end while it
@@ -1931,6 +2017,12 @@ class LLMRouter(LLMInterface):
             if turn_ended():
                 self._note_cloud_stopped(name, "before_send")
                 return self._stopped_response()
+            if self._consent_envelope(messages) != approved:
+                logger.error(
+                    "the turn changed between the approval and the send for "
+                    "destination '%s', so what would leave is not what was "
+                    "approved: this turn was NOT sent there", name)
+                continue
             try:
                 logger.info("Escalating to cloud provider: %s", name)
                 result = adapter.send(messages, max_tokens=max_tokens,
