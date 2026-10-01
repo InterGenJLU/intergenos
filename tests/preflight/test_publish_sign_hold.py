@@ -36,6 +36,9 @@ class PublishSignHoldTest(unittest.TestCase):
         self.root = Path(self._tmp.name)
         self.archives = self.root / "archives"
         self.archives.mkdir()
+        self.sources = self.root / "sources"
+        self.sources.mkdir()
+        (self.sources / "demo-2.0-1.igos.src.tar.gz").write_bytes(b"fixture source\n")
         self.tree = self.root / "tree"
         self.fake_bin = self.root / "bin"
         self.fake_bin.mkdir()
@@ -183,6 +186,7 @@ class PublishSignHoldTest(unittest.TestCase):
             "GNUPGHOME": str(self.gnupg),
             "IGOS_REPO_ROOT": str(self.tree),
             "RELEASE_VALIDATION_RECORD": str(self.root / "release-record"),
+            "PUBLISH_SOURCES_DIR": str(self.sources),
             "PUBLISH_REMOTE_HOST": "fixture.invalid",
             "PUBLISH_REMOTE_PATH": "/fixture/x86_64",
             "PUBLISH_MIN_FREE_PCT": "1",
@@ -244,7 +248,8 @@ class PublishSignHoldTest(unittest.TestCase):
         self.assertFalse(self.approval.exists(), "the one-use response is consumed")
 
     def test_skip_sign_reuses_the_signature_without_entering_the_hold(self):
-        shutil.copy2(self.live_index, self.archives / "InterGenOS.db")
+        from pkm.repo import generate_index
+        generate_index(self.archives, sources_dir=self.sources)
         (self.archives / "InterGenOS.db.sig").write_text("fixture signature\n")
         gpg_log = self.root / "gpg.log"
         fake_gpg = self.fake_bin / "gpg"

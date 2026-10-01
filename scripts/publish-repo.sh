@@ -101,12 +101,10 @@ Usage: $0 [--dry-run] [--archive-dir DIR] [--gpg-key NK1|NK2] [--skip-sources]
                    nothing — it never invokes the Nitrokey (no PIN/touch).
   --archive-dir    Override binary archive directory (default: $ARCHIVE_DIR).
   --gpg-key        Sign with NK1 (primary) or NK2 (backup). Default: NK1.
-  --skip-sources   Emergency override — publish binaries without their
-                   corresponding-source archives. Use only when source
-                   generation is a known follow-on (not normal flow);
-                   defaults to fail-closed so binary publish always
-                   accompanies its SOURCES.md §6d source-availability
-                   commitment.
+  --skip-sources   Skip source upload and the correspondence preflight.
+                   The local sources directory must still exist, and the
+                   written index must still carry at least one source hash.
+                   The source read-back gate applies to every publish.
   --skip-transparency
                    Emergency override — publish without appending to the
                    transparency-log git repo. Use only when the log
