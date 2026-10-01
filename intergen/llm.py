@@ -443,6 +443,13 @@ class LLMRouter(LLMInterface):
         )
         self._cloud_providers: dict[str, Any] = {}
 
+        # WHO IS ASKED BEFORE A TURN LEAVES THE MACHINE, in ASK mode. None —
+        # the default, and what every caller that wires nothing gets, the
+        # daemon included — means there is nobody to ask, and nobody to ask
+        # means nothing is sent. See set_escalation_consent and
+        # _an_unprompted_send_is_authorised.
+        self._escalation_consent: Any = None
+
         # THE ENGINE THAT SERVES THIS ROUTER, when the caller has one to give.
         # It is asked ONE question and never driven: whether a request that
         # just failed died inside a teardown that was asked for. None — the
@@ -1271,8 +1278,10 @@ class LLMRouter(LLMInterface):
 
             logger.warning("Local LLM failed twice (%s)", quality_issue)
 
-        # Attempt 3: cloud escalation
-        if self._escalation_mode == EscalationMode.NEVER:
+        # Attempt 3: cloud escalation — only under a mode that authorises this
+        # conversation leaving the machine, and in ASK mode only once somebody
+        # has been asked and said yes.
+        if not self._an_unprompted_send_is_authorised(messages):
             return LLMResponse(
                 text=self._servable_text(response_text, quality_issue),
                 model="local", local=True, quality_passed=False,
@@ -1721,6 +1730,85 @@ class LLMRouter(LLMInterface):
     def set_escalation_mode(self, mode: EscalationMode) -> None:
         self._escalation_mode = mode
         logger.info("Escalation mode set to: %s", mode.value)
+
+    def set_escalation_consent(self, consent: Any) -> None:
+        """Register (or clear with None) the one thing ASK mode asks.
+
+        `consent` is called with the message list about to leave the machine
+        and answers truthily to allow that send. It exists because ASK is
+        defined as "OFFER on recognition; the user consents before anything is
+        sent" and this path has no way to offer: the only consent flow in the
+        tree is behind the separate escalate() entry point, which chat() never
+        reaches. A front end that CAN ask registers itself here; until one
+        does, ASK sends nothing, which is the shipped state.
+        """
+        self._escalation_consent = consent
+        logger.info("Escalation consent hook %s",
+                    "registered" if consent is not None else "cleared")
+
+    def _an_unprompted_send_is_authorised(self, messages: list[Message]) -> bool:
+        """Whether THIS mode lets this conversation leave the machine now.
+
+        The four modes are the project's own: NEVER never offers or sends;
+        FALLBACK auto-escalates when the local quality gate fails; ASK offers
+        on recognition and the person consents BEFORE anything is sent; AUTO
+        decides by confidence with no prompt. This is the quality-gate
+        fallback, so FALLBACK and AUTO authorise it outright.
+
+        ASK DID authorise it, and must not. The only test here was
+        `mode == NEVER`, so every other mode authorised the send — and ASK is
+        the mode the shipped daemon gets, because it builds this router with no
+        "escalation_mode" key at all and the constructor's default is "ask". A
+        turn whose two local attempts failed the quality gate was handed whole
+        to the first registered cloud adapter under the one mode whose NAME is
+        a promise that the person is asked: no prompt, no consent record,
+        nothing anybody could refuse. Measured at this method on 2026-10-01
+        with a recording adapter and no network: the private sentence the
+        person typed was in the adapter's hands.
+
+        So ASK asks. With no consent hook registered there is nobody to ask,
+        and ASK then fails CLOSED: the local answer is served, the refusal is
+        recorded once at warning level, and the offer is left to the path that
+        can actually make one. A hook that raises is a refusal too — a consent
+        mechanism that cannot answer has not consented.
+
+        The test is an ALLOW LIST of the modes that authorise, so a mode added
+        later authorises nothing until this method is taught about it, and says
+        so rather than falling through.
+        """
+        mode = self._escalation_mode
+        if mode in (EscalationMode.FALLBACK, EscalationMode.AUTO):
+            return True
+
+        if mode is EscalationMode.ASK:
+            consent = self._escalation_consent
+            if consent is None:
+                logger.warning(
+                    "escalation mode is '%s' and no consent hook is "
+                    "registered, so nobody can be asked: this turn was NOT "
+                    "sent to a cloud provider (%d registered) and the local "
+                    "answer is served instead",
+                    mode.value, len(self._cloud_providers))
+                return False
+            try:
+                answered = bool(consent(messages))
+            except Exception as e:
+                logger.error(
+                    "the escalation consent hook raised (%s: %s), which is "
+                    "not consent: this turn was NOT sent to a cloud provider",
+                    type(e).__name__, e)
+                return False
+            logger.warning(
+                "escalation consent was %s for this turn under mode '%s'",
+                "GIVEN" if answered else "REFUSED", mode.value)
+            return answered
+
+        if mode is not EscalationMode.NEVER:
+            logger.warning(
+                "escalation mode '%s' is not one this router has been taught "
+                "to authorise, so nothing is sent off the machine; the local "
+                "answer is served", mode.value)
+        return False
 
     # ── Cloud escalation ──
 

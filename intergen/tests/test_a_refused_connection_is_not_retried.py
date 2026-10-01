@@ -42,7 +42,7 @@ import urllib.error
 from unittest import mock
 
 from intergen import llm as llm_module
-from intergen.interfaces.types import Message, MessageRole
+from intergen.interfaces.types import EscalationMode, Message, MessageRole
 from intergen.llm import LLMRouter
 
 REFUSED = urllib.error.URLError(
@@ -174,7 +174,18 @@ class ARefusedConnectionTests(unittest.TestCase):
         was refused, which read as correct in every test here — because no
         provider was registered in any of them. With one registered, that draft
         served the fallback while a provider stood ready to answer.
+
+        The mode is set here rather than left at the constructor's default.
+        This case is about the retry skip not skipping the escalation, and it
+        was written when the only test before the send was "the mode is not
+        never", so the default mode authorised it. It no longer does: the
+        default is "ask", and under "ask" nothing leaves the machine until
+        somebody has been asked, which the two cases named in the r325 note
+        pin. "fallback" is the project's own name for auto-escalation when the
+        local quality gate fails, which is the authorisation this case needs
+        and the only thing about it that changes.
         """
+        self.llm.set_escalation_mode(EscalationMode.FALLBACK)
 
         from intergen.interfaces.cloud import CloudProviderAdapter
 
