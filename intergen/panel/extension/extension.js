@@ -282,7 +282,19 @@ function _shellCaptureToFile(filename, includeCursor) {
       file = Gio.File.new_for_path(filename);
       // replace() truncates/creates; the compositor process runs as the user,
       // so the caller's temp path is writable here.
-      stream = file.replace(null, false, Gio.FileCreateFlags.NONE, null);
+      //
+      // REPLACE_DESTINATION, not NONE. The handler checks the destination and
+      // then this opens it, and those are two operations on a path any peer in
+      // the session can change in between: under NONE a symbolic link placed in
+      // that window is FOLLOWED, and the capture lands on whatever it points
+      // at, outside the directory the caller was confined to, with the link
+      // left in place for the next one. Under REPLACE_DESTINATION gio writes a
+      // new file and moves it into place, so the link itself is what gets
+      // replaced and the file it pointed at is untouched. The check above stays
+      // as the loud refusal for a link that is already there; this is what
+      // closes the window after it.
+      stream = file.replace(
+        null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
     } catch (e) {
       reject(new Error(`cannot open output file ${filename}: ${e.message}`));
       return;
