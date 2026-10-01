@@ -7,7 +7,7 @@ Usage:
   intergen status
   intergen tier
   intergen tools
-  intergen tool-log [--clear|--json|--count] [--limit N]
+  intergen tool-log [--clear|--json|--count|--integrity] [--limit N]
 
 This connects via D-Bus to the running InterGen daemon. If nothing owns the
 assistant's bus name, `ask` and `ask-frontier` report the state of the user
@@ -110,6 +110,8 @@ def print_usage() -> None:
     print("                     --clear       wipe the log (user-data delete)")
     print("                     --json        emit raw JSONL")
     print("                     --count       print record count and exit")
+    print("                     --integrity   say whether the record has been "
+          "damaged since it was written")
     print("                     --limit N     show last N records (default 50)")
     print("  glass            Reconstruct turns from the M1 glass trace")
     print("                     --turn ID     the full causal chain for one turn")
@@ -1463,9 +1465,18 @@ def cmd_tool_log(args: list[str]) -> None:
                    (suitable for piping into jq).
       --count      print the record count and exit.
       --limit N    show only the last N records (default 50).
+      --integrity  print the integrity read-back and exit non-zero if the record
+                   has been damaged since it was written.
+
+    The integrity read-back is printed above the rows on every run, not only when
+    asked for. A reader who is shown rows and no verdict has no way to know that the
+    record is short: a row this cannot parse is left out of what is printed, and
+    before the read-back existed the count in the header was the count of what
+    survived. The verdict never calls a record intact -- see
+    intergen.audit_log.IntegrityReading for what it can and cannot establish.
     """
     from intergen.audit_log import (
-        clear_log, default_log_path, read_records, record_count,
+        clear_log, default_log_path, read_integrity, read_records, record_count,
     )
 
     if "--clear" in args:
@@ -1486,6 +1497,12 @@ def cmd_tool_log(args: list[str]) -> None:
         print(record_count())
         return
 
+    if "--integrity" in args:
+        reading = read_integrity()
+        for line in reading.report():
+            print(line)
+        sys.exit(1 if reading.damaged else 0)
+
     limit = 50
     if "--limit" in args:
         try:
@@ -1497,13 +1514,25 @@ def cmd_tool_log(args: list[str]) -> None:
             print("--limit must be >= 1", file=sys.stderr)
             sys.exit(1)
 
+    reading = read_integrity()
     records = list(read_records())
     if not records:
         print(f"Audit log empty: {default_log_path()}")
+        if reading.damaged:
+            # An empty-looking record that is DAMAGED is not an empty record. Saying
+            # only "empty" here would hide the whole of a record whose every line had
+            # been corrupted.
+            print()
+            for line in reading.report():
+                print(line)
         return
 
     if "--json" in args:
-        # Raw JSONL pass-through for jq/grep pipelines.
+        # Raw JSONL pass-through for jq/grep pipelines. The verdict goes to stderr so
+        # it reaches a person without ever entering the JSON a pipeline parses.
+        if reading.damaged:
+            for line in reading.report():
+                print(line, file=sys.stderr)
         for r in records[-limit:]:
             print(json.dumps(r, separators=(",", ":")))
         return
@@ -1512,6 +1541,11 @@ def cmd_tool_log(args: list[str]) -> None:
     shown = records[-limit:]
     print(f"InterGen dispatch audit log — {len(shown)} of {len(records)} record(s)")
     print(f"  Path: {default_log_path()}")
+    # The verdict ABOVE the rows. The count on the line above is the count of rows
+    # this reader could read, which is not the same as the count of rows the file
+    # holds; the read-back is where that difference is stated.
+    for line in reading.report():
+        print(f"  {line}")
     print()
     for r in shown:
         kind = r.get("kind", "tool_dispatch")

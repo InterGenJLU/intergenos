@@ -1490,6 +1490,12 @@
             },
             {
               "names": [
+                "--integrity"
+              ],
+              "takes_value": false
+            },
+            {
+              "names": [
                 "--json"
               ],
               "takes_value": false

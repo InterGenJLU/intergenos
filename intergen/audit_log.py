@@ -42,6 +42,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterator
 
@@ -97,9 +98,15 @@ def write_record(record: AuditRecord, log_path: Path | None = None) -> bool:
 def read_records(log_path: Path | None = None) -> Iterator[dict]:
     """Yield each parsed audit record dict from the log.
 
-    Skips malformed lines with a debug-level breadcrumb; the log is
-    append-only by design so corruption is rare and rare-corruption MUST
-    NOT prevent reading the rest. Used by `intergen tool-log`.
+    A line this cannot parse is passed over so that the rest of the record stays
+    readable -- but it is no longer passed over QUIETLY. The breadcrumb was at debug
+    level, which nothing turns on, so a record altered by one byte came back one row
+    shorter and every caller, including the user-facing command, printed the remainder
+    as if it were the record. It is a warning now, and the count of what was lost is
+    available to a caller through :func:`read_integrity`, which is what the command
+    prints above the rows. Yielding rows and judging the record are different jobs:
+    this function does the first and must not become the second, because a reader that
+    cannot see a damaged record at all is worse off than one shown it with a warning.
     """
     path = log_path if log_path is not None else default_log_path()
     if not path.exists():
@@ -113,15 +120,194 @@ def read_records(log_path: Path | None = None) -> Iterator[dict]:
                 try:
                     yield json.loads(raw)
                 except json.JSONDecodeError as exc:
-                    logger.debug(
-                        "audit_log: skipping malformed line %d: %s",
-                        line_number,
-                        exc,
+                    logger.warning(
+                        "audit_log: line %d of %s could not be read and is NOT "
+                        "included in what this reader returned: %s",
+                        line_number, path, exc,
                     )
                     continue
     except OSError as exc:
         logger.warning("audit_log: read_records OSError: %s", exc)
         return
+
+
+# The fields every row of this record must carry, whatever its kind. A row missing one
+# is damage that still parses: the writer always writes all of them.
+_REQUIRED_FIELDS = (
+    "timestamp",
+    "tool_name",
+    "declared_provenance",
+    "effective_provenance",
+    "user_decision",
+)
+
+# A turn identifier that is not a turn. The turn record raises rows outside any
+# conversation -- a sequence reseed, a boot, a dispatch with no turn around it -- and
+# marks them with one of these. A reader joining rows to turns gets nothing for them, so
+# they are counted as unjoinable rather than counted as joined.
+_SENTINEL_TURN_PREFIXES = ("no-turn", "glass-", "boot-")
+
+
+@dataclass(frozen=True)
+class IntegrityReading:
+    """What can and cannot be established about one record file, read back.
+
+    WHY THERE IS NO DIGEST HERE. No digest, no signature and no sidecar, and this writer
+    references none: that is a decision of record, and it bounds this reading exactly.
+    What a digest would buy is detection of a substitution -- a line removed whole, or
+    replaced by another well-formed line. Nothing in the record binds one row to the next
+    or to the machine that wrote it, so this reading CANNOT see that, and it says so
+    rather than implying otherwise by silence.
+
+    A digest on this writer would also not be free. The writer is best-effort by mandate:
+    a failure writing the record must not fail the request. A running digest would have to
+    be read, extended and written back under the same lock as the append, which turns
+    every dispatch into a read-modify-write on a file the writer is allowed to fail at --
+    and a chain whose last link failed to land is indistinguishable from a chain someone
+    truncated, so the first dropped write would make the record permanently unverifiable.
+    That trade is the operator's to make, not this reading's, and the governing record
+    settles it: no digest.
+
+    So the verdict is never ``intact``. It is ``UNTRUSTWORTHY`` when damage was detected,
+    ``NO DETECTABLE DAMAGE`` when none was, and ``NO RECORD`` when there is nothing to
+    read -- and the report names the limit beside the verdict every time.
+    """
+
+    path: Path
+    lines: int = 0
+    rows: int = 0
+    unreadable_lines: list[int] = field(default_factory=list)
+    incomplete_rows: list[int] = field(default_factory=list)
+    out_of_order_rows: list[int] = field(default_factory=list)
+    unjoinable_rows: int = 0
+    exists: bool = True
+    read_error: str = ""
+
+    @property
+    def damaged(self) -> bool:
+        """Was damage DETECTED. Not: is the record sound."""
+        return bool(self.unreadable_lines or self.incomplete_rows
+                    or self.out_of_order_rows or self.read_error)
+
+    @property
+    def trustworthy(self) -> bool:
+        """False on any detected damage.
+
+        True does NOT mean the record is intact, and nothing in this module says it
+        does. It means this reading found no damage of the kinds it can see. A caller
+        that wants to tell a person what that is worth prints :meth:`report`, which
+        carries the limit with it.
+        """
+        return not self.damaged
+
+    @property
+    def verdict(self) -> str:
+        if not self.exists or (self.lines == 0 and self.rows == 0):
+            return "NO RECORD — nothing has been written here, so there is nothing to check"
+        if self.damaged:
+            return "UNTRUSTWORTHY — this record has been damaged since it was written"
+        return ("NO DETECTABLE DAMAGE — every row this record holds is readable and "
+                "complete")
+
+    def report(self) -> list[str]:
+        """The verdict and every reading behind it, one line each, for a person."""
+        out = [self.verdict]
+        if not self.exists:
+            out.append(f"  no file at {self.path}")
+            return out
+        if self.read_error:
+            out.append(f"  the record could not be read at all: {self.read_error}")
+            return out
+        out.append(f"  {self.lines} line(s) in the file, {self.rows} readable row(s)")
+        if self.unreadable_lines:
+            out.append(
+                f"  {len(self.unreadable_lines)} line(s) could not be read and are "
+                f"missing from anything that reads this record: "
+                f"{self.unreadable_lines}")
+        if self.incomplete_rows:
+            out.append(
+                f"  {len(self.incomplete_rows)} row(s) are missing a field every row "
+                f"must carry: {self.incomplete_rows}")
+        if self.out_of_order_rows:
+            out.append(
+                f"  {len(self.out_of_order_rows)} row(s) carry a timestamp earlier "
+                f"than the row before them, which an appended record cannot do: "
+                f"{self.out_of_order_rows}")
+        if self.unjoinable_rows:
+            out.append(
+                f"  {self.unjoinable_rows} of {self.rows} row(s) cannot be joined to a "
+                f"conversation turn: they carry no turn identifier, or a sentinel in "
+                f"place of one. This is how the record has always been written and is "
+                f"not damage; it is named because a reader joining these rows to turns "
+                f"gets nothing back for them.")
+        out.append(
+            "  WHAT THIS CANNOT ESTABLISH: that no row was removed, and that no row was "
+            "replaced by another well-formed row. This record carries no digest, no "
+            "signature and no sidecar, by decision, and nothing in it binds one row to "
+            "the next, so a substitution of that kind leaves no trace for this reading "
+            "to find. A clean reading here is the absence of detected damage and never "
+            "a statement that the record is intact.")
+        return out
+
+
+def read_integrity(log_path: Path | None = None) -> IntegrityReading:
+    """Read one record file back and say what can be established about it.
+
+    Every check here is one the record's OWN structure supports, because there is
+    nothing else to check against: each line parses, each row carries the fields the
+    writer always writes, and the timestamps of an appended file do not go backwards.
+    Rows that cannot be joined to a turn are counted and named, which is a reporting
+    fact rather than damage -- every row of this record has always lacked a turn
+    identifier, so refusing on it would refuse every record on every machine and teach
+    a reader to ignore the verdict.
+    """
+    path = log_path if log_path is not None else default_log_path()
+    if not path.exists():
+        return IntegrityReading(path=path, exists=False)
+    try:
+        raw_lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError as exc:
+        return IntegrityReading(path=path, read_error=str(exc))
+
+    lines = 0
+    rows = 0
+    unreadable: list[int] = []
+    incomplete: list[int] = []
+    out_of_order: list[int] = []
+    unjoinable = 0
+    previous_timestamp: str | None = None
+    for line_number, raw in enumerate(raw_lines, start=1):
+        if not raw.strip():
+            continue
+        lines += 1
+        try:
+            row = json.loads(raw)
+        except json.JSONDecodeError:
+            unreadable.append(line_number)
+            continue
+        if not isinstance(row, dict):
+            unreadable.append(line_number)
+            continue
+        rows += 1
+        if any(key not in row for key in _REQUIRED_FIELDS):
+            incomplete.append(line_number)
+        timestamp = row.get("timestamp")
+        if isinstance(timestamp, str):
+            if previous_timestamp is not None and timestamp < previous_timestamp:
+                out_of_order.append(line_number)
+            previous_timestamp = max(previous_timestamp or "", timestamp)
+        turn = row.get("turn_id")
+        if not turn or str(turn).startswith(_SENTINEL_TURN_PREFIXES):
+            unjoinable += 1
+    return IntegrityReading(
+        path=path,
+        lines=lines,
+        rows=rows,
+        unreadable_lines=unreadable,
+        incomplete_rows=incomplete,
+        out_of_order_rows=out_of_order,
+        unjoinable_rows=unjoinable,
+    )
 
 
 def clear_log(log_path: Path | None = None) -> bool:
