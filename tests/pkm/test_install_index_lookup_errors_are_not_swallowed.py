@@ -354,11 +354,136 @@ class TheTwoPathsSayItInTheirOwnWords(unittest.TestCase):
         self.assertEqual(
             sorted(found),
             [("_local_archive_upgrade_candidates", ("OSError",)),
-             ("cmd_info", ("Exception",)),
-             ("cmd_install", ("OSError",))],
+             ("cmd_info", ("OSError", "Exception")),
+             ("cmd_install", ("OSError",)),
+             ("cmd_list", ("OSError",))],
             f"the guarded index lookups in pkm/cli.py are {sorted(found)!r}: a "
             f"lookup that catches Exception renames every error as an absent "
             f"entry, which is the defect this module exists for")
+
+    def test_every_read_only_command_guards_the_index_it_consults(self):
+        """The read commands, walked from the module's OWN command set.
+
+        An index call reached through `getattr(repo, "has_synced_index", None)`
+        and then invoked by that name passes an attribute search; the scheduled
+        check holds exactly that shape, and it is what this walk resolves —
+        together with following each command into the module-level helpers it
+        calls, because a call site one function away is still that command's
+        answer. Every site found must sit inside a `try` whose handlers include
+        OSError, with ONE documented exception, named below.
+
+        Measured 2026-10-01: before this walk existed, five of these seven sites
+        were unguarded, and the two commands that did not end in a traceback said
+        "No repository index yet", "No packages available", "Everything is up to
+        date" or "is not installed" for an index that existed and could not be
+        read.
+        """
+        source = Path(cli.__file__).read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        functions = {n.name: n for n in ast.walk(tree)
+                     if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
+        index_entry_points = {"get_package", "search", "has_synced_index",
+                              "list_available"}
+
+        def getattr_bindings(fn):
+            """{local name: index call} for `x = getattr(repo, "call", ...)`."""
+            bound = {}
+            for node in ast.walk(fn):
+                if (isinstance(node, ast.Assign)
+                        and isinstance(node.value, ast.Call)
+                        and isinstance(node.value.func, ast.Name)
+                        and node.value.func.id == "getattr"
+                        and len(node.value.args) >= 2
+                        and isinstance(node.value.args[1], ast.Constant)
+                        and node.value.args[1].value in index_entry_points):
+                    for target in node.targets:
+                        if isinstance(target, ast.Name):
+                            bound[target.id] = node.value.args[1].value
+            return bound
+
+        def index_calls(fn):
+            bound = getattr_bindings(fn)
+            found = []
+            for node in ast.walk(fn):
+                if not isinstance(node, ast.Call):
+                    continue
+                func = node.func
+                if (isinstance(func, ast.Attribute)
+                        and func.attr in index_entry_points):
+                    receiver = ast.unparse(func.value)
+                    # `db.search(...)` is the local database, not the index.
+                    if receiver == "repo_manager()" or receiver.endswith("repo"):
+                        found.append((node, func.attr))
+                elif isinstance(func, ast.Name) and func.id in bound:
+                    found.append((node, bound[func.id]))
+            return found
+
+        def guarded_with_oserror(fn, call):
+            for node in ast.walk(fn):
+                if not isinstance(node, ast.Try):
+                    continue
+                if not any(inner is call for stmt in node.body
+                           for inner in ast.walk(stmt)):
+                    continue
+                for handler in node.handlers:
+                    if handler.type is None:
+                        continue
+                    kinds = (handler.type.elts
+                             if isinstance(handler.type, ast.Tuple)
+                             else [handler.type])
+                    if any(ast.unparse(kind) == "OSError" for kind in kinds):
+                        return True
+            return False
+
+        def module_level_callees(fn):
+            return {n.func.id for n in ast.walk(fn)
+                    if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                    and n.func.id in functions}
+
+        walked, unguarded = set(), set()
+        for command in sorted(cli.PKM_READONLY_COMMANDS):
+            entry = "cmd_" + command.replace("-", "_")
+            self.assertIn(
+                entry, functions,
+                f"the read-only command {command!r} has no {entry} in "
+                f"pkm/cli.py, so this walk is reading the wrong names")
+            seen, stack = set(), [entry]
+            while stack:
+                name = stack.pop()
+                if name in seen:
+                    continue
+                seen.add(name)
+                fn = functions[name]
+                for call, which in index_calls(fn):
+                    walked.add((command, name, which))
+                    if not guarded_with_oserror(fn, call):
+                        unguarded.add((command, name, which))
+                stack.extend(module_level_callees(fn) - seen)
+
+        self.assertEqual(
+            sorted(walked),
+            [("check-updates", "_compute_available_updates", "get_package"),
+             ("check-updates", "cmd_check_updates", "has_synced_index"),
+             ("info", "cmd_info", "get_package"),
+             ("list", "cmd_list", "get_package"),
+             ("list", "cmd_list", "list_available"),
+             ("search", "cmd_search", "has_synced_index"),
+             ("search", "cmd_search", "search")],
+            f"the index a read-only command consults is reached at "
+            f"{sorted(walked)!r}; a site this list does not carry has not been "
+            f"given that command's words")
+
+        # The ONE documented exception: the shared computation that the
+        # scheduled check and the end-of-transaction refresh both call. Each of
+        # its callers guards its own call in its own words — the refresh keeps
+        # the words it already had — so narrowing inside the helper would put one
+        # account on both. The day that changes, this line is what is edited.
+        self.assertEqual(
+            sorted(unguarded),
+            [("check-updates", "_compute_available_updates", "get_package")],
+            f"these index calls in read-only commands catch no OSError: "
+            f"{sorted(unguarded)!r} — each one answers a person with an empty "
+            f"index or a traceback for a file that could not be read")
 
 
 if __name__ == "__main__":

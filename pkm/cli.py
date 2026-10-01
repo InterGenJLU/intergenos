@@ -3890,7 +3890,12 @@ def cmd_list(db, args):
             )
     elif args.what == "available":
         repo = repo_manager()
-        packages = repo.list_available(tier=args.tier)
+        try:
+            packages = repo.list_available(tier=args.tier)
+        except OSError as e:
+            _say_the_index_could_not_be_read(
+                e, "the available packages could not be listed.")
+            sys.exit(1)
         if not packages:
             emit_info("No packages available. Run `pkm sync` first.")
             return
@@ -3914,7 +3919,18 @@ def cmd_list(db, args):
         # was then read as proof the package's release was right.
         uncomparable = []
         for pkg in installed:
-            remote = repo.get_package(pkg["name"])
+            try:
+                remote = repo.get_package(pkg["name"])
+            except OSError as e:
+                # The comparison is abandoned where it stopped rather than
+                # finished without the index: "Everything is up to date" over a
+                # set nobody could compare is the sentence the 2026-09-17
+                # measurement already caught in its other form.
+                _say_the_index_could_not_be_read(
+                    e, f"the installed packages could not be compared with the "
+                    f"repository index; the comparison stopped at "
+                    f"{pkg['name']}.")
+                sys.exit(1)
             if not remote:
                 # Build-stage intermediates are deliberately unpublished (see
                 # _BUILD_INTERMEDIATE_RE): the index is SUPPOSED to have no row
@@ -3971,13 +3987,48 @@ def _print_uncomparable(names):
         print(f"    … and {n - UNCOMPARABLE_NAMES_SHOWN} more")
 
 
+def _say_the_index_could_not_be_read(exc, doing):
+    """Report an index the filesystem would not let pkm read, for a READ command.
+
+    The index layer raises here rather than deleting the cached file and
+    answering "nothing found" (pkm/repo.py `_ensure_synced`, 2026-10-01): it
+    prints the technical line — the repo, the errno, the path, and that the file
+    was left in place — and the error travels. What is missing at a read
+    command's call site is the command's OWN account: `search` and `list` used
+    to print "No repository index yet" or "No packages available" and exit 0 for
+    an index that exists and could not be read, and once the layer began to
+    raise they ended in a traceback instead. Measured at the real mechanism on
+    2026-10-01, both ends.
+
+    `doing` is the calling command's sentence, naming what it was doing when the
+    read failed; the clause this function adds is the part that is the same
+    everywhere, because the fact is the same everywhere: a file that cannot be
+    read is not a repository with nothing in it, and the command cannot answer.
+    The caller decides its own exit — a non-zero one: a read command that could
+    not read the index has not done its job, and exit 0 would say it had.
+    """
+    emit_error(
+        f"{doing} The repository index could not be read "
+        f"({type(exc).__name__}: {exc}). It is left on disk, and an index that "
+        f"cannot be read is not a repository with nothing in it — fix the read "
+        f"error, or run `pkm sync` to replace the file."
+    )
+
+
 def cmd_search(db, args):
     # Search local database
     local = db.search(args.term)
 
     # Search repositories
     repo = repo_manager()
-    remote = repo.search(args.term)
+    try:
+        remote = repo.search(args.term)
+    except OSError as e:
+        _say_the_index_could_not_be_read(
+            e, f"the search for '{args.term}' could not be completed: the "
+            f"packages installed on this machine were searched, the "
+            f"repository index was not.")
+        sys.exit(1)
 
     # Merge — mark installed packages
     installed_names = {p["name"] for p in local}
@@ -3987,7 +4038,17 @@ def cmd_search(db, args):
             all_results.append(r)
 
     if not all_results:
-        if not repo.has_synced_index():
+        try:
+            synced = repo.has_synced_index()
+        except OSError as e:
+            # Reached when the first read succeeded and a later one did not —
+            # the cache changing under the command. The answer below would
+            # otherwise be chosen between two sentences that are both false.
+            _say_the_index_could_not_be_read(
+                e, f"nothing matching '{args.term}' is installed here, and "
+                f"whether the repository index holds it is not known.")
+            sys.exit(1)
+        if not synced:
             # Fresh system, no index pulled yet — say WHY rather than imply
             # the package doesn't exist (the non-root read path no longer
             # crashes on the missing cache; advise the update instead).
@@ -4037,6 +4098,23 @@ def cmd_info(db, args):
         available = None
         try:
             available = repo_manager().get_package(args.package)
+        except OSError as e:
+            # Narrowed ahead of the bare except below (2026-10-01). The comment
+            # above is right that a missing or unsynced index must not break
+            # this report — but an index that cannot be READ is a third thing,
+            # and "is not installed" alone told the person the index had nothing
+            # to say about this package when nobody had been able to ask. The
+            # bare except keeps every other index fault, which is the decision
+            # recorded here and left standing.
+            # The absence from THIS MACHINE is known either way — the
+            # database answered — so the line this command has always printed
+            # stays exactly where it was, on stdout, and the new sentence is
+            # about the index alone.
+            emit_info(f"Package '{args.package}' is not installed")
+            _say_the_index_could_not_be_read(
+                e, f"whether the repository index describes "
+                f"'{args.package}' could not be established.")
+            return 1
         except Exception:  # noqa: BLE001 — an index fault must not break info
             available = None
         if not available:
@@ -6639,7 +6717,24 @@ def cmd_check_updates(db, args, output_path=None):
               f"then re-run.", file=sys.stderr)
         return 1
     _has_index = getattr(repo, "has_synced_index", None)
-    if _has_index is not None and not _has_index():
+    try:
+        _synced = True if _has_index is None else bool(_has_index())
+    except OSError as e:
+        # An index that is PRESENT and cannot be read is a third answer, next to
+        # a cache directory this command cannot use and an index nobody has
+        # synced yet — and until 2026-10-01 the index layer hid it by deleting
+        # the file and reporting an empty cache, so this command wrote a zero
+        # that looked checked. The layer now raises (pkm/repo.py
+        # `_ensure_synced`), and the scheduled check says so in its own words
+        # and writes NOTHING, exactly as its two refusals below do: no fresh
+        # count, no clobbered advisory, non-zero so the unit shows as failed.
+        print(f"  ERROR: the repository index in the local cache could not be "
+              f"READ ({type(e).__name__}: {e}), so nothing could be compared "
+              f"against it. The file is left on disk. No update count was "
+              f"written and the previous advisory was left as it is. Fix the "
+              f"read error, then re-run.", file=sys.stderr)
+        return 1
+    if _has_index is not None and not _synced:
         print(f"  ERROR: no repository index is synced in the local cache "
               f"({repo.cache_dir() if hasattr(repo, 'cache_dir') else ''}), "
               f"so nothing could be compared against it. No update count was "
@@ -6647,7 +6742,22 @@ def cmd_check_updates(db, args, output_path=None):
               f"`sudo pkm update` first.", file=sys.stderr)
         return 1
 
-    packages, skipped = _compute_available_updates(db, repo, warn=_warn)
+    try:
+        packages, skipped = _compute_available_updates(db, repo, warn=_warn)
+    except OSError as e:
+        # The same third answer, reached while the installed set is being
+        # compared one package at a time: the read can fail here even when the
+        # probe above succeeded, because the cache can change under a command.
+        # The shared helper is NOT changed — the end-of-transaction refresh
+        # calls it too and has its own handling — so the guard sits at this
+        # command's own call, where this command's words belong.
+        print(f"  ERROR: the repository index could not be READ while "
+              f"comparing the installed packages against it "
+              f"({type(e).__name__}: {e}), so no package could be checked. The "
+              f"file is left on disk. No update count was written and the "
+              f"previous advisory was left as it is. Fix the read error, then "
+              f"re-run.", file=sys.stderr)
+        return 1
     summary = _available_updates_summary(packages, skipped)
 
     # Fail-hard on write failure so the run is recorded as failed.
