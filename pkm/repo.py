@@ -1207,7 +1207,10 @@ class RepoManager:
         # as a file that cannot be read.
         cache_dir = self.db_cache()
         try:
-            os.listdir(cache_dir)
+            # Looking up the literal '/.' requires directory search permission,
+            # without requiring permission to list names. Keep it as a string:
+            # Path would normalize away the component that exercises the check.
+            os.stat(os.path.join(cache_dir, "."))
         except FileNotFoundError:
             # Genuinely absent — a fresh system before the first `pkm update`.
             # That IS an absence, and the walk below states it by loading
@@ -1328,13 +1331,27 @@ class RepoManager:
                               "pinned release keys")
                     failure = self._remove_cached_pair(db_path, sig_path)
                     if failure is not None:
+                        states = []
+                        for kind, path in (("cached index", db_path),
+                                           ("signature", sig_path)):
+                            try:
+                                path.lstat()
+                            except FileNotFoundError:
+                                states.append(f"{kind} {path} is gone")
+                            except OSError as state_error:
+                                states.append(
+                                    f"{kind} {path} could not be inspected "
+                                    f"({type(state_error).__name__}: {state_error})")
+                            else:
+                                states.append(f"{kind} {path} remains on disk")
                         sys.stderr.write(
                             f"pkm: cached index for repo '{name}' did not "
-                            f"verify — {reason} — and could not be removed "
+                            f"verify — {reason} — and some cached files "
+                            f"could not be removed "
                             f"({type(failure).__name__}: {failure}).\n"
-                            f"     It is NOT trusted and was NOT loaded: it is "
-                            f"still on disk and nothing reads it, so the repo "
+                            f"     It is NOT trusted and was NOT loaded; the repo "
                             f"behaves as one with no index at all.\n"
+                            f"     File state: {'; '.join(states)}.\n"
                             f"     Run `sudo pkm sync` to replace it.\n"
                         )
                         # Carried on, not raised: every caller's decision is

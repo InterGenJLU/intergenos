@@ -527,6 +527,31 @@ class AnUnreadableCachedIndexIsReportedNotDeleted(unittest.TestCase):
         self.assertIn("Read-only file system", err)
         self.assertEqual(self.mgr.indexes, {})
 
+    def test_a_partial_removal_names_the_file_that_remains_and_the_file_that_is_gone(self):
+        real_unlink = Path.unlink
+        for blocked_kind in ("index", "signature"):
+            with self.subTest(blocked_kind=blocked_kind):
+                db_path, sig_path = self._cached_pair()
+                blocked = db_path if blocked_kind == "index" else sig_path
+                gone = sig_path if blocked_kind == "index" else db_path
+
+                def refuse_one(path, **kwargs):
+                    if path == blocked:
+                        raise PermissionError(errno.EACCES, "Permission denied", str(path))
+                    return real_unlink(path, **kwargs)
+
+                err, raised = self._run(
+                    verify=False, extra=[patch.object(Path, "unlink", refuse_one)])
+                self.assertIsNone(raised)
+                self.assertTrue(blocked.exists())
+                self.assertFalse(gone.exists())
+                self.assertIn(f"{blocked_kind} {blocked} remains on disk", err)
+                gone_kind = "signature" if blocked_kind == "index" else "index"
+                self.assertIn(f"{gone_kind} {gone} is gone", err)
+                self.assertIn("NOT trusted and was NOT loaded", err)
+                self.assertIn("sudo pkm sync", err)
+                self.assertEqual(self.mgr.indexes, {})
+
     # ---- what the read check reads, and when it is asked at all
 
     def test_a_signature_that_cannot_be_read_is_reported_like_the_index(self):
@@ -604,20 +629,59 @@ class AnUnreadableCachedIndexIsReportedNotDeleted(unittest.TestCase):
         self.cache.chmod(0o755)
         self.assertTrue(db_path.exists(), "nothing was touched")
 
-    def test_a_cache_directory_the_walk_cannot_list_is_reported_for_every_uid(self):
+    def test_a_cache_directory_search_refusal_is_reported_for_every_uid(self):
         """The same rule where no mode can present it (a root reader searches
-        any directory): the listing itself is refused."""
+        any directory): the search operation itself is refused."""
         db_path, _sig = self._cached_pair()
+        real_stat = os.stat
+
+        def refuse_search(path, *args, **kwargs):
+            if os.fspath(path) == os.path.join(self.cache, "."):
+                raise PermissionError(errno.EACCES, "Permission denied", os.fspath(path))
+            return real_stat(path, *args, **kwargs)
+
         err, raised = self._run(
             verify=False,
-            extra=[patch("pkm.repo.os.listdir",
-                         side_effect=PermissionError(errno.EACCES,
-                                                     "Permission denied"))])
+            extra=[patch("pkm.repo.os.stat", side_effect=refuse_search)])
         self.assertIsInstance(raised, OSError)
         self.assertIn("could not be READ", err)
         self.assertIn(str(self.cache), err)
         self.assertTrue(db_path.exists())
         self.assertEqual(self.mgr.indexes, {})
+
+    @unittest.skipIf(os.geteuid() == 0, "root bypasses directory search permission")
+    def test_a_listable_but_unsearchable_cache_is_a_read_error(self):
+        db_path, sig_path = self._cached_pair()
+        self.cache.chmod(0o400)
+        try:
+            self.assertEqual(set(os.listdir(self.cache)), {db_path.name, sig_path.name})
+            err, raised = self._run(verify="FPR", parse=object())
+            self.assertIsInstance(raised, PermissionError)
+            self.assertIn("could not be READ", err)
+            self.assertIn(str(self.cache), err)
+            self.assertIn("LEFT IN PLACE", err)
+            self.assertEqual(self.mgr.indexes, {})
+        finally:
+            self.cache.chmod(0o755)
+        self.assertEqual(db_path.read_bytes(), b"cached-index-bytes")
+        self.assertEqual(sig_path.read_bytes(), b"sig")
+
+    @unittest.skipIf(os.geteuid() == 0, "root bypasses directory listing permission")
+    def test_a_searchable_but_unlistable_cache_loads_readable_named_files(self):
+        db_path, sig_path = self._cached_pair()
+        sentinel = object()
+        self.cache.chmod(0o100)
+        try:
+            with self.assertRaises(PermissionError):
+                os.listdir(self.cache)
+            err, raised = self._run(verify="FPR", parse=sentinel)
+            self.assertIsNone(raised)
+            self.assertEqual(err, "")
+            self.assertIs(self.mgr.indexes[self.REPO], sentinel)
+            self.assertEqual(db_path.read_bytes(), b"cached-index-bytes")
+            self.assertEqual(sig_path.read_bytes(), b"sig")
+        finally:
+            self.cache.chmod(0o755)
 
     def test_an_absent_cache_directory_is_still_an_absence(self):
         """The control for the check above: a cache directory that is not there
