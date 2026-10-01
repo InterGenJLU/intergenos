@@ -745,10 +745,31 @@ def cmd_ask(message: str, direct: bool = False) -> None:
           "managed service and ends with this command.")
     from intergen.dbus_daemon import InterGenDaemon
     daemon = InterGenDaemon()
-    daemon.start_service()
-    response = daemon.ask(message)
-    data = _reply_object(response, "the request")
-    if not _deliver_answer(data):
+    answered = False
+    try:
+        daemon.start_service()
+        response = daemon.ask(message)
+        data = _reply_object(response, "the request")
+        answered = _deliver_answer(data)
+    finally:
+        # THE SESSION THIS ROUTE ANNOUNCED ENDS WITH THE COMMAND, so every
+        # subsystem the start took is given back before the command returns --
+        # in reverse order, by the daemon's own shutdown, which is the only
+        # path that reaches the engine manager's stop and through it the
+        # serving card's runtime power back to the value recorded before it
+        # was pinned on. The daemon's own entry point pairs the two in a
+        # finally; this route took them and did not give them back, on the
+        # answered reply and on the non-zero exit alike. A teardown that
+        # itself fails is reported rather than swallowed, and the exit code
+        # still belongs to the answer.
+        try:
+            daemon.stop_service()
+        except Exception as exc:  # noqa: BLE001 -- the answer owns the exit code
+            print(f"The in-process session did not stop cleanly "
+                  f"({type(exc).__name__}: {exc}); subsystems it started may "
+                  "still be holding resources until this process exits.",
+                  file=sys.stderr)
+    if not answered:
         sys.exit(2)
 
 
@@ -871,10 +892,31 @@ def cmd_ask_frontier(message: str, direct: bool = False) -> None:
           "service and ends with this command.")
     from intergen.dbus_daemon import InterGenDaemon
     daemon = InterGenDaemon()
-    daemon.start_service()
-    response = daemon.escalate(message)
-    data = _reply_object(response, "the Escalate call")
-    if not _deliver_answer(data):
+    answered = False
+    try:
+        daemon.start_service()
+        response = daemon.escalate(message)
+        data = _reply_object(response, "the Escalate call")
+        answered = _deliver_answer(data)
+    finally:
+        # THE SESSION THIS ROUTE ANNOUNCED ENDS WITH THE COMMAND, so every
+        # subsystem the start took is given back before the command returns --
+        # in reverse order, by the daemon's own shutdown, which is the only
+        # path that reaches the engine manager's stop and through it the
+        # serving card's runtime power back to the value recorded before it
+        # was pinned on. The daemon's own entry point pairs the two in a
+        # finally; this route took them and did not give them back, on the
+        # answered reply and on the non-zero exit alike. A teardown that
+        # itself fails is reported rather than swallowed, and the exit code
+        # still belongs to the answer.
+        try:
+            daemon.stop_service()
+        except Exception as exc:  # noqa: BLE001 -- the answer owns the exit code
+            print(f"The in-process session did not stop cleanly "
+                  f"({type(exc).__name__}: {exc}); subsystems it started may "
+                  "still be holding resources until this process exits.",
+                  file=sys.stderr)
+    if not answered:
         sys.exit(2)
 
 
