@@ -2304,11 +2304,14 @@ class InterGenDaemon(InterGenDBusInterface):
             from intergen.web_server import WebServer
             from intergen.health import HealthAggregator
 
+            # No audit_log_count: the literal 0 this call used to pass was
+            # the whole entry count the health surface ever reported, for the
+            # life of the daemon. Omitted, the Audit log check reads the
+            # per-user dispatch ledger through audit_log's own surface.
             self._health_agg = HealthAggregator(
                 llama_manager=self._llama,
                 watchdog=self._watchdog,
                 governance=self._governance,
-                audit_log_count=0,
                 web_connections=0,
             )
 

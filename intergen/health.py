@@ -58,7 +58,7 @@ class HealthAggregator:
                  llama_manager: Any = None,
                  watchdog: Any = None,
                  governance: Any = None,
-                 audit_log_count: int = 0,
+                 audit_log_count: int | None = None,
                  web_connections: int = 0,
                  ) -> None:
         self._llama = llama_manager
@@ -228,11 +228,7 @@ class HealthAggregator:
             ))
 
         # Audit log
-        checks.append(HealthCheck(
-            name="Audit log",
-            status="green",
-            summary=f"{self._audit_log_count} entries, 0 tamper events",
-        ))
+        checks.append(self._check_audit_log())
 
         # Web server connections
         checks.append(HealthCheck(
@@ -242,6 +238,70 @@ class HealthAggregator:
         ))
 
         return HealthLayer(name="Daemon", checks=checks)
+
+    def _check_audit_log(self) -> HealthCheck:
+        """The dispatch ledger as it reads on disk, certifying nothing.
+
+        This check was two constants: the status was the string "green" with no
+        condition attached, and the summary was "<n> entries, 0 tamper events"
+        built from a count the constructor was handed -- the literal 0 at the
+        daemon's one construction, never written again. Nothing in this process
+        opened, counted, hashed or chained an audit record, so the zero-tamper
+        half was an integrity verdict on the user-owned ledger that nothing had
+        established, and the entry count could not move.
+
+        It now reports the two things it can measure through audit_log's own
+        public surface, and nothing else. read_records() skips a line that does
+        not parse, by design, so record_count() on its own cannot tell a ledger
+        that is empty from one truncated or rewritten mid-record: the raw
+        non-empty lines are counted here too and the difference is reported as
+        unreadable records rather than dropped. No integrity check exists
+        anywhere on this path, so this check makes no integrity claim; a
+        hash-chained ledger would be a change in audit_log.py, not here.
+
+        The ledger is read on demand (the report is built per request, not in
+        the periodic broadcast), and the two passes are a scan of a per-user
+        JSONL file that logrotate keeps to 30 days.
+        """
+        if self._audit_log_count is not None:
+            # A caller that already holds the count. Labelled as handed in, so
+            # a reader can tell a supplied figure from one read off the disk.
+            return HealthCheck(
+                name="Audit log",
+                status="green",
+                summary=f"{self._audit_log_count} entries "
+                        f"(count supplied by the caller)",
+            )
+        try:
+            from intergen import audit_log
+            path = audit_log.default_log_path()
+            parsed = audit_log.record_count(path)
+            raw = 0
+            if path.exists():
+                with open(path, "r", encoding="utf-8") as f:
+                    raw = sum(1 for line in f if line.strip())
+        except Exception as exc:  # noqa: BLE001 -- a health check never raises
+            logger.warning(
+                "health: the dispatch ledger could not be read: %s", exc)
+            return HealthCheck(
+                name="Audit log",
+                status="yellow",
+                summary="Dispatch ledger could not be read",
+            )
+        unreadable = max(raw - parsed, 0)
+        if unreadable:
+            return HealthCheck(
+                name="Audit log",
+                status="red",
+                summary=f"{parsed} entries read, {unreadable} "
+                        f"{'record' if unreadable == 1 else 'records'} "
+                        f"unreadable",
+            )
+        return HealthCheck(
+            name="Audit log",
+            status="green",
+            summary=f"{parsed} entries read from the dispatch ledger",
+        )
 
     def _check_system(self) -> HealthLayer:
         checks: list[HealthCheck] = []
