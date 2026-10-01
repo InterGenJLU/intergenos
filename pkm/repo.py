@@ -1115,17 +1115,44 @@ class RepoManager:
     def _ensure_synced(self):
         """Load cached indexes if not already in memory.
         Re-verifies GPG signature before trusting cached index. (C1.1)
+
+        A verification that did not succeed is TWO DIFFERENT FACTS, and until
+        2026-10-01 this method treated them as one: "the signature does not
+        verify" and "the bytes could not be read" both landed in the branch
+        below, which deleted the cached index and said nothing at all. Measured
+        at the real mechanism on 2026-09-30 and again on 2026-10-01 — a real
+        cached index at mode 000 under a throwaway root, the real gpgv, the
+        shipped commands — the index whose only fault was being unreadable was
+        destroyed; `search` then told the person "No repository index yet",
+        `list available` told them "No packages available", and the two
+        archive-trust paths announced the package as one the index does not
+        list. Three different false statements about one read error, and the
+        file that would have explained it was already gone.
+
+        Only a failed VERIFICATION justifies destroying the artefact. A read
+        failure is reported, the artefact is LEFT IN PLACE for inspection, and
+        the error reaches the caller instead of becoming an absence — the
+        posture the IndexFormatError branch below already takes, and the one the
+        two archive-trust call sites were narrowed to OSError to receive
+        (2026-09-19 and 2026-09-30).
         """
         if self.indexes:
             return
 
+        # Nothing is published into self.indexes until the whole walk finishes.
+        # The early return above means a half-filled mapping would make a SECOND
+        # call in the same process answer silently from whichever repos loaded
+        # before the failure — the read error masked by the very guard that
+        # exists to avoid re-reading the cache. Published at the end, every call
+        # either answers from a complete walk or reports the fault again.
+        loaded = {}
         for name, config in self.repos.items():
             db_path = self.db_cache() / f"{name}.db"
             sig_path = self.db_cache() / f"{name}.db.sig"
             if db_path.exists() and sig_path.exists():
                 if GPG_KEYRING.exists() and self._verify_signature(db_path, sig_path):
                     try:
-                        self.indexes[name] = self._parse_index(
+                        loaded[name] = self._parse_index(
                             name, config["url"], db_path
                         )
                     except IndexFormatError as e:
@@ -1156,9 +1183,67 @@ class RepoManager:
                             f"`pkm sync` to refresh it.\n"
                         )
                 else:
-                    # Cached index can't be verified — delete it
+                    # The verification did not succeed. WHY decides what happens
+                    # to the file, and the gate cannot tell us: gpgv fails the
+                    # same way whether the signature is wrong or the read was
+                    # refused. So ask the filesystem.
+                    unreadable = self._unreadable_cause(db_path, sig_path)
+                    if unreadable is not None:
+                        sys.stderr.write(
+                            f"pkm: cached index for repo '{name}' could not be "
+                            f"READ ({type(unreadable).__name__}: "
+                            f"{unreadable}).\n"
+                            f"     It is LEFT IN PLACE: a file the system will "
+                            f"not let pkm read has not been shown to be "
+                            f"untrustworthy, and deleting it would destroy the "
+                            f"evidence of the fault.\n"
+                            f"     Fix the read error (permissions, ownership, "
+                            f"the filesystem itself), or run `pkm sync` to "
+                            f"replace it.\n"
+                        )
+                        # The caller is told, because an index that cannot be
+                        # read is not a repository with nothing in it. Both
+                        # archive-trust paths already catch OSError here and say
+                        # so in their own words; a caller that does not catch it
+                        # fails loudly, which is the point.
+                        raise unreadable
+                    if not GPG_KEYRING.exists():
+                        reason = (f"the keyring {GPG_KEYRING} is absent, so "
+                                  f"nothing could check it")
+                    else:
+                        reason = ("its signature did not verify against the "
+                                  "pinned release keys")
+                    sys.stderr.write(
+                        f"pkm: cached index for repo '{name}' was REMOVED: "
+                        f"{reason}. An index pkm cannot verify is never "
+                        f"trusted.\n"
+                        f"     Run `pkm sync` to fetch one that verifies.\n"
+                    )
                     db_path.unlink(missing_ok=True)
                     sig_path.unlink(missing_ok=True)
+        self.indexes.update(loaded)
+
+    def _unreadable_cause(self, *paths):
+        """The OSError the filesystem raises when these files are read, or None
+        when every one of them reads through to the end.
+
+        Asked ONLY after a verification has already failed, which is what makes
+        a full read affordable: on that path the file was about to be deleted,
+        and on the path where the signature verifies nothing extra is read at
+        all. The read is the only honest test — os.access() answers a different
+        question and lies under ACLs, capabilities and a read-only mount, and a
+        read that fails part-way through shows up nowhere else. The bytes are
+        discarded as they are read, so an index of any size costs one pass and
+        no memory.
+        """
+        for path in paths:
+            try:
+                with path.open("rb") as handle:
+                    while handle.read(1 << 16):
+                        pass
+            except OSError as exc:
+                return exc
+        return None
 
     # ----- Download -----
 

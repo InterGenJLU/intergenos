@@ -17,9 +17,30 @@ Fixed contract:
     inspection (mirrors sync()'s L-020 handler);
   * a genuinely-unexpected parse error still soft-skips that repo (others
     load) but is LOGGED, never a silent pass.
+
+Since 2026-10-01 this module also holds the OTHER branch of the same method,
+the one that runs when the verification did not succeed. It deleted the cached
+index and said nothing, for two different facts at once: a signature that does
+not verify, and bytes the filesystem would not let pkm read. Measured at the
+real mechanism (a real cached index at mode 000 under a throwaway root, the
+real gpgv, the shipped commands): the index whose only fault was being
+unreadable was destroyed, and the person was then told "No repository index
+yet" by `search`, "No packages available" by `list available`, and, by both
+archive-trust paths, that the package is one the signed index does not list.
+Three false statements about one read error, with the file that would have
+explained it already gone.
+
+The rule pinned below: a read failure leaves the artefact in place, names the
+repo and the reason, and REACHES THE CALLER (both archive-trust call sites
+catch OSError and report it in their own words); a verification failure keeps
+today's behaviour — the index is removed — and now says so, naming which of the
+two reasons it was. The fast path is untouched: when the signature verifies,
+nothing extra is read.
 """
 
+import contextlib
 import io
+import os
 import tempfile
 import unittest
 from contextlib import redirect_stderr
@@ -103,6 +124,189 @@ class CachedIndexRejectSurfaceTest(unittest.TestCase):
         # No noise on the happy path; the index loaded.
         self.assertEqual(buf.getvalue(), "")
         self.assertIs(self.mgr.indexes["intergenos"], sentinel)
+
+
+class AnUnreadableCachedIndexIsReportedNotDeleted(unittest.TestCase):
+    """The cases for the branch that runs when the verification did not succeed.
+
+    The cached files are REAL files with real modes, because the fact under test
+    is what the filesystem does when pkm reads them. The signature gate itself is
+    stood in at the answer the real gpgv was measured to give for each of these
+    cache states (falsy), which is what the module's older cases do too: the
+    question here is not whether gpgv is right, it is what pkm does with the
+    file afterwards.
+    """
+
+    REPO = "intergenos"
+    URL = "https://repo.intergenos.org/x86_64/current"
+
+    def setUp(self):
+        self._td = tempfile.TemporaryDirectory()
+        self.cache = Path(self._td.name) / "db"
+        self.cache.mkdir(parents=True)
+        self.keyring = Path(self._td.name) / "trusted.gpg"
+        self.keyring.write_bytes(b"keyring")
+        # Built without __init__'s filesystem setup, as the cases above are.
+        self.mgr = RepoManager.__new__(RepoManager)
+        self.mgr.indexes = {}
+        self.mgr.repos = {self.REPO: {"url": self.URL}}
+        self.addCleanup(self._cleanup)
+
+    def _cleanup(self):
+        # A case that left a file at mode 000 — or a directory without its
+        # traverse bit — would otherwise stop the temporary tree's removal.
+        for path in self.cache.iterdir():
+            try:
+                path.chmod(0o755 if path.is_dir() else 0o644)
+            except OSError:
+                pass
+        self._td.cleanup()
+
+    def _cached_pair(self, name=None):
+        name = name or self.REPO
+        db_path = self.cache / f"{name}.db"
+        sig_path = self.cache / f"{name}.db.sig"
+        db_path.write_bytes(b"cached-index-bytes")
+        sig_path.write_bytes(b"sig")
+        return db_path, sig_path
+
+    def _unopenable(self, name=None):
+        """A cached index no uid can read through: the path is a directory, so
+        the open itself fails (IsADirectoryError IS an OSError). Root reads a
+        mode-000 file, so the permission case alone would not hold everywhere."""
+        name = name or self.REPO
+        db_path = self.cache / f"{name}.db"
+        db_path.mkdir()
+        sig_path = self.cache / f"{name}.db.sig"
+        sig_path.write_bytes(b"sig")
+        return db_path, sig_path
+
+    def _run(self, verify=False, parse=None):
+        """Run the real method over the real files.
+
+        Returns (stderr, raised); `raised` is whatever left the method, which
+        for an unreadable index is the error itself."""
+        verifier = verify if callable(verify) else (lambda *_a, **_k: verify)
+        buf = io.StringIO()
+        raised = None
+        patches = [
+            patch.object(repo_mod, "REPO_DB_CACHE", self.cache),
+            patch.object(repo_mod, "GPG_KEYRING", self.keyring),
+            patch.object(self.mgr, "_verify_signature", side_effect=verifier),
+        ]
+        if parse is not None:
+            patches.append(
+                patch.object(self.mgr, "_parse_index", return_value=parse))
+        with contextlib.ExitStack() as stack:
+            for one in patches:
+                stack.enter_context(one)
+            stack.enter_context(redirect_stderr(buf))
+            try:
+                self.mgr._ensure_synced()
+            except BaseException as exc:          # noqa: BLE001 — recorded
+                raised = exc
+        return buf.getvalue(), raised
+
+    @unittest.skipIf(os.geteuid() == 0,
+                     "mode 000 does not refuse a root reader; the directory "
+                     "case holds the same rule for every uid")
+    def test_a_read_refused_by_the_mode_is_kept_reported_and_raised(self):
+        db_path, sig_path = self._cached_pair()
+        db_path.chmod(0o000)
+        err, raised = self._run(verify=False)
+        self.assertIsInstance(
+            raised, OSError,
+            "an index that cannot be read must reach the caller: the two "
+            "archive-trust paths catch OSError here and report it, and an "
+            "absence is not what happened")
+        self.assertTrue(db_path.exists(),
+                        "the unreadable index must be LEFT for inspection")
+        self.assertTrue(sig_path.exists(), "its signature goes with it")
+        self.assertIn("could not be READ", err)
+        self.assertIn("PermissionError", err)
+        self.assertIn(self.REPO, err, "the repo must be named")
+        self.assertIn("LEFT IN PLACE", err)
+        self.assertEqual(self.mgr.indexes, {})
+
+    def test_a_read_no_uid_can_complete_is_kept_reported_and_raised(self):
+        db_path, _sig = self._unopenable()
+        err, raised = self._run(verify=False)
+        self.assertIsInstance(raised, OSError)
+        self.assertIn("IsADirectoryError", err)
+        self.assertIn("could not be READ", err)
+        self.assertIn(self.REPO, err)
+        self.assertTrue(db_path.is_dir(),
+                        "the artefact must be left exactly as it was")
+
+    def test_a_second_call_reports_again_rather_than_answering_from_a_part_load(self):
+        """The early `if self.indexes: return` must not turn a reported read
+        failure into a silent partial answer for every later call in the same
+        process."""
+        self.mgr.repos = {"first": {"url": self.URL},
+                          "second": {"url": self.URL}}
+        first_db, _ = self._cached_pair("first")
+        self._unopenable("second")
+        sentinel = object()
+
+        def verify(data_path, _sig_path):
+            # The first repo's index verifies; the second's does not, which is
+            # where the read is then asked about.
+            return "FPR" if Path(data_path).name == "first.db" else False
+
+        err, raised = self._run(verify=verify, parse=sentinel)
+        self.assertIsInstance(raised, OSError)
+        self.assertIn("could not be READ", err)
+        self.assertEqual(
+            self.mgr.indexes, {},
+            "nothing may be published from a walk that reported a fault, or "
+            "the next call answers silently from the repos that happened to "
+            "load first")
+        self.assertTrue(first_db.exists())
+
+        err2, raised2 = self._run(verify=verify, parse=sentinel)
+        self.assertIsInstance(
+            raised2, OSError,
+            "the fault is still true, so the second call must report it too")
+        self.assertIn("could not be READ", err2)
+
+    def test_a_signature_that_does_not_verify_is_still_removed_and_now_said(self):
+        db_path, sig_path = self._cached_pair()
+        err, raised = self._run(verify=False)
+        self.assertIsNone(
+            raised,
+            "a readable index that does not verify is not a read error; the "
+            "caller sees a repo that did not load, as before")
+        self.assertFalse(db_path.exists(),
+                         "an index that cannot be verified is never trusted")
+        self.assertFalse(sig_path.exists())
+        self.assertIn("REMOVED", err)
+        self.assertIn("did not verify", err)
+        self.assertIn(self.REPO, err)
+        self.assertIn("pkm sync", err)
+
+    def test_an_absent_keyring_names_the_keyring_as_the_reason(self):
+        db_path, sig_path = self._cached_pair()
+        self.keyring.unlink()
+        # The keyring check short-circuits, so the gate is never asked here.
+        err, raised = self._run(verify=False)
+        self.assertIsNone(raised)
+        self.assertFalse(db_path.exists(), "today's behaviour is kept")
+        self.assertIn("REMOVED", err)
+        self.assertIn(str(self.keyring), err,
+                      "the reason is the absent keyring, not a bad signature")
+        self.assertNotIn("did not verify", err,
+                         "nothing checked it, so nothing may claim it failed")
+
+    def test_an_index_that_verifies_is_loaded_kept_and_silent(self):
+        """The control: the fast path reads nothing extra and says nothing."""
+        db_path, sig_path = self._cached_pair()
+        sentinel = object()
+        err, raised = self._run(verify="FPR", parse=sentinel)
+        self.assertIsNone(raised)
+        self.assertEqual(err, "", "the happy path is silent")
+        self.assertIs(self.mgr.indexes[self.REPO], sentinel)
+        self.assertTrue(db_path.exists())
+        self.assertTrue(sig_path.exists())
 
 
 if __name__ == "__main__":
