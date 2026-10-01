@@ -1988,6 +1988,11 @@ landed is in the repository README, not here.
 
 ### Security
 
+- **gzip 1.15 fixes two security defects.** CVE-2026-41992 permits an
+  out-of-bounds read when an LZH member follows a `.Z` member in one invocation.
+  CVE-2026-41991 is a temporary-file race in `gzexe`, `zdiff` and `znew`
+  on systems without `mktemp`.
+
 - **The dialog that asks before anything goes to a frontier model no longer
   carries the send as the answer it gives by itself.** Before conversation
   content leaves the machine for the configured frontier model, the consent step

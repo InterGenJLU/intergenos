@@ -839,7 +839,7 @@ Generate Your Projects — meta-build system (gyp-next, the maintained fork)
 - License: `BSD-3-Clause`
 - Homepage: https://github.com/nodejs/gyp-next
 
-### gzip-core (1.14)
+### gzip-core (1.15)
 
 GNU gzip compression
 
