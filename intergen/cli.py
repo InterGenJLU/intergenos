@@ -9,8 +9,12 @@ Usage:
   intergen tools
   intergen tool-log [--clear|--json|--count] [--limit N]
 
-This connects via D-Bus to the running InterGen daemon. If the daemon
-isn't running, it starts a direct session (useful for development).
+This connects via D-Bus to the running InterGen daemon. If nothing owns the
+assistant's bus name, `ask` and `ask-frontier` report the state of the user
+service and the command that starts it, and exit 2 — they do NOT start an
+assistant of their own. Answering in this process is the `--direct` opt-in,
+which is never implied: it has to be asked for, because it builds the whole
+assistant inside a short-lived command.
 
 `intergen tool-log` reads the per-user D-008 RFC §9 dispatch audit log
 at $XDG_STATE_HOME/intergen/tool-dispatch.jsonl. The log is the user's
