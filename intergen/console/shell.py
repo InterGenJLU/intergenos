@@ -644,9 +644,32 @@ class ConsoleShell:
 
         elif msg_type == "stream_end":
             self._is_streaming = False
-            full = msg.get("full_response", self._streaming_buffer)
-            self._add_message("assistant", full, msg.get("source", ""),
-                              self._build_telemetry(msg))
+            # dict.get substitutes its default only for an ABSENT key, so a
+            # terminal frame carrying full_response as an explicit empty string
+            # — the shape of a turn that produced no text — yielded an empty
+            # answer, which was appended as the assistant's reply and counted in
+            # the rollup, and then the tokens the person had watched arrive were
+            # discarded on the line after. An absent key is the fallback the
+            # default was written for; an explicit empty string is the server
+            # saying the turn produced nothing, which is not the same thing.
+            declared = msg.get("full_response")
+            produced_nothing = "full_response" in msg and not (declared or "").strip()
+            full = (declared or "") if (declared or "").strip() else self._streaming_buffer
+            if produced_nothing:
+                self._add_message(
+                    "system",
+                    "InterGen ended the turn without producing an answer.",
+                    "error")
+                # Whatever the person watched arrive is still shown, carrying the
+                # declaration, so it is not read as the answer and not counted as
+                # a turn the assistant answered.
+                if full.strip():
+                    self._add_message("assistant", full, msg.get("source", ""),
+                                      self._build_telemetry({**msg, "handled": False}),
+                                      handled=False)
+            else:
+                self._add_message("assistant", full, msg.get("source", ""),
+                                  self._build_telemetry(msg))
             self._streaming_buffer = ""
 
         elif msg_type == "gate_prompt":
