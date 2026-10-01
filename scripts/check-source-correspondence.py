@@ -53,6 +53,9 @@ import sys
 import tarfile
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from pkm.repo import _source_archive_for, source_archive_name
+
 try:
     import yaml
 except ImportError:
@@ -145,8 +148,8 @@ def resolve_toolchain_twin(name: str, ver: str, recipes: dict[str, dict],
         if not (pin and tarball):
             continue
         rel = str(meta.get("release", 1))
-        twin_archive = sources_dir / f"{cand}-{meta['version']}-{rel}.igos.src.tar.gz"
-        if not twin_archive.is_file():
+        twin_archive = _source_archive_for(sources_dir, cand, meta)
+        if twin_archive is None:
             continue
         member_path = f"{cand}-{meta['version']}-{rel}/{tarball}"
         try:
@@ -161,7 +164,7 @@ def resolve_toolchain_twin(name: str, ver: str, recipes: dict[str, dict],
         except (KeyError, tarfile.TarError, OSError):
             continue
         if digest.hexdigest() == pin:
-            return (f"{name}-{ver} → {twin_archive.name} "
+            return (f"{name}-{ver} → {source_archive_name(cand, meta['version'], rel)} "
                     f"({tarball} sha256 verified against the twin recipe pin)")
     return None
 
@@ -203,17 +206,26 @@ def main() -> int:
         name = info.get("pkgname")
         ver = info.get("pkgver")
         rel = info.get("pkgrel")
-        if not (name and ver and rel):
+        if not info:
             shortfalls.append(
                 f"{binary.name}: .PKGINFO unreadable or incomplete — identity "
                 f"unprovable, cannot establish source correspondence")
             continue
-        expected = f"{name}-{ver}-{rel}.igos.src.tar.gz"
-        if (sources_dir / expected).is_file():
+        try:
+            source = _source_archive_for(sources_dir, name, {"version": ver, "release": rel})
+        except ValueError as exc:
+            shortfalls.append(f"{binary.name}: REFUSED corresponding-source lookup: {exc}")
+            continue
+        expected = source_archive_name(name, ver, rel)
+        if source is not None:
             matched += 1
             continue
         if name not in recipes:
-            proof = resolve_toolchain_twin(name, ver, recipes, sources_dir)
+            try:
+                proof = resolve_toolchain_twin(name, ver, recipes, sources_dir)
+            except ValueError as exc:
+                shortfalls.append(f"{binary.name}: REFUSED corresponding-source lookup: {exc}")
+                continue
             if proof:
                 twin_proven.append(proof)
                 continue

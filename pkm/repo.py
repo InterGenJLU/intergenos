@@ -1746,18 +1746,24 @@ def source_archive_name(name, version, release):
 
 
 def _source_archive_for(sources_dir, name, meta):
-    """That archive inside sources_dir, or None when the set carries none.
+    """Return the confined archive target, None if absent, or refuse unsafe identity."""
+    from pathlib import PureWindowsPath
 
-    An entry with no `release` cannot name its archive at all, because the
-    published filename carries one. None is returned there rather than a
-    guessed name: the caller reports every package it got None for, so the
-    absence is counted and named instead of becoming an empty field.
-    """
     version = meta.get("version")
     release = meta.get("release")
-    if version is None or release is None:
-        return None
-    candidate = Path(sources_dir) / source_archive_name(name, version, release)
+    for component, value in (("name", name), ("version", version), ("release", release)):
+        text = "" if value is None else str(value)
+        if (not text.strip() or text in (".", "..")
+                or any(char in text for char in ("/", "\\", "\0"))
+                or PureWindowsPath(text).drive):
+            raise ValueError(f"package {name!r}: unsafe source {component} component {value!r}")
+    try:
+        root = Path(sources_dir).resolve()
+        candidate = (root / source_archive_name(name, version, release)).resolve()
+    except (OSError, RuntimeError) as exc:
+        raise ValueError(f"package {name!r}: resolved source path cannot be verified: {exc}") from exc
+    if not candidate.is_relative_to(root):
+        raise ValueError(f"package {name!r}: resolved source path escapes sources directory: {candidate}")
     return candidate if candidate.is_file() else None
 
 
@@ -1829,17 +1835,20 @@ def generate_index(package_dir, arch="x86_64", output=None,
     # MEASUREMENT of it. The binary archive's hash on the line above is
     # computed the same way for the same reason.
     sources_path = Path(sources_dir) if sources_dir else (package_dir / "sources")
-    if sources_path.is_dir():
-        for name, meta in packages.items():
+    for name, meta in packages.items():
+        try:
             src_archive = _source_archive_for(sources_path, name, meta)
-            if src_archive is None:
-                continue
-            src_sha = hashlib.sha256()
-            with open(src_archive, "rb") as f:
-                for chunk in iter(lambda: f.read(8192), b""):
-                    src_sha.update(chunk)
-            meta["source_filename"] = src_archive.name
-            meta["source_sha256"] = src_sha.hexdigest()
+        except ValueError as exc:
+            print(f"REFUSED corresponding-source lookup: {exc}", file=sys.stderr)
+            continue
+        if src_archive is None:
+            continue
+        src_sha = hashlib.sha256()
+        with open(src_archive, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                src_sha.update(chunk)
+        meta["source_filename"] = source_archive_name(name, meta["version"], meta["release"])
+        meta["source_sha256"] = src_sha.hexdigest()
 
     # Q7 (O-030): apply hand-curated security advisories. Match each
     # advisory key <name>-<version> against packages[name]["version"];

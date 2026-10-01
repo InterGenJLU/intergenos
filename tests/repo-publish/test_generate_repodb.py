@@ -787,6 +787,141 @@ def _read_index(output):
         return json.load(f)
 
 
+class TestSourceLookupBoundary:
+    @pytest.mark.parametrize("component", ["name", "version", "release"])
+    @pytest.mark.parametrize("value", ["../outside/alpha", "nested/alpha", "ABSOLUTE",
+                                       "nested\\alpha", "..", ""])
+    def test_identity_components_are_refused(self, tmp_path, component, value):
+        from pkm.repo import _source_archive_for
+        sources = tmp_path / "sources"
+        sources.mkdir()
+        identity = {"name": "alpha", "version": "1.0", "release": 1}
+        identity[component] = str(tmp_path / "outside/alpha") if value == "ABSOLUTE" else value
+        _write_source_archive(sources, identity["name"], identity["version"], identity["release"])
+        with pytest.raises(ValueError, match=component + " component") as raised:
+            _source_archive_for(sources, identity["name"], identity)
+        assert repr(identity["name"]) in str(raised.value)
+
+    def _boundary_set(self, tmp_path, symlink=False):
+        binaries = tmp_path / "archives"
+        sources = tmp_path / "sources"
+        packages = tmp_path / "packages"
+        binaries.mkdir()
+        sources.mkdir()
+        packages.mkdir()
+        name = "alpha" if symlink else "../outside/alpha"
+        _write_binary_archive(binaries / "malformed-1.igos.tar.gz", name, "1.0", 1)
+        outside = _write_source_archive(tmp_path / "outside", "alpha", "1.0", 1,
+                                        b"outside the declared sources directory\n")
+        if symlink:
+            (sources / outside.name).symlink_to(outside)
+        return binaries, sources, packages, name, outside
+
+    @pytest.mark.parametrize("symlink", [False, True])
+    def test_generator_refuses_escape_and_summary_names_package(self, tmp_path, symlink):
+        binaries, sources, _, name, outside = self._boundary_set(tmp_path, symlink)
+        output = tmp_path / "InterGenOS.db"
+        result = _run_generator(binaries, output, sources)
+        assert result.returncode == 0, result.stderr
+        entry = _read_index(output)["packages"][name]
+        assert "source_filename" not in entry and "source_sha256" not in entry
+        assert "REFUSED" in result.stderr
+        assert ("resolved source path" if symlink else "name component") in result.stderr
+        assert name in result.stderr.split("no corresponding-source archive")[-1]
+        assert _sha256_of(outside) not in json.dumps(entry)
+
+    @pytest.mark.parametrize("symlink", [False, True])
+    def test_correspondence_gate_cannot_accept_an_outside_source(self, tmp_path, symlink):
+        binaries, sources, packages, name, _ = self._boundary_set(tmp_path, symlink)
+        # A source-less recipe must not turn an unsafe candidate into a pass.
+        recipe = packages / "core" / "fixture"
+        recipe.mkdir(parents=True)
+        (recipe / "package.yml").write_text(f"name: {name}\nsource: []\n")
+        result = subprocess.run(
+            [sys.executable, str(_PROJECT_ROOT / "scripts/check-source-correspondence.py"),
+             "--archive-dir", str(binaries), "--sources-archive-dir", str(sources),
+             "--packages-root", str(packages)], capture_output=True, text=True,
+        )
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert name in result.stderr
+        assert ("resolved source path" if symlink else "name component") in result.stderr
+
+    def test_in_root_symlink_keeps_the_published_name(self, tmp_path):
+        binaries = tmp_path / "archives"
+        sources = tmp_path / "sources"
+        binaries.mkdir()
+        sources.mkdir()
+        _write_binary_archive(binaries / "alpha.igos.tar.gz", "alpha", "1.0", 1)
+        payload = sources / "stored-source.tar.gz"
+        payload.write_bytes(b"source bytes inside the declared root")
+        alias = sources / "alpha-1.0-1.igos.src.tar.gz"
+        alias.symlink_to(payload)
+        output = tmp_path / "InterGenOS.db"
+        result = _run_generator(binaries, output, sources)
+        assert result.returncode == 0, result.stderr
+        entry = _read_index(output)["packages"]["alpha"]
+        assert entry["source_filename"] == alias.name
+        assert entry["source_sha256"] == _sha256_of(payload)
+
+    def test_lookup_returns_the_confined_target_before_hashing(self, tmp_path, monkeypatch):
+        from pkm import repo
+        binaries = tmp_path / "archives"
+        sources = tmp_path / "sources"
+        binaries.mkdir()
+        sources.mkdir()
+        _write_binary_archive(binaries / "alpha.igos.tar.gz", "alpha", "1.0", 1)
+        inside = sources / "stored-source.tar.gz"
+        inside.write_bytes(b"inside bytes")
+        outside = tmp_path / "outside-source.tar.gz"
+        outside.write_bytes(b"outside bytes")
+        alias = sources / "alpha-1.0-1.igos.src.tar.gz"
+        alias.symlink_to(inside)
+        lookup = repo._source_archive_for
+
+        def replace_alias_after_lookup(*args):
+            target = lookup(*args)
+            alias.unlink()
+            alias.symlink_to(outside)
+            return target
+
+        monkeypatch.setattr(repo, "_source_archive_for", replace_alias_after_lookup)
+        output = repo.generate_index(binaries, sources_dir=sources)
+        entry = _read_index(output)["packages"]["alpha"]
+        assert entry["source_sha256"] == _sha256_of(inside)
+        assert entry["source_filename"] == alias.name
+
+    def test_toolchain_twin_cannot_escape_through_a_symlink(self, tmp_path):
+        import hashlib
+        import io
+        import tarfile
+
+        binaries = tmp_path / "archives"
+        sources = tmp_path / "sources"
+        recipe = tmp_path / "packages/toolchain/alpha-pass1"
+        binaries.mkdir()
+        sources.mkdir()
+        recipe.mkdir(parents=True)
+        _write_binary_archive(binaries / "alpha.igos.tar.gz", "alpha", "1.0", 1)
+        payload = b"upstream fixture source"
+        (recipe / "package.yml").write_text(
+            "name: alpha-pass1\nversion: '1.0'\nrelease: 1\nsource:\n"
+            "  - url: https://example.invalid/alpha.tar.gz\n"
+            f"    sha256: {hashlib.sha256(payload).hexdigest()}\n")
+        outside = tmp_path / "alpha-pass1-1.0-1.igos.src.tar.gz"
+        with tarfile.open(outside, "w:gz") as archive:
+            info = tarfile.TarInfo("alpha-pass1-1.0-1/alpha.tar.gz")
+            info.size = len(payload)
+            archive.addfile(info, io.BytesIO(payload))
+        (sources / outside.name).symlink_to(outside)
+        result = subprocess.run(
+            [sys.executable, str(_PROJECT_ROOT / "scripts/check-source-correspondence.py"),
+             "--archive-dir", str(binaries), "--sources-archive-dir", str(sources),
+             "--packages-root", str(tmp_path / "packages")], capture_output=True, text=True,
+        )
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert "alpha-pass1" in result.stderr and "resolved source path" in result.stderr
+
+
 class TestTheIndexRecordsTheCorrespondingSourceArchive:
     """RED at the base, GREEN at the tip: the two documented fields."""
 
