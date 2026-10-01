@@ -85,9 +85,18 @@ class HealthAggregator:
             checks.append(HealthCheck(
                 name="llama-server process",
                 status="green" if running else "red",
-                summary=f"{'Running' if running else 'Not running'} "
-                        f"(PID {self._llama.pid or '?'})"
-                        if running else "",
+                # The parser concatenates the two f-strings BEFORE a trailing
+                # conditional applies, so an `if running else ""` at the end
+                # governed the whole joined string rather than the PID tail:
+                # the 'Not running' half was reachable only when running was
+                # True, where the inner conditional picks 'Running' anyway. A
+                # stopped engine therefore arrived at the console
+                # (console/shell.py) and the panel (web/app.js) with an empty
+                # summary -- a red dot, the check's name, a colon and nothing
+                # -- on the one check whose job is to name the failure, while
+                # its neighbours in the same layer carried their failing text.
+                summary=(f"{'Running' if running else 'Not running'} "
+                         f"(PID {self._llama.pid or '?'})"),
             ))
         else:
             checks.append(HealthCheck(
