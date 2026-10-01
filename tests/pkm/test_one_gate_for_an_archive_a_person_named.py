@@ -22,11 +22,24 @@ slip past; and they hold each path to its own words, which are deliberately not
 the same — only the upgrade path says "Nothing was changed", and only
 `pkm install` prints both hashes when they disagree.
 
+Since 2026-09-30 the gate also FAILS CLOSED: it permits only under a mode this
+build recognises, and refuses a mode it cannot interpret — None, an empty string,
+a misspelling, a fourth mode added to the command line and not to the rule —
+whatever the index says of the file. It permitted all of those before, match or no
+match, and because the two paths defaulted a MISSING mode differently (one took
+`getattr(args, "archive_trust", "strict")`, which is None when the attribute
+carries nothing; the other coerced the same expression with `or "strict"`) one
+command line could mean two things: an archive the index contradicts was installed
+by one path and refused by the other. Both halves are held here — the gate's
+answer for every mode, and that both paths now take a missing mode from the one
+place that defaults it, `_archive_trust_mode`.
+
 Nothing here reaches the machine running the suite: the pre-transaction restore
 point and the update-advisory refresh are stubbed at the mechanism, every archive
 is built in a temporary directory, and no install is performed.
 """
 
+import argparse
 import ast
 import io
 import tarfile
@@ -71,6 +84,47 @@ def _entry(sha256):
     return {"name": PKG, "version": ARCHIVE_VERSION, "release": 1, "sha256": sha256}
 
 
+# "the args object carries no archive_trust attribute at all", as distinct from
+# "it carries None". Both are a mode nobody named; they arrive by different
+# accidents, and a default that covered one and not the other would still split.
+MISSING = object()
+
+
+def _with_trust_mode(args, mode):
+    """`args` with the trust mode a command line could not have supplied.
+
+    argparse's own `choices` refuses an unrecognised mode at the command line —
+    that is the outer guard, and these cases exercise the inner one, which is
+    what a caller that builds its args itself, or a later subcommand that adds the
+    flag without its default, actually meets.
+    """
+    if mode is MISSING:
+        if hasattr(args, "archive_trust"):
+            delattr(args, "archive_trust")
+    else:
+        setattr(args, "archive_trust", mode)
+    return args
+
+
+def _archive_trust_choices():
+    """What the command line itself admits for --archive-trust, per subcommand.
+
+    Read back off the built parser, because the point of the case below is that
+    nobody has to trust a tuple in the source to match the flag a person can
+    actually type. argparse offers no public way to do it.
+    """
+    found = {}
+    for action in cli.build_parser()._actions:
+        subcommands = getattr(action, "choices", None)
+        if not isinstance(subcommands, dict):
+            continue
+        for name, sub in subcommands.items():
+            for sub_action in getattr(sub, "_actions", []):
+                if "--archive-trust" in (sub_action.option_strings or []):
+                    found[name] = (tuple(sub_action.choices), sub_action.default)
+    return found
+
+
 class TheGateItself(unittest.TestCase):
     """What `_explicit_archive_trust` answers, asked directly."""
 
@@ -110,21 +164,53 @@ class TheGateItself(unittest.TestCase):
         self.assertEqual(tuple(cli.ARCHIVE_TRUST_MODES_REQUIRING_A_MATCH),
                          ("strict", "repo-only"))
 
-    def test_an_unrecognised_mode_permits_which_is_what_both_copies_did(self):
-        """PRESERVED, not endorsed.
+    def test_an_unrecognised_mode_is_refused_whatever_the_index_says(self):
+        """FAIL CLOSED (2026-09-30), where it permitted before.
 
-        Neither copy refused under a mode that was not strict or repo-only, and
-        this extraction changes no behaviour, so neither does the gate. The
-        parser admits only the three modes, so no caller reaches it; the case is
-        here so that the day someone closes it, the change is deliberate and
-        this line is what they edit.
+        A mode this build cannot interpret is not a decision the gate can honour,
+        and on a gate whose subject is what may be installed the answer to a mode
+        it does not know has to be "no" — including for an archive the index
+        vouches for, where permitting would read the person's unknown intent as
+        consent. The standing still travels, so the caller can report what the
+        index thought of the file as well as the refusal.
         """
-        for mode in (None, "", "banana"):
+        for mode in (None, "", "banana", "STRICT", "repo_only", "Loose"):
+            for entry, standing in (
+                    (_entry(self.SHA), cli.ARCHIVE_TRUST_MATCHES),
+                    (_entry(OTHER_SHA), cli.ARCHIVE_TRUST_CONTRADICTED),
+                    (None, cli.ARCHIVE_TRUST_UNVOUCHED)):
+                with self.subTest(mode=mode, standing=standing):
+                    self.assertEqual(
+                        cli._explicit_archive_trust(entry, self.SHA, mode),
+                        (standing, False),
+                        f"the gate permitted under mode {mode!r}")
+
+    def test_the_modes_the_gate_recognises_are_the_modes_the_command_line_admits(self):
+        """The one assumption fail-closed rests on, measured against the parser.
+
+        The gate now refuses what it does not recognise, so a fourth mode added to
+        `--archive-trust` and not to ARCHIVE_TRUST_MODES would be refused on every
+        archive on both paths. That is the safe direction of the two, and it is
+        still a break; this case is what says so out loud, before a person meets
+        it. The command line's own default is held to the same one place.
+        """
+        offered = _archive_trust_choices()
+        self.assertEqual(sorted(offered), ["install", "upgrade"],
+                         f"--archive-trust is offered by {sorted(offered)}, and "
+                         f"this case knows about install and upgrade")
+        for subcommand, (choices, default) in sorted(offered.items()):
+            with self.subTest(subcommand=subcommand):
+                self.assertEqual(
+                    sorted(choices), sorted(cli.ARCHIVE_TRUST_MODES),
+                    f"`pkm {subcommand} --archive-trust` admits {sorted(choices)}, "
+                    f"the gate recognises {sorted(cli.ARCHIVE_TRUST_MODES)}; a mode "
+                    f"in the first and not the second is refused on every archive")
+                self.assertEqual(default, cli.ARCHIVE_TRUST_DEFAULT_MODE)
+
+    def test_every_mode_that_requires_a_match_is_one_the_gate_recognises(self):
+        for mode in cli.ARCHIVE_TRUST_MODES_REQUIRING_A_MATCH:
             with self.subTest(mode=mode):
-                standing, permitted = cli._explicit_archive_trust(
-                    _entry(OTHER_SHA), self.SHA, mode)
-                self.assertEqual(standing, cli.ARCHIVE_TRUST_CONTRADICTED)
-                self.assertTrue(permitted)
+                self.assertIn(mode, cli.ARCHIVE_TRUST_MODES)
 
 
 class _BothPaths:
@@ -140,15 +226,43 @@ class _BothPaths:
     def tearDown(self):
         self._tmp.cleanup()
 
+    def _args_for(self, argv, mode):
+        """Args for one site, carrying a mode a command line may not be able to.
+
+        Whether it can is asked of the PARSER rather than of a constant in the
+        product: these helpers are the harness, and a harness that imported the
+        rule it exercises could not run at this lane's parent at all — the
+        no-regression legs below have to run there, or they measure nothing.
+        """
+        admitted = {name
+                    for choices, _default in _archive_trust_choices().values()
+                    for name in choices}
+        if isinstance(mode, str) and mode in admitted:
+            return cli.build_parser().parse_args(
+                argv + ["--archive-trust", mode])
+        return _with_trust_mode(
+            cli.build_parser().parse_args(argv + ["--archive-trust", "strict"]),
+            mode)
+
     def _install_args(self, mode):
-        return cli.build_parser().parse_args(
-            ["install", PKG, "--archive", str(self.archive),
-             "--archive-trust", mode, "--yes"])
+        return self._args_for(
+            ["install", PKG, "--archive", str(self.archive), "--yes"], mode)
 
     def _upgrade_args(self, mode):
-        return cli.build_parser().parse_args(
-            ["upgrade", PKG, "--archive", str(self.archive),
-             "--archive-trust", mode])
+        return self._args_for(
+            ["upgrade", PKG, "--archive", str(self.archive)], mode)
+
+    def _recorded(self, site, index_entry, answer, mode="strict"):
+        """Drive one site with the gate replaced by a recorder."""
+        calls = []
+
+        def recorder(entry, sha, trust_mode):
+            calls.append((entry, sha, trust_mode))
+            return answer
+
+        with patch("pkm.cli._explicit_archive_trust", side_effect=recorder):
+            site(index_entry, mode)
+        return calls
 
     def _drive_install(self, index_entry, mode="strict"):
         """`pkm install <name> --archive <file>`."""
@@ -200,17 +314,6 @@ class _BothPaths:
 
 class BothPathsAskTheOneGate(_BothPaths, unittest.TestCase):
     """The routing claim: neither path decides for itself any more."""
-
-    def _recorded(self, site, index_entry, answer, mode="strict"):
-        calls = []
-
-        def recorder(entry, sha, trust_mode):
-            calls.append((entry, sha, trust_mode))
-            return answer
-
-        with patch("pkm.cli._explicit_archive_trust", side_effect=recorder):
-            site(index_entry, mode)
-        return calls
 
     def test_pkm_install_with_an_archive_asks_the_gate(self):
         calls = self._recorded(self._drive_install, _entry(self.archive_sha),
@@ -339,6 +442,189 @@ class EachPathKeepsItsOwnWords(_BothPaths, unittest.TestCase):
         queue = self._drive_upgrade(_entry(OTHER_SHA), mode="loose")
         self.assertTrue(queue, f"loose refused an archive: {self.said}")
         self.assertIn("skipping repo verification", self.said)
+
+
+class OneDefaultForAMissingMode(unittest.TestCase):
+    """A mode nobody named means one thing, and one place says what."""
+
+    def test_the_default_is_one_named_constant_the_gate_recognises(self):
+        self.assertEqual(cli.ARCHIVE_TRUST_DEFAULT_MODE, "strict")
+        self.assertIn(cli.ARCHIVE_TRUST_DEFAULT_MODE, cli.ARCHIVE_TRUST_MODES)
+
+    def test_a_mode_that_is_absent_or_unset_is_the_default(self):
+        for mode in (MISSING, None):
+            with self.subTest(mode=mode):
+                args = _with_trust_mode(argparse.Namespace(), mode)
+                self.assertEqual(cli._archive_trust_mode(args),
+                                 cli.ARCHIVE_TRUST_DEFAULT_MODE)
+
+    def test_a_mode_that_was_named_is_returned_as_it_came(self):
+        """An empty string included: it is unrecognised, not missing, and the
+        gate refuses it. Reading it as the default would turn an unusable value
+        into a permission silently."""
+        for mode in ("strict", "repo-only", "loose", "banana", ""):
+            with self.subTest(mode=mode):
+                self.assertEqual(
+                    cli._archive_trust_mode(
+                        argparse.Namespace(archive_trust=mode)),
+                    mode)
+
+    def test_nothing_else_in_the_module_reads_the_mode_for_itself(self):
+        """"In one place" as a measurement of the source, not a promise.
+
+        Every read of the command line's trust mode in `pkm/cli.py` — a
+        `getattr(args, "archive_trust", ...)` or an attribute access — must sit
+        inside `_archive_trust_mode`, and the functions that ask it are the three
+        that need it. A fourth reader with its own default is exactly the defect
+        this closes, and it would be caught here rather than by its own divergent
+        behaviour later.
+        """
+        source = Path(cli.__file__).read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        functions = [n for n in ast.walk(tree)
+                     if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+
+        readers = []
+        for function in functions:
+            for node in ast.walk(function):
+                reads_it = (
+                    (isinstance(node, ast.Call)
+                     and isinstance(node.func, ast.Name)
+                     and node.func.id == "getattr"
+                     and len(node.args) >= 2
+                     and isinstance(node.args[1], ast.Constant)
+                     and node.args[1].value == "archive_trust")
+                    or (isinstance(node, ast.Attribute)
+                        and node.attr == "archive_trust"))
+                if reads_it:
+                    readers.append((function.name, node.lineno))
+        self.assertEqual(
+            sorted({name for name, _line in readers}), ["_archive_trust_mode"],
+            f"the trust mode is read off the command line at {readers!r}, not "
+            f"only inside the one function that defaults it")
+
+        askers = sorted({function.name for function in functions
+                         for node in ast.walk(function)
+                         if isinstance(node, ast.Call)
+                         and isinstance(node.func, ast.Name)
+                         and node.func.id == "_archive_trust_mode"})
+        self.assertEqual(
+            askers,
+            ["_local_archive_upgrade_candidates", "_name_header_mode", "cmd_install"],
+            f"the one place is asked by {askers!r}")
+
+
+class BothSitesUnderEveryMode(_BothPaths, unittest.TestCase):
+    """Every mode a caller can arrive with, at both sites, real gate in place."""
+
+    def test_each_recognised_mode_decides_as_it_always_has(self):
+        """The no-regression leg: green at this lane's parent too, by design.
+
+        What strict, repo-only and loose decide is excluded from this change, so
+        these nine sub-cases are here to prove it — a mode this build recognises
+        reaches exactly the answer it reached before.
+        """
+        for mode, admits_a_contradiction in (("strict", False),
+                                             ("repo-only", False),
+                                             ("loose", True)):
+            with self.subTest(mode=mode, standing="matches", site="install"):
+                self.assertIsNotNone(
+                    self._drive_install(_entry(self.archive_sha), mode=mode),
+                    f"install refused a matching archive under {mode}: {self.said}")
+            with self.subTest(mode=mode, standing="matches", site="upgrade"):
+                self.assertTrue(
+                    self._drive_upgrade(_entry(self.archive_sha), mode=mode),
+                    f"upgrade refused a matching archive under {mode}: {self.said}")
+            with self.subTest(mode=mode, standing="contradicted", site="install"):
+                call = self._drive_install(_entry(OTHER_SHA), mode=mode)
+                self.assertEqual(call is not None, admits_a_contradiction,
+                                 f"under {mode}: {self.said}")
+            with self.subTest(mode=mode, standing="contradicted", site="upgrade"):
+                queue = self._drive_upgrade(_entry(OTHER_SHA), mode=mode)
+                self.assertEqual(bool(queue), admits_a_contradiction,
+                                 f"under {mode}: {self.said}")
+
+    def test_an_unrecognised_mode_is_refused_on_both_sites_in_each_ones_words(self):
+        """And it is NOT refused in strict's words: the mode is the reason."""
+        for mode in ("banana", ""):
+            with self.subTest(mode=mode, site="install"):
+                call = self._drive_install(_entry(self.archive_sha), mode=mode)
+                self.assertIsNone(
+                    call,
+                    f"install proceeded under an unrecognised trust mode "
+                    f"{mode!r}: {self.said}")
+                self.assertIn("is not a trust mode", self.said)
+                self.assertIn("strict, repo-only, loose", self.said)
+                self.assertNotIn("--archive-trust=strict requires", self.said)
+                # This path refuses the package and carries the transaction on.
+                self.assertNotIn("Nothing was changed", self.said)
+            with self.subTest(mode=mode, site="upgrade"):
+                queue = self._drive_upgrade(_entry(self.archive_sha), mode=mode)
+                self.assertIsNone(
+                    queue,
+                    f"upgrade proceeded under an unrecognised trust mode "
+                    f"{mode!r}: {self.said}")
+                self.assertIn("is not a trust mode", self.said)
+                self.assertIn("strict, repo-only, loose", self.said)
+                self.assertNotIn("--archive-trust=strict requires", self.said)
+                # And this one stops the command and says so.
+                self.assertIn("Nothing was changed", self.said)
+
+    def test_a_missing_mode_means_strict_on_both_sites(self):
+        """The split this closes: at this lane's parent a contradicted archive
+        under a mode of None was INSTALLED by `pkm install` and refused by the
+        upgrade path, off one command line."""
+        for mode in (MISSING, None):
+            with self.subTest(mode=mode, standing="matches"):
+                self.assertIsNotNone(
+                    self._drive_install(_entry(self.archive_sha), mode=mode),
+                    f"install refused a matching archive: {self.said}")
+                self.assertTrue(
+                    self._drive_upgrade(_entry(self.archive_sha), mode=mode),
+                    f"upgrade refused a matching archive: {self.said}")
+            with self.subTest(mode=mode, standing="contradicted", site="install"):
+                self.assertIsNone(
+                    self._drive_install(_entry(OTHER_SHA), mode=mode),
+                    f"install proceeded on a contradicted archive with no mode "
+                    f"named: {self.said}")
+                self.assertIn("--archive-trust=strict requires", self.said)
+            with self.subTest(mode=mode, standing="contradicted", site="upgrade"):
+                self.assertIsNone(
+                    self._drive_upgrade(_entry(OTHER_SHA), mode=mode),
+                    f"upgrade proceeded on a contradicted archive with no mode "
+                    f"named: {self.said}")
+                self.assertIn("--archive-trust=strict requires", self.said)
+                self.assertIn("Nothing was changed", self.said)
+
+    def test_a_missing_mode_reaches_the_gate_as_the_default_on_both_sites(self):
+        """Not only the same outcome: the same value, asked of the gate once."""
+        for site, name in ((self._drive_install, "install"),
+                           (self._drive_upgrade, "upgrade")):
+            for mode in (MISSING, None):
+                with self.subTest(site=name, mode=mode):
+                    calls = self._recorded(
+                        site, _entry(self.archive_sha),
+                        (cli.ARCHIVE_TRUST_MATCHES, True), mode=mode)
+                    self.assertEqual([call[2] for call in calls],
+                                     [cli.ARCHIVE_TRUST_DEFAULT_MODE])
+
+    def test_the_name_header_rule_reads_the_same_one_place(self):
+        """The third reader of the same value, answer for answer.
+
+        `_name_header_mode` had its own inline default for the same attribute, so
+        it is now a caller of the one place. Its answers do not change — a
+        missing mode was never "loose" and still is not — and that is what this
+        holds: another no-regression leg, green at this lane's parent as well.
+        """
+        for mode in ("loose", "strict", "repo-only", "banana", "", None, MISSING):
+            expected = "report" if mode == "loose" else "refuse"
+            with self.subTest(mode=mode, archive="named"):
+                args = _with_trust_mode(
+                    argparse.Namespace(archive=str(self.archive)), mode)
+                self.assertEqual(cli._name_header_mode(args), expected)
+            with self.subTest(mode=mode, archive="none"):
+                args = _with_trust_mode(argparse.Namespace(archive=None), mode)
+                self.assertEqual(cli._name_header_mode(args), "refuse")
 
 
 if __name__ == "__main__":

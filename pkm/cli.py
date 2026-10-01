@@ -1784,10 +1784,43 @@ ARCHIVE_TRUST_MATCHES = "matches"            # the index vouches for THIS file
 ARCHIVE_TRUST_CONTRADICTED = "contradicted"  # the index has a hash and it differs
 ARCHIVE_TRUST_UNVOUCHED = "unvouched"        # the index offers no hash to compare
 
-# The trust modes that require a match. Named rather than inferred, because what
-# the code has always done is refuse under exactly these two and permit under
-# anything else — see _explicit_archive_trust.
+# Every trust mode this build recognises, in one place. The gate permits only
+# under one of these and refuses anything else, so the tuple is what fail-closed
+# is measured against; a case holds it equal to the command line's own `choices`
+# for both subcommands that carry --archive-trust, because a mode added there and
+# not here would be refused on every archive.
+ARCHIVE_TRUST_MODES = ("strict", "repo-only", "loose")
+
+# The mode a person who named none is held to. Both paths that take an archive a
+# person named read it from here, so a missing mode cannot mean two things.
+ARCHIVE_TRUST_DEFAULT_MODE = "strict"
+
+# The trust modes that require a match. Named rather than inferred, because a
+# mode's requiring a match is a decision rather than something to read off its
+# spelling — and the modes it leaves are not "everything else" but the rest of
+# ARCHIVE_TRUST_MODES; see _explicit_archive_trust.
 ARCHIVE_TRUST_MODES_REQUIRING_A_MATCH = ("strict", "repo-only")
+
+
+def _archive_trust_mode(args):
+    """The trust mode this command runs under, read in ONE place.
+
+    `--archive-trust` is optional, so the attribute can be absent or present and
+    unset, and every reader of it used to carry its own default: `pkm install`
+    took `getattr(args, "archive_trust", "strict")`, which yields None when the
+    attribute is there and carries nothing, while the local-archive upgrade path
+    coerced the same expression with `or "strict"`. A mode of None therefore MEANT
+    two different things depending on which path read it — refused on one,
+    permitted on the other — off one command line (second-read finding c1,
+    2026-09-30). One default, here, for every reader.
+
+    Absent or None is a mode nobody named, and means ARCHIVE_TRUST_DEFAULT_MODE.
+    Anything else is returned as it came, an empty string included: an empty
+    string is not a missing mode but an unrecognised one, and an unrecognised mode
+    is the gate's to refuse rather than this function's to read as the default.
+    """
+    mode = getattr(args, "archive_trust", None)
+    return ARCHIVE_TRUST_DEFAULT_MODE if mode is None else mode
 
 
 def _explicit_archive_trust(index_entry, archive_sha256, trust_mode):
@@ -1814,11 +1847,18 @@ def _explicit_archive_trust(index_entry, archive_sha256, trust_mode):
     disagree while the other prints one warning line. Those differences are the
     sites', and they stay there.
 
-    ONE THING THIS PRESERVES RATHER THAN FIXES: a mode that is neither "strict"
-    nor "repo-only" permits, match or no match. That is what both copies have
-    always done, and argparse admits only the three modes, so no caller can
-    reach it today; closing it would be a change of behaviour and is not this
-    function's to make.
+    IT FAILS CLOSED. Only a mode in ARCHIVE_TRUST_MODES can permit anything; a
+    mode this build does not recognise — None, an empty string, "STRICT", a
+    fourth mode added to the command line and not to this rule — is refused
+    whatever the index says of the file. A trust gate that permits what it cannot
+    interpret is fail-open in the one direction that matters, which is what may be
+    installed. Until 2026-09-30 it permitted under any mode that was neither
+    "strict" nor "repo-only", match or no match, which is what both of its copies
+    had always done; nothing reachable exercised it, because the command line
+    admits only the three modes and both call sites now take a missing one
+    through `_archive_trust_mode`, and it is closed here rather than left latent.
+    The standing still travels with the refusal, so a caller can say what the
+    index thought of the file as well as that the mode was not honoured.
     """
     expected = (index_entry or {}).get("sha256")
     if expected and expected == archive_sha256:
@@ -1827,6 +1867,8 @@ def _explicit_archive_trust(index_entry, archive_sha256, trust_mode):
         standing = ARCHIVE_TRUST_CONTRADICTED
     else:
         standing = ARCHIVE_TRUST_UNVOUCHED
+    if trust_mode not in ARCHIVE_TRUST_MODES:
+        return standing, False
     permitted = (standing == ARCHIVE_TRUST_MATCHES
                  or trust_mode not in ARCHIVE_TRUST_MODES_REQUIRING_A_MATCH)
     return standing, permitted
@@ -2108,7 +2150,7 @@ def _name_header_mode(args):
     install: 'report' (name both, install the header's build) only for a local
     archive installed deliberately with --archive-trust loose; 'refuse' for
     everything else, strict and repo-only included."""
-    if getattr(args, "archive", None) and getattr(args, "archive_trust", "strict") == "loose":
+    if getattr(args, "archive", None) and _archive_trust_mode(args) == "loose":
         return "report"
     return "refuse"
 
@@ -2245,7 +2287,7 @@ def cmd_install(db, args):
 
         # Try local archive first
         if archive:
-            trust_mode = getattr(args, "archive_trust", "strict")
+            trust_mode = _archive_trust_mode(args)
 
             # Compute SHA256 for all modes (used for display + matching)
             import hashlib
@@ -2309,7 +2351,22 @@ def cmd_install(db, args):
             # Trust gate (H3): the decision is the rule's; the words and what a
             # refusal does to the rest of this transaction are this path's.
             if not _permitted:
-                if trust_mode == "repo-only":
+                if trust_mode not in ARCHIVE_TRUST_MODES:
+                    # Not strict's sentence: the mode itself is the refusal, and
+                    # naming a mode the person did not ask for would misreport
+                    # why the archive was refused.
+                    reporter.error(
+                        f"--archive-trust={trust_mode!r} is not a trust mode "
+                        f"this build recognises "
+                        f"({', '.join(ARCHIVE_TRUST_MODES)}); the archive is "
+                        f"refused."
+                    )
+                    refused_this_txn.append((
+                        pkg_name,
+                        f"the archive's trust mode {trust_mode!r} is not one "
+                        f"this build recognises",
+                    ))
+                elif trust_mode == "repo-only":
                     reporter.error(
                         "--archive-trust=repo-only requires archive SHA256 to "
                         "match the repository index. Use --archive-trust=loose "
@@ -5583,7 +5640,7 @@ def _local_archive_upgrade_candidates(db, repo, args, archive):
     emit_info(f"Archive: {path}")
     emit_info(f"SHA256:  {archive_sha}")
     # The trust gate `pkm install --archive` applies, same modes, same words.
-    trust_mode = getattr(args, "archive_trust", "strict") or "strict"
+    trust_mode = _archive_trust_mode(args)
     repo_pkg = None
     try:
         repo_pkg = repo.get_package(name)
@@ -5604,7 +5661,13 @@ def _local_archive_upgrade_candidates(db, repo, args, archive):
             f"index {repo_pkg['sha256']}"
         )
     if not permitted:
-        if trust_mode == "repo-only":
+        if trust_mode not in ARCHIVE_TRUST_MODES:
+            emit_error(
+                f"--archive-trust={trust_mode!r} is not a trust mode this build "
+                f"recognises ({', '.join(ARCHIVE_TRUST_MODES)}). Nothing was "
+                f"changed."
+            )
+        elif trust_mode == "repo-only":
             emit_error(
                 "--archive-trust=repo-only requires archive SHA256 to match the "
                 "repository index. Use --archive-trust=loose to override. "
