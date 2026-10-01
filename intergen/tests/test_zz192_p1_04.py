@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2015-2016, 2026 InterGenJLU
-"""ZIGOSC-192 P1-04 — "/new" as a SLASH COMMAND must end the conversation.
+"""Item 192, P1-04 — "/new" as a SLASH COMMAND must end the conversation.
 
 THE RULE, quoted verbatim from the code it is written above
 (intergen/web_server.py lines 1877-1881, inside ``_handle_new_session``):
