@@ -642,12 +642,29 @@ class RepoManager:
 
                 # Verify GPG signature — fail closed if keyring missing (C1.1)
                 if not GPG_KEYRING.exists():
-                    db_path.unlink(missing_ok=True)
-                    sig_path.unlink(missing_ok=True)
+                    # FAIL CLOSED, WITHOUT DESTROYING THE ARTEFACT. Nothing
+                    # checked this index, which is not the same fact as a check
+                    # that failed, and only the second justifies deleting the
+                    # file: with the keyring absent the fault is the keyring's,
+                    # and the body the mirror served is the only thing anyone can
+                    # look at afterwards. It is LEFT in the cache, unverified, and
+                    # nothing trusts it — _ensure_synced re-verifies every cached
+                    # index before it is loaded and refuses this one by the same
+                    # rule, in its own words (2026-10-01).
+                    #
+                    # What this does NOT recover: _download moves the completed
+                    # body onto the cached path, so by this line the index that
+                    # was there before — the one that DID verify — has already
+                    # been overwritten. Keeping the new body preserves what the
+                    # mirror served, not the previous good index. Measured in this
+                    # item's seal, and recommended there as its own change.
                     if reporter:
                         reporter.signature(False)
                     results.append((name, False,
-                        "GPG keyring not found — cannot verify index"))
+                        f"GPG keyring not found at {GPG_KEYRING} — cannot "
+                        f"verify index; the downloaded index was LEFT in the "
+                        f"cache unverified, and nothing trusts it until a "
+                        f"keyring verifies it"))
                     continue
                 signing_fp = self._verify_signature(db_path, sig_path)
                 if not signing_fp:
@@ -1208,15 +1225,28 @@ class RepoManager:
                         # fails loudly, which is the point.
                         raise unreadable
                     if not GPG_KEYRING.exists():
-                        reason = (f"the keyring {GPG_KEYRING} is absent, so "
-                                  f"nothing could check it")
-                    else:
-                        reason = ("its signature did not verify against the "
-                                  "pinned release keys")
+                        # NOTHING CHECKED IT, so nothing is destroyed. The
+                        # verification never ran — the keyring is absent — and a
+                        # cache that was working before is not shown to be
+                        # untrustworthy by a fault in the keyring. The repo is
+                        # still not loaded and still not trusted; only the
+                        # deletion is gone, and with it the loss of the one file
+                        # a person would compare once the keyring is back.
+                        sys.stderr.write(
+                            f"pkm: cached index for repo '{name}' is NOT "
+                            f"TRUSTED: the keyring {GPG_KEYRING} is absent, so "
+                            f"nothing could check it.\n"
+                            f"     It is LEFT IN PLACE, unverified and unused: "
+                            f"a missing keyring is a fault in the keyring, not "
+                            f"evidence against the index.\n"
+                            f"     Restore the keyring, then run `pkm sync` to "
+                            f"verify or replace the index.\n"
+                        )
+                        continue
                     sys.stderr.write(
-                        f"pkm: cached index for repo '{name}' was REMOVED: "
-                        f"{reason}. An index pkm cannot verify is never "
-                        f"trusted.\n"
+                        f"pkm: cached index for repo '{name}' was REMOVED: its "
+                        f"signature did not verify against the pinned release "
+                        f"keys. An index pkm cannot verify is never trusted.\n"
                         f"     Run `pkm sync` to fetch one that verifies.\n"
                     )
                     db_path.unlink(missing_ok=True)
