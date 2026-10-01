@@ -55,8 +55,8 @@ DIVISION OF LABOR (AI-6 build, branch off master 5ce0dc41):
     (NOT HOME=/root), and the strong run_command classifier (AI-4).
   * Verification — an independent review of both sides.
 
-This module is stdlib-only (hmac, hashlib, secrets, json, base64, time, os, pwd,
-pathlib) so it is auditable in isolation and carries no third-party trust.
+This module is stdlib-only (hmac, hashlib, secrets, json, base64, shlex, time, os,
+pwd, pathlib) so it is auditable in isolation and carries no third-party trust.
 """
 
 from __future__ import annotations
@@ -69,6 +69,7 @@ import logging
 import os
 import pwd
 import secrets
+import shlex
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -215,22 +216,28 @@ def _owning_home() -> Path:
 
 
 def secret_file_reason(candidate: object) -> str | None:
-    """Why this value names one of the install's own secret files, or None.
+    """Why this value, TAKEN WHOLE, is a path to one of the install's own secret
+    files, or None.
 
-    THE THREAT MODEL IN THIS MODULE'S HEADER IS WHAT THIS FUNCTION ENFORCES. That
-    header justifies a file key over the keyring on the ground that prompt
-    injection "can only make the LLM emit a ToolCall -- it cannot read the key
-    file". A tool call CAN read any file the daemon's own account can read, and
-    the key is owned by that account, so the sentence was true only as an
-    intention until something refused the read. The dispatcher consults this for
-    every tool call, before any tool runs.
+    The dispatcher's screen, and a screen only. It can reject a canonical textual
+    reference before review or execution; it cannot establish which file a tool
+    will open, and the file boundary further down this module is what does that.
 
-    Matching is on the path's TAIL, not on a resolved home, for three reasons.
-    The daemon may run for any account; a test or a staged install puts the same
-    files under a different base; and a path arriving from a model is not
+    The question asked is whether the value IS the file: the final components of
+    the path it spells are compared with the components the install keeps its
+    credentials under. That is deliberately narrow in two directions a wider
+    comparison got wrong. A longer filename that merely begins with one of these
+    names is a different file and is not refused — refusing it stopped an ordinary
+    read for no gain. And descriptive text that mentions one of these names opens
+    nothing, so it is not refused either; a string a tool will hand to a process
+    is a command, which `secret_file_named_in_command` handles, and every other
+    string is prose.
+
+    Matching is on the path's TAIL, not against a resolved home, for three
+    reasons. The daemon may run for any account; a test or a staged install puts
+    the same files under a different base; and a path arriving from a model is not
     trustworthy enough to resolve against one expected home and dismiss when it
-    does not match. The conservative direction is to refuse a file that is
-    shaped like the secret wherever it sits.
+    does not match.
 
     `candidate` is whatever a tool argument held, so it is deliberately typed
     loosely: a value that is not a string or a path cannot name a file and
@@ -245,22 +252,48 @@ def secret_file_reason(candidate: object) -> str | None:
     if not text:
         return None
 
+    # expanduser covers the tilde form a person or a model writes; no resolve(),
+    # which would touch the filesystem for a value that may be hostile and may
+    # not exist. Resolution belongs to the consumer, after its open.
+    try:
+        parts = Path(text).expanduser().parts
+    except (ValueError, RuntimeError):
+        return None
     for relative, reason in SECRET_RELATIVE_PATHS.items():
-        tail = "/".join(relative)
-        # (a) the value IS the file, by its own path tail. expanduser covers the
-        # tilde form a person or a model writes; no resolve(), which would touch
-        # the filesystem for a value that may be hostile and may not exist.
-        try:
-            parts = Path(text).expanduser().parts
-        except (ValueError, RuntimeError):
-            parts = ()
         if len(parts) >= len(relative) and tuple(parts[-len(relative):]) == relative:
             return reason
-        # (b) the value NAMES the file inside a longer string -- a command line,
-        # for instance. The tail is specific enough that an ordinary command
-        # cannot contain it by accident, and a command that does contain it is
-        # asking for exactly what this refuses.
-        if tail in text.replace("\\", "/"):
+    return None
+
+
+def secret_file_named_in_command(text: object) -> str | None:
+    """Why a command line names one of the install's own secret files, or None.
+
+    A command is the one argument shape where one of these paths can sit inside a
+    longer string and still be opened, because what opens it is a process this
+    package does not instrument at the point of opening. The file boundary below
+    never sees that open, so for a command the text is all there is.
+
+    The command is split into words the way its runner splits it, and each word is
+    asked the same question a path argument is asked. Splitting is what keeps the
+    answer honest in both directions: a word that merely begins with one of these
+    names is a different file and matches nothing, while a credential path sitting
+    anywhere among the words is found wherever it sits.
+
+    This is applied ONLY to a parameter a tool declares as a command line. A
+    string a tool will never hand to a process is prose, and refusing prose stops
+    the assistant explaining its own security while protecting nothing.
+    """
+    if not isinstance(text, str) or not text:
+        return None
+    try:
+        words = shlex.split(text)
+    except ValueError:
+        # An unbalanced quote is not a reason to stop looking: fall back to the
+        # plain split, which can only find more words, never fewer.
+        words = text.split()
+    for word in words:
+        reason = secret_file_reason(word)
+        if reason is not None:
             return reason
     return None
 

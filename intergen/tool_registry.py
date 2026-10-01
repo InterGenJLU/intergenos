@@ -112,7 +112,8 @@ from intergen.provenance import (
     verify_tool_call,
 )
 from intergen.audit_log import write_record
-from intergen.dispatch_token import secret_file_reason
+from intergen.dispatch_token import (secret_file_named_in_command,
+                                     secret_file_reason)
 from intergen.trace import get_tracer
 from intergen.dispatch_token import (
     DispatchTokenError,
@@ -493,18 +494,45 @@ def _scan_surface(tool_name: str, arguments: dict[str, Any], *, external: bool) 
     return f"{source_type}:{source}" if source else source_type
 
 
-def _names_an_install_secret(arguments: object) -> str | None:
+def _names_an_install_secret(arguments: object,
+                            command_line_parameters: tuple[str, ...] = (),
+                            ) -> str | None:
     """The reason any value in `arguments` names an install secret, or None.
 
     Walks the whole argument structure rather than a list of parameter names: a
-    path can arrive as a bare string, inside a list, under a key this function has
-    never heard of, or embedded in a command line, and the guard is worth nothing
-    if its coverage depends on a tool's choice of parameter name. The predicate
-    itself lives in the module that owns the files, so there is one place that
-    knows what the install's secrets are.
+    path can arrive as a bare string, inside a list, or under a key this function
+    has never heard of, and the screen is worth nothing if its coverage depends on
+    a tool's choice of parameter name. The predicates live in the module that owns
+    the files, so there is one place that knows what the install's secrets are.
+
+    KEYS ARE WALKED AS WELL AS VALUES. A tool is free to take its paths as the
+    keys of a mapping and consume them from there, and a walk that looked only at
+    values never saw those paths at all.
+
+    The screen asks one question of every string it meets: is this value, taken
+    whole, a path to one of those files. For a parameter the tool DECLARES as a
+    command line it also asks whether any word of the command is such a path,
+    because a command is the one shape where the thing that opens the file is a
+    process this package cannot instrument at the point of opening. It asks
+    nothing else of any other string: text that a tool will never hand to a
+    process opens nothing, and refusing it stopped ordinary work while protecting
+    nothing. What a tool will actually open is established at the file boundary in
+    the consumers, not here.
+
+    `command_line_parameters` is empty unless the dispatched tool declares
+    otherwise, so a tool whose semantics this package does not know gets the path
+    question only. Nested structures are walked with it empty: a declaration names
+    a parameter of the call, not a key somewhere inside one of its values.
     """
     if isinstance(arguments, dict):
-        for value in arguments.values():
+        for key, value in arguments.items():
+            reason = secret_file_reason(key)
+            if reason is not None:
+                return reason
+            if key in command_line_parameters:
+                reason = secret_file_named_in_command(value)
+                if reason is not None:
+                    return reason
             reason = _names_an_install_secret(value)
             if reason is not None:
                 return reason
@@ -846,19 +874,25 @@ class ToolRegistry:
         # tier for every provenance, and the key came back in the tool result and
         # in the audit record with no review surface consulted.
         #
-        # The refusal is HERE, at the one place every tool call passes, and not
-        # inside the file-reading tools, for the same reason the persisted-record
-        # redaction sits at its writer: a tool added tomorrow is covered without
-        # its author knowing this guard exists. It is checked against EVERY
-        # argument value, not only the ones named like a path, because a command
-        # line carrying the key's path is the same request in different clothes.
+        # This screen is HERE, at the one place every tool call passes, so a
+        # direct textual reference is rejected before review or execution and a
+        # tool added tomorrow inherits that much without its author knowing the
+        # screen exists. It is not the boundary: it cannot establish which file a
+        # tool will open, and the three consumers that open a caller's path
+        # decide that on the object they opened. What it asks of a string is
+        # whether the value is a path to one of these files, and for a parameter
+        # a tool declares as a command line, whether any word of the command is;
+        # a string a tool will never hand to a process opens nothing.
         #
         # It lands before the review path on purpose. A person must never be shown
         # an approval modal for reading the key that makes approvals verifiable:
         # the whole point of the key is that root can tell a human approval from an
         # injected one, so an approval prompt for it is a question that should not
         # be asked.
-        secret_reason = _names_an_install_secret(arguments)
+        secret_reason = _names_an_install_secret(
+            arguments,
+            tool.command_line_parameters if tool is not None else (),
+        )
         if secret_reason is not None:
             refusal = (
                 "Tool call refused: the arguments name "

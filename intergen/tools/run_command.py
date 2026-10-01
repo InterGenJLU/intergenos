@@ -48,6 +48,10 @@ MAX_OUTPUT_BYTES = 65536  # 64 KB — truncate beyond this
 class RunCommandTool(BaseTool):
     """Execute a single command (shell=False) with tiered safety classification."""
 
+    #: This tool hands `command` to a process, so the dispatcher's credential
+    #: screen reads its words as well as the value whole.
+    command_line_parameters = ("command",)
+
     @property
     def name(self) -> str:
         return "run_command"

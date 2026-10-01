@@ -16,6 +16,19 @@ class BaseTool(ABC):
     The ToolRegistry discovers and loads tools at startup.
     """
 
+    #: The parameters whose value this tool hands to a process as a command line.
+    #: Declared by the tool because only the tool knows; empty by default, so a
+    #: tool says nothing about its arguments unless it has something to say.
+    #:
+    #: The dispatcher's credential screen reads it. A path can sit inside a
+    #: command string and still be opened — by a process this package does not
+    #: instrument at the point of opening — so for a declared command line the
+    #: screen looks at the command's words as well as the value whole. For every
+    #: other string it asks only whether the value IS such a path, because a
+    #: string a tool will never hand to a process opens nothing and refusing it
+    #: protects nothing.
+    command_line_parameters: tuple[str, ...] = ()
+
     @property
     @abstractmethod
     def name(self) -> str:
