@@ -343,6 +343,33 @@ class InterGenDaemon(InterGenDBusInterface):
             })
 
         if self._router is None:
+            # A REFUSED START IS NOT A START IN PROGRESS. The single-instance
+            # guard is fail-closed: when it cannot prove sole ownership of the
+            # bus name it binds nothing and returns, so this process has
+            # already decided it will not start. "Starting up, please wait" is
+            # a promise about the future and after a refusal it is false in
+            # both halves -- nothing is starting, and waiting changes nothing.
+            # The route that reaches it is the one the command line points a
+            # person at when the service is down (ask --direct), so the person
+            # was told to wait for a start that will never happen. A daemon
+            # that really is partway through its start keeps the original
+            # sentence: this is a second reply, not a replacement.
+            if getattr(self, "_duplicate_instance", False):
+                if getattr(self, "_bus_verify_failed", False):
+                    why = ("sole ownership of InterGen's name on the message "
+                           "bus could not be verified (the session bus was "
+                           "unreachable, or PyGObject is not installed)")
+                else:
+                    why = ("another process already owns InterGen's name on "
+                           "the message bus, and that one is serving")
+                return json.dumps({
+                    "response": (
+                        f"InterGen could not start in this process: {why}. "
+                        "Nothing is starting here, so waiting will not change "
+                        "it; the daemon log carries the guard's own reason."),
+                    "source": "refused-start",
+                    "handled": False,
+                })
             return json.dumps({
                 "response": "InterGen is starting up, please wait.",
                 "source": "startup",
