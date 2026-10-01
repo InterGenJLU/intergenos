@@ -112,6 +112,7 @@ from intergen.provenance import (
     verify_tool_call,
 )
 from intergen.audit_log import write_record
+from intergen.dispatch_token import secret_file_reason
 from intergen.trace import get_tracer
 from intergen.dispatch_token import (
     DispatchTokenError,
@@ -492,6 +493,31 @@ def _scan_surface(tool_name: str, arguments: dict[str, Any], *, external: bool) 
     return f"{source_type}:{source}" if source else source_type
 
 
+def _names_an_install_secret(arguments: object) -> str | None:
+    """The reason any value in `arguments` names an install secret, or None.
+
+    Walks the whole argument structure rather than a list of parameter names: a
+    path can arrive as a bare string, inside a list, under a key this function has
+    never heard of, or embedded in a command line, and the guard is worth nothing
+    if its coverage depends on a tool's choice of parameter name. The predicate
+    itself lives in the module that owns the files, so there is one place that
+    knows what the install's secrets are.
+    """
+    if isinstance(arguments, dict):
+        for value in arguments.values():
+            reason = _names_an_install_secret(value)
+            if reason is not None:
+                return reason
+        return None
+    if isinstance(arguments, (list, tuple, set)):
+        for value in arguments:
+            reason = _names_an_install_secret(value)
+            if reason is not None:
+                return reason
+        return None
+    return secret_file_reason(arguments)
+
+
 def _egress_payload(arguments: dict[str, Any]) -> str:
     """Serialize a call's arguments for an EGRESS (args-leaving) scan.
 
@@ -808,6 +834,52 @@ class ToolRegistry:
                                          str(decision.effective_provenance)))
             _gspan.set_attribute("needs_pkexec", decision.needs_pkexec)
             _gspan.set_content("gate_reason", decision.reason)
+
+        # THE INSTALL'S OWN SECRET FILES ARE REFUSED HERE, FOR EVERY TOOL.
+        #
+        # intergen/dispatch_token.py justifies keeping the per-install signing key
+        # in a mode-0600 file on the ground that prompt injection "can only make
+        # the LLM emit a ToolCall -- it cannot read the key file". A ToolCall can
+        # read any file this account can read, and the key is owned by this
+        # account, so that sentence held only as an intention: a file-reading tool
+        # declares the automatic safety tier, the behaviour matrix executes that
+        # tier for every provenance, and the key came back in the tool result and
+        # in the audit record with no review surface consulted.
+        #
+        # The refusal is HERE, at the one place every tool call passes, and not
+        # inside the file-reading tools, for the same reason the persisted-record
+        # redaction sits at its writer: a tool added tomorrow is covered without
+        # its author knowing this guard exists. It is checked against EVERY
+        # argument value, not only the ones named like a path, because a command
+        # line carrying the key's path is the same request in different clothes.
+        #
+        # It lands before the review path on purpose. A person must never be shown
+        # an approval modal for reading the key that makes approvals verifiable:
+        # the whole point of the key is that root can tell a human approval from an
+        # injected one, so an approval prompt for it is a question that should not
+        # be asked.
+        secret_reason = _names_an_install_secret(arguments)
+        if secret_reason is not None:
+            refusal = (
+                "Tool call refused: the arguments name "
+                f"{secret_reason}. The assistant does not read its own "
+                "credential files, and no approval can authorise it to."
+            )
+            self._audit_log_decision(
+                call, decision, ingress_tracker,
+                user_outcome="denied",
+                exit_code=1,
+                result_summary=refusal,
+                source_attribution=source_attribution,
+                excerpt=excerpt,
+            )
+            return ToolResult(
+                call_id=call.call_id,
+                name=tool_name,
+                content=refusal,
+                success=False,
+                executed=False,
+            )
 
         # Reject path — gate refused (missing source_of_request, prior
         # deny-conversation, or schema violation).

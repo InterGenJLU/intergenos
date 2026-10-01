@@ -38,6 +38,15 @@ startup-reliability reason) and is transparent + inspectable by the user
 the threat is prompt-INJECTION (which can only make the LLM emit a ToolCall — it
 cannot read the key file or call the mint), not RCE.
 
+THAT LAST CLAUSE IS ENFORCED, NOT ASSUMED, AS OF 2026-10-01. A ToolCall can read
+any file the daemon's own account can read, and this key is owned by that account,
+so "it cannot read the key file" was an intention until something refused the
+read: a file-reading tool dispatched at the key returned it in the tool result and
+in the audit record, with no review surface consulted. `secret_file_reason` below
+names the install's own secret files, and the dispatcher consults it for every
+tool call before any tool runs — so the sentence above is now a property of the
+code rather than a claim about the attacker.
+
 DIVISION OF LABOR (AI-6 build, branch off master 5ce0dc41):
   * User side (this module + the mint call-site) — key gen-on-first-run, the canonical
     token format, `mint_token`, and the shared `verify_token` crypto primitive.
@@ -78,6 +87,20 @@ TOKEN_VERSION = 1
 #: The per-install signing key file, relative to the owning user's home. Mirrors
 #: the web-token at ~/.config/intergen/web-token (setup.py).
 KEY_RELATIVE_PATH = (".config", "intergen", "dispatch-key")
+
+#: The install's OWN secret files, each relative to the owning user's home, with
+#: the reason a refusal states. The threat model in this module's header rests on
+#: a tool call being unable to read the key; `secret_file_reason` below is what
+#: makes that true rather than intended, and the dispatcher consults it for every
+#: tool call. The web-token is here for the same reason the header cites it as the
+#: precedent: it is the credential the browser surface authenticates with.
+SECRET_RELATIVE_PATHS = {
+    KEY_RELATIVE_PATH:
+        "the per-install dispatch signing key, which is what lets the root side "
+        "tell a human approval from an injected one",
+    (".config", "intergen", "web-token"):
+        "the browser interface's authentication token",
+}
 
 #: 256-bit key, hex-encoded (64 chars) — matches the web-token's token_hex(32).
 KEY_BYTES = 32
@@ -177,6 +200,57 @@ def dispatch_key_path(home: Path | None = None) -> Path:
     if home is None:
         home = Path(pwd.getpwuid(os.getuid()).pw_dir)
     return home.joinpath(*KEY_RELATIVE_PATH)
+
+
+def secret_file_reason(candidate: object) -> str | None:
+    """Why this value names one of the install's own secret files, or None.
+
+    THE THREAT MODEL IN THIS MODULE'S HEADER IS WHAT THIS FUNCTION ENFORCES. That
+    header justifies a file key over the keyring on the ground that prompt
+    injection "can only make the LLM emit a ToolCall -- it cannot read the key
+    file". A tool call CAN read any file the daemon's own account can read, and
+    the key is owned by that account, so the sentence was true only as an
+    intention until something refused the read. The dispatcher consults this for
+    every tool call, before any tool runs.
+
+    Matching is on the path's TAIL, not on a resolved home, for three reasons.
+    The daemon may run for any account; a test or a staged install puts the same
+    files under a different base; and a path arriving from a model is not
+    trustworthy enough to resolve against one expected home and dismiss when it
+    does not match. The conservative direction is to refuse a file that is
+    shaped like the secret wherever it sits.
+
+    `candidate` is whatever a tool argument held, so it is deliberately typed
+    loosely: a value that is not a string or a path cannot name a file and
+    returns None rather than raising inside the dispatch path.
+    """
+    if isinstance(candidate, Path):
+        text = str(candidate)
+    elif isinstance(candidate, str):
+        text = candidate
+    else:
+        return None
+    if not text:
+        return None
+
+    for relative, reason in SECRET_RELATIVE_PATHS.items():
+        tail = "/".join(relative)
+        # (a) the value IS the file, by its own path tail. expanduser covers the
+        # tilde form a person or a model writes; no resolve(), which would touch
+        # the filesystem for a value that may be hostile and may not exist.
+        try:
+            parts = Path(text).expanduser().parts
+        except (ValueError, RuntimeError):
+            parts = ()
+        if len(parts) >= len(relative) and tuple(parts[-len(relative):]) == relative:
+            return reason
+        # (b) the value NAMES the file inside a longer string -- a command line,
+        # for instance. The tail is specific enough that an ordinary command
+        # cannot contain it by accident, and a command that does contain it is
+        # asking for exactly what this refuses.
+        if tail in text.replace("\\", "/"):
+            return reason
+    return None
 
 
 def dispatch_key_path_for_user(username: str) -> Path:
