@@ -2138,6 +2138,9 @@ class ConversationRouter(RouterInterface):
         # Set while a turn that named its conversation is being served, per
         # thread (see the `_conv` property).
         self._conversation_binding = threading.local()
+        # The turn's own tool prohibition, per thread for the same reason (see
+        # the `_turn_forbids_tools` property).
+        self._turn_prohibition = threading.local()
         # M3(i) turn-scoped scratch: a prefixed reply over a live action offer
         # sets the stripped tail to route (consumed in _route_impl) and, for a
         # prefixed "yes", the one-line re-offer reminder (consumed in route()).
@@ -2232,6 +2235,38 @@ class ConversationRouter(RouterInterface):
             yield state
         finally:
             local.state = previous
+
+    @property
+    def _turn_forbids_tools(self) -> bool:
+        """Whether THIS turn's own sentence forbade tools, read once at entry
+        to _route_impl and consulted at every dispatch in the turn.
+
+        THREAD-SCOPED, for the reason the conversation binding is thread-scoped:
+        route() runs in a worker thread and cannot be interrupted, so a turn
+        abandoned at the server deadline keeps running there while the next turn
+        routes on another thread, on a router every browser connection and the
+        desktop bus share. As a plain instance attribute the next turn's reading
+        overwrote the abandoned turn's, and the abandoned turn then reached the
+        dispatch chokepoint and ran a tool its own sentence had forbidden. The
+        reading a thread takes is now the reading that thread sees, for as long
+        as it is inside its own turn.
+
+        The storage is made on demand as well as in __init__, because a router
+        built without __init__ — the idiom several suites use to reach one layer
+        without standing up an embedder or a model client — must read False
+        rather than raise.
+        """
+        local = getattr(self, "_turn_prohibition", None)
+        if local is None:
+            return False
+        return bool(getattr(local, "forbids", False))
+
+    @_turn_forbids_tools.setter
+    def _turn_forbids_tools(self, forbids) -> None:
+        local = getattr(self, "_turn_prohibition", None)
+        if local is None:
+            local = self._turn_prohibition = threading.local()
+        local.forbids = bool(forbids)
 
     def bind_conversation(self, state: ConversationState):
         """Serve `state` for the duration of the with-block, then restore.
@@ -2573,7 +2608,9 @@ class ConversationRouter(RouterInterface):
         # before the split can.
         #
         # Reset on EVERY turn, unconditionally, so a prohibition can never
-        # outlive the turn that asked for it and silence the next one.
+        # outlive the turn that asked for it and silence the next one — and held
+        # per THREAD, so it cannot be overwritten by the next turn while this
+        # one is still being served (see the property).
         self._turn_forbids_tools = turn_forbids_tools(user_input)
         # D-008 RFC §5.1 + temporal-watermark fix (audit 2026-05-29): reset the
         # PER-TURN ingress window at each turn boundary, but PRESERVE the
