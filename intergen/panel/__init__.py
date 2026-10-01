@@ -278,26 +278,103 @@ class PanelWindow:
 
     # -- D-Bus interface ----------------------------------------------------
 
+    def _session_connection(self):
+        """The process's session-bus connection.
+
+        Its own method so the registration path can be driven against a
+        stand-in connection -- the way this tree's other D-Bus cases drive the
+        daemon's guard -- and so a host with no resolvable session bus fails in
+        one named place instead of inside the middle of the export.
+        """
+        return Gio.bus_get_sync(Gio.BusType.SESSION, None)
+
+    def _on_bus_name_acquired(self, connection, name) -> None:
+        """The bus granted this connection the panel's well-known name."""
+        self._bus_name_owned = True
+        logger.info("Panel owns %s on the session bus", name)
+
+    def _on_bus_name_lost(self, connection, name) -> None:
+        """The panel does NOT hold the name: refused, or taken away later."""
+        self._bus_name_owned = False
+        logger.warning(
+            "Panel does NOT own %s: the request was refused or the name was "
+            "taken away. Another panel process is answering Show, Hide, "
+            "Toggle and the dock calls; this one is exported but unaddressed.",
+            name)
+
+    def _teardown_dbus(self) -> None:
+        """Release what _export_dbus took, in the reverse order it took it.
+
+        The connection Gio hands back is SHARED BY THE PROCESS, so an object
+        registration left behind outlives this panel and makes the next
+        registration of the same path raise "already exported" with no handle
+        left to release it. The daemon's own export carries this discipline;
+        this one did not.
+        """
+        name_id = getattr(self, "_bus_name_id", 0)
+        if name_id:
+            try:
+                Gio.bus_unown_name(name_id)
+            except Exception as exc:  # noqa: BLE001 -- a release never raises on
+                logger.warning("Panel: releasing %s failed: %s", APP_ID, exc)
+        self._bus_name_id = 0
+        reg_id = getattr(self, "_dbus_id", 0)
+        conn = getattr(self, "_dbus_conn", None)
+        if reg_id and conn is not None:
+            try:
+                conn.unregister_object(reg_id)
+            except Exception as exc:  # noqa: BLE001 -- the way out
+                logger.warning(
+                    "Panel: unregistering %s failed: %s",
+                    "/org/intergenos/InterGenPanel", exc)
+        self._dbus_id = 0
+        self._dbus_conn = None
+        self._bus_name_owned = False
+
     def _export_dbus(self) -> None:
         # Gio.DBus.session is a GJS idiom that does not exist in PyGObject —
         # this method raised AttributeError on every dock-mode activate. Get
         # the session connection explicitly; register via the "2" entry point
         # (the closures variant it replaces is deprecated in GLib).
+        #
+        # TWO THINGS THIS METHOD USED TO ASSUME.
+        #
+        # It requested the panel's well-known name with NONE flags and no
+        # closures at all, so a request that merely JOINED THE QUEUE behind an
+        # existing owner was indistinguishable from one that was granted: the
+        # call returns a non-zero handle either way, because acquisition is
+        # reported only through the name_acquired closure. A second panel
+        # therefore carried on as though it held the name while the first kept
+        # answering every Show, Hide, Toggle and dock call. The request is now
+        # DO_NOT_QUEUE, so the bus refuses instead of queueing, and ownership
+        # is RECORDED from the closures that report it rather than inferred
+        # from a handle.
+        #
+        # And a failure after the object was registered -- the name request
+        # raising -- left that registration live on the connection the whole
+        # process shares. The rollback below is the daemon's own discipline.
         node_info = Gio.DBusNodeInfo.new_for_xml(DBUS_IFACE_XML)
-        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        bus = self._session_connection()
         self._dbus_conn = bus
+        self._bus_name_owned = False
+        self._bus_name_id = 0
         self._dbus_id = bus.register_object_with_closures2(
             "/org/intergenos/InterGenPanel",
             node_info.interfaces[0],
             self._on_dbus_call,
             None, None,
         )
-        self._bus_name_id = Gio.bus_own_name_on_connection(
-            bus,
-            "org.intergenos.InterGenPanel",
-            Gio.BusNameOwnerFlags.NONE,
-            None, None,
-        )
+        try:
+            self._bus_name_id = Gio.bus_own_name_on_connection(
+                bus,
+                APP_ID,
+                Gio.BusNameOwnerFlags.DO_NOT_QUEUE,
+                self._on_bus_name_acquired,
+                self._on_bus_name_lost,
+            )
+        except Exception:
+            self._teardown_dbus()
+            raise
         logger.info("Panel D-Bus interface exported: %s", APP_ID)
 
     def _on_dbus_call(self, connection, sender, object_path,
