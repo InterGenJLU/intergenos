@@ -43,9 +43,11 @@ or a decision belongs.
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from intergen import audit_log
 from intergen import glass
@@ -57,7 +59,7 @@ from intergen.interfaces.provenance import (
     ToolRiskTier,
 )
 from intergen.interfaces.types import ToolCall
-from intergen.provenance import build_audit_record
+from intergen.tool_registry import ToolRegistry
 
 # The same two credentials the chokepoint corpus cuts through the turn record,
 # imported rather than copied so this file cannot drift from that corpus.
@@ -68,8 +70,53 @@ from intergen.tests.test_persisted_record_redaction_chokepoint import (
     PASSWORD_COMMAND,
 )
 
-PASSWORD_SECRET = "Hunter2Example"
-BEARER_SECRET = "abc123secretvalue"
+
+def _shape(shape_name: str):
+    for name, pattern in glass.SECRET_SHAPES:
+        if name == shape_name:
+            return pattern
+    raise AssertionError(f"the shared corpus no longer defines {shape_name!r}")
+
+
+def _secret_in(command: str, shape_name: str) -> str:
+    """The credential INSIDE a corpus command, derived from the shape itself.
+
+    Copying the secret as a literal beside the imported command is what lets the
+    two drift: the command can change in the corpus while the literal keeps
+    asserting the absence of a string nothing writes any more, and the case stays
+    green over a row that carries the new credential verbatim. So the expectation
+    is read out of the corpus with the same pattern the writer redacts by.
+    """
+    match = _shape(shape_name).search(command)
+    assert match is not None, f"{shape_name} no longer matches its corpus command"
+    assert "secret" in match.re.groupindex and match.start("secret") >= 0, (
+        f"{shape_name} no longer carries a named secret group")
+    secret = match.group("secret")
+    assert secret and secret in command, (
+        f"the derived {shape_name} secret is empty or absent from the corpus")
+    return secret
+
+
+def _around(command: str, shape_name: str) -> tuple[str, str]:
+    """The ordinary content on either side of the credential, also derived."""
+    match = _shape(shape_name).search(command)
+    assert match is not None, f"{shape_name} no longer matches its corpus command"
+    return command[:match.start("secret")], command[match.end("secret"):]
+
+
+def password_secret() -> str:
+    """Derived AT USE TIME, deliberately, not frozen into a module constant.
+
+    A constant computed at import is still stale the moment the corpus command
+    changes underneath it: the cases would go on asserting the absence of a
+    string nothing writes any more, over rows carrying the new credential. Read
+    at use, the expectation follows whatever command the case actually sends.
+    """
+    return _secret_in(PASSWORD_COMMAND, "password-option")
+
+
+def bearer_secret() -> str:
+    return _secret_in(BEARER_COMMAND, "bearer-token")
 
 
 class TheRedactorIsShownToCatchTheseTwoCredentials(unittest.TestCase):
@@ -80,14 +127,22 @@ class TheRedactorIsShownToCatchTheseTwoCredentials(unittest.TestCase):
     recognise the corpus. Shown here so the ledger's result is unambiguous.
     """
 
+    def test_the_expectations_are_derived_from_the_corpus_and_not_empty(self):
+        """A "secret not in row" assertion is vacuous if the secret is empty."""
+        self.assertTrue(password_secret())
+        self.assertTrue(bearer_secret())
+        self.assertIn(password_secret(), PASSWORD_COMMAND)
+        self.assertIn(bearer_secret(), BEARER_COMMAND)
+        self.assertNotEqual(password_secret(), bearer_secret())
+
     def test_the_password_option_shape_is_recognised(self):
         written = glass.redact_persisted({"command": PASSWORD_COMMAND})
-        self.assertNotIn(PASSWORD_SECRET, json.dumps(written))
+        self.assertNotIn(password_secret(), json.dumps(written))
         self.assertIn("<redacted:password-option>", written["command"])
 
     def test_the_bearer_token_shape_is_recognised(self):
         written = glass.redact_persisted({"command": BEARER_COMMAND})
-        self.assertNotIn(BEARER_SECRET, json.dumps(written))
+        self.assertNotIn(bearer_secret(), json.dumps(written))
         self.assertIn("<redacted:bearer-token>", written["command"])
 
 
@@ -131,10 +186,20 @@ class TheToolDispatchLedgerRedactsAtTheWriteBoundary(unittest.TestCase):
                          excerpt=BEARER_COMMAND),
             self.log_path))
         line = self.log_path.read_text(encoding="utf-8")
-        self.assertNotIn(PASSWORD_SECRET, line)
-        self.assertNotIn(BEARER_SECRET, line)
-        self.assertIn("<redacted:password-option>",
-                      self._rows()[-1]["arguments"]["command"])
+        self.assertNotIn(password_secret(), line)
+        self.assertNotIn(bearer_secret(), line)
+        row = self._rows()[-1]
+        # PRESENT with a NAMED REPLACEMENT, not merely absent. An absence
+        # assertion alone is satisfied by a writer that deletes the field, and a
+        # deleted excerpt is a worse record than a redacted one, so each
+        # sensitive field is asserted to still be there and to say what went.
+        self.assertIn("arguments", row)
+        self.assertIn("excerpt", row)
+        self.assertIn("<redacted:password-option>", row["arguments"]["command"])
+        self.assertIn("<redacted:bearer-token>", row["excerpt"])
+        head, tail = _around(BEARER_COMMAND, "bearer-token")
+        self.assertTrue(row["excerpt"].startswith(head), row["excerpt"])
+        self.assertTrue(row["excerpt"].endswith(tail), row["excerpt"])
 
     def test_the_surrounding_command_survives(self):
         """The control on the redaction: only the credential goes."""
@@ -142,18 +207,25 @@ class TheToolDispatchLedgerRedactsAtTheWriteBoundary(unittest.TestCase):
             self._record(arguments={"command": PASSWORD_COMMAND}),
             self.log_path)
         written = self._rows()[-1]["arguments"]["command"]
-        self.assertTrue(written.startswith("mysql -u admin -p"), written)
-        self.assertTrue(written.endswith(" --host db.example.invalid"), written)
+        head, tail = _around(PASSWORD_COMMAND, "password-option")
+        self.assertTrue(written.startswith(head), written)
+        self.assertTrue(written.endswith(tail), written)
+        self.assertIn("<redacted:password-option>", written)
 
     def test_a_record_that_carries_no_credential_is_written_byte_identical(self):
-        """A redactor never shown to leave a row alone is not a redactor."""
+        """A redactor never shown to leave a row alone is not a redactor.
+
+        BYTES, not parsed objects. Parsed equality is blind to reordering and
+        respacing, so a writer that pretty-printed or re-sorted every row would
+        satisfy a parsed comparison while changing every line of the file a
+        reader and every downstream parser of it see.
+        """
         arguments = {"command": "pkm install firefox", "timeout": 30}
-        audit_log.write_record(
-            self._record(arguments=dict(arguments)), self.log_path)
-        row = self._rows()[-1]
-        self.assertEqual(row["arguments"], arguments)
-        self.assertEqual(row["tool_name"], "run_command")
-        self.assertEqual(row["user_decision"], "executed")
+        record = self._record(arguments=dict(arguments))
+        expected = json.dumps(record.to_jsonl_dict(),
+                              separators=(",", ":")).encode("utf-8") + b"\n"
+        self.assertTrue(audit_log.write_record(record, self.log_path))
+        self.assertEqual(self.log_path.read_bytes(), expected)
 
     def test_a_governance_event_payload_is_redacted_too(self):
         """``details`` is a raw payload the governance writer hands straight over."""
@@ -166,8 +238,18 @@ class TheToolDispatchLedgerRedactsAtTheWriteBoundary(unittest.TestCase):
                 details={"tool_name": "run_command",
                          "attempted": PASSWORD_COMMAND}),
             self.log_path)
-        self.assertNotIn(PASSWORD_SECRET,
+        self.assertNotIn(password_secret(),
                          self.log_path.read_text(encoding="utf-8"))
+        row = self._rows()[-1]
+        # The payload must SURVIVE, redacted. Dropping `details` also removes
+        # the credential and would pass an absence-only assertion, while costing
+        # the record the whole governance event it exists to describe.
+        self.assertIn("details", row)
+        self.assertEqual(row["details"]["tool_name"], "run_command")
+        self.assertIn("<redacted:password-option>", row["details"]["attempted"])
+        head, tail = _around(PASSWORD_COMMAND, "password-option")
+        self.assertTrue(row["details"]["attempted"].startswith(head))
+        self.assertTrue(row["details"]["attempted"].endswith(tail))
 
     def test_the_production_plumbing_reaches_the_writer_with_the_credential(self):
         """Reachability, through the objects the dispatcher actually builds.
@@ -191,19 +273,29 @@ class TheToolDispatchLedgerRedactsAtTheWriteBoundary(unittest.TestCase):
             reason="declared user_direct; no ingress fired this turn",
             risk_tier=ToolRiskTier.PRIVILEGED_STATE_CHANGING,
         )
-        record = build_audit_record(
-            call=call,
-            decision=decision,
-            ingress_tracker=IngressTracker(),
-            user_outcome="executed",
-            exit_code=0,
-            result_summary="ok",
-            source_attribution="",
-            excerpt="",
-        )
-        audit_log.write_record(record, self.log_path)
-        self.assertNotIn(PASSWORD_SECRET,
-                         self.log_path.read_text(encoding="utf-8"))
+        # THE PRODUCTION CALLER ITSELF. Calling build_audit_record and
+        # write_record by hand here reproduces what the caller does, which means
+        # the case stays green even if that caller stops calling them at all --
+        # the one thing this case is named for. So the dispatcher's own method is
+        # what runs, with the state home redirected so its default path lands in
+        # this test's throwaway directory and never in the operator's record.
+        state_home = self.log_path.parent.parent
+        with mock.patch.dict(os.environ, {"XDG_STATE_HOME": str(state_home)}):
+            self.assertEqual(audit_log.default_log_path(), self.log_path)
+            ToolRegistry._audit_log_decision(
+                call, decision, IngressTracker(),
+                user_outcome="executed",
+                exit_code=0,
+                result_summary="ok",
+                source_attribution="",
+                excerpt=BEARER_COMMAND,
+            )
+        written = self.log_path.read_text(encoding="utf-8")
+        self.assertNotIn(password_secret(), written)
+        self.assertNotIn(bearer_secret(), written)
+        row = self._rows()[-1]
+        self.assertIn("<redacted:password-option>", row["arguments"]["command"])
+        self.assertIn("<redacted:bearer-token>", row["excerpt"])
 
 
 class TheLedgersOwnFieldNamesAreNotCredentialShaped(unittest.TestCase):
@@ -236,10 +328,17 @@ class TheLedgersOwnFieldNamesAreNotCredentialShaped(unittest.TestCase):
             excerpt="",
         )
         expected = record.to_jsonl_dict()
+        expected_bytes = json.dumps(
+            expected, separators=(",", ":")).encode("utf-8") + b"\n"
         self.assertTrue(audit_log.write_record(record, self.log_path))
+        # Raw bytes first: a reordered or respaced row is a changed file even
+        # when the parsed object compares equal.
+        self.assertEqual(self.log_path.read_bytes(), expected_bytes)
         written = json.loads(
             self.log_path.read_text(encoding="utf-8").splitlines()[-1])
         self.assertEqual(written, expected)
+        self.assertEqual(list(written), list(expected),
+                         "the row's field ORDER changed")
         for field, value in expected.items():
             self.assertNotIn(
                 "<redacted:", json.dumps(written[field]),
