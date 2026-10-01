@@ -1471,10 +1471,17 @@ def cmd_glass(args: list[str]) -> None:
     from intergen import glass
     rows = list(glass.read_rows())
     path = glass.default_glass_path()
+    # The state that matters is a trace with rows on disk AND a disabled tracer:
+    # the rows are then history, and anything the reader shows is stale. The
+    # notice used to sit inside the empty-trace branch alone, so exactly that
+    # reader was told nothing and read an old trace as a live one. It is said
+    # first now, on every route this command takes.
+    if not glass.glass_enabled():
+        print("(glass is DISABLED — INTERGEN_GLASS=0: nothing below is being "
+              "recorded now, and anything shown is from before it was turned "
+              "off)")
     if not rows:
         print(f"No glass trace yet at {path}")
-        if not glass.glass_enabled():
-            print("(glass is DISABLED — INTERGEN_GLASS=0)")
         return
     if "--json" in args:
         for r in rows:
