@@ -6862,7 +6862,11 @@ def cmd_check_updates(db, args, output_path=None):
     try:
         _write_available_updates_json(summary, output_path)
     except OSError as e:
-        print(f"  ERROR: cannot write {output_path}: {e}", file=sys.stderr)
+        print(f"  ERROR: the available-updates advisory at {output_path} could "
+              f"not be WRITTEN ({type(e).__name__}: {e}). No update count was "
+              f"written and the previous advisory was left as it is. Fix the "
+              f"write error (permissions, ownership, a full or read-only "
+              f"filesystem), then re-run.", file=sys.stderr)
         sys.exit(1)
 
     if not getattr(args, "quiet", False):

@@ -188,6 +188,41 @@ class TestCheckUpdatesAtomicity(unittest.TestCase):
                               output_path=nested)
         self.assertTrue(nested.is_file())
 
+    @unittest.skipIf(os.geteuid() == 0,
+                     "root bypasses the directory permission under test")
+    def test_unwritable_advisory_names_the_fault_and_preserves_previous(self):
+        _add_installed(self.db, "firefox", "138.0")
+        remotes = {"firefox": {"name": "firefox", "version": "139.0", "release": 1}}
+        output = Path(self.tmp.name) / "advisory" / "available-updates.json"
+        output.parent.mkdir()
+        previous = b'{"count": 7, "packages": []}\n'
+        output.write_bytes(previous)
+        output.parent.chmod(0o500)
+        try:
+            for quiet in (False, True):
+                with self.subTest(quiet=quiet):
+                    stdout, stderr = io.StringIO(), io.StringIO()
+                    with patch("pkm.cli.RepoManager", return_value=_FakeRepoManager(remotes)), \
+                            patch("sys.stdout", stdout), patch("sys.stderr", stderr):
+                        with self.assertRaises(SystemExit) as stopped:
+                            cmd_check_updates(self.db, _make_args(quiet=quiet),
+                                              output_path=output)
+                    self.assertEqual(stopped.exception.code, 1)
+                    self.assertEqual(output.read_bytes(), previous)
+                    self.assertEqual(list(output.parent.iterdir()), [output])
+                    self.assertEqual(stdout.getvalue(), "")
+                    text = stderr.getvalue()
+                    self.assertIn(str(output), text)
+                    self.assertIn("Permission denied", text)
+                    self.assertIn("could not be WRITTEN", text)
+                    self.assertIn("No update count was written", text)
+                    self.assertIn("previous advisory was left as it is", text)
+                    self.assertIn("Fix the write error", text)
+                    self.assertIn("permissions", text)
+                    self.assertIn("then re-run", text)
+        finally:
+            output.parent.chmod(0o700)
+
 
 class TestCheckUpdatesQuietMode(unittest.TestCase):
     def setUp(self):
