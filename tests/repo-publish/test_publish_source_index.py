@@ -2,6 +2,7 @@
 
 import gzip
 import hashlib
+import importlib.util
 import io
 import json
 import os
@@ -63,3 +64,75 @@ def test_generation_passes_all_paths_as_data(tmp_path, script, directory):
     if script == "dry-run-first-publish.sh":
         assert "Source index read-back: 1 with source_sha256; 1 without" in result.stdout
         assert "Packages without source_sha256: missing" in result.stdout
+
+
+@pytest.fixture
+def publisher():
+    spec = importlib.util.spec_from_file_location(
+        "source_publish_fixture", ROOT / "tests/preflight/test_publish_sign_hold.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    fixture = module.PublishSignHoldTest("test_a_new_index_requires_both_document_truth_inputs")
+    fixture.setUp()
+    fixture.sources = fixture.root / "source archives'quoted"
+    fixture.sources.mkdir()
+    (fixture.sources / "demo-2.0-1.igos.src.tar.gz").write_bytes(b"fixture source\n")
+    fixture._write_archive("missing", "1.0", 1)
+    fixture.manifest.write_text("".join(
+        f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n"
+        for path in sorted(fixture.archives.glob("*.igos.tar.gz"))))
+    environment = fixture._environment
+    fixture._environment = lambda: environment() | {"PUBLISH_SOURCES_DIR": str(fixture.sources)}
+    try:
+        yield fixture
+    finally:
+        fixture.tearDown()
+
+
+def test_publish_reads_back_counts_and_names_before_signing(publisher):
+    result = subprocess.run(publisher._command() + ["--dry-run"], cwd=ROOT,
+                            env=publisher._environment(), capture_output=True, text=True,
+                            timeout=20)
+    output = result.stdout + result.stderr
+    assert result.returncode == 0, output
+    assert "Source index read-back: 1 with source_sha256; 1 without" in output
+    assert "Packages without source_sha256: missing" in output
+    assert "Source upload skipped; index source coverage is still required." in output
+    assert "=== DRY RUN" in output
+    assert "SIGNING HOLD" not in output
+    assert not (publisher.archives / "InterGenOS.db.sig").exists()
+
+
+@pytest.mark.parametrize("mode", ["absent", "zero"])
+def test_missing_source_coverage_stops_before_signing_hold(publisher, mode):
+    if mode == "absent":
+        publisher.sources = publisher.root / "absent sources"
+    else:
+        (publisher.sources / "demo-2.0-1.igos.src.tar.gz").unlink()
+    code, output = publisher._run_and_answer("no")
+    assert code == 1, output
+    assert "Source index read-back: 0 with source_sha256; 2 without" in output
+    assert "Packages without source_sha256: demo, missing" in output
+    reason = "sources directory is missing" if mode == "absent" else "no indexed package carries source_sha256"
+    assert reason in output
+    assert "SIGNING HOLD" not in output
+    assert "Checking GPG key availability" not in output
+    assert not (publisher.archives / "InterGenOS.db.sig").exists()
+
+
+def test_resumed_publish_reads_existing_index_and_refuses_zero(publisher):
+    publisher._write_index(publisher.archives / "InterGenOS.db", "demo", "2.0", 1)
+    (publisher.archives / "InterGenOS.db.sig").write_text("fixture signature\n")
+    gpg = publisher.fake_bin / "gpg"
+    gpg.write_text('#!/bin/sh\n[ "$1" = "--verify" ]\n')
+    gpg.chmod(0o755)
+    result = subprocess.run(
+        ["bash", str(ROOT / "scripts/publish-repo.sh"), "--archive-dir", str(publisher.archives),
+         "--skip-sources", "--skip-sign", "--dry-run"], cwd=ROOT,
+        env=publisher._environment(), capture_output=True, text=True, timeout=20,
+    )
+    output = result.stdout + result.stderr
+    assert result.returncode == 1, output
+    assert "Source index read-back: 0 with source_sha256; 1 without" in output
+    assert "no indexed package carries source_sha256" in output
+    assert "=== DRY RUN" not in output

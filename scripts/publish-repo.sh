@@ -795,6 +795,30 @@ PYAPPROVAL
 INDEX_PATH="$ARCHIVE_DIR/InterGenOS.db"
 SIG_PATH="${INDEX_PATH}.sig"
 
+report_index_sources() {
+    if [ "$SKIP_SOURCES" = true ]; then
+        echo "Source upload skipped; index source coverage is still required."
+    fi
+    python3 - "$1" "$2" <<'PYSOURCES'
+import gzip, json, sys
+from pathlib import Path
+
+with gzip.open(sys.argv[1], 'rt', encoding='utf-8') as handle:
+    packages = json.load(handle)['packages']
+without = sorted(name for name, entry in packages.items() if 'source_sha256' not in entry)
+with_sources = len(packages) - len(without)
+print(f'Source index read-back: {with_sources} with source_sha256; {len(without)} without', flush=True)
+print('Packages without source_sha256: ' + (', '.join(without) or 'none'), flush=True)
+sources = Path(sys.argv[2]).resolve()
+if not sources.is_dir():
+    print(f'ERROR: sources directory is missing or not a directory: {sources}', file=sys.stderr)
+    sys.exit(1)
+if not with_sources:
+    print('ERROR: no indexed package carries source_sha256; refusing signing or publication.', file=sys.stderr)
+    sys.exit(1)
+PYSOURCES
+}
+
 if [ "$SKIP_SIGN" = true ]; then
     # Resume: reuse the existing signed index (post-sign failure recovery —
     # no re-ceremony). Verify both artifacts are present and the detached
@@ -805,6 +829,7 @@ if [ "$SKIP_SIGN" = true ]; then
     gpg --verify "$SIG_PATH" "$INDEX_PATH" >/dev/null 2>&1 \
         || { echo "ERROR: existing signature does not verify against the index" >&2; exit 1; }
     echo "  OK — existing index ($(stat -c%s "$INDEX_PATH") b) + signature verified"
+    report_index_sources "$INDEX_PATH" "$SOURCES_DIR" || exit 1
 else
     # Step 1: Generate InterGenOS.db index
     echo "[1/4] Generating InterGenOS.db..."
@@ -837,6 +862,7 @@ PYINDEX
         exit 1
     fi
     echo "  OK — $(stat -c%s "$INDEX_PATH") bytes"
+    report_index_sources "$INDEX_PATH" "$SOURCES_DIR" || exit 1
 
     # Publication-time document currency: bind release-facing prose to the
     # exact image checksum record and to the index that would be signed. This
