@@ -188,6 +188,11 @@ class ConnectionContext:
     # each new card and resolved without comparing ids, so one action's Approve
     # authorised a different action and the answered card was left orphaned.
     open_gates: dict[str, asyncio.Future] = field(default_factory=dict)
+    # Why a card stopped waiting, when something other than the person stopped
+    # it, keyed by the same tool_call_id. The card's own resolution frame reads
+    # it, so "denied" that the person did not type says what denied it; a
+    # transition-denied card otherwise reaches them as their own refusal.
+    gate_end_reasons: dict[str, str] = field(default_factory=dict)
     tool_tasks: set = field(default_factory=set)  # in-flight user-invoked tools;
     #                                            held so a detached task is not
     #                                            garbage-collected mid-gate
@@ -1851,6 +1856,13 @@ class WebServer:
             ))
             return
 
+        # The conversation being left ends here as surely as /new ends one, so
+        # its cards and its detached work stop here too, and before any of the
+        # switch is carried out. A switch that left them alive let a decision
+        # taken in the session switched TO authorise an action belonging to the
+        # session switched FROM.
+        self._end_conversation_work(ctx, "the conversation this card belonged "
+                                          "to was left")
         if ctx.session_history:
             try:
                 self._sessions.save(
@@ -1891,11 +1903,63 @@ class WebServer:
         })
         await self._send_session_list(ctx)
 
+    def _end_conversation_work(self, ctx: ConnectionContext,
+                                reason: str) -> tuple[int, int]:
+        """Deny every review card still open and cancel the work the ending
+        conversation detached. Returns (cards denied, tasks cancelled).
+
+        The conversation's own state lives on the conversation object and
+        reset_conversation_state ends it. The cards on screen and the detached
+        tools do NOT live there — they live on the CONNECTION, which survives the
+        transition, so ending the conversation left both running. A card raised
+        before the boundary stayed open after it and an Approve typed in the new
+        conversation still resolved it: consent given for an action the person had
+        already walked away from, executed in a conversation that never asked.
+
+        Synchronous on purpose. It removes each card from open_gates BEFORE
+        resolving its waiter and never awaits, so there is no point between the
+        two at which a decision frame could still find the card — the invariant
+        does not depend on when the waiters happen to be rescheduled. Each waiter
+        then sends its own single resolution frame, carrying the reason recorded
+        here, which is the frame both clients already act on.
+        """
+        denied = 0
+        for tool_call_id, future in list(ctx.open_gates.items()):
+            ctx.open_gates.pop(tool_call_id, None)
+            if future.done():
+                continue
+            ctx.gate_end_reasons[tool_call_id] = reason
+            future.set_result("deny")
+            denied += 1
+
+        cancelled = 0
+        for task in list(ctx.tool_tasks):
+            if not task.done():
+                task.cancel()
+                cancelled += 1
+        if ctx.turn_task is not None and not ctx.turn_task.done():
+            ctx.turn_task.cancel()
+            cancelled += 1
+
+        if denied or cancelled:
+            logger.info(
+                "Conversation boundary (%s): denied %d pending card(s), "
+                "cancelled %d detached task(s) (client=%s, session=%s)",
+                reason, denied, cancelled, ctx.client_id,
+                ctx.current_session_id)
+        return denied, cancelled
+
     async def _handle_new_session(self, ctx: ConnectionContext,
                                     data: dict[str, Any]) -> None:
         """Start a new empty session.
         Saves the current session to disk, then starts a fresh one.
         """
+        # FIRST, before anything else of the transition: the cards and the
+        # detached work of the conversation that is ending stop here. Doing it
+        # first means no window exists in which the old conversation's consent is
+        # still answerable while the new one is being set up.
+        self._end_conversation_work(ctx, "the conversation this card belonged "
+                                          "to was ended")
         if ctx.session_history:
             try:
                 self._sessions.save(
@@ -2949,12 +3013,18 @@ class WebServer:
         finally:
             ctx.open_gates.pop(tool_call_id, None)
 
-        # Send resolved message
-        await ctx.ws.send_json({
+        # Send resolved message. When something other than the person ended this
+        # card — a conversation boundary — its reason rides the same frame, so a
+        # "denied" they did not type does not read as one they did.
+        resolved_msg = {
             "type": "gate_resolved",
             "tool_call_id": tool_call_id,
             "decision": user_decision,
-        })
+        }
+        _end_reason = ctx.gate_end_reasons.pop(tool_call_id, "")
+        if _end_reason:
+            resolved_msg["reason"] = _end_reason
+        await ctx.ws.send_json(resolved_msg)
 
         return ("approved"
                 if user_decision in ("allow", "allow_conversation")
