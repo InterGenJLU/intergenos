@@ -332,58 +332,75 @@ class BothPathsAskTheOneGate(_BothPaths, unittest.TestCase):
         self.assertEqual(calls[0][2], "strict")
 
     def test_neither_path_decides_for_itself(self):
-        """The source read by a parser, not by counting a string.
-
-        A comparison written the other way round, or with the operands renamed,
-        would pass a textual count; this walks the module's own syntax tree for
-        every comparison against an index entry's sha256 and asserts the only one
-        that decides trust for a named archive lives in the gate.
+        """Follow literal sha256 subscripts/get calls with any default, names
+        bound from expressions containing them, ==, !=, in/not in, and digest
+        comparisons. This is a conservative syntax inventory, not execution
+        or general data-flow analysis; other dynamic forms are not certified.
         """
         source = Path(cli.__file__).read_text(encoding="utf-8")
         tree = ast.parse(source)
 
-        def entry_sha_operand(node):
-            """True for `<something>.get("sha256")`."""
-            return (isinstance(node, ast.Call)
-                    and isinstance(node.func, ast.Attribute)
-                    and node.func.attr == "get"
-                    and len(node.args) == 1
-                    and isinstance(node.args[0], ast.Constant)
-                    and node.args[0].value == "sha256")
+        def scope_nodes(function):
+            pending = list(function.body)
+            while pending:
+                node = pending.pop()
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                     ast.ClassDef)):
+                    continue
+                yield node
+                pending.extend(ast.iter_child_nodes(node))
+
+        def entry_sha_lookup(node):
+            key = None
+            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "get" and node.args):
+                key = node.args[0]
+            elif isinstance(node, ast.Subscript):
+                key = node.slice
+            return isinstance(key, ast.Constant) and key.value == "sha256"
 
         found = []
         for function in [n for n in ast.walk(tree)
                          if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]:
-            # A comparison need not carry the lookup in its own operands: the
-            # entry's hash is usually bound to a name a line earlier. Follow
-            # those names, or a copy written that way would not be seen — the
-            # very blind spot a textual count has.
+            nodes = list(scope_nodes(function))
             holds_entry_sha = set()
-            for node in ast.walk(function):
-                if isinstance(node, ast.Assign) and entry_sha_operand(node.value):
-                    for target in node.targets:
-                        if isinstance(target, ast.Name):
-                            holds_entry_sha.add(target.id)
-                if isinstance(node, ast.NamedExpr) and entry_sha_operand(node.value):
-                    holds_entry_sha.add(node.target.id)
-            for node in ast.walk(function):
-                if not isinstance(node, ast.Compare):
-                    continue
-                operands = [node.left] + list(node.comparators)
-                looks_at_the_entrys_hash = any(
-                    entry_sha_operand(o)
-                    or (isinstance(o, ast.Name) and o.id in holds_entry_sha)
-                    for o in operands)
-                if looks_at_the_entrys_hash and any(
-                        isinstance(op, ast.Eq) for op in node.ops):
+
+            def has_entry_sha(expression):
+                return any(entry_sha_lookup(n) or
+                           (isinstance(n, ast.Name) and n.id in holds_entry_sha)
+                           for n in ast.walk(expression))
+
+            # A finite fixed point follows assignments through any containing
+            # expression and through further names, including cycles.
+            changed = True
+            while changed:
+                previous = set(holds_entry_sha)
+                for node in nodes:
+                    if isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
+                        if node.value is None or not has_entry_sha(node.value):
+                            continue
+                        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                        for target in targets:
+                            if isinstance(target, ast.Name):
+                                holds_entry_sha.add(target.id)
+                changed = previous != holds_entry_sha
+            for node in nodes:
+                operands = []
+                if isinstance(node, ast.Compare) and any(
+                        isinstance(op, (ast.Eq, ast.NotEq, ast.In, ast.NotIn))
+                        for op in node.ops):
+                    operands = [node.left, *node.comparators]
+                elif isinstance(node, ast.Call) and (
+                        isinstance(node.func, ast.Attribute) and node.func.attr == "compare_digest"
+                        or isinstance(node.func, ast.Name) and node.func.id == "compare_digest"):
+                    operands = node.args
+                if any(has_entry_sha(operand) for operand in operands):
                     found.append((function.name, node.lineno,
                                   " ".join(ast.get_source_segment(source, node).split())))
-
         deciders = sorted({name for name, _line, _src in found})
         self.assertEqual(
             deciders, ["_explicit_archive_trust", "_trusted_cached_archive"],
-            "a function other than the two rules compares an index entry's "
-            f"sha256 for equality: {found!r}")
+            f"an additional function compares an entry's sha256: {found!r}")
 
         callers = sorted({function.name
                           for function in ast.walk(tree)
