@@ -1516,25 +1516,24 @@ def cmd_tool_log(args: list[str]) -> None:
 
     reading = read_integrity()
     records = list(read_records())
+
+    if "--json" in args:
+        # Keep stdout JSON-only; send structural validation to stderr.
+        for line in reading.report():
+            print(line, file=sys.stderr)
+        for r in records[-limit:]:
+            print(json.dumps(r, separators=(",", ":")))
+        sys.exit(1 if reading.damaged else 0)
+
     if not records:
-        print(f"Audit log empty: {default_log_path()}")
         if reading.damaged:
-            # An empty-looking record that is DAMAGED is not an empty record. Saying
-            # only "empty" here would hide the whole of a record whose every line had
-            # been corrupted.
+            # A damaged record with no readable rows is not empty.
+            print(f"Audit log has no readable record: {default_log_path()}")
             print()
             for line in reading.report():
                 print(line)
-        return
-
-    if "--json" in args:
-        # Raw JSONL pass-through for jq/grep pipelines. The verdict goes to stderr so
-        # it reaches a person without ever entering the JSON a pipeline parses.
-        if reading.damaged:
-            for line in reading.report():
-                print(line, file=sys.stderr)
-        for r in records[-limit:]:
-            print(json.dumps(r, separators=(",", ":")))
+            sys.exit(1)
+        print(f"Audit log empty: {default_log_path()}")
         return
 
     # Human-readable rendering: one block per record.
@@ -1592,6 +1591,8 @@ def cmd_tool_log(args: list[str]) -> None:
             snippet = result[:160] + ("..." if len(result) > 160 else "")
             print(f"    result:       {_for_the_terminal(snippet)}")
         print()
+    if reading.damaged:
+        sys.exit(1)
 
 
 def cmd_test() -> None:
