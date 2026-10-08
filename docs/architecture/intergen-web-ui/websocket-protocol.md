@@ -319,6 +319,7 @@ auth_failed           — invalid/missing token (HTTP-layer, pre-upgrade)
 busy                   — a turn is already in progress on this connection
 empty_command          — slash_command sent with an empty command
 empty_message          — message/frontier_escalate sent with empty content
+empty_response         — a turn produced no text to deliver (refused, never sent empty)
 internal_error         — unhandled server-side exception
 invalid_decision       — gate_decision with a decision outside allow/allow_conversation/deny
 invalid_json           — message payload was not valid JSON

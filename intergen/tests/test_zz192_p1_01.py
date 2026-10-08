@@ -194,5 +194,42 @@ class SystemMapWebTurnDeliversBytesTests(unittest.TestCase):
             f"{ctx.conversation.transcript[-1]}")
 
 
+class AnEmptyFallbackAnswerIsRefusedTests(unittest.TestCase):
+    """The fallback must not send an empty response, whatever source reaches it.
+
+    system_map is routed to the stream above, and no other decide-only source
+    reaches the fallback without text today. The fallback still refuses one if
+    it does — an error frame for the person and an error line naming the source
+    — so the next such source fails loudly instead of rendering nothing.
+    """
+
+    def test_a_verdict_with_no_text_is_refused_not_sent(self):
+        llm = _FakeLLM([])
+        router = _router_with_system_map_verdict(llm)
+        router.route = lambda user_input, **kw: RouteResult(
+            text="", source="direct_answer", handled=True)
+        server = WebServer(router=router, llm=llm, tools=None, governance=None)
+        ctx = ConnectionContext(client_id="c1", source_interface="web",
+                                ws=_RecordingWS(),
+                                conversation=router.new_conversation())
+        with self.assertLogs("intergen.web_server", level="ERROR") as logs:
+            asyncio.run(server._handle_client_message(
+                ctx, {"type": "message", "content": "tell me something"}))
+
+        self.assertEqual(ctx.ws.of_type("response"), [],
+                         "an empty response frame was sent to the page")
+        errors = ctx.ws.of_type("error")
+        self.assertEqual([e.get("code") for e in errors], ["empty_response"],
+                         ctx.ws.sent)
+        self.assertTrue(errors[0].get("message"))
+        self.assertTrue(
+            any("direct_answer" in line for line in logs.output),
+            f"the error line does not name the source: {logs.output}")
+        self.assertFalse(
+            any(m.role == MessageRole.ASSISTANT and not (m.content or "").strip()
+                for m in ctx.conversation.history),
+            "an empty assistant answer was recorded in the conversation")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1388,6 +1388,27 @@ class WebServer:
         # file_lifecycle_offer, ip_answer, …), and it delivers real bytes to the
         # user, so it records them like the other two dispositions do. A source
         # whose decide_only verdict carries no text does not belong here.
+        if not (_delivered or "").strip():
+            # And if one arrives anyway, it is refused rather than sent. An
+            # empty response frame renders nothing (app.js handleResponse draws
+            # only truthy content), ends no turn on the page, and would record
+            # an assistant message with no content. The person is told instead,
+            # the log names the source, and the turn's record ends in error, so
+            # the next source that reaches here without text fails loudly.
+            logger.error(
+                "Fallback disposition: source %r produced no text to deliver; "
+                "refusing to send an empty response (client=%s)",
+                result.source, ctx.client_id)
+            glass.emit("delivery", "error", detail={
+                "iface": "web", "source": result.source,
+                "reason": "the verdict carried no text to deliver"})
+            await ctx.ws.send_json(_make_error(
+                "empty_response",
+                "I worked on that but ended up with nothing to show you — "
+                "that is a fault on my side, not your question. Please try "
+                "asking again.",
+            ))
+            return
         await ctx.ws.send_json({
             "type": "response",
             "turn_id": turn_id,
