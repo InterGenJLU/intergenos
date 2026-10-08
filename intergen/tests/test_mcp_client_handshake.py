@@ -23,6 +23,10 @@ from pathlib import Path
 from intergen.interfaces.mcp import MCPServerConfig, MCPToolInfo, MCPTrustTier
 from intergen.interfaces.types import ToolSchema
 from intergen.mcp_client import MCPClient, _MCPServerConnection, SentinelGuard
+from intergen.tests.tool_process_fixture import (
+    NO_USER_MANAGER, install_lives_in, user_manager_answers, visible_directory,
+    write_fake_credentials,
+)
 from intergen.tool_registry import ToolRegistry
 
 
@@ -73,20 +77,36 @@ _FAKE_SERVER = textwrap.dedent(
 )
 
 
+def _serve_from_a_fixture_install(case: unittest.TestCase) -> str:
+    """Write the fake server where its service can see it, in a fixture install.
+
+    The server starts as its own service behind the credential boundary
+    (intergen/tool_process.py): that service has a private /tmp, so the script
+    cannot live under /tmp, and it masks the owning account's credential files,
+    which the fixture provides as fakes. Returns the script's path.
+    """
+    if not user_manager_answers():
+        case.skipTest(NO_USER_MANAGER)
+    directory = visible_directory("intergen-mcp-case-")
+    case.addCleanup(directory.cleanup)
+    home = Path(directory.name)
+    write_fake_credentials(home)
+    patcher = install_lives_in(home)
+    patcher.start()
+    case.addCleanup(patcher.stop)
+    server = home / "fake_mcp_server.py"
+    server.write_text(_FAKE_SERVER, encoding="utf-8")
+    return str(server)
+
+
 class TestMCPHandshake(unittest.TestCase):
     def setUp(self):
-        self._tmp = tempfile.NamedTemporaryFile(
-            mode="w", suffix=".py", delete=False
-        )
-        self._tmp.write(_FAKE_SERVER)
-        self._tmp.close()
-        self._server_path = self._tmp.name
+        self._server_path = _serve_from_a_fixture_install(self)
         self._conn = None
 
     def tearDown(self):
         if self._conn is not None:
             self._conn.disconnect()
-        Path(self._server_path).unlink(missing_ok=True)
 
     def _connect(self) -> _MCPServerConnection:
         cfg = MCPServerConfig(
@@ -151,18 +171,12 @@ class TestMCPClientStartEnforcesPinning(unittest.TestCase):
     registration, not log-and-expose (AI-7 review)."""
 
     def setUp(self):
-        self._tmp = tempfile.NamedTemporaryFile(
-            mode="w", suffix=".py", delete=False
-        )
-        self._tmp.write(_FAKE_SERVER)
-        self._tmp.close()
-        self._server_path = self._tmp.name
+        self._server_path = _serve_from_a_fixture_install(self)
         self._client = None
 
     def tearDown(self):
         if self._client is not None:
             self._client.stop()
-        Path(self._server_path).unlink(missing_ok=True)
 
     def _servers(self) -> dict:
         return {"fake": MCPServerConfig(

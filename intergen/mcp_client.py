@@ -9,11 +9,13 @@ registers with the tool registry.
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import logging
 import os
 import select
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -23,6 +25,7 @@ from intergen.interfaces.mcp import (
     SentinelGuardInterface, MCPClientInterface, MCPServerConfig,
     MCPToolInfo, MCPTrustTier,
 )
+from intergen import tool_process
 from intergen.interfaces.types import ToolResult, ToolSchema, SafetyTier
 from intergen.tool_registry import ToolRegistry
 from intergen.private_state import private_dir, private_open, private_write_text
@@ -210,6 +213,9 @@ class _MCPServerConnection:
         self.name = name
         self.config = config
         self._process: subprocess.Popen | None = None
+        # The transient service the server runs as. It outlives its waiting
+        # client, so disconnect() stops it by name.
+        self._unit: str | None = None
         self._tools: list[MCPToolInfo] = []
         self._next_id = 0
         # Raw read buffer. We read the server's stdout at the fd level (under
@@ -233,19 +239,35 @@ class _MCPServerConnection:
         leaking a half-initialized process.
         """
         env = dict(self.config.env)
+        # The server runs as its own transient service, where the install's
+        # credential files cannot be opened (intergen/tool_process.py). Its
+        # command is resolved here as the direct start resolved it, so a missing
+        # command still raises FileNotFoundError, and its configured environment
+        # is handed over by NAME: systemd-run reads each value from the
+        # environment it is given, so no value appears in a process listing.
+        command = self.config.command
+        resolved = shutil.which(command, path=env.get("PATH")) if "/" not in command \
+            else os.path.abspath(command)
+        if resolved is None:
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), command)
+        unit = tool_process.new_unit_name()
+        launch = tool_process.launch_argv(
+            [resolved] + list(self.config.args), unit=unit,
+            setenv_names=tuple(sorted(env)))
         # stderr -> DEVNULL: we read stdout only (_read_response), so a PIPE'd
         # stderr is never drained and a server that writes >~64KB to it would
         # fill the pipe buffer and block. We surface failures via our own
-        # handshake/timeout messages (and Popen raises FileNotFoundError for a
-        # missing command), so discarding server stderr costs no diagnostics we
-        # rely on. (AI-7 review hardening.)
+        # handshake/timeout messages (and a missing command raises
+        # FileNotFoundError above), so discarding server stderr costs no
+        # diagnostics we rely on. (AI-7 review hardening.)
         self._process = subprocess.Popen(
-            [self.config.command] + self.config.args,
+            launch,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
-            env=env if env else None,
+            env={**os.environ, **env} if env else None,
         )
+        self._unit = unit
         logger.info("MCP server %s started (pid=%d)",
                      self.name, self._process.pid)
 
@@ -378,6 +400,12 @@ class _MCPServerConnection:
         return discovered
 
     def disconnect(self) -> None:
+        # The server's service first: its waiting client returns once the
+        # service has stopped, and terminating the client alone would leave the
+        # server running.
+        if self._unit:
+            tool_process.stop_unit(self._unit)
+            self._unit = None
         if self._process:
             self._process.terminate()
             try:

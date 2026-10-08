@@ -429,6 +429,21 @@ def canonical_path_secret_reason(candidate: object) -> str | None:
     return None
 
 
+def install_secret_paths() -> tuple[Path, ...]:
+    """This install's secret files, as paths under the owning account's home.
+
+    The paths the tool-process boundary (intergen/tool_process.py) makes
+    inaccessible to a tool's process. An owner that cannot be resolved raises
+    InstallOwnerUnresolved, because a boundary that masked some other account's
+    files would look exactly like one that masked these.
+    """
+    try:
+        home = _owning_home()
+    except (KeyError, ValueError, OSError) as exc:
+        raise InstallOwnerUnresolved(str(exc)) from exc
+    return tuple(home.joinpath(*relative) for relative in SECRET_RELATIVE_PATHS)
+
+
 def secret_file_identities() -> dict[tuple[int, int], str]:
     """The (device, inode) identity of each of this install's secret files.
 

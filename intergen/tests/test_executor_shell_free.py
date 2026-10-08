@@ -22,13 +22,20 @@ runnable command.
 
 from __future__ import annotations
 
+import shutil
 import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from intergen.interfaces.types import SafetyTier
 from intergen.state_cache import (
     StateCache, _DYNAMIC_COMMANDS, _STATIC_COMMANDS, _pipeline_display,
+)
+from intergen.tests.tool_process_fixture import (
+    NO_USER_MANAGER, install_lives_in, user_manager_answers, visible_directory,
+    write_fake_credentials,
 )
 from intergen.tools.run_command import RunCommandTool
 
@@ -72,21 +79,41 @@ class RunCommandShellFreeTest(unittest.TestCase):
                              "no two-command shape may reach the executor")
 
     def test_safe_command_execs_argv_never_shell(self):
-        """A plain read-only command executes via argv with shell=False."""
-        with mock.patch("intergen.tools.run_command.subprocess.run",
-                        return_value=_FAKE_OK) as mrun:
-            res = self.tool.execute({"command": "df -h"})
+        """A plain read-only command executes via argv with shell=False.
+
+        The command starts as its own service behind the credential boundary
+        (intergen/tool_process.py), so the list handed to the executor is the
+        launcher's, with the command's own argv after its "--"; the boundary is
+        given fake credential paths so nothing here depends on this machine's.
+        """
+        with tempfile.TemporaryDirectory() as home:
+            paths = tuple(Path(home, name) for name in ("dispatch-key", "web-token"))
+            for path in paths:
+                path.write_text("fake\n", encoding="utf-8")
+            with mock.patch("intergen.tool_process.credential_paths",
+                            return_value=paths), \
+                 mock.patch("intergen.tools.run_command.subprocess.run",
+                            return_value=_FAKE_OK) as mrun:
+                res = self.tool.execute({"command": "df -h"})
         self.assertTrue(res.success)
         self.assertEqual(mrun.call_count, 1)
         args, kwargs = mrun.call_args
         self.assertIsInstance(args[0], list, "executor must receive an argv LIST")
-        self.assertEqual(args[0], ["df", "-h"])
+        launch = args[0]
+        self.assertEqual(launch[launch.index("--") + 1:], [shutil.which("df"), "-h"])
         self.assertNotEqual(kwargs.get("shell"), True, "shell must never be True")
 
     def test_real_read_only_command_runs(self):
         """End-to-end with the real classifier + real exec: a genuine read-only
-        command returns real output (no mock)."""
-        res = self.tool.execute({"command": "printf hello"})
+        command returns real output (no mock). The exec is the real one too: the
+        command starts behind the credential boundary, here around the fake
+        credentials of a fixture install."""
+        if not user_manager_answers():
+            self.skipTest(NO_USER_MANAGER)
+        with visible_directory("intergen-shell-free-case-") as home:
+            write_fake_credentials(Path(home))
+            with install_lives_in(Path(home)):
+                res = self.tool.execute({"command": "printf hello"})
         self.assertTrue(res.success)
         self.assertIn("hello", res.content)
 

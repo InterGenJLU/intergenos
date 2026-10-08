@@ -14,11 +14,16 @@ but a read command misclassified as 'confirm' is merely annoying.
 
 from __future__ import annotations
 
+import errno
 import logging
+import os
 import shlex
+import shutil
 import subprocess
+import time
 from typing import Any
 
+from intergen import tool_process
 from intergen.interfaces.tool import BaseTool
 from intergen.interfaces.types import SafetyTier, ToolResult, ToolSchema
 from intergen.safety import classify_command
@@ -186,15 +191,51 @@ class RunCommandTool(BaseTool):
                 success=False,
             )
 
+        # The command runs as its own transient service, where the install's
+        # credential files cannot be opened (intergen/tool_process.py). The
+        # program is resolved here first, against this process's PATH as the
+        # direct start resolved it, so a name that is not installed reads as it
+        # always did.
+        program = argv[0]
+        resolved = os.path.abspath(program) if "/" in program else shutil.which(program)
+        unit = tool_process.new_unit_name()
         try:
-            log.debug("Executing: %s (timeout=%ds)", argv, timeout)
-            result = subprocess.run(
-                argv,
-                shell=False,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
+            launch = tool_process.launch_argv(
+                [resolved or program] + argv[1:], unit=unit,
+                runtime_max_sec=max(1, int(timeout)))
+        except tool_process.ToolProcessNotStarted as e:
+            log.error("Command not started: %s — %s", command, e)
+            return ToolResult(
+                call_id="",
+                name=self.name,
+                content=f"This command was not run: {e}",
+                success=False,
+                # Nothing ran, so the synthesis hop must not narrate a success.
+                blocked=True,
             )
+
+        try:
+            if resolved is None:
+                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), program)
+            log.debug("Executing: %s (timeout=%ds, unit %s)", argv, timeout, unit)
+            started = time.monotonic()
+            try:
+                result = subprocess.run(
+                    launch,
+                    shell=False,
+                    stdin=subprocess.DEVNULL,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout + tool_process.CLIENT_GRACE_SECONDS,
+                )
+            except subprocess.TimeoutExpired:
+                # The service outlives a client that gave up, so stop it rather
+                # than leave the command running after its answer is given.
+                tool_process.stop_unit(unit)
+                raise
+            if result.returncode != 0 and time.monotonic() - started >= timeout:
+                # The service's own RuntimeMaxSec ended the command.
+                raise subprocess.TimeoutExpired(argv, timeout)
             stdout = result.stdout
             stderr = result.stderr
 
