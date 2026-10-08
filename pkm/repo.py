@@ -667,8 +667,17 @@ class RepoManager:
                     )
 
                 stage = "index validation"
-                index = self._parse_index(name, config["url"], downloaded_db,
-                                          persist_generation=False)
+                try:
+                    index = self._parse_index(name, config["url"], downloaded_db,
+                                              persist_generation=False)
+                except IndexFormatError:
+                    raise  # Preserve the existing schema-refusal report below.
+                except Exception as e:
+                    keep_staging = True
+                    results.append((name, False,
+                        f"{stage} failed ({type(e).__name__}: {e}); "
+                        f"downloaded pair LEFT at {staging}; {preserved}"))
+                    continue
                 state_path = _state_dir(self._root_or_none()) / f"{name}.json"
                 backups = {}
                 stage = "saving prior cache and generation state"

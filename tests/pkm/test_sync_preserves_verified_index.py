@@ -173,3 +173,24 @@ def test_a_failed_rollback_reports_incomplete_restoration_and_keeps_the_saved_fi
     assert cached["body"].read_bytes() == cached["new_body"]
     assert cached["signature"].read_bytes() == cached["old_signature"]
     assert cached["manager"].indexes["fixture"] is cached["old_index"]
+
+
+@pytest.mark.parametrize("failure", ["gzip", "json"])
+def test_every_validation_failure_keeps_and_names_the_candidate(cached, failure):
+    cached["new_body"] = (b"not a gzip stream" if failure == "gzip" else
+                          gzip.compress(b'{"packages": ]'))
+    state = repo._state_dir(cached["manager"].root) / "fixture.json"
+    old_state = state.read_bytes()
+    result, downloads, verification = perform(cached)
+    assert result[0][1] is False
+    assert verification, "the candidate must reach validation after signature verification"
+    assert "index validation failed" in result[0][2]
+    assert ("BadGzipFile" if failure == "gzip" else "JSONDecodeError") in result[0][2]
+    assert len(downloads) == 2 and all(path.exists() for path in downloads)
+    assert all(str(path.parent) in result[0][2] for path in downloads)
+    assert downloads[0].read_bytes() == cached["new_body"]
+    assert downloads[1].read_bytes() == cached["new_signature"]
+    assert cached["body"].read_bytes() == cached["old_body"]
+    assert cached["signature"].read_bytes() == cached["old_signature"]
+    assert state.read_bytes() == old_state
+    assert cached["manager"].indexes["fixture"] is cached["old_index"]
