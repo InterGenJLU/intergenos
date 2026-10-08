@@ -672,9 +672,10 @@ class LLMRouter(LLMInterface):
 
         try:
             # M1 (bullet 5): the model call — TTFT (first token) + full output
-            # bytes + total. stream() is the single generation chokepoint: the
-            # streamed web path AND chat() (which collects stream()) both flow
-            # through here, so instrumenting it covers both interfaces.
+            # bytes + total. The conversational paths (the streamed web path and
+            # chat(), which collects stream()) flow through here; a tool-enabled
+            # turn's model call is stream_with_tools(), which writes the same two
+            # rows for its own call.
             _t0 = time.monotonic()
             _first = True
             _pieces: list[str] = []
@@ -834,6 +835,32 @@ class LLMRouter(LLMInterface):
         content_buf = ""
         content_mode = "scan"  # scan -> buffer (dialect) | passthrough (normal)
 
+        # The model call is on the decision trace the way stream() puts its own
+        # there: ("model", "first_token") when the first content or tool-call
+        # delta arrives, and ("model", "complete") once the call has finished,
+        # naming the tool the model asked for. "complete" is written before a
+        # tool call is yielded, so a caller that stops reading at the tool call
+        # does not lose it.
+        _t0 = time.monotonic()
+        _first = True
+        _text_pieces: list[str] = []
+        _finish: str | None = None
+        _completed = False
+
+        def _complete(tool_name: str | None) -> None:
+            nonlocal _completed
+            if _completed:
+                return
+            _completed = True
+            glass.emit("model", "complete", detail={
+                "endpoint": self._endpoint,
+                "prompt_tok_count": self._last_prompt_tokens,
+                "completion_tok_count": self._last_completion_tokens,
+                "finish_reason": _finish,
+                "text": "".join(_text_pieces),
+                "tool_call": tool_name},
+                dur_ms=(time.monotonic() - _t0) * 1000)
+
         try:
             for raw_line in response:
                 if not raw_line:
@@ -870,6 +897,13 @@ class LLMRouter(LLMInterface):
 
                     delta = chunk["choices"][0].get("delta", {})
                     finish_reason = chunk["choices"][0].get("finish_reason")
+                    if finish_reason:
+                        _finish = finish_reason
+                    if _first and (delta.get("tool_calls")
+                                   or delta.get("content")):
+                        glass.emit("model", "first_token",
+                                   dur_ms=(time.monotonic() - _t0) * 1000)
+                        _first = False
 
                     tool_calls = delta.get("tool_calls")
                     if tool_calls:
@@ -886,6 +920,7 @@ class LLMRouter(LLMInterface):
 
                     token = delta.get("content", "")
                     if token:
+                        _text_pieces.append(token)
                         if content_mode == "passthrough":
                             yield token
                         else:
@@ -903,6 +938,7 @@ class LLMRouter(LLMInterface):
                                     # "prefix" → stay scanning, keep buffering
 
                     if finish_reason == "tool_calls" and is_tool_call:
+                        _complete(tool_call_name)
                         if tool_call_name not in allowed_tool_names:
                             logger.warning(
                                 "LLM hallucinated tool '%s' — not in allowed set",
@@ -928,6 +964,8 @@ class LLMRouter(LLMInterface):
                 except (json.JSONDecodeError, KeyError, IndexError) as e:
                     logger.debug("Skipping malformed SSE chunk: %s", e)
                     continue
+
+            _complete(tool_call_name if is_tool_call else None)
 
             if is_tool_call and tool_call_name:
                 if tool_call_name not in allowed_tool_names:
