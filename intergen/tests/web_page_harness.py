@@ -26,13 +26,15 @@ NEEDS_NODE = "node is required to run the shipped page"
 
 
 def run_page(steps: list, constants: dict | None = None,
-             timeout: float = 60.0) -> dict:
+             timeout: float = 60.0, token: str | None = "harness-token") -> dict:
     """The page's record of a run. A harness failure is raised, never passed:
-    a page that could not be driven has shown nothing about its behaviour."""
+    a page that could not be driven has shown nothing about its behaviour.
+    ``token`` is the token the page finds; None runs it without one."""
     with tempfile.TemporaryDirectory(prefix="web-page-") as tmp:
         plan = Path(tmp) / "plan.json"
         plan.write_text(json.dumps({"constants": constants or {},
-                                    "steps": steps}), encoding="utf-8")
+                                    "steps": steps, "token": token}),
+                        encoding="utf-8")
         run = subprocess.run([NODE, str(HARNESS), str(APP_JS), str(plan)],
                              capture_output=True, text=True, timeout=timeout)
     if run.returncode != 0:

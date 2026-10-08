@@ -123,8 +123,9 @@
   // no script into the page, and the page's policy refuses inline script. If
   // it is absent the client has NO valid credential — fabricating a random
   // one only produces an endless 401 reconnect loop that hides the real
-  // cause. Return null and let connect() FAIL LOUD with a "run intergen
-  // setup" hint instead.
+  // cause. Return null and let connect() FAIL LOUD instead, naming both ways
+  // a page ends up without one: opened in a browser directly, or an account
+  // not set up yet.
   function getAuthToken() {
     const token = window.__INTERGEN_TOKEN__ || null;
     // Hand the real token off to same-origin sub-pages (the dashboard is served
@@ -142,8 +143,10 @@
     const token = getAuthToken();
     if (!token) {
       updateConnectionStatus('disconnected');
-      showBanner('InterGen is not set up on this account yet — run `intergen '
-        + 'setup` in a terminal, then reopen this window.', 'error');
+      showBanner('This page has no InterGen credential — a browser opened on '
+        + 'it directly is not given one. Open InterGen from its app; if '
+        + 'InterGen is not set up on this account yet, run `intergen setup` '
+        + 'in a terminal first.', 'error');
       return;  // no credential → do not open a doomed socket or reconnect-loop
     }
     const url = `${WS_URL}?source_interface=web`;

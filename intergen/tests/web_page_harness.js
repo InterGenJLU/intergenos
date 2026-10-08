@@ -17,7 +17,8 @@
 // so a stand-in the page cannot use shows up there instead of passing quietly.
 //
 // Usage: node web_page_harness.js <app.js> <plan.json>
-// plan.json: {"constants": {"NAME": value, ...}, "steps": [step, ...]}
+// plan.json: {"constants": {"NAME": value, ...}, "steps": [step, ...],
+//             "token": "..." | null}  (the page's token; null runs it without)
 // Steps: {"open": true} · {"server": {frame}} · {"close_from_server": true} ·
 //        {"type": "text"} (then Enter) ·
 //        {"click_gate": "allow" | "deny"} · {"key": "Escape"} ·
@@ -215,7 +216,7 @@ const context = {
   navigator: { clipboard: { writeText: () => Promise.resolve() } },
   Event: class { constructor(type) { this.type = type; } },
   FileReader: class {},
-  __INTERGEN_TOKEN__: 'harness-token',
+  __INTERGEN_TOKEN__: 'token' in plan ? plan.token : 'harness-token',
   location: { href: '' },
 };
 context.window = context;
