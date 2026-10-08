@@ -188,6 +188,50 @@ class TheSecretFilesAreRefusedAtTheFileBoundary(unittest.TestCase):
             result, "a second name while the canonical name cannot be read")
         self.assertIn("could not be read", result.content or "")
 
+    def test_a_credential_moved_away_from_its_canonical_path_is_still_refused(
+            self) -> None:
+        """An identity read once stays refused after the file is moved.
+
+        The first read stands for the daemon's read at start. The directory on
+        the key's canonical path is then renamed, so nothing exists at that path
+        and the moved name's own path does not end in the protected names; only
+        the identity the process already read can refuse it.
+        """
+        with self._as_if_the_install_lived_here():
+            self.assertIn(dt.SECRET_RELATIVE_PATHS[dt.KEY_RELATIVE_PATH],
+                          dt.secret_file_identities().values())
+            os.rename(self.tmp / ".config", self.tmp / ".config-moved")
+            moved = self.tmp / ".config-moved" / "intergen" / "dispatch-key"
+            self.assertEqual(moved.read_text(), self.key)
+            result = self._read(moved)
+        self._assert_refused(
+            result, "a credential moved away from its canonical path")
+
+    def test_the_daemon_reads_the_identities_before_it_is_constructed(self) -> None:
+        """The identities are read at start, before any tool can run."""
+        from intergen import dbus_daemon
+
+        order: list[str] = []
+
+        class Constructed(Exception):
+            pass
+
+        def construct(*args, **kwargs):
+            order.append("daemon constructed")
+            raise Constructed()
+
+        with mock.patch.object(dbus_daemon.private_state,
+                               "harden_user_state_at_startup",
+                               lambda: order.append("state hardened")), \
+                mock.patch.object(dt, "remember_secret_identities_at_startup",
+                                  lambda: order.append("identities read"),
+                                  create=True), \
+                mock.patch.object(dbus_daemon, "InterGenDaemon", construct):
+            with self.assertRaises(Constructed):
+                dbus_daemon.main([])
+        self.assertEqual(
+            order, ["state hardened", "identities read", "daemon constructed"])
+
     def test_an_absent_credential_still_contributes_nothing(self) -> None:
         """A file that does not exist is not a failure to read one."""
         token = self.key_path.parent / "web-token"

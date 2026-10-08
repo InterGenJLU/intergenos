@@ -371,6 +371,28 @@ class TheLauncher(_AFixtureInstall):
         self.assertIn(str(self.token_path), result.content)
         self.assertNotIn("an ordinary file the owner reads", result.content)
 
+    def test_an_unreadable_credential_path_is_refused_with_its_own_reason(
+            self) -> None:
+        """A path that cannot be read is not reported as a missing file."""
+        from intergen import tool_process
+        self.keydir.chmod(0)
+        try:
+            try:
+                os.stat(self.key_path)
+            except PermissionError:
+                pass
+            else:
+                self.skipTest(
+                    "this process can stat through an unsearchable directory "
+                    "(it holds CAP_DAC_OVERRIDE), so the case cannot be made here")
+            with self.assertRaises(tool_process.ToolProcessNotStarted) as caught:
+                tool_process.launch_argv(["true"], unit="intergen-tool-case.service")
+        finally:
+            self.keydir.chmod(0o700)
+        message = str(caught.exception)
+        self.assertIn("could not be read", message)
+        self.assertNotIn("does not exist", message)
+
     def test_a_second_name_for_a_credential_is_reported(self) -> None:
         from intergen import tool_process
         second = self.home / "second-name"
