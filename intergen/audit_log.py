@@ -209,17 +209,6 @@ class IntegrityReading:
         return bool(self.unreadable_lines or self.incomplete_rows or self.read_error)
 
     @property
-    def trustworthy(self) -> bool:
-        """False on any detected damage.
-
-        True does NOT mean the record is intact, and nothing in this module says it
-        does. It means this reading found no damage of the kinds it can see. A caller
-        that wants to tell a person what that is worth prints :meth:`report`, which
-        carries the limit with it.
-        """
-        return not self.damaged
-
-    @property
     def verdict(self) -> str:
         if not self.exists or (self.lines == 0 and self.rows == 0):
             return "NO RECORD — nothing has been written here, so there is nothing to check"
