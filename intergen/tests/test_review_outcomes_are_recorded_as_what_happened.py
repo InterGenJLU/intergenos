@@ -416,5 +416,26 @@ class ThePersonsOwnAnswersAreUnchanged(_Case):
         self.assertEqual(self._the_record().user_decision, "allowed_once")
 
 
+class AHeldCallWithNoReviewSurfaceIsRecordedAsSuch(_Case):
+    """A held call with no review surface at all (no review callback) was
+    recorded "denied", the person's word, beside a summary saying no review UI
+    was available: the same field the person's own Deny writes. It is recorded
+    as no_review_ui, the word the inbound review already uses for the same
+    fact."""
+
+    def test_no_review_surface_is_not_the_persons_deny(self) -> None:
+        result = self.registry.execute(_call("no-ui"), review_callback=None)
+        self._nothing_ran_and_no_one_denied(result, "no_review_ui",
+                                            "review UI")
+
+    def test_it_differs_from_the_persons_deny(self) -> None:
+        self.registry.execute(_call("no-ui"), review_callback=None)
+        self.registry.execute(_call("deny"),
+                              review_callback=lambda c, d: "deny")
+        no_ui, deny = (r.user_decision for r in self.records)
+        self.assertEqual(deny, "denied")
+        self.assertNotEqual(no_ui, deny)
+
+
 if __name__ == "__main__":
     unittest.main()

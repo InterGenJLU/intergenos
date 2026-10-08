@@ -285,10 +285,9 @@ def build_audit_record(
                                approval is not kept for later calls)
       "allowed_conversation" — the person reviewed and approved this
                                (tool, source) pair for the conversation
-      "denied"               — the call did not run: the gate refused it, no
-                               review surface was available, the person
-                               pressed Deny, or an approved privileged call's
-                               dispatch token could not be minted;
+      "denied"               — the call did not run: the gate refused it, the
+                               person pressed Deny, or an approved privileged
+                               call's dispatch token could not be minted;
                                result_summary says which
       "deny_conversation"    — the person denied this (tool, source) pair for
                                the rest of the conversation; the call did not
@@ -296,6 +295,8 @@ def build_audit_record(
       "egress_blocked"       — the outbound scan blocked the call's arguments
                                before they left the machine; the call did not
                                run
+      "no_review_ui"         — the call needed review and no review surface
+                               was available; the call did not run
 
     A review nobody decided; the call did not run:
       "review_timed_out"       — the review card was not answered before its

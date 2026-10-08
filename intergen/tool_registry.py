@@ -422,6 +422,9 @@ REVIEW_REFUSED = "review_refused"
 REVIEW_FAILED = "review_failed"
 REFUSED_WITHOUT_REVIEW = "refused_without_review"
 REVIEW_ENDED = "review_ended"
+# A held call with no review surface at all: nothing could ask the person, so
+# nothing runs, and the record says that rather than that they refused.
+NO_REVIEW_UI = "no_review_ui"
 _REVIEW_NOT_DECIDED = {
     REVIEW_TIMED_OUT: "the review card was not answered before its deadline",
     REVIEW_REFUSED: ("a review card for this call was already open, so a "
@@ -895,10 +898,12 @@ class ToolRegistry:
             if review_callback is None:
                 # Per RFC §7.2: no review UI implies implicit refusal rather
                 # than silent execute. The gate's job is intent verification;
-                # without a UI to verify, the safe behavior is refusal.
+                # without a UI to verify, the safe behavior is refusal. No
+                # person refused it, so it is recorded as no_review_ui, never
+                # as "denied", the word the person's own Deny writes.
                 self._audit_log_decision(
                     call, decision, ingress_tracker,
-                    user_outcome="denied",
+                    user_outcome=NO_REVIEW_UI,
                     exit_code=1,
                     result_summary="No review UI available; implicit refusal",
                     source_attribution=source_attribution,
@@ -1184,7 +1189,7 @@ class ToolRegistry:
                         # Nobody denied it: withheld all the same, and recorded
                         # as what happened rather than as the person's refusal.
                         outcome, what = (
-                            ("no_review_ui", "no review surface was available")
+                            (NO_REVIEW_UI, "no review surface was available")
                             if review_callback is None
                             else review_not_decided(choice))
                         user_outcome = f"{user_outcome}+ingress_flag_{outcome}"
