@@ -339,7 +339,7 @@ Handled in `WebServer._handle_slash_command`:
 | Command | Purpose |
 |---|---|
 | `/new` | Start a new session (sends `session_created`) |
-| `/clear` | Clear the in-memory conversation buffer (sends `buffer_cleared`) |
+| `/clear` | Clear the in-memory conversation buffer and withdraw any offer awaiting a yes or no (sends `buffer_cleared`) |
 | `/health` or `/status` | Request a full health report |
 | `/governance` | Request the commandments + tier status |
 | `/metrics` | Request the metrics dashboard payload |

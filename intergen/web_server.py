@@ -1675,7 +1675,13 @@ class WebServer:
             # second door to it, not a second implementation of it.
             await self._handle_new_session(ctx, data)
         elif cmd_lower == "/clear":
+            # The model buffer goes, and every offer staged in it goes with it:
+            # an offer the buffer no longer holds would still be taken up by a
+            # bare "yes" typed next. The consent decisions and the ingress
+            # watermark stay — /clear empties the buffer; /new ends the
+            # conversation.
             ctx.session_history.clear()
+            ctx.conversation.clear_offers()
             await ctx.ws.send_json({"type": "buffer_cleared"})
         elif cmd_lower in ("/health", "/status"):
             await self._handle_request_health(ctx, {})

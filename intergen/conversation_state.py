@@ -124,6 +124,24 @@ class ConversationState:
         self.history.clear()
         self.trust_state.reset()
         self.ingress_tracker.reset_conversation()
+        self.clear_offers()
+        # Loop-killer set is per-conversation: a fresh conversation may re-offer
+        # an action a prior (discarded) one declined.
+        self.handed_off_commands.clear()
+        # The verbatim transcript is per-conversation like everything else here:
+        # a discarded conversation's first question must not be readable as the
+        # fresh one's.
+        self.transcript.clear()
+        self.first_interaction = True
+
+    def clear_offers(self) -> None:
+        """Withdraw every offer awaiting a yes or no, and the grounding window
+        that rides on one.
+
+        Part of ``clear``, and also what emptying the model buffer needs beside
+        it: an offer outliving the buffer it was made in is still taken up by
+        a bare "yes" the person types afterwards.
+        """
         # F3 (offer/accept fix, 2026-07-01): ALL offer slots, not just memory —
         # a "yes" in a fresh conversation must never bind to an action or ipv6
         # offer staged in a discarded one (the stale-bind-across-reset hole).
@@ -137,14 +155,6 @@ class ConversationState:
         self.action_offer_ttl = 0
         self.offer_in_recent_history = False
         self.offer_topic_terms = frozenset()
-        # Loop-killer set is per-conversation: a fresh conversation may re-offer
-        # an action a prior (discarded) one declined.
-        self.handed_off_commands.clear()
-        # The verbatim transcript is per-conversation like everything else here:
-        # a discarded conversation's first question must not be readable as the
-        # fresh one's.
-        self.transcript.clear()
-        self.first_interaction = True
 
 
 def new_conversation_state(embedder: Any = None,

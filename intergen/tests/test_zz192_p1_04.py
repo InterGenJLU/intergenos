@@ -35,9 +35,11 @@ top of the next turn with no history, age or freshness precondition, so a bare
 one, and a privileged call is escalated — or not escalated — on the strength of
 the ended conversation's consent and watermark.
 
-SCOPE. Only ``/new`` is asserted on here. §12 documents ``/clear`` as "Clear the
-in-memory conversation buffer", which is what it does, so ``/clear`` keeping the
-conversation is documented behaviour and is not claimed as a defect by this file.
+SCOPE. ``/new`` is what ends the conversation. ``/clear`` empties the model
+buffer and withdraws the offers staged in it, since an offer the buffer no longer
+holds would still be taken up by a bare "yes"; it keeps the conversation's
+consent decisions and ingress watermark, because it empties the buffer and does
+not end the conversation (§12). The last cases in this file hold both halves.
 
 WHAT IS PROVED HERE. The real web-server handler against a recording socket, the
 real ``ConversationState``, the real consent record and ingress tracker from
@@ -260,6 +262,59 @@ class NewSlashCommandEndsTheConversationTests(unittest.TestCase):
         conv = _dirty(ctx.conversation)
         asyncio.run(srv._handle_new_session(ctx, {}))
         _assert_conversation_ended(self, conv, "new_session")
+
+
+class ClearWithdrawsTheOffersItsBufferHeldTests(unittest.TestCase):
+    """``/clear`` empties the model buffer, and the offers staged in that buffer
+    go with it."""
+
+    def _slash_clear(self):
+        srv = NewSlashCommandEndsTheConversationTests._srv()
+        ctx = _ctx()
+        conv = _dirty(ctx.conversation)
+        asyncio.run(srv._handle_slash_command(ctx, {"command": "/clear"}))
+        return ctx, conv
+
+    def test_a_yes_after_clear_cannot_reach_the_offer_the_buffer_held(self):
+        from intergen.router import RouteResult
+
+        ctx, conv = self._slash_clear()
+        self.assertTrue(ctx.ws.of_type("buffer_cleared"))
+        self.assertEqual(list(conv.history), [])
+        self.assertEqual(
+            (conv.pending_action_offer, conv.pending_ipv6_offer,
+             conv.pending_memory_offer, conv.pending_search_offer),
+            (None, None, None, None),
+            "an offer staged in the buffer /clear emptied is still awaiting a "
+            "yes")
+        self.assertEqual((conv.action_offer_ttl, conv.offer_in_recent_history,
+                          conv.offer_topic_terms), (0, False, frozenset()),
+                         "the grounding window of a withdrawn offer survived")
+
+        dispatched: list[str] = []
+
+        def _fake_run(cmd):
+            dispatched.append(cmd)
+            return RouteResult(text="...", source="explain_offer_run",
+                               handled=True)
+
+        router = _bare_router()
+        router._run_staged_command = _fake_run
+        with router.bind_conversation(conv):
+            router._resolve_pending_action_offer("yes", 0.0)
+        self.assertEqual(
+            dispatched, [],
+            f"a bare 'yes' typed after /clear dispatched {dispatched!r}, the "
+            "command offered in the buffer the person had just cleared")
+
+    def test_clear_keeps_what_belongs_to_the_conversation(self):
+        """The control: /clear empties the buffer and does not end the
+        conversation, so its consent and its watermark stay."""
+        _ctx_, conv = self._slash_clear()
+        self.assertEqual(conv.trust_state.check("run_command", "user"),
+                         "allow")
+        self.assertTrue(conv.ingress_tracker.ingress_fired_this_conversation())
+        self.assertFalse(conv.first_interaction)
 
 
 if __name__ == "__main__":
