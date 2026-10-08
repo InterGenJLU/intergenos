@@ -261,37 +261,75 @@ class AnAnswerThatIsNotAnApprovalRunsNothing(_Case):
 
     def test_flagged_content_is_withheld_on_an_answer_that_is_not_an_approval(
             self) -> None:
-        from intergen.interfaces.scanner import (
-            ScanDirection, ScanDisposition, Scanner, ScanVerdict,
-        )
-        from intergen.scanner.policy import ScannerPolicy
-
-        class _FlagIngress(Scanner):
-            name = "case"
-            is_local = True
-
-            def scan(self, content, ctx):
-                disposition = (ScanDisposition.FLAG
-                               if ctx.direction is ScanDirection.INGRESS
-                               else ScanDisposition.ALLOW)
-                return ScanVerdict(disposition=disposition,
-                                   reason="looks like an instruction",
-                                   scanner="case")
-
-        registry = ToolRegistry(
-            scanner_policy=ScannerPolicy(local_rules=_FlagIngress()))
-        registry.register_external(
-            name="mcp_case_tool", schema=None,
-            handler=lambda args: "RETURNED TEXT", system_prompt_rule="case")
-        with mock.patch.object(registry_module, "write_record",
-                               side_effect=self._record):
-            result = registry.execute(
-                ToolCall(name="mcp_case_tool", arguments={"q": "x"},
-                         source_of_request=Provenance.USER_DIRECT),
-                review_callback=lambda c, d: "later")
+        result = _flagged_call(lambda c, d: "later")
         self.assertNotIn("RETURNED TEXT", result.content,
                          "flagged content was admitted on an answer that is "
                          "not an approval")
+
+
+def _flagged_call(review_callback) -> ToolResult:
+    """An external tool whose returned text the ingress scan flags, run
+    through the registry with ``review_callback`` (None: no review surface)."""
+    from intergen.interfaces.scanner import (
+        ScanDirection, ScanDisposition, Scanner, ScanVerdict,
+    )
+    from intergen.scanner.policy import ScannerPolicy
+
+    class _FlagIngress(Scanner):
+        name = "case"
+        is_local = True
+
+        def scan(self, content, ctx):
+            disposition = (ScanDisposition.FLAG
+                           if ctx.direction is ScanDirection.INGRESS
+                           else ScanDisposition.ALLOW)
+            return ScanVerdict(disposition=disposition,
+                               reason="looks like an instruction",
+                               scanner="case")
+
+    registry = ToolRegistry(
+        scanner_policy=ScannerPolicy(local_rules=_FlagIngress()))
+    registry.register_external(
+        name="mcp_case_tool", schema=None,
+        handler=lambda args: "RETURNED TEXT", system_prompt_rule="case")
+    return registry.execute(
+        ToolCall(name="mcp_case_tool", arguments={"q": "x"},
+                 source_of_request=Provenance.USER_DIRECT),
+        review_callback=review_callback)
+
+
+class FlaggedContentNobodyApprovedIsRecordedAsWhatHappened(_Case):
+    """The ingress-flag review withholds flagged content on any answer that is
+    not an approval. It recorded every one as "+ingress_flag_denied", "FLAG
+    denied": a card nobody answered, a review that failed and a machine with no
+    review surface all read as the person's refusal."""
+
+    def test_each_outcome_is_recorded_as_itself(self) -> None:
+        for answer, outcome in (
+                ("review_timed_out", "review_timed_out"),
+                ("review_failed", "review_failed"),
+                ("later", "review_failed"),
+                (None, "no_review_ui")):
+            with self.subTest(answer=answer):
+                self.records.clear()
+                callback = (None if answer is None
+                            else (lambda c, d, _a=answer: _a))
+                result = _flagged_call(callback)
+                record = self._the_record()
+                self.assertNotIn("RETURNED TEXT", result.content)
+                self.assertTrue(
+                    record.user_decision.endswith(f"+ingress_flag_{outcome}"),
+                    f"recorded as {record.user_decision!r}: "
+                    f"{record.result_summary!r}")
+                self.assertNotIn("FLAG denied", record.result_summary)
+
+    def test_the_persons_deny_is_recorded_as_before(self) -> None:
+        """Control."""
+        result = _flagged_call(lambda c, d: "deny")
+        record = self._the_record()
+        self.assertNotIn("RETURNED TEXT", result.content)
+        self.assertTrue(record.user_decision.endswith("+ingress_flag_denied"))
+        self.assertIn("FLAG denied", record.result_summary)
 
 
 class ThePersonsOwnAnswersAreUnchanged(_Case):

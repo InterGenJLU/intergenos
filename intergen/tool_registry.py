@@ -1169,16 +1169,29 @@ class ToolRegistry:
                         f"{ingress_verdict.reason}"
                     ),
                 )
-                choice = review_callback(call, flag_decision) if review_callback else "deny"
+                choice = review_callback(call, flag_decision) if review_callback else None
                 # Only an approval admits the flagged content; any other
                 # answer withholds it, an answer not known here included.
                 if choice not in REVIEW_APPROVALS:
                     content_withheld = True
-                    user_outcome = f"{user_outcome}+ingress_flag_denied"
-                    result_summary = (
-                        f"Sentinel ingress-scan FLAG denied: {ingress_verdict.reason}; "
-                        "content withheld from context"
-                    )
+                    if choice in ("deny", "deny_conversation"):
+                        user_outcome = f"{user_outcome}+ingress_flag_denied"
+                        result_summary = (
+                            f"Sentinel ingress-scan FLAG denied: {ingress_verdict.reason}; "
+                            "content withheld from context"
+                        )
+                    else:
+                        # Nobody denied it: withheld all the same, and recorded
+                        # as what happened rather than as the person's refusal.
+                        outcome, what = (
+                            ("no_review_ui", "no review surface was available")
+                            if review_callback is None
+                            else review_not_decided(choice))
+                        user_outcome = f"{user_outcome}+ingress_flag_{outcome}"
+                        result_summary = (
+                            f"Sentinel ingress-scan FLAG not approved ({what}): "
+                            f"{ingress_verdict.reason}; content withheld from context"
+                        )
                     result.content = _withheld_notice(tool_name, ingress_verdict.reason)
                     result.model_summary = None
 
