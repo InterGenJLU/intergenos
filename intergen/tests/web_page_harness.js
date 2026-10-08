@@ -21,7 +21,10 @@
 // Steps: {"open": true} · {"server": {frame}} · {"close_from_server": true} ·
 //        {"type": "text"} (then Enter) ·
 //        {"click_gate": "allow" | "deny"} · {"key": "Escape"} ·
-//        {"click": "#element-id"} · {"wait": ms} · {"mark": "label"}
+//        {"click": "#element-id"} · {"set": {"#element-id": "value"}} ·
+//        {"classes": {"#element-id": "names"}} (as the page's markup starts it) ·
+//        {"inspect": "#element-id"} (its classes and text, into "inspected") ·
+//        {"wait": ms} · {"mark": "label"}
 
 'use strict';
 
@@ -44,7 +47,7 @@ for (const [name, value] of Object.entries(plan.constants || {})) {
 
 const started = Date.now();
 const report = { sent: [], closes: [], sockets: 0, banners: [], marks: [],
-                 pane: [], logged: [] };
+                 pane: [], logged: [], inspected: [] };
 
 class FakeClassList {
   constructor() { this.names = new Set(); }
@@ -269,6 +272,18 @@ async function run() {
       press(step.key);
     } else if ('click' in step) {
       document.querySelector(step.click).click();
+    } else if ('set' in step) {
+      for (const [selector, value] of Object.entries(step.set)) {
+        document.querySelector(selector).value = value;
+      }
+    } else if ('classes' in step) {
+      for (const [selector, names] of Object.entries(step.classes)) {
+        document.querySelector(selector).className = names;
+      }
+    } else if ('inspect' in step) {
+      const el = document.querySelector(step.inspect);
+      report.inspected.push({ selector: step.inspect, classes: el.className,
+                              text: el.textContent, sent: report.sent.length });
     } else if ('wait' in step) {
       await new Promise((resolve) => setTimeout(resolve, step.wait));
     } else if ('mark' in step) {

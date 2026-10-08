@@ -58,6 +58,9 @@
     // liveness failsafe watches turns; a card a command raised (/file) is not
     // part of one.
     turnInFlight: false,
+    // Characters of pasted text and chosen files the server has put in this
+    // conversation (file_loaded), for the 📎 indicator.
+    loadedChars: 0,
   };
 
   // ── DOM refs ───────────────────────────────────────────────────────────
@@ -445,6 +448,7 @@
   function handleSessionSwitched(msg) {
     stopThinking();
     dom.messages.innerHTML = '';
+    clearLoadedIndicator();
     const messages = Array.isArray(msg.messages) ? msg.messages : [];
     for (const m of messages) {
       addMessage(m.role || 'assistant', m.content || '', '');
@@ -465,6 +469,7 @@
   function handleBufferCleared() {
     dom.messages.innerHTML = '';
     state.messages.length = 0;
+    clearLoadedIndicator();
   }
 
   // The new conversation exists once the server has made it: the old one's
@@ -477,6 +482,7 @@
     stopThinking();
     dom.messages.innerHTML = '';
     state.messages.length = 0;
+    clearLoadedIndicator();
     addMessage('system', 'New conversation started.', '');
   }
 
@@ -490,9 +496,34 @@
     }
   }
 
+  // The server has put a chosen file or pasted text in the conversation. The
+  // page says so, and lights the 📎 indicator, on this frame and not before.
   function handleFileLoaded(msg) {
+    const chars = msg.chars || 0;
     addMessage('system',
-      `File loaded: ${msg.filename || 'file'} (${msg.chars || 0} chars)`, '');
+      `File loaded: ${msg.filename || 'file'} (${chars} chars)`, '');
+    state.loadedChars += chars;
+    dom.bufferTokens.textContent = Math.round(state.loadedChars / 4);
+    dom.bufferIndicator.classList.remove('hidden');
+  }
+
+  // What was loaded belonged to the conversation the server has emptied, ended
+  // or left, so the indicator goes out with it.
+  function clearLoadedIndicator() {
+    state.loadedChars = 0;
+    dom.bufferIndicator.classList.add('hidden');
+  }
+
+  // Pasted text goes where a chosen file goes: the server's /file content path
+  // puts it in the conversation and answers file_loaded. "Buffer loaded" used
+  // to be printed here over nothing sent.
+  function loadPastedText(text) {
+    if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+      send({ type: 'slash_command', command: '/file',
+             filename: 'pasted text', content: text });
+    } else {
+      showBanner('Not connected to InterGen. Check if the daemon is running.', 'error');
+    }
   }
 
   function handleSystemStatus(msg) {
@@ -954,9 +985,7 @@
         const btn = $('#modal-paste-btn');
         if (btn) btn.addEventListener('click', () => {
           const ta = $('#modal-textarea');
-          if (ta && ta.value.trim()) {
-            addMessage('system', `Buffer loaded (${ta.value.length} chars)`, '');
-          }
+          if (ta && ta.value.trim()) loadPastedText(ta.value);
           closeModal();
         });
       }, 0);
@@ -1277,11 +1306,7 @@
       const btn = $('#modal-paste-btn');
       if (btn) btn.addEventListener('click', () => {
         const ta = $('#modal-textarea');
-        if (ta && ta.value.trim()) {
-          addMessage('system', `Buffer loaded (${ta.value.length} chars, ~${Math.round(ta.value.length / 4)} tokens)`, '');
-          dom.bufferIndicator.classList.remove('hidden');
-          dom.bufferTokens.textContent = Math.round(ta.value.length / 4);
-        }
+        if (ta && ta.value.trim()) loadPastedText(ta.value);
         closeModal();
       });
     }, 0);
