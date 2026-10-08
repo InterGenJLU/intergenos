@@ -281,5 +281,199 @@ class ACardRaisedByAUserInvokedToolTests(unittest.TestCase):
         execute.assert_not_called()
 
 
+
+class _BlockingRouter:
+    """A router whose route() has the real contract — it writes its exchange
+    into the conversation it was given before it returns — and which holds
+    every message beginning "old" until the case releases it, so a turn's
+    worker can be kept running across a boundary. It counts the route() calls
+    running at once."""
+
+    def __init__(self) -> None:
+        import threading
+        self._lock = threading.Lock()
+        self.release = threading.Event()
+        self.started = threading.Event()
+        self.finished = threading.Event()
+        self.active = 0
+        self.max_active = 0
+        self.routed: list[str] = []
+
+    def route(self, user_msg, *, conversation, **_kwargs):
+        from intergen.interfaces.types import Message, MessageRole, RouteResult
+        with self._lock:
+            self.active += 1
+            self.max_active = max(self.max_active, self.active)
+            self.routed.append(user_msg)
+        self.started.set()
+        try:
+            if user_msg.startswith("old"):
+                assert self.release.wait(10), "the case did not release the route"
+            answer = f"answer to {user_msg}"
+            conversation.history.extend([
+                Message(role=MessageRole.USER, content=user_msg),
+                Message(role=MessageRole.ASSISTANT, content=answer),
+            ])
+            conversation.transcript.append((user_msg, answer))
+            return RouteResult(text=answer, source="keyword", handled=True)
+        finally:
+            with self._lock:
+                self.active -= 1
+            if user_msg.startswith("old"):
+                self.finished.set()
+
+    def reset_conversation_state(self, state):
+        state.clear()
+
+    def _append_history(self, *_args, **_kwargs):
+        return None  # route() above already wrote, as the fast paths do
+
+    def last_route_confidence(self):
+        return None
+
+
+async def _thread_event(event, timeout: float = 5.0) -> bool:
+    return await asyncio.to_thread(event.wait, timeout)
+
+
+class AnEndedTurnsRouteWorkerStaysInTheConversationItBelongedTo(
+        unittest.TestCase):
+    """A turn's route() runs in a worker thread. Ending the conversation
+    cancelled the turn's task, but not the thread: it finished afterwards and
+    wrote the ended exchange into the conversation that had just been emptied
+    for the next one, and, because cancelling the task released the route lock,
+    the next turn's route ran beside it on the shared router.
+
+    The boundary now gives the worker a short while to finish (a worker that
+    does is emptied with the rest of the conversation); one still running keeps
+    the conversation object it was given and the connection takes a new one;
+    and the route lock is held until the worker itself finishes. The first case
+    is the control: a turn that finished before the boundary was always ended
+    with it."""
+
+    def setUp(self) -> None:
+        from intergen import web_server as web_server_module
+        # create=True: the constant is new with the fix, and at the base the
+        # cases must run the base's own behaviour rather than fail to patch.
+        patcher = mock.patch.object(web_server_module, "_ROUTE_SETTLE_S", 0.2,
+                                    create=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.router = _BlockingRouter()
+        self.server = WebServer(router=self.router, llm=None, tools=None,
+                                governance=None)
+        self.server._sessions = mock.MagicMock()
+        self.server._send_session_list = mock.AsyncMock()
+        self.ctx = _ctx(_RecordingWS())
+
+    def _history(self):
+        return [(m.role.value, m.content) for m in self.ctx.conversation.history]
+
+    async def _start(self, content: str) -> asyncio.Task:
+        task = asyncio.create_task(
+            self.server._run_turn(self.ctx, {"content": content}))
+        self.ctx.turn_task = task
+        return task
+
+    def test_control_a_turn_finished_before_the_boundary_is_ended_with_it(self):
+        async def scenario():
+            self.router.release.set()
+            await asyncio.wait_for(await self._start("old control"), 5)
+            self.assertTrue(self._history())
+            await self.server._handle_new_session(self.ctx, {})
+        asyncio.run(scenario())
+        self.assertEqual(self._history(), [])
+        self.assertEqual(self.ctx.conversation.transcript, [])
+
+    def test_a_cancelled_turns_worker_does_not_write_into_the_new_conversation(
+            self):
+        async def scenario():
+            turn = await self._start("old question")
+            self.assertTrue(await _thread_event(self.router.started))
+            await self.server._handle_new_session(self.ctx, {})
+            await asyncio.sleep(0)
+            self.assertTrue(turn.cancelled())
+            self.router.release.set()
+            self.assertTrue(await _thread_event(self.router.finished))
+            await asyncio.sleep(0.05)
+        asyncio.run(scenario())
+        self.assertEqual(self._history(), [],
+                         "the ended turn wrote into the new conversation")
+        self.assertEqual(self.ctx.conversation.transcript, [])
+
+    def test_a_worker_that_finishes_within_the_wait_is_ended_with_the_rest(self):
+        import threading
+        saved: list = []
+        # Copied when save() is called: the list it is handed is the
+        # conversation's own, which the reset empties right after.
+        self.server._sessions.save.side_effect = (
+            lambda _sid, history, **_kw: saved.append(list(history)))
+
+        async def scenario():
+            await self._start("old question")
+            self.assertTrue(await _thread_event(self.router.started))
+            threading.Timer(0.05, self.router.release.set).start()
+            await self.server._handle_new_session(self.ctx, {})
+        asyncio.run(scenario())
+        self.assertEqual(self._history(), [])
+        self.assertEqual(len(saved), 1)
+        self.assertEqual([m.content for m in saved[0]],
+                         ["old question", "answer to old question"],
+                         "the ended conversation was saved without the exchange "
+                         "its worker finished")
+
+    def test_a_switch_does_not_receive_the_ended_turns_late_write(self):
+        from intergen.interfaces.types import Message, MessageRole
+        loaded = [Message(role=MessageRole.USER, content="from the other session")]
+        self.server._sessions.load.return_value = {"messages": loaded}
+
+        async def scenario():
+            await self._start("old question")
+            self.assertTrue(await _thread_event(self.router.started))
+            await self.server._handle_switch_session(
+                self.ctx, {"session_id": "session_0123abcd"})
+            self.router.release.set()
+            self.assertTrue(await _thread_event(self.router.finished))
+            await asyncio.sleep(0.05)
+        asyncio.run(scenario())
+        self.assertEqual(self._history(), [("user", "from the other session")])
+
+    def test_a_new_turn_does_not_route_beside_the_cancelled_turns_worker(self):
+        async def scenario():
+            await self._start("old question")
+            self.assertTrue(await _thread_event(self.router.started))
+            await self.server._handle_new_session(self.ctx, {})
+            new = await self._start("new question")
+            await asyncio.sleep(0.3)
+            self.assertEqual(self.router.routed, ["old question"],
+                             "the new turn's route ran while the ended turn's "
+                             "worker was still running")
+            self.router.release.set()
+            await asyncio.wait_for(new, 5)
+        asyncio.run(scenario())
+        self.assertEqual(self.router.max_active, 1)
+        self.assertEqual(self._history(), [("user", "new question"),
+                                           ("assistant", "answer to new question")])
+
+    def test_a_route_abandoned_at_the_deadline_keeps_the_lock_until_it_finishes(
+            self):
+        from intergen import web_server as web_server_module
+
+        async def scenario():
+            with mock.patch.object(web_server_module,
+                                   "SERVER_ROUTE_DEADLINE_S", 0.2):
+                await asyncio.wait_for(await self._start("old slow"), 5)
+            self.assertIn("route_timeout",
+                          [f.get("code") for f in self.ctx.ws.sent])
+            second = await self._start("new question")
+            await asyncio.sleep(0.3)
+            self.assertEqual(self.router.routed, ["old slow"],
+                             "a route ran beside the abandoned worker")
+            self.router.release.set()
+            await asyncio.wait_for(second, 5)
+        asyncio.run(scenario())
+        self.assertEqual(self.router.max_active, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

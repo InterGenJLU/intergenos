@@ -138,6 +138,15 @@ SERVER_ROUTE_DEADLINE_S = 20.0
 # enough that the poll costs nothing next to a routing round-trip.
 _ROUTE_DEADLINE_TICK_S = 0.05
 
+# How long a conversation boundary (/new, a session switch, /clear) waits for
+# the ended turn's route worker to finish before it gives up on it. route()
+# runs in a thread that cancelling its turn cannot stop, and it writes its
+# exchange into the conversation it was given; waiting lets that write land
+# before the boundary empties the conversation, so it is emptied with the rest.
+# A worker still running after this is fenced off instead (see
+# _conversation_for_next).
+_ROUTE_SETTLE_S = 3.0
+
 TOKEN_PATH = Path.home() / ".config" / "intergen" / "web-token"
 
 STATIC_DIR = Path(__file__).parent / "web"
@@ -221,6 +230,9 @@ class ConnectionContext:
     #                                            receive loop so a gated turn can't
     #                                            block the loop from reading its own
     #                                            gate_decision — see _dispatch_loop)
+    # The turn's route() worker. It runs in a thread, so cancelling turn_task
+    # does not stop it; a conversation boundary waits for it, or fences it off.
+    route_worker: "asyncio.Future | None" = None
     model_tier: str = "medium"                 # "small", "medium", "large"
     current_session_id: str = "default"
     auth_token: str = ""
@@ -1265,22 +1277,31 @@ class WebServer:
         # across connections; everything the turn writes back afterwards names
         # the conversation explicitly instead, because by then another
         # connection may already be bound.
-        async with self._route_lock:
+        # The lock is released when the route WORKER finishes, not when this
+        # turn stops waiting for it. The worker is a thread: a turn cancelled at
+        # a conversation boundary, or abandoned at the server's deadline, stops
+        # waiting while route() runs on, and releasing the lock then let the
+        # next route run beside it on the shared router.
+        await self._route_lock.acquire()
+        _route_future = None
+        try:
             # A ContextVar does not cross a thread, so route() ran with no turn
             # bound and every row it wrote — every routing verdict, every
             # decision it made on the way — landed as "no-turn" and could not be
             # joined to the turn that caused it. Bind the context here and run
             # the callable through it (REC-17).
             _route_ctx = glass.bind_context()
+            _route_conversation = ctx.conversation
             _route_future = loop.run_in_executor(
                 None,
                 lambda: _route_ctx.run(
                     self._router.route,
                     user_msg, decide_only=True,
-                    conversation=ctx.conversation,
+                    conversation=_route_conversation,
                     review_callback=_route_review_cb,
                 ),
             )
+            ctx.route_worker = _route_future
             try:
                 result = await self._await_route_within_deadline(
                     ctx, _route_future)
@@ -1317,6 +1338,11 @@ class WebServer:
                     "please try asking again.",
                 ))
                 return
+        finally:
+            if _route_future is not None and not _route_future.done():
+                _route_future.add_done_callback(self._release_route_lock)
+            else:
+                self._route_lock.release()
 
         # M3(i): a prefixed "yes" over a live offer routed the tail through the
         # pipeline; route() set the reminder on the result (web is decide_only, so
@@ -1955,7 +1981,8 @@ class WebServer:
         # in afterwards, so the pane and the model's prompt are the same list.
         if self._router is not None and hasattr(
                 self._router, "reset_conversation_state"):
-            self._router.reset_conversation_state(ctx.conversation)
+            self._router.reset_conversation_state(
+                self._conversation_for_next(ctx))
         loaded = self._sessions.load(session_id)
         ctx.session_history = (loaded.get("messages")
                                if loaded and loaded.get("messages") else [])
@@ -1978,9 +2005,16 @@ class WebServer:
         await self._send_session_list(ctx)
 
     async def _end_conversation_work(self, ctx: ConnectionContext,
-                                      reason: str) -> tuple[int, int]:
+                                      reason: str, *,
+                                      detached_tools: bool = True,
+                                      ) -> tuple[int, int]:
         """Deny every review card still open and cancel the work the ending
         conversation detached. Returns (cards denied, tasks cancelled).
+
+        /clear ends the turn in flight and its cards, and leaves the commands
+        the person invoked (detached_tools=False): it empties the buffer, it
+        does not end the conversation. Last, the ended turn's route worker is
+        given _ROUTE_SETTLE_S to finish (_settle_route_worker).
 
         The conversation's own state lives on the conversation object and
         reset_conversation_state ends it. The cards on screen and the detached
@@ -2022,10 +2056,11 @@ class WebServer:
                     "reason": reason,
                 })
         finally:
-            for task in list(ctx.tool_tasks):
-                if not task.done():
-                    task.cancel()
-                    cancelled += 1
+            if detached_tools:
+                for task in list(ctx.tool_tasks):
+                    if not task.done():
+                        task.cancel()
+                        cancelled += 1
             if ctx.turn_task is not None and not ctx.turn_task.done():
                 ctx.turn_task.cancel()
                 cancelled += 1
@@ -2036,7 +2071,58 @@ class WebServer:
                 "cancelled %d detached task(s) (client=%s, session=%s)",
                 reason, len(ended), cancelled, ctx.client_id,
                 ctx.current_session_id)
+        await self._settle_route_worker(ctx)
         return len(ended), cancelled
+
+    async def _settle_route_worker(self, ctx: ConnectionContext) -> bool:
+        """Give the ended turn's route worker _ROUTE_SETTLE_S to finish.
+
+        Cancelling a turn stops its task, not its route() thread, and that
+        thread writes its exchange into the conversation it was given. A
+        worker that finishes here has written before the boundary empties the
+        conversation, so its exchange goes with the rest. True when no worker
+        is running; a worker still running is fenced off by the caller
+        (_conversation_for_next, or /clear's own fence).
+        """
+        worker = ctx.route_worker
+        if worker is None or worker.done():
+            return True
+        await asyncio.wait({worker}, timeout=_ROUTE_SETTLE_S)
+        if worker.done():
+            return True
+        logger.warning(
+            "Conversation boundary: the ended turn's route worker is still "
+            "running after %.1fs; it is fenced off from the conversation that "
+            "follows (client=%s)", _ROUTE_SETTLE_S, ctx.client_id)
+        return False
+
+    def _release_route_lock(self, worker: "asyncio.Future") -> None:
+        """Release the route lock once a worker its turn stopped waiting for
+        has finished, reading its outcome so an error it raised after its turn
+        was gone is logged rather than lost."""
+        if not worker.cancelled() and worker.exception() is not None:
+            logger.warning("A route worker whose turn had ended raised: %r",
+                           worker.exception())
+        self._route_lock.release()
+
+    def _conversation_for_next(self, ctx: ConnectionContext) -> ConversationState:
+        """The conversation object the next conversation starts in.
+
+        The connection's own, to be reset in place, as everywhere else. The one
+        exception is a route worker of the ended turn that is still running
+        after the boundary waited for it: it holds the object it was given and
+        will write its exchange into it when it finishes, so it keeps that
+        object and the connection takes a new one. Its late write then lands in
+        the conversation that ended, which nothing reads any more, instead of
+        in the one that follows.
+        """
+        worker = ctx.route_worker
+        if worker is not None and not worker.done():
+            ctx.conversation = (self._router.new_conversation()
+                                if self._router is not None
+                                and hasattr(self._router, "new_conversation")
+                                else new_conversation_state())
+        return ctx.conversation
 
     async def _handle_new_session(self, ctx: ConnectionContext,
                                     data: dict[str, Any]) -> None:
@@ -2067,7 +2153,8 @@ class WebServer:
         # not be able to reach back into it.
         if self._router is not None and hasattr(
                 self._router, "reset_conversation_state"):
-            self._router.reset_conversation_state(ctx.conversation)
+            self._router.reset_conversation_state(
+                self._conversation_for_next(ctx))
         else:
             ctx.session_history = []
         self._sessions.create(session_id=ctx.current_session_id,
