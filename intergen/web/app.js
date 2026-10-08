@@ -204,6 +204,7 @@
       case 'session_list':  handleSessionList(msg); break;
       case 'session_switched': handleSessionSwitched(msg); break;
       case 'file_loaded':   handleFileLoaded(msg); break;
+      case 'buffer_cleared': handleBufferCleared(msg); break;
       case 'response':      handleResponse(msg); break;
       case 'frontier_response': handleFrontierResponse(msg); break;
       case 'model_changed': handleModelChanged(msg); break;
@@ -444,6 +445,14 @@
       addMessage('system', `Switched to session: ${label} (no messages yet)`, '');
     }
     scrollToBottom();
+  }
+
+  // The server has emptied the model's buffer and withdrawn the offers staged
+  // in it. The pane is emptied on this frame and not before, so it never shows
+  // a cleared conversation the model is still reading.
+  function handleBufferCleared() {
+    dom.messages.innerHTML = '';
+    state.messages.length = 0;
   }
 
   function handleFileLoaded(msg) {
@@ -880,8 +889,15 @@
       send({ type: 'new_session' });
       addMessage('system', 'New conversation started.', '');
     } else if (cmd === '/clear') {
-      dom.messages.innerHTML = '';
-      state.messages.length = 0;
+      // The model's buffer and the offers staged in it live on the server, so
+      // /clear goes there; the pane follows on buffer_cleared. Emptying only
+      // the pane left the model reading the old conversation, and a bare
+      // "yes" still took up an offer it held.
+      if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+        send({ type: 'slash_command', command: '/clear' });
+      } else {
+        showBanner('Not connected to InterGen. Check if the daemon is running.', 'error');
+      }
     } else if (cmd === '/health') {
       send({ type: 'request_health' });
     } else if (cmd === '/governance') {
