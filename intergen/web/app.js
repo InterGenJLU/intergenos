@@ -118,11 +118,13 @@
   };
 
   // ── Auth token ─────────────────────────────────────────────────────────
-  // The real token is injected as window.__INTERGEN_TOKEN__ (panel UserScript
-  // or server-side index.html injection on an authed doc fetch). If it is
-  // absent the client has NO valid credential — fabricating a random one only
-  // produces an endless 401 reconnect loop that hides the real cause. Return
-  // null and let connect() FAIL LOUD with a "run intergen setup" hint instead.
+  // The real token is set as window.__INTERGEN_TOKEN__ by the panel's
+  // document-start user script, the one path that sets it: the server writes
+  // no script into the page, and the page's policy refuses inline script. If
+  // it is absent the client has NO valid credential — fabricating a random
+  // one only produces an endless 401 reconnect loop that hides the real
+  // cause. Return null and let connect() FAIL LOUD with a "run intergen
+  // setup" hint instead.
   function getAuthToken() {
     const token = window.__INTERGEN_TOKEN__ || null;
     // Hand the real token off to same-origin sub-pages (the dashboard is served

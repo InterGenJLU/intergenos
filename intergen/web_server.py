@@ -578,7 +578,16 @@ class WebServer:
     # -- Static file handlers -----------------------------------------------
 
     async def _handle_index(self, request: web.Request) -> web.Response:
-        """Serve index.html with injected auth token when provided."""
+        """Serve index.html with the model attribution rendered into it.
+
+        No script is written into the page. This handler used to write the
+        Authorization header's token into an inline script that set
+        ``window.__INTERGEN_TOKEN__``, but the page's own policy
+        (``script-src 'self'``) refuses inline script: a real browser was seen
+        to refuse that one and leave the global unset. The token reaches the
+        page by the panel's document-start user script
+        (intergen/panel/__init__.py), which the page's policy does not govern.
+        """
         if not self._check_ready():
             return web.Response(text=_503_BODY, status=503,
                                 content_type="application/json")
@@ -598,14 +607,6 @@ class WebServer:
         # small file that the page load is already waiting on.
         html = html.replace(attribution.HTML_PLACEHOLDER,
                             _attribution_html())
-
-        token = self._extract_auth_token(request)
-        if token:
-            token_script = (
-                f'<script>window.__INTERGEN_TOKEN__ = '
-                f'{json.dumps(token)};</script>\n'
-            )
-            html = html.replace('<head>', '<head>\n' + token_script)
         return web.Response(text=html, content_type="text/html")
 
     def _auth_error(self) -> web.Response:
