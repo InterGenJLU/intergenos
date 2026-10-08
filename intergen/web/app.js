@@ -54,6 +54,10 @@
     historyIndex: null,
     historyDraft: '',
     pendingResponseTimer: null,
+    // True from the moment a message is sent until a frame ends its turn. The
+    // liveness failsafe watches turns; a card a command raised (/file) is not
+    // part of one.
+    turnInFlight: false,
   };
 
   // ── DOM refs ───────────────────────────────────────────────────────────
@@ -400,10 +404,16 @@
     state.pendingGate = null;
     state.streamingContent = '';
     // The decision is back with the server and the turn is its responsibility
-    // again, so the liveness failsafe disarmed in handleGatePrompt comes back.
-    armResponseTimeout(
-      POST_ACK_TIMEOUT_MS,
-      'InterGen stopped responding partway through that — reconnecting…');
+    // again, so the liveness failsafe disarmed in handleGatePrompt comes back —
+    // for a turn. A card a command raised (/file) is ended by the command's
+    // tool_executed line and no terminal frame follows it, so re-arming there
+    // reported a server that had finished as one that stopped responding, and
+    // forced a reconnect.
+    if (state.turnInFlight) {
+      armResponseTimeout(
+        POST_ACK_TIMEOUT_MS,
+        'InterGen stopped responding partway through that — reconnecting…');
+    }
     // single-gate review: the user-facing outcome of a deny is now the deterministic honest
     // handoff (streamed as tokens by the server) — advising the real path
     // forward, not a bare "action denied" system line. So nothing extra is
@@ -461,6 +471,9 @@
   // switch is painted from session_switched, so the pane never announces a
   // conversation the server did not start.
   function handleSessionCreated() {
+    // The server cancelled the work of the conversation it ended, so nothing
+    // more will arrive for a turn that was in flight in it.
+    stopThinking();
     dom.messages.innerHTML = '';
     state.messages.length = 0;
     addMessage('system', 'New conversation started.', '');
@@ -817,9 +830,11 @@
     }
   }
 
-  // Hide the thinking indicator and stop the mark glow. Also disarms the
-  // response-timeout. Use for any terminal/first-activity server message.
+  // Hide the thinking indicator and stop the mark glow, disarm the
+  // response-timeout and mark the turn ended. Use for a server message that
+  // ends a turn.
   function stopThinking() {
+    state.turnInFlight = false;
     clearResponseTimeout();
     if (state.typeTimer) { clearInterval(state.typeTimer); state.typeTimer = null; }
     dom.headerMark.style.animation = '';
@@ -883,6 +898,7 @@
           dom.imageIndicator.classList.add('hidden');
         }
         send(msg);
+        state.turnInFlight = true;
         // Enter the THINKING state immediately: glow the mark + show the indicator.
         // The local 2B on this CPU can take many seconds before the first token, so
         // this feedback is what tells the user InterGen is working (not stuck).
