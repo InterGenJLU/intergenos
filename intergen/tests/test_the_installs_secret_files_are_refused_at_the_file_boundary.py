@@ -398,6 +398,119 @@ class TheSecretFilesAreRefusedAtTheFileBoundary(unittest.TestCase):
         self._assert_refused(result, "a parent-directory spelling given to analyze_file")
 
 
+class ARefusedWriteCreatesNothing(unittest.TestCase):
+    """A write refused at a credential path that does not exist yet.
+
+    The open used to carry O_CREAT before anything was asked, so a refused
+    write at the web token's path, with no token there, left an empty file
+    where the token belongs, and the browser interface fails closed on an empty
+    token. Nothing may be created at such a path: not the file, not its
+    directories, and not through a link that points at it.
+
+    write_file is driven at its own execute with the signed never-list pinned
+    ABSENT, as in the write cell above.
+    """
+
+    TOKEN_REASON = dt.SECRET_RELATIVE_PATHS[(".config", "intergen", "web-token")]
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.config = self.tmp / ".config" / "intergen"
+        self.config.mkdir(parents=True)
+        self.token_path = self.config / "web-token"
+        self.tool = write_file_tool.WriteFileTool()
+        never_list_absent = contextlib.ExitStack()
+        never_list_absent.enter_context(
+            mock.patch.object(write_file_tool, "_policy_loaded", True))
+        never_list_absent.enter_context(
+            mock.patch.object(write_file_tool, "_policy_cache", None))
+        self.addCleanup(never_list_absent.close)
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def _assert_refused_as_the_token(self, result) -> None:
+        self.assertFalse(result.success, f"content was {result.content!r}")
+        self.assertEqual(result.content,
+                         dt.opened_file_refusal_text(self.TOKEN_REASON))
+
+    def test_a_refused_write_at_an_absent_credential_path_creates_no_file(
+            self) -> None:
+        (self.config / "detour").mkdir()
+        spelled = self.config / "detour" / ".." / "web-token"
+        result = self.tool.execute({"path": str(spelled), "content": "x\n"})
+        self._assert_refused_as_the_token(result)
+        self.assertFalse(
+            os.path.lexists(self.token_path),
+            "a refused write left a file where the web token belongs",
+        )
+
+    def test_a_refused_write_with_create_dirs_creates_no_directory(self) -> None:
+        stage = self.tmp / "stage"
+        target = stage / ".config" / "intergen" / "web-token"
+        result = self.tool.execute({"path": str(target), "content": "x\n",
+                                    "create_dirs": True})
+        self._assert_refused_as_the_token(result)
+        self.assertFalse(
+            os.path.lexists(stage),
+            "a refused write made the directories on the way to a credential",
+        )
+
+    def test_a_dangling_link_to_an_absent_credential_creates_nothing(self) -> None:
+        link = self.tmp / "notes-link"
+        link.symlink_to(self.token_path)
+        with self.assertRaises((OSError, dt.InstallSecretRefused)):
+            fd = dt.opened_refusing_install_secrets(
+                link, os.O_WRONLY | os.O_CREAT | os.O_CLOEXEC)
+            os.close(fd)
+        result = self.tool.execute({"path": str(link), "content": "x\n"})
+        self.assertFalse(result.success, f"content was {result.content!r}")
+        self.assertFalse(
+            os.path.lexists(self.token_path),
+            "an open through a link to the absent token created the token",
+        )
+        self.assertTrue(link.is_symlink(), "the link itself must be left alone")
+
+    def test_a_file_the_check_refuses_right_after_its_creation_is_removed(
+            self) -> None:
+        """The second check, for a name that changes meaning in between.
+
+        The question asked before the create is made to answer None once, as it
+        would if the directory were renamed into place after it was asked; the
+        check on the new descriptor then refuses, and the file it created must
+        be gone again.
+        """
+        real = dt.canonical_path_secret_reason
+        answers = iter([None])
+
+        def asked_too_early(candidate):
+            return next(answers, real(candidate))
+
+        with mock.patch.object(dt, "canonical_path_secret_reason",
+                               side_effect=asked_too_early):
+            with self.assertRaises(dt.InstallSecretRefused):
+                fd = dt.opened_refusing_install_secrets(
+                    self.token_path, os.O_WRONLY | os.O_CREAT | os.O_CLOEXEC)
+                os.close(fd)
+        self.assertFalse(
+            os.path.lexists(self.token_path),
+            "the file the boundary created and then refused was left in place",
+        )
+
+    def test_an_ordinary_new_file_is_still_created(self) -> None:
+        """The allowance: nothing above stops an ordinary write."""
+        plain = self.tmp / "notes.txt"
+        nested = self.tmp / "drafts" / "2026" / "notes.txt"
+        first = self.tool.execute({"path": str(plain), "content": "one\n"})
+        second = self.tool.execute({"path": str(nested), "content": "two\n",
+                                    "create_dirs": True})
+        self.assertTrue(first.success, f"content was {first.content!r}")
+        self.assertTrue(second.success, f"content was {second.content!r}")
+        self.assertEqual(plain.read_text(), "one\n")
+        self.assertEqual(nested.read_text(), "two\n")
+
+
 class UnderThePrivilegedRunnerTheOwnerIsTheAccountThatAsked(unittest.TestCase):
     """The identity leg, and write_file's own home, when the tool runs as root.
 

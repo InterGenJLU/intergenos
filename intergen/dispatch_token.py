@@ -518,6 +518,15 @@ def opened_refusing_install_secrets(path: object, flags: int,
     set that carried it would empty the credential before any check could refuse
     it; a caller that needs an empty file truncates the descriptor this returns.
 
+    O_CREAT never reaches an open that could create the file being asked about
+    before it is asked. An existing object is opened without it. Only when
+    nothing is there is a file created: the canonical tail of the resolved parent
+    plus the new name is asked first, the create carries O_EXCL|O_NOFOLLOW so it
+    cannot land on an object that appeared in between or follow a link, and a
+    file the check on its new descriptor still refuses is removed again before
+    the refusal is raised. A refused write therefore leaves nothing at the path
+    of a credential that did not exist.
+
     Returns the open descriptor, which the caller owns and must close. Raises
     InstallSecretRefused if the object is one of the install's secret files, and
     OSError from the open itself.
@@ -528,7 +537,21 @@ def opened_refusing_install_secrets(path: object, flags: int,
             "empty the file before the refusal could run. Truncate the returned "
             "descriptor instead."
         )
-    fd = os.open(path, flags, mode)
+    if not flags & os.O_CREAT:
+        return _refusing_install_secrets(os.open(path, flags, mode), path)
+    try:
+        return _opened_or_created(path, flags, mode)
+    except FileExistsError:
+        if flags & os.O_EXCL:
+            raise
+        # Something appeared at the name between the two opens. Once more from
+        # the top, so an object that now exists is opened and checked like any
+        # other; a second race is reported, not looped on.
+        return _opened_or_created(path, flags, mode)
+
+
+def _refusing_install_secrets(fd: int, path: object) -> int:
+    """Return `fd`, or close it and refuse if it is one of the install's secrets."""
     try:
         reason = open_descriptor_secret_reason(fd)
     except BaseException:
@@ -539,6 +562,90 @@ def opened_refusing_install_secrets(path: object, flags: int,
         logger.warning("Refused a tool's open of %s: %s", path, reason)
         raise InstallSecretRefused(reason)
     return fd
+
+
+def _opened_or_created(path: object, flags: int, mode: int) -> int:
+    """Open an existing object without O_CREAT; create only if none is there."""
+    if not flags & os.O_EXCL:
+        try:
+            fd = os.open(path, flags & ~os.O_CREAT, mode)
+        except FileNotFoundError:
+            pass
+        else:
+            return _refusing_install_secrets(fd, path)
+    return _created_refusing_install_secrets(path, flags, mode)
+
+
+def _created_refusing_install_secrets(path: object, flags: int, mode: int) -> int:
+    """Create a new file at `path`, asking first and checking again after.
+
+    The parent is opened as a directory, and the kernel's own path for it plus
+    the new name is what the canonical-tail question is asked of, so a
+    parent-directory spelling or a linked parent is answered as what it
+    resolves to. The file is then created relative to that directory
+    descriptor, exclusively and without following a link at the name.
+    """
+    text = os.fspath(path)
+    parent, name = os.path.split(text)
+    if name in ("", ".", ".."):
+        raise FileNotFoundError(
+            f"nothing can be created at {text!r}: it does not end in a file name")
+    dir_fd = os.open(parent or ".", os.O_PATH | os.O_DIRECTORY | os.O_CLOEXEC)
+    try:
+        try:
+            canonical_parent: str | None = os.readlink(f"/proc/self/fd/{dir_fd}")
+        except OSError:
+            canonical_parent = None
+        if canonical_parent is None:
+            reason: str | None = (
+                "a file whose directory's canonical path this install could not "
+                "read, so its own secret files cannot be ruled out"
+            )
+        else:
+            reason = canonical_path_secret_reason(
+                os.path.join(canonical_parent, name))
+        if reason is not None:
+            logger.warning("Refused a tool's creation of %s: %s", path, reason)
+            raise InstallSecretRefused(reason)
+        fd = os.open(name, flags | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                     mode, dir_fd=dir_fd)
+        try:
+            reason = open_descriptor_secret_reason(fd)
+            if reason is not None:
+                logger.warning("Refused a tool's creation of %s: %s", path, reason)
+                raise InstallSecretRefused(reason)
+        except BaseException:
+            _remove_own_creation(fd, name, dir_fd, path)
+            os.close(fd)
+            raise
+        return fd
+    finally:
+        os.close(dir_fd)
+
+
+def _remove_own_creation(fd: int, name: str, dir_fd: int, path: object) -> None:
+    """Unlink `name` only while it is still the file `fd` created.
+
+    The name is compared with the descriptor by identity before it is removed,
+    so an object something else has put at the name since is never deleted.
+    Either outcome other than a clean removal is logged, never passed over.
+    """
+    try:
+        held = os.fstat(fd)
+        named = os.stat(name, dir_fd=dir_fd, follow_symlinks=False)
+    except OSError as exc:
+        logger.warning("Could not compare %s with the file just created there, "
+                       "so it is left in place: %s", path, exc)
+        return
+    if (held.st_dev, held.st_ino) != (named.st_dev, named.st_ino):
+        logger.warning("%s is no longer the file just created there, so it is "
+                       "left in place", path)
+        return
+    try:
+        os.unlink(name, dir_fd=dir_fd)
+    except OSError as exc:
+        logger.warning("Could not remove the refused file just created at %s: %s",
+                       path, exc)
 
 
 def read_text_refusing_install_secrets(path: object, *,

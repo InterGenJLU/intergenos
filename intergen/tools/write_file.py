@@ -380,8 +380,18 @@ class WriteFileTool(BaseTool):
                     success=False,
                 )
 
-        # Create parent dirs if requested
+        # Create parent dirs if requested. The credential question is asked of
+        # the resolved path first, because the directories are made before the
+        # file is opened: a refused write must not leave a credential's
+        # directories behind any more than the file itself.
         if create_dirs:
+            reason = dispatch_token.canonical_path_secret_reason(path)
+            if reason is not None:
+                return ToolResult(
+                    call_id="", name=self.name,
+                    content=dispatch_token.opened_file_refusal_text(reason),
+                    success=False,
+                )
             try:
                 path.parent.mkdir(parents=True, exist_ok=True)
             except OSError as e:
