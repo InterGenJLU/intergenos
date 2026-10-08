@@ -90,10 +90,16 @@ _REVIEW_CARD_TIMEOUT_S = 300.0
 
 # Outer ceiling for the gate bridge (_make_web_review_callback): the worker
 # thread blocks on the async card up to this long. Set just ABOVE the card's own
-# 300 s await so the INNER timeout fires first and returns a clean "denied"
-# verdict; the outer ceiling is only the fail-closed backstop if the card coro
-# never completes (loop stall). Either way the bridge fails closed to "deny".
+# 300 s await so the INNER timeout usually fires first and the card reports
+# itself timed out; the outer ceiling is the fail-closed backstop when the card
+# has not finished by then (a stalled loop, or a prompt slow to send). At this
+# deadline the bridge answers review_failed, so nothing runs, and ends the card
+# on the page with its reason, so it does not stay answerable.
 _GATE_BRIDGE_TIMEOUT_S = 310.0
+
+# The reason a card the bridge gave up on is ended with, on the page.
+_BRIDGE_DEADLINE_REASON = (
+    "This review could not be completed in time, so nothing was run.")
 
 # Why a command the person invoked did not run, by what became of its review
 # (_evaluate_tool_with_gate with precise=True), for the line the page shows. A
@@ -3012,9 +3018,13 @@ class WebServer:
         decision: "DispatchDecision | None" = None,
         *,
         precise: bool = False,
+        card_id: str | None = None,
     ) -> str:
         """Render the review card, await the user's decision, return
         "approved" / "denied".
+
+        ``card_id`` is the id the card is raised under; the review bridge names
+        it, so that it can end this card itself at its own deadline.
 
         With ``precise`` a card nobody decided says what became of it instead
         of "denied": "timed_out" (unanswered before its deadline), "refused"
@@ -3031,7 +3041,8 @@ class WebServer:
         review is required, so there is deliberately NO free-read short-circuit
         here — that would silently bypass an ingress-scan FLAG raised on an
         otherwise read-only tool."""
-        tool_call_id = getattr(tool_call, 'call_id', None) or uuid.uuid4().hex[:12]
+        tool_call_id = (card_id or getattr(tool_call, 'call_id', None)
+                        or uuid.uuid4().hex[:12])
 
         # In-web review card (the review card) — mirrors the desktop r66
         # card, translated to user language. `what` = the action in plain terms;
@@ -3199,13 +3210,23 @@ class WebServer:
                 risk_tier = _classify_risk_tier(
                     tool_obj, call.arguments, call.name,
                 )
+                card_id = (getattr(call, "call_id", None)
+                           or uuid.uuid4().hex[:12])
                 fut = asyncio.run_coroutine_threadsafe(
                     self._render_review_card(
                         ctx, turn_id, call, risk_tier, decision, precise=True,
+                        card_id=card_id,
                     ),
                     loop,
                 )
-                outcome = fut.result(timeout=_GATE_BRIDGE_TIMEOUT_S)
+                try:
+                    outcome = fut.result(timeout=_GATE_BRIDGE_TIMEOUT_S)
+                except TimeoutError:
+                    # The bridge gives up: the review has failed and nothing
+                    # runs, so the card must not stay answerable on the page.
+                    self._end_card_the_bridge_gave_up_on(ctx, card_id, loop)
+                    fut.cancel()
+                    raise
             except Exception as exc:  # noqa: BLE001 — ANY failure fails closed
                 logger.error(
                     "web review bridge failed for %s: %s — nothing was approved",
@@ -3215,6 +3236,35 @@ class WebServer:
             return answers.get(outcome, REVIEW_FAILED)
 
         return _callback
+
+    def _end_card_the_bridge_gave_up_on(
+        self,
+        ctx: ConnectionContext,
+        card_id: str,
+        loop: "asyncio.AbstractEventLoop",
+    ) -> None:
+        """From the bridge's worker thread: end the card it gave up on, on the
+        event loop, as a conversation boundary ends a card — off the open
+        cards, its reason recorded, its waiter resolved, and its one resolution
+        frame sent with the reason, so a decision that arrives later finds no
+        card. Best-effort: the review has failed either way."""
+        async def _end() -> None:
+            future = ctx.open_gates.pop(card_id, None)
+            if future is None or future.done():
+                return
+            ctx.gate_end_reasons[card_id] = _BRIDGE_DEADLINE_REASON
+            future.set_result("deny")
+            await ctx.ws.send_json({
+                "type": "gate_resolved",
+                "tool_call_id": card_id,
+                "decision": "deny",
+                "reason": _BRIDGE_DEADLINE_REASON,
+            })
+        try:
+            asyncio.run_coroutine_threadsafe(_end(), loop).result(timeout=5.0)
+        except Exception as exc:  # noqa: BLE001 — the verdict is already failed
+            logger.error("could not end the review card %s at the bridge's "
+                         "deadline: %s", card_id, type(exc).__name__)
 
     # -- Server→Client broadcast helpers ------------------------------------
 
