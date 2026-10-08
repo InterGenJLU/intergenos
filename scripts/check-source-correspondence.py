@@ -148,19 +148,20 @@ def resolve_toolchain_twin(name: str, ver: str, recipes: dict[str, dict],
         if not (pin and tarball):
             continue
         rel = str(meta.get("release", 1))
-        twin_archive = _source_archive_for(sources_dir, cand, meta)
-        if twin_archive is None:
-            continue
         member_path = f"{cand}-{meta['version']}-{rel}/{tarball}"
         try:
-            with tarfile.open(twin_archive, "r:gz") as t:
-                member = t.getmember(member_path)
-                fh = t.extractfile(member)
-                if fh is None:
+            with _source_archive_for(sources_dir, cand, meta) as twin_archive:
+                if twin_archive is None:
                     continue
-                digest = hashlib.sha256()
-                for chunk in iter(lambda: fh.read(1 << 20), b""):
-                    digest.update(chunk)
+                with tarfile.open(fileobj=twin_archive, mode="r:gz") as t:
+                    member = t.getmember(member_path)
+                    fh = t.extractfile(member)
+                    if fh is None:
+                        continue
+                    with fh:
+                        digest = hashlib.sha256()
+                        for chunk in iter(lambda: fh.read(1 << 20), b""):
+                            digest.update(chunk)
         except (KeyError, tarfile.TarError, OSError):
             continue
         if digest.hexdigest() == pin:
@@ -212,12 +213,13 @@ def main() -> int:
                 f"unprovable, cannot establish source correspondence")
             continue
         try:
-            source = _source_archive_for(sources_dir, name, {"version": ver, "release": rel})
-        except ValueError as exc:
+            with _source_archive_for(sources_dir, name, {"version": ver, "release": rel}) as source:
+                source_present = source is not None
+        except (ValueError, OSError) as exc:
             shortfalls.append(f"{binary.name}: REFUSED corresponding-source lookup: {exc}")
             continue
         expected = source_archive_name(name, ver, rel)
-        if source is not None:
+        if source_present:
             matched += 1
             continue
         if name not in recipes:

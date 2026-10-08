@@ -1746,8 +1746,15 @@ def source_archive_name(name, version, release):
 
 
 def _source_archive_for(sources_dir, name, meta):
-    """Return the confined archive target, None if absent, or refuse unsafe identity."""
+    """Manage one pinned source file, yielding None if absent; refuse escapes.
+
+    Resolve the published alias once, then open and validate the descriptor on
+    entry. Consumers must use that stream, never reopen its name. Validation
+    on exit also refuses a target removed or moved outside during consumption.
+    """
+    from contextlib import contextmanager
     from pathlib import PureWindowsPath
+    import stat
 
     version = meta.get("version")
     release = meta.get("release")
@@ -1764,7 +1771,38 @@ def _source_archive_for(sources_dir, name, meta):
         raise ValueError(f"package {name!r}: resolved source path cannot be verified: {exc}") from exc
     if not candidate.is_relative_to(root):
         raise ValueError(f"package {name!r}: resolved source path escapes sources directory: {candidate}")
-    return candidate if candidate.is_file() else None
+    @contextmanager
+    def opened_source():
+        try:
+            fd = os.open(candidate, os.O_RDONLY | os.O_NONBLOCK | os.O_CLOEXEC)
+        except FileNotFoundError:
+            yield None
+            return
+        except OSError as exc:
+            raise ValueError(f"package {name!r}: source file cannot be opened: {exc}") from exc
+        with os.fdopen(fd, "rb") as archive:
+            if not stat.S_ISREG(os.fstat(archive.fileno()).st_mode):
+                yield None
+                return
+
+            def verify_opened_source():
+                try:
+                    target = Path(os.readlink(f"/proc/self/fd/{archive.fileno()}"))
+                    opened = os.fstat(archive.fileno())
+                    current = target.stat(follow_symlinks=False)
+                except OSError as exc:
+                    raise ValueError(
+                        f"package {name!r}: opened source file cannot be verified: {exc}") from exc
+                if (not opened.st_nlink or not target.is_relative_to(root)
+                        or (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino)):
+                    raise ValueError(
+                        f"package {name!r}: opened source file left sources directory: {target}")
+
+            verify_opened_source()
+            yield archive
+            verify_opened_source()
+
+    return opened_source()
 
 
 def generate_index(package_dir, arch="x86_64", output=None,
@@ -1837,16 +1875,15 @@ def generate_index(package_dir, arch="x86_64", output=None,
     sources_path = Path(sources_dir) if sources_dir else (package_dir / "sources")
     for name, meta in packages.items():
         try:
-            src_archive = _source_archive_for(sources_path, name, meta)
-        except ValueError as exc:
+            with _source_archive_for(sources_path, name, meta) as src_archive:
+                if src_archive is None:
+                    continue
+                src_sha = hashlib.sha256()
+                for chunk in iter(lambda: src_archive.read(8192), b""):
+                    src_sha.update(chunk)
+        except (ValueError, OSError) as exc:
             print(f"REFUSED corresponding-source lookup: {exc}", file=sys.stderr)
             continue
-        if src_archive is None:
-            continue
-        src_sha = hashlib.sha256()
-        with open(src_archive, "rb") as f:
-            for chunk in iter(lambda: f.read(8192), b""):
-                src_sha.update(chunk)
         meta["source_filename"] = source_archive_name(name, meta["version"], meta["release"])
         meta["source_sha256"] = src_sha.hexdigest()
 

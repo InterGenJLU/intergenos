@@ -890,6 +890,126 @@ class TestSourceLookupBoundary:
         assert entry["source_sha256"] == _sha256_of(inside)
         assert entry["source_filename"] == alias.name
 
+    @pytest.mark.parametrize("consumer", ["generator", "gate", "twin"])
+    def test_replaced_validated_target_is_refused(self, tmp_path, monkeypatch, consumer):
+        import importlib.util
+        from pkm import repo
+
+        binaries = tmp_path / "archives"
+        sources = tmp_path / "sources"
+        packages = tmp_path / "packages"
+        for directory in (binaries, sources, packages):
+            directory.mkdir()
+        _write_binary_archive(binaries / "alpha.igos.tar.gz", "alpha", "1.0", 1)
+        target_name = "alpha-pass1" if consumer == "twin" else "alpha"
+        target = _write_source_archive(sources, target_name, "1.0", 1, b"inside")
+        outside = tmp_path / "outside-source.tar.gz"
+        outside.write_bytes(b"outside")
+        if consumer == "twin":
+            import io
+            import tarfile
+            payload_hash = _sha256_of(outside)
+            with tarfile.open(outside, "w:gz") as archive:
+                member = tarfile.TarInfo("alpha-pass1-1.0-1/alpha.tar.gz")
+                member.size = len(b"outside")
+                archive.addfile(member, io.BytesIO(b"outside"))
+            recipe = packages / "toolchain/alpha-pass1"
+            recipe.mkdir(parents=True)
+            (recipe / "package.yml").write_text(
+                "name: alpha-pass1\nversion: '1.0'\nrelease: 1\nsource:\n"
+                "  - url: https://example.invalid/alpha.tar.gz\n"
+                f"    sha256: {payload_hash}\n")
+        spec = importlib.util.spec_from_file_location(
+            "correspondence_swap_control", _PROJECT_ROOT / "scripts/check-source-correspondence.py")
+        gate = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(gate)
+        owner = repo if consumer == "generator" else gate
+        original = owner._source_archive_for
+        swapped = []
+
+        def replace_target_after_lookup(*args):
+            result = original(*args)
+            if args[1] == target_name:
+                target.unlink()
+                target.symlink_to(outside)
+                swapped.append(True)
+            return result
+
+        monkeypatch.setattr(owner, "_source_archive_for", replace_target_after_lookup)
+        if consumer == "generator":
+            output = repo.generate_index(binaries, sources_dir=sources)
+            entry = _read_index(output)["packages"]["alpha"]
+            assert "source_sha256" not in entry
+            assert "source_filename" not in entry
+        else:
+            monkeypatch.setattr(sys, "argv", [str(gate.__file__),
+                "--archive-dir", str(binaries), "--sources-archive-dir", str(sources),
+                "--packages-root", str(packages)])
+            assert gate.main() == 1
+        assert swapped == [True]
+
+    def test_hashing_uses_the_opened_file_after_its_name_changes(self, tmp_path, monkeypatch):
+        import os
+        from pkm import repo
+
+        binaries = tmp_path / "archives"
+        sources = tmp_path / "sources"
+        binaries.mkdir()
+        sources.mkdir()
+        _write_binary_archive(binaries / "alpha.igos.tar.gz", "alpha", "1.0", 1)
+        target = _write_source_archive(sources, "alpha", "1.0", 1, b"inside bytes")
+        expected = _sha256_of(target)
+        outside = tmp_path / "outside"
+        outside.write_bytes(b"outside bytes")
+        retained = sources / "retained"
+        real_readlink = os.readlink
+        changed = []
+
+        def rename_after_descriptor_validation(path, *args, **kwargs):
+            value = real_readlink(path, *args, **kwargs)
+            if str(path).startswith("/proc/self/fd/") and not changed:
+                changed.append(True)
+                target.rename(retained)
+                target.symlink_to(outside)
+                # The descriptor remains attached to the in-root retained file.
+                return real_readlink(path, *args, **kwargs)
+            return value
+
+        monkeypatch.setattr(os, "readlink", rename_after_descriptor_validation)
+        output = repo.generate_index(binaries, sources_dir=sources)
+        assert changed == [True]
+        entry = _read_index(output)["packages"]["alpha"]
+        assert entry["source_sha256"] == expected
+        assert entry["source_filename"] == target.name
+
+    def test_descriptor_inspection_failure_refuses_and_closes(self, tmp_path, monkeypatch, capsys):
+        import os
+        from pkm import repo
+
+        binaries = tmp_path / "archives"
+        sources = tmp_path / "sources"
+        binaries.mkdir()
+        sources.mkdir()
+        _write_binary_archive(binaries / "alpha.igos.tar.gz", "alpha", "1.0", 1)
+        _write_source_archive(sources, "alpha", "1.0", 1)
+        real_readlink = os.readlink
+        inspected = []
+
+        def refuse_descriptor(path, *args, **kwargs):
+            if str(path).startswith("/proc/self/fd/"):
+                inspected.append(int(str(path).rsplit("/", 1)[1]))
+                raise PermissionError("descriptor inspection denied")
+            return real_readlink(path, *args, **kwargs)
+
+        monkeypatch.setattr(os, "readlink", refuse_descriptor)
+        output = repo.generate_index(binaries, sources_dir=sources)
+        assert inspected
+        assert "source_sha256" not in _read_index(output)["packages"]["alpha"]
+        assert "descriptor inspection denied" in capsys.readouterr().err
+        for fd in inspected:
+            with pytest.raises(OSError):
+                os.fstat(fd)
+
     def test_toolchain_twin_cannot_escape_through_a_symlink(self, tmp_path):
         import hashlib
         import io
