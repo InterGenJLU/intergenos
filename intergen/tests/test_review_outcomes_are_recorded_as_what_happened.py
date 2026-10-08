@@ -455,5 +455,37 @@ class AnApprovalWhoseTokenCouldNotBeMintedIsNotADenial(_Case):
         self.assertIn("signing key missing", self._the_record().result_summary)
 
 
+class AReviewThatRaisedIsRecordedAsFailed(_Case):
+    """A review callback that raised escaped the registry: nothing ran, but no
+    audit record was written and nothing was returned. On the inbound review
+    the call had already run, so the exception left a run call with no record
+    at all."""
+
+    @staticmethod
+    def _raises(_call, _decision):
+        raise RuntimeError("review surface failed")
+
+    def test_a_held_call_whose_review_raised(self) -> None:
+        result = self.registry.execute(_call("raises"),
+                                       review_callback=self._raises)
+        self._nothing_ran_and_no_one_denied(
+            result, "review_failed", "could not be shown")
+        self.assertIn("RuntimeError: review surface failed",
+                      self._the_record().result_summary)
+        self.assertNotIn("review surface failed", result.content,
+                         "the exception text belongs in the record, not in "
+                         "the result the model and the person read")
+
+    def test_flagged_content_whose_review_raised(self) -> None:
+        result = _flagged_call(self._raises)
+        record = self._the_record()
+        self.assertNotIn("RETURNED TEXT", result.content)
+        self.assertTrue(
+            record.user_decision.endswith("+ingress_flag_review_failed"),
+            f"recorded as {record.user_decision!r}")
+        self.assertIn("RuntimeError: review surface failed",
+                      record.result_summary)
+
+
 if __name__ == "__main__":
     unittest.main()

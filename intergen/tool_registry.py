@@ -936,7 +936,18 @@ class ToolRegistry:
                     decision,
                     reason=(f"{decision.reason} | {scan_note}" if decision.reason else scan_note),
                 )
-            user_choice = review_callback(call, review_decision)
+            # The review surface lives outside the registry and can fail. A
+            # callback that raised decided nothing: nothing runs, the record
+            # says the review failed and keeps the exception, and no one is
+            # recorded as having decided.
+            review_error: Exception | None = None
+            try:
+                user_choice = review_callback(call, review_decision)
+            except Exception as exc:
+                logger.error("review callback failed for %s: %r",
+                             tool_name, exc)
+                review_error = exc
+                user_choice = REVIEW_FAILED
             if user_choice in ("deny", "deny_conversation"):
                 if user_choice == "deny_conversation":
                     record_user_decision(
@@ -977,7 +988,9 @@ class ToolRegistry:
                     call, decision, ingress_tracker,
                     user_outcome=outcome,
                     exit_code=1,
-                    result_summary=f"Not run: {what}",
+                    result_summary=f"Not run: {what}" + (
+                        f" ({type(review_error).__name__}: {review_error})"
+                        if review_error is not None else ""),
                     source_attribution=source_attribution,
                     excerpt=excerpt,
                 )
@@ -1180,7 +1193,20 @@ class ToolRegistry:
                         f"{ingress_verdict.reason}"
                     ),
                 )
-                choice = review_callback(call, flag_decision) if review_callback else None
+                # The call has already run here, so a callback that raised
+                # must still leave its record: the content is withheld and the
+                # review recorded as failed, the exception kept.
+                flag_error: Exception | None = None
+                if review_callback is None:
+                    choice = None
+                else:
+                    try:
+                        choice = review_callback(call, flag_decision)
+                    except Exception as exc:
+                        logger.error("ingress-flag review callback failed for "
+                                     "%s: %r", tool_name, exc)
+                        flag_error = exc
+                        choice = REVIEW_FAILED
                 # Only an approval admits the flagged content; any other
                 # answer withholds it, an answer not known here included.
                 if choice not in REVIEW_APPROVALS:
@@ -1199,6 +1225,9 @@ class ToolRegistry:
                             if review_callback is None
                             else review_not_decided(choice))
                         user_outcome = f"{user_outcome}+ingress_flag_{outcome}"
+                        if flag_error is not None:
+                            what = (f"{what}; {type(flag_error).__name__}: "
+                                    f"{flag_error}")
                         result_summary = (
                             f"Sentinel ingress-scan FLAG not approved ({what}): "
                             f"{ingress_verdict.reason}; content withheld from context"
