@@ -90,13 +90,15 @@ class WebReviewBridgeTests(unittest.TestCase):
         return ConnectionContext(client_id="t", source_interface="web", ws=object())
 
     def test_bridge_fails_closed_on_exception(self):
-        # ANY exception in the bridge → "deny", never a silent allow (fail-closed).
+        # ANY exception in the bridge → a failed review, never a silent allow
+        # (fail-closed), and never the person's "deny": nobody refused anything.
+        from intergen.tool_registry import REVIEW_FAILED
         server = self._server(_RaisingTools())
         cb = server._make_web_review_callback(self._ctx(server), "turn1", object())
         call = ToolCall(name="manage_packages",
                         arguments={"action": "update"},
                         source_of_request=Provenance.USER_DIRECT)
-        self.assertEqual(cb(call, None), "deny")
+        self.assertEqual(cb(call, None), REVIEW_FAILED)
 
     def test_bridge_denies_forbidden_action_before_any_card(self):
         # Parity: a forbidden Z3 action fails closed at the bridge (the fast/offer
@@ -160,12 +162,13 @@ class WebReviewBridgeTests(unittest.TestCase):
                     return _Fut(v=_v)
                 asyncio.run_coroutine_threadsafe = _fake
                 self.assertEqual(cb(call, None), expected)
-            # A scheduling exception fails closed to deny.
+            # A scheduling exception fails closed, as a failed review.
+            from intergen.tool_registry import REVIEW_FAILED
             def _boom(coro, loop):
                 coro.close()
                 return _Fut(e=TimeoutError())
             asyncio.run_coroutine_threadsafe = _boom
-            self.assertEqual(cb(call, None), "deny")
+            self.assertEqual(cb(call, None), REVIEW_FAILED)
         finally:
             asyncio.run_coroutine_threadsafe = orig
 

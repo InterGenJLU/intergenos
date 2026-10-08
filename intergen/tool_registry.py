@@ -409,6 +409,38 @@ def gate_refusal_message(tool_call: "ToolCall", tool_result: "ToolResult",
     return honest_handoff_message(what, command, tier_needs_admin(risk_tier))
 
 
+# The answers a review callback gives the registry. Only an approval runs the
+# held call. "deny" and "deny_conversation" are the person's own refusal and are
+# recorded as theirs. The outcomes below are what a review surface answers when
+# no person decided, and each is recorded as what happened: a refusal the person
+# gave must be told apart, in the record, from a card that went unanswered or a
+# review that never worked. An answer the registry does not know is recorded as
+# a failed review, and nothing runs on it.
+REVIEW_APPROVALS = frozenset({"allow_once", "allow_conversation"})
+REVIEW_TIMED_OUT = "review_timed_out"
+REVIEW_REFUSED = "review_refused"
+REVIEW_FAILED = "review_failed"
+_REVIEW_NOT_DECIDED = {
+    REVIEW_TIMED_OUT: "the review card was not answered before its deadline",
+    REVIEW_REFUSED: ("a review card for this call was already open, so a "
+                     "second one was refused"),
+    REVIEW_FAILED: ("the review card could not be shown, or its answer could "
+                    "not be read"),
+}
+
+
+def review_not_decided(answer: object) -> tuple[str, str]:
+    """(outcome, what happened) for a review answer that is neither an
+    approval nor the person's denial. An answer the registry does not know is
+    recorded as a failed review and quoted, so a callback that starts answering
+    something new is seen in the record rather than obeyed."""
+    what = _REVIEW_NOT_DECIDED.get(answer) if isinstance(answer, str) else None
+    if what is not None:
+        return str(answer), what
+    return REVIEW_FAILED, ("the review gave an answer that is not an approval "
+                           f"({str(answer)[:40]!r})")
+
+
 def _ingress_source_attribution(
     tool_name: str, arguments: dict[str, Any]
 ) -> tuple[str, str]:
@@ -653,9 +685,13 @@ class ToolRegistry:
             excerpt: optional snippet of ingress content that motivated
                 this call; surfaced in the review modal + audit log.
             review_callback: invoked when dispatch returns hold_for_review.
-                Receives (call, decision) and must return one of
+                Receives (call, decision) and returns one of
                 "allow_once" | "allow_conversation" | "deny" |
-                "deny_conversation". TWO-LAYER timeout architecture:
+                "deny_conversation", or, when no person decided, one of
+                REVIEW_TIMED_OUT | REVIEW_REFUSED | REVIEW_FAILED. Only the
+                two approvals run the call; every other answer, including one
+                not listed here, is recorded as what happened and runs
+                nothing. TWO-LAYER timeout architecture:
 
                 - review_callback=None at THIS registry boundary means
                   IMMEDIATE deny (no-UI-available context — headless test
@@ -913,6 +949,29 @@ class ToolRegistry:
                     # than deliver that sentence (see gate_refusal_message).
                     denied_by_user=True,
                 )
+            if user_choice not in REVIEW_APPROVALS:
+                # Nobody approved it and nobody denied it: the card went
+                # unanswered, a second card under an open id was refused, or
+                # the review could not be shown or its answer read. Nothing
+                # runs, and the record says which — never that the person
+                # denied it, and never, for an answer not known here, that it
+                # was approved.
+                outcome, what = review_not_decided(user_choice)
+                self._audit_log_decision(
+                    call, decision, ingress_tracker,
+                    user_outcome=outcome,
+                    exit_code=1,
+                    result_summary=f"Not run: {what}",
+                    source_attribution=source_attribution,
+                    excerpt=excerpt,
+                )
+                return ToolResult(
+                    call_id=call.call_id,
+                    name=tool_name,
+                    content=f"Nothing was run: {what}.",
+                    success=False,
+                    executed=False,
+                )
             # Approved (allow_once / allow_conversation) — proceed to execution.
             if privileged:
                 # No allow-for-conversation caching for the privileged tier
@@ -1104,7 +1163,9 @@ class ToolRegistry:
                     ),
                 )
                 choice = review_callback(call, flag_decision) if review_callback else "deny"
-                if choice in ("deny", "deny_conversation"):
+                # Only an approval admits the flagged content; any other
+                # answer withholds it, an answer not known here included.
+                if choice not in REVIEW_APPROVALS:
                     content_withheld = True
                     user_outcome = f"{user_outcome}+ingress_flag_denied"
                     result_summary = (

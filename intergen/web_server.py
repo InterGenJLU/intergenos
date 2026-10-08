@@ -2988,9 +2988,17 @@ class WebServer:
         tool_call: ToolCall,
         risk_tier: "ToolRiskTier",
         decision: "DispatchDecision | None" = None,
+        *,
+        precise: bool = False,
     ) -> str:
         """Render the review card, await the user's decision, return
         "approved" / "denied".
+
+        With ``precise`` a card nobody decided says what became of it instead
+        of "denied": "timed_out" (unanswered before its deadline), "refused"
+        (a card under the same id was already open) or "ended" (a conversation
+        boundary ended it). The review bridge asks for this, so the registry's
+        record never names the person for a denial they did not give.
 
         The SINGLE card surface. Called both by the standalone web gate
         (_evaluate_tool_with_gate) and, in production, by the registry-driven
@@ -3064,7 +3072,7 @@ class WebServer:
             logger.error(
                 "Review card refused: a card for tool call %s is already open "
                 "on this connection (client=%s)", tool_call_id, ctx.client_id)
-            return "denied"
+            return "refused" if precise else "denied"
 
         # Register this card's own waiter under this card's own id BEFORE the
         # prompt goes out: a decision that arrives between the frame and the
@@ -3099,7 +3107,7 @@ class WebServer:
             # A conversation boundary ended this card and has already sent its
             # resolution frame with this reason (_end_conversation_work), so a
             # "denied" the person did not type does not read as one they did.
-            return "denied"
+            return "ended" if precise else "denied"
         resolved_msg = {
             "type": "gate_resolved",
             "tool_call_id": tool_call_id,
@@ -3109,6 +3117,8 @@ class WebServer:
             resolved_msg["reason"] = _timeout_reason
         await ctx.ws.send_json(resolved_msg)
 
+        if precise and _timeout_reason:
+            return "timed_out"
         return ("approved"
                 if user_decision in ("allow", "allow_conversation")
                 else "denied")
@@ -3128,11 +3138,23 @@ class WebServer:
         the worker thread for the verdict via run_coroutine_threadsafe.
 
         FAIL-CLOSED on EVERY branch — any exception, or the outer timeout, returns
-        "deny", so a bridge failure can NEVER let a held action through (HOLY
-        GRAIL). Returns "allow_once" on approval, never "allow_conversation": a
-        web card is a per-action consent, and the registry already downgrades
-        allow_conversation to allow_once for privileged calls."""
-        from intergen.tool_registry import _classify_risk_tier
+        REVIEW_FAILED, which runs nothing, so a bridge failure can NEVER let a
+        held action through (HOLY GRAIL). Returns "allow_once" on approval, never
+        "allow_conversation": a web card is a per-action consent, and the
+        registry already downgrades allow_conversation to allow_once for
+        privileged calls. "deny" is returned for the person's own Deny; a card
+        nobody decided returns the registry's word for what became of it, so the
+        record does not name the person for a denial they did not give."""
+        from intergen.tool_registry import (
+            REVIEW_FAILED, REVIEW_REFUSED, REVIEW_TIMED_OUT, _classify_risk_tier,
+        )
+        answers = {
+            "approved": "allow_once",
+            "denied": "deny",
+            "timed_out": REVIEW_TIMED_OUT,
+            "refused": REVIEW_REFUSED,
+            "ended": "deny",
+        }
 
         def _callback(call: "ToolCall", decision: "Any") -> str:
             try:
@@ -3155,18 +3177,18 @@ class WebServer:
                 )
                 fut = asyncio.run_coroutine_threadsafe(
                     self._render_review_card(
-                        ctx, turn_id, call, risk_tier, decision,
+                        ctx, turn_id, call, risk_tier, decision, precise=True,
                     ),
                     loop,
                 )
-                verdict = fut.result(timeout=_GATE_BRIDGE_TIMEOUT_S)
+                outcome = fut.result(timeout=_GATE_BRIDGE_TIMEOUT_S)
             except Exception as exc:  # noqa: BLE001 — ANY failure fails closed
                 logger.error(
-                    "web review bridge failed for %s: %s — denying",
+                    "web review bridge failed for %s: %s — nothing was approved",
                     getattr(call, "name", "?"), type(exc).__name__,
                 )
-                return "deny"
-            return "allow_once" if verdict == "approved" else "deny"
+                return REVIEW_FAILED
+            return answers.get(outcome, REVIEW_FAILED)
 
         return _callback
 
