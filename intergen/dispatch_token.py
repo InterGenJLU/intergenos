@@ -44,19 +44,22 @@ names before execution. This is not a file-identity boundary: alternate path
 spellings and paths derived inside a tool are outside what argument inspection can
 establish.
 
-WHERE THE BOUNDARY IS, AS OF 2026-10-01. A ToolCall can read any file the daemon's
-own account can read, and this key is owned by that account, so "it cannot read
-the key file" held only as an intention until something refused the read. What
-refuses it is further down this module, at the point a file is actually opened:
-`open_descriptor_secret_reason` decides from the open descriptor, and the tools
-that open a path a caller supplied ask it after the open and before any read or
-write. Every tool that runs as its own process stays outside every check this
-package can make, because that process performs the open: run_command among them,
-which runs read-only commands with no review. Such a process reaches these files
-by any spelling the screen does not take whole, such as a parent-directory
-spelling or a symbolic link, and by deriving the protected child from an ordinary
-containing directory. Those routes are closed only by a boundary the tool's
-process cannot step outside, and this module claims nothing about them.
+WHERE THE BOUNDARY IS. A ToolCall can read any file the daemon's own account can
+read, and this key is owned by that account, so "it cannot read the key file"
+held only as an intention until something refused the read. Two boundaries
+refuse it. For the tools that open a path a caller supplied inside the daemon,
+the refusal is further down this module, at the point a file is actually opened:
+`open_descriptor_secret_reason` decides from the open descriptor, and those tools
+ask it after the open and before any read or write. A tool that runs as its own
+process, run_command's child or an MCP server, performs its own opens, which no
+check in this package sees, so that process starts as a transient service in
+which these files are inaccessible (intergen/tool_process.py): the kernel refuses
+every open of them there, whatever spelling or derivation reached them, a
+parent-directory spelling, a symbolic link, or a containing directory from which
+the process derives the protected child. What neither boundary covers is named
+in intergen/tool_process.py: a second name for either file made before the
+process boundary existed, which is reported and not refused, and a process
+outside the service that a tool's process can still drive some other way.
 
 DIVISION OF LABOR (AI-6 build, branch off master 5ce0dc41):
   * User side (this module + the mint call-site) — key gen-on-first-run, the canonical

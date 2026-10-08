@@ -21,14 +21,15 @@ These cells hold the promise at the open instead:
 * the direct spelling, a command line naming the file, and an ordinary read
   beside the secret keep behaving as the previous correction left them.
 
-The routes through a tool that runs as its own process are named and NOT closed
-here. Such a tool, run_command among them, opens the file itself: it can be
-handed a spelling the screen does not take whole, or an ordinary containing
-directory from which it derives the protected child, and no check inside this
-package sees that open, so no change in this package can refuse it. The cell
-for it records that limit and holds the module text to stating it, rather than
-letting the package claim a boundary it does not have. Closing it needs the
-boundary that confines the tool's process, which is not this correction.
+The routes through a tool that runs as its own process are not closed here, at
+the file boundary. Such a tool, run_command's child or an MCP server, opens the
+file itself: it can be handed a spelling the screen does not take whole, or an
+ordinary containing directory from which it derives the protected child, and no
+check inside the daemon sees that open. The process boundary closes them
+(intergen/tool_process.py), and its cells are in
+test_tool_processes_cannot_open_the_installs_credential_files.py. The cell here
+for a tool that derives the child itself records what the argument screen cannot
+see, and holds the module text to stating that limit.
 
 Hermetic, by the discipline of the case this extends: every key is generated
 into a throwaway directory (never the real ~/.config/intergen), the audit writer
@@ -187,12 +188,14 @@ class TheSecretFilesAreRefusedAtTheFileBoundary(unittest.TestCase):
 
     def test_a_tool_that_derives_the_protected_child_itself_is_the_named_residue(
             self) -> None:
-        """The route no in-package check can refuse, and the text that says so.
+        """The route the argument screen cannot see, and the text that says so.
 
         An external tool receives an ordinary directory and opens the protected
-        child itself. Nothing in this package is ever shown the protected name,
-        so this cell does not assert a refusal — it asserts that the package
-        does not CLAIM one, in the module text a reader will believe.
+        child itself. Nothing the daemon is shown names the protected file, so
+        this cell does not assert a refusal by the screen; it asserts that the
+        package does not CLAIM one, in the module text a reader will believe. A
+        real external tool runs as its own process, behind the process boundary
+        (intergen/tool_process.py), whose cells measure that refusal.
         """
         def read_the_named_child(arguments: dict) -> str:
             return (Path(arguments["directory"]) / "dispatch-key").read_text()

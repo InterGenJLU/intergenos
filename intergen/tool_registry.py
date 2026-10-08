@@ -876,9 +876,10 @@ class ToolRegistry:
         # property of the code, for the three consumers that open a caller's
         # path, is the boundary in them, which decides on the file that opened;
         # this screen is defence in depth in front of it. A tool that runs as its
-        # own process, run_command among them, opens the file itself and is
-        # outside that boundary: intergen/dispatch_token.py names those routes,
-        # and nothing here closes them.
+        # own process, run_command's child or an MCP server, opens the file
+        # itself, outside that boundary; it starts behind the process boundary in
+        # intergen/tool_process.py instead, where the files are inaccessible to
+        # it, and this screen is defence in depth in front of that one too.
         #
         # This screen is HERE, at the one place every tool call passes, so a
         # direct textual reference is rejected before review or execution and a
