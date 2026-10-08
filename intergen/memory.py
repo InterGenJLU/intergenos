@@ -119,6 +119,37 @@ def _contains_pattern(text: str) -> str:
     return f"%{escaped}%"
 
 
+# The case folding SQLite's LIKE applies: ASCII letters only. The word test below
+# folds exactly as far, so it reads the same occurrences the LIKE clause matched.
+_ASCII_FOLD = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+                            "abcdefghijklmnopqrstuvwxyz")
+_WORD_CHAR_RE = re.compile(r"\w")
+
+
+def _names_as_words(text: str, subject: str) -> bool:
+    """True when ``subject`` stands in ``text`` as a word, or as words.
+
+    An occurrence counts only where no letter, digit or underscore runs on from
+    it at either end: "car" stands in "car insurance", "rental car" and
+    "car-park pass" as a word, and does not in "carpet colour" or "carport". A
+    subject of several words must appear as that run of words. An edge of the
+    subject that is itself not a word character — "/dev/sdb1" begins with one —
+    has no word to run on from, so nothing is asked of the text there.
+
+    Containment alone is what made "forget my car" take "carpet colour" too: a
+    word is not a substring.
+    """
+    needle = subject.translate(_ASCII_FOLD)
+    if not needle:
+        return False
+    pattern = re.escape(needle)
+    if _WORD_CHAR_RE.match(needle[0]):
+        pattern = r"(?<!\w)" + pattern
+    if _WORD_CHAR_RE.match(needle[-1]):
+        pattern += r"(?!\w)"
+    return re.search(pattern, text.translate(_ASCII_FOLD)) is not None
+
+
 def fact_cache_text(key: str, value: str) -> str:
     """The one string a stored fact is known by wherever it is embedded.
 
@@ -264,13 +295,21 @@ _TRANSPARENCY_PATTERNS = [
 ]
 
 # Forget patterns
+#
+# Each verb starts at a word boundary, and the reset pattern's noun ends at one.
+# The patterns are applied with ``re.search``, anywhere in a sentence, and
+# without the anchors a verb or noun inside a longer word was a match: "tell me
+# some nuclear facts" and "I have unclear memories" read as "clear facts" and
+# "clear memories" and cleared every stored fact, "clear factsheets" did the
+# same through "facts", and "undelete the memory about my car" deleted the car.
+# A word is not a substring.
 _FORGET_PATTERNS = [
     re.compile(p, re.IGNORECASE) for p in [
-        r"forget (?:about |that )?(.+)",
-        r"delete (?:the )?(?:fact|memory) (?:about |for )?(.+)",
-        r"remove (?:the )?(?:fact|memory) (?:about |for )?(.+)",
-        r"don't remember (.+)",
-        r"clear (?:all )?(?:my )?(?:memories|facts)",
+        r"\bforget (?:about |that )?(.+)",
+        r"\bdelete (?:the )?(?:fact|memory) (?:about |for )?(.+)",
+        r"\bremove (?:the )?(?:fact|memory) (?:about |for )?(.+)",
+        r"\bdon't remember (.+)",
+        r"\bclear (?:all )?(?:my )?(?:memories|facts)\b",
     ]
 ]
 
@@ -868,7 +907,8 @@ class MemoryManager:
         as far as the store side widened what it wrote. A subject naming nothing
         the user stored still matches nothing: each form is matched as text, so
         a ``%`` or ``_`` the user typed is not a wildcard
-        (:func:`_contains_pattern`).
+        (:func:`_contains_pattern`), and as a word or words, so "car" does not
+        name "carpet colour" (:func:`_names_as_words`).
         """
         forms: list[str] = []
         for candidate in (subject,
@@ -899,20 +939,31 @@ class MemoryManager:
             for form in forms:
                 match_params.extend([_contains_pattern(form),
                                      _contains_pattern(form)])
-            # Read the rows BEFORE hiding them: once the flag is set they are
-            # not selectable by this clause any more, and their text is what
-            # names the cached vectors that have to go with them.
-            going = [fact_cache_text(r["key"], r["value"]) for r in conn.execute(
-                f"SELECT key, value FROM facts WHERE deleted = 0 AND ({clause})",
-                match_params
-            ).fetchall()]
-            cursor = conn.execute(
-                "UPDATE facts SET deleted = 1, updated_at = ? "
+            # The clause finds the rows whose text CONTAINS a form; a row is
+            # taken only where a form stands in its key or value as a word or
+            # words. Containment alone took "carpet colour" for "forget my car",
+            # and the reply counted it as asked for. The word test runs on the
+            # rows the clause selected, so a forget can take fewer rows than
+            # containment did and never more.
+            named = [r for r in conn.execute(
+                "SELECT fact_id, key, value FROM facts "
                 f"WHERE deleted = 0 AND ({clause})",
-                [time.time(), *match_params]
-            )
+                match_params
+            ).fetchall() if any(_names_as_words(r["key"], form)
+                                or _names_as_words(r["value"], form)
+                                for form in forms)]
+            # Read the rows BEFORE hiding them: their text is what names the
+            # cached vectors that have to go with them.
+            going = [fact_cache_text(r["key"], r["value"]) for r in named]
+            now = time.time()
+            count = 0
+            for r in named:
+                count += conn.execute(
+                    "UPDATE facts SET deleted = 1, updated_at = ? "
+                    "WHERE fact_id = ? AND deleted = 0",
+                    (now, r["fact_id"])
+                ).rowcount
             conn.commit()
-            count = cursor.rowcount
             if count:
                 logger.info("Deleted %d facts matching '%s' (forms: %s)",
                             count, key, ", ".join(repr(f) for f in forms))
