@@ -1667,10 +1667,14 @@ class WebServer:
             })
         elif cmd_lower == "/screenshot":
             # The button and the typed command are both a direct human request,
-            # so this runs the REGISTERED tool through the ordinary gate rather
-            # than a private capture path: consent, governance and the audit
-            # record stay exactly where every other tool call meets them.
-            self._spawn_tool_task(ctx, "take_screenshot", {})
+            # so this runs the REGISTERED tool rather than a private capture
+            # path: governance and the audit record meet it where they meet
+            # every other tool call. It raises no review card. The capture goes
+            # through the platform's screenshot dialog, which the compositor
+            # draws and no other process can answer, and the person choosing
+            # what to capture there and pressing its button is the one consent
+            # a screenshot asks for.
+            self._spawn_tool_task(ctx, "take_screenshot", {}, raise_card=False)
         elif cmd_lower == "/file":
             await self._handle_file_command(ctx, data)
         else:
@@ -1721,7 +1725,8 @@ class WebServer:
         self._spawn_tool_task(ctx, "read_file", {"path": path})
 
     def _spawn_tool_task(self, ctx: ConnectionContext, tool_name: str,
-                          arguments: dict[str, Any]) -> None:
+                          arguments: dict[str, Any], *,
+                          raise_card: bool = True) -> None:
         """Run a user-invoked tool OFF the receive loop.
 
         This is the F2 deny-hang discipline the chat turn already follows, and
@@ -1733,18 +1738,26 @@ class WebServer:
         gets a terminal line.
         """
         task = asyncio.create_task(
-            self._run_user_invoked_tool(ctx, tool_name, arguments))
+            self._run_user_invoked_tool(ctx, tool_name, arguments,
+                                        raise_card=raise_card))
         ctx.tool_tasks.add(task)
         task.add_done_callback(ctx.tool_tasks.discard)
 
     async def _run_user_invoked_tool(self, ctx: ConnectionContext,
                                       tool_name: str,
-                                      arguments: dict[str, Any]) -> None:
+                                      arguments: dict[str, Any], *,
+                                      raise_card: bool = True) -> None:
         """Run a tool the user invoked directly, through the ordinary gate.
 
         Provenance is USER_DIRECT — the user pressed the button or typed the
         command, which is the literal definition of the label. The gate still
         runs: USER_DIRECT states WHO asked, never that the action is free.
+
+        ``raise_card=False`` is for a command whose consent is given somewhere
+        no other process can answer for the person — /screenshot, whose
+        capture goes through the platform's screenshot dialog. No review card
+        is raised for it; governance's non-overridable refusals still apply,
+        and the registry still dispatches and audits the call.
 
         Result handling matches the streaming path's contract — a
         ``tool_executed`` line carrying the structured summary, the full payload
@@ -1780,7 +1793,14 @@ class WebServer:
             "tool_call_id": call.call_id,
         })
 
-        verdict = await self._evaluate_tool_with_gate(ctx, turn_id, call)
+        if raise_card:
+            verdict = await self._evaluate_tool_with_gate(ctx, turn_id, call)
+        elif self._governance_hard_deny(call):
+            logger.error(
+                "Gate: non-overridable block — refusing %s", tool_name)
+            verdict = "denied"
+        else:
+            verdict = "approved"
         if verdict != "approved":
             # Denied is a real outcome, reported as one. The optimistic
             # "working on it" line is never left standing over a refusal.

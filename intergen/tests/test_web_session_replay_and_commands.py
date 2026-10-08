@@ -298,7 +298,7 @@ class GatedCommandRunsOffTheReceiveLoopTests(unittest.TestCase):
         started = asyncio.Event()
         release = asyncio.Event()
 
-        async def _never_finishes(ctx, name, args):
+        async def _never_finishes(ctx, name, args, **_kw):
             started.set()
             await release.wait()          # stands in for an unanswered gate
 
@@ -322,7 +322,7 @@ class GatedCommandRunsOffTheReceiveLoopTests(unittest.TestCase):
         srv = _server()
         release = asyncio.Event()
 
-        async def _never_finishes(ctx, name, args):
+        async def _never_finishes(ctx, name, args, **_kw):
             await release.wait()
 
         srv._run_user_invoked_tool = _never_finishes
@@ -345,7 +345,7 @@ class GatedCommandRunsOffTheReceiveLoopTests(unittest.TestCase):
         srv = _server()
         release = asyncio.Event()
 
-        async def _pending(ctx, name, args):
+        async def _pending(ctx, name, args, **_kw):
             await release.wait()
 
         srv._run_user_invoked_tool = _pending
