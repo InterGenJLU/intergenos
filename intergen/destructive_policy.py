@@ -18,7 +18,10 @@ key before trusting the JSON) and the dispatch-chokepoint enforcement that
 consults this matcher are separate, composing pieces.
 
 Match semantics (from the manifest's `match_rules`):
-  * expand_user      — a leading ~ in a candidate OR a manifest pattern expands.
+  * expand_user      — a leading ~ in a candidate OR a manifest pattern expands,
+                       to the install owner's home: the token module's
+                       expanduser_for_install_owner, because under the
+                       privileged runner HOME is root's.
   * resolve_symlinks — the candidate is resolved (symlinks + .. collapsed) BEFORE
                        matching, so a symlink/.. detour cannot smuggle a write
                        past a prefix entry. This is the security-critical step.
@@ -42,6 +45,9 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Callable
+
+from intergen.dispatch_token import (InstallOwnerUnresolved,
+                                     expanduser_for_install_owner)
 
 logger = logging.getLogger(__name__)
 
@@ -161,9 +167,14 @@ class DestructivePolicy:
             return pattern
         had_trailing = pattern.endswith("/") and pattern != "/"
         try:
-            p = Path(pattern)
-            if self._expand_user:
-                p = p.expanduser()
+            expanded = (str(expanduser_for_install_owner(pattern))
+                        if self._expand_user else pattern)
+        except RuntimeError:
+            # No home at all for this account: the pattern stays as written,
+            # which is what os.path.expanduser leaves in that case.
+            expanded = pattern
+        try:
+            p = Path(expanded)
             if self._resolve_symlinks:
                 p = p.resolve()
             else:
@@ -171,8 +182,8 @@ class DestructivePolicy:
             canon = str(p)
         except (OSError, RuntimeError, ValueError) as exc:
             logger.warning("destructive-policy: cannot canonicalize pattern %r "
-                           "(%s); using expanduser-only form", pattern, exc)
-            return os.path.expanduser(pattern) if self._expand_user else pattern
+                           "(%s); using the expanded form", pattern, exc)
+            canon = expanded
         if had_trailing and not canon.endswith("/"):
             canon += "/"
         return canon
@@ -181,9 +192,8 @@ class DestructivePolicy:
         """Resolve a candidate to its canonical absolute form, or None if it
         cannot be normalized (caller treats None as fail-closed)."""
         try:
-            p = Path(path)
-            if self._expand_user:
-                p = p.expanduser()
+            p = (expanduser_for_install_owner(os.fspath(path))
+                 if self._expand_user else Path(path))
             if self._resolve_symlinks:
                 # strict=False: normalize + resolve symlinks even for a path that
                 # does not exist yet (a write target may be a new file).
@@ -191,7 +201,7 @@ class DestructivePolicy:
             else:
                 p = Path(os.path.normpath(str(p)))
             return str(p)
-        except (OSError, RuntimeError, ValueError) as exc:
+        except (OSError, RuntimeError, ValueError, InstallOwnerUnresolved) as exc:
             logger.warning("destructive-policy: cannot normalize %r (%s); "
                            "treating as protected (fail closed)", path, exc)
             return None

@@ -40,6 +40,7 @@ service, a socket, a model server or a display.
 from __future__ import annotations
 
 import contextlib
+import json
 import os
 import tempfile
 import unittest
@@ -623,6 +624,30 @@ class UnderThePrivilegedRunnerTheOwnerIsTheAccountThatAsked(unittest.TestCase):
         self.assertFalse(result.success, f"content was {result.content!r}")
         self.assertFalse(target.exists(),
                          "a write into the owner's intergen config ran as root")
+
+    def test_the_signed_never_list_names_the_owners_config_when_run_as_root(
+            self) -> None:
+        """The never-list's own home anchor, read under the runner's HOME.
+
+        The shipped manifest is read as data; its signature is not what this
+        cell measures.
+        """
+        from intergen.destructive_policy import DestructivePolicy
+        manifest = json.loads(
+            (Path(dt.__file__).parent / "data" / "destructive-policy-manifest.json")
+            .read_text(encoding="utf-8"))
+        self.assertIn("~/.config/intergen/",
+                      manifest["categories"]["system_ai"]["prefix"],
+                      "the cell relies on the shipped manifest's home-anchored entry")
+        target = self.owner_home / ".config" / "intergen" / "providers.yaml"
+        with self._as(0, pkexec_uid=str(self.OWNER_UID)):
+            match = DestructivePolicy.from_manifest(manifest).is_protected(str(target))
+        self.assertIsNotNone(
+            match,
+            "under the runner the never-list read ~ as root's home, so the "
+            "owner's own intergen config was not on it",
+        )
+        self.assertEqual(match.category, "system_ai")
 
     def test_an_owner_that_cannot_be_established_refuses_instead_of_guessing(
             self) -> None:
