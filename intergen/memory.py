@@ -95,6 +95,30 @@ def _written_at(row: Any) -> float:
     return float(row["updated_at"] or row["created_at"] or 0.0)
 
 
+# The escape character every LIKE given the user's own words declares with
+# ``ESCAPE '\'``. Without a declared escape, SQLite has no way to read a ``%``
+# or ``_`` in a pattern as itself: both are always wildcards.
+_LIKE_ESCAPE = "\\"
+# The clause that goes with :func:`_contains_pattern`, for one column.
+_LIKE_AS_TEXT = "LIKE ? ESCAPE '\\'"
+
+
+def _contains_pattern(text: str) -> str:
+    """A LIKE pattern matching ``text`` anywhere in a column, as text.
+
+    The user's words are a subject, not a pattern. Passed through unescaped,
+    "forget _" became ``%_%`` — any key of one character or more — and took
+    every stored fact with it, and "project_notes" also took "projectXnotes".
+    So the escape character is doubled first, then ``%`` and ``_`` are each
+    escaped, and every one of them then matches only itself. Use it with
+    :data:`_LIKE_AS_TEXT` on the operator, or the escapes mean nothing.
+    """
+    escaped = (text.replace(_LIKE_ESCAPE, _LIKE_ESCAPE * 2)
+                   .replace("%", _LIKE_ESCAPE + "%")
+                   .replace("_", _LIKE_ESCAPE + "_"))
+    return f"%{escaped}%"
+
+
 def fact_cache_text(key: str, value: str) -> str:
     """The one string a stored fact is known by wherever it is embedded.
 
@@ -770,14 +794,18 @@ class MemoryManager:
             return row["value"] if row else None
 
     def search(self, query: str) -> list[Fact]:
-        """Search facts by text match on key or value."""
+        """Search facts by text match on key or value.
+
+        The query is matched as text: a ``%`` or ``_`` in it finds only itself
+        (see :func:`_contains_pattern`).
+        """
         with self._db_lock:
             conn = self._get_conn()
             rows = conn.execute(
                 "SELECT * FROM facts WHERE deleted = 0 AND "
-                "(key LIKE ? OR value LIKE ?) "
+                f"(key {_LIKE_AS_TEXT} OR value {_LIKE_AS_TEXT}) "
                 "ORDER BY created_at DESC LIMIT 20",
-                (f"%{query}%", f"%{query}%")
+                (_contains_pattern(query), _contains_pattern(query))
             ).fetchall()
             facts = [self._row_to_fact(r) for r in rows]
             # M1 (bullet 3): memory READ.
@@ -838,7 +866,9 @@ class MemoryManager:
 
         The forms WIDEN what a forget matches, and that is the point — but only
         as far as the store side widened what it wrote. A subject naming nothing
-        the user stored still matches nothing.
+        the user stored still matches nothing: each form is matched as text, so
+        a ``%`` or ``_`` the user typed is not a wildcard
+        (:func:`_contains_pattern`).
         """
         forms: list[str] = []
         for candidate in (subject,
@@ -863,10 +893,12 @@ class MemoryManager:
         forms = self.forget_forms(key)
         with self._db_lock:
             conn = self._get_conn()
-            clause = " OR ".join(["key LIKE ? OR value LIKE ?"] * len(forms))
+            clause = " OR ".join(
+                [f"key {_LIKE_AS_TEXT} OR value {_LIKE_AS_TEXT}"] * len(forms))
             match_params: list[Any] = []
             for form in forms:
-                match_params.extend([f"%{form}%", f"%{form}%"])
+                match_params.extend([_contains_pattern(form),
+                                     _contains_pattern(form)])
             # Read the rows BEFORE hiding them: once the flag is set they are
             # not selectable by this clause any more, and their text is what
             # names the cached vectors that have to go with them.
