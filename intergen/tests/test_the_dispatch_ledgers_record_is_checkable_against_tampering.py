@@ -33,7 +33,11 @@ network, and no file outside the test's own directory is read or written.
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 
@@ -94,8 +98,8 @@ class TheIntegrityReadBackRefusesATamperedRecord(unittest.TestCase):
         """The known-tamper control the governing annex requires."""
         self._alter_one_byte()
         reading = audit_log.read_integrity(self.path)
-        self.assertFalse(
-            reading.trustworthy,
+        self.assertTrue(
+            reading.damaged,
             "a record altered by one byte was not refused: "
             f"{reading.verdict}")
         self.assertEqual(reading.unreadable_lines, [2],
@@ -122,29 +126,16 @@ class TheIntegrityReadBackRefusesATamperedRecord(unittest.TestCase):
             "".join(json.dumps(r, separators=(",", ":")) + "\n" for r in rows),
             encoding="utf-8")
         reading = audit_log.read_integrity(self.path)
-        self.assertFalse(reading.trustworthy,
-                         f"a row with no timestamp was accepted: {reading.verdict}")
+        self.assertTrue(reading.damaged,
+                        f"a row with no timestamp was accepted: {reading.verdict}")
         self.assertEqual(reading.incomplete_rows, [2])
-
-    def test_rows_whose_timestamps_go_backwards_are_refused(self):
-        """An append-only record's timestamps do not decrease."""
-        rows = [json.loads(l) for l in
-                self.path.read_text(encoding="utf-8").splitlines()]
-        rows[1]["timestamp"] = "2025-01-01T00:00:00+00:00"
-        self.path.write_text(
-            "".join(json.dumps(r, separators=(",", ":")) + "\n" for r in rows),
-            encoding="utf-8")
-        reading = audit_log.read_integrity(self.path)
-        self.assertFalse(reading.trustworthy,
-                         f"a backwards timestamp was accepted: {reading.verdict}")
-        self.assertEqual(reading.out_of_order_rows, [2])
 
     # ---- the pass beside it, which must NOT overclaim ---------------------
 
     def test_the_untampered_record_passes(self):
         """The pass captured beside the refusal, as the annex requires."""
         reading = audit_log.read_integrity(self.path)
-        self.assertTrue(reading.trustworthy, reading.report())
+        self.assertFalse(reading.damaged, reading.report())
         self.assertEqual(reading.lines, 3)
         self.assertEqual(reading.rows, 3)
         self.assertEqual(reading.unreadable_lines, [])
@@ -159,15 +150,15 @@ class TheIntegrityReadBackRefusesATamperedRecord(unittest.TestCase):
         A verdict of "intact" would tell a reader the opposite.
         """
         reading = audit_log.read_integrity(self.path)
-        self.assertTrue(reading.trustworthy)
+        self.assertFalse(reading.damaged)
         self.assertNotIn("intact", reading.verdict.lower(),
                          "the passing verdict calls the record intact")
         self.assertIn("NO DETECTABLE DAMAGE", reading.verdict)
         text = " ".join(reading.report()).lower()
-        for phrase in ("cannot establish", "removed", "digest"):
-            self.assertIn(phrase, text,
-                          f"the report does not say what it cannot establish: "
-                          f"{reading.report()}")
+        for stem in ("remov", "replac"):
+            self.assertIn(stem, text,
+                          f"the report does not state that complete-row removal and "
+                          f"replacement go undetected: {reading.report()}")
 
     def test_a_whole_row_removed_is_reported_as_undetectable_not_as_a_pass(self):
         """The limit, measured rather than argued.
@@ -179,12 +170,13 @@ class TheIntegrityReadBackRefusesATamperedRecord(unittest.TestCase):
         rows = self.path.read_text(encoding="utf-8").splitlines()
         self.path.write_text("\n".join(rows[:2]) + "\n", encoding="utf-8")
         reading = audit_log.read_integrity(self.path)
-        self.assertTrue(reading.trustworthy,
-                        "a removed line is not detectable, so this must not be a "
-                        "refusal -- a false refusal is as bad as a false pass")
+        self.assertFalse(reading.damaged,
+                         "a removed line is not detectable, so this must not be a "
+                         "refusal -- a false refusal is as bad as a false pass")
         self.assertNotIn("intact", reading.verdict.lower())
-        self.assertIn("cannot establish",
-                      " ".join(reading.report()).lower())
+        text = " ".join(reading.report()).lower()
+        for stem in ("remov", "replac"):
+            self.assertIn(stem, text)
 
     # ---- the empty and absent records ------------------------------------
 
@@ -253,8 +245,232 @@ class RowsThatCannotBeJoinedToATurnAreReportedAsSuch(unittest.TestCase):
         self.assertTrue(audit_log.write_record(a_record(), self.path))
         reading = audit_log.read_integrity(self.path)
         self.assertEqual(reading.unjoinable_rows, 1)
-        self.assertTrue(reading.trustworthy,
-                        "an unjoinable row was treated as damage")
+        self.assertFalse(reading.damaged,
+                         "an unjoinable row was treated as damage")
+
+
+class EveryFieldTheWriterSerializesIsChecked(unittest.TestCase):
+    """One deletion control per field the writer serializes.
+
+    The fields are read from AuditRecord.to_jsonl_dict() itself, so a field the
+    writer starts serializing is covered here without a change to this module.
+    """
+
+    def setUp(self) -> None:
+        self._td = tempfile.TemporaryDirectory(prefix="ledger-fields-")
+        self.addCleanup(self._td.cleanup)
+        self.path = Path(self._td.name) / "tool-dispatch.jsonl"
+
+    def _read_without(self, row: dict, field: str) -> audit_log.IntegrityReading:
+        altered = dict(row)
+        del altered[field]
+        self.path.write_text(json.dumps(altered, separators=(",", ":")) + "\n",
+                             encoding="utf-8")
+        return audit_log.read_integrity(self.path)
+
+    def test_each_field_of_a_dispatch_row_is_required(self):
+        written = a_record().to_jsonl_dict()
+        self.assertGreaterEqual(len(written), 11, f"the writer serialized {written}")
+        for field in written:
+            with self.subTest(field=field):
+                reading = self._read_without(written, field)
+                self.assertTrue(reading.damaged,
+                                f"a row without {field!r} read as {reading.verdict}")
+                self.assertEqual(reading.incomplete_rows, [1])
+
+    def test_each_field_of_a_governance_row_is_required(self):
+        written = a_record(kind="governance_decision", event_type="tier_change",
+                           details={"from": 1, "to": 2}).to_jsonl_dict()
+        self.assertIn("kind", written)
+        self.assertIn("event_type", written)
+        for field in written:
+            if field == "details":
+                continue  # serialized only when it holds a value; see the next case
+            with self.subTest(field=field):
+                reading = self._read_without(written, field)
+                self.assertTrue(reading.damaged,
+                                f"a governance row without {field!r} read as "
+                                f"{reading.verdict}")
+                self.assertEqual(reading.incomplete_rows, [1])
+
+    def test_a_governance_row_the_writer_wrote_without_details_is_not_damage(self):
+        """The writer leaves details out when it is empty, so its absence is valid."""
+        written = a_record(kind="governance_decision", event_type="tier_change",
+                           details=None).to_jsonl_dict()
+        self.assertNotIn("details", written)
+        self.path.write_text(json.dumps(written, separators=(",", ":")) + "\n",
+                             encoding="utf-8")
+        reading = audit_log.read_integrity(self.path)
+        self.assertFalse(reading.damaged, reading.report())
+
+
+class ConcurrentAppendsInReversedEventTimeOrder(unittest.TestCase):
+    """Two valid appends whose event times are reversed in the file.
+
+    The writer takes no lock and serializes no append sequence, so a writer that
+    stamps its row first can append it second. Both appends succeed and no byte
+    is changed after either, so the reversal is reported as an observation and is
+    not damage.
+    """
+
+    def test_a_reversed_pair_from_two_writers_is_an_observation_not_damage(self):
+        with tempfile.TemporaryDirectory(prefix="ledger-order-") as directory:
+            path = Path(directory) / "intergen" / "tool-dispatch.jsonl"
+            early_ready = threading.Event()
+            late_written = threading.Event()
+            results: dict[str, bool] = {}
+            early = a_record(timestamp="2026-10-08T22:49:36.758266+00:00",
+                             tool_name="early")
+            late = a_record(timestamp="2026-10-08T22:49:36.758386+00:00",
+                            tool_name="late")
+
+            def early_writer() -> None:
+                early_ready.set()
+                if late_written.wait(timeout=10):
+                    results["early"] = audit_log.write_record(early, path)
+
+            def late_writer() -> None:
+                if early_ready.wait(timeout=10):
+                    results["late"] = audit_log.write_record(late, path)
+                late_written.set()
+
+            threads = [threading.Thread(target=early_writer),
+                       threading.Thread(target=late_writer)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join(timeout=10)
+            self.assertEqual(results, {"early": True, "late": True})
+            rows = list(audit_log.read_records(path))
+            self.assertEqual([r["tool_name"] for r in rows], ["late", "early"])
+            self.assertLess(early.timestamp, late.timestamp)
+            reading = audit_log.read_integrity(path)
+        self.assertFalse(reading.damaged,
+                         f"two valid appends were reported as damage: {reading.report()}")
+        self.assertEqual(reading.out_of_order_rows, [2])
+        self.assertIn("NO DETECTABLE DAMAGE", reading.verdict)
+        self.assertTrue(any("observation" in line for line in reading.report()),
+                        f"the reversal is not named as an observation: {reading.report()}")
+
+
+class NoPropertyClaimsMoreThanTheStructureShows(unittest.TestCase):
+    """A complete row removed leaves a structurally valid record.
+
+    Nothing in the record can show the removal, so the reading reports no damage;
+    no public property of the reading may then claim more than that.
+    """
+
+    def test_after_a_complete_row_is_removed_no_property_claims_trust(self):
+        with tempfile.TemporaryDirectory(prefix="ledger-removal-") as directory:
+            path = Path(directory) / "tool-dispatch.jsonl"
+            for index in range(2):
+                self.assertTrue(audit_log.write_record(
+                    a_record(timestamp=f"2026-10-08T17:0{index}:00+00:00",
+                             arguments={"index": index}), path))
+            first = path.read_text(encoding="utf-8").splitlines()[0]
+            path.write_text(first + "\n", encoding="utf-8")
+            reading = audit_log.read_integrity(path)
+        self.assertEqual(reading.rows, 1)
+        self.assertFalse(reading.damaged)
+        claims = [name for name in dir(reading) if not name.startswith("_")
+                  and ("trust" in name.lower() or "intact" in name.lower())]
+        self.assertEqual(claims, [],
+                         "a public property claims more than a structural check")
+        text = " ".join(reading.report()).lower()
+        for stem in ("remov", "replac"):
+            self.assertIn(stem, text)
+
+
+class TheCommandKeepsItsOutputChannels(unittest.TestCase):
+    """The tool-log command, run as a process against a throwaway record.
+
+    With --json, stdout carries JSON lines only, whether or not any row is
+    readable, and the structural report goes to stderr on every run. Every view
+    exits nonzero when structural damage is detected.
+    """
+
+    TREE = Path(audit_log.__file__).resolve().parents[1]
+
+    def setUp(self) -> None:
+        self._td = tempfile.TemporaryDirectory(prefix="ledger-command-")
+        self.addCleanup(self._td.cleanup)
+        self.state = Path(self._td.name)
+        self.path = self.state / "intergen" / "tool-dispatch.jsonl"
+
+    def _run(self, *args: str) -> subprocess.CompletedProcess:
+        env = dict(os.environ, PYTHONPATH=str(self.TREE),
+                   XDG_STATE_HOME=str(self.state))
+        return subprocess.run(
+            [sys.executable, "-s", "-m", "intergen.cli", "tool-log", *args],
+            cwd=self.state, env=env, capture_output=True, text=True, timeout=60,
+            stdin=subprocess.DEVNULL, check=False)
+
+    def _write_rows(self, count: int) -> None:
+        for index in range(count):
+            self.assertTrue(audit_log.write_record(
+                a_record(timestamp=f"2026-10-08T17:0{index}:00+00:00"), self.path))
+
+    def _assert_json_only(self, stdout: str) -> int:
+        lines = [line for line in stdout.splitlines() if line.strip()]
+        for line in lines:
+            try:
+                json.loads(line)
+            except json.JSONDecodeError:
+                self.fail(f"stdout carries a line that is not JSON: {line!r}")
+        return len(lines)
+
+    def test_json_on_a_clean_record(self):
+        self._write_rows(1)
+        done = self._run("--json")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(self._assert_json_only(done.stdout), 1)
+        self.assertIn("NO DETECTABLE DAMAGE", done.stderr)
+
+    def test_json_on_a_partially_damaged_record(self):
+        self._write_rows(2)
+        lines = self.path.read_text(encoding="utf-8").splitlines()
+        self.path.write_text(lines[0] + "\n{not-json}\n", encoding="utf-8")
+        done = self._run("--json")
+        self.assertNotEqual(done.returncode, 0, "a damaged read exited 0")
+        self.assertEqual(self._assert_json_only(done.stdout), 1)
+        self.assertIn("UNTRUSTWORTHY", done.stderr)
+        self.assertNotIn("UNTRUSTWORTHY", done.stdout)
+
+    def test_json_on_a_record_with_no_readable_row(self):
+        self.path.parent.mkdir(parents=True)
+        self.path.write_text("{not-json}\n", encoding="utf-8")
+        done = self._run("--json")
+        self.assertNotEqual(done.returncode, 0, "a damaged read exited 0")
+        self.assertEqual(self._assert_json_only(done.stdout), 0)
+        self.assertIn("UNTRUSTWORTHY", done.stderr)
+
+    def test_json_with_no_record_at_all(self):
+        done = self._run("--json")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(self._assert_json_only(done.stdout), 0)
+        self.assertIn("NO RECORD", done.stderr)
+
+    def test_the_human_view_of_a_damaged_record_exits_nonzero(self):
+        self._write_rows(2)
+        lines = self.path.read_text(encoding="utf-8").splitlines()
+        self.path.write_text(lines[0] + "\n{not-json}\n", encoding="utf-8")
+        done = self._run()
+        self.assertNotEqual(done.returncode, 0, "a damaged read exited 0")
+        self.assertIn("UNTRUSTWORTHY", done.stdout)
+
+    def test_the_human_view_of_a_record_with_no_readable_row(self):
+        self.path.parent.mkdir(parents=True)
+        self.path.write_text("{not-json}\n", encoding="utf-8")
+        done = self._run()
+        self.assertNotEqual(done.returncode, 0, "a damaged read exited 0")
+        self.assertIn("UNTRUSTWORTHY", done.stdout)
+        self.assertNotIn("Audit log empty", done.stdout)
+
+    def test_the_human_view_of_a_clean_record_exits_zero(self):
+        self._write_rows(1)
+        done = self._run()
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn("NO DETECTABLE DAMAGE", done.stdout)
 
 
 if __name__ == "__main__":
