@@ -43,8 +43,9 @@ same manager, the tool's service joins its private /tmp, so a tool sees the
 
 IT FAILS CLOSED. A credential file that is absent cannot be masked, and systemd
 refuses to start a service whose mask it cannot make, so the launcher checks
-first and names the missing file; nothing is started directly instead. If the
-user manager cannot be reached, the tool's process does not run.
+first and names the missing file; a credential path that cannot be read at all
+is refused with that reason instead. Nothing is started directly in either case.
+If the user manager cannot be reached, the tool's process does not run.
 
 WHAT IT DOES NOT COVER, named rather than claimed:
   * a second name (a hard link) for either file made before this boundary
@@ -222,8 +223,8 @@ def launch_argv(argv: list[str], *, unit: str,
                 setenv_names: tuple[str, ...] = ()) -> list[str]:
     """The command line that starts `argv` as a tool service behind the boundary.
 
-    Raises ToolProcessNotStarted when a credential file is absent or cannot be
-    named, so nothing is started without its mask.
+    Raises ToolProcessNotStarted when a credential file is absent, cannot be
+    read or cannot be named, so nothing is started without its mask.
     """
     if not argv:
         raise ToolProcessNotStarted("an empty command has no process to start")
@@ -234,7 +235,19 @@ def launch_argv(argv: list[str], *, unit: str,
             f"the account that owns this install could not be established "
             f"({exc}), so there is nothing to mask and the tool's process was "
             f"not started") from exc
-    missing = [str(p) for p in credentials if not os.path.lexists(p)]
+    missing = []
+    for path in credentials:
+        try:
+            os.lstat(path)
+        except (FileNotFoundError, NotADirectoryError):
+            missing.append(str(path))
+        except OSError as exc:
+            # Present or not, a path that cannot be read cannot be masked with
+            # certainty, so the start is refused with what actually happened.
+            raise ToolProcessNotStarted(
+                f"{path} could not be read ({exc.strerror or exc}). A credential "
+                f"file whose path cannot be read cannot be masked, so the tool's "
+                f"process was not started.") from exc
     if missing:
         raise ToolProcessNotStarted(
             f"{', '.join(missing)} does not exist. A credential file that is "
