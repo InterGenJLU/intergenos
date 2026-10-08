@@ -222,8 +222,9 @@ class ConsoleShell:
 
         @kb.add("c-l")
         def _(event: Any) -> None:
-            self._messages.clear()
-            self._app.invalidate()
+            # A second door to /clear: emptying only the pane left the offers
+            # staged in the model's buffer live behind it.
+            asyncio.create_task(self._request_clear())
 
         @kb.add("escape")
         def _(event: Any) -> None:
@@ -653,7 +654,7 @@ class ConsoleShell:
             "  Enter          Send message\n"
             "  Ctrl+C         Cancel stream / exit (if idle)\n"
             "  Ctrl+D         Exit console\n"
-            "  Ctrl+L         Clear chat display\n"
+            "  Ctrl+L         Clear the chat and the model's buffer (as /clear)\n"
             "  Esc            Dismiss gate prompt (deny)"
         )
         self._add_message("system", help_text, "help")

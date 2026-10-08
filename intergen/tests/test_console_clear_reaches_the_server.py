@@ -169,5 +169,63 @@ class TheConsolesClearReachesTheServer(unittest.TestCase):
         self.assertIn("/status", sh._client.slash_commands())
 
 
+def _press_ctrl_l(sh) -> None:
+    """Press Ctrl+L through the binding the console registers for the key."""
+    from prompt_toolkit.keys import Keys
+    bindings = sh._app.key_bindings.get_bindings_for_keys((Keys.ControlL,))
+    if not bindings:
+        raise AssertionError("the console registers no binding for Ctrl+L")
+    for binding in bindings:
+        binding.handler(None)
+
+
+async def _settle() -> None:
+    """Let any task the key binding started run to its end."""
+    pending = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+    if pending:
+        await asyncio.gather(*pending)
+
+
+class CtrlLGoesTheSameWayAsClear(unittest.TestCase):
+    """intergen/console/shell.py — the Ctrl+L key binding, a second door to
+    the same clear: it emptied the pane and sent nothing, as /clear did."""
+
+    def test_ctrl_l_sends_the_clear_command_and_the_pane_follows_the_server(self):
+        sh = _shell()
+
+        async def _run() -> None:
+            _press_ctrl_l(sh)
+            await _settle()
+            self.assertIn(
+                "/clear", sh._client.slash_commands(),
+                "Ctrl+L emptied the console's pane and sent nothing: the offer "
+                "staged on the server is still taken up by a bare 'yes'. "
+                f"Sent: {sh._client.frames!r}")
+            self.assertIn(
+                OFFER, _conversation(sh),
+                "Ctrl+L emptied the pane before the server said the buffer "
+                f"was. Pane:\n{_rendered(sh)}")
+            await sh._process_server_message({"type": "buffer_cleared"})
+
+        asyncio.run(_run())
+        self.assertEqual(_conversation(sh), [],
+                         f"Pane after buffer_cleared:\n{_rendered(sh)}")
+
+    def test_ctrl_l_without_a_connection_says_so_and_clears_nothing(self):
+        sh = _shell(connected=False)
+
+        async def _run() -> None:
+            _press_ctrl_l(sh)
+            await _settle()
+
+        asyncio.run(_run())
+        self.assertEqual(sh._client.frames, [])
+        self.assertIn(
+            OFFER, _conversation(sh),
+            "with no connection Ctrl+L emptied the pane anyway. "
+            f"Pane:\n{_rendered(sh)}")
+        self.assertIn("Not connected", _system(sh))
+
+
 if __name__ == "__main__":
     unittest.main()
