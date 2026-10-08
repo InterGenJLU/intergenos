@@ -425,6 +425,10 @@ REVIEW_ENDED = "review_ended"
 # A held call with no review surface at all: nothing could ask the person, so
 # nothing runs, and the record says that rather than that they refused.
 NO_REVIEW_UI = "no_review_ui"
+# The person approved a privileged call and the single-use token that carries
+# that approval to the root boundary could not be minted: nothing runs, and
+# the record says the token failed, not that the person refused.
+DISPATCH_TOKEN_FAILED = "dispatch_token_failed"
 _REVIEW_NOT_DECIDED = {
     REVIEW_TIMED_OUT: "the review card was not answered before its deadline",
     REVIEW_REFUSED: ("a review card for this call was already open, so a "
@@ -1000,13 +1004,15 @@ class ToolRegistry:
                 except DispatchTokenError as exc:
                     # The human approved, but without a verifiable token the root
                     # boundary cannot confirm that approval — fail CLOSED rather
-                    # than dispatch an unbacked privileged action.
+                    # than dispatch an unbacked privileged action. The only
+                    # decision the person made was an approval, so the record
+                    # names the token, never "denied".
                     logger.error(
                         "dispatch-token mint failed for %s: %s", tool_name, exc
                     )
                     self._audit_log_decision(
                         call, decision, ingress_tracker,
-                        user_outcome="denied",
+                        user_outcome=DISPATCH_TOKEN_FAILED,
                         exit_code=1,
                         result_summary=f"dispatch-token mint failed: {exc}",
                         source_attribution=source_attribution,

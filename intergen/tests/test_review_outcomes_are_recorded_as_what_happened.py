@@ -437,5 +437,23 @@ class AHeldCallWithNoReviewSurfaceIsRecordedAsSuch(_Case):
         self.assertNotEqual(no_ui, deny)
 
 
+class AnApprovalWhoseTokenCouldNotBeMintedIsNotADenial(_Case):
+    """The person approved a privileged call, and the single-use token that
+    carries the approval to the root boundary could not be minted. Nothing
+    ran — correctly — and the record said "denied", although the only
+    decision the person made was an approval."""
+
+    def test_the_failed_token_is_recorded_as_what_happened(self) -> None:
+        with mock.patch.object(
+                registry_module, "mint_token",
+                side_effect=registry_module.DispatchTokenError(
+                    "signing key missing")):
+            result = self.registry.execute(
+                _call("token"), review_callback=lambda c, d: "allow_once")
+        self._nothing_ran_and_no_one_denied(
+            result, "dispatch_token_failed", "token")
+        self.assertIn("signing key missing", self._the_record().result_summary)
+
+
 if __name__ == "__main__":
     unittest.main()

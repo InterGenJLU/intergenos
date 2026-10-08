@@ -219,7 +219,7 @@ Every tool call records:
 - ingress tools that fired earlier in turn
 - user decision — one outcome word (`build_audit_record` in `intergen/provenance.py` says what each means):
   - the call was dispatched (the exit code says how it ended): `executed` (no review was required), `allowed_once`, `allowed_conversation`
-  - the call did not run: `denied` (the gate refused it, the person pressed Deny, or an approved privileged call's dispatch token could not be minted; the result summary says which), `deny_conversation`, `egress_blocked`, `no_review_ui` (the call needed review and no review surface was available)
+  - the call did not run: `denied` (the gate refused it, or the person pressed Deny; the result summary says which), `deny_conversation`, `egress_blocked`, `no_review_ui` (the call needed review and no review surface was available), `dispatch_token_failed` (the person approved a privileged call and its single-use dispatch token could not be minted)
   - the call did not run because nobody decided its review: `review_timed_out`, `review_refused`, `review_failed`, `refused_without_review`, `review_ended`
   - a dispatched call's returned content, scanned on the way in, can add one suffix: `+ingress_blocked`, `+ingress_flag_denied`, or `+ingress_flag_<word>`, where `<word>` is `no_review_ui` or one of the five review words; each withholds the content
 - exit code + result summary (truncated)
