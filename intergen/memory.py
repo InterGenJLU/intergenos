@@ -497,6 +497,11 @@ class MemoryManager:
         self._db_path = Path(db_path) if db_path else _default_db_path()
         self._db_lock = threading.Lock()
         self._conn: sqlite3.Connection | None = None
+        # Per session: its last queries and the tools its turns used, which the
+        # session's topic is summarised from when it ends. Keyed by session, so
+        # one conversation's turns never reach another's summary.
+        self._session_queries: dict[str, deque[str]] = {}
+        self._session_tools: dict[str, set[str]] = {}
         self._init_db()
         self._fold_duplicate_keys()
 
@@ -1144,8 +1149,30 @@ class MemoryManager:
 
     # ── Session awareness ──
 
+    # How many sessions' summary state is held in memory. end_session releases
+    # a session's; the daemon does not call it, so without a bound every
+    # conversation it ever started would stay held.
+    _SESSIONS_HELD = 64
+
+    def _hold_session(self, session_id: str) -> None:
+        """Room for a session's summary state. Called with ``_db_lock`` held."""
+        if session_id in self._session_queries:
+            return
+        self._session_queries[session_id] = deque(maxlen=10)
+        self._session_tools[session_id] = set()
+        while len(self._session_queries) > self._SESSIONS_HELD:
+            oldest = next(iter(self._session_queries))
+            del self._session_queries[oldest]
+            self._session_tools.pop(oldest, None)
+
     def start_session(self) -> str:
-        """Start a new session. Returns session_id."""
+        """Start a new session and return its id.
+
+        Every conversation is given a session of its own — the router keeps the
+        id on ``ConversationState.memory_session_id`` — and names it on each
+        turn it records. ``_current_session_id`` is only the session started
+        last, the one a caller that names no session records into.
+        """
         session_id = uuid.uuid4().hex[:16]
         with self._db_lock:
             conn = self._get_conn()
@@ -1155,58 +1182,76 @@ class MemoryManager:
                 (session_id, "", time.time())
             )
             conn.commit()
+            self._hold_session(session_id)
         self._current_session_id = session_id
-        self._session_queries: list[str] = []
-        self._session_tools: list[str] = []
         logger.info("Session started: %s", session_id)
         return session_id
 
-    def record_turn(self, query: str, tools_used: list[str] | None = None) -> None:
-        """Record a turn in the current session for topic tracking."""
-        if not hasattr(self, "_current_session_id"):
+    def record_turn(self, query: str, tools_used: list[str] | None = None,
+                    session_id: str | None = None) -> None:
+        """Record a turn in a session, for topic tracking.
+
+        ``session_id`` is the session of the conversation the turn was served
+        for, which the router passes on every turn. One manager serves every
+        conversation the daemon holds — the desktop bus's and each browser
+        connection's — and a turn counted against the session started LAST was
+        counted on whichever conversation began most recently: two live
+        conversations' turns all landed on one of them. A caller that names no
+        session records into the session started last.
+        """
+        sid = session_id if session_id is not None else getattr(
+            self, "_current_session_id", None)
+        if sid is None:
             return
-        self._session_queries.append(query)
-        if tools_used:
-            self._session_tools.extend(tools_used)
         # M1 (bullet 3): memory WRITE (session turn record).
         glass.emit("decision", "memory_turn", detail={
-            "query": query, "tools_used": tools_used or []})
+            "query": query, "tools_used": tools_used or [],
+            "session_id": sid})
         with self._db_lock:
+            self._hold_session(sid)
+            self._session_queries[sid].append(query)
+            if tools_used:
+                self._session_tools[sid].update(tools_used)
             conn = self._get_conn()
             conn.execute(
                 "UPDATE sessions SET turn_count = turn_count + 1 "
                 "WHERE session_id = ?",
-                (self._current_session_id,)
+                (sid,)
             )
             conn.commit()
 
-    def end_session(self, topic_summary: str | None = None) -> None:
-        """End the current session with an optional topic summary.
+    def end_session(self, topic_summary: str | None = None,
+                    session_id: str | None = None) -> None:
+        """End a session with an optional topic summary.
 
-        If no summary provided, generates one from recorded queries.
+        ``session_id`` names the session; with none, the session started last.
+        If no summary is given, one is generated from that session's own turns.
         """
-        if not hasattr(self, "_current_session_id"):
+        sid = session_id if session_id is not None else getattr(
+            self, "_current_session_id", None)
+        if sid is None:
             return
 
         if topic_summary is None:
-            topic_summary = self._auto_summarize_session()
+            topic_summary = self._auto_summarize_session(sid)
 
         with self._db_lock:
+            queries = list(self._session_queries.pop(sid, ()))
+            tools = self._session_tools.pop(sid, set())
             conn = self._get_conn()
             conn.execute(
                 "UPDATE sessions SET topic = ?, queries = ?, tools_used = ?, "
                 "ended_at = ? WHERE session_id = ?",
                 (
                     topic_summary,
-                    "\n".join(self._session_queries[-10:]),
-                    ",".join(set(self._session_tools)),
+                    "\n".join(queries[-10:]),
+                    ",".join(tools),
                     time.time(),
-                    self._current_session_id,
+                    sid,
                 )
             )
             conn.commit()
-        logger.info("Session ended: %s — topic: %s",
-                     self._current_session_id, topic_summary)
+        logger.info("Session ended: %s — topic: %s", sid, topic_summary)
 
     def get_last_session(self) -> dict | None:
         """Get the most recent completed session for cross-session awareness."""
@@ -1252,12 +1297,14 @@ class MemoryManager:
         return (f"Welcome back. Last time ({time_ago}) you were "
                 f"{last['topic']}. What can I help with?")
 
-    def _auto_summarize_session(self) -> str:
-        """Generate a topic summary from the session's recorded queries."""
-        if not self._session_queries:
+    def _auto_summarize_session(self, session_id: str | None = None) -> str:
+        """Generate a topic summary from a session's recorded queries."""
+        sid = session_id if session_id is not None else getattr(
+            self, "_current_session_id", None)
+        queries = list(self._session_queries.get(sid, ()))[-5:]
+        if not queries:
             return ""
 
-        queries = self._session_queries[-5:]
         topics = set()
         for q in queries:
             lower = q.lower()

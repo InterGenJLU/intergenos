@@ -2289,9 +2289,15 @@ class ConversationRouter(RouterInterface):
         shared between conversations would put one person's exchanges into
         another's prompt, which is the retrieval half of the same defect.
         """
-        return new_conversation_state(
+        conv = new_conversation_state(
             embedder=getattr(self, "_embedder", None),
             window_turns=max(1, getattr(self, "_max_history", 20) // 2))
+        # And its own long-term memory session, so the turns it records are
+        # counted against it and against no other conversation: the daemon's
+        # bus conversation and each browser connection's are made here.
+        if getattr(self, "_memory", None):
+            conv.memory_session_id = self._memory.start_session()
+        return conv
 
     def detach_conversation(self) -> None:
         """Give up the router's own conversation.
@@ -8191,10 +8197,22 @@ class ConversationRouter(RouterInterface):
         """Record routing decision for metrics and logging."""
         elapsed_ms = (time.monotonic() - t0) * 1000
 
-        # Track turn for session awareness
+        # Track turn for session awareness, in the memory session of the
+        # conversation this turn was served for. The memory manager is shared
+        # by every conversation the daemon serves, so the session it started
+        # last is somebody else's whenever more than one conversation is open.
         if self._memory and result.handled:
             tool_names = [tr.name for tr in result.tool_results]
-            self._memory.record_turn(result.text[:200], tool_names or None)
+            conv = self._conversation_or_none()
+            if conv is None:
+                logger.warning("A handled turn reached the record with no "
+                               "conversation bound; its memory turn is not "
+                               "counted against another conversation's session")
+            else:
+                if conv.memory_session_id is None:
+                    conv.memory_session_id = self._memory.start_session()
+                self._memory.record_turn(result.text[:200], tool_names or None,
+                                         session_id=conv.memory_session_id)
         logger.info("Routed via %s in %.0fms (tools=%d, llm=%s)",
                      source, elapsed_ms,
                      len(result.tool_results),
