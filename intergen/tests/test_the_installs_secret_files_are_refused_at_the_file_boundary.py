@@ -157,6 +157,51 @@ class TheSecretFilesAreRefusedAtTheFileBoundary(unittest.TestCase):
             result = self._read(second_name)
         self._assert_refused(result, "a second name for the same file")
 
+    def test_a_second_name_is_refused_when_the_canonical_name_cannot_be_read(
+            self) -> None:
+        """Only a file that does not exist contributes nothing to the identity leg.
+
+        The directory holding the key is made unsearchable, so its canonical
+        pathname cannot be stat'ed while the file is still there, and a second
+        name for the same object lives where it can be read. Reading that name
+        must be refused, and the refusal must say what could not be read.
+        """
+        second_name = self.tmp / "notes.txt"
+        os.link(self.key_path, second_name)
+        keydir = self.key_path.parent
+        keydir.chmod(0)
+        try:
+            try:
+                os.stat(self.key_path)
+            except PermissionError:
+                pass
+            else:
+                self.skipTest(
+                    "this process can stat through an unsearchable directory "
+                    "(it holds CAP_DAC_OVERRIDE), so the case cannot be made here")
+            self.assertEqual(second_name.read_text(), self.key)
+            with self._as_if_the_install_lived_here():
+                result = self._read(second_name)
+        finally:
+            keydir.chmod(0o700)
+        self._assert_refused(
+            result, "a second name while the canonical name cannot be read")
+        self.assertIn("could not be read", result.content or "")
+
+    def test_an_absent_credential_still_contributes_nothing(self) -> None:
+        """A file that does not exist is not a failure to read one."""
+        token = self.key_path.parent / "web-token"
+        self.assertFalse(token.exists())
+        ordinary = self.tmp / "ordinary.txt"
+        ordinary.write_text("an ordinary file the owner reads\n")
+        with self._as_if_the_install_lived_here():
+            result = self._read(ordinary)
+            identities = dt.secret_file_identities()
+        self.assertTrue(result.success, result.content)
+        self.assertIn("an ordinary file the owner reads", result.content or "")
+        self.assertEqual(list(identities.values()),
+                         [dt.SECRET_RELATIVE_PATHS[dt.KEY_RELATIVE_PATH]])
+
     def test_the_key_named_in_a_mapping_key_is_refused(self) -> None:
         """A tool may take its paths as mapping keys; the walk must look there."""
         def read_the_path_keys(arguments: dict) -> str:
