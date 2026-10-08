@@ -14,7 +14,7 @@ teaching-vs-action behaviours that F2 violated:
     reaches the action gate (the F2 mis-route negative).
 
 These need a live daemon + model, so they are OPT-IN: set INTERGEN_WS_HARNESS=1
-on a box with a running daemon+model (e.g. .241/.218) to enable them. With the
+on a machine running the daemon and a model to enable them. With the
 env unset they skip — a normal suite run never drives, or hangs against, a
 random daemon on :8089.
 
@@ -49,14 +49,15 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import unittest
 
 from intergen.tests.ws_harness import WSGateClient, daemon_reachable
 
 _OPT_IN = os.environ.get("INTERGEN_WS_HARNESS") == "1"
 _LIVE = _OPT_IN and daemon_reachable()
-_SKIP_REASON = ("live WS gate cells are opt-in: set INTERGEN_WS_HARNESS=1 with a "
-                "running daemon+model (e.g. .241/.218) to enable")
+_SKIP_REASON = ("live WS gate cells are opt-in: set INTERGEN_WS_HARNESS=1 on a "
+                "machine running the daemon and a model to enable")
 
 # A SECOND opt-in, for the one cell that ANSWERS A GATE WITH "ALLOW".
 #
@@ -221,6 +222,31 @@ class WSGateLifecycleLiveTests(unittest.TestCase):
             "teaching phrasing reached the action gate (F2 mis-route)")
         self.assertIn("pkm", r.text.lower(),
                       "teaching answer did not surface the pkm command")
+
+
+class TheSkipReasonsNameNoMachineByAddressTests(unittest.TestCase):
+    """Every run that skips the live cells prints their reasons, so the reasons
+    and this file's own description say what the machine must run, never which
+    machines on a network those are."""
+
+    # A partial address (a dot and one to three digits, standing alone) or a
+    # whole IPv4 address. A version number is not matched: its dot follows a
+    # digit.
+    _ADDRESS = re.compile(
+        r"(?<![\w.])\.\d{1,3}\b|\b\d{1,3}(?:\.\d{1,3}){3}\b")
+
+    def test_no_reason_names_a_machine_by_address(self):
+        texts = {
+            "the module description": globals()["__doc__"] or "",
+            "_SKIP_REASON": _SKIP_REASON,
+            "_ALLOW_SKIP_REASON": _ALLOW_SKIP_REASON,
+        }
+        for where, text in texts.items():
+            found = self._ADDRESS.search(text)
+            self.assertIsNone(
+                found,
+                f"{where} names a machine by address: "
+                f"{found.group(0) if found else ''!r}")
 
 
 if __name__ == "__main__":
