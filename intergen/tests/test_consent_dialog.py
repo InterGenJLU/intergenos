@@ -146,13 +146,14 @@ class WatchdogTests(unittest.TestCase):
         self.assertIsNone(
             consent_dialog._run_dialog({"mode": "consent"}, cmd=self._cmd(body)))
 
-    def test_hang_after_render_hits_deadline_and_denies(self):
+    def test_hang_after_render_hits_deadline_and_says_so(self):
         body = ("import sys,time; sys.stdin.read(); %s; "
                 "sys.stdout.write(M+chr(10)); sys.stdout.flush(); "
                 "time.sleep(30)" % self._M)
         with mock.patch.object(proto, "POST_RENDER_DEADLINE_SECONDS", 1.0):
             code = consent_dialog._run_dialog({"mode": "consent"}, cmd=self._cmd(body))
-        self.assertEqual(code, proto.EXIT_DENY)
+        # Not a decision: the dialog went unanswered, and the caller is told so.
+        self.assertEqual(code, consent_dialog.DEADLINE_EXPIRED)
 
     def test_never_renders_hangs_fails_fast_to_fallback(self):
         body = "import sys,time; sys.stdin.read(); time.sleep(30)"
@@ -190,13 +191,18 @@ class _Call:
 
 class MappingTests(unittest.TestCase):
     def test_review_codes_map_fail_closed(self):
+        # Only the affirmative codes approve. The person's Deny code is "deny";
+        # an unanswered dialog and a crash, signal or unmapped code are refusals
+        # nobody gave, answered as what happened.
         cases = {
             proto.EXIT_REVIEW_ALLOW_ONCE: "allow_once",
             proto.EXIT_REVIEW_ALLOW_CONVERSATION: "allow_conversation",
             proto.EXIT_DENY: "deny",
-            139: "deny",   # SIGSEGV-ish crash code → deny
-            0: "deny",     # a clean exit(0) is NOT consent → deny
-            proto.EXIT_RENDER_FAILED: "deny",  # if seen post-render
+            consent_dialog.DEADLINE_EXPIRED: "review_timed_out",
+            139: "review_failed",  # SIGSEGV-ish crash code
+            -11: "review_failed",  # killed by a signal
+            0: "review_failed",    # a clean exit(0) is NOT consent
+            proto.EXIT_RENDER_FAILED: "review_failed",  # if seen post-render
         }
         for code, expected in cases.items():
             with mock.patch.object(consent_dialog, "_run_dialog", return_value=code):
@@ -209,7 +215,8 @@ class MappingTests(unittest.TestCase):
 
     def test_consent_only_send_is_true(self):
         for code, expected in {proto.EXIT_CONSENT_SEND: True, proto.EXIT_DENY: False,
-                               0: False, 137: False}.items():
+                               0: False, 137: False,
+                               consent_dialog.DEADLINE_EXPIRED: False}.items():
             with mock.patch.object(consent_dialog, "_run_dialog", return_value=code):
                 self.assertEqual(
                     consent_dialog.run_consent_dialog("x", "anthropic"), expected)

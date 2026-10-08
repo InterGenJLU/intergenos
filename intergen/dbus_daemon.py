@@ -289,20 +289,26 @@ class InterGenDaemon(InterGenDBusInterface):
         """Build the launch-time autopilot review closure (F1).
 
         mode='allow' mirrors the harness auto-approve policy: allow_once for an
-        ordinary held dispatch, but DENY a privileged (needs_pkexec) one —
+        ordinary held dispatch, but REFUSE a privileged (needs_pkexec) one —
         allowing it would pop the OS polkit prompt (a hard block for an
-        unattended run) and actually mutate the box. mode='deny' denies every
+        unattended run) and actually mutate the box. mode='deny' refuses every
         held dispatch (exercises the deny-recovery paths). Either way the closure
         fails CLOSED: a decision object missing needs_pkexec is treated as
-        privileged and denied. Every verdict is glass-logged with the tool it
-        answered. The command safety denylist runs independently of this
-        callback, so destructive dispatches stay blocked regardless of verdict.
+        privileged and refused. A refusal here is policy, not a person's answer,
+        so it is the registry's refused_without_review — never "deny", which
+        the registry records as the person's own refusal; nothing runs on it.
+        Every verdict is glass-logged with the tool it answered. The command
+        safety denylist runs independently of this callback, so destructive
+        dispatches stay blocked regardless of verdict.
         """
+        from intergen.tool_registry import REFUSED_WITHOUT_REVIEW
+
         def _callback(call: Any, decision: Any) -> str:
             if mode == "deny":
-                verdict = "deny"
+                verdict = REFUSED_WITHOUT_REVIEW
             elif getattr(decision, "needs_pkexec", True):
-                verdict = "deny"  # fail-closed: privileged (or unknown shape) → deny
+                # fail-closed: privileged (or unknown shape) → refused
+                verdict = REFUSED_WITHOUT_REVIEW
             else:
                 verdict = "allow_once"
             try:

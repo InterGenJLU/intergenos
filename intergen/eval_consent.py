@@ -21,10 +21,12 @@ an unattended run can do to the box, the second destroys the measurement.
 
 WHY THIS IS SAFE TO EXIST AT ALL — the monotonicity argument
 ------------------------------------------------------------
-This responder can only ever answer DENY. There is no allow path, no mode
-parameter, and no verdict input: :func:`review_verdict` returns the literal
-``"deny"`` and :func:`send_verdict` returns the literal ``False``. Arming it is
-therefore monotonically RESTRICTIVE — it cannot grant a capability, cannot
+This responder can only ever refuse. There is no allow path, no mode
+parameter, and no verdict input: :func:`review_verdict` returns the registry's
+``refused_without_review`` (a refusal by policy, not a person's Deny — the
+registry records "deny" as the person's own refusal, and runs a held call only
+on an approval) and :func:`send_verdict` returns the literal ``False``. Arming
+it is therefore monotonically RESTRICTIVE — it cannot grant a capability, cannot
 approve a privileged dispatch, and cannot authorize an egress. The worst outcome
 of an unintended arming is that actions the user wanted are refused, loudly and
 on the record, which is the safe direction of failure.
@@ -68,6 +70,7 @@ import time
 from typing import Any, Callable
 
 from intergen import glass
+from intergen.tool_registry import REFUSED_WITHOUT_REVIEW
 
 logger = logging.getLogger(__name__)
 
@@ -84,8 +87,10 @@ GATE_ACTION_REVIEW = "action_review"
 GATE_PHONE_A_FRIEND_SEND = "phone_a_friend_send"
 
 # The only verdicts this module can produce. Named so a reader does not have to
-# infer the deny-only property from control flow.
-REVIEW_VERDICT_DENY = "deny"
+# infer the refuse-only property from control flow. The review verdict is the
+# registry's word for a refusal no person gave: this responder is policy, and
+# "deny" would be recorded as the person's own refusal.
+REVIEW_VERDICT_REFUSED = REFUSED_WITHOUT_REVIEW
 SEND_VERDICT_DENY = False
 
 # Cap on retained in-process observations. The authoritative record is the glass
@@ -240,12 +245,13 @@ def _record(gate: str, action: str, extra: dict[str, Any]) -> dict[str, Any]:
 
 
 def review_verdict(call: Any, decision: Any) -> str:
-    """Answer the action-review gate: an immediate, recorded deny.
+    """Answer the action-review gate: an immediate, recorded refusal.
 
     Signature matches tool_registry.execute()'s ``review_callback`` contract
-    (``(call, decision) -> str``). Returns the literal deny verdict with no
-    dialog, no polling, and no path into review_modal's fallback wait — a batch
-    run cannot wedge here.
+    (``(call, decision) -> str``). Returns refused_without_review — a refusal
+    by policy, recorded as such, never as the person's Deny — with no dialog,
+    no polling, and no path into review_modal's fallback wait — a batch run
+    cannot wedge here.
     """
     name = getattr(call, "name", "?")
     args = getattr(call, "arguments", None)
@@ -261,7 +267,7 @@ def review_verdict(call: Any, decision: Any) -> str:
             "gate_reason": _summarize(getattr(decision, "reason", ""), 200),
         },
     )
-    return REVIEW_VERDICT_DENY
+    return REVIEW_VERDICT_REFUSED
 
 
 def send_verdict(content: Any, provider: Any, reason: Any = "") -> bool:

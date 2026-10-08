@@ -28,7 +28,7 @@ Two delivery paths per RFC §7.2:
     zenity unavailable, post a critical libnotify alert via notify-send
     + poll session-active in 5s intervals; if session returns active
     inside the timeout window, re-prompt via the zenity path. RFC §7.2
-    timeout: held actions expire after one hour with implicit Deny.
+    timeout: held actions expire after one hour, and nothing runs.
 
 Exports `make_review_callback(source_attribution, excerpt, reasoning)`
 which returns a 2-arg (call, decision) → str closure suitable for
@@ -38,7 +38,13 @@ reasoning) that the dispatcher passes alongside the ToolCall +
 DispatchDecision.
 
 Return strings match the tool_registry.execute() contract:
-"allow_once" | "allow_conversation" | "deny" | "deny_conversation".
+"allow_once" | "allow_conversation" | "deny" | "deny_conversation" for the
+person's own answer, and the registry's words for a review nobody decided:
+review_timed_out when the review went unanswered past its deadline, and
+review_failed when it could not be shown or answered. "deny" is only ever the
+person's Deny (the button, Esc, or closing the dialog): the registry records it
+as theirs, so a timeout or a missing tool must never borrow it. Nothing runs on
+any answer but an approval.
 The v1.0 zenity modal exposes 3 buttons (Allow once / Allow for this
 conversation / Deny) per RFC §7 wireframe; "deny_conversation" is
 reachable only via the dispatcher's record_user_decision path (not the
@@ -59,10 +65,11 @@ from intergen import consent_dialog
 from intergen.consent_dialog_sanitize import tier_effect_sentence
 from intergen.interfaces.provenance import DispatchDecision
 from intergen.interfaces.types import ToolCall
+from intergen.tool_registry import REVIEW_FAILED, REVIEW_TIMED_OUT
 
 logger = logging.getLogger(__name__)
 
-# RFC §7.2 implicit-Deny timeout for libnotify fallback (one hour).
+# RFC §7.2 timeout for the libnotify fallback (one hour); an expiry runs nothing.
 FALLBACK_TIMEOUT_SECONDS = 3600
 
 # How often the libnotify fallback re-checks session-active state while
@@ -237,8 +244,10 @@ def _prompt_review_zenity(
       - --ok-label "Allow once"             → exit 0, empty stdout
       - --extra-button "Allow for this..."  → exit 1, button text on stdout
       - --cancel-label "Deny" / Esc / close → exit 1, empty stdout
-      - --timeout expiry (unanswered)       → exit 5, Deny (RFC §7.2 —
-        the same one-hour implicit-Deny bound as the libnotify path)
+      - --timeout expiry (unanswered)       → exit 5, review_timed_out
+        (RFC §7.2 — the same one-hour bound as the libnotify path; nothing
+        runs, and the record says the review went unanswered)
+      - any other exit (zenity's own error) → review_failed
     """
     zenity = shutil.which("zenity")
     if zenity is None:
@@ -267,24 +276,31 @@ def _prompt_review_zenity(
         )
     except subprocess.TimeoutExpired:
         logger.warning(
-            "Review dialog unanswered after %d seconds — implicit Deny per RFC §7.2",
+            "Review dialog unanswered after %d seconds — not run (RFC §7.2)",
             FALLBACK_TIMEOUT_SECONDS + 60,
         )
-        return "deny"
+        return REVIEW_TIMED_OUT
     except OSError as e:
-        logger.error("zenity invocation failed: %s — implicit Deny", e)
-        return "deny"
+        logger.error("zenity invocation failed: %s — not run", e)
+        return REVIEW_FAILED
     if result.returncode == 5:
         logger.warning(
-            "Review dialog unanswered after %d seconds — implicit Deny per RFC §7.2",
+            "Review dialog unanswered after %d seconds — not run (RFC §7.2)",
             FALLBACK_TIMEOUT_SECONDS,
         )
-        return "deny"
+        return REVIEW_TIMED_OUT
     if result.returncode == 0:
         return "allow_once"
+    if result.returncode != 1:
+        # zenity's own error exit: nobody answered the dialog.
+        logger.error("zenity exited %d without an answer — not run",
+                     result.returncode)
+        return REVIEW_FAILED
     stdout = result.stdout.strip()
     if "Allow for this conversation" in stdout:
         return "allow_conversation"
+    # Exit 1 with no extra-button text: the person pressed Deny, pressed Esc,
+    # or closed the dialog.
     return "deny"
 
 
@@ -299,25 +315,27 @@ def _prompt_review_libnotify(
 
     Posts a critical notification + waits up to FALLBACK_TIMEOUT_SECONDS
     for the session to become active, then re-prompts via zenity. If the
-    timeout elapses the action implicit-denies (RFC §7.2 one-hour
-    implicit-Deny). If notify-send itself is unavailable we cannot even
-    surface the held action to the user, so we implicit-Deny immediately
-    rather than executing without consent.
+    timeout elapses nothing runs and the answer is review_timed_out (RFC §7.2
+    one-hour bound). If notify-send itself is unavailable or fails, we cannot
+    even surface the held action to the user, and if zenity is absent nobody
+    can answer it: nothing runs and the answer is review_failed, rather than
+    executing without consent or recording a Deny nobody gave.
     """
     notify_send = shutil.which("notify-send")
     if notify_send is None:
         logger.warning(
-            "notify-send not found — implicit Deny per RFC §7.2 "
-            "(no surface to inform the user a held action is waiting)"
+            "notify-send not found — not run, review failed (RFC §7.2: "
+            "no surface to inform the user a held action is waiting)"
         )
-        return "deny"
+        return REVIEW_FAILED
     # The fallback's whole purpose is to wait out a LOCKED/INACTIVE session and
     # re-prompt zenity once it returns. If zenity is not installed at all, that
     # re-prompt can never succeed — looping on it every poll for the full
     # FALLBACK_TIMEOUT_SECONDS (one hour) is a pure wedge: a CLI/headless `ask`
     # hangs the entire window for nothing. Detect the absent-zenity case once,
-    # surface the held action via the notification, and implicit-Deny promptly
-    # (no interactive GUI consent path exists, so waiting buys nothing).
+    # surface the held action via the notification, and answer promptly that the
+    # review failed (no interactive GUI consent path exists, so waiting buys
+    # nothing).
     zenity_available = shutil.which("zenity") is not None
     summary = "InterGen — action review needed"
     body = _format_modal_body(
@@ -334,16 +352,16 @@ def _prompt_review_libnotify(
             check=False, timeout=5,
         )
     except (subprocess.TimeoutExpired, OSError) as e:
-        logger.error("notify-send failed: %s — implicit Deny", e)
-        return "deny"
+        logger.error("notify-send failed: %s — not run, review failed", e)
+        return REVIEW_FAILED
     if not zenity_available:
         logger.warning(
             "zenity not installed — no interactive GUI consent path for held "
-            "action %s; notified the user and implicit-Deny (not looping for "
-            "%ds). Install zenity to enable the approval modal.",
+            "action %s; notified the user, not run, review failed (not looping "
+            "for %ds). Install zenity to enable the approval modal.",
             call.name, FALLBACK_TIMEOUT_SECONDS,
         )
-        return "deny"
+        return REVIEW_FAILED
     deadline = time.monotonic() + FALLBACK_TIMEOUT_SECONDS
     while time.monotonic() < deadline:
         if _session_active():
@@ -358,10 +376,10 @@ def _prompt_review_libnotify(
                 return zenity_result
         time.sleep(FALLBACK_POLL_INTERVAL_SECONDS)
     logger.warning(
-        "Review for %s expired after %ds — implicit Deny per RFC §7.2",
+        "Review for %s expired after %ds — not run (RFC §7.2)",
         call.name, FALLBACK_TIMEOUT_SECONDS,
     )
-    return "deny"
+    return REVIEW_TIMED_OUT
 
 
 def prompt_review(
@@ -405,13 +423,13 @@ def prompt_review(
     else:
         # NO interactive session: the held action degrades to the buttonless critical
         # notification — a D-008 consent DEAD-END (the user can neither approve NOR
-        # deny until the 1h implicit-Deny). On a normal desktop boot this must NOT
+        # deny until the review times out after 1h). On a normal desktop boot this must NOT
         # happen: _ensure_display_env() should have recovered the session at review
         # time. Log it LOUDLY (requirement 2026-06-28 — degraded consent/
         # teaching states must be impossible to miss); a DEFECT to root-cause, not rest.
         logger.warning(
             "consent: NO active session — routing the held action to the buttonless "
-            "libnotify fallback (D-008 dead-end; implicit Deny in 1h). On a normal "
+            "libnotify fallback (D-008 dead-end; not run if unanswered in 1h). On a normal "
             "desktop this is a DEFECT: the boot-daemon DISPLAY self-heal should have "
             "recovered the session.")
     return _prompt_review_libnotify(

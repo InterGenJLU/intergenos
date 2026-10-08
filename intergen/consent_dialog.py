@@ -21,9 +21,13 @@ What this enforces:
   binary never signals it rendered; wait patiently (bounded by the deadline →
   deny) once it has.
 - **Fail-closed mapping:** only the explicit affirmative exit codes become an
-  allow/send; everything else (deny code, crash, signal, timeout, unmapped) →
-  deny/cancel. A binary that never rendered → return None so the caller falls back
-  to zenity (the user is never left without a prompt).
+  allow/send; everything else is a refusal. For a review, the refusal says what
+  happened: the deny code is the person's own Deny ("deny"), the deadline is
+  review_timed_out, and a crash, a signal or an unmapped code is review_failed —
+  the registry records "deny" as the person's, so nothing else may borrow it.
+  For a consent, every one of them is "not sent". A binary that never rendered →
+  return None so the caller falls back to zenity (the user is never left
+  without a prompt).
 - **Never truncate the egress payload (§E):** an over-MAX consent payload is denied
   here before spawn (defense in depth; the binary guards it too).
 """
@@ -43,6 +47,11 @@ from intergen import consent_dialog_proto as proto
 from intergen.consent_dialog_sanitize import describe_gate_action
 
 logger = logging.getLogger(__name__)
+
+# What _run_dialog answers when the dialog was on screen past its deadline and
+# was killed. Not an exit status (no process returns it), so a caller can tell a
+# dialog nobody answered from a decision.
+DEADLINE_EXPIRED = -10000
 
 
 def _scrubbed_env() -> dict[str, str]:
@@ -78,9 +87,10 @@ def _run_dialog(spec: dict, cmd: list[str] | None = None) -> int | None:
       * None                         — render never happened (spawn error, GTK
                                        init failure, no marker before timeout) →
                                        the user saw nothing; fall back to zenity.
-      * proto.EXIT_*  (an int)       — the dialog rendered and exited (or was
-                                       killed post-render at the deadline → EXIT_DENY).
-                                       Any non-affirmative int the caller maps to deny.
+      * proto.EXIT_*  (an int)       — the dialog rendered and exited with it.
+      * DEADLINE_EXPIRED             — the dialog rendered and nobody answered it
+                                       before the deadline; it was killed.
+                                       Any non-affirmative int is a refusal.
     """
     if cmd is None:
         cmd = [sys.executable, "-m", "intergen.consent_dialog_gtk"]
@@ -145,11 +155,12 @@ def _run_dialog(spec: dict, cmd: list[str] | None = None) -> int | None:
         proc.wait(timeout=proto.POST_RENDER_DEADLINE_SECONDS)
     except subprocess.TimeoutExpired:
         logger.warning(
-            "consent dialog: no decision within %.0fs — deny/cancel (fail-closed)",
+            "consent dialog: no decision within %.0fs — not answered, nothing "
+            "allowed or sent (fail-closed)",
             proto.POST_RENDER_DEADLINE_SECONDS,
         )
         _kill(proc)
-        return proto.EXIT_DENY
+        return DEADLINE_EXPIRED
     return proc.returncode
 
 
@@ -164,8 +175,10 @@ def run_review_dialog(
 ) -> str | None:
     """Render the tool-call review gate via the branded binary.
 
-    Returns "allow_once" / "allow_conversation" / "deny" on a rendered decision,
-    or None if the binary could not render (caller falls back to zenity). Any
+    Returns "allow_once" / "allow_conversation" / "deny" for the person's own
+    answer, the registry's review_timed_out when the dialog went unanswered past
+    its deadline, review_failed for a crash, a signal or an unmapped exit, or
+    None if the binary could not render (caller falls back to zenity). Any
     unexpected error → None (fall back to the proven path — fail safe)."""
     try:
         raw_args = getattr(call, "arguments", "")
@@ -200,6 +213,8 @@ def run_review_dialog(
         logger.warning("consent dialog: could not build review spec (%s) — fallback", e)
         return None
 
+    from intergen.tool_registry import REVIEW_FAILED, REVIEW_TIMED_OUT
+
     code = _run_dialog(spec)
     if code is None:
         return None
@@ -207,15 +222,21 @@ def run_review_dialog(
         return "allow_once"
     if code == proto.EXIT_REVIEW_ALLOW_CONVERSATION:
         return "allow_conversation"
-    return "deny"  # EXIT_DENY, crash, signal, unmapped → fail-closed deny
+    if code == proto.EXIT_DENY:
+        return "deny"  # the person's Not now, Esc, or closing the window
+    if code == DEADLINE_EXPIRED:
+        return REVIEW_TIMED_OUT
+    # A crash, a signal or an unmapped exit: nobody answered. Nothing runs, and
+    # the record does not name the person for it.
+    return REVIEW_FAILED
 
 
 def run_consent_dialog(content: str, provider: str, reason: str = "") -> bool | None:
     """Render the show-before-send egress consent via the branded binary.
 
     Returns True only on an explicit Send, False on any rendered non-send
-    (Cancel / Esc / close / crash / deadline / over-size), or None if the binary
-    could not render (caller falls back to zenity)."""
+    (Cancel / Esc / close / crash / DEADLINE_EXPIRED / over-size), or None if the
+    binary could not render (caller falls back to zenity)."""
     try:
         # §E — never truncate the egress payload: too-large = fail-closed deny,
         # never a truncated render (defense in depth; the binary guards it too).

@@ -18,11 +18,16 @@ Distinct from test_review_modal_display_env.py (which covers DISPLAY detection
 + session self-heal) — these cover the consent DECISION outcomes.
 
   D1  active session, user denies        -> "deny"
-  D2  headless / no zenity (notify only) -> fail-closed "deny", PROMPTLY (no
-                                            hour wait), held action surfaced
-  D3  no notify-send at all              -> immediate fail-closed "deny"
-  D4  locked session, never returns      -> implicit-deny at the timeout
+  D2  headless / no zenity (notify only) -> fail-closed "review_failed",
+                                            PROMPTLY (no hour wait), held
+                                            action surfaced
+  D3  no notify-send at all              -> immediate fail-closed
+                                            "review_failed"
+  D4  locked session, never returns      -> "review_timed_out" at the timeout
   D5  locked session, then returns       -> re-prompts zenity, honors decision
+
+Only D1 is the person's Deny. D2-D4 run nothing and answer the registry's word
+for what happened, so the record never names the person for them.
 
 (D6 — teaching phrasing must never reach the consent path — is the surface-
 agnostic negative asserted by teach_create_file / teach_run_command in
@@ -76,8 +81,8 @@ class DbusConsentSurfaceTests(unittest.TestCase):
 
     def test_D2_headless_no_zenity_fail_closed_promptly(self):
         # No session -> libnotify fallback. notify-send present, zenity ABSENT:
-        # surface the held action, then implicit-deny PROMPTLY — never loop the
-        # full FALLBACK_TIMEOUT (the CLI/headless no-wedge guarantee).
+        # surface the held action, then answer review_failed PROMPTLY — never
+        # loop the full FALLBACK_TIMEOUT (the CLI/headless no-wedge guarantee).
         run = mock.Mock(return_value=mock.Mock(returncode=0))
         with mock.patch.object(review_modal, "_session_active",
                                return_value=False), \
@@ -85,25 +90,25 @@ class DbusConsentSurfaceTests(unittest.TestCase):
                                side_effect=_which({"notify-send"})), \
              mock.patch.object(review_modal.subprocess, "run", run), \
              mock.patch.object(review_modal.time, "sleep") as slept:
-            self.assertEqual(self._prompt(), "deny")
+            self.assertEqual(self._prompt(), "review_failed")
         run.assert_called_once()                 # the held action was surfaced
         slept.assert_not_called()                # no hour-long poll wedge
 
     def test_D3_no_notify_send_immediate_fail_closed(self):
         # Neither an interactive session nor notify-send: there is no surface to
-        # inform the user, so deny immediately without notifying.
+        # inform the user, so answer review_failed immediately without notifying.
         run = mock.Mock(return_value=mock.Mock(returncode=0))
         with mock.patch.object(review_modal, "_session_active",
                                return_value=False), \
              mock.patch.object(review_modal.shutil, "which",
                                side_effect=_which(set())), \
              mock.patch.object(review_modal.subprocess, "run", run):
-            self.assertEqual(self._prompt(), "deny")
+            self.assertEqual(self._prompt(), "review_failed")
         run.assert_not_called()                  # nothing to notify with
 
     def test_D4_locked_session_timeout_implicit_deny(self):
-        # Session never returns active: poll until the deadline, then
-        # implicit-deny. FALLBACK_TIMEOUT patched to 0 so the deadline is
+        # Session never returns active: poll until the deadline, then answer
+        # review_timed_out. FALLBACK_TIMEOUT patched to 0 so the deadline is
         # already past — deterministic, no real wait.
         run = mock.Mock(return_value=mock.Mock(returncode=0))
         with mock.patch.object(review_modal, "_session_active",
@@ -113,7 +118,7 @@ class DbusConsentSurfaceTests(unittest.TestCase):
              mock.patch.object(review_modal.subprocess, "run", run), \
              mock.patch.object(review_modal, "FALLBACK_TIMEOUT_SECONDS", 0), \
              mock.patch.object(review_modal.time, "sleep"):
-            self.assertEqual(self._prompt(), "deny")
+            self.assertEqual(self._prompt(), "review_timed_out")
 
     def test_D5_locked_then_returns_reprompts_and_honors(self):
         # Inactive at the gate, then the session returns during the poll ->

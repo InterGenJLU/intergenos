@@ -125,7 +125,7 @@ class ArmedPathTests(_EvalConsentTestBase):
         started = time.monotonic()
         verdict = eval_consent.review_verdict(_Call(), _Decision())
         elapsed = time.monotonic() - started
-        self.assertEqual(verdict, "deny")
+        self.assertEqual(verdict, "refused_without_review")
         # Bounded far below review_modal.FALLBACK_TIMEOUT_SECONDS — the wedge is
         # never entered. A generous ceiling keeps this from being a flaky timer.
         self.assertLess(elapsed, 1.0)
@@ -133,11 +133,11 @@ class ArmedPathTests(_EvalConsentTestBase):
     def test_review_gate_denies_privileged_calls_too(self):
         self.assertEqual(
             eval_consent.review_verdict(_Call(), _Decision(needs_pkexec=True)),
-            "deny")
+            "refused_without_review")
 
     def test_review_callback_matches_the_registry_contract(self):
         cb = eval_consent.make_review_callback()
-        self.assertEqual(cb(_Call(), _Decision()), "deny")
+        self.assertEqual(cb(_Call(), _Decision()), "refused_without_review")
 
     def test_send_gate_denies_immediately(self):
         self.assertIs(eval_consent.send_verdict("secret", "anthropic", "why"), False)
@@ -186,7 +186,8 @@ class ArmedPathTests(_EvalConsentTestBase):
         with mock.patch.object(eval_consent.glass, "emit",
                                side_effect=RuntimeError("glass down")):
             self.assertEqual(
-                eval_consent.review_verdict(_Call(), _Decision()), "deny")
+                eval_consent.review_verdict(_Call(), _Decision()),
+                "refused_without_review")
             self.assertIs(eval_consent.send_verdict("x", "openai"), False)
         # The observation is still recorded in-process even though glass failed.
         self.assertEqual(len(eval_consent.observations()), 2)
