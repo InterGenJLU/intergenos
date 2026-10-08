@@ -280,14 +280,27 @@ class TheSecretFilesAreRefusedAtTheFileBoundary(unittest.TestCase):
         self._assert_refused(self._read(self.key_path), "its own canonical path")
 
     def test_a_command_naming_the_key_is_still_refused(self) -> None:
+        """Refused by the dispatcher's screen, and asserted as the screen's.
+
+        The command carries no shell construct on purpose. run_command refuses
+        any pipe by itself, so a command with one is refused whether the screen
+        exists or not, and a cell built on it certifies nothing about the
+        screen. The refusal asserted here is the screen's own sentence.
+        """
         result = self._dispatch("run_command",
-                                {"command": f"cat {self.key_path} | head -1"})
-        self.assertFalse(
-            result.success,
-            "a command line naming the signing key must not report success; "
-            f"content was {result.content!r}",
-        )
+                                {"command": f"head -n 1 {self.key_path}"})
         self.assertNotIn(self.key, result.content or "")
+        self.assertEqual(
+            result.content,
+            "Tool call refused: the arguments name "
+            f"{dt.SECRET_RELATIVE_PATHS[dt.KEY_RELATIVE_PATH]}. The assistant "
+            "does not read its own credential files, and no approval can "
+            "authorise it to.",
+            "a command line naming the signing key must be refused by the "
+            "dispatcher's screen, before the command runs",
+        )
+        self.assertFalse(result.success)
+        self.assertFalse(result.executed)
         self.assertEqual(
             self.reviews, [],
             "the refusal must land before the review surface is asked",
