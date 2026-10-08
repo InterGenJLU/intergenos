@@ -3,7 +3,7 @@
 """Pasted text reaches the conversation, and the page says so only then.
 
 The page's /paste command and its paste button open a box, and "Load into
-Buffer" printed "Buffer loaded (N chars…)" and lit the 📎 buffer indicator —
+Buffer" printed "Buffer loaded (N chars…)" and lit the buffer indicator —
 and sent nothing. The text never reached the server, so the model never saw
 it, while the page said it was loaded.
 

@@ -59,7 +59,7 @@
     // part of one.
     turnInFlight: false,
     // Characters of pasted text and chosen files the server has put in this
-    // conversation (file_loaded), for the 📎 indicator.
+    // conversation (file_loaded), for the buffer indicator.
     loadedChars: 0,
   };
 
@@ -503,7 +503,8 @@
   }
 
   // The server has put a chosen file or pasted text in the conversation. The
-  // page says so, and lights the 📎 indicator, on this frame and not before.
+  // page says so, and lights the buffer indicator, on this frame and not
+  // before.
   function handleFileLoaded(msg) {
     const chars = msg.chars || 0;
     addMessage('system',
