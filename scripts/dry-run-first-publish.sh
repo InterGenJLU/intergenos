@@ -104,9 +104,9 @@ if $SYNTHETIC; then
     for data in "testpkg:1.0:Test Package A" "testpkg2:2.0:Test Package B"; do
         IFS=':' read -r pkg ver desc <<< "$data"
         archive="$SYNTH_DIR/${pkg}-${ver}-1.igos.tar.gz"
-        TMPDIR="$(mktemp -d)"
+        SYNTH_WORKDIR="$(mktemp -d)"
         (
-            cd "$TMPDIR"
+            cd "$SYNTH_WORKDIR"
             echo "pkgname = $pkg" > .PKGINFO
             echo "pkgver = $ver" >> .PKGINFO
             echo "pkgrel = 1" >> .PKGINFO
@@ -118,10 +118,10 @@ if $SYNTHETIC; then
             tar -czf "$archive" .PKGINFO
         )
         if ! $SOURCES_EXPLICIT; then
-            printf 'Synthetic source fixture for %s %s\n' "$pkg" "$ver" > "$TMPDIR/SOURCE.txt"
-            tar -czf "$SOURCES_DIR/${pkg}-${ver}-1.igos.src.tar.gz" -C "$TMPDIR" SOURCE.txt
+            printf 'Synthetic source fixture for %s %s\n' "$pkg" "$ver" > "$SYNTH_WORKDIR/SOURCE.txt"
+            tar -czf "$SOURCES_DIR/${pkg}-${ver}-1.igos.src.tar.gz" -C "$SYNTH_WORKDIR" SOURCE.txt
         fi
-        rm -rf "$TMPDIR"
+        rm -rf "$SYNTH_WORKDIR"
     done
     ARCHIVES_DIR="$SYNTH_DIR"
     report_pass "Created synthetic archives in $SYNTH_DIR"

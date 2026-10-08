@@ -203,3 +203,27 @@ def test_synthetic_rehearsal_indexes_the_sources_it_creates(tmp_path):
         assert entry["source_sha256"] == hashlib.sha256(source.read_bytes()).hexdigest()
         with tarfile.open(source, "r:gz") as archive:
             assert archive.getnames() == ["SOURCE.txt"]
+
+
+def test_synthetic_rehearsal_preserves_exported_tmpdir(tmp_path, monkeypatch):
+    scratch_parent = tmp_path / "temporary parent"
+    scratch_parent.mkdir()
+    sentinel = scratch_parent / "retain.txt"
+    sentinel.write_text("inherited temporary directory\n")
+    monkeypatch.setenv("TMPDIR", str(scratch_parent))
+    directory = tmp_path / "exported tmpdir rehearsal"
+    result = run_rehearsal(directory, ["--synthetic"])
+    output = result.stdout + result.stderr
+    assert result.returncode == 0, output
+    assert "Total: 6 checks, 6 pass, 0 fail" in output
+    assert "GPG signature verified" in output
+    assert "pkm.repo.RepoIndex roundtrip parse OK" in output
+    assert os.environ["TMPDIR"] == str(scratch_parent)
+    assert sentinel.read_text() == "inherited temporary directory\n"
+    assert list(scratch_parent.iterdir()) == [sentinel]
+    with gzip.open(directory / "dry-run-output/InterGenOS.db", "rt") as stream:
+        packages = json.load(stream)["packages"]
+    assert len(packages) == 2
+    for entry in packages.values():
+        source = directory / "dry-run-output/synthetic-sources" / entry["source_filename"]
+        assert entry["source_sha256"] == hashlib.sha256(source.read_bytes()).hexdigest()
