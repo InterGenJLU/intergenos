@@ -873,8 +873,12 @@ class ToolRegistry:
         # the LLM emit a ToolCall -- it cannot read the key file". A ToolCall can
         # read any file this account can read, and the key is owned by this
         # account, so that sentence held only as an intention. What makes it a
-        # property of the code is the boundary in the consumers, which decides on
-        # the file that opened; this screen is defence in depth in front of it.
+        # property of the code, for the three consumers that open a caller's
+        # path, is the boundary in them, which decides on the file that opened;
+        # this screen is defence in depth in front of it. A tool that runs as its
+        # own process, run_command among them, opens the file itself and is
+        # outside that boundary: intergen/dispatch_token.py names those routes,
+        # and nothing here closes them.
         #
         # This screen is HERE, at the one place every tool call passes, so a
         # direct textual reference is rejected before review or execution and a
