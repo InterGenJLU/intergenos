@@ -33,7 +33,7 @@ import threading
 import time
 from typing import Any, Callable
 
-from intergen import eval_consent, glass, package_record, private_state, safety
+from intergen import dispatch_token, eval_consent, glass, package_record, private_state, safety
 from intergen.interfaces.dbus import InterGenDBusInterface
 from intergen.interfaces.types import (
     AnswerLinkage,
@@ -3085,6 +3085,11 @@ def main(argv: list[str] | None = None) -> None:
     # It reports what it actually did — the paths it changed, by name, and
     # named failures when it could not.
     private_state.harden_user_state_at_startup()
+
+    # The install's secret identities are read once here, before any tool can run,
+    # so the file boundary keeps refusing a credential later moved away from its
+    # canonical path (intergen/dispatch_token.py).
+    dispatch_token.remember_secret_identities_at_startup()
 
     daemon = InterGenDaemon(
         eval_consent_marker=(

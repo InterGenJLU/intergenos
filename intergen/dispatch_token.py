@@ -458,6 +458,11 @@ def install_secret_paths() -> tuple[Path, ...]:
     return tuple(home.joinpath(*relative) for relative in SECRET_RELATIVE_PATHS)
 
 
+#: Every secret identity this process has established, per owning home. It only grows:
+#: see secret_file_identities.
+_SEEN_SECRET_IDENTITIES: dict[Path, dict[tuple[int, int], str]] = {}
+
+
 def secret_file_identities() -> dict[tuple[int, int], str]:
     """The (device, inode) identity of each of this install's secret files.
 
@@ -468,9 +473,19 @@ def secret_file_identities() -> dict[tuple[int, int], str]:
 
     This leg speaks only for the files of THIS install, since it has to resolve
     them to stat them; the tail comparison above is what covers a staged install
-    or a test under another base. Only a file that does not exist contributes
-    nothing (its path, or a directory on it, is not there): an install before its
-    first run has no key to protect yet.
+    or a test under another base. A file that does not exist at its canonical path
+    (its path, or a directory on it, is not there) adds nothing: an install before
+    its first run has no key to protect yet.
+
+    THE SET ONLY GROWS. Every identity this process has read stays in what this
+    returns for that owning home, so a credential later moved away from its
+    canonical path, by renaming a directory on it, is still refused by identity.
+    The daemon reads the identities once at start
+    (remember_secret_identities_at_startup), before any tool can run. What this
+    does not cover, named rather than claimed: a credential moved before the first
+    read in a process is a file this process never saw, and contributes nothing;
+    and an inode number the filesystem gives another file after a credential was
+    deleted is refused as that credential until the process restarts.
 
     Any other failure to stat a secret file raises SecretIdentityUnreadable, and
     an owner that cannot be resolved raises InstallOwnerUnresolved. Either way an
@@ -490,7 +505,24 @@ def secret_file_identities() -> dict[tuple[int, int], str]:
         except OSError as exc:
             raise SecretIdentityUnreadable(f"{path}: {exc.strerror or exc}") from exc
         identities[(st.st_dev, st.st_ino)] = reason
-    return identities
+    seen = _SEEN_SECRET_IDENTITIES.setdefault(home, {})
+    seen.update(identities)
+    return dict(seen)
+
+
+def remember_secret_identities_at_startup() -> None:
+    """Read the install's secret identities once, before any tool can run.
+
+    The daemon calls this at start so the set secret_file_identities keeps is
+    populated before a tool could move a credential away from its canonical path.
+    A failure is logged and not raised: the file boundary refuses at the open
+    whenever an identity cannot be established, so nothing depends on this read.
+    """
+    try:
+        secret_file_identities()
+    except (InstallOwnerUnresolved, SecretIdentityUnreadable) as exc:
+        logger.warning("the install's secret file identities could not be read at "
+                       "start (%s); the file boundary refuses until they can be", exc)
 
 
 def open_descriptor_secret_reason(fd: int) -> str | None:
