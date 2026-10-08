@@ -2102,8 +2102,18 @@ class SessionTurnIndex:
 
     def clear(self) -> None:
         """Drop the whole session index + dedup set (ResetConversation). The
-        worker thread stays alive across conversations; `degraded` resets and a
-        fresh turn re-evaluates it.
+        worker thread stays alive across conversations.
+
+        `verified` and `degraded` are NOT touched. They record what the
+        embedder was last observed to do, which is a fact about the machine,
+        not about the conversation, and a reset performs no embed. This used
+        to set both as if an embed had just answered: on a machine whose
+        embedder had never come up, ending one conversation made Status
+        report it verified and the CLI print "session recall active"; on one
+        whose embedder had answered once and then gone down, the reset turned
+        "MEMORY DEGRADED" back into "session recall active". The next real
+        embed still settles both, as it always did (_index_one and
+        _note_embed_success).
 
         The fact-vector cache is deliberately KEPT: facts are cross-session, so
         ending a conversation is not a reason to pay to embed them again. What
@@ -2115,9 +2125,6 @@ class SessionTurnIndex:
             self._surfaced.clear()
             self._turn_seq = 0
             self._queue.clear()
-            self._degraded = False
-            # A success here is the only proof the embedder is actually up.
-            self._verified = True
         glass.emit("memory", "index_cleared", detail={"dropped": n})
 
     def stop(self, timeout: float = 5.0) -> None:
