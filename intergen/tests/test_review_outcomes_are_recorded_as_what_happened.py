@@ -185,6 +185,48 @@ class AReviewNobodyDecidedIsRecordedAsWhatHappened(_Case):
             result, "review_failed", "could not be shown")
 
 
+class AnActionRefusedBeforeAnyCardIsRecordedAsRefused(_Case):
+    """The bridge refuses two classes of action before raising a card: an
+    action in a forbidden zone, and one governance refuses outright (an
+    integrity failure, an owner-only action). It answered "deny" for both, so
+    the record named the person for a refusal no card ever offered them."""
+
+    def _refused_before_any_card(self, server, ctx, call) -> None:
+        result = asyncio.run(self._through_the_bridge(server, ctx, call))
+        self.assertEqual(
+            [f for f in ctx.ws.sent if f.get("type") == "gate_prompt"], [],
+            "a card was raised for an action refused before review")
+        self._nothing_ran_and_no_one_denied(
+            result, "refused_without_review", "refuses the action outright")
+
+    def test_an_action_in_a_forbidden_zone(self) -> None:
+        from intergen import zones
+        call = ToolCall(name="manage_services",
+                        arguments={"action": "restart",
+                                   "service": "intergen"},
+                        call_id="forbidden",
+                        source_of_request=Provenance.USER_DIRECT)
+        self.assertTrue(zones.forbidden_reason(call.name, call.arguments),
+                        "the case's call is no longer in a forbidden zone")
+        server, ctx = self._server(_RecordingWS())
+        self._refused_before_any_card(server, ctx, call)
+
+    def test_an_action_governance_refuses_outright(self) -> None:
+        from intergen.governance import GovernanceCheck, GovernanceDecision
+
+        class _IntegrityFailure:
+            def evaluate(self, tool_call_id, **_kw):
+                return GovernanceDecision(
+                    tool_call_id=tool_call_id, allowed=False,
+                    blocked_by="hash_integrity",
+                    checks=[GovernanceCheck(gate_name="hash_integrity",
+                                            passed=False)])
+
+        server, ctx = self._server(_RecordingWS())
+        server._governance = _IntegrityFailure()
+        self._refused_before_any_card(server, ctx, _call("integrity"))
+
+
 class AnAnswerThatIsNotAnApprovalRunsNothing(_Case):
 
     def test_an_answer_the_registry_does_not_know_runs_nothing(self) -> None:

@@ -3146,7 +3146,8 @@ class WebServer:
         nobody decided returns the registry's word for what became of it, so the
         record does not name the person for a denial they did not give."""
         from intergen.tool_registry import (
-            REVIEW_FAILED, REVIEW_REFUSED, REVIEW_TIMED_OUT, _classify_risk_tier,
+            REFUSED_WITHOUT_REVIEW, REVIEW_FAILED, REVIEW_REFUSED,
+            REVIEW_TIMED_OUT, _classify_risk_tier,
         )
         answers = {
             "approved": "allow_once",
@@ -3163,13 +3164,14 @@ class WebServer:
                 # :1752 forbidden check + _governance_hard_deny pre-check, so run
                 # the same two hard-deny classes here. A forbidden Z3 action or a
                 # hash_integrity/owner_only hard-deny NEVER reaches a consent card
-                # — it fails closed to "deny". Idempotent for the streaming path
-                # (already pre-checked before execute()).
+                # — it fails closed, recorded as refused without review: no card
+                # was raised, so no person refused it. Idempotent for the
+                # streaming path (already pre-checked before execute()).
                 from intergen.zones import forbidden_reason
                 if forbidden_reason(call.name, call.arguments):
-                    return "deny"
+                    return REFUSED_WITHOUT_REVIEW
                 if self._governance_hard_deny(call):
-                    return "deny"
+                    return REFUSED_WITHOUT_REVIEW
                 tool_obj = (self._tools.get_tool(call.name)
                             if self._tools else None)
                 risk_tier = _classify_risk_tier(

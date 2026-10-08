@@ -420,12 +420,15 @@ REVIEW_APPROVALS = frozenset({"allow_once", "allow_conversation"})
 REVIEW_TIMED_OUT = "review_timed_out"
 REVIEW_REFUSED = "review_refused"
 REVIEW_FAILED = "review_failed"
+REFUSED_WITHOUT_REVIEW = "refused_without_review"
 _REVIEW_NOT_DECIDED = {
     REVIEW_TIMED_OUT: "the review card was not answered before its deadline",
     REVIEW_REFUSED: ("a review card for this call was already open, so a "
                      "second one was refused"),
     REVIEW_FAILED: ("the review card could not be shown, or its answer could "
                     "not be read"),
+    REFUSED_WITHOUT_REVIEW: ("this machine refuses the action outright, so no "
+                             "review card was raised"),
 }
 
 
@@ -688,7 +691,8 @@ class ToolRegistry:
                 Receives (call, decision) and returns one of
                 "allow_once" | "allow_conversation" | "deny" |
                 "deny_conversation", or, when no person decided, one of
-                REVIEW_TIMED_OUT | REVIEW_REFUSED | REVIEW_FAILED. Only the
+                REVIEW_TIMED_OUT | REVIEW_REFUSED | REVIEW_FAILED |
+                REFUSED_WITHOUT_REVIEW. Only the
                 two approvals run the call; every other answer, including one
                 not listed here, is recorded as what happened and runs
                 nothing. TWO-LAYER timeout architecture:

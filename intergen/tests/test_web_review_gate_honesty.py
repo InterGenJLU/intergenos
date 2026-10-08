@@ -131,7 +131,10 @@ class WebReviewBridgeTests(unittest.TestCase):
                 coro.close()
                 raise AssertionError("forbidden action reached the card")
             asyncio.run_coroutine_threadsafe = _spy
-            self.assertEqual(cb(forbidden, None), "deny")
+            # Refused, and recorded as refused without review: no card was
+            # raised, so no person denied it.
+            from intergen.tool_registry import REFUSED_WITHOUT_REVIEW
+            self.assertEqual(cb(forbidden, None), REFUSED_WITHOUT_REVIEW)
             self.assertEqual(scheduled["n"], 0, "forbidden action was not pre-denied")
         finally:
             asyncio.run_coroutine_threadsafe = orig
