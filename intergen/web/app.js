@@ -203,6 +203,7 @@
       case 'metrics_report': handleMetricsReport(msg); break;
       case 'session_list':  handleSessionList(msg); break;
       case 'session_switched': handleSessionSwitched(msg); break;
+      case 'session_created': handleSessionCreated(msg); break;
       case 'file_loaded':   handleFileLoaded(msg); break;
       case 'buffer_cleared': handleBufferCleared(msg); break;
       case 'response':      handleResponse(msg); break;
@@ -453,6 +454,26 @@
   function handleBufferCleared() {
     dom.messages.innerHTML = '';
     state.messages.length = 0;
+  }
+
+  // The new conversation exists once the server has made it: the old one's
+  // cards, offers and buffer are ended there. Painted from this frame, as a
+  // switch is painted from session_switched, so the pane never announces a
+  // conversation the server did not start.
+  function handleSessionCreated() {
+    dom.messages.innerHTML = '';
+    state.messages.length = 0;
+    addMessage('system', 'New conversation started.', '');
+  }
+
+  // /new and the New-session button. send() drops a frame on a socket that is
+  // not open, so the connection is checked here and the person told.
+  function requestNewConversation() {
+    if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+      send({ type: 'new_session' });
+    } else {
+      showBanner('Not connected to InterGen. Check if the daemon is running.', 'error');
+    }
   }
 
   function handleFileLoaded(msg) {
@@ -884,10 +905,7 @@
     const arg = parts.slice(1).join(' ');
 
     if (cmd === '/new') {
-      dom.messages.innerHTML = '';
-      state.messages.length = 0;
-      send({ type: 'new_session' });
-      addMessage('system', 'New conversation started.', '');
+      requestNewConversation();
     } else if (cmd === '/clear') {
       // The model's buffer and the offers staged in it live on the server, so
       // /clear goes there; the pane follows on buffer_cleared. Emptying only
@@ -1222,12 +1240,7 @@
   });
 
   // Header buttons
-  dom.btnNewSession.addEventListener('click', () => {
-    send({ type: 'new_session' });
-    dom.messages.innerHTML = '';
-    state.messages.length = 0;
-    addMessage('system', 'New conversation started.', '');
-  });
+  dom.btnNewSession.addEventListener('click', requestNewConversation);
   dom.btnGovernance.addEventListener('click', () => send({ type: 'request_governance' }));
   dom.btnMetrics.addEventListener('click', () => send({ type: 'request_metrics' }));
   dom.btnHealth.addEventListener('click', () => send({ type: 'request_health' }));
