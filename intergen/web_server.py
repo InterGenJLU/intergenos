@@ -3027,17 +3027,29 @@ class WebServer:
             "blocked_by": "provenance_gate",
         }
 
+        # One card per id. The id is the model's own when it supplies one, and
+        # a second card registered under an id already open would replace the
+        # first card's waiter: the person's decision would reach only one of
+        # them, and the other would wait out its timeout and report a denial
+        # nobody gave. The second is refused, and sends no frame, because the
+        # id on screen belongs to the first.
+        if tool_call_id in ctx.open_gates:
+            logger.error(
+                "Review card refused: a card for tool call %s is already open "
+                "on this connection (client=%s)", tool_call_id, ctx.client_id)
+            return "denied"
+
         # Register this card's own waiter under this card's own id BEFORE the
         # prompt goes out: a decision that arrives between the frame and the
         # registration would otherwise find no open card.
         future = asyncio.get_running_loop().create_future()
         ctx.open_gates[tool_call_id] = future
 
-        # Send gate prompt to client
-        await ctx.ws.send_json(gate_prompt_msg)
-
         _timeout_reason = ""
         try:
+            # The prompt is sent inside the try, so a prompt that cannot be
+            # sent still takes this card's waiter with it.
+            await ctx.ws.send_json(gate_prompt_msg)
             user_decision = await asyncio.wait_for(
                 future, timeout=_REVIEW_CARD_TIMEOUT_S)
         except asyncio.TimeoutError:
@@ -3048,7 +3060,10 @@ class WebServer:
             # second time without its reason.
             _timeout_reason = "Gate prompt timed out after 5 minutes."
         finally:
-            ctx.open_gates.pop(tool_call_id, None)
+            # This card's own waiter and nothing else: once this card has
+            # ended, its id may already belong to the next card.
+            if ctx.open_gates.get(tool_call_id) is future:
+                del ctx.open_gates[tool_call_id]
             # Popped here, on every exit, so a card whose task the boundary
             # cancels does not leave its reason behind on the connection.
             _end_reason = ctx.gate_end_reasons.pop(tool_call_id, "")

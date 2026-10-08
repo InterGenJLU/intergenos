@@ -185,6 +185,96 @@ class GateDecisionNamesItsCardTests(unittest.TestCase):
         )
 
 
+class OneCardPerIdTests(unittest.TestCase):
+    """A card's id names one card. The id is the model's own when it supplies
+    one, so nothing here assumes two cards never share it."""
+
+    def test_a_second_card_under_an_open_id_is_refused(self):
+        async def go():
+            server = WebServer()
+            ws = _RecordingWS()
+            ctx = ConnectionContext(
+                client_id="zz192-p1-03", source_interface="web", ws=ws,
+            )
+            first = asyncio.create_task(
+                server._evaluate_tool_with_gate(ctx, "turn-1", _call("dup")))
+            await ws.wait_for_card("dup")
+            first_waiter = ctx.open_gates["dup"]
+            second = asyncio.create_task(
+                server._evaluate_tool_with_gate(ctx, "turn-2", _call("dup")))
+            done, _ = await asyncio.wait({second}, timeout=_SETTLE_S)
+            second_verdict = second.result() if second in done else None
+            still_first = ctx.open_gates.get("dup") is first_waiter
+            await server._handle_gate_decision(
+                ctx, {"tool_call_id": "dup", "decision": "allow"})
+            done, _ = await asyncio.wait({first}, timeout=_SETTLE_S)
+            first_verdict = first.result() if first in done else None
+            for task in (first, second):
+                task.cancel()
+            await asyncio.gather(first, second, return_exceptions=True)
+            return second_verdict, still_first, first_verdict, ws
+
+        second_verdict, still_first, first_verdict, ws = asyncio.run(go())
+        self.assertEqual(second_verdict, "denied",
+                         "a second card under an id already open was not "
+                         "refused")
+        self.assertTrue(still_first,
+                        "the second card replaced the first card's waiter")
+        self.assertEqual(
+            [m.get("tool_call_id") for m in ws.frames("gate_prompt")], ["dup"],
+            "the refused card was put on screen under the open card's id")
+        self.assertEqual(first_verdict, "approved",
+                         "the person's decision did not reach the card they "
+                         "answered")
+
+    def test_a_card_that_ends_removes_only_its_own_waiter(self):
+        async def go():
+            server = WebServer()
+            ws = _RecordingWS()
+            ctx = ConnectionContext(
+                client_id="zz192-p1-03", source_interface="web", ws=ws,
+            )
+            ending = asyncio.create_task(
+                server._evaluate_tool_with_gate(ctx, "turn-1", _call("reused")))
+            await ws.wait_for_card("reused")
+            # The card is ended the way the conversation boundary ends one —
+            # out of open_gates, then resolved — and before its coroutine runs
+            # on, the next card's waiter is registered under the same id.
+            ctx.open_gates.pop("reused").set_result("deny")
+            next_waiter = asyncio.get_running_loop().create_future()
+            ctx.open_gates["reused"] = next_waiter
+            verdict = await asyncio.wait_for(ending, timeout=_SETTLE_S)
+            return verdict, ctx.open_gates.get("reused") is next_waiter
+
+        verdict, next_waiter_kept = asyncio.run(go())
+        self.assertEqual(verdict, "denied")
+        self.assertTrue(next_waiter_kept,
+                        "the ended card removed the waiter of the card that "
+                        "now holds its id")
+
+    def test_a_prompt_that_cannot_be_sent_takes_its_waiter_with_it(self):
+        class _BrokenWS(_RecordingWS):
+            async def send_json(self, obj: dict) -> None:
+                if obj.get("type") == "gate_prompt":
+                    raise ConnectionResetError("the socket went away")
+                await super().send_json(obj)
+
+        async def go():
+            server = WebServer()
+            ctx = ConnectionContext(
+                client_id="zz192-p1-03", source_interface="web",
+                ws=_BrokenWS(),
+            )
+            with self.assertRaises(ConnectionResetError):
+                await server._evaluate_tool_with_gate(ctx, "turn-1",
+                                                      _call("lost"))
+            return dict(ctx.open_gates)
+
+        self.assertEqual(asyncio.run(go()), {},
+                         "a card whose prompt was never sent left its waiter "
+                         "open")
+
+
 class ACardThatTimesOutIsResolvedOnceTests(unittest.TestCase):
 
     def test_a_timed_out_card_sends_one_resolution_frame_with_its_reason(self):
