@@ -21,13 +21,14 @@ These cells hold the promise at the open instead:
 * the direct spelling, a command line naming the file, and an ordinary read
   beside the secret keep behaving as the previous correction left them.
 
-One route is named and NOT closed here. A tool that runs as its own process can
-be handed an ordinary containing directory and derive the protected child
-itself; no check inside this package ever sees the protected name, so no change
-in this package can refuse it. The cell for it records that limit and holds the
-module text to stating it, rather than letting the package claim a boundary it
-does not have. Closing it needs the boundary that confines the tool's process,
-which is not this correction.
+The routes through a tool that runs as its own process are named and NOT closed
+here. Such a tool, run_command among them, opens the file itself: it can be
+handed a spelling the screen does not take whole, or an ordinary containing
+directory from which it derives the protected child, and no check inside this
+package sees that open, so no change in this package can refuse it. The cell
+for it records that limit and holds the module text to stating it, rather than
+letting the package claim a boundary it does not have. Closing it needs the
+boundary that confines the tool's process, which is not this correction.
 
 Hermetic, by the discipline of the case this extends: every key is generated
 into a throwaway directory (never the real ~/.config/intergen), the audit writer

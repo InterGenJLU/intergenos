@@ -50,11 +50,13 @@ the key file" held only as an intention until something refused the read. What
 refuses it is further down this module, at the point a file is actually opened:
 `open_descriptor_secret_reason` decides from the open descriptor, and the tools
 that open a path a caller supplied ask it after the open and before any read or
-write. One route stays outside every check this package can make: a tool that runs
-as its own process can be given an ordinary containing directory and derive the
-protected child itself, so nothing here is ever shown the protected name. That
-route is closed only by a boundary the tool's process cannot step outside, and
-this module claims nothing about it.
+write. Every tool that runs as its own process stays outside every check this
+package can make, because that process performs the open: run_command among them,
+which runs read-only commands with no review. Such a process reaches these files
+by any spelling the screen does not take whole, such as a parent-directory
+spelling or a symbolic link, and by deriving the protected child from an ordinary
+containing directory. Those routes are closed only by a boundary the tool's
+process cannot step outside, and this module claims nothing about them.
 
 DIVISION OF LABOR (AI-6 build, branch off master 5ce0dc41):
   * User side (this module + the mint call-site) — key gen-on-first-run, the canonical
