@@ -487,47 +487,82 @@ class OneDefaultForAMissingMode(unittest.TestCase):
                     mode)
 
     def test_nothing_else_in_the_module_reads_the_mode_for_itself(self):
-        """"In one place" as a measurement of the source, not a promise.
-
-        Every read of the command line's trust mode in `pkm/cli.py` — a
-        `getattr(args, "archive_trust", ...)` or an attribute access — must sit
-        inside `_archive_trust_mode`, and the functions that ask it are the three
-        that need it. A fourth reader with its own default is exactly the defect
-        this closes, and it would be caught here rather than by its own divergent
-        behaviour later.
+        """Inventory every pkm module for trust-mode attributes, getattr and
+        builtins.getattr, dictionary get/subscript reads (including vars and
+        __dict__), and invoked attrgetter factories. Follow literal, added and
+        locally bound string names. Other dynamic forms remain unproven.
         """
-        source = Path(cli.__file__).read_text(encoding="utf-8")
-        tree = ast.parse(source)
-        functions = [n for n in ast.walk(tree)
-                     if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+        package_root = Path(cli.__file__).parent
+        readers, askers = [], []
 
-        readers = []
-        for function in functions:
-            for node in ast.walk(function):
-                reads_it = (
-                    (isinstance(node, ast.Call)
-                     and isinstance(node.func, ast.Name)
-                     and node.func.id == "getattr"
-                     and len(node.args) >= 2
-                     and isinstance(node.args[1], ast.Constant)
-                     and node.args[1].value == "archive_trust")
-                    or (isinstance(node, ast.Attribute)
-                        and node.attr == "archive_trust"))
-                if reads_it:
-                    readers.append((function.name, node.lineno))
-        self.assertEqual(
-            sorted({name for name, _line in readers}), ["_archive_trust_mode"],
-            f"the trust mode is read off the command line at {readers!r}, not "
-            f"only inside the one function that defaults it")
+        def scope_nodes(owner):
+            pending = list(owner.body)
+            while pending:
+                node = pending.pop()
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    continue
+                yield node
+                pending.extend(ast.iter_child_nodes(node))
 
-        askers = sorted({function.name for function in functions
-                         for node in ast.walk(function)
-                         if isinstance(node, ast.Call)
-                         and isinstance(node.func, ast.Name)
-                         and node.func.id == "_archive_trust_mode"})
+        def string_values(node, bindings, seen=frozenset()):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                return {node.value}
+            if isinstance(node, ast.Name) and node.id not in seen:
+                return {value for expression in bindings.get(node.id, [])
+                        for value in string_values(expression, bindings, seen | {node.id})}
+            if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+                return {left + right for left in string_values(node.left, bindings, seen)
+                        for right in string_values(node.right, bindings, seen)}
+            return set()
+
+        for path in sorted(package_root.rglob("*.py")):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            owners = [tree] + [n for n in ast.walk(tree) if isinstance(
+                n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))]
+            for owner in owners:
+                nodes = list(scope_nodes(owner))
+                bindings = {}
+                for node in nodes:
+                    if isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
+                        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                        for target in targets:
+                            if isinstance(target, ast.Name) and node.value is not None:
+                                bindings.setdefault(target.id, []).append(node.value)
+                location = (str(path.relative_to(package_root)),
+                            getattr(owner, "name", "<module>"))
+                for node in nodes:
+                    key = None
+                    reads_it = (isinstance(node, ast.Attribute)
+                                and isinstance(node.ctx, ast.Load)
+                                and node.attr == "archive_trust")
+                    if isinstance(node, ast.Subscript) and isinstance(node.ctx, ast.Load):
+                        key = node.slice
+                    elif isinstance(node, ast.Call):
+                        function = node.func
+                        name = (function.id if isinstance(function, ast.Name) else
+                                function.attr if isinstance(function, ast.Attribute) else None)
+                        if name == "getattr" and len(node.args) >= 2:
+                            key = node.args[1]
+                        elif name == "get" and node.args:
+                            key = node.args[0]
+                        elif (isinstance(function, ast.Call)
+                              and isinstance(function.func, ast.Attribute)
+                              and function.func.attr == "attrgetter"):
+                            reads_it = any("archive_trust" in string_values(arg, bindings)
+                                           for arg in function.args)
+                        if name == "_archive_trust_mode":
+                            askers.append(location)
+                    if reads_it or (key is not None and
+                                    "archive_trust" in string_values(key, bindings)):
+                        readers.append((*location, node.lineno))
         self.assertEqual(
-            askers,
-            ["_local_archive_upgrade_candidates", "_name_header_mode", "cmd_install"],
+            sorted({(module, name) for module, name, _line in readers}),
+            [("cli.py", "_archive_trust_mode")],
+            f"the trust mode is read outside its one defaulting function: {readers!r}")
+        self.assertEqual(
+            sorted(set(askers)),
+            [("cli.py", "_local_archive_upgrade_candidates"),
+             ("cli.py", "_name_header_mode"), ("cli.py", "cmd_install")],
             f"the one place is asked by {askers!r}")
 
 
