@@ -3161,7 +3161,7 @@ class WebServer:
 
         FAIL-CLOSED on EVERY branch — any exception, or the outer timeout, returns
         REVIEW_FAILED, which runs nothing, so a bridge failure can NEVER let a
-        held action through (HOLY GRAIL). Returns "allow_once" on approval, never
+        held action through. Returns "allow_once" on approval, never
         "allow_conversation": a web card is a per-action consent, and the
         registry already downgrades allow_conversation to allow_once for
         privileged calls. "deny" is returned for the person's own Deny; a card
