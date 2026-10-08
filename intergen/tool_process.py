@@ -24,6 +24,15 @@ privileges. The service also runs in a user namespace of its own, so the kernel
 refuses it /proc/<pid>/root, cwd and fd of every process outside it, which would
 otherwise spell the same file through a process that sees it unmasked.
 
+THE MANAGER IS OUT OF REACH. The same property makes the owner's user-manager
+control socket and session bus socket inaccessible in the service, because a
+process that reached either could ask the user manager to start another service,
+one without the mask. A command that does that is never read-only, and
+run_command sends every command that is not read-only to the review surface and
+the privileged runner; an MCP server's tools are not in that tier, though, and
+the gate can run them without review on a user-direct or user-implied call, so
+the route is closed at the process rather than left to the review.
+
 THE SAME HARDENING AS THE DAEMON. A transient service does not inherit the
 daemon's sandbox; it gets what it is given. It is given the daemon unit's own
 hardening lines, verbatim (DAEMON_HARDENING, held equal to
@@ -42,9 +51,9 @@ WHAT IT DOES NOT COVER, named rather than claimed:
     existed reaches the same bytes under a path the mask does not name. The first
     launch in each daemon reads back both files' link counts and logs a warning
     when either is not 1; it does not refuse.
-  * a process outside the service that a tool's process can ask, or drive, to
-    open the file on its behalf, such as the owner's user manager or a terminal
-    multiplexer.
+  * a process outside the service that a tool's process can still reach some
+    other way, such as a terminal multiplexer's socket or an X11 client, could be
+    driven to open the file on the tool's behalf.
 
 COST. One round trip to the user manager per command, about 36 ms measured on a
 reference machine against under 2 ms for a direct start, and one per MCP server
@@ -58,6 +67,7 @@ import os
 import secrets
 import subprocess
 from pathlib import Path
+from urllib.parse import unquote
 
 from intergen import dispatch_token
 
@@ -118,6 +128,24 @@ class ToolProcessNotStarted(RuntimeError):
 def credential_paths() -> tuple[Path, ...]:
     """The install's credential files, at the owning account's home."""
     return dispatch_token.install_secret_paths()
+
+
+def manager_socket_paths() -> tuple[Path, ...]:
+    """The sockets through which a process could ask the owner's user manager,
+    or any service on the owner's session bus, to act for it."""
+    runtime = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+    paths = [Path(runtime, "systemd", "private"), Path(runtime, "bus")]
+    for address in os.environ.get("DBUS_SESSION_BUS_ADDRESS", "").split(";"):
+        transport, _, params = address.partition(":")
+        if transport != "unix":
+            continue
+        for param in params.split(","):
+            key, _, value = param.partition("=")
+            if key == "path" and value:
+                path = Path(unquote(value))
+                if path not in paths:
+                    paths.append(path)
+    return tuple(paths)
 
 
 def _quoted(path: Path, *, if_present: bool = False) -> str:
@@ -217,6 +245,8 @@ def launch_argv(argv: list[str], *, unit: str,
            "--same-dir", "--expand-environment=no", f"--unit={unit}"]
     run += [f"--property={line}" for line in DAEMON_HARDENING]
     run += [f"--property=InaccessiblePaths={_quoted(p)}" for p in credentials]
+    run += [f"--property=InaccessiblePaths={_quoted(p, if_present=True)}"
+            for p in manager_socket_paths()]
     if runtime_max_sec is not None:
         run.append(f"--property=RuntimeMaxSec={int(runtime_max_sec)}")
     joined = own_service_unit()

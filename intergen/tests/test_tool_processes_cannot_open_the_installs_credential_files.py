@@ -9,8 +9,9 @@ link and a search of the containing directory, each executed with no review.
 These cells fire those three routes, and the two canonical spellings, at a
 tool's process on FAKE credentials and require every one to be refused, with an
 ordinary read beside them still running. They also hold the boundary's other
-promises: an MCP server stands behind the same boundary and its service stops
-with it, a command that overruns is stopped, an absent credential starts nothing, the
+promises: a tool's process cannot ask the owner's user manager for anything, an
+MCP server stands behind the same boundary and its service stops with it, a
+command that overruns is stopped, an absent credential starts nothing, the
 service carries the daemon unit's hardening line for line, and a credential with
 a second name on disk is reported.
 
@@ -160,6 +161,26 @@ class ThroughRunCommand(_AFixtureInstall):
         self.assertTrue(result.success, f"content was {result.content!r}")
         self.assertIn("an ordinary file the owner reads", result.content or "")
 
+    def test_a_tool_process_cannot_ask_the_user_manager(self) -> None:
+        """Fired at the tool's process itself, past the review.
+
+        Through the registry this command is not read-only, and a run_command
+        that is not read-only is in the privileged tier: it goes to the review
+        surface and, approved, runs through the privileged runner, never as the
+        daemon's child. The process boundary is what an MCP server and
+        run_command's read-only children stand behind, so the cell asks the
+        question at the process: the owner's user manager, which could start a
+        service without the mask, must be out of its reach.
+        """
+        result = RunCommandTool().execute(
+            {"command": "systemctl --user is-system-running"})
+        first_line = (result.content or "").strip().split("\n", 1)[0].strip()
+        self.assertNotIn(
+            first_line, {"running", "degraded", "starting", "initializing"},
+            "the tool's process reached the owner's user manager")
+        self.assertIn("Failed to connect", result.content or "")
+        self.assertFalse(result.success)
+
 
 class AnMCPServer(_AFixtureInstall):
     """An MCP server is a tool's process too."""
@@ -184,6 +205,11 @@ class AnMCPServer(_AFixtureInstall):
                         out.append(path + ": " + exc.strerror)
             return "\\n".join(out)
 
+        def run(argv):
+            import subprocess
+            done = subprocess.run(argv, capture_output=True, text=True)
+            return done.stdout + done.stderr
+
         def read_one(path):
             try:
                 with open(path) as fh:
@@ -206,12 +232,16 @@ class AnMCPServer(_AFixtureInstall):
                     {"name": "read_all", "description": "Read every file under a directory.",
                      "inputSchema": {"type": "object",
                                      "properties": {"directory": {"type": "string"}}}},
+                    {"name": "run", "description": "Run one command.",
+                     "inputSchema": {"type": "object",
+                                     "properties": {"argv": {"type": "array"}}}},
                 ]}})
             elif method == "tools/call":
                 params = msg.get("params", {})
                 args = params.get("arguments", {})
                 name = params.get("name")
                 text = (read_all(args["directory"]) if name == "read_all"
+                        else run(args["argv"]) if name == "run"
                         else read_one(args["path"]))
                 send({"jsonrpc": "2.0", "id": mid, "result": {
                     "content": [{"type": "text", "text": text}]}})
@@ -253,6 +283,18 @@ class AnMCPServer(_AFixtureInstall):
                 self.assertIn("Permission denied", text)
         ordinary = self.conn.call("read", {"path": str(self.notes)})
         self.assertIn("an ordinary file the owner reads", ordinary)
+
+    def test_an_mcp_server_cannot_ask_the_user_manager(self) -> None:
+        """An external tool is not in the privileged tier, so the registry runs
+        it without review on a user-direct or user-implied call; the owner's
+        user manager, which could start a service without the mask, must be out
+        of the server's reach."""
+        text = self.conn.call("run", {"argv": ["systemctl", "--user",
+                                               "is-system-running"]})
+        first_line = text.strip().split("\n", 1)[0].strip()
+        self.assertNotIn(first_line, {"running", "degraded", "starting", "initializing"},
+                         "the MCP server reached the owner's user manager")
+        self.assertIn("Failed to connect", text)
 
     def test_disconnect_stops_the_servers_service(self) -> None:
         unit = self.conn._unit
@@ -307,6 +349,17 @@ class TheLauncher(_AFixtureInstall):
                 "--user", "--wait", "--pipe", "--collect"):
             self.assertIn(expected, launch)
         self.assertEqual(launch[launch.index("--"):], ["--", "cat", "/etc/hostname"])
+
+    def test_the_launch_masks_the_manager_sockets(self) -> None:
+        from intergen import tool_process
+        runtime = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+        with mock.patch.dict(os.environ, {"XDG_RUNTIME_DIR": runtime}):
+            launch = tool_process.launch_argv(
+                ["true"], unit="intergen-tool-case.service")
+        for expected in (
+                f'--property=InaccessiblePaths="-{runtime}/systemd/private"',
+                f'--property=InaccessiblePaths="-{runtime}/bus"'):
+            self.assertIn(expected, launch)
 
     def test_an_absent_credential_starts_nothing(self) -> None:
         self.token_path.unlink()
