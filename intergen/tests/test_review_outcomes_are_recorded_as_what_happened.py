@@ -185,6 +185,30 @@ class AReviewNobodyDecidedIsRecordedAsWhatHappened(_Case):
             result, "review_failed", "could not be shown")
 
 
+class ACardANewConversationEndedIsRecordedAsEnded(_Case):
+    """A new conversation ends every card the old one left open, and the card
+    answers its waiter "deny" so the action cannot run. Through the bridge that
+    reached the registry as the person's own Deny."""
+
+    def test_a_card_a_new_conversation_ended(self) -> None:
+        server, ctx = self._server(_RecordingWS())
+
+        async def scenario() -> ToolResult:
+            loop = asyncio.get_running_loop()
+            bridge = server._make_web_review_callback(ctx, "turn-1", loop)
+            call = _call("ended")
+            pending = loop.run_in_executor(
+                None,
+                lambda: server._tools.execute(call, review_callback=bridge))
+            await ctx.ws.wait_for_card("ended")
+            await server._handle_new_session(ctx, {})
+            return await asyncio.wait_for(pending, timeout=15.0)
+
+        result = asyncio.run(scenario())
+        self._nothing_ran_and_no_one_denied(
+            result, "review_ended", "conversation it belonged to ended")
+
+
 class AnActionRefusedBeforeAnyCardIsRecordedAsRefused(_Case):
     """The bridge refuses two classes of action before raising a card: an
     action in a forbidden zone, and one governance refuses outright (an

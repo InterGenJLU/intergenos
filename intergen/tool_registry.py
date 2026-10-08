@@ -421,6 +421,7 @@ REVIEW_TIMED_OUT = "review_timed_out"
 REVIEW_REFUSED = "review_refused"
 REVIEW_FAILED = "review_failed"
 REFUSED_WITHOUT_REVIEW = "refused_without_review"
+REVIEW_ENDED = "review_ended"
 _REVIEW_NOT_DECIDED = {
     REVIEW_TIMED_OUT: "the review card was not answered before its deadline",
     REVIEW_REFUSED: ("a review card for this call was already open, so a "
@@ -429,6 +430,8 @@ _REVIEW_NOT_DECIDED = {
                     "not be read"),
     REFUSED_WITHOUT_REVIEW: ("this machine refuses the action outright, so no "
                              "review card was raised"),
+    REVIEW_ENDED: ("the conversation it belonged to ended before anyone "
+                   "answered its review card"),
 }
 
 
@@ -692,7 +695,7 @@ class ToolRegistry:
                 "allow_once" | "allow_conversation" | "deny" |
                 "deny_conversation", or, when no person decided, one of
                 REVIEW_TIMED_OUT | REVIEW_REFUSED | REVIEW_FAILED |
-                REFUSED_WITHOUT_REVIEW. Only the
+                REFUSED_WITHOUT_REVIEW | REVIEW_ENDED. Only the
                 two approvals run the call; every other answer, including one
                 not listed here, is recorded as what happened and runs
                 nothing. TWO-LAYER timeout architecture:

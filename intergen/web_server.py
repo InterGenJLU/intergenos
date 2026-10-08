@@ -3146,7 +3146,7 @@ class WebServer:
         nobody decided returns the registry's word for what became of it, so the
         record does not name the person for a denial they did not give."""
         from intergen.tool_registry import (
-            REFUSED_WITHOUT_REVIEW, REVIEW_FAILED, REVIEW_REFUSED,
+            REFUSED_WITHOUT_REVIEW, REVIEW_ENDED, REVIEW_FAILED, REVIEW_REFUSED,
             REVIEW_TIMED_OUT, _classify_risk_tier,
         )
         answers = {
@@ -3154,7 +3154,7 @@ class WebServer:
             "denied": "deny",
             "timed_out": REVIEW_TIMED_OUT,
             "refused": REVIEW_REFUSED,
-            "ended": "deny",
+            "ended": REVIEW_ENDED,
         }
 
         def _callback(call: "ToolCall", decision: "Any") -> str:
