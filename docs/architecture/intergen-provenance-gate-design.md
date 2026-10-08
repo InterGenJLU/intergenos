@@ -217,7 +217,11 @@ Every tool call records:
 - declared provenance
 - effective provenance (after heuristic)
 - ingress tools that fired earlier in turn
-- user decision (executed / allowed-once / allowed-conversation / denied)
+- user decision — one outcome word (`build_audit_record` in `intergen/provenance.py` says what each means):
+  - the call was dispatched (the exit code says how it ended): `executed` (no review was required), `allowed_once`, `allowed_conversation`
+  - the call did not run: `denied` (the gate refused it, no review surface was available, the person pressed Deny, or an approved privileged call's dispatch token could not be minted; the result summary says which), `deny_conversation`, `egress_blocked`
+  - the call did not run because nobody decided its review: `review_timed_out`, `review_refused`, `review_failed`, `refused_without_review`, `review_ended`
+  - a dispatched call's returned content, scanned on the way in, can add one suffix: `+ingress_blocked`, `+ingress_flag_denied`, or `+ingress_flag_<word>`, where `<word>` is `no_review_ui` or one of the five review words; each withholds the content
 - exit code + result summary (truncated)
 
 Log path: `$XDG_STATE_HOME/intergen/tool-dispatch.jsonl` (per-user). Append-only; rotated by `logrotate`. User can review their own history via `intergen tool-log`.

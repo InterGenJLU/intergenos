@@ -276,12 +276,52 @@ def build_audit_record(
 ) -> AuditRecord:
     """Construct an AuditRecord for the dispatch + user-review outcome.
 
-    user_outcome is one of:
-      "executed"             — gate said execute; tool ran
-      "allowed_once"         — user reviewed and approved this single call
-      "allowed_conversation" — user reviewed and approved this (tool,source)
-                               pair for the conversation
-      "denied"               — gate or user refused; tool did not run
+    user_outcome is one of these words (tool_registry.py records them):
+      "executed"             — no review was required; the call was
+                               dispatched (exit_code says how it ended)
+      "allowed_once"         — the person reviewed and approved this single
+                               call (a privileged call approved for the
+                               conversation is recorded as this, and the
+                               approval is not kept for later calls)
+      "allowed_conversation" — the person reviewed and approved this
+                               (tool, source) pair for the conversation
+      "denied"               — the call did not run: the gate refused it, no
+                               review surface was available, the person
+                               pressed Deny, or an approved privileged call's
+                               dispatch token could not be minted;
+                               result_summary says which
+      "deny_conversation"    — the person denied this (tool, source) pair for
+                               the rest of the conversation; the call did not
+                               run
+      "egress_blocked"       — the outbound scan blocked the call's arguments
+                               before they left the machine; the call did not
+                               run
+
+    A review nobody decided; the call did not run:
+      "review_timed_out"       — the review card was not answered before its
+                                 deadline
+      "review_refused"         — a review card for this call was already open,
+                                 so a second one was refused
+      "review_failed"          — the review could not be shown, its answer
+                                 could not be read, or it answered something
+                                 that is not an approval
+      "refused_without_review" — the machine refuses the action outright, so
+                                 no review card was raised
+      "review_ended"           — the conversation ended before anyone answered
+                                 the review card
+
+    After the call ran, the inbound scan of what it returned can append one
+    suffix to "executed", "allowed_once" or "allowed_conversation":
+      "+ingress_blocked"     — the content was blocked and withheld
+      "+ingress_flag_denied" — the content was flagged and the person denied
+                               it (Deny, or Deny for the conversation); it
+                               was withheld
+      "+ingress_flag_<word>" — the content was flagged and nobody approved
+                               it, so it was withheld: <word> is
+                               "no_review_ui" (no review surface was
+                               available) or one of the five review words
+                               above
+    Flagged content the person approved adds no suffix.
     """
     truncated = result_summary[:256] if result_summary else ""
     return AuditRecord(

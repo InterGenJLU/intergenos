@@ -47,8 +47,9 @@ from intergen.web_server import WebServer, ConnectionContext
 
 _APP_JS = Path(web_server_module.__file__).parent / "web" / "app.js"
 
-# Frames that close a turn out for the client: each runs stopThinking() in
-# app.js, releasing the thinking indicator and disarming the failsafe.
+# Frames the server ends a turn with. In app.js, response, stream_end and
+# error each run stopThinking(), releasing the thinking indicator and
+# disarming the failsafe; frontier_response does not.
 _TERMINAL_FRAMES = frozenset({"response", "stream_end", "error",
                               "frontier_response"})
 
