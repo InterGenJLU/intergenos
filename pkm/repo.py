@@ -1748,9 +1748,11 @@ def source_archive_name(name, version, release):
 def _source_archive_for(sources_dir, name, meta):
     """Manage one pinned source file, yielding None if absent; refuse escapes.
 
-    Resolve the published alias once, then open and validate the descriptor on
-    entry. Consumers must use that stream, never reopen its name. Validation
-    on exit also refuses a target removed or moved outside during consumption.
+    Resolve the published alias to select the candidate, then open and validate
+    its descriptor on entry. Consumers must use that stream, never reopen its name.
+    Validation on exit also refuses a target removed or moved outside during consumption.
+    The advertised alias must still resolve inside the root to this same file
+    at both checks, including when that alias is a legitimate in-root symlink.
     """
     from contextlib import contextmanager
     from pathlib import PureWindowsPath
@@ -1766,7 +1768,8 @@ def _source_archive_for(sources_dir, name, meta):
             raise ValueError(f"package {name!r}: unsafe source {component} component {value!r}")
     try:
         root = Path(sources_dir).resolve()
-        candidate = (root / source_archive_name(name, version, release)).resolve()
+        advertised = root / source_archive_name(name, version, release)
+        candidate = advertised.resolve()
     except (OSError, RuntimeError) as exc:
         raise ValueError(f"package {name!r}: resolved source path cannot be verified: {exc}") from exc
     if not candidate.is_relative_to(root):
@@ -1790,7 +1793,15 @@ def _source_archive_for(sources_dir, name, meta):
                     target = Path(os.readlink(f"/proc/self/fd/{archive.fileno()}"))
                     opened = os.fstat(archive.fileno())
                     current = target.stat(follow_symlinks=False)
-                except OSError as exc:
+                    alias_target = advertised.resolve(strict=True)
+                    if not alias_target.is_relative_to(root):
+                        raise ValueError(
+                            f"package {name!r}: advertised source path escapes sources directory: {advertised}")
+                    alias_stat = alias_target.stat()
+                    if (alias_stat.st_dev, alias_stat.st_ino) != (opened.st_dev, opened.st_ino):
+                        raise ValueError(
+                            f"package {name!r}: advertised source path no longer names the opened file: {advertised}")
+                except (OSError, RuntimeError) as exc:
                     raise ValueError(
                         f"package {name!r}: opened source file cannot be verified: {exc}") from exc
                 if (not opened.st_nlink or not target.is_relative_to(root)

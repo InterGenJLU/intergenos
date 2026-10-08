@@ -864,6 +864,7 @@ class TestSourceLookupBoundary:
         assert entry["source_sha256"] == _sha256_of(payload)
 
     def test_lookup_returns_the_confined_target_before_hashing(self, tmp_path, monkeypatch):
+        """A later outside replacement of the advertised alias is refused."""
         from pkm import repo
         binaries = tmp_path / "archives"
         sources = tmp_path / "sources"
@@ -887,8 +888,7 @@ class TestSourceLookupBoundary:
         monkeypatch.setattr(repo, "_source_archive_for", replace_alias_after_lookup)
         output = repo.generate_index(binaries, sources_dir=sources)
         entry = _read_index(output)["packages"]["alpha"]
-        assert entry["source_sha256"] == _sha256_of(inside)
-        assert entry["source_filename"] == alias.name
+        assert "source_sha256" not in entry and "source_filename" not in entry
 
     @pytest.mark.parametrize("consumer", ["generator", "gate", "twin"])
     def test_replaced_validated_target_is_refused(self, tmp_path, monkeypatch, consumer):
@@ -949,6 +949,7 @@ class TestSourceLookupBoundary:
         assert swapped == [True]
 
     def test_hashing_uses_the_opened_file_after_its_name_changes(self, tmp_path, monkeypatch):
+        """Retaining the descriptor does not permit an outside advertised alias."""
         import os
         from pkm import repo
 
@@ -958,7 +959,6 @@ class TestSourceLookupBoundary:
         sources.mkdir()
         _write_binary_archive(binaries / "alpha.igos.tar.gz", "alpha", "1.0", 1)
         target = _write_source_archive(sources, "alpha", "1.0", 1, b"inside bytes")
-        expected = _sha256_of(target)
         outside = tmp_path / "outside"
         outside.write_bytes(b"outside bytes")
         retained = sources / "retained"
@@ -979,8 +979,7 @@ class TestSourceLookupBoundary:
         output = repo.generate_index(binaries, sources_dir=sources)
         assert changed == [True]
         entry = _read_index(output)["packages"]["alpha"]
-        assert entry["source_sha256"] == expected
-        assert entry["source_filename"] == target.name
+        assert "source_sha256" not in entry and "source_filename" not in entry
 
     def test_descriptor_inspection_failure_refuses_and_closes(self, tmp_path, monkeypatch, capsys):
         import os
@@ -1009,6 +1008,69 @@ class TestSourceLookupBoundary:
         for fd in inspected:
             with pytest.raises(OSError):
                 os.fstat(fd)
+
+    @pytest.mark.parametrize("consumer", ["generator", "gate", "twin"])
+    @pytest.mark.parametrize("replacement", ["outside", "different-inside", "same-object"])
+    def test_advertised_name_stays_bound_to_the_opened_source(
+            self, tmp_path, monkeypatch, consumer, replacement):
+        from contextlib import contextmanager
+        import hashlib
+        import importlib.util
+        import io
+        import tarfile
+        from pkm import repo
+
+        binaries, sources, packages = (tmp_path / name for name in ("archives", "sources", "packages"))
+        for directory in (binaries, sources, packages):
+            directory.mkdir()
+        _write_binary_archive(binaries / "alpha.igos.tar.gz", "alpha", "1.0", 1)
+        name = "alpha-pass1" if consumer == "twin" else "alpha"
+        advertised = sources / f"{name}-1.0-1.igos.src.tar.gz"
+        payload = b"the source approved by the recipe"
+        with tarfile.open(advertised, "w:gz") as archive:
+            member = tarfile.TarInfo(f"{name}-1.0-1/alpha.tar.gz")
+            member.size = len(payload)
+            archive.addfile(member, io.BytesIO(payload))
+        expected_hash = _sha256_of(advertised)
+        retained = sources / "retained-source.tar.gz"
+        alternate = (tmp_path if replacement == "outside" else sources) / "alternate.tar.gz"
+        alternate.write_bytes(b"different source bytes")
+        if consumer == "twin":
+            recipe = packages / "toolchain/alpha-pass1/package.yml"
+            recipe.parent.mkdir(parents=True)
+            recipe.write_text("name: alpha-pass1\nversion: '1.0'\nrelease: 1\nsource:\n"
+                              "  - url: https://example.invalid/alpha.tar.gz\n"
+                              f"    sha256: {hashlib.sha256(payload).hexdigest()}\n")
+        original = repo._source_archive_for
+        changed = []
+
+        @contextmanager
+        def replace_after_first_validation(*args):
+            with original(*args) as source:
+                if args[1] == name and source is not None:
+                    advertised.rename(retained)
+                    advertised.symlink_to(retained if replacement == "same-object" else alternate)
+                    changed.append(True)
+                yield source
+
+        monkeypatch.setattr(repo, "_source_archive_for", replace_after_first_validation)
+        if consumer == "generator":
+            output = repo.generate_index(binaries, sources_dir=sources)
+            entry = _read_index(output)["packages"]["alpha"]
+            if replacement == "same-object":
+                assert entry["source_sha256"] == expected_hash
+                assert entry["source_filename"] == advertised.name
+            else:
+                assert "source_filename" not in entry and "source_sha256" not in entry
+        else:
+            spec = importlib.util.spec_from_file_location(
+                "correspondence_advertised_name", _PROJECT_ROOT / "scripts/check-source-correspondence.py")
+            gate = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(gate)
+            monkeypatch.setattr(sys, "argv", [str(gate.__file__), "--archive-dir", str(binaries),
+                "--sources-archive-dir", str(sources), "--packages-root", str(packages)])
+            assert gate.main() == (0 if replacement == "same-object" else 1)
+        assert changed == [True]
 
     def test_toolchain_twin_cannot_escape_through_a_symlink(self, tmp_path):
         import hashlib
