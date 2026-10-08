@@ -257,7 +257,10 @@ class TheUpgradePathDoesNotRenameItsErrorsEither(unittest.TestCase):
 
     def test_the_report_does_not_decide_the_command(self):
         """It reports and carries on to the gate: under loose the upgrade still
-        proceeds, with the index fault named and the gate's own warning."""
+        proceeds, with the index fault named and the gate's own warning.
+        Collapse captured whitespace so wrapping cannot hide a premature
+        "Nothing was changed" sentence; this case does not parse source.
+        """
         def _unreadable(_name):
             raise OSError(13, "Permission denied")
         raised, queue, out, err = self._run("loose", _unreadable)
@@ -265,6 +268,7 @@ class TheUpgradePathDoesNotRenameItsErrorsEither(unittest.TestCase):
         self.assertTrue(queue, f"loose refused the archive: {err}")
         self.assertIn("the repository index could not be read", err)
         self.assertIn("skipping repo verification", err)
+        self.assertNotIn("Nothing was changed", " ".join((out + " " + err).split()))
 
     def test_a_missing_entry_is_still_an_ordinary_absence(self):
         """CONTROL, green at both ends: a package the index has never heard of
