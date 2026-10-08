@@ -2,12 +2,12 @@
 # Copyright (C) 2026 InterGenJLU
 """Item 192, P1-05 — a conversation that ends takes its consent with it.
 
-An earlier pass made the /new slash command end the conversation through the same
-door the new-session frame uses, so the model buffer, the conversation's consent
-decisions, the ingress watermark and the staged offers all stop at the boundary.
-An independent read reproduced what the boundary still let through: the cards on
-screen and the work detached from the turn live on the CONNECTION, not on the
-conversation object, so neither was touched. A review card raised in the
+An earlier change made the /new slash command end the conversation through the
+same door the new-session frame uses, so the model buffer, the conversation's
+consent decisions, the ingress watermark and the staged offers all stop at the
+boundary. The boundary still let two things through: the cards on screen and the
+work detached from the turn live on the CONNECTION, not on the conversation
+object, so neither was touched. A review card raised in the
 conversation that just ended stayed open across the transition, and an approval
 typed afterwards still resolved it — the person authorised an action belonging to
 a conversation they had already left, and the system ran it in the new one.
@@ -21,7 +21,7 @@ WHAT THESE CASES DO NOT DO. They do not stand up a socket or a browser: the
 websocket is a recorder, which is how every other case on this surface drives the
 server's frames. The frames they assert are the ones the two shipped clients act
 on (web/app.js handleGateResolved and the console shell), and the wire itself is
-the installed-system leg at the chain's landing tier.
+an installed-system test on a real session.
 """
 
 from __future__ import annotations
@@ -88,7 +88,7 @@ def _frames(ws: _RecordingWS) -> list[str]:
 
 
 class AConversationThatEndsTakesItsConsentWithItTests(unittest.TestCase):
-    """The boundary the independent read reproduced, driven on both doors."""
+    """The boundary, driven on both doors."""
 
     def test_a_new_session_denies_the_card_the_old_conversation_left_open(self):
         async def go():

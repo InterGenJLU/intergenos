@@ -51,7 +51,7 @@ no display.
 WHAT IS NOT PROVED HERE, STATED PLAINLY. No real WebSocket client was connected
 to a running daemon and driven through a real model turn. That the message shape
 is reachable is read from the handler map and the protocol document, not from a
-live connection; that leg belongs to the installed-system gate tier.
+live connection; that needs an installed-system test on a real session.
 """
 
 from __future__ import annotations
@@ -106,7 +106,7 @@ def _ctx(client_id="c1"):
                              ws=_RecordingWS())
 
 
-# The exact captured shape from the finding: a person asks how to update the
+# The exact captured shape of the defect: a person asks how to update the
 # system, the assistant explains and OFFERS to run it, and the offer is left
 # standing. Every other slot a conversation reset is supposed to replace is
 # marked alongside it, so a reset that clears one and misses another is visible.
