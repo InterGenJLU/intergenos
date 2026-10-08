@@ -337,54 +337,114 @@ class TheTwoPathsSayItInTheirOwnWords(unittest.TestCase):
                       upgrade_line)
 
     def test_every_guarded_lookup_in_the_module_is_inventoried(self):
-        """The source read by a parser, not by counting a string.
+        """Walk every pkm module for lookups guarded by try or suppress.
 
-        A handler written as `except (TypeError, Exception)`, or with the call
-        bound to a name a line earlier, passes a textual search. This walks
-        pkm/cli.py's own syntax tree for every `get_package` call inside a `try`
-        and pins the exception types each handler catches. `cmd_info` catching
-        Exception is DELIBERATE and carries its reason in the source — an index
-        fault must not break a read-only report — and it is listed here so that
-        it stays a decision rather than becoming a habit; the day someone
-        narrows it, this line is what they edit.
+        Follow direct get_package calls, method aliases bound before or inside
+        the guard, literal getattr references, and calls through lexical helper
+        functions. Pin each guard's exception types. This is a conservative
+        syntax/call inventory; arbitrary dynamic dispatch is not certified.
         """
-        source = Path(cli.__file__).read_text(encoding="utf-8")
-        tree = ast.parse(source)
+        package_root = Path(cli.__file__).parent
+        found = []
 
-        def is_lookup(node):
+        def scope_nodes(statements):
+            pending = list(statements)
+            while pending:
+                node = pending.pop()
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    continue
+                yield node
+                pending.extend(ast.iter_child_nodes(node))
+
+        def defined_functions(statements):
+            result = {}
+            pending = list(statements)
+            while pending:
+                node = pending.pop()
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    result[node.name] = node
+                elif not isinstance(node, ast.ClassDef):
+                    pending.extend(ast.iter_child_nodes(node))
+            return result
+
+        def bindings_for(function):
+            bound = {}
+            for node in scope_nodes(function.body):
+                if isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
+                    targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                    for target in targets:
+                        if isinstance(target, ast.Name) and node.value is not None:
+                            bound.setdefault(target.id, []).append(node.value)
+            return bound
+
+        def lookup_callable(node, bindings, seen=frozenset()):
+            if isinstance(node, ast.Attribute):
+                return node.attr == "get_package"
+            if isinstance(node, ast.Name) and node.id not in seen:
+                return any(lookup_callable(value, bindings, seen | {node.id})
+                           for value in bindings.get(node.id, []))
             return (isinstance(node, ast.Call)
-                    and isinstance(node.func, ast.Attribute)
-                    and node.func.attr == "get_package")
+                    and (isinstance(node.func, ast.Name) and node.func.id == "getattr"
+                         or isinstance(node.func, ast.Attribute) and node.func.attr == "getattr")
+                    and len(node.args) >= 2 and isinstance(node.args[1], ast.Constant)
+                    and node.args[1].value == "get_package")
+
+        def contains_lookup(statements, bindings, helpers, seen=frozenset()):
+            for node in scope_nodes(statements):
+                if not isinstance(node, ast.Call):
+                    continue
+                if lookup_callable(node.func, bindings):
+                    return True
+                if isinstance(node.func, ast.Name) and node.func.id in helpers:
+                    helper = helpers[node.func.id]
+                    if id(helper) in seen:
+                        continue
+                    if contains_lookup(helper.body, bindings_for(helper),
+                                       helpers | defined_functions(helper.body),
+                                       seen | {id(helper)}):
+                        return True
+            return False
 
         def caught_by(handler):
             if handler.type is None:
                 return ["<bare except>"]
-            kinds = (handler.type.elts if isinstance(handler.type, ast.Tuple)
-                     else [handler.type])
+            kinds = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
             return [ast.unparse(kind) for kind in kinds]
 
-        found = []
-        for function in [n for n in ast.walk(tree)
-                         if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]:
-            for node in ast.walk(function):
-                if not isinstance(node, ast.Try):
-                    continue
-                if not any(is_lookup(c) for stmt in node.body
-                           for c in ast.walk(stmt)):
-                    continue
-                found.append((function.name,
-                              tuple(name for handler in node.handlers
-                                    for name in caught_by(handler))))
-
+        for path in sorted(package_root.rglob("*.py")):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            globals_ = defined_functions(tree.body)
+            owners = [tree] + [n for n in ast.walk(tree) if isinstance(
+                n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))]
+            for function in owners:
+                bindings = bindings_for(function)
+                helpers = globals_ | defined_functions(function.body)
+                for node in scope_nodes(function.body):
+                    kind, types = None, ()
+                    if isinstance(node, (ast.Try, ast.TryStar)):
+                        kind = "try"
+                        types = tuple(name for handler in node.handlers for name in caught_by(handler))
+                    elif isinstance(node, (ast.With, ast.AsyncWith)):
+                        for item in node.items:
+                            expression = item.context_expr
+                            if isinstance(expression, ast.Call) and (
+                                    isinstance(expression.func, ast.Name) and expression.func.id == "suppress"
+                                    or isinstance(expression.func, ast.Attribute) and expression.func.attr == "suppress"):
+                                kind = "suppress"
+                                types += tuple(ast.unparse(arg) for arg in expression.args)
+                    if kind and contains_lookup(node.body, bindings, helpers):
+                        found.append((str(path.relative_to(package_root)),
+                                      getattr(function, "name", "<module>"), kind, types))
         self.assertEqual(
             sorted(found),
-            [("_local_archive_upgrade_candidates", ("OSError",)),
-             ("cmd_info", ("OSError", "Exception")),
-             ("cmd_install", ("OSError",)),
-             ("cmd_list", ("OSError",))],
-            f"the guarded index lookups in pkm/cli.py are {sorted(found)!r}: a "
-            f"lookup that catches Exception renames every error as an absent "
-            f"entry, which is the defect this module exists for")
+            [("cli.py", "_local_archive_upgrade_candidates", "try", ("OSError",)),
+             ("cli.py", "cmd_check_updates", "try", ("OSError",)),
+             ("cli.py", "cmd_info", "try", ("OSError", "Exception")),
+             ("cli.py", "cmd_install", "try", ("OSError",)),
+             ("cli.py", "cmd_list", "try", ("OSError",)),
+             ("cli.py", "refresh_available_updates_after_transaction", "try",
+              ("OSError", "Exception"))],
+            f"the guarded index lookups and their exception types changed: {sorted(found)!r}")
 
     def test_every_read_only_command_guards_the_index_it_consults(self):
         """The read commands, walked from the module's OWN command set.
