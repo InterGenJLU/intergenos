@@ -1,4 +1,4 @@
-"""The release-note chain gate: a bump must move the chain head with it.
+"""The release-note chain gate: changed lines preserve old notes and bumps add a head.
 
 Origin 2026-07-30: machine bumps carried the release NUMBER while the
 hand-authored `# rNN:` chain head stayed behind (intergen 130 vs r109,

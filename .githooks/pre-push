@@ -1313,16 +1313,16 @@ fi
 # chain in the same line's comment is authored by hand, and nothing made
 # the two move together — machine bumps shipped stale chain heads (intergen
 # release 130 / head r109, forge the same 20-wide, 2026-07-30). Delta-only:
-# fires solely on commits that CHANGE a release: value, so the legacy
-# backlog never blocks a push. Per-commit NO-GATE override honored inside
-# the script.
+# fires solely on commits that CHANGE a release value or inline comment,
+# so the legacy backlog never blocks a push. Per-commit NO-GATE override
+# honored inside the script.
 if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
     require_gate_can_run scripts/check-release-notes.py "release-note chain gate"
     BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
     if ! "$PY_BIN" scripts/check-release-notes.py --base "$BASE" --head "$LOCAL"; then
-        echo "[pre-push] BLOCK: release bump without its chain-head note (see above)."
-        echo "  The rNN note rides the SAME commit as the bump — amend it in,"
-        echo "  or NO-GATE with a reason."
+        echo "[pre-push] BLOCK: changed release-note chain is invalid (see above)."
+        echo "  Keep older notes byte-exact on the release line; a bump adds its rNN head."
+        echo "  Amend the same commit, or use NO-GATE with a reason."
         exit 1
     fi
 fi

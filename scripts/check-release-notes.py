@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-closed gate: a release bump must move its note-chain head with it.
+"""Fail-closed gate: changed release lines preserve old notes and bumps add a head.
 
 `bump-changed-releases.py` owns the `release:` NUMBER; the human-readable
 note chain in the same line's inline comment (`# rNN: ...`) is authored by
@@ -188,9 +188,9 @@ def main():
         print("release-note chain gate: FAIL")
         for v in violations:
             print(f"  {v}")
-        print("  A machine bump owns the number; the note is yours — add the"
-              " matching `# rNN:` label at the chain head in the SAME commit,"
-              " keep every older note unchanged on that line, or NO-GATE with a reason.")
+        print("  Keep every older note byte-exact on the release line; when the"
+              " release number moves, add the matching `# rNN:` label at the chain"
+              " head in the SAME commit, or use NO-GATE with a reason.")
         return 1
     print("release-note chain gate: PASS")
     return 0
