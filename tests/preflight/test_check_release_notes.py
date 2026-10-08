@@ -5,7 +5,7 @@ hand-authored `# rNN:` chain head stayed behind (intergen 130 vs r109,
 forge the same, an 87-package no-note class). The gate closes the class
 going forward; these tests pin its edges — including the ones that must
 NOT fire, so the legacy backlog can never block a push that doesn't touch
-a release value.
+a release line.
 """
 
 import importlib.util
@@ -88,10 +88,12 @@ class TestReleaseNoteChainGate(unittest.TestCase):
 
     def test_untouched_legacy_mismatch_never_fires(self):
         # The 87-package backlog shape: head label far behind the release.
-        # A commit that does not move the release value must pass, or the
+        # A commit that does not touch the release line must pass, or the
         # legacy state would block every unrelated push.
         self._commit("release: 130  # r109: old news")
-        self._commit("release: 130  # r109: old news (comment edited)")
+        (Path(self.repo) / "unrelated.txt").write_text("unrelated change\n")
+        self._git("add", "unrelated.txt")
+        self._git("commit", "-q", "-m", "docs: unrelated")
         self.assertEqual(self._range(), [])
 
     def test_no_gate_override_skips(self):
@@ -116,6 +118,82 @@ class TestReleaseNoteChainGate(unittest.TestCase):
         (other / "notes.yml").write_text("release: 5\n")
         self._git("add", "-A")
         self._git("commit", "-q", "-m", "docs: unrelated yml")
+        self.assertEqual(self._range(), [])
+
+    def test_older_note_changes_are_refused(self):
+        original = "r3: third. r2: second. r1: first."
+        cases = {
+            "dropped": ("release: 4  # r4: fourth.", "r3"),
+            "shortened": ("release: 4  # r4: fourth. r3: third. r1: first.", "r2"),
+            "edited": ("release: 4  # r4: fourth. r3: third. r2: revised. r1: first.", "r2"),
+            "reordered": ("release: 4  # r4: fourth. r2: second. r3: third. r1: first.", "r2"),
+            "off-line": ("release: 4  # r4: fourth.\n# " + original, "r3"),
+            "trailing-text": ("release: 4  # r4: fourth. " + original + " extra", "r1"),
+            "whitespace": ("release: 4  # r4: fourth. r3: third. r2:  second. r1: first.", "r2"),
+            "comment-only": ("release: 3  # r3: third. r2: revised. r1: first.", "r2"),
+            "embedded-label": ("release: 4  # r4: fourth. not-" + original, "r3"),
+        }
+        for shape, (line, label) in cases.items():
+            with self.subTest(shape=shape):
+                self._commit("release: 3  # " + original)
+                self._commit(line)
+                violations = self._range()
+                self.assertEqual(len(violations), 1)
+                self.assertIn("packages/core/demo/package.yml", violations[0])
+                self.assertIn("commit ", violations[0])
+                self.assertIn("first differing label " + label, violations[0])
+                self.assertIn("byte-exact suffix", violations[0])
+
+    def test_prepended_head_retains_exact_older_notes(self):
+        for old in ("r3: third. r2: second. r1: first.",
+                    "r3: third.  # r2: second.  # r1: first.",
+                    "r3: third. r2 (1): second. r1: first.",
+                    "r3: third. r2: earlier. r2: second. r1: first."):
+            with self.subTest(chain=old):
+                self._commit("release: 3  # " + old)
+                self._commit("release: 4  # r4: fourth. " + old)
+                self.assertEqual(self._range(), [])
+
+    def test_comment_only_edit_honors_no_gate(self):
+        self._commit("release: 3  # r3: original. r2: old.")
+        self._commit("release: 3  # r3: corrected.",
+                     msg="docs: correction\n\nNO-GATE: deliberate note correction")
+        self.assertEqual(self._range(), [])
+
+    def test_untouched_legacy_chain_on_a_changed_recipe_passes(self):
+        self._commit("release: 130  # r109: legacy")
+        path = self.yml / "package.yml"
+        path.write_text(path.read_text().replace("version: 1.0", "version: 2.0"))
+        self._git("add", str(path))
+        self._git("commit", "-q", "-m", "chore: version only")
+        self.assertEqual(self._range(), [])
+
+    def test_merge_resolution_checks_the_first_parent_chain(self):
+        for index, accepted in enumerate((False, True)):
+            with self.subTest(accepted=accepted):
+                self._commit("release: 3  # r3: old.")
+                side = f"side-{index}"
+                self._git("branch", side)
+                self._commit("release: 4  # r4: main. r3: old.")
+                self._git("checkout", side)
+                self._commit("release: 4  # r4: side. r3: old.")
+                self._git("checkout", "-")
+                merge = subprocess.run(
+                    ["git", "-C", self.repo, "merge", "--no-commit", side],
+                    capture_output=True, text=True)
+                self.assertEqual(merge.returncode, 1, merge.stdout + merge.stderr)
+                older = "old." if accepted else "changed."
+                self._commit("release: 5  # r5: merge. r4: main. r3: " + older)
+                violations = self._range()
+                if accepted:
+                    self.assertEqual(violations, [])
+                else:
+                    self.assertEqual(len(violations), 1)
+                    self.assertIn("first differing label r3", violations[0])
+
+    def test_a_previously_unlabelled_chain_can_start(self):
+        self._commit("release: 3  ")
+        self._commit("release: 4  # r4: first documented change.")
         self.assertEqual(self._range(), [])
 
     # -- lockstep with the bump script -------------------------------------

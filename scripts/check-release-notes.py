@@ -10,10 +10,10 @@ forge likewise, plus an 87-package no-note class.
 
 This gate makes the class structurally impossible going FORWARD without
 prejudging the legacy back-fill decision: it evaluates only commits that
-CHANGE a `release:` value and never fires on untouched chains, so the
-existing backlog does not block pushes — but every NEW bump must carry its
-note in the same commit, exactly the discipline that keeps the chain an
-honest record instead of a curated one.
+CHANGE a `release:` value or its inline comment and never fires on
+untouched chains. Every new bump must carry its note in the same commit;
+every changed line must retain its previous note chain as a byte-exact
+suffix of the inline comment. Older labels and text stay on that line.
 
 Per-commit evaluation: for every commit in the range whose body carries no
 `NO-GATE:` override, every packages/*/*/package.yml whose `release:` value
@@ -21,7 +21,8 @@ changed must carry, on that same line, an inline comment whose chain HEAD
 label is `r<new-release>:`. A brand-new package at release 1 is exempt
 (nothing to chronicle yet). Merge commits are evaluated too, against their
 combined diff — see check_range for why that closes a measured hole without
-firing on ordinary merges.
+firing on ordinary merges. Comment-only edits also preserve the old chain;
+NO-GATE remains the explicit override for a deliberate history correction.
 """
 
 import argparse
@@ -38,6 +39,7 @@ RELEASE_RE = re.compile(
 HEAD_LABEL_RE = re.compile(r'#[^\S\n]*r(\d+)[^\S\n]*:')
 
 PKG_YML_RE = re.compile(r'^packages/[^/]+/[^/]+/package\.yml$')
+NOTE_LABEL_RE = re.compile(r'(?<!\S)r\d+(?: \(\d+\))?:')
 
 
 def _git(repo, *args):
@@ -63,6 +65,41 @@ def parse_release_line(text):
     return int(m.group(2)), m.group(3)
 
 
+
+def changed_older_label(old_comment, new_comment):
+    """First changed historical label, or None for an intact inline suffix.
+
+    The comment introducer and its padding are not part of a note. Keep
+    all bytes after that introducer, including separators and trailing space.
+    """
+    old = (old_comment or '').partition('#')[2].lstrip(' \t')
+    new = (new_comment or '').partition('#')[2].lstrip(' \t')
+    if not old:
+        return None
+    before = list(NOTE_LABEL_RE.finditer(old))
+    after = list(NOTE_LABEL_RE.finditer(new))
+    old_labels = [m.group() for m in before]
+    new_labels = [m.group() for m in after]
+    if new.endswith(old) and (not old_labels or new_labels[-len(old_labels):] == old_labels):
+        return None
+    if not before:
+        return "unlabelled note"
+    try:
+        start = new_labels.index(old_labels[0])
+    except ValueError:
+        return old_labels[0].removesuffix(':')
+    for i, match in enumerate(before):
+        j = start + i
+        label = match.group().removesuffix(':')
+        if j >= len(after) or after[j].group() != match.group():
+            return label
+        old_end = before[i + 1].start() if i + 1 < len(before) else len(old)
+        new_end = after[j + 1].start() if j + 1 < len(after) else len(new)
+        if old[match.start():old_end] != new[after[j].start():new_end]:
+            return label
+    return old_labels[-1].removesuffix(':')
+
+
 def check_commit(repo, sha):
     """Violations this commit introduces (empty list = clean)."""
     violations = []
@@ -81,22 +118,32 @@ def check_commit(repo, sha):
         if new_rel is None:
             continue  # no release line is preflight-tier territory, not ours
         old_text = _show(repo, f"{sha}^", path)
-        old_rel, _ = parse_release_line(old_text) if old_text else (None, None)
-        if new_rel == old_rel:
-            continue  # release untouched — legacy chains never fire the gate
+        old_rel, old_comment = parse_release_line(old_text) if old_text else (None, None)
+        if new_rel == old_rel and comment == old_comment:
+            continue  # value and inline comment untouched: leave legacy chains alone
         if old_rel is None and new_rel == 1:
             continue  # brand-new package at release 1: nothing to chronicle
-        head = HEAD_LABEL_RE.search(comment or "")
-        if head is None:
-            violations.append(
-                f"{path} (commit {sha[:9]}): release moved "
-                f"{old_rel}->{new_rel} but the line carries no `# r{new_rel}:` "
-                f"note — the chain head must ride the same commit")
-        elif int(head.group(1)) != new_rel:
-            violations.append(
-                f"{path} (commit {sha[:9]}): release moved "
-                f"{old_rel}->{new_rel} but the chain head still reads "
-                f"r{head.group(1)} — write the r{new_rel} note at the head")
+        previous_count = len(violations)
+        if new_rel != old_rel:
+            head = HEAD_LABEL_RE.search(comment or "")
+            if head is None:
+                violations.append(
+                    f"{path} (commit {sha[:9]}): release moved "
+                    f"{old_rel}->{new_rel} but the line carries no `# r{new_rel}:` "
+                    f"note — the chain head must ride the same commit")
+            elif int(head.group(1)) != new_rel:
+                violations.append(
+                    f"{path} (commit {sha[:9]}): release moved "
+                    f"{old_rel}->{new_rel} but the chain head still reads "
+                    f"r{head.group(1)} — write the r{new_rel} note at the head")
+        label = changed_older_label(old_comment, comment)
+        if label is not None:
+            detail = (f"older notes must remain a byte-exact suffix of the release "
+                      f"line's inline comment; first differing label {label}")
+            if len(violations) > previous_count:
+                violations[-1] += "; " + detail
+            else:
+                violations.append(f"{path} (commit {sha[:9]}): {detail}")
     return violations
 
 
@@ -143,7 +190,7 @@ def main():
             print(f"  {v}")
         print("  A machine bump owns the number; the note is yours — add the"
               " matching `# rNN:` label at the chain head in the SAME commit,"
-              " or NO-GATE with a reason.")
+              " keep every older note unchanged on that line, or NO-GATE with a reason.")
         return 1
     print("release-note chain gate: PASS")
     return 0
