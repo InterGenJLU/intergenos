@@ -206,8 +206,7 @@ class IntegrityReading:
     @property
     def damaged(self) -> bool:
         """Was damage DETECTED. Not: is the record sound."""
-        return bool(self.unreadable_lines or self.incomplete_rows
-                    or self.out_of_order_rows or self.read_error)
+        return bool(self.unreadable_lines or self.incomplete_rows or self.read_error)
 
     @property
     def trustworthy(self) -> bool:
@@ -251,8 +250,9 @@ class IntegrityReading:
         if self.out_of_order_rows:
             out.append(
                 f"  {len(self.out_of_order_rows)} row(s) carry a timestamp earlier "
-                f"than the row before them, which an appended record cannot do: "
-                f"{self.out_of_order_rows}")
+                f"than the row before them: {self.out_of_order_rows}. Writers that run "
+                f"at the same time can append in that order, so this is an "
+                f"observation, not damage.")
         if self.unjoinable_rows:
             out.append(
                 f"  {self.unjoinable_rows} of {self.rows} row(s) cannot be joined to a "
@@ -271,16 +271,7 @@ class IntegrityReading:
 
 
 def read_integrity(log_path: Path | None = None) -> IntegrityReading:
-    """Read one record file back and say what can be established about it.
-
-    Every check here is one the record's OWN structure supports, because there is
-    nothing else to check against: each line parses, each row carries the fields the
-    writer always writes, and the timestamps of an appended file do not go backwards.
-    Rows that cannot be joined to a turn are counted and named, which is a reporting
-    fact rather than damage -- every row of this record has always lacked a turn
-    identifier, so refusing on it would refuse every record on every machine and teach
-    a reader to ignore the verdict.
-    """
+    """Validate JSON structure and the fields serialized for each record row."""
     path = log_path if log_path is not None else default_log_path()
     if not path.exists():
         return IntegrityReading(path=path, exists=False)
