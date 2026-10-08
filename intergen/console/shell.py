@@ -509,8 +509,7 @@ class ConsoleShell:
         elif cmd == "/help":
             self._show_help()
         elif cmd == "/clear":
-            self._messages.clear()
-            self._add_message("system", "Chat cleared.", "")
+            await self._request_clear()
         elif cmd == "/new":
             if self._client:
                 await self._client.send({"type": "new_session", "session_id": ""})
@@ -614,11 +613,33 @@ class ConsoleShell:
         else:
             self._add_message("system", f"Unknown command: {cmd}. Type /help for commands.", "")
 
+    async def _request_clear(self) -> None:
+        """Ask the server to clear the conversation's buffer; the pane follows.
+
+        The model's buffer and the offers staged in it live on the server.
+        Emptying only this pane left them there, so a bare "yes" typed next
+        took up an offer the person could no longer see. The pane is emptied
+        on the server's buffer_cleared frame, so it never shows a clear the
+        server did not make.
+        """
+        if not self._client or not self._client.connected:
+            self._add_message(
+                "system", "Not connected to InterGen: nothing was cleared.",
+                "error")
+            return
+        try:
+            await self._client.send_slash_command("/clear")
+        except OSError as exc:
+            self._add_message(
+                "system",
+                f"Could not reach InterGen: nothing was cleared ({exc}).",
+                "error")
+
     def _show_help(self) -> None:
         help_text = (
             "InterGen Console — Slash Commands\n"
             "  /new           Start a new conversation\n"
-            "  /clear         Clear the chat display\n"
+            "  /clear         Clear the chat and the model's buffer of it\n"
             "  /model         Switch model tier (small/medium/large)\n"
             "  /health        Show system health report\n"
             "  /governance    Show governance dashboard\n"
@@ -738,6 +759,13 @@ class ConsoleShell:
             self._gate_pending = None
             decision = msg.get("decision", "?")
             self._add_message("system", f"Gate decision: {decision}", "gate")
+
+        elif msg_type == "buffer_cleared":
+            # The server emptied the conversation's buffer and withdrew the
+            # offers staged in it: the pane follows the server, never leads it.
+            self._messages.clear()
+            self._add_message("system",
+                              "Chat cleared, and the model's buffer with it.", "")
 
         elif msg_type == "tool_executed":
             tool = msg.get("tool_name", "?")
