@@ -48,7 +48,9 @@ from __future__ import annotations
 
 import asyncio
 import unittest
+from unittest import mock
 
+from intergen import web_server as ws_mod
 from intergen.interfaces.provenance import Provenance
 from intergen.interfaces.types import ToolCall
 from intergen.web_server import ConnectionContext, WebServer
@@ -181,6 +183,35 @@ class GateDecisionNamesItsCardTests(unittest.TestCase):
             f"card; got aaa={obs['verdicts']['aaa']!r} with gate_resolved "
             f"frames {obs['resolved']!r}",
         )
+
+
+class ACardThatTimesOutIsResolvedOnceTests(unittest.TestCase):
+
+    def test_a_timed_out_card_sends_one_resolution_frame_with_its_reason(self):
+        async def go():
+            server = WebServer()
+            ws = _RecordingWS()
+            ctx = ConnectionContext(
+                client_id="zz192-p1-03", source_interface="web", ws=ws,
+            )
+            with mock.patch.object(ws_mod, "_REVIEW_CARD_TIMEOUT_S", 0.05):
+                verdict = await asyncio.wait_for(
+                    server._evaluate_tool_with_gate(ctx, "turn-t",
+                                                    _call("timed")),
+                    timeout=5)
+            return verdict, ws, ctx
+
+        verdict, ws, ctx = asyncio.run(go())
+        resolved = [m for m in ws.frames("gate_resolved")
+                    if m.get("tool_call_id") == "timed"]
+        self.assertEqual(verdict, "denied")
+        self.assertEqual(
+            len(resolved), 1,
+            f"a card that timed out was resolved {len(resolved)} times: "
+            f"{resolved!r}")
+        self.assertEqual(resolved[0].get("decision"), "deny")
+        self.assertIn("timed out", resolved[0].get("reason", ""))
+        self.assertNotIn("timed", ctx.open_gates)
 
 
 if __name__ == "__main__":

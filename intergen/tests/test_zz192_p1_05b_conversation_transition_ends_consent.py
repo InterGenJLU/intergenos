@@ -32,6 +32,8 @@ from unittest import mock
 
 from intergen.interfaces.provenance import Provenance, ToolRiskTier
 from intergen.interfaces.types import ToolCall
+from intergen.tool_registry import ToolRegistry
+from intergen.tools.read_file import ReadFileTool
 from intergen.web_server import ConnectionContext, WebServer
 
 
@@ -221,6 +223,62 @@ class AConversationThatEndsTakesItsConsentWithItTests(unittest.TestCase):
             self.assertIn("session_created", _frames(ws))
 
         asyncio.run(go())
+
+
+class ACardRaisedByAUserInvokedToolTests(unittest.TestCase):
+    """/file raises its card inside the tool's own detached task.
+
+    The cases above raise their card as a task of its own, the way the model's
+    cards run. A card raised by a user-invoked tool — /file, here — runs inside
+    the one task the slash command detached for the tool, and the boundary
+    cancels that very task. A cancelled waiter never reaches its own send, so
+    the boundary itself must send the card's resolution frame, with its reason,
+    before it cancels anything.
+    """
+
+    def test_the_boundary_resolves_a_file_card_with_its_reason(self):
+        async def go():
+            registry = ToolRegistry()
+            registry.register(ReadFileTool())
+            server, ws = _server(), _RecordingWS()
+            server._tools = registry
+            ctx = _ctx(ws)
+            with mock.patch.object(registry, "execute",
+                                   wraps=registry.execute) as execute:
+                await server._handle_slash_command(
+                    ctx, {"command": "/file", "path": "/etc/hostname"})
+                for _ in range(100):
+                    if ctx.open_gates:
+                        break
+                    await asyncio.sleep(0)
+                self.assertEqual(len(ctx.open_gates), 1,
+                                 "the /file card never registered its waiter")
+                card_id = next(iter(ctx.open_gates))
+                detached = list(ctx.tool_tasks)
+
+                await server._handle_slash_command(ctx, {"command": "/new"})
+                await asyncio.gather(*detached, return_exceptions=True)
+            return ws, ctx, card_id, execute
+
+        ws, ctx, card_id, execute = asyncio.run(go())
+        resolved = [f for f in ws.sent if f.get("type") == "gate_resolved"
+                    and f.get("tool_call_id") == card_id]
+        self.assertEqual(
+            len(resolved), 1,
+            f"the /file card denied by the boundary was sent {len(resolved)} "
+            f"resolution frames; frames: {_frames(ws)}")
+        self.assertEqual(resolved[0].get("decision"), "deny")
+        self.assertTrue(
+            resolved[0].get("reason"),
+            "the card's resolution does not say the boundary denied it")
+        frames = _frames(ws)
+        self.assertLess(
+            frames.index("gate_resolved"), frames.index("session_created"),
+            "the card was resolved after the new conversation began")
+        self.assertEqual(ctx.gate_end_reasons, {},
+                         "the boundary's reason was left behind on the "
+                         "connection")
+        execute.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -85,6 +85,9 @@ DEFAULT_PORT = 8089
 # correctness regardless. See docs/architecture/intergen-perceived-latency-design.md.
 _SLOW_TOOL_THRESHOLD_S = 5.0
 
+# How long a review card waits for the person before it reports a denial.
+_REVIEW_CARD_TIMEOUT_S = 300.0
+
 # Outer ceiling for the gate bridge (_make_web_review_callback): the worker
 # thread blocks on the async card up to this long. Set just ABOVE the card's own
 # 300 s await so the INNER timeout fires first and returns a clean "denied"
@@ -1881,8 +1884,8 @@ class WebServer:
         # switch is carried out. A switch that left them alive let a decision
         # taken in the session switched TO authorise an action belonging to the
         # session switched FROM.
-        self._end_conversation_work(ctx, "the conversation this card belonged "
-                                          "to was left")
+        await self._end_conversation_work(
+            ctx, "the conversation this card belonged to was left")
         if ctx.session_history:
             try:
                 self._sessions.save(
@@ -1923,8 +1926,8 @@ class WebServer:
         })
         await self._send_session_list(ctx)
 
-    def _end_conversation_work(self, ctx: ConnectionContext,
-                                reason: str) -> tuple[int, int]:
+    async def _end_conversation_work(self, ctx: ConnectionContext,
+                                      reason: str) -> tuple[int, int]:
         """Deny every review card still open and cancel the work the ending
         conversation detached. Returns (cards denied, tasks cancelled).
 
@@ -1936,38 +1939,53 @@ class WebServer:
         conversation still resolved it: consent given for an action the person had
         already walked away from, executed in a conversation that never asked.
 
-        Synchronous on purpose. It removes each card from open_gates BEFORE
-        resolving its waiter and never awaits, so there is no point between the
-        two at which a decision frame could still find the card — the invariant
-        does not depend on when the waiters happen to be rescheduled. Each waiter
-        then sends its own single resolution frame, carrying the reason recorded
-        here, which is the frame both clients already act on.
+        Three steps, in this order. First, with no await anywhere among them,
+        each card leaves open_gates, its reason is recorded and its waiter is
+        resolved deny, so there is no point at which a decision frame could
+        still find it. Then each of those cards' resolution frames is sent from
+        HERE, carrying the reason, which is the frame both clients act on.
+        Only then is the detached work cancelled. The frame cannot be left to
+        the card's own waiter: a card a user-invoked tool raised (/file) runs
+        inside that tool's task, one of the tasks cancelled below, and a
+        cancelled waiter never reaches its send — the page was left with a live
+        card and the reason was never delivered. A waiter that does run on finds
+        its reason recorded and sends nothing more. The cancel is in a finally,
+        so a send that fails cannot leave the work running.
         """
-        denied = 0
+        ended: list[str] = []
         for tool_call_id, future in list(ctx.open_gates.items()):
             ctx.open_gates.pop(tool_call_id, None)
             if future.done():
                 continue
             ctx.gate_end_reasons[tool_call_id] = reason
             future.set_result("deny")
-            denied += 1
+            ended.append(tool_call_id)
 
         cancelled = 0
-        for task in list(ctx.tool_tasks):
-            if not task.done():
-                task.cancel()
+        try:
+            for tool_call_id in ended:
+                await ctx.ws.send_json({
+                    "type": "gate_resolved",
+                    "tool_call_id": tool_call_id,
+                    "decision": "deny",
+                    "reason": reason,
+                })
+        finally:
+            for task in list(ctx.tool_tasks):
+                if not task.done():
+                    task.cancel()
+                    cancelled += 1
+            if ctx.turn_task is not None and not ctx.turn_task.done():
+                ctx.turn_task.cancel()
                 cancelled += 1
-        if ctx.turn_task is not None and not ctx.turn_task.done():
-            ctx.turn_task.cancel()
-            cancelled += 1
 
-        if denied or cancelled:
+        if ended or cancelled:
             logger.info(
                 "Conversation boundary (%s): denied %d pending card(s), "
                 "cancelled %d detached task(s) (client=%s, session=%s)",
-                reason, denied, cancelled, ctx.client_id,
+                reason, len(ended), cancelled, ctx.client_id,
                 ctx.current_session_id)
-        return denied, cancelled
+        return len(ended), cancelled
 
     async def _handle_new_session(self, ctx: ConnectionContext,
                                     data: dict[str, Any]) -> None:
@@ -1978,8 +1996,8 @@ class WebServer:
         # detached work of the conversation that is ending stop here. Doing it
         # first means no window exists in which the old conversation's consent is
         # still answerable while the new one is being set up.
-        self._end_conversation_work(ctx, "the conversation this card belonged "
-                                          "to was ended")
+        await self._end_conversation_work(
+            ctx, "the conversation this card belonged to was ended")
         if ctx.session_history:
             try:
                 self._sessions.save(
@@ -3018,32 +3036,35 @@ class WebServer:
         # Send gate prompt to client
         await ctx.ws.send_json(gate_prompt_msg)
 
+        _timeout_reason = ""
         try:
             user_decision = await asyncio.wait_for(
-                future, timeout=300.0  # 5 minute gate timeout
-            )
+                future, timeout=_REVIEW_CARD_TIMEOUT_S)
         except asyncio.TimeoutError:
             user_decision = "deny"
-            await ctx.ws.send_json({
-                "type": "gate_resolved",
-                "tool_call_id": tool_call_id,
-                "decision": "deny",
-                "reason": "Gate prompt timed out after 5 minutes.",
-            })
+            # Carried on the card's one resolution frame below. This branch
+            # used to send a frame of its own and then fall through to the
+            # ordinary one, so a card that timed out was resolved twice, the
+            # second time without its reason.
+            _timeout_reason = "Gate prompt timed out after 5 minutes."
         finally:
             ctx.open_gates.pop(tool_call_id, None)
+            # Popped here, on every exit, so a card whose task the boundary
+            # cancels does not leave its reason behind on the connection.
+            _end_reason = ctx.gate_end_reasons.pop(tool_call_id, "")
 
-        # Send resolved message. When something other than the person ended this
-        # card — a conversation boundary — its reason rides the same frame, so a
-        # "denied" they did not type does not read as one they did.
+        if _end_reason:
+            # A conversation boundary ended this card and has already sent its
+            # resolution frame with this reason (_end_conversation_work), so a
+            # "denied" the person did not type does not read as one they did.
+            return "denied"
         resolved_msg = {
             "type": "gate_resolved",
             "tool_call_id": tool_call_id,
             "decision": user_decision,
         }
-        _end_reason = ctx.gate_end_reasons.pop(tool_call_id, "")
-        if _end_reason:
-            resolved_msg["reason"] = _end_reason
+        if _timeout_reason:
+            resolved_msg["reason"] = _timeout_reason
         await ctx.ws.send_json(resolved_msg)
 
         return ("approved"
