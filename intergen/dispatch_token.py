@@ -387,6 +387,17 @@ class InstallOwnerUnresolved(Exception):
     """
 
 
+class SecretIdentityUnreadable(Exception):
+    """A secret file's identity could not be read, and the file is not absent.
+
+    Only a file that does not exist contributes nothing to the identity leg. Any
+    other failure to stat one (a directory on its path that cannot be searched, a
+    loop of links, an I/O error) leaves the boundary unable to tell that file
+    from a second name for it, so the boundary refuses instead of comparing
+    against a set that is missing it.
+    """
+
+
 def opened_file_refusal_text(reason: str) -> str:
     """The sentence a consumer returns when it refuses one of these files.
 
@@ -457,12 +468,13 @@ def secret_file_identities() -> dict[tuple[int, int], str]:
 
     This leg speaks only for the files of THIS install, since it has to resolve
     them to stat them; the tail comparison above is what covers a staged install
-    or a test under another base. A file that does not exist contributes nothing:
-    an install before its first run has no key to protect yet.
+    or a test under another base. Only a file that does not exist contributes
+    nothing (its path, or a directory on it, is not there): an install before its
+    first run has no key to protect yet.
 
-    An owner that cannot be resolved is different from a file that does not
-    exist, and raises InstallOwnerUnresolved: an empty set in its place would
-    certify every object as safe.
+    Any other failure to stat a secret file raises SecretIdentityUnreadable, and
+    an owner that cannot be resolved raises InstallOwnerUnresolved. Either way an
+    empty entry in its place would certify a second name for that file as safe.
     """
     identities: dict[tuple[int, int], str] = {}
     try:
@@ -470,10 +482,13 @@ def secret_file_identities() -> dict[tuple[int, int], str]:
     except (KeyError, ValueError, OSError) as exc:
         raise InstallOwnerUnresolved(str(exc)) from exc
     for relative, reason in SECRET_RELATIVE_PATHS.items():
+        path = home.joinpath(*relative)
         try:
-            st = home.joinpath(*relative).stat()
-        except OSError:
+            st = path.stat()
+        except (FileNotFoundError, NotADirectoryError):
             continue
+        except OSError as exc:
+            raise SecretIdentityUnreadable(f"{path}: {exc.strerror or exc}") from exc
         identities[(st.st_dev, st.st_ino)] = reason
     return identities
 
@@ -513,6 +528,11 @@ def open_descriptor_secret_reason(fd: int) -> str | None:
             "a file this install cannot compare with its own secret files, "
             f"because the account that owns them could not be established "
             f"({exc})"
+        )
+    except SecretIdentityUnreadable as exc:
+        return (
+            "a file this install cannot compare with its own secret files, "
+            f"because the identity of one of them could not be read ({exc})"
         )
     reason = identities.get((st.st_dev, st.st_ino))
     if reason is not None:
