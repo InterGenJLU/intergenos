@@ -38,6 +38,7 @@ service, a socket, a model server or a display.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import tempfile
 import unittest
@@ -382,6 +383,155 @@ class TheSecretFilesAreRefusedAtTheFileBoundary(unittest.TestCase):
             "request at all",
         )
         self._assert_refused(result, "a parent-directory spelling given to analyze_file")
+
+
+class UnderThePrivilegedRunnerTheOwnerIsTheAccountThatAsked(unittest.TestCase):
+    """The identity leg, and write_file's own home, when the tool runs as root.
+
+    An approved write_file runs inside the privileged runner, as root, with
+    HOME=/root and the asking account reported in PKEXEC_UID. The boundary used
+    to resolve the install's secret files under the home of the process's own
+    account, which there is root's: a second name for the owner's key was then
+    nothing it recognised, and a write through it returned the key in the diff
+    and replaced it.
+
+    Root is simulated rather than obtained: the uid is reported as 0, PKEXEC_UID
+    names the fixture's owner, and the password database answers per uid, with
+    a throwaway directory standing in for root's home. A real root run asks a
+    person to authenticate, which a cell must never do. The signed never-list is
+    pinned ABSENT, as in the write cell above, so what is measured is this
+    package's own checks.
+    """
+
+    OWNER_UID = 4242
+    OTHER_UID = 4343
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.owner_home = self.tmp / "owner"
+        self.root_home = self.tmp / "root-home"
+        self.root_home.mkdir()
+        self.key_path = self.owner_home / ".config" / "intergen" / "dispatch-key"
+        self.key = dt.generate_dispatch_key(self.key_path)
+        self.tool = write_file_tool.WriteFileTool()
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def _passwd(self, unknown: frozenset = frozenset()):
+        homes = {0: self.root_home, self.OWNER_UID: self.owner_home}
+
+        def getpwuid(uid: int):
+            if uid in unknown or uid not in homes:
+                raise KeyError(f"getpwuid(): uid not found: {uid}")
+            return mock.Mock(pw_dir=str(homes[uid]), pw_uid=uid)
+
+        fake = mock.MagicMock()
+        fake.getpwuid.side_effect = getpwuid
+        return mock.patch.object(dt, "pwd", fake)
+
+    def _as(self, uid: int, *, pkexec_uid: str, unknown=frozenset()):
+        """A context that reports `uid` as this process's own account."""
+        env = {"HOME": str(self.root_home if uid == 0 else self.owner_home),
+               "PKEXEC_UID": pkexec_uid}
+        stack = contextlib.ExitStack()
+        stack.enter_context(mock.patch("os.getuid", return_value=uid))
+        stack.enter_context(mock.patch.dict(os.environ, env))
+        stack.enter_context(self._passwd(unknown))
+        stack.enter_context(mock.patch.object(write_file_tool, "_policy_loaded", True))
+        stack.enter_context(mock.patch.object(write_file_tool, "_policy_cache", None))
+        return stack
+
+    def test_a_second_name_for_the_owners_key_is_refused_when_write_file_runs_as_root(
+            self) -> None:
+        """The review's measured route: a hard link, written through as root."""
+        second_name = self.owner_home / "notes.txt"
+        os.link(self.key_path, second_name)
+        with self._as(0, pkexec_uid=str(self.OWNER_UID)):
+            result = self.tool.execute({"path": str(second_name),
+                                        "content": "overwritten\n"})
+        self.assertNotIn(
+            self.key, result.content or "",
+            "the old bytes of the owner's signing key came back in write_file's "
+            "diff when it ran as root",
+        )
+        self.assertFalse(result.success, f"content was {result.content!r}")
+        self.assertEqual(
+            result.content,
+            dt.opened_file_refusal_text(dt.SECRET_RELATIVE_PATHS[dt.KEY_RELATIVE_PATH]),
+            "the refusal must be the identity leg's, naming the signing key",
+        )
+        self.assertEqual(self.key_path.read_text(), self.key,
+                         "the owner's signing key was replaced through a second "
+                         "name by a write that ran as root")
+
+    def test_a_home_relative_path_is_written_in_the_owners_home_not_roots(
+            self) -> None:
+        """The same wrong account in write_file's own expansion of ~."""
+        with self._as(0, pkexec_uid=str(self.OWNER_UID)):
+            result = self.tool.execute({"path": "~/fresh.txt",
+                                        "content": "hello\n"})
+        self.assertTrue(result.success, f"content was {result.content!r}")
+        self.assertFalse(
+            (self.root_home / "fresh.txt").exists(),
+            "an approved ~/fresh.txt was written in root's home, which is not "
+            "the home the person approved",
+        )
+        self.assertEqual((self.owner_home / "fresh.txt").read_text(), "hello\n")
+
+    def test_the_floor_protects_the_owners_config_when_write_file_runs_as_root(
+            self) -> None:
+        """The AI-immutable floor's home anchor, on the root side."""
+        target = self.owner_home / ".config" / "intergen" / "providers.yaml"
+        with self._as(0, pkexec_uid=str(self.OWNER_UID)):
+            tier = self.tool.classify_safety({"path": str(target)})
+            result = self.tool.execute({"path": str(target),
+                                        "content": "provider: elsewhere\n"})
+        self.assertEqual(
+            tier, SafetyTier.BLOCKED,
+            "the owner's own intergen config is AI-immutable in every context, "
+            "and the root side re-classifies before it executes",
+        )
+        self.assertFalse(result.success, f"content was {result.content!r}")
+        self.assertFalse(target.exists(),
+                         "a write into the owner's intergen config ran as root")
+
+    def test_an_owner_that_cannot_be_established_refuses_instead_of_guessing(
+            self) -> None:
+        """Fail closed: no owner means no comparison, never an empty set."""
+        ordinary = self.owner_home / "ordinary.txt"
+        ordinary.write_text("before\n", encoding="utf-8")
+        cases = (
+            ("a PKEXEC_UID that is not a number", "not-a-number", frozenset()),
+            ("an owner the password database does not know",
+             str(self.OTHER_UID), frozenset({self.OTHER_UID})),
+        )
+        for label, pkexec_uid, unknown in cases:
+            with self.subTest(label):
+                with self._as(0, pkexec_uid=pkexec_uid, unknown=unknown):
+                    with self.assertRaises(dt.InstallSecretRefused) as refused:
+                        fd = dt.opened_refusing_install_secrets(
+                            ordinary, os.O_RDONLY | os.O_CLOEXEC)
+                        os.close(fd)
+                    result = self.tool.execute({"path": str(ordinary),
+                                                "content": "after\n"})
+                self.assertIn("could not be established", refused.exception.reason)
+                self.assertFalse(result.success, f"content was {result.content!r}")
+                self.assertIn("could not be established", result.content or "")
+                self.assertEqual(ordinary.read_text(), "before\n")
+
+    def test_pkexec_uid_moves_nothing_in_a_process_that_is_not_root(self) -> None:
+        """The control: outside root, PKEXEC_UID is ordinary environment."""
+        second_name = self.owner_home / "notes.txt"
+        os.link(self.key_path, second_name)
+        with self._as(self.OWNER_UID, pkexec_uid="0"):
+            home = dt._owning_home()
+            with self.assertRaises(dt.InstallSecretRefused):
+                fd = dt.opened_refusing_install_secrets(
+                    second_name, os.O_RDONLY | os.O_CLOEXEC)
+                os.close(fd)
+        self.assertEqual(home, self.owner_home)
 
 
 if __name__ == "__main__":

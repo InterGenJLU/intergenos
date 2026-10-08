@@ -214,15 +214,54 @@ def dispatch_key_path(home: Path | None = None) -> Path:
 
 
 def _owning_home() -> Path:
-    """The home directory of the account this process runs as.
+    """The home directory of the account that owns this install's files.
 
     Resolved through the password database rather than HOME, for the reason
     dispatch_key_path above states: a stripped or forged HOME in the daemon's
     environment must not be able to move where the install's own files are
     believed to live. One function, so the mint side and the file boundary below
     cannot come to different answers.
+
+    Under the privileged runner the process runs as root, and root's home is not
+    where the install keeps its files. An approved privileged tool runs there,
+    and the runner reports the account that asked for it in PKEXEC_UID, so that
+    account's home is the answer, as dispatch_key_path_for_user already gives
+    the verify side. PKEXEC_UID is believed only in a process that runs as root,
+    where the runner is what set it; in any other process it is ordinary
+    environment, and believing it would let a caller move the answer. A value
+    that is not a number raises instead of falling back to root's own home,
+    because that fallback is exactly the wrong account.
     """
-    return Path(pwd.getpwuid(os.getuid()).pw_dir)
+    uid = os.getuid()
+    if uid == 0 and "PKEXEC_UID" in os.environ:
+        uid = int(os.environ["PKEXEC_UID"])
+    return Path(pwd.getpwuid(uid).pw_dir)
+
+
+def expanduser_for_install_owner(text: str) -> Path:
+    """`Path(text).expanduser()`, with a bare ~ read as the install owner's home.
+
+    A tool path written as ~ or ~/... means the home of the person who asked for
+    it. expanduser answers from HOME, and the privileged runner sets HOME=/root,
+    so in the root context an approved "~/.bashrc" would be written in root's
+    home instead of the one the person approved. Under the runner a bare ~ is
+    therefore read from `_owning_home`; everywhere else expanduser already
+    answers for the same account and its answer is kept. A ~name spelling names
+    its account outright and is left to expanduser.
+
+    Raises InstallOwnerUnresolved under the runner when the owner cannot be
+    established, rather than guessing a home.
+    """
+    if (os.getuid() == 0 and "PKEXEC_UID" in os.environ
+            and (text == "~" or text.startswith("~/"))):
+        try:
+            home = str(_owning_home()).rstrip("/")
+        except (KeyError, ValueError) as exc:
+            raise InstallOwnerUnresolved(str(exc)) from exc
+        # Joined as text, the way expanduser joins, so "~//etc" stays under the
+        # home instead of becoming an absolute path of its own.
+        return Path((home + text[1:]) or "/")
+    return Path(text).expanduser()
 
 
 def secret_file_reason(candidate: object) -> str | None:
@@ -334,6 +373,15 @@ class InstallSecretRefused(Exception):
         self.reason = reason
 
 
+class InstallOwnerUnresolved(Exception):
+    """The account that owns this install could not be established.
+
+    Without it the identity leg below has no secret files to compare against,
+    and an empty answer would read as "nothing here is a secret". The boundary
+    therefore treats this as a reason to refuse, never as an empty set.
+    """
+
+
 def opened_file_refusal_text(reason: str) -> str:
     """The sentence a consumer returns when it refuses one of these files.
 
@@ -391,12 +439,16 @@ def secret_file_identities() -> dict[tuple[int, int], str]:
     them to stat them; the tail comparison above is what covers a staged install
     or a test under another base. A file that does not exist contributes nothing:
     an install before its first run has no key to protect yet.
+
+    An owner that cannot be resolved is different from a file that does not
+    exist, and raises InstallOwnerUnresolved: an empty set in its place would
+    certify every object as safe.
     """
     identities: dict[tuple[int, int], str] = {}
     try:
         home = _owning_home()
-    except (KeyError, OSError):
-        return identities
+    except (KeyError, ValueError, OSError) as exc:
+        raise InstallOwnerUnresolved(str(exc)) from exc
     for relative, reason in SECRET_RELATIVE_PATHS.items():
         try:
             st = home.joinpath(*relative).stat()
@@ -434,7 +486,15 @@ def open_descriptor_secret_reason(fd: int) -> str | None:
             "a file whose identity this install could not establish "
             f"({exc}), so its own secret files cannot be ruled out"
         )
-    reason = secret_file_identities().get((st.st_dev, st.st_ino))
+    try:
+        identities = secret_file_identities()
+    except InstallOwnerUnresolved as exc:
+        return (
+            "a file this install cannot compare with its own secret files, "
+            f"because the account that owns them could not be established "
+            f"({exc})"
+        )
+    reason = identities.get((st.st_dev, st.st_ino))
     if reason is not None:
         return reason
     if canonical is None:

@@ -60,13 +60,23 @@ def _canon_prefix(prefix: str) -> str:
     is exactly the location-side asymmetry the signed-manifest matcher closes (the review's
     scan-config carry-forward + matcher finding); the interim floor must match it so
     BOTH sides of every prefix comparison are canonical (the symmetry rule). A
-    resolve error falls back to the expanduser-only form — never weaker than before.
+    resolve error falls back to the expanded form — never weaker than before.
+
+    The home anchor is the install owner's home, read the way the candidate's own
+    ~ is read: under the privileged runner HOME is /root, and a floor anchored
+    there would leave the owner's own config unprotected on the root side.
     """
     had_trailing = prefix.endswith("/") and prefix != "/"
     try:
-        canon = str(Path(prefix).expanduser().resolve())
+        expanded = str(dispatch_token.expanduser_for_install_owner(prefix))
+    except RuntimeError:
+        # No home at all for this account: the prefix stays as written, which
+        # is what os.path.expanduser leaves in that case.
+        expanded = prefix
+    try:
+        canon = str(Path(expanded).resolve())
     except (OSError, RuntimeError, ValueError):
-        canon = os.path.expanduser(prefix)
+        canon = expanded
     if had_trailing and not canon.endswith("/"):
         canon += "/"
     return canon
@@ -86,8 +96,10 @@ def _canon_prefix(prefix: str) -> str:
 # but if the manifest cannot be established from a trusted source (missing / bad
 # signature / wrong key — load_policy returns None) these critical InterGen-config
 # paths stay BLOCKED regardless. Canonicalized (expanduser + resolve) so the home
-# anchor cannot diverge from the resolved candidate.
-AI_IMMUTABLE_PREFIXES = tuple(_canon_prefix(p) for p in (
+# anchor cannot diverge from the resolved candidate, and canonicalized when a path
+# is classified rather than when this module loads, so the home anchor is the
+# owner's home in the context the check actually runs in.
+AI_IMMUTABLE_PREFIXES = (
     "~/.config/intergen/",
     "/var/lib/intergen/",
     "/var/log/intergen/",
@@ -99,7 +111,7 @@ AI_IMMUTABLE_PREFIXES = tuple(_canon_prefix(p) for p in (
     "/usr/share/intergen/",
     "/usr/share/gnome-shell/extensions/intergen@intergenos.org/",
     "/usr/bin/intergen-model-setup-runner",
-))
+)
 
 
 def _is_sensitive_prefix(path: Path) -> bool:
@@ -217,7 +229,7 @@ def _classify_path(path: Path) -> SafetyTier:
     # if the signed manifest could not be loaded (load_policy returned None). These
     # canonicalized prefixes are a subset of the manifest's system_ai, so the two
     # never disagree; the floor only ever adds protection, never removes it.
-    for prefix in AI_IMMUTABLE_PREFIXES:
+    for prefix in (_canon_prefix(spelling) for spelling in AI_IMMUTABLE_PREFIXES):
         if p == prefix.rstrip("/") or p.startswith(prefix):
             return SafetyTier.BLOCKED
     return SafetyTier.CONFIRM
@@ -279,7 +291,21 @@ class WriteFileTool(BaseTool):
                 content="Error: no path provided", success=False,
             )
 
-        path = Path(path_str).expanduser().resolve()
+        # A leading ~ is the install owner's home, which is not HOME when this
+        # runs as root under the privileged runner.
+        try:
+            path = dispatch_token.expanduser_for_install_owner(path_str).resolve()
+            tier = _classify_path(path)
+        except dispatch_token.InstallOwnerUnresolved as exc:
+            return ToolResult(
+                call_id="", name=self.name,
+                content=(
+                    "Refused: the account that owns this install could not be "
+                    f"established ({exc}), so this write cannot be checked "
+                    "against the install's own files."
+                ),
+                success=False,
+            )
 
         # AI-5 BLEND — gate-side policy, re-enforced root-side via the SHARED
         # _classify_path so the two layers cannot diverge. BLOCKED covers the
@@ -287,7 +313,7 @@ class WriteFileTool(BaseTool):
         # (/etc/sudoers.d/, /boot/); refused in EVERY context, root included.
         # resolve() above already collapsed symlinks / .. so a symlink into a
         # blocked path cannot launder the comparison.
-        if _classify_path(path) == SafetyTier.BLOCKED:
+        if tier == SafetyTier.BLOCKED:
             return ToolResult(
                 call_id="", name=self.name,
                 content=(
@@ -423,4 +449,8 @@ class WriteFileTool(BaseTool):
         if not path_str:
             return SafetyTier.BLOCKED
 
-        return _classify_path(Path(path_str).expanduser().resolve())
+        try:
+            return _classify_path(
+                dispatch_token.expanduser_for_install_owner(path_str).resolve())
+        except dispatch_token.InstallOwnerUnresolved:
+            return SafetyTier.BLOCKED
