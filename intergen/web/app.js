@@ -207,6 +207,7 @@
       case 'system_status': handleSystemStatus(msg); break;
       case 'health_report': handleHealthReport(msg); break;
       case 'governance_report': handleGovernanceReport(msg); break;
+      case 'tier_status':   handleTierStatus(msg); break;
       case 'metrics_report': handleMetricsReport(msg); break;
       case 'session_list':  handleSessionList(msg); break;
       case 'session_switched': handleSessionSwitched(msg); break;
@@ -546,6 +547,23 @@
     el.innerHTML = `<span class="sender">Governance</span><div class="content">${buildGovernanceCard(msg)}</div>`;
     dom.messages.appendChild(el);
     scrollToBottom();
+  }
+
+  // The server's answer to /tier: the governance engine's snapshot, or
+  // "unavailable" when no engine is running. Shown, and the HUD's tier follows
+  // it; /tier used to answer with nothing on the page.
+  function handleTierStatus(msg) {
+    const snap = msg.tier;
+    if (snap && typeof snap === 'object') {
+      const name = snap.autonomy_tier_name || '?';
+      const num = (snap.autonomy_tier ?? '?');
+      addMessage('system', `Autonomy tier: ${name} (tier ${num})`, '');
+      state.governance = { ...state.governance, ...snap };
+      updateHUD();
+    } else {
+      addMessage('system',
+        'The autonomy tier is not available: no governance engine is running.', '');
+    }
   }
 
   function handleMetricsReport(msg) {
