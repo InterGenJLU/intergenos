@@ -39,10 +39,11 @@ tomorrow gets the same treatment without knowing the function exists.
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import os
-from dataclasses import dataclass, field
+from dataclasses import MISSING, dataclass, field, fields
 from pathlib import Path
 from typing import Iterator
 
@@ -131,15 +132,34 @@ def read_records(log_path: Path | None = None) -> Iterator[dict]:
         return
 
 
-# The fields every row of this record must carry, whatever its kind. A row missing one
-# is damage that still parses: the writer always writes all of them.
-_REQUIRED_FIELDS = (
-    "timestamp",
-    "tool_name",
-    "declared_provenance",
-    "effective_provenance",
-    "user_decision",
-)
+@functools.lru_cache(maxsize=None)
+def _serialized_fields(kind: str) -> frozenset[str]:
+    """Fields serialized for every AuditRecord row of ``kind``.
+
+    Read from AuditRecord.to_jsonl_dict() itself rather than listed here, so the
+    check follows the writer: a field the writer starts serializing is required from
+    then on. A field the writer serializes only when it holds a value is not.
+    """
+    values = {f.name: None for f in fields(AuditRecord)
+              if f.default is MISSING and f.default_factory is MISSING}
+    return frozenset(AuditRecord(**values, kind=kind).to_jsonl_dict())
+
+
+_DEFAULT_KIND = next(f.default for f in fields(AuditRecord) if f.name == "kind")
+
+# Fields the writer serializes only beside a kind other than the default one, so a
+# row that carries one of them without a kind has lost its kind field.
+_KIND_FIELDS = (frozenset(f.name for f in fields(AuditRecord))
+                - _serialized_fields(_DEFAULT_KIND))
+
+
+def _missing_serialized_field(row: dict) -> bool:
+    """Whether ``row`` lacks a field the writer serializes for a row of its kind."""
+    kind = row.get("kind", _DEFAULT_KIND)
+    expected = _serialized_fields(kind if isinstance(kind, str) else repr(kind))
+    if not expected <= row.keys():
+        return True
+    return "kind" not in row and bool(_KIND_FIELDS & row.keys())
 
 # A turn identifier that is not a turn. The turn record raises rows outside any
 # conversation -- a sequence reseed, a boot, a dispatch with no turn around it -- and
@@ -226,8 +246,8 @@ class IntegrityReading:
                 f"{self.unreadable_lines}")
         if self.incomplete_rows:
             out.append(
-                f"  {len(self.incomplete_rows)} row(s) are missing a field every row "
-                f"must carry: {self.incomplete_rows}")
+                f"  {len(self.incomplete_rows)} row(s) are missing a field the writer "
+                f"serializes for rows of their kind: {self.incomplete_rows}")
         if self.out_of_order_rows:
             out.append(
                 f"  {len(self.out_of_order_rows)} row(s) carry a timestamp earlier "
@@ -289,7 +309,7 @@ def read_integrity(log_path: Path | None = None) -> IntegrityReading:
             unreadable.append(line_number)
             continue
         rows += 1
-        if any(key not in row for key in _REQUIRED_FIELDS):
+        if _missing_serialized_field(row):
             incomplete.append(line_number)
         timestamp = row.get("timestamp")
         if isinstance(timestamp, str):
