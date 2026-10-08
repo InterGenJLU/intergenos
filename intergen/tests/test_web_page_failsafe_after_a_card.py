@@ -14,7 +14,9 @@ reconnect on a page whose server had done everything asked of it:
 
   * a card a command raised (/file): the command's tool_executed line ends it;
   * a card a new conversation ended: the server cancels the turn the card
-    belonged to, and session_created is the last word on it.
+    belonged to, and session_created is the last word on it;
+  * a card answered inside a streamed turn that then completed: stream_end
+    ended the turn and did not disarm the failsafe.
 
 The page now re-arms only while a turn is in flight, and a new conversation
 ends whatever was in flight, as a switch already did. The control holds the
@@ -126,6 +128,27 @@ class ACardThatEndsTheWorkDoesNotForceAReconnect(unittest.TestCase):
             _WAIT,
         ])
         self.assertEqual(_forced_reconnects(record), 0)
+
+    def test_a_turn_that_completes_after_its_card(self) -> None:
+        """stream_end ends the turn: the failsafe the card's gate_resolved
+        re-armed must not outlive it."""
+        record = _run(_A_TURN_WITH_A_CARD + [
+            {"click_gate": "allow"},
+            _resolved("m1", "allow"),
+            {"server": {"type": "tool_executed", "tool_name": "manage_services",
+                        "success": True, "summary": "restarted"}},
+            {"server": {"type": "stream_token", "turn_id": "t1",
+                        "token": "Bluetooth was restarted."}},
+            {"server": {"type": "stream_end", "turn_id": "t1",
+                        "full_response": "Bluetooth was restarted."}},
+            _WAIT,
+        ])
+        self.assertEqual(
+            _forced_reconnects(record), 0,
+            "the page forced a reconnect after a turn that had completed, "
+            "because its card re-armed the failsafe and stream_end did not "
+            f"disarm it: closes {record['closes']}, banners "
+            f"{record['banners']}")
 
     def test_a_turn_that_goes_silent_after_its_card_is_still_caught(
             self) -> None:

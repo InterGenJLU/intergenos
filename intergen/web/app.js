@@ -315,11 +315,12 @@
     const source = msg.source || '';
     // Terminal for this turn: clear both the streaming bubble and the pill (the
     // latter guarantees no stuck "thinking" if the stream ended without ever
-    // emitting a token).
+    // emitting a token), and disarm the failsafe. A card answered during the
+    // turn re-armed it, and left armed it reported this completed turn as one
+    // that stopped responding and forced a reconnect.
+    stopThinking();
     dom.streamingContainer.classList.add('hidden');
     dom.streamingContent.textContent = '';
-    dom.thinking.classList.add('hidden');
-    dom.headerMark.style.animation = '';
     addMessage('assistant', full, source);
     // The kept answer is not always the text that arrived token by token: a
     // screen on the server can rewrite it after the tokens were sent, and this
