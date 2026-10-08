@@ -72,6 +72,18 @@ def _call(call_id: str) -> ToolCall:
                     source_of_request=Provenance.USER_DIRECT)
 
 
+class _IntegrityFailure:
+    """A governance stand-in that refuses every call outright, as it does when
+    its integrity check fails."""
+
+    def evaluate(self, tool_call_id, **_kw):
+        from intergen.governance import GovernanceCheck, GovernanceDecision
+        return GovernanceDecision(
+            tool_call_id=tool_call_id, allowed=False,
+            blocked_by="hash_integrity",
+            checks=[GovernanceCheck(gate_name="hash_integrity", passed=False)])
+
+
 class _Case(unittest.TestCase):
 
     def setUp(self) -> None:
@@ -236,16 +248,6 @@ class AnActionRefusedBeforeAnyCardIsRecordedAsRefused(_Case):
         self._refused_before_any_card(server, ctx, call)
 
     def test_an_action_governance_refuses_outright(self) -> None:
-        from intergen.governance import GovernanceCheck, GovernanceDecision
-
-        class _IntegrityFailure:
-            def evaluate(self, tool_call_id, **_kw):
-                return GovernanceDecision(
-                    tool_call_id=tool_call_id, allowed=False,
-                    blocked_by="hash_integrity",
-                    checks=[GovernanceCheck(gate_name="hash_integrity",
-                                            passed=False)])
-
         server, ctx = self._server(_RecordingWS())
         server._governance = _IntegrityFailure()
         self._refused_before_any_card(server, ctx, _call("integrity"))
@@ -265,6 +267,65 @@ class AnAnswerThatIsNotAnApprovalRunsNothing(_Case):
         self.assertNotIn("RETURNED TEXT", result.content,
                          "flagged content was admitted on an answer that is "
                          "not an approval")
+
+
+class ACommandsNotRunLineSaysWhatHappened(_Case):
+    """A command the person invoked (/file) that does not run is reported on
+    the page as a tool_executed line. It said "the request was denied" for
+    every outcome: a card nobody answered and a refusal no card offered read
+    as a refusal the person gave."""
+
+    _PATH = {"path": "/etc/hostname"}
+
+    def _not_run_line(self, server, ctx) -> dict:
+        lines = [f for f in ctx.ws.sent if f.get("type") == "tool_executed"]
+        self.assertEqual(len(lines), 1, ctx.ws.sent)
+        self.assertFalse(lines[0]["success"])
+        self.assertIn("was not run", lines[0]["summary"])
+        return lines[0]
+
+    def test_a_card_nobody_answered(self) -> None:
+        server, ctx = self._server(_RecordingWS())
+        with mock.patch.object(web_server_module, "_REVIEW_CARD_TIMEOUT_S",
+                               0.2):
+            asyncio.run(server._run_user_invoked_tool(ctx, "read_file",
+                                                      dict(self._PATH)))
+        line = self._not_run_line(server, ctx)
+        self.assertIn("not answered in time", line["summary"])
+        self.assertNotIn("denied", line["summary"])
+
+    def test_a_refusal_no_card_offered(self) -> None:
+        server, ctx = self._server(_RecordingWS())
+        server._governance = _IntegrityFailure()
+        asyncio.run(server._run_user_invoked_tool(ctx, "read_file",
+                                                  dict(self._PATH)))
+        line = self._not_run_line(server, ctx)
+        self.assertIn("refuses that action outright", line["summary"])
+        self.assertNotIn("denied", line["summary"])
+
+    def test_the_persons_deny(self) -> None:
+        """Control: the person's Deny still reads as theirs."""
+        server, ctx = self._server(_RecordingWS())
+
+        async def scenario() -> None:
+            task = asyncio.create_task(server._run_user_invoked_tool(
+                ctx, "read_file", dict(self._PATH)))
+            prompts: list = []
+            for _ in range(500):
+                prompts = [f for f in ctx.ws.sent
+                           if f.get("type") == "gate_prompt"]
+                if prompts:
+                    break
+                await asyncio.sleep(0.01)
+            self.assertTrue(prompts, "the command raised no card")
+            await server._handle_gate_decision(
+                ctx, {"tool_call_id": prompts[0]["tool_call_id"],
+                      "decision": "deny"})
+            await asyncio.wait_for(task, timeout=5.0)
+
+        asyncio.run(scenario())
+        self.assertIn("the request was denied",
+                      self._not_run_line(server, ctx)["summary"])
 
 
 def _flagged_call(review_callback) -> ToolResult:

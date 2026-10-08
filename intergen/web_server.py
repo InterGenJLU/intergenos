@@ -95,6 +95,18 @@ _REVIEW_CARD_TIMEOUT_S = 300.0
 # never completes (loop stall). Either way the bridge fails closed to "deny".
 _GATE_BRIDGE_TIMEOUT_S = 310.0
 
+# Why a command the person invoked did not run, by what became of its review
+# (_evaluate_tool_with_gate with precise=True), for the line the page shows. A
+# card nobody answered, or a refusal no card offered, is not the person's Deny
+# and is not reported as one.
+_NOT_RUN_BECAUSE = {
+    "denied": "the request was denied",
+    "timed_out": "its review card was not answered in time",
+    "refused": "a review card for it was already open",
+    "ended": "the conversation it belonged to ended",
+    "refused_outright": "this machine refuses that action outright",
+}
+
 # TURN-LIFECYCLE DEADLINES. The browser arms a whole-turn failsafe the moment
 # the user presses send and disarms it only on the first server frame for that
 # turn. Nothing used to be sent between "message received" and "routing
@@ -1824,21 +1836,26 @@ class WebServer:
         })
 
         if raise_card:
-            verdict = await self._evaluate_tool_with_gate(ctx, turn_id, call)
+            verdict = await self._evaluate_tool_with_gate(ctx, turn_id, call,
+                                                          precise=True)
         elif self._governance_hard_deny(call):
             logger.error(
                 "Gate: non-overridable block — refusing %s", tool_name)
-            verdict = "denied"
+            verdict = "refused_outright"
         else:
             verdict = "approved"
         if verdict != "approved":
-            # Denied is a real outcome, reported as one. The optimistic
-            # "working on it" line is never left standing over a refusal.
+            # Not running is a real outcome, reported as what it was: the
+            # person's Deny, a card nobody answered, or a refusal no card
+            # offered. The optimistic "working on it" line is never left
+            # standing over it.
+            because = _NOT_RUN_BECAUSE.get(
+                verdict, "its review did not approve it")
             await ctx.ws.send_json({
                 "type": "tool_executed",
                 "tool_name": tool_name,
                 "success": False,
-                "summary": f"{tool_name} was not run — the request was denied.",
+                "summary": f"{tool_name} was not run — {because}.",
             })
             return
 
@@ -2863,12 +2880,17 @@ class WebServer:
         turn_id: str,
         tool_call: ToolCall,
         decision: "DispatchDecision | None" = None,
+        *,
+        precise: bool = False,
     ) -> str:
         """Evaluate a tool call through governance and provenance gate.
 
         If the tool requires review, sends a gate_prompt to the client,
         pauses the stream, and awaits a gate_decision via a Future.
-        Returns "approved" if the tool can execute, "denied" otherwise.
+        Returns "approved" if the tool can execute, "denied" otherwise. With
+        ``precise`` a call nobody decided says what became of it, as
+        _render_review_card does, and a call governance refuses outright is
+        "refused_outright".
 
         `decision` (optional): when the registry drives this via the web
         review_callback bridge, the registry's DispatchDecision carries the full
@@ -2934,14 +2956,14 @@ class WebServer:
                 "tool_call_id": tool_call_id,
                 "decision": "deny",
             })
-            return "denied"
+            return "refused_outright" if precise else "denied"
 
         # AUTH-PROMPT — render the consent card and await the user's decision.
         # Card rendering is shared with the registry-driven bridge through
         # _render_review_card (the SINGLE card surface), so the standalone web
         # gate and the registry's review_callback show one identical card.
         return await self._render_review_card(
-            ctx, turn_id, tool_call, risk_tier, decision,
+            ctx, turn_id, tool_call, risk_tier, decision, precise=precise,
         )
 
     def _governance_hard_deny(self, tool_call: ToolCall) -> bool:
