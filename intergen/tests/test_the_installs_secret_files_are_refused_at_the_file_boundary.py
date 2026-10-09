@@ -827,6 +827,7 @@ class UnderThePrivilegedRunnerTheOwnerIsTheAccountThatAsked(unittest.TestCase):
     """
 
     OWNER_UID = 4242
+    OWNER_GID = 4250
     OTHER_UID = 4343
 
     def setUp(self) -> None:
@@ -838,21 +839,29 @@ class UnderThePrivilegedRunnerTheOwnerIsTheAccountThatAsked(unittest.TestCase):
         self.key_path = self.owner_home / ".config" / "intergen" / "dispatch-key"
         self.key = dt.generate_dispatch_key(self.key_path)
         self.tool = write_file_tool.WriteFileTool()
+        self.handed_over: list[tuple[int, int, int]] = []
 
     def tearDown(self) -> None:
         self._tmp.cleanup()
 
     def _passwd(self, unknown: frozenset = frozenset()):
         homes = {0: self.root_home, self.OWNER_UID: self.owner_home}
+        groups = {0: 0, self.OWNER_UID: self.OWNER_GID}
 
         def getpwuid(uid: int):
             if uid in unknown or uid not in homes:
                 raise KeyError(f"getpwuid(): uid not found: {uid}")
-            return mock.Mock(pw_dir=str(homes[uid]), pw_uid=uid)
+            return mock.Mock(pw_dir=str(homes[uid]), pw_uid=uid,
+                             pw_gid=groups[uid])
 
         fake = mock.MagicMock()
         fake.getpwuid.side_effect = getpwuid
         return mock.patch.object(dt, "pwd", fake)
+
+    def _record_fchown(self, fd: int, uid: int, gid: int) -> None:
+        # Root is simulated, so a new file cannot really be given to the owner;
+        # the call that would give it is recorded instead.
+        self.handed_over.append((os.fstat(fd).st_ino, uid, gid))
 
     def _as(self, uid: int, *, pkexec_uid: str, unknown=frozenset()):
         """A context that reports `uid` as this process's own account."""
@@ -862,6 +871,7 @@ class UnderThePrivilegedRunnerTheOwnerIsTheAccountThatAsked(unittest.TestCase):
         stack.enter_context(mock.patch("os.getuid", return_value=uid))
         stack.enter_context(mock.patch.dict(os.environ, env))
         stack.enter_context(self._passwd(unknown))
+        stack.enter_context(mock.patch("os.fchown", self._record_fchown))
         stack.enter_context(mock.patch.object(write_file_tool, "_policy_loaded", True))
         stack.enter_context(mock.patch.object(write_file_tool, "_policy_cache", None))
         return stack
@@ -901,7 +911,13 @@ class UnderThePrivilegedRunnerTheOwnerIsTheAccountThatAsked(unittest.TestCase):
             "an approved ~/fresh.txt was written in root's home, which is not "
             "the home the person approved",
         )
-        self.assertEqual((self.owner_home / "fresh.txt").read_text(), "hello\n")
+        fresh = self.owner_home / "fresh.txt"
+        self.assertEqual(fresh.read_text(), "hello\n")
+        self.assertEqual(
+            self.handed_over,
+            [(fresh.stat().st_ino, self.OWNER_UID, self.OWNER_GID)],
+            "the new file in the owner's home was not handed to the owner")
+        self.assertEqual(fresh.stat().st_mode & 0o777, 0o600)
 
     def test_the_floor_protects_the_owners_config_when_write_file_runs_as_root(
             self) -> None:

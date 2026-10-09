@@ -237,6 +237,23 @@ class APrivilegedNewFileInTheOwnersHomeIsTheOwners(unittest.TestCase):
                          "the file that could not be handed over is still there")
         self.assertEqual(os.listdir(self.home), [], "a name was left behind")
 
+    def test_a_hand_over_failure_of_any_kind_is_reported_and_the_file_removed(
+            self) -> None:
+        """Not only an OSError: whatever the hand-over raises is that failure."""
+        not_handed = getattr(dt, "CreatedFileNotHandedToOwner", None)
+        self.assertIsNotNone(not_handed)
+        target = self.home / "unexpected-failure.txt"
+
+        def unexpected(fd: int, uid: int, gid: int) -> None:
+            raise TypeError("gid should be integer")
+
+        with self._as_the_runner(), \
+                mock.patch.object(dt.os, "fchown", unexpected):
+            with self.assertRaises(not_handed):
+                self._create(target)
+        self.assertFalse(os.path.lexists(target))
+        self.assertEqual(os.listdir(self.home), [])
+
     def test_write_file_reports_a_new_file_it_could_not_hand_over(self) -> None:
         target = self.home / "refused-through-the-tool.txt"
 
