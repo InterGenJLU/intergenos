@@ -1221,37 +1221,60 @@ class MemoryManager:
             conn.commit()
 
     def end_session(self, topic_summary: str | None = None,
-                    session_id: str | None = None) -> None:
+                    session_id: str | None = None) -> bool:
         """End a session with an optional topic summary.
 
         ``session_id`` names the session; with none, the session started last.
         If no summary is given, one is generated from that session's own turns.
+
+        A session is ended ONCE. The end is written only to a session that has
+        not ended, so a second end leaves the first end's time and topic as
+        they were. Returns True when this call ended the session, False when it
+        had already ended or was never recorded.
+
+        An end the store refuses raises, and the turns the session's topic is
+        summarised from are released only once the end is written. Released
+        before the write, a refused end left the next end nothing to summarise,
+        and that end recorded a session about nothing.
         """
         sid = session_id if session_id is not None else getattr(
             self, "_current_session_id", None)
         if sid is None:
-            return
+            return False
 
         if topic_summary is None:
             topic_summary = self._auto_summarize_session(sid)
 
         with self._db_lock:
-            queries = list(self._session_queries.pop(sid, ()))
-            tools = self._session_tools.pop(sid, set())
+            queries = list(self._session_queries.get(sid, ()))
+            tools = self._session_tools.get(sid, set())
             conn = self._get_conn()
-            conn.execute(
-                "UPDATE sessions SET topic = ?, queries = ?, tools_used = ?, "
-                "ended_at = ? WHERE session_id = ?",
-                (
-                    topic_summary,
-                    "\n".join(queries[-10:]),
-                    ",".join(tools),
-                    time.time(),
-                    sid,
-                )
-            )
-            conn.commit()
-        logger.info("Session ended: %s — topic: %s", sid, topic_summary)
+            try:
+                ended = conn.execute(
+                    "UPDATE sessions SET topic = ?, queries = ?, tools_used = ?, "
+                    "ended_at = ? WHERE session_id = ? AND ended_at IS NULL",
+                    (
+                        topic_summary,
+                        "\n".join(queries[-10:]),
+                        ",".join(tools),
+                        time.time(),
+                        sid,
+                    )
+                ).rowcount == 1
+                conn.commit()
+            except sqlite3.Error:
+                # Nothing of the refused end stays open on the connection every
+                # other write of this manager shares.
+                conn.rollback()
+                raise
+            self._session_queries.pop(sid, None)
+            self._session_tools.pop(sid, None)
+        if ended:
+            logger.info("Session ended: %s — topic: %s", sid, topic_summary)
+        else:
+            logger.info("Session %s not ended again: it has already ended or "
+                        "was never recorded", sid)
+        return ended
 
     def get_last_session(self) -> dict | None:
         """Get the most recent completed session for cross-session awareness."""
