@@ -13,7 +13,9 @@ THREE RULES, each with its own cells.
    here as well as the call itself: the router's tool route, the web server's
    tool route and the daemon's warm-up. What a reader DOES with a flag is its
    own rule and is not changed here; the cells pin that the answer it hands on
-   is the one it was handed.
+   is the one it was handed, except the router's tool route, which now meets a
+   flagged answer with the reaction ladder's first rung (its rule and cells are
+   in test_a_flagged_tool_route_answer_meets_the_first_rung.py).
 
 2. A model call that fails part-way through its stream is recorded, on both
    paths. A read that failed after the first token left ``first_token`` on the
@@ -319,8 +321,11 @@ class TheShippedReadersOfTheToolPath(_Case):
             res = router._try_llm_tools("is sshd enabled?")
         self.assertTrue(res.handled)
         self.assertEqual(res.source, "llm_tools")
-        self.assertEqual(res.text, CORRUPT,
-                         "the tool route hands on the answer it was handed")
+        # The route meets the flag with the ladder's first rung (its rule and
+        # cells: test_a_flagged_tool_route_answer_meets_the_first_rung.py).
+        from intergen.router import _SEMANTIC_INCOHERENCE_FALLBACK
+        self.assertEqual(res.text, _SEMANTIC_INCOHERENCE_FALLBACK,
+                         "the tool route served a flagged answer")
         flagged = self.model_rows("semantic_health")
         self.assertEqual([r["raw"] for r in flagged], [CORRUPT],
                          "the router's tool route served an unscreened answer")

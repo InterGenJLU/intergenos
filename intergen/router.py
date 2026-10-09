@@ -48,8 +48,8 @@ from intergen.state_cache import StateCache
 from intergen.reference import ReferenceIndex
 from intergen.interfaces.types import (
     AnswerLinkage,
-    HardwareTierLevel, Message, MessageRole, RouteResult, SafetyTier,
-    ToolCall, ToolResult,
+    HardwareTierLevel, LLMResponse, Message, MessageRole, RouteResult,
+    SafetyTier, ToolCall, ToolResult,
 )
 from intergen.interfaces.provenance import (
     ConversationTrustState,
@@ -5488,6 +5488,15 @@ class ConversationRouter(RouterInterface):
         tool_calls = []
         tool_results = []
 
+        # D6 ON THE TOOL ROUTE (rung 1 of the reaction ladder). The client keeps
+        # the flags of the last answer it screened for its caller. A call that
+        # hands over no model text (a tool call alone, or the code's own line
+        # for a refused dialect call) screens nothing and would leave an EARLIER
+        # answer's flags in place, so they are cleared before the call: after
+        # it they name this call's answer, or nothing.
+        if hasattr(self._llm, "_last_semantic_flags"):
+            self._llm._last_semantic_flags = []
+
         for chunk in self._llm.stream_with_tools(
             messages, tools=tool_schema_objs
         ):
@@ -5507,6 +5516,10 @@ class ConversationRouter(RouterInterface):
                 tool_results.append(result)
             else:
                 collected_text.append(chunk)
+
+        # The flags of the text this call handed over, read now: a synthesis
+        # call below screens its own generation and replaces them.
+        stream_flags = list(getattr(self._llm, "_last_semantic_flags", None) or [])
 
         if tool_results:
             # Surface the dispatch OUTCOME on the trace (the router.llm_tools
@@ -5593,7 +5606,14 @@ class ConversationRouter(RouterInterface):
             else:
                 logger.info("Agentic synthesis failed — falling back to template")
                 _renderer = "template"
-                if collected_text:
+                if collected_text and stream_flags:
+                    # D6: the text the model handed over before its tool call
+                    # was flagged, so it is treated exactly as no text at all —
+                    # the tool's own result is served below, not that text.
+                    glass.emit("decision", "semantic_flags", detail={
+                        "flags": stream_flags, "source": "llm_tools",
+                        "action": "tool_result_fallback"})
+                if collected_text and not stream_flags:
                     response_text = self._llm._strip_filler("".join(collected_text))
                 else:
                     response_text = self._synthesize_tool_result(
@@ -5650,6 +5670,18 @@ class ConversationRouter(RouterInterface):
             )
 
         if collected_text:
+            # D6: a flagged text answer on the tool route meets the same first
+            # rung as a flagged freeform answer — discarded, and the incoherence
+            # fallback served in its place.
+            flagged = self._semantic_flag_fallback(
+                LLMResponse(
+                    text="".join(collected_text), model="local", local=True,
+                    tokens_prompt=getattr(self._llm, '_last_prompt_tokens', 0),
+                    tokens_completion=getattr(self._llm, '_last_completion_tokens', 0),
+                    semantic_flags=stream_flags),
+                user_input, source="llm_tools")
+            if flagged is not None:
+                return flagged
             return RouteResult(
                 text=self._llm._strip_filler("".join(collected_text)),
                 source="llm_tools",
@@ -5809,7 +5841,8 @@ class ConversationRouter(RouterInterface):
                 user_input, response, confidence, refused=refused),
         )
 
-    def _semantic_flag_fallback(self, response, user_input: str
+    def _semantic_flag_fallback(self, response, user_input: str, *,
+                                source: str = "llm_freeform"
                                 ) -> "RouteResult | None":
         """D6: consume the completion result's `semantic_flags` (the engine-earn-
         offload-gate contract). Non-empty ⇒ the completion is semantically unsound —
@@ -5817,12 +5850,16 @@ class ConversationRouter(RouterInterface):
         the same history handling as any freeform turn and a glass event carrying the
         flag names. Empty/absent ⇒ None (route on unchanged). getattr against the
         contract so this branch is inert until the field lands and lights up when it
-        does — the router consumes the field, it never re-judges the text."""
+        does — the router consumes the field, it never re-judges the text.
+
+        ``source`` names the route whose answer it is — the freeform route's, or the
+        tool route's text answer (``llm_tools``) — on the glass event and on the
+        result; the rung itself is the same on both."""
         flags = list(getattr(response, "semantic_flags", None) or [])
         if not flags:
             return None
         glass.emit("decision", "semantic_flags", detail={
-            "flags": flags, "source": "llm_freeform",
+            "flags": flags, "source": source,
             "action": "incoherence_fallback"})
         # A discarded completion on the CONVERSATIONAL path leaves the user with a
         # rephrase nudge and nowhere to go — and rephrasing does not help when the
@@ -5841,7 +5878,7 @@ class ConversationRouter(RouterInterface):
         self._append_history(user_input, text)
         return RouteResult(
             text=text,
-            source="llm_freeform",
+            source=source,
             handled=True,
             used_llm=True,
             # The model's text was discarded; what is DELIVERED is the
