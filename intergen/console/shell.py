@@ -15,6 +15,7 @@ import asyncio
 import logging
 import signal
 import sys
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -228,9 +229,13 @@ class ConsoleShell:
 
         @kb.add("escape")
         def _(event: Any) -> None:
-            if self._gate_pending:
-                asyncio.create_task(self._send_gate_decision("deny"))
-                self._gate_pending = None
+            card = self._gate_pending
+            if card:
+                # The card goes to the task with it: the task used to read it
+                # back after this handler had already emptied it, so the deny
+                # was never sent at all.
+                asyncio.create_task(
+                    self._send_gate_decision(card, "deny", "deny"))
 
         return kb
 
@@ -467,9 +472,8 @@ class ConsoleShell:
             key = text.strip().lower()
             if key in self._GATE_KEYS:
                 decision, spoken = self._GATE_KEYS[key]
-                await self._send_gate_decision(decision)
-                self._gate_pending = None
-                self._add_message("system", f"Gate decision sent: {spoken}", "gate")
+                await self._send_gate_decision(self._gate_pending, decision,
+                                               spoken)
                 return
 
         if text.startswith("/"):
@@ -499,7 +503,36 @@ class ConsoleShell:
         msg = text
         if self._doc_buffer:
             msg = f"[Document buffer ({len(self._doc_buffer)} chars)]\n{self._doc_buffer}\n\n[User message]\n{text}"
-        await self._client.send_message(msg)
+        await self._send_or_say("your message was not sent",
+                                lambda client: client.send_message(msg))
+
+    async def _send_or_say(
+            self, unsent: str,
+            send: Callable[[ConsoleClient], Awaitable[None]]) -> bool:
+        """Send to the server, or say in the pane that nothing was sent.
+
+        ConsoleClient.send raises when there is no connection, and a send on a
+        connection that is closing raises too. Called bare inside the task the
+        Enter binding starts, that raise ended a task nobody awaits, so the
+        command was lost without a word: the pane gained nothing, and the
+        person could not tell it from a command the server was still
+        answering. Every command the console sends goes through here, so the
+        pane always gains the fact. ``unsent`` is the consequence in the
+        command's own words ("/health was not sent"). Returns whether it was
+        sent.
+        """
+        if not self._client or not self._client.connected:
+            self._add_message(
+                "system", f"Not connected to InterGen: {unsent}.", "error")
+            return False
+        try:
+            await send(self._client)
+        except OSError as exc:
+            self._add_message(
+                "system", f"Could not reach InterGen: {unsent} ({exc}).",
+                "error")
+            return False
+        return True
 
     async def _handle_slash_command(self, text: str) -> None:
         cmd = text.lower().split()[0]
@@ -512,8 +545,10 @@ class ConsoleShell:
         elif cmd == "/clear":
             await self._request_clear()
         elif cmd == "/new":
-            if self._client:
-                await self._client.send({"type": "new_session", "session_id": ""})
+            if await self._send_or_say(
+                    "/new was not sent",
+                    lambda client: client.send(
+                        {"type": "new_session", "session_id": ""})):
                 self._messages.clear()
                 # The document buffer is conversation content: it is prepended to
                 # every outbound message, so leaving it loaded carried the old
@@ -531,20 +566,27 @@ class ConsoleShell:
                         f"New conversation. The document buffer ({chars} chars) "
                         "was cleared with it.", "")
         elif cmd == "/health":
-            if self._client:
-                await self._client.send({"type": "request_health"})
+            await self._send_or_say(
+                "/health was not sent",
+                lambda client: client.send({"type": "request_health"}))
         elif cmd == "/governance":
-            if self._client:
-                await self._client.send({"type": "request_governance"})
+            await self._send_or_say(
+                "/governance was not sent",
+                lambda client: client.send({"type": "request_governance"}))
         elif cmd == "/metrics":
-            if self._client:
-                await self._client.send({"type": "request_metrics"})
+            await self._send_or_say(
+                "/metrics was not sent",
+                lambda client: client.send({"type": "request_metrics"}))
         elif cmd == "/status":
-            if self._client:
-                await self._client.send({"type": "slash_command", "command": "/status"})
+            await self._send_or_say(
+                "/status was not sent",
+                lambda client: client.send(
+                    {"type": "slash_command", "command": "/status"}))
         elif cmd == "/tier":
-            if self._client:
-                await self._client.send({"type": "slash_command", "command": "/tier"})
+            await self._send_or_say(
+                "/tier was not sent",
+                lambda client: client.send(
+                    {"type": "slash_command", "command": "/tier"}))
         elif cmd == "/model":
             # An argument outside the three tiers used to be discarded and
             # replaced with "medium": the console sent a switch nobody asked for
@@ -562,9 +604,11 @@ class ConsoleShell:
                     f"changed. The tiers are: {', '.join(tiers)}.",
                     "")
             elif args in tiers:
-                if self._client:
-                    await self._client.send({"type": "switch_model", "tier": args})
-                self._add_message("system", f"Model tier requested: {args}", "")
+                if await self._send_or_say(
+                        f"/model {args} was not sent",
+                        lambda client: client.send(
+                            {"type": "switch_model", "tier": args})):
+                    self._add_message("system", f"Model tier requested: {args}", "")
             else:
                 self._add_message(
                     "system",
@@ -623,18 +667,9 @@ class ConsoleShell:
         on the server's buffer_cleared frame, so it never shows a clear the
         server did not make.
         """
-        if not self._client or not self._client.connected:
-            self._add_message(
-                "system", "Not connected to InterGen: nothing was cleared.",
-                "error")
-            return
-        try:
-            await self._client.send_slash_command("/clear")
-        except OSError as exc:
-            self._add_message(
-                "system",
-                f"Could not reach InterGen: nothing was cleared ({exc}).",
-                "error")
+        await self._send_or_say(
+            "nothing was cleared",
+            lambda client: client.send_slash_command("/clear"))
 
     def _show_help(self) -> None:
         help_text = (
@@ -659,10 +694,23 @@ class ConsoleShell:
         )
         self._add_message("system", help_text, "help")
 
-    async def _send_gate_decision(self, decision: str) -> None:
-        if self._client and self._gate_pending:
-            tool_call_id = self._gate_pending.get("tool_call_id", "")
-            await self._client.send_gate_decision(tool_call_id, decision)
+    async def _send_gate_decision(self, card: dict[str, Any], decision: str,
+                                  spoken: str) -> None:
+        """Send the person's decision on ``card``; the card closes once it went.
+
+        The card is handed in rather than read back from ``_gate_pending``, so
+        a key that closes the card cannot also cancel the decision it sends.
+        A decision that was not sent leaves the card pending, and the pane says
+        why.
+        """
+        tool_call_id = card.get("tool_call_id", "")
+        if await self._send_or_say(
+                f"the gate decision ({spoken}) was not sent",
+                lambda client: client.send_gate_decision(tool_call_id,
+                                                         decision)):
+            if self._gate_pending is card:
+                self._gate_pending = None
+            self._add_message("system", f"Gate decision sent: {spoken}", "gate")
 
     # -- WebSocket message processing ---------------------------------------
 
