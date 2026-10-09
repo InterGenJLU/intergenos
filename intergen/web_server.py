@@ -361,6 +361,9 @@ class WebServer:
         self._site: web.TCPSite | None = None
         self._connections: dict[str, ConnectionContext] = {}
         self._running = False
+        # Why the last bind did not hold the port, in words; None once OUR bind
+        # holds it, and before any attempt.
+        self._bind_error: str | None = None
         self._ready = False       # True when components are initialized
         self._startup_time = time.monotonic()
         self._stats_task: asyncio.Task | None = None
@@ -390,6 +393,13 @@ class WebServer:
         brackets), for the words the daemon logs and reports."""
         host = f"[{self._host}]" if ":" in self._host else self._host
         return f"{host}:{self._port}"
+
+    @property
+    def bind_error(self) -> str | None:
+        """Why the last bind did not hold the port, in words (the address and
+        what the system said); None once OUR bind holds it, and before any
+        attempt. The daemon carries it into its status."""
+        return self._bind_error
 
     def mark_ready(self) -> None:
         self._ready = True
@@ -469,12 +479,13 @@ class WebServer:
 
         Bind-ownership by bind: aiohttp's TCPSite.start() atomically binds the
         socket and raises EADDRINUSE if a foreign holder — the GDM greeter
-        session's own InterGen web server, on the fixed-port cold-boot collision
-        (the same class the chat/embed ports already guard) — already holds the
-        port. That is treated as a HANDLED condition: log it and stay
-        not-running so the daemon's web watchdog rebinds once the greeter session
-        tears down and frees the port, rather than letting the OSError escape as
-        an unhandled "web server thread crashed" traceback with no recovery.
+        session's own InterGen web server, on the cold-boot collision on the
+        panel's port (the same class the chat/embed ports already guard) —
+        already holds the port. That is treated as a HANDLED condition: record
+        why in words (bind_error), log it and stay not-running so the daemon's
+        web watchdog rebinds once the greeter session tears down and frees the
+        port, rather than letting the OSError escape as an unhandled "web server
+        thread crashed" traceback with no recovery.
         _running is set ONLY after OUR bind succeeds, so a foreign holder
         answering on the port can never count as ours — readiness keys on our own
         bind, never an HTTP probe of the port.
@@ -495,20 +506,20 @@ class WebServer:
         try:
             await self._site.start()
         except OSError as e:
-            # Port held by another process — the cold-boot greeter collision (or
-            # any bind refusal). HANDLED: drop the unstarted site, stay
-            # not-running so the watchdog retries; never propagate as a crash.
+            # Port held by another process — at cold boot, the greeter
+            # session's own panel — or any other bind refusal. HANDLED: drop the
+            # unstarted site, stay not-running so the watchdog retries; never
+            # propagate as a crash. The words say what was measured (the
+            # address and the system's answer), never a guessed holder.
             self._site = None
             if e.errno == errno.EADDRINUSE:
-                logger.warning(
-                    "Web port %d is held by another process (cold-boot greeter "
-                    "collision); refusing to bind — the web watchdog will rebind "
-                    "once it is freed. Handled, not a crash.", self._port)
+                self._bind_error = f"{self.address} is held by another process"
             else:
-                logger.warning(
-                    "Web server bind on %s:%d failed (%s); the web watchdog will "
-                    "retry.", self._host, self._port, e)
+                self._bind_error = f"binding {self.address} failed: {e}"
+            logger.warning("Web server not bound: %s; the web watchdog will "
+                           "try again. Handled, not a crash.", self._bind_error)
             return False
+        self._bind_error = None
         self._running = True
         self._startup_time = time.monotonic()
         logger.info("Web server listening on http://%s:%d", self._host, self._port)

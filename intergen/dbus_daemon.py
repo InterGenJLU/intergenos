@@ -294,6 +294,10 @@ class InterGenDaemon(InterGenDBusInterface):
         # What the panel thread's own stop of its server raised, recorded under
         # _web_lock and read by _stop_web once the thread has ended.
         self._web_stop_error = None
+        # The panel is not serving, and why, in words, as the step that last
+        # changed it recorded. Read through _panel_down_now, which lets the
+        # server's own bind state decide whether the panel serves.
+        self._panel_down: str | None = "the panel has not been started"
         # Test/harness seam: a non-interactive review surface the dyno injects so
         # an unattended pull never blocks on the zenity approval modal. ALWAYS
         # None in production -> ask() builds the real make_review_callback below,
@@ -910,6 +914,22 @@ class InterGenDaemon(InterGenDBusInterface):
                 or f"the chat model server is not running: "
                    f"{getattr(llama, 'last_error', '') or 'no reason recorded'}")
 
+    def _panel_down_now(self) -> str | None:
+        """The panel is not serving, and why, in words; None while it serves.
+
+        The server's own bind state decides whether the panel serves, so this
+        can never say serving while nothing of ours holds the port; the words
+        are the ones the step that last changed the panel recorded (the start,
+        a refused bind and the watchdog's retries, the give-up, the stop). A
+        status read never raises, so a daemon built without __init__ reads as
+        a panel not started.
+        """
+        server = getattr(self, "_web_server", None)
+        if server is not None and server.running:
+            return None
+        return (getattr(self, "_panel_down", None)
+                or "the panel has not been started")
+
     def status(self) -> str:
         """Return JSON-encoded status."""
         _identity, _release_known = package_record.identity()
@@ -928,6 +948,12 @@ class InterGenDaemon(InterGenDBusInterface):
             # itself active while nothing can generate a reply is the state this
             # field exists to end.
             "model_server_down": self._model_server_down_now(),
+            # The panel (the web server behind the panel window, the browser
+            # page and the console client) is not serving, and why, in words:
+            # its address held by another process, a configured address it
+            # cannot use, a bind given up. None while it serves. A refused bind
+            # used to reach the log only.
+            "panel_down": self._panel_down_now(),
             # Version AND release, read from the package manager's record —
             # the same value the CLI prints and the same one it reports when
             # this daemon is not running. See intergen/package_record.py.
@@ -963,6 +989,7 @@ class InterGenDaemon(InterGenDBusInterface):
                 "tools": self._tools is not None,
                 "memory": self._memory is not None,
                 "watchdog": self._watchdog is not None and self._watchdog.is_running,
+                "panel": self._panel_down_now() is None,
             },
         }
         # PI-Z26: surface the chat server's serving reality (backend + requested/
@@ -2792,6 +2819,8 @@ class InterGenDaemon(InterGenDBusInterface):
             # the Web server check reports this server's own state instead of
             # the literal 0 this call used to freeze into it.
             self._health_agg.set_web_server(self._web_server)
+            self._panel_down = (f"{self._web_server.address} is being bound "
+                                f"and does not answer yet")
             with self._web_lock:
                 # A stop of an earlier life of this daemon does not hold over.
                 self._web_stopping = False
@@ -2807,6 +2836,7 @@ class InterGenDaemon(InterGenDBusInterface):
             log.info("Web server thread started; it binds http://%s",
                      self._web_server.address)
         except Exception as e:
+            self._panel_down = f"the panel was not started: {e}"
             log.error("The panel was not started: %s", e)
 
     def _run_web_server(self) -> None:
@@ -2832,9 +2862,12 @@ class InterGenDaemon(InterGenDBusInterface):
             if not stopping:
                 self._web_loop, self._web_stop = loop, stop
         try:
-            if not stopping:
+            if stopping:
+                self._panel_down = "the panel was stopped before it was bound"
+            else:
                 loop.run_until_complete(self._serve_web_until_stopped(stop))
-        except Exception:
+        except Exception as e:
+            self._panel_down = f"the panel's thread ended on an error: {e!r}"
             log.exception("Web server thread crashed")
         finally:
             # Unpublished before the loop closes, so a stop can never be handed
@@ -2877,6 +2910,8 @@ class InterGenDaemon(InterGenDBusInterface):
                 with self._web_lock:
                     self._web_stop_error = e
                 raise
+            if stop.is_set():
+                self._panel_down = "the panel was stopped with the daemon"
 
     async def _web_bind_with_watchdog(self, stop: asyncio.Event) -> bool:
         """Bind the web server, retrying on a held port until it frees: True
@@ -2891,29 +2926,31 @@ class InterGenDaemon(InterGenDBusInterface):
         never be mistaken for ours. The wait between attempts is a wait on
         ``stop``: a stop ends the retries at once, and no attempt starts after it.
         """
+        budget = WEB_BIND_RETRY_INTERVAL * WEB_BIND_MAX_ATTEMPTS
         for attempt in range(1, WEB_BIND_MAX_ATTEMPTS + 1):
             if stop.is_set():
                 return False
             if await self._web_server.start():
+                self._panel_down = None
                 if attempt > 1:
                     log.info("Web server bound on attempt %d (port freed)",
                              attempt)
                 return True
+            self._panel_down = (
+                f"{self._web_server.bind_error}; the daemon tries the bind "
+                f"again every {WEB_BIND_RETRY_INTERVAL} s, for up to {budget} s")
             if attempt == 1:
-                log.warning(
-                    "Web port held at startup; the web watchdog will rebind once "
-                    "it is freed (retry every %ds, up to ~%ds).",
-                    WEB_BIND_RETRY_INTERVAL,
-                    WEB_BIND_RETRY_INTERVAL * WEB_BIND_MAX_ATTEMPTS)
+                log.warning("The panel is not serving: %s.", self._panel_down)
             try:
                 await asyncio.wait_for(stop.wait(), WEB_BIND_RETRY_INTERVAL)
                 return False
             except TimeoutError:
                 pass
-        log.critical(
-            "Web server did not bind within the watchdog budget (web port held "
-            "~%ds) — the panel UI is unavailable until a daemon restart.",
-            WEB_BIND_RETRY_INTERVAL * WEB_BIND_MAX_ATTEMPTS)
+        self._panel_down = (
+            f"{self._web_server.bind_error}; the bind was given up after "
+            f"{budget} s, and the panel stays down until the daemon is "
+            f"restarted")
+        log.critical("The panel is not serving: %s.", self._panel_down)
         return False
 
     def _stop_web(self) -> bool:
