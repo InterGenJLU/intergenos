@@ -502,6 +502,10 @@ class MemoryManager:
         # one conversation's turns never reach another's summary.
         self._session_queries: dict[str, deque[str]] = {}
         self._session_tools: dict[str, set[str]] = {}
+        # Every session this manager started and has not ended, in the order
+        # started: the sessions a daemon stop ends (end_open_sessions). A
+        # session another process started on the same store is never here.
+        self._open_sessions: dict[str, None] = {}
         self._init_db()
         self._fold_duplicate_keys()
 
@@ -1160,8 +1164,9 @@ class MemoryManager:
 
     # How many sessions' summary state is held in memory. end_session releases
     # a session's, and a conversation's session is ended at its reset; a
-    # conversation that closes without one (a browser tab closed) is not, so
-    # without a bound every such conversation would stay held.
+    # conversation that closes without one (a browser tab closed) is not ended
+    # until the daemon stops, so without a bound every such conversation would
+    # stay held until then.
     _SESSIONS_HELD = 64
 
     def _hold_session(self, session_id: str) -> None:
@@ -1193,6 +1198,7 @@ class MemoryManager:
             )
             conn.commit()
             self._hold_session(session_id)
+            self._open_sessions[session_id] = None
         self._current_session_id = session_id
         logger.info("Session started: %s", session_id)
         return session_id
@@ -1284,6 +1290,7 @@ class MemoryManager:
                 raise
             self._session_queries.pop(sid, None)
             self._session_tools.pop(sid, None)
+            self._open_sessions.pop(sid, None)
         if ended:
             logger.info("Session ended: %s (%s) — topic: %s", sid,
                         reason or "no reason given", topic_summary)
@@ -1291,6 +1298,31 @@ class MemoryManager:
             logger.info("Session %s not ended again: it has already ended or "
                         "was never recorded", sid)
         return ended
+
+    def end_open_sessions(
+            self, reason: str) -> tuple[list[str], list[tuple[str, Exception]]]:
+        """End every session this manager started and has not ended.
+
+        The daemon calls this when it stops, so every conversation it served
+        has its session ended with ``reason``, each with its own topic. A
+        session another process started on the same store is not this
+        manager's to end and is left as it is.
+
+        Returns the sessions ended, and each session the store refused with the
+        error it raised, for the caller to report; a refused session stays
+        open, here and on the store.
+        """
+        with self._db_lock:
+            still_open = list(self._open_sessions)
+        ended: list[str] = []
+        refused: list[tuple[str, Exception]] = []
+        for session_id in still_open:
+            try:
+                if self.end_session(session_id=session_id, reason=reason):
+                    ended.append(session_id)
+            except sqlite3.Error as e:
+                refused.append((session_id, e))
+        return ended, refused
 
     def get_last_session(self) -> dict | None:
         """Get the most recent completed session for cross-session awareness."""

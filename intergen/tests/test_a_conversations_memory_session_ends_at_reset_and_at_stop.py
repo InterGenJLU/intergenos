@@ -18,7 +18,11 @@ So, on the store:
     topic is summarised from are kept for the end that follows;
   * a reset ends the session it replaces, recording the reason "reset", and a
     reset whose end the store refuses is reported and still made;
-  * the welcome-back reply reads the session a reset ended.
+  * a daemon stop ends every session that daemon started and has not ended,
+    recording the reason "daemon stop", reports each one the store refuses, and
+    still runs to its end;
+  * the welcome-back reply reads the session that was ended, after a reset and
+    at the next start.
 
 HOW THE CASES READ IT. Shipped code only, over a throwaway sqlite store; each
 section below names the calls it drives. The sessions table is read back
@@ -322,3 +326,155 @@ def test_a_reset_leaves_every_other_conversations_session_open(tmp_path):
     _take_a_turn(router, other, HOST_TURN)
     router.reset_conversation_state(reset_one)
     assert _sessions(tmp_path)[other.memory_session_id]["ended_at"] is None
+
+
+# ── A daemon stop ends the sessions it started ──────────────────────────────
+# InterGenDaemon.stop_service on a bare daemon built as
+# test_dbus_stop_unexports_the_object.py builds one, carrying the memory
+# manager its start makes and a router over it, with the desktop bus's
+# conversation made the way its start makes it. The bus's ResetConversation is
+# the daemon's own reset_conversation.
+
+
+def _daemon(memory: MemoryManager, router):
+    """A bare daemon holding what stop_service and reset_conversation read."""
+    from intergen import dbus_daemon as dd
+    d = object.__new__(dd.InterGenDaemon)
+    d._bus = None
+    d._reg_id = None
+    d._owner_id = None
+    d._running = True
+    for attr in ("_web_server", "_web_thread", "_web_loop", "_state_cache",
+                 "_watchdog", "_embed_watchdog", "_llama", "_embed_llama",
+                 "_llm", "_matcher", "_tools", "_governance", "_health_agg"):
+        setattr(d, attr, None)
+    d._memory = memory
+    d._conversation = router.new_conversation()
+    d._router = router
+    return d
+
+
+def test_a_daemon_stop_ends_every_session_it_started_with_the_reason_daemon_stop(
+        tmp_path):
+    """The bus's conversation and a browser tab's both took turns; the stop
+    ends both sessions, each with the reason and its own topic."""
+    memory = _store(tmp_path)
+    router = _router(memory)
+    daemon = _daemon(memory, router)
+    tab = router.new_conversation()
+    _take_a_turn(router, daemon._conversation)
+    _take_a_turn(router, tab, HOST_TURN)
+
+    daemon.stop_service()
+
+    rows = _sessions(tmp_path)
+    for name, conv, topic in (("the desktop bus's", daemon._conversation,
+                               DISK_TOPIC),
+                              ("a browser tab's", tab, HOST_TOPIC)):
+        row = rows[conv.memory_session_id]
+        assert row["ended_at"] is not None, (
+            f"the daemon stopped and {name} conversation's session is still "
+            "open: the next start's welcome-back reply has nothing to read")
+        assert (row.get("end_reason"), row["topic"]) == ("daemon stop",
+                                                        topic), (
+            f"{name} conversation's session ended without saying why or "
+            f"what it was about: end_reason {row.get('end_reason')!r}, "
+            f"topic {row['topic']!r}")
+
+
+def test_a_session_a_reset_ended_is_not_ended_again_by_the_stop(tmp_path):
+    """The bus's ResetConversation ended a session; the stop that follows
+    leaves that end as it was and ends the session the reset started."""
+    memory = _store(tmp_path)
+    router = _router(memory)
+    daemon = _daemon(memory, router)
+    replaced = daemon._conversation.memory_session_id
+    _take_a_turn(router, daemon._conversation)
+    daemon.reset_conversation()
+    at_reset = _sessions(tmp_path)[replaced]
+    current = daemon._conversation.memory_session_id
+    _take_a_turn(router, daemon._conversation, HOST_TURN)
+
+    daemon.stop_service()
+
+    rows = _sessions(tmp_path)
+    assert at_reset["ended_at"] is not None and at_reset.get(
+        "end_reason") == "reset", (
+        f"the bus's reset did not end the session it replaced: {at_reset}")
+    assert rows[replaced] == at_reset, (
+        "the stop ended again a session the reset had already ended: "
+        f"{at_reset} became {rows[replaced]}")
+    assert rows[current]["ended_at"] is not None and rows[current].get(
+        "end_reason") == "daemon stop", (
+        f"the stop did not end the session the reset started: {rows[current]}")
+
+
+def test_a_stop_whose_ends_the_store_refuses_reports_each_and_still_stops(
+        tmp_path, caplog):
+    """The store has gone read-only; the stop reports every session it could
+    not end, by name, and still runs to its end."""
+    memory = _store(tmp_path)
+    router = _router(memory)
+    daemon = _daemon(memory, router)
+    tab = router.new_conversation()
+    _take_a_turn(router, daemon._conversation)
+    memory._get_conn().execute("PRAGMA query_only = ON")
+
+    with caplog.at_level(logging.INFO):
+        daemon.stop_service()
+
+    assert daemon._router is None and any(
+        r.getMessage() == "InterGen daemon stopped" for r in caplog.records), (
+        "the stop did not run to its end once a session could not be ended")
+    rows = _sessions(tmp_path)
+    errors = [r.getMessage() for r in caplog.records
+              if r.levelno >= logging.ERROR]
+    for name, conv in (("the desktop bus's", daemon._conversation),
+                       ("a browser tab's", tab)):
+        sid = conv.memory_session_id
+        assert rows[sid]["ended_at"] is None, (
+            "control: the store recorded an end it was set to refuse")
+        assert any(sid in message for message in errors), (
+            f"the store refused to end {name} conversation's session {sid} "
+            "at the stop and nothing reported it")
+
+
+def test_a_daemon_stop_leaves_open_the_sessions_another_process_started(
+        tmp_path):
+    """Control, green at both ends: a store can be written by more than one
+    process, and a stop ends only the sessions its own daemon started."""
+    memory = _store(tmp_path)
+    another = _store(tmp_path)
+    theirs = another.start_session()
+    another.record_turn(DISK_TURN, None, session_id=theirs)
+    daemon = _daemon(memory, _router(memory))
+    daemon.stop_service()
+    assert _sessions(tmp_path)[theirs]["ended_at"] is None
+
+
+def test_the_next_start_welcomes_the_person_back_to_the_session_the_stop_ended(
+        tmp_path):
+    """The daemon stops; the next start opens the same store, and "what were
+    we working on?" is answered from the session the stop ended."""
+    from intergen import memory as memory_module
+    memory = _store(tmp_path)
+    router = _router(memory)
+    daemon = _daemon(memory, router)
+    _take_a_turn(router, daemon._conversation)
+    clock = _Clock()
+    with mock.patch.object(memory_module, "time", clock):
+        daemon.stop_service()
+        clock.advance(61)
+        # The next start: a new manager on the same store, a router over it
+        # and the bus's conversation, as the daemon's start makes them.
+        memory_next = _store(tmp_path)
+        router_next = _router(memory_next)
+        daemon_next = _daemon(memory_next, router_next)
+        with router_next.bind_conversation(daemon_next._conversation):
+            reply = router_next._try_memory("what were we working on?")
+    assert reply.handled and reply.text.startswith("Welcome back."), (
+        f"the next start's welcome-back reply found no ended session: "
+        f"{reply.text!r}")
+    assert DISK_TOPIC in reply.text, (
+        f"the welcome-back reply does not name the session's topic: "
+        f"{reply.text!r}")

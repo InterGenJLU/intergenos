@@ -2644,6 +2644,12 @@ class InterGenDaemon(InterGenDBusInterface):
         if self._web_thread and self._web_thread.is_alive():
             self._web_thread.join(timeout=5.0)
 
+        # With the browser server down no turn can reach a conversation (the
+        # bus dispatches only while the main loop runs, and a stop comes after
+        # it): each conversation's memory session ends here, so the next
+        # start's welcome-back reply has it to read.
+        self._end_memory_sessions()
+
         if self._state_cache:
             self._state_cache.stop()
         if self._watchdog:
@@ -2666,6 +2672,28 @@ class InterGenDaemon(InterGenDBusInterface):
         self._health_agg = None
 
         log.info("InterGen daemon stopped")
+
+    def _end_memory_sessions(self) -> None:
+        """End every memory session this daemon started and has not ended.
+
+        Each one is ended with the reason "daemon stop". A session the store
+        will not end is logged as an error by name and stays open, and the
+        stop goes on: a teardown is the wrong place to raise, and the rest of
+        it must still run.
+        """
+        memory = getattr(self, "_memory", None)
+        if memory is None:
+            return
+        try:
+            ended, refused = memory.end_open_sessions("daemon stop")
+        except Exception as e:  # noqa: BLE001 — reported, the stop goes on
+            log.error("The memory sessions could not be ended at stop: %s", e)
+            return
+        for session_id, error in refused:
+            log.error("The memory session %s could not be ended at stop: %s",
+                      session_id, error)
+        log.info("Memory sessions ended at stop: %d (%d refused)", len(ended),
+                 len(refused))
 
     def _teardown_dbus(self) -> None:
         """Release everything _export_dbus took, in the reverse order it took it.
