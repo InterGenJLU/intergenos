@@ -479,13 +479,24 @@ class AnEndedTurnsRouteWorkerStaysInTheConversationItBelongedTo(
         self.assertEqual(self.router.max_active, 1)
 
 
+class _RecordingIndex:
+    """A stand-in relevance index that records being emptied."""
+
+    def __init__(self) -> None:
+        self.cleared = 0
+
+    def clear(self) -> None:
+        self.cleared += 1
+
 
 class AClearEndsTheTurnInFlight(_TurnWorkerCase):
     """/clear emptied the buffer and said so while a turn was still running:
     the turn then wrote its exchange into the emptied buffer and sent its
     answer to the page, which put it into the emptied pane. /clear now ends the
     turn in flight first — its task, its cards, and a short wait for its route
-    worker — and a worker still running keeps the buffer it was writing into."""
+    worker — and a worker still running keeps the buffer it was writing into.
+    It also empties the relevance index, which brought cleared exchanges back
+    into the prompt by retrieval."""
 
     def _clear(self):
         return self.server._handle_slash_command(self.ctx, {"command": "/clear"})
@@ -536,6 +547,13 @@ class AClearEndsTheTurnInFlight(_TurnWorkerCase):
         self.assertIs(self.ctx.conversation.trust_state, trust_state)
         self.assertEqual(self.ctx.conversation.transcript,
                          [("old question", "answer to old question")])
+
+    def test_clear_empties_the_relevance_index(self):
+        index = _RecordingIndex()
+        self.ctx.conversation.turn_index = index
+        asyncio.run(self._clear())
+        self.assertEqual(index.cleared, 1,
+                         "the cleared exchanges stayed retrievable into the prompt")
 
 
 if __name__ == "__main__":

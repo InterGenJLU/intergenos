@@ -1733,12 +1733,18 @@ class WebServer:
             # cards, and its route worker given a short while to finish; the
             # commands the person invoked keep running. A worker still running
             # keeps the buffer it was writing into (_buffer_for_next).
+            #
+            # The relevance index goes too: it is the part of the model's
+            # context that reaches back past the buffer, and a cleared exchange
+            # it still held came back into the prompt by retrieval.
             await self._end_conversation_work(
                 ctx, "the turn this card belonged to was ended by /clear",
                 detached_tools=False)
             self._buffer_for_next(ctx)
             ctx.session_history.clear()
             ctx.conversation.clear_offers()
+            if ctx.conversation.turn_index is not None:
+                ctx.conversation.turn_index.clear()
             await ctx.ws.send_json({"type": "buffer_cleared"})
         elif cmd_lower in ("/health", "/status"):
             await self._handle_request_health(ctx, {})
