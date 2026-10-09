@@ -613,6 +613,188 @@ class ARefusedWriteCreatesNothing(unittest.TestCase):
             "the file the boundary created and then refused was left in place",
         )
 
+    # --- the cleanup after a late refusal ------------------------------------
+
+    def _created_then_refused(self, *patches) -> BaseException:
+        """Create at the token path with the check refusing only afterwards.
+
+        The question asked before the create answers None once, as in the cell
+        above; the check on the new descriptor then refuses, and the cleanup
+        runs. `patches` are entered for the same span. Returns what was raised;
+        the cells read its class by name.
+        """
+        real = dt.canonical_path_secret_reason
+        answers = iter([None])
+
+        def asked_too_early(candidate):
+            return next(answers, real(candidate))
+
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.object(
+                dt, "canonical_path_secret_reason", side_effect=asked_too_early))
+            for patch in patches:
+                stack.enter_context(patch)
+            try:
+                fd = dt.opened_refusing_install_secrets(
+                    self.token_path, os.O_WRONLY | os.O_CREAT | os.O_CLOEXEC)
+            except Exception as exc:
+                return exc
+            os.close(fd)
+        self.fail("the creation at the token path was not refused")
+
+    def _assert_reported_as_not_removed(self, raised: BaseException) -> None:
+        self.assertEqual(
+            type(raised).__name__, "CreatedFileNotRemoved",
+            f"a cleanup that did not remove the created file must be reported as "
+            f"a failure, never as a refusal; raised {raised!r}")
+        self.assertIsInstance(raised, OSError)
+        self.assertNotIsInstance(raised, dt.InstallSecretRefused)
+
+    def _replacement(self) -> Path:
+        source = self.config / "replacement-source"
+        source.write_text("a replacement made after the creation\n")
+        return source
+
+    def test_a_refused_creation_that_cannot_be_removed_is_a_failure_not_a_refusal(
+            self) -> None:
+        """The unlink fails: the created file must not stay at the token path,
+        and the outcome is a reported failure, not a successful refusal."""
+        real_unlink = os.unlink
+
+        def unlink_refused(name, *args, **kwargs):
+            if kwargs.get("dir_fd") is not None:
+                raise PermissionError(13, "Permission denied (the case's)", name)
+            return real_unlink(name, *args, **kwargs)
+
+        raised = self._created_then_refused(
+            mock.patch.object(dt.os, "unlink", side_effect=unlink_refused))
+        self.assertFalse(
+            os.path.lexists(self.token_path),
+            "a created file the cleanup could not remove was left at the token "
+            "path")
+        self._assert_reported_as_not_removed(raised)
+        left = sorted(os.listdir(self.config))
+        self.assertEqual(len(left), 1, f"the directory holds {left}")
+        self.assertIn(str(self.config / left[0]), str(raised))
+        with mock.patch.object(dt.os, "unlink", side_effect=unlink_refused):
+            real = dt.canonical_path_secret_reason
+            answers = iter([None])
+            with mock.patch.object(
+                    dt, "canonical_path_secret_reason",
+                    side_effect=lambda c: next(answers, real(c))):
+                result = self.tool.execute(
+                    {"path": str(self.token_path), "content": "x\n"})
+        self.assertFalse(result.success, f"content was {result.content!r}")
+        self.assertNotEqual(result.content,
+                            dt.opened_file_refusal_text(self.TOKEN_REASON))
+        self.assertTrue((result.content or "").startswith("Write failed:"),
+                        f"content was {result.content!r}")
+
+    def test_a_name_replaced_while_the_cleanup_removes_keeps_its_replacement(
+            self) -> None:
+        """At the moment the cleanup removes, the token path is given a
+        replacement and what was there is moved aside. The replacement must
+        survive, and nothing of the creation may remain."""
+        source = self._replacement()
+        moved = self.config / "created-away"
+        real_unlink, real_rename = os.unlink, os.rename
+        raced = []
+
+        def replaced_at_the_unlink(name, *args, **kwargs):
+            if kwargs.get("dir_fd") is not None and not raced:
+                raced.append(name)
+                if os.path.lexists(self.token_path):
+                    real_rename(self.token_path, moved)
+                real_rename(source, self.token_path)
+            return real_unlink(name, *args, **kwargs)
+
+        raised = self._created_then_refused(
+            mock.patch.object(dt.os, "unlink", side_effect=replaced_at_the_unlink))
+        self.assertTrue(raced, "the cleanup removed nothing")
+        self.assertTrue(
+            os.path.lexists(self.token_path),
+            "the cleanup deleted the replacement put at the token path")
+        self.assertEqual(self.token_path.read_text(),
+                         "a replacement made after the creation\n")
+        self.assertFalse(os.path.lexists(moved),
+                         "the created file survives under the name it was moved to")
+        self.assertEqual(sorted(os.listdir(self.config)), ["web-token"])
+        self.assertIsInstance(raised, dt.InstallSecretRefused)
+
+    def test_a_name_replaced_before_the_cleanup_is_put_back_and_reported(
+            self) -> None:
+        """Between the creation and the cleanup the created file is moved away
+        and a replacement put at the token path. The replacement must stay, and
+        the created file the cleanup can no longer reach must be reported."""
+        source = self._replacement()
+        moved = self.config / "created-away"
+
+        def replaced_then_refused(fd):
+            os.rename(self.token_path, moved)
+            os.rename(source, self.token_path)
+            return self.TOKEN_REASON
+
+        raised = self._created_then_refused(
+            mock.patch.object(dt, "open_descriptor_secret_reason",
+                              side_effect=replaced_then_refused))
+        self.assertEqual(self.token_path.read_text(),
+                         "a replacement made after the creation\n")
+        self.assertTrue(moved.exists())
+        self.assertEqual(sorted(os.listdir(self.config)),
+                         ["created-away", "web-token"])
+        self._assert_reported_as_not_removed(raised)
+
+    def test_a_replacement_that_cannot_be_put_back_is_left_aside_and_reported(
+            self) -> None:
+        """As above, and while the cleanup examines what it moved aside, a third
+        file is put at the token path. That file must be left alone, and the
+        replacement must be left where the report says."""
+        source = self._replacement()
+        moved = self.config / "created-away"
+        real_stat = os.stat
+        examined = []
+
+        def replaced_then_refused(fd):
+            os.rename(self.token_path, moved)
+            os.rename(source, self.token_path)
+            return self.TOKEN_REASON
+
+        def a_third_file_meanwhile(name, *args, **kwargs):
+            result = real_stat(name, *args, **kwargs)
+            if (kwargs.get("dir_fd") is not None and name != "web-token"
+                    and not examined):
+                examined.append(name)
+                self.token_path.write_text("a third file, made later\n")
+            return result
+
+        raised = self._created_then_refused(
+            mock.patch.object(dt, "open_descriptor_secret_reason",
+                              side_effect=replaced_then_refused),
+            mock.patch.object(dt.os, "stat", side_effect=a_third_file_meanwhile))
+        self._assert_reported_as_not_removed(raised)
+        self.assertTrue(examined, "the cleanup examined nothing it moved aside")
+        self.assertEqual(self.token_path.read_text(), "a third file, made later\n")
+        aside = self.config / examined[0]
+        self.assertEqual(aside.read_text(), "a replacement made after the creation\n")
+        self.assertIn(str(aside), str(raised))
+
+    def test_a_creation_that_cannot_be_moved_aside_is_reported_where_it_is(
+            self) -> None:
+        """The cleanup's first step fails: the created file is still at the
+        token path, and the report must say so instead of claiming a refusal."""
+        real_rename = os.rename
+
+        def rename_refused(src, dst, *args, **kwargs):
+            if kwargs.get("src_dir_fd") is not None:
+                raise PermissionError(13, "Permission denied (the case's)", src)
+            return real_rename(src, dst, *args, **kwargs)
+
+        raised = self._created_then_refused(
+            mock.patch.object(dt.os, "rename", side_effect=rename_refused))
+        self._assert_reported_as_not_removed(raised)
+        self.assertTrue(os.path.lexists(self.token_path))
+        self.assertIn(str(self.token_path), str(raised))
+
     def test_an_ordinary_new_file_is_still_created(self) -> None:
         """The allowance: nothing above stops an ordinary write."""
         plain = self.tmp / "notes.txt"
