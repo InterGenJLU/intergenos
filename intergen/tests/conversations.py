@@ -220,13 +220,13 @@ SERVICE_MANAGEMENT = [
                     Assertion("contains_any", "active,running",
                               "NetworkManager status should be reported (active/running)"),
                     # Negation guards: the positive check is a substring match, so
-                    # close the constructed-negation traps WC flagged. These are
+                    # close the constructed-negation traps a review flagged. These are
                     # pure hardening — a correct active/running answer never contains
                     # any of them; each rejects a wrong status the positive check
                     # would otherwise pass ("not active"/"inactive" contain "active";
                     # "not running" contains "running"). (Fully structural closure —
                     # asserting the state from the tool result — needs a grader
-                    # capability that does not exist yet; noted to WC.)
+                    # capability that does not exist yet; noted as a follow-on.)
                     Assertion("not_contains", "inactive",
                               "must not report it inactive"),
                     Assertion("not_contains", "not active",

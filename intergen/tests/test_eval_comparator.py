@@ -7,7 +7,7 @@ the axes the comparator must catch: per-conversation grade regressions, AND
 cell-coverage erosion at (capability, OUTCOME) granularity, so a vanished gate
 branch is a regression at the same severity as a pass->fail and a gated tool
 covered only by a teaching-negative still flags its untested gate branches as
-gaps (WC PR3 coverage-granularity red-team, 2026-06-29). Also pins the
+gaps (PR3 coverage-granularity red-team, 2026-06-29). Also pins the
 classification against the real tree, the capability derivation precedence, and
 the outcome derivation.
 """
@@ -98,7 +98,7 @@ class CapabilityInventoryTests(unittest.TestCase):
         # the executed split is DERIVED from the trace's dispatch_any_failed (the
         # per-call success lives on the span, NOT in tool_calls). A read dispatch
         # the trace marks failed is executed_fail; one with no failure is
-        # executed_success. (WC read-tool-matrix review, 2026-06-29.)
+        # executed_success. (read-tool-matrix review, 2026-06-29.)
         self.assertEqual(ci.conversation_outcome(
             _conv("x", tool_calls=["read_file"],
                   trace_attrs={"dispatch_any_failed": True})), "executed_fail")
@@ -121,7 +121,7 @@ class CapabilityInventoryTests(unittest.TestCase):
         # executed_fail is RUN-then-error ONLY: a pre-run REJECTION (failed AND
         # denied: executed=False/success=False) must NOT false-claim executed_fail
         # coverage — it derives 'unspecified' (a visible gap), so the missing
-        # run-then-error driver stays unmasked. (WC pre-run-reject criterion.)
+        # run-then-error driver stays unmasked. (pre-run-reject criterion.)
         self.assertEqual(ci.conversation_outcome(
             _conv("x", tool_calls=["read_file"],
                   trace_attrs={"dispatch_any_failed": True,
@@ -139,7 +139,7 @@ class CapabilityInventoryTests(unittest.TestCase):
             "executed_success")
 
     def test_coverage_gaps_outcome_granular(self):
-        # THE WC scenario: a gated tool covered ONLY by a teaching-negative reads
+        # THE review scenario: a gated tool covered ONLY by a teaching-negative reads
         # teaching_covered=True yet every gate outcome is missing — no longer green.
         run = _run("r", [
             _conv("teach_wf", capabilities=["write_file"], no_tool=True,

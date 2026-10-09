@@ -5,10 +5,10 @@
 Covers the user-side lane of the lockdown:
   - the router P3 gate at the single chokepoint (_try_llm_tools), proven from
     BOTH reachable call sites — route()'s eligibility path and _route_single()'s
-    unconditional call (WC red-team #1's two ungated sites);
+    unconditional call (red-team finding #1's two ungated sites);
   - the fail-closed default (a router without an explicit unlock stays locked);
   - the tool-registry structural backstop (get_tool_schemas → [] when locked,
-    so the model is never offered tools on any surface — WC guard #2).
+    so the model is never offered tools on any surface — guard #2).
 
 Code-owned arg extraction (_extract_arguments for write_file / analyze_file /
 take_screenshot) is owned by the matcher-corpus lane and verified there + by its
@@ -71,7 +71,7 @@ class P3GateTests(unittest.TestCase):
         r._tools.get_tool_schemas.assert_called_once()
 
     def test_route_single_locked_skips_llm_tools_to_freeform(self):
-        # The _route_single seam (WC #1's easy-to-miss unconditional call site):
+        # The _route_single seam (finding #1's easy-to-miss unconditional call site):
         # under lockdown the REAL _try_llm_tools returns unhandled, so the sub
         # falls through to freeform — the model never gets the dispatch decision.
         r = _bare_router()

@@ -535,7 +535,7 @@ class LlamaManager(LlamaManagerInterface):
         ~80-140MB) and a distinct port so it runs alongside the chat server.
 
         cacheable / mmproj_path are DECLARED model capabilities (sourced from
-        the signed models-manifest, WC's one-capability-descriptor): the launch
+        the signed models-manifest, a single capability descriptor): the launch
         builder asserts what the model declares instead of guessing per-flag.
           - cacheable=True emits --cache-reuse; FALSE (default) omits it, so a
             non-cacheable backbone (e.g. Qwen3.5 Gated DeltaNet, which llama.cpp

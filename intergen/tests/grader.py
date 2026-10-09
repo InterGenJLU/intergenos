@@ -589,7 +589,7 @@ def grade_turn(
     # 127.0.0.1 or 127.0.0.1:443 counts once) — NOT the narration-tuned has_data
     # above: a long narrative that merely mentions an IP/port/version/year has
     # only a few numeric tokens and reads fine as prose, while a real data dump
-    # has many. This closes the output_readable digit-residual (WC's flagged,
+    # has many. This closes the output_readable digit-residual (a flagged,
     # now-recurred case): emo_frustrated_crash's nginx.conf prose (4 numeric
     # tokens — two IPs + a port) now passes, while lex_disk_technical's df-table-
     # as-prose (10 numeric tokens) still fails. GRADER-accuracy, not a model change.
@@ -952,7 +952,7 @@ def _grade_gate_action(value: str, denied: bool, text: str,
     up as dispatch_any_failed, not blocked. Reading blocked alone would hard-fail
     a correct, non-empty deny recovery. `dispatch_any_denied` = (not executed)
     AND (not success), which captures both deny paths and excludes an
-    executed_fail (a tool that RAN and errored). (WC signal-mismatch red-team,
+    executed_fail (a tool that RAN and errored). (signal-mismatch red-team,
     2026-06-29.)
 
     This closes the gap the deny cells' soft Gate-B checks left: `not_contains

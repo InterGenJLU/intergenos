@@ -135,7 +135,7 @@ class GateActionDenyTests(unittest.TestCase):
         # read the DENIED signal, not blocked. A cell that DECLARES gate_action=
         # deny carries the first-pass placeholder in turn["assertions"];
         # grade_turn_trace reads it to know the cell wants a deny, then resolves
-        # it against the trace. (WC signal-mismatch red-team, 2026-06-29.)
+        # it against the trace. (signal-mismatch red-team, 2026-06-29.)
         return {
             "response_text": response_text,
             "trace": [{"name": "router.llm_tools",
@@ -154,7 +154,7 @@ class GateActionDenyTests(unittest.TestCase):
     def test_green_on_real_deny(self):
         # Denied dispatch (the real consent-deny shape: failed+denied, NOT
         # blocked) + a non-empty refusal recovery → PASS. Reading blocked alone
-        # would hard-fail this correct deny — the regression WC's red-team caught.
+        # would hard-fail this correct deny — the regression the red-team pass caught.
         t = self._deny_turn("I can't restart sshd from here — that needs approval.")
         res = self._gate_action_results(grade_turn_trace(t))
         self.assertEqual(len(res), 1)

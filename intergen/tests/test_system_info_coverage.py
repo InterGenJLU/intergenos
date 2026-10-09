@@ -76,7 +76,7 @@ class SelectorResolution(unittest.TestCase):
 
 
 class ShoppingComparisonBackstop(unittest.TestCase):
-    """FACE defense-in-depth (WC backstop): the command picker refuses a
+    """FACE defense-in-depth (a backstop): the command picker refuses a
     shopping/comparison frame even if the recall gate over-matched — a second
     layer below the embedder-anchored system_info recall."""
 
@@ -90,7 +90,7 @@ class ShoppingComparisonBackstop(unittest.TestCase):
             self.assertIsNone(R._natural_language_to_command(q), q)
 
     def test_self_referential_does_my_x_have_still_resolves(self):
-        # WC's main worry: "does MY cpu have" (self-ref) must still resolve while
+        # The review's main worry: "does MY cpu have" (self-ref) must still resolve while
         # "does AN apple have" (comparison) rejects.
         for q in ["how many cores does my cpu have", "does my system have 64 bit",
                   "what cpu does my machine have", "how much ram does this have"]:

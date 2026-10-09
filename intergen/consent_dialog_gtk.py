@@ -419,7 +419,7 @@ class _DialogApp(Gtk.Application):
         # importance (the bare classification meant nothing to a new user). Unknown
         # provenance → danger (fail-safe).
         # A MISSING/empty provenance falls to "unknown" → danger via the mapper,
-        # never to a reassuring green default (WC re-pass micro-note; fail-safe).
+        # never to a reassuring green default (review re-pass note; fail-safe).
         prov = str(s.get(proto.K_PROVENANCE) or "unknown")
         severity, headline, detail = review_risk_copy(
             prov, s.get(proto.K_RISK_TIER) or None)

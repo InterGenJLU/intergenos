@@ -2243,7 +2243,7 @@ class InterGenDaemon(InterGenDBusInterface):
                     hw_tier = (HardwareTierLevel(self._hardware_tier.get("level", 2))
                                if self._hardware_tier else HardwareTierLevel.TIER_2)
                     _lock_dispatch = True  # fail-closed
-                # Structural backstop (WC lockdown guard #2): when locked, the
+                # Structural backstop (lockdown guard #2): when locked, the
                 # registry refuses to hand tool schemas to the model on ANY
                 # surface, so the model cannot emit a ToolCall even if a future
                 # model-facing path forgets to check the lock. Code-owned

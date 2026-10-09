@@ -44,7 +44,7 @@ DIVISION OF LABOR (AI-6 build, branch off master 5ce0dc41):
   * Root side — wire `verify_token` into `privileged_dispatch.main`, add
     the persistent consumed-nonce store, read the key via PKEXEC_USER's home
     (NOT HOME=/root), and the strong run_command classifier (AI-4).
-  * WC — independent verification.
+  * Verification — an independent review of both sides.
 
 This module is stdlib-only (hmac, hashlib, secrets, json, base64, time, os, pwd,
 pathlib) so it is auditable in isolation and carries no third-party trust.

@@ -544,7 +544,7 @@ class ToolRegistry:
         # Per-tool invocation tally (Usage tab → Top Tools). Plain dict to avoid
         # a new import; dispatch is single-threaded so no lock is needed.
         self._tool_call_counts: dict[str, int] = {}
-        # DISPATCH LOCKDOWN structural backstop (WC lockdown red-team guard #2):
+        # DISPATCH LOCKDOWN structural backstop (lockdown red-team guard #2):
         # when True, get_tool_schemas() returns [] so the MODEL is never offered
         # tools on ANY surface (router P3, the WS streaming generate, the prompt-
         # cache warmup) and therefore cannot emit a ToolCall at all. This is the

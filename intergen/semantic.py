@@ -125,7 +125,7 @@ class SemanticMatcher(SemanticMatcherInterface):
         # registration raise into the keyword-only fallback with Layer-2 dead for
         # the session. Degrade any embedder exception to None — identical to a
         # cleanly-down embedder — so registration, match, and refresh are all
-        # uniformly safe (WC recovery-path red-team).
+        # uniformly safe (recovery-path red-team).
         try:
             vectors = self._embedder(list(texts))
         except Exception as e:

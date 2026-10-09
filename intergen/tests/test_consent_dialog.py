@@ -4,7 +4,7 @@
 
 Covers the swap that replaces the zenity render on the two consent surfaces with
 the branded binary (`docs/research/branding/consent-dialog/`), exercising the
-invariants WC's red-team conditioned the approval on:
+invariants the red-team review conditioned the approval on:
 
   * visual integrity (§B / inv 8)      — bidi / zero-width / non-printing badged
   * scrubbed child env (§C / inv 10)    — injection family dropped, PATH fixed
@@ -338,7 +338,7 @@ class WiringTests(unittest.TestCase):
         zen.assert_called_once()
 
 
-# ── punch-list hardening (WC adversarial pass #2) ─────────────────────────────
+# ── punch-list hardening (adversarial pass #2) ────────────────────────────────
 class ProvenanceBadgeTests(unittest.TestCase):
     def test_badge_class_keyed_to_real_trust(self):
         from intergen.consent_dialog_sanitize import provenance_badge_class as pbc

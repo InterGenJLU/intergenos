@@ -179,7 +179,7 @@ class WebGateDenyNoDeadlockTests(_GateHarness):
         # (deterministic; no live model, no box mutation/capture, no corpus).
         # take_screenshot is here so its gate-deny mechanism is REALLY covered,
         # not just annotated away: its inventory deny note cites this test.
-        # (WC corpus-complete red-team, 2026-06-29.)
+        # (corpus-complete red-team, 2026-06-29.)
         gated = {
             "manage_packages": {"action": "remove", "name": "firefox"},
             "manage_services": {"action": "restart", "unit": "sshd"},

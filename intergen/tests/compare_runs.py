@@ -208,7 +208,7 @@ def format_report(diff: dict, old_id: str, new_id: str) -> str:
             teach = "" if info["teaching_covered"] else "  +no teaching cell"
             # CORPUS-COMPLETE is corpus-scoped, not "fully tested": note the annotated
             # count so a reader never reads it as covering the not-corpus-viable
-            # outcomes (the annotations are listed below it). (WC verify-don't-mask.)
+            # outcomes (the annotations are listed below it). (Verify, don't mask.)
             if info["corpus_complete"]:
                 status = (f"CORPUS-COMPLETE ({len(info['notes'])} outcome(s) "
                           "annotated not-corpus-viable, see below)")

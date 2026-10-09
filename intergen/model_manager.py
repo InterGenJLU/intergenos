@@ -118,7 +118,7 @@ def _model_license_ref(model: ModelInfo) -> str:
 
     The SIGNED manifest's license_ref (overlaid onto model.license_ref by
     ModelManager._apply_manifest) is AUTHORITATIVE. Relaxation of the
-    acceptance gate happens ONLY on that signed field (WC's fail-open finding:
+    acceptance gate happens ONLY on that signed field (a review's fail-open finding:
     a permissive OpenGVLab/InternVL checkpoint un-gates ONLY because the
     master-signed manifest declares Apache-2.0 — never on a repo_id guess, and
     never on an unsigned catalog default, which _apply_manifest clears on a
@@ -447,7 +447,7 @@ class ModelManager(ModelManagerInterface):
         the acceptance gate keys on, and the declared capability descriptor
         (has_vision / cacheable / mmproj_filename) that drives the launch flags
         ALL come from the master-signed manifest — never the catalog defaults
-        or a repo_id guess (WC's fail-open finding: relax/enable only on the
+        or a repo_id guess (the fail-open finding: relax/enable only on the
         signed field). No entry => sha256 cleared => fail-closed (download +
         verify refuse, no --cache-reuse / --mmproj, conservative license gate).
         """
@@ -465,7 +465,7 @@ class ModelManager(ModelManagerInterface):
             model.mmproj_size_gb = 0.0
             model.vendor_filename = None
             model.mmproj_vendor_filename = None
-            # Clear license_ref too (WC structural fail-open hardening): an
+            # Clear license_ref too (structural fail-open hardening): an
             # unsigned catalog default must NEVER relax the acceptance gate.
             # Cleared → _model_license_ref falls to the conservative repo_id
             # heuristic (DENY for anything unrecognized).

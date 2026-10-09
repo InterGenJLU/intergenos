@@ -161,7 +161,7 @@ _PROVENANCE_DIRECTIVE = (
 # scope-boundary rule (persona.SCOPE, ~370 chars, general path only). Load-bearing
 # persona content, not bloat; ceilings re-measured at the same ~8% headroom. The
 # unlisted-path default tracks the general+tools size (the _MODIFIERS fallback).
-# Re-baselined 2026-07-24 (decided; the live dogfood transcripts showed EIGHT
+# Re-baselined 2026-07-24 (decided; the live in-house transcripts showed EIGHT
 # of nine paths warn-firing on ~5% growth past the 07-09 ceilings — measured
 # and re-pinned rather than left shouting; the warn is a meter, and a meter
 # that always fires measures nothing). Values = assembled size measured at this
@@ -242,7 +242,7 @@ _MODIFIER_RULES = {
 # diagnostic modifier's "Use your tools… Act immediately" on a with_tools=False
 # generation is an instruction/capability mismatch — a fabrication recipe: the
 # model is commanded to act with no means to, and the observed failure mode is
-# a confabulated "I checked …" (live dogfood transcript, 2026-07-24; decided
+# a confabulated "I checked …" (live in-house transcript, 2026-07-24; decided
 # same day). When the path cannot offer tools, the modifier must order HONESTY
 # about that instead of action it cannot take. Any future modifier that
 # instructs tool use gets its toolless twin here. Same rule-body convention as

@@ -73,14 +73,14 @@ class IpQueryDetection(unittest.TestCase):
             self.assertTrue(_is_ip_query(q), q)
 
     def test_face_coverage_false_friends_still_miss(self):
-        # The broaden must NOT trip the over-match traps (WC SET-2).
+        # The broaden must NOT trip the over-match traps (review SET-2).
         for q in ("whats a good ip camera", "how do i zip files",
                   "search the log for ip", "what do i have installed",
                   "how do i skip this", "how do i find my external ip"):
             self.assertFalse(_is_ip_query(q), q)
 
     def test_definitional_ip_asks_teach_not_personal(self):
-        # WC over-match guard: "what IS an ip" definitional forms must NOT hit the
+        # Over-match guard: "what IS an ip" definitional forms must NOT hit the
         # personal-ip handler — they teach. The indefinite article / define /
         # used-for / stand-for frame marks the definitional ask.
         for q in ("what is an ip address", "whats an ip address",
@@ -160,7 +160,7 @@ class Ipv4AutoAnswer(unittest.TestCase):
         # The resolver is REACHABLE but returns no answer, so run_command hands
         # back its "(no output)" placeholder (or other non-address text). That must
         # never be echoed as an address — the shape gate treats it as absent and the
-        # graceful-unavailable branch fires instead. (WC dual-address wedge.)
+        # graceful-unavailable branch fires instead. (dual-address wedge.)
         for empty in ("(no output)", "not a real ip", "192.168.1.999"):
             r = _router(_IFCONFIG_OLD, dig4=empty)
             res = r._answer_ip_query("what's my ip", 0.0)
@@ -182,7 +182,7 @@ class Ipv4AutoAnswer(unittest.TestCase):
         # A misconfigured/captive/hostile resolver can answer with a loopback,
         # private, or link-local address of the right family. It is a valid IPv4
         # but NOT the user's public IP — presenting it as such states a false value
-        # as fact, so the global-ness gate treats it as absent. (WC in-class residual.)
+        # as fact, so the global-ness gate treats it as absent. (in-class residual.)
         for nonglobal in ("192.168.1.50", "127.0.0.1", "169.254.10.1", "10.0.0.5"):
             r = _router(_IFCONFIG_OLD, dig4=f'"{nonglobal}"')
             res = r._answer_ip_query("what's my ip", 0.0)

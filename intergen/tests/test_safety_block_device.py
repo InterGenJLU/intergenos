@@ -2,7 +2,7 @@
 # Copyright (C) 2015-2016, 2026 InterGenJLU
 """Authoritative-denylist coverage for redirect-to-block-device wipes.
 
-WC's safety review of 6c079275 flagged that the destructive-pattern set might
+A safety review of 6c079275 flagged that the destructive-pattern set might
 miss redirect-wipes to non-sd block devices. Verified against source: the
 authoritative classify_command covered '> /dev/sd' and '> /dev/nvme' but NOT
 '> /dev/vd*' (virtio — every VM, including our own test beds), '/dev/mmcblk*'
@@ -12,7 +12,7 @@ disks our VMs use. These pins close it across the whole block-device family
 while keeping char-device redirects (/dev/null, /dev/zero, /dev/tty, ...)
 classifiable as normal.
 
-WC's other two flags verified ALREADY-covered and pinned here as regression
+The review's other two flags verified ALREADY-covered and pinned here as regression
 guards: mkfs without a dot (\\bmkfs\\b) and long-form rm --recursive --force.
 """
 
@@ -54,7 +54,7 @@ class BlockDeviceRedirectBlocked(unittest.TestCase):
 
 
 class WCAlreadyCoveredFlags(unittest.TestCase):
-    """WC's other two flags — verified already covered; pinned as guards."""
+    """The review's other two flags — verified already covered; pinned as guards."""
 
     def test_mkfs_without_a_dot_is_blocked(self):
         self.assertEqual(classify_command("mkfs -t ext4 /dev/sda"), SafetyTier.BLOCKED)

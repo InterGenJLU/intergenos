@@ -161,7 +161,7 @@ _WRITE_CONTENT_REFERENTIAL = frozenset({
     "this", "that", "it", "these", "those",
     "this line", "that line", "the line", "this text", "that text", "the text",
     "the above", "the following", "the content", "this content", "that content",
-    # phrase-form referentials (WC completeness note): same fail-safe class —
+    # phrase-form referentials (a completeness review note): same fail-safe class —
     # they name prior output, not literal content to write.
     "the result", "the results", "the output", "the response", "the answer",
     "the same", "all of it", "all of this", "everything above",
@@ -313,7 +313,7 @@ _IP_HOWTO_LEADIN = re.compile(
 # "what's an ip address used for", "what does ip stand for") want a TEACHING answer,
 # NOT the user's personal IP. The indefinite article (a/an) before the ip-scope, or a
 # define/explain/what-does/used-for/stand-for frame, marks the definitional form;
-# personal asks use my/your or a bare scope+ip with no article. (WC FACE over-match
+# personal asks use my/your or a bare scope+ip with no article. (FACE over-match
 # guard, 2026-07-01 — the personal-ip handler must not answer "what IS an ip".)
 _IP_DEFINITIONAL_LEADIN = re.compile(
     r"\b(?:a|an)\s+(?:\w+\s+)?ip\b"
@@ -330,7 +330,7 @@ def _is_ip_query(user_input: str) -> bool:
 
 
 # Shopping / comparison frames — NEVER a live system-state answer (FACE defense-in-
-# depth, 2026-07-01; WC backstop). The system_info recall is already anchored to
+# depth, 2026-07-01; a backstop). The system_info recall is already anchored to
 # self-referential signals so these classify as intent=none, but this is the SECOND
 # layer: even if recall over-matched, the command picker refuses to resolve a stats
 # command for "what cpu should I buy", "how much does more RAM cost", "how many cores
@@ -1355,7 +1355,7 @@ def detect_file_lifecycle_intent(user_input: str, prior_draft: str | None = None
 # "Run dd if=..." classifies CONFIRM, not BLOCKED). Narrow command-syntax
 # patterns, not the soft verbs delete/format/remove, so legitimate help still
 # reaches the tools; Fix #1 (synth-skip) backstops anything that slips past.
-# (WC unification: one canonical set, two call sites, no drift.)
+# (Unified: one canonical set, two call sites, no drift.)
 
 
 # ── M4(i) read-only-state direct-exec: requires[] on-PATH gate ─────────────
@@ -1496,7 +1496,7 @@ def _hidden_file_search_command(user_input: str) -> str | None:
 # ── DIRECT-ANSWER intent class (ge9b finding #3) ──────────────────────────────
 # The operator's every-install smoke question "What's the current time?" scored
 # 0.909 against the teaching corpus and routed to a how-to about `date`/
-# `timedatectl` (a consent-offered tutorial) instead of the time. Operator ruling:
+# `timedatectl` (a consent-offered tutorial) instead of the time. The rule:
 # a basic question that just needs an ANSWER must NEVER route to teaching. This is
 # an ENUMERATED, code-owned intent class that ranks AHEAD of the explain gate (and
 # ahead of the external live-data offer): each member answers in ONE turn from a
@@ -3098,7 +3098,7 @@ class ConversationRouter(RouterInterface):
         # (route returns source="llm_freeform", so the streaming caller in
         # web_server attaches NO tools — its tool-offer is gated on
         # source=="llm_tools"). _route_single's unconditional _try_llm_tools call
-        # is covered by that method's own entry gate. (WC lockdown red-team #1,
+        # is covered by that method's own entry gate. (lockdown red-team finding #1,
         # 2026-06-30: the native path was reachable on the 2B from two ungated
         # call sites.)
         _locked = getattr(self, "_lock_dispatch", True)
@@ -4651,7 +4651,7 @@ class ConversationRouter(RouterInterface):
         The staged args are dispatched VERBATIM through ToolRegistry.execute — the
         confirm gate + provenance + the r31 salience card still fire, byte-identical
         to any other gated dispatch. NOTHING is re-routed through the matcher/model
-        (the WC lockdown-seam rule) or re-derived through an NL arg-extractor. The
+        (the lockdown-seam rule) or re-derived through an NL arg-extractor. The
         staged offer is the ONLY path to the action, so a fabricated completion is
         structurally impossible: the file/dir lands ONLY through the gate, never
         through prose.
@@ -4838,7 +4838,7 @@ class ConversationRouter(RouterInterface):
         user asked, so the outbound resolver query IS the request, not telemetry);
         IPv6 is gated behind an explicit offer because a global v6 (SLAAC/EUI-64) can
         pin a device. Composed in CODE — the external value is third-party display-
-        only data, never re-executed (WC). Graceful fail: a missing/timed-out external
+        only data, never re-executed. Graceful fail: a missing/timed-out external
         lookup still returns the internal answer, never a hang or opaque error."""
         internal = _parse_internal_ip(self._run_fixed_command("/usr/sbin/ifconfig") or "",
                                       v6=False)
@@ -5435,7 +5435,7 @@ class ConversationRouter(RouterInterface):
         UNCONDITIONAL call (the compound sub-query seam, router.py ~922, which
         has no eligibility gate of its own) — falls through to the code-owned
         paths / P4 freeform. This single chokepoint covers both call sites and
-        any future caller (WC lockdown red-team #1: gate the chokepoint, not the
+        any future caller (lockdown red-team finding #1: gate the chokepoint, not the
         call sites). The route() eligibility short-circuit makes this a no-op on
         the non-streaming path; this gate is what closes the _route_single seam.
         """
@@ -5526,7 +5526,7 @@ class ConversationRouter(RouterInterface):
             # is the precise "the gate denied this" signal the gate_action=deny
             # grader needs. dispatch_any_blocked alone misses the consent-deny path
             # (it only sets failed, not blocked), which would hard-fail a correct
-            # deny recovery — the F2 deny cells. (WC gate_action signal-mismatch
+            # deny recovery — the F2 deny cells. (gate_action signal-mismatch
             # red-team, 2026-06-29.)
             _ls.set_attribute("dispatch_any_denied",
                               any((not r.executed) and (not r.success)
@@ -6812,7 +6812,7 @@ class ConversationRouter(RouterInterface):
             # write: empty, or a bare context-referencing token ("save THIS to …",
             # "append THAT line to …") that resolves only against prior context the
             # code does not have. Writing the literal word "this" is a silent wrong
-            # write (WC residual, same fail-safe class as empty). Return None so the
+            # write (a residual case, same fail-safe class as empty). Return None so the
             # turn clarifies — "what should I write to <path>?" — never truncating.
             ref = content.lower().rstrip(".!").strip()
             if not path or not content or ref in _WRITE_CONTENT_REFERENTIAL:
@@ -7291,7 +7291,7 @@ class ConversationRouter(RouterInterface):
         """
         lower = user_input.lower().strip()
 
-        # FACE defense-in-depth (WC backstop): a shopping/comparison frame never
+        # FACE defense-in-depth (a backstop): a shopping/comparison frame never
         # resolves to a live-state command, even if the recall gate over-matched.
         # Second layer below the embedder-anchored system_info recall.
         if _SHOPPING_COMPARISON_RE.search(lower):
@@ -7396,7 +7396,7 @@ class ConversationRouter(RouterInterface):
             # "room" as a disk synonym — anchored to avoid metaphors. The bare
             # "how much room" / "room left" / "enough room" substrings collided
             # with non-disk uses ("how much room for improvement", "no room left
-            # in the schedule", "enough room to dance") and were removed (WC
+            # in the schedule", "enough room to dance") and were removed (finding:
             # room-collision LOW). The possessive "room do i have" and the explicit
             # disk/drive forms are the high-confidence disk phrasings; the intent
             # gate (intents.py) also requires a disk/quantity-left anchor for "room".

@@ -163,7 +163,7 @@ def _reset_session_state(client) -> None:
     --repeat run of a session_awareness test is independent. clear_all keeps the
     sessions table (so the pre-seed survives a per-turn fact wipe), which means
     without this reset a session test's history accumulates across repeats and
-    the distribution reads confounded (WC harness-review residual 2b)."""
+    the distribution reads confounded (harness-review residual 2b)."""
     daemon = getattr(client, "_daemon", None)
     memory = getattr(daemon, "_memory", None) if daemon else None
     if memory is not None and hasattr(memory, "clear_sessions"):
@@ -812,7 +812,7 @@ def main() -> int:
                 client.reset_conversation()
             elif run_i > 0:
                 # session_awareness: between --repeat runs, reset to the
-                # pre-seeded baseline so each run is independent (WC residual 2b).
+                # pre-seeded baseline so each run is independent (residual 2b).
                 # run_i == 0 already starts from the global pre-seed above.
                 _reset_session_state(client)
             # Each run starts with clean stored facts (incl. between --repeat

@@ -139,7 +139,7 @@ _EGRESS_RULES: list[_Rule] = [
     # so we tolerate up to four '$'-delimited fields between the scheme id and
     # the base64-ish hash material rather than requiring the salt to follow
     # the id directly. Fields stop at ':' so we do not bleed across the
-    # colon-delimited /etc/shadow record. (WC verify finding on 1ff3b482: the
+    # colon-delimited /etc/shadow record. (a verification finding on 1ff3b482: the
     # original rule missed sha512+rounds, bcrypt+cost, and yescrypt — the
     # modern Debian/InterGenOS default — the EGRESS analog of the AI-4
     # not-a-true-superset catch.)

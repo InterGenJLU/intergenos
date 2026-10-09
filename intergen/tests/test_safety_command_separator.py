@@ -218,7 +218,7 @@ class WrapperQuotedInnerNotSoftened(unittest.TestCase):
     its true tier — the recognition-tier inner must not soften to CONFIRM because
     a leading quote is glued to the token. Inners are NON-pattern-listed (mount /
     nft / ip) on purpose: a pattern-listed inner (`rm -rf`) would be caught by the
-    anywhere-match layer regardless and mask the recognition-layer gap (WC's own
+    anywhere-match layer regardless and mask the recognition-layer gap (the review's own
     methodology note). Every exec-wrapper re-entry point is exercised."""
 
     def test_quoted_blocked_inner_reaches_blocked(self):

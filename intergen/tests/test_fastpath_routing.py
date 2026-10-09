@@ -167,7 +167,7 @@ class FragmentRouting(unittest.TestCase):
         # "room" as a disk synonym must route to system_info ONLY when anchored to
         # a disk/quantity-left signal. The bare "how much room"/"room left"/"enough
         # room" patterns over-matched metaphors and routed them to the disk readout
-        # (WC room-collision LOW). Legit disk-room still routes:
+        # (room-collision finding, LOW). Legit disk-room still routes:
         for q in ("how much room do I have left",
                   "how much room is free",
                   "room left on my disk"):

@@ -56,7 +56,7 @@ def _canon_prefix(prefix: str) -> str:
     while the candidate the caller passes IS resolved — so a pre-existing symlink
     in the parent (a Stow/chezmoi-symlinked ~/.config is the common case) makes the
     resolved candidate diverge from the unresolved prefix and slip the floor. That
-    is exactly the location-side asymmetry the signed-manifest matcher closes (WC's
+    is exactly the location-side asymmetry the signed-manifest matcher closes (the review's
     scan-config carry-forward + matcher finding); the interim floor must match it so
     BOTH sides of every prefix comparison are canonical (the symmetry rule). A
     resolve error falls back to the expanduser-only form — never weaker than before.
@@ -157,7 +157,7 @@ def _manifest_policy():
                 # UNTRUSTED — the manifest IS present but its signature/key could
                 # not be trusted: tamper or corruption. The authoritative
                 # never-list has downgraded to the interim floor. FAIL LOUD
-                # (PI-D hardening, WC wedge 1): alert-level here + a user-visible
+                # (PI-D hardening, wedge 1): alert-level here + a user-visible
                 # banner on every write that proceeds.
                 _policy_untrusted = True
                 log.critical(

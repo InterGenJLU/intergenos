@@ -69,7 +69,7 @@ class EmbedderInjectionTests(unittest.TestCase):
         self.assertEqual(r.layer, "keyword")
 
     def test_ragged_embedding_shape_degrades_not_crashes(self):
-        # Security-lens part-A catch (WC's part-C class, one layer up): a ragged or
+        # Security-lens part-A catch (the part-C class, one layer up): a ragged or
         # non-numeric embedder return makes np.asarray(float32) raise — _embed must
         # degrade to None, not propagate the ValueError to the caller.
         ragged = SemanticMatcher(embedder=lambda texts: [[1.0, 2.0], [3.0]])

@@ -103,7 +103,7 @@ def test_is_not_transparency_request(message):
 
 def test_clear_sessions_resets_session_state(tmp_path):
     # clear_sessions hard-deletes session rows so a session_awareness test can
-    # reset to the pre-seed baseline between --repeat runs (WC residual 2b).
+    # reset to the pre-seed baseline between --repeat runs (residual 2b).
     m = MemoryManager(str(tmp_path / "memory.db"))
     m.start_session()
     m.record_turn("checked disk space", ["run_command"])

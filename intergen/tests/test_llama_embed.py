@@ -92,7 +92,7 @@ class EmbedTests(unittest.TestCase):
             self.assertIsNone(self.m.embed(["a"]))
 
     def test_non_dict_rows_degrade_to_none(self):
-        # WC verify catch: a data list whose ROWS are not dicts (e.g. list of
+        # Verification catch: a data list whose ROWS are not dicts (e.g. list of
         # lists) made r.get(...) raise AttributeError, which the old
         # (KeyError, TypeError) except missed — crashing the caller. The
         # degrade-don't-crash contract must hold for this malformed shape too.

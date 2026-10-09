@@ -147,7 +147,7 @@ class TestLocalRulesEgress(unittest.TestCase):
         self.assertIn("secret.crypt-hash", v.categories)
 
     def test_crypt_hash_modern_formats_block(self):
-        # WC verify finding on 1ff3b482: a parameter field between the scheme
+        # Verification finding on 1ff3b482: a parameter field between the scheme
         # id and the salt must not let modern shadow hashes pass clean.
         for label, h in [
             ("sha512+rounds", "$6$rounds=656000$usesomesillystringforsalt$" + "A" * 86),

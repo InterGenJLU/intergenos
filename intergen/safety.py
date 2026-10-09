@@ -224,7 +224,7 @@ _BLOCKED_PATTERNS = [
     re.compile(r"\brm\s+(-\S+\s+)*/\s*$"),  # rm [flags] /  (delete root itself)
     # Recursive-force rm at ANY path is BLOCKED (restores + widens the prior
     # run_command denylist, which blanket-blocked `rm -rf <anypath>`; my first
-    # AI-4 pass narrowed this to `rm -rf /` only, a regression WC caught). A
+    # AI-4 pass narrowed this to `rm -rf /` only, a regression a review caught). A
     # recursive force delete is unrecoverable and must not auto/confirm-run from
     # the shell tool regardless of target. One pattern, two lookaheads: BLOCK
     # when an rm invocation carries BOTH a recursive flag (-r/-R, combined like
@@ -405,7 +405,7 @@ def _dequote(s: str) -> str:
     `nohup "umount /y"`), which leaves a leading quote glued to the first token so
     `basename("'mount")` != `mount` and a recognition-tier BLOCKED inner softened to
     the unknown-command CONFIRM default (F2 correctness fix, 2026-07-02 — the same
-    one-notch soften WC's methodology warned pattern-listed tests would mask). Every
+    one-notch soften the review methodology warned pattern-listed tests would mask). Every
     exec-wrapper extractor runs its wrapped rest through this before recursion, so the
     quoted and unquoted forms classify identically. Like the shell `-c` re-entry it is
     a SAFE over-approximation: removing quotes can only expose MORE tokens/segments to
@@ -733,7 +733,7 @@ def classify_command(command: str, _piped: bool = False) -> SafetyTier:
 
 # Canonical destructive-EXECUTION patterns (anywhere-match), shared by the
 # router's pre-LLM decline gate so it cannot drift from the dispatch-time
-# blocker above (WC unification — one source of truth, two call sites). The
+# blocker above (unified — one source of truth, two call sites). The
 # authoritative blocker is classify_command/_BLOCKED_PATTERNS; this set lets the
 # router decline an obviously-destructive request instantly, in natural language
 # ("Run dd if=..."), which classify_command misses because it keys off the base

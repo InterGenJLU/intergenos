@@ -687,7 +687,7 @@ def _register_system_info(matcher: SemanticMatcher) -> None:
             # "room" as a disk synonym — anchored to a disk/quantity-left signal so
             # metaphors ("how much room for improvement", "no room left in the
             # schedule", "enough room to dance") do NOT classify as system_info,
-            # while "how much room do I have left" still does. (WC room-collision
+            # while "how much room do I have left" still does. (finding: room-collision
             # LOW; dyno lex_disk_natural.)
             r"how much room\b.*\b(?:left|free|do i have|i have|disk|drive|storage)\b",
             r"\broom\s+(?:left|free|available|remaining)\s+on\b",

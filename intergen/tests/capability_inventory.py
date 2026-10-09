@@ -82,7 +82,7 @@ READ_OUTCOMES = ("executed_success", "executed_fail")
 # capability and never dispatches it (asserts no_tool). It is its OWN coverage axis,
 # distinct from the gate outcomes — a teaching cell does NOT cover any gate branch,
 # so a gated tool with only a teaching cell still has all its gate outcomes missing.
-# (WC PR3 coverage-granularity red-team, 2026-06-29.)
+# (PR3 coverage-granularity red-team, 2026-06-29.)
 TEACHING_OUTCOME = "teaching"
 
 # Every outcome a cell may legitimately declare.
@@ -223,7 +223,7 @@ def conversation_outcome(conv_result: dict) -> str:
     # rejected dispatch must NOT false-claim executed_fail coverage — it stays a
     # visible gap ('unspecified'), so the missing run-then-error driver is not masked.
     # This makes the derivation itself ENFORCE the run-then-error requirement, rather
-    # than relying on cell-authoring vigilance. (WC pre-run-reject criterion, 2026-06-29.)
+    # than relying on cell-authoring vigilance. (pre-run-reject criterion, 2026-06-29.)
     any_denied = any(
         s.get("attributes", {}).get("dispatch_any_denied")
         for turn in conv_result.get("turn_details", [])
@@ -280,7 +280,7 @@ _NOT_CORPUS_VIABLE_GATE = {
     # driver on the 2B (an allow captures the screen/webcam — unit-only). Its gate
     # deny-no-wedge mechanism is REALLY covered at the cross-tool unit deny test
     # (test_deny_no_wedge_across_all_gated_tools), so the note CITES that coverage
-    # instead of reading as an untested gate. (WC corpus-complete red-team, 2026-06-29.)
+    # instead of reading as an untested gate. (corpus-complete red-team, 2026-06-29.)
     "take_screenshot": "consent-gated privacy capture is unit-only (an allow captures "
                        "the screen/webcam); gate deny-no-wedge mechanism proven at the "
                        "cross-tool unit deny test, not drivable as a live corpus cell",
@@ -343,7 +343,7 @@ def coverage_gaps(run_data: dict) -> dict[str, dict]:
     wires the GATE_OUTCOMES axis into the signal so missing-cell=fail bites per OUTCOME,
     not per capability — a gated tool no longer reads "covered" off a single
     teaching-negative cell while its deny / timeout / cancel / reject branches sit
-    untested (the green-too-early hole WC's red-team caught, 2026-06-29). A read/query
+    untested (the green-too-early hole a red-team pass caught, 2026-06-29). A read/query
     capability only needs the two executed outcomes.
 
     This measures HARNESS (Conversation) coverage — the live-surface cells the runner
@@ -407,7 +407,7 @@ def outcome_consistency(run_data: dict) -> list[dict]:
     the standard runner result does not carry — those are asserted by the harness cells'
     own gate checks (gate_resolved_decision + the deny-content assertion), not here. The
     guard keeps the cheap, declaration-vs-reality contradiction loud without coupling to
-    grade. (WC hardening note, 2026-06-29.)
+    grade. (Hardening note, 2026-06-29.)
     """
     bad = []
     for conv in run_data.get("conversations", []):

@@ -335,7 +335,7 @@ class UntrustedBannerTests(unittest.TestCase):
 class CanonPrefixTests(unittest.TestCase):
     def test_home_anchor_resolves_through_symlinked_parent(self):
         # The interim floor's home anchor must canonicalize like the candidate, so a
-        # Stow/chezmoi-symlinked ~/.config does not let the floor diverge (WC carry-
+        # Stow/chezmoi-symlinked ~/.config does not let the floor diverge (review carry-
         # forward + the symmetry note). Real on-FS symlink.
         import shutil
         import tempfile

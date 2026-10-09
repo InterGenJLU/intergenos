@@ -20,7 +20,7 @@ deterministic given the embedder):
 
 Opt-in + embedder-gated like ws_harness: skipped unless INTERGEN_PR_HARNESS=1 and a
 nomic-embed /v1/embeddings endpoint is reachable (INTERGEN_PR_EMBED_URL, default
-http://127.0.0.1:8081/v1/embeddings). Labeled set folds WC's adversarial cases.
+http://127.0.0.1:8081/v1/embeddings). Labeled set folds in the adversarial review cases.
 
 Run live (e.g. on a daemon box):
     INTERGEN_PR_HARNESS=1 python -m pytest intergen/tests/test_matcher_precision_recall.py -q
@@ -78,7 +78,7 @@ _REQUIRED_ARGS = {
     "web_search": {"query"}, "open_application": {"name"},
 }
 
-# RECALL — imperative -> expected intent_id (incl. WC section 4 messy variants).
+# RECALL — imperative -> expected intent_id (incl. section 4 messy variants).
 _RECALL = {
     "manage_packages": ["install firefox", "uninstall vlc", "remove the gimp package",
         "update all my packages", "is git installed", "get me neovim",
@@ -113,7 +113,7 @@ _ARG_CONTROLS = [
     ("analyze the file /etc/fstab", "analyze_file", {"path"}),
 ]
 # Full-tool-set arg validity — consumes _REQUIRED_ARGS across EVERY tool (not just
-# the 5 inline controls above, the gap WC flagged: _REQUIRED_ARGS was defined but
+# the 5 inline controls above, the gap a review flagged: _REQUIRED_ARGS was defined but
 # unconsumed). One representative dispatching query per tool; the assertion is that
 # the tool's REQUIRED params are all present (optional specifics like package/service
 # may be EXTRA) and no catch-all 'query' leaks into a non-search tool.
@@ -273,7 +273,7 @@ class MatcherPrecisionRecallTests(unittest.TestCase):
 
     def test_arg_validity_full_tool_set(self):
         # Consume _REQUIRED_ARGS across the FULL tool set, not just the 5 inline
-        # controls (WC: the constant was defined-but-unconsumed). Every tool's
+        # controls (review: the constant was defined-but-unconsumed). Every tool's
         # required params must be present and no catch-all 'query' leaks into a
         # non-search tool — a malformed dispatch is a wrong ACTION under lockdown.
         for tool, q in _ARG_FULL_SET.items():
@@ -294,7 +294,7 @@ class MatcherPrecisionRecallTests(unittest.TestCase):
             self.assertIsInstance(args, dict, f"selector dropped {q!r} -> None")
             command = str(args.get("command", "")).strip()
             self.assertTrue(command, f"{q!r} -> {args} (no command)")
-            # TIER + sanity (WC): asserting non-empty is not enough — a non-empty
+            # TIER + sanity (review): asserting non-empty is not enough — a non-empty
             # but CONFIRM command (e.g. a du|sort|head pipeline where sort is not in
             # the AUTO tier) runs behind a needless confirm prompt = coverage !=
             # capability, and a nonsense command would not classify AUTO either.
@@ -355,7 +355,7 @@ class MatcherPrecisionRecallTests(unittest.TestCase):
         for q, winner, losers in _COLLISIONS:
             iid = getattr(self.m.match(q), "intent_id", None)
             self.assertEqual(iid, winner, f"collision winner: {q!r} -> {iid}")
-            # Resolved, NOT luck-resolved (WC): the loser must be genuinely BELOW the
+            # Resolved, NOT luck-resolved (review): the loser must be genuinely BELOW the
             # match threshold on its own standalone score, so it would not fire on a
             # phrasing where the winner's keyword precedence does not apply. A bare
             # assertNotEqual would false-pass a fragile loser=0.84 / winner=0.86 split.

@@ -84,7 +84,7 @@ class DestructivePolicyTests(unittest.TestCase):
         self.assertEqual(m.candidate, "/etc/passwd")
 
     def test_symlinked_parent_location_bypass_defense(self):
-        # WC finding (2026-05-30): a PRE-EXISTING symlink in a protected
+        # Review finding (2026-05-30): a PRE-EXISTING symlink in a protected
         # location's PARENT (Stow/chezmoi routinely symlink ~/.config) must not
         # bypass the never-list. The candidate is resolved through the symlink;
         # the pattern must be resolved the SAME way at construction, or the

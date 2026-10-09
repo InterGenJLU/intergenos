@@ -1,6 +1,6 @@
 """Tests for the license-authority fix: the SIGNED manifest license_ref is the
 authority for the acceptance gate; the repo_id heuristic is only the
-conservative DENY fallback (WC's fail-open finding), and an unsigned catalog
+conservative DENY fallback (the fail-open finding), and an unsigned catalog
 license_ref default is structurally cleared on a no-manifest-entry model.
 """
 import tempfile
