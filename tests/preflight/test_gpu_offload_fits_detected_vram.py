@@ -8,9 +8,12 @@ discrete at 3072 MB. The second model tier needs 7168 MB. A card between those
 two numbers is therefore correctly recognised as discrete, assigned tier 1, and
 then served ``--n-gpu-layers 0``, because the offload resolver treated a tier-1
 machine as one with no inference-capable card. The model that tier serves is
-about 1.8 GB with its vision projector and fits a 4 GB card with room to spare.
-Field record: four recorded starts on a 4 GB card, every one of them
-``--n-gpu-layers 0`` and ``--device none``, replies taking 4 to 11 seconds.
+about 1.8 GB with its vision projector, and a 4 GB card holds most of its
+layers: not all of them at the shipped context, where its own key/value cache
+is 1792 MiB (measured 2026-10-09: with every layer on such a card the engine
+ran out of device memory allocating the projector). Field record: four
+recorded starts on a 4 GB card, every one of them ``--n-gpu-layers 0`` and
+``--device none``, replies taking 4 to 11 seconds.
 
 THE RULE THIS ASSERTS (decided 2026-08-24). Key offload on whether the RESOLVED
 MODEL FITS THE DETECTED VIDEO MEMORY, independent of tier; the tier keeps
@@ -25,7 +28,9 @@ the engine's compute buffers is a MEASURED number, and this file re-derives the
 measurement's arithmetic so a future change to the constant has to face the
 evidence: on this project's own hardware, a full offload of the 9B model at the
 shipped 16384-token context allocated 512 MiB of key/value cache, 50.25 MiB of
-recurrent state and 501 MiB of compute buffers beyond the model weights.
+recurrent state and 501 MiB of compute buffers beyond the model weights. When
+the model's own header gives its cache, the plan charges that cache instead
+(``gpu_offload.kv_cache_mb``); the tier-1 row below is planned that way.
 
 WHAT A GREEN RUN HERE DOES NOT PROVE. This is the simulated half. It supplies
 video-memory figures rather than probing hardware, so it runs anywhere. The real
@@ -48,6 +53,19 @@ DEAD_BAND_CARD_MB = 4096      # the field GTX 1650: discrete, under the tier-2 f
 SMALL_DISCRETE_MB = 6144      # also inside the dead band
 TIER2_CARD_MB = 8192          # clears the tier-2 floor
 BIG_CARD_MB = 24576           # clears every floor
+
+# The tier-1 model's own header figures (its GGUF header: 28 blocks, 8 key/value
+# heads, 128-wide keys and values) and the shipped context the launch passes.
+TIER1_HEADER = {
+    "general.architecture": "qwen3",
+    "qwen3.block_count": 28,
+    "qwen3.attention.head_count": 16,
+    "qwen3.attention.head_count_kv": 8,
+    "qwen3.attention.key_length": 128,
+    "qwen3.attention.value_length": 128,
+    "qwen3.embedding_length": 2048,
+}
+SHIPPED_CONTEXT = 16384
 
 
 @pytest.fixture(scope="module")
@@ -75,20 +93,27 @@ def _mb(byte_count: int) -> int:
 
 # ── the rule ─────────────────────────────────────────────────────────────────
 
-def test_the_dead_band_card_offloads_the_whole_tier_one_model(plan, manifest_sizes):
-    """THE defect row: a 4 GB discrete card serving the 1.8 GB tier-1 model."""
-    from intergen.gpu_offload import OFFLOAD_ALL_LAYERS
+def test_the_dead_band_card_serves_the_tier_one_model_on_the_card(plan, manifest_sizes):
+    """THE defect row: a 4 GB discrete card serving the 1.8 GB tier-1 model.
+
+    The card is used, for every layer that fits with the model's own key/value
+    cache at the shipped context; never zero, and never more than fits.
+    """
+    from intergen.gpu_offload import kv_cache_mb
     tier1 = manifest_sizes[1]
+    kv_mb = kv_cache_mb(TIER1_HEADER, SHIPPED_CONTEXT)
+    assert kv_mb == 1792, f"the tier-1 model's cache read {kv_mb} MiB, not 1792"
     result = plan(vram_mb=DEAD_BAND_CARD_MB,
                   model_bytes=tier1["model_bytes"],
                   projector_bytes=tier1["projector_bytes"],
-                  total_layers=29)
-    assert result.layers == OFFLOAD_ALL_LAYERS, (
+                  total_layers=29, kv_mb=kv_mb, context_size=SHIPPED_CONTEXT)
+    assert 0 < result.layers < 29, (
         f"\nA {DEAD_BAND_CARD_MB} MB discrete card serving a "
         f"{_mb(tier1['total_bytes'])} MiB model was planned "
         f"{result.layers} layers.\n  reason: {result.reason}\n"
-        "The model fits with the measured headroom; every layer belongs on the card.")
-    assert result.fits is True
+        "With the model's own cache the whole load does not fit; the layers that "
+        "do fit belong on the card.")
+    assert result.fits is False
 
 
 @pytest.mark.parametrize("vram_mb", [DEAD_BAND_CARD_MB, SMALL_DISCRETE_MB,
