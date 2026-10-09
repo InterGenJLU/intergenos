@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 import time
 import unittest
@@ -235,6 +236,92 @@ class TestToolExecution(unittest.TestCase):
         self.assertNotIn("pkm is not installed", result.content.lower())
 
 
+# THE ONE CONDITION UNDER WHICH THE DAEMON CASE BELOW DOES NOT RUN. It starts a
+# second daemon, and that daemon loads the machine's model onto a card. When
+# another engine already has layers on a card, the second engine shares that
+# card's memory with it and, where the two do not fit, aborts at load and leaves
+# a core dump, so the case would measure that contention rather than the
+# daemon. It then skips by name, the holder in the reason. An engine that puts
+# no layers on a card (--device none, or zero layers, as the daemon's own
+# embedder runs) holds nothing and does not count, and a daemon configured to
+# serve on the processor contends for no card. Cards are not told apart: on a
+# machine with two, an engine on the other card skips the case too, by name,
+# which costs coverage there and hides no failure.
+_GPU_LAYER_OPTIONS = ("-ngl", "--gpu-layers", "--n-gpu-layers")
+_DEVICE_OPTIONS = ("-dev", "--device")
+
+
+def _option_value(argv: list[str], names: tuple[str, ...]) -> str | None:
+    """The value ``argv`` gives the first of ``names`` it carries, or None."""
+    for i, arg in enumerate(argv):
+        for name in names:
+            if arg == name and i + 1 < len(argv):
+                return argv[i + 1]
+            if arg.startswith(name + "="):
+                return arg.split("=", 1)[1]
+    return None
+
+
+def _puts_layers_on_a_card(argv: list[str]) -> bool:
+    """Whether an engine started with ``argv`` loads layers onto a card.
+
+    --device none keeps every layer off every card. Otherwise the layer count
+    decides, and an absent or non-numeric one ("auto", "all") is the engine's
+    own default, which offloads whenever a card is present.
+    """
+    if (_option_value(argv, _DEVICE_OPTIONS) or "").strip().lower() == "none":
+        return False
+    try:
+        return int(_option_value(argv, _GPU_LAYER_OPTIONS)) != 0
+    except (TypeError, ValueError):
+        return True
+
+
+def _started_by_this_process(pid: int) -> bool:
+    """Whether ``pid`` descends from this process: an engine this run started."""
+    me = os.getpid()
+    for _ in range(64):
+        if pid == me:
+            return True
+        if pid <= 1:
+            return False
+        try:
+            with open(f"/proc/{pid}/status") as status:
+                pid = next(int(line.split()[1]) for line in status
+                           if line.startswith("PPid:"))
+        except (OSError, StopIteration, ValueError):
+            return False
+    return False
+
+
+def engine_already_on_a_card() -> str | None:
+    """A running engine this process did not start that has layers on a card,
+    described, or None when there is none.
+
+    Matched on the program name in each process's own argument list, never on
+    a substring of a joined command line, so nothing here matches itself.
+    """
+    for entry in sorted(os.listdir("/proc")):
+        if not entry.isdigit():
+            continue
+        pid = int(entry)
+        try:
+            with open(f"/proc/{pid}/cmdline", "rb") as f:
+                argv = [a.decode(errors="replace")
+                        for a in f.read().split(b"\0") if a]
+        except OSError:
+            continue
+        if not argv or os.path.basename(argv[0]) != "llama-server":
+            continue
+        if not _puts_layers_on_a_card(argv) or _started_by_this_process(pid):
+            continue
+        return (f"llama-server pid {pid} ({argv[0]}, --n-gpu-layers "
+                f"{_option_value(argv, _GPU_LAYER_OPTIONS) or 'unset'}, "
+                f"--device {_option_value(argv, _DEVICE_OPTIONS) or 'unset'}) "
+                f"has layers on a card")
+    return None
+
+
 @requires_provisioned_stack
 class TestDBusDaemon(unittest.TestCase):
     """Test D-Bus daemon initializes all subsystems."""
@@ -257,6 +344,19 @@ class TestDBusDaemon(unittest.TestCase):
         from intergen import dbus_daemon as dd
         from intergen.config import Config
         test_name = f"com.intergenos.InterGenTest{os.getpid()}"
+
+        # The skip, by name, before anything is started (see
+        # engine_already_on_a_card above).
+        if str(Config().get("llama_server.gpu_layers", "auto")).strip() != "0":
+            holder = engine_already_on_a_card()
+            if holder is not None:
+                reason = (f"another engine already holds the GPU: {holder}. A "
+                          f"second engine loading the model onto a card that "
+                          f"is already serving aborts at load where the two do "
+                          f"not fit, so this case runs where no other engine "
+                          f"has layers on a card.")
+                log.warning("test_daemon_startup skipped: %s", reason)
+                self.skipTest(reason)
 
         # The SAME reasoning as the bus name, applied to the SERVING PORTS.
         # start_service step 3 launches the model servers on the FIXED
