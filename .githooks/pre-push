@@ -639,42 +639,141 @@ elif [ -n "$PUSH_BRANCH" ]; then
 fi
 
 # ---- 3. Syntax checks on modified files in to-be-pushed commits ---------
+# The bytes checked are the pushed ref's own (git show <LOCAL>:<path>), never
+# the current checkout's. Before 2026-10-08 the two loops tested [ -f "$f" ]
+# and linted the working-tree path: a ref that was not checked out had its
+# added files skipped as absent and its modified files checked at unrelated
+# bytes, so an invalid file reached the remote from an off-HEAD lane while the
+# same branch blocked when checked out (a second reader's true positive,
+# 2026-10-08).
+# The changed paths are enumerated as NUL-delimited raw bytes (git diff -z)
+# and read with read -d '': the earlier newline-delimited `git diff
+# --name-only` printed Git's DISPLAY form, which quotes a name holding a
+# non-ASCII byte, a quote, a backslash or a control character
+# ("caf\303\251.py", "broken\nmodule.py"), so the quoted token ended in a
+# double quote, matched neither *.py nor *.sh, and an invalid file under such
+# a name passed every gate and reached the remote (a second reader's true
+# positive, 2026-10-08). An enumeration that fails blocks instead of passing
+# an empty list; the mode look-up takes the path literally; a name in a
+# BLOCK line is printed shell-quoted so the line stays one line.
+# Every changed path present at the tip is enumerated (--diff-filter=d:
+# deletions alone excluded): the earlier AM filter dropped a renamed, copied
+# or type-changed destination, so an invalid .py reached by a rename, or a
+# Python-named symlink replaced by an invalid regular file, was never linted
+# and reached the remote (a second reader's true positives, 2026-10-08).
+# A Python- or shell-named symbolic link is linted THROUGH its target: the
+# bytes the link resolves to inside the pushed ref's tree are checked as the
+# link's kind, whether the link or its target changed in the range. Before
+# 2026-10-09 a link entry was skipped outright and its target linted only if
+# the target's own name ended in .py or .sh, so a link named like a module
+# whose target held invalid Python reached the remote with every gate
+# passing (a second reader's true positive, 2026-10-09). A link whose target
+# is absolute, leaves the tree, dangles, or is not a regular file there is
+# not linted and is named in one line.
 if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
     BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
-    CHANGED=$(git diff --name-only --diff-filter=AM "$BASE" "$LOCAL" 2>/dev/null || true)
+    LOCAL_SHORT=$(git rev-parse --short "$LOCAL")
+    SYNTAX_TMP=$(mktemp -d 2>/dev/null) || { echo "[pre-push] BLOCK: no scratch directory for the syntax checks (mktemp failed)."; exit 1; }
+    if ! git diff --name-only -z --diff-filter=d "$BASE" "$LOCAL" > "$SYNTAX_TMP/changed.z" 2>/dev/null; then
+        echo "[pre-push] BLOCK: cannot enumerate the files changed in $(git rev-parse --short "$BASE" 2>/dev/null || echo "$BASE")..$LOCAL_SHORT for the syntax checks (git diff failed)."
+        rm -rf "$SYNTAX_TMP"; exit 1
+    fi
+    if ! git ls-tree -r -z "$LOCAL" > "$SYNTAX_TMP/tree.z" 2>/dev/null; then
+        echo "[pre-push] BLOCK: cannot list the tree at $LOCAL_SHORT for the syntax checks (git ls-tree failed)."
+        rm -rf "$SYNTAX_TMP"; exit 1
+    fi
 
-    # Bash syntax
-    while IFS= read -r f; do
-        [ -z "$f" ] && continue
-        if [[ "$f" == *.sh ]] && [ -f "$f" ]; then
-            if ! bash -n "$f" 2>/dev/null; then
-                echo "[pre-push] BLOCK: bash syntax error in $f"
-                bash -n "$f" || true
-                exit 1
-            fi
-        fi
-    done <<< "$CHANGED"
-
-    # Python syntax (excludes virtualenv / __pycache__ / build dirs)
-    while IFS= read -r f; do
-        [ -z "$f" ] && continue
-        if [[ "$f" == *.py ]] && [ -f "$f" ]; then
-            case "$f" in
-                */__pycache__/*|*/.venv/*|*/build/*) continue ;;
+    # The kind a path is linted as, by its name and this tree's exclusions;
+    # nothing when it is not linted.
+    lint_kind() {
+        case "$1" in
+            *.sh) printf sh ;;
+            *.py) case "$1" in */__pycache__/*|*/.venv/*|*/build/*) return 1 ;; esac; printf py ;;
+            *) return 1 ;;
+        esac
+    }
+    # The mode of a path at the pushed ref (120000 = a symbolic link), or nothing.
+    mode_at_ref() { git --literal-pathspecs ls-tree -z "$LOCAL" -- "$1" 2>/dev/null | cut -c1-6; }
+    # The in-tree path a symbolic link resolves to at the pushed ref, when its
+    # target is relative, stays inside the tree and is a regular file there;
+    # nothing otherwise. A link to a link is not followed.
+    link_target_in_tree() {
+        local link="$1" target dir out part
+        target=$(git show "$LOCAL:$link" 2>/dev/null) || return 1
+        case "$target" in ''|/*) return 1 ;; esac
+        dir=$(dirname -- "$link"); [ "$dir" = . ] && dir=""
+        out="$dir"
+        while IFS= read -r -d '/' part || [ -n "$part" ]; do
+            case "$part" in
+                ''|.) ;;
+                ..) [ -n "$out" ] || return 1
+                    if [[ "$out" == */* ]]; then out="${out%/*}"; else out=""; fi ;;
+                *) out="${out:+$out/}$part" ;;
             esac
+        done < <(printf '%s' "$target")
+        [ -n "$out" ] || return 1
+        case "$(mode_at_ref "$out")" in 100644|100755) printf '%s' "$out" ;; *) return 1 ;; esac
+    }
+    # Lint one blob of the pushed ref as Python or Bash, naming what was pushed.
+    lint_blob_at_ref() { # <py|sh> <path at the ref> <name shown>
+        local kind="$1" path="$2" shown="$3"
+        if ! git show "$LOCAL:$path" > "$SYNTAX_TMP/check.$kind" 2>/dev/null; then
+            echo "[pre-push] BLOCK: cannot read $shown at $LOCAL_SHORT for its syntax check."
+            rm -rf "$SYNTAX_TMP"; exit 1
+        fi
+        if [ "$kind" = sh ]; then
+            if ! bash -n "$SYNTAX_TMP/check.sh" 2>/dev/null; then
+                echo "[pre-push] BLOCK: bash syntax error in $shown at $LOCAL_SHORT (bash -n reports it as check.sh):"
+                bash -n "$SYNTAX_TMP/check.sh" || true
+                rm -rf "$SYNTAX_TMP"; exit 1
+            fi
+        else
             if [ -z "$PY_BIN" ]; then
                 echo "[pre-push] BLOCK: the Python syntax check could not run — no Python 3 interpreter was found."
-                echo "  Reason: $f is being pushed unchecked, and a check that did not run has not passed."
+                echo "  Reason: $shown is being pushed unchecked, and a check that did not run has not passed."
                 echo "  Resolve: make Python 3 reachable as python3, py or python on PATH."
-                exit 1
+                rm -rf "$SYNTAX_TMP"; exit 1
             fi
-            if ! "$PY_BIN" -m py_compile "$f" 2>/dev/null; then
-                echo "[pre-push] BLOCK: Python syntax error in $f"
-                "$PY_BIN" -m py_compile "$f" || true
-                exit 1
+            if ! "$PY_BIN" -m py_compile "$SYNTAX_TMP/check.py" 2>/dev/null; then
+                echo "[pre-push] BLOCK: Python syntax error in $shown at $LOCAL_SHORT (py_compile reports it as check.py):"
+                "$PY_BIN" -m py_compile "$SYNTAX_TMP/check.py" || true
+                rm -rf "$SYNTAX_TMP"; exit 1
             fi
         fi
-    done <<< "$CHANGED"
+    }
+
+    # Script-named symbolic links at the pushed ref and their in-tree targets,
+    # so a target whose bytes changed is linted under the link's name even
+    # when the link itself did not change in the range.
+    : > "$SYNTAX_TMP/links.z"
+    while IFS= read -r -d '' entry; do
+        [ "${entry:0:6}" = 120000 ] || continue
+        lnk="${entry#*	}"
+        lint_kind "$lnk" >/dev/null || continue
+        if tgt=$(link_target_in_tree "$lnk"); then printf '%s\0%s\0' "$tgt" "$lnk" >> "$SYNTAX_TMP/links.z"; fi
+    done < "$SYNTAX_TMP/tree.z"
+
+    while IFS= read -r -d '' f; do
+        [ -z "$f" ] && continue
+        if kind=$(lint_kind "$f"); then
+            if [ "$(mode_at_ref "$f")" = 120000 ]; then
+                if tgt=$(link_target_in_tree "$f"); then
+                    lint_blob_at_ref "$kind" "$tgt" "$(printf '%q' "$f") (a symbolic link to $(printf '%q' "$tgt"))"
+                else
+                    echo "[pre-push] note: $(printf '%q' "$f") at $LOCAL_SHORT is a symbolic link whose target is not a regular file inside the pushed tree; not linted."
+                fi
+            else
+                lint_blob_at_ref "$kind" "$f" "$(printf '%q' "$f")"
+            fi
+        fi
+        # A changed path that a script-named link resolves to is linted as the link's kind too.
+        while IFS= read -r -d '' tgt && IFS= read -r -d '' lnk; do
+            [ "$tgt" = "$f" ] || continue
+            [ "$(mode_at_ref "$f")" = 120000 ] && continue
+            lint_blob_at_ref "$(lint_kind "$lnk")" "$f" "$(printf '%q' "$f") (the target of the symbolic link $(printf '%q' "$lnk"))"
+        done < "$SYNTAX_TMP/links.z"
+    done < "$SYNTAX_TMP/changed.z"
+    rm -rf "$SYNTAX_TMP"
 fi
 
 # ---- 4. Commit-message-to-diff scope gate --------------------------------
@@ -812,12 +911,21 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
         if grep -qE '^NO-GATE:' < <(printf '%s\n' "$msg"); then
             continue
         fi
-        # Find files ADDED in this commit (status A) matching packages/*/*/package.yml
-        while IFS=$'\t' read -r status file; do
-            if [ "$status" = "A" ] && [[ "$file" =~ ^packages/[^/]+/[^/]+/package\.yml$ ]]; then
+        # Find the package.yml files this commit INTRODUCES at packages/*/*/:
+        # added (A), or arriving as the destination of a rename (R) or a copy
+        # (C), with rename and copy detection asked for. Before 2026-10-09 only
+        # status A was read, so a recipe reached by rename or copy was never
+        # checked (a second reader's finding, 2026-10-09).
+        while IFS=$'\t' read -r status path1 path2; do
+            case "$status" in
+                A) file="$path1" ;;
+                R*|C*) file="$path2" ;;
+                *) continue ;;
+            esac
+            if [[ "$file" =~ ^packages/[^/]+/[^/]+/package\.yml$ ]]; then
                 NEW_YMLS+=("$sha:$file")
             fi
-        done < <(git show --name-status --format='' "$sha")
+        done < <(git show --name-status --format='' -M -C "$sha")
     done
 
     BAD_PKGS=()
