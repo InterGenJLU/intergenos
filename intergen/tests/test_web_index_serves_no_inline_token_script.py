@@ -105,5 +105,44 @@ class TheIndexServesNoTokenScript(unittest.TestCase):
         self.assertEqual(directives["script-src"], "'self'")
 
 
+
+class ThePanelGivesThePageItsTokenOneWay(unittest.TestCase):
+    """The panel loaded the page with an Authorization header carrying the
+    token, for the server's inline script. The server writes no script now,
+    and nothing read that header. The panel loads the page plainly; its
+    document-start user script is the one path the token takes."""
+
+    def _panel(self):
+        try:
+            from intergen import panel
+        except (ImportError, ValueError) as exc:  # no GTK 4 / WebKit 6 here
+            self.skipTest(f"the panel cannot be imported here: {exc}")
+        win = panel.PanelWindow.__new__(panel.PanelWindow)
+        win._webview = mock.MagicMock()
+        return panel, win
+
+    def test_the_page_request_carries_no_token(self):
+        panel, win = self._panel()
+        with mock.patch.object(panel, "WebKit") as webkit, \
+             mock.patch.object(panel.PanelWindow, "_load_token",
+                               return_value=TOKEN):
+            win._do_load_web_ui()
+        headers = (webkit.URIRequest.new.return_value
+                   .get_http_headers.return_value)
+        self.assertFalse(headers.append.called,
+                         "the page request still carries the token in a header")
+        win._webview.load_uri.assert_called_once_with("http://localhost:8089/")
+
+    def test_control_the_user_script_gives_the_page_its_token(self):
+        panel, win = self._panel()
+        with mock.patch.object(panel, "WebKit") as webkit, \
+             mock.patch.object(panel.PanelWindow, "_load_token",
+                               return_value=TOKEN):
+            win._make_webview()
+        args = webkit.UserScript.new.call_args.args
+        self.assertEqual(args[0], f'window.__INTERGEN_TOKEN__ = "{TOKEN}";')
+        self.assertIs(args[2], webkit.UserScriptInjectionTime.START)
+
+
 if __name__ == "__main__":
     unittest.main()

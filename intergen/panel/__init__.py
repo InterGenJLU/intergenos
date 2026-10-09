@@ -366,22 +366,15 @@ class PanelWindow:
     # -- Helpers ------------------------------------------------------------
 
     def _make_webview(self) -> WebKit.WebView:
-        """Build the WebView, injecting the auth token before any page script runs.
+        """Build the WebView, giving the page its auth token before any page script runs.
 
         The web UI's WebSocket (app.js) authenticates with the on-disk web token,
-        which it reads from ``window.__INTERGEN_TOKEN__``. The server injects that
-        global into index.html, but only when the document request carries an
-        Authorization header — and WebKitGTK does NOT propagate the main-document
-        Authorization header onto the subsequent WebSocket upgrade. With the global
-        absent, app.js falls back to a random client token that can never match the
-        server, so the panel's WebSocket is rejected with 401 (the bug (d) masked
-        on the dev box by a loopback-trust relaxation we are deliberately NOT
-        shipping).
-
-        The durable handoff: a document-start user script sets
-        ``window.__INTERGEN_TOKEN__`` from the trusted local token file before
-        app.js runs — independent of HTTP header propagation, no server-side
-        loopback trust required.
+        which it reads from ``window.__INTERGEN_TOKEN__``. The document-start user
+        script installed here is the one path that sets it: it runs before
+        app.js, from the trusted local token file, and the page's
+        Content-Security-Policy (``script-src 'self'``) does not govern it. The
+        server writes no script into the page — that policy refuses inline
+        script — and the page's request carries no token.
         """
         ucm = WebKit.UserContentManager()
         token = self._load_token()
@@ -444,8 +437,10 @@ class PanelWindow:
         self._do_load_web_ui()
 
     def _do_load_web_ui(self) -> None:
-        """Point the WebView at the InterGen web UI (with the auth token), or show
-        the setup-fallback HTML if no token exists. Shared by both window modes."""
+        """Point the WebView at the InterGen web UI, or show the setup-fallback
+        HTML if no token exists. Shared by both window modes. The page's token
+        reaches it by the user script _make_webview installs, not by this
+        request."""
         token = self._load_token()
         if token is None:
             self._webview.load_html(
@@ -457,10 +452,7 @@ class PanelWindow:
                 "about:blank",
             )
         else:
-            req = WebKit.URIRequest.new("http://localhost:8089/")
-            req.get_http_headers().append("Authorization",
-                                          f"Bearer {token}")
-            self._webview.load_request(req)
+            self._webview.load_uri("http://localhost:8089/")
 
     def _load_token(self) -> str | None:
         """Read the web auth token. Returns None if unavailable."""
