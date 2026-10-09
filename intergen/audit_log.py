@@ -96,6 +96,27 @@ def write_record(record: AuditRecord, log_path: Path | None = None) -> bool:
         return False
 
 
+def _record_lines(path: Path) -> list[tuple[int, str | None]]:
+    """The record's lines as the writer wrote them, each decoded STRICTLY as UTF-8.
+
+    The writer emits UTF-8 only and ends every row with a newline byte, so the file is
+    split at each newline byte and each line is decoded on its own. A line whose bytes
+    do not decode comes back as None beside its line number. Decoding with replacement
+    characters instead would turn a damaged byte into valid text before the row is
+    parsed, and the record would read as undamaged. Both readers below consume this one
+    result, so what the rows reader yields and what the read-back counts are the same
+    lines. Raises OSError when the file cannot be read.
+    """
+    data = path.read_bytes()
+    lines: list[tuple[int, str | None]] = []
+    for line_number, raw in enumerate(data.split(b"\n"), start=1):
+        try:
+            lines.append((line_number, raw.decode("utf-8")))
+        except UnicodeDecodeError:
+            lines.append((line_number, None))
+    return lines
+
+
 def read_records(log_path: Path | None = None) -> Iterator[dict]:
     """Yield each parsed audit record dict from the log.
 
@@ -108,28 +129,37 @@ def read_records(log_path: Path | None = None) -> Iterator[dict]:
     prints above the rows. Yielding rows and judging the record are different jobs:
     this function does the first and must not become the second, because a reader that
     cannot see a damaged record at all is worse off than one shown it with a warning.
+    A line whose bytes are not UTF-8 is passed over the same way, with its own warning;
+    the lines come from :func:`_record_lines`, as the read-back's do.
     """
     path = log_path if log_path is not None else default_log_path()
     if not path.exists():
         return
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            for line_number, raw in enumerate(f, start=1):
-                raw = raw.strip()
-                if not raw:
-                    continue
-                try:
-                    yield json.loads(raw)
-                except json.JSONDecodeError as exc:
-                    logger.warning(
-                        "audit_log: line %d of %s could not be read and is NOT "
-                        "included in what this reader returned: %s",
-                        line_number, path, exc,
-                    )
-                    continue
+        record_lines = _record_lines(path)
     except OSError as exc:
         logger.warning("audit_log: read_records OSError: %s", exc)
         return
+    for line_number, text in record_lines:
+        if text is None:
+            logger.warning(
+                "audit_log: line %d of %s holds bytes that are not UTF-8 text and is "
+                "NOT included in what this reader returned",
+                line_number, path,
+            )
+            continue
+        raw = text.strip()
+        if not raw:
+            continue
+        try:
+            yield json.loads(raw)
+        except json.JSONDecodeError as exc:
+            logger.warning(
+                "audit_log: line %d of %s could not be read and is NOT "
+                "included in what this reader returned: %s",
+                line_number, path, exc,
+            )
+            continue
 
 
 @functools.lru_cache(maxsize=None)
@@ -197,6 +227,7 @@ class IntegrityReading:
     lines: int = 0
     rows: int = 0
     unreadable_lines: list[int] = field(default_factory=list)
+    undecodable_lines: list[int] = field(default_factory=list)
     incomplete_rows: list[int] = field(default_factory=list)
     out_of_order_rows: list[int] = field(default_factory=list)
     unjoinable_rows: int = 0
@@ -206,7 +237,8 @@ class IntegrityReading:
     @property
     def damaged(self) -> bool:
         """Was damage DETECTED. Not: is the record sound."""
-        return bool(self.unreadable_lines or self.incomplete_rows or self.read_error)
+        return bool(self.unreadable_lines or self.undecodable_lines or self.incomplete_rows
+                    or self.read_error)
 
     @property
     def verdict(self) -> str:
@@ -227,6 +259,11 @@ class IntegrityReading:
             out.append(f"  the record could not be read at all: {self.read_error}")
             return out
         out.append(f"  {self.lines} line(s) in the file, {self.rows} readable row(s)")
+        if self.undecodable_lines:
+            out.append(
+                f"  {len(self.undecodable_lines)} line(s) hold bytes that are not UTF-8 "
+                f"text, which the writer never writes; they could not be read and are "
+                f"missing from anything that reads this record: {self.undecodable_lines}")
         if self.unreadable_lines:
             out.append(
                 f"  {len(self.unreadable_lines)} line(s) could not be read and are "
@@ -239,7 +276,7 @@ class IntegrityReading:
         if self.out_of_order_rows:
             out.append(
                 f"  {len(self.out_of_order_rows)} row(s) carry a timestamp earlier "
-                f"than the row before them: {self.out_of_order_rows}. Writers that run "
+                f"than at least one prior row: {self.out_of_order_rows}. Writers that run "
                 f"at the same time can append in that order, so this is an "
                 f"observation, not damage.")
         if self.unjoinable_rows:
@@ -260,23 +297,32 @@ class IntegrityReading:
 
 
 def read_integrity(log_path: Path | None = None) -> IntegrityReading:
-    """Validate JSON structure and the fields serialized for each record row."""
+    """Validate each line's UTF-8, its JSON structure and the fields serialized for each row.
+
+    The lines come from :func:`_record_lines`, decoded strictly: a line whose bytes are
+    not UTF-8 is named and is damage, as a line that is not JSON is.
+    """
     path = log_path if log_path is not None else default_log_path()
     if not path.exists():
         return IntegrityReading(path=path, exists=False)
     try:
-        raw_lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        record_lines = _record_lines(path)
     except OSError as exc:
         return IntegrityReading(path=path, read_error=str(exc))
 
     lines = 0
     rows = 0
     unreadable: list[int] = []
+    undecodable: list[int] = []
     incomplete: list[int] = []
     out_of_order: list[int] = []
     unjoinable = 0
     previous_timestamp: str | None = None
-    for line_number, raw in enumerate(raw_lines, start=1):
+    for line_number, raw in record_lines:
+        if raw is None:
+            lines += 1
+            undecodable.append(line_number)
+            continue
         if not raw.strip():
             continue
         lines += 1
@@ -293,6 +339,8 @@ def read_integrity(log_path: Path | None = None) -> IntegrityReading:
             incomplete.append(line_number)
         timestamp = row.get("timestamp")
         if isinstance(timestamp, str):
+            # Compared with the latest timestamp of every prior row, not only the row
+            # before it: a row is named when it is earlier than at least one prior row.
             if previous_timestamp is not None and timestamp < previous_timestamp:
                 out_of_order.append(line_number)
             previous_timestamp = max(previous_timestamp or "", timestamp)
@@ -304,6 +352,7 @@ def read_integrity(log_path: Path | None = None) -> IntegrityReading:
         lines=lines,
         rows=rows,
         unreadable_lines=unreadable,
+        undecodable_lines=undecodable,
         incomplete_rows=incomplete,
         out_of_order_rows=out_of_order,
         unjoinable_rows=unjoinable,
