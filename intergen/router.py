@@ -42,7 +42,8 @@ from intergen.dispatch_policy import is_system_category_conversation
 from intergen.decomposer import (analyze_query, DecomposedQuery,
                                  turn_forbids_tools)
 from intergen.intents import BOOT_PERF_COMPLAINT_PATTERN, FILE_SEARCH_PATTERN
-from intergen.memory import MemoryManager, fact_cache_text, fact_key
+from intergen.memory import (MemoryManager, _FORGET_DECLINED, fact_cache_text,
+                             fact_key)
 from intergen.interfaces.router import RouterInterface
 from intergen.state_cache import StateCache
 from intergen.reference import ReferenceIndex
@@ -2793,6 +2794,47 @@ class ConversationRouter(RouterInterface):
                 if _cap is not None:
                     return _cap
 
+        # A REQUEST THAT CARRIES A FORGET IS NEVER SPLIT, AND NO PART OF IT IS
+        # ANSWERED ON ITS OWN.
+        #
+        # WHAT THIS STOPS. "forget my car and tell me a joke" was split at the
+        # decomposition rung below, and each clause went to _route_single, which
+        # has no memory rung: "forget my car" reached the model as a turn of its
+        # own, nothing was forgotten, and two model calls answered a request whose
+        # first half asked for something only the memory slot can do. Two of the
+        # routes between here and the rung answer a message without asking whether
+        # it is one request: "forget my car and what's my ip" was answered by the
+        # IP handler, and on the locked floor "forget my car and what's the weather
+        # right now" by the web-search offer, the forget dropped without a word in
+        # both.
+        #
+        # THE RULE. The decomposer's verdict is read here, where it is first
+        # known: a request it would split that carries a forget verb or the reset
+        # phrase (the forget parser's verdict on the WHOLE request is not None)
+        # goes whole to the memory slot, which answers it with the parser's own
+        # declined reply. Nothing is forgotten or cleared on a reading of part of
+        # a request, and the person is told to say the forget on its own. With no
+        # memory store there is no slot to hand it to: it is still not split, and
+        # goes on whole (route_compound_whole below), so no clause of it is
+        # answered in isolation.
+        forget_in_compound = (decomposition.needs_decomposition
+                              and MemoryManager.is_forget_request(user_input) is not None)
+        if forget_in_compound and self._memory:
+            glass.emit("decision", "compound_route", detail={
+                "is_compound": decomposition.is_compound,
+                "needs_decomposition": decomposition.needs_decomposition,
+                "sub_queries": decomposition.sub_queries,
+                "forget_in_compound": True,
+                "decomposed": False})
+            result = RouteResult(
+                text=self._memory.format_forget_response(_FORGET_DECLINED),
+                source="memory", handled=True,
+                answer_linkage=AnswerLinkage(
+                    kind="code", renderer="memory_template"))
+            self._won("memory", forget_in_compound=True)
+            self._record(result, t0, "memory")
+            return result
+
         # DIRECT-ANSWER intent class (ge9b finding #3): an enumerated basic that just
         # needs an ANSWER (current time/date, uptime, hostname, disk-free, battery;
         # and the location-gated external basics — weather/daylight/store-open) is
@@ -2881,21 +2923,26 @@ class ConversationRouter(RouterInterface):
         # keeping decomposition — the proven no-drop mechanism — for every mixed
         # compound (compound_mixed stays source=="decomposed").
         # (decomposition was computed above the capability block for the whole-ask
-        # gate; reused here.)
+        # gate; reused here.) A compound that carries a forget reaches this point
+        # only when there is no memory store to hand it to (the forget hand-off
+        # above): it is held whole here too, never split.
         route_compound_whole = (
             decomposition.needs_decomposition
             and not explain_prior
-            and not self._compound_has_fastpath_clause(decomposition.sub_queries)
+            and (forget_in_compound
+                 or not self._compound_has_fastpath_clause(decomposition.sub_queries))
         )
         _span.set_attribute("needs_decomposition", decomposition.needs_decomposition)
         _span.set_attribute("route_compound_whole", route_compound_whole)
         self._trail_note("decompose", "info",
                          needs_decomposition=decomposition.needs_decomposition,
-                         route_compound_whole=route_compound_whole)
+                         route_compound_whole=route_compound_whole,
+                         forget_in_compound=forget_in_compound)
         glass.emit("decision", "compound_route", detail={
             "is_compound": decomposition.is_compound,
             "needs_decomposition": decomposition.needs_decomposition,
             "sub_queries": decomposition.sub_queries,
+            "forget_in_compound": forget_in_compound,
             "route_compound_whole": route_compound_whole,
             "decomposed": (decomposition.needs_decomposition
                            and not explain_prior and not route_compound_whole)})
