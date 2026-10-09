@@ -239,11 +239,12 @@ def launch_argv(argv: list[str], *, unit: str,
     for path in credentials:
         try:
             os.lstat(path)
-        except (FileNotFoundError, NotADirectoryError):
+        except FileNotFoundError:
             missing.append(str(path))
         except OSError as exc:
-            # Present or not, a path that cannot be read cannot be masked with
-            # certainty, so the start is refused with what actually happened.
+            # Present or not, a path that cannot be read (a path that runs
+            # through a file included) cannot be masked with certainty, so the
+            # start is refused with what actually happened.
             raise ToolProcessNotStarted(
                 f"{path} could not be read ({exc.strerror or exc}). A credential "
                 f"file whose path cannot be read cannot be masked, so the tool's "
