@@ -207,6 +207,30 @@ class EveryTurnReachesExactlyOneTerminalEvent(unittest.TestCase):
             glass_rows.where(_rows(self.tmp), turn_id="no-turn"), [],
             "a row of this turn was written outside it")
 
+    def test_an_ending_inside_a_scope_nested_in_the_turn_leaves_the_turn_its_own(self) -> None:
+        """A scope() entered inside a served turn binds work that is not the
+        turn's answer. An ending emitted there names the scope's identifier and
+        claims nothing of the enclosing turn: the turn's own ending afterwards
+        is its one terminal row, neither refused as a second terminal nor
+        replaced by a synthesized one, and the scope's ending is a row of the
+        scope's own identifier."""
+        tid, sid = glass.new_turn_id(), glass.new_turn_id()
+        with glass.turn(tid, "web"):
+            glass.emit("route", "turn_start", detail={})
+            with glass.scope(sid, "index"):
+                glass.emit("delivery", "final", detail={"text": "the scope's ending"})
+            glass.emit("delivery", "final", detail={"text": "the turn's ending"})
+        rows = _rows(self.tmp)
+        self.assertEqual(
+            glass_rows.where(rows, turn_id=tid, event="terminal_after_terminal"), [],
+            "the turn's own ending was refused as a second terminal")
+        mine = glass_rows.only(self._terminals(tid))
+        self.assertEqual(mine["event"], "final", rows)
+        self.assertEqual(mine["detail"].get("text"), "the turn's ending", rows)
+        self.assertFalse(mine["detail"].get("synthesized"), rows)
+        theirs = glass_rows.only(self._terminals(sid))
+        self.assertEqual(theirs["detail"].get("text"), "the scope's ending", rows)
+
 
 class TerminalVocabulary(unittest.TestCase):
     """The kinds an interface may end a turn with, named in one place."""
