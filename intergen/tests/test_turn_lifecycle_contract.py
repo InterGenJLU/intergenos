@@ -105,7 +105,11 @@ class _StallingRouter:
         self._stall = stall_s
         self.route_calls = 0
 
-    def route(self, user_msg, decide_only=True, review_callback=None):
+    def route(self, user_msg, decide_only=True, conversation=None,
+              review_callback=None, **_kwargs):
+        # The server's whole call. Without ``conversation`` this raised
+        # TypeError at once, the turn ended on the crash backstop, and the
+        # stall case passed without ever reaching the deadline it names.
         self.route_calls += 1
         time.sleep(self._stall)
         return _Result()
@@ -246,6 +250,13 @@ class TerminalFrameTests(unittest.TestCase):
             _TERMINAL_FRAMES.intersection(ws.types),
             "a turn whose routing exceeded the server deadline sent no "
             f"terminal frame at all; frames seen: {ws.types}")
+        # Any terminal frame is not enough: a turn that crashed sends one too
+        # (the control below). This one must end on the routing deadline.
+        codes = [f.get("code") for _, f in ws.frames if f.get("type") == "error"]
+        self.assertEqual(
+            codes, ["route_timeout"],
+            "the turn ended, but not on the server's routing deadline: the "
+            f"error frame(s) carried {codes}")
 
     def test_a_crashing_turn_still_terminates(self):
         # Control for the property: this backstop already exists, so a green
