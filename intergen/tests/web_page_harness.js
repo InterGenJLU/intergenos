@@ -18,7 +18,9 @@
 //
 // Usage: node web_page_harness.js <app.js> <plan.json>
 // plan.json: {"constants": {"NAME": value, ...}, "steps": [step, ...],
-//             "token": "..." | null}  (the page's token; null runs it without)
+//             "token": "..." | null,  (the page's token; null runs it without)
+//             "by_id": true}  (getElementById answers as querySelector('#id'),
+//             for a page such as dashboard.js that looks elements up by id)
 // Steps: {"open": true} · {"server": {frame}} · {"close_from_server": true} ·
 //        {"type": "text"} (then Enter) ·
 //        {"click_gate": "allow" | "deny"} · {"key": "Escape"} ·
@@ -149,7 +151,7 @@ const document = {
     return bySelector[selector];
   },
   querySelectorAll() { return []; },
-  getElementById() { return null; },
+  getElementById(id) { return plan.by_id ? this.querySelector('#' + id) : null; },
   createElement(tag) { return new FakeElement(tag); },
   listeners: {},
   addEventListener(type, listener) {
@@ -216,6 +218,7 @@ const context = {
   navigator: { clipboard: { writeText: () => Promise.resolve() } },
   Event: class { constructor(type) { this.type = type; } },
   FileReader: class {},
+  crypto: { getRandomValues: (array) => array.fill(7) },
   __INTERGEN_TOKEN__: 'token' in plan ? plan.token : 'harness-token',
   location: { href: '' },
 };

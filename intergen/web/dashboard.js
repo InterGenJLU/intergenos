@@ -19,15 +19,17 @@
   let activeCooldowns = 0;
 
   // ── WebSocket ──────────────────────────────────────────────────────────
+  // The token is set by the panel's document-start user script, or handed
+  // over by the chat page through sessionStorage. Without one this page has
+  // no credential, and it says why, as the chat page does, and opens no
+  // socket. It used to make a token up: the server refused it, and the page
+  // showed nothing and said nothing.
   function connect() {
-    let token = window.__INTERGEN_TOKEN__;
+    const token = window.__INTERGEN_TOKEN__
+      || sessionStorage.getItem('intergen_web_token');
     if (!token) {
-      token = sessionStorage.getItem('intergen_web_token');
-      if (!token) {
-        token = Array.from(crypto.getRandomValues(new Uint8Array(32)),
-          b => b.toString(16).padStart(2, '0')).join('');
-        sessionStorage.setItem('intergen_web_token', token);
-      }
+      showNoCredential();
+      return;
     }
     authToken = token;
     ws = new WebSocket(
@@ -48,6 +50,16 @@
     };
 
     ws.onclose = () => { connected = false; };
+  }
+
+  function showNoCredential() {
+    const el = document.createElement('div');
+    el.className = 'banner error';
+    el.textContent = 'This page has no InterGen credential — a browser opened '
+      + 'on it directly is not given one. Open InterGen from its app; if '
+      + 'InterGen is not set up on this account yet, run `intergen setup` '
+      + 'in a terminal first.';
+    document.getElementById('banner-container').appendChild(el);
   }
 
   function send(msg) {
@@ -474,6 +486,9 @@
   function apiAuth() { return { 'Authorization': 'Bearer ' + authToken }; }
 
   function loadProviders() {
+    // Without a credential the request is refused, and the refusal rendered
+    // as "No frontier provider configured"; the banner says why instead.
+    if (!authToken) return;
     fetch('/api/providers', { headers: apiAuth() })
       .then(r => r.json()).then(renderProviders).catch(() => {});
   }
