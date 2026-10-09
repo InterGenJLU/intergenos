@@ -839,6 +839,20 @@ def _remove_own_creation(fd: int, name: str, dir_fd: int, path: object) -> None:
             raise _not_removed(
                 f"The file created at {path} for a refused write was moved aside "
                 f"to {aside_path} and could not be removed there ({exc}).") from exc
+        # Removing a name removes the file only when it was the last one. The
+        # held descriptor says how many the file still has; anything but none
+        # means the file is still there under another name.
+        try:
+            remaining = os.fstat(fd).st_nlink
+        except OSError as exc:
+            raise _not_removed(
+                f"The file created at {path} for a refused write had its name "
+                f"removed, and whether it has another could not be read ({exc}).") from exc
+        if remaining:
+            raise _not_removed(
+                f"The file created at {path} for a refused write still has "
+                f"{remaining} other name{'s' if remaining != 1 else ''} after its "
+                f"own was removed, so it was not removed.")
         return
     try:
         os.link(aside, name, src_dir_fd=dir_fd, dst_dir_fd=dir_fd,
