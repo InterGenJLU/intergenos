@@ -61,6 +61,10 @@
     // Characters of pasted text and chosen files the server has put in this
     // conversation (file_loaded), for the buffer indicator.
     loadedChars: 0,
+    // Turns a /clear ended. The server ends a turn in flight before it says
+    // the buffer is empty; a frame of that turn already on its way belongs to
+    // the buffer that was emptied and is not shown.
+    endedTurns: new Set(),
   };
 
   // ── DOM refs ───────────────────────────────────────────────────────────
@@ -198,6 +202,7 @@
   // ── Message dispatch ───────────────────────────────────────────────────
   function handleServerMessage(msg) {
     const type = msg.type;
+    if (msg.turn_id && state.endedTurns.has(msg.turn_id)) return;
     switch (type) {
       case 'connected':     handleConnected(msg); break;
       case 'turn_ack':     handleTurnAck(msg); break;
@@ -473,6 +478,14 @@
   // in it. The pane is emptied on this frame and not before, so it never shows
   // a cleared conversation the model is still reading.
   function handleBufferCleared() {
+    // The server ended the turn in flight before it emptied the buffer, so
+    // that turn is over here too, and nothing more of it is shown.
+    if (state.turnId) state.endedTurns.add(state.turnId);
+    stopThinking();
+    state.streaming = false;
+    state.streamingContent = '';
+    dom.streamingContainer.classList.add('hidden');
+    dom.streamingContent.textContent = '';
     dom.messages.innerHTML = '';
     state.messages.length = 0;
     clearLoadedIndicator();

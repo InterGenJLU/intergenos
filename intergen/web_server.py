@@ -24,6 +24,7 @@ Connection lifecycle:
 from __future__ import annotations
 
 import asyncio
+import copy
 import hmac
 import errno
 import json
@@ -1725,6 +1726,17 @@ class WebServer:
             # bare "yes" typed next. The consent decisions and the ingress
             # watermark stay — /clear empties the buffer; /new ends the
             # conversation.
+            #
+            # A turn still in flight belongs to the buffer being emptied: left
+            # running, it wrote its exchange into the emptied buffer and sent
+            # its answer into the emptied pane. It is ended first, with its
+            # cards, and its route worker given a short while to finish; the
+            # commands the person invoked keep running. A worker still running
+            # keeps the buffer it was writing into (_buffer_for_next).
+            await self._end_conversation_work(
+                ctx, "the turn this card belonged to was ended by /clear",
+                detached_tools=False)
+            self._buffer_for_next(ctx)
             ctx.session_history.clear()
             ctx.conversation.clear_offers()
             await ctx.ws.send_json({"type": "buffer_cleared"})
@@ -2104,6 +2116,28 @@ class WebServer:
             logger.warning("A route worker whose turn had ended raised: %r",
                            worker.exception())
         self._route_lock.release()
+
+    def _buffer_for_next(self, ctx: ConnectionContext) -> None:
+        """/clear's fence for a route worker still running after the wait.
+
+        /clear keeps the conversation — its consent decisions, its watermark,
+        its transcript — so the connection cannot simply take a new one. It
+        takes a copy instead, with its own buffer, transcript list and
+        relevance index, and the worker keeps the object it was given: what it
+        writes when it finishes lands in the buffer that was cleared.
+        """
+        worker = ctx.route_worker
+        if worker is None or worker.done():
+            return
+        conv = ctx.conversation
+        fresh = copy.copy(conv)
+        fresh.history = list(conv.history)
+        fresh.transcript = list(conv.transcript)
+        fresh.turn_index = (
+            self._router.new_conversation().turn_index
+            if self._router is not None
+            and hasattr(self._router, "new_conversation") else None)
+        ctx.conversation = fresh
 
     def _conversation_for_next(self, ctx: ConnectionContext) -> ConversationState:
         """The conversation object the next conversation starts in.

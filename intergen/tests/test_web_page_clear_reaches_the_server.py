@@ -80,5 +80,57 @@ class TheWebPagesClearReachesTheServer(unittest.TestCase):
             f"the person was not told: banners {record['banners']}")
 
 
+
+@unittest.skipUnless(NODE, NEEDS_NODE)
+class AClearedTurnsLateFramesAreNotShown(unittest.TestCase):
+    """/clear during a turn: the page emptied its pane on buffer_cleared and
+    then put the old turn's answer into it when it arrived. The page now ends
+    the turn on buffer_cleared — the server has ended it — and does not show a
+    frame that belongs to it. The server no longer sends one (it ends the turn
+    before it acknowledges the clear); the page holds the same line for a frame
+    already on its way."""
+
+    _CLEAR_DURING_A_TURN = [
+        {"type": "old question"},
+        {"server": {"type": "turn_ack", "turn_id": "old-turn"}},
+        {"type": "/clear"},
+        {"server": {"type": "buffer_cleared"}},
+    ]
+
+    def test_the_old_turns_answer_is_not_put_into_the_cleared_pane(self) -> None:
+        record = run_page(connected() + self._CLEAR_DURING_A_TURN + [
+            {"server": {"type": "response", "turn_id": "old-turn",
+                        "content": "answer to the cleared question",
+                        "source": "keyword"}},
+            {"wait": 1000},
+            {"inspect": "#thinking-indicator"},
+        ], constants={"POST_ACK_TIMEOUT_MS": 80})
+        self.assertEqual(pane_texts(record["pane"]), [])
+        self.assertIn("hidden", record["inspected"][0]["classes"],
+                      "the thinking indicator stayed up for a turn that ended")
+
+    def test_a_streamed_answer_of_the_old_turn_is_not_shown(self) -> None:
+        record = run_page(connected() + self._CLEAR_DURING_A_TURN + [
+            {"server": {"type": "stream_start", "turn_id": "old-turn"}},
+            {"server": {"type": "stream_token", "turn_id": "old-turn",
+                        "token": "answer to the cleared question"}},
+            {"server": {"type": "stream_end", "turn_id": "old-turn",
+                        "full_response": "answer to the cleared question"}},
+        ], constants={"POST_ACK_TIMEOUT_MS": 80})
+        self.assertEqual(pane_texts(record["pane"]), [])
+
+    def test_control_the_next_turn_is_shown(self) -> None:
+        record = run_page(connected() + self._CLEAR_DURING_A_TURN + [
+            {"type": "new question"},
+            {"server": {"type": "turn_ack", "turn_id": "new-turn"}},
+            {"server": {"type": "stream_start", "turn_id": "new-turn"}},
+            {"server": {"type": "stream_token", "turn_id": "new-turn",
+                        "token": "answer to the new question"}},
+            {"server": {"type": "stream_end", "turn_id": "new-turn",
+                        "full_response": "answer to the new question"}},
+        ])
+        self.assertIn("answer to the new question", pane_texts(record["pane"]))
+
+
 if __name__ == "__main__":
     unittest.main()

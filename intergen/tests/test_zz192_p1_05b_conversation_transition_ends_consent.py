@@ -336,20 +336,8 @@ async def _thread_event(event, timeout: float = 5.0) -> bool:
     return await asyncio.to_thread(event.wait, timeout)
 
 
-class AnEndedTurnsRouteWorkerStaysInTheConversationItBelongedTo(
-        unittest.TestCase):
-    """A turn's route() runs in a worker thread. Ending the conversation
-    cancelled the turn's task, but not the thread: it finished afterwards and
-    wrote the ended exchange into the conversation that had just been emptied
-    for the next one, and, because cancelling the task released the route lock,
-    the next turn's route ran beside it on the shared router.
-
-    The boundary now gives the worker a short while to finish (a worker that
-    does is emptied with the rest of the conversation); one still running keeps
-    the conversation object it was given and the connection takes a new one;
-    and the route lock is held until the worker itself finishes. The first case
-    is the control: a turn that finished before the boundary was always ended
-    with it."""
+class _TurnWorkerCase(unittest.TestCase):
+    """A server on the blocking router, one connection, and the turn helpers."""
 
     def setUp(self) -> None:
         from intergen import web_server as web_server_module
@@ -374,6 +362,22 @@ class AnEndedTurnsRouteWorkerStaysInTheConversationItBelongedTo(
             self.server._run_turn(self.ctx, {"content": content}))
         self.ctx.turn_task = task
         return task
+
+
+class AnEndedTurnsRouteWorkerStaysInTheConversationItBelongedTo(
+        _TurnWorkerCase):
+    """A turn's route() runs in a worker thread. Ending the conversation
+    cancelled the turn's task, but not the thread: it finished afterwards and
+    wrote the ended exchange into the conversation that had just been emptied
+    for the next one, and, because cancelling the task released the route lock,
+    the next turn's route ran beside it on the shared router.
+
+    The boundary now gives the worker a short while to finish (a worker that
+    does is emptied with the rest of the conversation); one still running keeps
+    the conversation object it was given and the connection takes a new one;
+    and the route lock is held until the worker itself finishes. The first case
+    is the control: a turn that finished before the boundary was always ended
+    with it."""
 
     def test_control_a_turn_finished_before_the_boundary_is_ended_with_it(self):
         async def scenario():
@@ -473,6 +477,65 @@ class AnEndedTurnsRouteWorkerStaysInTheConversationItBelongedTo(
             await asyncio.wait_for(second, 5)
         asyncio.run(scenario())
         self.assertEqual(self.router.max_active, 1)
+
+
+
+class AClearEndsTheTurnInFlight(_TurnWorkerCase):
+    """/clear emptied the buffer and said so while a turn was still running:
+    the turn then wrote its exchange into the emptied buffer and sent its
+    answer to the page, which put it into the emptied pane. /clear now ends the
+    turn in flight first — its task, its cards, and a short wait for its route
+    worker — and a worker still running keeps the buffer it was writing into."""
+
+    def _clear(self):
+        return self.server._handle_slash_command(self.ctx, {"command": "/clear"})
+
+    def _frames_after_clear(self):
+        types = [f.get("type") for f in self.ctx.ws.sent]
+        self.assertIn("buffer_cleared", types)
+        return types[types.index("buffer_cleared") + 1:]
+
+    def test_the_buffer_stays_empty_when_the_worker_finishes_late(self):
+        async def scenario():
+            turn = await self._start("old question")
+            self.assertTrue(await _thread_event(self.router.started))
+            await self._clear()
+            await asyncio.sleep(0)
+            self.assertTrue(turn.cancelled(), "the turn in flight was not ended")
+            self.router.release.set()
+            self.assertTrue(await _thread_event(self.router.finished))
+            await asyncio.sleep(0.05)
+        asyncio.run(scenario())
+        self.assertEqual(self._history(), [],
+                         "the ended turn wrote into the cleared buffer")
+        self.assertNotIn("response", self._frames_after_clear())
+
+    def test_a_worker_finishing_within_the_wait_is_cleared_with_the_buffer(self):
+        import threading
+
+        async def scenario():
+            await self._start("old question")
+            self.assertTrue(await _thread_event(self.router.started))
+            threading.Timer(0.05, self.router.release.set).start()
+            await self._clear()
+            await asyncio.sleep(0.05)
+        asyncio.run(scenario())
+        self.assertEqual(self._history(), [])
+        self.assertNotIn("response", self._frames_after_clear())
+
+    def test_clear_keeps_the_conversations_consent_and_transcript(self):
+        """Control: /clear empties the buffer; it does not end the
+        conversation."""
+        async def scenario():
+            self.router.release.set()
+            await asyncio.wait_for(await self._start("old question"), 5)
+            await self._clear()
+        trust_state = self.ctx.conversation.trust_state
+        asyncio.run(scenario())
+        self.assertEqual(self._history(), [])
+        self.assertIs(self.ctx.conversation.trust_state, trust_state)
+        self.assertEqual(self.ctx.conversation.transcript,
+                         [("old question", "answer to old question")])
 
 
 if __name__ == "__main__":
