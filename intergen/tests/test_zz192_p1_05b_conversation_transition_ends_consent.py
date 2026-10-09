@@ -725,10 +725,16 @@ class _ServerReply:
     close() is the client closing the HTTP reply, after which the server
     produces nothing more. The case counts on the server's side."""
 
-    def __init__(self, words: list[str], paced: bool, finish) -> None:
+    def __init__(self, words: list[str], paced: bool, finish,
+                 interval: float | None = None) -> None:
         import threading
         self.words = words
         self.paced = paced
+        # With an interval the reply is paced by the clock, one item each
+        # interval, as a server generating at its own speed; otherwise by the
+        # case, one item per permit.
+        self.interval = interval
+        self.closed_at: float | None = None
         self.allow = threading.Semaphore(0)
         # The case's own end, shared by every reply the server gives: a reply
         # still waiting is let finish, so no thread outlives the case.
@@ -742,7 +748,10 @@ class _ServerReply:
 
     def __iter__(self):
         for word in self.words:
-            if self.paced:
+            if self.paced and self.interval is not None:
+                if self.finish.wait(self.interval) or self.closed.is_set():
+                    return
+            elif self.paced:
                 while not self.allow.acquire(timeout=0.05):
                     if self.finish.is_set() or self.closed.is_set():
                         return
@@ -754,6 +763,9 @@ class _ServerReply:
         yield b"data: [DONE]\n"
 
     def close(self) -> None:
+        import time
+        if self.closed_at is None:
+            self.closed_at = time.monotonic()
         self.closed.set()
 
 
@@ -762,10 +774,13 @@ class _ChatServer:
     request (the streamed draft) is answered at once; every later request (a
     regeneration, a synthesis) gets a paced reply. Records each request."""
 
-    def __init__(self, draft: str, later: str) -> None:
+    def __init__(self, draft: str, later: str, *, paced_from: int = 1,
+                 interval: float | None = None) -> None:
         import threading
         self.draft = draft
         self.later = later
+        self.paced_from = paced_from
+        self.interval = interval
         self.requests: list[list[dict]] = []
         self.replies: list[_ServerReply] = []
         self.finished = threading.Event()
@@ -775,10 +790,11 @@ class _ChatServer:
         import json
         with self._lock:
             self.requests.append(json.loads(req.data)["messages"])
-            first = len(self.requests) == 1
-            text = self.draft if first else self.later
+            index = len(self.requests) - 1
+            text = self.draft if index == 0 else self.later
             reply = _ServerReply([w + " " for w in text.split()],
-                                 paced=not first, finish=self.finished)
+                                 paced=index >= self.paced_from,
+                                 finish=self.finished, interval=self.interval)
             self.replies.append(reply)
         return reply
 
@@ -786,17 +802,19 @@ class _ChatServer:
         self.finished.set()
 
 
-def _model_client(chat: _ChatServer, case: unittest.TestCase):
-    """The real model client (llm.py LLMRouter) with urllib answered by
-    ``chat``. Its endpoint is a port nothing listens on, so a request that
-    escaped the stand-in could reach no chat server; no cloud escalation."""
+def _model_client(chat: _ChatServer, case: unittest.TestCase, cls=None):
+    """The real model client (llm.py LLMRouter, or ``cls`` built on it) with
+    urllib answered by ``chat``. Its endpoint is a port nothing listens on, so
+    a request that escaped the stand-in could reach no chat server; no cloud
+    escalation."""
     from intergen.llm import LLMRouter
     patcher = mock.patch("urllib.request.urlopen", chat.urlopen)
     patcher.start()
     case.addCleanup(patcher.stop)
     case.addCleanup(chat.finish)
-    return LLMRouter({"endpoint": "http://127.0.0.1:9/v1/chat/completions",
-                      "escalation_mode": "never", "request_timeout": 5})
+    return (cls or LLMRouter)({
+        "endpoint": "http://127.0.0.1:9/v1/chat/completions",
+        "escalation_mode": "never", "request_timeout": 5})
 
 
 # What the model writes again when a screen asks it to: clean for every screen.
@@ -951,6 +969,192 @@ class AnEndedTurnsRegenerationStopsWithinOneItem(unittest.TestCase):
                         f"{opened_after} model request(s) were opened for the "
                         "turn after it ended")
 
+
+class _TimedWS(_RecordingWS):
+    """A frame recorder that notes when each frame was sent."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.sent_at: list[float] = []
+
+    async def send_json(self, payload: dict) -> None:
+        import time
+        self.sent_at.append(time.monotonic())
+        await super().send_json(payload)
+
+
+def _tool_calling_client(chat: _ChatServer, case: unittest.TestCase):
+    """The real model client whose streamed answer is one tool call: the
+    stream is not what these cases measure; the synthesis after the tool is,
+    and it runs through the real client against the stand-in chat server."""
+    from intergen.interfaces.provenance import Provenance
+    from intergen.interfaces.types import ToolCall
+    from intergen.llm import LLMRouter
+
+    class _AnswersWithOneToolCall(LLMRouter):
+        def stream_with_tools(self, messages, *, tools, max_tokens=None,
+                              temperature=None, image_data=None):
+            yield ToolCall(name="system_info", arguments={},
+                           call_id="call-1",
+                           source_of_request=Provenance.USER_DIRECT)
+
+    return _model_client(chat, case, cls=_AnswersWithOneToolCall)
+
+
+class _OneTool:
+    """The tool registry as the streamed path uses it: no schemas to offer and
+    one executed, successful result for any call."""
+
+    OUTPUT = "CPU: 4 cores at 2.4 GHz. Memory: 15 GB, of which 9 GB is free."
+
+    def get_tool_schemas(self):
+        return []
+
+    def execute(self, call, **_kwargs):
+        from intergen.interfaces.types import ToolResult
+        return ToolResult(call_id=call.call_id, name=call.name,
+                          content=self.OUTPUT, success=True, executed=True)
+
+
+# The model's account of the tool's result, read one item per interval.
+SYNTHESIS = (
+    "Your machine has four processor cores running at two point four "
+    "gigahertz, and fifteen gigabytes of memory of which nine are free right "
+    "now, so there is plenty of room for what you described.")
+
+
+class TheToolSynthesisRunsOffTheLoopAndStopsWithItsTurn(unittest.TestCase):
+    """After a tool runs, the streamed path asks the model to put its result
+    into words (llm.py continue_after_tool_call): a model call of up to 400
+    tokens. It was called directly in the coroutine, so the event loop served
+    nothing while it ran: no frame of any other connection, and no /clear for
+    this one - a person who typed /clear waited for the synthesis to finish.
+    It now runs in the default executor under the turn's bound context, as the
+    regenerations do, and stops with its turn within one item.
+
+    The stand-in chat server reads the synthesis out one item every 0.1 s,
+    as a server generating at its own speed. The control: the synthesis reaches
+    the page whole."""
+
+    INTERVAL = 0.1
+
+    def _turn(self):
+        from intergen.interfaces.types import RouteResult
+        # The streamed answer is the tool call, so the synthesis is the turn's
+        # first request to the chat server.
+        chat = _ChatServer(SYNTHESIS, SYNTHESIS, paced_from=0,
+                           interval=self.INTERVAL)
+        llm = _tool_calling_client(chat, self)
+        router = _model_router(llm)
+        server = WebServer(router=router, llm=llm, tools=_OneTool(),
+                           governance=None)
+        server._sessions = mock.MagicMock()
+        server._sessions.list_sessions.return_value = []
+        ctx = ConnectionContext(client_id="case", source_interface="web",
+                                ws=_TimedWS(),
+                                conversation=router.new_conversation())
+        other = ConnectionContext(client_id="other", source_interface="web",
+                                  ws=_TimedWS())
+
+        async def streamed_turn(c, data):
+            await server._stream_llm_response(
+                c, "tool-turn", data["content"],
+                RouteResult(text="", source="llm_tools", handled=False))
+        server._handle_client_message = streamed_turn
+
+        def start() -> asyncio.Task:
+            task = asyncio.create_task(server._run_turn(
+                ctx, {"type": "message", "content": "how much memory is free?"}))
+            ctx.turn_task = task
+            return task
+        return chat, server, ctx, other, start
+
+    async def _synthesizing(self, chat: _ChatServer) -> _ServerReply:
+        """Wait until the synthesis has read its first item. With the call on
+        the loop, this returns only once the call has finished."""
+        for _ in range(1000):
+            if chat.replies and chat.replies[0].produced >= 1:
+                return chat.replies[0]
+            await asyncio.sleep(0.01)
+        self.fail("no synthesis was requested")
+
+    def test_control_the_synthesis_reaches_the_page(self):
+        chat, server, ctx, _other, start = self._turn()
+
+        async def scenario():
+            try:
+                await asyncio.wait_for(start(), 20)
+            finally:
+                chat.finish()
+        asyncio.run(scenario())
+        self.assertEqual(len(chat.requests), 1)
+        self.assertEqual(chat.replies[0].produced, len(SYNTHESIS.split()))
+        self.assertTrue(chat.replies[0].closed.is_set())
+        ends = [f for f in ctx.ws.sent if f.get("type") == "stream_end"]
+        self.assertEqual(len(ends), 1, _frames(ctx.ws))
+        self.assertEqual(ends[0].get("full_response", "").strip(), SYNTHESIS)
+
+    def test_another_connections_frame_is_served_while_the_synthesis_runs(self):
+        chat, server, ctx, other, start = self._turn()
+
+        async def scenario():
+            try:
+                task = start()
+                reply = await self._synthesizing(chat)
+                await server._handle_list_sessions(other, {})
+                await asyncio.wait_for(task, 20)
+                return reply
+            finally:
+                chat.finish()
+        reply = asyncio.run(scenario())
+        served = [at for f, at in zip(other.ws.sent, other.ws.sent_at)
+                  if f.get("type") == "session_list"]
+        self.assertTrue(served, "the other connection's frame was never served")
+        self.assertIsNotNone(reply.closed_at)
+        self.assertLess(
+            served[0], reply.closed_at,
+            "the other connection's frame was served only after the tool "
+            f"synthesis had read all {reply.produced} items and closed its "
+            f"reply ({served[0] - reply.closed_at:+.2f} s): the synthesis held "
+            "the event loop, and nothing else on this server could run")
+
+    def test_an_ended_turns_synthesis_stops_within_one_item(self):
+        for door in ("/clear", "/new"):
+            with self.subTest(door=door):
+                chat, server, ctx, _other, start = self._turn()
+
+                async def scenario():
+                    try:
+                        task = start()
+                        reply = await self._synthesizing(chat)
+                        at_end, opened = reply.produced, len(chat.requests)
+                        if door == "/clear":
+                            await server._handle_slash_command(
+                                ctx, {"command": "/clear"})
+                        else:
+                            await server._handle_new_session(ctx, {})
+                        await asyncio.gather(task, return_exceptions=True)
+                        ended = task.cancelled()
+                        closed = await asyncio.to_thread(reply.closed.wait, 2.0)
+                        await asyncio.sleep(6 * self.INTERVAL)
+                        return (ended, reply.produced - at_end, closed,
+                                len(chat.requests) - opened, reply)
+                    finally:
+                        chat.finish()
+                ended, after, closed, opened_after, reply = asyncio.run(
+                    scenario())
+                self.assertTrue(
+                    ended,
+                    f"{door} did not end the turn during its synthesis: the "
+                    f"synthesis had already read all {reply.produced} items "
+                    "and the turn had finished, because the call held the "
+                    "event loop and the door could not run until it returned")
+                self.assertTrue(closed, "the ended turn's synthesis reply "
+                                        "was not closed")
+                self.assertLessEqual(
+                    after, 1,
+                    f"the ended turn's synthesis read {after} more item(s)")
+                self.assertEqual(opened_after, 0)
 
 if __name__ == "__main__":
     unittest.main()

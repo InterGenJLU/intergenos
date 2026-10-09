@@ -1601,7 +1601,13 @@ class LLMRouter(LLMInterface):
         screened. Like stream(), it screens the RAW completion, before the
         reasoning-leak and filler strips, because the question the screen answers
         is whether the BACKEND is producing structural garbage.
+
+        A turn that has ended gets None as well, before a request is opened or
+        at the next item, with its reply closed: nobody is waiting for it.
         """
+        if turn_ended():
+            self._note_stopped(0)
+            return None
         try:
             req = urllib.request.Request(
                 self._endpoint,
@@ -1614,7 +1620,12 @@ class LLMRouter(LLMInterface):
             return None
 
         try:
-            tokens = list(self._parse_sse_stream(response))
+            tokens = []
+            for _tok in self._parse_sse_stream(response):
+                if turn_ended():
+                    self._note_stopped(len(tokens))
+                    return None
+                tokens.append(_tok)
         finally:
             response.close()
 

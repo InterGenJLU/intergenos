@@ -2972,10 +2972,19 @@ class WebServer:
                 # The model explains the outcome from tr.content either way;
                 # the ✗ card still honestly reports the exit alongside it.
                 if self._llm and tr.content:
-                    synthesis = self._llm.continue_after_tool_call(
-                        messages, item, tr.model_summary or tr.content,
-                        success=tr.success,
-                    )
+                    # A model call of up to 400 tokens: called here in the
+                    # coroutine it held the event loop, so no frame of any
+                    # connection was served while it ran, a /clear for this one
+                    # included. It runs in the default executor under the
+                    # turn's bound context, as the regenerations do, so it also
+                    # stops with the turn (llm.py).
+                    _synth_ctx = glass.bind_context()
+                    synthesis = await asyncio.get_running_loop().run_in_executor(
+                        None,
+                        lambda: _synth_ctx.run(
+                            self._llm.continue_after_tool_call,
+                            messages, item, tr.model_summary or tr.content,
+                            success=tr.success))
                     if synthesis and synthesis.text:
                         collected_tokens.append(synthesis.text)
                         await ctx.ws.send_json({
