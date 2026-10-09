@@ -147,13 +147,21 @@ class SessionManager:
              messages: list[Message],
              title: str = "",
              category: str = "",
+             source_interface: str = "web",
              ) -> None:
         """Save session state to disk.
 
         If title/category are empty, they are auto-detected from messages.
+
+        A session saved before its record exists is created here, filed under
+        ``source_interface``: the interface decides whose session list shows
+        the record, and a record created under the default named the wrong
+        surface (a console conversation listed only on the web page). A record
+        that exists keeps the interface it was created with.
         """
         existing = self.load(session_id) or self.create(
             session_id=session_id,
+            source_interface=source_interface,
         )
 
         # Update metadata

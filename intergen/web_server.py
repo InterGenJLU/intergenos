@@ -979,6 +979,7 @@ class WebServer:
                     self._sessions.save(
                         ctx.current_session_id,
                         ctx.session_history,
+                        source_interface=ctx.source_interface,
                     )
                 except Exception:
                     logger.debug("Failed to persist session on disconnect",
@@ -1553,10 +1554,13 @@ class WebServer:
 
     async def _persist_and_list(self, ctx: ConnectionContext) -> None:
         """Persist the live conversation incrementally (survives a restart and
-        appears in the sidebar at once) and push the refreshed list."""
+        appears in the sidebar at once) and push the refreshed list. The first
+        persist creates the record, filed under this connection's interface so
+        the console's own list carries a console conversation."""
         if ctx.session_history and ctx.current_session_id:
             try:
-                self._sessions.save(ctx.current_session_id, ctx.session_history)
+                self._sessions.save(ctx.current_session_id, ctx.session_history,
+                                    source_interface=ctx.source_interface)
             except Exception:
                 logger.debug("incremental session persist failed", exc_info=True)
         await self._send_session_list(ctx)
@@ -2070,6 +2074,7 @@ class WebServer:
                 self._sessions.save(
                     ctx.current_session_id,
                     ctx.session_history,
+                    source_interface=ctx.source_interface,
                 )
             except Exception:
                 logger.debug("Failed to persist session on switch",
@@ -2265,6 +2270,7 @@ class WebServer:
                     ctx.current_session_id,
                     ctx.session_history,
                     category=data.get("category", ""),
+                    source_interface=ctx.source_interface,
                 )
             except Exception:
                 logger.debug("Failed to persist session on new_session",
