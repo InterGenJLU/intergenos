@@ -387,14 +387,16 @@ class InstallOwnerUnresolved(Exception):
     """
 
 
-class SecretIdentityUnreadable(Exception):
+class SecretIdentityUnreadable(InstallOwnerUnresolved):
     """A secret file's identity could not be read, and the file is not absent.
 
-    Only a file that does not exist contributes nothing to the identity leg. Any
-    other failure to stat one (a directory on its path that cannot be searched, a
-    loop of links, an I/O error) leaves the boundary unable to tell that file
-    from a second name for it, so the boundary refuses instead of comparing
-    against a set that is missing it.
+    Only a path the lookup reports as not existing contributes nothing to the
+    identity leg. Any other failure to stat one (a directory on its path that
+    cannot be searched, a path that runs through a file, a loop of links, an I/O
+    error) leaves the boundary unable to tell that file from a second name for
+    it, so the boundary refuses instead of comparing against a set that is
+    missing it. A subclass of InstallOwnerUnresolved, so a caller that refuses on
+    an unresolved owner refuses on this too.
     """
 
 
@@ -473,9 +475,10 @@ def secret_file_identities() -> dict[tuple[int, int], str]:
 
     This leg speaks only for the files of THIS install, since it has to resolve
     them to stat them; the tail comparison above is what covers a staged install
-    or a test under another base. A file that does not exist at its canonical path
-    (its path, or a directory on it, is not there) adds nothing: an install before
-    its first run has no key to protect yet.
+    or a test under another base. A canonical path the lookup reports as not
+    existing (FileNotFoundError: the file, or a directory on its path, is not
+    there) adds nothing: an install before its first run has no key to protect
+    yet.
 
     THE SET ONLY GROWS. Every identity this process has read stays in what this
     returns for that owning home, so a credential later moved away from its
@@ -487,9 +490,11 @@ def secret_file_identities() -> dict[tuple[int, int], str]:
     and an inode number the filesystem gives another file after a credential was
     deleted is refused as that credential until the process restarts.
 
-    Any other failure to stat a secret file raises SecretIdentityUnreadable, and
-    an owner that cannot be resolved raises InstallOwnerUnresolved. Either way an
-    empty entry in its place would certify a second name for that file as safe.
+    Any other failure to stat a secret file, a path that runs through a file
+    included, raises SecretIdentityUnreadable, and an owner that cannot be
+    resolved raises InstallOwnerUnresolved, of which SecretIdentityUnreadable is a
+    subclass. Either way an empty entry in its place would certify a second name
+    for that file as safe.
     """
     identities: dict[tuple[int, int], str] = {}
     try:
@@ -500,7 +505,7 @@ def secret_file_identities() -> dict[tuple[int, int], str]:
         path = home.joinpath(*relative)
         try:
             st = path.stat()
-        except (FileNotFoundError, NotADirectoryError):
+        except FileNotFoundError:
             continue
         except OSError as exc:
             raise SecretIdentityUnreadable(f"{path}: {exc.strerror or exc}") from exc
@@ -555,16 +560,17 @@ def open_descriptor_secret_reason(fd: int) -> str | None:
         )
     try:
         identities = secret_file_identities()
+    except SecretIdentityUnreadable as exc:
+        # Asked before its base class, which would otherwise answer for it.
+        return (
+            "a file this install cannot compare with its own secret files, "
+            f"because the identity of one of them could not be read ({exc})"
+        )
     except InstallOwnerUnresolved as exc:
         return (
             "a file this install cannot compare with its own secret files, "
             f"because the account that owns them could not be established "
             f"({exc})"
-        )
-    except SecretIdentityUnreadable as exc:
-        return (
-            "a file this install cannot compare with its own secret files, "
-            f"because the identity of one of them could not be read ({exc})"
         )
     reason = identities.get((st.st_dev, st.st_ino))
     if reason is not None:
