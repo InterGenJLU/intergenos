@@ -11,7 +11,7 @@ LLM-agnostic: the user picks their provider, we provide the means.
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 
 from intergen.interfaces.types import (
     EscalationMode, LLMResponse, Message, ToolCall, ToolSchema
@@ -51,12 +51,28 @@ class UsageRecord:
     estimated_cost_usd: float = 0.0
 
 
+class CloudCallStopped(Exception):
+    """A cloud call stopped because its caller's stop was set: the turn it
+    belonged to ended. Not a failure of the provider, and never an answer."""
+
+
 class CloudProviderAdapter(ABC):
     """Abstract adapter — one per cloud provider.
 
     All providers normalize to OpenAI chat completions format internally.
     Pre-built adapters: anthropic, openai, google-genai, microsoft,
     deepseek, xai, custom (any OpenAI-compatible endpoint).
+
+    THE CALLER'S STOP IS PART OF THIS CONTRACT. A web turn can end while its
+    model call runs (/clear, a new conversation, a page that goes away), and a
+    cloud call is a model call like the local one: it must not go on reading an
+    answer nobody will see, and it must never hand that answer back. A caller
+    that can be stopped passes ``should_stop``, a callable that returns True
+    once its turn has ended. The adapter checks it before it opens the request
+    and at each item it reads (a chunk of the reply, or a streamed token); when
+    it returns True the adapter closes the reply and raises CloudCallStopped,
+    with nothing returned. A caller that cannot be stopped (the command line,
+    the scanner) passes nothing, and the call runs as it always did.
     """
 
     @property
@@ -68,15 +84,22 @@ class CloudProviderAdapter(ABC):
     def send(self, messages: list[Message], *,
              tools: list[ToolSchema] | None = None,
              max_tokens: int | None = None,
-             temperature: float | None = None) -> LLMResponse:
-        """Send a request and get a complete response."""
+             temperature: float | None = None,
+             should_stop: Callable[[], bool] | None = None) -> LLMResponse:
+        """Send a request and get a complete response.
+
+        Raises CloudCallStopped when ``should_stop`` returns True before the
+        request opens or at an item of the reply (see the class docstring).
+        """
 
     @abstractmethod
     def stream(self, messages: list[Message], *,
                tools: list[ToolSchema] | None = None,
                max_tokens: int | None = None,
-               temperature: float | None = None) -> Iterator[str | ToolCall]:
-        """Stream tokens from the cloud provider."""
+               temperature: float | None = None,
+               should_stop: Callable[[], bool] | None = None,
+               ) -> Iterator[str | ToolCall]:
+        """Stream tokens from the cloud provider; ``should_stop`` as send()."""
 
     @abstractmethod
     def test_connection(self) -> tuple[bool, str]:

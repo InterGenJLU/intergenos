@@ -30,8 +30,9 @@ import asyncio
 import unittest
 from unittest import mock
 
+from intergen.interfaces.cloud import CloudProviderAdapter
 from intergen.interfaces.provenance import Provenance, ToolRiskTier
-from intergen.interfaces.types import ToolCall
+from intergen.interfaces.types import LLMResponse, ToolCall
 from intergen.tool_registry import ToolRegistry
 from intergen.tools.read_file import ReadFileTool
 from intergen.web_server import ConnectionContext, WebServer
@@ -1155,6 +1156,567 @@ class TheToolSynthesisRunsOffTheLoopAndStopsWithItsTurn(unittest.TestCase):
                     after, 1,
                     f"the ended turn's synthesis read {after} more item(s)")
                 self.assertEqual(opened_after, 0)
+
+
+# ---- the registered cloud fallback ------------------------------------------
+
+CLOUD_ANSWER = ("The forecast for tomorrow is clear skies with a light breeze "
+                "from the west.")
+
+_LOCAL = "http://127.0.0.1:9/v1/chat/completions"
+
+
+def _refused() -> Exception:
+    import urllib.error
+    return urllib.error.URLError(
+        ConnectionRefusedError(111, "nothing is listening"))
+
+
+class _PacedCloud(CloudProviderAdapter):
+    """A registered cloud provider that keeps the cloud-provider contract
+    (intergen/interfaces/cloud.py). Its reply arrives one item each time the
+    case allows one, and before each read it checks the caller's stop, as the
+    shipped HTTP adapter does chunk by chunk; on the stop it raises
+    CloudCallStopped with nothing handed back. The case reads, on the
+    provider's side, how many items were read, whether the stop was seen and
+    whether an answer was handed back."""
+
+    def __init__(self, text: str) -> None:
+        import threading
+        self.words = [w + " " for w in text.split()]
+        self.allow = threading.Semaphore(0)
+        # The case's own end: a call still waiting is let finish, so no
+        # thread outlives the case.
+        self.finish = threading.Event()
+        self.entered = threading.Event()
+        self.done = threading.Event()
+        self.produced = 0
+        self.stopped = False
+        self.answered = False
+        self.calls = 0
+
+    @property
+    def name(self) -> str:
+        return "controlled"
+
+    def _stop(self, should_stop) -> None:
+        if should_stop is not None and should_stop():
+            # Imported where it is raised: this module also runs against a
+            # base whose contract carries no stop.
+            from intergen.interfaces.cloud import CloudCallStopped
+            self.stopped = True
+            raise CloudCallStopped("controlled: the turn ended")
+
+    def send(self, messages, *, tools=None, max_tokens=None, temperature=None,
+             should_stop=None):
+        self.calls += 1
+        self.entered.set()
+        try:
+            for _word in self.words:
+                self._stop(should_stop)
+                while not self.allow.acquire(timeout=0.05):
+                    if self.finish.is_set():
+                        raise TimeoutError("the case ended before the reply "
+                                           "was read")
+                self.produced += 1
+            self._stop(should_stop)
+            self.answered = True
+            return LLMResponse(text="".join(self.words).strip(),
+                               model="controlled", local=False)
+        finally:
+            self.done.set()
+
+    def stream(self, messages, *, tools=None, max_tokens=None,
+               temperature=None, should_stop=None):
+        yield self.send(messages, tools=tools, max_tokens=max_tokens,
+                        temperature=temperature, should_stop=should_stop).text
+
+    def test_connection(self):
+        return True, "controlled"
+
+
+class _BlockingCloud:
+    """A registered provider that does NOT keep the contract, the shape the
+    defect was first shown with: its send() takes no stop and blocks until the
+    case releases it; then it answers, or raises when told to."""
+
+    def __init__(self, fails: bool = False) -> None:
+        import threading
+        self.fails = fails
+        self.entered = threading.Event()
+        self.release = threading.Event()
+        self.calls = 0
+
+    def send(self, messages, *, max_tokens=None):
+        self.calls += 1
+        self.entered.set()
+        if not self.release.wait(5):
+            raise TimeoutError("the case did not release the provider")
+        if self.fails:
+            raise OSError("the provider went away")
+        return LLMResponse(text=CLOUD_ANSWER, model="blocking", local=False)
+
+
+class _CloudWire:
+    """The cloud provider's side of an HTTP reply as the shipped adapter reads
+    it (intergen/cloud/http_adapter.py): the body arrives in pieces, one each
+    time the case allows one; read(n) returns the next piece and read() with no
+    size every piece left. The case counts the pieces sent and whether the
+    reply was closed."""
+
+    def __init__(self, body: bytes, pieces: int, finish) -> None:
+        import threading
+        size = -(-len(body) // pieces)
+        self.pieces = [body[i:i + size] for i in range(0, len(body), size)]
+        self.allow = threading.Semaphore(0)
+        self.finish = finish
+        self.sent = 0
+        self.closed = threading.Event()
+
+    def _next(self) -> bytes:
+        if self.sent >= len(self.pieces):
+            return b""
+        while not self.allow.acquire(timeout=0.05):
+            if self.finish.is_set():
+                raise TimeoutError("the case ended before the reply was read")
+        piece = self.pieces[self.sent]
+        self.sent += 1
+        return piece
+
+    def read(self, n: int = -1) -> bytes:
+        if n is not None and n >= 0:
+            return self._next()
+        out = []
+        while True:
+            piece = self._next()
+            if not piece:
+                return b"".join(out)
+            out.append(piece)
+
+    def close(self) -> None:
+        self.closed.set()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+        return False
+
+
+class _CloudTransport:
+    """urllib for the router-level cases: nothing listens on the machine's
+    chat server, so every local request is refused (and chat() escalates
+    without a local retry), and the cloud endpoint answers with a reply
+    released piece by piece. Records each request."""
+
+    def __init__(self, answer: str = CLOUD_ANSWER, pieces: int = 6) -> None:
+        import json
+        import threading
+        self.body = json.dumps({
+            "choices": [{"message": {"content": answer}}],
+            "usage": {"prompt_tokens": 3, "completion_tokens": 9},
+        }).encode()
+        self.pieces = pieces
+        self.finish = threading.Event()
+        self.local_requests = 0
+        self.wires: list[_CloudWire] = []
+
+    def urlopen(self, req, timeout=None):
+        if req.full_url == _LOCAL:
+            self.local_requests += 1
+            raise _refused()
+        wire = _CloudWire(self.body, self.pieces, self.finish)
+        self.wires.append(wire)
+        return wire
+
+
+class AnEndedTurnsCloudCallStopsWithinOneItem(unittest.TestCase):
+    """When the machine's chat server cannot answer, chat() escalates to the
+    registered cloud providers (_escalate_to_cloud). The turn's stop was checked
+    before the escalation, but a call already inside a provider's send() never
+    read it: the call went on to the end of its reply after the turn ended and
+    handed its answer back into the ended turn. The stop is now part of the
+    cloud-provider contract: a provider that keeps it is handed the turn's stop
+    and checks it at each item, no provider is asked once the turn has ended,
+    and an answer that arrives after the end is discarded.
+
+    Each case binds the turn's stop in the context its model call runs under,
+    as the web turn does, makes the call on a worker thread, ends the turn while
+    the provider is reading its reply, and then lets the reply go on. The
+    controls: a turn that is not ended gets the cloud answer."""
+
+    maxDiff = None
+
+    def setUp(self) -> None:
+        self.transport = _CloudTransport()
+        patcher = mock.patch("urllib.request.urlopen", self.transport.urlopen)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.addCleanup(self.transport.finish.set)
+        self.warnings: list[str] = []
+
+    def _router(self, *providers):
+        import logging
+        from intergen.llm import LLMRouter
+        llm = LLMRouter({"endpoint": _LOCAL, "escalation_mode": "auto",
+                         "request_timeout": 1})
+        log = logging.getLogger("intergen.llm")
+        handler = logging.Handler(level=logging.WARNING)
+        handler.emit = lambda record: self.warnings.append(record.getMessage())
+        log.addHandler(handler)
+        try:
+            for name, provider in providers:
+                llm.register_cloud_provider(name, provider)
+        finally:
+            log.removeHandler(handler)
+        return llm
+
+    def _call_in_turn(self, llm, stop):
+        """chat() on a worker thread whose context binds ``stop``."""
+        import threading
+        from intergen.interfaces.types import Message, MessageRole
+        from intergen.llm import bind_turn_stop, unbind_turn_stop
+        out: dict = {}
+
+        def call() -> None:
+            token = bind_turn_stop(stop)
+            try:
+                out["reply"] = llm.chat([Message(
+                    role=MessageRole.USER, content="what is the forecast?")])
+            except BaseException as exc:  # read by the case
+                out["error"] = exc
+            finally:
+                unbind_turn_stop(token)
+
+        thread = threading.Thread(target=call, name="cloud-turn", daemon=True)
+        thread.start()
+        return thread, out
+
+    @staticmethod
+    def _text(out: dict) -> str:
+        if "error" in out:
+            return f"<raised {out['error']!r}>"
+        if "reply" not in out:
+            return "<still running>"
+        return out["reply"].text
+
+    def _wait(self, predicate, what: str) -> None:
+        import time
+        for _ in range(500):
+            if predicate():
+                return
+            time.sleep(0.01)
+        self.fail(what)
+
+    def test_control_a_turn_that_is_not_ended_gets_the_cloud_answer(self):
+        import threading
+        cloud = _PacedCloud(CLOUD_ANSWER)
+        self.addCleanup(cloud.finish.set)
+        llm = self._router(("controlled", cloud))
+        thread, out = self._call_in_turn(llm, threading.Event())
+        self._wait(cloud.entered.is_set, "the cloud provider was never asked")
+        for _ in cloud.words:
+            cloud.allow.release()
+        thread.join(5)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(self._text(out), CLOUD_ANSWER)
+        self.assertEqual(out["reply"].model, "cloud:controlled")
+        self.assertEqual(cloud.produced, len(cloud.words))
+        self.assertEqual(self.transport.local_requests, 1)
+
+    def test_an_ended_turns_cloud_call_stops_within_one_item(self):
+        import threading
+        cloud = _PacedCloud(CLOUD_ANSWER)
+        self.addCleanup(cloud.finish.set)
+        llm = self._router(("controlled", cloud))
+        stop = threading.Event()
+        thread, out = self._call_in_turn(llm, stop)
+        self._wait(cloud.entered.is_set, "the cloud provider was never asked")
+        cloud.allow.release()
+        self._wait(lambda: cloud.produced >= 1,
+                   "the provider never read its first item")
+        at_end = cloud.produced
+        stop.set()
+        for _ in cloud.words[1:]:
+            cloud.allow.release()
+        thread.join(2)
+        self.assertEqual({
+            "items read after the turn ended, at most one":
+                cloud.produced - at_end <= 1,
+            "the provider saw the turn's stop": cloud.stopped,
+            "the provider handed an answer back": cloud.answered,
+            "chat() returned": self._text(out),
+            "the call still running 2 s after the turn ended":
+                thread.is_alive(),
+        }, {
+            "items read after the turn ended, at most one": True,
+            "the provider saw the turn's stop": True,
+            "the provider handed an answer back": False,
+            "chat() returned": "",
+            "the call still running 2 s after the turn ended": False,
+        }, f"{cloud.produced - at_end} item(s) were read after the turn ended")
+
+    def _http_provider(self):
+        from intergen.cloud import create_adapter
+        from intergen.interfaces.cloud import ProviderConfig
+        patcher = mock.patch("intergen.cloud.http_adapter.lookup_secret",
+                             lambda keyring_id: "TEST-KEY")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return create_adapter(ProviderConfig(
+            name="controlled", adapter="openai", model="m1",
+            api_key_keyring_id="kid", base_url="https://cloud.invalid/v1"))
+
+    def test_control_the_shipped_http_adapter_answers_a_turn_not_ended(self):
+        import threading
+        llm = self._router(("controlled", self._http_provider()))
+        thread, out = self._call_in_turn(llm, threading.Event())
+        self._wait(lambda: self.transport.wires, "no cloud request was opened")
+        wire = self.transport.wires[0]
+        for _ in wire.pieces:
+            wire.allow.release()
+        thread.join(5)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(self._text(out), CLOUD_ANSWER)
+        self.assertEqual(wire.sent, len(wire.pieces))
+        self.assertTrue(wire.closed.is_set())
+
+    def test_the_shipped_http_adapter_closes_an_ended_turns_reply(self):
+        import threading
+        llm = self._router(("controlled", self._http_provider()))
+        stop = threading.Event()
+        thread, out = self._call_in_turn(llm, stop)
+        self._wait(lambda: self.transport.wires, "no cloud request was opened")
+        wire = self.transport.wires[0]
+        wire.allow.release()
+        self._wait(lambda: wire.sent >= 1, "the adapter never read its reply")
+        at_end = wire.sent
+        stop.set()
+        for _ in wire.pieces[1:]:
+            wire.allow.release()
+        thread.join(2)
+        self.assertEqual({
+            "pieces read after the turn ended, at most one":
+                wire.sent - at_end <= 1,
+            "the reply closed": wire.closed.is_set(),
+            "chat() returned": self._text(out),
+            "cloud requests opened": len(self.transport.wires),
+            "the call still running 2 s after the turn ended":
+                thread.is_alive(),
+        }, {
+            "pieces read after the turn ended, at most one": True,
+            "the reply closed": True,
+            "chat() returned": "",
+            "cloud requests opened": 1,
+            "the call still running 2 s after the turn ended": False,
+        }, f"{wire.sent - at_end} piece(s) of {len(wire.pieces)} were read "
+           "after the turn ended")
+
+    def test_the_shipped_http_adapter_opens_nothing_for_an_ended_turn(self):
+        """The contract's own check, before the key is read or a request
+        opened: a caller whose turn has ended gets CloudCallStopped."""
+        provider = self._http_provider()
+        keys: list[str] = []
+        with mock.patch("intergen.cloud.http_adapter.lookup_secret",
+                        lambda keyring_id: keys.append(keyring_id) or "K"):
+            from intergen.interfaces.types import Message, MessageRole
+            with self.assertRaises(Exception) as raised:
+                provider.send([Message(role=MessageRole.USER, content="hi")],
+                              should_stop=lambda: True)
+        self.assertEqual(type(raised.exception).__name__, "CloudCallStopped",
+                         repr(raised.exception))
+        self.assertEqual((keys, self.transport.wires), ([], []))
+
+    def test_a_provider_that_cannot_be_stopped_never_answers_the_ended_turn(
+            self):
+        """A provider that keeps no contract cannot be stopped mid-call; its
+        answer is still never handed into the ended turn, and its
+        registration says so."""
+        import threading
+        cloud = _BlockingCloud()
+        self.addCleanup(cloud.release.set)
+        llm = self._router(("blocking", cloud))
+        stop = threading.Event()
+        thread, out = self._call_in_turn(llm, stop)
+        self._wait(cloud.entered.is_set, "the cloud provider was never asked")
+        stop.set()
+        thread.join(0.5)
+        cloud.release.set()
+        thread.join(2)
+        self.assertEqual({
+            "chat() returned": self._text(out),
+            "its registration names the limit": any(
+                "cannot stop its call" in w for w in self.warnings),
+        }, {
+            "chat() returned": "",
+            "its registration names the limit": True,
+        })
+
+    def test_an_ended_turn_is_not_handed_on_to_the_next_provider(self):
+        import threading
+        first = _BlockingCloud(fails=True)
+        second = _BlockingCloud()
+        second.release.set()
+        self.addCleanup(first.release.set)
+        llm = self._router(("first", first), ("second", second))
+        stop = threading.Event()
+        thread, out = self._call_in_turn(llm, stop)
+        self._wait(first.entered.is_set, "the first provider was never asked")
+        stop.set()
+        first.release.set()
+        thread.join(2)
+        self.assertEqual({
+            "the next provider was asked": second.calls,
+            "chat() returned": self._text(out),
+        }, {
+            "the next provider was asked": 0,
+            "chat() returned": "",
+        })
+
+
+class _ChatServerThatStopsListening(_ChatServer):
+    """The chat server answers the turn's draft and then stops listening:
+    every later request is refused, so a regeneration's chat() escalates to
+    the registered cloud provider."""
+
+    def urlopen(self, req, timeout=None):
+        import json
+        if self.requests:
+            self.requests.append(json.loads(req.data)["messages"])
+            raise _refused()
+        return super().urlopen(req, timeout)
+
+
+class AnEndedTurnsCloudRegenerationStopsWithinOneItem(unittest.TestCase):
+    """The same stop through the web turn: the claim screen asks the model to
+    write the answer again, the chat server has stopped listening, and the
+    regeneration's chat() escalates to the registered provider on the worker
+    thread the turn handed its context. Each door ends the turn while the
+    provider is reading its reply. The control: a turn that is not ended gets
+    the cloud's regenerated answer on the page."""
+
+    DRAFT = "Done! I have installed the package."
+    maxDiff = None
+
+    def _turn(self):
+        from intergen.interfaces.types import RouteResult
+        from intergen.llm import LLMRouter
+        chat = _ChatServerThatStopsListening(self.DRAFT, REGENERATED)
+        patcher = mock.patch("urllib.request.urlopen", chat.urlopen)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.addCleanup(chat.finish)
+        cloud = _PacedCloud(REGENERATED)
+        self.addCleanup(cloud.finish.set)
+        llm = LLMRouter({"endpoint": _LOCAL, "escalation_mode": "auto",
+                         "request_timeout": 5})
+        llm.register_cloud_provider("controlled", cloud)
+        router = _model_router(llm)
+        server = WebServer(router=router, llm=llm, tools=None, governance=None)
+        server._sessions = mock.MagicMock()
+        server._send_session_list = mock.AsyncMock()
+        ctx = ConnectionContext(client_id="case", source_interface="web",
+                                ws=_RecordingWS(),
+                                conversation=router.new_conversation())
+
+        async def streamed_turn(c, data):
+            await server._stream_llm_response(
+                c, "old-turn", data["content"],
+                RouteResult(text="", source="llm_freeform", handled=False))
+        server._handle_client_message = streamed_turn
+
+        def start() -> asyncio.Task:
+            task = asyncio.create_task(server._run_turn(
+                ctx, {"type": "message", "content": "is the package installed?"}))
+            ctx.turn_task = task
+            return task
+        return chat, cloud, server, ctx, start
+
+    async def _escalated(self, cloud: _PacedCloud) -> None:
+        """Wait until the regeneration's cloud call has read one item."""
+        for _ in range(500):
+            if cloud.entered.is_set():
+                break
+            await asyncio.sleep(0.01)
+        else:
+            self.fail("the regeneration never reached the cloud provider")
+        cloud.allow.release()
+        for _ in range(500):
+            if cloud.produced >= 1:
+                return
+            await asyncio.sleep(0.01)
+        self.fail("the cloud provider never read its first item")
+
+    def test_control_the_clouds_regeneration_reaches_the_page(self):
+        chat, cloud, server, ctx, start = self._turn()
+
+        async def scenario():
+            try:
+                task = start()
+                await self._escalated(cloud)
+                for _ in cloud.words[1:]:
+                    cloud.allow.release()
+                await asyncio.wait_for(task, 10)
+            finally:
+                chat.finish()
+                cloud.finish.set()
+        asyncio.run(scenario())
+        self.assertIn("You did NOT run", chat.requests[1][-1]["content"])
+        self.assertTrue(cloud.answered)
+        ends = [f for f in ctx.ws.sent if f.get("type") == "stream_end"]
+        self.assertEqual(len(ends), 1, _frames(ctx.ws))
+        self.assertEqual(ends[0].get("full_response", "").strip(), REGENERATED)
+
+    def _ended_by(self, door: str) -> None:
+        chat, cloud, server, ctx, start = self._turn()
+
+        async def scenario():
+            try:
+                task = start()
+                await self._escalated(cloud)
+                at_end = cloud.produced
+                opened = (len(chat.requests), cloud.calls)
+                if door == "/clear":
+                    await server._handle_slash_command(
+                        ctx, {"command": "/clear"})
+                else:
+                    await server._handle_new_session(ctx, {})
+                await asyncio.gather(task, return_exceptions=True)
+                self.assertTrue(task.cancelled(), "the turn was not ended")
+                for _ in cloud.words[1:]:
+                    cloud.allow.release()
+                done = await asyncio.to_thread(cloud.done.wait, 2.0)
+                await asyncio.sleep(0.3)
+                return (cloud.produced - at_end, done,
+                        (len(chat.requests), cloud.calls), opened)
+            finally:
+                chat.finish()
+                cloud.finish.set()
+        after, done, now, opened = asyncio.run(scenario())
+        self.assertEqual({
+            "items read after the turn ended, at most one": after <= 1,
+            "the provider saw the turn's stop": cloud.stopped,
+            "the provider handed an answer back": cloud.answered,
+            "the call over within 2 s": done,
+            "requests opened after the end (local, cloud)": tuple(
+                n - o for n, o in zip(now, opened)),
+        }, {
+            "items read after the turn ended, at most one": True,
+            "the provider saw the turn's stop": True,
+            "the provider handed an answer back": False,
+            "the call over within 2 s": True,
+            "requests opened after the end (local, cloud)": (0, 0),
+        }, f"{door}: {after} item(s) were read after the turn ended")
+
+    # One case per door, never subtests: each verdict is its own line.
+    def test_clear_stops_the_ended_turns_cloud_regeneration_within_one_item(
+            self):
+        self._ended_by("/clear")
+
+    def test_a_new_session_stops_the_ended_turns_cloud_regeneration(self):
+        self._ended_by("/new")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -32,9 +32,13 @@ import logging
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Iterator
+from typing import Callable, Iterator
 
-from intergen.interfaces.cloud import CloudProviderAdapter, ProviderConfig
+from intergen.interfaces.cloud import (
+    CloudCallStopped,
+    CloudProviderAdapter,
+    ProviderConfig,
+)
 from intergen.interfaces.types import (
     LLMResponse,
     Message,
@@ -46,6 +50,9 @@ from intergen.interfaces.types import (
 logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT = 60.0
+
+#: How much of a reply is read between two checks of the caller's stop.
+READ_CHUNK = 4096
 
 
 class CloudAdapterError(Exception):
@@ -208,7 +215,29 @@ class HTTPCloudAdapter(CloudProviderAdapter):
             f"({endpoint!r}); use https (http is allowed only for loopback)."
         )
 
-    def _request(self, body: dict, *, timeout: float = DEFAULT_TIMEOUT) -> dict:
+    def _stop_if_asked(self, should_stop: Callable[[], bool] | None) -> None:
+        if should_stop is not None and should_stop():
+            raise CloudCallStopped(
+                f"{self.name}: the turn this call belonged to has ended")
+
+    def _read_reply(self, resp, should_stop: Callable[[], bool] | None) -> bytes:
+        """The reply's body. With a stop, it is read a chunk at a time and the
+        stop is checked before each read, so a call whose turn ends reads at
+        most the chunk in flight; the caller's with-block closes the reply."""
+        if should_stop is None:
+            return resp.read()
+        parts: list[bytes] = []
+        while True:
+            self._stop_if_asked(should_stop)
+            chunk = resp.read(READ_CHUNK)
+            if not chunk:
+                return b"".join(parts)
+            parts.append(chunk)
+
+    def _request(self, body: dict, *, timeout: float = DEFAULT_TIMEOUT,
+                 should_stop: Callable[[], bool] | None = None) -> dict:
+        # An ended turn opens no request and never reads the key.
+        self._stop_if_asked(should_stop)
         endpoint = self._endpoint()
         self._require_secure_transport(endpoint)
         api_key = self._api_key()
@@ -222,7 +251,7 @@ class HTTPCloudAdapter(CloudProviderAdapter):
         )
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
-                return json.loads(resp.read().decode())
+                return json.loads(self._read_reply(resp, should_stop).decode())
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode(errors="replace")[:500]
             raise CloudAdapterError(f"{self.name} HTTP {exc.code}: {detail}") from exc
@@ -241,10 +270,14 @@ class HTTPCloudAdapter(CloudProviderAdapter):
         tools: list[ToolSchema] | None = None,
         max_tokens: int | None = None,
         temperature: float | None = None,
+        should_stop: Callable[[], bool] | None = None,
     ) -> LLMResponse:
         body = self._build_body(messages, tools, max_tokens, temperature)
-        data = self._request(body)
-        return self._parse_response(data)
+        data = self._request(body, should_stop=should_stop)
+        response = self._parse_response(data)
+        # A turn that ended as the last chunk arrived is not handed its answer.
+        self._stop_if_asked(should_stop)
+        return response
 
     def stream(
         self,
@@ -253,13 +286,15 @@ class HTTPCloudAdapter(CloudProviderAdapter):
         tools: list[ToolSchema] | None = None,
         max_tokens: int | None = None,
         temperature: float | None = None,
+        should_stop: Callable[[], bool] | None = None,
     ) -> Iterator[str | ToolCall]:
         # v1 substrate: satisfy the ABC by delegating to send() and yielding the
         # text once. True token streaming (SSE parsing) is per-provider and lands
         # as an override in a follow-up; the substrate's job is correct,
         # auditable transport first.
         response = self.send(
-            messages, tools=tools, max_tokens=max_tokens, temperature=temperature
+            messages, tools=tools, max_tokens=max_tokens, temperature=temperature,
+            should_stop=should_stop,
         )
         if response.text:
             yield response.text

@@ -25,6 +25,7 @@ from typing import Any, Iterator
 from intergen import glass
 from intergen import persona
 from intergen.coherence import degeneracy_reason
+from intergen.interfaces.cloud import CloudCallStopped, CloudProviderAdapter
 from intergen.interfaces.llm import LLMInterface
 from intergen.interfaces.types import (
     EscalationMode, LLMResponse, Message, MessageRole, ToolCall, ToolSchema,
@@ -44,8 +45,10 @@ logger = logging.getLogger(__name__)
 # turn's stop flag here, in the context those threads run under; every
 # generation this client makes checks it before it opens a request and at each
 # item, and a call whose turn has ended closes its reply, which stops the server
-# within one item. A caller that binds nothing (the command line, the bus) is
-# never stopped.
+# within one item. A registered cloud provider's call is one of them: the stop is
+# handed to it through the cloud-provider contract (intergen/interfaces/cloud.py)
+# and no ended turn is given its answer. A caller that binds nothing (the command
+# line, the bus) is never stopped.
 _TURN_STOP: "contextvars.ContextVar[threading.Event | None]" = (
     contextvars.ContextVar("intergen_llm_turn_stop", default=None))
 
@@ -1688,11 +1691,31 @@ class LLMRouter(LLMInterface):
         """Register a cloud provider adapter for escalation."""
         self._cloud_providers[name] = adapter
         logger.info("Registered cloud provider: %s", name)
+        if not isinstance(adapter, CloudProviderAdapter):
+            logger.warning(
+                "cloud provider %s does not implement the cloud-provider "
+                "contract: a turn that ends cannot stop its call, only "
+                "discard its answer", name)
+
+    def _note_cloud_stopped(self, name: str, stage: str) -> None:
+        """Record a cloud call stopped, or its answer discarded, because its
+        turn ended. Not a provider failure: nothing is tried after it."""
+        logger.info("cloud call stopped: its turn ended (%s, %s)", name, stage)
+        glass.emit("model", "stopped", detail={
+            "endpoint": f"cloud:{name}", "stage": stage,
+            "reason": "turn_ended"})
 
     def _escalate_to_cloud(self, messages: list[Message], *,
                            max_tokens: int | None = None,
                            image_data: str | None = None) -> LLMResponse | None:
-        """Attempt cloud escalation with registered providers."""
+        """Attempt cloud escalation with registered providers.
+
+        THE TURN'S STOP REACHES THE CLOUD CALL TOO. A provider that implements
+        the cloud-provider contract is handed the bound stop and checks it at
+        each item of its reply; no provider is asked once the turn has ended,
+        and an answer that arrives after it ended is discarded. Every one of
+        those ends in chat()'s answer for an ended turn: nothing.
+        """
         if not self._cloud_providers:
             logger.warning("No cloud providers configured for escalation")
             return None
@@ -1703,11 +1726,24 @@ class LLMRouter(LLMInterface):
                     msg.image_data = image_data
                     break
 
+        stop = _TURN_STOP.get()
+        # A caller that binds nothing calls every provider exactly as before.
+        stop_kwargs = {} if stop is None else {"should_stop": stop.is_set}
         for name, adapter in self._cloud_providers.items():
+            if turn_ended():
+                self._note_cloud_stopped(name, "before_send")
+                return self._stopped_response()
             try:
                 logger.info("Escalating to cloud provider: %s", name)
-                result = adapter.send(messages, max_tokens=max_tokens)
+                if isinstance(adapter, CloudProviderAdapter):
+                    result = adapter.send(messages, max_tokens=max_tokens,
+                                          **stop_kwargs)
+                else:
+                    result = adapter.send(messages, max_tokens=max_tokens)
                 self._api_call_count += 1
+                if turn_ended():
+                    self._note_cloud_stopped(name, "after_send")
+                    return self._stopped_response()
                 return LLMResponse(
                     text=result.text,
                     model=f"cloud:{name}",
@@ -1716,6 +1752,13 @@ class LLMRouter(LLMInterface):
                     local=False,
                     quality_passed=True,
                 )
+            except CloudCallStopped as e:
+                if turn_ended():
+                    self._note_cloud_stopped(name, "in_send")
+                    return self._stopped_response()
+                # A stop the turn never asked for is the provider's fault.
+                logger.error("Cloud provider %s failed: %s", name, e)
+                continue
             except Exception as e:
                 logger.error("Cloud provider %s failed: %s", name, e)
                 continue
