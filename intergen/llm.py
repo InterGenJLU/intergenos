@@ -1849,7 +1849,10 @@ class LLMRouter(LLMInterface):
         it — so screening here means no serving path generates text that is never
         screened. Like stream(), it screens the RAW completion, before the
         reasoning-leak and filler strips, because the question the screen answers
-        is whether the BACKEND is producing structural garbage.
+        is whether the BACKEND is producing structural garbage. And like stream(),
+        it screens against the conversation the person wrote, never against the
+        instruction this path appends after the tool's result (see
+        _the_turn_before_the_tool_exchange).
 
         A turn that has ended gets None as well, before a request is opened or
         at the next item, with its reply closed: nobody is waiting for it.
@@ -1879,9 +1882,36 @@ class LLMRouter(LLMInterface):
             response.close()
 
         raw = "".join(tokens)
-        # payload["messages"] is already in the screen's expected dict shape.
-        self._screen_semantic_health(raw, payload.get("messages") or [])
+        self._screen_semantic_health(
+            raw, self._the_turn_before_the_tool_exchange(payload.get("messages") or []))
         return self._strip_filler(self._strip_reasoning_leak(raw))
+
+    @staticmethod
+    def _the_turn_before_the_tool_exchange(msg_dicts: list[dict]) -> list[dict]:
+        """The request's messages before its tool exchange: the conversation as
+        the person wrote it, which is what the screen judges a synthesis against.
+
+        A synthesis request is the conversation, then the tool exchange (the
+        assistant entry carrying the tool call, and the tool's result), then the
+        synthesis instruction, sent in the user role. The screen reads the last
+        user text it is handed as the turn the reply answers, and the user texts
+        as the script the person writes in. Handed the whole request, it read
+        the instruction as the person's question. Measured 2026-10-09 on a local
+        model server, through the daemon's own path: a terse synthesis ("Paris"
+        to "What is the capital of France?", "Yes" to "Is sshd running?") was
+        read as answering no question and flagged short_nonsense on both
+        attempts, so the person was served a fallback in place of the answer;
+        and the instruction's English outweighed a question asked in Chinese,
+        so the model's own answer in Chinese was flagged foreign_script_flood
+        and counted against the engine's health. What this returns is the
+        conversation continue_after_tool_call was handed, in the shape the
+        conversational path hands the screen. A request with no tool exchange
+        is returned whole.
+        """
+        for i, m in enumerate(msg_dicts):
+            if m.get("role") == "assistant" and m.get("tool_calls"):
+                return msg_dicts[:i]
+        return msg_dicts
 
     # ── Quality gate ──
 
