@@ -353,10 +353,15 @@ def _daemon(memory: MemoryManager, router):
     d._reg_id = None
     d._owner_id = None
     d._running = True
-    for attr in ("_web_server", "_web_thread", "_web_loop", "_state_cache",
-                 "_watchdog", "_embed_watchdog", "_llama", "_embed_llama",
-                 "_llm", "_matcher", "_tools", "_governance", "_health_agg"):
+    for attr in ("_web_server", "_web_thread", "_web_loop", "_web_stop",
+                 "_state_cache", "_watchdog", "_embed_watchdog", "_llama",
+                 "_embed_llama", "_llm", "_matcher", "_tools", "_governance",
+                 "_health_agg"):
         setattr(d, attr, None)
+    # The panel thread's stop record and its lock, as __init__ makes them.
+    d._web_lock = threading.Lock()
+    d._web_stopping = False
+    d._web_stop_error = None
     d._memory = memory
     d._conversation = router.new_conversation()
     d._router = router
@@ -490,30 +495,34 @@ def test_the_next_start_welcomes_the_person_back_to_the_session_the_stop_ended(
 
 
 # ── A daemon stop and the browser stop it orders ────────────────────────────
-# InterGenDaemon.stop_service orders the browser server's stop on that server's
-# own event loop, then ends the memory sessions. Here the browser server runs as
-# the daemon runs it (_run_web_server): a real event loop run forever on a real
-# thread, which the daemon's stop does not end. Only the server object on that
-# loop is a stand-in, and only its stop(): it completes, stays pending until the
-# case lets it go, or fails. A turn the browser server still serves after the
-# stop was ordered is recorded through the real _record.
+# InterGenDaemon.stop_service tells the panel's thread to stop and waits for it
+# to end, then ends the memory sessions; that thread stops the browser server
+# itself before it ends. Here the browser server runs as the daemon runs it:
+# the daemon's own _run_web_server on a real thread, with the real event loop
+# and stop signal that thread makes. Only the server object on that loop is a
+# stand-in, and only its start() and stop(): its bind holds at once, and its
+# stop completes, stays pending until the case lets it go, or fails. A turn the
+# browser server still serves after the stop was ordered is recorded through
+# the real _record.
 
 
 class _BrowserServerOnItsOwnLoop:
-    """The browser server's loop and thread, real; its stop(), a stand-in."""
+    """The browser server's thread and loop, the daemon's own; its start() and
+    stop(), stand-ins."""
 
     def __init__(self, outcome: str):
         self.outcome = outcome
         self.stop_completed_at: float | None = None
-        self.loop = asyncio.new_event_loop()
-        self._release = asyncio.Event()
-        self.thread = threading.Thread(target=self._serve, name="intergen-web",
-                                       daemon=True)
-        self.thread.start()
+        self.loop = None
+        self.thread = None
+        self._bound = threading.Event()
+        self._release = None
 
-    def _serve(self) -> None:
-        asyncio.set_event_loop(self.loop)
-        self.loop.run_forever()
+    async def start(self) -> bool:
+        self.loop = asyncio.get_running_loop()
+        self._release = asyncio.Event()
+        self._bound.set()
+        return True
 
     async def stop(self) -> None:
         if self.outcome == "fails":
@@ -523,19 +532,21 @@ class _BrowserServerOnItsOwnLoop:
         self.stop_completed_at = time.time()
 
     def give_to(self, daemon) -> None:
+        """The daemon's panel thread started on this server, its bind held."""
         daemon._web_server = self
-        daemon._web_loop = self.loop
+        self.thread = threading.Thread(target=daemon._run_web_server,
+                                       name="intergen-web", daemon=True)
         daemon._web_thread = self.thread
+        self.thread.start()
+        assert self._bound.wait(timeout=5), (
+            "control: the daemon's panel thread never bound the server")
 
     def finish(self) -> None:
-        """Let a pending stop go, then end the loop and its thread."""
-        self.loop.call_soon_threadsafe(self._release.set)
-        asyncio.run_coroutine_threadsafe(asyncio.sleep(0.05),
-                                         self.loop).result(timeout=5)
-        self.loop.call_soon_threadsafe(self.loop.stop)
+        """Let a pending stop go, then wait for the panel thread to end; the
+        thread closes its own loop."""
+        if self.outcome == "pending" and self.thread.is_alive():
+            self.loop.call_soon_threadsafe(self._release.set)
         self.thread.join(timeout=5)
-        if not self.thread.is_alive():
-            self.loop.close()
 
 
 def _a_stop_with_the_browser_stop(tmp_path, caplog, outcome: str):

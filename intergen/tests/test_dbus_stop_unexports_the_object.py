@@ -51,6 +51,7 @@ is worth measuring rather than asserting.
 
 from __future__ import annotations
 
+import threading
 import unittest
 from unittest import mock
 
@@ -138,11 +139,15 @@ def _daemon(tier_level: int):
     d._owner_id = None
     d._running = False
     d._hardware_tier = {"level": tier_level}
-    for attr in ("_web_server", "_web_thread", "_web_loop", "_state_cache",
-                 "_watchdog", "_embed_watchdog", "_llama", "_embed_llama",
-                 "_router", "_llm", "_matcher", "_tools", "_governance",
-                 "_health_agg"):
+    for attr in ("_web_server", "_web_thread", "_web_loop", "_web_stop",
+                 "_state_cache", "_watchdog", "_embed_watchdog", "_llama",
+                 "_embed_llama", "_router", "_llm", "_matcher", "_tools",
+                 "_governance", "_health_agg"):
         setattr(d, attr, None)
+    # The panel thread's stop record and its lock, as __init__ makes them.
+    d._web_lock = threading.Lock()
+    d._web_stopping = False
+    d._web_stop_error = None
     return d
 
 

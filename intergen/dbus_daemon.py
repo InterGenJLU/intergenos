@@ -282,6 +282,18 @@ class InterGenDaemon(InterGenDBusInterface):
         self._health_agg = None
         self._web_thread: threading.Thread | None = None
         self._web_loop = None
+        # The panel thread's stop signal, an asyncio.Event on that thread's
+        # loop: setting it ends the bind watchdog's retries or the serving,
+        # whichever is running. The thread makes the loop and the event and
+        # publishes both under _web_lock; a stop records _web_stopping under
+        # the same lock, so a stop that arrives before the thread has a loop
+        # is still seen and the thread then never binds.
+        self._web_stop = None
+        self._web_lock = threading.Lock()
+        self._web_stopping = False
+        # What the panel thread's own stop of its server raised, recorded under
+        # _web_lock and read by _stop_web once the thread has ended.
+        self._web_stop_error = None
         # Test/harness seam: a non-interactive review surface the dyno injects so
         # an unattended pull never blocks on the zenity approval modal. ALWAYS
         # None in production -> ask() builds the real make_review_callback below,
@@ -2616,7 +2628,7 @@ class InterGenDaemon(InterGenDBusInterface):
         log.info("InterGen daemon stopping...")
         self._running = False
 
-        browser_stopped = self._stop_browser_server()
+        browser_stopped = self._stop_web()
         if browser_stopped:
             # With the browser server down no turn can reach a conversation (the
             # bus dispatches only while the main loop runs, and a stop comes
@@ -2627,7 +2639,7 @@ class InterGenDaemon(InterGenDBusInterface):
             self._end_memory_sessions()
         # Otherwise the browser server may still be serving its connections,
         # and a session ended now would take their turns after its end: the
-        # sessions are left open, and _stop_browser_server has said why.
+        # sessions are left open, and _stop_web has said why.
 
         if self._state_cache:
             self._state_cache.stop()
@@ -2655,49 +2667,6 @@ class InterGenDaemon(InterGenDBusInterface):
         else:
             log.warning("InterGen daemon stop finished with the web server's "
                         "stop incomplete; the memory sessions were left open")
-
-    def _stop_browser_server(self) -> bool:
-        """Order the browser server's stop and wait for that stop to complete.
-
-        True once no browser connection can be served: the stop completed, or
-        no browser server is running to stop. False when the stop could not be
-        ordered, failed, or is still pending after WEB_STOP_TIMEOUT seconds,
-        each reported as an error by what happened, since the browser server
-        may then still be serving its connections.
-
-        What is read is the stop's own future. The browser server's thread runs
-        its event loop for the life of the process, so it is alive after every
-        stop, completed or not, and waiting on the thread tells nothing about
-        the stop.
-        """
-        server = self._web_server
-        if server is None:
-            return True
-        loop, thread = self._web_loop, self._web_thread
-        if loop is None or thread is None or not thread.is_alive():
-            # Its thread never started, or has ended (a bind the watchdog gave
-            # up on): no browser connection is being served.
-            return True
-        stopping = server.stop()
-        try:
-            future = asyncio.run_coroutine_threadsafe(stopping, loop)
-        except Exception as e:  # noqa: BLE001 — reported, the stop goes on
-            stopping.close()
-            log.error("The web server's stop could not be ordered: %s; its "
-                      "connections may still be served", e)
-            return False
-        try:
-            future.result(timeout=WEB_STOP_TIMEOUT)
-        except TimeoutError:
-            log.error("The web server's stop did not complete within %.0f "
-                      "seconds; its connections may still be served",
-                      WEB_STOP_TIMEOUT)
-            return False
-        except Exception as e:  # noqa: BLE001 — reported, the stop goes on
-            log.error("The web server's stop failed: %s; its connections may "
-                      "still be served", e)
-            return False
-        return True
 
     def _end_memory_sessions(self) -> None:
         """End every memory session this daemon started and has not ended.
@@ -2823,6 +2792,10 @@ class InterGenDaemon(InterGenDBusInterface):
             # the Web server check reports this server's own state instead of
             # the literal 0 this call used to freeze into it.
             self._health_agg.set_web_server(self._web_server)
+            with self._web_lock:
+                # A stop of an earlier life of this daemon does not hold over.
+                self._web_stopping = False
+                self._web_stop_error = None
             self._web_thread = threading.Thread(
                 target=self._run_web_server,
                 name="intergen-web",
@@ -2838,52 +2811,153 @@ class InterGenDaemon(InterGenDBusInterface):
 
     def _run_web_server(self) -> None:
         """Run the aiohttp web server in a dedicated thread, with a bind
-        watchdog. If the web port (8089) is held at cold boot by the GDM greeter
+        watchdog. If the panel's port is held at cold boot by the GDM greeter
         session's own InterGen web server, retry the bind until the greeter tears
         down and frees it — instead of crashing the thread with an unhandled
         traceback and never recovering (the web analogue of the chat/embed
-        watchdogs). run_forever only starts once OUR bind actually holds the
-        port; a permanently-held port logs a loud give-up and the thread exits.
+        watchdogs). The server serves only once OUR bind holds the port; a
+        permanently-held port logs a loud give-up and the thread exits.
+
+        The thread makes its own event loop and stop signal and publishes them
+        under _web_lock; _stop_web sets the signal through that loop. One
+        coroutine owns the server's whole life (_serve_web_until_stopped), so a
+        stop never cleans the server up underneath a bind attempt, and a stop
+        recorded before the loop was published means the thread never binds.
         """
-        self._web_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self._web_loop)
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        stop = asyncio.Event()
+        with self._web_lock:
+            stopping = self._web_stopping
+            if not stopping:
+                self._web_loop, self._web_stop = loop, stop
         try:
-            self._web_loop.run_until_complete(self._web_bind_with_watchdog())
-            if self._web_server.running:
-                self._web_loop.run_forever()
+            if not stopping:
+                loop.run_until_complete(self._serve_web_until_stopped(stop))
         except Exception:
             log.exception("Web server thread crashed")
         finally:
-            self._web_loop.close()
-            self._web_loop = None
+            # Unpublished before the loop closes, so a stop can never be handed
+            # to a closed loop.
+            with self._web_lock:
+                self._web_loop = self._web_stop = None
+            # What the server left scheduled is cancelled and run to its end
+            # before the loop closes, as asyncio.run does, so nothing is
+            # destroyed while still pending.
+            leftover = asyncio.all_tasks(loop)
+            for task in leftover:
+                task.cancel()
+            if leftover:
+                loop.run_until_complete(
+                    asyncio.gather(*leftover, return_exceptions=True))
+            loop.run_until_complete(loop.shutdown_asyncgens())
+            loop.close()
 
-    async def _web_bind_with_watchdog(self) -> None:
-        """Bind the web server, retrying on a held port until it frees.
+    async def _serve_web_until_stopped(self, stop: asyncio.Event) -> None:
+        """Bind (through the watchdog), serve until ``stop`` is set, then stop
+        the server.
+
+        The server is stopped here and only here, after the watchdog has
+        returned, so no bind attempt can run on a server the stop has cleaned
+        up — the race that used to end the thread in "Call runner.setup()
+        before making a site" — and a server whose bind held is stopped as
+        surely as one whose bind never did.
+        """
+        try:
+            if await self._web_bind_with_watchdog(stop):
+                await stop.wait()
+        finally:
+            try:
+                await self._web_server.stop()
+            except Exception as e:
+                # Recorded for _stop_web, which reads it once this thread has
+                # ended: what a failed stop left of the server is not known, so
+                # the daemon's stop reports it and leaves the memory sessions
+                # open, as for a stop still pending.
+                with self._web_lock:
+                    self._web_stop_error = e
+                raise
+
+    async def _web_bind_with_watchdog(self, stop: asyncio.Event) -> bool:
+        """Bind the web server, retrying on a held port until it frees: True
+        once OUR bind holds the port, False when ``stop`` is set first or the
+        attempts run out.
 
         start() returns False (a HANDLED condition, not a raise) when the port
         is held — the cold-boot greeter collision — so retry on an interval until
         OUR bind succeeds, bounded by WEB_BIND_MAX_ATTEMPTS so a permanently-held
         port logs a loud give-up instead of spinning forever. Readiness is our
         own bind (start() True), never an HTTP probe, so a foreign holder can
-        never be mistaken for ours.
+        never be mistaken for ours. The wait between attempts is a wait on
+        ``stop``: a stop ends the retries at once, and no attempt starts after it.
         """
         for attempt in range(1, WEB_BIND_MAX_ATTEMPTS + 1):
+            if stop.is_set():
+                return False
             if await self._web_server.start():
                 if attempt > 1:
                     log.info("Web server bound on attempt %d (port freed)",
                              attempt)
-                return
+                return True
             if attempt == 1:
                 log.warning(
                     "Web port held at startup; the web watchdog will rebind once "
                     "it is freed (retry every %ds, up to ~%ds).",
                     WEB_BIND_RETRY_INTERVAL,
                     WEB_BIND_RETRY_INTERVAL * WEB_BIND_MAX_ATTEMPTS)
-            await asyncio.sleep(WEB_BIND_RETRY_INTERVAL)
+            try:
+                await asyncio.wait_for(stop.wait(), WEB_BIND_RETRY_INTERVAL)
+                return False
+            except TimeoutError:
+                pass
         log.critical(
             "Web server did not bind within the watchdog budget (web port held "
             "~%ds) — the panel UI is unavailable until a daemon restart.",
             WEB_BIND_RETRY_INTERVAL * WEB_BIND_MAX_ATTEMPTS)
+        return False
+
+    def _stop_web(self) -> bool:
+        """Tell the panel's thread to stop, wait for it to end, and say whether
+        a browser connection can still be served.
+
+        The stop is recorded under _web_lock and, when the thread has published
+        its loop, the thread's stop signal is set through that loop; a thread
+        that has not published one yet finds the record and never binds. The
+        thread stops the server itself, so nothing here touches the server
+        while a bind attempt may be running.
+
+        True once no browser connection can be served: the thread ended after
+        its server's stop completed, or no panel thread was running. False when
+        the stop could not be ordered, the server's stop failed, or the thread
+        is still running after WEB_STOP_TIMEOUT seconds, each reported as an
+        error by what happened, since the browser server may then still be
+        serving its connections. The thread ends only once its server's stop
+        has returned, so the wait on the thread is the wait on that stop.
+        """
+        with self._web_lock:
+            self._web_stopping = True
+            if self._web_loop is not None:
+                try:
+                    self._web_loop.call_soon_threadsafe(self._web_stop.set)
+                except Exception as e:  # noqa: BLE001 — reported, the stop goes on
+                    log.error("The web server's stop could not be ordered: %s; "
+                              "its connections may still be served", e)
+                    return False
+        thread = self._web_thread
+        if thread is not None and thread.is_alive():
+            thread.join(timeout=WEB_STOP_TIMEOUT)
+            if thread.is_alive():
+                log.error("The web server's stop did not complete within %.0f "
+                          "seconds; its connections may still be served",
+                          WEB_STOP_TIMEOUT)
+                return False
+        with self._web_lock:
+            failed = self._web_stop_error
+        if failed is not None:
+            log.error("The web server's stop failed: %s; its connections may "
+                      "still be served", failed)
+            return False
+        return True
 
     def _claim_bus_name(self) -> bool:
         """Claim the well-known D-Bus name with DO_NOT_QUEUE, BEFORE any bind.
