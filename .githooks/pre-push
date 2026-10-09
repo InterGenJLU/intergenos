@@ -668,8 +668,43 @@ fi
 # the target's own name ended in .py or .sh, so a link named like a module
 # whose target held invalid Python reached the remote with every gate
 # passing (a second reader's true positive, 2026-10-09). A link whose target
-# is absolute, leaves the tree, dangles, or is not a regular file there is
-# not linted and is named in one line.
+# is absolute, leaves the tree, dangles, or is not a regular file there
+# BLOCKS: its bytes cannot be checked, and a check that did not run has not
+# passed. The target is read as its exact bytes, a trailing newline kept:
+# the first form of this gate read it through a command substitution, which
+# drops trailing newlines, so a link whose target name ended in a newline
+# resolved to nothing, was named in a note and passed while the file it
+# pointed at held invalid Python (a second reader's true positive,
+# 2026-10-09); and the mode look-up read the tree record as a line, so a
+# newline inside a target's path left the mode unmatched and the link
+# unresolved (a second reader's true positive on the sibling hook, 2026-10-09).
+# The target is resolved against the pushed tree component by component: a
+# component followed by anything must be a directory at the ref, so `..` is
+# taken only out of a directory that exists there — before this it was
+# cancelled lexically, and `missing/../x` or `file/../x` resolved to `x` while
+# the link itself dangled (a second reader's true positive, 2026-10-09). The
+# base's map of script-named links to their targets is carried into the range:
+# a link that resolved at the base and no longer does at the pushed ref BLOCKS
+# even when the push never touched the link — only its target was deleted,
+# renamed or replaced by something that is not a regular file; before this such
+# a link simply dropped out of the map and passed (a second reader's true
+# positive, 2026-10-09). A link that did not resolve at the base either is
+# inherited and stays non-blocking unless the push touches it. The link's own
+# parent is taken by parameter expansion: through $(dirname) a parent whose
+# name ends in a newline lost that byte and the target was resolved under a
+# decoy of the same name (a second reader's true positive, 2026-10-09). A link
+# whose blob holds a NUL is refused from a file before any variable carries its
+# bytes: a substitution dropped the NUL and a different target was linted (a
+# second reader's true positive, 2026-10-09). A link the push itself changed is
+# judged in the change set with its own reason, never as one the push did not
+# touch; its membership is compared whole in the shell, never as a grep
+# pattern, and the NUL count is read only with both statuses of the pipeline
+# that took it (two second-reader true positives on the first forms,
+# 2026-10-09). A link whose blob cannot be read at either ref blocks at once
+# instead of dropping out of the maps (a second reader's true positive,
+# 2026-10-09); so does a path whose mode cannot be looked up, which the first
+# form read as an absent path; the block's hex display is bounded to the blob's
+# first 64 bytes (two second-reader true positives, 2026-10-09).
 if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
     BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
     LOCAL_SHORT=$(git rev-parse --short "$LOCAL")
@@ -692,27 +727,130 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
             *) return 1 ;;
         esac
     }
-    # The mode of a path at the pushed ref (120000 = a symbolic link), or nothing.
-    mode_at_ref() { git --literal-pathspecs ls-tree -z "$LOCAL" -- "$1" 2>/dev/null | cut -c1-6; }
-    # The in-tree path a symbolic link resolves to at the pushed ref, when its
-    # target is relative, stays inside the tree and is a regular file there;
-    # nothing otherwise. A link to a link is not followed.
-    link_target_in_tree() {
-        local link="$1" target dir out part
-        target=$(git show "$LOCAL:$link" 2>/dev/null) || return 1
-        case "$target" in ''|/*) return 1 ;; esac
-        dir=$(dirname -- "$link"); [ "$dir" = . ] && dir=""
+    # The mode of a path at a ref (120000 = a symbolic link, 040000 = a
+    # directory), or nothing: the first six bytes of the NUL-terminated record,
+    # never a line of it — a newline inside the path would otherwise split the
+    # record, so the mode came back with the path's tail attached and matched
+    # nothing.
+    # Printed only when both commands of the pipeline exited zero; otherwise
+    # nothing is printed and the look-up fails, so a caller never reads a
+    # failed look-up as "no such path" — the first form consumed the output
+    # alone, and a failing look-up made a resolving link vanish from the maps
+    # (a second reader's true positive, 2026-10-09). An absent path is a
+    # successful look-up with an empty record. The two failures are told
+    # apart by status — 4 when git could not list the entry (the repository's
+    # objects), 5 when git listed it but head could not take the six bytes
+    # (the tool on PATH) — so the block that follows names the instrument
+    # that failed and its own recovery: before this both came back as one
+    # status and every caller reported git ls-tree and sent the user to
+    # repair the repository (a second reader's true positive, 2026-10-09).
+    mode_at() { # <ref> <path>
+        local out st
+        out=$(git --literal-pathspecs ls-tree -z "$1" -- "$2" 2>/dev/null | head -c 6; printf '\n%s %s' "${PIPESTATUS[0]}" "${PIPESTATUS[1]}") || return 4
+        st=${out##*$'\n'}
+        case "$st" in
+            "0 0") printf '%s' "${out%%$'\n'*}" ;;
+            0\ *)  return 5 ;;
+            *)     return 4 ;;
+        esac
+    }
+    mode_at_ref() { mode_at "$LOCAL" "$1"; }
+    # The exact bytes a symbolic link's blob holds at a ref (its target as
+    # written, a trailing newline kept), or failure when it cannot be read or
+    # holds a NUL. The blob is read into a FILE first and refused there when
+    # it holds a NUL: no shell variable can carry one, so a command
+    # substitution dropped it (with a warning) and the bytes that remained — a
+    # different target, one a filesystem could hold — were resolved and linted
+    # in the link's place, and the push passed (a second reader's true
+    # positive, 2026-10-09). The change set reads the same file first, so the
+    # gate blocks such a link with that reason before any variable sees its
+    # bytes; a count that could not be taken is a block of its own, naming the
+    # counting tools, never the link. The NUL count comes from nul_count_of, which carries both
+    # statuses of its pipeline out with the number: the first form read the
+    # pipeline's output alone, so a failed tr printed 0 and a NUL-bearing blob
+    # passed (a second reader's true positive, 2026-10-09); a count that could
+    # not be taken is never read as zero.
+    nul_count_of() { # <file> : prints the count of NUL bytes, only when tr and wc -c both exited zero; nothing otherwise
+        local out
+        out=$(tr -cd '\000' < "$1" | wc -c; printf ' %s %s' "${PIPESTATUS[0]}" "${PIPESTATUS[1]}") || return 1
+        set -- $out
+        [ $# -eq 3 ] && [ "$2" = 0 ] && [ "$3" = 0 ] || return 1
+        case "$1" in ''|*[!0-9]*) return 1 ;; esac
+        printf '%s' "$1"
+    }
+    link_target_bytes_at() { # <ref> <link path> : 1 when the blob holds a NUL; 2 when it cannot be read; 3 when its NUL count could not be taken
+        local raw n
+        git show "$1:$2" > "$SYNTAX_TMP/link.bytes" 2>/dev/null || return 2
+        n=$(nul_count_of "$SYNTAX_TMP/link.bytes") || return 3
+        [ "$n" -eq 0 ] || return 1
+        raw=$(cat "$SYNTAX_TMP/link.bytes" && printf x) || return 2
+        printf '%s' "${raw%x}"
+    }
+    link_target_bytes() { link_target_bytes_at "$LOCAL" "$1"; }
+    # The in-tree path a symbolic link resolves to at a ref, when its target is
+    # relative, every directory it walks through is a directory of that tree,
+    # it never leaves the tree, and the file it names is a regular file there;
+    # nothing otherwise. The walk is made against the tree, not the text: a
+    # component that is followed by anything must be a directory at the ref,
+    # so a `..` is taken only out of a directory that exists there, and
+    # `missing/../x` or `file/../x` resolves to nothing instead of to `x`
+    # (before this a `..` cancelled its left-hand component lexically, so a
+    # dangling link passed while an unrelated file was linted under its name —
+    # a second reader's true positive, 2026-10-09). A link to a link, or
+    # through a link, is not followed. Returns 2 when the link's blob cannot
+    # be read at the ref, 3 when its NUL count could not be taken, 4 when a
+    # mode could not be listed (git) and 5 when a listed mode could not be
+    # read (head), so a caller never mistakes a link it could not examine for
+    # one that resolves to nothing (four second-reader true positives,
+    # 2026-10-09); block_by_status names each.
+    link_target_in_tree_at() { # <ref> <link path>
+        local ref="$1" link="$2" target dir out part i n st m
+        local -a parts
+        target=$(link_target_bytes_at "$ref" "$link" && printf x); st=$?
+        [ "$st" -eq 0 ] || return "$st"
+        target=${target%x}
+        # Empty or absolute: not in the tree. Ending in a slash, /. or /..: the
+        # target names a directory, never a regular file (the split below would
+        # otherwise drop the trailing part and resolve a file the link does not
+        # reach — a second reader's true positive, 2026-10-09).
+        case "$target" in ''|/*|*/|*/.|*/..) return 1 ;; esac
+        # The link's parent by parameter expansion, never a substitution: a
+        # parent directory whose name ends in a newline would lose that byte
+        # through $(dirname), and the target was resolved under the wrong
+        # parent — a valid decoy linted while the real target held invalid
+        # Python (a second reader's true positive, 2026-10-09).
+        case "$link" in */*) dir=${link%/*} ;; *) dir="" ;; esac
         out="$dir"
-        while IFS= read -r -d '/' part || [ -n "$part" ]; do
+        # The target split on slashes into an array and read to its end (the
+        # delimiter is NUL, which the bytes never hold), so a newline inside a
+        # component is kept as part of it.
+        IFS='/' read -r -d '' -a parts < <(printf '%s' "$target") || true
+        n=${#parts[@]}
+        for ((i = 0; i < n; i++)); do
+            part=${parts[i]}
             case "$part" in
                 ''|.) ;;
                 ..) [ -n "$out" ] || return 1
                     if [[ "$out" == */* ]]; then out="${out%/*}"; else out=""; fi ;;
-                *) out="${out:+$out/}$part" ;;
+                *)  out="${out:+$out/}$part"
+                    # A component that is followed by anything is walked through: a directory of the tree, or nothing resolves.
+                    if ((i < n - 1)); then m=$(mode_at "$ref" "$out") || return $?; [ "$m" = 040000 ] || return 1; fi ;;
             esac
-        done < <(printf '%s' "$target")
+        done
         [ -n "$out" ] || return 1
-        case "$(mode_at_ref "$out")" in 100644|100755) printf '%s' "$out" ;; *) return 1 ;; esac
+        m=$(mode_at "$ref" "$out") || return $?
+        case "$m" in 100644|100755) printf '%s' "$out" ;; *) return 1 ;; esac
+    }
+    link_target_in_tree() { link_target_in_tree_at "$LOCAL" "$1"; }
+    # Whether a path is one of the NUL-delimited records of changed.z, compared
+    # whole in the shell — never as a grep pattern: grep splits a pattern on
+    # newlines whatever -z does to its records, so a newline-bearing path never
+    # matched and the push was said not to have touched it (a second reader's
+    # true positive, 2026-10-09).
+    in_changed_set() { # <path>
+        local entry
+        while IFS= read -r -d '' entry; do [ "$entry" = "$1" ] && return 0; done < "$SYNTAX_TMP/changed.z"
+        return 1
     }
     # Lint one blob of the pushed ref as Python or Bash, naming what was pushed.
     lint_blob_at_ref() { # <py|sh> <path at the ref> <name shown>
@@ -742,25 +880,149 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
         fi
     }
 
+    # A Python- or shell-named symbolic link whose bytes cannot be checked
+    # through the pushed tree blocks the push, naming the target as written.
+    block_unchecked_link() { # <link path at the ref> [<why, in words>]
+        local raw shown n
+        if ! git show "$LOCAL:$1" > "$SYNTAX_TMP/link.bytes" 2>/dev/null; then
+            shown="(unreadable: its blob cannot be read at $LOCAL_SHORT)"
+        elif ! n=$(nul_count_of "$SYNTAX_TMP/link.bytes"); then
+            shown="(its bytes could not be counted: tr or wc -c failed)"
+        elif [ "$n" -gt 0 ]; then
+            shown="$(od -An -tx1 -v -N 64 -w64 "$SYNTAX_TMP/link.bytes" | sed 's/^ *//; s/ *$//') ($(wc -c < "$SYNTAX_TMP/link.bytes") bytes, the first 64 shown in hex: they hold a NUL, which no path can hold)"
+        else
+            raw=$(link_target_bytes "$1" && printf x) || raw="x"
+            shown=$(printf '%q' "${raw%x}")
+        fi
+        echo "[pre-push] BLOCK: $(printf '%q' "$1") at $LOCAL_SHORT is a symbolic link named as a module whose target $shown is not a regular file inside the pushed tree (absolute, outside the tree, missing, reached through a component that is not a directory there, or itself a link)${2:+ — $2}."
+        echo "  Reason: the bytes it stands for cannot be checked at this ref, and a check that did not run has not passed."
+        echo "  Resolve: point the link at a regular file inside the tree, or replace it with the file itself."
+        rm -rf "$SYNTAX_TMP"; exit 1
+    }
+    # A Python- or shell-named path whose blob or mode cannot be read at a ref
+    # blocks the push at once: before this the two maps treated such a link as
+    # one that resolves to nothing, so it dropped out silently and a change to
+    # its target passed unlinted while an unreadable regular file blocked (a
+    # second reader's true positive, 2026-10-09); a failed mode look-up read as
+    # an absent path the same way (a second reader's true positive, 2026-10-09).
+    block_unreadable_link() { # <path> <ref, shown> <what failed>
+        echo "[pre-push] BLOCK: $(printf '%q' "$1") is named as a module and cannot be read at $2 ($3 failed), so what it stands for cannot be checked."
+        echo "  Reason: a check that did not run has not passed."
+        echo "  Resolve: repair the repository's objects (git fsck; re-fetch or re-create the link) and push again."
+        rm -rf "$SYNTAX_TMP"; exit 1
+    }
+    # A Python- or shell-named symbolic link whose blob could not be COUNTED
+    # (tr or wc -c failed) blocks with its own recovery: the link is not at fault
+    # and changing it cannot clear the block — before this the uncounted case
+    # was blocked as an unchecked link and the user was told to change the link
+    # (a second reader's true positive, 2026-10-09).
+    block_uncounted_link() { # <path> <ref, shown>
+        echo "[pre-push] BLOCK: $(printf '%q' "$1") at $2 is a symbolic link named as a module whose bytes could not be counted (tr or wc -c failed), so whether it holds a NUL is not known."
+        echo "  Reason: a check that did not run has not passed."
+        echo "  Resolve: repair the counting tools on PATH (tr and wc -c) and push again; the link itself is not at fault."
+        rm -rf "$SYNTAX_TMP"; exit 1
+    }
+    # A path whose mode could not be read because head failed the six-byte
+    # look-up while git listed the entry: the repository is sound and the path
+    # is not at fault, so the recovery is the tool on PATH — before this the
+    # block named git ls-tree and sent the user to repair the repository's
+    # objects, which could not clear it (a second reader's true positive,
+    # 2026-10-09).
+    block_unread_mode() { # <path> <ref, shown>
+        echo "[pre-push] BLOCK: the mode of $(printf '%q' "$1") at $2 could not be read (git listed the entry; head could not take its six bytes), so whether it is a symbolic link named as a module is not known."
+        echo "  Reason: a check that did not run has not passed."
+        echo "  Resolve: repair head on PATH (coreutils) and push again; the repository and the path are not at fault."
+        rm -rf "$SYNTAX_TMP"; exit 1
+    }
+    # The block for a mode look-up that failed, by mode_at's status: 5 head
+    # could not read it, anything else git could not list it. Every failure
+    # blocks; none passes.
+    block_mode_status() { # <status> <path> <ref, shown>
+        case "$1" in
+            5) block_unread_mode "$2" "$3" ;;
+            *) block_unreadable_link "$2" "$3" "git ls-tree" ;;
+        esac
+    }
+    # The block for a link the resolver could not examine, by the status it
+    # returned (2 the blob unreadable, 3 its count not taken, 4 a mode not
+    # listed by git, 5 a mode not read by head). Status 1 — the link resolves
+    # to nothing — is not a block here and is the caller's to judge; any other
+    # status blocks as a look-up that did not run, never passes.
+    block_by_status() { # <status> <path> <ref, shown>
+        case "$1" in
+            1) ;;
+            2) block_unreadable_link "$2" "$3" "git show" ;;
+            3) block_uncounted_link "$2" "$3" ;;
+            4|5) block_mode_status "$1" "$2" "$3" ;;
+            *) block_unreadable_link "$2" "$3" "a look-up with the unexpected status $1" ;;
+        esac
+    }
     # Script-named symbolic links at the pushed ref and their in-tree targets,
     # so a target whose bytes changed is linted under the link's name even
-    # when the link itself did not change in the range.
+    # when the link itself did not change in the range. A link that resolves
+    # to nothing has no in-tree target a changed path could be, so it is
+    # simply absent from this map; it blocks below when the link itself is in
+    # the pushed change set (its introduction or change), or when it resolved
+    # at the base of the range and no longer does (the base's map, next),
+    # never for a push that did not touch it or its target.
     : > "$SYNTAX_TMP/links.z"
     while IFS= read -r -d '' entry; do
         [ "${entry:0:6}" = 120000 ] || continue
         lnk="${entry#*	}"
         lint_kind "$lnk" >/dev/null || continue
-        if tgt=$(link_target_in_tree "$lnk"); then printf '%s\0%s\0' "$tgt" "$lnk" >> "$SYNTAX_TMP/links.z"; fi
+        if tgt=$(link_target_in_tree "$lnk" && printf x); then tgt=${tgt%x}; printf '%s\0%s\0' "$tgt" "$lnk" >> "$SYNTAX_TMP/links.z"; else block_by_status $? "$lnk" "$LOCAL_SHORT"; fi
     done < "$SYNTAX_TMP/tree.z"
+    # The base's map too: a script-named link that resolved to a regular file
+    # at the base of the range and is still a link at the pushed ref must still
+    # resolve there, or this push broke it — its target deleted, renamed, or
+    # replaced by something that is not a regular file — and the bytes it
+    # stands for can no longer be checked. Before this a change that touched
+    # only the target took the link out of the map above, and a link the push
+    # itself did not change was never presented to the block (a second
+    # reader's true positive, 2026-10-09). A link that did not resolve at the
+    # base either is inherited, not broken here, and stays non-blocking unless
+    # the push touches it; a link the push removed or replaced is in the
+    # change set and is handled there.
+    if ! git ls-tree -r -z "$BASE" > "$SYNTAX_TMP/tree-base.z" 2>/dev/null; then
+        echo "[pre-push] BLOCK: cannot list the tree at $(git rev-parse --short "$BASE" 2>/dev/null || echo "$BASE") for the syntax checks (git ls-tree failed)."
+        rm -rf "$SYNTAX_TMP"; exit 1
+    fi
+    while IFS= read -r -d '' entry; do
+        [ "${entry:0:6}" = 120000 ] || continue
+        lnk="${entry#*	}"
+        lint_kind "$lnk" >/dev/null || continue
+        link_target_in_tree_at "$BASE" "$lnk" >/dev/null || { block_by_status $? "$lnk" "$(git rev-parse --short "$BASE" 2>/dev/null || echo "$BASE") (the base of this push)"; continue; }
+        m=$(mode_at_ref "$lnk") || block_mode_status $? "$lnk" "$LOCAL_SHORT"
+        [ "$m" = 120000 ] || continue
+        # A link the push itself changed is judged in the change set below,
+        # with its own reason; this map speaks only for links the push did not
+        # touch (the first form named every broken link as untouched; the
+        # second gave grep the path as a pattern, which it splits on newlines).
+        in_changed_set "$lnk" && continue
+        link_target_in_tree "$lnk" >/dev/null && continue
+        block_unchecked_link "$lnk" "it resolved to a regular file at the base of this push ($(git rev-parse --short "$BASE" 2>/dev/null || echo "$BASE")) and this push broke that without touching the link"
+    done < "$SYNTAX_TMP/tree-base.z"
 
     while IFS= read -r -d '' f; do
         [ -z "$f" ] && continue
         if kind=$(lint_kind "$f"); then
-            if [ "$(mode_at_ref "$f")" = 120000 ]; then
-                if tgt=$(link_target_in_tree "$f"); then
+            m=$(mode_at_ref "$f") || block_mode_status $? "$f" "$LOCAL_SHORT"
+            if [ "$m" = 120000 ]; then
+                # A blob that holds a NUL is refused here, before any variable
+                # carries its bytes (link_target_bytes_at says why); a blob that
+                # could not be counted is refused with its own recovery; a blob
+                # that cannot be read falls to the resolver's block below.
+                if git show "$LOCAL:$f" > "$SYNTAX_TMP/link.bytes" 2>/dev/null; then
+                    n=$(nul_count_of "$SYNTAX_TMP/link.bytes") || block_uncounted_link "$f" "$LOCAL_SHORT"
+                    [ "$n" -eq 0 ] || block_unchecked_link "$f" "its blob holds a NUL byte, which no path can hold and no shell variable can carry, so the target it names is not one this gate can check"
+                fi
+                # The resolved path is carried through the substitution with a
+                # sentinel byte, so a name that ends in a newline keeps it.
+                if tgt=$(link_target_in_tree "$f" && printf x); then
+                    tgt=${tgt%x}
                     lint_blob_at_ref "$kind" "$tgt" "$(printf '%q' "$f") (a symbolic link to $(printf '%q' "$tgt"))"
                 else
-                    echo "[pre-push] note: $(printf '%q' "$f") at $LOCAL_SHORT is a symbolic link whose target is not a regular file inside the pushed tree; not linted."
+                    block_unchecked_link "$f"
                 fi
             else
                 lint_blob_at_ref "$kind" "$f" "$(printf '%q' "$f")"
@@ -769,7 +1031,8 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
         # A changed path that a script-named link resolves to is linted as the link's kind too.
         while IFS= read -r -d '' tgt && IFS= read -r -d '' lnk; do
             [ "$tgt" = "$f" ] || continue
-            [ "$(mode_at_ref "$f")" = 120000 ] && continue
+            m=$(mode_at_ref "$f") || block_mode_status $? "$f" "$LOCAL_SHORT"
+            [ "$m" = 120000 ] && continue
             lint_blob_at_ref "$(lint_kind "$lnk")" "$f" "$(printf '%q' "$f") (the target of the symbolic link $(printf '%q' "$lnk"))"
         done < "$SYNTAX_TMP/links.z"
     done < "$SYNTAX_TMP/changed.z"
