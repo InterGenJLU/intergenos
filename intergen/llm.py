@@ -1278,6 +1278,11 @@ class LLMRouter(LLMInterface):
                                                 image_data=image_data)
         if cloud_response:
             return cloud_response
+        # No cloud answer. A turn that ended during the escalation is given
+        # nothing, as everywhere else in this ladder, never the local
+        # fallback below.
+        if turn_ended():
+            return self._stopped_response()
 
         return LLMResponse(
             text=self._servable_text(response_text, quality_issue),
@@ -1747,9 +1752,11 @@ class LLMRouter(LLMInterface):
         THE TURN'S STOP REACHES THE CLOUD CALL TOO. Every provider is called
         through the cloud-provider contract: it is handed the bound stop and
         checks it at each item of its reply; no provider is asked once the
-        turn has ended, and an answer that arrives after it ended is
-        discarded. Every one of those ends in chat()'s answer for an ended
-        turn: nothing. Registration refuses a provider without the contract,
+        turn has ended, an answer that arrives after it ended is discarded,
+        and a call that ends in an error after the turn ended is the stop
+        too, not a provider failure to go on from. Every one of those ends in
+        chat()'s answer for an ended turn: nothing. Registration refuses a
+        provider without the contract,
         and one put into the table some other way is skipped here, with an
         ERROR naming why, never called without the stop.
         """
@@ -1799,6 +1806,16 @@ class LLMRouter(LLMInterface):
                 logger.error("Cloud provider %s failed: %s", name, e)
                 continue
             except Exception as e:
+                if turn_ended():
+                    # The turn ended while the provider was in its send, and
+                    # the call ended in an ordinary error rather than
+                    # CloudCallStopped. The turn is over all the same: the
+                    # call is noted as stopped and nothing is tried after
+                    # it, here or in chat()'s local fallback.
+                    logger.warning("Cloud provider %s ended in an error "
+                                   "after its turn ended: %s", name, e)
+                    self._note_cloud_stopped(name, "in_send")
+                    return self._stopped_response()
                 logger.error("Cloud provider %s failed: %s", name, e)
                 continue
 

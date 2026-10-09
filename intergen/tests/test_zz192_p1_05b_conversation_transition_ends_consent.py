@@ -1291,6 +1291,42 @@ class _ContractCloud(CloudProviderAdapter):
         return True, "contract"
 
 
+class _StopThenFailCloud(CloudProviderAdapter):
+    """A registered provider that keeps the contract and blocks until the case
+    releases it; then it reads the caller's stop, and if it is set ends the
+    call in an ORDINARY error (its reply abandoned), not CloudCallStopped.
+    With no stop set it answers."""
+
+    def __init__(self) -> None:
+        import threading
+        self.entered = threading.Event()
+        self.release = threading.Event()
+        self.calls = 0
+        self.saw_stop = False
+
+    @property
+    def name(self) -> str:
+        return "stop-then-fail"
+
+    def send(self, messages, *, tools=None, max_tokens=None, temperature=None,
+             should_stop=None):
+        self.calls += 1
+        self.entered.set()
+        if not self.release.wait(5):
+            raise TimeoutError("the case did not release the provider")
+        if should_stop is not None and should_stop():
+            self.saw_stop = True
+            raise ConnectionError("the reply was abandoned")
+        return LLMResponse(text=CLOUD_ANSWER, model="stop-then-fail",
+                           local=False)
+
+    def stream(self, messages, **kwargs):
+        yield self.send(messages, **kwargs).text
+
+    def test_connection(self):
+        return True, "stop-then-fail"
+
+
 class _CloudWire:
     """The cloud provider's side of an HTTP reply as the shipped adapter reads
     it (intergen/cloud/http_adapter.py): the body arrives in pieces, one each
@@ -1688,6 +1724,97 @@ class AnEndedTurnsCloudCallStopsWithinOneItem(unittest.TestCase):
             "the next provider was asked": 0,
             "chat() returned": "",
         })
+
+    def _llm_log(self) -> list[str]:
+        """What intergen.llm logs at INFO and above during the case."""
+        import logging
+        records: list[str] = []
+        log = logging.getLogger("intergen.llm")
+        handler = logging.Handler(level=logging.INFO)
+        handler.emit = lambda record: records.append(record.getMessage())
+        level = log.level
+        log.setLevel(logging.INFO)
+        log.addHandler(handler)
+        self.addCleanup(log.setLevel, level)
+        self.addCleanup(log.removeHandler, handler)
+        return records
+
+    def test_an_ended_turns_call_that_ends_in_an_error_is_given_nothing(self):
+        """A provider keeping the contract sees the turn's stop and ends its
+        call in an ordinary error, not CloudCallStopped. The router took the
+        error for a provider failure and went on; with no provider left it
+        came back with no cloud answer, and chat() served the ended turn its
+        local fallback. The error is now read against the stop: the call is
+        noted as stopped in its send, and the ended turn is given nothing."""
+        import threading
+        cloud = _StopThenFailCloud()
+        self.addCleanup(cloud.release.set)
+        llm = self._router(("only", cloud))
+        logged = self._llm_log()
+        stop = threading.Event()
+        thread, out = self._call_in_turn(llm, stop)
+        self._wait(cloud.entered.is_set, "the cloud provider was never asked")
+        stop.set()
+        cloud.release.set()
+        thread.join(2)
+        self.assertEqual({
+            "the provider saw the turn's stop": cloud.saw_stop,
+            "chat() returned": self._text(out),
+            "the call noted as stopped in its send": any(
+                "cloud call stopped: its turn ended (only, in_send)" in m
+                for m in logged),
+            "logged as a provider failure": any(
+                m.startswith("Cloud provider only failed") for m in logged),
+        }, {
+            "the provider saw the turn's stop": True,
+            "chat() returned": "",
+            "the call noted as stopped in its send": True,
+            "logged as a provider failure": False,
+        })
+
+    def test_control_a_call_that_fails_in_a_turn_not_ended_is_a_failure(self):
+        """The control: a provider that fails in a turn that has not ended
+        is still a provider failure, logged as one, and the turn is served
+        its local fallback, as before."""
+        import threading
+        cloud = _ContractCloud(fails=True)
+        cloud.release.set()
+        llm = self._router(("only", cloud))
+        logged = self._llm_log()
+        thread, out = self._call_in_turn(llm, threading.Event())
+        thread.join(5)
+        reply = out.get("reply")
+        self.assertEqual({
+            "chat() served its local fallback": bool(
+                reply is not None and reply.model == "local"
+                and reply.text.strip()),
+            "logged as a provider failure": any(
+                m.startswith("Cloud provider only failed") for m in logged),
+            "the call noted as stopped": any(
+                "cloud call stopped" in m for m in logged),
+        }, {
+            "chat() served its local fallback": True,
+            "logged as a provider failure": True,
+            "the call noted as stopped": False,
+        })
+
+    def test_an_ended_turn_is_given_no_local_answer_after_the_escalation(self):
+        """chat() reads the stop again once the escalation has come back with
+        no cloud answer, before its local fallback, so a turn that ended
+        during the escalation, by whatever path, is given nothing. Here the
+        escalation ends the turn and comes back with no answer."""
+        import threading
+        llm = self._router()
+        stop = threading.Event()
+
+        def an_escalation_that_ends_the_turn(messages, **_kwargs):
+            stop.set()
+            return None
+
+        llm._escalate_to_cloud = an_escalation_that_ends_the_turn
+        thread, out = self._call_in_turn(llm, stop)
+        thread.join(5)
+        self.assertEqual(self._text(out), "")
 
 
 class _ChatServerThatStopsListening(_ChatServer):
