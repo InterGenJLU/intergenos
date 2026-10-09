@@ -544,9 +544,18 @@ class MemoryManager:
                     tools_used TEXT,
                     started_at REAL NOT NULL,
                     ended_at REAL,
-                    turn_count INTEGER DEFAULT 0
+                    turn_count INTEGER DEFAULT 0,
+                    end_reason TEXT
                 )
             """)
+            # A store an earlier release created has no column for why a
+            # session ended; it gains one here. An added column leaves every
+            # row as it was, and an earlier release reading the store never
+            # names it.
+            columns = {row["name"] for row in
+                       conn.execute("PRAGMA table_info(sessions)")}
+            if "end_reason" not in columns:
+                conn.execute("ALTER TABLE sessions ADD COLUMN end_reason TEXT")
             conn.commit()
             logger.info("Memory database initialized at %s", self._db_path)
 
@@ -1150,8 +1159,9 @@ class MemoryManager:
     # ── Session awareness ──
 
     # How many sessions' summary state is held in memory. end_session releases
-    # a session's; the daemon does not call it, so without a bound every
-    # conversation it ever started would stay held.
+    # a session's, and a conversation's session is ended at its reset; a
+    # conversation that closes without one (a browser tab closed) is not, so
+    # without a bound every such conversation would stay held.
     _SESSIONS_HELD = 64
 
     def _hold_session(self, session_id: str) -> None:
@@ -1221,15 +1231,18 @@ class MemoryManager:
             conn.commit()
 
     def end_session(self, topic_summary: str | None = None,
-                    session_id: str | None = None) -> bool:
+                    session_id: str | None = None,
+                    reason: str | None = None) -> bool:
         """End a session with an optional topic summary.
 
         ``session_id`` names the session; with none, the session started last.
         If no summary is given, one is generated from that session's own turns.
+        ``reason`` is recorded with the end: why the session ended ("reset",
+        "daemon stop").
 
         A session is ended ONCE. The end is written only to a session that has
-        not ended, so a second end leaves the first end's time and topic as
-        they were. Returns True when this call ended the session, False when it
+        not ended, so a second end leaves the first end's time, topic and
+        reason as they were. Returns True when this call ended the session, False when it
         had already ended or was never recorded.
 
         An end the store refuses raises, and the turns the session's topic is
@@ -1252,12 +1265,14 @@ class MemoryManager:
             try:
                 ended = conn.execute(
                     "UPDATE sessions SET topic = ?, queries = ?, tools_used = ?, "
-                    "ended_at = ? WHERE session_id = ? AND ended_at IS NULL",
+                    "ended_at = ?, end_reason = ? "
+                    "WHERE session_id = ? AND ended_at IS NULL",
                     (
                         topic_summary,
                         "\n".join(queries[-10:]),
                         ",".join(tools),
                         time.time(),
+                        reason,
                         sid,
                     )
                 ).rowcount == 1
@@ -1270,7 +1285,8 @@ class MemoryManager:
             self._session_queries.pop(sid, None)
             self._session_tools.pop(sid, None)
         if ended:
-            logger.info("Session ended: %s — topic: %s", sid, topic_summary)
+            logger.info("Session ended: %s (%s) — topic: %s", sid,
+                        reason or "no reason given", topic_summary)
         else:
             logger.info("Session %s not ended again: it has already ended or "
                         "was never recorded", sid)

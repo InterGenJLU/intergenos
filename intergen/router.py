@@ -8291,7 +8291,10 @@ class ConversationRouter(RouterInterface):
 
         The relevance index and the long-term memory session are replaced here
         rather than in ConversationState.clear(), because both are built from
-        components the router owns (the embedder and the memory store).
+        components the router owns (the embedder and the memory store). The
+        memory session being replaced is ENDED first, with the reason "reset",
+        so its record closes: the welcome-back reply reads only sessions that
+        have ended.
         """
         conv = self._conv if state is None else state
         # Everything a conversation carries in its own right — history, consent
@@ -8304,6 +8307,17 @@ class ConversationRouter(RouterInterface):
         if conv.turn_index is not None:
             conv.turn_index.clear()
         if getattr(self, "_memory", None):
+            replaced = conv.memory_session_id
+            if replaced is not None:
+                # An end the store refuses is reported and the reset is still
+                # made: the conversation the person ended must not carry on
+                # because its record could not be closed.
+                try:
+                    self._memory.end_session(session_id=replaced,
+                                             reason="reset")
+                except Exception as e:  # noqa: BLE001 — reported, reset made
+                    logger.error("The memory session %s could not be ended at "
+                                 "its conversation's reset: %s", replaced, e)
             conv.memory_session_id = self._memory.start_session()
 
     # ── Status ──
