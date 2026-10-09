@@ -303,17 +303,123 @@ _TRANSPARENCY_PATTERNS = [
 # "clear memories" and cleared every stored fact, "clear factsheets" did the
 # same through "facts", and "undelete the memory about my car" deleted the car.
 # A word is not a substring.
+#
+# Two of the patterns are named because ``is_forget_request`` reads more of the
+# request around them than their own match: the request "don't remember X" is a
+# forget only as an imperative, and the reset decides from the whole request.
+_DONT_REMEMBER_RE = re.compile(r"\bdon't remember (.+)", re.IGNORECASE)
+_RESET_RE = re.compile(r"\bclear (?:all )?(?:my )?(?:memories|facts)\b",
+                       re.IGNORECASE)
 _FORGET_PATTERNS = [
     re.compile(p, re.IGNORECASE) for p in [
         r"\bforget (?:about |that )?(.+)",
         r"\bdelete (?:the )?(?:fact|memory) (?:about |for )?(.+)",
         r"\bremove (?:the )?(?:fact|memory) (?:about |for )?(.+)",
-        r"\bdon't remember (.+)",
-        r"\bclear (?:all )?(?:my )?(?:memories|facts)\b",
     ]
-]
+] + [_DONT_REMEMBER_RE, _RESET_RE]
 
-# A negation standing immediately in front of a delete verb.
+# What ``is_forget_request`` answers for a forget request it will not carry out:
+# one that carries the reset phrase and is more than the reset, or one whose
+# subject names nothing. Nothing is forgotten or cleared, and the reply says so.
+_FORGET_DECLINED = "__DECLINED__"
+
+# The request's closing marks and closing courtesy: not part of the subject they
+# end, and all that may follow the reset phrase's noun.
+#
+# WHY THIS EXISTS. A pattern's capture runs to the end of the sentence, so
+# "forget my car." captured "my car." with its full stop, and "forget my car,
+# please" captured "my car, please". No stored fact carries either as words, so
+# nothing was forgotten and the reply told the person there was no such memory.
+# A subject ends where the request's closing marks and courtesy begin.
+_CLOSING_MARKS = ".!?,;:"
+_CLOSING_COURTESY = ("please", "thanks", "thank you")
+
+# The words that name nothing on their own: articles, possessives,
+# demonstratives and personal pronouns.
+#
+# WHY THIS EXISTS. A subject is matched against the store as a word or words,
+# so "forget that", "forget it" and "forget my" took every fact holding "that",
+# "it" or "my" (and "your", the perspective form of "my"), and "forget please"
+# took the fact whose value ended "please". None of them names a fact. A subject
+# made only of these words, or of nothing at all, names nothing.
+_NAMES_NOTHING = frozenset((
+    "a an the "
+    "my your our his her their its mine yours ours hers theirs "
+    "this that these those "
+    "i me you he him she it we us they them "
+    "myself yourself himself herself itself ourselves yourselves themselves"
+).split())
+
+# A subject named behind the reset phrase's noun, "clear all my facts ABOUT MY
+# CAR", or in front of the phrase, "ABOUT MY CAR, clear all my facts".
+#
+# WHY THIS EXISTS. The reset pattern matched "clear all my facts" and the rest
+# of the request was never read, so a request naming one subject cleared every
+# stored fact and the reply said all of the person's memories were cleared. A
+# reset phrase qualified by a subject is a forget of that subject, never a
+# reset. Only words that say nothing but "the subject is" qualify: "on", "of"
+# and "for" also name a place, a time or a courtesy ("on this machine", "for
+# good", "for me"), so a request that uses them is not carried out at all.
+_RESET_SUBJECT_RE = re.compile(
+    r"\s+(?:about|regarding|concerning|related to|relating to|to do with|"
+    r"involving|mentioning|that mention)\s+(\S.*)$",
+    re.IGNORECASE,
+)
+
+# What may stand in front of "don't remember", or of the reset phrase, for the
+# request to be one made to the assistant: nothing, or a lead such as "please"
+# or "can you".
+#
+# WHY THIS EXISTS. The pattern is searched anywhere in the sentence, so it found
+# "don't remember my password hint" inside "I don't remember my password hint",
+# a sentence about the person not remembering, and the hint was deleted. A
+# sentence that says someone does not remember something asks for nothing; the
+# verb asks for a forget only as an imperative. The reset phrase is read the
+# same way, and from both ends: "clear all my facts except my car" and "clear
+# all my memories and start over" each cleared every stored fact.
+_LEAD = (r"[\s,.;:!?-]*(?:(?:please|ok|okay|and|also|so|just|now|then|hey|oh|"
+         r"well|actually|(?:can|could|would|will)\s+you)\b[\s,.;:!?-]*)*")
+_IMPERATIVE_LEAD_RE = re.compile(_LEAD, re.IGNORECASE)
+_LEADING_SUBJECT_RE = re.compile(
+    _LEAD + r"(?:about|regarding|concerning|as for|as to)\s([^,;:]+)[,;:]" + _LEAD,
+    re.IGNORECASE,
+)
+
+
+def _closing_removed(text: str) -> str:
+    """``text`` without the closing marks and closing courtesy it ends with.
+
+    Plain string tests in a loop rather than a pattern: a regular expression
+    that strips a repeated tail backtracks without bound on a long run of
+    separators."""
+    end = len(text)
+    while True:
+        last = end
+        while end and (text[end - 1].isspace() or text[end - 1] in _CLOSING_MARKS):
+            end -= 1
+        for word in _CLOSING_COURTESY:
+            start = end - len(word)
+            if (start >= 0 and text[start:end].lower() == word
+                    and (start == 0 or not _WORD_CHAR_RE.match(text[start - 1]))):
+                end = start
+                break
+        if end == last:
+            return text[:end]
+
+
+def _named_subject(text: str) -> str | None:
+    """The subject a pattern captured, without the request's closing marks and
+    courtesy; None when what is left names nothing."""
+    subject = _closing_removed(text.strip())
+    # The sentinels are answers, not subjects: "forget __ALL__" captured the
+    # reset's own sentinel, and every stored fact was cleared.
+    if subject in ("__ALL__", _FORGET_DECLINED):
+        return None
+    if all(word in _NAMES_NOTHING for word in re.findall(r"\w+", subject.lower())):
+        return None
+    return subject
+
+# A negation anywhere in front of a delete verb.
 #
 # WHY THIS EXISTS. The forget patterns above are applied with ``re.search``, so
 # they match anywhere in a sentence, and the first of them matches the four
@@ -322,15 +428,16 @@ _FORGET_PATTERNS = [
 # keep — measured on the tree: both stored rows marked deleted and the reply
 # "Done. I've forgotten 2 things about 'my keyboard layout'."
 #
-# It is matched against the text BEFORE a pattern's match, anchored to the end
-# of that text, so it asks one question only: is the verb this pattern matched
-# negated? That leaves "don't remember X" — whose own pattern starts AT the
-# negation, with nothing before it — working as the delete request it is.
-_NEGATION_BEFORE_VERB_RE = re.compile(
-    r"\b(?:don['\u2019]?t|do\s+not|never|didn['\u2019]?t|won['\u2019]?t|"
-    r"can['\u2019]?t|cannot|shouldn['\u2019]?t|mustn['\u2019]?t|must\s+not|"
-    r"no\s+need\s+to)"
-    r"(?:\s+(?:ever|you|please|just|also|still|again))*\s*$",
+# It is searched for in the whole of the text BEFORE a pattern's match. It was
+# once anchored to the end of that text, asking only whether the verb itself
+# was negated, and "I never want you to clear all my facts" cleared every stored
+# fact: the negation stood a few words further back than the anchor read. A
+# request with a negation anywhere in front of its verb is not carried out. That
+# leaves "don't remember X" — whose own pattern starts AT the negation, with
+# nothing before it — working as the delete request it is.
+_NEGATION_RE = re.compile(
+    r"\b(?:not|never|cannot|no\s+need\s+to|\w+n['\u2019]t|"
+    r"dont|doesnt|didnt|wont|wouldnt|cant|couldnt|shouldnt|mustnt|isnt|arent)\b",
     re.IGNORECASE,
 )
 
@@ -1199,17 +1306,29 @@ class MemoryManager:
         1. A sentence the STORE classifier already claims is never served here.
            When two classifiers can claim the same sentence, the destructive one
            must not be the one that answers it.
-        2. A pattern whose verb is NEGATED in this sentence does not count as a
-           match; the remaining patterns still get their turn. Without this,
-           ``re.search`` found "forget my keyboard layout" inside "don't forget
-           my keyboard layout" and deleted the fact.
+        2. A pattern whose verb is NEGATED in this sentence, by a negation
+           anywhere in front of it, does not count as a match; the remaining
+           patterns still get their turn. Without this, ``re.search`` found
+           "forget my keyboard layout" inside "don't forget my keyboard layout"
+           and deleted the fact.
+
+        And the request is read as a whole, not as the part a pattern matched:
+        "don't remember X" counts only as an imperative; the reset clears every
+        fact only when the whole request is the reset; a subject ends where the
+        request's closing marks and courtesy begin. A request that carries the
+        reset phrase and is more than the reset, or whose subject names nothing,
+        is answered with ``_FORGET_DECLINED``: nothing is forgotten, and the
+        reply says so.
         """
         if MemoryManager.is_remember_request(message):
             return None
         for pattern in _FORGET_PATTERNS:
             match = pattern.search(message)
             if match:
-                if _NEGATION_BEFORE_VERB_RE.search(message[:match.start()]):
+                if _NEGATION_RE.search(message[:match.start()]):
+                    continue
+                if (pattern is _DONT_REMEMBER_RE
+                        and not _IMPERATIVE_LEAD_RE.fullmatch(message[:match.start()])):
                     continue
                 # A PATTERN THAT CAPTURED A SUBJECT NAMES THE SUBJECT, and only
                 # the pattern written for a full reset asks for one.
@@ -1244,7 +1363,46 @@ class MemoryManager:
                 # with it, and the way it disagreed was to delete everything.
                 # Making it stricter would have left the same shape in place for
                 # the next sentence that slipped through it.
-                return match.group(1).strip() if match.lastindex else "__ALL__"
+                #
+                # THE RESET DECIDES FROM THE WHOLE REQUEST. "No capture means no
+                # subject was named" held only for the words the pattern matched:
+                # "clear all my facts about my car" matched as "clear all my
+                # facts", the rest was never read, and the request that named the
+                # car cleared every stored fact; "clear all my facts except my
+                # car" cleared the car it asked to keep. Every stored fact goes
+                # only when the request is a lead, the phrase, and after its noun
+                # nothing but a closing courtesy. One subject named in front of
+                # the phrase or behind its noun makes the request that subject's
+                # forget. Anything else is not carried out.
+                if pattern is _RESET_RE:
+                    before = message[:match.start()]
+                    after = message[match.end():]
+                    in_front = _LEADING_SUBJECT_RE.fullmatch(before)
+                    behind = _RESET_SUBJECT_RE.match(after)
+                    if in_front is None and not _IMPERATIVE_LEAD_RE.fullmatch(before):
+                        return _FORGET_DECLINED
+                    if in_front is None and behind is None:
+                        if _closing_removed(after):
+                            return _FORGET_DECLINED
+                        return "__ALL__"
+                    if in_front is not None and (behind is not None
+                                                 or _closing_removed(after)):
+                        return _FORGET_DECLINED
+                    subject = _named_subject((behind or in_front).group(1))
+                    if subject is None or _RESET_RE.search(subject):
+                        return _FORGET_DECLINED
+                    return subject
+                # A REQUEST CARRYING THE RESET PHRASE IS NOT CARRIED OUT IN PART.
+                # "forget my editor and clear all my memories" captured "my editor
+                # and clear all my memories" as one subject. The request asks for
+                # two things, one of them every stored fact: neither is done, and
+                # the reply says so.
+                if _RESET_RE.search(message):
+                    return _FORGET_DECLINED
+                subject = _named_subject(match.group(1))
+                if subject is None:
+                    return _FORGET_DECLINED
+                return subject
         return None
 
     # ── Response formatting ──
@@ -1262,6 +1420,13 @@ class MemoryManager:
 
     def format_forget_response(self, subject: str) -> str:
         """Execute a forget request and return the response."""
+        if subject == _FORGET_DECLINED:
+            # Nothing was forgotten or cleared: the reply says so, and how to ask
+            # for what the request did not make plain.
+            return ("I haven't forgotten or cleared anything: I couldn't tell "
+                    "exactly what to forget from that. Name the one thing to "
+                    "forget, or say \"clear all my memories\" on its own to "
+                    "clear everything.")
         if subject == "__ALL__":
             count = self.clear_all()
             if count:

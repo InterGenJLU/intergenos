@@ -181,8 +181,11 @@ class ACompoundSentenceFailsClosedTests(unittest.TestCase):
     whole-sentence word hunt that overrides a captured subject, which is the
     defect itself.
 
-    What the user gets instead: nothing is deleted, and the reply names exactly
-    what was looked for, so the reset can be asked for on its own line and works.
+    What the user gets instead: nothing is deleted, and the reply says that
+    nothing was forgotten or cleared, so the reset can be asked for on its own
+    line and works. (The reply once named the whole sentence as a subject that
+    matched nothing; a request carrying the reset phrase is now declined before
+    any subject is looked for, and the reply says what was not done.)
     Measured against the alternative: the old behaviour deleted every stored fact
     on a sentence whose subject happened to contain "unclear". Failing closed on
     an ambiguous destructive request costs one turn; failing open costs the user
@@ -213,7 +216,7 @@ class ACompoundSentenceFailsClosedTests(unittest.TestCase):
                     "the store was changed by a sentence this parser could not "
                     "resolve to one subject (rows: %r)" % (_rows(mm),)))
                 self.assertNotIn("cleared all", reply)
-                self.assertIn("don't have any memories about", reply)
+                self.assertIn("haven't forgotten or cleared anything", reply)
 
     def test_the_reset_asked_for_on_its_own_still_works(self):
         """What makes failing closed acceptable: the user's next sentence works."""
@@ -337,14 +340,32 @@ class NoSubstringTestRemainsOnTheDestructivePathTests(unittest.TestCase):
             "%r" % (len(returns), [ast.unparse(n) for n in returns]))
 
     def test_that_one_place_is_the_pattern_that_captured_nothing(self):
-        """And the one decision is structural: no capture means no subject was
-        named, so the whole sentence is the request."""
-        only = [n for n in ast.walk(self.parser)
-                if isinstance(n, ast.Return) and ALL in ast.unparse(n)][0]
-        text = ast.unparse(only)
-        self.assertIn("lastindex", text,
-                      "the reset is no longer decided by whether the pattern "
-                      "captured a subject: %r" % text)
+        """And the one decision is structural: it stands in the branch of the
+        pattern that captures nothing, the reset, and nowhere else.
+
+        No capture is not, on its own, the whole request. This case once read
+        "no capture means no subject was named, so the whole sentence is the
+        request" off the parser, and "clear all my facts except my car" cleared
+        the car it asked to keep. The branch now reads the rest of the request
+        before it answers with the sentinel, and the sentences below hold it to
+        that."""
+        branches = [n for n in ast.walk(self.parser)
+                    if isinstance(n, ast.If)
+                    and ast.unparse(n.test) == "pattern is _RESET_RE"]
+        self.assertEqual(len(branches), 1,
+                         "the parser has no single branch for the reset pattern")
+        inside = [n for n in ast.walk(branches[0])
+                  if isinstance(n, ast.Return) and ALL in ast.unparse(n)]
+        self.assertEqual(len(inside), 1,
+                         "the full-reset sentinel is returned outside the branch "
+                         "of the pattern that captures nothing")
+        for sentence in ("clear all my facts except my car",
+                         "clear all my memories and start over"):
+            with self.subTest(sentence=sentence):
+                self.assertNotEqual(
+                    MemoryManager.is_forget_request(sentence), ALL,
+                    "the reset phrase was taken for the whole request it "
+                    "stands in")
 
     def test_the_dedicated_reset_pattern_is_still_the_last_pattern(self):
         """It must be tried last, so a named-subject pattern is never shadowed by
