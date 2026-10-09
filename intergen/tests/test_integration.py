@@ -286,10 +286,17 @@ class TestDBusDaemon(unittest.TestCase):
         with mock.patch.object(dd, "SERVICE_NAME", test_name), \
                 mock.patch.object(Config, "get", _get):
             daemon = dd.InterGenDaemon()
+            # Stopped however the case ends, and registered before the start so
+            # a start that raises part-way is stopped too. The stop used to be
+            # the case's last line, so a failed assertion left the daemon
+            # running with its watchdog, which relaunches a down engine every
+            # half minute for the rest of the run.
+            self.addCleanup(daemon.stop_service)
             daemon.start_service()
 
             status = json.loads(daemon.status())
             self.assertTrue(status["running"])
+            self._assert_the_engine_came_up(status, "Status")
             self.assertIsNotNone(status["tier"])
             # Tier is HARDWARE-RESOLVED — a hardcoded expected level encodes
             # one box class (the old ==2 was false on any serving-class host).
@@ -357,8 +364,24 @@ class TestDBusDaemon(unittest.TestCase):
                 f"bus round-trip failed: {holder.get('error', 'no reply')}")
             bus_status = json.loads(holder["reply"].unpack()[0])
             self.assertTrue(bus_status["running"])
+            self._assert_the_engine_came_up(bus_status, "Status over the bus")
 
-            daemon.stop_service()
+    def _assert_the_engine_came_up(self, status: dict, where: str) -> None:
+        """The daemon's chat engine is serving, as `intergen status` reads it.
+
+        status["running"] is the daemon PROCESS, and it is True for a daemon
+        whose engine never started. This case used to stop there, so on a
+        machine whose engine aborts at model load it passed with every start
+        attempt aborted behind it. The two fields asserted here are the ones
+        `intergen status` turns into "Running: DEGRADED" and "[-] llama_server".
+        """
+        self.assertIsNone(
+            status.get("model_server_down"),
+            f"{where}: the daemon is up but its chat engine is not: "
+            f"{status.get('model_server_down')}")
+        self.assertTrue(
+            status.get("components", {}).get("llama_server"),
+            f"{where}: the daemon reports no running chat engine")
 
 
 @requires_provisioned_stack
