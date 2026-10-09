@@ -228,6 +228,30 @@ class TheSecretFilesAreRefusedAtTheFileBoundary(unittest.TestCase):
         self._assert_refused(
             result, "a credential moved away from its canonical path")
 
+    def test_an_identity_read_before_a_later_credential_fails_stays_refused(
+            self) -> None:
+        """A failure on one credential does not cost the identities already read.
+
+        The key is read while the web-token's name cannot be stat'ed (a link that
+        loops back on itself stands at it, so nothing is removed), and that read
+        reports the failure. The failure then clears, the key's canonical name is
+        removed, and the key is read through a second name for the same file. The
+        key's identity was read before the failure, so that read must be refused.
+        """
+        second_name = self.tmp / "notes.txt"
+        os.link(self.key_path, second_name)
+        token = self.key_path.parent / "web-token"
+        token.symlink_to(token.name)
+        with self._as_if_the_install_lived_here():
+            with self.assertRaises(dt.SecretIdentityUnreadable):
+                dt.secret_file_identities()
+            token.unlink()
+            self.key_path.unlink()
+            self.assertEqual(second_name.read_text(), self.key)
+            result = self._read(second_name)
+        self._assert_refused(
+            result, "a second name for a key read before a later credential failed")
+
     def test_the_daemon_reads_the_identities_before_it_is_constructed(self) -> None:
         """The identities are read at start, before any tool can run."""
         from intergen import dbus_daemon
