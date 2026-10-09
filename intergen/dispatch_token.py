@@ -767,7 +767,9 @@ def _hand_to_the_requesting_owner(fd: int, canonical_parent: str | None,
             return
         os.fchown(fd, uid, entry.pw_gid)
         os.fchmod(fd, _OWNER_FILE_MODE)
-    except (KeyError, ValueError, OSError) as exc:
+    except Exception as exc:  # noqa: BLE001 — every failure is this failure
+        # Whatever the hand-over raised, the file is not the owner's, and the
+        # write must say so rather than escape as an error of another kind.
         logger.error("The file created at %s could not be handed to the account "
                      "that asked for it: %s", path, exc)
         raise CreatedFileNotHandedToOwner(
