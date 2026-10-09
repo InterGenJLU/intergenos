@@ -556,5 +556,167 @@ class AClearEndsTheTurnInFlight(_TurnWorkerCase):
                          "the cleared exchanges stayed retrievable into the prompt")
 
 
+class _PacedModel:
+    """A model client whose stream has the real one's shape (llm.py
+    stream_with_tools): it opens a reply, yields one item each time the case
+    allows one, and closes the reply in its own cleanup, as the real stream
+    closes its HTTP response. The case reads, on the model's side, how many
+    items were produced after the turn ended and whether the reply closed."""
+
+    _endpoint = "http://127.0.0.1:8080/v1/chat/completions"
+
+    def __init__(self, items: int) -> None:
+        import threading
+        self.items = items
+        self.allow = threading.Semaphore(0)
+        self.finish = threading.Event()
+        self.reply_closed = threading.Event()
+        self.produced = 0
+
+    def build_system_messages(self, query_type="general", with_tools=True):
+        from intergen.interfaces.types import Message, MessageRole
+        return [Message(role=MessageRole.SYSTEM, content="system prompt")]
+
+    def stream_with_tools(self, messages, tools=None, image_data=None,
+                          max_tokens=None):
+        try:
+            for index in range(self.items):
+                while not self.allow.acquire(timeout=0.05):
+                    if self.finish.is_set():
+                        return
+                self.produced += 1
+                yield f"word{index} "
+        finally:
+            self.reply_closed.set()
+
+
+def _model_router(llm):
+    """A conversation router with no daemon behind it, as the streamed-turn
+    cases beside this module build one."""
+    from intergen.router import ConversationRouter
+    router = ConversationRouter.__new__(ConversationRouter)
+    router._max_history = 20
+    router._record = lambda *a, **k: None
+    router._current_query_type = "general"
+    router._memory = None
+    router._embedder = None
+    router._llm = llm
+    router._last_semantic_score = None
+    router.detach_conversation()
+    return router
+
+
+class _GoneAfterFirstToken(_RecordingWS):
+    """A page that goes away after the first token it is sent."""
+
+    async def send_json(self, payload: dict) -> None:
+        if payload.get("type") == "stream_token" and "stream_token" in [
+                item.get("type") for item in self.sent]:
+            raise ConnectionResetError("the page went away")
+        self.sent.append(payload)
+
+
+class AnEndedTurnsModelStreamIsClosedWithTheTurn(unittest.TestCase):
+    """The streamed answer is read from the model in a thread (_run_llm).
+    Ending the turn cancelled its task but not the thread, which read the
+    model's stream to its end: after a /clear the chat server generated the
+    ended answer for 25.5 s more and, with its one slot, the next turn's request
+    waited behind it. The thread now checks at every item whether its turn has
+    ended and then closes the stream, whose cleanup closes the reply. Each case
+    lets the model offer five more items after the end and counts, on the
+    model's side, how many it produced. The first case is the control: a turn
+    that is not ended reads its stream to the end."""
+
+    ITEMS = 40
+
+    def setUp(self) -> None:
+        self.llm = _PacedModel(self.ITEMS)
+        # The case's own end: a stream still running is let finish, so no
+        # thread outlives the case.
+        self.addCleanup(self.llm.finish.set)
+        self.router = _model_router(self.llm)
+        self.server = WebServer(router=self.router, llm=self.llm, tools=None,
+                                governance=None)
+        self.server._sessions = mock.MagicMock()
+        self.server._send_session_list = mock.AsyncMock()
+        self.ctx = ConnectionContext(
+            client_id="case", source_interface="web", ws=_RecordingWS(),
+            conversation=self.router.new_conversation())
+
+    def _stream(self) -> asyncio.Task:
+        from intergen.interfaces.types import RouteResult
+        task = asyncio.create_task(self.server._stream_llm_response(
+            self.ctx, "old-turn", "tell me a long story",
+            RouteResult(text="", source="llm_freeform", handled=False)))
+        self.ctx.turn_task = task
+        return task
+
+    async def _first_token(self) -> None:
+        self.llm.allow.release()
+        for _ in range(500):
+            if "stream_token" in _frames(self.ctx.ws):
+                return
+            await asyncio.sleep(0.01)
+        self.fail("the stream never started")
+
+    async def _produced_after_the_end(self, at_end: int) -> tuple[bool, int]:
+        for _ in range(5):
+            self.llm.allow.release()
+        closed = await asyncio.to_thread(self.llm.reply_closed.wait, 2.0)
+        return closed, self.llm.produced - at_end
+
+    def _assert_closed_within_one_item(self, closed: bool, after: int) -> None:
+        self.assertTrue(
+            closed,
+            f"the ended turn's stream was not closed: the model produced "
+            f"{after} more item(s) after the turn ended and was still asked "
+            f"for the next")
+        self.assertLessEqual(
+            after, 1, "the ended turn's stream was read past one item")
+
+    def _ended_by(self, end) -> None:
+        async def scenario():
+            task = self._stream()
+            await self._first_token()
+            await end()
+            await asyncio.gather(task, return_exceptions=True)
+            self.assertTrue(task.cancelled(), "the turn was not ended")
+            return await self._produced_after_the_end(self.llm.produced)
+        self._assert_closed_within_one_item(*asyncio.run(scenario()))
+
+    def test_control_a_turn_that_is_not_ended_reads_its_stream_to_the_end(self):
+        for _ in range(self.ITEMS):
+            self.llm.allow.release()
+
+        async def scenario():
+            await self._stream()
+        asyncio.run(scenario())
+        tokens = [f.get("token") for f in self.ctx.ws.sent
+                  if f.get("type") == "stream_token"]
+        self.assertEqual(self.llm.produced, self.ITEMS)
+        self.assertEqual(tokens, [f"word{i} " for i in range(self.ITEMS)])
+        self.assertTrue(self.llm.reply_closed.is_set())
+        self.assertIn("stream_end", _frames(self.ctx.ws))
+
+    def test_clear_closes_the_ended_turns_stream_within_one_item(self):
+        self._ended_by(lambda: self.server._handle_slash_command(
+            self.ctx, {"command": "/clear"}))
+
+    def test_a_new_session_closes_the_ended_turns_stream_within_one_item(self):
+        self._ended_by(lambda: self.server._handle_new_session(self.ctx, {}))
+
+    def test_a_page_that_goes_away_closes_the_stream_within_one_item(self):
+        self.ctx.ws = _GoneAfterFirstToken()
+
+        async def scenario():
+            task = self._stream()
+            await self._first_token()
+            self.llm.allow.release()
+            outcome = (await asyncio.gather(task, return_exceptions=True))[0]
+            self.assertIsInstance(outcome, ConnectionResetError)
+            return await self._produced_after_the_end(self.llm.produced)
+        self._assert_closed_within_one_item(*asyncio.run(scenario()))
+
+
 if __name__ == "__main__":
     unittest.main()

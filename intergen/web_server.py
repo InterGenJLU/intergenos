@@ -32,6 +32,7 @@ import logging
 import os
 import signal
 import sys
+import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -2381,14 +2382,28 @@ class WebServer:
         loop = asyncio.get_running_loop()
         queue: asyncio.Queue = asyncio.Queue()
         _SENTINEL = object()
+        # Set when this coroutine is left: the turn finished, failed, or was
+        # cancelled by /clear, /new or a session switch. Shutting the executor
+        # down does not stop a thread that is already running, so a cancelled
+        # turn's thread used to read the chat server's stream to its end: after
+        # a /clear the server went on generating the ended answer for 25.5 s,
+        # and with its one slot the next turn's request waited behind it. The
+        # thread checks this at every item and then closes the stream, whose
+        # own cleanup closes the reply, so the server stops within one item.
+        _stream_stop = threading.Event()
 
         def _run_llm() -> None:
             """Run the synchronous LLM streaming generator in a thread."""
+            if _stream_stop.is_set():
+                return
+            stream = self._llm.stream_with_tools(
+                messages, tools=tool_schemas, image_data=image_data,
+                max_tokens=_max_tokens,
+            )
             try:
-                for item in self._llm.stream_with_tools(
-                    messages, tools=tool_schemas, image_data=image_data,
-                    max_tokens=_max_tokens,
-                ):
+                for item in stream:
+                    if _stream_stop.is_set():
+                        return
                     loop.call_soon_threadsafe(queue.put_nowait, item)
                 loop.call_soon_threadsafe(queue.put_nowait, _SENTINEL)
             except Exception as exc:
@@ -2396,6 +2411,10 @@ class WebServer:
                     queue.put_nowait,
                     ("__error__", exc),
                 )
+            finally:
+                close = getattr(stream, "close", None)
+                if close is not None:
+                    close()
 
         executor = ThreadPoolExecutor(max_workers=1)
         # M1: ContextVars do not auto-propagate into a worker thread; bind the
@@ -2412,6 +2431,7 @@ class WebServer:
                 messages, tool_schemas,
             )
         finally:
+            _stream_stop.set()
             executor.shutdown(wait=False)
 
         elapsed_ms = (time.monotonic() - stream_started) * 1000
