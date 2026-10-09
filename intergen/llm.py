@@ -12,6 +12,7 @@ Ported from a prior internal AI assistant project. Key differences:
 from __future__ import annotations
 
 import contextvars
+import inspect
 import json
 import socket
 import logging
@@ -66,6 +67,22 @@ def turn_ended() -> bool:
     """True once the turn this context's model calls belong to has ended."""
     stop = _TURN_STOP.get()
     return stop is not None and stop.is_set()
+
+
+def cloud_contract_gap(adapter: Any) -> str | None:
+    """Why ``adapter`` does not keep the cloud-provider contract, or None when
+    it does: it must be a CloudProviderAdapter whose send() takes the caller's
+    stop (should_stop), the keyword the router hands a call it may stop."""
+    if not isinstance(adapter, CloudProviderAdapter):
+        return "it does not implement the cloud-provider contract"
+    try:
+        params = inspect.signature(adapter.send).parameters
+    except (TypeError, ValueError):
+        return "its send() cannot be read"
+    if "should_stop" not in params and not any(
+            p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()):
+        return "its send() takes no should_stop"
+    return None
 
 
 # The base prompt is COMPOSED from the persona home (intergen/persona.py) — the
@@ -1687,15 +1704,26 @@ class LLMRouter(LLMInterface):
 
     # ── Cloud escalation ──
 
-    def register_cloud_provider(self, name: str, adapter: Any) -> None:
-        """Register a cloud provider adapter for escalation."""
+    def register_cloud_provider(self, name: str,
+                                adapter: Any) -> tuple[bool, str]:
+        """Register a cloud provider adapter for escalation.
+
+        ONLY A PROVIDER THAT KEEPS THE CLOUD-PROVIDER CONTRACT IS REGISTERED.
+        The contract carries the turn's stop (intergen/interfaces/cloud.py):
+        a provider without it could not be stopped when its turn ends, so its
+        call would run on and its cost with it. Registration is the one place
+        that can be checked, and a refusal is logged and returned, never a
+        silent acceptance. Returns (registered, message).
+        """
+        why = cloud_contract_gap(adapter)
+        if why:
+            message = (f"refused cloud provider {name}: {why}, so a turn that "
+                       "ends could not stop its call")
+            logger.error("%s", message)
+            return False, message
         self._cloud_providers[name] = adapter
         logger.info("Registered cloud provider: %s", name)
-        if not isinstance(adapter, CloudProviderAdapter):
-            logger.warning(
-                "cloud provider %s does not implement the cloud-provider "
-                "contract: a turn that ends cannot stop its call, only "
-                "discard its answer", name)
+        return True, f"registered cloud provider {name}"
 
     def _note_cloud_stopped(self, name: str, stage: str) -> None:
         """Record a cloud call stopped, or its answer discarded, because its

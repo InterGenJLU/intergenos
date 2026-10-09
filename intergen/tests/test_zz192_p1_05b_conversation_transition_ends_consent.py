@@ -1257,6 +1257,40 @@ class _BlockingCloud:
         return LLMResponse(text=CLOUD_ANSWER, model="blocking", local=False)
 
 
+class _ContractCloud(CloudProviderAdapter):
+    """A registered provider that keeps the contract and blocks until the case
+    releases it; then it answers, or fails before reading any item of its
+    reply when told to (a connection lost early: there was no item at which to
+    check the stop)."""
+
+    def __init__(self, fails: bool = False) -> None:
+        import threading
+        self.fails = fails
+        self.entered = threading.Event()
+        self.release = threading.Event()
+        self.calls = 0
+
+    @property
+    def name(self) -> str:
+        return "contract"
+
+    def send(self, messages, *, tools=None, max_tokens=None, temperature=None,
+             should_stop=None):
+        self.calls += 1
+        self.entered.set()
+        if not self.release.wait(5):
+            raise TimeoutError("the case did not release the provider")
+        if self.fails:
+            raise OSError("the provider went away before its first item")
+        return LLMResponse(text=CLOUD_ANSWER, model="contract", local=False)
+
+    def stream(self, messages, **kwargs):
+        yield self.send(messages, **kwargs).text
+
+    def test_connection(self):
+        return True, "contract"
+
+
 class _CloudWire:
     """The cloud provider's side of an HTTP reply as the shipped adapter reads
     it (intergen/cloud/http_adapter.py): the body arrives in pieces, one each
@@ -1339,7 +1373,9 @@ class AnEndedTurnsCloudCallStopsWithinOneItem(unittest.TestCase):
     handed its answer back into the ended turn. The stop is now part of the
     cloud-provider contract: a provider that keeps it is handed the turn's stop
     and checks it at each item, no provider is asked once the turn has ended,
-    and an answer that arrives after the end is discarded.
+    and an answer that arrives after the end is discarded. A provider that
+    keeps no contract, or whose send() takes no stop, is refused at
+    registration and so never called.
 
     Each case binds the turn's stop in the context its model call runs under,
     as the web turn does, makes the call on a worker thread, ends the turn while
@@ -1354,7 +1390,9 @@ class AnEndedTurnsCloudCallStopsWithinOneItem(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
         self.addCleanup(self.transport.finish.set)
-        self.warnings: list[str] = []
+        # What registration logged at WARNING or above, and what it answered.
+        self.logged: list[str] = []
+        self.registered: list = []
 
     def _router(self, *providers):
         import logging
@@ -1363,11 +1401,12 @@ class AnEndedTurnsCloudCallStopsWithinOneItem(unittest.TestCase):
                          "request_timeout": 1})
         log = logging.getLogger("intergen.llm")
         handler = logging.Handler(level=logging.WARNING)
-        handler.emit = lambda record: self.warnings.append(record.getMessage())
+        handler.emit = lambda record: self.logged.append(record.getMessage())
         log.addHandler(handler)
         try:
             for name, provider in providers:
-                llm.register_cloud_provider(name, provider)
+                self.registered.append(
+                    llm.register_cloud_provider(name, provider))
         finally:
             log.removeHandler(handler)
         return llm
@@ -1528,35 +1567,77 @@ class AnEndedTurnsCloudCallStopsWithinOneItem(unittest.TestCase):
                          repr(raised.exception))
         self.assertEqual((keys, self.transport.wires), ([], []))
 
-    def test_a_provider_that_cannot_be_stopped_never_answers_the_ended_turn(
+    def _refusal(self, name: str, cloud, gap: str) -> dict:
+        """Register ``cloud``, ask the router a question with no stop bound
+        (as the command line does), and read what registration answered and
+        logged and whether the provider was asked."""
+        from intergen.interfaces.types import Message, MessageRole
+        llm = self._router((name, cloud))
+        reply = llm.chat([Message(role=MessageRole.USER,
+                                  content="what is the forecast?")])
+        answer = self.registered[0]
+        return {
+            "the registration refused it, naming why": answer if not
+                isinstance(answer, tuple) else (answer[0], gap in answer[1]),
+            "the refusal logged": any(f"refused cloud provider {name}" in m
+                                      for m in self.logged),
+            "the provider was asked": cloud.calls,
+            "chat() answered from the cloud": reply.model.startswith("cloud:"),
+        }
+
+    REFUSED = {
+        "the registration refused it, naming why": (False, True),
+        "the refusal logged": True,
+        "the provider was asked": 0,
+        "chat() answered from the cloud": False,
+    }
+
+    def test_a_provider_without_the_contract_is_refused_and_never_called(
             self):
-        """A provider that keeps no contract cannot be stopped mid-call; its
-        answer is still never handed into the ended turn, and its
-        registration says so."""
-        import threading
+        """A provider that keeps no cloud-provider contract could not be
+        stopped when its turn ends. The router refuses to register it, says
+        why in words, and so never calls it."""
         cloud = _BlockingCloud()
-        self.addCleanup(cloud.release.set)
-        llm = self._router(("blocking", cloud))
-        stop = threading.Event()
-        thread, out = self._call_in_turn(llm, stop)
-        self._wait(cloud.entered.is_set, "the cloud provider was never asked")
-        stop.set()
-        thread.join(0.5)
         cloud.release.set()
-        thread.join(2)
-        self.assertEqual({
-            "chat() returned": self._text(out),
-            "its registration names the limit": any(
-                "cannot stop its call" in w for w in self.warnings),
-        }, {
-            "chat() returned": "",
-            "its registration names the limit": True,
-        })
+        self.assertEqual(self._refusal(
+            "blocking", cloud, "does not implement the cloud-provider contract"),
+            self.REFUSED)
+
+    def test_a_provider_whose_send_takes_no_stop_is_refused(self):
+        """A provider written against the contract as it was before the stop:
+        its send() takes no should_stop, so the router could not hand it the
+        turn's stop."""
+
+        class _BeforeTheStop(CloudProviderAdapter):
+            def __init__(self) -> None:
+                self.calls = 0
+
+            @property
+            def name(self) -> str:
+                return "before-the-stop"
+
+            def send(self, messages, *, tools=None, max_tokens=None,
+                     temperature=None):
+                self.calls += 1
+                return LLMResponse(text=CLOUD_ANSWER, model="before",
+                                   local=False)
+
+            def stream(self, messages, *, tools=None, max_tokens=None,
+                       temperature=None):
+                yield CLOUD_ANSWER
+
+            def test_connection(self):
+                return True, "before-the-stop"
+
+        cloud = _BeforeTheStop()
+        self.assertEqual(self._refusal(
+            "before-the-stop", cloud, "its send() takes no should_stop"),
+            self.REFUSED)
 
     def test_an_ended_turn_is_not_handed_on_to_the_next_provider(self):
         import threading
-        first = _BlockingCloud(fails=True)
-        second = _BlockingCloud()
+        first = _ContractCloud(fails=True)
+        second = _ContractCloud()
         second.release.set()
         self.addCleanup(first.release.set)
         llm = self._router(("first", first), ("second", second))

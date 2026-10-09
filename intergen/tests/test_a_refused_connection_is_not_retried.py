@@ -176,17 +176,35 @@ class ARefusedConnectionTests(unittest.TestCase):
         served the fallback while a provider stood ready to answer.
         """
 
-        class _Answering:
+        from intergen.interfaces.cloud import CloudProviderAdapter
+
+        class _Answering(CloudProviderAdapter):
+            """A provider keeping the cloud-provider contract: the router
+            registers no other kind."""
+
             def __init__(self):
                 self.calls = 0
 
-            def send(self, messages, max_tokens=None):
+            @property
+            def name(self):
+                return "test-provider"
+
+            def send(self, messages, *, tools=None, max_tokens=None,
+                     temperature=None, should_stop=None):
                 self.calls += 1
                 return mock.Mock(text="an answer from elsewhere",
                                  tokens_prompt=1, tokens_completion=2)
 
+            def stream(self, messages, **kwargs):
+                yield self.send(messages, **kwargs).text
+
+            def test_connection(self):
+                return True, "test-provider"
+
         provider = _Answering()
-        self.llm.register_cloud_provider("test-provider", provider)
+        registered, why = self.llm.register_cloud_provider("test-provider",
+                                                           provider)
+        self.assertTrue(registered, why)
         attempts, _records, _rows, reply = self._one_turn(REFUSED)
 
         self.assertEqual(attempts, 1,
