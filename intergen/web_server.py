@@ -1042,7 +1042,16 @@ class WebServer:
                 # Other handlers are short and stay inline under cmd_lock;
                 # gate_decision under cmd_lock runs fine because the turn task
                 # does NOT hold cmd_lock while it awaits the gate.
-                if msg_type == "message":
+                #
+                # A frontier request is the conversation's work as a turn is:
+                # it waits on the person's consent, then on the provider's
+                # reply. Awaited inline here it held this loop for the whole
+                # call, so no /clear, new conversation or switch could even be
+                # read until the call had run to its end. It runs in the
+                # turn's slot instead: every door that ends a turn ends it,
+                # and the busy guard keeps it and a turn from writing into the
+                # same conversation at once.
+                if msg_type in ("message", "frontier_escalate"):
                     if ctx.turn_task is not None and not ctx.turn_task.done():
                         await ctx.ws.send_json(_make_error(
                             "busy",
@@ -1051,7 +1060,8 @@ class WebServer:
                         ))
                         continue
                     ctx.turn_task = asyncio.create_task(
-                        self._run_turn(ctx, data)
+                        self._run_turn(ctx, data) if msg_type == "message"
+                        else self._run_frontier_escalate(ctx, data)
                     )
                     continue
 
@@ -1541,6 +1551,29 @@ class WebServer:
         """Explicit client request for the session list."""
         await self._send_session_list(ctx)
 
+    async def _run_frontier_escalate(self, ctx: ConnectionContext,
+                                     data: dict[str, Any]) -> None:
+        """A frontier request off the receive loop, in the turn's slot
+        (_dispatch_loop). Detached as a turn is, it owns its errors as the
+        loop does for an inline handler: a page that went away ends it
+        quietly, anything else is logged and the page told; a door that ends
+        the conversation cancels it, and the cancellation propagates."""
+        try:
+            await self._handle_frontier_escalate(ctx, data)
+        except _CLIENT_GONE:
+            logger.debug("Client %s disconnected mid-escalation; "
+                         "escalation abandoned.", ctx.client_id)
+        except Exception:
+            logger.exception("Frontier escalation failed for client=%s",
+                             ctx.client_id)
+            try:
+                await ctx.ws.send_json(_make_error(
+                    "internal_error",
+                    "An internal error occurred processing your request."
+                ))
+            except _CLIENT_GONE:
+                pass
+
     async def _handle_frontier_escalate(self, ctx: ConnectionContext,
                                          data: dict[str, Any]) -> None:
         """Phone-a-friend: the user invoked 'Ask my frontier model' in the web UI
@@ -1604,15 +1637,31 @@ class WebServer:
             return (True, resp.text)
 
         loop = asyncio.get_event_loop()
-        # Bind the turn across the thread hop, so the consent prompt and the
-        # escalation itself are joinable to the turn that asked for them.
-        _esc_ctx = glass.bind_context()
+        # THE FRAME'S STOP, bound as a turn binds its own (_run_turn). The
+        # worker thread runs under a copy of this context, so the escalation
+        # reads it and hands it to the provider through the cloud-provider
+        # contract (escalation.py). It is set in the finally however the
+        # frame ends: a door that ends the conversation cancels this frame
+        # (it runs in the turn's slot), and the call stops within one item,
+        # its answer never reaching the conversation the door left.
+        _stop = threading.Event()
+        _stop_token = bind_turn_stop(_stop)
         try:
-            sent, text = await loop.run_in_executor(
-                None, lambda: _esc_ctx.run(_run))
-        except Exception as exc:  # noqa: BLE001 — never crash the socket on escalation
-            logger.error("frontier_escalate failed: %s", type(exc).__name__)
-            sent, text = False, f"Escalation failed: {type(exc).__name__}"
+            # Bind the turn across the thread hop, so the consent prompt and
+            # the escalation itself are joinable to the turn that asked for
+            # them.
+            _esc_ctx = glass.bind_context()
+            try:
+                sent, text = await loop.run_in_executor(
+                    None, lambda: _esc_ctx.run(_run))
+            except Exception as exc:  # noqa: BLE001 — never crash the socket on escalation
+                logger.error("frontier_escalate failed: %s",
+                             type(exc).__name__)
+                sent, text = (False,
+                              f"Escalation failed: {type(exc).__name__}")
+        finally:
+            _stop.set()
+            unbind_turn_stop(_stop_token)
         # A send the provider answered with no text is not an answer: the
         # command line has treated it that way since 2026-09-22 (exit 2, nothing
         # kept for `intergen last`), and this surface now does the same — the

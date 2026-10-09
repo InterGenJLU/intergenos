@@ -69,6 +69,12 @@ def turn_ended() -> bool:
     return stop is not None and stop.is_set()
 
 
+def bound_turn_stop() -> "threading.Event | None":
+    """The stop bound in this context, or None when the caller bound nothing.
+    Work that hands it on is given its is_set, which holds on any thread."""
+    return _TURN_STOP.get()
+
+
 def cloud_contract_gap(adapter: Any) -> str | None:
     """Why ``adapter`` does not keep the cloud-provider contract, or None when
     it does: it must be a CloudProviderAdapter whose send() takes the caller's

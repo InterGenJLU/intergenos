@@ -63,13 +63,16 @@ _FAILURES = [
 
 
 class _Adapter:
-    """The provider adapter, replaced: it raises ``failure`` or answers."""
+    """The provider adapter, replaced: it raises ``failure`` or answers. Its
+    send() takes the caller's stop, as the cloud-provider contract has it:
+    the web surface's frontier request hands every call one."""
 
     def __init__(self, failure: BaseException | None = None) -> None:
         self._failure = failure
         self.sent: list = []
 
-    def send(self, messages, *, tools=None, max_tokens=0, temperature=0.0):
+    def send(self, messages, *, tools=None, max_tokens=0, temperature=0.0,
+             should_stop=None):
         self.sent.append(messages)
         if self._failure is not None:
             raise self._failure

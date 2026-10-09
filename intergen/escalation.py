@@ -44,6 +44,7 @@ from typing import Callable
 from intergen.cloud.factory import create_adapter
 from intergen.cloud.http_adapter import CloudAdapterError
 from intergen.interfaces.cloud import (
+    CloudCallStopped,
     CloudProviderAdapter,
     EscalationDecision,
     EscalationManagerInterface,
@@ -92,6 +93,10 @@ _EXPLICIT_ASK_OWN = re.compile(
 # piece 2): the structured signal is authoritative; the former in-module text
 # regex is retired — a parallel regex drifts from the decomposer's own gate.
 
+
+# What a call the caller's stop ended comes back as: not sent, and not a failure.
+_STOPPED = ("Phone-a-friend stopped: the conversation it was asked from ended, "
+            "so no answer was kept.")
 
 # Adapter factory signature (injectable for tests): ProviderConfig -> adapter.
 AdapterFactory = Callable[[ProviderConfig], CloudProviderAdapter]
@@ -285,7 +290,17 @@ class EscalationManager(EscalationManagerInterface):
         decision #6. Any other (derived / agentic / follow-on) egress is scanned
         through the shared ScannerPolicy first; a BLOCK refuses the send so secrets
         are never shipped to the cloud. Default is the safe one: scan.
+
+        THE CALLER'S STOP REACHES THE PROVIDER. A caller that binds a stop (the
+        web surface's frontier request binds its frame's, intergen/llm.py
+        bind_turn_stop) has it handed to the provider through the cloud-provider
+        contract: no provider is asked once it is set, the provider checks it at
+        each item of its reply, and a call it stopped comes back as not sent,
+        never as an answer. A caller that binds nothing (the command line, the
+        bus) calls the provider as before.
         """
+        from intergen.llm import bound_turn_stop
+        stop = bound_turn_stop()
         provider = self._primary_provider()
         if provider is None:
             return self._error_response(
@@ -316,12 +331,24 @@ class EscalationManager(EscalationManagerInterface):
                     f"({verdict.reason or 'review required'}); confirm to send."
                 )
 
+        if stop is not None and stop.is_set():
+            logger.info("phone-a-friend not sent: its conversation ended first")
+            return self._error_response(_STOPPED)
+        stop_kwargs = {} if stop is None else {"should_stop": stop.is_set}
         try:
             adapter = self._adapter_for(provider)
             response = adapter.send(
                 messages, tools=tools,
                 max_tokens=provider.max_tokens, temperature=provider.temperature,
+                **stop_kwargs,
             )
+        except CloudCallStopped as exc:
+            if stop is not None and stop.is_set():
+                logger.info("phone-a-friend call stopped: its conversation ended")
+                return self._error_response(_STOPPED)
+            # A stop nobody set is a failure like any other, reported as one.
+            logger.error("phone-a-friend unexpected error: %s", type(exc).__name__)
+            return self._error_response(f"Escalation failed: {type(exc).__name__}")
         except CloudAdapterError as exc:
             logger.error("phone-a-friend provider error: %s", exc)
             return self._error_response(f"Frontier model unreachable: {exc}")

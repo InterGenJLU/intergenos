@@ -1799,5 +1799,457 @@ class AnEndedTurnsCloudRegenerationStopsWithinOneItem(unittest.TestCase):
         self._ended_by("/new")
 
 
+# ---- the frontier request ----------------------------------------------------
+
+FRONTIER_QUESTION = "what will the weather be tomorrow?"
+
+
+def _text(frame: dict):
+    """One frame from the page, as the receive loop reads it."""
+    import json
+    import types
+    from aiohttp import WSMsgType
+    return types.SimpleNamespace(type=WSMsgType.TEXT, data=json.dumps(frame))
+
+
+class _FrontierPage(_RecordingWS):
+    """The page as the real receive loop (_dispatch_loop) reads it: it asks
+    the frontier model, then sends one more frame (a door, or a chat message)
+    once the case lets it. The page stays until the case lets it leave."""
+
+    def __init__(self, then: dict | None, first: dict | None = None) -> None:
+        super().__init__()
+        self.first = first or {"type": "frontier_escalate",
+                               "content": FRONTIER_QUESTION}
+        self.then = then
+        self.send_then = asyncio.Event()
+        self.leave = asyncio.Event()
+        self._step = 0
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        self._step += 1
+        if self._step == 1:
+            return _text(self.first)
+        if self._step == 2 and self.then is not None:
+            await self.send_then.wait()
+            return _text(self.then)
+        await self.leave.wait()
+        raise StopAsyncIteration
+
+
+def _watched_manager(cloud):
+    """The real escalation manager over ``cloud``, recording what each
+    escalate() returned and when it had returned."""
+    import threading
+    from intergen.escalation import EscalationManager
+    from intergen.interfaces.cloud import ProviderConfig
+
+    class _Watched(EscalationManager):
+        def __init__(self) -> None:
+            super().__init__(
+                providers=[ProviderConfig(
+                    name="frontier", adapter="custom", model="example-large",
+                    api_key_keyring_id="none")],
+                adapter_factory=lambda config: cloud)
+            self.returned = threading.Event()
+            self.results: list = []
+
+        def escalate(self, *args, **kwargs):
+            try:
+                result = super().escalate(*args, **kwargs)
+                self.results.append(result)
+                return result
+            finally:
+                self.returned.set()
+
+    return _Watched()
+
+
+class AConsentedFrontierRequestStopsWithItsConversation(unittest.TestCase):
+    """The person asks their frontier model from the page and approves the
+    send; while the provider is reading its reply, the conversation is
+    cleared, or a new one is started. The request was awaited inside the
+    receive loop, so neither door could even be read until the call had run
+    to its end. It now runs in the turn's slot with a stop bound for its
+    frame: each door ends it, the stop reaches the provider through the
+    cloud-provider contract and the call stops within one item, and its
+    answer reaches neither the page nor any conversation. The frames come
+    through the real receive loop. The control: a request nobody ends is
+    answered on the page and kept in the conversation."""
+
+    maxDiff = None
+
+    def _server(self, cloud, consent=None):
+        from intergen.llm import LLMRouter
+        if consent is None:
+            def consent(*_args, **_kwargs):
+                return True
+        patcher = mock.patch("intergen.consent_modal.prompt_send_consent",
+                             side_effect=consent)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        llm = LLMRouter({"endpoint": _LOCAL, "request_timeout": 1})
+        router = _model_router(llm)
+        router._escalation = _watched_manager(cloud)
+        server = WebServer(router=router, llm=llm, tools=None, governance=None)
+        server._sessions = mock.MagicMock()
+        self.saved: list[list[str]] = []
+        server._sessions.save.side_effect = (
+            lambda _sid, history, **_kw: self.saved.append(
+                [m.content for m in history]))
+        server._send_session_list = mock.AsyncMock()
+        return server, router
+
+    async def _until(self, predicate, what: str, seconds: float = 5.0) -> None:
+        for _ in range(int(seconds * 100)):
+            if predicate():
+                return
+            await asyncio.sleep(0.01)
+        self.fail(what)
+
+    @staticmethod
+    async def _sent_within(page, predicate, seconds: float) -> bool:
+        """Whether the server sent the page a frame ``predicate`` accepts
+        within ``seconds``."""
+        for _ in range(int(seconds * 100)):
+            if any(predicate(frame) for frame in page.sent):
+                return True
+            await asyncio.sleep(0.01)
+        return False
+
+    def _kept(self, ctx) -> bool:
+        """The answer in the live conversation, or in a transcript saved."""
+        return (any(m.content == CLOUD_ANSWER for m in ctx.session_history)
+                or any(CLOUD_ANSWER in saved for saved in self.saved))
+
+    @staticmethod
+    def _answered_on_page(page) -> bool:
+        return any(f.get("type") == "frontier_response" and f.get("answered")
+                   for f in page.sent)
+
+    def _run(self, page_then, scenario_body, cloud, consent=None, first=None):
+        server, router = self._server(cloud, consent)
+
+        async def scenario():
+            page = _FrontierPage(page_then, first)
+            ctx = ConnectionContext(client_id="case", source_interface="web",
+                                    ws=page,
+                                    conversation=router.new_conversation())
+            loop_task = asyncio.create_task(server._dispatch_loop(ctx))
+            try:
+                return await scenario_body(server, router, ctx, page,
+                                           loop_task)
+            finally:
+                cloud.finish.set()
+                page.send_then.set()
+                page.leave.set()
+                await asyncio.gather(loop_task, return_exceptions=True)
+                if ctx.turn_task is not None:
+                    await asyncio.gather(ctx.turn_task,
+                                         return_exceptions=True)
+        return asyncio.run(scenario())
+
+    def test_control_a_request_nobody_ends_is_answered_and_kept(self):
+        cloud = _PacedCloud(CLOUD_ANSWER)
+
+        async def body(server, router, ctx, page, loop_task):
+            await self._until(cloud.entered.is_set,
+                              "the frontier provider was never asked")
+            for _ in cloud.words:
+                cloud.allow.release()
+            await self._until(lambda: self._answered_on_page(page),
+                              "no answer reached the page")
+            return {
+                "the provider handed an answer back": cloud.answered,
+                "the provider saw a stop": cloud.stopped,
+                "an answer reached the page": self._answered_on_page(page),
+                "the answer kept in the conversation": self._kept(ctx),
+            }
+
+        self.assertEqual(self._run(None, body, cloud), {
+            "the provider handed an answer back": True,
+            "the provider saw a stop": False,
+            "an answer reached the page": True,
+            "the answer kept in the conversation": True,
+        })
+
+    def _ended_by(self, door: dict, door_frame: str) -> dict:
+        cloud = _PacedCloud(CLOUD_ANSWER)
+
+        async def body(server, router, ctx, page, loop_task):
+            manager = router._escalation
+            await self._until(cloud.entered.is_set,
+                              "the frontier provider was never asked")
+            cloud.allow.release()
+            await self._until(lambda: cloud.produced >= 1,
+                              "the frontier provider never read an item")
+            at_door = cloud.produced
+            page.send_then.set()
+            took_effect = (await self._sent_within(
+                page, lambda f: f.get("type") == door_frame, 1.0)
+                and not cloud.done.is_set())
+            for _ in cloud.words[1:]:
+                cloud.allow.release()
+            await asyncio.to_thread(manager.returned.wait, 2.0)
+            await self._until(lambda: door_frame in _frames(page),
+                              f"the door's {door_frame} never came")
+            return {
+                "the door took effect while the call ran": took_effect,
+                "items read after the door, at most one":
+                    cloud.produced - at_door <= 1,
+                "the provider saw the stop": cloud.stopped,
+                "the provider handed an answer back": cloud.answered,
+                "the escalation came back as not sent": [
+                    type(r).__name__ for r in manager.results],
+                "an answer reached the page": self._answered_on_page(page),
+                "the answer kept in a conversation": self._kept(ctx),
+            }
+
+        return self._run(door, body, cloud)
+
+    ENDED = {
+        "the door took effect while the call ran": True,
+        "items read after the door, at most one": True,
+        "the provider saw the stop": True,
+        "the provider handed an answer back": False,
+        "the escalation came back as not sent": ["EscalationNotSent"],
+        "an answer reached the page": False,
+        "the answer kept in a conversation": False,
+    }
+
+    # One case per door, never subtests: each verdict is its own line.
+    def test_clear_stops_the_frontier_call_within_one_item(self):
+        self.assertEqual(self._ended_by(
+            {"type": "slash_command", "command": "/clear"}, "buffer_cleared"),
+            self.ENDED)
+
+    def test_a_new_conversation_stops_the_frontier_call_within_one_item(self):
+        self.assertEqual(self._ended_by(
+            {"type": "new_session"}, "session_created"), self.ENDED)
+
+    def test_a_door_while_the_consent_dialog_is_open_sends_nothing(self):
+        """The door comes while the person is still reading the consent
+        dialog; they press Send after it. Nothing reaches the provider."""
+        import threading
+        cloud = _PacedCloud(CLOUD_ANSWER)
+        asked = threading.Event()
+        send_pressed = threading.Event()
+
+        def consent(*_args, **_kwargs):
+            asked.set()
+            return send_pressed.wait(5)
+
+        async def body(server, router, ctx, page, loop_task):
+            manager = router._escalation
+            await self._until(asked.is_set, "the consent dialog never opened")
+            page.send_then.set()
+            took_effect = await self._sent_within(
+                page, lambda f: f.get("type") == "buffer_cleared", 1.0)
+            send_pressed.set()
+            for _ in cloud.words:
+                cloud.allow.release()
+            await asyncio.to_thread(manager.returned.wait, 2.0)
+            await self._until(lambda: "buffer_cleared" in _frames(page),
+                              "the door's buffer_cleared never came")
+            return {
+                "the door took effect while the dialog was open":
+                    took_effect,
+                "the provider was asked": cloud.calls,
+                "the escalation came back as not sent": [
+                    type(r).__name__ for r in manager.results],
+                "an answer reached the page": self._answered_on_page(page),
+            }
+
+        self.assertEqual(self._run(
+            {"type": "slash_command", "command": "/clear"}, body, cloud,
+            consent), {
+            "the door took effect while the dialog was open": True,
+            "the provider was asked": 0,
+            "the escalation came back as not sent": ["EscalationNotSent"],
+            "an answer reached the page": False,
+        })
+
+    def test_a_message_while_the_frontier_call_runs_is_told_busy(self):
+        """The request holds the turn's slot, as a turn does: a chat message
+        sent while it runs is told the assistant is busy and starts nothing
+        beside it, and the request itself goes on to its answer."""
+        cloud = _PacedCloud(CLOUD_ANSWER)
+        turns: list = []
+
+        async def body(server, router, ctx, page, loop_task):
+            async def recorded_turn(c, data):
+                turns.append(data.get("content"))
+            server._handle_client_message = recorded_turn
+            await self._until(cloud.entered.is_set,
+                              "the frontier provider was never asked")
+            page.send_then.set()
+            told_busy = (await self._sent_within(
+                page, lambda f: f.get("type") == "error"
+                and f.get("code") == "busy", 1.0)
+                and not cloud.done.is_set())
+            for _ in cloud.words:
+                cloud.allow.release()
+            await self._until(lambda: self._answered_on_page(page),
+                              "no answer reached the page")
+            await asyncio.sleep(0.2)
+            return {
+                "the message was told busy while the call ran": told_busy,
+                "a turn ran for the message": turns,
+                "an answer reached the page": self._answered_on_page(page),
+                "the answer kept in the conversation": self._kept(ctx),
+            }
+
+        self.assertEqual(self._run(
+            {"type": "message", "content": "and the day after?"}, body,
+            cloud), {
+            "the message was told busy while the call ran": True,
+            "a turn ran for the message": [],
+            "an answer reached the page": True,
+            "the answer kept in the conversation": True,
+        })
+
+
+    def test_a_frontier_request_while_a_turn_runs_is_told_busy(self):
+        """The other side of the same slot: a frontier request that arrives
+        while a turn runs is told the assistant is busy, asks no provider,
+        and leaves the turn as the work every door ends."""
+        cloud = _PacedCloud(CLOUD_ANSWER)
+
+        async def body(server, router, ctx, page, loop_task):
+            started = asyncio.Event()
+            release = asyncio.Event()
+
+            async def held_turn(c, data):
+                started.set()
+                await release.wait()
+            server._handle_client_message = held_turn
+            try:
+                await self._until(started.is_set, "the turn never started")
+                turn = ctx.turn_task
+                page.send_then.set()
+                told_busy = await self._sent_within(
+                    page, lambda f: f.get("type") == "error"
+                    and f.get("code") == "busy", 1.0)
+                for _ in cloud.words:
+                    cloud.allow.release()
+                if cloud.entered.is_set():
+                    await asyncio.to_thread(cloud.done.wait, 2.0)
+                return {
+                    "the frontier request was told busy": told_busy,
+                    "the frontier provider was asked": cloud.calls,
+                    "the turn still holds the slot": ctx.turn_task is turn,
+                }
+            finally:
+                release.set()
+
+        self.assertEqual(self._run(
+            {"type": "frontier_escalate", "content": FRONTIER_QUESTION},
+            body, cloud, first={"type": "message", "content": "hello"}), {
+            "the frontier request was told busy": True,
+            "the frontier provider was asked": 0,
+            "the turn still holds the slot": True,
+        })
+
+    def test_control_a_frontier_request_that_fails_is_reported_to_the_page(
+            self):
+        """Off the receive loop the request owns its errors, as the loop did
+        for it: a failure is logged and the page is told, and the page is
+        still served afterwards."""
+        cloud = _PacedCloud(CLOUD_ANSWER)
+
+        async def body(server, router, ctx, page, loop_task):
+            async def failing(c, data):
+                raise RuntimeError("the frontier request failed")
+            server._handle_frontier_escalate = failing
+            reported = await self._sent_within(
+                page, lambda f: f.get("type") == "error"
+                and f.get("code") == "internal_error", 2.0)
+            page.send_then.set()
+            served = await self._sent_within(
+                page, lambda f: f.get("type") == "buffer_cleared", 2.0)
+            return {
+                "the failure reported to the page": reported,
+                "the page served afterwards": served,
+                "the provider was asked": cloud.calls,
+            }
+
+        self.assertEqual(self._run(
+            {"type": "slash_command", "command": "/clear"}, body, cloud), {
+            "the failure reported to the page": True,
+            "the page served afterwards": True,
+            "the provider was asked": 0,
+        })
+
+
+class TheEscalationHandsTheStopToTheProvider(unittest.TestCase):
+    """EscalationManager.escalate under a bound stop that is set while the
+    provider reads its reply: the provider is handed the stop through the
+    cloud-provider contract and stops within one item, and the call comes
+    back as not sent, in words that say why, and is not logged as a failure.
+    Run on a worker thread whose context binds the stop, as the web
+    surface's frontier request runs it."""
+
+    maxDiff = None
+
+    def test_a_call_the_stop_ended_comes_back_as_not_sent(self):
+        import contextvars
+        import logging
+        import threading
+        import time
+        from intergen.interfaces.types import Message, MessageRole
+        from intergen.llm import bind_turn_stop
+        cloud = _PacedCloud(CLOUD_ANSWER)
+        self.addCleanup(cloud.finish.set)
+        manager = _watched_manager(cloud)
+        stop = threading.Event()
+        context = contextvars.copy_context()
+        context.run(bind_turn_stop, stop)
+        errors: list[str] = []
+        handler = logging.Handler(level=logging.ERROR)
+        handler.emit = lambda record: errors.append(record.getMessage())
+        log = logging.getLogger("intergen.escalation")
+        log.addHandler(handler)
+        self.addCleanup(log.removeHandler, handler)
+        worker = threading.Thread(target=lambda: context.run(
+            manager.escalate,
+            [Message(role=MessageRole.USER, content=FRONTIER_QUESTION)],
+            reason="case", user_consented=True), daemon=True)
+        worker.start()
+        self.assertTrue(cloud.entered.wait(5),
+                        "the frontier provider was never asked")
+        cloud.allow.release()
+        for _ in range(500):
+            if cloud.produced >= 1:
+                break
+            time.sleep(0.01)
+        self.assertEqual(cloud.produced, 1,
+                         "the frontier provider never read an item")
+        at_stop = cloud.produced
+        stop.set()
+        for _ in cloud.words[1:]:
+            cloud.allow.release()
+        worker.join(5)
+        result = manager.results[0] if manager.results else None
+        self.assertEqual({
+            "items read after the stop, at most one":
+                cloud.produced - at_stop <= 1,
+            "the provider saw the stop": cloud.stopped,
+            "came back as": type(result).__name__,
+            "its words say the conversation ended": (
+                "the conversation it was asked from ended"
+                in getattr(result, "text", "")),
+            "an ERROR logged": errors,
+        }, {
+            "items read after the stop, at most one": True,
+            "the provider saw the stop": True,
+            "came back as": "EscalationNotSent",
+            "its words say the conversation ended": True,
+            "an ERROR logged": [],
+        })
+
+
 if __name__ == "__main__":
     unittest.main()

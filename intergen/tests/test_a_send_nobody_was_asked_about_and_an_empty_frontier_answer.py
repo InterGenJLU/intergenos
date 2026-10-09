@@ -73,13 +73,16 @@ _APP_JS = Path(__file__).resolve().parents[1] / "web" / "app.js"
 
 
 class _Adapter:
-    """The provider adapter, replaced: it answers with ``text``."""
+    """The provider adapter, replaced: it answers with ``text``. Its send()
+    takes the caller's stop, as the cloud-provider contract has it: the web
+    surface's frontier request hands every call one."""
 
     def __init__(self, text: str = _ANSWER) -> None:
         self._text = text
         self.sent: list = []
 
-    def send(self, messages, *, tools=None, max_tokens=0, temperature=0.0):
+    def send(self, messages, *, tools=None, max_tokens=0, temperature=0.0,
+             should_stop=None):
         self.sent.append(messages)
         return LLMResponse(text=self._text, model="example-large", local=False)
 
