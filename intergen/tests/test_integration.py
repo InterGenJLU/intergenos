@@ -374,6 +374,12 @@ class TestDBusDaemon(unittest.TestCase):
                 return s.getsockname()[1]
 
         chat_port, embed_port = _free_port(), _free_port()
+        # And the panel's port, for the same reason: web_server.port is shipped
+        # as 8089, where the resident daemon's panel listens. A daemon bound
+        # there met that panel and served nothing of its own, and on a machine
+        # with no resident daemon it would serve the real panel port for as
+        # long as the case ran.
+        panel_port = _free_port()
         real_get = Config.get
 
         def _get(self, key, default=None):
@@ -381,6 +387,8 @@ class TestDBusDaemon(unittest.TestCase):
                 return chat_port
             if key == "llama_server.embedding_port":
                 return embed_port
+            if key == "web_server.port":
+                return panel_port
             return real_get(self, key, default)
 
         with mock.patch.object(dd, "SERVICE_NAME", test_name), \
@@ -406,6 +414,8 @@ class TestDBusDaemon(unittest.TestCase):
             self.assertIn("ram_gb", tier_info)
             self.assertIn(status["tier"]["level"], (1, 2, 3))
             self.assertEqual(status["tier"]["level"], tier_info["level"])
+
+            self._assert_the_panel_serves(daemon, panel_port)
 
             # Ask returns skeleton response
             response = json.loads(daemon.ask("test"))
@@ -466,6 +476,8 @@ class TestDBusDaemon(unittest.TestCase):
             self.assertTrue(bus_status["running"])
             self._assert_the_engine_came_up(bus_status, "Status over the bus")
 
+            self._assert_the_stop_is_clean(daemon)
+
     def _assert_the_engine_came_up(self, status: dict, where: str) -> None:
         """The daemon's chat engine is serving, as `intergen status` reads it.
 
@@ -482,6 +494,54 @@ class TestDBusDaemon(unittest.TestCase):
         self.assertTrue(
             status.get("components", {}).get("llama_server"),
             f"{where}: the daemon reports no running chat engine")
+
+    def _assert_the_panel_serves(self, daemon, port: int) -> None:
+        """The daemon's panel answers on the port the case handed it, and the
+        daemon's status says the panel is serving.
+
+        The panel binds on its own thread, so the page is polled until it
+        answers or the deadline passes; the answer is the panel's own page,
+        not merely a socket that accepts."""
+        deadline = time.monotonic() + 15
+        answer = None
+        while time.monotonic() < deadline:
+            try:
+                with urllib.request.urlopen(f"http://127.0.0.1:{port}/",
+                                            timeout=5) as page:
+                    answer = page.status
+                break
+            except OSError as e:
+                answer = e
+                time.sleep(0.2)
+        self.assertEqual(
+            answer, 200,
+            f"the daemon's panel did not answer on 127.0.0.1:{port}: {answer}")
+        status = json.loads(daemon.status())
+        self.assertIn("panel_down", status)
+        self.assertIsNone(status["panel_down"])
+        self.assertTrue(status["components"].get("panel"))
+
+    def _assert_the_stop_is_clean(self, daemon) -> None:
+        """The daemon stops with nothing logged as an error, and its panel's
+        thread has ended.
+
+        The stop used to race the panel's bind watchdog: after a refused bind
+        the watchdog's next retry made a site on the runner the stop had just
+        cleaned up and logged "Web server thread crashed (RuntimeError: Call
+        runner.setup() before making a site)"; after a bind that held, nothing
+        stopped the thread's event loop, so the stop waited out its join and
+        left the thread running."""
+        thread = daemon._web_thread
+        with self.assertNoLogs("intergen.dbus_daemon", level="ERROR"):
+            daemon.stop_service()
+            ended_with_the_stop = thread is None or not thread.is_alive()
+            # What the thread still does after the stop returns is part of the
+            # stop, so it is given time to do it while the log is watched.
+            if thread is not None:
+                thread.join(15)
+        self.assertTrue(ended_with_the_stop,
+                        "the daemon's panel thread was still running when its "
+                        "stop returned")
 
 
 @requires_provisioned_stack
