@@ -426,6 +426,20 @@ def current_turn_id() -> str:
     return _current_turn_id.get() or ""
 
 
+def served_turn_open() -> bool:
+    """Whether the code running here is part of a turn a person is being served.
+
+    Only :func:`turn` opens one. :func:`scope` binds an identifier for work that
+    is not a served turn (the daemon's start-up and warm-up, the memory index's
+    work for an exchange that has already been answered), and inside it
+    :func:`current_turn_id` is not empty, so the identifier's presence cannot
+    tell the two apart. The terminal cell can: :func:`turn` installs it and
+    :func:`scope` never does, and a worker thread entered through
+    :func:`bind_context` carries it with the rest of the turn's context.
+    """
+    return _current_turn_ended.get() is not None
+
+
 @contextmanager
 def scope(turn_id: str, iface: str) -> Iterator[str]:
     """Bind a turn id + interface for a block that is NOT a served turn.

@@ -371,6 +371,24 @@ def build_system_prompt(query_type: str = "general",
 _DIALECT_OPENERS = ("<function=", "<|action_start|>", "<|plugin|>")
 
 
+class StreamEndedEarly(Exception):
+    """The model server closed a streamed reply before finishing it.
+
+    A model server that exits part-way through a reply leaves its chunked
+    stream without the terminating chunk, and the transport reads that as an
+    ordinary end of the response: nothing is raised. Measured against this
+    machine's own model server through a proxy that closed the stream after two
+    content deltas — the call ended quietly with half a sentence and its
+    complete row read like a finished one. A stream that ends with neither a
+    finish reason nor its ``[DONE]`` marker was not finished by the server, and
+    this names that failure where the transport does not.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("the model server's stream ended before the reply "
+                         "was finished (no finish reason, no end marker)")
+
+
 def transport_failure_kind(exc: BaseException) -> str:
     """Which kind of transport failure this is: "refused", "timeout" or
     "other".
@@ -472,6 +490,8 @@ class LLMRouter(LLMInterface):
         # length-truncation (PI-218-4) and retry with more room — a checked
         # signal, not a heuristic guess at whether the reply was cut off.
         self._last_finish_reason: str | None = None
+        # Whether the last stream reached its [DONE] marker (see StreamEndedEarly).
+        self._last_stream_done: bool = True
         # Runtime semantic-health (G9/G10): the last generation's corruption flags
         # (chat() attaches them to LLMResponse) and an optional sink the daemon
         # injects so the engine-side reaction ladder (G11) sees every generation's
@@ -609,17 +629,21 @@ class LLMRouter(LLMInterface):
             # sentence spine) and filled two of the five slots in the window, so
             # ONE flagged real answer was enough to tell a person their machine
             # was serving garbage and invite them to downgrade it. The turn test
-            # is the product's own: glass.current_turn_id() is empty outside a
-            # turn. The screen itself still runs and its verdict is still
-            # recorded — only the COUNTING is withheld, and the withholding is
-            # emitted rather than silent.
+            # is the product's own: glass.served_turn_open(), true only inside a
+            # turn a person is being served. It used to be the presence of a
+            # turn id, and that stopped meaning a served turn when the daemon's
+            # start-up and warm-up were bound to the boot's id: from then on
+            # every warm-up reply ("Hi", flagged short_nonsense) entered the
+            # window at every boot. The screen itself still runs and its verdict
+            # is still recorded — only the COUNTING is withheld, and the
+            # withholding is emitted rather than silent.
             if self._semantic_sink is not None:
-                if glass.current_turn_id():
+                if glass.served_turn_open():
                     self._semantic_sink(res.flags)
                 elif res.flags:
                     glass.emit("model", "semantic_health_not_counted", detail={
                         "flags": res.flags,
-                        "why": "no turn context — this generation is not a "
+                        "why": "no served turn — this generation is not a "
                                "served answer, so it does not enter the "
                                "engine-health window"})
         except Exception as e:  # a screen failure must never break a turn
@@ -679,36 +703,72 @@ class LLMRouter(LLMInterface):
             _t0 = time.monotonic()
             _first = True
             _pieces: list[str] = []
-            for _tok in self._parse_sse_stream(response):
-                if turn_ended():
-                    # The reply is closed on the way out (finally below).
-                    self._note_stopped(len(_pieces))
-                    return
+
+            def _complete(error: Exception | None = None) -> None:
+                # Count keys are named without the substring "token": the glass
+                # secret-key redactor (shared with trace.py) matches "token" as a
+                # substring, so "tokens_completion" would be redacted as if it
+                # were a credential. These are integer counts, not secrets.
+                detail = {
+                    "endpoint": self._endpoint,
+                    "prompt_tok_count": self._last_prompt_tokens,
+                    "completion_tok_count": self._last_completion_tokens,
+                    "finish_reason": self._last_finish_reason,
+                    "text": "".join(_pieces)}
+                if error is not None:
+                    detail.update(self._a_failed_call(error))
+                glass.emit("model", "complete", detail=detail,
+                           dur_ms=(time.monotonic() - _t0) * 1000)
+
+            # A CALL THAT FAILS PART-WAY THROUGH ITS STREAM IS RECORDED, and the
+            # failure then goes on exactly as it came. Until it was, a read that
+            # timed out or a connection that dropped after the first token left
+            # first_token on the trace and nothing after it: a reader could see
+            # the call begin and not that it failed. Before the first token
+            # nothing has arrived, which is a call that got no response and is
+            # recorded the one way every such call is. After it, the call's own
+            # complete row is written with the text that did arrive and the
+            # failure named in it — a server that answered part of a reply is
+            # not an unreachable one, so no transport failure is recorded.
+            try:
+                for _tok in self._parse_sse_stream(response):
+                    if turn_ended():
+                        # The reply is closed on the way out (finally below).
+                        self._note_stopped(len(_pieces))
+                        return
+                    if _first:
+                        glass.emit("model", "first_token",
+                                   dur_ms=(time.monotonic() - _t0) * 1000)
+                        _first = False
+                    _pieces.append(_tok)
+                    yield _tok
+            except Exception as e:
                 if _first:
-                    glass.emit("model", "first_token",
-                               dur_ms=(time.monotonic() - _t0) * 1000)
-                    _first = False
-                _pieces.append(_tok)
-                yield _tok
+                    self._record_a_model_call_that_got_no_response(
+                        e, what="stream read")
+                else:
+                    _complete(error=e)
+                raise
+            # A STREAM THE SERVER CLOSED BEFORE FINISHING IT is the same failure
+            # arriving without an exception: the transport reads a chunked reply
+            # cut short as an ordinary end (see StreamEndedEarly). It is recorded
+            # the same two ways, and what was handed over stays handed over.
+            _cut = (not getattr(self, "_last_stream_done", True)
+                    and self._last_finish_reason is None)
+            if _cut and _first:
+                self._record_a_model_call_that_got_no_response(
+                    StreamEndedEarly(), what="stream read")
+                return
             _full = "".join(_pieces)
-            # G9: screen the assembled completion for corruption. stream() is the
-            # single generation chokepoint every consumer flows through (the web
-            # stream and chat()'s collected stream), so screening here covers all
-            # of them. It runs AFTER the last yield, so the user already saw every
-            # token — no added latency — and the flags feed chat()/LLMResponse
-            # (G10) and the engine-side reaction ladder (G11).
+            # G9: screen the assembled completion for corruption. Every consumer
+            # of the conversational path flows through here (the web stream and
+            # chat()'s collected stream); the tool path screens the answer it
+            # hands over in stream_with_tools(), and the agentic synthesis in
+            # _synthesis_attempt(). It runs AFTER the last yield, so the user
+            # already saw every token — no added latency — and the flags feed
+            # chat()/LLMResponse (G10) and the engine-side reaction ladder (G11).
             self._run_semantic_health(_full, messages)
-            # Count keys are named without the substring "token": the glass
-            # secret-key redactor (shared with trace.py) matches "token" as a
-            # substring, so "tokens_completion" would be redacted as if it were a
-            # credential. These are integer counts, not secrets.
-            glass.emit("model", "complete", detail={
-                "endpoint": self._endpoint,
-                "prompt_tok_count": self._last_prompt_tokens,
-                "completion_tok_count": self._last_completion_tokens,
-                "finish_reason": self._last_finish_reason,
-                "text": _full},
-                dur_ms=(time.monotonic() - _t0) * 1000)
+            _complete(error=StreamEndedEarly() if _cut else None)
         finally:
             response.close()
 
@@ -846,20 +906,43 @@ class LLMRouter(LLMInterface):
         _text_pieces: list[str] = []
         _finish: str | None = None
         _completed = False
+        _done = False
+        # The model text this call has handed to the caller as text — what the
+        # person is shown. A tool call is not text, the dialect buffer's
+        # refusal line is the code's own words, and a recovered dialect call
+        # never reaches the caller as text, so none of those is in here.
+        _served: list[str] = []
 
-        def _complete(tool_name: str | None) -> None:
+        def _complete(tool_name: str | None,
+                      error: Exception | None = None) -> None:
             nonlocal _completed
             if _completed:
                 return
             _completed = True
-            glass.emit("model", "complete", detail={
+            detail = {
                 "endpoint": self._endpoint,
                 "prompt_tok_count": self._last_prompt_tokens,
                 "completion_tok_count": self._last_completion_tokens,
                 "finish_reason": _finish,
                 "text": "".join(_text_pieces),
-                "tool_call": tool_name},
-                dur_ms=(time.monotonic() - _t0) * 1000)
+                "tool_call": tool_name}
+            if error is not None:
+                detail.update(self._a_failed_call(error))
+            glass.emit("model", "complete", detail=detail,
+                       dur_ms=(time.monotonic() - _t0) * 1000)
+
+        def _screen_the_answer(still_to_hand_over: str = "") -> None:
+            # THE ANSWER THIS CALL HANDS OVER IS SCREENED the way stream()
+            # screens its completion: once per call, before its complete row,
+            # with the same flags kept for the caller, the same row on a flag
+            # and the same count in the engine-health window. Until it was, a
+            # tool-enabled turn's text answer — every answer on the web
+            # interface's tool route — reached the person with no corruption
+            # screen at all. A call that handed over no text (a tool call
+            # alone) served no answer and enters nothing.
+            text = "".join(_served) + still_to_hand_over
+            if text:
+                self._run_semantic_health(text, tool_messages)
 
         try:
             for raw_line in response:
@@ -870,6 +953,7 @@ class LLMRouter(LLMInterface):
                     continue
                 data = line_str[6:]
                 if data.strip() == "[DONE]":
+                    _done = True
                     break
 
                 try:
@@ -922,6 +1006,7 @@ class LLMRouter(LLMInterface):
                     if token:
                         _text_pieces.append(token)
                         if content_mode == "passthrough":
+                            _served.append(token)
                             yield token
                         else:
                             content_buf += token
@@ -933,11 +1018,13 @@ class LLMRouter(LLMInterface):
                                         content_mode = "buffer"
                                     elif scan == "plain":
                                         content_mode = "passthrough"
+                                        _served.append(content_buf)
                                         yield content_buf
                                         content_buf = ""
                                     # "prefix" → stay scanning, keep buffering
 
                     if finish_reason == "tool_calls" and is_tool_call:
+                        _screen_the_answer()
                         _complete(tool_call_name)
                         if tool_call_name not in allowed_tool_names:
                             logger.warning(
@@ -965,7 +1052,25 @@ class LLMRouter(LLMInterface):
                     logger.debug("Skipping malformed SSE chunk: %s", e)
                     continue
 
-            _complete(tool_call_name if is_tool_call else None)
+            # A stream the server closed before finishing it is recorded as
+            # stream() records it (see StreamEndedEarly): no_response when
+            # nothing had arrived, otherwise the complete row names the failure.
+            _cut = not _done and _finish is None
+            if _cut and _first:
+                self._record_a_model_call_that_got_no_response(
+                    StreamEndedEarly(), what="tool stream read")
+                return
+
+            # The stream has ended. What the dialect-recovery buffer hands over
+            # (below) is decided first — the parse is pure — because the answer
+            # the screen reads is the text the caller receives: the buffer is
+            # handed over as text only when it is no dialect call at all.
+            recovered = (self._parse_dialect_tool_call(content_buf)
+                         if content_buf and not is_tool_call else None)
+            _screen_the_answer(content_buf if content_buf and not is_tool_call
+                               and recovered is None else "")
+            _complete(tool_call_name if is_tool_call else None,
+                      error=StreamEndedEarly() if _cut else None)
 
             if is_tool_call and tool_call_name:
                 if tool_call_name not in allowed_tool_names:
@@ -1003,7 +1108,6 @@ class LLMRouter(LLMInterface):
             # genuinely-non-dialect content (recovered is None) streams raw,
             # byte-identical to the old path.
             if content_buf and not is_tool_call:
-                recovered = self._parse_dialect_tool_call(content_buf)
                 emitted = False
                 if recovered:
                     d_name, d_args = recovered
@@ -1034,6 +1138,19 @@ class LLMRouter(LLMInterface):
                         # stream unchanged — no regression.
                         yield content_buf
                 content_buf = ""
+        except Exception as e:
+            # A call that fails part-way through its stream is recorded as
+            # stream() records it, and the failure goes on exactly as it came:
+            # no_response when nothing had arrived, otherwise the call's own
+            # complete row with the failure named. A failure raised after the
+            # complete row (the call had finished; what failed is the handling
+            # of its result) writes nothing more — complete is written once.
+            if _first:
+                self._record_a_model_call_that_got_no_response(
+                    e, what="tool stream read")
+            else:
+                _complete(tool_call_name if is_tool_call else None, error=e)
+            raise
         finally:
             response.close()
 
@@ -1121,6 +1238,13 @@ class LLMRouter(LLMInterface):
         not recorded and reported as a fault.
         """
         self._serving_engine = engine
+
+    @staticmethod
+    def _a_failed_call(e: Exception) -> dict:
+        """What a model call's complete row adds when its stream failed after
+        the first token: the call ended in an error, and which one."""
+        return {"finish_reason": "error", "error_type": type(e).__name__,
+                "error": str(e)}
 
     def _record_a_model_call_that_got_no_response(self, e: Exception, *,
                                                   what: str = "request") -> None:
@@ -2146,12 +2270,14 @@ class LLMRouter(LLMInterface):
         it likely ran out of tokens mid-thought.
 
         Token counts from timings are stored on self._last_prompt_tokens
-        and self._last_completion_tokens for the caller to read.
+        and self._last_completion_tokens for the caller to read, and whether
+        the stream reached its ``[DONE]`` marker on self._last_stream_done.
         """
         self._last_prompt_tokens = 0
         self._last_completion_tokens = 0
         self._last_reasoning = ""
         self._last_finish_reason = None
+        self._last_stream_done = False
         for raw_line in response:
             if not raw_line:
                 continue
@@ -2160,6 +2286,7 @@ class LLMRouter(LLMInterface):
                 continue
             data = line_str[6:]
             if data.strip() == "[DONE]":
+                self._last_stream_done = True
                 break
             try:
                 chunk = json.loads(data)
