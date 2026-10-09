@@ -473,5 +473,137 @@ class TheCommandKeepsItsOutputChannels(unittest.TestCase):
         self.assertIn("NO DETECTABLE DAMAGE", done.stdout)
 
 
+class AByteThatIsNotUTF8IsDamageInEveryView(unittest.TestCase):
+    """One byte of a writer-shaped row changed to 0xff, the file's length kept.
+
+    The writer emits UTF-8 only, so a byte that does not decode is damage. A reader
+    that decodes with replacement characters turns it into valid text before the row
+    is parsed, and the record reads as undamaged. Each line is decoded strictly, a line
+    that does not decode is named, and the rows reader passes over the same line, so
+    the integrity view, the JSON view and the human view agree and each exits nonzero.
+    """
+
+    TREE = Path(audit_log.__file__).resolve().parents[1]
+
+    def setUp(self) -> None:
+        self._td = tempfile.TemporaryDirectory(prefix="ledger-bytes-")
+        self.addCleanup(self._td.cleanup)
+        self.state = Path(self._td.name)
+        self.path = self.state / "intergen" / "tool-dispatch.jsonl"
+        for index, summary in enumerate(("first", "marker", "third")):
+            self.assertTrue(audit_log.write_record(
+                a_record(timestamp=f"2026-10-09T15:0{index}:00+00:00",
+                         result_summary=summary),
+                self.path))
+        before = self.path.read_bytes()
+        self.altered = before.replace(b"marker", b"mar\xffer")
+        self.assertEqual(len(before), len(self.altered), "the edit changed the file LENGTH")
+        self.assertEqual(sum(1 for x, y in zip(before, self.altered) if x != y), 1,
+                         "the edit changed more than one byte")
+        self.path.write_bytes(self.altered)
+
+    def _run(self, *args: str, state: Path | None = None) -> subprocess.CompletedProcess:
+        home = state if state is not None else self.state
+        env = dict(os.environ, PYTHONPATH=str(self.TREE), XDG_STATE_HOME=str(home))
+        return subprocess.run(
+            [sys.executable, "-s", "-m", "intergen.cli", "tool-log", *args],
+            cwd=home, env=env, capture_output=True, text=True, errors="backslashreplace",
+            timeout=60, stdin=subprocess.DEVNULL, check=False)
+
+    def test_the_read_back_refuses_the_line_and_names_it(self):
+        reading = audit_log.read_integrity(self.path)
+        self.assertTrue(reading.damaged,
+                        f"a byte that is not UTF-8 was not refused: {reading.report()}")
+        self.assertIn("UNTRUSTWORTHY", reading.verdict)
+        self.assertEqual(getattr(reading, "undecodable_lines", None), [2],
+                         "the refusal did not NAME the line it refused on")
+        self.assertTrue(any("UTF-8" in line and "[2]" in line for line in reading.report()),
+                        f"the report does not name the line: {reading.report()}")
+
+    def test_the_rows_reader_passes_over_the_line_and_keeps_the_rest(self):
+        rows = list(audit_log.read_records(self.path))
+        self.assertEqual([row["result_summary"] for row in rows], ["first", "third"])
+
+    def test_the_integrity_view_exits_nonzero_and_names_the_line(self):
+        done = self._run("--integrity")
+        self.assertNotEqual(done.returncode, 0,
+                            "the integrity view exited 0 over a byte that is not UTF-8")
+        self.assertIn("UNTRUSTWORTHY", done.stdout)
+        self.assertNotIn("NO DETECTABLE DAMAGE", done.stdout)
+        self.assertNotIn("Traceback", done.stderr)
+
+    def test_the_json_view_keeps_stdout_json_and_exits_nonzero(self):
+        done = self._run("--json")
+        self.assertNotEqual(done.returncode, 0, "the JSON view exited 0")
+        self.assertNotIn("Traceback", done.stderr)
+        lines = [line for line in done.stdout.splitlines() if line.strip()]
+        for line in lines:
+            try:
+                json.loads(line)
+            except json.JSONDecodeError:
+                self.fail(f"stdout carries a line that is not JSON: {line!r}")
+        self.assertEqual(len(lines), 2, "the two readable rows are not both on stdout")
+        self.assertIn("UNTRUSTWORTHY", done.stderr)
+
+    def test_the_human_view_exits_nonzero_and_says_why(self):
+        done = self._run()
+        self.assertNotEqual(done.returncode, 0, "the human view exited 0")
+        self.assertNotIn("Traceback", done.stderr)
+        self.assertIn("UNTRUSTWORTHY", done.stdout)
+
+    def test_no_view_changes_the_record(self):
+        for args in ((), ("--json",), ("--integrity",)):
+            self._run(*args)
+        self.assertEqual(self.path.read_bytes(), self.altered)
+
+    def test_a_record_of_one_such_row_is_refused_by_every_view(self):
+        """The reviewer's own fixture: one row, one byte of its summary changed."""
+        state = self.state / "one-row"
+        record = state / "intergen" / "tool-dispatch.jsonl"
+        record.parent.mkdir(parents=True)
+        row = {
+            "timestamp": "2026-10-09T15:00:00+00:00", "tool_name": "read_file",
+            "arguments": {"path": "/etc/fstab"}, "declared_provenance": "user_direct",
+            "effective_provenance": "user_direct", "ingress_tools_this_turn": [],
+            "user_decision": "executed", "exit_code": 0, "result_summary": "marker",
+            "source_attribution": "", "excerpt": "",
+        }
+        valid = json.dumps(row, separators=(",", ":")).encode("utf-8") + b"\n"
+        invalid = valid.replace(b"marker", b"mar\xffer")
+        self.assertEqual((len(valid), len(invalid)), (306, 306))
+        record.write_bytes(invalid)
+        for args in ((), ("--json",), ("--integrity",)):
+            with self.subTest(view=" ".join(args) or "human"):
+                done = self._run(*args, state=state)
+                self.assertNotEqual(done.returncode, 0, done.stdout + done.stderr)
+                self.assertNotIn("Traceback", done.stderr)
+                self.assertIn("UNTRUSTWORTHY", done.stderr if args == ("--json",) else done.stdout)
+                self.assertNotIn("NO DETECTABLE DAMAGE", done.stdout + done.stderr)
+        self.assertEqual(record.read_bytes(), invalid)
+
+
+class TheOutOfOrderObservationSaysWhatItCompares(unittest.TestCase):
+    """Each timestamp is compared with the latest timestamp of every prior row.
+
+    With 10:00, 05:00 and 07:00 the third row is later than its neighbour but earlier
+    than the first, so both the second and the third are named; the report must say
+    they are earlier than at least one prior row, which is the comparison made.
+    """
+
+    def test_a_row_earlier_than_a_prior_row_but_not_its_neighbour(self):
+        with tempfile.TemporaryDirectory(prefix="ledger-order-words-") as directory:
+            path = Path(directory) / "intergen" / "tool-dispatch.jsonl"
+            for stamp in ("10:00", "05:00", "07:00"):
+                self.assertTrue(audit_log.write_record(
+                    a_record(timestamp=f"2026-10-09T{stamp}:00+00:00"), path))
+            reading = audit_log.read_integrity(path)
+        self.assertFalse(reading.damaged, reading.report())
+        self.assertEqual(reading.out_of_order_rows, [2, 3])
+        named = [line for line in reading.report() if "[2, 3]" in line]
+        self.assertEqual(len(named), 1, reading.report())
+        self.assertIn("than at least one prior row", named[0])
+        self.assertNotIn("than the row before them", named[0])
+
+
 if __name__ == "__main__":
     unittest.main()
