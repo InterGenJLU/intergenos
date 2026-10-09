@@ -714,6 +714,38 @@ class ARefusedWriteCreatesNothing(unittest.TestCase):
         self.assertTrue((result.content or "").startswith("Write failed:"),
                         f"content was {result.content!r}")
 
+    def test_a_created_file_with_a_second_name_is_reported_as_not_removed(
+            self) -> None:
+        """The created file is given a second name before the refusal, so
+        removing its own name does not remove it. The outcome must be a reported
+        failure saying the file is left, never a clean refusal."""
+        second_name = self.config / "created-away"
+
+        def second_name_then_refuse(fd):
+            os.rename(self.token_path, second_name)
+            os.link(second_name, self.token_path)
+            return self.TOKEN_REASON
+
+        raised = self._created_then_refused(
+            mock.patch.object(dt, "open_descriptor_secret_reason",
+                              side_effect=second_name_then_refuse))
+        self.assertFalse(os.path.lexists(self.token_path))
+        self.assertTrue(os.path.lexists(second_name),
+                        "the case needs the created file to survive at its second name")
+        self._assert_reported_as_not_removed(raised)
+        self.assertIn("still has 1 other name", str(raised))
+
+    def test_a_created_file_with_one_name_is_removed_and_refused_cleanly(
+            self) -> None:
+        """The control: with no second name the cleanup removes the file and the
+        refusal stands as a refusal."""
+        raised = self._created_then_refused(
+            mock.patch.object(dt, "open_descriptor_secret_reason",
+                              return_value=self.TOKEN_REASON))
+        self.assertIsInstance(raised, dt.InstallSecretRefused)
+        self.assertFalse(os.path.lexists(self.token_path))
+        self.assertEqual(os.listdir(self.config), [])
+
     def test_a_name_replaced_while_the_cleanup_removes_keeps_its_replacement(
             self) -> None:
         """At the moment the cleanup removes, the token path is given a
