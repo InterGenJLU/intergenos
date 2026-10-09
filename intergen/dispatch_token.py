@@ -694,8 +694,10 @@ def _created_refusing_install_secrets(path: object, flags: int, mode: int) -> in
             if reason is not None:
                 logger.warning("Refused a tool's creation of %s: %s", path, reason)
                 raise InstallSecretRefused(reason)
+            _hand_to_the_requesting_owner(fd, canonical_parent, path)
         except BaseException:
-            # The refusal stands only once the file it created is gone again.
+            # The refusal stands only once the file it created is gone again,
+            # and so does a file that could not be handed to its owner.
             # Otherwise _remove_own_creation raises CreatedFileNotRemoved, and
             # that is what the caller receives.
             try:
@@ -717,6 +719,62 @@ class CreatedFileNotRemoved(OSError):
     The message says where the created file, or whatever was moved aside to be
     examined, was left.
     """
+
+
+class CreatedFileNotHandedToOwner(OSError):
+    """A file created for the person who asked could not be made theirs.
+
+    Raised once the file has been removed again (when the removal itself fails,
+    CreatedFileNotRemoved is raised in its place), so nobody finds a file of
+    root's in their own home where they asked for one of their own. An OSError,
+    so a consumer reports it as a failed write.
+    """
+
+
+#: The mode of a file created for the requesting owner in their own home: theirs
+#: to read and write, and nobody else's.
+_OWNER_FILE_MODE = 0o600
+
+
+def _hand_to_the_requesting_owner(fd: int, canonical_parent: str | None,
+                                  path: object) -> None:
+    """Make a file this process just created below the requester's home theirs.
+
+    Under the privileged runner the process is root, so what it creates is
+    root's: root:root with the mode the umask leaves. In the home of the person
+    who asked, that is a file they cannot change or remove and every local
+    account can read. A new file whose directory resolves to that home, or below
+    it, is therefore handed to the requesting account's uid and primary group
+    with mode 0600, through the descriptor, so no name is looked up again. The
+    directory is not touched. A file that already existed never reaches here,
+    and a file anywhere else keeps the behaviour it had.
+
+    PKEXEC_UID is believed only in a process that runs as root, the rule
+    _owning_home states. The home is compared as the path it resolves to, by
+    whole components. Any failure raises CreatedFileNotHandedToOwner, and the
+    caller removes the file rather than leave it as root's.
+    """
+    if os.getuid() != 0 or "PKEXEC_UID" not in os.environ:
+        return
+    try:
+        uid = int(os.environ["PKEXEC_UID"])
+        entry = pwd.getpwuid(uid)
+        home = os.path.realpath(entry.pw_dir)
+        if home == "/" or canonical_parent is None:
+            return
+        if canonical_parent != home and not canonical_parent.startswith(
+                home + os.sep):
+            return
+        os.fchown(fd, uid, entry.pw_gid)
+        os.fchmod(fd, _OWNER_FILE_MODE)
+    except (KeyError, ValueError, OSError) as exc:
+        logger.error("The file created at %s could not be handed to the account "
+                     "that asked for it: %s", path, exc)
+        raise CreatedFileNotHandedToOwner(
+            f"The file created at {path} could not be handed to the account that "
+            f"asked for it ({exc}); it was removed again and nothing was "
+            f"written.") from exc
+    logger.info("Handed the new file %s to uid %d with mode 0600", path, uid)
 
 
 #: The start of the private name a refused creation is moved to before it is
