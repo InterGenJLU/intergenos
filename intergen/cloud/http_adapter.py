@@ -221,9 +221,10 @@ class HTTPCloudAdapter(CloudProviderAdapter):
                 f"{self.name}: the turn this call belonged to has ended")
 
     def _read_reply(self, resp, should_stop: Callable[[], bool] | None) -> bytes:
-        """The reply's body. With a stop, it is read a chunk at a time and the
-        stop is checked before each read, so a call whose turn ends reads at
-        most the chunk in flight; the caller's with-block closes the reply."""
+        """The reply's body, a success's or an error's. With a stop, it is
+        read a chunk at a time and the stop is checked before each read, so a
+        call whose turn ends reads at most the chunk in flight; the caller
+        closes the reply (a success's with-block, an error's finally)."""
         if should_stop is None:
             return resp.read()
         parts: list[bytes] = []
@@ -253,7 +254,16 @@ class HTTPCloudAdapter(CloudProviderAdapter):
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 return json.loads(self._read_reply(resp, should_stop).decode())
         except urllib.error.HTTPError as exc:
-            detail = exc.read().decode(errors="replace")[:500]
+            # The error reply's body is read as a success's is, through the
+            # stop-aware reader: a turn that ends while it is read stops the
+            # call (CloudCallStopped) within the chunk in flight. urlopen
+            # raised before any with-block owned the reply, so it is closed
+            # here, however the read ends.
+            try:
+                body = self._read_reply(exc, should_stop)
+            finally:
+                exc.close()
+            detail = body.decode(errors="replace")[:500]
             raise CloudAdapterError(f"{self.name} HTTP {exc.code}: {detail}") from exc
         except urllib.error.URLError as exc:
             raise CloudAdapterError(f"{self.name} unreachable: {exc.reason}") from exc

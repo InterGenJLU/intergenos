@@ -1434,6 +1434,29 @@ class _CloudTransport:
         return wire
 
 
+class _CloudErrorTransport(_CloudTransport):
+    """The same urllib, with the cloud endpoint answering an HTTP error (a
+    429): urlopen raises it as HTTPError, its body a _CloudWire released piece
+    by piece, longer than the 500 characters of detail an error keeps."""
+
+    def __init__(self, code: int = 429, pieces: int = 6) -> None:
+        import json
+        super().__init__(pieces=pieces)
+        self.code = code
+        self.body = json.dumps({"error": {
+            "message": "rate limited: " + "try again later. " * 40}}).encode()
+
+    def urlopen(self, req, timeout=None):
+        import urllib.error
+        if req.full_url == _LOCAL:
+            self.local_requests += 1
+            raise _refused()
+        wire = _CloudWire(self.body, self.pieces, self.finish)
+        self.wires.append(wire)
+        raise urllib.error.HTTPError(req.full_url, self.code, "controlled",
+                                     None, wire)
+
+
 class AnEndedTurnsCloudCallStopsWithinOneItem(unittest.TestCase):
     """When the machine's chat server cannot answer, chat() escalates to the
     registered cloud providers (_escalate_to_cloud). The turn's stop was checked
@@ -1635,6 +1658,170 @@ class AnEndedTurnsCloudCallStopsWithinOneItem(unittest.TestCase):
         self.assertEqual(type(raised.exception).__name__, "CloudCallStopped",
                          repr(raised.exception))
         self.assertEqual((keys, self.transport.wires), ([], []))
+
+    def _error_reply(self) -> _CloudErrorTransport:
+        """The cloud endpoint answers with an HTTP error, its body in
+        pieces."""
+        transport = _CloudErrorTransport()
+        patcher = mock.patch("urllib.request.urlopen", transport.urlopen)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.addCleanup(transport.finish.set)
+        return transport
+
+    @staticmethod
+    def _send_on_a_thread(provider, should_stop):
+        """The provider's send() on a worker thread; what it raised."""
+        import threading
+        from intergen.interfaces.types import Message, MessageRole
+        out: dict = {}
+
+        def call() -> None:
+            try:
+                provider.send([Message(role=MessageRole.USER, content="hi")],
+                              should_stop=should_stop)
+            except BaseException as exc:  # read by the case
+                out["raised"] = exc
+
+        thread = threading.Thread(target=call, name="cloud-send", daemon=True)
+        thread.start()
+        return thread, out
+
+    def test_the_shipped_http_adapter_stops_reading_an_ended_turns_error_reply(
+            self):
+        """The cloud endpoint answers with an HTTP error and the turn ends
+        while the adapter reads its body. The body was read in one unbounded
+        read outside the stop-aware reader and never closed, so the call read
+        it to its end after the turn ended and came back as a provider error.
+        It is now read through the same reader as a success's: the call stops
+        within the piece in flight, as CloudCallStopped, and the reply is
+        closed."""
+        import threading
+        transport = self._error_reply()
+        provider = self._http_provider()
+        stop = threading.Event()
+        thread, out = self._send_on_a_thread(provider, stop.is_set)
+        self._wait(lambda: transport.wires, "no cloud request was opened")
+        wire = transport.wires[0]
+        wire.allow.release()
+        self._wait(lambda: wire.sent >= 1,
+                   "the adapter never read the error reply")
+        at_end = wire.sent
+        stop.set()
+        for _ in wire.pieces[1:]:
+            wire.allow.release()
+        thread.join(2)
+        self.assertEqual({
+            "pieces read after the turn ended, at most one":
+                wire.sent - at_end <= 1,
+            "the error reply closed": wire.closed.is_set(),
+            "the call ended as": type(out.get("raised")).__name__,
+            "the call still running 2 s after the turn ended":
+                thread.is_alive(),
+        }, {
+            "pieces read after the turn ended, at most one": True,
+            "the error reply closed": True,
+            "the call ended as": "CloudCallStopped",
+            "the call still running 2 s after the turn ended": False,
+        }, f"{wire.sent - at_end} piece(s) of {len(wire.pieces)} were read "
+           "after the turn ended")
+
+    def test_the_shipped_http_adapter_gives_an_ended_turn_nothing_on_an_error_reply(
+            self):
+        """The same through chat(): the ended turn is given nothing, the error
+        reply is read no further than the piece in flight, and the call is
+        noted as stopped in its send, never an error read after the turn
+        ended. (That the reply is closed is read where the error is held, in
+        the adapter's own cases: here nothing holds it once the call ends,
+        and a freed error closes its body by itself.)"""
+        import threading
+        transport = self._error_reply()
+        llm = self._router(("controlled", self._http_provider()))
+        logged = self._llm_log()
+        stop = threading.Event()
+        thread, out = self._call_in_turn(llm, stop)
+        self._wait(lambda: transport.wires, "no cloud request was opened")
+        wire = transport.wires[0]
+        wire.allow.release()
+        self._wait(lambda: wire.sent >= 1,
+                   "the adapter never read the error reply")
+        at_end = wire.sent
+        stop.set()
+        for _ in wire.pieces[1:]:
+            wire.allow.release()
+        thread.join(2)
+        self.assertEqual({
+            "pieces read after the turn ended, at most one":
+                wire.sent - at_end <= 1,
+            "chat() returned": self._text(out),
+            "the call noted as stopped in its send": any(
+                "cloud call stopped: its turn ended (controlled, in_send)" in m
+                for m in logged),
+            "an error read after the turn ended": any(
+                "ended in an error after its turn ended" in m
+                for m in logged),
+            "cloud requests opened": len(transport.wires),
+            "the call still running 2 s after the turn ended":
+                thread.is_alive(),
+        }, {
+            "pieces read after the turn ended, at most one": True,
+            "chat() returned": "",
+            "the call noted as stopped in its send": True,
+            "an error read after the turn ended": False,
+            "cloud requests opened": 1,
+            "the call still running 2 s after the turn ended": False,
+        }, f"{wire.sent - at_end} piece(s) of {len(wire.pieces)} were read "
+           "after the turn ended")
+
+    def test_the_shipped_http_adapter_closes_an_error_reply_it_read(self):
+        """A turn that does not end: the error reply is read to its end,
+        through the same reader, and closed; the call is a provider error."""
+        import threading
+        transport = self._error_reply()
+        provider = self._http_provider()
+        thread, out = self._send_on_a_thread(provider,
+                                             threading.Event().is_set)
+        self._wait(lambda: transport.wires, "no cloud request was opened")
+        wire = transport.wires[0]
+        for _ in wire.pieces:
+            wire.allow.release()
+        thread.join(5)
+        self.assertEqual({
+            "pieces read": wire.sent,
+            "the error reply closed": wire.closed.is_set(),
+            "the call ended as": type(out.get("raised")).__name__,
+            "the call still running": thread.is_alive(),
+        }, {
+            "pieces read": len(wire.pieces),
+            "the error reply closed": True,
+            "the call ended as": "CloudAdapterError",
+            "the call still running": False,
+        })
+
+    def test_control_an_error_reply_keeps_its_first_500_characters(self):
+        """The control: a caller that hands no stop (test_connection, a call
+        with nothing bound) is answered with the provider's error as before,
+        the whole body read and its first 500 characters kept as the
+        detail."""
+        transport = self._error_reply()
+        provider = self._http_provider()
+        thread, out = self._send_on_a_thread(provider, None)
+        self._wait(lambda: transport.wires, "no cloud request was opened")
+        wire = transport.wires[0]
+        for _ in wire.pieces:
+            wire.allow.release()
+        thread.join(5)
+        raised = out.get("raised")
+        self.assertEqual({
+            "the call ended as": type(raised).__name__,
+            "its text": str(raised),
+            "pieces read": wire.sent,
+        }, {
+            "the call ended as": "CloudAdapterError",
+            "its text": f"{provider.name} HTTP 429: "
+                        + transport.body.decode()[:500],
+            "pieces read": len(wire.pieces),
+        })
 
     def _refusal(self, name: str, cloud, gap: str) -> dict:
         """Register ``cloud``, ask the router a question with no stop bound
