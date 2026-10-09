@@ -494,13 +494,14 @@ def secret_file_identities() -> dict[tuple[int, int], str]:
     included, raises SecretIdentityUnreadable, and an owner that cannot be
     resolved raises InstallOwnerUnresolved, of which SecretIdentityUnreadable is a
     subclass. Either way an empty entry in its place would certify a second name
-    for that file as safe.
+    for that file as safe. Each identity is kept the moment it is read, so a
+    failure on one credential never costs the identities already read before it.
     """
-    identities: dict[tuple[int, int], str] = {}
     try:
         home = _owning_home()
     except (KeyError, ValueError, OSError) as exc:
         raise InstallOwnerUnresolved(str(exc)) from exc
+    seen = _SEEN_SECRET_IDENTITIES.setdefault(home, {})
     for relative, reason in SECRET_RELATIVE_PATHS.items():
         path = home.joinpath(*relative)
         try:
@@ -509,9 +510,7 @@ def secret_file_identities() -> dict[tuple[int, int], str]:
             continue
         except OSError as exc:
             raise SecretIdentityUnreadable(f"{path}: {exc.strerror or exc}") from exc
-        identities[(st.st_dev, st.st_ino)] = reason
-    seen = _SEEN_SECRET_IDENTITIES.setdefault(home, {})
-    seen.update(identities)
+        seen[(st.st_dev, st.st_ino)] = reason
     return dict(seen)
 
 
