@@ -33,6 +33,16 @@ sentence, so non-Latin output is skipped entirely and left to the flood check,
 which already knows when the conversation called for that script. Without the
 guard a legitimate Chinese answer to a Chinese question flags on sight — the
 existing suite caught exactly that.
+
+A TERSE ANSWER TO THE QUESTION ASKED is not a word-bag. Measured on a machine's
+own model server through the daemon's path: "Paris" answering "What is the
+capital of France?", "William Shakespeare" answering "Who wrote Hamlet?" and
+four more were flagged, and the person was shown the incoherence fallback in
+place of a correct answer. The question supplies the sentence the reply leaves
+out, so a reply of the shape the question asks for passes; the registered
+misses stay flagged with their own questions, and a greeting answers nothing
+whatever it follows. Cells marked CONTROL hold before that escape and after it;
+every other cell in that class fails before it.
 """
 from __future__ import annotations
 
@@ -147,6 +157,134 @@ class TheShapeRuleIsExplicitTests(unittest.TestCase):
         self.assertIsInstance(detail, dict)
         self.assertEqual(detail.get("words"), 6)
         self.assertFalse(detail.get("has_verb"))
+
+
+class ATerseAnswerToTheQuestionAskedIsNotAWordBagTests(unittest.TestCase):
+    """The question is the fifth escape: a reply of the shape it asks for."""
+
+    # Each pair is a question and this machine's model's own whole answer to it,
+    # measured through the daemon's path, each one flagged before the escape.
+    MEASURED = (
+        ("What is the capital of France?", "Paris"),
+        ("Who wrote Hamlet?", "William Shakespeare"),
+        ("Which planet is the largest?", "Jupiter"),
+        ("What colour is the sky on a clear day?", "Blue"),
+        ("How many continents are there?", "Seven"),
+        ("Is Paris the capital of France?", "Yes"),
+    )
+
+    def test_the_measured_case_paris_is_not_flagged(self):
+        self.assertNotIn(
+            FLAG_SHORT_NONSENSE,
+            _flags("Paris", conversation_texts=["What is the capital of France?"]))
+
+    def test_every_measured_terse_answer_is_not_flagged(self):
+        for question, answer in self.MEASURED:
+            with self.subTest(question=question, answer=answer):
+                self.assertNotIn(FLAG_SHORT_NONSENSE,
+                                 _flags(answer, conversation_texts=[question]))
+
+    def test_a_question_typed_without_its_question_mark_is_still_a_question(self):
+        self.assertNotIn(
+            FLAG_SHORT_NONSENSE,
+            _flags("Paris", conversation_texts=["what is the capital of france"]))
+
+    def test_the_question_is_the_last_turn_and_an_earlier_one_is_not_read(self):
+        # The turn the reply answers is the last one handed over; it is a
+        # question here, after an earlier turn that was not.
+        self.assertNotIn(
+            FLAG_SHORT_NONSENSE,
+            _flags("Jupiter", conversation_texts=["Thanks for that.",
+                                                  "Which planet is the largest?"]))
+
+    # Each shape the rule reads a question by, one cell each.
+
+    def test_a_question_word_inside_a_question_is_read(self):
+        self.assertNotIn(
+            FLAG_SHORT_NONSENSE,
+            _flags("William Shakespeare",
+                   conversation_texts=["Can you tell me who wrote Hamlet?"]))
+
+    def test_a_yes_no_question_is_read_from_its_question_mark(self):
+        self.assertNotIn(FLAG_SHORT_NONSENSE,
+                         _flags("Yes", conversation_texts=["sshd enabled?"]))
+
+    def test_a_yes_no_question_is_read_from_its_auxiliary_without_a_mark(self):
+        self.assertNotIn(
+            FLAG_SHORT_NONSENSE,
+            _flags("Yes", conversation_texts=["is paris the capital of france"]))
+
+    def test_a_typographic_apostrophe_in_the_question_word_is_read(self):
+        question = "What" + chr(0x2019) + "s the capital of France?"
+        self.assertNotIn(FLAG_SHORT_NONSENSE,
+                         _flags("Paris", conversation_texts=[question]))
+
+    def test_a_comma_between_the_words_of_an_answer_is_read(self):
+        self.assertNotIn(
+            FLAG_SHORT_NONSENSE,
+            _flags("Paris, France",
+                   conversation_texts=["Where is the Eiffel Tower?"]))
+
+    def test_the_reading_is_reported_with_the_flag_detail(self):
+        res = assess_semantic_health(
+            "Paris", conversation_texts=["What is the capital of France?"])
+        detail = res.detail.get(FLAG_SHORT_NONSENSE)
+        self.assertEqual(detail.get("question"), "thing")
+        self.assertTrue(detail.get("answers_question"))
+
+    # ── CONTROLS: flagged before the escape and after it ──
+
+    def test_control_a_greeting_answering_a_question_is_still_flagged(self):
+        for greeting in ("Hello", "Hi"):
+            with self.subTest(greeting=greeting):
+                self.assertIn(
+                    FLAG_SHORT_NONSENSE,
+                    _flags(greeting,
+                           conversation_texts=["What is the capital of France?"]))
+
+    def test_control_the_probe_greetings_with_no_question_are_still_flagged(self):
+        # The 2026-08-26 readiness-probe replies: no turn, no question.
+        for greeting in ("Hello", "Hi"):
+            with self.subTest(greeting=greeting):
+                self.assertIn(FLAG_SHORT_NONSENSE, _flags(greeting))
+                self.assertIn(FLAG_SHORT_NONSENSE,
+                              _flags(greeting, conversation_texts=[]))
+
+    def test_control_the_registered_misses_with_their_own_questions_stay_flagged(self):
+        # "plepp" answered "Is there a package for the GIMP image editor?" in the
+        # sealed run; the six-word bag answered "Is sshd enabled?". A yes-or-no
+        # question asks for a yes or a no, and neither reply gives one.
+        for question, answer in (
+                ("Is there a package for the GIMP image editor?", "plepp"),
+                ("Is sshd enabled?", "As much least pragmatic unpaid tool")):
+            with self.subTest(question=question, answer=answer):
+                self.assertIn(FLAG_SHORT_NONSENSE,
+                              _flags(answer, conversation_texts=[question]))
+
+    def test_control_a_reply_to_a_request_that_is_not_a_question_stays_flagged(self):
+        self.assertIn(FLAG_SHORT_NONSENSE,
+                      _flags("T < ( <", conversation_texts=["Remove htop."]))
+        self.assertIn(FLAG_SHORT_NONSENSE,
+                      _flags("Paris", conversation_texts=["Remove htop."]))
+
+    def test_control_the_six_word_bag_stays_flagged_after_any_question(self):
+        # Five words is the longest terse answer; the measured bag is six.
+        self.assertIn(
+            FLAG_SHORT_NONSENSE,
+            _flags("As much least pragmatic unpaid tool",
+                   conversation_texts=["What tool should I use?"]))
+
+    def test_control_an_earlier_question_does_not_cover_a_later_turn(self):
+        self.assertIn(
+            FLAG_SHORT_NONSENSE,
+            _flags("Paris", conversation_texts=["What is the capital of France?",
+                                                "Remove htop."]))
+
+    def test_control_a_broken_byte_inside_a_terse_answer_is_still_flagged(self):
+        self.assertIn(
+            FLAG_SHORT_NONSENSE,
+            _flags("P" + chr(0xFFFD) + "aris",
+                   conversation_texts=["What is the capital of France?"]))
 
 
 class ItStaysInsideTheModuleTests(unittest.TestCase):

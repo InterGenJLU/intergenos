@@ -38,7 +38,9 @@ garbage. Four deterministic checks, all cheap code, no model judging a model:
 5. ``short_nonsense`` — a SHORT reply with no grammatical spine: no verb, no
    number, no identifier, no terminal punctuation. The word-bag class ("As much
    least pragmatic unpaid tool" answering "Is sshd enabled?"), which every other
-   check passes because it needs either length or structural damage. Shape only,
+   check passes because it needs either length or structural damage. A terse
+   answer to the question the person asked ("Paris" to "What is the capital of
+   France?", "Yes" to a yes-or-no question) is not that class. Shape only,
    never meaning.
 
 Checks 1 and 3 consume the shared coherence primitives in
@@ -87,6 +89,30 @@ install installed installs enable enabled disable disabled start started
 stop stopped exist exists list lists set sets get gets make makes made
 active inactive available unavailable enabled disabled running stopped
 """.split())
+
+# A TERSE ANSWER HAS NO SPINE TO SHOW. Asked "What is the capital of France?",
+# the bare word "Paris" is the whole answer; asked "Is Paris the capital of
+# France?", so is "Yes". The question supplies the sentence the reply leaves
+# out. These closed lists read the SHAPE of the person's question and of the
+# reply, never whether the reply is right. A question that asks for a thing
+# opens with a question word, or ends with a question mark and carries one; a
+# question that asks yes or no opens with an auxiliary, or ends with a question
+# mark and carries no question word.
+_QUESTION_WORDS = frozenset("what which who whom whose where when why how".split())
+_YES_NO_OPENERS = frozenset("""
+is are was were am do does did can could will would shall should may might
+must has have had isnt arent wasnt werent dont doesnt didnt cant couldnt wont
+wouldnt shouldnt hasnt havent hadnt
+""".split())
+_YES_NO_ANSWERS = frozenset(
+    "yes no yeah yep yup nope nah sure correct true false not never maybe".split())
+# Greetings and acknowledgements answer no question, so they never pass as one.
+_NOT_ANSWERS = frozenset(
+    "hello hi hey hiya howdy greetings welcome bye goodbye thanks thank ok okay sorry".split())
+# A name or a short phrase fits in five words; the measured word-bag is six, so
+# it stays flagged whatever question it followed.
+_TERSE_ANSWER_MAX_WORDS = 5
+_ANSWER_WORD = re.compile(r"[^\W\d_]+(?:['’-][^\W\d_]+)*")
 
 _FENCE_BLOCK = re.compile(r"```.*?```", re.DOTALL)
 _FENCE_INLINE = re.compile(r"`[^`\n]+`")
@@ -238,7 +264,44 @@ def _check_charset(unfenced: str) -> tuple[bool, dict]:
     return tripped, {"replacement": replacement, "control": control, "fusion": fusion}
 
 
-def _check_short_nonsense(text: str) -> tuple[bool, dict]:
+def _question_kind(question: str) -> str:
+    """What the person's turn asks for, read from its shape: ``"thing"`` (a
+    question word leads it, or it ends with a question mark and carries one),
+    ``"yes_no"`` (an auxiliary leads it, or it ends with a question mark and
+    carries no question word), or ``""`` when it is not a question."""
+    q = (question or "").strip()
+    words = q.split()
+    if not words:
+        return ""
+    heads = [re.sub(r"[^a-z']", "", w.lower().replace("’", "'")).split("'")[0]
+             for w in words]
+    asks = q.endswith("?")
+    if heads[0] in _QUESTION_WORDS or (asks and any(h in _QUESTION_WORDS for h in heads)):
+        return "thing"
+    if asks or re.sub(r"[^a-z]", "", words[0].lower()) in _YES_NO_OPENERS:
+        return "yes_no"
+    return ""
+
+
+def _answers_the_question(words: list[str], kind: str) -> bool:
+    """A terse reply of the shape the question asks for: at most five words,
+    each made of letters (an apostrophe or a hyphen inside, a comma after any
+    but the last), no greeting or acknowledgement among them, and for a yes-or-no
+    question a yes-or-no word first."""
+    if not kind or len(words) > _TERSE_ANSWER_MAX_WORDS:
+        return False
+    bare = []
+    for i, w in enumerate(words):
+        core = w[:-1] if (w.endswith(",") and i < len(words) - 1) else w
+        if not _ANSWER_WORD.fullmatch(core):
+            return False
+        bare.append(re.sub(r"[^a-z]", "", core.lower()))
+    if any(b in _NOT_ANSWERS for b in bare):
+        return False
+    return kind == "thing" or bare[0] in _YES_NO_ANSWERS
+
+
+def _check_short_nonsense(text: str, question: str = "") -> tuple[bool, dict]:
     """A SHORT reply with no grammatical spine — the word-bag class.
 
     MEASURED: "As much least pragmatic unpaid tool" answering "Is sshd
@@ -257,11 +320,26 @@ def _check_short_nonsense(text: str) -> tuple[bool, dict]:
 
     Calibrated on 656 sealed replies (126 of them eight words or shorter): 11
     flagged, all 11 judge-failed or judge-flagged, zero false positives.
+
+    THE FIFTH ESCAPE IS THE QUESTION. ``question`` is the person's turn the
+    reply answers. Measured 2026-10-09 on a local model server, through the
+    daemon's own path: asked "What is the capital of France?" it answered
+    "Paris"; "Who wrote Hamlet?", "William Shakespeare"; "Which planet is the
+    largest?", "Jupiter"; "What colour is the sky on a clear day?", "Blue"; "How
+    many continents are there?", "Seven"; "Is Paris the capital of France?",
+    "Yes". Each was flagged here and the person was shown the incoherence
+    fallback in place of a correct answer. A terse reply of the shape the
+    question asks for (see _answers_the_question) is an answer, not a word-bag.
+    The measured misses stay flagged with their own questions: "plepp" and the
+    six-word bag answered yes-or-no questions with no yes or no, and a reply to
+    a request that is not a question has no question to answer. With no
+    question at all — a readiness probe's "Hello" — nothing changes.
     """
     t = (text or "").strip()
     words = t.split()
     detail = {"words": len(words), "has_verb": False, "has_digit": False,
-              "has_identifier": False, "terminated": False, "latin": True}
+              "has_identifier": False, "terminated": False, "latin": True,
+              "question": "", "answers_question": False}
     if not words or len(words) > _SHORT_NONSENSE_MAX_WORDS:
         return False, detail
     # SCRIPT GUARD. Everything below reads a whitespace-delimited Latin
@@ -289,8 +367,11 @@ def _check_short_nonsense(text: str) -> tuple[bool, dict]:
     detail["terminated"] = t[-1] in ".!?\u3002\uff01\uff1f\u2026"
     bare = [re.sub(r"[^a-z']", "", w.lower()) for w in words]
     detail["has_verb"] = any(w in _SPINE_WORDS for w in bare)
+    detail["question"] = _question_kind(question)
+    detail["answers_question"] = _answers_the_question(words, detail["question"])
     tripped = not (detail["has_verb"] or detail["has_digit"]
-                   or detail["has_identifier"] or detail["terminated"])
+                   or detail["has_identifier"] or detail["terminated"]
+                   or detail["answers_question"])
     return tripped, detail
 
 
@@ -304,7 +385,9 @@ def assess_semantic_health(
 
     ``system_prompt`` is the LIVE assembled system prompt (for the echo check);
     ``conversation_texts`` are the user's turn texts (for the foreign-script
-    exemption). CORRUPTION ONLY — never a correctness/quality judgment.
+    exemption); the last of them is the turn the reply answers (for the
+    short-nonsense check's question). CORRUPTION ONLY — never a
+    correctness/quality judgment.
     """
     conv = conversation_texts or []
     unfenced, fenced = _strip_fences(response_text or "")
@@ -335,7 +418,8 @@ def assess_semantic_health(
     # Read on the ORIGINAL text, not the unfenced remainder: a fenced span is
     # exactly the identifier evidence that makes a short reply substantive, and
     # stripping it first would manufacture the very shape this check names.
-    tripped, d = _check_short_nonsense(response_text or "")
+    tripped, d = _check_short_nonsense(response_text or "",
+                                       question=conv[-1] if conv else "")
     detail[FLAG_SHORT_NONSENSE] = d
     if tripped:
         flags.append(FLAG_SHORT_NONSENSE)
