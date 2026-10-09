@@ -602,12 +602,14 @@ def opened_refusing_install_secrets(path: object, flags: int,
     plus the new name is asked first, the create carries O_EXCL|O_NOFOLLOW so it
     cannot land on an object that appeared in between or follow a link, and a
     file the check on its new descriptor still refuses is removed again before
-    the refusal is raised. A refused write therefore leaves nothing at the path
-    of a credential that did not exist.
+    the refusal is raised, by a cleanup that removes that file and nothing else
+    (_remove_own_creation). A refused write therefore leaves nothing at the path
+    of a credential that did not exist, or reports that it did.
 
     Returns the open descriptor, which the caller owns and must close. Raises
-    InstallSecretRefused if the object is one of the install's secret files, and
-    OSError from the open itself.
+    InstallSecretRefused if the object is one of the install's secret files,
+    CreatedFileNotRemoved (an OSError) in its place when a file created for a
+    refused write could not be removed, and OSError from the open itself.
     """
     if flags & os.O_TRUNC:
         raise ValueError(
@@ -693,37 +695,113 @@ def _created_refusing_install_secrets(path: object, flags: int, mode: int) -> in
                 logger.warning("Refused a tool's creation of %s: %s", path, reason)
                 raise InstallSecretRefused(reason)
         except BaseException:
-            _remove_own_creation(fd, name, dir_fd, path)
-            os.close(fd)
+            # The refusal stands only once the file it created is gone again.
+            # Otherwise _remove_own_creation raises CreatedFileNotRemoved, and
+            # that is what the caller receives.
+            try:
+                _remove_own_creation(fd, name, dir_fd, path)
+            finally:
+                os.close(fd)
             raise
         return fd
     finally:
         os.close(dir_fd)
 
 
-def _remove_own_creation(fd: int, name: str, dir_fd: int, path: object) -> None:
-    """Unlink `name` only while it is still the file `fd` created.
+class CreatedFileNotRemoved(OSError):
+    """A file created for a refused write could not be removed again.
 
-    The name is compared with the descriptor by identity before it is removed,
-    so an object something else has put at the name since is never deleted.
-    Either outcome other than a clean removal is logged, never passed over.
+    Raised in place of InstallSecretRefused: the refusal held, but the cleanup
+    after it did not, and reporting a clean refusal would claim a state the disk
+    does not have. An OSError, so a consumer reports it as a failed operation.
+    The message says where the created file, or whatever was moved aside to be
+    examined, was left.
+    """
+
+
+#: The start of the private name a refused creation is moved to before it is
+#: examined and removed; the rest is random (see _remove_own_creation).
+_ASIDE_PREFIX = ".intergen-refused-"
+
+
+def _not_removed(message: str) -> CreatedFileNotRemoved:
+    logger.error("%s", message)
+    return CreatedFileNotRemoved(message)
+
+
+def _remove_own_creation(fd: int, name: str, dir_fd: int, path: object) -> None:
+    """Remove the file `fd` created at `name`, and nothing else.
+
+    No step decides on the name and then acts on the name again, because the
+    name can be pointed at another object in between. Whatever is at `name` is
+    first MOVED, by one rename inside the directory descriptor, to a private name
+    of random characters, and only then compared with `fd` by identity:
+
+      * the file `fd` created is unlinked at the private name;
+      * anything else is a replacement made after the creation. It is linked
+        back at `name`, a link that fails rather than replace whatever is at
+        `name` by then, and otherwise stays at the private name.
+
+    The unlink after the comparison names the private name, so it meets an
+    object other than the one compared only if an account that can write this
+    directory, and so could remove that object itself, put it there.
+
+    Anything short of removing the created file raises CreatedFileNotRemoved,
+    saying where things were left.
     """
     try:
         held = os.fstat(fd)
-        named = os.stat(name, dir_fd=dir_fd, follow_symlinks=False)
     except OSError as exc:
-        logger.warning("Could not compare %s with the file just created there, "
-                       "so it is left in place: %s", path, exc)
-        return
-    if (held.st_dev, held.st_ino) != (named.st_dev, named.st_ino):
-        logger.warning("%s is no longer the file just created there, so it is "
-                       "left in place", path)
+        raise _not_removed(
+            f"The file created at {path} for a refused write is left there: its "
+            f"identity could not be read ({exc}).") from exc
+    aside = _ASIDE_PREFIX + secrets.token_hex(16)
+    aside_path = os.path.join(os.path.dirname(os.fspath(path)), aside)
+    try:
+        os.rename(name, aside, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
+    except FileNotFoundError as exc:
+        raise _not_removed(
+            f"Nothing is at {path} any more: the file created there for a "
+            f"refused write was moved elsewhere and was not removed.") from exc
+    except OSError as exc:
+        raise _not_removed(
+            f"The file created at {path} for a refused write is left there: it "
+            f"could not be moved aside to be removed ({exc}).") from exc
+    try:
+        moved = os.stat(aside, dir_fd=dir_fd, follow_symlinks=False)
+    except OSError as exc:
+        raise _not_removed(
+            f"What was at {path} was moved aside to {aside_path} and could not be "
+            f"examined there ({exc}); it is left there.") from exc
+    if (moved.st_dev, moved.st_ino) == (held.st_dev, held.st_ino):
+        try:
+            os.unlink(aside, dir_fd=dir_fd)
+        except OSError as exc:
+            raise _not_removed(
+                f"The file created at {path} for a refused write was moved aside "
+                f"to {aside_path} and could not be removed there ({exc}).") from exc
         return
     try:
-        os.unlink(name, dir_fd=dir_fd)
+        os.link(aside, name, src_dir_fd=dir_fd, dst_dir_fd=dir_fd,
+                follow_symlinks=False)
     except OSError as exc:
-        logger.warning("Could not remove the refused file just created at %s: %s",
-                       path, exc)
+        raise _not_removed(
+            f"{path} was replaced after a file was created there for a refused "
+            f"write. The replacement could not be put back ({exc}) and is at "
+            f"{aside_path}; the created file was moved elsewhere and was not "
+            f"removed.") from exc
+    try:
+        os.unlink(aside, dir_fd=dir_fd)
+    except OSError as exc:
+        raise _not_removed(
+            f"{path} was replaced after a file was created there for a refused "
+            f"write. The replacement is back at {path} and still also at "
+            f"{aside_path} ({exc}); the created file was moved elsewhere and was "
+            f"not removed.") from exc
+    raise _not_removed(
+        f"{path} was replaced after a file was created there for a refused write. "
+        f"The replacement is back at {path}; the created file was moved elsewhere "
+        f"and was not removed.")
 
 
 def read_text_refusing_install_secrets(path: object, *,
