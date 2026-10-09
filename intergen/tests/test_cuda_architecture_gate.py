@@ -411,6 +411,18 @@ class CudaRefusalReasonTest(unittest.TestCase):
             serving_device, "cuda_is_usable_here", self._orig_usable))
         serving_device.cuda_is_usable_here = lambda *_a, **_k: True
 
+        # Whether the driver can LOAD the build is a separate gate with its
+        # own cells (test_cuda_rung_needs_a_build_this_driver_can_load.py),
+        # and an unreadable reading there writes a line by design. It is
+        # stood in as "loadable" here so these cells see the architecture
+        # gate alone, whatever this machine's driver and the stand-in binary.
+        self._orig_support = serving_device.cuda_driver_support
+        self.addCleanup(lambda: setattr(
+            serving_device, "cuda_driver_support", self._orig_support))
+        serving_device.cuda_driver_support = (
+            lambda *_a, **_k: serving_device.CudaDriverSupport(
+                True, "stood in as loadable"))
+
         self._orig_paths = dict(serving_device.ENGINE_SERVER_PATHS)
         self.addCleanup(lambda: serving_device.ENGINE_SERVER_PATHS.update(
             self._orig_paths))

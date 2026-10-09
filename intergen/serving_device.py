@@ -490,6 +490,238 @@ def cuda_is_supported_here(targets_path: str = CUDA_GPU_TARGETS_PATH,
     return any(_cuda_targets_cover(cap, targets) for cap in caps.values())
 
 
+# The CUDA compiler writes this stamp into every image it produces ("Cuda
+# compilation tools, release 13.3, V13.3.73"). The release in it is the toolkit
+# the build's device code came from, which is the number a driver's PTX
+# translator has to be at least as new as. The image is read in pieces of
+# _STAMP_SCAN_CHUNK bytes, each read carrying the end of the one before it so a
+# stamp that straddles two reads is still seen whole.
+_CUDA_TOOLKIT_STAMP_RE = re.compile(rb"Cuda compilation tools, release (\d+)\.(\d+)")
+_STAMP_SCAN_CHUNK = 1 << 22
+_STAMP_CARRY = 64
+_toolkit_release_cache: "dict[tuple, tuple[int, int] | None]" = {}
+
+# `nvidia-smi --version` prints the CUDA release the installed driver supports
+# on a line of its own: "CUDA Version        : 13.0".
+_DRIVER_CUDA_VERSION_RE = re.compile(
+    r"^\s*CUDA Version\s*:\s*(\d+)\.(\d+)\s*$", re.MULTILINE)
+
+
+def cuda_build_toolkit_release(server_path: "str | None" = None
+                               ) -> "tuple[int, int] | None":
+    """The CUDA toolkit release the installed CUDA build was compiled with,
+    read from the compiler's own stamp inside the engine binary, as
+    ``(major, minor)``.
+
+    The newest release stamped anywhere in the image is the answer: a static
+    build carries the stamps of every piece of device code linked into it, and
+    the newest is the one a driver has to be able to translate. ``None`` when
+    the file cannot be read or carries no stamp — unknown, never "too new".
+    The scan of a build of a few hundred MiB takes a fraction of a second; its
+    result is kept per file identity (path, inode, size, modification time),
+    so a replaced binary is read again.
+    """
+    path = server_path or ENGINE_SERVER_PATHS["cuda"]
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    key = (os.path.realpath(path), st.st_ino, st.st_size, st.st_mtime_ns)
+    if key in _toolkit_release_cache:
+        return _toolkit_release_cache[key]
+    newest: "tuple[int, int] | None" = None
+    try:
+        with open(path, "rb") as fh:
+            carried = b""
+            while True:
+                block = fh.read(_STAMP_SCAN_CHUNK)
+                if not block:
+                    break
+                window = carried + block
+                for match in _CUDA_TOOLKIT_STAMP_RE.finditer(window):
+                    release = (int(match.group(1)), int(match.group(2)))
+                    if newest is None or release > newest:
+                        newest = release
+                carried = window[-_STAMP_CARRY:]
+    except OSError:
+        return None
+    _toolkit_release_cache[key] = newest
+    return newest
+
+
+def cuda_driver_release(smi_path: "str | None" = None
+                        ) -> "tuple[int, int] | None":
+    """The CUDA release the installed NVIDIA driver supports, as
+    ``(major, minor)``, from the driver's own query tool.
+
+    ``None`` when the tool is absent, fails, or prints no CUDA version —
+    unknown, never "too old". The tool is the same one the architecture gate
+    already reads the cards' capabilities from, and the CUDA engine needs that
+    same proprietary driver to serve at all.
+    """
+    exe = smi_path or shutil.which("nvidia-smi")
+    if not exe:
+        return None
+    try:
+        completed = subprocess.run([exe, "--version"], capture_output=True,
+                                   text=True, timeout=10, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if completed.returncode != 0:
+        return None
+    match = _DRIVER_CUDA_VERSION_RE.search(completed.stdout or "")
+    if not match:
+        return None
+    return int(match.group(1)), int(match.group(2))
+
+
+def _cuda_compiled_capabilities(targets: "set[str]") -> "set[int]":
+    """The compute capabilities a CUDA target list carries COMPILED code for:
+    every ``-real`` entry and every bare number (cmake's default, which means
+    compiled code and PTX both), an architecture-specific ``a`` entry counting
+    for exactly its own number. ``-virtual`` entries are PTX only."""
+    compiled = set()
+    for token in targets:
+        match = _CUDA_TARGET_RE.match(token.strip())
+        if match and match.group("kind") != "virtual":
+            compiled.add(int(match.group("num")))
+    return compiled
+
+
+class CudaDriverSupport(NamedTuple):
+    """Whether this machine's driver can load the installed CUDA build.
+
+    ``loadable`` is True when it can, False when it measurably cannot, and
+    None when a reading the decision needs could not be made — the engine's
+    own load then decides. ``reason`` is the sentence that says which, in
+    words a person can act on."""
+    loadable: "bool | None"
+    reason: str
+    toolkit: "tuple[int, int] | None" = None
+    driver: "tuple[int, int] | None" = None
+
+
+def _release_words(release: "tuple[int, int]") -> str:
+    return f"{release[0]}.{release[1]}"
+
+
+def _cards_words(pcis: "list[str]", caps: "dict[str, int]") -> str:
+    return ", ".join(
+        f"PCI {pci} (compute capability {caps[pci] // 10}.{caps[pci] % 10})"
+        for pci in pcis)
+
+
+def cuda_driver_support(caps: "dict[str, int] | None" = None,
+                        targets_path: str = CUDA_GPU_TARGETS_PATH,
+                        server_path: "str | None" = None
+                        ) -> CudaDriverSupport:
+    """Whether the driver can LOAD the installed CUDA build — the question the
+    architecture gate (:func:`cuda_is_supported_here`) does not ask.
+
+    WHY THE ARCHITECTURE IS NOT ENOUGH. A build carries device code for the
+    card either compiled (machine code for that exact capability) or as PTX,
+    which the driver translates when the engine loads. A driver translates PTX
+    only from a toolkit no newer than the CUDA release it supports. So a build
+    whose code for the card is PTX from a newer toolkit than the driver's
+    passes the architecture gate and then dies at its first kernel, every
+    launch, spending the restart budget on aborts before the next rung is
+    tried — measured on a GTX 1650 (compute 7.5) with driver 580.159.04 (CUDA
+    13.0) and a build that carried no target record and PTX from CUDA 13.3:
+    "the provided PTX was compiled with an unsupported toolchain", four
+    launches per start. The engine's own device listing does not catch this —
+    it enumerated the card without complaint on that build — because nothing
+    is translated until a kernel runs.
+
+    The rule, from the two releases read off the machine:
+      - a build from a newer MAJOR release than the driver's does not load;
+      - a build from a toolkit no newer than the driver's loads;
+      - a build from a newer MINOR release loads only on a card it carries
+        compiled code for, which needs no translation. A build that installed
+        no target record cannot be shown to carry compiled code, so it is
+        counted as carrying none.
+
+    An unreadable toolkit stamp, driver version, or (where the decision needs
+    it) card capability is not a refusal: ``loadable`` is None and the reason
+    says which reading could not be made and that the engine's own load
+    decides. ``caps`` is the capability reading the architecture gate already
+    made, passed so both gates judge the same reading.
+    """
+    path = server_path or ENGINE_SERVER_PATHS["cuda"]
+    toolkit = cuda_build_toolkit_release(path)
+    if toolkit is None:
+        return CudaDriverSupport(
+            None,
+            f"the CUDA engine's toolkit release could not be read: {path} "
+            f"carries no CUDA compiler stamp that could be read, so whether "
+            f"this driver can load it is not known; the engine's own load "
+            f"decides")
+    t = _release_words(toolkit)
+    driver = cuda_driver_release()
+    if driver is None:
+        return CudaDriverSupport(
+            None,
+            f"the driver's CUDA version could not be read from nvidia-smi "
+            f"--version, so whether it can load the CUDA engine (compiled by "
+            f"CUDA {t}) is not known; the engine's own load decides",
+            toolkit)
+    d = _release_words(driver)
+    if toolkit[0] > driver[0]:
+        return CudaDriverSupport(
+            False,
+            f"the installed CUDA build was compiled by CUDA {t}, a newer major "
+            f"release than this driver's CUDA {d}, and a driver loads no build "
+            f"from a newer major release",
+            toolkit, driver)
+    if toolkit <= driver:
+        return CudaDriverSupport(
+            True,
+            f"the installed CUDA build was compiled by CUDA {t}, no newer than "
+            f"this driver's CUDA {d}",
+            toolkit, driver)
+    targets = cuda_build_gpu_targets(targets_path)
+    compiled = _cuda_compiled_capabilities(targets)
+    record = (f"it declares {';'.join(sorted(targets))}" if targets
+              else "it installed no target record")
+    if caps is None:
+        caps = detect_nvidia_compute_caps()
+    if compiled and not caps:
+        return CudaDriverSupport(
+            None,
+            f"the card's compute capability could not be read, and on this "
+            f"driver (CUDA {d}) the CUDA engine (compiled by CUDA {t}) runs "
+            f"only on a card it carries compiled code for ({record}); the "
+            f"engine's own load decides",
+            toolkit, driver)
+    covered = sorted(pci for pci, cap in caps.items() if cap in compiled)
+    if covered:
+        return CudaDriverSupport(
+            True,
+            f"the installed CUDA build (CUDA {t}) carries compiled code for "
+            f"{_cards_words(covered, caps)}, which this driver (CUDA {d}) "
+            f"loads without translating",
+            toolkit, driver)
+    cards = _cards_words(sorted(caps), caps) if caps else "any card"
+    return CudaDriverSupport(
+        False,
+        f"the installed CUDA build was compiled by CUDA {t} and carries no "
+        f"compiled code for {cards} ({record}), so this driver would have to "
+        f"translate its PTX, and a driver at CUDA {d} translates PTX only from "
+        f"a toolkit no newer than its own",
+        toolkit, driver)
+
+
+def cuda_driver_refusal_reason(caps: "dict[str, int] | None" = None,
+                               targets_path: str = CUDA_GPU_TARGETS_PATH,
+                               server_path: "str | None" = None
+                               ) -> "str | None":
+    """The sentence saying why this driver cannot load the installed CUDA
+    build, or ``None`` when it was not measurably refused (loadable, or a
+    reading could not be made)."""
+    support = cuda_driver_support(caps=caps, targets_path=targets_path,
+                                  server_path=server_path)
+    return support.reason if support.loadable is False else None
+
+
 def _pci_address_from_location(domain: int, location_id: int) -> str:
     """The PCI address a KFD node's ``domain`` and ``location_id`` name.
 
@@ -773,6 +1005,19 @@ def select_serving_engine(vendor: str | None = None,
                 if reason:
                     log.info("declining the CUDA engine: %s", reason)
                 continue
+            # The right architecture is not the same as code this driver can
+            # load: PTX from a newer toolkit than the driver's dies at the
+            # first kernel on every launch (cuda_driver_support). A measured
+            # "cannot load" skips the rung here, before any launch; a reading
+            # that could not be made keeps the rung and says so, and the
+            # engine's own load decides.
+            support = cuda_driver_support(caps=caps, server_path=path)
+            if support.loadable is False:
+                log.info("declining the CUDA engine: %s", support.reason)
+                continue
+            if support.loadable is None:
+                log.warning("keeping the CUDA engine without knowing whether "
+                            "this driver can load it: %s", support.reason)
         return engine, path
     return "vulkan", ENGINE_SERVER_PATHS["vulkan"]
 
@@ -797,7 +1042,9 @@ def engine_ladder(vendor: str | None = None,
     The architecture gate is applied here too, for both variants, and asks
     the same per-card question the engine choice asks, so a HIP or CUDA
     build that measurably cannot run on the card this machine would pin is
-    not offered as a rung.
+    not offered as a rung. The CUDA load gate (:func:`cuda_driver_support`)
+    is applied here as well, so a CUDA build this driver cannot load is not
+    a rung either.
 
     ``device_pin`` is the ``llama_server.device`` config value, and it is the
     SAME argument :func:`select_serving_engine` takes, for the same reason: the
@@ -840,6 +1087,17 @@ def engine_ladder(vendor: str | None = None,
                 if reason:
                     log.info("CUDA is not a rung on this machine: %s", reason)
                 continue
+            # The same load gate the engine choice applies, so a failed start
+            # on another rung never climbs back to a build this driver cannot
+            # load and spends the restart budget on it.
+            support = cuda_driver_support(caps=caps, server_path=path)
+            if support.loadable is False:
+                log.info("CUDA is not a rung on this machine: %s",
+                         support.reason)
+                continue
+            if support.loadable is None:
+                log.warning("CUDA stays a rung without knowing whether this "
+                            "driver can load it: %s", support.reason)
         ladder.append((engine, path))
     return ladder
 
