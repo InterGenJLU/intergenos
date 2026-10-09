@@ -95,21 +95,47 @@ def resolve_gpu_layers(value, tier_level: int | None = None, *,
     chooses which model is served; the card's measured capacity decides how much
     of it is offloaded.
     """
-    if isinstance(value, bool):
-        # bool is an int subclass; treat it as "not a layer count" rather than
-        # letting `true`/`false` read as a pin.
-        pass
-    elif isinstance(value, int):
-        return value
-    elif isinstance(value, str):
-        text = value.strip()
-        try:
-            return int(text)
-        except ValueError:
-            pass
+    pinned = _explicit_layer_count(value)
+    if pinned is not None:
+        return pinned
     if plan is not None:
         return int(plan.layers)
     return OFFLOAD_ALL_LAYERS
+
+
+def _explicit_layer_count(value) -> int | None:
+    """The layer count ``value`` pins, or None when it asks for the plan.
+
+    The one reading of the contract above: an ``int`` is a pin, a string of
+    digits is the integer it plainly is, and anything else (the shipped
+    ``"auto"``, a bool, which is an int subclass but not a layer count) asks
+    for the measured plan.
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return None
+    return None
+
+
+def _configured_layer_pin() -> int | None:
+    """The layer count the configuration pins for the chat engine, or None
+    when it asks for the measured plan — the same key and default the launch
+    path resolves. An unreadable configuration is read as the shipped default,
+    which is what the launch path itself would have resolved."""
+    try:
+        from intergen.config import Config
+        value = Config().get("llama_server.gpu_layers", AUTO_GPU_LAYERS)
+    except Exception as e:                            # noqa: BLE001
+        log.warning("could not read llama_server.gpu_layers (%s); reading it "
+                    "as the shipped default %r", e, AUTO_GPU_LAYERS)
+        return None
+    return _explicit_layer_count(value)
 
 HEALTH_CHECK_TIMEOUT = 5      # seconds per health check request
 # Tokens held back from an embedding input's budget for whatever the model adds
@@ -343,6 +369,37 @@ _OFFLOAD_RE = re.compile(
     r"offloaded\s+(\d+)\s*/\s*(\d+)\s+layers?\s+to\s+GPU", re.IGNORECASE
 )
 
+# The lines an engine prints when the CARD ran out of memory, as distinct from
+# the host. Each is the engine's own wording:
+#   Vulkan  "ggml_vulkan: Device memory allocation of size 636080128 failed."
+#           "ggml_vulkan: vk::Device::allocateMemory: ErrorOutOfDeviceMemory"
+#           (measured on a 4 GB card, the 2B model with every layer planned on
+#           it, 2026-10-08);
+#   any     "alloc_tensor_range: failed to allocate Vulkan0 buffer of size N" —
+#           a device's buffer is named by its backend and index, the host's
+#           ("CPU", "Vulkan_Host", "CUDA_Host") never is, so it does not match;
+#   CUDA    "CUDA error: out of memory", "cudaMalloc failed: out of memory"
+#           (the HIP build prints the same through the same code, or "ROCm").
+# Deliberately NOT a match: the CUDA build's "the provided PTX was compiled
+# with an unsupported toolchain" (measured on the same machine) — a build the
+# driver cannot load, which no smaller plan would fix.
+_DEVICE_MEMORY_FAILURE_RE = re.compile(
+    r"ErrorOutOfDeviceMemory"
+    r"|Device memory allocation of size \d+ failed"
+    r"|failed to allocate [A-Za-z]+\d+ buffer of size"
+    r"|(?:CUDA|HIP|ROCm) error: out of memory"
+    r"|(?:cuda|hip)Malloc(?:Async)? failed: out of memory"
+)
+
+
+def device_memory_failure_line(stderr: str | None) -> str | None:
+    """The first line of a dead engine's output that says the CARD ran out of
+    memory, or None when no line does (see _DEVICE_MEMORY_FAILURE_RE)."""
+    for line in (stderr or "").splitlines():
+        if _DEVICE_MEMORY_FAILURE_RE.search(line):
+            return line.strip()
+    return None
+
 
 @dataclass
 class ServerConfig:
@@ -439,6 +496,10 @@ class LlamaManager(LlamaManagerInterface):
         # start so a later, unrelated restart starts the ladder afresh.
         self._engines_tried: set[str] = set()
         self._startup_stderr: str = ""  # child's captured model-load banner (drained once after /health)
+        # A child that died before answering /health: what it printed. Kept
+        # apart from _last_error, which the start path rewrites, because the
+        # step-down below reads the engine's own words for why it died.
+        self._exit_stderr: str = ""
         # Seconds this launch may take to load and answer /health. start()
         # re-derives it from the model bytes; the floor is what a caller gets
         # if it never launched anything.
@@ -565,6 +626,7 @@ class LlamaManager(LlamaManagerInterface):
         degrade — never by string-matching the error text.
         """
         self._last_failure = StartFailure.NONE
+        self._exit_stderr = ""
         # Verify the model file exists
         if not Path(model_path).exists():
             self._last_error = f"Model file not found: {model_path}"
@@ -1475,6 +1537,74 @@ class LlamaManager(LlamaManagerInterface):
                                device=new_device, device_pci=new_device_pci)
         return True
 
+    def _step_down_after_device_memory_failure(self) -> bool:
+        """Plan fewer layers after a start that died because the CARD ran out
+        of memory. True if the saved plan changed.
+
+        WHY THIS EXISTS. The plan is a calculation, and a calculation can be
+        wrong about a card: other programs hold some of its memory, a driver
+        keeps more than it says. When the engine then dies allocating on the
+        card, starting it again with the SAME layers dies the same way, every
+        attempt and every watchdog restart, until the restart budget is spent
+        and the assistant never serves. Measured on a 4 GB card: seven such
+        deaths per daemon start, each the same allocation failing.
+
+        THE STEP. A plan that put every layer on the card is started again with
+        half of the model's layers (the count the dying engine printed, else
+        the model's own header); a plan that already put only some there is
+        started on the processor. Two steps at most, each a smaller plan, so it
+        always ends. The step is logged with the engine's own line, and the
+        stepped plan is saved, so later restarts relaunch the plan that came up.
+
+        NOT STEPPED DOWN: a failure that is not device memory (no smaller plan
+        fixes it); a start already on the processor; and a layer count the
+        configuration pins, which is honoured as written (resolve_gpu_layers).
+        """
+        cfg = self._config
+        if cfg is None or self._last_failure is not StartFailure.UNHEALTHY:
+            return False
+        evidence = device_memory_failure_line(self._exit_stderr)
+        if evidence is None or cfg.gpu_layers <= 0:
+            return False
+        pinned = _configured_layer_pin()
+        if pinned is not None:
+            log.warning("the engine ran out of device memory with %d layers "
+                        "asked for on the card (%s); llama_server.gpu_layers=%d "
+                        "is the configured count and is honoured as written, so "
+                        "the plan is not stepped down", cfg.gpu_layers,
+                        evidence, pinned)
+            return False
+        units = self._units_of_the_failed_load()
+        if units and cfg.gpu_layers >= units and units // 2 > 0:
+            fewer = units // 2
+        else:
+            fewer = 0
+        asked = ("every layer" if units is None or cfg.gpu_layers >= units
+                 else f"{cfg.gpu_layers} of {units} layers")
+        now = (f"with {fewer} of {units} layers on the card" if fewer
+               else "on the processor")
+        log.warning("the engine ran out of device memory with %s planned on "
+                    "the card (%s); starting it again %s", asked, evidence,
+                    now)
+        self._config = replace(cfg, gpu_layers=fewer)
+        self._exit_stderr = ""
+        return True
+
+    def _units_of_the_failed_load(self) -> int | None:
+        """What --n-gpu-layers counts for the model that just failed to load:
+        the dying engine's own "offloaded N/M layers" figure, else the model's
+        header (gpu_offload.offloadable_units), else None."""
+        _offloaded, total = self._parse_offload(self._exit_stderr)
+        if total:
+            return total
+        try:
+            from intergen.gguf import block_count
+            from intergen.gpu_offload import offloadable_units
+            blocks = block_count(self._config.model_path)
+        except Exception:                             # noqa: BLE001
+            return None
+        return offloadable_units(blocks) if blocks else None
+
     # The gaps between the attempts retry_transient_start makes, in seconds.
     # Short enough that a daemon start is not visibly held open, long enough for
     # the case this exists for: a device released by the process that just
@@ -1510,7 +1640,12 @@ class LlamaManager(LlamaManagerInterface):
         aborts at model load: 105 seconds of silence on every boot, ended by the
         watchdog rather than by the start. The start now asks for itself, so the
         next rung costs the attempts on one engine instead of a watchdog cycle.
+
+        A START THAT DIED FOR DEVICE MEMORY IS NOT REPEATED ON THE SAME PLAN —
+        the caller's own start included, which is how the daemon arrives here
+        (_step_down_after_device_memory_failure).
         """
+        self._step_down_after_device_memory_failure()
         while True:
             if self._attempt_start_on_this_engine(attempts, sleep):
                 return True
@@ -1530,15 +1665,24 @@ class LlamaManager(LlamaManagerInterface):
         """The attempt budget for ONE engine. True if the server came up.
 
         Split out of retry_transient_start so the ladder walk above reads as
-        what it is; the retry rules inside are unchanged.
+        what it is; the retry rules inside are unchanged, except that a start
+        that died for device memory is followed by a smaller plan rather than
+        a repeat of the same one.
         """
-        for attempt in range(1, max(1, attempts) + 1):
+        attempts = max(1, attempts)
+        attempt = 1
+        while True:
             if self.start_saved_config():
                 if attempt > 1:
                     log.info("llama-server started on attempt %d/%d — the first "
                              "failure was transient", attempt, attempts)
                 return True
             failure = self._last_failure
+            # A smaller plan is a different start, not a repeat of this one: it
+            # spends no attempt and waits out no back-off. It is bounded by
+            # itself (each step plans fewer layers, down to the processor).
+            if self._step_down_after_device_memory_failure():
+                continue
             if not failure.is_transient:
                 log.info("start failed with %s, which a retry cannot fix — "
                          "not retrying", failure.name)
@@ -1551,7 +1695,7 @@ class LlamaManager(LlamaManagerInterface):
                         "retrying in %.0fs", attempt, attempts, failure.name,
                         self._last_error, gap)
             sleep(gap)
-        return False
+            attempt += 1
 
     def restart(self) -> bool:
         """Stop and restart with the same configuration."""
@@ -1574,6 +1718,13 @@ class LlamaManager(LlamaManagerInterface):
 
         if self.start_saved_config():
             return True
+
+        # The relaunch died because the card ran out of memory: plan fewer
+        # layers and start again inside this one restart, so the watchdog's
+        # budget is not spent relaunching a plan the card cannot hold.
+        while self._step_down_after_device_memory_failure():
+            if self.start_saved_config():
+                return True
 
         # The relaunch failed. If the failure is the engine's own — it never
         # came up at all — try the next engine rather than spending the rest of
@@ -2786,6 +2937,7 @@ class LlamaManager(LlamaManagerInterface):
                 stderr = ""
                 if self._process.stderr:
                     stderr = self._process.stderr.read().decode(errors="replace")
+                self._exit_stderr = stderr
                 self._last_error = (
                     f"Server exited with code {self._process.returncode}: "
                     f"{_failure_tail(stderr)}"
