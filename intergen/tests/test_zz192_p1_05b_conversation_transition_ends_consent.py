@@ -718,5 +718,239 @@ class AnEndedTurnsModelStreamIsClosedWithTheTurn(unittest.TestCase):
         self._assert_closed_within_one_item(*asyncio.run(scenario()))
 
 
+class _ServerReply:
+    """The chat server's streamed reply as the model client reads it (llm.py
+    _parse_sse_stream): one server-sent-event line per item, a finish line,
+    then [DONE]. A paced reply produces an item only when the case allows one;
+    close() is the client closing the HTTP reply, after which the server
+    produces nothing more. The case counts on the server's side."""
+
+    def __init__(self, words: list[str], paced: bool, finish) -> None:
+        import threading
+        self.words = words
+        self.paced = paced
+        self.allow = threading.Semaphore(0)
+        # The case's own end, shared by every reply the server gives: a reply
+        # still waiting is let finish, so no thread outlives the case.
+        self.finish = finish
+        self.closed = threading.Event()
+        self.produced = 0
+
+    def _line(self, chunk: dict) -> bytes:
+        import json
+        return ("data: " + json.dumps(chunk) + "\n").encode()
+
+    def __iter__(self):
+        for word in self.words:
+            if self.paced:
+                while not self.allow.acquire(timeout=0.05):
+                    if self.finish.is_set() or self.closed.is_set():
+                        return
+            if self.closed.is_set():
+                return
+            self.produced += 1
+            yield self._line({"choices": [{"delta": {"content": word}}]})
+        yield self._line({"choices": [{"delta": {}, "finish_reason": "stop"}]})
+        yield b"data: [DONE]\n"
+
+    def close(self) -> None:
+        self.closed.set()
+
+
+class _ChatServer:
+    """Stands in for the machine's chat server behind urllib: the turn's first
+    request (the streamed draft) is answered at once; every later request (a
+    regeneration, a synthesis) gets a paced reply. Records each request."""
+
+    def __init__(self, draft: str, later: str) -> None:
+        import threading
+        self.draft = draft
+        self.later = later
+        self.requests: list[list[dict]] = []
+        self.replies: list[_ServerReply] = []
+        self.finished = threading.Event()
+        self._lock = threading.Lock()
+
+    def urlopen(self, req, timeout=None):
+        import json
+        with self._lock:
+            self.requests.append(json.loads(req.data)["messages"])
+            first = len(self.requests) == 1
+            text = self.draft if first else self.later
+            reply = _ServerReply([w + " " for w in text.split()],
+                                 paced=not first, finish=self.finished)
+            self.replies.append(reply)
+        return reply
+
+    def finish(self) -> None:
+        self.finished.set()
+
+
+def _model_client(chat: _ChatServer, case: unittest.TestCase):
+    """The real model client (llm.py LLMRouter) with urllib answered by
+    ``chat``. Its endpoint is a port nothing listens on, so a request that
+    escaped the stand-in could reach no chat server; no cloud escalation."""
+    from intergen.llm import LLMRouter
+    patcher = mock.patch("urllib.request.urlopen", chat.urlopen)
+    patcher.start()
+    case.addCleanup(patcher.stop)
+    case.addCleanup(chat.finish)
+    return LLMRouter({"endpoint": "http://127.0.0.1:9/v1/chat/completions",
+                      "escalation_mode": "never", "request_timeout": 5})
+
+
+# What the model writes again when a screen asks it to: clean for every screen.
+REGENERATED = (
+    "Nothing was run this turn and nothing on this machine changed. Here is "
+    "what the package does, how you could install it yourself when you are "
+    "ready, and the exact command to type, shown first so you can read it "
+    "before anything changes on this machine; ask me to explain any step of "
+    "it in more detail and I will walk you through that part.")
+
+
+class AnEndedTurnsRegenerationStopsWithinOneItem(unittest.TestCase):
+    """After the streamed draft, the honesty screens may ask the model to write
+    the answer again: the claim, self-offer and capability screens in
+    _stream_llm_response. Each regeneration runs on a worker thread through the
+    model client's chat(), which collects stream(). Ending the turn cancelled
+    the coroutine awaiting it, not the thread, so the regeneration read its reply
+    to the end and the chat server's one slot generated an answer nobody would
+    see. The turn's stop is now bound in the context the turn's model calls run
+    under, and stream() checks it at every item and closes the reply.
+
+    Each door ends the turn (the real _run_turn, its body the streamed path for a
+    freeform route) while a regeneration is reading its reply, lets the server
+    offer five more items, and counts on the server's side how many it produced
+    and whether the reply was closed; no request may be opened for the ended
+    turn after that. The control: a turn that is not ended keeps the
+    regenerated answer."""
+
+    def _screens(self):
+        from intergen.safety import (capability_grounding_note,
+                                     model_offer_correction_note)
+        return (
+            # (screen, a draft that trips it and no screen before it, words
+            #  the regeneration's request carries)
+            ("claim", "Done! I have installed the package.",
+             "You did NOT run"),
+            ("self-offer", "Want me to restart the bluetooth service for you?",
+             model_offer_correction_note()),
+            ("capability", "Run pkm frobnicate to fix it.",
+             capability_grounding_note("pkm frobnicate")),
+        )
+
+    def _turn(self, draft: str):
+        from intergen.interfaces.types import RouteResult
+        chat = _ChatServer(draft, REGENERATED)
+        llm = _model_client(chat, self)
+        router = _model_router(llm)
+        server = WebServer(router=router, llm=llm, tools=None, governance=None)
+        server._sessions = mock.MagicMock()
+        server._send_session_list = mock.AsyncMock()
+        ctx = ConnectionContext(client_id="case", source_interface="web",
+                                ws=_RecordingWS(),
+                                conversation=router.new_conversation())
+
+        async def streamed_turn(c, data):
+            await server._stream_llm_response(
+                c, "old-turn", data["content"],
+                RouteResult(text="", source="llm_freeform", handled=False))
+        server._handle_client_message = streamed_turn
+
+        def start() -> asyncio.Task:
+            task = asyncio.create_task(server._run_turn(
+                ctx, {"type": "message", "content": "is the package installed?"}))
+            ctx.turn_task = task
+            return task
+        return chat, server, ctx, start
+
+    async def _regenerating(self, chat: _ChatServer) -> _ServerReply:
+        """Wait until a regeneration's request is open and has read one item."""
+        for _ in range(500):
+            if len(chat.replies) >= 2:
+                break
+            await asyncio.sleep(0.01)
+        else:
+            self.fail(f"no regeneration was requested: {len(chat.requests)} "
+                      "request(s)")
+        reply = chat.replies[1]
+        reply.allow.release()
+        for _ in range(500):
+            if reply.produced >= 1:
+                return reply
+            await asyncio.sleep(0.01)
+        self.fail("the regeneration never read its first item")
+
+    def test_control_a_turn_that_is_not_ended_keeps_the_regenerated_answer(self):
+        for screen, draft, carried in self._screens():
+            with self.subTest(screen=screen):
+                chat, server, ctx, start = self._turn(draft)
+
+                async def scenario():
+                    try:
+                        task = start()
+                        reply = await self._regenerating(chat)
+                        for _ in range(len(reply.words)):
+                            reply.allow.release()
+                        await asyncio.wait_for(task, 10)
+                        return reply
+                    finally:
+                        chat.finish()
+                reply = asyncio.run(scenario())
+                self.assertIn(carried, chat.requests[1][-1]["content"],
+                              f"the {screen} screen did not ask for the "
+                              "regeneration")
+                self.assertEqual(reply.produced, len(reply.words))
+                self.assertTrue(reply.closed.is_set())
+                ends = [f for f in ctx.ws.sent if f.get("type") == "stream_end"]
+                self.assertEqual(len(ends), 1, _frames(ctx.ws))
+                self.assertEqual(ends[0].get("full_response", "").strip(),
+                                 REGENERATED)
+
+    def test_an_ended_turns_regeneration_stops_within_one_item(self):
+        for screen, draft, carried in self._screens():
+            for door in ("/clear", "/new"):
+                with self.subTest(screen=screen, door=door):
+                    chat, server, ctx, start = self._turn(draft)
+
+                    async def scenario():
+                        try:
+                            task = start()
+                            reply = await self._regenerating(chat)
+                            at_end, opened = reply.produced, len(chat.requests)
+                            if door == "/clear":
+                                await server._handle_slash_command(
+                                    ctx, {"command": "/clear"})
+                            else:
+                                await server._handle_new_session(ctx, {})
+                            await asyncio.gather(task, return_exceptions=True)
+                            self.assertTrue(task.cancelled(),
+                                            "the turn was not ended")
+                            for _ in range(5):
+                                reply.allow.release()
+                            closed = await asyncio.to_thread(reply.closed.wait,
+                                                             2.0)
+                            await asyncio.sleep(0.3)
+                            return (reply.produced - at_end, closed,
+                                    len(chat.requests) - opened)
+                        finally:
+                            chat.finish()
+                    after, closed, opened_after = asyncio.run(scenario())
+                    self.assertIn(carried, chat.requests[1][-1]["content"])
+                    self.assertTrue(
+                        closed,
+                        f"the ended turn's {screen} regeneration was not "
+                        f"closed: the server produced {after} more item(s) "
+                        "after the turn ended and was still asked for the next")
+                    self.assertLessEqual(
+                        after, 1,
+                        f"the ended turn's {screen} regeneration was read past "
+                        "one item")
+                    self.assertEqual(
+                        opened_after, 0,
+                        f"{opened_after} model request(s) were opened for the "
+                        "turn after it ended")
+
+
 if __name__ == "__main__":
     unittest.main()

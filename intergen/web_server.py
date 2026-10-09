@@ -48,6 +48,7 @@ from aiohttp import WSCloseCode, WSMsgType, web
 
 from intergen import glass, safety
 from intergen.governance import GovernanceEngine
+from intergen.llm import bind_turn_stop, unbind_turn_stop
 from intergen.router import correct_identity_collision
 from intergen.session_manager import SessionManager
 from intergen.conversation_state import (
@@ -1101,6 +1102,15 @@ class WebServer:
         turn ends in an answer, a refusal, or a crash, the user always gets a
         deterministic terminal reply, never silence.
         """
+        # THE TURN'S STOP, bound for every model call the turn makes. Ending
+        # the turn cancels this task but not the worker threads its model calls
+        # run on (the streamed answer, the screens' regenerations, the tool
+        # synthesis, routing); each one reads this flag through the context it
+        # was handed (glass.bind_context copies this task's context), so a call
+        # still running when the turn ends closes its reply within one item
+        # instead of keeping the chat server's one slot busy (llm.py).
+        _turn_stop = threading.Event()
+        _turn_stop_token = bind_turn_stop(_turn_stop)
         try:
             # M1 Glass Pipeline: mint ONE turn id for the whole web turn and
             # bind it for the task's duration. Everything downstream — router
@@ -1161,6 +1171,11 @@ class WebServer:
             # Note this runs on the CancelledError path too, before the
             # re-raise: the hook returns immediately when there is nothing to do
             # or the embedding slot is busy, so teardown is not delayed.
+            #
+            # The turn's model calls are stopped first, and its stop unbound,
+            # so the hook's own work is never taken for the ended turn's.
+            _turn_stop.set()
+            unbind_turn_stop(_turn_stop_token)
             self._run_after_turn()
 
     def _run_after_turn(self) -> None:

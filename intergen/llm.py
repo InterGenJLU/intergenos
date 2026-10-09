@@ -11,10 +11,12 @@ Ported from a prior internal AI assistant project. Key differences:
 
 from __future__ import annotations
 
+import contextvars
 import json
 import socket
 import logging
 import re
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -30,6 +32,37 @@ from intergen.interfaces.types import (
 from intergen.interfaces.provenance import Provenance
 
 logger = logging.getLogger(__name__)
+
+
+# THE TURN A MODEL CALL BELONGS TO CAN END WHILE THE CALL RUNS. The web surface
+# makes its model calls on worker threads (the streamed answer, the honesty
+# screens' regenerations, the tool synthesis), and ending a turn - /clear, a new
+# conversation, a page that goes away - cancels the coroutine awaiting them, not
+# the threads. A call left running read its reply to the end, and the chat
+# server, which serves one request at a time, went on generating an answer
+# nobody would see while the next turn waited behind it. The surface binds its
+# turn's stop flag here, in the context those threads run under; every
+# generation this client makes checks it before it opens a request and at each
+# item, and a call whose turn has ended closes its reply, which stops the server
+# within one item. A caller that binds nothing (the command line, the bus) is
+# never stopped.
+_TURN_STOP: "contextvars.ContextVar[threading.Event | None]" = (
+    contextvars.ContextVar("intergen_llm_turn_stop", default=None))
+
+
+def bind_turn_stop(stop: threading.Event) -> contextvars.Token:
+    """Bind ``stop`` as this context's turn stop; the token unbinds it."""
+    return _TURN_STOP.set(stop)
+
+
+def unbind_turn_stop(token: contextvars.Token) -> None:
+    _TURN_STOP.reset(token)
+
+
+def turn_ended() -> bool:
+    """True once the turn this context's model calls belong to has ended."""
+    stop = _TURN_STOP.get()
+    return stop is not None and stop.is_set()
 
 
 # The base prompt is COMPOSED from the persona home (intergen/persona.py) — the
@@ -563,6 +596,9 @@ class LLMRouter(LLMInterface):
         if image_data and not self._has_vision:
             yield self._vision_unsupported()
             return
+        if turn_ended():
+            self._note_stopped(0)
+            return
         msg_dicts = self._to_openai_messages(messages)
         if image_data and msg_dicts:
             msg_dicts = self._inject_image(msg_dicts, image_data)
@@ -659,6 +695,10 @@ class LLMRouter(LLMInterface):
             _first = True
             _pieces: list[str] = []
             for _tok in self._parse_sse_stream(response):
+                if turn_ended():
+                    # The reply is closed on the way out (finally below).
+                    self._note_stopped(len(_pieces))
+                    return
                 if _first:
                     glass.emit("model", "first_token",
                                dur_ms=(time.monotonic() - _t0) * 1000)
@@ -686,6 +726,21 @@ class LLMRouter(LLMInterface):
                 dur_ms=(time.monotonic() - _t0) * 1000)
         finally:
             response.close()
+
+    def _note_stopped(self, items: int) -> None:
+        """Record a generation stopped because its turn ended. Not a failure:
+        no transport failure is noted, and the trace says why it stopped."""
+        logger.info("model call stopped: its turn ended (%d item(s) read)",
+                    items)
+        glass.emit("model", "stopped", detail={
+            "endpoint": self._endpoint, "items": items,
+            "reason": "turn_ended"})
+
+    def _stopped_response(self) -> LLMResponse:
+        """chat()'s answer for a turn that ended: nothing, not retried and not
+        escalated - nobody is waiting for it."""
+        return LLMResponse(text="", model="local", local=True,
+                           quality_passed=False)
 
     def stream_with_tools(self, messages: list[Message], *,
                           tools: list[ToolSchema],
@@ -1110,6 +1165,8 @@ class LLMRouter(LLMInterface):
         tokens = list(self.stream(messages, max_tokens=max_tok,
                                    temperature=temperature,
                                    image_data=image_data))
+        if turn_ended():
+            return self._stopped_response()
         response_text = self._strip_reasoning_leak(
             self._recover_empty_content("".join(tokens)))
 
@@ -1162,6 +1219,8 @@ class LLMRouter(LLMInterface):
             tokens = list(self.stream(messages, max_tokens=max_tok,
                                        temperature=temperature,
                                        image_data=image_data))
+            if turn_ended():
+                return self._stopped_response()
             response_text = self._strip_reasoning_leak(
                 self._recover_empty_content("".join(tokens)))
 
@@ -1187,6 +1246,8 @@ class LLMRouter(LLMInterface):
                 semantic_flags=list(self._last_semantic_flags),
             )
 
+        if turn_ended():
+            return self._stopped_response()
         cloud_response = self._escalate_to_cloud(messages, max_tokens=max_tok,
                                                 image_data=image_data)
         if cloud_response:
