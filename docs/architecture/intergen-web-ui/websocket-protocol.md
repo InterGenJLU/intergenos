@@ -13,7 +13,8 @@ shipped behavior.
 ## Connection
 
 ```
-Browser: ws://localhost:8089/ws?token=<hex_token>&source_interface=<web|console>
+Browser: ws://localhost:8089/ws?source_interface=<web|console>
+         Sec-WebSocket-Protocol: intergen, bearer.<hex_token>
 
 Server → {type: "connected",
           client_id: "...",
@@ -24,10 +25,14 @@ Server → {type: "connected",
 ```
 
 The auth token is generated at `intergen setup` time and written to
-`~/.config/intergen/web-token`. The launch script injects it into the
-browser URL. The token is validated once at WebSocket handshake — there
-is no per-message auth. An invalid or missing token returns an
-`auth_failed` error at the HTTP layer before the WebSocket upgrade.
+`~/.config/intergen/web-token`. The panel gives it to the page as
+`window.__INTERGEN_TOKEN__` by a document-start user script (the page's
+Content-Security-Policy refuses inline script, and the server writes none);
+the page and the console send it as the `bearer.<token>` component of the
+`Sec-WebSocket-Protocol` header, and the server answers with the `intergen`
+subprotocol alone. The token is validated once at the WebSocket handshake —
+there is no per-message auth. An invalid or missing token is refused with
+HTTP 401 before the upgrade.
 
 ---
 

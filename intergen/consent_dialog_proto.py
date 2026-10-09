@@ -62,9 +62,11 @@ RENDERED_MARKER = "\x01INTERGEN_CONSENT_DIALOG_RENDERED\x01"
 # falling back to zenity (a hung/attacked binary fails fast here).
 PRE_RENDER_TIMEOUT_SECONDS = 20.0
 
-# After the window is on screen, how long to wait for the human's decision before
-# treating silence as deny/cancel. Aligned with review_modal's RFC §7.2 one-hour
-# implicit-deny so the branded path and the fallback expire identically.
+# After the window is on screen, how long to wait for the human's decision. An
+# expired deadline is an unanswered review (review_timed_out), never the
+# person's Deny, and an unanswered consent is not sent. Aligned with
+# review_modal's one-hour fallback expiry (RFC §7.2) so the branded path and the
+# fallback expire identically.
 POST_RENDER_DEADLINE_SECONDS = 3600.0
 
 # ── Payload bound (§E — never truncate; too-big = fail-closed) ────────────────

@@ -152,7 +152,7 @@ class AuditRecord:
     declared_provenance: str  # Provenance.value
     effective_provenance: str  # Provenance.value after ingress-watermark escalation
     ingress_tools_this_turn: list[str]
-    user_decision: str  # "executed" | "allowed_once" | "allowed_conversation" | "denied"
+    user_decision: str  # one outcome word; build_audit_record (intergen/provenance.py) lists every word
     exit_code: int = 0
     result_summary: str = ""  # truncated to first 256 chars
     source_attribution: str = ""  # e.g. "https://example.com" or "/etc/fstab"
