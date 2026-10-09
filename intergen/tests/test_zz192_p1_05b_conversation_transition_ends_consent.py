@@ -1634,6 +1634,40 @@ class AnEndedTurnsCloudCallStopsWithinOneItem(unittest.TestCase):
             "before-the-stop", cloud, "its send() takes no should_stop"),
             self.REFUSED)
 
+    def test_a_provider_put_into_the_router_without_registration_is_never_called(
+            self):
+        """Registration refuses a provider without the contract, but the
+        router's table can be written some other way. Such a provider is
+        skipped at the call, with an ERROR naming why: no call is made that
+        the turn's stop could not reach."""
+        import logging
+        from intergen.interfaces.types import Message, MessageRole
+        llm = self._router()
+        cloud = _BlockingCloud()
+        cloud.release.set()
+        llm._cloud_providers["direct"] = cloud
+        errors: list[str] = []
+        handler = logging.Handler(level=logging.ERROR)
+        handler.emit = lambda record: errors.append(record.getMessage())
+        log = logging.getLogger("intergen.llm")
+        log.addHandler(handler)
+        try:
+            reply = llm.chat([Message(role=MessageRole.USER,
+                                      content="what is the forecast?")])
+        finally:
+            log.removeHandler(handler)
+        self.assertEqual({
+            "the provider was asked": cloud.calls,
+            "chat() answered from the cloud": reply.model.startswith("cloud:"),
+            "the skip logged, naming why": any(
+                "skipped cloud provider direct: it does not implement the "
+                "cloud-provider contract" in m for m in errors),
+        }, {
+            "the provider was asked": 0,
+            "chat() answered from the cloud": False,
+            "the skip logged, naming why": True,
+        })
+
     def test_an_ended_turn_is_not_handed_on_to_the_next_provider(self):
         import threading
         first = _ContractCloud(fails=True)

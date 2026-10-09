@@ -1744,11 +1744,14 @@ class LLMRouter(LLMInterface):
                            image_data: str | None = None) -> LLMResponse | None:
         """Attempt cloud escalation with registered providers.
 
-        THE TURN'S STOP REACHES THE CLOUD CALL TOO. A provider that implements
-        the cloud-provider contract is handed the bound stop and checks it at
-        each item of its reply; no provider is asked once the turn has ended,
-        and an answer that arrives after it ended is discarded. Every one of
-        those ends in chat()'s answer for an ended turn: nothing.
+        THE TURN'S STOP REACHES THE CLOUD CALL TOO. Every provider is called
+        through the cloud-provider contract: it is handed the bound stop and
+        checks it at each item of its reply; no provider is asked once the
+        turn has ended, and an answer that arrives after it ended is
+        discarded. Every one of those ends in chat()'s answer for an ended
+        turn: nothing. Registration refuses a provider without the contract,
+        and one put into the table some other way is skipped here, with an
+        ERROR naming why, never called without the stop.
         """
         if not self._cloud_providers:
             logger.warning("No cloud providers configured for escalation")
@@ -1767,13 +1770,15 @@ class LLMRouter(LLMInterface):
             if turn_ended():
                 self._note_cloud_stopped(name, "before_send")
                 return self._stopped_response()
+            why = cloud_contract_gap(adapter)
+            if why:
+                logger.error("skipped cloud provider %s: %s, so a turn that "
+                             "ends could not stop its call", name, why)
+                continue
             try:
                 logger.info("Escalating to cloud provider: %s", name)
-                if isinstance(adapter, CloudProviderAdapter):
-                    result = adapter.send(messages, max_tokens=max_tokens,
-                                          **stop_kwargs)
-                else:
-                    result = adapter.send(messages, max_tokens=max_tokens)
+                result = adapter.send(messages, max_tokens=max_tokens,
+                                      **stop_kwargs)
                 self._api_call_count += 1
                 if turn_ended():
                     self._note_cloud_stopped(name, "after_send")
