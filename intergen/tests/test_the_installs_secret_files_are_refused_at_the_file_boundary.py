@@ -188,6 +188,27 @@ class TheSecretFilesAreRefusedAtTheFileBoundary(unittest.TestCase):
             result, "a second name while the canonical name cannot be read")
         self.assertIn("could not be read", result.content or "")
 
+    def test_a_canonical_path_that_runs_through_a_file_is_not_an_absent_file(
+            self) -> None:
+        """Only "no such file" is absence; "not a directory" is a failed read.
+
+        The directory holding the key is moved aside and an ordinary file is put
+        where it was, so the key's canonical pathname runs through a file and the
+        lookup answers "not a directory". No identity has been read for this
+        home before. Reading the moved key must be refused, and the refusal must
+        say what could not be read.
+        """
+        moved = self.tmp / ".config-moved"
+        os.rename(self.tmp / ".config", moved)
+        (self.tmp / ".config").write_text("an ordinary file\n")
+        moved_key = moved / "intergen" / "dispatch-key"
+        self.assertEqual(moved_key.read_text(), self.key)
+        with self._as_if_the_install_lived_here():
+            result = self._read(moved_key)
+        self._assert_refused(
+            result, "a moved key whose canonical path runs through a file")
+        self.assertIn("could not be read", result.content or "")
+
     def test_a_credential_moved_away_from_its_canonical_path_is_still_refused(
             self) -> None:
         """An identity read once stays refused after the file is moved.

@@ -393,6 +393,18 @@ class TheLauncher(_AFixtureInstall):
         self.assertIn("could not be read", message)
         self.assertNotIn("does not exist", message)
 
+    def test_a_credential_path_that_runs_through_a_file_is_not_called_missing(
+            self) -> None:
+        """Only "no such file" is absence; "not a directory" is a failed read."""
+        from intergen import tool_process
+        os.rename(self.keydir, self.home / "moved-aside")
+        self.keydir.write_text("an ordinary file\n", encoding="utf-8")
+        with self.assertRaises(tool_process.ToolProcessNotStarted) as caught:
+            tool_process.launch_argv(["true"], unit="intergen-tool-case.service")
+        message = str(caught.exception)
+        self.assertIn("could not be read", message)
+        self.assertNotIn("does not exist", message)
+
     def test_a_second_name_for_a_credential_is_reported(self) -> None:
         from intergen import tool_process
         second = self.home / "second-name"
