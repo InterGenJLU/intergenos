@@ -373,7 +373,7 @@ _current_iface: ContextVar[str | None] = ContextVar("intergen_glass_iface", defa
 # exit would then synthesize a SECOND one, breaking the exactly-once guarantee in
 # precisely the seam the bind exists to hold together. A shared mutable cell is
 # seen from both sides. It stays per-turn because :func:`turn` installs a fresh
-# cell, and it is absent (None) outside any turn.
+# cell, and it is absent (None) outside any turn and inside a :func:`scope` block.
 _current_turn_ended: ContextVar[list[bool] | None] = ContextVar(
     "intergen_glass_turn_ended", default=None)
 
@@ -429,15 +429,25 @@ def current_turn_id() -> str:
 def served_turn_open() -> bool:
     """Whether the code running here is part of a turn a person is being served.
 
-    Only :func:`turn` opens one. :func:`scope` binds an identifier for work that
-    is not a served turn (the daemon's start-up and warm-up, the memory index's
-    work for an exchange that has already been answered), and inside it
-    :func:`current_turn_id` is not empty, so the identifier's presence cannot
-    tell the two apart. The terminal cell can: :func:`turn` installs it and
-    :func:`scope` never does, and a worker thread entered through
+    Only :func:`turn` opens one, and it is open until the turn has ended.
+    :func:`scope` binds an identifier for work that is not a served turn (the
+    daemon's start-up and warm-up, the memory index's work for an exchange that
+    has already been answered), and inside it :func:`current_turn_id` is not
+    empty, so the identifier's presence cannot tell the two apart. The terminal
+    cell can: :func:`turn` installs it, :func:`scope` clears it for its block
+    (nested inside a turn as well), and a worker thread entered through
     :func:`bind_context` carries it with the rest of the turn's context.
+
+    The cell's VALUE decides, not its presence. A worker thread bound into a
+    turn keeps the turn's cell for as long as it runs, and it can run on after
+    the turn has ended: the web server's route deadline ends a turn and abandons
+    its routing thread. Once the turn's terminal is claimed, an answer that
+    thread produces reaches no one. Measured with the presence test: an answer
+    screened on such a thread after the terminal was claimed was counted as
+    served, and so was one screened inside a scope nested in a turn.
     """
-    return _current_turn_ended.get() is not None
+    cell = _current_turn_ended.get()
+    return cell is not None and not cell[0]
 
 
 @contextmanager
@@ -457,14 +467,21 @@ def scope(turn_id: str, iface: str) -> Iterator[str]:
     already carry the id explicitly), so nothing is synthesized at exit and
     the one-terminal-per-turn accounting is not armed. A thread started inside
     the block does not inherit ContextVars; enter this again in the thread.
+
+    The block carries no terminal cell, even when it is entered inside a turn:
+    work bound here is not the turn's answer (see :func:`served_turn_open`),
+    and an ending emitted here names this block's identifier, so it does not
+    claim the enclosing turn's terminal either.
     """
     t0 = _now_ms()
     tok_id = _current_turn_id.set(turn_id)
     tok_start = _current_turn_start.set(t0)
     tok_iface = _current_iface.set(iface)
+    tok_ended = _current_turn_ended.set(None)
     try:
         yield turn_id
     finally:
+        _current_turn_ended.reset(tok_ended)
         _current_turn_id.reset(tok_id)
         _current_turn_start.reset(tok_start)
         _current_iface.reset(tok_iface)
@@ -858,27 +875,36 @@ class GlassLogger:
              dur_ms: float | None = None,
              turn_id: str | None = None,
              iface: str | None = None) -> None:
-        """Write one glass row for the active turn. No-op when disabled/unwritable.
+        """Write one glass row for the active turn. Writes nothing when
+        disabled/unwritable, but a terminal still ends the turn (see below).
 
         turn_id / iface may be passed explicitly for emissions that run OUTSIDE a
         turn contextvar scope — chiefly the startup/warmup sequence, some of which
         runs in a daemon thread that a ContextVar cannot reach. Turn-scoped
         callers (web/dbus) omit both and inherit the active turn.
         """
-        if not self.enabled or self._log_file is None:
-            return
         # EXACTLY ONE TERMINAL PER TURN (REC-17). A second terminal is not
         # dropped: it is written under a different event name, so a call site
         # that ends an already-ended turn stays findable instead of silently
         # winning or silently losing. Only turn-scoped emissions take part — one
         # carrying its own turn_id runs outside the turn ContextVars (startup,
         # warmup) and has no turn to end.
+        #
+        # The claim comes BEFORE the check that writes nothing when this writer
+        # is switched off or has nowhere to write. Whether a turn has ended is
+        # turn state, not a row: served_turn_open() reads it to decide whether
+        # an answer was served. Behind that check, no turn's ending was claimed
+        # while INTERGEN_GLASS=0 (or while the writer had nowhere to write), so
+        # a worker bound into a turn that had ended still read as part of a
+        # served one.
         if (turn_id is None and _current_turn_id.get() is not None
                 and is_terminal_event(phase, event)):
             if not _claim_turn_end():
                 detail = dict(detail or {})
                 detail["refused_terminal"] = event
                 event = _TERMINAL_AFTER_TERMINAL
+        if not self.enabled or self._log_file is None:
+            return
         now = _now_ms()
         start = None if turn_id else _current_turn_start.get()
         record = {

@@ -36,14 +36,27 @@ THREE RULES, each with its own cells.
    window at every boot. Screening the tool path would have added the tool
    warm-up's reply as a second.
 
+   The test is the turn's own terminal cell, and it is read for its VALUE: a
+   turn is served until it has ended. Read for its presence, two more states
+   counted as served. A worker thread bound into a turn keeps the turn's cell
+   after the turn has ended (the route deadline ends a turn and abandons its
+   routing thread, which runs on), and a scope() entered inside a turn kept the
+   turn's cell for work that is not the turn's answer. And a turn's ending was
+   claimed only by a glass writer that was switched on, so with
+   INTERGEN_GLASS=0 a turn never read as ended.
+
 Cells marked CONTROL hold before the change and after it; every other cell
-fails before it.
+fails before it. For the cells of rule 3 that name a turn that has ended, a
+scope entered inside a turn or a switched-off writer, the change is the one
+that reads the cell's value.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+import os
+import tempfile
 import threading
 import unittest
 from contextlib import contextmanager
@@ -631,6 +644,118 @@ class OnlyAServedTurnIsCounted(_Case):
         """CONTROL"""
         self.llm._screen_semantic_health("Hi", [])
         self.assertEqual(self.sink.calls, [])
+
+    # -- a turn that has ended, and a scope entered inside a turn -------------
+
+    @contextmanager
+    def through_a_glass_writer(self, *, switched_off=False):
+        """Every emission also reaches a real glass writer, as it does in the
+        product. The case's recorder stands in for the module-level emit; this
+        hands each row on to a writer behind it, so a turn's ending is claimed
+        where the product claims it. The writer writes to a temporary
+        directory, or is switched off the way INTERGEN_GLASS=0 switches it off.
+        Yields the path of the file it writes."""
+        record = glass.emit.side_effect
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.dict(os.environ, {
+                    "INTERGEN_GLASS": "0" if switched_off else "1"}):
+                writer = glass.GlassLogger(log_dir=tmp)
+
+            def _record_and_write(*a, **k):
+                record(*a, **k)
+                writer.emit(*a, **k)
+
+            with mock.patch.object(glass, "_glass", writer), \
+                    mock.patch.object(glass.emit, "side_effect",
+                                      _record_and_write):
+                yield os.path.join(tmp, "glass.jsonl")
+
+    @staticmethod
+    def written_rows(path):
+        if not os.path.exists(path):
+            return []
+        with open(path, encoding="utf-8") as f:
+            return [json.loads(line) for line in f if line.strip()]
+
+    def screen_on_a_worker(self, ctx):
+        t = threading.Thread(target=ctx.run,
+                             args=(self.llm._screen_semantic_health, "Hi", []))
+        t.start()
+        t.join(timeout=10)
+
+    def not_counted(self):
+        return [r["flags"] for r in
+                self.model_rows("semantic_health_not_counted")]
+
+    def test_a_worker_bound_into_a_turn_and_run_after_it_ended_is_not_counted(self):
+        """The route deadline ends a turn and abandons its routing thread, which
+        runs on with the turn's context bound. What it produces after the
+        turn's ending reaches no one."""
+        with self.through_a_glass_writer() as path:
+            with glass.turn("turn-1", "web"):
+                ctx = glass.bind_context()
+                glass.emit("delivery", "timeout", detail={"iface": "web"})
+            self.screen_on_a_worker(ctx)
+            endings = [r["event"] for r in self.written_rows(path)
+                       if r["turn_id"] == "turn-1"
+                       and glass.is_terminal_event(r["phase"], r["event"])]
+        self.assertEqual(endings, ["timeout"],
+                         "the turn's one ending is the writer's own row")
+        self.assertEqual(self.sink.calls, [],
+                         "an answer produced after the turn ended entered the "
+                         "engine-health window")
+        self.assertEqual(self.not_counted(), [["short_nonsense"]])
+
+    def test_a_scope_entered_inside_a_served_turn_is_not_counted(self):
+        """Work bound by scope() is not a served turn's answer, and entering
+        the scope inside a turn does not make it one."""
+        with glass.turn("turn-1", "web"):
+            with glass.scope("a1b2c3d4e5f60718", "web"):
+                self.llm._screen_semantic_health("Hi", [])
+        self.assertEqual(self.sink.calls, [],
+                         "work inside a scope entered the engine-health window")
+        self.assertEqual(self.not_counted(), [["short_nonsense"]])
+
+    def test_the_turns_own_answer_after_a_scope_inside_it_closes_is_counted(self):
+        """CONTROL: leaving the scope gives the turn its cell back."""
+        with glass.turn("turn-1", "web"):
+            with glass.scope("a1b2c3d4e5f60718", "web"):
+                pass
+            self.llm._screen_semantic_health("Hi", [])
+        self.assertEqual(self.sink.calls, [["short_nonsense"]])
+
+    def test_with_the_writer_switched_off_an_answer_after_the_ending_is_not_counted(self):
+        """INTERGEN_GLASS=0 switches the record off, not the turn's ending."""
+        with self.through_a_glass_writer(switched_off=True) as path:
+            with glass.turn("turn-1", "web"):
+                ctx = glass.bind_context()
+                glass.emit("delivery", "timeout", detail={"iface": "web"})
+            self.screen_on_a_worker(ctx)
+            written = self.written_rows(path)
+        self.assertEqual(written, [], "a switched-off writer writes nothing")
+        self.assertEqual(self.sink.calls, [],
+                         "an answer produced after the turn ended entered the "
+                         "engine-health window")
+        self.assertEqual(self.not_counted(), [["short_nonsense"]])
+
+    def test_with_the_writer_switched_off_a_turn_that_ends_unreported_has_ended(self):
+        """A turn with no ending of its own is given one at its exit, and with
+        the writer switched off that ending still ends it."""
+        with self.through_a_glass_writer(switched_off=True):
+            with glass.turn("turn-1", "web"):
+                ctx = glass.bind_context()
+            self.screen_on_a_worker(ctx)
+        self.assertEqual(self.sink.calls, [],
+                         "an answer produced after the turn ended entered the "
+                         "engine-health window")
+        self.assertEqual(self.not_counted(), [["short_nonsense"]])
+
+    def test_with_the_writer_switched_off_a_served_turn_is_counted(self):
+        """CONTROL"""
+        with self.through_a_glass_writer(switched_off=True):
+            with glass.turn("turn-1", "web"):
+                self.screen_on_a_worker(glass.bind_context())
+        self.assertEqual(self.sink.calls, [["short_nonsense"]])
 
 
 if __name__ == "__main__":
