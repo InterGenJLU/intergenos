@@ -384,6 +384,13 @@ class WebServer:
         so a foreign holder answering on the port is never mistaken for ours."""
         return self._running
 
+    @property
+    def address(self) -> str:
+        """The address this server binds, as host:port (an IPv6 host in
+        brackets), for the words the daemon logs and reports."""
+        host = f"[{self._host}]" if ":" in self._host else self._host
+        return f"{host}:{self._port}"
+
     def mark_ready(self) -> None:
         self._ready = True
         logger.info("Web server marked ready — serving requests")

@@ -24,6 +24,7 @@ Requires: dbus-python (or pydbus/dasbus)
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
 import logging
 import os
@@ -47,14 +48,41 @@ SERVICE_NAME = "com.intergenos.InterGen"
 OBJECT_PATH = "/com/intergenos/InterGen"
 INTERFACE_NAME = "com.intergenos.InterGen"
 
-# Web-server bind watchdog (the cold-boot greeter port-8089 collision): retry
-# the bind on an interval until the greeter session tears down and frees the
-# port, bounded so a permanently-held port logs a loud give-up rather than
-# spinning forever. ~5 min of teardown headroom, matching the embed/chat
+# Web-server bind watchdog (the cold-boot greeter collision on the panel's
+# port): retry the bind on an interval until the greeter session tears down and
+# frees the port, bounded so a permanently-held port logs a loud give-up rather
+# than spinning forever. ~5 min of teardown headroom, matching the embed/chat
 # recovery posture.
 WEB_BIND_RETRY_INTERVAL = 5     # seconds between rebind attempts
 WEB_BIND_MAX_ATTEMPTS = 60      # ~5 min total
 WEB_STOP_TIMEOUT = 5.0          # seconds a daemon stop waits on the web server's stop
+
+
+def _panel_address(config) -> tuple[str, int]:
+    """The panel's bind address and port, read from the configuration
+    (web_server.host and web_server.port; 127.0.0.1:8089 as shipped).
+
+    Raises ValueError, in words, for a host that is not a loopback IP address
+    or a port that is not a whole number from 1 to 65535. The panel carries the
+    person's session over plain HTTP and a WebSocket, so it listens on this
+    machine only; a value it cannot use is refused and reported, never replaced
+    by a guess.
+    """
+    host = config.get("web_server.host", "127.0.0.1")
+    port = config.get("web_server.port", 8089)
+    try:
+        loopback = (isinstance(host, str)
+                    and ipaddress.ip_address(host).is_loopback)
+    except ValueError:
+        loopback = False
+    if not loopback:
+        raise ValueError(
+            f"web_server.host {host!r} is not a loopback IP address; the panel "
+            f"listens on this machine only (127.0.0.1 or ::1)")
+    if type(port) is not int or not 1 <= port <= 65535:
+        raise ValueError(
+            f"web_server.port {port!r} is not a port number from 1 to 65535")
+    return host, port
 
 # Largest game identifier accepted by PauseForGame / ResumeAfterGame. The value
 # is a window class (steam_app_620, gamescope, …), so 256 bytes is far more than
@@ -2373,71 +2401,25 @@ class InterGenDaemon(InterGenDBusInterface):
             except Exception as e:
                 log.warning("Embedding watchdog init failed: %s", e)
 
-        # Step 13: Start web server (aiohttp + WebSocket bridge)
-        try:
-            from intergen.web_server import WebServer
-            from intergen.health import HealthAggregator
-
-            # No audit_log_count: the literal 0 this call used to pass was
-            # the whole entry count the health surface ever reported, for the
-            # life of the daemon. Omitted, the Audit log check reads the
-            # per-user dispatch ledger through audit_log's own surface.
-            self._health_agg = HealthAggregator(
-                llama_manager=self._llama,
-                watchdog=self._watchdog,
-                governance=self._governance,
-            )
-
-            self._web_server = WebServer(
-                host="127.0.0.1",
-                port=8089,
-                router=self._router,
-                llm=self._llm,
-                tools=self._tools,
-                governance=self._governance,
-                metrics=self._metrics,
-                event_logger=self._events,
-                state_cache=self._state_cache,
-                memory=self._memory,
-                health_aggregator=self._health_agg,
-                # The web surface serves its own turns, so without this the
-                # wiki catch-up pass below was reachable only through D-Bus and
-                # a web-only machine never finished building its index. Handing
-                # over THIS bound method (rather than letting the web server
-                # start its own pass) keeps the single-pass guard one guard.
-                after_turn=self._resume_wiki_embedding_after_turn,
-            )
-            self._web_server.mark_ready()
-            # The aggregator above is built before this server exists, because
-            # the server takes the aggregator, and every later health request is
-            # served from that one instance. The live reading is bound here, so
-            # the Web server check reports this server's own state instead of
-            # the literal 0 this call used to freeze into it.
-            self._health_agg.set_web_server(self._web_server)
-            self._web_thread = threading.Thread(
-                target=self._run_web_server,
-                name="intergen-web",
-                daemon=True,
-            )
-            self._web_thread.start()
-            log.info("Web server started on http://127.0.0.1:8089")
-        except Exception as e:
-            log.warning("Web server init failed: %s", e)
+        # Step 13: Start web server (aiohttp + WebSocket bridge) on the panel's
+        # configured address
+        self._start_panel()
 
         # Step 14: D-Bus export
         self._export_dbus()
 
         # Step 15: Signal ready
         self._running = True
-        log.info("InterGen daemon ready (router=%s, tools=%d, llm=%s, web=127.0.0.1:8089)",
+        panel = self._web_server.address if self._web_server else "not started"
+        log.info("InterGen daemon ready (router=%s, tools=%d, llm=%s, web=%s)",
                  self._router is not None,
                  self._tools.tool_count if self._tools else 0,
-                 self._llm is not None)
+                 self._llm is not None, panel)
         glass.emit("warmup", "daemon_ready", turn_id=self._boot_turn,
                    iface="daemon",
                    detail={"router": self._router is not None,
                            "tools": self._tools.tool_count if self._tools else 0,
-                           "llm": self._llm is not None, "web": "127.0.0.1:8089",
+                           "llm": self._llm is not None, "web": panel,
                            "model": self._model_loaded,
                            "glass": glass.glass_enabled()},
                    dur_ms=(time.monotonic() - self._boot_t0) * 1000)
@@ -2790,6 +2772,69 @@ class InterGenDaemon(InterGenDBusInterface):
             self._reg_id = None
 
         self._bus = None
+
+    def _start_panel(self) -> None:
+        """Start the panel's web server (aiohttp + WebSocket bridge) on the
+        address the configuration names, in its own thread with the bind
+        watchdog.
+
+        A configured address the panel cannot use, or a server that cannot be
+        built, leaves the panel down and is logged in words; the daemon itself
+        carries on without it.
+        """
+        try:
+            from intergen.web_server import WebServer
+            from intergen.health import HealthAggregator
+
+            host, port = _panel_address(self._config)
+            # No audit_log_count: the literal 0 this call used to pass was
+            # the whole entry count the health surface ever reported, for the
+            # life of the daemon. Omitted, the Audit log check reads the
+            # per-user dispatch ledger through audit_log's own surface.
+            self._health_agg = HealthAggregator(
+                llama_manager=self._llama,
+                watchdog=self._watchdog,
+                governance=self._governance,
+            )
+
+            self._web_server = WebServer(
+                host=host,
+                port=port,
+                router=self._router,
+                llm=self._llm,
+                tools=self._tools,
+                governance=self._governance,
+                metrics=self._metrics,
+                event_logger=self._events,
+                state_cache=self._state_cache,
+                memory=self._memory,
+                health_aggregator=self._health_agg,
+                # The web surface serves its own turns, so without this the
+                # wiki catch-up pass below was reachable only through D-Bus and
+                # a web-only machine never finished building its index. Handing
+                # over THIS bound method (rather than letting the web server
+                # start its own pass) keeps the single-pass guard one guard.
+                after_turn=self._resume_wiki_embedding_after_turn,
+            )
+            self._web_server.mark_ready()
+            # The aggregator above is built before this server exists, because
+            # the server takes the aggregator, and every later health request is
+            # served from that one instance. The live reading is bound here, so
+            # the Web server check reports this server's own state instead of
+            # the literal 0 this call used to freeze into it.
+            self._health_agg.set_web_server(self._web_server)
+            self._web_thread = threading.Thread(
+                target=self._run_web_server,
+                name="intergen-web",
+                daemon=True,
+            )
+            self._web_thread.start()
+            # Started, not yet serving: the bind happens on the thread, and the
+            # web server logs the address it listens on once its bind holds.
+            log.info("Web server thread started; it binds http://%s",
+                     self._web_server.address)
+        except Exception as e:
+            log.error("The panel was not started: %s", e)
 
     def _run_web_server(self) -> None:
         """Run the aiohttp web server in a dedicated thread, with a bind

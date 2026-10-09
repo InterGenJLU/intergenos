@@ -108,6 +108,18 @@ _DEFAULTS = {
         # the intergen package build (see packages/ai/intergen/build.sh).
         "chat_template_file": "/usr/share/intergen/internvl-tool-template.jinja",
     },
+    # The panel's address: the web server behind the panel window, the browser
+    # page and the console client. It sits beside the model servers' ports
+    # (llama_server.port above; llama_server.embedding_port, 8081 when unset)
+    # and is read the same way. The daemon serves the panel on a loopback
+    # address only and refuses any other, saying why in its status: the panel
+    # carries the person's session over plain HTTP and a WebSocket. The page,
+    # the console client and the panel window still connect to 8089, so a
+    # different port here moves the server without them.
+    "web_server": {
+        "host": "127.0.0.1",
+        "port": 8089,
+    },
     "logging": {
         "level": "INFO",
         # The root/system paths. A per-user service cannot write them —
