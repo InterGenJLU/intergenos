@@ -2285,5 +2285,470 @@ class TheEscalationHandsTheStopToTheProvider(unittest.TestCase):
         })
 
 
+# The consent dialog's program, of the case's own: it records its pid, reads
+# what it was handed, and then (as its mode says) tells its launcher it is on
+# screen, or never does, or exits before it can be. It answers when the case
+# presses Send or Cancel and exits at once when the case ends, and in any case
+# within a minute, so no case leaves it behind. It never draws a window.
+_DIALOG_PROGRAM = """import os, sys, time
+pids, answer, over, mode = sys.argv[1:5]
+with open(pids, "a") as f:
+    f.write(str(os.getpid()) + chr(10))
+if mode == "cannot-render":
+    sys.exit(70)
+sys.stdin.read()
+if mode == "renders":
+    sys.stdout.write(%r + chr(10))
+    sys.stdout.flush()
+    open(pids + ".rendered", "w").close()
+for _ in range(600):
+    if os.path.exists(over):
+        sys.exit(1)
+    if os.path.exists(answer):
+        with open(answer) as f:
+            sys.exit(int(f.read()))
+    time.sleep(0.1)
+sys.exit(1)
+"""
+
+
+def _running(pid: int) -> bool:
+    """Whether the process is still running: one that has exited, reaped or
+    not, is not. One reaped between the open and the read of its stat is
+    gone too: that read fails with ProcessLookupError."""
+    try:
+        with open(f"/proc/{pid}/stat") as f:
+            return f.read().rsplit(")", 1)[1].split()[0] != "Z"
+    except (FileNotFoundError, ProcessLookupError):
+        return False
+
+
+class _Dialogs:
+    """The two dialog programs of one case: the branded one, run by the
+    real launcher (consent_dialog._run_dialog) in ``mode``, and the fallback
+    in zenity's place. Both record their pids in one file."""
+
+    def __init__(self, case: unittest.TestCase, mode: str) -> None:
+        import shlex
+        import sys
+        import tempfile
+        from pathlib import Path
+        from intergen import consent_dialog_proto
+        tmp = tempfile.TemporaryDirectory(prefix="consent-withdrawn-")
+        case.addCleanup(tmp.cleanup)
+        here = Path(tmp.name)
+        self.pids = here / "pids"
+        self.answer = here / "answer"
+        self.over = here / "over"
+        program = here / "dialog.py"
+        program.write_text(
+            _DIALOG_PROGRAM % consent_dialog_proto.RENDERED_MARKER)
+        args = [str(program), str(self.pids), str(self.answer), str(self.over)]
+        self.branded = [sys.executable, *args, mode]
+        self.fallback = str(here / "zenity")
+        Path(self.fallback).write_text("#!/bin/sh\nexec " + shlex.join(
+            [sys.executable, *args, "fallback"]) + "\n")
+        Path(self.fallback).chmod(0o755)
+        case.addCleanup(self.end)
+
+    def started(self) -> list[int]:
+        if not self.pids.exists():
+            return []
+        return [int(line) for line in self.pids.read_text().split()]
+
+    def running(self) -> list[int]:
+        return [pid for pid in self.started() if _running(pid)]
+
+    def rendered(self) -> bool:
+        return self.pids.with_name("pids.rendered").exists()
+
+    def press(self, code: int) -> None:
+        """The person answers: Send or Cancel, as the dialog's exit status."""
+        import os
+        pending = self.answer.with_name("answer.pending")
+        pending.write_text(str(code))
+        os.replace(pending, self.answer)
+
+    def end(self) -> None:
+        """Every dialog program exits; one still running after two seconds
+        is killed."""
+        import os
+        import signal
+        import time
+        self.over.touch()
+        for _ in range(200):
+            if not self.running():
+                return
+            time.sleep(0.01)
+        for pid in self.running():
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
+
+class AConsentDialogIsWithdrawnWithItsRequest(unittest.TestCase):
+    """The person asks their frontier model from the page and the consent
+    dialog opens; before they answer it, the conversation is cleared, or a
+    new one is started. The door ends the request, and whatever the person
+    answers nothing reaches the provider, but the dialog stayed open: a
+    question its conversation no longer has, asked until the person
+    answered it or its deadline passed an hour later. The dialog is now
+    handed the frame's stop and withdrawn when it is set: its program is
+    killed, the consent is counted as none and recorded as withdrawn, and no
+    fallback dialog opens in its place.
+
+    The consent step is the real one (consent_modal.prompt_send_consent, the
+    branded dialog's launcher consent_dialog._run_dialog, and the zenity
+    fallback), and the frames come through the real receive loop; only the
+    two dialog PROGRAMS are the case's own (_Dialogs). The controls: a
+    dialog answered Send is the request's consent, and one answered Cancel
+    is the person's decline."""
+
+    maxDiff = None
+
+    def _server(self, cloud, dialogs: _Dialogs):
+        from intergen import consent_dialog, consent_modal
+        from intergen.llm import LLMRouter
+        real_prompt = consent_modal.prompt_send_consent
+        real_launcher = consent_dialog._run_dialog
+        self.asked: list[dict] = []
+
+        def recorded(*args, **kwargs):
+            entry = {"answered": "<still asking>",
+                     "outcome": kwargs.get("outcome")}
+            self.asked.append(entry)
+            entry["answered"] = real_prompt(*args, **kwargs)
+            return entry["answered"]
+
+        def launcher(spec, cmd=None, **kwargs):
+            return real_launcher(spec, cmd=dialogs.branded, **kwargs)
+
+        for patcher in (
+                mock.patch("intergen.consent_modal.prompt_send_consent",
+                           side_effect=recorded),
+                mock.patch.object(consent_modal, "_session_active",
+                                  return_value=True),
+                mock.patch.object(consent_dialog, "_run_dialog",
+                                  side_effect=launcher),
+                mock.patch.object(consent_modal.shutil, "which",
+                                  side_effect=lambda name: dialogs.fallback
+                                  if name == "zenity" else None),
+                mock.patch.object(consent_modal, "_prompt_consent_libnotify",
+                                  return_value=False)):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        llm = LLMRouter({"endpoint": _LOCAL, "request_timeout": 1})
+        router = _model_router(llm)
+        router._escalation = _watched_manager(cloud)
+        server = WebServer(router=router, llm=llm, tools=None, governance=None)
+        server._sessions = mock.MagicMock()
+        self.saved: list[list[str]] = []
+        server._sessions.save.side_effect = (
+            lambda _sid, history, **_kw: self.saved.append(
+                [m.content for m in history]))
+        server._send_session_list = mock.AsyncMock()
+        return server, router
+
+    async def _within(self, predicate, seconds: float) -> bool:
+        for _ in range(int(seconds * 100)):
+            if predicate():
+                return True
+            await asyncio.sleep(0.01)
+        return bool(predicate())
+
+    async def _until(self, predicate, what: str, seconds: float = 5.0) -> None:
+        if not await self._within(predicate, seconds):
+            self.fail(what)
+
+    def _run(self, page_then, scenario_body, cloud, dialogs: _Dialogs):
+        server, router = self._server(cloud, dialogs)
+
+        async def scenario():
+            page = _FrontierPage(page_then)
+            ctx = ConnectionContext(client_id="case", source_interface="web",
+                                    ws=page,
+                                    conversation=router.new_conversation())
+            loop_task = asyncio.create_task(server._dispatch_loop(ctx))
+            try:
+                return await scenario_body(ctx, page)
+            finally:
+                dialogs.end()
+                cloud.finish.set()
+                page.send_then.set()
+                page.leave.set()
+                await asyncio.gather(loop_task, return_exceptions=True)
+                if ctx.turn_task is not None:
+                    await asyncio.gather(ctx.turn_task,
+                                         return_exceptions=True)
+        return asyncio.run(scenario())
+
+    def _consent(self) -> dict:
+        asked = self.asked[0] if self.asked else {}
+        return {
+            "the consent answered": asked.get("answered", "<never asked>"),
+            "the consent recorded": list(asked.get("outcome") or []),
+        }
+
+    def _ended_by(self, door: dict, door_frame: str, mode: str,
+                  open_programs: int) -> dict:
+        cloud = _PacedCloud(CLOUD_ANSWER)
+        dialogs = _Dialogs(self, mode)
+
+        async def body(ctx, page):
+            if mode == "renders":
+                await self._until(dialogs.rendered,
+                                  "the consent dialog never came on screen")
+            await self._until(lambda: len(dialogs.running()) == 1
+                              and len(dialogs.started()) == open_programs,
+                              "the consent dialog never opened")
+            # The launcher has read what it was waiting for.
+            await asyncio.sleep(0.3)
+            open_at_the_door = (len(dialogs.running()) == 1
+                                and self.asked[0]["answered"]
+                                == "<still asking>")
+            page.send_then.set()
+            took_effect = await self._within(
+                lambda: door_frame in _frames(page), 1.0)
+            withdrawn = await self._within(
+                lambda: not dialogs.running(), 2.0)
+            # Time for a fallback to open in its place, if one would.
+            await asyncio.sleep(0.5)
+            return {
+                "the dialog open when the door came": open_at_the_door,
+                "the door took effect": took_effect,
+                "the dialog withdrawn within 2 s of the door": withdrawn,
+                "dialog programs started": len(dialogs.started()),
+                **self._consent(),
+                "the provider was asked": cloud.calls,
+                "an answer reached the page": any(
+                    f.get("type") == "frontier_response" for f in page.sent),
+            }
+
+        return self._run(door, body, cloud, dialogs)
+
+    @staticmethod
+    def _withdrawn(programs: int) -> dict:
+        return {
+            "the dialog open when the door came": True,
+            "the door took effect": True,
+            "the dialog withdrawn within 2 s of the door": True,
+            "dialog programs started": programs,
+            "the consent answered": False,
+            "the consent recorded": ["withdrawn"],
+            "the provider was asked": 0,
+            "an answer reached the page": False,
+        }
+
+    # One case per door and dialog, never subtests: each verdict is its own
+    # line.
+    def test_clear_withdraws_the_consent_dialog_on_screen(self):
+        self.assertEqual(self._ended_by(
+            {"type": "slash_command", "command": "/clear"}, "buffer_cleared",
+            "renders", 1), self._withdrawn(1))
+
+    def test_a_new_conversation_withdraws_the_consent_dialog_on_screen(self):
+        self.assertEqual(self._ended_by(
+            {"type": "new_session"}, "session_created", "renders", 1),
+            self._withdrawn(1))
+
+    def test_a_dialog_still_coming_on_screen_is_withdrawn_and_not_replaced(
+            self):
+        """The branded dialog has not yet said it is on screen when the door
+        comes. It is withdrawn too, and the fallback does not open in its
+        place: the request it would ask about has ended."""
+        self.assertEqual(self._ended_by(
+            {"type": "new_session"}, "session_created", "never-renders", 1),
+            self._withdrawn(1))
+
+    def test_clear_withdraws_the_fallback_dialog(self):
+        """The branded dialog could not open, so the fallback asks; the door
+        withdraws it in the same way."""
+        self.assertEqual(self._ended_by(
+            {"type": "slash_command", "command": "/clear"}, "buffer_cleared",
+            "cannot-render", 2), self._withdrawn(2))
+
+    def _answered(self, code: int) -> dict:
+        cloud = _PacedCloud(CLOUD_ANSWER)
+        dialogs = _Dialogs(self, "renders")
+
+        async def body(ctx, page):
+            await self._until(dialogs.rendered,
+                              "the consent dialog never came on screen")
+            dialogs.press(code)
+            await self._until(
+                lambda: self.asked[0]["answered"] != "<still asking>",
+                "the consent step never took the answer")
+            if self.asked[0]["answered"] is True:
+                await self._until(cloud.entered.is_set,
+                                  "the frontier provider was never asked")
+                for _ in cloud.words:
+                    cloud.allow.release()
+            await self._until(lambda: any(
+                f.get("type") == "frontier_response" for f in page.sent),
+                "the page was never answered")
+            told = [f.get("content") for f in page.sent
+                    if f.get("type") == "frontier_response"]
+            return {
+                "dialog programs started": len(dialogs.started()),
+                **self._consent(),
+                "the provider was asked": cloud.calls,
+                "the page was told": told,
+                "the answer kept in the conversation": (
+                    any(m.content == CLOUD_ANSWER
+                        for m in ctx.session_history)
+                    or any(CLOUD_ANSWER in saved for saved in self.saved)),
+            }
+
+        return self._run(None, body, cloud, dialogs)
+
+    def test_control_a_send_is_the_requests_consent(self):
+        from intergen.consent_dialog_proto import EXIT_CONSENT_SEND
+        from intergen.consent_modal import SEND
+        self.assertEqual(self._answered(EXIT_CONSENT_SEND), {
+            "dialog programs started": 1,
+            "the consent answered": True,
+            "the consent recorded": [SEND],
+            "the provider was asked": 1,
+            "the page was told": [CLOUD_ANSWER],
+            "the answer kept in the conversation": True,
+        })
+
+    def test_control_a_cancel_is_the_persons_decline(self):
+        from intergen.consent_dialog_proto import EXIT_DENY
+        from intergen.consent_modal import DECLINED, DECLINED_SENTENCE
+        self.assertEqual(self._answered(EXIT_DENY), {
+            "dialog programs started": 1,
+            "the consent answered": False,
+            "the consent recorded": [DECLINED],
+            "the provider was asked": 0,
+            "the page was told": [DECLINED_SENTENCE],
+            "the answer kept in the conversation": False,
+        })
+
+
+class TheConsentStepTakesItsCallersStop(unittest.TestCase):
+    """prompt_send_consent handed a caller's stop, called as the web
+    surface's frontier request calls it: a stop already set opens no dialog,
+    and an answer that comes back as the stop is set is not taken. Each
+    counts as no consent and is recorded as withdrawn."""
+
+    maxDiff = None
+
+    def _ask(self, should_stop, dialog=None) -> dict:
+        """The consent step asked once; what it answered and recorded, and
+        which dialogs it opened, counted where each is launched (a program
+        killed at once never gets as far as recording its pid)."""
+        from intergen import consent_dialog, consent_modal
+        dialogs = _Dialogs(self, "renders")
+        real_launcher = consent_dialog._run_dialog
+        opened: list[str] = []
+
+        def launcher(spec, cmd=None, **kwargs):
+            opened.append("branded")
+            return real_launcher(spec, cmd=dialogs.branded, **kwargs)
+
+        def which(name):
+            if name != "zenity":
+                return None
+            opened.append("fallback")
+            return dialogs.fallback
+
+        patches = [
+            mock.patch.object(consent_modal, "_session_active",
+                              return_value=True),
+            mock.patch.object(consent_dialog, "_run_dialog",
+                              side_effect=launcher),
+            mock.patch.object(consent_modal.shutil, "which",
+                              side_effect=which),
+            mock.patch.object(consent_modal, "_prompt_consent_libnotify",
+                              return_value=False),
+        ]
+        if dialog is not None:
+            patches.append(mock.patch.object(
+                consent_dialog, "run_consent_dialog", side_effect=dialog))
+        outcome: list = []
+        for patcher in patches:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        try:
+            answered = consent_modal.prompt_send_consent(
+                FRONTIER_QUESTION, "frontier", outcome=outcome,
+                should_stop=should_stop)
+        except TypeError as exc:  # read by the case: a caller's stop refused
+            answered = f"<raised {type(exc).__name__}>"
+        return {
+            "the consent answered": answered,
+            "the consent recorded": outcome,
+            "dialogs opened": opened,
+        }
+
+    def test_a_stop_already_set_opens_no_dialog(self):
+        self.assertEqual(self._ask(lambda: True), {
+            "the consent answered": False,
+            "the consent recorded": ["withdrawn"],
+            "dialogs opened": [],
+        })
+
+    def test_a_send_given_as_the_stop_is_set_is_not_taken(self):
+        import threading
+        stop = threading.Event()
+
+        def send_pressed_as_the_door_came(*_args, **_kwargs):
+            stop.set()
+            return True
+
+        self.assertEqual(self._ask(stop.is_set, send_pressed_as_the_door_came),
+                         {
+            "the consent answered": False,
+            "the consent recorded": ["withdrawn"],
+            "dialogs opened": [],
+        })
+
+    def test_control_a_caller_that_hands_no_stop_calls_as_before(self):
+        """The command line, the bus and the review dialog hand no stop: the
+        consent step makes exactly the calls it made before the stop, so a
+        launcher or a fallback written for those calls still answers."""
+        from intergen import consent_dialog, consent_modal
+        from intergen.consent_dialog_proto import EXIT_CONSENT_SEND
+
+        def ask(branded_answer) -> dict:
+            calls: list[str] = []
+
+            def the_launcher_before_the_stop(spec):
+                calls.append("branded")
+                return branded_answer
+
+            def the_fallback_before_the_stop(content, provider, reason):
+                calls.append("fallback")
+                return True
+
+            outcome: list = []
+            with mock.patch.object(consent_modal, "_session_active",
+                                   return_value=True), \
+                    mock.patch.object(consent_dialog, "_run_dialog",
+                                      side_effect=the_launcher_before_the_stop), \
+                    mock.patch.object(consent_modal, "_prompt_consent_zenity",
+                                      side_effect=the_fallback_before_the_stop):
+                try:
+                    answered = consent_modal.prompt_send_consent(
+                        FRONTIER_QUESTION, "frontier", outcome=outcome)
+                except TypeError as exc:  # read by the case
+                    answered = f"<raised {type(exc).__name__}>"
+            return {"answered": answered, "recorded": outcome,
+                    "asked": calls}
+
+        self.assertEqual({
+            "through the branded dialog": ask(EXIT_CONSENT_SEND),
+            "through the fallback": ask(None),
+        }, {
+            "through the branded dialog": {
+                "answered": True, "recorded": ["send"], "asked": ["branded"]},
+            "through the fallback": {
+                "answered": True, "recorded": ["send"],
+                "asked": ["branded", "fallback"]},
+        })
+
+
 if __name__ == "__main__":
     unittest.main()

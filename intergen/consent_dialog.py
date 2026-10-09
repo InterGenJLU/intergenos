@@ -42,6 +42,7 @@ import subprocess
 import sys
 import threading
 import time
+from typing import Callable
 
 from intergen import consent_dialog_proto as proto
 from intergen.consent_dialog_sanitize import describe_gate_action
@@ -52,6 +53,17 @@ logger = logging.getLogger(__name__)
 # was killed. Not an exit status (no process returns it), so a caller can tell a
 # dialog nobody answered from a decision.
 DEADLINE_EXPIRED = -10000
+
+# What _run_dialog answers when the caller's stop withdrew the dialog: the
+# request it asked about ended before anyone answered (on the web surface, a
+# door that ends the conversation it was asked from), so the dialog was killed
+# rather than left asking a question nobody is waiting on. Not an exit status
+# either, and never None, which would open the fallback in its place.
+WITHDRAWN = -10001
+
+# How often a dialog waiting on its answer reads the caller's stop. A dialog
+# with no stop to read waits as it always has, in one wait to its deadline.
+WITHDRAW_POLL_SECONDS = 0.1
 
 
 def _scrubbed_env() -> dict[str, str]:
@@ -77,11 +89,17 @@ def _kill(proc: subprocess.Popen) -> None:
         pass
 
 
-def _run_dialog(spec: dict, cmd: list[str] | None = None) -> int | None:
+def _run_dialog(spec: dict, cmd: list[str] | None = None,
+                should_stop: Callable[[], bool] | None = None) -> int | None:
     """Spawn the branded binary for `spec` and return its decision exit code, or
     None if it never rendered (caller falls back to zenity).
 
     `cmd` is an injection seam for tests (defaults to the real binary).
+
+    `should_stop`, when given, is the caller's stop: a callable that returns
+    True once the request the dialog asks about has ended. It is read while
+    the dialog renders and while it waits for the answer; once it is set the
+    dialog is killed and WITHDRAWN is returned.
 
     Returns:
       * None                         — render never happened (spawn error, GTK
@@ -90,6 +108,8 @@ def _run_dialog(spec: dict, cmd: list[str] | None = None) -> int | None:
       * proto.EXIT_*  (an int)       — the dialog rendered and exited with it.
       * DEADLINE_EXPIRED             — the dialog rendered and nobody answered it
                                        before the deadline; it was killed.
+      * WITHDRAWN                    — the caller's stop was set before anyone
+                                       answered; the dialog was killed.
                                        Any non-affirmative int is a refusal.
     """
     if cmd is None:
@@ -128,6 +148,8 @@ def _run_dialog(spec: dict, cmd: list[str] | None = None) -> int | None:
     rendered = False
     deadline = time.monotonic() + proto.PRE_RENDER_TIMEOUT_SECONDS
     while time.monotonic() < deadline:
+        if should_stop is not None and should_stop():
+            return _withdraw(proc)
         remaining = deadline - time.monotonic()
         readable, _, _ = select.select(
             [proc.stdout], [], [], min(0.5, max(0.0, remaining))
@@ -152,7 +174,10 @@ def _run_dialog(spec: dict, cmd: list[str] | None = None) -> int | None:
 
     # ── Decision: wait patiently for the human, bounded by the deadline ─────
     try:
-        proc.wait(timeout=proto.POST_RENDER_DEADLINE_SECONDS)
+        if should_stop is None:
+            proc.wait(timeout=proto.POST_RENDER_DEADLINE_SECONDS)
+        elif _stopped_before_an_answer(proc, should_stop):
+            return _withdraw(proc)
     except subprocess.TimeoutExpired:
         logger.warning(
             "consent dialog: no decision within %.0fs — not answered, nothing "
@@ -162,6 +187,33 @@ def _run_dialog(spec: dict, cmd: list[str] | None = None) -> int | None:
         _kill(proc)
         return DEADLINE_EXPIRED
     return proc.returncode
+
+
+def _stopped_before_an_answer(proc: subprocess.Popen,
+                              should_stop: Callable[[], bool]) -> bool:
+    """Wait for the dialog's answer as proc.wait(timeout=the deadline) does,
+    reading the caller's stop between short waits: True once the stop is set
+    with the dialog still open, False once the dialog has exited, and
+    TimeoutExpired at the deadline."""
+    decide_by = time.monotonic() + proto.POST_RENDER_DEADLINE_SECONDS
+    while True:
+        try:
+            proc.wait(timeout=min(WITHDRAW_POLL_SECONDS,
+                                  max(0.0, decide_by - time.monotonic())))
+            return False
+        except subprocess.TimeoutExpired:
+            if time.monotonic() >= decide_by:
+                raise
+        if should_stop():
+            return True
+
+
+def _withdraw(proc: subprocess.Popen) -> int:
+    """Take down a dialog whose request has ended (the caller's stop is set)."""
+    logger.info("consent dialog: the request it asked about has ended — the "
+                "dialog was withdrawn; nothing allowed or sent")
+    _kill(proc)
+    return WITHDRAWN
 
 
 # ── Public API used by the two modals ────────────────────────────────────────
@@ -231,12 +283,16 @@ def run_review_dialog(
     return REVIEW_FAILED
 
 
-def run_consent_dialog(content: str, provider: str, reason: str = "") -> bool | None:
+def run_consent_dialog(content: str, provider: str, reason: str = "",
+                       should_stop: Callable[[], bool] | None = None,
+                       ) -> bool | None:
     """Render the show-before-send egress consent via the branded binary.
 
     Returns True only on an explicit Send, False on any rendered non-send
-    (Cancel / Esc / close / crash / DEADLINE_EXPIRED / over-size), or None if the
-    binary could not render (caller falls back to zenity)."""
+    (Cancel / Esc / close / crash / DEADLINE_EXPIRED / over-size) or a dialog
+    the caller's stop withdrew (WITHDRAWN, rendered or not: no fallback may
+    open after it), or None if the binary could not render (caller falls back
+    to zenity). `should_stop` is as for _run_dialog."""
     try:
         # §E — never truncate the egress payload: too-large = fail-closed deny,
         # never a truncated render (defense in depth; the binary guards it too).
@@ -257,7 +313,9 @@ def run_consent_dialog(content: str, provider: str, reason: str = "") -> bool | 
         logger.warning("consent dialog: could not build consent spec (%s) — fallback", e)
         return None
 
-    code = _run_dialog(spec)
+    # A caller that hands no stop makes exactly the call it made before.
+    stop_kwargs = {} if should_stop is None else {"should_stop": should_stop}
+    code = _run_dialog(spec, **stop_kwargs)
     if code is None:
         return None
     return code == proto.EXIT_CONSENT_SEND

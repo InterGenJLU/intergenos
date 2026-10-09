@@ -29,6 +29,8 @@ from __future__ import annotations
 import logging
 import shutil
 import subprocess
+import time
+from typing import Callable
 
 # Reuse review_modal's session-active probe so the two consent surfaces behave
 # identically about when a GUI modal is reachable vs the console path.
@@ -48,6 +50,12 @@ SEND = "send"
 DECLINED = "declined"
 NOT_SHOWN = "not-shown"
 TOO_LARGE = "too-large"
+# The request the consent was for ended before an answer was taken (on the web
+# surface, a door that ends the conversation it was asked from): the question
+# was withdrawn, and it counts as no consent. Neither the person's decline nor
+# a send nobody was asked about; no reply carries it, because its caller has
+# ended.
+WITHDRAWN = "withdrawn"
 
 DECLINED_SENTENCE = "Cancelled — nothing was sent to the frontier model."
 NOT_SHOWN_SENTENCE = (
@@ -122,10 +130,14 @@ def _format_body(content: str, provider: str, reason: str) -> str:
     return "\n".join(lines)
 
 
-def _prompt_consent_zenity(content: str, provider: str, reason: str) -> bool | None:
+def _prompt_consent_zenity(content: str, provider: str, reason: str,
+                           should_stop: Callable[[], bool] | None = None,
+                           ) -> bool | None:
     """Synchronous zenity --text-info modal (scrollable, full payload). Returns
     True (Send) / False (Cancel), or None if zenity is unavailable, cannot start,
     or cannot open the display, so the caller can route to the fallback.
+    Handed the caller's stop (``should_stop``), the program is killed once the
+    stop is set and False is returned: the dialog withdrawn, nothing sent.
 
     Button mapping: --ok-label "Send" -> rc 0 (True); --cancel-label "Cancel" /
     Esc / window-close -> rc != 0 (False). The text-info dialog's default
@@ -164,18 +176,23 @@ def _prompt_consent_zenity(content: str, provider: str, reason: str) -> bool | N
         # send. --default-cancel is NOT passed: a text-info dialog in zenity 4.2.2
         # ignores it (it applies to question dialogs only), and a flag that reads as a
         # safeguard while doing nothing is worse than its absence.
-        result = subprocess.run(
-            [
-                zenity, "--text-info",
-                "--title=InterGen — send to your frontier model?",
-                "--width=760", "--height=520",
-                "--ok-label=Send",
-                "--cancel-label=Cancel",
-                f"--checkbox={REVIEW_ACKNOWLEDGED}",
-            ],
-            input=body, capture_output=True, text=True,
-            timeout=consent_dialog_proto.POST_RENDER_DEADLINE_SECONDS,
-        )
+        argv = [
+            zenity, "--text-info",
+            "--title=InterGen — send to your frontier model?",
+            "--width=760", "--height=520",
+            "--ok-label=Send",
+            "--cancel-label=Cancel",
+            f"--checkbox={REVIEW_ACKNOWLEDGED}",
+        ]
+        if should_stop is None:
+            result = subprocess.run(
+                argv, input=body, capture_output=True, text=True,
+                timeout=consent_dialog_proto.POST_RENDER_DEADLINE_SECONDS,
+            )
+        else:
+            result = _run_until_stopped(argv, body, should_stop)
+            if result is None:
+                return False
     except subprocess.TimeoutExpired:
         # Nobody answered inside the deadline. subprocess.run has already
         # killed the dialog program and reaped it, so nothing is left holding
@@ -203,6 +220,41 @@ def _prompt_consent_zenity(content: str, provider: str, reason: str) -> bool | N
                      "open; routing to the fallback (no send)")
         return None
     return result.returncode == 0
+
+
+def _run_until_stopped(argv: list[str], body: str,
+                       should_stop: Callable[[], bool],
+                       ) -> subprocess.CompletedProcess | None:
+    """subprocess.run(argv, input=body, capture_output=True, text=True,
+    timeout=the deadline), reading the caller's stop between short waits:
+    once it is set the program is killed and None is returned. The deadline
+    is subprocess.run's: the program is killed and reaped, and TimeoutExpired
+    is raised."""
+    decide_by = (time.monotonic()
+                 + consent_dialog_proto.POST_RENDER_DEADLINE_SECONDS)
+    with subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, text=True) as proc:
+        given = body
+        while True:
+            try:
+                out, err = proc.communicate(given, timeout=min(
+                    consent_dialog.WITHDRAW_POLL_SECONDS,
+                    max(0.0, decide_by - time.monotonic())))
+                return subprocess.CompletedProcess(argv, proc.returncode,
+                                                   out, err)
+            except subprocess.TimeoutExpired:
+                given = None   # the input not yet written is kept by Popen
+            if should_stop():
+                logger.info("consent: the request this dialog asked about has "
+                            "ended — the dialog was withdrawn; nothing sent")
+                proc.kill()
+                proc.communicate()
+                return None
+            if time.monotonic() >= decide_by:
+                proc.kill()
+                proc.communicate()
+                raise subprocess.TimeoutExpired(
+                    argv, consent_dialog_proto.POST_RENDER_DEADLINE_SECONDS)
 
 
 def _prompt_consent_libnotify(provider: str) -> bool:
@@ -235,7 +287,8 @@ def _prompt_consent_libnotify(provider: str) -> bool:
 
 
 def prompt_send_consent(content: str, provider: str, reason: str = "", *,
-                        outcome: list | None = None) -> bool:
+                        outcome: list | None = None,
+                        should_stop: Callable[[], bool] | None = None) -> bool:
     """Show-before-send consent gate. Return True only on an explicit human Send.
 
     Routes to the branded GTK send-confirm dialog when the desktop session is
@@ -244,7 +297,7 @@ def prompt_send_consent(content: str, provider: str, reason: str = "", *,
     showed them the full outbound content.
 
     ``outcome``, when a list is passed, receives exactly one of SEND, DECLINED,
-    NOT_SHOWN or TOO_LARGE, so a caller can tell the person WHY nothing was
+    NOT_SHOWN, TOO_LARGE or WITHDRAWN, so a caller can tell the person WHY nothing was
     sent. It is a list the caller owns rather than a new return type so that
     every existing caller, and every stand-in that replaces this function with
     a plain True or False, keeps working unchanged. NOT_SHOWN is recorded when
@@ -256,15 +309,40 @@ def prompt_send_consent(content: str, provider: str, reason: str = "", *,
     the branded dialog reports a crash and its deadline, both after it has
     shown the content, as the same False as a Cancel; both are recorded as
     DECLINED because this function cannot tell them apart.
+
+    ``should_stop``, when given, is the caller's stop: a callable that returns
+    True once the request this consent is for has ended (on the web surface,
+    a door that ends the conversation it was asked from). Once it is set the
+    question is withdrawn: no dialog opens if it is set before one would, an
+    open dialog is taken down (its program killed, and no fallback opens in
+    its place), and an answer given as it is set is not taken. It counts as
+    no consent and is recorded as WITHDRAWN. A caller that hands no stop (the
+    command line, the bus) is asked exactly as before.
     """
-    allowed = _ask(content, provider, reason)
+    allowed = _ask(content, provider, reason, should_stop)
     if outcome is not None:
         outcome.append(allowed)
     return allowed == SEND
 
 
-def _ask(content: str, provider: str, reason: str) -> str:
-    """The consent decision as SEND, DECLINED, NOT_SHOWN or TOO_LARGE."""
+def _withdrawn(should_stop: Callable[[], bool] | None) -> bool:
+    """True once the caller's stop is set: the request has ended, and the
+    question with it."""
+    if should_stop is None or not should_stop():
+        return False
+    logger.info("consent: the request this consent was for has ended — the "
+                "question is withdrawn; nothing sent")
+    return True
+
+
+def _ask(content: str, provider: str, reason: str,
+         should_stop: Callable[[], bool] | None = None) -> str:
+    """The consent decision as SEND, DECLINED, NOT_SHOWN, TOO_LARGE or
+    WITHDRAWN."""
+    if _withdrawn(should_stop):
+        return WITHDRAWN
+    # A caller that hands no stop makes exactly the calls it made before.
+    stop_kwargs = {} if should_stop is None else {"should_stop": should_stop}
     # Eval-mode deny-and-record. UNARMED in production, where this guard is False
     # and the function continues into the identical code path below — so shipped
     # consent behavior is unchanged. When an unattended baseline run has armed the
@@ -291,13 +369,19 @@ def _ask(content: str, provider: str, reason: str) -> str:
         logger.info(
             "consent: session active — rendering the branded GTK send-confirm "
             "dialog (zenity fallback ready)")
-        gtk_result = consent_dialog.run_consent_dialog(content, provider, reason)
+        gtk_result = consent_dialog.run_consent_dialog(
+            content, provider, reason, **stop_kwargs)
+        if _withdrawn(should_stop):
+            return WITHDRAWN
         if gtk_result is not None:
             return SEND if gtk_result else DECLINED
         logger.warning(
             "consent: branded GTK send-confirm did not render — falling back to "
             "the zenity show-before-send modal")
-        result = _prompt_consent_zenity(content, provider, reason)
+        result = _prompt_consent_zenity(content, provider, reason,
+                                        **stop_kwargs)
+        if _withdrawn(should_stop):
+            return WITHDRAWN
         if result is not None:
             return SEND if result else DECLINED
     else:

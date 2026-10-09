@@ -1618,10 +1618,12 @@ class WebServer:
                 EscalationNotSent, Message, MessageRole)
             # The page is told which refusal it was: the person's Cancel, or no
             # way to show the content at all, in which case nobody was asked.
+            # The dialog is handed the frame's stop (below), so a door that
+            # ends the frame withdraws a dialog still open.
             consent: list = []
             if not prompt_send_consent(content, provider,
                                        reason="you asked to reach your frontier model",
-                                       outcome=consent):
+                                       outcome=consent, should_stop=_stop.is_set):
                 return (False, refusal_sentence(consent))
             resp = manager.escalate(
                 [Message(role=MessageRole.USER, content=content)],
@@ -1640,10 +1642,12 @@ class WebServer:
         # THE FRAME'S STOP, bound as a turn binds its own (_run_turn). The
         # worker thread runs under a copy of this context, so the escalation
         # reads it and hands it to the provider through the cloud-provider
-        # contract (escalation.py). It is set in the finally however the
-        # frame ends: a door that ends the conversation cancels this frame
-        # (it runs in the turn's slot), and the call stops within one item,
-        # its answer never reaching the conversation the door left.
+        # contract (escalation.py); the consent dialog is handed it directly
+        # (_run). It is set in the finally however the frame ends: a door
+        # that ends the conversation cancels this frame (it runs in the
+        # turn's slot), a consent dialog still open is withdrawn, and the
+        # call stops within one item, its answer never reaching the
+        # conversation the door left.
         _stop = threading.Event()
         _stop_token = bind_turn_stop(_stop)
         try:
