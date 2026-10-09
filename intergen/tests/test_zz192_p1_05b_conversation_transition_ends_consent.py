@@ -1327,6 +1327,39 @@ class _StopThenFailCloud(CloudProviderAdapter):
         return True, "stop-then-fail"
 
 
+class _StopByPositionCloud(CloudProviderAdapter):
+    """A provider whose send() names should_stop, but takes it only by
+    position: the router hands the stop by keyword, so it could never reach
+    the parameter."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    @property
+    def name(self) -> str:
+        return "by-position"
+
+    def send(self, messages, should_stop=None, /, *, tools=None,
+             max_tokens=None, temperature=None):
+        self.calls += 1
+        return LLMResponse(text=CLOUD_ANSWER, model="by-position", local=False)
+
+    def stream(self, messages, should_stop=None, /, **kwargs):
+        yield CLOUD_ANSWER
+
+    def test_connection(self):
+        return True, "by-position"
+
+
+class _StopByPositionIntoKeywordsCloud(_StopByPositionCloud):
+    """The same parameter beside a **kwargs: the router's should_stop would
+    land in the keywords, and the parameter would keep its default."""
+
+    def send(self, messages, should_stop=None, /, **kwargs):
+        self.calls += 1
+        return LLMResponse(text=CLOUD_ANSWER, model="by-position", local=False)
+
+
 class _CloudWire:
     """The cloud provider's side of an HTTP reply as the shipped adapter reads
     it (intergen/cloud/http_adapter.py): the body arrives in pieces, one each
@@ -1815,6 +1848,54 @@ class AnEndedTurnsCloudCallStopsWithinOneItem(unittest.TestCase):
         thread, out = self._call_in_turn(llm, stop)
         thread.join(5)
         self.assertEqual(self._text(out), "")
+
+    def test_a_provider_that_takes_the_stop_only_by_position_is_refused(
+            self):
+        """send() names should_stop but takes it only by position, so the
+        router's call, which hands the stop by keyword, could never reach
+        it. Registration read the name and not how it is taken."""
+        self.assertEqual(self._refusal(
+            "by-position", _StopByPositionCloud(),
+            "does not take should_stop by keyword"), self.REFUSED)
+
+    def test_a_stop_by_position_beside_keywords_is_refused(self):
+        """The same parameter beside a **kwargs: the router's should_stop
+        would go into the keywords and the parameter keep its default, so
+        the stop would never be read."""
+        self.assertEqual(self._refusal(
+            "by-position", _StopByPositionIntoKeywordsCloud(),
+            "does not take should_stop by keyword"), self.REFUSED)
+
+    def test_a_stop_by_position_put_into_the_router_directly_is_skipped(
+            self):
+        """Put into the router's table without registration, the same
+        provider is skipped at the call, with an ERROR naming why."""
+        import logging
+        from intergen.interfaces.types import Message, MessageRole
+        llm = self._router()
+        cloud = _StopByPositionCloud()
+        llm._cloud_providers["direct"] = cloud
+        errors: list[str] = []
+        handler = logging.Handler(level=logging.ERROR)
+        handler.emit = lambda record: errors.append(record.getMessage())
+        log = logging.getLogger("intergen.llm")
+        log.addHandler(handler)
+        try:
+            reply = llm.chat([Message(role=MessageRole.USER,
+                                      content="what is the forecast?")])
+        finally:
+            log.removeHandler(handler)
+        self.assertEqual({
+            "the provider was asked": cloud.calls,
+            "chat() answered from the cloud": reply.model.startswith("cloud:"),
+            "the skip logged, naming why": any(
+                "skipped cloud provider direct: its send() does not take "
+                "should_stop by keyword" in m for m in errors),
+        }, {
+            "the provider was asked": 0,
+            "chat() answered from the cloud": False,
+            "the skip logged, naming why": True,
+        })
 
 
 class _ChatServerThatStopsListening(_ChatServer):

@@ -78,16 +78,25 @@ def bound_turn_stop() -> "threading.Event | None":
 def cloud_contract_gap(adapter: Any) -> str | None:
     """Why ``adapter`` does not keep the cloud-provider contract, or None when
     it does: it must be a CloudProviderAdapter whose send() takes the caller's
-    stop (should_stop), the keyword the router hands a call it may stop."""
+    stop (should_stop), the keyword the router hands a call it may stop. The
+    parameter has to take it BY KEYWORD: one that takes it only by position
+    (or collects positions under that name) would be handed nothing by the
+    router's call — a TypeError, or the stop gone into **kwargs while the
+    parameter keeps its default."""
     if not isinstance(adapter, CloudProviderAdapter):
         return "it does not implement the cloud-provider contract"
     try:
         params = inspect.signature(adapter.send).parameters
     except (TypeError, ValueError):
         return "its send() cannot be read"
-    if "should_stop" not in params and not any(
-            p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()):
-        return "its send() takes no should_stop"
+    stop = params.get("should_stop")
+    if stop is None:
+        if not any(p.kind is inspect.Parameter.VAR_KEYWORD
+                   for p in params.values()):
+            return "its send() takes no should_stop"
+    elif stop.kind not in (inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                           inspect.Parameter.KEYWORD_ONLY):
+        return "its send() does not take should_stop by keyword"
     return None
 
 
