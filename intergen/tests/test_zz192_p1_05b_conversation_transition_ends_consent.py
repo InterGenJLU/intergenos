@@ -3145,5 +3145,296 @@ class TheConsentStepTakesItsCallersStop(unittest.TestCase):
         })
 
 
+
+# The dialog programs a teardown cannot end, for the cases below: each is the
+# case's own program run as before, with only its Popen's kill made to fail.
+def _kill_refused_popen():
+    import subprocess
+
+    class KillRefused(subprocess.Popen):
+        """A dialog program whose kill is refused: kill() raises and the
+        program keeps running."""
+
+        def kill(self):
+            raise PermissionError(1, "the kill was refused")
+
+    return KillRefused
+
+
+def _never_reaped_popen():
+    import subprocess
+
+    class NeverReaped(subprocess.Popen):
+        """A dialog program the kill does not end (as one stuck in the
+        kernel): kill() is taken, the program keeps running, and the reap
+        that follows times out."""
+
+        def kill(self):
+            self.kill_taken = True
+
+    return NeverReaped
+
+
+class ADialogThatCannotBeTakenDownIsNotRecordedClosed(unittest.TestCase):
+    """A consent dialog the consent step has to take down - withdrawn when its
+    request ends, unanswered at its deadline, or never on screen - was killed
+    with every failure swallowed: a kill that raised, or a reap that timed out,
+    was recorded as a clean withdrawal (or a deadline, or a fallback opened
+    beside it) with the dialog still on screen. Each teardown is now verified
+    (a bounded reap and a poll); one that fails is logged with the program's
+    pid and the reason and recorded as NOT_TAKEN_DOWN: no consent, nothing
+    sent, no fallback opened beside it. The same for the fallback dialog's
+    teardowns, which waited on the program without a bound.
+
+    The consent step is the real one (prompt_send_consent, the branded
+    launcher, the fallback's runner); the dialog programs are the case's own
+    (_Dialogs), and only their Popen's kill is made to fail. Each case reads
+    what the consent step answered and recorded, which dialogs it opened,
+    whether the program it had to take down still runs, and whether an ERROR
+    names that program's pid. The review gate's dialog, which shares the
+    launcher, is a failed review when its teardown fails, never a timed-out
+    one. The control: a kill refused for a program that had already ended is
+    no failure."""
+
+    maxDiff = None
+
+    def _ask(self, mode: str, branded_popen=None, fallback_popen=None,
+             stop_after_render: bool = False, stop_after_fallback: bool = False,
+             with_stop: bool = True, deadline: float | None = None,
+             render_timeout: float | None = None) -> dict:
+        import logging
+        import subprocess
+        import threading
+        import time
+        import types
+        from intergen import consent_dialog, consent_dialog_proto, consent_modal
+        dialogs = _Dialogs(self, mode)
+        real_launcher = consent_dialog._run_dialog
+        opened: list[str] = []
+
+        def launcher(spec, cmd=None, **kwargs):
+            opened.append("branded")
+            return real_launcher(spec, cmd=dialogs.branded, **kwargs)
+
+        def which(name):
+            if name != "zenity":
+                return None
+            opened.append("fallback")
+            return dialogs.fallback
+
+        def with_popen(popen):
+            return types.SimpleNamespace(
+                Popen=popen, PIPE=subprocess.PIPE, DEVNULL=subprocess.DEVNULL,
+                TimeoutExpired=subprocess.TimeoutExpired,
+                CompletedProcess=subprocess.CompletedProcess,
+                run=subprocess.run)
+
+        patches = [
+            mock.patch.object(consent_modal, "_session_active",
+                              return_value=True),
+            mock.patch.object(consent_dialog, "_run_dialog",
+                              side_effect=launcher),
+            mock.patch.object(consent_modal.shutil, "which", side_effect=which),
+            mock.patch.object(consent_modal, "_prompt_consent_libnotify",
+                              return_value=False),
+            mock.patch.object(consent_dialog, "KILL_REAP_SECONDS", 0.3,
+                              create=True),
+        ]
+        if branded_popen is not None:
+            patches.append(mock.patch.object(
+                consent_dialog, "subprocess", with_popen(branded_popen)))
+        if fallback_popen is not None:
+            patches.append(mock.patch.object(
+                consent_modal, "subprocess", with_popen(fallback_popen)))
+        if deadline is not None:
+            patches.append(mock.patch.object(
+                consent_dialog_proto, "POST_RENDER_DEADLINE_SECONDS", deadline))
+        if render_timeout is not None:
+            patches.append(mock.patch.object(
+                consent_dialog_proto, "PRE_RENDER_TIMEOUT_SECONDS",
+                render_timeout))
+        for patcher in patches:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        errors: list[str] = []
+        handler = logging.Handler(level=logging.ERROR)
+        handler.emit = lambda record: errors.append(record.getMessage())
+        log = logging.getLogger("intergen.consent_dialog")
+        log.addHandler(handler)
+        self.addCleanup(log.removeHandler, handler)
+        stop = threading.Event()
+        outcome: list = []
+        out: dict = {}
+
+        def ask() -> None:
+            try:
+                out["answered"] = consent_modal.prompt_send_consent(
+                    FRONTIER_QUESTION, "frontier", outcome=outcome,
+                    should_stop=stop.is_set if with_stop else None)
+            except BaseException as exc:  # read by the case
+                out["answered"] = f"<raised {type(exc).__name__}>"
+
+        thread = threading.Thread(target=ask, name="consent", daemon=True)
+        thread.start()
+        # Cleanups run last-registered first: the dialog programs end and the
+        # consent thread is joined BEFORE the stand-ins above are removed, so
+        # a thread still waiting on a program (the red runs at the base) can
+        # never reach the real notification or a real dialog after its cell.
+        self.addCleanup(thread.join, 10)
+        self.addCleanup(dialogs.end)
+        if stop_after_render:
+            for _ in range(500):
+                if dialogs.rendered():
+                    break
+                time.sleep(0.01)
+            stop.set()
+        if stop_after_fallback:
+            for _ in range(500):
+                if len(dialogs.running()) == 1 and len(dialogs.started()) == 2:
+                    break
+                time.sleep(0.01)
+            time.sleep(0.3)
+            stop.set()
+        thread.join(6)
+        pids = dialogs.started()
+        last = pids[-1] if pids else None
+        return {
+            "the consent answered": out.get("answered", "<still asking>"),
+            "the consent recorded": list(outcome),
+            "dialogs opened": opened,
+            "the program to take down still running": bool(
+                last is not None and _running(last)),
+            "an ERROR names its pid": any(
+                f"could not take down the dialog (pid {last})" in m
+                for m in errors),
+        }
+
+    @staticmethod
+    def _not_taken_down(opened: list[str]) -> dict:
+        return {
+            "the consent answered": False,
+            "the consent recorded": ["not-taken-down"],
+            "dialogs opened": opened,
+            "the program to take down still running": True,
+            "an ERROR names its pid": True,
+        }
+
+    def test_a_withdrawn_dialog_whose_kill_is_refused_is_not_recorded_withdrawn(
+            self):
+        self.assertEqual(self._ask(
+            "renders", branded_popen=_kill_refused_popen(),
+            stop_after_render=True), self._not_taken_down(["branded"]))
+
+    def test_a_withdrawn_dialog_that_is_never_reaped_is_not_recorded_withdrawn(
+            self):
+        self.assertEqual(self._ask(
+            "renders", branded_popen=_never_reaped_popen(),
+            stop_after_render=True), self._not_taken_down(["branded"]))
+
+    def test_a_dialog_never_on_screen_that_cannot_be_taken_down_opens_no_fallback(
+            self):
+        """The branded dialog never says it is on screen and its kill is
+        refused: no fallback opens beside it."""
+        self.assertEqual(self._ask(
+            "never-renders", branded_popen=_kill_refused_popen(),
+            with_stop=False, render_timeout=0.5, deadline=1.0),
+            self._not_taken_down(["branded"]))
+
+    def test_a_dialog_unanswered_at_its_deadline_that_cannot_be_taken_down(
+            self):
+        """Nobody answers before the deadline and the kill is refused: not
+        recorded as the person's decline."""
+        self.assertEqual(self._ask(
+            "renders", branded_popen=_kill_refused_popen(), with_stop=False,
+            deadline=1.0), self._not_taken_down(["branded"]))
+
+    def test_a_withdrawn_fallback_dialog_whose_kill_is_refused(self):
+        """The branded dialog cannot open, so the fallback asks; its request
+        ends and its kill is refused."""
+        self.assertEqual(self._ask(
+            "cannot-render", fallback_popen=_kill_refused_popen(),
+            stop_after_fallback=True),
+            self._not_taken_down(["branded", "fallback"]))
+
+    def test_a_withdrawn_fallback_dialog_that_is_never_reaped(self):
+        self.assertEqual(self._ask(
+            "cannot-render", fallback_popen=_never_reaped_popen(),
+            stop_after_fallback=True),
+            self._not_taken_down(["branded", "fallback"]))
+
+    def test_a_fallback_dialog_unanswered_at_its_deadline_that_cannot_be_taken_down(
+            self):
+        self.assertEqual(self._ask(
+            "cannot-render", fallback_popen=_kill_refused_popen(),
+            deadline=1.0), self._not_taken_down(["branded", "fallback"]))
+
+    def test_the_reply_for_a_dialog_not_taken_down_says_so(self):
+        """The reply the page and the bus are given for that outcome: nothing
+        was sent, the dialog could not be closed, and answering it now sends
+        nothing - never the person's Cancel."""
+        from intergen.consent_modal import refusal_sentence
+        self.assertEqual(
+            refusal_sentence(["not-taken-down"]),
+            "Not sent — the review dialog could not be closed, so nothing was "
+            "sent to the frontier model; if it is still on screen, answering "
+            "it sends nothing.")
+
+    def test_control_a_refused_kill_of_a_program_that_has_ended_is_no_failure(
+            self):
+        """A program that has ended is verified ended though its kill raised:
+        no failure, no ERROR."""
+        import logging
+        import sys
+        from intergen import consent_dialog
+        errors: list[str] = []
+        handler = logging.Handler(level=logging.ERROR)
+        handler.emit = lambda record: errors.append(record.getMessage())
+        log = logging.getLogger("intergen.consent_dialog")
+        log.addHandler(handler)
+        self.addCleanup(log.removeHandler, handler)
+        proc = _kill_refused_popen()([sys.executable, "-c", "pass"])
+        proc.wait(5)
+        self.assertEqual({
+            "the teardown's failure": consent_dialog._kill(proc),
+            "ERRORs": errors,
+        }, {
+            "the teardown's failure": None,
+            "ERRORs": [],
+        })
+
+    def test_a_review_dialog_that_cannot_be_taken_down_is_a_failed_review(self):
+        """The review gate's dialog shares the launcher: unanswered at its
+        deadline with its kill refused, it is a failed review - never a
+        timed-out one, and never a fallback beside it."""
+        import subprocess
+        import types
+        from intergen import consent_dialog, consent_dialog_proto
+        from intergen.tool_registry import REVIEW_FAILED
+        dialogs = _Dialogs(self, "renders")
+        real_launcher = consent_dialog._run_dialog
+        for patcher in (
+                mock.patch.object(consent_dialog, "_run_dialog",
+                                  side_effect=lambda spec, cmd=None, **kw:
+                                  real_launcher(spec, cmd=dialogs.branded,
+                                                **kw)),
+                mock.patch.object(consent_dialog, "subprocess",
+                                  types.SimpleNamespace(
+                                      Popen=_kill_refused_popen(),
+                                      PIPE=subprocess.PIPE,
+                                      DEVNULL=subprocess.DEVNULL,
+                                      TimeoutExpired=subprocess.TimeoutExpired)),
+                mock.patch.object(consent_dialog, "KILL_REAP_SECONDS", 0.3,
+                                  create=True),
+                mock.patch.object(consent_dialog_proto,
+                                  "POST_RENDER_DEADLINE_SECONDS", 1.0)):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        call = types.SimpleNamespace(name="read_file", arguments='{"path": "/etc/hostname"}')
+        decision = types.SimpleNamespace(
+            effective_provenance=Provenance.USER_DIRECT, reason="", needs_pkexec=False,
+            risk_tier=None)
+        self.assertEqual(consent_dialog.run_review_dialog(call, decision),
+                         REVIEW_FAILED)
+
 if __name__ == "__main__":
     unittest.main()

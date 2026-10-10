@@ -28,6 +28,10 @@ What this enforces:
   For a consent, every one of them is "not sent". A binary that never rendered →
   return None so the caller falls back to zenity (the user is never left
   without a prompt).
+- **A dialog taken down is verified ended:** every kill is followed by a bounded
+  reap and a poll; one that cannot be verified ended (its kill raised, or its
+  reap did not finish) is logged with its pid and the reason and answered as
+  NOT_TAKEN_DOWN - never as a clean withdrawal, deadline or fallback.
 - **Never truncate the egress payload (§E):** an over-MAX consent payload is denied
   here before spawn (defense in depth; the binary guards it too).
 """
@@ -65,6 +69,23 @@ WITHDRAWN = -10001
 # with no stop to read waits as it always has, in one wait to its deadline.
 WITHDRAW_POLL_SECONDS = 0.1
 
+# What _run_dialog answers when a dialog it had to take down (withdrawn,
+# unanswered at its deadline, or never rendered) could not be verified ended:
+# its kill raised, or it was not reaped within KILL_REAP_SECONDS, so it may
+# still be on screen. Not an exit status, and never None, which would open the
+# fallback beside it: nothing is allowed or sent.
+NOT_TAKEN_DOWN = -10002
+
+# How long a killed dialog is given to be reaped before its teardown is
+# reported as failed.
+KILL_REAP_SECONDS = 5.0
+
+
+class DialogNotTakenDown(Exception):
+    """run_consent_dialog's answer when a dialog it had to take down could not
+    be verified ended (NOT_TAKEN_DOWN): nothing is allowed or sent, no fallback
+    may open beside it, and the caller records it as its own outcome."""
+
 
 def _scrubbed_env() -> dict[str, str]:
     """Allowlist-only child environment (§C). Inherits ONLY the display/session
@@ -81,12 +102,34 @@ def _scrubbed_env() -> dict[str, str]:
     return env
 
 
-def _kill(proc: subprocess.Popen) -> None:
+def _kill(proc: subprocess.Popen) -> str | None:
+    """Take a dialog down and verify it ended: None once poll() returns its
+    exit status after the kill and a reap bounded by KILL_REAP_SECONDS;
+    otherwise the reason it could not be verified (the kill raised, the reap
+    timed out or raised), logged as an ERROR with the dialog's pid. A kill
+    that raised for a program that had ended anyway is no failure."""
+    problems: list[str] = []
     try:
         proc.kill()
-        proc.wait(timeout=5)
-    except Exception:
-        pass
+    except Exception as e:
+        problems.append(f"its kill raised {type(e).__name__}: {e}")
+    try:
+        proc.wait(timeout=KILL_REAP_SECONDS)
+    except subprocess.TimeoutExpired:
+        problems.append(f"it was not reaped within {KILL_REAP_SECONDS:g}s")
+    except Exception as e:
+        problems.append(f"its reap raised {type(e).__name__}: {e}")
+    try:
+        if proc.poll() is not None:
+            return None
+    except Exception as e:
+        problems.append(f"its poll raised {type(e).__name__}: {e}")
+    why = "; ".join(problems) or "it was still running after its reap"
+    # The report itself never raises, whatever the object handed in.
+    logger.error("consent dialog: could not take down the dialog (pid %s): %s "
+                 "— it may still be on screen; nothing allowed or sent",
+                 getattr(proc, "pid", None), why)
+    return why
 
 
 def _run_dialog(spec: dict, cmd: list[str] | None = None,
@@ -110,6 +153,10 @@ def _run_dialog(spec: dict, cmd: list[str] | None = None,
                                        before the deadline; it was killed.
       * WITHDRAWN                    — the caller's stop was set before anyone
                                        answered; the dialog was killed.
+      * NOT_TAKEN_DOWN               — a dialog it had to take down (withdrawn,
+                                       at its deadline, or never rendered)
+                                       could not be verified ended; no
+                                       fallback may open beside it.
                                        Any non-affirmative int is a refusal.
     """
     if cmd is None:
@@ -165,11 +212,13 @@ def _run_dialog(spec: dict, cmd: list[str] | None = None,
         elif proc.poll() is not None:
             break  # process gone, no marker
     if not rendered:
+        # Taken down and verified ended before any fallback opens beside it.
+        if _kill(proc) is not None:
+            return NOT_TAKEN_DOWN
         logger.warning(
             "consent dialog: binary did not render within %.0fs — falling back to zenity",
             proto.PRE_RENDER_TIMEOUT_SECONDS,
         )
-        _kill(proc)
         return None
 
     # ── Decision: wait patiently for the human, bounded by the deadline ─────
@@ -184,7 +233,8 @@ def _run_dialog(spec: dict, cmd: list[str] | None = None,
             "allowed or sent (fail-closed)",
             proto.POST_RENDER_DEADLINE_SECONDS,
         )
-        _kill(proc)
+        if _kill(proc) is not None:
+            return NOT_TAKEN_DOWN
         return DEADLINE_EXPIRED
     return proc.returncode
 
@@ -209,10 +259,12 @@ def _stopped_before_an_answer(proc: subprocess.Popen,
 
 
 def _withdraw(proc: subprocess.Popen) -> int:
-    """Take down a dialog whose request has ended (the caller's stop is set)."""
+    """Take down a dialog whose request has ended (the caller's stop is set):
+    WITHDRAWN once it is verified ended, NOT_TAKEN_DOWN when it could not be."""
+    if _kill(proc) is not None:
+        return NOT_TAKEN_DOWN
     logger.info("consent dialog: the request it asked about has ended — the "
                 "dialog was withdrawn; nothing allowed or sent")
-    _kill(proc)
     return WITHDRAWN
 
 
@@ -278,6 +330,10 @@ def run_review_dialog(
         return "deny"  # the person's Not now, Esc, or closing the window
     if code == DEADLINE_EXPIRED:
         return REVIEW_TIMED_OUT
+    if code == NOT_TAKEN_DOWN:
+        # The dialog could not be verified closed (logged with its pid): not
+        # a deadline that closed it, and never a fallback beside it.
+        return REVIEW_FAILED
     # A crash, a signal or an unmapped exit: nobody answered. Nothing runs, and
     # the record does not name the person for it.
     return REVIEW_FAILED
@@ -292,7 +348,9 @@ def run_consent_dialog(content: str, provider: str, reason: str = "",
     (Cancel / Esc / close / crash / DEADLINE_EXPIRED / over-size) or a dialog
     the caller's stop withdrew (WITHDRAWN, rendered or not: no fallback may
     open after it), or None if the binary could not render (caller falls back
-    to zenity). `should_stop` is as for _run_dialog."""
+    to zenity). Raises DialogNotTakenDown when a dialog it had to take down
+    could not be verified ended (NOT_TAKEN_DOWN): nothing is sent and no
+    fallback may open beside it. `should_stop` is as for _run_dialog."""
     try:
         # §E — never truncate the egress payload: too-large = fail-closed deny,
         # never a truncated render (defense in depth; the binary guards it too).
@@ -316,6 +374,9 @@ def run_consent_dialog(content: str, provider: str, reason: str = "",
     # A caller that hands no stop makes exactly the call it made before.
     stop_kwargs = {} if should_stop is None else {"should_stop": should_stop}
     code = _run_dialog(spec, **stop_kwargs)
+    if code == NOT_TAKEN_DOWN:
+        raise DialogNotTakenDown(
+            "the consent dialog could not be verified closed")
     if code is None:
         return None
     return code == proto.EXIT_CONSENT_SEND

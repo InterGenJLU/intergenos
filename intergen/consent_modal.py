@@ -56,6 +56,11 @@ TOO_LARGE = "too-large"
 # a send nobody was asked about; no reply carries it, because its caller has
 # ended.
 WITHDRAWN = "withdrawn"
+# A dialog the consent step had to take down (withdrawn, unanswered at its
+# deadline, or never rendered) could not be verified closed: it may still be on
+# screen. No consent, nothing sent, no fallback opened beside it; never recorded
+# as a withdrawal, a decline or a dialog that could not be shown.
+NOT_TAKEN_DOWN = "not-taken-down"
 
 DECLINED_SENTENCE = "Cancelled — nothing was sent to the frontier model."
 NOT_SHOWN_SENTENCE = (
@@ -66,6 +71,9 @@ TOO_LARGE_SENTENCE = (
     "Not sent — the content is too large to show you in full for review first "
     f"(over {consent_dialog_proto.MAX_PAYLOAD_BYTES:,} bytes), so nothing was "
     "sent to the frontier model.")
+NOT_TAKEN_DOWN_SENTENCE = (
+    "Not sent — the review dialog could not be closed, so nothing was sent to "
+    "the frontier model; if it is still on screen, answering it sends nothing.")
 
 # WHAT THE PERSON DOES IN THE FALLBACK DIALOG BEFORE A SEND IS POSSIBLE.
 # The text-info dialog's default response is its OK button, labelled Send here,
@@ -84,10 +92,13 @@ def refusal_sentence(outcome: list) -> str:
     """The reply for a send the consent step did not allow.
 
     ``outcome`` is the list passed to :func:`prompt_send_consent`. Only a
-    recorded NOT_SHOWN or TOO_LARGE says the person was never asked; anything
+    recorded NOT_SHOWN or TOO_LARGE says the person was never asked, and a
+    recorded NOT_TAKEN_DOWN that the dialog could not be closed; anything
     else — the person's own Cancel, or a stand-in for the consent step that
     records nothing — keeps the sentence this reply has always had.
     """
+    if NOT_TAKEN_DOWN in outcome:
+        return NOT_TAKEN_DOWN_SENTENCE
     if TOO_LARGE in outcome:
         return TOO_LARGE_SENTENCE
     return NOT_SHOWN_SENTENCE if NOT_SHOWN in outcome else DECLINED_SENTENCE
@@ -227,13 +238,18 @@ def _run_until_stopped(argv: list[str], body: str,
                        ) -> subprocess.CompletedProcess | None:
     """subprocess.run(argv, input=body, capture_output=True, text=True,
     timeout=the deadline), reading the caller's stop between short waits:
-    once it is set the program is killed and None is returned. The deadline
-    is subprocess.run's: the program is killed and reaped, and TimeoutExpired
-    is raised."""
+    once it is set the program is taken down and None is returned. At the
+    deadline the program is taken down and TimeoutExpired is raised, as
+    subprocess.run does. Each teardown is the branded dialog's own
+    (consent_dialog._kill: a kill, a bounded reap and a poll), never an
+    unbounded wait: a program that cannot be verified ended raises
+    consent_dialog.DialogNotTakenDown instead, and its pipes are closed
+    without waiting on it."""
     decide_by = (time.monotonic()
                  + consent_dialog_proto.POST_RENDER_DEADLINE_SECONDS)
-    with subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                          stderr=subprocess.PIPE, text=True) as proc:
+    proc = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, text=True)
+    try:
         given = body
         while True:
             try:
@@ -245,16 +261,31 @@ def _run_until_stopped(argv: list[str], body: str,
             except subprocess.TimeoutExpired:
                 given = None   # the input not yet written is kept by Popen
             if should_stop():
+                _take_down(proc)
                 logger.info("consent: the request this dialog asked about has "
                             "ended — the dialog was withdrawn; nothing sent")
-                proc.kill()
-                proc.communicate()
                 return None
             if time.monotonic() >= decide_by:
-                proc.kill()
-                proc.communicate()
+                _take_down(proc)
                 raise subprocess.TimeoutExpired(
                     argv, consent_dialog_proto.POST_RENDER_DEADLINE_SECONDS)
+    finally:
+        # Popen's own with-block would wait for the program without a bound;
+        # it is reaped above, or reported as not taken down.
+        for stream in (proc.stdin, proc.stdout, proc.stderr):
+            try:
+                if stream is not None:
+                    stream.close()
+            except OSError:
+                pass
+
+
+def _take_down(proc: subprocess.Popen) -> None:
+    """The fallback dialog's teardown, through the branded dialog's verified
+    one; DialogNotTakenDown when the program could not be verified ended."""
+    if consent_dialog._kill(proc) is not None:
+        raise consent_dialog.DialogNotTakenDown(
+            "the fallback consent dialog could not be verified closed")
 
 
 def _prompt_consent_libnotify(provider: str) -> bool:
@@ -297,8 +328,9 @@ def prompt_send_consent(content: str, provider: str, reason: str = "", *,
     showed them the full outbound content.
 
     ``outcome``, when a list is passed, receives exactly one of SEND, DECLINED,
-    NOT_SHOWN, TOO_LARGE or WITHDRAWN, so a caller can tell the person WHY nothing was
-    sent. It is a list the caller owns rather than a new return type so that
+    NOT_SHOWN, TOO_LARGE, WITHDRAWN or NOT_TAKEN_DOWN, so a caller can tell
+    the person WHY nothing was sent. It is a list the caller owns rather than
+    a new return type so that
     every existing caller, and every stand-in that replaces this function with
     a plain True or False, keeps working unchanged. NOT_SHOWN is recorded when
     no dialog showed the content: no unlocked desktop session, or neither
@@ -337,8 +369,8 @@ def _withdrawn(should_stop: Callable[[], bool] | None) -> bool:
 
 def _ask(content: str, provider: str, reason: str,
          should_stop: Callable[[], bool] | None = None) -> str:
-    """The consent decision as SEND, DECLINED, NOT_SHOWN, TOO_LARGE or
-    WITHDRAWN."""
+    """The consent decision as SEND, DECLINED, NOT_SHOWN, TOO_LARGE, WITHDRAWN
+    or NOT_TAKEN_DOWN."""
     if _withdrawn(should_stop):
         return WITHDRAWN
     # A caller that hands no stop makes exactly the calls it made before.
@@ -369,8 +401,14 @@ def _ask(content: str, provider: str, reason: str,
         logger.info(
             "consent: session active — rendering the branded GTK send-confirm "
             "dialog (zenity fallback ready)")
-        gtk_result = consent_dialog.run_consent_dialog(
-            content, provider, reason, **stop_kwargs)
+        try:
+            gtk_result = consent_dialog.run_consent_dialog(
+                content, provider, reason, **stop_kwargs)
+        except consent_dialog.DialogNotTakenDown:
+            # The dialog could not be verified closed (logged with its pid):
+            # nothing is sent, no fallback opens beside it, and the record is
+            # neither a withdrawal nor a decline.
+            return NOT_TAKEN_DOWN
         if _withdrawn(should_stop):
             return WITHDRAWN
         if gtk_result is not None:
@@ -378,8 +416,12 @@ def _ask(content: str, provider: str, reason: str,
         logger.warning(
             "consent: branded GTK send-confirm did not render — falling back to "
             "the zenity show-before-send modal")
-        result = _prompt_consent_zenity(content, provider, reason,
-                                        **stop_kwargs)
+        try:
+            result = _prompt_consent_zenity(content, provider, reason,
+                                            **stop_kwargs)
+        except consent_dialog.DialogNotTakenDown:
+            # As for the branded dialog: not verified closed, nothing sent.
+            return NOT_TAKEN_DOWN
         if _withdrawn(should_stop):
             return WITHDRAWN
         if result is not None:
