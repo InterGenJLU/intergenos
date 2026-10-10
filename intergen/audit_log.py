@@ -430,21 +430,35 @@ def _read_once(path: Path) -> tuple[IntegrityReading, list[dict], list[str]]:
 def clear_log(log_path: Path | None = None) -> bool:
     """Truncate the log to zero bytes (user-data-wipe path).
 
-    Invoked by `intergen tool-log --clear`. Returns True on success, False
-    on best-effort failure.
+    Invoked by `intergen tool-log --clear`. Returns True when the record is absent (its
+    path's own stat found nothing, so there is nothing to wipe) or was truncated AND read
+    back at zero bytes; False on any failure, a path that cannot be checked included.
+    Absence is decided by :func:`record_presence`, never by ``Path.exists()``: a record
+    below a directory that cannot be searched is not reported cleared while its bytes
+    remain, and a dangling link's target is not created by the truncation.
     """
     path = log_path if log_path is not None else default_log_path()
+    presence, found = record_presence(path)
+    if presence == "absent":
+        return True
+    if presence == "uncheckable":
+        logger.warning("audit_log: clear_log could not check the record, so nothing was "
+                       "cleared: %s", found)
+        return False
     try:
-        if not path.exists():
-            return True
         # Truncate rather than unlink so the inode + 0o600 permissions
         # are preserved across user-data-wipe cycles.
         with private_open(path, "w", encoding="utf-8") as f:
             f.write("")
-        return True
+        size = os.stat(path).st_size
     except OSError as exc:
         logger.warning("audit_log: clear_log OSError: %s", exc)
         return False
+    if size != 0:
+        logger.warning("audit_log: clear_log read %s back at %d bytes after truncating it",
+                       path, size)
+        return False
+    return True
 
 
 def record_count(log_path: Path | None = None) -> int:

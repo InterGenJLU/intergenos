@@ -1476,7 +1476,7 @@ def cmd_tool_log(args: list[str]) -> None:
     intergen.audit_log.IntegrityReading for what it can and cannot establish.
     """
     from intergen.audit_log import (
-        clear_log, default_log_path, read_snapshot, record_count,
+        clear_log, default_log_path, read_snapshot, record_presence,
     )
 
     # Each invocation reads the record's bytes ONCE and takes its verdict, its rows and its
@@ -1485,16 +1485,30 @@ def cmd_tool_log(args: list[str]) -> None:
 
     if "--clear" in args:
         path = default_log_path()
-        if not path.exists():
+        # Absence is decided from the path's own stat: only a path where nothing is found
+        # is "already empty". A path that cannot be checked (a dangling link, a parent that
+        # cannot be searched) is a failure, said in words, and nothing is claimed.
+        presence, found = record_presence(path)
+        if presence == "absent":
             print(f"Audit log already empty: {path}")
             return
-        existing = record_count()
-        ok = clear_log()
-        if ok:
-            print(f"Cleared {existing} record(s) from {path}")
-        else:
+        if presence == "uncheckable":
+            print(f"Cannot clear the audit log: {found}. Nothing was cleared.", file=sys.stderr)
+            sys.exit(1)
+        existing = read_snapshot().reading.rows
+        if not clear_log():
             print(f"Failed to clear {path} (see logs)", file=sys.stderr)
             sys.exit(1)
+        # The clear is proven by reading the record back, not assumed from the write.
+        try:
+            size = os.stat(path).st_size
+        except OSError as exc:
+            print(f"Cleared {path}, but it could not be read back: {exc}", file=sys.stderr)
+            sys.exit(1)
+        if size != 0:
+            print(f"Cleared {path}, but reading it back finds {size} bytes", file=sys.stderr)
+            sys.exit(1)
+        print(f"Cleared {existing} record(s) from {path}; read back: 0 bytes")
         return
 
     if "--count" in args:
