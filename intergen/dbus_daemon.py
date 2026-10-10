@@ -2790,6 +2790,10 @@ class InterGenDaemon(InterGenDBusInterface):
                 llama_manager=self._llama,
                 watchdog=self._watchdog,
                 governance=self._governance,
+                # The panel's line reads the daemon's own panel state and
+                # whether the address it binds answers.
+                panel_state=self._panel_down_now,
+                panel_address=(host, port),
             )
 
             self._web_server = WebServer(

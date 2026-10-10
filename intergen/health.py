@@ -13,12 +13,19 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+import socket
 import subprocess
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from intergen.config import panel_netloc
+
 logger = logging.getLogger(__name__)
+
+# How long the panel's line waits for its address to accept a connection. The
+# address is on this machine, so an answer is immediate; this bounds a stall.
+PANEL_CONNECT_TIMEOUT_S = 2.0
 
 
 @dataclass
@@ -61,6 +68,8 @@ class HealthAggregator:
                  audit_log_count: int | None = None,
                  web_connections: int | Callable[[], int] | None = None,
                  web_server: Any = None,
+                 panel_state: Callable[[], str | None] | None = None,
+                 panel_address: tuple[str, int] | None = None,
                  ) -> None:
         self._llama = llama_manager
         self._watchdog = watchdog
@@ -68,6 +77,12 @@ class HealthAggregator:
         self._audit_log_count = audit_log_count
         self._web_connections = web_connections
         self._web_server = web_server
+        # The panel (the web server behind the panel window, the page and the
+        # console client): panel_state answers why it is not serving, in
+        # words, or None while its own bind holds its address; panel_address
+        # is that address. The daemon hands over its own reading of both.
+        self._panel_state = panel_state
+        self._panel_address = panel_address
 
     def set_web_server(self, web_server: Any) -> None:
         """Bind the live web server after construction.
@@ -332,16 +347,52 @@ class HealthAggregator:
         callable that reads it, is an observation, and so is a positive static
         count, which no unbound server could have produced. Anything else is
         reported yellow as not observed, because nothing was.
+
+        When the daemon supplies the panel's own state (the panel is the web
+        server behind the panel window, the page and the console client), that
+        state is read first: red in the daemon's own words while the panel is
+        not serving; while its own bind holds its address, green only if that
+        address accepts a connection, and red naming the address when it does
+        not. The green line names the address, and the live connection count
+        when one is observed.
         """
+        name = "Web server"
+        if self._panel_state is not None:
+            try:
+                down = self._panel_state()
+            except Exception as e:  # noqa: BLE001 — a health read never raises
+                return HealthCheck(
+                    name=name, status="red",
+                    summary=f"the panel's state could not be read: {e}")
+            if down is not None:
+                return HealthCheck(name=name, status="red", summary=down)
+            if self._panel_address is None:
+                return HealthCheck(
+                    name=name, status="yellow",
+                    summary="the panel serves, but no address was supplied to "
+                            "this check")
+            host, port = self._panel_address
+            where = panel_netloc(host, port)
+            try:
+                with socket.create_connection((host, port),
+                                              timeout=PANEL_CONNECT_TIMEOUT_S):
+                    pass
+            except OSError as e:
+                return HealthCheck(name=name, status="red",
+                                   summary=f"{where} does not answer: {e}")
+            count = self._web_connection_reading()
+            observed = "" if count is None else f", {count} active connections"
+            return HealthCheck(name=name, status="green",
+                               summary=f"Running on {where}{observed}")
         count = self._web_connection_reading()
         if count is None:
             return HealthCheck(
-                name="Web server",
+                name=name,
                 status="yellow",
                 summary="Not observed - no live web-server reading available",
             )
         return HealthCheck(
-            name="Web server",
+            name=name,
             status="green",
             summary=f"{count} active connections",
         )
