@@ -138,6 +138,11 @@ def _router(tier: HardwareTierLevel, *, replies=()) -> ConversationRouter:
     r._llm.chat = _chat
     r._llm.stream_with_tools = _stream_with_tools
     r._chat_calls = calls
+    # The service manager's answer about a unit, stood in: these cases measure
+    # the argument builder, never the units of the machine running the suite.
+    r._read_service_unit = lambda name: (
+        ("known", name, "") if name == "sshd"
+        else ("unknown", "", "the service manager knows no unit named %r" % name))
     return r
 
 

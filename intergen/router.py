@@ -25,6 +25,7 @@ import os
 import re
 import shlex
 import shutil
+import subprocess
 import threading
 import time
 import dataclasses
@@ -72,6 +73,10 @@ from intergen.safety import (
 )
 from intergen.semantic import SemanticMatcher
 from intergen.tool_registry import ToolRegistry
+# The service tool's own alias map ("ssh" is the unit sshd), imported rather
+# than re-listed so the unit the manager is asked about is by construction the
+# unit the tool would act on.
+from intergen.tools.manage_services import _SERVICE_ALIASES
 from intergen.voice import FillerPicker
 
 logger = logging.getLogger(__name__)
@@ -203,6 +208,100 @@ _REFERENTIAL_ARGUMENT_TOKENS = _RUN_DESCRIPTION_LEADERS | frozenset({
 def _is_referential_argument(token: str) -> bool:
     """True when a would-be argument REFERS instead of NAMING ("it", "the")."""
     return (token or "").strip().strip(".,;:!?'\"").lower() in _REFERENTIAL_ARGUMENT_TOKENS
+
+
+# ── a service change is proposed only for a unit the service manager knows ──
+#
+# THE WORD AFTER THE VERB WAS TAKEN AS THE SERVICE, WHATEVER IT WAS. The service
+# keyword pattern claims a sentence that starts with start, stop, restart,
+# enable or disable, and the argument builder took the next word as the unit:
+# "start over" became a privileged proposal to start a service named "over",
+# held for the person's approval, and "restart everything" one for a service
+# named "everything". Nothing in either sentence names a service, and the person
+# would have been asked to approve a change they never asked for.
+#
+# THE MANAGER IS ASKED, WHEN THE CLAUSE IS MATCHED. A list kept here would be a
+# guess about this machine; the service manager's own load state is its answer.
+# Its names are case-sensitive and a person's are not ("restart
+# networkmanager"), so a name it does not know as spelled is looked for again
+# among its unit files with the case ignored, and the proposal carries the
+# manager's spelling. A read that fails is a failure, reported in words: it is
+# never read as "no such unit", never as "known", and no proposal is made on it.
+_SYSTEMCTL = "/usr/bin/systemctl"
+_SERVICE_READ_TIMEOUT_SECONDS = 5
+# The actions the argument builder can produce that change the system. A status
+# question is answered for any name — "Unit over.service could not be found"
+# is a true answer to "status of over" — so it is not asked about.
+_SERVICE_STATE_CHANGING_ACTIONS = frozenset(
+    {"start", "stop", "restart", "enable", "disable"})
+# systemd's unit-name characters. A word outside them ("over?", "sshd*") is a
+# glob to `systemctl show`, which answers a pattern that matches nothing with
+# no output at all, so such a word is refused here as no unit name.
+_UNIT_NAME_RE = re.compile(r"[A-Za-z0-9:_.@\\-]+")
+
+
+def read_service_unit(name: str) -> "tuple[str, str, str]":
+    """Ask this machine's service manager whether it knows a unit by this name.
+
+    Returns ``(state, unit, words)``:
+
+      ("known", <the manager's name for the unit>, "")
+      ("unknown", "", <why no unit was found, in words>)
+      ("unreadable", "", <the failure, in words>)
+
+    The exact name is asked first (``systemctl show``, which also knows
+    instances, aliases and units of other types); only when the manager answers
+    ``not-found`` are the service unit files listed and compared with the case
+    ignored. An empty listing from a manager that answered is a failure, not a
+    finding.
+    """
+    name = (name or "").strip()
+    if not name:
+        return "unknown", "", "no service was named"
+    if not _UNIT_NAME_RE.fullmatch(name):
+        return "unknown", "", f"{name!r} is not a unit name"
+    try:
+        shown = subprocess.run(
+            [_SYSTEMCTL, "show", "--property=LoadState", "--value", "--", name],
+            capture_output=True, text=True, check=False,
+            timeout=_SERVICE_READ_TIMEOUT_SECONDS)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return ("unreadable", "",
+                f"the service manager could not be asked about {name!r} ({exc})")
+    load_state = (shown.stdout or "").strip()
+    if shown.returncode != 0 or not load_state:
+        return ("unreadable", "",
+                f"{_SYSTEMCTL} show exited {shown.returncode} without a load "
+                f"state for {name!r}: {(shown.stderr or '').strip()[:200]!r}")
+    if load_state != "not-found":
+        return "known", name, ""
+    try:
+        listed = subprocess.run(
+            [_SYSTEMCTL, "list-unit-files", "--type=service", "--no-legend",
+             "--no-pager"],
+            capture_output=True, text=True, check=False,
+            timeout=_SERVICE_READ_TIMEOUT_SECONDS)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return ("unreadable", "",
+                f"the service manager's unit files could not be listed ({exc})")
+    files = [line.split()[0] for line in (listed.stdout or "").splitlines()
+             if line.split()]
+    if listed.returncode != 0 or not files:
+        return ("unreadable", "",
+                f"{_SYSTEMCTL} list-unit-files exited {listed.returncode} with "
+                f"{len(files)} unit files: "
+                f"{(listed.stderr or '').strip()[:200]!r}")
+    suffixed = name.lower().endswith(".service")
+    wanted = name.lower() if suffixed else name.lower() + ".service"
+    matches = sorted({f for f in files if f.lower() == wanted})
+    if len(matches) == 1:
+        return ("known",
+                matches[0] if suffixed else matches[0][:-len(".service")], "")
+    if matches:
+        return ("unknown", "",
+                f"more than one unit is named {name!r} with the case ignored: "
+                f"{', '.join(matches)}")
+    return "unknown", "", f"the service manager knows no unit named {name!r}"
 
 
 # ── a turn that only makes sense on top of the last one ──────────────────
@@ -6850,9 +6949,11 @@ class ConversationRouter(RouterInterface):
                             # earlier clause said which one.
                             self._referent_gap = "service"
                             return None
-                        return {"action": action, "service": svc}
-                    return {"action": action,
-                            "service": svc or self._scan_service_name(user_input)}
+                        return self._a_unit_the_manager_knows(
+                            action, svc, user_input)
+                    return self._a_unit_the_manager_knows(
+                        action, svc or self._scan_service_name(user_input),
+                        user_input)
             # "Is X running?" / "Is X active?" pattern
             running_match = re.search(
                 r"is\s+(\S+)\s+(?:running|active|up|enabled)", user_input, re.IGNORECASE
@@ -6988,6 +7089,48 @@ class ConversationRouter(RouterInterface):
             if re.search(rf"\b{re.escape(svc)}\b", low):
                 return svc
         return ""
+
+    # The service manager's answer about a name; a seam so a case can stand in
+    # for this machine's manager (see read_service_unit).
+    _read_service_unit = staticmethod(read_service_unit)
+
+    def _a_unit_the_manager_knows(self, action: str, service: str,
+                                  user_input: str) -> "dict[str, Any] | None":
+        """The service arguments, or None when a change would name no known unit.
+
+        A status question passes as it is. A change (start, stop, restart,
+        enable, disable) is built only when the service manager knows the unit,
+        and then names it as the manager does; otherwise nothing is built, the
+        reason is recorded in words, and the clause goes on to the model's turn
+        as an ordinary request. `_KNOWN_SERVICES` above cannot answer this: it is
+        a list of names to look for in a sentence, not a reading of the units
+        this machine has.
+        """
+        if action not in _SERVICE_STATE_CHANGING_ACTIONS:
+            return {"action": action, "service": service}
+        name = (service or "").strip().strip(".,;:!?'\"")
+        name = _SERVICE_ALIASES.get(name.lower().removesuffix(".service"), name)
+        state, unit, words = self._read_service_unit(name)
+        if state == "known":
+            return {"action": action, "service": unit}
+        reason = ("service_manager_unreadable" if state == "unreadable"
+                  else "service_unit_not_known")
+        self._last_dispatch_decline_reason = reason
+        self._trail_note("dispatch", "rejected", tool="manage_services",
+                         reason=reason, service=name, why=words)
+        glass.emit("decision", "dispatch_declined", detail={
+            "tool": "manage_services",
+            "reason": reason,
+            "action": action,
+            "service": name,
+            "why": words,
+            "path": "code_owned_intent",
+            "sub_query": user_input,
+        })
+        if state == "unreadable":
+            logger.warning("manage_services %s %r not proposed: %s",
+                           action, name, words)
+        return None
 
     @staticmethod
     def _asks_about(lower: str, *tokens: str) -> bool:
