@@ -27,8 +27,10 @@ whose REST API differs (anthropic, google) override the small shaping hooks
 """
 from __future__ import annotations
 
+import http.client
 import json
 import logging
+import socket
 import time
 import urllib.error
 import urllib.parse
@@ -54,7 +56,7 @@ DEFAULT_TIMEOUT = 60.0
 
 #: The most of a reply one read takes. Each read returns what one receive
 #: brings, up to this many bytes, and the caller's stop is checked between
-#: reads.
+#: reads and before every receive.
 READ_CHUNK = 4096
 
 #: How much of an error reply's body is read, as a prefix: the error's detail
@@ -67,6 +69,34 @@ ERROR_BODY_LIMIT = 64 * 1024
 
 class CloudAdapterError(Exception):
     """A cloud request failed (transport, auth, or malformed response)."""
+
+
+class _BoundReceives:
+    """A reply's socket as its reader receives through it while the reply is
+    read: every receive first checks the caller's stop and waits no longer
+    than what is left of the whole read's timeout, and with nothing left it
+    receives nothing and times out. One read1 can make several receives - a
+    chunked reply's framing (the chunk-size line and its extension, a
+    chunk's closing CRLF, the trailers) is read inside it - so a bound set
+    once per read would hold only the first of them. Everything else is the
+    socket's own."""
+
+    def __init__(self, sock: socket.socket, read_by: float,
+                 stop_if_asked: Callable[[], None]) -> None:
+        self._sock = sock
+        self._read_by = read_by
+        self._stop_if_asked = stop_if_asked
+
+    def recv_into(self, *args, **kwargs) -> int:
+        self._stop_if_asked()
+        left = self._read_by - time.monotonic()
+        if left <= 0:
+            raise TimeoutError("the whole read's timeout has passed")
+        self._sock.settimeout(left)
+        return self._sock.recv_into(*args, **kwargs)
+
+    def __getattr__(self, name: str):
+        return getattr(self._sock, name)
 
 
 def lookup_secret(keyring_id: str) -> str:
@@ -230,40 +260,77 @@ class HTTPCloudAdapter(CloudProviderAdapter):
             raise CloudCallStopped(
                 f"{self.name}: the turn this call belonged to has ended")
 
+    def _reply_stream(self, resp, reading: str) -> socket.SocketIO | None:
+        """The socket stream a reply's body is received from: its
+        HTTPResponse's, for a reply and for an HTTPError (whose fp is the
+        HTTPResponse). A reply that is no HTTPResponse, or one already
+        closed, is not received from a socket and has none. An HTTPResponse
+        whose socket cannot be reached is not read: its receives could not be
+        bound."""
+        reply = (resp if isinstance(resp, http.client.HTTPResponse)
+                 else getattr(resp, "fp", None))
+        if not isinstance(reply, http.client.HTTPResponse) or reply.fp is None:
+            return None
+        stream = getattr(reply.fp, "raw", None)
+        if (isinstance(stream, socket.SocketIO)
+                and isinstance(getattr(stream, "_sock", None), socket.socket)):
+            return stream
+        raise CloudAdapterError(
+            f"{self.name}: {reading} was not read: its socket could not be "
+            "reached to bound each receive to the request's timeout")
+
     def _read_reply(self, resp, should_stop: Callable[[], bool] | None,
                     timeout: float, limit: int | None = None,
                     reading: str = "its reply") -> bytes:
         """The reply's body, a success's or an error's, stop or none. Each
-        read is one receive (read1, at most READ_CHUNK bytes), and the stop
-        is checked before each read and once more after the last, so a call
-        whose turn ends is stopped within one wait on the socket (the
-        request's timeout) however slowly the endpoint sends, and a turn
-        that ends during the read that finds the end of the body stops the
-        call all the same. A read that waited for a whole chunk held the
-        stop until the chunk was complete: 4096 receives of a byte, each just
-        inside the 60-second default, is about 68 hours. The whole read has
-        the same timeout: a body still arriving once it has passed ends the
-        call as a provider error naming it, the rest not read, within one
-        more wait at most. With a limit, no more than ``limit`` bytes are
-        read: the read ends there as it ends at the end of the body. The
-        caller closes the reply (a success's with-block, an error's
-        finally)."""
+        read is one read1 (at most READ_CHUNK bytes), the stop is checked
+        before each read and once more after the last, and for the read's
+        duration every receive from the reply's socket checks the stop first
+        (_BoundReceives), so a call whose turn ends is stopped within one
+        receive however slowly the endpoint sends - its body or a chunked
+        body's framing - and a turn that ends during the read that finds the
+        end of the body stops the call all the same. A read that waited for
+        a whole chunk held the stop until the chunk was complete: 4096
+        receives of a byte, each just inside the 60-second default, is about
+        68 hours. The whole read has the same timeout, and every receive
+        waits only for what is left of it: a body still arriving once it has
+        passed, or a receive still waiting when it passes, ends the call as a
+        provider error naming it, the rest not read. With a limit, no more
+        than ``limit`` bytes are read: the read ends there as it ends at the
+        end of the body. The reply's socket is its own again after the read,
+        its timeout left at what the last receive was given; the caller
+        closes the reply (a success's with-block, an error's finally)."""
         read_by = time.monotonic() + timeout
+        late = (f"{self.name}: {reading} was not read within {timeout:g}s, "
+                "the request's timeout; the rest was not read")
+        stream = self._reply_stream(resp, reading)
+        if stream is not None:
+            sock = stream._sock
+            bound = _BoundReceives(
+                sock, read_by, lambda: self._stop_if_asked(should_stop))
+            stream._sock = bound
         parts: list[bytes] = []
         left = limit
-        while left is None or left > 0:
-            self._stop_if_asked(should_stop)
-            if time.monotonic() >= read_by:
-                raise CloudAdapterError(
-                    f"{self.name}: {reading} was not read within {timeout:g}s, "
-                    "the request's timeout; the rest was not read")
-            size = READ_CHUNK if left is None else min(READ_CHUNK, left)
-            chunk = resp.read1(size)
-            if not chunk:
-                break
-            parts.append(chunk)
-            if left is not None:
-                left -= len(chunk)
+        try:
+            while left is None or left > 0:
+                self._stop_if_asked(should_stop)
+                if time.monotonic() >= read_by:
+                    raise CloudAdapterError(late)
+                size = READ_CHUNK if left is None else min(READ_CHUNK, left)
+                try:
+                    chunk = resp.read1(size)
+                except TimeoutError as exc:
+                    raise CloudAdapterError(late) from exc
+                if not chunk:
+                    break
+                parts.append(chunk)
+                if left is not None:
+                    left -= len(chunk)
+        finally:
+            # A reply read to its end closed its stream, and with it the
+            # socket; one that is still open is given its own socket back.
+            if stream is not None and stream._sock is bound:
+                stream._sock = sock
         self._stop_if_asked(should_stop)
         return b"".join(parts)
 
