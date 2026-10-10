@@ -1981,9 +1981,15 @@ class LLMRouter(LLMInterface):
                 and text.lower().strip("?.! ") == user_message.lower().strip("?.! ")):
             return "echo"
 
+        # The tool-call dialect's tags are protocol, never an answer: on the
+        # tool route they are parsed before any text reaches here, so a reply
+        # that still holds them is a call written out as prose. Measured: a
+        # synthesis of a refused call was served to the person as
+        # "<tool_call>\n<function=run_command>\n<parameter=command>\necho
+        # $SHELL\n</parameter>\n</function>\n</tool_call>".
         bad_markers = [
             "<|im_start|>", "<|im_end|>", "[INST]", "[/INST]",
-            "<<SYS>>", "<think>", "</think>",
+            "<<SYS>>", "<think>", "</think>", "<tool_call>", "</tool_call>",
         ]
         for marker in bad_markers:
             if marker in text:
