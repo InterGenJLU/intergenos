@@ -4211,7 +4211,6 @@ class _DripEndpoint:
         self.thread.start()
 
     def _serve(self) -> None:
-        import time
         try:
             conn, _ = self.srv.accept()
         except OSError:
@@ -4234,25 +4233,66 @@ class _DripEndpoint:
                     if not more:
                         return
                     rest += more
-                conn.sendall(b"HTTP/1.1 %d Controlled\r\nContent-Type: "
-                             b"application/json\r\nContent-Length: %d\r\n"
-                             b"Connection: close\r\n\r\n"
-                             % (self.status, len(self.body)))
-                if not self.drip:
-                    conn.sendall(self.body)
-                    return
-                for i in range(len(self.body)):
-                    if self.done.is_set():
-                        return
-                    conn.sendall(self.body[i:i + 1])
-                    time.sleep(self.drip)
+                self._answer(conn)
             except OSError:
                 pass
+
+    def _answer(self, conn) -> None:
+        import time
+        conn.sendall(b"HTTP/1.1 %d Controlled\r\nContent-Type: "
+                     b"application/json\r\nContent-Length: %d\r\n"
+                     b"Connection: close\r\n\r\n"
+                     % (self.status, len(self.body)))
+        if not self.drip:
+            conn.sendall(self.body)
+            return
+        for i in range(len(self.body)):
+            if self.done.is_set():
+                return
+            conn.sendall(self.body[i:i + 1])
+            time.sleep(self.drip)
 
     def close(self) -> None:
         self.done.set()
         self.thread.join(10)
         self.srv.close()
+
+
+class _StallingEndpoint(_DripEndpoint):
+    """The same endpoint, answering with the head of a 1000-byte reply and,
+    ``first_byte_after`` seconds later, the body's first byte, then nothing
+    more until the case ends it: the receive after that byte waits on the
+    socket for as long as it is let."""
+
+    def __init__(self, status: int, first_byte_after: float) -> None:
+        self.first_byte_after = first_byte_after
+        super().__init__(status, b"x" * 1000)
+
+    def _answer(self, conn) -> None:
+        conn.sendall(b"HTTP/1.1 %d Controlled\r\nContent-Type: "
+                     b"application/json\r\nContent-Length: %d\r\n"
+                     b"Connection: close\r\n\r\n"
+                     % (self.status, len(self.body)))
+        if self.done.wait(self.first_byte_after):
+            return
+        conn.sendall(self.body[:1])
+        self.done.wait(30)
+
+
+class _ChunkFramingDripEndpoint(_DripEndpoint):
+    """The same endpoint, answering with a chunked reply whose first
+    chunk-size line never ends: after ``1;`` its chunk extension arrives a
+    byte every ``drip`` seconds until the case ends it. Each of those
+    receives is made inside one read1, which reads the whole chunk-size line
+    before it returns, and each brings a byte long before the socket's
+    timeout."""
+
+    def _answer(self, conn) -> None:
+        conn.sendall(b"HTTP/1.1 %d Controlled\r\nContent-Type: "
+                     b"application/json\r\nTransfer-Encoding: chunked\r\n"
+                     b"Connection: close\r\n\r\n1;" % self.status)
+        while not self.done.wait(self.drip):
+            conn.sendall(b"a")
 
 
 class AReplyThatArrivesSlowlyHoldsNeitherTheStopNorTheCall(unittest.TestCase):
@@ -4268,18 +4308,38 @@ class AReplyThatArrivesSlowlyHoldsNeitherTheStopNorTheCall(unittest.TestCase):
     the request's timeout, past which the call ends as a provider error that
     names it.
 
+    That timeout was checked only before each read, and every receive still
+    waited on the socket for the request's whole timeout: a reply whose
+    first byte came just inside the timeout and then stalled ran to nearly
+    twice the timeout and ended as a raw TimeoutError, not the provider
+    error. A chunked reply's framing - the chunk-size line and its
+    extension, a chunk's closing CRLF, the trailers - is received inside one
+    read1, so an endpoint that sent its framing a byte at a time was never
+    stopped: measured with the 0.5 s timeout and a byte every 50 ms, the
+    call was still reading 30 s in, and a stop set 0.3 s in was not seen
+    until the endpoint stopped sending. Every receive is now bound to what
+    is left of the whole read's timeout and checks the stop first: a stall
+    after the first byte ends at the timeout as the provider error naming
+    it, framing that arrives a byte at a time is stopped within one wait,
+    or ends at the timeout, and a reply whose socket cannot be reached is
+    not read, since its receives could not be bound.
+
     Each case calls the shipped adapter's _request on a worker thread, with
-    the 0.5 s timeout, against that endpoint - a server the case starts
-    itself, on an ephemeral loopback port: an error reply and a successful
-    one, each with a stop set 0.3 s in and with no stop. The control: a
-    reply sent at once is read whole."""
+    the 0.5 s timeout, against one of those endpoints - a server the case
+    starts itself, on an ephemeral loopback port: an error reply and a
+    successful one, sent slowly with a stop set 0.3 s in and with no stop,
+    stalled after its first byte, and chunked with its framing sent slowly,
+    with the stop and without; and a reply given a stream that is not its
+    socket's. The control: a reply sent at once is read whole."""
 
     TIMEOUT = 0.5
     STOP_AFTER = 0.3
+    FIRST_BYTE_AFTER = 0.45
 
     maxDiff = None
 
-    def _call(self, endpoint: _DripEndpoint, with_stop: bool) -> dict:
+    def _call(self, endpoint: _DripEndpoint, with_stop: bool,
+              at_the_timeout: bool = False) -> dict:
         import threading
         import time
         from intergen.cloud import http_adapter
@@ -4319,15 +4379,22 @@ class AReplyThatArrivesSlowlyHoldsNeitherTheStopNorTheCall(unittest.TestCase):
         returned = out.get("returned")
         raised = out.get("raised")
         self.answer = out.get("answer")
+        self.raised = raised
+        if with_stop:
+            within, bound = ("it ended within one wait on the socket",
+                             self.TIMEOUT)
+        elif at_the_timeout:
+            within, bound = ("it ended within half a wait of the timeout",
+                             1.5 * self.TIMEOUT)
+        else:
+            within, bound = ("it ended within the timeout and one more wait",
+                             2 * self.TIMEOUT)
         return {
             "the call ended as": (
                 "<still reading>" if returned is None
                 else type(raised).__name__ if raised is not None
                 else "its answer"),
-            "it ended within one wait on the socket"
-            if with_stop else "it ended within the timeout and one more wait":
-                returned is not None and returned - began < (
-                    self.TIMEOUT if with_stop else 2 * self.TIMEOUT),
+            within: returned is not None and returned - began < bound,
             "its words name the timeout": (
                 f"was not read within {self.TIMEOUT:g}s, the request's timeout"
                 in str(raised)),
@@ -4363,6 +4430,100 @@ class AReplyThatArrivesSlowlyHoldsNeitherTheStopNorTheCall(unittest.TestCase):
             "the call ended as": "CloudAdapterError",
             "it ended within the timeout and one more wait": True,
             "its words name the timeout": True,
+        })
+
+    @pytest.mark.reaches_a_server_it_starts_itself
+    def test_an_answer_that_stalls_after_its_first_byte_ends_at_the_timeout(
+            self):
+        self.assertEqual(self._call(
+            _StallingEndpoint(200, self.FIRST_BYTE_AFTER), with_stop=False,
+            at_the_timeout=True), {
+            "the call ended as": "CloudAdapterError",
+            "it ended within half a wait of the timeout": True,
+            "its words name the timeout": True,
+        })
+
+    @pytest.mark.reaches_a_server_it_starts_itself
+    def test_an_error_reply_that_stalls_after_its_first_byte_ends_at_the_timeout(
+            self):
+        self.assertEqual(self._call(
+            _StallingEndpoint(500, self.FIRST_BYTE_AFTER), with_stop=False,
+            at_the_timeout=True), {
+            "the call ended as": "CloudAdapterError",
+            "it ended within half a wait of the timeout": True,
+            "its words name the timeout": True,
+        })
+
+    @pytest.mark.reaches_a_server_it_starts_itself
+    def test_an_answer_whose_framing_arrives_slowly_is_stopped_within_one_wait(
+            self):
+        self.assertEqual(self._call(
+            _ChunkFramingDripEndpoint(200), with_stop=True), {
+            "the call ended as": "CloudCallStopped",
+            "it ended within one wait on the socket": True,
+            "its words name the timeout": False,
+        })
+
+    @pytest.mark.reaches_a_server_it_starts_itself
+    def test_an_answer_whose_framing_arrives_slowly_ends_at_the_timeout(self):
+        self.assertEqual(self._call(
+            _ChunkFramingDripEndpoint(200), with_stop=False,
+            at_the_timeout=True), {
+            "the call ended as": "CloudAdapterError",
+            "it ended within half a wait of the timeout": True,
+            "its words name the timeout": True,
+        })
+
+    @pytest.mark.reaches_a_server_it_starts_itself
+    def test_an_error_reply_whose_framing_arrives_slowly_is_stopped_within_one_wait(
+            self):
+        self.assertEqual(self._call(
+            _ChunkFramingDripEndpoint(500), with_stop=True), {
+            "the call ended as": "CloudCallStopped",
+            "it ended within one wait on the socket": True,
+            "its words name the timeout": False,
+        })
+
+    @pytest.mark.reaches_a_server_it_starts_itself
+    def test_an_error_reply_whose_framing_arrives_slowly_ends_at_the_timeout(
+            self):
+        self.assertEqual(self._call(
+            _ChunkFramingDripEndpoint(500), with_stop=False,
+            at_the_timeout=True), {
+            "the call ended as": "CloudAdapterError",
+            "it ended within half a wait of the timeout": True,
+            "its words name the timeout": True,
+        })
+
+    @pytest.mark.reaches_a_server_it_starts_itself
+    def test_a_reply_whose_socket_cannot_be_reached_is_not_read(self):
+        """A reply whose stream is not its socket's own, as a change in the
+        standard library could leave it, cannot have its receives bound: it
+        is not read, and the call ends as the provider error saying so -
+        never a read without the bound. urlopen is the real one; the case
+        gives the reply it opened a stream over the bytes it received."""
+        import io
+        import json
+        import urllib.request
+        answer = {"choices": [{"message": {"content": CLOUD_ANSWER}}]}
+        endpoint = _DripEndpoint(200, json.dumps(answer).encode(), drip=0)
+        opened = urllib.request.urlopen
+
+        def urlopen(req, timeout=None):
+            resp = opened(req, timeout=timeout)
+            resp.fp = io.BufferedReader(io.BytesIO(resp.fp.read()))
+            return resp
+
+        with mock.patch("urllib.request.urlopen", urlopen):
+            outcome = self._call(endpoint, with_stop=False)
+        outcome["its words say why"] = (
+            "its socket could not be reached to bound each receive to the "
+            "request's timeout" in str(self.raised))
+        self.assertEqual(outcome, {
+            "the call ended as": "CloudAdapterError",
+            "it ended within the timeout and one more wait": True,
+            "its words name the timeout": False,
+            "its words say why": True,
         })
 
     @pytest.mark.reaches_a_server_it_starts_itself
