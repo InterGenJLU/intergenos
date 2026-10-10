@@ -43,6 +43,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import stat
 import tempfile
 import unittest
 import urllib.request
@@ -1051,6 +1052,259 @@ class UnderThePrivilegedRunnerTheOwnerIsTheAccountThatAsked(unittest.TestCase):
                     second_name, os.O_RDONLY | os.O_CLOEXEC)
                 os.close(fd)
         self.assertEqual(home, self.owner_home)
+
+
+class UnderThePrivilegedRunnerTheDirectoriesAWriteMakesAreTheOwners(unittest.TestCase):
+    """The directories write_file's create_dirs makes in the requesting owner's home.
+
+    A new file the privileged write creates in the owner's home is handed to the
+    owner, mode 0600. The directories create_dirs makes on the way to it were
+    left as root's, with the mode the umask leaves (0755 under the usual 022):
+    in the person's own home, directories they cannot write in and every local
+    account can list. Each directory the write makes at or below the owner's
+    resolved home is handed to the owner's uid and primary group with mode 0700,
+    through its descriptor, the innermost last, once the file is in place; a
+    directory that already existed is untouched; outside the home, or outside the
+    runner, a directory is made as before; and a hand-over that fails takes the
+    whole write with it, the file and the empty directories it made, and is
+    reported as that failure.
+
+    Root is simulated as in the class above, except that the ownership call is
+    recorded AND made, with this account's own uid and gid, which needs no
+    privilege; so the owner and the mode read back from the disk are the real
+    outcome. A hand-over by name is refused outright for the span of each cell.
+    The signed never-list is pinned ABSENT.
+    """
+
+    def setUp(self) -> None:
+        self.uid = os.getuid()
+        self.gid = os.getgid()
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name)
+        self.home = self.root / "home"
+        self.home.mkdir(mode=0o750)
+        self.outside = self.root / "elsewhere"
+        self.outside.mkdir()
+        self.tool = write_file_tool.WriteFileTool()
+        self.handed: list[tuple[str, int, int, int]] = []
+        self._real_fchown = os.fchown
+        # A fixed umask, so "as before" has one meaning in every cell.
+        self._umask = os.umask(0o022)
+        never_list_absent = contextlib.ExitStack()
+        never_list_absent.enter_context(
+            mock.patch.object(write_file_tool, "_policy_loaded", True))
+        never_list_absent.enter_context(
+            mock.patch.object(write_file_tool, "_policy_cache", None))
+        self.addCleanup(never_list_absent.close)
+
+    def tearDown(self) -> None:
+        os.umask(self._umask)
+        self._tmp.cleanup()
+
+    def _record_fchown(self, fd: int, uid: int, gid: int) -> None:
+        st = os.fstat(fd)
+        kind = "directory" if stat.S_ISDIR(st.st_mode) else "file"
+        self.handed.append((kind, st.st_ino, uid, gid))
+        self._real_fchown(fd, uid, gid)
+
+    @staticmethod
+    def _by_name(*args, **kwargs) -> None:
+        raise AssertionError(f"an ownership change by name: {args!r}")
+
+    def _as_the_runner(self, fchown=None):
+        entry = mock.MagicMock()
+        entry.pw_dir, entry.pw_uid, entry.pw_gid = str(self.home), self.uid, self.gid
+        fake_pwd = mock.MagicMock()
+        fake_pwd.getpwuid.return_value = entry
+        fake_pwd.getpwnam.return_value = entry
+        stack = contextlib.ExitStack()
+        stack.enter_context(mock.patch.object(dt, "pwd", fake_pwd))
+        stack.enter_context(mock.patch.dict(os.environ, {"PKEXEC_UID": str(self.uid)}))
+        stack.enter_context(mock.patch.object(dt.os, "getuid", return_value=0))
+        stack.enter_context(mock.patch.object(dt.os, "fchown", fchown or self._record_fchown))
+        stack.enter_context(mock.patch.object(dt.os, "chown", self._by_name))
+        stack.enter_context(mock.patch.object(dt.os, "lchown", self._by_name))
+        return stack
+
+    def _write(self, target: Path, content: str = "written\n"):
+        return self.tool.execute({"path": str(target), "content": content,
+                                  "create_dirs": True})
+
+    def _state(self, path: Path) -> tuple[int, int, int, int]:
+        st = os.lstat(path)
+        return (stat.S_IMODE(st.st_mode), st.st_uid, st.st_gid, st.st_ino)
+
+    def _directories_handed(self) -> list[int]:
+        return [ino for kind, ino, _u, _g in self.handed if kind == "directory"]
+
+    def _listing(self, top: Path) -> list[str]:
+        def stop(err: OSError) -> None:
+            raise err
+        found = []
+        for d, dirs, files in os.walk(top, onerror=stop):
+            found += [str((Path(d) / n).relative_to(top)) for n in dirs + files]
+        return sorted(found)
+
+    # --- the directories a write makes in the owner's home --------------------
+
+    def test_a_directory_create_dirs_makes_in_the_owners_home_is_theirs_0700(
+            self) -> None:
+        made = self.home / "made"
+        target = made / "note.txt"
+        with self._as_the_runner():
+            result = self._write(target, "hello\n")
+        self.assertTrue(result.success, result.content)
+        self.assertEqual(target.read_text(), "hello\n")
+        self.assertEqual(
+            self._directories_handed(), [made.stat().st_ino],
+            "the directory create_dirs made in the requesting owner's home under "
+            "the runner must be handed to the owner, once, through its "
+            f"descriptor; recorded hand-overs: {self.handed}")
+        self.assertEqual(
+            self._state(made)[:3], (0o700, self.uid, self.gid),
+            f"the new directory is {oct(self._state(made)[0])}; a directory made "
+            "for the person in their own home is theirs alone, 0700")
+        self.assertEqual(self._state(target)[:3], (0o600, self.uid, self.gid))
+
+    def test_directories_made_two_deep_are_each_the_owners_innermost_last(
+            self) -> None:
+        outer = self.home / "a"
+        inner = outer / "b"
+        target = inner / "note.txt"
+        with self._as_the_runner():
+            result = self._write(target)
+        self.assertTrue(result.success, result.content)
+        self.assertEqual(
+            self._directories_handed(), [outer.stat().st_ino, inner.stat().st_ino],
+            "each directory the write made is handed over, the outermost first "
+            f"and the innermost last; recorded hand-overs: {self.handed}")
+        for directory in (outer, inner):
+            self.assertEqual(self._state(directory)[:3], (0o700, self.uid, self.gid),
+                             f"{directory} is not the owner's 0700")
+        self.assertEqual(self._state(target)[:3], (0o600, self.uid, self.gid))
+
+    def test_an_existing_directory_on_the_way_is_untouched(self) -> None:
+        docs = self.home / "docs"
+        docs.mkdir(mode=0o750)
+        before_home, before_docs = self._state(self.home), self._state(docs)
+        made = docs / "new"
+        with self._as_the_runner():
+            result = self._write(made / "note.txt")
+        self.assertTrue(result.success, result.content)
+        self.assertEqual(self._state(self.home), before_home,
+                         "the home itself changed owner, group, mode or inode")
+        self.assertEqual(self._state(docs), before_docs,
+                         "an existing directory changed owner, group, mode or inode")
+        self.assertEqual(self._directories_handed(), [made.stat().st_ino])
+        self.assertEqual(self._state(made)[:3], (0o700, self.uid, self.gid))
+
+    # --- what keeps today's behaviour ----------------------------------------
+
+    def test_a_directory_made_outside_the_owners_home_is_made_as_before(
+            self) -> None:
+        made = self.outside / "made"
+        with self._as_the_runner():
+            result = self._write(made / "note.txt")
+        self.assertTrue(result.success, result.content)
+        self.assertEqual(self.handed, [], "nothing outside the home is handed to anyone")
+        self.assertEqual(self._state(made)[0], 0o755)
+        self.assertEqual(self._state(made / "note.txt")[0], 0o644)
+
+    def test_outside_the_runner_a_directory_is_made_as_before(self) -> None:
+        """PKEXEC_UID in an ordinary process is ordinary environment."""
+        made = self.home / "plain"
+        with mock.patch.dict(os.environ, {"PKEXEC_UID": str(self.uid)}), \
+                mock.patch.object(dt.os, "fchown", self._record_fchown):
+            result = self._write(made / "note.txt")
+        self.assertTrue(result.success, result.content)
+        self.assertEqual(self.handed, [])
+        self.assertEqual(self._state(made)[0], 0o755)
+
+    # --- a hand-over that fails takes the write with it ------------------------
+
+    def _refusing(self, kind: str):
+        def refuse(fd: int, uid: int, gid: int) -> None:
+            if stat.S_ISDIR(os.fstat(fd).st_mode) == (kind == "directory"):
+                raise PermissionError(1, "Operation not permitted (the case's)")
+            self._record_fchown(fd, uid, gid)
+        return refuse
+
+    def test_a_directory_that_cannot_be_handed_over_takes_the_write_with_it(
+            self) -> None:
+        target = self.home / "a" / "b" / "note.txt"
+        with self._as_the_runner(fchown=self._refusing("directory")):
+            result = self._write(target, "never kept\n")
+        self.assertFalse(result.success,
+                         f"the write reported success: {result.content!r}")
+        self.assertIn("could not be handed", result.content or "")
+        self.assertEqual(
+            self._listing(self.home), [],
+            "what the write created (the file and the directories it made) must "
+            "be removed when a directory cannot be handed to the owner")
+
+    def test_a_file_that_cannot_be_handed_over_takes_its_directories_with_it(
+            self) -> None:
+        target = self.home / "a" / "b" / "note.txt"
+        with self._as_the_runner(fchown=self._refusing("file")):
+            result = self._write(target, "never kept\n")
+        self.assertFalse(result.success,
+                         f"the write reported success: {result.content!r}")
+        self.assertIn("could not be handed", result.content or "")
+        self.assertEqual(
+            self._listing(self.home), [],
+            "the directories the write made for a file that could not be handed "
+            "to the owner must go with it")
+
+    def test_a_made_directory_that_cannot_be_removed_is_reported_where_it_is(
+            self) -> None:
+        """The removal after a refused hand-over fails: the report must say what
+        was left, never claim the write took nothing with it."""
+        target = self.home / "kept" / "note.txt"
+        real_rmdir = os.rmdir
+
+        def rmdir_refused(name, *args, **kwargs):
+            if kwargs.get("dir_fd") is not None:
+                raise PermissionError(13, "Permission denied (the case's)", name)
+            return real_rmdir(name, *args, **kwargs)
+
+        with self._as_the_runner(fchown=self._refusing("directory")), \
+                mock.patch.object(dt.os, "rmdir", side_effect=rmdir_refused):
+            result = self._write(target, "never kept\n")
+        self.assertFalse(result.success,
+                         f"the write reported success: {result.content!r}")
+        self.assertTrue((self.home / "kept").is_dir(),
+                        "the case needs the directory to be left")
+        self.assertIn(str(self.home / "kept"), result.content or "")
+        self.assertIn("not removed", result.content or "")
+
+    # --- the file goes where the directory was made, whatever the name says ----
+
+    def test_the_file_is_created_in_the_directory_made_for_it(self) -> None:
+        """Between the making of the directory and the creation of the file, the
+        name of the directory in the owner's home is moved aside and pointed at a
+        directory outside the home. The file must land in the directory the write
+        made, never where the name now points."""
+        made = self.home / "made"
+        target = made / "note.txt"
+        real_open = dt.opened_refusing_install_secrets
+        swapped = []
+
+        def name_moved_first(path, flags, *args, **kwargs):
+            if not swapped:
+                os.rename(made, self.home / "made-moved")
+                os.symlink(self.outside, made)
+                swapped.append(True)
+            return real_open(path, flags, *args, **kwargs)
+
+        with self._as_the_runner(), \
+                mock.patch.object(dt, "opened_refusing_install_secrets",
+                                  side_effect=name_moved_first):
+            self._write(target, "where it was made\n")
+        self.assertTrue(swapped, "the case moved nothing")
+        self.assertEqual(self._listing(self.outside), [],
+                         "the write followed the replaced name out of the home")
+        self.assertEqual((self.home / "made-moved" / "note.txt").read_text(),
+                         "where it was made\n")
 
 
 if __name__ == "__main__":
