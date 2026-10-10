@@ -14,12 +14,17 @@ read.
 
 THE RULE THESE CELLS HOLD. A tool that cannot be run or read, for any system
 error or a failed subprocess, leaves the card in the machine's reading with
-its memory unknown, and the log names the error. A machine with no nvidia-smi
-at all reads exactly as before and logs nothing about it.
+its memory unknown, and the log names the error. So does a tool that runs and
+exits with an error, or exits cleanly without printing a size: the log names
+its exit status and the first line it wrote, from its error stream or, when
+that is empty, from its output (nvidia-smi writes its own failures there). A
+machine with no nvidia-smi at all reads exactly as before and logs nothing
+about it, and a tool that prints the size is read as before.
 
 Hermetic: the card listing is a built lookalike of /sys/class/drm with one
 NVIDIA card that exports no memory figure, the driver's memory files are
-absent, and nvidia-smi is a stand-in that raises.
+absent, and nvidia-smi is a stand-in that raises or returns a finished
+process.
 """
 from __future__ import annotations
 
@@ -76,6 +81,17 @@ class _Machine(unittest.TestCase):
                                side_effect=raises):
             return HardwareDetector()._enumerate_gpus()
 
+    def cards_and_memory_when_the_tool_finishes(self, status: int,
+                                                output: str, errors: str):
+        finished = subprocess.CompletedProcess(
+            args=["nvidia-smi", "--query-gpu=memory.total",
+                  "--format=csv,noheader,nounits"],
+            returncode=status, stdout=output, stderr=errors)
+        with mock.patch.object(hardware.subprocess, "run",
+                               return_value=finished):
+            detector = HardwareDetector()
+            return detector._enumerate_gpus(), detector._nvidia_vram_mb()
+
     def assert_the_card_is_kept(self, cards) -> None:
         nvidia = [c for c in cards if c[0] == "nvidia"]
         self.assertEqual(len(nvidia), 1, f"the NVIDIA card was dropped: {cards}")
@@ -106,6 +122,38 @@ class AToolThatCannotRunKeepsTheCard(_Machine):
             subprocess.SubprocessError("the tool's process failed"))
         self.assert_the_card_is_kept(cards)
 
+    def test_a_tool_that_exits_with_an_error_keeps_the_card_and_says_why(self):
+        with self.assertLogs("intergen.hardware", level="WARNING") as logs:
+            cards, memory = self.cards_and_memory_when_the_tool_finishes(
+                1, "", "permission denied\n")
+        self.assert_the_card_is_kept(cards)
+        self.assertIsNone(memory)
+        self.assertTrue(any("status 1" in line and "permission denied" in line
+                            and "kept" in line for line in logs.output),
+                        logs.output)
+
+    def test_a_failure_the_tool_writes_to_its_output_is_named(self):
+        said = ("NVIDIA-SMI has failed because it couldn't communicate with "
+                "the NVIDIA driver. Make sure that the latest NVIDIA driver "
+                "is installed and running.\n")
+        with self.assertLogs("intergen.hardware", level="WARNING") as logs:
+            cards, memory = self.cards_and_memory_when_the_tool_finishes(
+                9, said, "")
+        self.assert_the_card_is_kept(cards)
+        self.assertIsNone(memory)
+        self.assertTrue(any("status 9" in line
+                            and "couldn't communicate with the NVIDIA driver"
+                            in line for line in logs.output), logs.output)
+
+    def test_a_tool_that_prints_no_size_keeps_the_card_and_says_why(self):
+        with self.assertLogs("intergen.hardware", level="WARNING") as logs:
+            cards, memory = self.cards_and_memory_when_the_tool_finishes(
+                0, "[N/A]\n", "")
+        self.assert_the_card_is_kept(cards)
+        self.assertIsNone(memory)
+        self.assertTrue(any("[N/A]" in line and "kept" in line
+                            for line in logs.output), logs.output)
+
     def test_the_machine_still_selects_the_nvidia_card(self):
         refused = PermissionError(errno.EACCES, "Permission denied",
                                   "nvidia-smi")
@@ -127,6 +175,17 @@ class TheControl(_Machine):
         with mock.patch.object(logger, "warning") as warned:
             cards = self.cards_when_the_tool(absent)
         self.assert_the_card_is_kept(cards)
+        warned.assert_not_called()
+
+    def test_a_tool_that_prints_the_size_is_read_as_before_and_says_nothing(self):
+        logger = logging.getLogger("intergen.hardware")
+        with mock.patch.object(logger, "warning") as warned:
+            cards, memory = self.cards_and_memory_when_the_tool_finishes(
+                0, "8192\n", "")
+        nvidia = [c for c in cards if c[0] == "nvidia"]
+        self.assertEqual(len(nvidia), 1, f"the NVIDIA card was dropped: {cards}")
+        self.assertEqual(nvidia[0][2], 8192)
+        self.assertEqual(memory, 8192)
         warned.assert_not_called()
 
 
