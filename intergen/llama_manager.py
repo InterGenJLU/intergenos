@@ -1755,22 +1755,27 @@ class LlamaManager(LlamaManagerInterface):
                  self._restart_count, MAX_RESTART_ATTEMPTS)
         self.stop()
 
-        if self.start_saved_config():
-            return True
-
-        # The relaunch died because the card ran out of memory: plan fewer
-        # layers and start again inside this one restart, so the watchdog's
-        # budget is not spent relaunching a plan the card cannot hold.
-        while self._step_down_after_device_memory_failure():
+        # The relaunch, first on the engine this restart began with and then,
+        # once, on the next engine. On EITHER engine a relaunch that died
+        # because the card ran out of memory is followed by fewer layers inside
+        # this one restart, so the watchdog's budget is not spent relaunching a
+        # plan the card cannot hold; the next engine used to be started once
+        # and left at the plan that had just died.
+        for on_the_next_engine in (False, True):
+            if on_the_next_engine:
+                # The relaunch failed. If the failure is the engine's own — it
+                # never came up at all — try the next engine rather than
+                # spending the rest of the budget on a binary that cannot run
+                # here.
+                if not (self._last_failure in _ENGINE_LEVEL_FAILURES
+                        and self._advance_engine()):
+                    return False
+                log.info("retrying the restart on the next engine")
             if self.start_saved_config():
                 return True
-
-        # The relaunch failed. If the failure is the engine's own — it never
-        # came up at all — try the next engine rather than spending the rest of
-        # the budget on a binary that cannot run here.
-        if self._last_failure in _ENGINE_LEVEL_FAILURES and self._advance_engine():
-            log.info("retrying the restart on the next engine")
-            return self.start_saved_config()
+            while self._step_down_after_device_memory_failure():
+                if self.start_saved_config():
+                    return True
         return False
 
     def health(self) -> ServerHealth:
