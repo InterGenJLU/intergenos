@@ -41,6 +41,7 @@ from intergen.interfaces.types import RouteResult, ToolCall
 from intergen.interfaces.provenance import Provenance
 from intergen.router import ConversationRouter
 from intergen.tool_registry import ToolRegistry
+from intergen.tools.manage_services import ManageServicesTool
 
 
 # Representative starving turns, verbatim from the consolidated ledger
@@ -168,6 +169,13 @@ class M8EligibilitySurfaceTests(unittest.TestCase):
         self.assertTrue(attrs["eligible_for_tools"])
 
 
+def _the_manager_knows_it(name, *, user_mode=False):
+    """The service manager, stood in: it knows every unit it is asked about.
+    These cases are about the gate, not the unit, and a case never asks the
+    service manager of the machine it runs on."""
+    return "known", name, ""
+
+
 class M8GatingRegressionTests(unittest.TestCase):
     """The execute() trust boundary is byte-identical regardless of eligibility.
 
@@ -177,6 +185,10 @@ class M8GatingRegressionTests(unittest.TestCase):
     """
 
     def setUp(self) -> None:
+        known = mock.patch.object(ManageServicesTool, "_read_service_unit",
+                                  staticmethod(_the_manager_knows_it))
+        known.start()
+        self.addCleanup(known.stop)
         self.registry = ToolRegistry()
         self.registry.discover_tools()
 

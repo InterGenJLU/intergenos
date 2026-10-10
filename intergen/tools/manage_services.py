@@ -138,6 +138,97 @@ CONFIRM_ACTIONS = frozenset({
     "mask", "unmask", "daemon-reload",
 })
 
+# The state-changing actions that act on a unit: every one but daemon-reload,
+# which names none.
+UNIT_CHANGING_ACTIONS = CONFIRM_ACTIONS - {"daemon-reload"}
+
+
+# ── whether this machine's service manager knows a unit ─────────────────────
+#
+# THE MANAGER IS ASKED. A list kept here would be a guess about this machine;
+# the service manager's own load state is its answer. Its names are
+# case-sensitive and a person's are not ("restart networkmanager"), so a name it
+# does not know as spelled is looked for again among its unit files with the
+# case ignored, and the answer carries the manager's spelling. A read that fails
+# is a failure, reported in words: it is never read as "no such unit", never as
+# "known". Two callers ask: the router's argument builder, when it matches a
+# service keyword clause, and this tool, before a state-changing call from any
+# route reaches the review gate.
+_SYSTEMCTL = "/usr/bin/systemctl"
+_SERVICE_READ_TIMEOUT_SECONDS = 5
+# systemd's unit-name characters. A word outside them ("over?", "sshd*") is a
+# glob to `systemctl show`, which answers a pattern that matches nothing with
+# no output at all, so such a word is refused here as no unit name.
+_UNIT_NAME_RE = re.compile(r"[A-Za-z0-9:_.@\\-]+")
+
+
+def read_service_unit(name: str, *,
+                      user_mode: bool = False) -> "tuple[str, str, str]":
+    """Ask this machine's service manager whether it knows a unit by this name.
+
+    Returns ``(state, unit, words)``:
+
+      ("known", <the manager's name for the unit>, "")
+      ("unknown", "", <why no unit was found, in words>)
+      ("unreadable", "", <the failure, in words>)
+
+    The exact name is asked first (``systemctl show``, which also knows
+    instances, aliases and units of other types); only when the manager answers
+    ``not-found`` are the service unit files listed and compared with the case
+    ignored. An empty listing from a manager that answered is a failure, not a
+    finding. ``user_mode`` asks the person's own service manager
+    (``systemctl --user``), which is the one a user-mode call acts on.
+    """
+    manager = [_SYSTEMCTL, "--user"] if user_mode else [_SYSTEMCTL]
+    shown_as = " ".join(manager)
+    name = (name or "").strip()
+    if not name:
+        return "unknown", "", "no service was named"
+    if not _UNIT_NAME_RE.fullmatch(name):
+        return "unknown", "", f"{name!r} is not a unit name"
+    try:
+        shown = subprocess.run(
+            [*manager, "show", "--property=LoadState", "--value", "--", name],
+            capture_output=True, text=True, check=False,
+            timeout=_SERVICE_READ_TIMEOUT_SECONDS)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return ("unreadable", "",
+                f"the service manager could not be asked about {name!r} ({exc})")
+    load_state = (shown.stdout or "").strip()
+    if shown.returncode != 0 or not load_state:
+        return ("unreadable", "",
+                f"{shown_as} show exited {shown.returncode} without a load "
+                f"state for {name!r}: {(shown.stderr or '').strip()[:200]!r}")
+    if load_state != "not-found":
+        return "known", name, ""
+    try:
+        listed = subprocess.run(
+            [*manager, "list-unit-files", "--type=service", "--no-legend",
+             "--no-pager"],
+            capture_output=True, text=True, check=False,
+            timeout=_SERVICE_READ_TIMEOUT_SECONDS)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return ("unreadable", "",
+                f"the service manager's unit files could not be listed ({exc})")
+    files = [line.split()[0] for line in (listed.stdout or "").splitlines()
+             if line.split()]
+    if listed.returncode != 0 or not files:
+        return ("unreadable", "",
+                f"{shown_as} list-unit-files exited {listed.returncode} with "
+                f"{len(files)} unit files: "
+                f"{(listed.stderr or '').strip()[:200]!r}")
+    suffixed = name.lower().endswith(".service")
+    wanted = name.lower() if suffixed else name.lower() + ".service"
+    matches = sorted({f for f in files if f.lower() == wanted})
+    if len(matches) == 1:
+        return ("known",
+                matches[0] if suffixed else matches[0][:-len(".service")], "")
+    if matches:
+        return ("unknown", "",
+                f"more than one unit is named {name!r} with the case ignored: "
+                f"{', '.join(matches)}")
+    return "unknown", "", f"the service manager knows no unit named {name!r}"
+
 # Colloquial → canonical systemctl verb, the action-level twin of
 # _SERVICE_ALIASES above. Added 2026-08-12 for a measured defect: asked to list
 # services, the model called this tool with action "list". manage_packages
@@ -224,6 +315,53 @@ class ManageServicesTool(BaseTool):
             },
             safety_tier=SafetyTier.CONFIRM,
         )
+
+    # The service manager's answer about a name; a seam so a case can stand in
+    # for this machine's manager (see read_service_unit).
+    _read_service_unit = staticmethod(read_service_unit)
+
+    def validate_arguments(self, arguments: dict[str, Any]) -> str | None:
+        """The structural checks, then one this tool holds for every route: a
+        state-changing action names a unit this machine's service manager knows,
+        spelled as the manager spells it.
+
+        A review card for a restart that names no service, or names a unit this
+        machine does not have, asks a person to approve something they cannot
+        judge, and approving it runs nothing they asked for. The router stops
+        proposing such a change from a keyword match, but the model's own tool
+        turn reaches this tool directly: measured, "start over" drew a restart
+        with no service named. So the call is refused here, in words, before
+        the dispatcher gate and the review card. A read-only action is not
+        asked about: "Unit over.service could not be found" is a true answer to
+        a status question.
+        """
+        error = super().validate_arguments(arguments)
+        if error:
+            return error
+        action = canonical_action(arguments.get("action", ""))
+        if action not in UNIT_CHANGING_ACTIONS:
+            return None
+        service = arguments.get("service", "")
+        if not isinstance(service, str):
+            return f"'{action}' needs a service name, not {service!r}"
+        if service:
+            service = _SERVICE_ALIASES.get(
+                service.lower().removesuffix(".service"), service)
+        if not service.strip():
+            return (f"'{action}' changes a service and names none; nothing was "
+                    f"proposed — say which service to {action}")
+        state, unit, words = self._read_service_unit(
+            service, user_mode=bool(arguments.get("user_mode", False)))
+        if state == "known" and unit == service:
+            return None
+        if state == "known":
+            return (f"the service manager has no unit named {service!r}; it "
+                    f"has {unit!r}, so nothing was proposed")
+        if state == "unknown":
+            return (f"'{action}' names no unit this machine has, so nothing was "
+                    f"proposed: {words}")
+        return (f"'{action} {service}' was not proposed because the service "
+                f"manager could not be read: {words}")
 
     def classify_safety(self, arguments: dict[str, Any]) -> SafetyTier:
         """Classify based on the action.

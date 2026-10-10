@@ -21,8 +21,9 @@ recorded as a failed review and quoted.
 The cases drive the real ToolRegistry through the real bridge
 (_make_web_review_callback) and the real card on one connection, the registry
 in a worker thread as the web server runs it. Nothing privileged runs: the root
-dispatch is replaced by a recorder, the dispatch token by a fixed value, and
-the audit writer by a list.
+dispatch is replaced by a recorder, the dispatch token by a fixed value, the
+audit writer by a list, and the service manager's read by one that knows every
+unit it is asked about.
 """
 
 from __future__ import annotations
@@ -36,6 +37,7 @@ from intergen import web_server as web_server_module
 from intergen.interfaces.provenance import Provenance
 from intergen.interfaces.types import ToolCall, ToolResult
 from intergen.tool_registry import ToolRegistry
+from intergen.tools.manage_services import ManageServicesTool
 from intergen.web_server import ConnectionContext, WebServer
 
 # A call the registry holds for review (write_file is dispatched as root), at a
@@ -84,6 +86,13 @@ class _IntegrityFailure:
             checks=[GovernanceCheck(gate_name="hash_integrity", passed=False)])
 
 
+def _the_manager_knows_it(name, *, user_mode=False):
+    """The service manager, stood in: it knows every unit it is asked about.
+    These cases are about what a review records, not the unit, and a case never
+    asks the service manager of the machine it runs on."""
+    return "known", name, ""
+
+
 class _Case(unittest.TestCase):
 
     def setUp(self) -> None:
@@ -98,6 +107,8 @@ class _Case(unittest.TestCase):
                               return_value="case-token"),
             mock.patch.object(self.registry, "_dispatch_via_pkexec",
                               side_effect=self._dispatch),
+            mock.patch.object(ManageServicesTool, "_read_service_unit",
+                              staticmethod(_the_manager_knows_it)),
         ):
             patcher.start()
             self.addCleanup(patcher.stop)

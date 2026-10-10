@@ -25,7 +25,6 @@ import os
 import re
 import shlex
 import shutil
-import subprocess
 import threading
 import time
 import dataclasses
@@ -75,8 +74,9 @@ from intergen.semantic import SemanticMatcher
 from intergen.tool_registry import ToolRegistry
 # The service tool's own alias map ("ssh" is the unit sshd), imported rather
 # than re-listed so the unit the manager is asked about is by construction the
-# unit the tool would act on.
-from intergen.tools.manage_services import _SERVICE_ALIASES
+# unit the tool would act on; and the tool's own reader of the service manager,
+# which the tool also asks before a state-changing call reaches the review gate.
+from intergen.tools.manage_services import _SERVICE_ALIASES, read_service_unit
 from intergen.voice import FillerPicker
 
 logger = logging.getLogger(__name__)
@@ -220,88 +220,19 @@ def _is_referential_argument(token: str) -> bool:
 # named "everything". Nothing in either sentence names a service, and the person
 # would have been asked to approve a change they never asked for.
 #
-# THE MANAGER IS ASKED, WHEN THE CLAUSE IS MATCHED. A list kept here would be a
+# THE MANAGER IS ASKED, WHEN THE CLAUSE IS MATCHED, through the service tool's
+# own reader (read_service_unit, imported above). A list kept here would be a
 # guess about this machine; the service manager's own load state is its answer.
 # Its names are case-sensitive and a person's are not ("restart
 # networkmanager"), so a name it does not know as spelled is looked for again
 # among its unit files with the case ignored, and the proposal carries the
 # manager's spelling. A read that fails is a failure, reported in words: it is
 # never read as "no such unit", never as "known", and no proposal is made on it.
-_SYSTEMCTL = "/usr/bin/systemctl"
-_SERVICE_READ_TIMEOUT_SECONDS = 5
 # The actions the argument builder can produce that change the system. A status
 # question is answered for any name — "Unit over.service could not be found"
 # is a true answer to "status of over" — so it is not asked about.
 _SERVICE_STATE_CHANGING_ACTIONS = frozenset(
     {"start", "stop", "restart", "enable", "disable"})
-# systemd's unit-name characters. A word outside them ("over?", "sshd*") is a
-# glob to `systemctl show`, which answers a pattern that matches nothing with
-# no output at all, so such a word is refused here as no unit name.
-_UNIT_NAME_RE = re.compile(r"[A-Za-z0-9:_.@\\-]+")
-
-
-def read_service_unit(name: str) -> "tuple[str, str, str]":
-    """Ask this machine's service manager whether it knows a unit by this name.
-
-    Returns ``(state, unit, words)``:
-
-      ("known", <the manager's name for the unit>, "")
-      ("unknown", "", <why no unit was found, in words>)
-      ("unreadable", "", <the failure, in words>)
-
-    The exact name is asked first (``systemctl show``, which also knows
-    instances, aliases and units of other types); only when the manager answers
-    ``not-found`` are the service unit files listed and compared with the case
-    ignored. An empty listing from a manager that answered is a failure, not a
-    finding.
-    """
-    name = (name or "").strip()
-    if not name:
-        return "unknown", "", "no service was named"
-    if not _UNIT_NAME_RE.fullmatch(name):
-        return "unknown", "", f"{name!r} is not a unit name"
-    try:
-        shown = subprocess.run(
-            [_SYSTEMCTL, "show", "--property=LoadState", "--value", "--", name],
-            capture_output=True, text=True, check=False,
-            timeout=_SERVICE_READ_TIMEOUT_SECONDS)
-    except (OSError, subprocess.SubprocessError) as exc:
-        return ("unreadable", "",
-                f"the service manager could not be asked about {name!r} ({exc})")
-    load_state = (shown.stdout or "").strip()
-    if shown.returncode != 0 or not load_state:
-        return ("unreadable", "",
-                f"{_SYSTEMCTL} show exited {shown.returncode} without a load "
-                f"state for {name!r}: {(shown.stderr or '').strip()[:200]!r}")
-    if load_state != "not-found":
-        return "known", name, ""
-    try:
-        listed = subprocess.run(
-            [_SYSTEMCTL, "list-unit-files", "--type=service", "--no-legend",
-             "--no-pager"],
-            capture_output=True, text=True, check=False,
-            timeout=_SERVICE_READ_TIMEOUT_SECONDS)
-    except (OSError, subprocess.SubprocessError) as exc:
-        return ("unreadable", "",
-                f"the service manager's unit files could not be listed ({exc})")
-    files = [line.split()[0] for line in (listed.stdout or "").splitlines()
-             if line.split()]
-    if listed.returncode != 0 or not files:
-        return ("unreadable", "",
-                f"{_SYSTEMCTL} list-unit-files exited {listed.returncode} with "
-                f"{len(files)} unit files: "
-                f"{(listed.stderr or '').strip()[:200]!r}")
-    suffixed = name.lower().endswith(".service")
-    wanted = name.lower() if suffixed else name.lower() + ".service"
-    matches = sorted({f for f in files if f.lower() == wanted})
-    if len(matches) == 1:
-        return ("known",
-                matches[0] if suffixed else matches[0][:-len(".service")], "")
-    if matches:
-        return ("unknown", "",
-                f"more than one unit is named {name!r} with the case ignored: "
-                f"{', '.join(matches)}")
-    return "unknown", "", f"the service manager knows no unit named {name!r}"
 
 
 # ── a turn that only makes sense on top of the last one ──────────────────

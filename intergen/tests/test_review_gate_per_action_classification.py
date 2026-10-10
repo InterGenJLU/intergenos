@@ -71,6 +71,13 @@ STATE_CHANGING_SERVICE_ACTIONS = (
 )
 
 
+def _the_manager_knows_it(name, *, user_mode=False):
+    """The service manager, stood in: it knows every unit it is asked about.
+    These cases are about the gate, not the unit, and a case never asks the
+    service manager of the machine it runs on."""
+    return "known", name, ""
+
+
 def _call(action: str, service: str = "sshd",
           provenance: Provenance = Provenance.USER_DIRECT) -> ToolCall:
     args: dict[str, object] = {"action": action}
@@ -131,6 +138,10 @@ class StateChangingActionsStillGate(unittest.TestCase):
     """The fix must not open the actions the gate exists for."""
 
     def setUp(self):
+        known = mock.patch.object(ManageServicesTool, "_read_service_unit",
+                                  staticmethod(_the_manager_knows_it))
+        known.start()
+        self.addCleanup(known.stop)
         self.tool = ManageServicesTool()
         self.registry = ToolRegistry()
         self.registry.discover_tools()
@@ -198,6 +209,10 @@ class UnrecognisedActionsAreRefusedNotGated(unittest.TestCase):
     put in front of a person."""
 
     def setUp(self):
+        known = mock.patch.object(ManageServicesTool, "_read_service_unit",
+                                  staticmethod(_the_manager_knows_it))
+        known.start()
+        self.addCleanup(known.stop)
         self.tool = ManageServicesTool()
         self.registry = ToolRegistry()
         self.registry.discover_tools()

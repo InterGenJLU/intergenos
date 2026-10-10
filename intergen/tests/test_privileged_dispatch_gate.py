@@ -29,19 +29,31 @@ from intergen import dispatch_token as dt
 from intergen.tool_registry import ToolRegistry
 from intergen.interfaces.types import ToolCall, ToolResult
 from intergen.interfaces.provenance import Provenance, ConversationTrustState
+from intergen.tools.manage_services import ManageServicesTool
+
+
+def _the_manager_knows_it(name, *, user_mode=False):
+    """The service manager, stood in: it knows every unit it is asked about.
+    These cases are about the gate, not the unit, and a case never asks the
+    service manager of the machine it runs on."""
+    return "known", name, ""
 
 
 class PrivilegedDispatchGateTests(unittest.TestCase):
     def setUp(self):
         self.registry = ToolRegistry()
         self.registry.discover_tools()
-        self.args = {"action": "restart", "unit": "sshd"}
+        self.args = {"action": "restart", "service": "sshd"}
         self.uid = os.getuid()
         # Inject a deterministic signing key so mint_token does not need a real
         # ~/.config/intergen/dispatch-key on the test host.
         self._key = "11" * dt.KEY_BYTES
         self._key_patch = mock.patch.object(dt, "load_dispatch_key", return_value=self._key)
         self._key_patch.start()
+        known = mock.patch.object(ManageServicesTool, "_read_service_unit",
+                                  staticmethod(_the_manager_knows_it))
+        known.start()
+        self.addCleanup(known.stop)
 
     def tearDown(self):
         self._key_patch.stop()
@@ -103,7 +115,7 @@ class PrivilegedDispatchGateTests(unittest.TestCase):
         with self.assertRaises(dt.BindingMismatch):
             dt.verify_token(
                 captured["token"], "manage_services",
-                {"action": "stop", "unit": "sshd"}, self.uid, key=self._key,
+                {"action": "stop", "service": "sshd"}, self.uid, key=self._key,
             )
 
     def test_no_conversation_caching_for_privileged(self):
