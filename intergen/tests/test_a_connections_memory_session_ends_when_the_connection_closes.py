@@ -20,6 +20,8 @@ So, when a connection closes:
   * a connection the browser server's own stop closes records the stop's
     reason, "daemon stop", the reason the daemon's stop records for every other
     session, so the record does not depend on which of the two ends runs first;
+  * a turn still being routed when the connection closes is not counted on the
+    session the close ended, and is reported by the session's name;
   * every other connection's session is left as it is.
 
 HOW THE CASES DRIVE IT. The shipped ``WebServer``, started on a free port of
@@ -40,6 +42,7 @@ import asyncio
 import contextlib
 import logging
 import sqlite3
+import threading
 import time
 from unittest import mock
 
@@ -339,6 +342,64 @@ def test_a_connection_the_servers_own_stop_closes_records_the_stops_reason(
         f"the session's end, {row['ended_at']}, is not inside the stop "
         f"({stopping} to {stopped})")
     assert row["topic"] == HOST_TOPIC, f"the end lost the tab's turn: {row}"
+
+
+def test_a_turn_still_being_routed_when_its_connection_closes_is_not_counted_on_the_ended_session(
+        tmp_path, caplog):
+    """The tab sends a message and is closed while that turn is still being
+    routed: route() runs in a worker thread, which a close cannot stop (one
+    waiting on a review card waits up to five minutes). The close ends the
+    session; the turn routed after it is not counted on that ended session, and
+    is reported by the session's name. The routing is held by a stand-in that
+    waits for the case's word and then calls the real route()."""
+    model_calls: list = []
+
+    async def scenario():
+        async with _a_server(tmp_path, model_calls) as (server, _memory):
+            router = server._router
+            real_route = router.route
+            routing, release, routed = (threading.Event(), threading.Event(),
+                                        threading.Event())
+
+            def held_route(*args, **kwargs):
+                routing.set()
+                release.wait(timeout=10)
+                try:
+                    return real_route(*args, **kwargs)
+                finally:
+                    routed.set()
+
+            router.route = held_route
+            loop = asyncio.get_running_loop()
+            async with aiohttp.ClientSession() as http:
+                ws, client_id = await _connect(http, server)
+                sid = _session_of(server, client_id)
+                await ws.send_json({"type": "message", "content": HOST_TURN})
+                held = await loop.run_in_executor(None, routing.wait, 10)
+                await ws.close()
+                let_go = await _let_go(server, client_id)
+                at_close = _sessions(tmp_path)[sid]
+                with caplog.at_level(logging.WARNING):
+                    release.set()
+                    finished = await loop.run_in_executor(None, routed.wait, 10)
+                return (sid, held, let_go, finished, at_close,
+                        _sessions(tmp_path)[sid])
+
+    sid, held, let_go, finished, at_close, after = asyncio.run(scenario())
+    assert held and finished and not model_calls, (
+        f"control: the turn was not held in routing and then routed "
+        f"(held {held}, routed {finished}, model {model_calls})")
+    assert let_go, "control: the server never let the closed connection go"
+    assert at_close["ended_at"] is not None and at_close[
+        "end_reason"] == "connection closed", (
+        f"control: the close did not end the session: {at_close}")
+    assert after == at_close, (
+        "the turn routed after its connection closed was counted on the "
+        f"session the close had ended: {at_close} became {after}")
+    reported = [r.getMessage() for r in caplog.records
+                if r.levelno >= logging.WARNING and sid in r.getMessage()]
+    assert reported, (
+        f"a turn arrived for the ended session {sid} and nothing reported it")
 
 
 # ── Control: green at both ends ──────────────────────────────────────────────

@@ -14,6 +14,8 @@ and answered that there was no record.
 So, on the store:
   * a session is ended ONCE: a second end leaves the first end's time and topic
     as they were;
+  * a session that has ended takes no more turns: a turn that arrives after the
+    end is not counted, and is reported by the session's name;
   * an end the store refuses raises, and loses nothing: the turns the session's
     topic is summarised from are kept for the end that follows;
   * a reset ends the session it replaces, recording the reason "reset", and a
@@ -33,13 +35,17 @@ query_only`` on the manager's own connection is a store that has gone
 read-only, and a trigger that refuses any write of ``ended_at`` is an end
 refused while a new session can still be started.
 
-NO LIVE TARGET. No daemon process, no bus, no socket, no model server.
+NO LIVE TARGET. No daemon process, no bus, no socket, no model server. Where a
+case needs the browser server's event loop and thread, they are real and run in
+this process; the server object on them is a stand-in.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import sqlite3
+import threading
 import time
 from unittest import mock
 
@@ -478,3 +484,154 @@ def test_the_next_start_welcomes_the_person_back_to_the_session_the_stop_ended(
     assert DISK_TOPIC in reply.text, (
         f"the welcome-back reply does not name the session's topic: "
         f"{reply.text!r}")
+
+
+# ── A daemon stop and the browser stop it orders ────────────────────────────
+# InterGenDaemon.stop_service orders the browser server's stop on that server's
+# own event loop, then ends the memory sessions. Here the browser server runs as
+# the daemon runs it (_run_web_server): a real event loop run forever on a real
+# thread, which the daemon's stop does not end. Only the server object on that
+# loop is a stand-in, and only its stop(): it completes, stays pending until the
+# case lets it go, or fails. A turn the browser server still serves after the
+# stop was ordered is recorded through the real _record.
+
+
+class _BrowserServerOnItsOwnLoop:
+    """The browser server's loop and thread, real; its stop(), a stand-in."""
+
+    def __init__(self, outcome: str):
+        self.outcome = outcome
+        self.stop_completed_at: float | None = None
+        self.loop = asyncio.new_event_loop()
+        self._release = asyncio.Event()
+        self.thread = threading.Thread(target=self._serve, name="intergen-web",
+                                       daemon=True)
+        self.thread.start()
+
+    def _serve(self) -> None:
+        asyncio.set_event_loop(self.loop)
+        self.loop.run_forever()
+
+    async def stop(self) -> None:
+        if self.outcome == "fails":
+            raise RuntimeError("the browser server's stop failed")
+        if self.outcome == "pending":
+            await self._release.wait()
+        self.stop_completed_at = time.time()
+
+    def give_to(self, daemon) -> None:
+        daemon._web_server = self
+        daemon._web_loop = self.loop
+        daemon._web_thread = self.thread
+
+    def finish(self) -> None:
+        """Let a pending stop go, then end the loop and its thread."""
+        self.loop.call_soon_threadsafe(self._release.set)
+        asyncio.run_coroutine_threadsafe(asyncio.sleep(0.05),
+                                         self.loop).result(timeout=5)
+        self.loop.call_soon_threadsafe(self.loop.stop)
+        self.thread.join(timeout=5)
+        if not self.thread.is_alive():
+            self.loop.close()
+
+
+def _a_stop_with_the_browser_stop(tmp_path, caplog, outcome: str):
+    """A daemon whose bus conversation and a browser tab's each took a turn,
+    stopped while its browser server's stop has the given outcome. Returns
+    the router, the two conversations, the browser server and the log."""
+    store = tmp_path / outcome
+    store.mkdir()
+    memory = _store(store)
+    router = _router(memory)
+    daemon = _daemon(memory, router)
+    tab = router.new_conversation()
+    _take_a_turn(router, daemon._conversation)
+    _take_a_turn(router, tab, HOST_TURN)
+    browser = _BrowserServerOnItsOwnLoop(outcome)
+    browser.give_to(daemon)
+    caplog.clear()
+    with caplog.at_level(logging.INFO):
+        daemon.stop_service()
+    messages = [(r.levelno, r.getMessage()) for r in caplog.records]
+    return store, router, daemon._conversation, tab, browser, messages
+
+
+def test_control_a_browser_stop_that_completes_comes_before_the_sessions_end(
+        tmp_path, caplog):
+    """Control, green at both ends: the browser stop completes; every session
+    ends after it, with the reason "daemon stop", and the stop reports that the
+    daemon stopped."""
+    store, router, bus, tab, browser, messages = _a_stop_with_the_browser_stop(
+        tmp_path, caplog, "completes")
+    try:
+        rows = _sessions(store)
+        assert browser.stop_completed_at is not None, (
+            "control: the browser stop never completed")
+        for name, conv in (("the desktop bus's", bus), ("the tab's", tab)):
+            row = rows[conv.memory_session_id]
+            assert row["ended_at"] is not None and row.get(
+                "end_reason") == "daemon stop", f"{name} session: {row}"
+            assert row["ended_at"] >= browser.stop_completed_at, (
+                f"{name} session ended at {row['ended_at']}, before the browser "
+                f"stop completed at {browser.stop_completed_at}")
+        assert any(m == "InterGen daemon stopped" for _, m in messages)
+    finally:
+        browser.finish()
+
+
+# ── A session that has ended takes no more turns ────────────────────────────
+# MemoryManager.record_turn, reached after the session's end: a routing thread
+# runs on past its connection's close or past the daemon's stop, and delivers
+# its turn to a session that is already closed.
+
+
+def test_a_turn_recorded_after_its_session_ended_is_not_counted_and_is_reported(
+        tmp_path, caplog):
+    """The ended record is left exactly as it was, and the late turn is
+    reported by the session's name."""
+    memory = _store(tmp_path)
+    sid = memory.start_session()
+    memory.record_turn(DISK_TURN, ["run_command"], session_id=sid)
+    memory.end_session(session_id=sid, reason="reset")
+    at_end = _sessions(tmp_path)[sid]
+    assert at_end["ended_at"] is not None and at_end["turn_count"] == 1, (
+        f"control: the session was not ended as expected: {at_end}")
+
+    with caplog.at_level(logging.WARNING):
+        memory.record_turn(HOST_TURN, ["run_command"], session_id=sid)
+
+    after = _sessions(tmp_path)[sid]
+    assert after == at_end, (
+        "a turn recorded after its session ended changed the ended record: "
+        f"{at_end} became {after}")
+    reported = [r.getMessage() for r in caplog.records
+                if r.levelno >= logging.WARNING and sid in r.getMessage()]
+    assert reported, (
+        f"a turn arrived for the ended session {sid} and nothing reported it")
+
+
+def test_a_turn_served_after_the_stop_ended_the_sessions_is_not_counted_on_them(
+        tmp_path, caplog):
+    """The browser stop completes and the stop ends every session; a turn
+    delivered afterwards for a browser tab is not counted on the tab's ended
+    session, and is reported."""
+    store, router, bus, tab, browser, messages = _a_stop_with_the_browser_stop(
+        tmp_path, caplog, "completes")
+    try:
+        at_stop = _sessions(store)[tab.memory_session_id]
+        assert at_stop["ended_at"] is not None, (
+            f"control: the stop did not end the tab's session: {at_stop}")
+        caplog.clear()
+        with caplog.at_level(logging.WARNING):
+            _take_a_turn(router, tab, DISK_TURN)
+        after = _sessions(store)[tab.memory_session_id]
+        assert after == at_stop, (
+            "a turn delivered after the stop ended the tab's session was "
+            f"counted on it: {at_stop} became {after}")
+        reported = [r.getMessage() for r in caplog.records
+                    if r.levelno >= logging.WARNING
+                    and tab.memory_session_id in r.getMessage()]
+        assert reported, (
+            "a turn arrived for the tab's ended session and nothing reported it")
+    finally:
+        browser.finish()

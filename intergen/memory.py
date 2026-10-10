@@ -1214,27 +1214,46 @@ class MemoryManager:
         counted on whichever conversation began most recently: two live
         conversations' turns all landed on one of them. A caller that names no
         session records into the session started last.
+
+        A session that has ENDED takes no more turns. A turn can still arrive
+        after its session's end — a routing thread that runs on after its
+        browser connection closed, or after the daemon's stop ended the
+        sessions — and counting it would change a record that is closed, and
+        hold its text for a summary that is never written again. Such a turn
+        is not counted, and is reported by the session's name.
         """
         sid = session_id if session_id is not None else getattr(
             self, "_current_session_id", None)
         if sid is None:
             return
+        with self._db_lock:
+            conn = self._get_conn()
+            ended = conn.execute(
+                "SELECT ended_at, end_reason FROM sessions "
+                "WHERE session_id = ? AND ended_at IS NOT NULL",
+                (sid,)
+            ).fetchone()
+            if ended is None:
+                self._hold_session(sid)
+                self._session_queries[sid].append(query)
+                if tools_used:
+                    self._session_tools[sid].update(tools_used)
+                conn.execute(
+                    "UPDATE sessions SET turn_count = turn_count + 1 "
+                    "WHERE session_id = ?",
+                    (sid,)
+                )
+                conn.commit()
+        if ended is not None:
+            logger.warning("A turn for the memory session %s was not counted: "
+                           "the session ended at %s (%s) before the turn was "
+                           "recorded", sid, ended["ended_at"],
+                           ended["end_reason"] or "no reason given")
+            return
         # M1 (bullet 3): memory WRITE (session turn record).
         glass.emit("decision", "memory_turn", detail={
             "query": query, "tools_used": tools_used or [],
             "session_id": sid})
-        with self._db_lock:
-            self._hold_session(sid)
-            self._session_queries[sid].append(query)
-            if tools_used:
-                self._session_tools[sid].update(tools_used)
-            conn = self._get_conn()
-            conn.execute(
-                "UPDATE sessions SET turn_count = turn_count + 1 "
-                "WHERE session_id = ?",
-                (sid,)
-            )
-            conn.commit()
 
     def end_session(self, topic_summary: str | None = None,
                     session_id: str | None = None,
