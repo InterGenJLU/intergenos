@@ -19,6 +19,11 @@ test_conversation_isolation.py and test_offer_accept.py, with only the
 attributes ``_record`` touches placed on it, and it is DETACHED
 (``_bound_conversation = None``) exactly as the daemon leaves it.
 
+A turn the model answers in the browser is routed with decide_only, and the
+router returns only its decision: the web server generates the answer, streams
+it and counts the turn itself. The last case drives that through the web
+server's own message handler over a full router (its section says how).
+
 The sessions table is read back through a SEPARATE sqlite connection to the
 store file, so what is asserted is what was committed to disk and not the
 manager's own in-process bookkeeping.
@@ -30,6 +35,7 @@ gate tier.
 
 from __future__ import annotations
 
+import asyncio
 import sqlite3
 import time
 
@@ -174,3 +180,98 @@ def test_control_a_single_conversation_counts_its_turns(tmp_path):
 
     rows = _session_rows(tmp_path)
     assert rows[only.memory_session_id]["turn_count"] == 2
+
+
+# ── A streamed model turn, served through the web server's stream path ──────
+# The web server routes every chat turn with decide_only=True: a route that
+# needs the model returns only its decision, and the answer is generated and
+# streamed by WebServer._stream_llm_response. This case drives the SHIPPED
+# message handler, _handle_client_message, over a real ConversationRouter on
+# the real tool registry (tool offering locked, as the daemon locks it) and one
+# MemoryManager on the throwaway store, the router detached as the daemon
+# leaves it. Stand-ins, each named: the model's entry points (a fixed answer)
+# and the connection's socket (it keeps every frame sent). No socket, model
+# server or network is reached.
+
+
+class _RecordingSocket:
+    """The connection's socket: keeps every frame the server sends."""
+
+    def __init__(self):
+        self.sent: list[dict] = []
+        self.closed = False
+
+    async def send_json(self, payload):
+        self.sent.append(payload)
+
+
+_MODEL_ANSWER = "Linux was first released in 1991."
+
+
+def _web_server_over_a_real_router(tmp_path):
+    """The browser server as the daemon builds it, over a real router and the
+    throwaway store; only the model and the transcript directory differ."""
+    from intergen.interfaces.types import LLMResponse
+    from intergen.llm import LLMRouter
+    from intergen.router import ConversationRouter
+    from intergen.semantic import SemanticMatcher
+    from intergen.session_manager import SessionManager
+    from intergen.tool_registry import ToolRegistry
+    from intergen.web_server import WebServer
+
+    memory = _store(tmp_path)
+    registry = ToolRegistry()
+    registry.discover_tools()
+    registry.set_tool_offering_locked(True)
+    llm = LLMRouter(config=None)
+
+    def _chat(messages, **kwargs):
+        return LLMResponse(text=_MODEL_ANSWER, model="stand-in")
+
+    def _stream(messages, *args, **kwargs):
+        yield _MODEL_ANSWER
+
+    llm.chat, llm.stream, llm.stream_with_tools = _chat, _stream, _stream
+    router = ConversationRouter(tool_registry=registry,
+                                semantic_matcher=SemanticMatcher(embedder=None),
+                                llm=llm, lock_dispatch=True, memory=memory)
+    router.detach_conversation()
+    server = WebServer(router=router, llm=llm, tools=None, governance=None,
+                       memory=memory)
+    server._sessions = SessionManager(sessions_dir=tmp_path / "transcripts")
+    return router, server
+
+
+def test_a_streamed_model_turn_is_counted_once_in_its_own_conversations_session(
+        tmp_path):
+    """A browser tab asks a question the model answers; the answer is streamed
+    to it. That turn is counted once, in the tab's own memory session, and in
+    no other conversation's."""
+    from intergen.web_server import ConnectionContext
+    router, server = _web_server_over_a_real_router(tmp_path)
+    tab = ConnectionContext(client_id="web_streamed", source_interface="web",
+                            ws=_RecordingSocket(),
+                            conversation=router.new_conversation())
+    other = router.new_conversation()
+
+    asyncio.run(server._handle_client_message(
+        tab, {"type": "message",
+              "content": "What year was Linux first released?"}))
+
+    starts = [m for m in tab.ws.sent if m.get("type") == "stream_start"]
+    ends = [m for m in tab.ws.sent if m.get("type") == "stream_end"]
+    assert (len(starts) == 1 and starts[0].get("source") in (
+        "llm_freeform", "llm_tools") and len(ends) == 1
+            and _MODEL_ANSWER in ends[0].get("full_response", "")), (
+        "control: the turn was not served through the stream path: "
+        f"{[(m.get('type'), m.get('source')) for m in tab.ws.sent]}")
+    rows = _session_rows(tmp_path)
+    assert rows[other.memory_session_id]["turn_count"] == 0, (
+        "the streamed turn was counted on another conversation's session: "
+        f"{rows[other.memory_session_id]['turn_count']}")
+    own = tab.conversation.memory_session_id
+    assert rows[own]["turn_count"] == 1, (
+        "the tab was served one streamed model turn; its own memory session "
+        f"counted {rows[own]['turn_count']}. The stream path "
+        "records no turn, so a conversation the model answered is summarised "
+        "at its end as if it had not taken that turn.")

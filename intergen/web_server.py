@@ -2397,6 +2397,37 @@ class WebServer:
 
     # -- Streaming LLM response ---------------------------------------------
 
+    def _record_memory_turn(self, ctx: ConnectionContext, delivered: str,
+                            tool_results: "list[ToolResult]") -> None:
+        """Count a turn this server answered in the connection's own
+        conversation's memory session.
+
+        The router counts a turn it completes itself (ConversationRouter._record),
+        but a turn the model answers here is routed with decide_only, and the
+        router returns only its decision for it: it is generated and delivered
+        by _stream_llm_response, and nothing counted it, so a conversation the
+        model answered was summarised at its end as if it had not taken those
+        turns. It is counted here, once, as _record counts one: the delivered
+        text, the tools that ran, and the session of THIS connection's
+        conversation, never the session another conversation started last.
+
+        A count the store refuses is reported by the session's name and does
+        not break the turn, whose answer has already been delivered.
+        """
+        memory = self._memory
+        if memory is None:
+            return
+        conv = ctx.conversation
+        try:
+            if conv.memory_session_id is None:
+                conv.memory_session_id = memory.start_session()
+            tool_names = [tr.name for tr in tool_results]
+            memory.record_turn(delivered[:200], tool_names or None,
+                               session_id=conv.memory_session_id)
+        except Exception as e:  # noqa: BLE001 — reported, the turn is delivered
+            logger.error("The turn could not be counted in the memory session "
+                         "%s: %s", conv.memory_session_id, e)
+
     async def _stream_llm_response(self, ctx: ConnectionContext,
                                     turn_id: str, user_msg: str,
                                     route_result: RouteResult,
@@ -2788,6 +2819,9 @@ class WebServer:
         self._router._append_history(
             user_msg, correct_identity_collision(full_response),
             state=ctx.conversation)
+        # And the turn is counted, once, in this connection's own conversation's
+        # memory session (see _record_memory_turn).
+        self._record_memory_turn(ctx, full_response, tool_results)
 
         # Send tool_executed for any tools that ran — BEFORE the turn's
         # terminal frame, because it is the user's record that an action was
