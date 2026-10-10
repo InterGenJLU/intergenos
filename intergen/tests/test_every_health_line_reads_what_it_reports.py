@@ -9,12 +9,22 @@ on any other port it read red over a server that answered, or green over
 whatever else answered there. It now asks the address the chat server's own
 manager names, and says which address it asked.
 
+THE AUDIT RECORD. The "Audit log" line was always green, reading "0 entries,
+0 tamper events" from a count of zero the daemon handed it and never changed:
+it never read the audit record, so it asserted a tamper verdict nobody had
+measured. The check now reads the record through the audit log's own surface
+and claims only what it read: no tamper verdict, and nothing green over a
+record it could not read. Its case here points the check at a record it cannot
+read, never at the account's own.
+
 The cases record the address the line asks and answer it themselves; nothing
 here opens a connection.
 """
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from intergen.health import HealthAggregator
@@ -84,6 +94,21 @@ class TheChatServersLineAsksTheAddressItsManagerNames(unittest.TestCase):
         self.assertEqual(line["status"], "red")
         self.assertIn(f"127.0.0.1:{CHAT_PORT}", line["summary"])
         self.assertIn("Connection refused", line["summary"])
+
+
+class TheAuditLineClaimsNothingItDidNotRead(unittest.TestCase):
+
+    def test_the_audit_line_is_not_green_over_a_record_it_never_read(self):
+        # A directory where the record file should be: a record nothing can
+        # read, in a scratch directory, so the account's own is never opened.
+        with tempfile.TemporaryDirectory() as scratch:
+            record = Path(scratch) / "tool-dispatch.jsonl"
+            record.mkdir()
+            with mock.patch("intergen.audit_log.default_log_path",
+                            return_value=record):
+                line = _line(HealthAggregator().collect(), "Audit log")
+        self.assertNotEqual(line["status"], "green")
+        self.assertNotIn("tamper", line["summary"])
 
 
 if __name__ == "__main__":
