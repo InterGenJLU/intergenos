@@ -16,10 +16,12 @@ serving never showed there.
 
 Now the page builds its socket address from its own origin; the policy allows
 the configured address; the console client and the panel window read the
-configuration; the extension asks the daemon, whose status names the address
-it serves the panel on; and the health check reads the daemon's own panel
-state and whether the configured address answers. On the shipped address
-nothing changes for the person.
+configuration through the same function the daemon binds by, so neither
+follows an address the panel refuses (the session's token stays on this
+machine) and each says why when it cannot connect; the extension asks the
+daemon, whose status names the address it serves the panel on; and the health
+check reads the daemon's own panel state and whether the configured address
+answers. On the shipped address nothing changes for the person.
 """
 from __future__ import annotations
 
@@ -162,6 +164,50 @@ class TheConsoleClientConnectsToTheConfiguredAddress(unittest.TestCase):
         from intergen.console.client import ConsoleClient
         given = f"ws://127.0.0.1:{OTHER_PORT}/ws"
         self.assertEqual(ConsoleClient(ws_url=given)._ws_url, given)
+
+    def test_an_address_the_panel_refuses_is_never_connected(self):
+        # The panel serves a loopback address only; a client that followed any
+        # other would hand the session's token to whatever listens there.
+        _configure(self, **{"web_server.host": "0.0.0.0"})
+        from intergen.console import client as console_client
+        attempts = []
+
+        class _Session:
+            async def ws_connect(self, url, **kwargs):
+                attempts.append(url)
+                raise OSError("the stand-in session connects nowhere")
+
+        raised = None
+        with mock.patch.object(console_client.ConsoleClient, "_load_token",
+                               return_value="0" * 64), \
+                mock.patch.object(console_client.aiohttp, "ClientSession",
+                                  _Session):
+            try:
+                asyncio.run(console_client.ConsoleClient().connect())
+            except Exception as e:  # noqa: BLE001 — the case reads what came
+                raised = e
+        self.assertEqual(attempts, [], "the client offered its token to an "
+                                       "address the panel refuses")
+        self.assertIsInstance(raised, ConnectionError)
+        self.assertIn("'0.0.0.0' is not a loopback IP address", str(raised))
+
+    def test_the_console_says_why_it_did_not_connect(self):
+        import io
+        from contextlib import redirect_stderr
+        from intergen.console import shell
+        words = "the panel's configured address cannot be used: a reason"
+
+        class _Client:
+            async def connect(self):
+                raise ConnectionError(words)
+
+        # prompt_toolkit prints "Input is not a terminal" when built under a
+        # test runner; it says nothing about this behaviour.
+        with redirect_stderr(io.StringIO()):
+            sh = shell.ConsoleShell()
+        sh._client = _Client()
+        asyncio.run(sh._connect_and_read())
+        self.assertIn(words, sh._messages[-1]["content"])
 
 
 class ThePanelWindowLoadsTheConfiguredAddress(unittest.TestCase):

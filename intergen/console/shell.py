@@ -51,7 +51,7 @@ from rich.table import Table
 from rich.markdown import Markdown
 from rich.markup import escape
 
-from intergen.console.client import ConsoleClient, DEFAULT_WS_URL
+from intergen.console.client import ConsoleClient
 
 logger = logging.getLogger(__name__)
 
@@ -997,7 +997,8 @@ class ConsoleShell:
         except ConnectionError as exc:
             # The client raises this with the cause AND the remedy already in
             # it — an absent, empty or unreadable web token names itself and
-            # names 'intergen setup'. Replacing that with a question about the
+            # names 'intergen setup', and a configured address the panel
+            # refuses is named in words. Replacing that with a question about the
             # daemon sent the person to look at a service that is running, so
             # the sentence the client wrote is the sentence they read.
             detail = str(exc).strip()

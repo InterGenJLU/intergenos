@@ -24,7 +24,6 @@ Requires: dbus-python (or pydbus/dasbus)
 from __future__ import annotations
 
 import asyncio
-import ipaddress
 import json
 import logging
 import os
@@ -35,6 +34,10 @@ import time
 from typing import Any, Callable
 
 from intergen import dispatch_token, eval_consent, glass, package_record, private_state, safety
+# The panel's bind address and port (web_server.host and web_server.port), read
+# in the one place its clients read it too, so they follow exactly the address
+# the daemon binds; a value the panel cannot use raises ValueError in words.
+from intergen.config import panel_address as _panel_address
 from intergen.interfaces.dbus import InterGenDBusInterface
 from intergen.interfaces.types import (
     AnswerLinkage,
@@ -56,33 +59,6 @@ INTERFACE_NAME = "com.intergenos.InterGen"
 WEB_BIND_RETRY_INTERVAL = 5     # seconds between rebind attempts
 WEB_BIND_MAX_ATTEMPTS = 60      # ~5 min total
 WEB_STOP_TIMEOUT = 5.0          # seconds a daemon stop waits on the web server's stop
-
-
-def _panel_address(config) -> tuple[str, int]:
-    """The panel's bind address and port, read from the configuration
-    (web_server.host and web_server.port; 127.0.0.1:8089 as shipped).
-
-    Raises ValueError, in words, for a host that is not a loopback IP address
-    or a port that is not a whole number from 1 to 65535. The panel carries the
-    person's session over plain HTTP and a WebSocket, so it listens on this
-    machine only; a value it cannot use is refused and reported, never replaced
-    by a guess.
-    """
-    host = config.get("web_server.host", "127.0.0.1")
-    port = config.get("web_server.port", 8089)
-    try:
-        loopback = (isinstance(host, str)
-                    and ipaddress.ip_address(host).is_loopback)
-    except ValueError:
-        loopback = False
-    if not loopback:
-        raise ValueError(
-            f"web_server.host {host!r} is not a loopback IP address; the panel "
-            f"listens on this machine only (127.0.0.1 or ::1)")
-    if type(port) is not int or not 1 <= port <= 65535:
-        raise ValueError(
-            f"web_server.port {port!r} is not a port number from 1 to 65535")
-    return host, port
 
 # Largest game identifier accepted by PauseForGame / ResumeAfterGame. The value
 # is a window class (steam_app_620, gamescope, …), so 256 bytes is far more than

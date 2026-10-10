@@ -13,6 +13,7 @@ Supports dotted key access: config.get("llm.temperature")
 from __future__ import annotations
 
 import copy
+import ipaddress
 import logging
 import os
 from pathlib import Path
@@ -156,6 +157,44 @@ _DEFAULTS = {
         "tier_override": None,
     },
 }
+
+
+def panel_address(config) -> tuple[str, int]:
+    """The panel's bind address and port, read from the configuration
+    (web_server.host and web_server.port; 127.0.0.1:8089 as shipped).
+
+    The one reading of that address: the daemon binds it, and the console
+    client, the panel window and the daemon's status take it from here, so a
+    client follows exactly the address the panel serves and never one it
+    refuses.
+
+    Raises ValueError, in words, for a host that is not a loopback IP address
+    or a port that is not a whole number from 1 to 65535. The panel carries the
+    person's session over plain HTTP and a WebSocket, so it listens on this
+    machine only, and its clients send the session's token to no other; a value
+    it cannot use is refused and reported, never replaced by a guess.
+    """
+    host = config.get("web_server.host", "127.0.0.1")
+    port = config.get("web_server.port", 8089)
+    try:
+        loopback = (isinstance(host, str)
+                    and ipaddress.ip_address(host).is_loopback)
+    except ValueError:
+        loopback = False
+    if not loopback:
+        raise ValueError(
+            f"web_server.host {host!r} is not a loopback IP address; the panel "
+            f"listens on this machine only (127.0.0.1 or ::1)")
+    if type(port) is not int or not 1 <= port <= 65535:
+        raise ValueError(
+            f"web_server.port {port!r} is not a port number from 1 to 65535")
+    return host, port
+
+
+def panel_netloc(host: str, port: int) -> str:
+    """host:port as an address is written in a URL, an IPv6 host in
+    brackets."""
+    return f"[{host}]:{port}" if ":" in host else f"{host}:{port}"
 
 
 class Config:

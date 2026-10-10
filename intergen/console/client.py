@@ -2,9 +2,10 @@
 # Copyright (C) 2015-2016, 2026 InterGenJLU
 """WebSocket client for the InterGen console.
 
-Connects to web_server.py at ws://localhost:8089/ws using the stored
-auth token. Provides an async message sender and an async generator
-for receiving typed messages from the server.
+Connects to web_server.py on the panel's configured address
+(web_server.host and web_server.port; ws://127.0.0.1:8089/ws as shipped)
+using the stored auth token. Provides an async message sender and an async
+generator for receiving typed messages from the server.
 """
 
 from __future__ import annotations
@@ -17,12 +18,26 @@ from typing import Any, AsyncIterator
 
 import aiohttp
 
+from intergen.config import Config, panel_address, panel_netloc
+
 logger = logging.getLogger(__name__)
 
-DEFAULT_WS_URL = "ws://127.0.0.1:8089/ws"
 TOKEN_PATH = Path.home() / ".config" / "intergen" / "web-token"
 RECONNECT_DELAYS = [1.0, 2.0, 4.0, 8.0, 16.0, 30.0]
 PING_INTERVAL = 30.0
+
+
+def configured_ws_url() -> str:
+    """The panel's socket address, from the configuration the daemon binds
+    the panel by (ws://127.0.0.1:8089/ws as shipped), an IPv6 host in
+    brackets.
+
+    Raises ValueError, in words, for an address the panel refuses: the client
+    then connects nowhere, so the session's token never goes to an address
+    the panel does not serve.
+    """
+    host, port = panel_address(Config())
+    return f"ws://{panel_netloc(host, port)}/ws"
 
 
 class ConsoleClient:
@@ -37,9 +52,17 @@ class ConsoleClient:
 
     def __init__(self, *,
                  source_interface: str = "console",
-                 ws_url: str = DEFAULT_WS_URL,
+                 ws_url: str | None = None,
                  ) -> None:
         self._source_interface = source_interface
+        # Why the configured address cannot be used, in words; connect()
+        # raises it rather than connecting anywhere else.
+        self._address_refused: str | None = None
+        if ws_url is None:
+            try:
+                ws_url = configured_ws_url()
+            except ValueError as e:
+                self._address_refused = str(e)
         self._ws_url = ws_url
         self._session: aiohttp.ClientSession | None = None
         self._ws: aiohttp.ClientWebSocketResponse | None = None
@@ -64,6 +87,10 @@ class ConsoleClient:
 
     async def connect(self) -> dict[str, Any]:
         """Open WebSocket connection and receive the connected message."""
+        if self._address_refused is not None:
+            raise ConnectionError(
+                f"the panel's configured address cannot be used: "
+                f"{self._address_refused}")
         self._token = self._load_token()
         if self._token is None:
             raise ConnectionError(
