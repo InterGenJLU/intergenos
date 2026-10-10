@@ -99,7 +99,10 @@ class TheIndexServesNoTokenScript(unittest.TestCase):
         script-src of 'self' alone — no 'unsafe-inline', nonce or hash — so no
         inline script in it could run."""
         _, _, csp = asyncio.run(_fetch({}))
-        self.assertEqual(csp, web_server.CSP_HEADER)
+        # The policy is built for the address the server binds (the socket's
+        # connect-src names it); the server here is made for 127.0.0.1 and the
+        # port the system assigns, asked for as 0.
+        self.assertEqual(csp, web_server._content_security_policy("127.0.0.1", 0))
         directives = dict(d.strip().split(" ", 1)
                           for d in csp.split(";") if d.strip())
         self.assertEqual(directives["script-src"], "'self'")

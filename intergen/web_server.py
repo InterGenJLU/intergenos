@@ -14,7 +14,9 @@ Static files are served from intergen/web/ with Content-Security-Policy headers.
 WebSocket auth is a single-token check at handshake — no per-message auth.
 
 Connection lifecycle:
-  1. Client opens ws://localhost:8089/ws?token=<hex>&source_interface=<web|console>
+  1. Client opens ws://<host>:<port>/ws?token=<hex>&source_interface=<web|console>
+     on the address the server binds (web_server.host and web_server.port;
+     127.0.0.1:8089 as shipped)
   2. Server validates token, creates ConnectionContext, sends {type:"connected"}
   3. Message dispatch loop — type→handler map for all client→server message types
   4. On disconnect: cleanup connection registry, release session resources
@@ -169,17 +171,29 @@ def _attribution_html() -> str:
 _503_BODY = json.dumps({"type": "error", "code": "server_not_ready",
                          "message": "InterGen components not yet initialized."})
 
-CSP_HEADER = (
-    "default-src 'self'; "
-    "script-src 'self'; "
-    "style-src 'self' 'unsafe-inline'; "
-    "img-src 'self' data:; "
-    "connect-src 'self' ws://localhost:8089; "
-    "font-src 'self'; "
-    "frame-ancestors 'none'; "
-    "base-uri 'self'; "
-    "form-action 'none'"
-)
+
+def _content_security_policy(host: str, port: int) -> str:
+    """The pages' content security policy for a server bound on host:port.
+
+    connect-src allows the page's own origin ('self') and the socket on the
+    address the server binds, so the page reaches its server on whatever
+    address it was configured to serve. A source expression cannot carry an
+    IPv6 address, so on an IPv6 host the page's socket is allowed through its
+    own origin alone.
+    """
+    connect = "'self'" if ":" in host else f"'self' ws://{host}:{port}"
+    return (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        f"connect-src {connect}; "
+        "font-src 'self'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'none'"
+    )
+
 
 SYSTEM_STATS_INTERVAL = 60  # seconds between system_status broadcasts
 HEARTBEAT_INTERVAL = 30     # seconds between server→client pings
@@ -313,6 +327,7 @@ class WebServer:
                  ) -> None:
         self._host = host
         self._port = port
+        self._csp = _content_security_policy(host, port)
         self._router = router
         self._llm = llm
         self._tools = tools
@@ -455,7 +470,7 @@ class WebServer:
                               handler: Callable) -> web.StreamResponse:
         """Inject CSP + cache headers on all responses from static routes."""
         response = await handler(request)
-        response.headers.setdefault("Content-Security-Policy", CSP_HEADER)
+        response.headers.setdefault("Content-Security-Policy", self._csp)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "no-referrer")
