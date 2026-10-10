@@ -54,6 +54,13 @@ DEFAULT_TIMEOUT = 60.0
 #: How much of a reply is read between two checks of the caller's stop.
 READ_CHUNK = 4096
 
+#: How much of an error reply's body is read, as a prefix: the error's detail
+#: is its first 500 characters, and the bound keeps an endpoint that answers
+#: an error with a huge or unending body from holding the call while it keeps
+#: sending. One byte past it is read too, to tell a body cut at the bound from
+#: one that ends there.
+ERROR_BODY_LIMIT = 64 * 1024
+
 
 class CloudAdapterError(Exception):
     """A cloud request failed (transport, auth, or malformed response)."""
@@ -220,20 +227,32 @@ class HTTPCloudAdapter(CloudProviderAdapter):
             raise CloudCallStopped(
                 f"{self.name}: the turn this call belonged to has ended")
 
-    def _read_reply(self, resp, should_stop: Callable[[], bool] | None) -> bytes:
+    def _read_reply(self, resp, should_stop: Callable[[], bool] | None,
+                    limit: int | None = None) -> bytes:
         """The reply's body, a success's or an error's. With a stop, it is
-        read a chunk at a time and the stop is checked before each read, so a
-        call whose turn ends reads at most the chunk in flight; the caller
-        closes the reply (a success's with-block, an error's finally)."""
-        if should_stop is None:
+        read a chunk at a time and the stop is checked before each read and
+        once more after the last, so a call whose turn ends reads at most the
+        chunk in flight, and a turn that ends during the read that finds the
+        end of the body stops the call all the same. With a limit, it is read
+        the same way, stop or none, and no more than ``limit`` bytes are
+        read: the read ends there as it ends at the end of the body. The
+        caller closes the reply (a success's with-block, an error's
+        finally)."""
+        if should_stop is None and limit is None:
             return resp.read()
         parts: list[bytes] = []
-        while True:
+        left = limit
+        while left is None or left > 0:
             self._stop_if_asked(should_stop)
-            chunk = resp.read(READ_CHUNK)
+            size = READ_CHUNK if left is None else min(READ_CHUNK, left)
+            chunk = resp.read(size)
             if not chunk:
-                return b"".join(parts)
+                break
             parts.append(chunk)
+            if left is not None:
+                left -= len(chunk)
+        self._stop_if_asked(should_stop)
+        return b"".join(parts)
 
     def _request(self, body: dict, *, timeout: float = DEFAULT_TIMEOUT,
                  should_stop: Callable[[], bool] | None = None) -> dict:
@@ -255,15 +274,24 @@ class HTTPCloudAdapter(CloudProviderAdapter):
                 return json.loads(self._read_reply(resp, should_stop).decode())
         except urllib.error.HTTPError as exc:
             # The error reply's body is read as a success's is, through the
-            # stop-aware reader: a turn that ends while it is read stops the
-            # call (CloudCallStopped) within the chunk in flight. urlopen
-            # raised before any with-block owned the reply, so it is closed
-            # here, however the read ends.
+            # stop-aware reader: a turn that ends while it is read, its last
+            # read included, stops the call (CloudCallStopped) within the
+            # chunk in flight, before any provider error is made. It is read
+            # only as a prefix, ERROR_BODY_LIMIT bytes and the one byte past
+            # them that tells a body cut there from one that ends there, so
+            # an endpoint that answers an error with a huge or unending body
+            # cannot hold the call while it keeps sending. urlopen raised
+            # before any with-block owned the reply, so it is closed here,
+            # however the read ends.
             try:
-                body = self._read_reply(exc, should_stop)
+                body = self._read_reply(exc, should_stop,
+                                        limit=ERROR_BODY_LIMIT + 1)
             finally:
                 exc.close()
             detail = body.decode(errors="replace")[:500]
+            if len(body) > ERROR_BODY_LIMIT:
+                detail += (f" (the error body is longer than {ERROR_BODY_LIMIT}"
+                           " bytes; the rest was not read)")
             raise CloudAdapterError(f"{self.name} HTTP {exc.code}: {detail}") from exc
         except urllib.error.URLError as exc:
             raise CloudAdapterError(f"{self.name} unreachable: {exc.reason}") from exc

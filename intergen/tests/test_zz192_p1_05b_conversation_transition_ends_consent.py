@@ -2085,6 +2085,234 @@ class AnEndedTurnsCloudCallStopsWithinOneItem(unittest.TestCase):
         })
 
 
+class _LongReply:
+    """A reply's body as an endpoint sends a long one: read(n) returns its
+    next n bytes (fewer only at its end) and read() with no size all the
+    rest. ``during``, when given, is called inside each read with the reply
+    and the piece it returns - what happens while that read is in flight.
+    The case reads how many bytes the adapter read and whether it closed the
+    reply."""
+
+    def __init__(self, body: bytes, during=None) -> None:
+        self.body = body
+        self.during = during
+        self.sent = 0
+        self.closed = False
+
+    def read(self, n: int = -1) -> bytes:
+        end = len(self.body) if n is None or n < 0 else self.sent + n
+        piece = self.body[self.sent:end]
+        self.sent += len(piece)
+        if self.during is not None:
+            self.during(self, piece)
+        return piece
+
+    def close(self) -> None:
+        self.closed = True
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+        return False
+
+
+#: How much of an error reply's body the adapter reads as its prefix: 64 KiB.
+_ERROR_BODY_BOUND = 64 * 1024
+
+_OVERLOADED = b'{"error": {"message": "overloaded: '
+
+
+class AnErrorReplysBodyIsReadAsABoundedPrefix(unittest.TestCase):
+    """An endpoint can answer an HTTP error with a body of any length. The
+    adapter read the whole of an error's body to keep its first 500
+    characters as the error's detail, so an endpoint answering with a huge
+    or unending body held the call while it kept sending, the buffer growing
+    with it: the socket's timeout bounds each wait, never the read. The body
+    is now read through the same stop-aware reader under a bound - 64 KiB,
+    and one byte more, which tells a body cut at the bound from one that
+    ends there - and the reply is closed after the bound as after its end;
+    the detail keeps its first 500 characters, and a body cut at the bound
+    says so. The stop of a turn that ended during the read that found the
+    end of the body was lost: the reader checked it only before each read,
+    so the body was handed back and the call came back as a provider error.
+    The stop is now checked once more after the last read.
+
+    Each case calls the shipped adapter's send() with urllib's urlopen
+    standing in for the network, with no stop (test_connection, the command
+    line) or with a turn's stop. The controls: an error body that ends
+    exactly at the bound is read to its end and not said to be cut, a
+    successful answer far past the bound is read whole, as before, and a
+    turn that ends during the read that reaches the bound stops the call."""
+
+    maxDiff = None
+
+    def setUp(self) -> None:
+        patcher = mock.patch("intergen.cloud.http_adapter.lookup_secret",
+                             lambda keyring_id: "TEST-KEY")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    @staticmethod
+    def _provider():
+        from intergen.cloud import create_adapter
+        from intergen.interfaces.cloud import ProviderConfig
+        return create_adapter(ProviderConfig(
+            name="controlled", adapter="openai", model="m1",
+            api_key_keyring_id="kid", base_url="https://cloud.invalid/v1"))
+
+    def _error_case(self, body: bytes, should_stop, during=None) -> dict:
+        """send() against an HTTP error (a 503) whose body is ``body``: what
+        the call raised, and how much of the body it read and whether it
+        closed the reply, read while the error is still held."""
+        import urllib.error
+        from intergen.interfaces.types import Message, MessageRole
+        replies: list[_LongReply] = []
+
+        def urlopen(req, timeout=None):
+            replies.append(_LongReply(body, during))
+            raise urllib.error.HTTPError(req.full_url, 503, "controlled",
+                                         None, replies[-1])
+
+        with mock.patch("urllib.request.urlopen", urlopen), \
+                self.assertRaises(Exception) as raised:
+            self._provider().send(
+                [Message(role=MessageRole.USER, content="hi")],
+                should_stop=should_stop)
+        return {
+            "the call ended as": type(raised.exception).__name__,
+            "its text": str(raised.exception),
+            "requests opened": len(replies),
+            "bytes read": replies[0].sent if replies else None,
+            "the reply closed": replies[0].closed if replies else None,
+        }
+
+    @staticmethod
+    def _past_the_bound() -> tuple[bytes, dict]:
+        """An error body far past the bound (about 1 MiB) and what the call
+        must come to: the bound and one byte read, the reply closed, the
+        first 500 characters kept and the cut said."""
+        body = _OVERLOADED + b"try again later. " * 65536
+        return body, {
+            "the call ended as": "CloudAdapterError",
+            "its text": "openai HTTP 503: " + body[:500].decode()
+                        + " (the error body is longer than 65536 bytes;"
+                          " the rest was not read)",
+            "requests opened": 1,
+            "bytes read": _ERROR_BODY_BOUND + 1,
+            "the reply closed": True,
+        }
+
+    def test_an_error_body_past_the_bound_is_read_no_further_without_a_stop(
+            self):
+        """A caller with no stop (test_connection, the command line): the
+        body was read whole in one read; it is now read to the bound."""
+        body, want = self._past_the_bound()
+        self.assertEqual(self._error_case(body, None), want)
+
+    def test_an_error_body_past_the_bound_is_read_no_further_under_a_stop(
+            self):
+        """A turn that does not end: the body was read chunk by chunk to its
+        end; it is now read to the bound, the stop checked as before."""
+        import threading
+        body, want = self._past_the_bound()
+        self.assertEqual(
+            self._error_case(body, threading.Event().is_set), want)
+
+    def test_control_an_error_body_that_ends_at_the_bound_is_not_said_to_be_cut(
+            self):
+        import threading
+        body = _OVERLOADED + b"x" * (_ERROR_BODY_BOUND - len(_OVERLOADED))
+        want = {
+            "the call ended as": "CloudAdapterError",
+            "its text": "openai HTTP 503: " + body[:500].decode(),
+            "requests opened": 1,
+            "bytes read": _ERROR_BODY_BOUND,
+            "the reply closed": True,
+        }
+        self.assertEqual({
+            "no stop": self._error_case(body, None),
+            "a turn that does not end": self._error_case(
+                body, threading.Event().is_set),
+        }, {"no stop": want, "a turn that does not end": want})
+
+    STOPPED = {
+        "the call ended as": "CloudCallStopped",
+        "its text": "openai: the turn this call belonged to has ended",
+        "requests opened": 1,
+        "the reply closed": True,
+    }
+
+    def test_a_turn_ending_in_the_read_that_finds_the_end_stops_the_call(
+            self):
+        """The turn ends while the read that finds the end of the error's
+        body is in flight. The stop was checked only before each read, so the
+        body was handed back and the call came back as a provider error after
+        its turn had ended; it now stops, the reply closed."""
+        import threading
+        stop = threading.Event()
+
+        def ends_in_the_last_read(reply, piece):
+            if not piece:
+                stop.set()
+
+        body = _OVERLOADED + b'rate limited"}}'
+        self.assertEqual(
+            self._error_case(body, stop.is_set, ends_in_the_last_read),
+            {**self.STOPPED, "bytes read": len(body)})
+
+    def test_control_a_turn_ending_in_the_read_at_the_bound_stops_the_call(
+            self):
+        """The turn ends while the read that reaches the bound is in flight:
+        the call stops, the reply closed, as at the end of a body. (How much
+        is read is the other cases' to pin: before the bound there was none,
+        and the turn's stop was read before the next read.)"""
+        import threading
+        stop = threading.Event()
+
+        def ends_past_the_bound(reply, piece):
+            if reply.sent > _ERROR_BODY_BOUND:
+                stop.set()
+
+        body, _ = self._past_the_bound()
+        seen = self._error_case(body, stop.is_set, ends_past_the_bound)
+        del seen["bytes read"]
+        self.assertEqual(seen, self.STOPPED)
+
+    def test_control_a_successful_answer_past_the_bound_is_read_whole(self):
+        import json
+        import threading
+        from intergen.interfaces.types import Message, MessageRole
+        answer = "Clear skies tomorrow, with a light breeze. " * 30000
+        body = json.dumps({
+            "choices": [{"message": {"content": answer}}],
+            "usage": {"prompt_tokens": 3, "completion_tokens": 9},
+        }).encode()
+        replies: list[_LongReply] = []
+
+        def urlopen(req, timeout=None):
+            replies.append(_LongReply(body))
+            return replies[-1]
+
+        seen = {}
+        with mock.patch("urllib.request.urlopen", urlopen):
+            for label, stop in (("no stop", None), ("a turn that does not end",
+                                                    threading.Event().is_set)):
+                reply = self._provider().send(
+                    [Message(role=MessageRole.USER, content="hi")],
+                    should_stop=stop)
+                seen[label] = {
+                    "the answer whole": reply.text == answer,
+                    "bytes read": replies[-1].sent,
+                    "the reply closed": replies[-1].closed,
+                }
+        want = {"the answer whole": True, "bytes read": len(body),
+                "the reply closed": True}
+        self.assertEqual(seen, {"no stop": want,
+                                "a turn that does not end": want})
+
+
 class _ChatServerThatStopsListening(_ChatServer):
     """The chat server answers the turn's draft and then stops listening:
     every later request is refused, so a regeneration's chat() escalates to
