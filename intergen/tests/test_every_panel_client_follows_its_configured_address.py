@@ -295,6 +295,13 @@ class TheExtensionOpensThePanelWhereTheDaemonServesIt(unittest.TestCase):
         self.assertEqual(status.get("panel_url"),
                          f"http://127.0.0.1:{OTHER_PORT}/")
 
+    def test_once_built_the_status_names_the_address_the_server_binds(self):
+        from intergen.web_server import WebServer
+        d = self.daemon(**{"web_server.port": OTHER_PORT})
+        d._web_server = WebServer(host="::1", port=OTHER_PORT + 1)
+        self.assertEqual(json.loads(d.status()).get("panel_url"),
+                         f"http://[::1]:{OTHER_PORT + 1}/")
+
     def test_an_address_the_panel_refuses_has_no_url(self):
         status = json.loads(self.daemon(**{"web_server.host": "0.0.0.0"})
                             .status())

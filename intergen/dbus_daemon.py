@@ -37,7 +37,7 @@ from intergen import dispatch_token, eval_consent, glass, package_record, privat
 # The panel's bind address and port (web_server.host and web_server.port), read
 # in the one place its clients read it too, so they follow exactly the address
 # the daemon binds; a value the panel cannot use raises ValueError in words.
-from intergen.config import panel_address as _panel_address
+from intergen.config import panel_address as _panel_address, panel_netloc
 from intergen.interfaces.dbus import InterGenDBusInterface
 from intergen.interfaces.types import (
     AnswerLinkage,
@@ -906,6 +906,25 @@ class InterGenDaemon(InterGenDBusInterface):
         return (getattr(self, "_panel_down", None)
                 or "the panel has not been started")
 
+    def _panel_url_now(self) -> str | None:
+        """The panel's page address, http://host:port/ (an IPv6 host in
+        brackets): the address the panel's server binds once it is built, the
+        configured address before that; None for a configured address the
+        panel refuses. A status read never raises, so a daemon not yet
+        configured reads as None too.
+        """
+        address = getattr(getattr(self, "_web_server", None), "address", None)
+        if isinstance(address, str) and address:
+            return f"http://{address}/"
+        config = getattr(self, "_config", None)
+        if config is None:
+            return None
+        try:
+            host, port = _panel_address(config)
+        except ValueError:
+            return None
+        return f"http://{panel_netloc(host, port)}/"
+
     def status(self) -> str:
         """Return JSON-encoded status."""
         _identity, _release_known = package_record.identity()
@@ -930,6 +949,10 @@ class InterGenDaemon(InterGenDBusInterface):
             # cannot use, a bind given up. None while it serves. A refused bind
             # used to reach the log only.
             "panel_down": self._panel_down_now(),
+            # Where the panel is served, for a client that opens it (the shell
+            # extension's browser item): None for a configured address the
+            # panel refuses, whose words panel_down carries.
+            "panel_url": self._panel_url_now(),
             # Version AND release, read from the package manager's record —
             # the same value the CLI prints and the same one it reports when
             # this daemon is not running. See intergen/package_record.py.

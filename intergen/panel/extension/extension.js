@@ -64,6 +64,46 @@ function _engineFailureReason(status) {
          "'journalctl --user -u intergen -n 50'";
 }
 
+// Open the panel in the person's browser at the address the daemon serves it
+// on, read from the daemon's own status, so the item follows whatever address
+// the panel was configured to serve. When the panel is not serving, or the
+// daemon does not answer, it says so in words instead of opening a page that
+// cannot load.
+function _openPanelInBrowser() {
+  Gio.DBus.session.call(
+    INTERGEN_BUS, INTERGEN_PATH, INTERGEN_BUS, "Status", null,
+    new GLib.VariantType("(s)"), Gio.DBusCallFlags.NONE, 5000, null,
+    (conn, res) => {
+      let status;
+      try {
+        const [json] = conn.call_finish(res).deepUnpack();
+        status = JSON.parse(json);
+      } catch (e) {
+        Main.notify(
+          "InterGen",
+          "InterGen did not answer, so the panel's address is not known: " +
+          e.message
+        );
+        return;
+      }
+      if (status.panel_down || !status.panel_url) {
+        Main.notify(
+          "InterGen",
+          "The panel is not serving: " +
+          (status.panel_down || "the daemon named no address for it")
+        );
+        return;
+      }
+      try {
+        Gio.AppInfo.launch_default_for_uri(status.panel_url, null);
+      } catch (e) {
+        Main.notify("InterGen",
+                    "Could not open " + status.panel_url + ": " + e.message);
+      }
+    }
+  );
+}
+
 // ── Panel indicator ──────────────────────────────────────────────────────
 
 const InterGenIndicator = GObject.registerClass(
@@ -172,12 +212,7 @@ class InterGenIndicator extends PanelMenu.Button {
     this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
     let browserItem = new PopupMenu.PopupMenuItem("Open in Browser");
-    browserItem.connect("activate", () => {
-      Gio.AppInfo.create_from_commandline(
-        "xdg-open http://localhost:8089", null,
-        Gio.AppInfoCreateFlags.NONE
-      ).launch([], null);
-    });
+    browserItem.connect("activate", () => _openPanelInBrowser());
     this.menu.addMenuItem(browserItem);
 
     let consoleItem = new PopupMenu.PopupMenuItem("Open Terminal Console");
