@@ -14,6 +14,7 @@ import GObject from "gi://GObject";
 import GLib from "gi://GLib";
 import Meta from "gi://Meta";
 import Shell from "gi://Shell";
+import Soup from "gi://Soup?version=3.0";
 import St from "gi://St";
 
 import {Extension} from "resource:///org/gnome/shell/extensions/extension.js";
@@ -64,11 +65,14 @@ function _engineFailureReason(status) {
          "'journalctl --user -u intergen -n 50'";
 }
 
-// Open the panel in the person's browser at the address the daemon serves it
-// on, read from the daemon's own status, so the item follows whatever address
-// the panel was configured to serve. When the panel is not serving, or the
-// daemon does not answer, it says so in words instead of opening a page that
-// cannot load.
+// Open the panel in the person's browser, signed in, at the address the daemon
+// serves it on, read from the daemon's own status, so the item follows whatever
+// address the panel was configured to serve. A browser opening an address sends
+// no token, so the item first asks the panel, with the panel's token, for a
+// one-time sign-in and opens the address carrying that; the panel exchanges it
+// once for a cookie and sends the browser on to the clean address. When the
+// panel is not serving, the daemon does not answer, or no sign-in can be had,
+// it says so in words instead of opening a page that cannot connect.
 function _openPanelInBrowser() {
   Gio.DBus.session.call(
     INTERGEN_BUS, INTERGEN_PATH, INTERGEN_BUS, "Status", null,
@@ -94,14 +98,75 @@ function _openPanelInBrowser() {
         );
         return;
       }
-      try {
-        Gio.AppInfo.launch_default_for_uri(status.panel_url, null);
-      } catch (e) {
-        Main.notify("InterGen",
-                    "Could not open " + status.panel_url + ": " + e.message);
-      }
+      _openSignedIn(status.panel_url);
     }
   );
+}
+
+// The panel's token, from the file setup writes and the panel window reads.
+// The item sends it only to the panel's own address, to ask for a sign-in, and
+// never puts it in an address.
+const PANEL_TOKEN_FILE = GLib.build_filenamev(
+  [GLib.get_home_dir(), ".config", "intergen", "web-token"]);
+
+function _readPanelToken() {
+  const [, bytes] = GLib.file_get_contents(PANEL_TOKEN_FILE);
+  const token = new TextDecoder().decode(bytes).trim();
+  if (!token) throw new Error(PANEL_TOKEN_FILE + " is empty");
+  return token;
+}
+
+// Ask the panel at panelUrl for a one-time sign-in and open the address
+// carrying it. The sign-in is never shown in words: it opens the panel once.
+function _openSignedIn(panelUrl) {
+  let message;
+  try {
+    const token = _readPanelToken();
+    message = Soup.Message.new(
+      "POST",
+      GLib.Uri.resolve_relative(panelUrl, "api/panel-bootstrap",
+                                GLib.UriFlags.NONE));
+    if (!message) throw new Error(panelUrl + " cannot be asked");
+    message.request_headers.append("Authorization", "Bearer " + token);
+  } catch (e) {
+    Main.notify("InterGen",
+                "The panel could not be opened signed in: " + e.message);
+    return;
+  }
+  const session = new Soup.Session({timeout: 10});
+  // The token goes to the panel's address and nowhere else: never through a
+  // proxy the desktop may name.
+  session.set_proxy_resolver(null);
+  session.send_and_read_async(
+    message, GLib.PRIORITY_DEFAULT, null, (source, res) => {
+      let bootstrap;
+      try {
+        const bytes = source.send_and_read_finish(res);
+        const code = message.get_status();
+        if (code !== Soup.Status.OK) {
+          throw new Error("the panel answered " + code + " " +
+                          (message.get_reason_phrase() || ""));
+        }
+        bootstrap = JSON.parse(
+          new TextDecoder().decode(bytes.get_data() || new Uint8Array())
+        ).bootstrap;
+        if (!bootstrap) throw new Error("the panel's answer carried none");
+      } catch (e) {
+        Main.notify("InterGen",
+                    "The panel gave the browser no sign-in: " + e.message);
+        return;
+      }
+      try {
+        Gio.AppInfo.launch_default_for_uri(
+          GLib.Uri.resolve_relative(
+            panelUrl, "?bootstrap=" + encodeURIComponent(bootstrap),
+            GLib.UriFlags.NONE),
+          null);
+      } catch (e) {
+        Main.notify("InterGen",
+                    "Could not open " + panelUrl + ": " + e.message);
+      }
+    });
 }
 
 // ── Panel indicator ──────────────────────────────────────────────────────
