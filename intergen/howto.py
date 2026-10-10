@@ -29,6 +29,7 @@ import json
 import logging
 import os
 import re
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
@@ -189,6 +190,15 @@ KEYWORD_STRONG_THRESHOLD = 0.68
 _EMBED_BATCH = 32
 
 _WORD_RE = re.compile(r"[a-z0-9]+")
+# Letters the word reader above does not read: a letter outside a-z, in any
+# script. Until these were counted, a question written in another script lost
+# every word but the Latin ones it carried, so "我用的是什么 shell？" (which shell
+# am I using) read as "shell" alone, a trigger covered the whole of it, and the
+# known-share condition read the question as fully known — measured on the
+# shipped corpus, 10 of 12 such questions were served a curated answer the
+# embedding path refuses. A run of these letters is a word the corpus does not
+# know; an ideograph is a word on its own (see _unread_words).
+_UNREAD_RE = re.compile(r"[^\W\d_a-z]+")
 # High-frequency words that carry no retrieval signal — excluded from the keyword
 # fallback so "how do I ..." boilerplate doesn't inflate overlap with every entry.
 _STOPWORDS = frozenset((
@@ -470,4 +480,30 @@ class HowtoCorpus:
 
     @staticmethod
     def _content_words(text: str) -> set[str]:
-        return {w for w in _WORD_RE.findall(text.lower()) if w not in _STOPWORDS}
+        lowered = text.lower()
+        words = {w for w in _WORD_RE.findall(lowered) if w not in _STOPWORDS}
+        for run in _UNREAD_RE.findall(lowered):
+            words.update(_unread_words(run))
+        return words
+
+
+def _unread_words(run: str) -> list[str]:
+    """The words in a run of letters the reader does not read: each ideograph on
+    its own, and the letters between ideographs as one word. The scripts that
+    write with ideographs put no spaces between words, so a whole sentence in
+    one of them is a single run; read as one word, it would let a single Latin
+    word beside it make up half the question."""
+    words: list[str] = []
+    piece = ""
+    for ch in run:
+        if unicodedata.name(ch, "").startswith(("CJK UNIFIED IDEOGRAPH",
+                                                "CJK COMPATIBILITY IDEOGRAPH")):
+            if piece:
+                words.append(piece)
+                piece = ""
+            words.append(ch)
+        else:
+            piece += ch
+    if piece:
+        words.append(piece)
+    return words
