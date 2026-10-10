@@ -165,6 +165,16 @@ def open_driver_vram_mb(name_contains: str,
     return best
 
 
+def _first_line(*streams: str | None) -> str:
+    """The first non-blank line of the first stream that has one, for a log
+    line that names what a tool said; "no output" when it said nothing."""
+    for text in streams:
+        for line in (text or "").splitlines():
+            if line.strip():
+                return line.strip()
+    return "no output"
+
+
 class HardwareDetector(HardwareDetectorInterface):
     """Detects system hardware and assigns an LLM tier."""
 
@@ -367,9 +377,12 @@ class HardwareDetector(HardwareDetectorInterface):
         Returns None when neither source is readable — the caller then treats
         VRAM as unknown and tier assignment fails down. That includes a tool
         that is present but cannot be run or read (refused permission, any
-        other system error, a failed subprocess): the card stays in the
-        machine's reading with its memory unknown, and the log says why; an
-        error raised from here used to drop the whole card.
+        other system error, a failed subprocess, an exit with an error, a
+        clean exit with no size printed): the card stays in the machine's
+        reading with its memory unknown, and the log says why, naming the
+        tool's exit status and the first line it wrote (nvidia-smi writes its
+        own failures to its output, not its error stream); an error raised
+        from here used to drop the whole card.
         """
         best: int | None = None
         try:
@@ -391,11 +404,19 @@ class HardwareDetector(HardwareDetectorInterface):
                  "--format=csv,noheader,nounits"],
                 capture_output=True, text=True, timeout=5,
             )
-            if result.returncode == 0:
-                values = [int(v.strip()) for v in result.stdout.split()
-                          if v.strip().isdigit()]
-                if values:
-                    return max(values)
+            if result.returncode != 0:
+                log.warning("NVIDIA card memory: nvidia-smi exited with status "
+                            "%d (%s); the card is kept with its memory unknown",
+                            result.returncode,
+                            _first_line(result.stderr, result.stdout))
+                return None
+            values = [int(v.strip()) for v in result.stdout.split()
+                      if v.strip().isdigit()]
+            if values:
+                return max(values)
+            log.warning("NVIDIA card memory: nvidia-smi printed no memory size "
+                        "(%s); the card is kept with its memory unknown",
+                        _first_line(result.stdout, result.stderr))
         except FileNotFoundError:
             pass  # no nvidia-smi on this machine: the common case, said nowhere
         except (OSError, subprocess.SubprocessError, ValueError) as e:
