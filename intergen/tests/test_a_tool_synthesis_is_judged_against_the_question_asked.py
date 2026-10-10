@@ -127,6 +127,18 @@ class ATerseSynthesisOfTheAskedShapeReachesThePersonTests(unittest.TestCase):
         self.assertEqual(s.screened[0]["conversation_texts"],
                          ["Hello there.", CAPITAL])
 
+    def test_a_synthesis_that_says_two_rules_back_is_flagged(self):
+        # The instruction is handed to the screen as instruction text, so a
+        # reply that says it back is an echo, under each of the three
+        # instructions; left out of the screen, the repeat was served.
+        back = ("Jump straight into the answer. No preamble.\n"
+                "Be concise. State the facts from the tool output.")
+        for success, executed in ((True, True), (False, True), (False, False)):
+            with self.subTest(success=success, executed=executed):
+                s = _Synthesis(CAPITAL, [back], success=success, executed=executed)
+                self.assertIsNone(s.response, "the rules said back were served")
+                self.assertIn(FLAG_SYSTEM_PROMPT_ECHO, s.llm._last_semantic_flags)
+
     def test_a_synthesis_in_the_persons_own_script_is_not_a_flood(self):
         # Asked in Chinese, answered in Chinese — the measured pair, the model's
         # own answer on a local model server. The person's own turn carries the
@@ -175,10 +187,15 @@ class ATerseSynthesisOfTheAskedShapeReachesThePersonTests(unittest.TestCase):
                          s.llm._synthesis_prompt(success=True, executed=True))
 
     def test_control_the_live_system_prompt_still_reaches_the_echo_check(self):
+        # The screen's system text is the live system prompt, then the
+        # synthesis instruction (handed to the echo check as instruction text
+        # since the fast-path summary's correction), never the person's turn.
         s = _Synthesis(CAPITAL, ["Paris. " + SYSTEM])
         self.assertIsNone(s.response)
         self.assertIn(FLAG_SYSTEM_PROMPT_ECHO, s.llm._last_semantic_flags)
-        self.assertEqual(s.screened[0]["system_prompt"], SYSTEM)
+        self.assertEqual(s.screened[0]["system_prompt"],
+                         SYSTEM + "\n" + s.llm._synthesis_prompt(success=True,
+                                                                  executed=True))
 
 
 if __name__ == "__main__":

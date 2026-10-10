@@ -653,12 +653,18 @@ class LLMRouter(LLMInterface):
     def stream(self, messages: list[Message], *,
                max_tokens: int | None = None,
                temperature: float | None = None,
-               image_data: str | None = None) -> Iterator[str]:
+               image_data: str | None = None,
+               screen_messages: list[Message] | None = None) -> Iterator[str]:
         """Stream tokens from local LLM.
 
         If image_data is provided (base64 data URI), the last user
         message is sent as a multimodal content array with both text
         and image parts for vision-capable models.
+
+        ``screen_messages``: the conversation the semantic-health screen judges
+        the completion against, when the request is not itself that
+        conversation (a synthesis request carries an instruction in the user
+        role). None screens against ``messages``, as before.
         """
         if image_data and not self._has_vision:
             yield self._vision_unsupported()
@@ -767,7 +773,8 @@ class LLMRouter(LLMInterface):
             # _synthesis_attempt(). It runs AFTER the last yield, so the user
             # already saw every token — no added latency — and the flags feed
             # chat()/LLMResponse (G10) and the engine-side reaction ladder (G11).
-            self._run_semantic_health(_full, messages)
+            self._run_semantic_health(
+                _full, screen_messages if screen_messages is not None else messages)
             _complete(error=StreamEndedEarly() if _cut else None)
         finally:
             response.close()
@@ -1395,15 +1402,20 @@ class LLMRouter(LLMInterface):
     def chat(self, messages: list[Message], *,
              max_tokens: int | None = None,
              temperature: float | None = None,
-             image_data: str | None = None) -> LLMResponse:
-        """Generate response: local → quality gate → retry → cloud fallback."""
+             image_data: str | None = None,
+             screen_messages: list[Message] | None = None) -> LLMResponse:
+        """Generate response: local → quality gate → retry → cloud fallback.
+
+        ``screen_messages`` is handed to every local attempt's screen (see
+        stream()); the request sent to the model is ``messages``, unchanged."""
         user_msg = self._extract_user_message(messages)
         max_tok = max_tokens or self._estimate_max_tokens(user_msg)
 
         # Attempt 1: local
         tokens = list(self.stream(messages, max_tokens=max_tok,
                                    temperature=temperature,
-                                   image_data=image_data))
+                                   image_data=image_data,
+                                   screen_messages=screen_messages))
         if turn_ended():
             return self._stopped_response()
         response_text = self._strip_reasoning_leak(
@@ -1457,7 +1469,8 @@ class LLMRouter(LLMInterface):
             # Attempt 2: retry with higher token budget, same messages
             tokens = list(self.stream(messages, max_tokens=max_tok,
                                        temperature=temperature,
-                                       image_data=image_data))
+                                       image_data=image_data,
+                                       screen_messages=screen_messages))
             if turn_ended():
                 return self._stopped_response()
             response_text = self._strip_reasoning_leak(
@@ -1882,8 +1895,10 @@ class LLMRouter(LLMInterface):
             response.close()
 
         raw = "".join(tokens)
+        msgs = payload.get("messages") or []
         self._screen_semantic_health(
-            raw, self._the_turn_before_the_tool_exchange(payload.get("messages") or []))
+            raw, self._the_turn_before_the_tool_exchange(msgs)
+            + self._the_instruction_after_the_tool_exchange(msgs))
         return self._strip_filler(self._strip_reasoning_leak(raw))
 
     @staticmethod
@@ -1912,6 +1927,30 @@ class LLMRouter(LLMInterface):
             if m.get("role") == "assistant" and m.get("tool_calls"):
                 return msg_dicts[:i]
         return msg_dicts
+
+    @staticmethod
+    def _the_instruction_after_the_tool_exchange(msg_dicts: list[dict]) -> list[dict]:
+        """The synthesis instruction the request appends after its tool
+        exchange, handed to the screen as instruction text (the system role),
+        never as the person's turn.
+
+        The instruction is not the person's question and must not be read as
+        one (see _the_turn_before_the_tool_exchange), but it is text a reply
+        must not say back, and the screen's echo check reads such text only
+        from the system role. Left out of the screen, a reply that said two of
+        the rules back verbatim ("Jump straight into the answer. No preamble.
+        Be concise. State the facts from the tool output.") was served as the
+        answer to "What is the capital of France?" under each of the three
+        instructions, measured 2026-10-10 through this path with only the
+        transport stood in. A request with no tool exchange appends none.
+        """
+        for i, m in enumerate(msg_dicts):
+            if m.get("role") == "assistant" and m.get("tool_calls"):
+                return [{"role": "system", "content": later["content"]}
+                        for later in msg_dicts[i + 1:]
+                        if later.get("role") == "user"
+                        and isinstance(later.get("content"), str)]
+        return []
 
     # ── Quality gate ──
 

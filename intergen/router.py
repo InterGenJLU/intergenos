@@ -7873,16 +7873,32 @@ class ConversationRouter(RouterInterface):
         """
         self._last_synthesis_rejection = None
         sanitized = sanitize_output(tool_output)
+        instruction = ("Synthesize a clear, concise response for the user.\n"
+                       "RULES:\n" + self._llm._SYNTHESIS_RULES)
         synthesis_prompt = (
             f"The user asked: \"{user_input}\"\n\n"
             f"Data from the {tool_name} tool to base your answer on:\n"
-            f"{sanitized}\n\n"
-            "Synthesize a clear, concise response for the user.\n"
-            "RULES:\n" + self._llm._SYNTHESIS_RULES
+            f"{sanitized}\n\n" + instruction
         )
         messages = self._llm.build_system_messages()
         messages.append(Message(role=MessageRole.USER, content=synthesis_prompt))
-        response = self._llm.chat(messages)
+        # THE SCREEN JUDGES THE SYNTHESIS AGAINST THE PERSON'S OWN TURN, never
+        # against the prompt above, which carries the person's question inside
+        # an instruction sent in the user role. Handed that prompt, the screen
+        # read the instruction as the question: a terse synthesis of the asked
+        # shape was read as answering nothing (short_nonsense), and the
+        # instruction's English diluted a question asked in another script, so
+        # a correct answer in that script was flagged foreign_script_flood (the
+        # class corrected for the tool-synthesis request in
+        # LLMRouter._the_turn_before_the_tool_exchange). The instruction is
+        # handed to the screen as instruction text, the system role, so a
+        # summary that says the rules back is flagged as an echo of them
+        # (measured: two rules said back verbatim were served as the answer).
+        # The request sent to the model is unchanged.
+        screen_turn = self._llm.build_system_messages()
+        screen_turn.append(Message(role=MessageRole.SYSTEM, content=instruction))
+        screen_turn.append(Message(role=MessageRole.USER, content=user_input))
+        response = self._llm.chat(messages, screen_messages=screen_turn)
         text = self._strip_tool_result_preamble(response.text)
 
         reason = self._synthesis_rejection_reason(
