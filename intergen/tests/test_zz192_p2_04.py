@@ -43,6 +43,8 @@ from tempfile import TemporaryDirectory
 from unittest import mock
 
 from intergen import cli
+from intergen.audit_log import write_record
+from intergen.interfaces.provenance import AuditRecord
 
 ESC = "\x1b"
 # A screen clear, a cursor home, and a line dressed as the assistant's own.
@@ -129,17 +131,24 @@ class TheAuditLogTests(unittest.TestCase):
     def test_tool_log_prints_a_recorded_excerpt_without_control_bytes(self):
         with TemporaryDirectory() as d:
             log = Path(d) / "intergen" / "tool-dispatch.jsonl"
-            log.parent.mkdir(parents=True, exist_ok=True)
-            log.write_text(json.dumps({
-                "kind": "tool_dispatch",
-                "timestamp": "2026-09-30T12:00:00",
-                "tool_name": "run_command",
-                "user_decision": "approved",
-                "declared_provenance": "model",
-                "effective_provenance": "model",
-                "exit_code": 0,
-                "excerpt": TOOL_OUTPUT,
-            }) + "\n")
+            # The record is written through the audit log's own writer, as a
+            # dispatch writes it, so the row carries every field the writer
+            # serializes and the reader finds what the writer leaves: a row
+            # assembled by hand here would pin this case to the record shape
+            # of the day it was written, and a reader that checks the record
+            # against its writer would refuse the row before any excerpt is
+            # rendered.
+            self.assertTrue(write_record(AuditRecord(
+                timestamp="2026-09-30T12:00:00",
+                tool_name="run_command",
+                arguments={},
+                declared_provenance="model",
+                effective_provenance="model",
+                ingress_tools_this_turn=[],
+                user_decision="approved",
+                exit_code=0,
+                excerpt=TOOL_OUTPUT,
+            ), log))
             out, err = io.StringIO(), io.StringIO()
             with mock.patch.dict(os.environ, {"XDG_STATE_HOME": d}):
                 with redirect_stdout(out), redirect_stderr(err):
