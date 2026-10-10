@@ -4191,7 +4191,8 @@ class _DripEndpoint:
     ``status`` and ``body``, which it sends one byte every ``drip`` seconds
     (all at once for none) until all of it is sent or the case ends it. A
     receive brings a byte long before the socket's timeout, so no wait on it
-    ever times out."""
+    ever times out. The request's head, once one arrives, is kept in
+    ``request_head``."""
 
     def __init__(self, status: int, body: bytes = b"x" * 65536,
                  drip: float = 0.002) -> None:
@@ -4200,6 +4201,7 @@ class _DripEndpoint:
         self.status = status
         self.body = body
         self.drip = drip
+        self.request_head: bytes | None = None
         self.done = threading.Event()
         self.srv = socket.socket()
         self.srv.bind(("127.0.0.1", 0))
@@ -4225,9 +4227,10 @@ class _DripEndpoint:
                         return
                     data += more
                 head, _, rest = data.partition(b"\r\n\r\n")
-                length = next(
+                self.request_head = head
+                length = next((
                     int(line.split(b":", 1)[1]) for line in head.split(b"\r\n")
-                    if line.lower().startswith(b"content-length:"))
+                    if line.lower().startswith(b"content-length:")), 0)
                 while len(rest) < length:
                     more = conn.recv(65536)
                     if not more:
@@ -4237,12 +4240,14 @@ class _DripEndpoint:
             except OSError:
                 pass
 
+    def _head(self) -> bytes:
+        return (b"HTTP/1.1 %d Controlled\r\nContent-Type: application/json\r\n"
+                b"Content-Length: %d\r\nConnection: close\r\n\r\n"
+                % (self.status, len(self.body)))
+
     def _answer(self, conn) -> None:
         import time
-        conn.sendall(b"HTTP/1.1 %d Controlled\r\nContent-Type: "
-                     b"application/json\r\nContent-Length: %d\r\n"
-                     b"Connection: close\r\n\r\n"
-                     % (self.status, len(self.body)))
+        conn.sendall(self._head())
         if not self.drip:
             conn.sendall(self.body)
             return
@@ -4253,7 +4258,13 @@ class _DripEndpoint:
             time.sleep(self.drip)
 
     def close(self) -> None:
+        import socket
         self.done.set()
+        try:
+            # Wakes an accept still waiting: no request ever came.
+            self.srv.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
         self.thread.join(10)
         self.srv.close()
 
@@ -4295,6 +4306,42 @@ class _ChunkFramingDripEndpoint(_DripEndpoint):
             conn.sendall(b"a")
 
 
+class _HeadDripEndpoint(_DripEndpoint):
+    """The same endpoint, answering with a status line and a header line
+    that never ends: after ``X-Pad: `` a byte arrives every ``drip`` seconds
+    until the case ends it. All of it is received while the reply's status
+    line and headers are read, inside urlopen, before any of the body."""
+
+    def _answer(self, conn) -> None:
+        conn.sendall(b"HTTP/1.1 %d Controlled\r\nX-Pad: " % self.status)
+        while not self.done.wait(self.drip):
+            conn.sendall(b"a")
+
+
+class _SilentEndpoint(_DripEndpoint):
+    """The same endpoint, reading the request and sending nothing at all
+    until the case ends it."""
+
+    def _answer(self, conn) -> None:
+        self.done.wait(30)
+
+
+class _RedirectEndpoint(_DripEndpoint):
+    """The same endpoint, answering with a 302 whose Location is
+    ``location``, its body ``body`` sent a byte every ``drip`` seconds (all
+    at once for none). urllib's own opener follows it there with the
+    request's headers, and reads its body whole first."""
+
+    def __init__(self, location: str, body: bytes, drip: float) -> None:
+        self.location = location
+        super().__init__(302, body, drip)
+
+    def _head(self) -> bytes:
+        return (b"HTTP/1.1 302 Found\r\nLocation: %s\r\nContent-Type: "
+                b"text/plain\r\nContent-Length: %d\r\nConnection: close\r\n\r\n"
+                % (self.location.encode(), len(self.body)))
+
+
 class AReplyThatArrivesSlowlyHoldsNeitherTheStopNorTheCall(unittest.TestCase):
     """The adapter read a reply's body 4096 bytes at a time, each read waiting
     for its whole chunk, every receive inside it within the socket's timeout,
@@ -4324,13 +4371,25 @@ class AReplyThatArrivesSlowlyHoldsNeitherTheStopNorTheCall(unittest.TestCase):
     or ends at the timeout, and a reply whose socket cannot be reached is
     not read, since its receives could not be bound.
 
+    Before the body, the reply's status line and headers were read inside
+    urlopen with no stop and no bound on the whole: an endpoint that sent
+    its head a byte at a time held the call for as long as it sent -
+    measured with the 0.5 s timeout, a stop set 0.3 s in was seen only when
+    the endpoint stopped sending, 10 s in - and one that sent nothing ended
+    the call as a raw TimeoutError. A redirect's body was read whole by
+    urllib's redirect handler before it followed. The head is now received
+    through the same bound as the body, and no redirect is followed: its
+    body is read as an error reply's.
+
     Each case calls the shipped adapter's _request on a worker thread, with
     the 0.5 s timeout, against one of those endpoints - a server the case
     starts itself, on an ephemeral loopback port: an error reply and a
     successful one, sent slowly with a stop set 0.3 s in and with no stop,
     stalled after its first byte, and chunked with its framing sent slowly,
-    with the stop and without; and a reply given a stream that is not its
-    socket's. The control: a reply sent at once is read whole."""
+    with the stop and without; a reply given a stream that is not its
+    socket's; a head sent slowly, with the stop and without; an endpoint
+    that sends nothing; and a redirect whose body is sent slowly, with the
+    stop. The control: a reply sent at once is read whole."""
 
     TIMEOUT = 0.5
     STOP_AFTER = 0.3
@@ -4527,6 +4586,42 @@ class AReplyThatArrivesSlowlyHoldsNeitherTheStopNorTheCall(unittest.TestCase):
         })
 
     @pytest.mark.reaches_a_server_it_starts_itself
+    def test_a_head_sent_slowly_is_stopped_within_one_wait(self):
+        self.assertEqual(self._call(_HeadDripEndpoint(200), with_stop=True), {
+            "the call ended as": "CloudCallStopped",
+            "it ended within one wait on the socket": True,
+            "its words name the timeout": False,
+        })
+
+    @pytest.mark.reaches_a_server_it_starts_itself
+    def test_a_head_sent_slowly_ends_at_the_timeout(self):
+        self.assertEqual(self._call(
+            _HeadDripEndpoint(200), with_stop=False, at_the_timeout=True), {
+            "the call ended as": "CloudAdapterError",
+            "it ended within half a wait of the timeout": True,
+            "its words name the timeout": True,
+        })
+
+    @pytest.mark.reaches_a_server_it_starts_itself
+    def test_an_endpoint_that_sends_nothing_ends_at_the_timeout(self):
+        self.assertEqual(self._call(
+            _SilentEndpoint(200), with_stop=False, at_the_timeout=True), {
+            "the call ended as": "CloudAdapterError",
+            "it ended within half a wait of the timeout": True,
+            "its words name the timeout": True,
+        })
+
+    @pytest.mark.reaches_a_server_it_starts_itself
+    def test_a_redirects_body_sent_slowly_is_stopped_within_one_wait(self):
+        self.assertEqual(self._call(_RedirectEndpoint(
+            "http://127.0.0.1:9/elsewhere", b"x" * 65536, drip=0.002),
+            with_stop=True), {
+            "the call ended as": "CloudCallStopped",
+            "it ended within one wait on the socket": True,
+            "its words name the timeout": False,
+        })
+
+    @pytest.mark.reaches_a_server_it_starts_itself
     def test_control_an_answer_sent_at_once_is_read_whole(self):
         import json
         answer = {"choices": [{"message": {"content": CLOUD_ANSWER}}],
@@ -4538,6 +4633,61 @@ class AReplyThatArrivesSlowlyHoldsNeitherTheStopNorTheCall(unittest.TestCase):
             "its words name the timeout": False,
         })
         self.assertEqual(self.answer, answer)
+
+
+class ARedirectIsNotFollowedSoTheKeyGoesNowhereElse(unittest.TestCase):
+    """urllib's opener followed a 301, 302 or 303 answer to any http, https
+    or ftp Location with the request's headers, the API key's among them,
+    while the adapter's transport check had looked only at the configured
+    endpoint: measured on loopback, a second server named only by a 302's
+    Location was sent the key, and a redirect to plain http on another host
+    would have carried it in cleartext. The adapter now follows no
+    redirect: a 3xx ends the call as the provider error with its status and
+    its body's bounded prefix, and the request is never sent again.
+
+    The case calls the shipped adapter's _request against a loopback
+    endpoint the case starts itself, answering a 302 whose Location names a
+    second loopback endpoint, which keeps the head of any request it is
+    sent."""
+
+    maxDiff = None
+
+    @pytest.mark.reaches_a_server_it_starts_itself
+    def test_a_redirect_is_not_followed_and_its_target_is_sent_nothing(self):
+        import json
+        from intergen.cloud import http_adapter
+        from intergen.interfaces.cloud import ProviderConfig
+        elsewhere = _DripEndpoint(200, json.dumps(
+            {"choices": [{"message": {"content": CLOUD_ANSWER}}]}).encode(),
+            drip=0)
+        self.addCleanup(elsewhere.close)
+        endpoint = _RedirectEndpoint(
+            f"http://127.0.0.1:{elsewhere.port}/elsewhere", b"moved", drip=0)
+        self.addCleanup(endpoint.close)
+        adapter = http_adapter.HTTPCloudAdapter(ProviderConfig(
+            name="moved", adapter="moved", model="m",
+            api_key_keyring_id="unused",
+            base_url=f"http://127.0.0.1:{endpoint.port}/v1"))
+        words = ""
+        with mock.patch.object(adapter, "_api_key", return_value="K"):
+            try:
+                adapter._request({"messages": []}, timeout=0.5)
+                ended = "its answer"
+            except Exception as exc:  # read by the case
+                ended = type(exc).__name__
+                words = str(exc)
+        sent = elsewhere.request_head or b""
+        self.assertEqual({
+            "the call ended as": ended,
+            "its words name the redirect": "HTTP 302: moved" in words,
+            "the redirect's target was sent a request": bool(sent),
+            "the redirect's target was sent the key": b"Bearer K" in sent,
+        }, {
+            "the call ended as": "CloudAdapterError",
+            "its words name the redirect": True,
+            "the redirect's target was sent a request": False,
+            "the redirect's target was sent the key": False,
+        })
 
 
 if __name__ == "__main__":
