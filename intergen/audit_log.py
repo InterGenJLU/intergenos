@@ -43,6 +43,7 @@ import functools
 import json
 import logging
 import os
+import stat
 from dataclasses import MISSING, dataclass, field, fields
 from pathlib import Path
 from typing import Iterator
@@ -117,6 +118,37 @@ def _record_lines(path: Path) -> list[tuple[int, str | None]]:
     return lines
 
 
+def record_presence(path: Path) -> tuple[str, str]:
+    """Whether the record at ``path`` is ``"absent"``, ``"present"`` or ``"uncheckable"``.
+
+    Absence is decided from the path's OWN stat (``lstat``), never from ``Path.exists()``,
+    which is False for a symbolic link whose target is missing and for a file below a
+    directory that cannot be searched: an existing record whose integrity cannot be checked
+    would read as no record at all. Genuine ENOENT alone is absence. A link is followed once,
+    to see that its target can be examined. Anything else is uncheckable, and the second
+    element names what was found: the link and its target, or the error.
+    """
+    try:
+        own = os.lstat(path)
+    except FileNotFoundError:
+        return "absent", ""
+    except OSError as exc:
+        return "uncheckable", f"{path} could not be examined: {exc}"
+    if stat.S_ISLNK(own.st_mode):
+        try:
+            target = os.readlink(path)
+        except OSError as exc:
+            return "uncheckable", f"{path} is a symbolic link that could not be read: {exc}"
+        try:
+            os.stat(path)
+        except FileNotFoundError:
+            return "uncheckable", f"{path} is a symbolic link to {target}, which does not exist"
+        except OSError as exc:
+            return ("uncheckable",
+                    f"{path} is a symbolic link to {target}, which could not be examined: {exc}")
+    return "present", ""
+
+
 def read_records(log_path: Path | None = None) -> Iterator[dict]:
     """Yield each parsed audit record dict from the log.
 
@@ -130,10 +162,17 @@ def read_records(log_path: Path | None = None) -> Iterator[dict]:
     this function does the first and must not become the second, because a reader that
     cannot see a damaged record at all is worse off than one shown it with a warning.
     A line whose bytes are not UTF-8 is passed over the same way, with its own warning;
-    the lines come from :func:`_record_lines`, as the read-back's do.
+    the lines come from :func:`_record_lines`, as the read-back's do. A record that is
+    absent yields nothing; one that cannot be checked (see :func:`record_presence`) yields
+    nothing with a warning that names what was found.
     """
     path = log_path if log_path is not None else default_log_path()
-    if not path.exists():
+    presence, found = record_presence(path)
+    if presence == "absent":
+        return
+    if presence == "uncheckable":
+        logger.warning("audit_log: read_records could not check the record and returned "
+                       "nothing from it: %s", found)
         return
     try:
         record_lines = _record_lines(path)
@@ -232,8 +271,8 @@ class IntegrityReading:
     incomplete_rows: list[int] = field(default_factory=list)
     out_of_order_rows: list[int] = field(default_factory=list)
     unjoinable_rows: int = 0
-    exists: bool = True
-    read_error: str = ""
+    exists: bool = True      # False only when the path's own stat found nothing there
+    read_error: str = ""     # why the record could not be read or checked, when it could not
 
     @property
     def damaged(self) -> bool:
@@ -309,11 +348,16 @@ def read_integrity(log_path: Path | None = None) -> IntegrityReading:
     """Validate each line's UTF-8, its JSON structure and the fields serialized for each row.
 
     The lines come from :func:`_record_lines`, decoded strictly: a line whose bytes are
-    not UTF-8 is named and is damage, as a line that is not JSON is.
+    not UTF-8 is named and is damage, as a line that is not JSON is. Absence is decided by
+    :func:`record_presence`: a record that cannot be checked carries what was found as its
+    read error, and the verdict names it.
     """
     path = log_path if log_path is not None else default_log_path()
-    if not path.exists():
+    presence, found = record_presence(path)
+    if presence == "absent":
         return IntegrityReading(path=path, exists=False)
+    if presence == "uncheckable":
+        return IntegrityReading(path=path, read_error=found)
     try:
         record_lines = _record_lines(path)
     except OSError as exc:
