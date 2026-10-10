@@ -372,6 +372,10 @@ class WebServer:
         self._filler = FillerPicker()
 
         self._app = web.Application()
+        # Registered once, here: an application's middleware cannot change
+        # after its first runner is set up, and start() sets up a new runner
+        # after a stop.
+        self._app.middlewares.append(self._csp_middleware)
         self._runner: web.AppRunner | None = None
         self._site: web.TCPSite | None = None
         self._connections: dict[str, ConnectionContext] = {}
@@ -506,15 +510,16 @@ class WebServer:
         bind, never an HTTP probe of the port.
 
         Idempotent + retriable (the watchdog path): an already-running server is
-        a no-op; the middleware + runner are set up once and reused across rebind
-        attempts so a retry never double-registers middleware.
+        a no-op; the runner is set up once and reused across rebind attempts,
+        and set up afresh on a start after a stop (stop() drops the one it
+        cleaned up). The middleware is registered once, when the server is
+        built, so no retry registers it twice.
         """
         if self._running:
             return True
-        # Set up the runner + middleware exactly once; the watchdog may call
+        # Set up the runner once per life of the server; the watchdog may call
         # start() repeatedly until the port frees.
         if self._runner is None:
-            self._app.middlewares.append(self._csp_middleware)
             self._runner = web.AppRunner(self._app)
             await self._runner.setup()
         self._site = web.TCPSite(self._runner, self._host, self._port)
@@ -577,11 +582,16 @@ class WebServer:
                 pass
         self._connections.clear()
 
-        # Shut down aiohttp
+        # Shut down aiohttp. The site and the runner are dropped once they are
+        # stopped and cleaned up, so a later start() sets a new runner up
+        # rather than making a site on one that was cleaned up, which raised
+        # "Call runner.setup() before making a site" on the start after a stop.
         if self._site:
             await self._site.stop()
+            self._site = None
         if self._runner:
             await self._runner.cleanup()
+            self._runner = None
         logger.info("Web server stopped")
 
     # -- Health / status ----------------------------------------------------
