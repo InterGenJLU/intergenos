@@ -161,7 +161,9 @@ def run_bounded(argv: list[str], *, timeout: float, input: str | None = None,
     ``what`` names a program that is not a dialog), and its pipes are closed
     without waiting on it. Anything else the wait or the stop raises takes
     the program down the same way before it propagates, as subprocess.run
-    kills it then."""
+    kills it then; when that teardown fails, DialogNotTakenDown is raised in
+    its place, the error its cause, so the caller learns the program may
+    still be running (the error alone told it nothing of that)."""
     decide_by = time.monotonic() + timeout
     pipe = subprocess.PIPE if capture_output else None
     proc = subprocess.Popen(
@@ -186,8 +188,8 @@ def run_bounded(argv: list[str], *, timeout: float, input: str | None = None,
                     break
                 if time.monotonic() >= decide_by:
                     break
-        except BaseException:
-            _kill(proc, what, consequence)   # logs a teardown that fails
+        except BaseException as exc:
+            _take_down(proc, what, consequence, cause=exc)
             raise
         _take_down(proc, what, consequence)
         if stopped:
@@ -204,11 +206,15 @@ def run_bounded(argv: list[str], *, timeout: float, input: str | None = None,
                 pass
 
 
-def _take_down(proc: subprocess.Popen, what: str, consequence: str) -> None:
-    """run_bounded's teardown: DialogNotTakenDown when the program could not
-    be verified ended."""
+def _take_down(proc: subprocess.Popen, what: str, consequence: str,
+               cause: BaseException | None = None) -> None:
+    """run_bounded's teardown: DialogNotTakenDown, naming the program's pid,
+    when the program could not be verified ended - ``cause``, the error that
+    stopped the wait, as its cause."""
     if _kill(proc, what, consequence) is not None:
-        raise DialogNotTakenDown(f"{what} could not be verified ended")
+        raise DialogNotTakenDown(
+            f"{what} (pid {getattr(proc, 'pid', None)}) could not be verified "
+            "ended") from cause
 
 
 def _run_dialog(spec: dict, cmd: list[str] | None = None,
@@ -237,6 +243,10 @@ def _run_dialog(spec: dict, cmd: list[str] | None = None,
                                        could not be verified ended; no
                                        fallback may open beside it.
                                        Any non-affirmative int is a refusal.
+
+    An error while the dialog is up (the caller's stop raising, a read that
+    fails) takes the dialog down before it goes on to the caller; a teardown
+    that fails raises DialogNotTakenDown instead, the error its cause.
     """
     if cmd is None:
         cmd = [sys.executable, "-m", "intergen.consent_dialog_gtk"]
@@ -269,6 +279,21 @@ def _run_dialog(spec: dict, cmd: list[str] | None = None,
 
     threading.Thread(target=_feed, daemon=True).start()
 
+    try:
+        return _await_answer(proc, should_stop)
+    except BaseException as exc:
+        # An error while the dialog is up (the caller's stop raising, a read
+        # that fails) left it untried and on screen. It is taken down first,
+        # as run_bounded takes its program down, and a teardown that fails is
+        # DialogNotTakenDown, the error its cause.
+        _take_down(proc, "the dialog", ON_SCREEN, cause=exc)
+        raise
+
+
+def _await_answer(proc: subprocess.Popen,
+                  should_stop: Callable[[], bool] | None) -> int | None:
+    """_run_dialog's wait on a spawned dialog: its render, then its answer,
+    returning what _run_dialog returns."""
     # ── Watchdog: wait for the RENDERED marker; fail FAST if it never comes ──
     assert proc.stdout is not None
     rendered = False
