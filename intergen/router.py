@@ -230,7 +230,8 @@ def _is_referential_argument(token: str) -> bool:
 # never read as "no such unit", never as "known", and no proposal is made on it.
 # The actions the argument builder can produce that change the system. A status
 # question is answered for any name — "Unit over.service could not be found"
-# is a true answer to "status of over" — so it is not asked about.
+# is a true answer to "status of over" — so it is not asked about; a status
+# question that names no unit at all is not built (_a_unit_the_manager_knows).
 _SERVICE_STATE_CHANGING_ACTIONS = frozenset(
     {"start", "stop", "restart", "enable", "disable"})
 
@@ -6967,15 +6968,17 @@ class ConversationRouter(RouterInterface):
                 r"is\s+(\S+)\s+(?:running|active|up|enabled)", user_input, re.IGNORECASE
             )
             if running_match:
-                return {"action": "status", "service": running_match.group(1)}
+                return self._a_unit_the_manager_knows(
+                    "status", running_match.group(1), user_input)
             # "What services are running?" → list
             if "services" in user_input.lower() or "list" in user_input.lower():
                 return {"action": "list", "service": ""}
             # Indirect phrasing — the service is named in a DIFFERENT clause than
             # the question ("I can't connect via SSH, is the service even on?").
-            # Scan the whole input for a recognized service name.
-            return {"action": "status",
-                    "service": self._scan_service_name(user_input)}
+            # Scan the whole input for a recognized service name; a question
+            # that names none ("Is my firewall on?") builds no status read.
+            return self._a_unit_the_manager_knows(
+                "status", self._scan_service_name(user_input), user_input)
         if tool_name == "open_application":
             return {"name": user_input}
         if tool_name == "analyze_file":
@@ -7104,25 +7107,32 @@ class ConversationRouter(RouterInterface):
 
     def _a_unit_the_manager_knows(self, action: str, service: str,
                                   user_input: str) -> "dict[str, Any] | None":
-        """The service arguments, or None when a change would name no known unit.
+        """The service arguments, or None when a change would name no known unit
+        or a status question would name no unit at all.
 
-        A status question passes as it is. A change (start, stop, restart,
-        enable, disable) is built only when the service manager knows the unit,
-        and then names it as the manager does; otherwise nothing is built, the
-        reason is recorded in words, and the clause goes on to the model's turn
-        as an ordinary request. `_KNOWN_SERVICES` above cannot answer this: it is
-        a list of names to look for in a sentence, not a reading of the units
-        this machine has.
+        A status question that names a service passes as it is. One that names
+        none is not built: the service tool reads nothing without a name, so a
+        dispatch would answer the person's question ("Is my firewall on?") with
+        the tool's refusal, and the clause goes on to the model's turn instead.
+        A change (start, stop, restart, enable, disable) is built only when the
+        service manager knows the unit, and then names it as the manager does.
+        Either way nothing is built, the reason is recorded in words, and the
+        clause goes on to the model's turn as an ordinary request.
+        `_KNOWN_SERVICES` above cannot answer this: it is a list of names to
+        look for in a sentence, not a reading of the units this machine has.
         """
-        if action not in _SERVICE_STATE_CHANGING_ACTIONS:
-            return {"action": action, "service": service}
         name = (service or "").strip().strip(".,;:!?'\"")
-        name = _SERVICE_ALIASES.get(name.lower().removesuffix(".service"), name)
-        state, unit, words = self._read_service_unit(name)
-        if state == "known":
-            return {"action": action, "service": unit}
-        reason = ("service_manager_unreadable" if state == "unreadable"
-                  else "service_unit_not_known")
+        if action not in _SERVICE_STATE_CHANGING_ACTIONS:
+            if name:
+                return {"action": action, "service": service}
+            state, unit, words = "unnamed", "", "no service was named"
+        else:
+            name = _SERVICE_ALIASES.get(name.lower().removesuffix(".service"), name)
+            state, unit, words = self._read_service_unit(name)
+            if state == "known":
+                return {"action": action, "service": unit}
+        reason = {"unreadable": "service_manager_unreadable",
+                  "unnamed": "service_not_named"}.get(state, "service_unit_not_known")
         self._last_dispatch_decline_reason = reason
         self._trail_note("dispatch", "rejected", tool="manage_services",
                          reason=reason, service=name, why=words)

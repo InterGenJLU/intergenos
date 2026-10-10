@@ -142,6 +142,14 @@ CONFIRM_ACTIONS = frozenset({
 # which names none.
 UNIT_CHANGING_ACTIONS = CONFIRM_ACTIONS - {"daemon-reload"}
 
+# The actions that name no unit. Every other action reads or changes one unit
+# and is refused without a name, before the dispatcher gate
+# (validate_arguments) and again in execute().
+ACTIONS_NAMING_NO_UNIT = frozenset({
+    "list-units", "list-unit-files", "list-timers", "list-sockets",
+    "daemon-reload",
+})
+
 
 # ── whether this machine's service manager knows a unit ─────────────────────
 #
@@ -333,15 +341,25 @@ class ManageServicesTool(BaseTool):
         with no service named. So the call is refused here, in words, before
         the dispatcher gate and the review card. A read-only action is not
         asked about: "Unit over.service could not be found" is a true answer to
-        a status question.
+        a status question. A read that names no unit at all is refused here
+        too, in words: the tool reads nothing without a name, so a dispatch
+        could only answer the question with its own refusal.
         """
         error = super().validate_arguments(arguments)
         if error:
             return error
         action = canonical_action(arguments.get("action", ""))
-        if action not in UNIT_CHANGING_ACTIONS:
-            return None
         service = arguments.get("service", "")
+        if action not in UNIT_CHANGING_ACTIONS:
+            if action in ACTIONS_NAMING_NO_UNIT:
+                return None
+            if service is None or (isinstance(service, str)
+                                   and not service.strip()):
+                return (f"'{action}' asks about a service and names none; "
+                        f"nothing was run — say which service to ask about")
+            if not isinstance(service, str):
+                return f"'{action}' needs a service name, not {service!r}"
+            return None
         if not isinstance(service, str):
             return f"'{action}' needs a service name, not {service!r}"
         if service:
@@ -399,8 +417,7 @@ class ManageServicesTool(BaseTool):
             )
 
         # Most actions require a service name
-        if action not in ("list-units", "list-unit-files", "list-timers",
-                          "list-sockets", "daemon-reload") and not service:
+        if action not in ACTIONS_NAMING_NO_UNIT and not service:
             return ToolResult(
                 call_id="", name=self.name,
                 content=f"Error: '{action}' requires a service name",
