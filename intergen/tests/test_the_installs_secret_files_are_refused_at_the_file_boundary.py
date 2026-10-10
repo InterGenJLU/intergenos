@@ -1610,10 +1610,15 @@ class UnderThePrivilegedRunnerAWriteGoesOnlyToTheObjectItsRequestNames(
     that root does not own is refused before anything is read or written, and
     the refusal names the link and where it leads, so the person can ask for
     that path by its own name. A link root owns, as the system layout's own
-    links are, still resolves. Outside the runner nothing changes.
+    links are, still resolves; one replaced by a link of the account between
+    the read of its owner and the read of its target is refused the same way,
+    because the target read would be the replacement's. Outside the runner
+    nothing changes.
 
     Root is simulated as in the classes above; the stand-in for a file the
-    person cannot write is a throwaway file outside the home.
+    person cannot write is a throwaway file outside the home. A link root owns
+    is simulated by reporting owner 0 for that one link, by its device and
+    inode, from whichever stat call reads it.
     """
 
     ORIGINAL = "the stand-in, unchanged\n"
@@ -1705,29 +1710,68 @@ class UnderThePrivilegedRunnerAWriteGoesOnlyToTheObjectItsRequestNames(
             result = self._write(drafts / "new" / "notes.txt", create_dirs=True)
         self._assert_refused_naming(result, drafts, self.outside)
 
+    def _roots_link(self, link: Path, after_its_owner_is_read=None):
+        """Report owner 0 for this one link, by its device and inode, from the
+        lstat and the fstat the module makes; a cell running as an ordinary
+        account cannot make a link root owns. If given, after_its_owner_is_read
+        runs once, right after the first read that reports the link's owner."""
+        first = os.lstat(link)
+        identity = (first.st_dev, first.st_ino)
+        real_lstat, real_fstat = os.lstat, os.fstat
+        pending = [after_its_owner_is_read] if after_its_owner_is_read else []
+
+        def as_roots(found):
+            if (found.st_dev, found.st_ino) != identity:
+                return found
+            fields = list(found[:10])
+            fields[4] = 0
+            if pending:
+                pending.pop()()
+            return os.stat_result(fields)
+
+        stack = contextlib.ExitStack()
+        stack.enter_context(mock.patch.object(
+            dt.os, "lstat",
+            side_effect=lambda path, *a, **k: as_roots(real_lstat(path, *a, **k))))
+        stack.enter_context(mock.patch.object(
+            dt.os, "fstat",
+            side_effect=lambda fd, *a, **k: as_roots(real_fstat(fd, *a, **k))))
+        return stack
+
     def test_a_link_root_owns_still_resolves(self) -> None:
         """A link of the system layout is root's, and the requesting account can
-        neither make nor change it. Answered here through the lstat the module
-        makes: a cell running as an ordinary account cannot make a link root
-        owns."""
+        neither make nor change it."""
         system = self.root / "system-link"
         system.symlink_to(self.home, target_is_directory=True)
-        real_lstat = os.lstat
-
-        def roots(path, *args, **kwargs):
-            found = real_lstat(path, *args, **kwargs)
-            if os.fspath(path) == str(system):
-                fields = list(found[:10])
-                fields[4] = 0
-                return os.stat_result(fields)
-            return found
-
-        with self._as_the_runner(), \
-                mock.patch.object(dt.os, "lstat", side_effect=roots):
+        with self._as_the_runner(), self._roots_link(system):
             result = self._write(system / "through-a-roots-link.txt")
         self.assertTrue(result.success, result.content)
         self.assertEqual((self.home / "through-a-roots-link.txt").read_text(),
                          self.CONTENT)
+
+    def test_a_roots_link_replaced_after_its_owner_is_read_is_refused(
+            self) -> None:
+        """A link root owns, in a directory the account can write, replaced by a
+        link of the account after its owner is read and before its target is
+        read: the target read must not be the replacement's."""
+        inside = self.home / "kept"
+        inside.mkdir()
+        drafts = self.home / "drafts"
+        drafts.symlink_to(inside, target_is_directory=True)
+        replacement = self.home / ".replacement"
+
+        def replace_it() -> None:
+            replacement.symlink_to(self.outside, target_is_directory=True)
+            os.rename(replacement, drafts)
+
+        with self._as_the_runner(), self._roots_link(drafts, replace_it):
+            result = self._write(drafts / "notes.txt")
+        self.assertEqual(os.readlink(drafts), str(self.outside),
+                         "the replacement did not take place, so the cell "
+                         "measured nothing")
+        self._assert_refused_naming(result, drafts, self.outside)
+        self.assertEqual(self._listing(inside), [],
+                         "something was written where the root-owned link led")
 
     def test_outside_the_runner_a_link_of_the_account_is_written_through(
             self) -> None:
