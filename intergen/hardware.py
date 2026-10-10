@@ -365,7 +365,11 @@ class HardwareDetector(HardwareDetectorInterface):
           1. /proc/driver/nvidia/gpus/*/information — "Video Memory: N MBytes"
           2. nvidia-smi --query-gpu=memory.total (CSV, MiB)
         Returns None when neither source is readable — the caller then treats
-        VRAM as unknown and tier assignment fails down.
+        VRAM as unknown and tier assignment fails down. That includes a tool
+        that is present but cannot be run or read (refused permission, any
+        other system error, a failed subprocess): the card stays in the
+        machine's reading with its memory unknown, and the log says why; an
+        error raised from here used to drop the whole card.
         """
         best: int | None = None
         try:
@@ -392,8 +396,12 @@ class HardwareDetector(HardwareDetectorInterface):
                           if v.strip().isdigit()]
                 if values:
                     return max(values)
-        except (FileNotFoundError, subprocess.TimeoutExpired, ValueError):
-            pass
+        except FileNotFoundError:
+            pass  # no nvidia-smi on this machine: the common case, said nowhere
+        except (OSError, subprocess.SubprocessError, ValueError) as e:
+            log.warning("NVIDIA card memory: nvidia-smi could not be run or "
+                        "read (%s); the card is kept with its memory unknown",
+                        e)
         return None
 
     def _try_lspci(
