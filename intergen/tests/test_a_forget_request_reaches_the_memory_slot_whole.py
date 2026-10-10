@@ -20,7 +20,8 @@ the whole request is not None) is never split, and no part of it is answered on
 its own. The memory slot answers it with the parser's own declined reply, so
 nothing is forgotten or cleared on a reading of part of the request, and the
 person is told to say the forget on its own. With no memory store it is still
-not split: it goes to the model whole.
+not split, and no route ahead of the rung answers part of it (the IP handler,
+the web-search offer, a curated how-to): it goes to the model whole.
 
 THE CONTROLS beside the cells are green at both ends: a two-part request with no
 forget still decomposes; a request the decomposer reads as ONE request reaches
@@ -238,6 +239,39 @@ class WithNoMemoryStoreItIsStillNotSplit(_Case):
                          "%r was not answered by the model whole: %r"
                          % (request, self.model_calls))
         self.assertEqual((self.processes, self.connections, self.urls), ([], [], []))
+
+    def assertGoesToTheModelWhole(self, request: str,
+                                  tier: HardwareTierLevel = HardwareTierLevel.TIER_2) -> None:
+        """With no store, no route ahead of the rung answers one clause: the
+        request reaches the model whole, in one call, nothing run or reached."""
+        self.assertTrue(
+            analyze_query(request, tier).needs_decomposition,
+            "control: the decomposer no longer reads %r as two asks" % request)
+        self.assertIsNotNone(
+            MemoryManager.is_forget_request(request),
+            "control: the forget parser finds no forget in %r" % request)
+        result = self._turn(self._router(None, tier), request)
+        self.assertNotIn(result.source, ("decomposed", "ip", "current_data_offer", "explain"),
+                         "%r was answered by %r with no memory store: %r"
+                         % (request, result.source, result.text))
+        self.assertEqual(len(self.model_calls), 1,
+                         "%r was not answered by the model whole: %r"
+                         % (request, self.model_calls))
+        self.assertEqual((self.processes, self.connections, self.urls), ([], [], []),
+                         "%r ran or reached something" % request)
+
+    def test_forget_my_car_and_whats_my_ip_goes_to_the_model_whole(self) -> None:
+        """Not the IP handler: its address lookups are not run."""
+        self.assertGoesToTheModelWhole("forget my car and what's my ip")
+
+    def test_on_the_locked_floor_forget_my_car_and_the_weather_goes_to_the_model_whole(self) -> None:
+        """Not the web-search offer on the locked floor."""
+        self.assertGoesToTheModelWhole("forget my car and what's the weather right now",
+                                       HardwareTierLevel.TIER_1)
+
+    def test_forget_my_car_and_how_do_i_check_disk_space_goes_to_the_model_whole(self) -> None:
+        """Not the explain route's curated how-to."""
+        self.assertGoesToTheModelWhole("forget my car and how do i check disk space")
 
 
 # ── the controls: green at both ends ────────────────────────────────────────

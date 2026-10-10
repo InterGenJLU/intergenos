@@ -2817,6 +2817,16 @@ class ConversationRouter(RouterInterface):
         # memory store there is no slot to hand it to: it is still not split, and
         # goes on whole (route_compound_whole below), so no clause of it is
         # answered in isolation.
+        #
+        # HELD WHOLE WITH OR WITHOUT A STORE. The verdict below is read whatever
+        # the store: the three routes between here and route_compound_whole that
+        # answer a message on their own (the current-data offer, explain, the IP
+        # handler) step aside for a request that carries a forget. Measured with
+        # no store before they did: "forget my car and what's my ip" was answered
+        # by the IP handler, which ran its address lookups, "forget my car and
+        # what's the weather right now" on the locked floor by the web-search
+        # offer, and "forget my car and how do i check disk space" by a curated
+        # how-to; the forget was dropped without a word in each.
         forget_in_compound = (decomposition.needs_decomposition
                               and MemoryManager.is_forget_request(user_input) is not None)
         if forget_in_compound and self._memory:
@@ -2875,7 +2885,8 @@ class ConversationRouter(RouterInterface):
         # Pre-model, after the capability intercepts (it is not a capability
         # question); the high-precision gate + locked-only scope keep system asks,
         # non-live asks, and the NATIVE path out.
-        _cd = self._try_current_data_offer(original_input, t0)
+        _cd = (None if forget_in_compound
+               else self._try_current_data_offer(original_input, t0))
         if _cd is not None:
             self._won("current_data_offer", source=_cd.source)
             return _cd
@@ -2887,7 +2898,7 @@ class ConversationRouter(RouterInterface):
         # PI-218-2 reported. Curated corpus answers beat a 2B improvising commands
         # (security-first); explain-first-then-offer preserves the user's ability to act.
         explain_result, explain_prior = (
-            (None, False) if carried_subject
+            (None, False) if (carried_subject or forget_in_compound)
             else self._try_explain(user_input))
         _span.set_attribute("explain_prior", explain_prior)
         if explain_result is not None:
@@ -2900,7 +2911,7 @@ class ConversationRouter(RouterInterface):
         # IPv6 offered). After _try_explain so an instructional "how do I find my ip"
         # still teaches; before the action paths so the composite answer is never
         # reduced to a single-command ifconfig dispatch.
-        if _is_ip_query(user_input):
+        if _is_ip_query(user_input) and not forget_in_compound:
             self._won("ip", matched=True)
             return self._answer_ip_query(user_input, t0)
 
