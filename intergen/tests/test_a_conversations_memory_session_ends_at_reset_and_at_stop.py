@@ -23,6 +23,9 @@ So, on the store:
   * a daemon stop ends every session that daemon started and has not ended,
     recording the reason "daemon stop", reports each one the store refuses, and
     still runs to its end;
+  * it ends them only once the browser stop it ordered has completed: a browser
+    stop that is still pending or has failed is reported in words, the sessions
+    are left open, and the stop is not reported as completed;
   * the welcome-back reply reads the session that was ended, after a reset and
     at the next start.
 
@@ -554,6 +557,52 @@ def _a_stop_with_the_browser_stop(tmp_path, caplog, outcome: str):
         daemon.stop_service()
     messages = [(r.levelno, r.getMessage()) for r in caplog.records]
     return store, router, daemon._conversation, tab, browser, messages
+
+
+def test_a_daemon_stop_ends_the_sessions_only_after_the_browser_stop_it_ordered_has_completed(
+        tmp_path, caplog):
+    """The browser stop the daemon ordered is still pending, or it failed. No
+    session is ended while it has not completed; the stop says so in words and
+    does not report a completed stop; and a turn the browser server still serves
+    after the order is not counted on a session that has already ended."""
+    problems = []
+    for outcome in ("pending", "fails"):
+        store, router, bus, tab, browser, messages = _a_stop_with_the_browser_stop(
+            tmp_path, caplog, outcome)
+        try:
+            rows = _sessions(store)
+            if browser.stop_completed_at is None:
+                for name, conv in (("the desktop bus's", bus), ("the tab's", tab)):
+                    row = rows[conv.memory_session_id]
+                    if row["ended_at"] is not None:
+                        problems.append(
+                            f"browser stop {outcome}: {name} session was ended "
+                            f"({row.get('end_reason')!r}) while the browser stop "
+                            "the daemon ordered had not completed")
+            reported = [m for level, m in messages if level >= logging.WARNING
+                        and ("web server" in m.lower() or "browser" in m.lower())]
+            if not reported:
+                problems.append(
+                    f"browser stop {outcome}: nothing at WARNING or above names "
+                    "the browser server's stop")
+            if any(m == "InterGen daemon stopped" for _, m in messages):
+                problems.append(
+                    f"browser stop {outcome}: the stop reported 'InterGen daemon "
+                    "stopped', a completed stop")
+            before = _sessions(store)[tab.memory_session_id]
+            _take_a_turn(router, tab, DISK_TURN)
+            after = _sessions(store)[tab.memory_session_id]
+            if (before["ended_at"] is not None
+                    and after["turn_count"] != before["turn_count"]):
+                problems.append(
+                    f"browser stop {outcome}: a turn the browser server served "
+                    "after the stop was ordered was counted on the tab's session, "
+                    f"ended at {before['ended_at']} ({before.get('end_reason')!r}); "
+                    f"its turns went from {before['turn_count']} to "
+                    f"{after['turn_count']}")
+        finally:
+            browser.finish()
+    assert not problems, "\n".join(problems)
 
 
 def test_control_a_browser_stop_that_completes_comes_before_the_sessions_end(

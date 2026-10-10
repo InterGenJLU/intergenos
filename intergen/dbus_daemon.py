@@ -54,6 +54,7 @@ INTERFACE_NAME = "com.intergenos.InterGen"
 # recovery posture.
 WEB_BIND_RETRY_INTERVAL = 5     # seconds between rebind attempts
 WEB_BIND_MAX_ATTEMPTS = 60      # ~5 min total
+WEB_STOP_TIMEOUT = 5.0          # seconds a daemon stop waits on the web server's stop
 
 # Largest game identifier accepted by PauseForGame / ResumeAfterGame. The value
 # is a window class (steam_app_620, gamescope, …), so 256 bytes is far more than
@@ -2633,22 +2634,18 @@ class InterGenDaemon(InterGenDBusInterface):
         log.info("InterGen daemon stopping...")
         self._running = False
 
-        if self._web_server:
-            try:
-                asyncio.run_coroutine_threadsafe(
-                    self._web_server.stop(),
-                    self._web_loop,
-                )
-            except Exception:
-                pass
-        if self._web_thread and self._web_thread.is_alive():
-            self._web_thread.join(timeout=5.0)
-
-        # With the browser server down no turn can reach a conversation (the
-        # bus dispatches only while the main loop runs, and a stop comes after
-        # it): each conversation's memory session ends here, so the next
-        # start's welcome-back reply has it to read.
-        self._end_memory_sessions()
+        browser_stopped = self._stop_browser_server()
+        if browser_stopped:
+            # With the browser server down no turn can reach a conversation (the
+            # bus dispatches only while the main loop runs, and a stop comes
+            # after it): each conversation's memory session ends here, so the
+            # next start's welcome-back reply has it to read. A turn a routing
+            # thread still delivers afterwards is not counted on an ended
+            # session (MemoryManager.record_turn).
+            self._end_memory_sessions()
+        # Otherwise the browser server may still be serving its connections,
+        # and a session ended now would take their turns after its end: the
+        # sessions are left open, and _stop_browser_server has said why.
 
         if self._state_cache:
             self._state_cache.stop()
@@ -2671,7 +2668,54 @@ class InterGenDaemon(InterGenDBusInterface):
         self._web_server = None
         self._health_agg = None
 
-        log.info("InterGen daemon stopped")
+        if browser_stopped:
+            log.info("InterGen daemon stopped")
+        else:
+            log.warning("InterGen daemon stop finished with the web server's "
+                        "stop incomplete; the memory sessions were left open")
+
+    def _stop_browser_server(self) -> bool:
+        """Order the browser server's stop and wait for that stop to complete.
+
+        True once no browser connection can be served: the stop completed, or
+        no browser server is running to stop. False when the stop could not be
+        ordered, failed, or is still pending after WEB_STOP_TIMEOUT seconds,
+        each reported as an error by what happened, since the browser server
+        may then still be serving its connections.
+
+        What is read is the stop's own future. The browser server's thread runs
+        its event loop for the life of the process, so it is alive after every
+        stop, completed or not, and waiting on the thread tells nothing about
+        the stop.
+        """
+        server = self._web_server
+        if server is None:
+            return True
+        loop, thread = self._web_loop, self._web_thread
+        if loop is None or thread is None or not thread.is_alive():
+            # Its thread never started, or has ended (a bind the watchdog gave
+            # up on): no browser connection is being served.
+            return True
+        stopping = server.stop()
+        try:
+            future = asyncio.run_coroutine_threadsafe(stopping, loop)
+        except Exception as e:  # noqa: BLE001 — reported, the stop goes on
+            stopping.close()
+            log.error("The web server's stop could not be ordered: %s; its "
+                      "connections may still be served", e)
+            return False
+        try:
+            future.result(timeout=WEB_STOP_TIMEOUT)
+        except TimeoutError:
+            log.error("The web server's stop did not complete within %.0f "
+                      "seconds; its connections may still be served",
+                      WEB_STOP_TIMEOUT)
+            return False
+        except Exception as e:  # noqa: BLE001 — reported, the stop goes on
+            log.error("The web server's stop failed: %s; its connections may "
+                      "still be served", e)
+            return False
+        return True
 
     def _end_memory_sessions(self) -> None:
         """End every memory session this daemon started and has not ended.
