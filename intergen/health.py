@@ -157,24 +157,30 @@ class HealthAggregator:
                 summary="llama_manager not initialized",
             ))
 
-        # API reachable
+        # API reachable: the chat server's /health on the address its own
+        # manager names, which follows the configured port.
         if self._llama:
             reachable = False
+            where = "the chat server's address"
+            reason = ""
             try:
+                import urllib.parse
                 import urllib.request
+                endpoint = urllib.parse.urlsplit(self._llama.get_endpoint())
+                where = endpoint.netloc
                 req = urllib.request.Request(
-                    "http://127.0.0.1:8080/health",
+                    f"{endpoint.scheme}://{endpoint.netloc}/health",
                     method="GET",
                 )
-                resp = urllib.request.urlopen(req, timeout=2)
-                reachable = resp.status == 200
-            except Exception:
-                pass
+                with urllib.request.urlopen(req, timeout=2) as resp:
+                    reachable = resp.status == 200
+            except Exception as e:  # noqa: BLE001 — a health read never raises
+                reason = f": {e}"
             checks.append(HealthCheck(
                 name="API reachable",
                 status="green" if reachable else "red",
-                summary="localhost:8080 responding" if reachable
-                        else "localhost:8080 unreachable",
+                summary=f"{where} responding" if reachable
+                        else f"{where} unreachable{reason}",
             ))
         else:
             checks.append(HealthCheck(
