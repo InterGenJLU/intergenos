@@ -1494,7 +1494,16 @@ def cmd_tool_log(args: list[str]) -> None:
         return
 
     if "--count" in args:
-        print(record_count())
+        # The count is read through the same integrity reading as every other view: a record
+        # that does not read clean gets its verdict and a non-zero exit, never the count of
+        # the rows that survived the read. stdout carries the count alone, so it stays
+        # machine-readable; the refusal goes to stderr.
+        reading = read_integrity()
+        if reading.damaged:
+            for line in reading.report():
+                print(line, file=sys.stderr)
+            sys.exit(1)
+        print(reading.rows)
         return
 
     if "--integrity" in args:
