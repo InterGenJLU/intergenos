@@ -3111,13 +3111,20 @@ class ConversationRouter(RouterInterface):
         # a possessive/quantity/running signal and is unaffected — recall is not regressed.
         system_noun_teach = self._is_system_noun_teach(user_input)
 
-        # P1: Keyword/regex match
-        result = (RouteResult(handled=False) if carried_subject
+        # P1: Keyword/regex match. Not asked for a request held whole: the
+        # keyword route dispatches its tool and writes its answer to the
+        # conversation before it returns, so asking it and setting the answer
+        # aside ran a tool as the person's request and left that answer as the
+        # turn's reply, for a turn the model answers whole.
+        result = (RouteResult(handled=False) if carried_subject or route_compound_whole
                   else self._try_keyword_match(user_input))
         if result.handled and not route_compound_whole and not system_noun_teach:
             self._record(result, t0, "keyword")
             return result
-        self._trail_note("keyword", "rejected", matched=result.handled)
+        if route_compound_whole:
+            self._trail_note("keyword", "rejected", held_whole=True)
+        else:
+            self._trail_note("keyword", "rejected", matched=result.handled)
 
         # P2: Semantic embedding match
         p2_match = self._semantic._match_embeddings(user_input)
