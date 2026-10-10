@@ -6,7 +6,9 @@ Two modes:
 
 * BASIC (default) — a normal DECORATED GTK4 window with the native titlebar
   (minimize / maximize / close), holding the WebKit 6.0 WebView that renders the
-  InterGen web UI at http://localhost:8089. This is the shippable, usable window:
+  InterGen web UI at the panel's configured address (web_server.host and
+  web_server.port; http://127.0.0.1:8089/ as shipped). This is the shippable,
+  usable window:
   no frameless chrome, no drag/snap/dock, no D-Bus positioning. It is what the
   user interacts with on the installed OS.
 
@@ -26,6 +28,7 @@ Preceding-project pattern: D-Bus bridge for Shell extension lifecycle control.
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import logging
 import signal
@@ -40,6 +43,8 @@ gi.require_version("Gdk", "4.0")
 gi.require_version("Gio", "2.0")
 
 from gi.repository import Gtk, WebKit, Gdk, Gio, GLib  # noqa: E402
+
+from intergen.config import Config, panel_address, panel_netloc  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +79,18 @@ DBUS_IFACE_XML = """
   </interface>
 </node>
 """
+
+
+def panel_url() -> str:
+    """The panel's page address, from the configuration the daemon binds the
+    panel by (http://127.0.0.1:8089/ as shipped), an IPv6 host in brackets.
+
+    Raises ValueError, in words, for an address the panel refuses: the window
+    then loads nothing from it, so the session's token is never sent to an
+    address the panel does not serve, and it says why.
+    """
+    host, port = panel_address(Config())
+    return f"http://{panel_netloc(host, port)}/"
 
 
 class PanelWindow:
@@ -474,13 +491,17 @@ class PanelWindow:
         """Handle a failed page load gracefully.
 
         The daemon's web server may not be listening yet — e.g. the panel was
-        opened in the first seconds after login, before intergen.service bound to
-        :8089 (the white "Could not connect to localhost" page the operator hit).
+        opened in the first seconds after login, before intergen.service bound the
+        panel's address (the white "Could not connect" page the operator hit).
         Instead of WebKit's raw error page, show a friendly "starting" placeholder
         and retry the load a few times (the service comes up within seconds).
         Returns True to suppress WebKit's default error page.
         """
-        if "localhost:8089" not in (failing_uri or ""):
+        try:
+            ours = (failing_uri or "").startswith(panel_url())
+        except ValueError:
+            ours = False  # nothing was loaded from a refused address
+        if not ours:
             return False  # not our startup race — let WebKit show the default
         self._load_retries = getattr(self, "_load_retries", 0) + 1
         if self._load_retries <= 12:
@@ -529,7 +550,20 @@ class PanelWindow:
                 "about:blank",
             )
         else:
-            self._webview.load_uri("http://localhost:8089/")
+            try:
+                url = panel_url()
+            except ValueError as e:
+                self._webview.load_html(
+                    "<html><body style='background:#050810;color:#e2e8f0;"
+                    "font-family:Inter,sans-serif;padding:40px;text-align:center'>"
+                    "<h2 style='color:#0099FF'>InterGen Panel</h2>"
+                    "<p>The panel's configured address cannot be used: "
+                    f"{html.escape(str(e))}</p>"
+                    "</body></html>",
+                    "about:blank",
+                )
+                return
+            self._webview.load_uri(url)
 
     def _load_token(self) -> str | None:
         """Read the web auth token. Returns None if unavailable."""

@@ -134,7 +134,8 @@ class ThePanelGivesThePageItsTokenOneWay(unittest.TestCase):
                    .get_http_headers.return_value)
         self.assertFalse(headers.append.called,
                          "the page request still carries the token in a header")
-        win._webview.load_uri.assert_called_once_with("http://localhost:8089/")
+        # The page is loaded from the panel's configured address.
+        win._webview.load_uri.assert_called_once_with(panel.panel_url())
 
     def test_control_the_user_script_gives_the_page_its_token(self):
         panel, win = self._panel()

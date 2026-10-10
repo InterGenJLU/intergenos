@@ -114,9 +114,10 @@ _DEFAULTS = {
     # (llama_server.port above; llama_server.embedding_port, 8081 when unset)
     # and is read the same way. The daemon serves the panel on a loopback
     # address only and refuses any other, saying why in its status: the panel
-    # carries the person's session over plain HTTP and a WebSocket. The page,
-    # the console client and the panel window still connect to 8089, so a
-    # different port here moves the server without them.
+    # carries the person's session over plain HTTP and a WebSocket. The page
+    # connects to the address it was served from, and the console client and
+    # the panel window read this one through panel_address below, so a
+    # different address here moves the server and its clients together.
     "web_server": {
         "host": "127.0.0.1",
         "port": 8089,

@@ -249,6 +249,37 @@ class ThePanelWindowLoadsTheConfiguredAddress(unittest.TestCase):
         from intergen import panel
         self.assertEqual(panel.panel_url(), "http://127.0.0.1:8089/")
 
+    def test_an_address_the_panel_refuses_is_never_loaded(self):
+        # The window hands any page it loads the session's token, by its
+        # document-start user script, so it must never load an address the
+        # panel does not serve, by a request or by a plain load.
+        _configure(self, **{"web_server.host": "0.0.0.0"})
+        from intergen import panel
+
+        class _View:
+            def __init__(self):
+                self.requests, self.pages = [], []
+
+            def load_request(self, request):
+                self.requests.append(request.get_uri())
+
+            def load_uri(self, uri):
+                self.requests.append(uri)
+
+            def load_html(self, html, base):
+                self.pages.append(html)
+
+        window = mock.Mock(spec=["_webview", "_load_token"])
+        window._webview = _View()
+        window._load_token.return_value = "0" * 64
+        panel.PanelWindow._do_load_web_ui(window)
+        self.assertEqual(window._webview.requests, [],
+                         "the window sent its token to an address the panel "
+                         "refuses")
+        self.assertEqual(len(window._webview.pages), 1)
+        self.assertIn("0.0.0.0", window._webview.pages[0])
+        self.assertIn("is not a loopback IP address", window._webview.pages[0])
+
 
 class TheExtensionOpensThePanelWhereTheDaemonServesIt(unittest.TestCase):
 
