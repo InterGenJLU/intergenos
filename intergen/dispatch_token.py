@@ -278,9 +278,10 @@ class LinkOnTheRequestedPath(OSError):
 
     The person approved the write by its arguments, so the object written must
     be the one they name, and a link an account other than root can make or
-    change would decide which object that is. Nothing is read or written. The
-    message names the link and where it leads, so the person can ask for that
-    path by its own name.
+    change would decide which object that is. A link root owns that is replaced
+    while it is read counts as one root does not own. Nothing is read or
+    written. The message names the link and where it leads, so the person can
+    ask for that path by its own name.
     """
 
 
@@ -290,15 +291,20 @@ def resolved_for_a_write(path: object) -> Path:
     followed.
 
     Outside the runner this is Path(path).resolve(). Under the runner the path,
-    made absolute as resolve() makes it, is read one component at a time with
-    lstat from /: a component that is not a link is taken as it is; one that
-    does not exist, or lies below one that is not a directory, is joined as
-    resolve() joins it; a link root owns, as the system layout's own links are,
-    is followed; and any other link raises LinkOnTheRequestedPath before
-    anything is read or written. The result is the path every later check is
-    asked of and the file boundary opens (_opened_as_checked). More than 40
-    links followed raise OSError(ELOOP); any other failure to read a component
-    is raised as it is.
+    made absolute as resolve() makes it, is read one component at a time from
+    /, each component opened without being followed (O_PATH|O_NOFOLLOW) and
+    its type and owner read from that descriptor: a component that is not a
+    link is taken as it is; one that does not exist, or lies below one that is
+    not a directory, is joined as resolve() joins it; a link root owns, as the
+    system layout's own links are, is followed, its target read through the
+    same descriptor, so the link whose owner was accepted is the link whose
+    target is read; and any other link raises LinkOnTheRequestedPath before
+    anything is read or written. A link root owns whose name no longer names
+    that same link once its target has been read was replaced while it was
+    read, and raises LinkOnTheRequestedPath the same way. The result is the
+    path every later check is asked of and the file boundary opens
+    (_opened_as_checked). More than 40 links followed raise OSError(ELOOP);
+    any other failure to read a component is raised as it is.
     """
     if not _under_the_privileged_runner():
         return Path(path).resolve()
@@ -318,22 +324,42 @@ def resolved_for_a_write(path: object) -> Path:
             continue
         here = os.path.join(resolved, part)
         try:
-            found = os.lstat(here)
+            fd = os.open(here, os.O_PATH | os.O_NOFOLLOW | os.O_CLOEXEC)
         except (FileNotFoundError, NotADirectoryError):
             resolved = here
             continue
-        if not stat.S_ISLNK(found.st_mode):
-            resolved = here
-            continue
-        target = os.readlink(here)
-        if found.st_uid != 0:
-            raise LinkOnTheRequestedPath(
-                f"Refused: {here} is a link to {target}, and it is not root's: "
-                f"under the privileged runner a write goes only to the object "
-                f"its request names, never through a link an account other "
-                f"than root can make or change. The requested path leads to "
-                f"{os.path.realpath(text)}; ask for that path by its own name "
-                f"to write there. Nothing was read or written.")
+        try:
+            found = os.fstat(fd)
+            if not stat.S_ISLNK(found.st_mode):
+                resolved = here
+                continue
+            target = os.readlink("", dir_fd=fd)
+            if found.st_uid != 0:
+                raise LinkOnTheRequestedPath(
+                    f"Refused: {here} is a link to {target}, and it is not "
+                    f"root's: under the privileged runner a write goes only to "
+                    f"the object its request names, never through a link an "
+                    f"account other than root can make or change. The "
+                    f"requested path leads to {os.path.realpath(text)}; ask "
+                    f"for that path by its own name to write there. Nothing "
+                    f"was read or written.")
+            try:
+                now = os.lstat(here)
+                same = (now.st_dev, now.st_ino) == (found.st_dev, found.st_ino)
+            except (FileNotFoundError, NotADirectoryError):
+                same = False
+            if not same:
+                raise LinkOnTheRequestedPath(
+                    f"Refused: {here} was a link root owns, to {target}, and "
+                    f"was replaced while it was read, so it is not a link "
+                    f"root owns: under the privileged runner a write goes only "
+                    f"to the object its request names, never through a link "
+                    f"an account other than root can make or change. The "
+                    f"requested path now leads to {os.path.realpath(text)}; "
+                    f"ask for that path by its own name to write there. "
+                    f"Nothing was read or written.")
+        finally:
+            os.close(fd)
         followed += 1
         if followed > 40:
             raise OSError(errno.ELOOP,
