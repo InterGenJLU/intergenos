@@ -8107,14 +8107,29 @@ class ConversationRouter(RouterInterface):
         "how much", "how many", "how full", "how long",
         "what's my", "what is my", "whats my", "do i have",
     )
+    # A yes-or-no question about whether something on this machine is on: "is
+    # bluetooth on?", "is my firewall enabled?", "are my speakers off?". It
+    # carries none of the lead-ins above, so it was not read as a state question
+    # and the explain gate answered it with a how-to: "is bluetooth on" with the
+    # page on connecting bluetooth headphones or the one for bluetooth that is
+    # not working, "is my firewall on" with the firewall page. A pronoun subject
+    # ("is it on?") names nothing on the machine and is left to the
+    # conversation.
+    _IS_IT_ON_RE = re.compile(
+        r"^(?:is|are)\s+(?!(?:it|that|this|they|them|those|these)\b)"
+        r"(?:(?:my|the|your)\s+)?[\w.+-]+(?:\s+[\w.+-]+){0,2}\s+"
+        r"(?:(?:turned|switched)\s+)?(?:on|off|enabled|disabled)"
+        r"(?:\s+or\s+(?:on|off|not))?\s*[?.!]*$")
 
     def _looks_like_state_question(self, lower: str) -> bool:
         """True for a direct system-state question (gates the route-to-tools
-        fallback). Either a clean action request, or one of the state-question
-        lead-ins above — both signal 'tell me my current X', not 'how do I X'."""
+        fallback). A clean action request, one of the state-question lead-ins
+        above, or a question whether something is on — each signals 'tell me my
+        current X', not 'how do I X'."""
         return (
             self._looks_like_action_request(lower)
             or any(m in lower for m in self._STATE_QUESTION_MARKERS)
+            or bool(self._IS_IT_ON_RE.match(lower.strip()))
         )
 
     def _is_system_noun_teach(self, user_input: str) -> bool:
