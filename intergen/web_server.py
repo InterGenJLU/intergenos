@@ -364,6 +364,10 @@ class WebServer:
         self._ready = False       # True when components are initialized
         self._startup_time = time.monotonic()
         self._stats_task: asyncio.Task | None = None
+        # Set by stop(): the reason recorded for the memory session of each
+        # connection the stop closes. None while the server is serving, when a
+        # close is the person's or the network's.
+        self._stop_reason: str | None = None
 
         self._setup_routes()
 
@@ -506,15 +510,22 @@ class WebServer:
         self._stats_task = asyncio.create_task(self._broadcast_system_stats())
         return True
 
-    async def stop(self) -> None:
+    async def stop(self, end_reason: str = "daemon stop") -> None:
         """Graceful shutdown.
 
         Closes all WebSocket connections with a normal close code, cancels
         background tasks, and shuts down the aiohttp runner. Called by the
         daemon's stop_service().
+
+        ``end_reason`` is recorded with the memory session of each connection
+        this stop closes. The daemon's stop is the caller, and "daemon stop" is
+        the reason it records for every other session it ends, so a tab that is
+        open at the stop reads the same whichever of the two ends reaches its
+        session first.
         """
         logger.info("Web server shutting down...")
         self._running = False
+        self._stop_reason = end_reason
 
         # Cancel stats broadcaster
         if self._stats_task and not self._stats_task.done():
@@ -984,6 +995,10 @@ class WebServer:
                 except Exception:
                     logger.debug("Failed to persist session on disconnect",
                                  exc_info=True)
+            # The conversation ends with its connection, and so does its memory
+            # session. Before the first await below, so a stop that cancels
+            # this task cannot leave the session open.
+            self._end_memory_session(ctx)
             self._connections.pop(client_id, None)
             if not ws.closed:
                 await ws.close()
@@ -991,6 +1006,36 @@ class WebServer:
                          client_id, len(self._connections))
 
         return ws
+
+    def _end_memory_session(self, ctx: ConnectionContext) -> None:
+        """End the memory session of a connection that has closed.
+
+        A browser connection is a conversation of its own, and the router
+        started that conversation's memory session when the connection was
+        made. It is ended here, at the close, with the reason "connection
+        closed" and the close's time; a connection this server's own stop
+        closed records the stop's reason instead (see stop()). A tab closed
+        without a reset used to leave its session open until the daemon
+        stopped, so the record said the conversation went on for as long as
+        the daemon ran.
+
+        Through MemoryManager.end_session, the end a reset and a stop make: a
+        session is ended once, so one a reset or the stop has already ended
+        keeps that end. An end the store refuses is reported by the session's
+        name and the close goes on; the turns the session is summarised from
+        are released only once an end is written, so the end that follows
+        still records them.
+        """
+        memory = self._memory
+        session_id = getattr(ctx.conversation, "memory_session_id", None)
+        if memory is None or session_id is None:
+            return
+        reason = self._stop_reason or "connection closed"
+        try:
+            memory.end_session(session_id=session_id, reason=reason)
+        except Exception as e:  # noqa: BLE001 — reported, the close goes on
+            logger.error("The memory session %s could not be ended at its "
+                         "connection's close: %s", session_id, e)
 
     def _build_connected_message(self, ctx: ConnectionContext) -> dict[str, Any]:
         """Build the {type:"connected"} message per protocol §connection."""
