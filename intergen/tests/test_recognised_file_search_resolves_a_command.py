@@ -58,11 +58,18 @@ import unittest
 
 from intergen import intents, safety
 from intergen.router import ConversationRouter as R
+from intergen.tools.run_command import _SHELL_CONSTRUCT_CHARS
 
 
 # The four lead-ins the pattern's own optional group allows.
 LEAD_INS = ("find the {} files", "find all {} files",
             "find my {} files", "find {} files")
+
+# The arms whose only answer was a du listing sorted and cut by a shell
+# pipeline, which run_command (one argv, no shell) refuses before anything
+# runs. They resolve to no command on purpose and go on to the model's turn;
+# any other arm that resolves to nothing is the recognised-then-dropped defect.
+PIPELINE_ONLY_ARMS = ("largest", "biggest", "big")
 
 
 def alternation_arms(pattern: str) -> list[str]:
@@ -106,7 +113,8 @@ class EveryArmOfThePatternResolvesToACommand(unittest.TestCase):
 
     This is the anti-recurrence case. It does not name the arms — it reads them
     out of the pattern — so a new arm added tomorrow is covered the day it is
-    added."""
+    added. An arm resolves to a command the executor runs (no shell construct),
+    or, for the arms in PIPELINE_ONLY_ARMS alone, to none."""
 
     def test_every_arm_and_lead_in_resolves(self) -> None:
         pattern = getattr(intents, "FILE_SEARCH_PATTERN", None)
@@ -121,8 +129,12 @@ class EveryArmOfThePatternResolvesToACommand(unittest.TestCase):
                     phrase, pattern,
                     f"{phrase!r} must be claimed by the pattern, or this "
                     f"walk is testing the wrong forms")
-                if R._natural_language_to_command(phrase) is None:
+                cmd = R._natural_language_to_command(phrase)
+                if cmd is None and arm not in PIPELINE_ONLY_ARMS:
                     dropped.append(phrase)
+                self.assertFalse(set(cmd or "") & _SHELL_CONSTRUCT_CHARS,
+                                 f"{phrase!r} resolves to {cmd!r}, which the "
+                                 f"executor refuses before anything runs")
         self.assertEqual(
             dropped, [],
             "these clauses are CLAIMED by the run_command pattern and then "
@@ -233,7 +245,6 @@ class TheBigArmMeansWhatItsSynonymsMean(unittest.TestCase):
     def test_big_resolves_the_same_way_as_largest(self) -> None:
         largest = R._natural_language_to_command("find the largest files")
         big = R._natural_language_to_command("find the big files")
-        self.assertIsNotNone(big)
         self.assertEqual(big, largest,
                          "the three words name the same request")
 
@@ -260,7 +271,9 @@ class WhatIsResolvedStaysReadOnly(unittest.TestCase):
                     safety.classify_command(cmd), safety.SafetyTier.AUTO,
                     f"{cmd!r} runs without the person confirming it")
                 checked += 1
-        self.assertEqual(checked, len(alternation_arms(pattern)) * len(LEAD_INS),
+        arms = [a for a in alternation_arms(pattern) if a not in PIPELINE_ONLY_ARMS]
+        self.assertTrue(arms, "no arm is left that resolves a command to classify")
+        self.assertEqual(checked, len(arms) * len(LEAD_INS),
                          "every arm must have resolved something to classify")
 
     def test_the_classifier_really_would_have_objected(self) -> None:

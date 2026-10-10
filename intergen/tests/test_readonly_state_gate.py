@@ -66,7 +66,7 @@ class AllBinariesPresent(unittest.TestCase):
                 "free -h")
             self.assertEqual(
                 R._natural_language_to_command("what cpu do i have"),
-                "lscpu | head -20")
+                "lscpu")
 
 
 class RequiredBinaryMissing(unittest.TestCase):

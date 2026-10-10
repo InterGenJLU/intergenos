@@ -7319,7 +7319,8 @@ class ConversationRouter(RouterInterface):
         if ConversationRouter._asks_about(lower, "memory", "ram", "free"):
             return ConversationRouter._summarize_memory(out)
         if ConversationRouter._asks_about(lower, "cpu", "processor"):
-            return ConversationRouter._summarize_cpu(out)
+            return (ConversationRouter._summarize_cpu(out)
+                    or ConversationRouter._summarize_top_processes(out))
         if ConversationRouter._asks_about(lower, "gpu", "vga", "graphics"):
             return ConversationRouter._summarize_gpu(out)
         if ConversationRouter._asks_about(lower, "usb"):
@@ -7450,14 +7451,44 @@ class ConversationRouter(RouterInterface):
         return None
 
     @staticmethod
+    def _summarize_top_processes(output: str) -> str | None:
+        """The first eight rows of `ps -eo pcpu,pmem,comm --sort=-pcpu
+        --no-headers`, the highest CPU users first, as one terse sentence.
+
+        The command used to be cut to eight lines by a shell pipeline, which the
+        executor refuses; the cut is made here instead. A command name may hold
+        spaces, so each row is read as two numbers and the rest of the line.
+        Returns None when no row is present — see the NOTHING-PARSED contract on
+        _summarize_os."""
+        rows = []
+        for line in output.splitlines():
+            cols = line.split(None, 2)
+            if len(cols) < 3:
+                continue
+            try:
+                cpu, mem = float(cols[0]), float(cols[1])
+            except ValueError:
+                continue
+            rows.append(f"{cols[2].strip()} ({cpu:g}% CPU, {mem:g}% memory)")
+            if len(rows) == 8:
+                break
+        if not rows:
+            return None
+        return "Top processes by CPU: " + ", ".join(rows) + "."
+
+    @staticmethod
     def _summarize_gpu(output: str) -> str | None:
-        """Terse GPU model from `lspci | grep vga` (prefers the bracketed
+        """Terse GPU model from `lspci` output (prefers the bracketed
         marketing name, prefixed by the vendor; strips rev/Corporation noise).
 
-        Returns None when no adapter line is present — see the NOTHING-PARSED
-        contract on _summarize_os."""
+        The display adapter's line is the first one naming VGA, the line the
+        retired `lspci | grep -i vga` pipeline kept: lspci lists every device,
+        and its first line is usually a host bridge. Returns None when no
+        adapter line is present — see the NOTHING-PARSED contract on
+        _summarize_os."""
         import re
-        line = output.strip().split("\n")[0] if output.strip() else ""
+        line = next((ln for ln in output.strip().split("\n")
+                     if "vga" in ln.lower()), "")
         # Take the PCI slot off by its SPACE, not by counting colons. lspci
         # prints the domain on every line as soon as any device on the machine
         # has one, so the slot is "00:02.0" on one machine and "0000:00:02.0"
@@ -7580,6 +7611,12 @@ class ConversationRouter(RouterInterface):
                 return None
             return cmd if _readonly_command_available(cmd) else None
 
+        # Every command here is ONE argv: run_command runs it with no shell and
+        # refuses a pipe, a redirection, "&&" and the rest before anything runs,
+        # so a command written as a pipeline answered the person with that
+        # refusal. Where the pipeline only trimmed the output, the template that
+        # renders it reads what it needs from the whole output; a phrase whose
+        # answer needs a pipeline maps to None, which builds no command.
         _QUERY_MAP = {
             "hostname": "hostname",
             "host name": "hostname",
@@ -7618,27 +7655,33 @@ class ConversationRouter(RouterInterface):
             # NB: "what's my IP" is NOT here — it is handled by the route-level IP
             # handler (_answer_ip_query, netlink-free ifconfig + dig). The netlink
             # `ip` tool stays BLOCKED in safety.py (AF_NETLINK SIGSYS under F-038).
-            # "what's taking up / using all my disk space" -> a du breakdown (WHERE
-            # the space went), which must beat the generic df keys below. (FACE
-            # Bucket A: the question is "what's using it", not "how much is free".)
+            # "what's taking up / using all my disk space" asks WHERE the space
+            # went, which must beat the generic df keys below. (FACE Bucket A: the
+            # question is "what's using it", not "how much is free".) The answer
+            # was a du listing sorted and cut by a shell pipeline, which the
+            # executor refuses; a plain du of the home directory names it by a
+            # "~" that only a shell expands and is cut at the executor's output
+            # limit before any sort. So these phrases build NO command (None) and
+            # the question goes on to the model's turn; they stay in the table so
+            # that the df keys below cannot claim them.
             # Scoped to a disk/space/storage object (F3 correctness fix, 2026-07-02):
             # the prior bare "taking up"/"using all" keys were first-substring-wins
             # matches that SHADOWED the RAM and CPU frames — "what's using all my
             # ram" wrongly resolved to a disk du, and the more-specific "using all
             # my cpu" key below was unreachable. Every du key now names the disk.
-            "taking up all my disk": "du -ah ~ 2>/dev/null | sort -rh | head -20",
-            "taking up my disk": "du -ah ~ 2>/dev/null | sort -rh | head -20",
-            "taking up all my space": "du -ah ~ 2>/dev/null | sort -rh | head -20",
-            "taking up all the space": "du -ah ~ 2>/dev/null | sort -rh | head -20",
-            "taking up my space": "du -ah ~ 2>/dev/null | sort -rh | head -20",
-            "taking up all my storage": "du -ah ~ 2>/dev/null | sort -rh | head -20",
-            "taking up space": "du -ah ~ 2>/dev/null | sort -rh | head -20",
-            "taking up storage": "du -ah ~ 2>/dev/null | sort -rh | head -20",
-            "using all my disk": "du -ah ~ 2>/dev/null | sort -rh | head -20",
-            "using all the disk": "du -ah ~ 2>/dev/null | sort -rh | head -20",
-            "using all my space": "du -ah ~ 2>/dev/null | sort -rh | head -20",
-            "using all the space": "du -ah ~ 2>/dev/null | sort -rh | head -20",
-            "using all my storage": "du -ah ~ 2>/dev/null | sort -rh | head -20",
+            "taking up all my disk": None,
+            "taking up my disk": None,
+            "taking up all my space": None,
+            "taking up all the space": None,
+            "taking up my space": None,
+            "taking up all my storage": None,
+            "taking up space": None,
+            "taking up storage": None,
+            "using all my disk": None,
+            "using all the disk": None,
+            "using all my space": None,
+            "using all the space": None,
+            "using all my storage": None,
             "disk space": "df -h",
             "disk usage": "df -h",
             "storage": "df -h",
@@ -7667,14 +7710,16 @@ class ConversationRouter(RouterInterface):
             # cpu-LOAD questions ("why is my cpu usage so high", "what's using my
             # cpu") -> top consumers by CPU, NOT the cpu MODEL. MUST precede the
             # "cpu" (lscpu) key below — substring match is first-wins. (FACE Bucket A.)
-            "cpu usage": "ps -eo pcpu,pmem,comm --sort=-pcpu --no-headers | head -8",
-            "using my cpu": "ps -eo pcpu,pmem,comm --sort=-pcpu --no-headers | head -8",
-            "using all my cpu": "ps -eo pcpu,pmem,comm --sort=-pcpu --no-headers | head -8",
-            "cpu so high": "ps -eo pcpu,pmem,comm --sort=-pcpu --no-headers | head -8",
-            "cpu is high": "ps -eo pcpu,pmem,comm --sort=-pcpu --no-headers | head -8",
-            "cpu too high": "ps -eo pcpu,pmem,comm --sort=-pcpu --no-headers | head -8",
-            "cpu": "lscpu | head -20",
-            "cpu info": "lscpu | head -20",
+            # The listing is the whole process table, highest first; its reader
+            # (_summarize_top_processes) keeps the first eight lines.
+            "cpu usage": "ps -eo pcpu,pmem,comm --sort=-pcpu --no-headers",
+            "using my cpu": "ps -eo pcpu,pmem,comm --sort=-pcpu --no-headers",
+            "using all my cpu": "ps -eo pcpu,pmem,comm --sort=-pcpu --no-headers",
+            "cpu so high": "ps -eo pcpu,pmem,comm --sort=-pcpu --no-headers",
+            "cpu is high": "ps -eo pcpu,pmem,comm --sort=-pcpu --no-headers",
+            "cpu too high": "ps -eo pcpu,pmem,comm --sort=-pcpu --no-headers",
+            "cpu": "lscpu",
+            "cpu info": "lscpu",
             "uptime": "uptime",
             # NB: no bare "how long" key. "how long" is a _STATE_QUESTION_MARKERS
             # gate lead-in, but as a selector key it over-hijacks conversational
@@ -7698,12 +7743,15 @@ class ConversationRouter(RouterInterface):
             "os version": "cat /etc/os-release",
             "operating system": "cat /etc/os-release",
             "what os": "cat /etc/os-release",
-            "gpu": "lspci | grep -i vga",
+            "gpu": "lspci",
             "usb devices": "lsusb",
             "block devices": "lsblk",
-            "system info": "uname -a && free -h && df -h",
-            "system status": "uptime && free -h && df -h",
-            "system health": "uptime && free -h && df -h",
+            # The system summaries were three commands joined by "&&", which the
+            # executor refuses; no one command answers them, so they build none
+            # and the question goes on to the model's turn.
+            "system info": None,
+            "system status": None,
+            "system health": None,
             # Command-selector recall (intents match these but the selector had no
             # phrase -> command None -> dropped action under the lockdown). All are
             # ratified AUTO-safe + netlink-free in safety.py — they run in the
@@ -7712,19 +7760,19 @@ class ConversationRouter(RouterInterface):
             "printers": "lpstat -p",
             "running processes": "ps aux",
             "processes": "ps aux",
-            "largest files": "du -ah ~ 2>/dev/null | sort -rh | head -20",
-            "biggest files": "du -ah ~ 2>/dev/null | sort -rh | head -20",
+            "largest files": None,
+            "biggest files": None,
             # "big files" is the third word for the same request, and the
             # run_command keyword gate has always claimed it — without this key
             # the clause was recognised and then resolved to nothing. Placed
             # after its two synonyms; it cannot steal from them, because
             # "big files" is not a substring of "biggest files".
-            "big files": "du -ah ~ 2>/dev/null | sort -rh | head -20",
-            "eating my disk": "du -ah ~ 2>/dev/null | sort -rh | head -20",
-            "eating up my disk": "du -ah ~ 2>/dev/null | sort -rh | head -20",
-            "using my disk": "du -ah ~ 2>/dev/null | sort -rh | head -20",
-            "hogging my disk": "du -ah ~ 2>/dev/null | sort -rh | head -20",
-            "hogging the disk": "du -ah ~ 2>/dev/null | sort -rh | head -20",
+            "big files": None,
+            "eating my disk": None,
+            "eating up my disk": None,
+            "using my disk": None,
+            "hogging my disk": None,
+            "hogging the disk": None,
             # ── FACE coverage (Bucket A, 2026-07-01): grounded system-state
             # siblings. Every command is AUTO (safety.classify_command) + netlink-
             # free. Ordered after the specific disk/cpu phrases above.
@@ -7739,8 +7787,8 @@ class ConversationRouter(RouterInterface):
             "how many cores": "nproc",
             "cores do i have": "nproc",
             "free space": "df -h",
-            "graphics card": "lspci | grep -i vga",
-            "graphics": "lspci | grep -i vga",
+            "graphics card": "lspci",
+            "graphics": "lspci",
             "hardware": "hostnamectl",
             "specs": "hostnamectl",
             "spec sheet": "hostnamectl",
@@ -7751,6 +7799,8 @@ class ConversationRouter(RouterInterface):
 
         for phrase, cmd in _QUERY_MAP.items():
             if phrase in lower:
+                if cmd is None:
+                    return None
                 # M4(i) requires[] on-PATH gate: only direct-exec when the command's
                 # tool is installed; else fall through to the freeform path rather
                 # than dispatch a guaranteed failure / imply an absent capability.

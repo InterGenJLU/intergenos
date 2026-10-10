@@ -24,24 +24,25 @@ class SelectorResolution(unittest.TestCase):
         "what version am I running": "cat /etc/os-release",
         "what OS is this": "cat /etc/os-release",
         "is my system 32 bit or 64 bit": "uname -m",
-        "what CPU do I have": "lscpu | head -20",
+        "what CPU do I have": "lscpu",
         "how many cores do I have": "nproc",
         "show me my hardware": "hostnamectl",
         "what are my computer's specs": "hostnamectl",
         "how much free space is left": "df -h",
-        "how do I check what graphics card I have": "lspci | grep -i vga",
+        "how do I check what graphics card I have": "lspci",
     }
 
     def test_resolves_expected_command(self):
         for q, cmd in self.CASES.items():
             self.assertEqual(R._natural_language_to_command(q), cmd, q)
 
-    def test_taking_up_space_is_du_not_df(self):
-        # "what's taking up my space" wants the du breakdown (where it went),
-        # NOT df (how much is free) — the du phrase must beat the generic df keys.
+    def test_taking_up_space_is_never_df(self):
+        # "what's taking up my space" asks where the space went, NOT how much is
+        # free (df) — the disk-scoped phrase must still beat the generic df keys.
+        # Its answer was a du listing sorted by a shell pipeline, which the
+        # executor refuses, so it builds no command and goes to the model.
         got = R._natural_language_to_command("what's taking up all my disk space")
-        self.assertIn("du ", got)
-        self.assertNotEqual(got, "df -h")
+        self.assertIsNone(got)
 
     def test_cpu_load_is_top_consumers_not_lscpu(self):
         # "why is my cpu usage so high" wants top consumers, not the cpu model.
@@ -51,7 +52,7 @@ class SelectorResolution(unittest.TestCase):
 
     def test_plain_cpu_model_still_lscpu(self):
         self.assertEqual(R._natural_language_to_command("what CPU do I have"),
-                         "lscpu | head -20")
+                         "lscpu")
 
     def test_using_all_ram_is_memory_not_disk(self):
         # F3 correctness fix (2026-07-02): the generic "using all"/"taking up" du
@@ -67,12 +68,13 @@ class SelectorResolution(unittest.TestCase):
         self.assertIn("--sort=-pcpu", got)
         self.assertNotIn("du ", got)
 
-    def test_disk_frames_still_du(self):
-        # The disk-scoped du keys must still win for genuine disk questions.
+    def test_disk_frames_still_beat_df(self):
+        # The disk-scoped keys must still win for genuine where-did-it-go
+        # questions; they build no command rather than fall through to df.
         for q in ("what's taking up all my disk space",
                   "what's using all my disk space"):
             got = R._natural_language_to_command(q)
-            self.assertIn("du ", got)
+            self.assertIsNone(got, q)
 
 
 class ShoppingComparisonBackstop(unittest.TestCase):
