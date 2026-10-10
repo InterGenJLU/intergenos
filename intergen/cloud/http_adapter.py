@@ -27,6 +27,8 @@ whose REST API differs (anthropic, google) override the small shaping hooks
 """
 from __future__ import annotations
 
+import contextlib
+import functools
 import http.client
 import json
 import logging
@@ -97,6 +99,70 @@ class _BoundReceives:
 
     def __getattr__(self, name: str):
         return getattr(self._sock, name)
+
+
+class _BoundReply(http.client.HTTPResponse):
+    """http.client's reply, its status line and headers received through
+    ``receive_head`` (the adapter's _receive_head, the call's stop and
+    timeout bound to it) rather than read straight from the socket."""
+
+    def __init__(self, sock, *args, receive_head: Callable, **kwargs) -> None:
+        super().__init__(sock, *args, **kwargs)
+        self._receive_head = receive_head
+
+    def begin(self) -> None:
+        self._receive_head(self, super().begin)
+
+
+class _BoundConnection:
+    """A connection whose reply is a _BoundReply."""
+
+    def __init__(self, *args, receive_head: Callable, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.response_class = functools.partial(
+            _BoundReply, receive_head=receive_head)
+
+
+class _BoundHTTPConnection(_BoundConnection, http.client.HTTPConnection):
+    pass
+
+
+class _BoundHTTPSConnection(_BoundConnection, http.client.HTTPSConnection):
+    pass
+
+
+class _BoundHTTPHandler(urllib.request.HTTPHandler):
+    """urllib's HTTP handler, opening a _BoundHTTPConnection."""
+
+    def __init__(self, receive_head: Callable) -> None:
+        super().__init__()
+        self._receive_head = receive_head
+
+    def http_open(self, req):
+        return self.do_open(_BoundHTTPConnection, req,
+                            receive_head=self._receive_head)
+
+
+class _BoundHTTPSHandler(urllib.request.HTTPSHandler):
+    """urllib's HTTPS handler, with its own default TLS context, opening a
+    _BoundHTTPSConnection."""
+
+    def __init__(self, receive_head: Callable) -> None:
+        super().__init__()
+        self._receive_head = receive_head
+
+    def https_open(self, req):
+        return self.do_open(_BoundHTTPSConnection, req, context=self._context,
+                            receive_head=self._receive_head)
+
+
+class _NoRedirects(urllib.request.HTTPRedirectHandler):
+    """urllib's redirect handler, following no redirect: a 3xx is left to
+    the default error handler, an HTTPError like any other error reply, and
+    the request - the API key among its headers - is never sent again."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 def lookup_secret(keyring_id: str) -> str:
@@ -244,6 +310,8 @@ class HTTPCloudAdapter(CloudProviderAdapter):
         cleartext. https is required, with a loopback exception (a local
         OpenAI-compatible server has no wire to sniff). Checked BEFORE the key is
         even fetched, so a misconfigured http base_url never touches the keyring.
+        No redirect is followed (_open), so the key goes to this endpoint and
+        nowhere else.
         """
         parsed = urllib.parse.urlsplit(endpoint)
         host = (parsed.hostname or "").lower()
@@ -260,13 +328,21 @@ class HTTPCloudAdapter(CloudProviderAdapter):
             raise CloudCallStopped(
                 f"{self.name}: the turn this call belonged to has ended")
 
+    def _late(self, reading: str, timeout: float) -> str:
+        return (f"{self.name}: {reading} was not read within {timeout:g}s, "
+                "the request's timeout; the rest was not read")
+
+    def _unreachable(self, reading: str) -> CloudAdapterError:
+        return CloudAdapterError(
+            f"{self.name}: {reading} was not read: its socket could not be "
+            "reached to bound each receive to the request's timeout")
+
     def _reply_stream(self, resp, reading: str) -> socket.SocketIO | None:
-        """The socket stream a reply's body is received from: its
-        HTTPResponse's, for a reply and for an HTTPError (whose fp is the
-        HTTPResponse). A reply that is no HTTPResponse, or one already
-        closed, is not received from a socket and has none. An HTTPResponse
-        whose socket cannot be reached is not read: its receives could not be
-        bound."""
+        """The socket stream a reply is received from: its HTTPResponse's,
+        for a reply and for an HTTPError (whose fp is the HTTPResponse). A
+        reply that is no HTTPResponse, or one already closed, is not
+        received from a socket and has none. An HTTPResponse whose socket
+        cannot be reached is not read: its receives could not be bound."""
         reply = (resp if isinstance(resp, http.client.HTTPResponse)
                  else getattr(resp, "fp", None))
         if not isinstance(reply, http.client.HTTPResponse) or reply.fp is None:
@@ -275,9 +351,66 @@ class HTTPCloudAdapter(CloudProviderAdapter):
         if (isinstance(stream, socket.SocketIO)
                 and isinstance(getattr(stream, "_sock", None), socket.socket)):
             return stream
-        raise CloudAdapterError(
-            f"{self.name}: {reading} was not read: its socket could not be "
-            "reached to bound each receive to the request's timeout")
+        raise self._unreachable(reading)
+
+    @contextlib.contextmanager
+    def _receiving_bound(self, stream: socket.SocketIO | None, read_by: float,
+                         should_stop: Callable[[], bool] | None):
+        """For the block's duration the stream, when there is one, receives
+        through _BoundReceives in place of its socket, and is given its
+        socket back after."""
+        if stream is None:
+            yield
+            return
+        sock = stream._sock
+        bound = _BoundReceives(
+            sock, read_by, lambda: self._stop_if_asked(should_stop))
+        stream._sock = bound
+        try:
+            yield
+        finally:
+            # A reply read to its end closed its stream, and with it the
+            # socket; one that is still open is given its own socket back.
+            if stream._sock is bound:
+                stream._sock = sock
+
+    def _receive_head(self, reply: http.client.HTTPResponse,
+                      begin: Callable[[], None], timeout: float,
+                      should_stop: Callable[[], bool] | None) -> None:
+        """begin(): the reply's status line and headers received, with every
+        receive from its socket checking the stop first and waiting only for
+        what is left of the request's timeout, counted from here. A head
+        still arriving when it has passed, or an endpoint that sends
+        nothing, ends the call as the provider error naming it; the body
+        that follows has the request's timeout of its own (_read_reply)."""
+        reading = "its reply's head"
+        stream = self._reply_stream(reply, reading)
+        if stream is None:
+            raise self._unreachable(reading)
+        with self._receiving_bound(stream, time.monotonic() + timeout,
+                                   should_stop):
+            try:
+                begin()
+            except TimeoutError as exc:
+                raise CloudAdapterError(self._late(reading, timeout)) from exc
+
+    def _open(self, req: urllib.request.Request, timeout: float,
+              should_stop: Callable[[], bool] | None):
+        """The request opened through urllib's own opener but for three of
+        its handlers: the HTTP and HTTPS handlers' connections receive the
+        reply's head through _receive_head, so it is bound as the body is,
+        and the redirect handler follows no redirect, so a 3xx is an
+        HTTPError like any other error reply and the request, the key among
+        its headers, is never sent again, to a redirect's target or
+        anywhere. Every other handler is the standard library's own, as
+        urlopen has them."""
+        def receive_head(reply: http.client.HTTPResponse,
+                         begin: Callable[[], None]) -> None:
+            self._receive_head(reply, begin, timeout, should_stop)
+        opener = urllib.request.build_opener(
+            _NoRedirects(), _BoundHTTPHandler(receive_head),
+            _BoundHTTPSHandler(receive_head))
+        return opener.open(req, timeout=timeout)
 
     def _read_reply(self, resp, should_stop: Callable[[], bool] | None,
                     timeout: float, limit: int | None = None,
@@ -301,17 +434,11 @@ class HTTPCloudAdapter(CloudProviderAdapter):
         its timeout left at what the last receive was given; the caller
         closes the reply (a success's with-block, an error's finally)."""
         read_by = time.monotonic() + timeout
-        late = (f"{self.name}: {reading} was not read within {timeout:g}s, "
-                "the request's timeout; the rest was not read")
+        late = self._late(reading, timeout)
         stream = self._reply_stream(resp, reading)
-        if stream is not None:
-            sock = stream._sock
-            bound = _BoundReceives(
-                sock, read_by, lambda: self._stop_if_asked(should_stop))
-            stream._sock = bound
         parts: list[bytes] = []
         left = limit
-        try:
+        with self._receiving_bound(stream, read_by, should_stop):
             while left is None or left > 0:
                 self._stop_if_asked(should_stop)
                 if time.monotonic() >= read_by:
@@ -326,11 +453,6 @@ class HTTPCloudAdapter(CloudProviderAdapter):
                 parts.append(chunk)
                 if left is not None:
                     left -= len(chunk)
-        finally:
-            # A reply read to its end closed its stream, and with it the
-            # socket; one that is still open is given its own socket back.
-            if stream is not None and stream._sock is bound:
-                stream._sock = sock
         self._stop_if_asked(should_stop)
         return b"".join(parts)
 
@@ -350,7 +472,7 @@ class HTTPCloudAdapter(CloudProviderAdapter):
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
+            with self._open(req, timeout, should_stop) as resp:
                 return json.loads(
                     self._read_reply(resp, should_stop, timeout).decode())
         except urllib.error.HTTPError as exc:
@@ -361,9 +483,10 @@ class HTTPCloudAdapter(CloudProviderAdapter):
             # only as a prefix, ERROR_BODY_LIMIT bytes and the one byte past
             # them that tells a body cut there from one that ends there, so
             # an endpoint that answers an error with a huge or unending body
-            # cannot hold the call while it keeps sending. urlopen raised
-            # before any with-block owned the reply, so it is closed here,
-            # however the read ends.
+            # cannot hold the call while it keeps sending; a redirect, never
+            # followed, is read the same way. The opener raised before any
+            # with-block owned the reply, so it is closed here, however the
+            # read ends.
             try:
                 body = self._read_reply(
                     exc, should_stop, timeout, limit=ERROR_BODY_LIMIT + 1,

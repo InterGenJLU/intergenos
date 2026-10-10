@@ -1488,6 +1488,17 @@ class _CloudErrorTransport(_CloudTransport):
                                      None, wire)
 
 
+def _opening_through(urlopen):
+    """The shipped HTTP adapter's opening point (HTTPCloudAdapter._open)
+    given a case's urllib stand-in: each request the adapter opens goes to
+    ``urlopen`` as urllib's own would take it. The machine's chat server
+    is reached through urllib.request.urlopen itself, patched apart."""
+    from intergen.cloud import http_adapter
+    return mock.patch.object(
+        http_adapter.HTTPCloudAdapter, "_open",
+        lambda adapter, req, timeout, should_stop: urlopen(req, timeout))
+
+
 class AnEndedTurnsCloudCallStopsWithinOneItem(unittest.TestCase):
     """When the machine's chat server cannot answer, chat() escalates to the
     registered cloud providers (_escalate_to_cloud). The turn's stop was checked
@@ -1509,9 +1520,11 @@ class AnEndedTurnsCloudCallStopsWithinOneItem(unittest.TestCase):
 
     def setUp(self) -> None:
         self.transport = _CloudTransport()
-        patcher = mock.patch("urllib.request.urlopen", self.transport.urlopen)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        for patcher in (
+                mock.patch("urllib.request.urlopen", self.transport.urlopen),
+                _opening_through(self.transport.urlopen)):
+            patcher.start()
+            self.addCleanup(patcher.stop)
         self.addCleanup(self.transport.finish.set)
         # What registration logged at WARNING or above, and what it answered.
         self.logged: list[str] = []
@@ -1694,9 +1707,10 @@ class AnEndedTurnsCloudCallStopsWithinOneItem(unittest.TestCase):
         """The cloud endpoint answers with an HTTP error, its body in
         pieces."""
         transport = _CloudErrorTransport()
-        patcher = mock.patch("urllib.request.urlopen", transport.urlopen)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        for patcher in (mock.patch("urllib.request.urlopen", transport.urlopen),
+                        _opening_through(transport.urlopen)):
+            patcher.start()
+            self.addCleanup(patcher.stop)
         self.addCleanup(transport.finish.set)
         return transport
 
@@ -2273,9 +2287,9 @@ class AnErrorReplysBodyIsReadAsABoundedPrefix(unittest.TestCase):
     so the body was handed back and the call came back as a provider error.
     The stop is now checked once more after the last read.
 
-    Each case calls the shipped adapter's send() with urllib's urlopen
-    standing in for the network, with no stop (test_connection, the command
-    line) or with a turn's stop. The controls: an error body that ends
+    Each case calls the shipped adapter's send() with a stand-in for urllib
+    at its opening point, in place of the network, with no stop
+    (test_connection, the command line) or with a turn's stop. The controls: an error body that ends
     exactly at the bound is read to its end and not said to be cut, a
     successful answer far past the bound is read whole, as before, and a
     turn that ends during the read that reaches the bound stops the call."""
@@ -2309,7 +2323,7 @@ class AnErrorReplysBodyIsReadAsABoundedPrefix(unittest.TestCase):
             raise urllib.error.HTTPError(req.full_url, 503, "controlled",
                                          None, replies[-1])
 
-        with mock.patch("urllib.request.urlopen", urlopen), \
+        with _opening_through(urlopen), \
                 self.assertRaises(Exception) as raised:
             self._provider().send(
                 [Message(role=MessageRole.USER, content="hi")],
@@ -2430,7 +2444,7 @@ class AnErrorReplysBodyIsReadAsABoundedPrefix(unittest.TestCase):
             return replies[-1]
 
         seen = {}
-        with mock.patch("urllib.request.urlopen", urlopen):
+        with _opening_through(urlopen):
             for label, stop in (("no stop", None), ("a turn that does not end",
                                                     threading.Event().is_set)):
                 reply = self._provider().send(
@@ -4559,21 +4573,22 @@ class AReplyThatArrivesSlowlyHoldsNeitherTheStopNorTheCall(unittest.TestCase):
         """A reply whose stream is not its socket's own, as a change in the
         standard library could leave it, cannot have its receives bound: it
         is not read, and the call ends as the provider error saying so -
-        never a read without the bound. urlopen is the real one; the case
-        gives the reply it opened a stream over the bytes it received."""
+        never a read without the bound. The adapter's opening point is the
+        real one; the case gives the reply it opened a stream over the bytes
+        it received."""
         import io
         import json
-        import urllib.request
+        from intergen.cloud import http_adapter
         answer = {"choices": [{"message": {"content": CLOUD_ANSWER}}]}
         endpoint = _DripEndpoint(200, json.dumps(answer).encode(), drip=0)
-        opened = urllib.request.urlopen
+        opened = http_adapter.HTTPCloudAdapter._open
 
-        def urlopen(req, timeout=None):
-            resp = opened(req, timeout=timeout)
+        def _open(adapter, req, timeout, should_stop):
+            resp = opened(adapter, req, timeout, should_stop)
             resp.fp = io.BufferedReader(io.BytesIO(resp.fp.read()))
             return resp
 
-        with mock.patch("urllib.request.urlopen", urlopen):
+        with mock.patch.object(http_adapter.HTTPCloudAdapter, "_open", _open):
             outcome = self._call(endpoint, with_stop=False)
         outcome["its words say why"] = (
             "its socket could not be reached to bound each receive to the "

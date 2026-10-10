@@ -4,8 +4,8 @@
 
 These exercise the PLATFORM-INDEPENDENT half — request shaping (endpoint, auth
 headers, body) and response parsing — by stubbing the keyring lookup and faking
-urllib's transport to capture the outbound Request and return a canned provider
-response. No network, no libsecret; runs anywhere. The live libsecret fetch and
+the adapter's opening point (_open, where urllib's transport opens the request)
+to capture the outbound Request and return a canned provider response. No network, no libsecret; runs anywhere. The live libsecret fetch and
 the real provider HTTP are exercised separately on Linux with real keys.
 """
 import json
@@ -53,7 +53,9 @@ def _capture(monkeypatch, payload: dict) -> dict:
         cap["headers"] = {k.lower(): v for k, v in req.headers.items()}
         return _FakeResp(payload)
 
-    monkeypatch.setattr(ha.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(ha.HTTPCloudAdapter, "_open",
+                        lambda adapter, req, timeout, should_stop:
+                        fake_urlopen(req, timeout))
     return cap
 
 
@@ -220,7 +222,9 @@ def test_http_error_becomes_cloud_adapter_error(monkeypatch):
 
     def fake_urlopen(req, timeout=None):
         raise urllib.error.HTTPError(req.full_url, 401, "Unauthorized", {}, None)
-    monkeypatch.setattr(ha.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(ha.HTTPCloudAdapter, "_open",
+                        lambda adapter, req, timeout, should_stop:
+                        fake_urlopen(req, timeout))
     with pytest.raises(CloudAdapterError):
         create_adapter(_cfg("openai")).send(_msgs())
 
