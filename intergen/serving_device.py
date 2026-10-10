@@ -317,8 +317,10 @@ def _cuda_targets_cover(compute_cap: int, targets: "set[str]") -> bool:
     WHY THIS IS NOT SET MEMBERSHIP, which is what the HIP side does. The CUDA
     target vocabulary distinguishes compiled kernels from PTX:
 
-      86-real       SASS for exactly 8.6. Machine code; it runs on 8.6 and on
-                    nothing else, because SASS is not forwards compatible.
+      86-real       compiled code (SASS) for 8.6. By NVIDIA's binary
+                    compatibility rule it runs on 8.6 and on every later minor
+                    of the same major (8.7, 8.9), never on a lower minor and
+                    never across a major (not on 9.0).
       80-virtual    PTX for 8.0. The driver JIT-compiles it at first load for
                     8.0 and for any newer architecture, at the cost of a
                     one-time pause.
@@ -329,23 +331,26 @@ def _cuda_targets_cover(compute_cap: int, targets: "set[str]") -> bool:
                     first two forms for that number.
 
     So the question is not "is my number listed" but "is there an entry whose
-    code this card can execute": an exact entry of either kind, or a
-    non-specific ``-virtual`` entry BELOW this card that the driver can JIT
-    forward from. A machine at 9.0 with 80-virtual in the list serves fine,
-    and a gate that demanded exact membership would refuse it.
+    code this card can execute": compiled code that runs on it by that rule
+    (:func:`_cuda_compiled_code_covers`), an exact PTX entry, or the PTX of a
+    non-specific entry BELOW this card that the driver can JIT forward from.
+    A machine at 9.0 with 80-virtual in the list serves fine, and a gate that
+    demanded exact membership would refuse it.
     """
+    if _cuda_compiled_code_covers(compute_cap, targets):
+        return True
     for token in targets:
         match = _CUDA_TARGET_RE.match(token.strip())
-        if not match:
+        if not match or match.group("kind") == "real":
             continue
+        # PTX: a -virtual entry, or a bare number's own PTX half.
         num = int(match.group("num"))
         if num == compute_cap:
             return True
         # PTX JITs forward, but only from an entry that is not tied to one
         # architecture. An 'a' entry below this card carries instructions this
         # card may not have.
-        if (match.group("kind") == "virtual" and not match.group("spec")
-                and num < compute_cap):
+        if not match.group("spec") and num < compute_cap:
             return True
     return False
 
@@ -575,17 +580,34 @@ def cuda_driver_release(smi_path: "str | None" = None
     return int(match.group(1)), int(match.group(2))
 
 
-def _cuda_compiled_capabilities(targets: "set[str]") -> "set[int]":
-    """The compute capabilities a CUDA target list carries COMPILED code for:
-    every ``-real`` entry and every bare number (cmake's default, which means
-    compiled code and PTX both), an architecture-specific ``a`` entry counting
-    for exactly its own number. ``-virtual`` entries are PTX only."""
-    compiled = set()
+def _cuda_compiled_entries(targets: "set[str]") -> "list[tuple[int, bool]]":
+    """The entries of a CUDA target list that carry COMPILED code, each as
+    (capability, architecture-specific): every ``-real`` entry and every bare
+    number (cmake's default, which means compiled code and PTX both).
+    ``-virtual`` entries are PTX only and carry none."""
+    entries = []
     for token in targets:
         match = _CUDA_TARGET_RE.match(token.strip())
         if match and match.group("kind") != "virtual":
-            compiled.add(int(match.group("num")))
-    return compiled
+            entries.append((int(match.group("num")), bool(match.group("spec"))))
+    return entries
+
+
+def _cuda_compiled_code_covers(compute_cap: int, targets: "set[str]") -> bool:
+    """Whether the list carries compiled code that runs on a card of this
+    compute capability, by NVIDIA's binary-compatibility rule (CUDA
+    Programming Guide, binary compatibility): compiled code for X.y runs on
+    X.z for every z >= y, never on a lower minor and never across a major,
+    and architecture-specific (``a``) code runs on exactly its own
+    capability. PTX is not compiled code and never counts here."""
+    major, minor = divmod(compute_cap, 10)
+    for num, specific in _cuda_compiled_entries(targets):
+        if specific:
+            if num == compute_cap:
+                return True
+        elif num // 10 == major and num % 10 <= minor:
+            return True
+    return False
 
 
 class CudaDriverSupport(NamedTuple):
@@ -619,8 +641,9 @@ def cuda_driver_support(caps: "dict[str, int] | None" = None,
     architecture gate (:func:`cuda_is_supported_here`) does not ask.
 
     WHY THE ARCHITECTURE IS NOT ENOUGH. A build carries device code for the
-    card either compiled (machine code for that exact capability) or as PTX,
-    which the driver translates when the engine loads. A driver translates PTX
+    card either compiled (machine code, which runs on its own capability and
+    on later minors of the same major; see _cuda_compiled_code_covers) or as
+    PTX, which the driver translates when the engine loads. A driver translates PTX
     only from a toolkit no newer than the CUDA release it supports. So a build
     whose code for the card is PTX from a newer toolkit than the driver's
     passes the architecture gate and then dies at its first kernel, every
@@ -635,9 +658,9 @@ def cuda_driver_support(caps: "dict[str, int] | None" = None,
     The rule, from the two releases read off the machine:
       - a build from a newer MAJOR release than the driver's does not load;
       - a build from a toolkit no newer than the driver's loads;
-      - a build from a newer MINOR release loads only on a card it carries
-        compiled code for, which needs no translation. A build that installed
-        no target record cannot be shown to carry compiled code, so it is
+      - a build from a newer MINOR release loads only on a card its compiled
+        code runs on, which needs no translation. A build that installed no
+        target record cannot be shown to carry compiled code, so it is
         counted as carrying none.
 
     An unreadable toolkit stamp, driver version, or (where the decision needs
@@ -679,7 +702,7 @@ def cuda_driver_support(caps: "dict[str, int] | None" = None,
             f"this driver's CUDA {d}",
             toolkit, driver)
     targets = cuda_build_gpu_targets(targets_path)
-    compiled = _cuda_compiled_capabilities(targets)
+    compiled = _cuda_compiled_entries(targets)
     record = (f"it declares {';'.join(sorted(targets))}" if targets
               else "it installed no target record")
     if caps is None:
@@ -689,24 +712,25 @@ def cuda_driver_support(caps: "dict[str, int] | None" = None,
             None,
             f"the card's compute capability could not be read, and on this "
             f"driver (CUDA {d}) the CUDA engine (compiled by CUDA {t}) runs "
-            f"only on a card it carries compiled code for ({record}); the "
+            f"only on a card its compiled code runs on ({record}); the "
             f"engine's own load decides",
             toolkit, driver)
-    covered = sorted(pci for pci, cap in caps.items() if cap in compiled)
+    covered = sorted(pci for pci, cap in caps.items()
+                     if _cuda_compiled_code_covers(cap, targets))
     if covered:
         return CudaDriverSupport(
             True,
-            f"the installed CUDA build (CUDA {t}) carries compiled code for "
-            f"{_cards_words(covered, caps)}, which this driver (CUDA {d}) "
-            f"loads without translating",
+            f"the installed CUDA build (CUDA {t}) carries compiled code that "
+            f"runs on {_cards_words(covered, caps)} ({record}), which this "
+            f"driver (CUDA {d}) loads without translating",
             toolkit, driver)
     cards = _cards_words(sorted(caps), caps) if caps else "any card"
     return CudaDriverSupport(
         False,
         f"the installed CUDA build was compiled by CUDA {t} and carries no "
-        f"compiled code for {cards} ({record}), so this driver would have to "
-        f"translate its PTX, and a driver at CUDA {d} translates PTX only from "
-        f"a toolkit no newer than its own",
+        f"compiled code that runs on {cards} ({record}), so this driver would "
+        f"have to translate its PTX, and a driver at CUDA {d} translates PTX "
+        f"only from a toolkit no newer than its own",
         toolkit, driver)
 
 
