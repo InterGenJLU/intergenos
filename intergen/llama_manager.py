@@ -202,6 +202,34 @@ def _failure_tail(stderr: str) -> str:
     return (f"[{dropped} earlier characters elided; the last "
             f"{FAILURE_STDERR_MAX_CHARS} follow]\n"
             + stderr[-FAILURE_STDERR_MAX_CHARS:])
+
+
+def _exit_words(returncode) -> str:
+    """How a child ended, in words: the signal that ended it, by number and
+    name, or the status it exited with."""
+    if not isinstance(returncode, int):
+        return "ended"
+    if returncode < 0:
+        number = -returncode
+        try:
+            return (f"was killed by signal {number} "
+                    f"({signal.Signals(number).name})")
+        except ValueError:
+            return f"was killed by signal {number}"
+    return f"exited with status {returncode}"
+
+
+def _engine_last_words(stderr: str) -> str:
+    """The engine's own line on why it ended: the line naming exhausted
+    device memory when there is one (the line the step-down reads), else the
+    last line it printed."""
+    line = device_memory_failure_line(stderr)
+    if line is not None:
+        return line
+    for raw in reversed((stderr or "").splitlines()):
+        if raw.strip():
+            return raw.strip()
+    return "it printed nothing"
 SHUTDOWN_TIMEOUT = 10          # seconds to wait for graceful shutdown
 REAP_GRACE = 3                 # seconds a stale/orphaned own-server gets on SIGTERM before SIGKILL
 
@@ -497,9 +525,12 @@ class LlamaManager(LlamaManagerInterface):
         self._engines_tried: set[str] = set()
         self._startup_stderr: str = ""  # child's captured model-load banner (drained once after /health)
         # A child that died before answering /health: what it printed. Kept
-        # apart from _last_error, which the start path rewrites, because the
+        # apart from _last_error, which carries one line of it, because the
         # step-down below reads the engine's own words for why it died.
         self._exit_stderr: str = ""
+        # Whether this launch's dead child has been recorded (_record_exit),
+        # so its output is read and its exit worded once.
+        self._exit_recorded: bool = False
         # Seconds this launch may take to load and answer /health. start()
         # re-derives it from the model bytes; the floor is what a caller gets
         # if it never launched anything.
@@ -627,6 +658,7 @@ class LlamaManager(LlamaManagerInterface):
         """
         self._last_failure = StartFailure.NONE
         self._exit_stderr = ""
+        self._exit_recorded = False
         # Verify the model file exists
         if not Path(model_path).exists():
             self._last_error = f"Model file not found: {model_path}"
@@ -1228,10 +1260,17 @@ class LlamaManager(LlamaManagerInterface):
                 log.info("llama-server started successfully on port %d", port)
                 return True
 
-            # Server didn't become healthy — kill it
-            self._last_error = "Server failed to become healthy within timeout"
+            # Server didn't become healthy — kill it. A child that EXITED is
+            # recorded as what it was: its signal or status, how soon, and its
+            # own last line. The timeout text is only for a child still alive at
+            # the deadline; it used to be written over every exit, so a child
+            # dead in seconds read as a timeout it never reached.
+            if isinstance(self._process.poll(), int):
+                self._record_exit()
+            else:
+                self._last_error = "Server failed to become healthy within timeout"
+                log.error(self._last_error)
             self._last_failure = StartFailure.UNHEALTHY
-            log.error(self._last_error)
             self.stop()
             return False
 
@@ -2922,6 +2961,30 @@ class LlamaManager(LlamaManagerInterface):
         log.info("GPU offload confirmed: %d layers offloaded", offloaded)
         return True
 
+    def _record_exit(self) -> None:
+        """Record, once per launch, how the launched child ended: the signal
+        or the status, how long after its start, and the engine's own last
+        line, followed by its output from the end (FAILURE_STDERR_MAX_CHARS),
+        which is where the engine states why. The dying output is kept whole
+        for the step-down."""
+        if self._exit_recorded or self._process is None:
+            return
+        self._exit_recorded = True
+        stderr = ""
+        if self._process.stderr:
+            try:
+                stderr = self._process.stderr.read().decode(errors="replace")
+            except (OSError, ValueError) as e:
+                stderr = f"(its output could not be read: {e})"
+        self._exit_stderr = stderr
+        after = (f" {time.time() - self._start_time:.1f} s after it was started"
+                 if self._start_time else "")
+        self._last_error = (
+            f"the engine {_exit_words(self._process.returncode)}{after}, "
+            f"before it answered: {_engine_last_words(stderr)}. Its output "
+            f"ends:\n{_failure_tail(stderr)}")
+        log.error(self._last_error)
+
     def _wait_for_healthy(self, port: int) -> bool:
         """Poll the health endpoint until the server is ready.
 
@@ -2934,15 +2997,7 @@ class LlamaManager(LlamaManagerInterface):
         while time.time() < deadline:
             # Check if process died
             if self._process and self._process.poll() is not None:
-                stderr = ""
-                if self._process.stderr:
-                    stderr = self._process.stderr.read().decode(errors="replace")
-                self._exit_stderr = stderr
-                self._last_error = (
-                    f"Server exited with code {self._process.returncode}: "
-                    f"{_failure_tail(stderr)}"
-                )
-                log.error(self._last_error)
+                self._record_exit()
                 return False
 
             try:
