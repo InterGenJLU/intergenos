@@ -1483,6 +1483,13 @@ class InterGenDaemon(InterGenDBusInterface):
                 return False
             if self._llama is None:
                 return False
+            # An attempt the watchdog's recovery hold granted (its budget is
+            # spent; one attempt per interval) is granted by the manager's own
+            # restart count too, which a healthy start alone resets and which
+            # used to refuse every such attempt before any launch.
+            watchdog = getattr(self, "_watchdog", None)
+            if watchdog is not None and watchdog.exhausted:
+                self._llama.allow_one_restart()
             return self._llama.restart()
 
     def _restart_embed_server_watchdog(self) -> bool:

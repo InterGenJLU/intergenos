@@ -232,6 +232,13 @@ class Watchdog:
         return self._total_restarts
 
     @property
+    def exhausted(self) -> bool:
+        """True from the moment the restart budget is spent until a restart
+        succeeds: every attempt made meanwhile is one the recovery hold
+        granted, one per interval."""
+        return self._exhausted
+
+    @property
     def seconds_since_healthy(self) -> float:
         return time.monotonic() - self._last_healthy
 

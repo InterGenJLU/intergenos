@@ -1478,6 +1478,20 @@ class LlamaManager(LlamaManagerInterface):
             server_path=self._config.server_path,
         )
 
+    def allow_one_restart(self) -> None:
+        """Let the next restart() launch once even though this manager's own
+        restart budget is spent.
+
+        The chat watchdog's recovery hold grants one attempt per interval once
+        its budget of restarts is spent, and says so in the log. This count is
+        reset only by a healthy start, so without the grant every one of those
+        attempts was refused here before any launch, while the log promised a
+        retry. The daemon passes the hold's grant on through this; a caller
+        restarting in a loop is still refused after MAX_RESTART_ATTEMPTS.
+        """
+        self._restart_count = min(self._restart_count,
+                                  MAX_RESTART_ATTEMPTS - 1)
+
     def _note_successful_start(self) -> None:
         """A healthy start ends the restart budget's count and the engine
         sequence: the next failure, if any, is a new episode."""
