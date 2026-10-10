@@ -1887,6 +1887,10 @@ landed is in the repository README, not here.
 
 ### Changed
 
+- Update GNU inetutils from 2.7 to 2.8. Retain the telnet compiler compatibility
+  edit, disabled servers and traceroute, and the existing ping profile and
+  capability settings.
+
 - **The OpenAI coding agent helper now pins CLI 0.159.2 and the Linux x64 VS Code extension 26.5917.62051.** The pin moves with the vendor's current release; the extension download is still verified against the pinned SHA-256, taken from the downloaded asset, before installation.
 
 - **The OpenAI coding agent helper now pins CLI 0.156.0 and the Linux x64 VS Code extension 26.5917.61114.** The extension download is verified against the pinned SHA-256 before installation.

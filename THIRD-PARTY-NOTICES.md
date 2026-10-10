@@ -899,7 +899,7 @@ Internationalized Domain Names in Applications (IDNA)
 - License: `BSD-3-Clause`
 - Homepage: https://github.com/kjd/idna
 
-### inetutils (2.7)
+### inetutils (2.8)
 
 GNU network utilities
 
