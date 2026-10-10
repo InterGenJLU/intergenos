@@ -82,21 +82,32 @@ def cloud_contract_gap(adapter: Any) -> str | None:
     parameter has to take it BY KEYWORD: one that takes it only by position
     (or collects positions under that name) would be handed nothing by the
     router's call — a TypeError, or the stop gone into **kwargs while the
-    parameter keeps its default."""
+    parameter keeps its default. And it has to be OPTIONAL, with a default
+    (None in the contract's own send()): a caller with no stop bound (the
+    command line, the bus) is called without the keyword, and a send() that
+    requires it refuses that call before the provider is asked. Each gap is
+    named with what it costs, so a message prints the gap alone."""
     if not isinstance(adapter, CloudProviderAdapter):
-        return "it does not implement the cloud-provider contract"
+        return ("it does not implement the cloud-provider contract, so a turn "
+                "that ends could not stop its call")
     try:
         params = inspect.signature(adapter.send).parameters
     except (TypeError, ValueError):
-        return "its send() cannot be read"
+        return ("its send() cannot be read, so whether it takes the turn's "
+                "stop cannot be checked")
     stop = params.get("should_stop")
     if stop is None:
         if not any(p.kind is inspect.Parameter.VAR_KEYWORD
                    for p in params.values()):
-            return "its send() takes no should_stop"
+            return ("its send() takes no should_stop, so a turn that ends "
+                    "could not stop its call")
     elif stop.kind not in (inspect.Parameter.POSITIONAL_OR_KEYWORD,
                            inspect.Parameter.KEYWORD_ONLY):
-        return "its send() does not take should_stop by keyword"
+        return ("its send() does not take should_stop by keyword, so the "
+                "stop the router hands by keyword could never reach it")
+    elif stop.default is inspect.Parameter.empty:
+        return ("its send() requires should_stop, so a caller with no stop "
+                "bound could not call it")
     return None
 
 
@@ -2222,8 +2233,7 @@ class LLMRouter(LLMInterface):
         """
         why = cloud_contract_gap(adapter)
         if why:
-            message = (f"refused cloud provider {name}: {why}, so a turn that "
-                       "ends could not stop its call")
+            message = f"refused cloud provider {name}: {why}"
             logger.error("%s", message)
             return False, message
         self._cloud_providers[name] = adapter
@@ -2273,8 +2283,7 @@ class LLMRouter(LLMInterface):
                 return self._stopped_response()
             why = cloud_contract_gap(adapter)
             if why:
-                logger.error("skipped cloud provider %s: %s, so a turn that "
-                             "ends could not stop its call", name, why)
+                logger.error("skipped cloud provider %s: %s", name, why)
                 continue
             # The payload is final here — the image above is attached — and the
             # destination is this one, so this is where the question belongs.

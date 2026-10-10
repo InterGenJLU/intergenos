@@ -1360,6 +1360,32 @@ class _StopByPositionIntoKeywordsCloud(_StopByPositionCloud):
         return LLMResponse(text=CLOUD_ANSWER, model="by-position", local=False)
 
 
+class _RequiredStopCloud(CloudProviderAdapter):
+    """A provider whose send() takes should_stop by keyword but has no default
+    for it: a caller with no stop bound calls send() without the keyword, and
+    Python refuses that call before the provider's body."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    @property
+    def name(self) -> str:
+        return "required-stop"
+
+    def send(self, messages, *, tools=None, max_tokens=None,
+             temperature=None, should_stop):
+        self.calls += 1
+        return LLMResponse(text=CLOUD_ANSWER, model="required-stop",
+                           local=False)
+
+    def stream(self, messages, *, tools=None, max_tokens=None,
+               temperature=None, should_stop=None):
+        yield CLOUD_ANSWER
+
+    def test_connection(self):
+        return True, "required-stop"
+
+
 class _CloudWire:
     """The cloud provider's side of an HTTP reply as the shipped adapter reads
     it (intergen/cloud/http_adapter.py): the body arrives in pieces, one each
@@ -1889,6 +1915,106 @@ class AnEndedTurnsCloudCallStopsWithinOneItem(unittest.TestCase):
         self.assertEqual(self._refusal(
             "before-the-stop", cloud, "its send() takes no should_stop"),
             self.REFUSED)
+
+    def test_a_provider_whose_send_requires_the_stop_is_refused(self):
+        """A provider whose send() takes should_stop by keyword but has no
+        default for it. The contract's check read only how the parameter is
+        taken, so it was registered; then a caller with no stop bound - the
+        command line, the bus - called it without the keyword, Python refused
+        the call before the provider's body, and the escalation came back with
+        no answer. It is now refused at registration, and the refusal names
+        that gap and what it costs, nothing else."""
+        refusal = self._refusal("required-stop", _RequiredStopCloud(),
+                                "its send() requires should_stop")
+        self.assertEqual({
+            **refusal, "the refusal's words": self.registered[0][1],
+        }, {
+            **self.REFUSED, "the refusal's words": (
+                "refused cloud provider required-stop: its send() requires "
+                "should_stop, so a caller with no stop bound could not call "
+                "it"),
+        })
+
+    def test_a_provider_that_requires_the_stop_put_into_the_router_is_skipped(
+            self):
+        """Put into the router's table without registration, the same
+        provider is skipped at the call, with an ERROR naming the gap and
+        what it costs, nothing else."""
+        import logging
+        from intergen.interfaces.types import Message, MessageRole
+        llm = self._router()
+        cloud = _RequiredStopCloud()
+        llm._cloud_providers["direct"] = cloud
+        errors: list[str] = []
+        handler = logging.Handler(level=logging.ERROR)
+        handler.emit = lambda record: errors.append(record.getMessage())
+        log = logging.getLogger("intergen.llm")
+        log.addHandler(handler)
+        try:
+            reply = llm.chat([Message(role=MessageRole.USER,
+                                      content="what is the forecast?")])
+        finally:
+            log.removeHandler(handler)
+        self.assertEqual({
+            "the provider was asked": cloud.calls,
+            "chat() answered from the cloud": reply.model.startswith("cloud:"),
+            "the skip logged, naming why": [
+                m for m in errors if m.startswith("skipped cloud provider")],
+        }, {
+            "the provider was asked": 0,
+            "chat() answered from the cloud": False,
+            "the skip logged, naming why": [
+                "skipped cloud provider direct: its send() requires "
+                "should_stop, so a caller with no stop bound could not call "
+                "it"],
+        })
+
+    def test_each_gap_is_named_with_its_own_cost(self):
+        """The router's two messages print the gap alone, so each gap carries
+        its own cost. The words that once followed every gap - a turn that
+        ends could not stop its call - are not true of a send() that cannot
+        be read, of one the router's stop could never reach, or of one that
+        requires the stop."""
+        from intergen.llm import cloud_contract_gap
+
+        class _NoStop(_ContractCloud):
+            def send(self, messages, *, tools=None, max_tokens=None,
+                     temperature=None):
+                raise AssertionError("never called")
+
+        class _Unreadable(_ContractCloud):
+            send = None
+
+        self.assertEqual({
+            name: cloud_contract_gap(adapter) for name, adapter in (
+                ("no contract", _BlockingCloud()),
+                ("unreadable", _Unreadable()),
+                ("no stop", _NoStop()),
+                ("by position", _StopByPositionCloud()),
+                ("by position beside keywords",
+                 _StopByPositionIntoKeywordsCloud()),
+                ("required", _RequiredStopCloud()),
+                ("the contract", _ContractCloud()),
+            )
+        }, {
+            "no contract": "it does not implement the cloud-provider "
+                           "contract, so a turn that ends could not stop its "
+                           "call",
+            "unreadable": "its send() cannot be read, so whether it takes the "
+                          "turn's stop cannot be checked",
+            "no stop": "its send() takes no should_stop, so a turn that ends "
+                       "could not stop its call",
+            "by position": "its send() does not take should_stop by keyword, "
+                           "so the stop the router hands by keyword could "
+                           "never reach it",
+            "by position beside keywords": "its send() does not take "
+                                           "should_stop by keyword, so the "
+                                           "stop the router hands by keyword "
+                                           "could never reach it",
+            "required": "its send() requires should_stop, so a caller with no "
+                        "stop bound could not call it",
+            "the contract": None,
+        })
 
     def test_a_provider_put_into_the_router_without_registration_is_never_called(
             self):
