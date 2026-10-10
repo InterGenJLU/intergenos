@@ -70,12 +70,14 @@ DIVISION OF LABOR (AI-6 build, branch off master 5ce0dc41):
   * Verification — an independent review of both sides.
 
 This module is stdlib-only (hmac, hashlib, secrets, json, base64, shlex, time, os,
-pwd, pathlib) so it is auditable in isolation and carries no third-party trust.
+errno, stat, pwd, pathlib) so it is auditable in isolation and carries no
+third-party trust.
 """
 
 from __future__ import annotations
 
 import base64
+import errno
 import hashlib
 import hmac
 import json
@@ -84,6 +86,7 @@ import os
 import pwd
 import secrets
 import shlex
+import stat
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -612,16 +615,26 @@ def opened_refusing_install_secrets(path: object, flags: int,
     through that directory's descriptor, and only then are the directories
     handed to the requesting owner (MadeDirectories).
 
+    Under the privileged runner the open runs as root on a path that was
+    resolved and checked earlier, by name, and a name in a directory the
+    requesting account can write can be replaced in between. There the path is
+    opened as it was checked or not at all (_opened_as_checked): one component
+    at a time by descriptor, never through a link, a regular file only, and the
+    kernel's own path for what opened must be the path that was checked.
+
     Returns the open descriptor, which the caller owns and must close. Raises
     InstallSecretRefused if the object is one of the install's secret files,
     CreatedFileNotRemoved (an OSError) in its place when a file created for a
-    refused write could not be removed, and OSError from the open itself.
+    refused write could not be removed, PathNotOpenedAsChecked (an OSError)
+    under the runner, and OSError from the open itself.
     """
     if made is not None:
         if made.innermost is not None:
             return _created_in_made_directories(path, flags, mode, made)
         made.close()
     _refuse_truncation(flags)
+    if _under_the_privileged_runner():
+        return _opened_as_checked(path, flags, mode)
     if not flags & os.O_CREAT:
         return _refusing_install_secrets(os.open(path, flags, mode), path)
     try:
@@ -670,6 +683,148 @@ def _opened_or_created(path: object, flags: int, mode: int) -> int:
     return _created_refusing_install_secrets(path, flags, mode)
 
 
+class PathNotOpenedAsChecked(OSError):
+    """Under the privileged runner, what a path names now is not what was checked.
+
+    The path was resolved and checked by name, and a name in a directory the
+    requesting account can write can be replaced before the open: by a link, by
+    a FIFO, or by anything that is not the regular file the checks were asked
+    about. Nothing is read or written then. An OSError, so a consumer reports it
+    as a failed read or write.
+    """
+
+
+def _checked_text(path: object) -> str:
+    """The path as the checks were asked of it: absolute and already resolved."""
+    text = os.fspath(path)
+    if not os.path.isabs(text) or os.path.normpath(text) != text:
+        raise PathNotOpenedAsChecked(
+            f"Under the privileged runner a path is opened only as it was "
+            f"resolved for its checks; {text!r} is not an absolute, resolved "
+            f"path, so nothing was opened.")
+    return text
+
+
+def _walked_to(directory: str) -> int:
+    """Open `directory`, a resolved absolute path, one component at a time from
+    /, by descriptor, never through a link. Returns an O_PATH descriptor."""
+    fd = os.open("/", os.O_PATH | os.O_DIRECTORY | os.O_CLOEXEC)
+    walked = "/"
+    try:
+        for part in [part for part in directory.split(os.sep) if part]:
+            here = os.path.join(walked, part)
+            try:
+                below = os.open(part, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW
+                                | os.O_CLOEXEC, dir_fd=fd)
+            except OSError as exc:
+                if exc.errno in (errno.ENOTDIR, errno.ELOOP):
+                    raise _not_a_directory_now(here, exc) from exc
+                raise
+            os.close(fd)
+            fd, walked = below, here
+    except BaseException:
+        os.close(fd)
+        raise
+    return fd
+
+
+def _not_a_directory_now(here: str, exc: OSError) -> PathNotOpenedAsChecked:
+    return PathNotOpenedAsChecked(
+        f"Under the privileged runner a path is opened only as it was resolved "
+        f"for its checks, never through a link; {here} is not a directory now "
+        f"({exc.strerror}), so nothing was opened.")
+
+
+def _assert_opened_as_checked(fd: int, text: str) -> None:
+    """Raise PathNotOpenedAsChecked unless `fd` is a regular file whose kernel
+    path is `text`, the path the checks were asked of."""
+    if not stat.S_ISREG(os.fstat(fd).st_mode):
+        raise PathNotOpenedAsChecked(
+            f"{text} is not a regular file; under the privileged runner only a "
+            f"regular file is opened to be read or written, so nothing was.")
+    try:
+        canonical = os.readlink(f"/proc/self/fd/{fd}")
+    except OSError as exc:
+        raise PathNotOpenedAsChecked(
+            f"What was opened at {text} could not be read back ({exc}), so it "
+            f"cannot be shown to be the path that was checked; nothing was read "
+            f"or written.") from exc
+    if canonical != text:
+        raise PathNotOpenedAsChecked(
+            f"{text} opened as {canonical}, which is not the path that was "
+            f"checked; nothing was read or written.")
+
+
+def _opened_existing(dir_fd: int, name: str, text: str, flags: int,
+                     mode: int) -> int:
+    """Open an existing `name` in `dir_fd` without following a link or waiting
+    on a FIFO, then check it is the regular file at `text` and no secret."""
+    try:
+        fd = os.open(name, (flags & ~os.O_CREAT) | os.O_NOFOLLOW | os.O_NONBLOCK,
+                     mode, dir_fd=dir_fd)
+    except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            raise PathNotOpenedAsChecked(
+                f"{text} is a link now, and under the privileged runner a path "
+                f"is never opened through a link; nothing was read or "
+                f"written.") from exc
+        if exc.errno == errno.ENXIO:
+            raise PathNotOpenedAsChecked(
+                f"{text} is not a regular file (a FIFO, a socket or a device); "
+                f"under the privileged runner only a regular file is opened to "
+                f"be read or written, so nothing was.") from exc
+        raise
+    try:
+        _assert_opened_as_checked(fd, text)
+        os.set_blocking(fd, True)
+    except BaseException:
+        os.close(fd)
+        raise
+    return _refusing_install_secrets(fd, text)
+
+
+def _opened_as_checked(path: object, flags: int, mode: int) -> int:
+    """Under the privileged runner: open the resolved path as it was checked.
+
+    The directory is walked from / by descriptor without following a link; an
+    existing file is opened without following a link and without waiting on a
+    FIFO, and must be a regular file whose kernel path is the path that was
+    checked; a new file is created in the walked directory as everywhere else
+    (_created_refusing_install_secrets), and the same is asked of it. Anything
+    else raises PathNotOpenedAsChecked and nothing is read or written.
+    """
+    text = _checked_text(path)
+    parent, name = os.path.split(text)
+    if not name:
+        raise PathNotOpenedAsChecked(
+            f"{text!r} names no file, so nothing was opened.")
+    dir_fd = _walked_to(parent)
+    try:
+        if not flags & os.O_CREAT:
+            return _opened_existing(dir_fd, name, text, flags, mode)
+        try:
+            return _opened_or_created_in(dir_fd, name, text, flags, mode)
+        except FileExistsError:
+            if flags & os.O_EXCL:
+                raise
+            # Something appeared at the name between the two opens. Once more,
+            # as everywhere else; a second race is reported, not looped on.
+            return _opened_or_created_in(dir_fd, name, text, flags, mode)
+    finally:
+        os.close(dir_fd)
+
+
+def _opened_or_created_in(dir_fd: int, name: str, text: str, flags: int,
+                          mode: int) -> int:
+    """_opened_or_created, in a walked directory (see _opened_as_checked)."""
+    if not flags & os.O_EXCL:
+        try:
+            return _opened_existing(dir_fd, name, text, flags, mode)
+        except FileNotFoundError:
+            pass
+    return _created_refusing_install_secrets(text, flags, mode, parent_fd=dir_fd)
+
+
 def _created_refusing_install_secrets(path: object, flags: int, mode: int,
                                       parent_fd: int | None = None) -> int:
     """Create a new file at `path`, asking first and checking again after.
@@ -714,12 +869,15 @@ def _created_refusing_install_secrets(path: object, flags: int, mode: int,
             if reason is not None:
                 logger.warning("Refused a tool's creation of %s: %s", path, reason)
                 raise InstallSecretRefused(reason)
+            if _under_the_privileged_runner():
+                _assert_opened_as_checked(fd, text)
             _hand_to_the_requesting_owner(fd, canonical_parent, path)
         except BaseException:
             # The refusal stands only once the file it created is gone again,
-            # and so does a file that could not be handed to its owner.
-            # Otherwise _remove_own_creation raises CreatedFileNotRemoved, and
-            # that is what the caller receives.
+            # and so does a file that could not be handed to its owner or that
+            # is not at the path that was checked. Otherwise
+            # _remove_own_creation raises CreatedFileNotRemoved, and that is
+            # what the caller receives.
             try:
                 _remove_own_creation(fd, name, dir_fd, path)
             finally:
@@ -957,18 +1115,21 @@ class MadeDirectories:
 
     made_parent_directories returns one and opened_refusing_install_secrets takes
     it over. Each directory was made by this process relative to the descriptor
-    of the one above it, mode 0700, and is held by its own descriptor, so nothing
-    after its making looks it up by name. They stay root's while the file is
-    created in the innermost, so nothing but root can put anything in them
-    before the file is there; then each is handed to the requesting owner, the
-    outermost first and the innermost last, or, when a hand-over fails, the file
-    and every one of them is removed again.
+    of the one above it and is held by its own descriptor, so nothing after its
+    making looks it up by name. One at or below the requesting owner's home is
+    made with mode 0700 and stays root's while the file is created in the
+    innermost, so nothing but root can put anything in it before the file is
+    there; then each such directory is handed to the owner, the outermost first
+    and the innermost last, or, when a hand-over fails, the file and every
+    directory made is removed again. One anywhere else is made as before, with
+    the mode the umask leaves, and stays root's.
     """
 
     def __init__(self) -> None:
-        # (descriptor of the directory above, name, own descriptor, path), the
-        # outermost first; every descriptor here is closed by close().
-        self._made: list[tuple[int, str, int, str]] = []
+        # (descriptor of the directory above, name, own descriptor, path, whether
+        # it is the owner's), the outermost first; every descriptor here is
+        # closed by close().
+        self._made: list[tuple[int, str, int, str, bool]] = []
         self._descriptors: list[int] = []
         self._owner: tuple[int, int] | None = None
 
@@ -989,7 +1150,9 @@ class MadeDirectories:
             raise _NotHandedOver(self._made[0][3], RuntimeError(
                 "no requesting owner was established for the directories made"))
         uid, gid = self._owner
-        for _above, _name, fd, path in self._made:
+        for _above, _name, fd, path, for_owner in self._made:
+            if not for_owner:
+                continue
             try:
                 os.fchown(fd, uid, gid)
                 os.fchmod(fd, _OWNER_DIRECTORY_MODE)
@@ -1003,8 +1166,8 @@ class MadeDirectories:
         holds the directory made (compared by identity) and it is empty. Raises
         CreatedDirectoryNotRemoved for the first that cannot be removed."""
         for index in range(len(self._made) - 1, -1, -1):
-            above, name, fd, path = self._made[index]
-            left = [made_path for _a, _n, _f, made_path in self._made[:index + 1]]
+            above, name, fd, path, _for_owner = self._made[index]
+            left = [made[3] for made in self._made[:index + 1]]
             try:
                 held = os.fstat(fd)
                 found = os.stat(name, dir_fd=above, follow_symlinks=False)
@@ -1050,38 +1213,37 @@ def _directory_not_removed(path: str, left: list[str],
 def made_parent_directories(path: object) -> MadeDirectories:
     """Make the directories missing above `path`, as write_file's create_dirs asks.
 
-    Under the privileged runner, when the directory the file goes in is the
-    requesting owner's home or below it, the path, already resolved by the
-    caller, is walked one component at a time by descriptor without following a
-    link, and each missing directory is made relative to the one above it, mode
-    0700, opened without following a link, and checked to be the empty
-    directory this process just made below the home. What this returns holds
+    Under the privileged runner the path, already resolved by the caller, is
+    walked one component at a time by descriptor without following a link, and
+    each missing directory is made relative to the one above it, opened without
+    following a link, and checked to be the empty directory this process just
+    made at that path. One at or below the requesting owner's home is made with
+    mode 0700 and later handed to the owner; one anywhere else is made with the
+    mode the umask leaves and stays root's, as before. What this returns holds
     them for opened_refusing_install_secrets, which creates the file in the
-    innermost and then hands them to the owner (MadeDirectories). A directory
-    that already exists is passed through, untouched. Anywhere else the
-    directories are made as before, by Path.mkdir(parents=True, exist_ok=True),
-    and nothing is held.
+    innermost and then settles them (MadeDirectories). A directory that already
+    exists is passed through, untouched. Outside the runner the directories are
+    made as before, by Path.mkdir(parents=True, exist_ok=True), and nothing is
+    held.
 
-    Raises OSError when a directory cannot be made; any directory this call made
-    by then is handed to the owner first, or removed when that fails too.
+    Raises OSError when a directory cannot be made, PathNotOpenedAsChecked among
+    them when a name on the way is a link now; any directory this call made by
+    then is handed to the owner first, or removed when that fails too.
     """
-    parent = os.path.dirname(os.fspath(path))
-    made = MadeDirectories()
     if not _under_the_privileged_runner():
-        Path(parent).mkdir(parents=True, exist_ok=True)
-        return made
+        Path(os.path.dirname(os.fspath(path))).mkdir(parents=True, exist_ok=True)
+        return MadeDirectories()
+    parent = os.path.dirname(_checked_text(path))
     try:
         uid, gid, home = _requesting_owner()
     except (KeyError, ValueError) as exc:
         raise OSError(
             f"the account that asked for this write could not be established "
             f"({exc}), so no directory was made for it") from exc
-    if not os.path.isabs(parent) or not _at_or_below(os.path.normpath(parent), home):
-        Path(parent).mkdir(parents=True, exist_ok=True)
-        return made
+    made = MadeDirectories()
     made._owner = (uid, gid)
     try:
-        _walk_making(made, os.path.normpath(parent), home)
+        _walk_making(made, parent, home)
     except BaseException:
         try:
             if made.innermost is not None:
@@ -1108,6 +1270,10 @@ def _walk_making(made: MadeDirectories, parent: str, home: str) -> None:
         except FileNotFoundError:
             missing = index
             break
+        except OSError as exc:
+            if exc.errno in (errno.ENOTDIR, errno.ELOOP):
+                raise _not_a_directory_now(os.path.join(walked, part), exc) from exc
+            raise
         # Only the directory above the first one made is needed later; every
         # descriptor before it is closed as the walk passes it.
         os.close(made._descriptors.pop())
@@ -1115,7 +1281,8 @@ def _walk_making(made: MadeDirectories, parent: str, home: str) -> None:
         fd, walked = below, os.path.join(walked, part)
     for part in parts[missing:]:
         here = os.path.join(walked, part)
-        os.mkdir(part, _OWNER_DIRECTORY_MODE, dir_fd=fd)
+        for_owner = _at_or_below(here, home)
+        os.mkdir(part, _OWNER_DIRECTORY_MODE if for_owner else 0o777, dir_fd=fd)
         try:
             below = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
                             | os.O_CLOEXEC, dir_fd=fd)
@@ -1128,7 +1295,7 @@ def _walk_making(made: MadeDirectories, parent: str, home: str) -> None:
             st = os.fstat(below)
             canonical = os.readlink(f"/proc/self/fd/{below}")
             ours = (st.st_uid == os.geteuid() and not os.listdir(below)
-                    and _at_or_below(canonical, home))
+                    and canonical == here)
         except BaseException:
             os.close(below)
             raise
@@ -1140,7 +1307,7 @@ def _walk_making(made: MadeDirectories, parent: str, home: str) -> None:
                 f"replaced, the directory made is left wherever it was moved, and "
                 f"nothing was written")
         made._descriptors.append(below)
-        made._made.append((fd, part, below, here))
+        made._made.append((fd, part, below, here, for_owner))
         fd, walked = below, here
 
 

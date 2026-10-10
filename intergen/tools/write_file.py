@@ -410,7 +410,10 @@ class WriteFileTool(BaseTool):
         # empty the file inside the open, which on one of the install's own
         # credential files would destroy it before any refusal could run. A new
         # file is created as before, and an existing one is emptied only once
-        # the object it names has been established.
+        # the object it names has been established. Under the privileged
+        # runner the open, like the diff read above, is of the path exactly as
+        # it was resolved and checked here, or nothing is written
+        # (dispatch_token.PathNotOpenedAsChecked).
         try:
             fd = dispatch_token.opened_refusing_install_secrets(
                 path, os.O_WRONLY | os.O_CREAT | os.O_CLOEXEC, made=made)
