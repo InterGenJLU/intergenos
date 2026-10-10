@@ -928,6 +928,10 @@ class InterGenDaemon(InterGenDBusInterface):
     def status(self) -> str:
         """Return JSON-encoded status."""
         _identity, _release_known = package_record.identity()
+        # ONE reading of the panel per response, and both panel fields below
+        # derived from it, so a bind or a stop landing while the response is
+        # built cannot make the two disagree.
+        panel_down = self._panel_down_now()
         status = {
             "running": self._running,
             "tier": self._hardware_tier,
@@ -948,7 +952,7 @@ class InterGenDaemon(InterGenDBusInterface):
             # its address held by another process, a configured address it
             # cannot use, a bind given up. None while it serves. A refused bind
             # used to reach the log only.
-            "panel_down": self._panel_down_now(),
+            "panel_down": panel_down,
             # Where the panel is served, for a client that opens it (the shell
             # extension's browser item): None for a configured address the
             # panel refuses, whose words panel_down carries.
@@ -988,7 +992,7 @@ class InterGenDaemon(InterGenDBusInterface):
                 "tools": self._tools is not None,
                 "memory": self._memory is not None,
                 "watchdog": self._watchdog is not None and self._watchdog.is_running,
-                "panel": self._panel_down_now() is None,
+                "panel": panel_down is None,
             },
         }
         # PI-Z26: surface the chat server's serving reality (backend + requested/
