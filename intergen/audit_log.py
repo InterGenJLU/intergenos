@@ -218,9 +218,10 @@ class IntegrityReading:
     That trade is the operator's to make, not this reading's, and the governing record
     settles it: no digest.
 
-    So the verdict is never ``intact``. It is ``UNTRUSTWORTHY`` when damage was detected,
-    ``NO DETECTABLE DAMAGE`` when none was, and ``NO RECORD`` when there is nothing to
-    read -- and the report names the limit beside the verdict every time.
+    So the verdict is never ``intact``. It is ``UNTRUSTWORTHY`` when damage was detected or
+    the record could not be read (the reason named), ``NO DETECTABLE DAMAGE`` when it was
+    read in full and none was, and ``NO RECORD`` only when there is no record or it was read
+    in full and holds nothing -- and the report names the limit beside the verdict every time.
     """
 
     path: Path
@@ -242,10 +243,18 @@ class IntegrityReading:
 
     @property
     def verdict(self) -> str:
-        if not self.exists or (self.lines == 0 and self.rows == 0):
+        # A read error and damage are decided BEFORE emptiness. A record that exists but could
+        # not be read has no line and no row, which is what an empty record looks like, yet its
+        # integrity was never checked: calling it NO RECORD would say nothing had been written.
+        if not self.exists:
             return "NO RECORD — nothing has been written here, so there is nothing to check"
+        if self.read_error:
+            return ("UNTRUSTWORTHY — this record could not be read, so its integrity cannot be "
+                    f"checked: {self.read_error}")
         if self.damaged:
             return "UNTRUSTWORTHY — this record has been damaged since it was written"
+        if self.lines == 0 and self.rows == 0:
+            return "NO RECORD — nothing has been written here, so there is nothing to check"
         return ("NO DETECTABLE DAMAGE — every row this record holds is readable and "
                 "complete")
 
