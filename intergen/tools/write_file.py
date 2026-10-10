@@ -383,7 +383,11 @@ class WriteFileTool(BaseTool):
         # Create parent dirs if requested. The credential question is asked of
         # the resolved path first, because the directories are made before the
         # file is opened: a refused write must not leave a credential's
-        # directories behind any more than the file itself.
+        # directories behind any more than the file itself. Under the
+        # privileged runner the directories made in the requesting owner's home
+        # are held by descriptor and handed to the owner once the file is in
+        # them, by the open below.
+        made = None
         if create_dirs:
             reason = dispatch_token.canonical_path_secret_reason(path)
             if reason is not None:
@@ -393,7 +397,7 @@ class WriteFileTool(BaseTool):
                     success=False,
                 )
             try:
-                path.parent.mkdir(parents=True, exist_ok=True)
+                made = dispatch_token.made_parent_directories(path)
             except OSError as e:
                 return ToolResult(
                     call_id="", name=self.name,
@@ -409,7 +413,7 @@ class WriteFileTool(BaseTool):
         # the object it names has been established.
         try:
             fd = dispatch_token.opened_refusing_install_secrets(
-                path, os.O_WRONLY | os.O_CREAT | os.O_CLOEXEC)
+                path, os.O_WRONLY | os.O_CREAT | os.O_CLOEXEC, made=made)
             with os.fdopen(fd, "w") as handle:
                 os.ftruncate(handle.fileno(), 0)
                 handle.write(content)

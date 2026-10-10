@@ -583,7 +583,8 @@ def open_descriptor_secret_reason(fd: int) -> str | None:
 
 
 def opened_refusing_install_secrets(path: object, flags: int,
-                                    mode: int = 0o666) -> int:
+                                    mode: int = 0o666, *,
+                                    made: MadeDirectories | None = None) -> int:
     """Open `path`, then refuse if what opened is one of the install's secrets.
 
     The refusal lands after the open and before any read or write. That order is
@@ -605,17 +606,22 @@ def opened_refusing_install_secrets(path: object, flags: int,
     (_remove_own_creation). A refused write therefore leaves nothing at the path
     of a credential that did not exist, or reports that it did.
 
+    `made` is what made_parent_directories returned for this path, when the
+    caller had the directories made; this call takes it over and closes it.
+    When it holds directories, the file is created in the innermost of them
+    through that directory's descriptor, and only then are the directories
+    handed to the requesting owner (MadeDirectories).
+
     Returns the open descriptor, which the caller owns and must close. Raises
     InstallSecretRefused if the object is one of the install's secret files,
     CreatedFileNotRemoved (an OSError) in its place when a file created for a
     refused write could not be removed, and OSError from the open itself.
     """
-    if flags & os.O_TRUNC:
-        raise ValueError(
-            "opened_refusing_install_secrets refuses O_TRUNC: the open would "
-            "empty the file before the refusal could run. Truncate the returned "
-            "descriptor instead."
-        )
+    if made is not None:
+        if made.innermost is not None:
+            return _created_in_made_directories(path, flags, mode, made)
+        made.close()
+    _refuse_truncation(flags)
     if not flags & os.O_CREAT:
         return _refusing_install_secrets(os.open(path, flags, mode), path)
     try:
@@ -627,6 +633,15 @@ def opened_refusing_install_secrets(path: object, flags: int,
         # the top, so an object that now exists is opened and checked like any
         # other; a second race is reported, not looped on.
         return _opened_or_created(path, flags, mode)
+
+
+def _refuse_truncation(flags: int) -> None:
+    if flags & os.O_TRUNC:
+        raise ValueError(
+            "opened_refusing_install_secrets refuses O_TRUNC: the open would "
+            "empty the file before the refusal could run. Truncate the returned "
+            "descriptor instead."
+        )
 
 
 def _refusing_install_secrets(fd: int, path: object) -> int:
@@ -655,21 +670,27 @@ def _opened_or_created(path: object, flags: int, mode: int) -> int:
     return _created_refusing_install_secrets(path, flags, mode)
 
 
-def _created_refusing_install_secrets(path: object, flags: int, mode: int) -> int:
+def _created_refusing_install_secrets(path: object, flags: int, mode: int,
+                                      parent_fd: int | None = None) -> int:
     """Create a new file at `path`, asking first and checking again after.
 
     The parent is opened as a directory, and the kernel's own path for it plus
     the new name is what the canonical-tail question is asked of, so a
     parent-directory spelling or a linked parent is answered as what it
     resolves to. The file is then created relative to that directory
-    descriptor, exclusively and without following a link at the name.
+    descriptor, exclusively and without following a link at the name. When
+    `parent_fd` is given it is that directory, already open (a directory this
+    write made, MadeDirectories), and the parent is not looked up by name.
     """
     text = os.fspath(path)
     parent, name = os.path.split(text)
     if name in ("", ".", ".."):
         raise FileNotFoundError(
             f"nothing can be created at {text!r}: it does not end in a file name")
-    dir_fd = os.open(parent or ".", os.O_PATH | os.O_DIRECTORY | os.O_CLOEXEC)
+    if parent_fd is None:
+        dir_fd = os.open(parent or ".", os.O_PATH | os.O_DIRECTORY | os.O_CLOEXEC)
+    else:
+        dir_fd = os.dup(parent_fd)
     try:
         try:
             canonical_parent: str | None = os.readlink(f"/proc/self/fd/{dir_fd}")
@@ -734,6 +755,36 @@ class CreatedFileNotHandedToOwner(OSError):
 #: to read and write, and nobody else's.
 _OWNER_FILE_MODE = 0o600
 
+#: The mode of a directory made for the requesting owner in their own home:
+#: theirs to enter, list and change, and nobody else's.
+_OWNER_DIRECTORY_MODE = 0o700
+
+
+def _under_the_privileged_runner() -> bool:
+    """Whether this process is the privileged runner acting for an account.
+
+    PKEXEC_UID is believed only in a process that runs as root, where the runner
+    is what set it, the rule _owning_home states.
+    """
+    return os.getuid() == 0 and "PKEXEC_UID" in os.environ
+
+
+def _requesting_owner() -> tuple[int, int, str]:
+    """The account the privileged runner acts for: its uid, its primary group,
+    and its home as that path resolves. Raises KeyError or ValueError when the
+    account cannot be established."""
+    uid = int(os.environ["PKEXEC_UID"])
+    entry = pwd.getpwuid(uid)
+    return uid, entry.pw_gid, os.path.realpath(entry.pw_dir)
+
+
+def _at_or_below(canonical: str, home: str) -> bool:
+    """Whether a resolved path is the resolved home or below it, compared by
+    whole components. Nothing is below a home of /."""
+    if home == "/":
+        return False
+    return canonical == home or canonical.startswith(home + os.sep)
+
 
 def _hand_to_the_requesting_owner(fd: int, canonical_parent: str | None,
                                   path: object) -> None:
@@ -753,18 +804,13 @@ def _hand_to_the_requesting_owner(fd: int, canonical_parent: str | None,
     whole components. Any failure raises CreatedFileNotHandedToOwner, and the
     caller removes the file rather than leave it as root's.
     """
-    if os.getuid() != 0 or "PKEXEC_UID" not in os.environ:
+    if not _under_the_privileged_runner():
         return
     try:
-        uid = int(os.environ["PKEXEC_UID"])
-        entry = pwd.getpwuid(uid)
-        home = os.path.realpath(entry.pw_dir)
-        if home == "/" or canonical_parent is None:
+        uid, gid, home = _requesting_owner()
+        if canonical_parent is None or not _at_or_below(canonical_parent, home):
             return
-        if canonical_parent != home and not canonical_parent.startswith(
-                home + os.sep):
-            return
-        os.fchown(fd, uid, entry.pw_gid)
+        os.fchown(fd, uid, gid)
         os.fchmod(fd, _OWNER_FILE_MODE)
     except Exception as exc:  # noqa: BLE001 — every failure is this failure
         # Whatever the hand-over raised, the file is not the owner's, and the
@@ -875,6 +921,259 @@ def _remove_own_creation(fd: int, name: str, dir_fd: int, path: object) -> None:
         f"{path} was replaced after a file was created there for a refused write. "
         f"The replacement is back at {path}; the created file was moved elsewhere "
         f"and was not removed.")
+
+
+class CreatedDirectoryNotHandedToOwner(OSError):
+    """A directory made for the person who asked could not be made theirs.
+
+    Raised once what the write created, the file and the empty directories it
+    made, has been removed again (when a removal itself fails,
+    CreatedFileNotRemoved or CreatedDirectoryNotRemoved is raised in its place),
+    so nobody finds a directory of root's in their own home where they asked for
+    a file of their own. An OSError, so a consumer reports it as a failed write.
+    """
+
+
+class CreatedDirectoryNotRemoved(OSError):
+    """A directory made for a write that then failed could not be removed again.
+
+    Raised in place of the failure that called for the removal: reporting that
+    the write took everything it made with it would claim a state the disk does
+    not have. The message says which directories were left, and where.
+    """
+
+
+class _NotHandedOver(Exception):
+    """The first directory of a MadeDirectories that could not be handed over."""
+
+    def __init__(self, path: str, error: BaseException) -> None:
+        super().__init__(path, error)
+        self.path = path
+        self.error = error
+
+
+class MadeDirectories:
+    """The directories one privileged write made on the way to its file, held open.
+
+    made_parent_directories returns one and opened_refusing_install_secrets takes
+    it over. Each directory was made by this process relative to the descriptor
+    of the one above it, mode 0700, and is held by its own descriptor, so nothing
+    after its making looks it up by name. They stay root's while the file is
+    created in the innermost, so nothing but root can put anything in them
+    before the file is there; then each is handed to the requesting owner, the
+    outermost first and the innermost last, or, when a hand-over fails, the file
+    and every one of them is removed again.
+    """
+
+    def __init__(self) -> None:
+        # (descriptor of the directory above, name, own descriptor, path), the
+        # outermost first; every descriptor here is closed by close().
+        self._made: list[tuple[int, str, int, str]] = []
+        self._descriptors: list[int] = []
+        self._owner: tuple[int, int] | None = None
+
+    @property
+    def innermost(self) -> int | None:
+        """The descriptor of the directory the file goes in, or None when this
+        write made no directory."""
+        return self._made[-1][2] if self._made else None
+
+    def close(self) -> None:
+        while self._descriptors:
+            os.close(self._descriptors.pop())
+
+    def _hand_over(self) -> None:
+        """Hand each directory to the requesting owner, the innermost last.
+        Raises _NotHandedOver for the first that cannot be."""
+        if self._owner is None:
+            raise _NotHandedOver(self._made[0][3], RuntimeError(
+                "no requesting owner was established for the directories made"))
+        uid, gid = self._owner
+        for _above, _name, fd, path in self._made:
+            try:
+                os.fchown(fd, uid, gid)
+                os.fchmod(fd, _OWNER_DIRECTORY_MODE)
+            except Exception as exc:  # noqa: BLE001 — every failure is this failure
+                raise _NotHandedOver(path, exc) from exc
+            logger.info("Handed the new directory %s to uid %d with mode 0700",
+                        path, uid)
+
+    def _remove(self) -> None:
+        """Remove each directory, the innermost first, only while its name still
+        holds the directory made (compared by identity) and it is empty. Raises
+        CreatedDirectoryNotRemoved for the first that cannot be removed."""
+        for index in range(len(self._made) - 1, -1, -1):
+            above, name, fd, path = self._made[index]
+            left = [made_path for _a, _n, _f, made_path in self._made[:index + 1]]
+            try:
+                held = os.fstat(fd)
+                found = os.stat(name, dir_fd=above, follow_symlinks=False)
+            except OSError as exc:
+                raise _directory_not_removed(path, left, exc) from exc
+            if (found.st_dev, found.st_ino) != (held.st_dev, held.st_ino):
+                raise _directory_not_removed(
+                    path, left, "something else is at its name now")
+            try:
+                os.rmdir(name, dir_fd=above)
+            except OSError as exc:
+                raise _directory_not_removed(path, left, exc) from exc
+
+    def _settle(self) -> None:
+        """After a write that left no file of its own: the directories stay, and
+        are the owner's. A hand-over that fails removes them and raises
+        CreatedDirectoryNotHandedToOwner."""
+        try:
+            self._hand_over()
+        except _NotHandedOver as failure:
+            self._remove()
+            raise _directory_not_handed(failure) from failure.error
+
+
+def _directory_not_handed(failure: _NotHandedOver) -> CreatedDirectoryNotHandedToOwner:
+    logger.error("The directory created at %s could not be handed to the account "
+                 "that asked for it: %s", failure.path, failure.error)
+    return CreatedDirectoryNotHandedToOwner(
+        f"The directory created at {failure.path} could not be handed to the "
+        f"account that asked for it ({failure.error}); what this write created "
+        f"was removed again and nothing was written.")
+
+
+def _directory_not_removed(path: str, left: list[str],
+                           why: object) -> CreatedDirectoryNotRemoved:
+    message = (
+        f"The directory created at {path} for a write that failed was not "
+        f"removed ({why}); left in place: {', '.join(left)}.")
+    logger.error("%s", message)
+    return CreatedDirectoryNotRemoved(message)
+
+
+def made_parent_directories(path: object) -> MadeDirectories:
+    """Make the directories missing above `path`, as write_file's create_dirs asks.
+
+    Under the privileged runner, when the directory the file goes in is the
+    requesting owner's home or below it, the path, already resolved by the
+    caller, is walked one component at a time by descriptor without following a
+    link, and each missing directory is made relative to the one above it, mode
+    0700, opened without following a link, and checked to be the empty
+    directory this process just made below the home. What this returns holds
+    them for opened_refusing_install_secrets, which creates the file in the
+    innermost and then hands them to the owner (MadeDirectories). A directory
+    that already exists is passed through, untouched. Anywhere else the
+    directories are made as before, by Path.mkdir(parents=True, exist_ok=True),
+    and nothing is held.
+
+    Raises OSError when a directory cannot be made; any directory this call made
+    by then is handed to the owner first, or removed when that fails too.
+    """
+    parent = os.path.dirname(os.fspath(path))
+    made = MadeDirectories()
+    if not _under_the_privileged_runner():
+        Path(parent).mkdir(parents=True, exist_ok=True)
+        return made
+    try:
+        uid, gid, home = _requesting_owner()
+    except (KeyError, ValueError) as exc:
+        raise OSError(
+            f"the account that asked for this write could not be established "
+            f"({exc}), so no directory was made for it") from exc
+    if not os.path.isabs(parent) or not _at_or_below(os.path.normpath(parent), home):
+        Path(parent).mkdir(parents=True, exist_ok=True)
+        return made
+    made._owner = (uid, gid)
+    try:
+        _walk_making(made, os.path.normpath(parent), home)
+    except BaseException:
+        try:
+            if made.innermost is not None:
+                made._settle()
+        finally:
+            made.close()
+        raise
+    if made.innermost is None:
+        made.close()
+    return made
+
+
+def _walk_making(made: MadeDirectories, parent: str, home: str) -> None:
+    """Walk `parent` from / by descriptor, making what is missing (see above)."""
+    fd = os.open("/", os.O_PATH | os.O_DIRECTORY | os.O_CLOEXEC)
+    made._descriptors.append(fd)
+    walked = "/"
+    parts = [part for part in parent.split(os.sep) if part]
+    missing = len(parts)
+    for index, part in enumerate(parts):
+        try:
+            below = os.open(part, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW
+                            | os.O_CLOEXEC, dir_fd=fd)
+        except FileNotFoundError:
+            missing = index
+            break
+        # Only the directory above the first one made is needed later; every
+        # descriptor before it is closed as the walk passes it.
+        os.close(made._descriptors.pop())
+        made._descriptors.append(below)
+        fd, walked = below, os.path.join(walked, part)
+    for part in parts[missing:]:
+        here = os.path.join(walked, part)
+        os.mkdir(part, _OWNER_DIRECTORY_MODE, dir_fd=fd)
+        try:
+            below = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+                            | os.O_CLOEXEC, dir_fd=fd)
+        except OSError as exc:
+            raise OSError(
+                f"the directory made at {here} could not be opened again ({exc}); "
+                f"its name was moved or replaced, and the directory made is left "
+                f"wherever it was moved") from exc
+        try:
+            st = os.fstat(below)
+            canonical = os.readlink(f"/proc/self/fd/{below}")
+            ours = (st.st_uid == os.geteuid() and not os.listdir(below)
+                    and _at_or_below(canonical, home))
+        except BaseException:
+            os.close(below)
+            raise
+        if not ours:
+            os.close(below)
+            raise OSError(
+                f"the directory made at {here} is not what is there now (found "
+                f"at {canonical}, owner {st.st_uid}); its name was moved or "
+                f"replaced, the directory made is left wherever it was moved, and "
+                f"nothing was written")
+        made._descriptors.append(below)
+        made._made.append((fd, part, below, here))
+        fd, walked = below, here
+
+
+def _created_in_made_directories(path: object, flags: int, mode: int,
+                                 made: MadeDirectories) -> int:
+    """Create the file in the innermost directory `made` holds, then settle the
+    directories: handed to the owner, or removed with the file (MadeDirectories)."""
+    try:
+        innermost = made.innermost
+        try:
+            _refuse_truncation(flags)
+            fd = _created_refusing_install_secrets(path, flags, mode,
+                                                   parent_fd=innermost)
+        except CreatedFileNotHandedToOwner:
+            # The file is gone again already; the directories made for it follow.
+            made._remove()
+            raise
+        except BaseException:
+            made._settle()
+            raise
+        try:
+            made._hand_over()
+        except _NotHandedOver as failure:
+            try:
+                _remove_own_creation(fd, os.path.basename(os.fspath(path)),
+                                     innermost, path)
+            finally:
+                os.close(fd)
+            made._remove()
+            raise _directory_not_handed(failure) from failure.error
+        return fd
+    finally:
+        made.close()
 
 
 def read_text_refusing_install_secrets(path: object, *,
