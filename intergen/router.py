@@ -4242,7 +4242,8 @@ class ConversationRouter(RouterInterface):
 
         return RouteResult(handled=False)
 
-    def _answer_from_stored_facts(self, user_input: str) -> str | None:
+    def _answer_from_stored_facts(self, user_input: str, *,
+                                  strict: bool = False) -> str | None:
         """The stored facts the question names, rendered as a plain answer, or
         None when the store holds nothing matching.
 
@@ -4250,6 +4251,10 @@ class ConversationRouter(RouterInterface):
         uses, so what the user is TOLD here and what the model would be SHOWN for
         the same question are selected identically — one notion of "the question
         names this fact", not two that can drift apart.
+
+        ``strict``: a store that cannot be read raises instead of reading as
+        empty, for a caller that answers the person itself and must not tell
+        them nothing is stored when the store was never read.
         """
         if self._memory is None:
             return None
@@ -4257,6 +4262,8 @@ class ConversationRouter(RouterInterface):
             facts = [(f.fact_id, f"{f.key}: {f.value}")
                      for f in self._memory.list_all()]
         except Exception:  # a memory-store hiccup must not fail a turn
+            if strict:
+                raise
             return None
         matched = _lexical_fact_match(user_input, facts)
         if not matched:
@@ -4354,9 +4361,66 @@ class ConversationRouter(RouterInterface):
     )
     # Memory recall/store clauses resolve against the personal-fact store, which
     # a from-scratch model turn has no access to — a memory clause keeps a
-    # compound decomposed so its recall routes to _try_memory, not the model.
+    # compound decomposed, and _route_single hands that clause to the memory
+    # slot (_try_memory_clause), never to the model. A forget is the exception:
+    # a request that carries one is held whole before any split, so a forget
+    # clause never reaches the clause router.
     _COMPOUND_MEMORY_RE = re.compile(
         r"\b(?:remember|forget|recall|my\s+name)\b", re.IGNORECASE)
+    # A clause that asks for a stored fact by the verb alone ("recall my
+    # editor"); a question about the person's own affairs is read as a recall
+    # by the memory parser's own classifier.
+    _RECALL_LEAD_RE = re.compile(r"^\s*recall\b", re.IGNORECASE)
+
+    def _try_memory_clause(self, clause: str) -> "RouteResult | None":
+        """THE MEMORY SLOT FOR ONE CLAUSE OF A SPLIT REQUEST.
+
+        A clause the compound-memory pattern marks is answered here and never
+        by a model turn: the pattern is what kept the request decomposed, and a
+        model turn can neither keep a fact nor read the store, so "remember
+        that my editor is vim" handed to it stored nothing, and "what is my
+        name" asked it for a name the store held. A remember clause is stored
+        and the reply says what was kept; a recall clause (a question about
+        the person's own affairs, or one led by "recall") is answered from the
+        store, and when the store holds nothing the clause names, or cannot be
+        read, the reply says that. Returns None for any other clause, for a
+        forget (held whole before any split), and when there is no store.
+        """
+        if not self._COMPOUND_MEMORY_RE.search(clause):
+            return None
+        if MemoryManager.is_forget_request(clause) is not None:
+            return None
+        if self._memory is None:
+            return None
+        if MemoryManager.is_remember_request(clause):
+            facts = self._memory.extract_and_store(clause)
+            if facts:
+                stored = ", ".join(f"**{f.key}** = {f.value}" for f in facts)
+                text = f"Got it. I'll remember: {stored}"
+            else:
+                text = ("I couldn't extract a fact from that. Try: "
+                        "'Remember that [something] is [value]'")
+            kind = "remember"
+        elif (MemoryManager.classify_declarative(clause)[0] == "recall"
+              or self._RECALL_LEAD_RE.match(clause)):
+            kind = "recall"
+            try:
+                answer = self._answer_from_stored_facts(clause, strict=True)
+            except Exception as exc:
+                logger.warning("memory clause: the store could not be read: %s", exc)
+                text =("I couldn't read what I have stored just now, so I "
+                        "can't answer that part.")
+                kind = "recall_unreadable"
+            else:
+                text = answer or ("I have nothing stored for that. Tell me with "
+                                  "\"remember that …\" and I'll keep it.")
+        else:
+            return None
+        glass.emit("decision", "memory_clause", detail={
+            "clause": clause, "kind": kind})
+        return RouteResult(text=text, source="memory", handled=True,
+                           answer_linkage=AnswerLinkage(
+                               kind="code", renderer="memory_template"))
 
     def _compound_has_fastpath_clause(self, sub_queries: list[str]) -> bool:
         """True if ANY clause of a compound resolves to a deterministic fast-path
@@ -5261,6 +5325,12 @@ class ConversationRouter(RouterInterface):
             self._trail_note(stage, outcome, scope=trail_scope,
                              sub_query=user_input, **why)
 
+        # The memory slot first, as on a turn of its own: a clause the
+        # compound-memory pattern marks is the memory slot's, never the model's.
+        memory_answer = self._try_memory_clause(user_input)
+        if memory_answer is not None:
+            _note("memory", "won")
+            return memory_answer
         result = self._try_keyword_match(user_input)
         if result.handled:
             _note("keyword", "won")
