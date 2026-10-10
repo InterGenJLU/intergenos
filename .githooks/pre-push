@@ -728,31 +728,26 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
         esac
     }
     # The mode of a path at a ref (120000 = a symbolic link, 040000 = a
-    # directory), or nothing: the first six bytes of the NUL-terminated record,
-    # never a line of it — a newline inside the path would otherwise split the
-    # record, so the mode came back with the path's tail attached and matched
-    # nothing.
-    # Printed only when both commands of the pipeline exited zero; otherwise
-    # nothing is printed and the look-up fails, so a caller never reads a
-    # failed look-up as "no such path" — the first form consumed the output
-    # alone, and a failing look-up made a resolving link vanish from the maps
-    # (a second reader's true positive, 2026-10-09). An absent path is a
-    # successful look-up with an empty record. The two failures are told
-    # apart by status — 4 when git could not list the entry (the repository's
-    # objects), 5 when git listed it but head could not take the six bytes
-    # (the tool on PATH) — so the block that follows names the instrument
-    # that failed and its own recovery: before this both came back as one
-    # status and every caller reported git ls-tree and sent the user to
-    # repair the repository (a second reader's true positive, 2026-10-09).
+    # directory), or nothing: the first six bytes of git's record, taken from
+    # the record read WHOLE into the shell — never a line of it (a newline
+    # inside the path is written C-quoted by git ls-tree without -z, and the
+    # first six bytes are the mode whatever the path holds), and never through
+    # a reader that stops early: the earlier form piped the NUL-terminated
+    # record through head -c 6, the pipeline shape this repository's
+    # preflight test (tests/preflight/test_pre_push_reads_long_input_whole.py)
+    # refuses in this file, because under pipefail a writer whose reader has
+    # gone ends the pipeline with SIGPIPE (2026-10-10).
+    # Printed only when git exited zero; otherwise nothing is printed and the
+    # look-up fails with status 4, so a caller never reads a failed look-up as
+    # "no such path" — the first form consumed the output alone, and a failing
+    # look-up made a resolving link vanish from the maps (a second reader's
+    # true positive, 2026-10-09). An absent path is a successful look-up with
+    # an empty record. One command, one instrument: the block that follows
+    # names git ls-tree and the repository's recovery.
     mode_at() { # <ref> <path>
-        local out st
-        out=$(git --literal-pathspecs ls-tree -z "$1" -- "$2" 2>/dev/null | head -c 6; printf '\n%s %s' "${PIPESTATUS[0]}" "${PIPESTATUS[1]}") || return 4
-        st=${out##*$'\n'}
-        case "$st" in
-            "0 0") printf '%s' "${out%%$'\n'*}" ;;
-            0\ *)  return 5 ;;
-            *)     return 4 ;;
-        esac
+        local out
+        out=$(git --literal-pathspecs ls-tree "$1" -- "$2" 2>/dev/null) || return 4
+        printf '%s' "${out:0:6}"
     }
     mode_at_ref() { mode_at "$LOCAL" "$1"; }
     # The exact bytes a symbolic link's blob holds at a ref (its target as
@@ -922,38 +917,23 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
         echo "  Resolve: repair the counting tools on PATH (tr and wc -c) and push again; the link itself is not at fault."
         rm -rf "$SYNTAX_TMP"; exit 1
     }
-    # A path whose mode could not be read because head failed the six-byte
-    # look-up while git listed the entry: the repository is sound and the path
-    # is not at fault, so the recovery is the tool on PATH — before this the
-    # block named git ls-tree and sent the user to repair the repository's
-    # objects, which could not clear it (a second reader's true positive,
-    # 2026-10-09).
-    block_unread_mode() { # <path> <ref, shown>
-        echo "[pre-push] BLOCK: the mode of $(printf '%q' "$1") at $2 could not be read (git listed the entry; head could not take its six bytes), so whether it is a symbolic link named as a module is not known."
-        echo "  Reason: a check that did not run has not passed."
-        echo "  Resolve: repair head on PATH (coreutils) and push again; the repository and the path are not at fault."
-        rm -rf "$SYNTAX_TMP"; exit 1
-    }
-    # The block for a mode look-up that failed, by mode_at's status: 5 head
-    # could not read it, anything else git could not list it. Every failure
-    # blocks; none passes.
+    # The block for a mode look-up that failed (mode_at's status 4: git could
+    # not list the entry, the one instrument the look-up has since the
+    # six-byte reader left it). Every failure blocks; none passes.
     block_mode_status() { # <status> <path> <ref, shown>
-        case "$1" in
-            5) block_unread_mode "$2" "$3" ;;
-            *) block_unreadable_link "$2" "$3" "git ls-tree" ;;
-        esac
+        block_unreadable_link "$2" "$3" "git ls-tree"
     }
     # The block for a link the resolver could not examine, by the status it
     # returned (2 the blob unreadable, 3 its count not taken, 4 a mode not
-    # listed by git, 5 a mode not read by head). Status 1 — the link resolves
-    # to nothing — is not a block here and is the caller's to judge; any other
-    # status blocks as a look-up that did not run, never passes.
+    # listed by git). Status 1 — the link resolves to nothing — is not a block
+    # here and is the caller's to judge; any other status blocks as a look-up
+    # that did not run, never passes.
     block_by_status() { # <status> <path> <ref, shown>
         case "$1" in
             1) ;;
             2) block_unreadable_link "$2" "$3" "git show" ;;
             3) block_uncounted_link "$2" "$3" ;;
-            4|5) block_mode_status "$1" "$2" "$3" ;;
+            4) block_mode_status "$1" "$2" "$3" ;;
             *) block_unreadable_link "$2" "$3" "a look-up with the unexpected status $1" ;;
         esac
     }
