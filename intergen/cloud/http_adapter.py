@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -51,7 +52,9 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT = 60.0
 
-#: How much of a reply is read between two checks of the caller's stop.
+#: The most of a reply one read takes. Each read returns what one receive
+#: brings, up to this many bytes, and the caller's stop is checked between
+#: reads.
 READ_CHUNK = 4096
 
 #: How much of an error reply's body is read, as a prefix: the error's detail
@@ -228,24 +231,34 @@ class HTTPCloudAdapter(CloudProviderAdapter):
                 f"{self.name}: the turn this call belonged to has ended")
 
     def _read_reply(self, resp, should_stop: Callable[[], bool] | None,
-                    limit: int | None = None) -> bytes:
-        """The reply's body, a success's or an error's. With a stop, it is
-        read a chunk at a time and the stop is checked before each read and
-        once more after the last, so a call whose turn ends reads at most the
-        chunk in flight, and a turn that ends during the read that finds the
-        end of the body stops the call all the same. With a limit, it is read
-        the same way, stop or none, and no more than ``limit`` bytes are
+                    timeout: float, limit: int | None = None,
+                    reading: str = "its reply") -> bytes:
+        """The reply's body, a success's or an error's, stop or none. Each
+        read is one receive (read1, at most READ_CHUNK bytes), and the stop
+        is checked before each read and once more after the last, so a call
+        whose turn ends is stopped within one wait on the socket (the
+        request's timeout) however slowly the endpoint sends, and a turn
+        that ends during the read that finds the end of the body stops the
+        call all the same. A read that waited for a whole chunk held the
+        stop until the chunk was complete: 4096 receives of a byte, each just
+        inside the 60-second default, is about 68 hours. The whole read has
+        the same timeout: a body still arriving once it has passed ends the
+        call as a provider error naming it, the rest not read, within one
+        more wait at most. With a limit, no more than ``limit`` bytes are
         read: the read ends there as it ends at the end of the body. The
         caller closes the reply (a success's with-block, an error's
         finally)."""
-        if should_stop is None and limit is None:
-            return resp.read()
+        read_by = time.monotonic() + timeout
         parts: list[bytes] = []
         left = limit
         while left is None or left > 0:
             self._stop_if_asked(should_stop)
+            if time.monotonic() >= read_by:
+                raise CloudAdapterError(
+                    f"{self.name}: {reading} was not read within {timeout:g}s, "
+                    "the request's timeout; the rest was not read")
             size = READ_CHUNK if left is None else min(READ_CHUNK, left)
-            chunk = resp.read(size)
+            chunk = resp.read1(size)
             if not chunk:
                 break
             parts.append(chunk)
@@ -271,12 +284,13 @@ class HTTPCloudAdapter(CloudProviderAdapter):
         )
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
-                return json.loads(self._read_reply(resp, should_stop).decode())
+                return json.loads(
+                    self._read_reply(resp, should_stop, timeout).decode())
         except urllib.error.HTTPError as exc:
             # The error reply's body is read as a success's is, through the
             # stop-aware reader: a turn that ends while it is read, its last
             # read included, stops the call (CloudCallStopped) within the
-            # chunk in flight, before any provider error is made. It is read
+            # receive in flight, before any provider error is made. It is read
             # only as a prefix, ERROR_BODY_LIMIT bytes and the one byte past
             # them that tells a body cut there from one that ends there, so
             # an endpoint that answers an error with a huge or unending body
@@ -284,8 +298,9 @@ class HTTPCloudAdapter(CloudProviderAdapter):
             # before any with-block owned the reply, so it is closed here,
             # however the read ends.
             try:
-                body = self._read_reply(exc, should_stop,
-                                        limit=ERROR_BODY_LIMIT + 1)
+                body = self._read_reply(
+                    exc, should_stop, timeout, limit=ERROR_BODY_LIMIT + 1,
+                    reading=f"its HTTP {exc.code} error reply")
             finally:
                 exc.close()
             detail = body.decode(errors="replace")[:500]

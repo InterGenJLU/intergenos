@@ -19,11 +19,17 @@ from intergen.interfaces.types import Message, MessageRole
 
 
 class _FakeResp:
+    """A reply as the adapter reads it: read1(n) brings the body's next n
+    bytes, as one receive would."""
+
     def __init__(self, payload: dict):
         self._b = json.dumps(payload).encode()
+        self._at = 0
 
-    def read(self):
-        return self._b
+    def read1(self, n: int):
+        piece = self._b[self._at:self._at + n]
+        self._at += len(piece)
+        return piece
 
     def __enter__(self):
         return self
