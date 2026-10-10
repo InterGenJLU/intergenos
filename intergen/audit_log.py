@@ -164,41 +164,15 @@ def read_records(log_path: Path | None = None) -> Iterator[dict]:
     A line whose bytes are not UTF-8 is passed over the same way, with its own warning;
     the lines come from :func:`_record_lines`, as the read-back's do. A record that is
     absent yields nothing; one that cannot be checked (see :func:`record_presence`) yields
-    nothing with a warning that names what was found.
+    nothing with a warning that names what was found. A line that is JSON but not one row
+    object is passed over with a warning too: the reading counts it as unreadable, so the
+    rows yielded are exactly the rows the reading counts.
     """
     path = log_path if log_path is not None else default_log_path()
-    presence, found = record_presence(path)
-    if presence == "absent":
-        return
-    if presence == "uncheckable":
-        logger.warning("audit_log: read_records could not check the record and returned "
-                       "nothing from it: %s", found)
-        return
-    try:
-        record_lines = _record_lines(path)
-    except OSError as exc:
-        logger.warning("audit_log: read_records OSError: %s", exc)
-        return
-    for line_number, text in record_lines:
-        if text is None:
-            logger.warning(
-                "audit_log: line %d of %s holds bytes that are not UTF-8 text and is "
-                "NOT included in what this reader returned",
-                line_number, path,
-            )
-            continue
-        raw = text.strip()
-        if not raw:
-            continue
-        try:
-            yield json.loads(raw)
-        except json.JSONDecodeError as exc:
-            logger.warning(
-                "audit_log: line %d of %s could not be read and is NOT "
-                "included in what this reader returned: %s",
-                line_number, path, exc,
-            )
-            continue
+    _reading, rows, passed_over = _read_once(path)
+    for note in passed_over:
+        logger.warning("%s", note)
+    yield from rows
 
 
 @functools.lru_cache(maxsize=None)
@@ -353,18 +327,49 @@ def read_integrity(log_path: Path | None = None) -> IntegrityReading:
     read error, and the verdict names it.
     """
     path = log_path if log_path is not None else default_log_path()
+    return _read_once(path)[0]
+
+
+@dataclass(frozen=True)
+class RecordSnapshot:
+    """One read of the record: the integrity reading and the rows it counted, from the same bytes."""
+
+    reading: IntegrityReading
+    rows: list[dict]
+
+
+def read_snapshot(log_path: Path | None = None) -> RecordSnapshot:
+    """Read the record ONCE; the verdict, the rows and their count all come from that read.
+
+    A view that took the verdict from one read and the rows from a second could print rows
+    the verdict never saw: a change landing between the two reads left surviving rows beneath
+    a clean verdict. Every line passed over is logged as :func:`read_records` logs it.
+    """
+    path = log_path if log_path is not None else default_log_path()
+    reading, rows, passed_over = _read_once(path)
+    for note in passed_over:
+        logger.warning("%s", note)
+    return RecordSnapshot(reading=reading, rows=rows)
+
+
+def _read_once(path: Path) -> tuple[IntegrityReading, list[dict], list[str]]:
+    """The reading, its readable rows and a note for each line passed over, from ONE read."""
     presence, found = record_presence(path)
     if presence == "absent":
-        return IntegrityReading(path=path, exists=False)
+        return IntegrityReading(path=path, exists=False), [], []
     if presence == "uncheckable":
-        return IntegrityReading(path=path, read_error=found)
+        return (IntegrityReading(path=path, read_error=found), [],
+                [f"audit_log: the record could not be checked and nothing was read from it: "
+                 f"{found}"])
     try:
         record_lines = _record_lines(path)
     except OSError as exc:
-        return IntegrityReading(path=path, read_error=str(exc))
+        return (IntegrityReading(path=path, read_error=str(exc)), [],
+                [f"audit_log: the record could not be read and nothing was read from it: {exc}"])
 
     lines = 0
-    rows = 0
+    rows: list[dict] = []
+    passed_over: list[str] = []
     unreadable: list[int] = []
     undecodable: list[int] = []
     incomplete: list[int] = []
@@ -375,19 +380,28 @@ def read_integrity(log_path: Path | None = None) -> IntegrityReading:
         if raw is None:
             lines += 1
             undecodable.append(line_number)
+            passed_over.append(
+                f"audit_log: line {line_number} of {path} holds bytes that are not UTF-8 text "
+                f"and is NOT included in what this reader returned")
             continue
         if not raw.strip():
             continue
         lines += 1
         try:
             row = json.loads(raw)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as exc:
             unreadable.append(line_number)
+            passed_over.append(
+                f"audit_log: line {line_number} of {path} could not be read and is NOT "
+                f"included in what this reader returned: {exc}")
             continue
         if not isinstance(row, dict):
             unreadable.append(line_number)
+            passed_over.append(
+                f"audit_log: line {line_number} of {path} is JSON but not one row object and "
+                f"is NOT included in what this reader returned")
             continue
-        rows += 1
+        rows.append(row)
         if _missing_serialized_field(row):
             incomplete.append(line_number)
         timestamp = row.get("timestamp")
@@ -400,16 +414,17 @@ def read_integrity(log_path: Path | None = None) -> IntegrityReading:
         turn = row.get("turn_id")
         if not turn or str(turn).startswith(_SENTINEL_TURN_PREFIXES):
             unjoinable += 1
-    return IntegrityReading(
+    reading = IntegrityReading(
         path=path,
         lines=lines,
-        rows=rows,
+        rows=len(rows),
         unreadable_lines=unreadable,
         undecodable_lines=undecodable,
         incomplete_rows=incomplete,
         out_of_order_rows=out_of_order,
         unjoinable_rows=unjoinable,
     )
+    return reading, rows, passed_over
 
 
 def clear_log(log_path: Path | None = None) -> bool:

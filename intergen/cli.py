@@ -1476,8 +1476,12 @@ def cmd_tool_log(args: list[str]) -> None:
     intergen.audit_log.IntegrityReading for what it can and cannot establish.
     """
     from intergen.audit_log import (
-        clear_log, default_log_path, read_integrity, read_records, record_count,
+        clear_log, default_log_path, read_snapshot, record_count,
     )
+
+    # Each invocation reads the record's bytes ONCE and takes its verdict, its rows and its
+    # count from that one snapshot (read_snapshot). A verdict from one read beside rows from a
+    # second could print rows the verdict never saw.
 
     if "--clear" in args:
         path = default_log_path()
@@ -1498,7 +1502,7 @@ def cmd_tool_log(args: list[str]) -> None:
         # that does not read clean gets its verdict and a non-zero exit, never the count of
         # the rows that survived the read. stdout carries the count alone, so it stays
         # machine-readable; the refusal goes to stderr.
-        reading = read_integrity()
+        reading = read_snapshot().reading
         if reading.damaged:
             for line in reading.report():
                 print(line, file=sys.stderr)
@@ -1507,7 +1511,7 @@ def cmd_tool_log(args: list[str]) -> None:
         return
 
     if "--integrity" in args:
-        reading = read_integrity()
+        reading = read_snapshot().reading
         for line in reading.report():
             print(line)
         sys.exit(1 if reading.damaged else 0)
@@ -1523,8 +1527,8 @@ def cmd_tool_log(args: list[str]) -> None:
             print("--limit must be >= 1", file=sys.stderr)
             sys.exit(1)
 
-    reading = read_integrity()
-    records = list(read_records())
+    snapshot = read_snapshot()
+    reading, records = snapshot.reading, snapshot.rows
 
     if "--json" in args:
         # Keep stdout JSON-only; send structural validation to stderr.
