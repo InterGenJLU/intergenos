@@ -125,7 +125,7 @@ def _dialogs(branded, zenity_path, zenity_run):
         mock.patch.object(consent_modal.consent_dialog, "run_consent_dialog",
                           return_value=branded),
         mock.patch.object(consent_modal.shutil, "which", return_value=zenity_path),
-        mock.patch.object(consent_modal.subprocess, "run", run),
+        mock.patch.object(consent_modal.consent_dialog, "run_bounded", run),
         mock.patch.object(consent_modal, "_prompt_consent_libnotify",
                           return_value=False),
     ]
@@ -187,7 +187,7 @@ class TheConsentStepSaysWhyNothingWasSent(unittest.TestCase):
                               side_effect=AssertionError("no dialog may start")),
             mock.patch.object(consent_modal.shutil, "which",
                               return_value="/usr/bin/zenity"),
-            mock.patch.object(consent_modal.subprocess, "run", zenity_run),
+            mock.patch.object(consent_modal.consent_dialog, "run_bounded", zenity_run),
             mock.patch.object(consent_modal, "_prompt_consent_libnotify",
                               return_value=False),
         ]

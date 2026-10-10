@@ -29,7 +29,6 @@ from __future__ import annotations
 import logging
 import shutil
 import subprocess
-import time
 from typing import Callable
 
 # Reuse review_modal's session-active probe so the two consent surfaces behave
@@ -169,9 +168,13 @@ def _prompt_consent_zenity(content: str, provider: str, reason: str,
     deadline at all, so a dialog program that never returned held the calling
     thread for as long as the process lived, with no record anywhere that a
     person had been asked and had not answered. At the deadline the program is
-    killed (``subprocess.run`` kills and reaps it before raising) and the
-    answer is None, which the caller records as the content not having been
-    shown — never as the person's decline, and never as a send.
+    taken down and the answer is None, which the caller records as the content
+    not having been shown — never as the person's decline, and never as a
+    send. Every run, with a stop or without, goes through
+    ``consent_dialog.run_bounded``, whose teardown is the branded dialog's (a
+    kill, a bounded reap and a poll): subprocess.run's own waited for the
+    killed program without a bound. A program that cannot be verified ended
+    raises ``consent_dialog.DialogNotTakenDown``.
     """
     zenity = shutil.which("zenity")
     if zenity is None:
@@ -195,21 +198,23 @@ def _prompt_consent_zenity(content: str, provider: str, reason: str,
             "--cancel-label=Cancel",
             f"--checkbox={REVIEW_ACKNOWLEDGED}",
         ]
-        if should_stop is None:
-            result = subprocess.run(
-                argv, input=body, capture_output=True, text=True,
-                timeout=consent_dialog_proto.POST_RENDER_DEADLINE_SECONDS,
-            )
-        else:
-            result = _run_until_stopped(argv, body, should_stop)
-            if result is None:
-                return False
+        # The stop is passed only when the caller hands one.
+        stop_kwargs = {} if should_stop is None else {"should_stop": should_stop}
+        result = consent_dialog.run_bounded(
+            argv, input=body,
+            timeout=consent_dialog_proto.POST_RENDER_DEADLINE_SECONDS,
+            **stop_kwargs)
+        if result is None:
+            logger.info("consent: the request this dialog asked about has "
+                        "ended — the dialog was withdrawn; nothing sent")
+            return False
     except subprocess.TimeoutExpired:
-        # Nobody answered inside the deadline. subprocess.run has already
-        # killed the dialog program and reaped it, so nothing is left holding
-        # the display or the payload. This is not the person's Cancel: they
-        # were shown the content and said nothing, so the honest record is the
-        # one for a send nobody was asked about, and the reply says that.
+        # Nobody answered inside the deadline. The runner has taken the
+        # dialog program down and verified it ended, so nothing is left
+        # holding the display or the payload. This is not the person's Cancel:
+        # they were shown the content and said nothing, so the honest record
+        # is the one for a send nobody was asked about, and the reply says
+        # that.
         logger.error("zenity did not return within %.0fs — the dialog was killed "
                      "at the deadline and nothing was sent; nobody answered, so "
                      "this is recorded as the content not having been shown",
@@ -233,61 +238,6 @@ def _prompt_consent_zenity(content: str, provider: str, reason: str,
     return result.returncode == 0
 
 
-def _run_until_stopped(argv: list[str], body: str,
-                       should_stop: Callable[[], bool],
-                       ) -> subprocess.CompletedProcess | None:
-    """subprocess.run(argv, input=body, capture_output=True, text=True,
-    timeout=the deadline), reading the caller's stop between short waits:
-    once it is set the program is taken down and None is returned. At the
-    deadline the program is taken down and TimeoutExpired is raised, as
-    subprocess.run does. Each teardown is the branded dialog's own
-    (consent_dialog._kill: a kill, a bounded reap and a poll), never an
-    unbounded wait: a program that cannot be verified ended raises
-    consent_dialog.DialogNotTakenDown instead, and its pipes are closed
-    without waiting on it."""
-    decide_by = (time.monotonic()
-                 + consent_dialog_proto.POST_RENDER_DEADLINE_SECONDS)
-    proc = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE, text=True)
-    try:
-        given = body
-        while True:
-            try:
-                out, err = proc.communicate(given, timeout=min(
-                    consent_dialog.WITHDRAW_POLL_SECONDS,
-                    max(0.0, decide_by - time.monotonic())))
-                return subprocess.CompletedProcess(argv, proc.returncode,
-                                                   out, err)
-            except subprocess.TimeoutExpired:
-                given = None   # the input not yet written is kept by Popen
-            if should_stop():
-                _take_down(proc)
-                logger.info("consent: the request this dialog asked about has "
-                            "ended — the dialog was withdrawn; nothing sent")
-                return None
-            if time.monotonic() >= decide_by:
-                _take_down(proc)
-                raise subprocess.TimeoutExpired(
-                    argv, consent_dialog_proto.POST_RENDER_DEADLINE_SECONDS)
-    finally:
-        # Popen's own with-block would wait for the program without a bound;
-        # it is reaped above, or reported as not taken down.
-        for stream in (proc.stdin, proc.stdout, proc.stderr):
-            try:
-                if stream is not None:
-                    stream.close()
-            except OSError:
-                pass
-
-
-def _take_down(proc: subprocess.Popen) -> None:
-    """The fallback dialog's teardown, through the branded dialog's verified
-    one; DialogNotTakenDown when the program could not be verified ended."""
-    if consent_dialog._kill(proc) is not None:
-        raise consent_dialog.DialogNotTakenDown(
-            "the fallback consent dialog could not be verified closed")
-
-
 def _prompt_consent_libnotify(provider: str) -> bool:
     """Headless / no-zenity fallback. We cannot render a full reviewable payload
     in a notification, and show-before-send REQUIRES the user actually see the
@@ -296,11 +246,15 @@ def _prompt_consent_libnotify(provider: str) -> bool:
 
     Returns False always (deny): an unattended egress to a third party must never
     proceed without the human having seen the content.
+
+    notify-send is given five seconds, as the review gate gives it, through
+    the dialogs' bounded runner: it had no bound at all, so a notification
+    program that never returned held the consent step with it.
     """
     notify_send = shutil.which("notify-send")
     if notify_send is not None:
         try:
-            subprocess.run(
+            consent_dialog.run_bounded(
                 [
                     notify_send, "--urgency=critical",
                     "InterGen — frontier-model send blocked",
@@ -308,9 +262,11 @@ def _prompt_consent_libnotify(provider: str) -> bool:
                      "graphical prompt is available. Nothing was sent. Retry in an "
                      "active desktop session so you can review the content first."),
                 ],
-                capture_output=True, check=False,
+                timeout=5, what="notify-send",
+                consequence="it may still be running; nothing sent",
             )
-        except OSError as e:
+        except (subprocess.TimeoutExpired, OSError,
+                consent_dialog.DialogNotTakenDown) as e:
             logger.error("notify-send failed: %s", e)
     logger.warning("phone-a-friend consent unavailable (no session/zenity); "
                    "denied — show-before-send cannot be honored headless")

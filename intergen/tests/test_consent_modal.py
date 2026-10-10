@@ -5,7 +5,8 @@
 Verifies the fail-closed semantics without a real GUI: zenity Send -> True, Cancel
 -> False, zenity-unavailable -> libnotify fallback (always deny), session-inactive ->
 fallback, the outbound content + provider appear in the modal body, and long content
-is previewed with a truncation marker. Runs on any host (subprocess is mocked).
+is previewed with a truncation marker. Runs on any host (the bounded runner,
+consent_dialog.run_bounded, is mocked).
 """
 
 from __future__ import annotations
@@ -26,7 +27,7 @@ class ConsentModalTests(unittest.TestCase):
              mock.patch.object(consent_modal.consent_dialog, "run_consent_dialog",
                                return_value=None), \
              mock.patch.object(consent_modal.shutil, "which", return_value="/usr/bin/zenity"), \
-             mock.patch.object(consent_modal.subprocess, "run",
+             mock.patch.object(consent_modal.consent_dialog, "run_bounded",
                                return_value=_completed(0)) as run:
             self.assertTrue(consent_modal.prompt_send_consent("hi", "anthropic", "help"))
         # the FULL outbound content + provider go to the scrollable dialog via stdin
@@ -41,7 +42,7 @@ class ConsentModalTests(unittest.TestCase):
              mock.patch.object(consent_modal.consent_dialog, "run_consent_dialog",
                                return_value=None), \
              mock.patch.object(consent_modal.shutil, "which", return_value="/usr/bin/zenity"), \
-             mock.patch.object(consent_modal.subprocess, "run",
+             mock.patch.object(consent_modal.consent_dialog, "run_bounded",
                                return_value=_completed(1)):
             self.assertFalse(consent_modal.prompt_send_consent("hi", "openai"))
 
@@ -50,7 +51,7 @@ class ConsentModalTests(unittest.TestCase):
              mock.patch.object(consent_modal.consent_dialog, "run_consent_dialog",
                                return_value=None), \
              mock.patch.object(consent_modal.shutil, "which", return_value="/usr/bin/zenity"), \
-             mock.patch.object(consent_modal.subprocess, "run", side_effect=OSError):
+             mock.patch.object(consent_modal.consent_dialog, "run_bounded", side_effect=OSError):
             self.assertFalse(consent_modal.prompt_send_consent("hi", "openai"))
 
     def test_no_zenity_falls_back_and_denies(self):
@@ -62,7 +63,7 @@ class ConsentModalTests(unittest.TestCase):
              mock.patch.object(consent_modal.consent_dialog, "run_consent_dialog",
                                return_value=None), \
              mock.patch.object(consent_modal.shutil, "which", side_effect=which), \
-             mock.patch.object(consent_modal.subprocess, "run",
+             mock.patch.object(consent_modal.consent_dialog, "run_bounded",
                                return_value=_completed(0)):
             self.assertFalse(consent_modal.prompt_send_consent("hi", "openai"))
 
@@ -70,7 +71,7 @@ class ConsentModalTests(unittest.TestCase):
         with mock.patch.object(consent_modal, "_session_active", return_value=False), \
              mock.patch.object(consent_modal.shutil, "which",
                                return_value="/usr/bin/notify-send"), \
-             mock.patch.object(consent_modal.subprocess, "run",
+             mock.patch.object(consent_modal.consent_dialog, "run_bounded",
                                return_value=_completed(0)):
             self.assertFalse(consent_modal.prompt_send_consent("secret", "google"))
 
@@ -104,7 +105,7 @@ class ConsentModalTests(unittest.TestCase):
              mock.patch.object(consent_modal.consent_dialog, "run_consent_dialog",
                                return_value=None), \
              mock.patch.object(consent_modal.shutil, "which", return_value="/usr/bin/zenity"), \
-             mock.patch.object(consent_modal.subprocess, "run",
+             mock.patch.object(consent_modal.consent_dialog, "run_bounded",
                                return_value=_completed(1)) as run:
             consent_modal.prompt_send_consent("hi", "openai")
         argv = run.call_args[0][0]

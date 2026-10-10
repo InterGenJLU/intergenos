@@ -94,7 +94,9 @@ def _ensure_display_env() -> None:
     user is interacting, so the session env has been imported and
     `systemctl --user show-environment` carries it; copy it into this process
     so the zenity modal can render. Best-effort: any failure leaves the env
-    untouched and the caller falls back as before.
+    untouched and the caller falls back as before. The probe runs through the
+    dialogs' bounded runner (consent_dialog.run_bounded), so a probe its
+    two-second bound cannot end is reported with its pid, never waited on.
     """
     if os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"):
         return
@@ -102,11 +104,14 @@ def _ensure_display_env() -> None:
     if systemctl is None:
         return
     try:
-        result = subprocess.run(
-            [systemctl, "--user", "show-environment"],
-            capture_output=True, text=True, timeout=2,
+        result = consent_dialog.run_bounded(
+            [systemctl, "--user", "show-environment"], timeout=2,
+            what="systemctl",
+            consequence="it may still be running; the display variables are "
+                        "left as they are",
         )
-    except (subprocess.TimeoutExpired, OSError):
+    except (subprocess.TimeoutExpired, OSError,
+            consent_dialog.DialogNotTakenDown):
         return
     if result.returncode != 0:
         return
@@ -127,7 +132,8 @@ def _session_active() -> bool:
       2. The freedesktop ScreenSaver D-Bus method GetActive must report
          not-locked (best-effort — if the D-Bus call itself fails we
          assume the session is active so a flaky lock-check does not
-         silently route everything to the fallback).
+         silently route everything to the fallback). The call runs through
+         the dialogs' bounded runner, as the probe in stage 1 does.
     """
     _ensure_display_env()
     if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
@@ -136,16 +142,19 @@ def _session_active() -> bool:
     if gdbus is None:
         return True
     try:
-        result = subprocess.run(
+        result = consent_dialog.run_bounded(
             [
                 gdbus, "call", "--session",
                 "--dest", "org.freedesktop.ScreenSaver",
                 "--object-path", "/org/freedesktop/ScreenSaver",
                 "--method", "org.freedesktop.ScreenSaver.GetActive",
             ],
-            capture_output=True, text=True, timeout=2,
+            timeout=2, what="gdbus",
+            consequence="it may still be running; the session is taken as "
+                        "active",
         )
-    except (subprocess.TimeoutExpired, OSError) as e:
+    except (subprocess.TimeoutExpired, OSError,
+            consent_dialog.DialogNotTakenDown) as e:
         logger.debug("ScreenSaver D-Bus check failed: %s — assuming active", e)
         return True
     if result.returncode != 0:
@@ -248,6 +257,11 @@ def _prompt_review_zenity(
         (RFC §7.2 — the same one-hour bound as the libnotify path; nothing
         runs, and the record says the review went unanswered)
       - any other exit (zenity's own error) → review_failed
+
+    The program runs through the branded dialog's bounded runner
+    (consent_dialog.run_bounded): past its bound it is taken down and verified
+    ended (review_timed_out); one that cannot be verified ended is logged
+    with its pid and answered review_failed, never review_timed_out.
     """
     zenity = shutil.which("zenity")
     if zenity is None:
@@ -259,7 +273,7 @@ def _prompt_review_zenity(
     header = review_header(decision)
     text = f"{header}\n\n{body}"
     try:
-        result = subprocess.run(
+        result = consent_dialog.run_bounded(
             [
                 zenity, "--text-info",
                 "--title=InterGen — action review needed",
@@ -271,7 +285,6 @@ def _prompt_review_zenity(
                 "--extra-button=Allow for this conversation",
             ],
             input=text,
-            capture_output=True, text=True,
             timeout=FALLBACK_TIMEOUT_SECONDS + 60,
         )
     except subprocess.TimeoutExpired:
@@ -280,6 +293,10 @@ def _prompt_review_zenity(
             FALLBACK_TIMEOUT_SECONDS + 60,
         )
         return REVIEW_TIMED_OUT
+    except consent_dialog.DialogNotTakenDown:
+        # Not verified closed (logged with its pid): not a deadline that
+        # closed it, so the record is a failed review.
+        return REVIEW_FAILED
     except OSError as e:
         logger.error("zenity invocation failed: %s — not run", e)
         return REVIEW_FAILED
@@ -342,16 +359,18 @@ def _prompt_review_libnotify(
         call, decision, source_attribution, excerpt, reasoning
     )
     try:
-        subprocess.run(
+        consent_dialog.run_bounded(
             [
                 notify_send, "--app-name=intergen",
                 "--urgency=critical",
                 "--expire-time=0",
                 summary, body,
             ],
-            check=False, timeout=5,
+            timeout=5, capture_output=False, what="notify-send",
+            consequence="it may still be running; not run",
         )
-    except (subprocess.TimeoutExpired, OSError) as e:
+    except (subprocess.TimeoutExpired, OSError,
+            consent_dialog.DialogNotTakenDown) as e:
         logger.error("notify-send failed: %s — not run, review failed", e)
         return REVIEW_FAILED
     if not zenity_available:

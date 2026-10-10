@@ -44,7 +44,7 @@ class EnsureDisplayEnvTests(unittest.TestCase):
         result = mock.Mock(returncode=0, stdout=SHOW_ENV)
         with mock.patch.object(review_modal.shutil, "which",
                                return_value="/usr/bin/systemctl"), \
-             mock.patch.object(review_modal.subprocess, "run",
+             mock.patch.object(review_modal.consent_dialog, "run_bounded",
                                return_value=result) as run:
             review_modal._ensure_display_env()
         run.assert_called_once()
@@ -57,7 +57,7 @@ class EnsureDisplayEnvTests(unittest.TestCase):
         os.environ["DISPLAY"] = ":1"
         with mock.patch.object(review_modal.shutil, "which",
                                return_value="/usr/bin/systemctl"), \
-             mock.patch.object(review_modal.subprocess, "run") as run:
+             mock.patch.object(review_modal.consent_dialog, "run_bounded") as run:
             review_modal._ensure_display_env()
         run.assert_not_called()  # short-circuits before any subprocess
         self.assertEqual(os.environ.get("DISPLAY"), ":1")
@@ -72,14 +72,14 @@ class EnsureDisplayEnvTests(unittest.TestCase):
             return "/usr/bin/systemctl" if name == "systemctl" else None
 
         with mock.patch.object(review_modal.shutil, "which", side_effect=which), \
-             mock.patch.object(review_modal.subprocess, "run",
+             mock.patch.object(review_modal.consent_dialog, "run_bounded",
                                return_value=result):
             self.assertTrue(review_modal._session_active())
 
     def test_best_effort_when_systemctl_missing(self):
         with mock.patch.object(review_modal.shutil, "which",
                                return_value=None), \
-             mock.patch.object(review_modal.subprocess, "run") as run:
+             mock.patch.object(review_modal.consent_dialog, "run_bounded") as run:
             review_modal._ensure_display_env()
         run.assert_not_called()
         self.assertIsNone(os.environ.get("DISPLAY"))

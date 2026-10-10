@@ -32,6 +32,9 @@ What this enforces:
   reap and a poll; one that cannot be verified ended (its kill raised, or its
   reap did not finish) is logged with its pid and the reason and answered as
   NOT_TAKEN_DOWN - never as a clean withdrawal, deadline or fallback.
+- **Every other program the two modals run is torn down the same way:**
+  run_bounded runs it with subprocess.run's contract and this teardown,
+  never subprocess.run's own (a kill, then a wait without a bound).
 - **Never truncate the egress payload (§E):** an over-MAX consent payload is denied
   here before spawn (defense in depth; the binary guards it too).
 """
@@ -80,11 +83,16 @@ NOT_TAKEN_DOWN = -10002
 # reported as failed.
 KILL_REAP_SECONDS = 5.0
 
+# What a dialog's failed teardown leaves: the words _kill's ERROR ends with,
+# unless its caller names another program and what it does next.
+ON_SCREEN = "it may still be on screen; nothing allowed or sent"
+
 
 class DialogNotTakenDown(Exception):
     """run_consent_dialog's answer when a dialog it had to take down could not
     be verified ended (NOT_TAKEN_DOWN): nothing is allowed or sent, no fallback
-    may open beside it, and the caller records it as its own outcome."""
+    may open beside it, and the caller records it as its own outcome. Raised
+    by run_bounded too, for any program it runs."""
 
 
 def _scrubbed_env() -> dict[str, str]:
@@ -102,12 +110,15 @@ def _scrubbed_env() -> dict[str, str]:
     return env
 
 
-def _kill(proc: subprocess.Popen) -> str | None:
+def _kill(proc: subprocess.Popen, what: str = "the dialog",
+          consequence: str = ON_SCREEN) -> str | None:
     """Take a dialog down and verify it ended: None once poll() returns its
     exit status after the kill and a reap bounded by KILL_REAP_SECONDS;
     otherwise the reason it could not be verified (the kill raised, the reap
     timed out or raised), logged as an ERROR with the dialog's pid. A kill
-    that raised for a program that had ended anyway is no failure."""
+    that raised for a program that had ended anyway is no failure. ``what``
+    and ``consequence`` name another program and what its caller does next,
+    for a program run through run_bounded that is not a dialog."""
     problems: list[str] = []
     try:
         proc.kill()
@@ -126,10 +137,78 @@ def _kill(proc: subprocess.Popen) -> str | None:
         problems.append(f"its poll raised {type(e).__name__}: {e}")
     why = "; ".join(problems) or "it was still running after its reap"
     # The report itself never raises, whatever the object handed in.
-    logger.error("consent dialog: could not take down the dialog (pid %s): %s "
-                 "— it may still be on screen; nothing allowed or sent",
-                 getattr(proc, "pid", None), why)
+    logger.error("consent dialog: could not take down %s (pid %s): %s — %s",
+                 what, getattr(proc, "pid", None), why, consequence)
     return why
+
+
+def run_bounded(argv: list[str], *, timeout: float, input: str | None = None,
+                should_stop: Callable[[], bool] | None = None,
+                capture_output: bool = True, what: str = "the dialog",
+                consequence: str = ON_SCREEN,
+                ) -> subprocess.CompletedProcess | None:
+    """subprocess.run(argv, input=input, capture_output=capture_output,
+    text=True, timeout=timeout), with _kill's teardown in place of
+    subprocess.run's own. At its timeout subprocess.run kills the program and
+    then waits for it without a bound, so a program the kill does not end
+    held the call for as long as the program lived. Here every teardown is a
+    kill, a reap bounded by KILL_REAP_SECONDS and a poll: at the timeout the
+    program is taken down and TimeoutExpired is raised, as subprocess.run
+    does. Handed the caller's stop, it reads it between short waits; once it
+    is set the program is taken down and None is returned. A program that
+    cannot be verified ended raises DialogNotTakenDown, logged as an ERROR
+    with its pid, the reason and ``consequence`` (what the caller does next;
+    ``what`` names a program that is not a dialog), and its pipes are closed
+    without waiting on it. Anything else the wait or the stop raises takes
+    the program down the same way before it propagates, as subprocess.run
+    kills it then."""
+    decide_by = time.monotonic() + timeout
+    pipe = subprocess.PIPE if capture_output else None
+    proc = subprocess.Popen(
+        argv, stdin=None if input is None else subprocess.PIPE,
+        stdout=pipe, stderr=pipe, text=True)
+    try:
+        stopped = False
+        try:
+            given = input
+            while True:
+                wait = max(0.0, decide_by - time.monotonic())
+                if should_stop is not None:
+                    wait = min(WITHDRAW_POLL_SECONDS, wait)
+                try:
+                    out, err = proc.communicate(given, timeout=wait)
+                    return subprocess.CompletedProcess(argv, proc.returncode,
+                                                       out, err)
+                except subprocess.TimeoutExpired:
+                    given = None   # the input not yet written is kept by Popen
+                if should_stop is not None and should_stop():
+                    stopped = True
+                    break
+                if time.monotonic() >= decide_by:
+                    break
+        except BaseException:
+            _kill(proc, what, consequence)   # logs a teardown that fails
+            raise
+        _take_down(proc, what, consequence)
+        if stopped:
+            return None
+        raise subprocess.TimeoutExpired(argv, timeout)
+    finally:
+        # Popen's own with-block would wait for the program without a bound;
+        # it is reaped above, or reported as not taken down.
+        for stream in (proc.stdin, proc.stdout, proc.stderr):
+            try:
+                if stream is not None:
+                    stream.close()
+            except OSError:
+                pass
+
+
+def _take_down(proc: subprocess.Popen, what: str, consequence: str) -> None:
+    """run_bounded's teardown: DialogNotTakenDown when the program could not
+    be verified ended."""
+    if _kill(proc, what, consequence) is not None:
+        raise DialogNotTakenDown(f"{what} could not be verified ended")
 
 
 def _run_dialog(spec: dict, cmd: list[str] | None = None,

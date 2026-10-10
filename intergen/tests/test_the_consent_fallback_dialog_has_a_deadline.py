@@ -167,7 +167,7 @@ class TheFallbackDialogHasADeadline(unittest.TestCase):
                                return_value=None), \
              mock.patch.object(consent_modal.shutil, "which",
                                return_value="/usr/bin/zenity"), \
-             mock.patch.object(consent_modal.subprocess, "run",
+             mock.patch.object(consent_modal.consent_dialog, "run_bounded",
                                return_value=mock.Mock(returncode=1, stdout="",
                                                       stderr="")) as run:
             consent_modal.prompt_send_consent("hi", "openai")

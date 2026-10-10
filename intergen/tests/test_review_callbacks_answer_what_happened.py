@@ -26,9 +26,10 @@ names the person for a refusal they did not give. Nothing runs on any of them:
 the registry runs a held call only on an approval. The person's own Deny, and
 the approvals, are answered as before — those are the controls.
 
-Hermetic: zenity and notify-send are never started (subprocess.run and the
-executable lookup are replaced), and the registry cases replace the root
-dispatch, the dispatch token and the audit writer.
+Hermetic: zenity and notify-send are never started (the bounded runner,
+consent_dialog.run_bounded, and the executable lookup are replaced), and
+the registry cases replace the root dispatch, the dispatch token and the
+audit writer.
 """
 
 from __future__ import annotations
@@ -74,7 +75,7 @@ def _zenity(*, returncode: int = 0, stdout: str = "", raises=None) -> str:
                                            stderr="")
     with mock.patch.object(review_modal.shutil, "which",
                            _which(zenity="/usr/bin/zenity")), \
-            mock.patch.object(review_modal.subprocess, "run", _run):
+            mock.patch.object(review_modal.consent_dialog, "run_bounded", _run):
         return review_modal._prompt_review_zenity(_call(), _decision(),
                                                   "", "", "")
 
@@ -94,7 +95,7 @@ def _fallback(*, notify_send=True, zenity=True, notify_raises=None,
         return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
     patches = [
         mock.patch.object(review_modal.shutil, "which", _which(**present)),
-        mock.patch.object(review_modal.subprocess, "run", _run),
+        mock.patch.object(review_modal.consent_dialog, "run_bounded", _run),
         mock.patch.object(review_modal, "_session_active", return_value=False),
         mock.patch.object(review_modal.time, "sleep", lambda s: None),
     ]

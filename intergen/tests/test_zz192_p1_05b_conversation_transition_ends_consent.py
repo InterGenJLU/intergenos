@@ -3598,8 +3598,14 @@ class ADialogThatCannotBeTakenDownIsNotRecordedClosed(unittest.TestCase):
             patches.append(mock.patch.object(
                 consent_dialog, "subprocess", with_popen(branded_popen)))
         if fallback_popen is not None:
+            # The fallback's runner is consent_dialog.run_bounded; before it
+            # moved there it was consent_modal's own, so both are given the
+            # Popen (the branded program, which cannot render here, has ended
+            # before its teardown, which is then no failure).
             patches.append(mock.patch.object(
                 consent_modal, "subprocess", with_popen(fallback_popen)))
+            patches.append(mock.patch.object(
+                consent_dialog, "subprocess", with_popen(fallback_popen)))
         if deadline is not None:
             patches.append(mock.patch.object(
                 consent_dialog_proto, "POST_RENDER_DEADLINE_SECONDS", deadline))
@@ -3789,6 +3795,313 @@ class ADialogThatCannotBeTakenDownIsNotRecordedClosed(unittest.TestCase):
             risk_tier=None)
         self.assertEqual(consent_dialog.run_review_dialog(call, decision),
                          REVIEW_FAILED)
+
+
+# The program of the cases below, in a dialog's, a notification's or a probe's
+# place: it records its pid and runs until the case ends it (within a minute
+# in any case), reading nothing and drawing nothing.
+_HOLDING_PROGRAM = """import os, sys, time
+pids, over = sys.argv[1:3]
+with open(pids, "a") as f:
+    f.write(str(os.getpid()) + chr(10))
+for _ in range(600):
+    if os.path.exists(over):
+        sys.exit(0)
+    time.sleep(0.1)
+"""
+
+
+class _Held:
+    """One case's program, found under ``name`` (zenity, notify-send,
+    systemctl, gdbus) by the module that runs it."""
+
+    def __init__(self, case: unittest.TestCase, name: str) -> None:
+        import shlex
+        import sys
+        import tempfile
+        from pathlib import Path
+        tmp = tempfile.TemporaryDirectory(prefix="bounded-teardown-")
+        case.addCleanup(tmp.cleanup)
+        here = Path(tmp.name)
+        self.name = name
+        self.pids = here / "pids"
+        self.over = here / "over"
+        program = here / "program.py"
+        program.write_text(_HOLDING_PROGRAM)
+        self.path = str(here / name)
+        Path(self.path).write_text("#!/bin/sh\nexec " + shlex.join(
+            [sys.executable, str(program), str(self.pids), str(self.over)])
+            + "\n")
+        Path(self.path).chmod(0o755)
+
+    def which(self, name: str) -> str | None:
+        """shutil.which as the module sees it: only this program exists."""
+        return self.path if name == self.name else None
+
+    def pid(self) -> int | None:
+        if not self.pids.exists():
+            return None
+        lines = self.pids.read_text().split()
+        return int(lines[-1]) if lines else None
+
+    def end(self) -> None:
+        """The program exits; one still running after two seconds is
+        killed."""
+        import os
+        import signal
+        import time
+        self.over.touch()
+        for _ in range(200):
+            pid = self.pid()
+            if pid is None or not _running(pid):
+                return
+            time.sleep(0.01)
+        try:
+            os.kill(self.pid(), signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+
+class EveryProgramTheModalsRunIsTornDownWithinItsBound(unittest.TestCase):
+    """The consent and review modals ran their programs through subprocess.run
+    with a timeout: the fallback consent dialog when its caller hands no stop,
+    the review dialog, the review gate's notification and its two session
+    probes - and the consent step's notification with no timeout at all. At
+    its timeout subprocess.run kills the program and then waits for it without
+    a bound, so a program the kill does not end (as one stuck in the kernel)
+    held the call for as long as it lived, and the consent step or the review
+    never came back. Every one now runs through the branded dialog's bounded
+    runner (consent_dialog.run_bounded): a kill, a reap bounded by
+    KILL_REAP_SECONDS and a poll. A program not verified ended is logged with
+    its pid and the reason and answered as the dialog's own failure (the
+    consent step's not-taken-down, the review's review_failed), or, for a
+    notification or a probe, as that step's failure was answered before.
+
+    Each case runs the real modal code with its program replaced by the case's
+    own (_Held) and every Popen's kill made a no-op, its bound shortened where
+    a constant holds it, and reads whether the call came back within its bound
+    and the reap, what it answered, whether the program still runs, and
+    whether an ERROR names the program's pid. The control: a review dialog the
+    kill does end at its bound is a timed-out review, as before."""
+
+    maxDiff = None
+
+    def _held(self, program: _Held, call, bound: float, patches=(),
+              what: str = "the dialog", kill_ends_it: bool = False) -> dict:
+        import logging
+        import subprocess
+        import threading
+        from intergen import consent_dialog
+        if not kill_ends_it:
+            patches = (mock.patch.object(subprocess, "Popen",
+                                         _never_reaped_popen()), *patches)
+        for patcher in (mock.patch.object(consent_dialog, "KILL_REAP_SECONDS",
+                                          0.3, create=True), *patches):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        errors: list[str] = []
+        handler = logging.Handler(level=logging.ERROR)
+        handler.emit = lambda record: errors.append(record.getMessage())
+        log = logging.getLogger("intergen.consent_dialog")
+        log.addHandler(handler)
+        self.addCleanup(log.removeHandler, handler)
+        out: dict = {}
+
+        def run() -> None:
+            try:
+                out["answered"] = call()
+            except BaseException as exc:  # read by the case
+                out["answered"] = f"<raised {type(exc).__name__}>"
+
+        thread = threading.Thread(target=run, name="held", daemon=True)
+        thread.start()
+        # Cleanups run last-registered first: the program ends and the call's
+        # thread is joined BEFORE the stand-ins above are removed, so a call
+        # still waiting on the program (the red runs at the base) never
+        # reaches a real program after its case.
+        self.addCleanup(thread.join, 10)
+        self.addCleanup(program.end)
+        thread.join(bound)
+        pid = program.pid()
+        return {
+            "came back within its bound and the reap": not thread.is_alive(),
+            "answered": out.get("answered", "<still waiting>"),
+            "the program still running": bool(
+                pid is not None and _running(pid)),
+            "an ERROR names its pid": any(
+                f"could not take down {what} (pid {pid})" in m
+                for m in errors),
+        }
+
+    @staticmethod
+    def _reported(answered) -> dict:
+        return {
+            "came back within its bound and the reap": True,
+            "answered": answered,
+            "the program still running": True,
+            "an ERROR names its pid": True,
+        }
+
+    @staticmethod
+    def _review():
+        import types
+        call = types.SimpleNamespace(name="read_file",
+                                     arguments='{"path": "/etc/hostname"}')
+        decision = types.SimpleNamespace(
+            effective_provenance=Provenance.USER_DIRECT, reason="",
+            needs_pkexec=False, risk_tier=None)
+        return call, decision, "", "", ""
+
+    def test_the_fallback_consent_dialog_with_no_stop(self):
+        """The branded dialog cannot open, the caller hands no stop, and the
+        fallback dialog is unanswered at its deadline: not verified closed,
+        so recorded not taken down."""
+        from intergen import consent_dialog, consent_dialog_proto, consent_modal
+        program = _Held(self, "zenity")
+        outcome: list = []
+        self.assertEqual(self._held(
+            program,
+            lambda: (consent_modal.prompt_send_consent(
+                FRONTIER_QUESTION, "frontier", outcome=outcome), outcome),
+            bound=4.0, patches=(
+                mock.patch.object(consent_modal, "_session_active",
+                                  return_value=True),
+                mock.patch.object(consent_dialog, "run_consent_dialog",
+                                  return_value=None),
+                mock.patch.object(consent_modal.shutil, "which",
+                                  side_effect=program.which),
+                mock.patch.object(consent_modal, "_prompt_consent_libnotify",
+                                  return_value=False),
+                mock.patch.object(consent_dialog_proto,
+                                  "POST_RENDER_DEADLINE_SECONDS", 1.0))),
+            self._reported((False, ["not-taken-down"])))
+
+    def test_the_review_dialog(self):
+        """The review dialog outlives its bound (one hour and a minute;
+        one second here, as the case's program ignores its --timeout): not
+        verified closed, so a failed review, never a timed-out one."""
+        from intergen import review_modal
+        program = _Held(self, "zenity")
+        self.assertEqual(self._held(
+            program, lambda: review_modal._prompt_review_zenity(
+                *self._review()),
+            bound=4.0, patches=(
+                mock.patch.object(review_modal.shutil, "which",
+                                  side_effect=program.which),
+                mock.patch.object(review_modal, "FALLBACK_TIMEOUT_SECONDS",
+                                  -59))),
+            self._reported("review_failed"))
+
+    def test_the_review_gates_notification(self):
+        from intergen import review_modal
+        program = _Held(self, "notify-send")
+        self.assertEqual(self._held(
+            program, lambda: review_modal._prompt_review_libnotify(
+                *self._review()),
+            bound=8.0, what="notify-send", patches=(
+                mock.patch.object(review_modal.shutil, "which",
+                                  side_effect=program.which),)),
+            self._reported("review_failed"))
+
+    def test_the_consent_steps_notification(self):
+        """No session, so the consent step only notifies: its notification
+        had no bound at all. Nobody was asked, and the record says so."""
+        from intergen import consent_modal
+        program = _Held(self, "notify-send")
+        outcome: list = []
+        self.assertEqual(self._held(
+            program,
+            lambda: (consent_modal.prompt_send_consent(
+                FRONTIER_QUESTION, "frontier", outcome=outcome), outcome),
+            bound=8.0, what="notify-send", patches=(
+                mock.patch.object(consent_modal, "_session_active",
+                                  return_value=False),
+                mock.patch.object(consent_modal.shutil, "which",
+                                  side_effect=program.which))),
+            self._reported((False, ["not-shown"])))
+
+    def test_the_display_probe(self):
+        """The probe that reads the display from the user manager: the
+        environment is left as it was."""
+        import os
+        from intergen import review_modal
+        program = _Held(self, "systemctl")
+        environment = mock.patch.dict(os.environ, {}, clear=False)
+        environment.start()
+        self.addCleanup(environment.stop)
+        for name in ("DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY"):
+            os.environ.pop(name, None)
+        self.assertEqual(self._held(
+            program, lambda: (review_modal._ensure_display_env(),
+                              os.environ.get("DISPLAY")),
+            bound=5.0, what="systemctl", patches=(
+                mock.patch.object(review_modal.shutil, "which",
+                                  side_effect=program.which),)),
+            self._reported((None, None)))
+
+    def test_the_screen_lock_probe(self):
+        """The probe that asks whether the screen is locked: the session is
+        taken as active, as for a probe that fails."""
+        import os
+        from intergen import review_modal
+        program = _Held(self, "gdbus")
+        self.assertEqual(self._held(
+            program, review_modal._session_active,
+            bound=5.0, what="gdbus", patches=(
+                mock.patch.dict(os.environ, {"DISPLAY": ":0"}),
+                mock.patch.object(review_modal.shutil, "which",
+                                  side_effect=program.which))),
+            self._reported(True))
+
+    def test_a_stop_that_raises_takes_the_fallback_dialog_down(self):
+        """The caller's stop raises while the fallback dialog is open: the
+        error goes on to the caller, as before, and the program is taken
+        down first, as subprocess.run takes a program down on any error."""
+        from intergen import consent_dialog, consent_modal
+        program = _Held(self, "zenity")
+        asked = {"times": 0}
+
+        def stop() -> bool:
+            asked["times"] += 1
+            if asked["times"] > 5 and program.pid() is not None:
+                raise RuntimeError("the stop could not be read")
+            return False
+
+        self.assertEqual(self._held(
+            program, lambda: consent_modal.prompt_send_consent(
+                FRONTIER_QUESTION, "frontier", should_stop=stop),
+            bound=4.0, kill_ends_it=True, patches=(
+                mock.patch.object(consent_modal, "_session_active",
+                                  return_value=True),
+                mock.patch.object(consent_dialog, "run_consent_dialog",
+                                  return_value=None),
+                mock.patch.object(consent_modal.shutil, "which",
+                                  side_effect=program.which),
+                mock.patch.object(consent_modal, "_prompt_consent_libnotify",
+                                  return_value=False))), {
+            "came back within its bound and the reap": True,
+            "answered": "<raised RuntimeError>",
+            "the program still running": False,
+            "an ERROR names its pid": False,
+        })
+
+    def test_control_a_review_dialog_the_kill_ends_is_a_timed_out_review(self):
+        from intergen import review_modal
+        program = _Held(self, "zenity")
+        self.assertEqual(self._held(
+            program, lambda: review_modal._prompt_review_zenity(
+                *self._review()),
+            bound=4.0, kill_ends_it=True, patches=(
+                mock.patch.object(review_modal.shutil, "which",
+                                  side_effect=program.which),
+                mock.patch.object(review_modal, "FALLBACK_TIMEOUT_SECONDS",
+                                  -59))), {
+            "came back within its bound and the reap": True,
+            "answered": "review_timed_out",
+            "the program still running": False,
+            "an ERROR names its pid": False,
+        })
+
 
 if __name__ == "__main__":
     unittest.main()

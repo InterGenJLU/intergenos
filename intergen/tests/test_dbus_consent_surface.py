@@ -11,7 +11,8 @@ path, and the correct decision on the live ones.
 
 These are the dbus equivalents of the web deny/liveness cells, the same
 deterministic-unit class as the cross-tool deny test (no live model, no real
-display): mock _session_active / shutil.which / subprocess.run and parametrize
+display): mock _session_active / shutil.which / the bounded runner
+(consent_dialog.run_bounded) and parametrize
 FALLBACK_TIMEOUT_SECONDS so the locked-session cell never waits the real hour.
 
 Distinct from test_review_modal_display_env.py (which covers DISPLAY detection
@@ -88,7 +89,7 @@ class DbusConsentSurfaceTests(unittest.TestCase):
                                return_value=False), \
              mock.patch.object(review_modal.shutil, "which",
                                side_effect=_which({"notify-send"})), \
-             mock.patch.object(review_modal.subprocess, "run", run), \
+             mock.patch.object(review_modal.consent_dialog, "run_bounded", run), \
              mock.patch.object(review_modal.time, "sleep") as slept:
             self.assertEqual(self._prompt(), "review_failed")
         run.assert_called_once()                 # the held action was surfaced
@@ -102,7 +103,7 @@ class DbusConsentSurfaceTests(unittest.TestCase):
                                return_value=False), \
              mock.patch.object(review_modal.shutil, "which",
                                side_effect=_which(set())), \
-             mock.patch.object(review_modal.subprocess, "run", run):
+             mock.patch.object(review_modal.consent_dialog, "run_bounded", run):
             self.assertEqual(self._prompt(), "review_failed")
         run.assert_not_called()                  # nothing to notify with
 
@@ -115,7 +116,7 @@ class DbusConsentSurfaceTests(unittest.TestCase):
                                return_value=False), \
              mock.patch.object(review_modal.shutil, "which",
                                side_effect=_which({"notify-send", "zenity"})), \
-             mock.patch.object(review_modal.subprocess, "run", run), \
+             mock.patch.object(review_modal.consent_dialog, "run_bounded", run), \
              mock.patch.object(review_modal, "FALLBACK_TIMEOUT_SECONDS", 0), \
              mock.patch.object(review_modal.time, "sleep"):
             self.assertEqual(self._prompt(), "review_timed_out")
@@ -128,7 +129,7 @@ class DbusConsentSurfaceTests(unittest.TestCase):
                                side_effect=[False, True]), \
              mock.patch.object(review_modal.shutil, "which",
                                side_effect=_which({"notify-send", "zenity"})), \
-             mock.patch.object(review_modal.subprocess, "run",
+             mock.patch.object(review_modal.consent_dialog, "run_bounded",
                                mock.Mock(return_value=mock.Mock(returncode=0))), \
              mock.patch.object(review_modal, "FALLBACK_TIMEOUT_SECONDS", 30), \
              mock.patch.object(review_modal.time, "sleep"), \
