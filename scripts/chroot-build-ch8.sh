@@ -648,8 +648,8 @@ run_package "expat" "expat" "2.7.4" \
     "expat-2.7.4.tar.xz" \
     "XML parsing library"
 
-run_package "inetutils" "inetutils" "2.7" \
-    "inetutils-2.7.tar.gz" \
+run_package "inetutils" "inetutils" "2.8" \
+    "inetutils-2.8.tar.gz" \
     "Network utilities"
 
 run_package "less" "less" "692" \
