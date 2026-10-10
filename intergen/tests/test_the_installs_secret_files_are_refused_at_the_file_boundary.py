@@ -1574,15 +1574,21 @@ class UnderThePrivilegedRunnerAWriteLandsOnlyWhereItWasChecked(unittest.TestCase
             nested = self._write(self.home / "x" / "y" / "z.txt", "deep\n",
                                  create_dirs=True)
             through = self._write(self.home / ".rc", "rc new\n")
-        for result in (created, updated, nested, through):
+        for result in (created, updated, nested):
             self.assertTrue(result.success, result.content)
         self.assertEqual((self.home / "new.txt").read_text(), "new\n")
         self.assertEqual(existing.read_text(), "new\n")
         self.assertIn("-old", updated.content)
         self.assertEqual((self.home / "x" / "y" / "z.txt").read_text(), "deep\n")
-        self.assertEqual(kept.read_text(), "rc new\n",
-                         "a link the person keeps, present when the path was "
-                         "resolved, is written through as it resolved")
+        # A link the person keeps is the account's own link: under the runner
+        # the write is refused, naming the link and where it leads, and the
+        # file it leads to is not written (see the class below).
+        self.assertFalse(through.success,
+                         f"a write through the account's own link reported "
+                         f"success: {through.content!r}")
+        self.assertIn(str(self.home / ".rc"), through.content or "")
+        self.assertIn(str(kept), through.content or "")
+        self.assertEqual(kept.read_text(), "rc old\n")
 
     def test_outside_the_runner_a_write_through_a_link_is_as_before(self) -> None:
         target = self.root / "own-target.txt"
@@ -1592,6 +1598,146 @@ class UnderThePrivilegedRunnerAWriteLandsOnlyWhereItWasChecked(unittest.TestCase
         result = self._write(link)
         self.assertTrue(result.success, result.content)
         self.assertEqual(target.read_text(), self.CONTENT)
+
+
+class UnderThePrivilegedRunnerAWriteGoesOnlyToTheObjectItsRequestNames(
+        unittest.TestCase):
+    """A link already in place on the requested path, under the runner.
+
+    The person approves a write by its arguments, and the approval is bound to
+    them, so the object root writes must be the object those arguments name.
+    Under the runner a requested path whose resolution passes through a link
+    that root does not own is refused before anything is read or written, and
+    the refusal names the link and where it leads, so the person can ask for
+    that path by its own name. A link root owns, as the system layout's own
+    links are, still resolves. Outside the runner nothing changes.
+
+    Root is simulated as in the classes above; the stand-in for a file the
+    person cannot write is a throwaway file outside the home.
+    """
+
+    ORIGINAL = "the stand-in, unchanged\n"
+    CONTENT = "written by the approved write\n"
+
+    def setUp(self) -> None:
+        self.uid = os.getuid()
+        self.gid = os.getgid()
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name)
+        self.home = self.root / "home"
+        self.home.mkdir(mode=0o750)
+        self.outside = self.root / "elsewhere"
+        self.outside.mkdir()
+        self.stand_in = self.root / "stand-in.txt"
+        self.stand_in.write_text(self.ORIGINAL)
+        self.tool = write_file_tool.WriteFileTool()
+        self._umask = os.umask(0o022)
+        never_list_absent = contextlib.ExitStack()
+        never_list_absent.enter_context(
+            mock.patch.object(write_file_tool, "_policy_loaded", True))
+        never_list_absent.enter_context(
+            mock.patch.object(write_file_tool, "_policy_cache", None))
+        self.addCleanup(never_list_absent.close)
+
+    def tearDown(self) -> None:
+        os.umask(self._umask)
+        self._tmp.cleanup()
+
+    def _as_the_runner(self):
+        entry = mock.MagicMock()
+        entry.pw_dir, entry.pw_uid, entry.pw_gid = str(self.home), self.uid, self.gid
+        fake_pwd = mock.MagicMock()
+        fake_pwd.getpwuid.return_value = entry
+        fake_pwd.getpwnam.return_value = entry
+        stack = contextlib.ExitStack()
+        stack.enter_context(mock.patch.object(dt, "pwd", fake_pwd))
+        stack.enter_context(mock.patch.dict(os.environ, {"PKEXEC_UID": str(self.uid)}))
+        stack.enter_context(mock.patch.object(dt.os, "getuid", return_value=0))
+        return stack
+
+    def _write(self, target: Path, content: str = CONTENT, create_dirs: bool = False):
+        return self.tool.execute({"path": str(target), "content": content,
+                                  "create_dirs": create_dirs})
+
+    def _listing(self, top: Path) -> list[str]:
+        def stop(err: OSError) -> None:
+            raise err
+        found = []
+        for d, dirs, files in os.walk(top, onerror=stop):
+            found += [str((Path(d) / n).relative_to(top)) for n in dirs + files]
+        return sorted(found)
+
+    def _assert_refused_naming(self, result, link: Path, leads_to: Path) -> None:
+        self.assertFalse(result.success,
+                         f"the write reported success: {result.content!r}")
+        self.assertIn(str(link), result.content or "",
+                      "the refusal does not name the link")
+        self.assertIn(str(leads_to), result.content or "",
+                      "the refusal does not say where the link leads")
+        self.assertNotIn(self.ORIGINAL.strip(), result.content or "",
+                         "what the link leads to was read before the refusal")
+        self.assertEqual(self.stand_in.read_text(), self.ORIGINAL,
+                         "the file the link leads to was written")
+        self.assertEqual(self._listing(self.outside), [],
+                         "something was created where the link leads")
+
+    def test_a_last_component_that_is_a_link_of_the_account_is_refused(
+            self) -> None:
+        link = self.home / "notes.txt"
+        link.symlink_to(self.stand_in)
+        with self._as_the_runner():
+            result = self._write(link)
+        self._assert_refused_naming(result, link, self.stand_in)
+
+    def test_a_directory_on_the_path_that_is_a_link_of_the_account_is_refused(
+            self) -> None:
+        drafts = self.home / "drafts"
+        drafts.symlink_to(self.outside, target_is_directory=True)
+        with self._as_the_runner():
+            result = self._write(drafts / "notes.txt")
+        self._assert_refused_naming(result, drafts, self.outside)
+
+    def test_with_create_dirs_the_same_link_is_refused_and_nothing_is_made(
+            self) -> None:
+        drafts = self.home / "drafts"
+        drafts.symlink_to(self.outside, target_is_directory=True)
+        with self._as_the_runner():
+            result = self._write(drafts / "new" / "notes.txt", create_dirs=True)
+        self._assert_refused_naming(result, drafts, self.outside)
+
+    def test_a_link_root_owns_still_resolves(self) -> None:
+        """A link of the system layout is root's, and the requesting account can
+        neither make nor change it. Answered here through the lstat the module
+        makes: a cell running as an ordinary account cannot make a link root
+        owns."""
+        system = self.root / "system-link"
+        system.symlink_to(self.home, target_is_directory=True)
+        real_lstat = os.lstat
+
+        def roots(path, *args, **kwargs):
+            found = real_lstat(path, *args, **kwargs)
+            if os.fspath(path) == str(system):
+                fields = list(found[:10])
+                fields[4] = 0
+                return os.stat_result(fields)
+            return found
+
+        with self._as_the_runner(), \
+                mock.patch.object(dt.os, "lstat", side_effect=roots):
+            result = self._write(system / "through-a-roots-link.txt")
+        self.assertTrue(result.success, result.content)
+        self.assertEqual((self.home / "through-a-roots-link.txt").read_text(),
+                         self.CONTENT)
+
+    def test_outside_the_runner_a_link_of_the_account_is_written_through(
+            self) -> None:
+        own = self.root / "own-target.txt"
+        own.write_text("old\n")
+        link = self.home / "notes.txt"
+        link.symlink_to(own)
+        result = self._write(link)
+        self.assertTrue(result.success, result.content)
+        self.assertEqual(own.read_text(), self.CONTENT)
 
 
 if __name__ == "__main__":
