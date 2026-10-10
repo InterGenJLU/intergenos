@@ -292,9 +292,13 @@ class WriteFileTool(BaseTool):
             )
 
         # A leading ~ is the install owner's home, which is not HOME when this
-        # runs as root under the privileged runner.
+        # runs as root under the privileged runner. Under the runner the path is
+        # resolved without following a link root does not own: the person
+        # approved the request by its arguments, and the object written must be
+        # the one they name (dispatch_token.resolved_for_a_write).
         try:
-            path = dispatch_token.expanduser_for_install_owner(path_str).resolve()
+            path = dispatch_token.resolved_for_a_write(
+                dispatch_token.expanduser_for_install_owner(path_str))
             tier = _classify_path(path)
         except dispatch_token.InstallOwnerUnresolved as exc:
             return ToolResult(
@@ -305,6 +309,10 @@ class WriteFileTool(BaseTool):
                     "against the install's own files."
                 ),
                 success=False,
+            )
+        except dispatch_token.LinkOnTheRequestedPath as exc:
+            return ToolResult(
+                call_id="", name=self.name, content=str(exc), success=False,
             )
 
         # AI-5 BLEND — gate-side policy, re-enforced root-side via the SHARED
