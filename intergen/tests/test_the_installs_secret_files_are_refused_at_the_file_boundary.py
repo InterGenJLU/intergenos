@@ -45,6 +45,8 @@ import json
 import os
 import stat
 import tempfile
+import threading
+import time
 import unittest
 import urllib.request
 from pathlib import Path
@@ -1277,13 +1279,15 @@ class UnderThePrivilegedRunnerTheDirectoriesAWriteMakesAreTheOwners(unittest.Tes
         self.assertIn(str(self.home / "kept"), result.content or "")
         self.assertIn("not removed", result.content or "")
 
-    # --- the file goes where the directory was made, whatever the name says ----
+    # --- the file goes where it was checked, or nowhere ------------------------
 
-    def test_the_file_is_created_in_the_directory_made_for_it(self) -> None:
+    def test_a_made_directory_moved_before_the_file_is_created_takes_no_file(
+            self) -> None:
         """Between the making of the directory and the creation of the file, the
         name of the directory in the owner's home is moved aside and pointed at a
-        directory outside the home. The file must land in the directory the write
-        made, never where the name now points."""
+        directory outside the home. The file must not land where the name now
+        points, and not in the moved directory either, which is no longer the
+        path the write was checked for: the write is refused."""
         made = self.home / "made"
         target = made / "note.txt"
         real_open = dt.opened_refusing_install_secrets
@@ -1299,12 +1303,295 @@ class UnderThePrivilegedRunnerTheDirectoriesAWriteMakesAreTheOwners(unittest.Tes
         with self._as_the_runner(), \
                 mock.patch.object(dt, "opened_refusing_install_secrets",
                                   side_effect=name_moved_first):
-            self._write(target, "where it was made\n")
+            result = self._write(target, "where it was made\n")
         self.assertTrue(swapped, "the case moved nothing")
         self.assertEqual(self._listing(self.outside), [],
                          "the write followed the replaced name out of the home")
-        self.assertEqual((self.home / "made-moved" / "note.txt").read_text(),
-                         "where it was made\n")
+        self.assertFalse(result.success,
+                         f"the write reported success: {result.content!r}")
+        self.assertEqual(self._listing(self.home / "made-moved"), [],
+                         "the file was written at a path it was not checked for")
+
+
+class UnderThePrivilegedRunnerAWriteLandsOnlyWhereItWasChecked(unittest.TestCase):
+    """A name replaced between write_file's checks and its open, under the runner.
+
+    write_file resolves the requested path, classifies it, reads it for the
+    diff and makes its directories, and only then opens it. Under the
+    privileged runner that open runs as root, and a process of the requesting
+    account can replace a name in that account's home in between: the last
+    component by a link, a directory by a link, or the name read for the diff,
+    while a FIFO at the name lets that process choose the moment. Root then read
+    and wrote whatever the new name pointed to, and the report named the home
+    path. Under the runner a path is now opened one component at a time by
+    descriptor without following a link, only a regular file is opened, and the
+    kernel's own path for what was opened must be the path that was checked;
+    otherwise nothing is read or written. Outside the runner nothing changes.
+
+    Root is simulated as in the classes above; the stand-in for a file the
+    person cannot write is a throwaway file outside the home.
+    """
+
+    ORIGINAL = "the stand-in, unchanged\n"
+    CONTENT = "written by the approved write\n"
+
+    def setUp(self) -> None:
+        self.uid = os.getuid()
+        self.gid = os.getgid()
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name)
+        self.home = self.root / "home"
+        self.home.mkdir(mode=0o750)
+        self.outside = self.root / "elsewhere"
+        self.outside.mkdir()
+        self.stand_in = self.root / "stand-in.txt"
+        self.stand_in.write_text(self.ORIGINAL)
+        self.tool = write_file_tool.WriteFileTool()
+        self._umask = os.umask(0o022)
+        never_list_absent = contextlib.ExitStack()
+        never_list_absent.enter_context(
+            mock.patch.object(write_file_tool, "_policy_loaded", True))
+        never_list_absent.enter_context(
+            mock.patch.object(write_file_tool, "_policy_cache", None))
+        self.addCleanup(never_list_absent.close)
+
+    def tearDown(self) -> None:
+        os.umask(self._umask)
+        self._tmp.cleanup()
+
+    def _as_the_runner(self):
+        entry = mock.MagicMock()
+        entry.pw_dir, entry.pw_uid, entry.pw_gid = str(self.home), self.uid, self.gid
+        fake_pwd = mock.MagicMock()
+        fake_pwd.getpwuid.return_value = entry
+        fake_pwd.getpwnam.return_value = entry
+        stack = contextlib.ExitStack()
+        stack.enter_context(mock.patch.object(dt, "pwd", fake_pwd))
+        stack.enter_context(mock.patch.dict(os.environ, {"PKEXEC_UID": str(self.uid)}))
+        stack.enter_context(mock.patch.object(dt.os, "getuid", return_value=0))
+        return stack
+
+    def _write(self, target: Path, content: str = CONTENT, create_dirs: bool = False):
+        return self.tool.execute({"path": str(target), "content": content,
+                                  "create_dirs": create_dirs})
+
+    def _listing(self, top: Path) -> list[str]:
+        def stop(err: OSError) -> None:
+            raise err
+        found = []
+        for d, dirs, files in os.walk(top, onerror=stop):
+            found += [str((Path(d) / n).relative_to(top)) for n in dirs + files]
+        return sorted(found)
+
+    def _assert_nothing_reached_outside(self, result, *others: Path) -> None:
+        self.assertEqual(self.stand_in.read_text(), self.ORIGINAL,
+                         "root wrote the file the replaced name pointed to")
+        self.assertNotIn(self.ORIGINAL.strip(), result.content or "",
+                         "root read the file the replaced name pointed to into the "
+                         "write's report")
+        for directory in (self.outside, *others):
+            self.assertEqual(self._listing(directory), [],
+                             f"the write created something in {directory}")
+        self.assertFalse(result.success,
+                         f"the write reported success: {result.content!r}")
+
+    def _replaced_when(self, name: str, replace):
+        """Patch dispatch_token's `name` so `replace` runs once, just before it."""
+        real = getattr(dt, name)
+        done = []
+
+        def first_replaced(*args, **kwargs):
+            if not done:
+                replace()
+                done.append(True)
+            return real(*args, **kwargs)
+
+        return mock.patch.object(dt, name, side_effect=first_replaced), done
+
+    # --- the three shapes the probe measured -----------------------------------
+
+    def test_a_last_component_replaced_by_a_link_after_the_checks_is_not_written(
+            self) -> None:
+        target = self.home / "notes.txt"
+        patch, done = self._replaced_when(
+            "opened_refusing_install_secrets",
+            lambda: os.symlink(self.stand_in, target))
+        with self._as_the_runner(), patch:
+            result = self._write(target)
+        self.assertTrue(done, "the case replaced nothing")
+        self._assert_nothing_reached_outside(result)
+
+    def test_a_directory_replaced_by_a_link_after_the_checks_is_not_written(
+            self) -> None:
+        drafts = self.home / "drafts"
+        drafts.mkdir()
+
+        def replace() -> None:
+            os.rename(drafts, self.home / "drafts-moved")
+            os.symlink(self.outside, drafts)
+
+        patch, done = self._replaced_when("opened_refusing_install_secrets", replace)
+        with self._as_the_runner(), patch:
+            result = self._write(drafts / "notes.txt")
+        self.assertTrue(done, "the case replaced nothing")
+        self._assert_nothing_reached_outside(result)
+
+    def test_a_name_replaced_before_the_diff_read_is_neither_read_nor_written(
+            self) -> None:
+        target = self.home / "notes.txt"
+        target.write_text("the account's own notes\n")
+
+        def replace() -> None:
+            os.rename(target, self.home / "notes-moved.txt")
+            os.symlink(self.stand_in, target)
+
+        patch, done = self._replaced_when("read_text_refusing_install_secrets", replace)
+        with self._as_the_runner(), patch:
+            result = self._write(target)
+        self.assertTrue(done, "the case replaced nothing")
+        self._assert_nothing_reached_outside(result)
+
+    def test_a_fifo_at_the_name_neither_holds_the_write_nor_times_a_replacement(
+            self) -> None:
+        """A FIFO at the name: the diff read waits for a writer, and the writer
+        is the process that replaces the name while the read waits. The write
+        must neither wait on the FIFO nor follow the replacement."""
+        target = self.home / "notes.txt"
+        os.mkfifo(target)
+        stop = threading.Event()
+        replaced = []
+
+        def the_writer() -> None:
+            deadline = time.monotonic() + 10
+            while not stop.is_set() and time.monotonic() < deadline:
+                try:
+                    fd = os.open(target, os.O_WRONLY | os.O_NONBLOCK)
+                except OSError:
+                    time.sleep(0.01)
+                    continue
+                try:
+                    os.rename(target, self.home / "fifo-moved")
+                    os.symlink(self.stand_in, target)
+                    replaced.append(True)
+                    os.write(fd, b"from the writer\n")
+                except OSError:
+                    pass
+                finally:
+                    os.close(fd)
+                return
+
+        writer = threading.Thread(target=the_writer, daemon=True)
+        writer.start()
+        try:
+            with self._as_the_runner():
+                started = time.monotonic()
+                result = self._write(target)
+                took = time.monotonic() - started
+        finally:
+            stop.set()
+            writer.join(15)
+        self.assertFalse(writer.is_alive(), "the case's writer did not finish")
+        self.assertLess(took, 5, "the privileged write waited on a FIFO")
+        self._assert_nothing_reached_outside(result)
+
+    # --- the same, through create_dirs and outside the home --------------------
+
+    def test_a_directory_replaced_by_a_link_before_create_dirs_is_not_written(
+            self) -> None:
+        drafts = self.home / "drafts"
+        drafts.mkdir()
+
+        def replace() -> None:
+            os.rename(drafts, self.home / "drafts-moved")
+            os.symlink(self.outside, drafts)
+
+        patch, done = self._replaced_when("canonical_path_secret_reason", replace)
+        with self._as_the_runner(), patch:
+            result = self._write(drafts / "new" / "notes.txt", create_dirs=True)
+        self.assertTrue(done, "the case replaced nothing")
+        self._assert_nothing_reached_outside(result)
+
+    def test_a_directory_outside_the_home_replaced_by_a_link_is_not_written(
+            self) -> None:
+        """A shared directory outside the home, one the requesting account can
+        write in: under the runner the same walk applies."""
+        shared = self.outside / "shared"
+        shared.mkdir()
+        other = self.root / "other"
+        other.mkdir()
+
+        def replace() -> None:
+            os.rename(shared, self.outside / "shared-moved")
+            os.symlink(other, shared)
+
+        patch, done = self._replaced_when("opened_refusing_install_secrets", replace)
+        with self._as_the_runner(), patch:
+            result = self._write(shared / "notes.txt")
+        self.assertTrue(done, "the case replaced nothing")
+        self.assertEqual(self._listing(other), [],
+                         "the write followed the replaced name")
+        self.assertFalse(result.success,
+                         f"the write reported success: {result.content!r}")
+
+    # --- what was opened is what was checked -----------------------------------
+
+    def test_what_was_opened_must_be_the_path_that_was_checked(self) -> None:
+        """The kernel's own path for what the open returned is read back, and
+        when it is not the path the checks were asked of, nothing is read or
+        written. Answered here through the readlink the module makes: nothing
+        an unprivileged cell can do moves an open file away from a resolved
+        path without a link."""
+        target = self.home / "notes.txt"
+        target.write_text("before\n")
+        real_readlink = os.readlink
+
+        def elsewhere(name, *args, **kwargs):
+            answer = real_readlink(name, *args, **kwargs)
+            if (isinstance(name, str) and name.startswith("/proc/self/fd/")
+                    and answer == str(target)):
+                return str(self.outside / "notes.txt")
+            return answer
+
+        with self._as_the_runner(), \
+                mock.patch.object(dt.os, "readlink", side_effect=elsewhere):
+            result = self._write(target, "after\n")
+        self.assertFalse(result.success,
+                         f"the write reported success: {result.content!r}")
+        self.assertEqual(target.read_text(), "before\n")
+
+    # --- what keeps working ------------------------------------------------------
+
+    def test_ordinary_writes_under_the_runner_are_unchanged(self) -> None:
+        existing = self.home / "existing.txt"
+        existing.write_text("old\n")
+        kept = self.home / "dotfiles" / "rc"
+        kept.parent.mkdir()
+        kept.write_text("rc old\n")
+        (self.home / ".rc").symlink_to(kept)
+        with self._as_the_runner():
+            created = self._write(self.home / "new.txt", "new\n")
+            updated = self._write(existing, "new\n")
+            nested = self._write(self.home / "x" / "y" / "z.txt", "deep\n",
+                                 create_dirs=True)
+            through = self._write(self.home / ".rc", "rc new\n")
+        for result in (created, updated, nested, through):
+            self.assertTrue(result.success, result.content)
+        self.assertEqual((self.home / "new.txt").read_text(), "new\n")
+        self.assertEqual(existing.read_text(), "new\n")
+        self.assertIn("-old", updated.content)
+        self.assertEqual((self.home / "x" / "y" / "z.txt").read_text(), "deep\n")
+        self.assertEqual(kept.read_text(), "rc new\n",
+                         "a link the person keeps, present when the path was "
+                         "resolved, is written through as it resolved")
+
+    def test_outside_the_runner_a_write_through_a_link_is_as_before(self) -> None:
+        target = self.root / "own-target.txt"
+        target.write_text("old\n")
+        link = self.home / "linked.txt"
+        link.symlink_to(target)
+        result = self._write(link)
+        self.assertTrue(result.success, result.content)
+        self.assertEqual(target.read_text(), self.CONTENT)
 
 
 if __name__ == "__main__":
