@@ -7,7 +7,10 @@
   'use strict';
 
   // ── Constants ──────────────────────────────────────────────────────────
-  const WS_URL = 'ws://localhost:8089/ws';
+  // The socket goes to the server that served this page, on whatever
+  // address it was configured to serve (web_server.host and .port).
+  const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://') +
+    location.host + '/ws';
   const STATIC_URL = '/static/';
   const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
   const MARK_THINKING_ANIM = 'mark-pulse 1.2s ease-in-out infinite';
@@ -134,7 +137,7 @@
     const token = window.__INTERGEN_TOKEN__ || null;
     // Hand the real token off to same-origin sub-pages (the dashboard is served
     // static, so it gets no server-side injection — it reads this). sessionStorage
-    // is per-tab and cleared on close; on the single-user 8089 loopback this only
+    // is per-tab and cleared on close; on the single-user loopback panel this only
     // mirrors a token already in this page's JS.
     if (token) {
       try { sessionStorage.setItem('intergen_web_token', token); } catch (e) {}

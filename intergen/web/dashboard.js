@@ -7,7 +7,10 @@
 (function () {
   'use strict';
 
-  const WS_URL = 'ws://localhost:8089/ws';
+  // The socket goes to the server that served this page, on whatever
+  // address it was configured to serve (web_server.host and .port).
+  const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://') +
+    location.host + '/ws';
 
   let ws = null;
   let connected = false;
