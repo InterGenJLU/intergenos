@@ -323,6 +323,27 @@ _FORGET_PATTERNS = [
 # subject names nothing. Nothing is forgotten or cleared, and the reply says so.
 _FORGET_DECLINED = "__DECLINED__"
 
+
+class _ForgetDeclined(str):
+    """The declined verdict for a named forget whose request asks for more than
+    the forget: a clause beside it, or a second subject joined to the first.
+
+    It IS the declined verdict: it compares equal to ``_FORGET_DECLINED``, so
+    every reader of the verdict reads a decline and nothing is forgotten. It
+    also carries what the request named, so the reply can say what was not
+    done: ``subjects``, the things it named to forget, and ``beside``, the rest
+    of the request that stood in front of the forget ("" when none did).
+    """
+
+    subjects: tuple
+    beside: str
+
+    def __new__(cls, subjects=(), beside: str = "") -> "_ForgetDeclined":
+        verdict = super().__new__(cls, _FORGET_DECLINED)
+        verdict.subjects = tuple(subjects)
+        verdict.beside = beside
+        return verdict
+
 # The request's closing marks and closing courtesy: not part of the subject they
 # end, and all that may follow the reset phrase's noun.
 #
@@ -380,6 +401,78 @@ _RESET_SUBJECT_RE = re.compile(
 _LEAD = (r"[\s,.;:!?-]*(?:(?:please|ok|okay|and|also|so|just|now|then|hey|oh|"
          r"well|actually|(?:can|could|would|will)\s+you)\b[\s,.;:!?-]*)*")
 _IMPERATIVE_LEAD_RE = re.compile(_LEAD, re.IGNORECASE)
+
+# What may stand in front of a NAMED forget: a lead (the words of _LEAD), the
+# assistant's name said to it, and the plain frames a person asks with ("I want
+# you to", "go ahead and"). Anything else in front of the verb is more than the
+# forget. Read word by word, never by one pattern: a pattern of optional
+# repeated groups backtracks without bound on a long run of separators.
+_LEAD_WORDS = frozenset(
+    "please ok okay and also so just now then hey oh well actually".split())
+_ASKING_VERBS = frozenset("can could would will".split())
+_REQUEST_FRAMES = (
+    ("i", "want", "you", "to"), ("i", "need", "you", "to"),
+    ("i'd", "like", "you", "to"), ("i\u2019d", "like", "you", "to"),
+    ("i", "would", "like", "you", "to"), ("go", "ahead", "and"),
+    ("you", "can"), ("you", "may"), ("you", "should"),
+)
+_FRONT_WORD_RE = re.compile(r"[^\s,.;:!?-]+")
+
+# What joins a second subject to the first inside a named forget's subject:
+# "forget my car and my editor" names two things.
+_SUBJECT_JOINER_RE = re.compile(
+    r"[,;&]|\b(?:and|or|plus|as\s+well\s+as|along\s+with)\b", re.IGNORECASE)
+
+# The joining words a clause in front of the forget ends with: "tell me a joke
+# AND forget my car".
+_FRONT_JOINERS = ("and", "then", "also", "so", "now", "please", "just")
+
+
+def _only_a_request_frame(front: str) -> bool:
+    """True when ``front`` holds nothing but leads, the assistant's name and
+    one plain request frame: the forget behind it is the whole request."""
+    words = _FRONT_WORD_RE.findall(front.lower())
+    i = 0
+
+    def past_leads(i: int) -> int:
+        while i < len(words):
+            if words[i] in _LEAD_WORDS:
+                i += 1
+            elif (words[i] in _ASKING_VERBS and i + 1 < len(words)
+                  and words[i + 1] == "you"):
+                i += 2
+            else:
+                break
+        return i
+
+    i = past_leads(i)
+    if i < len(words) and words[i] == "intergen":
+        i = past_leads(i + 1)
+    for frame in _REQUEST_FRAMES:
+        if tuple(words[i:i + len(frame)]) == frame:
+            i = past_leads(i + len(frame))
+            break
+    return i == len(words)
+
+
+def _clause_in_front(front: str) -> str:
+    """The clause that stood in front of a forget, without the separators and
+    joining words it ended with ("tell me a joke and " -> "tell me a joke").
+    Plain string tests in a loop, as in _closing_removed."""
+    end = len(front)
+    while True:
+        last = end
+        while end and (front[end - 1].isspace() or front[end - 1] in _CLOSING_MARKS
+                       or front[end - 1] == "-"):
+            end -= 1
+        for word in _FRONT_JOINERS:
+            start = end - len(word)
+            if (start >= 0 and front[start:end].lower() == word
+                    and (start == 0 or not _WORD_CHAR_RE.match(front[start - 1]))):
+                end = start
+                break
+        if end == last:
+            return front[:end].strip()
 _LEADING_SUBJECT_RE = re.compile(
     _LEAD + r"(?:about|regarding|concerning|as for|as to)\s([^,;:]+)[,;:]" + _LEAD,
     re.IGNORECASE,
@@ -1399,9 +1492,27 @@ class MemoryManager:
                 # the reply says so.
                 if _RESET_RE.search(message):
                     return _FORGET_DECLINED
+                # A NAMED FORGET IS CARRIED OUT ONLY WHEN IT IS THE WHOLE
+                # REQUEST. The decomposer reads "tell me a joke and forget my
+                # car" and "forget my car and my editor" as one request, so each
+                # reached this parser whole: the first forgot the car and the
+                # joke was dropped without a word, and the second took "my car
+                # and my editor" as one subject and answered that there was no
+                # such memory, saying nothing of either. A forget with a clause
+                # in front of it (anything but a lead or a plain request frame),
+                # or with a second subject joined to the first, is declined:
+                # nothing is forgotten, and the reply names what was not done.
+                front = message[:match.start()]
+                beside = ""
+                if not _only_a_request_frame(front):
+                    beside = _clause_in_front(front) or front.strip()
                 subject = _named_subject(match.group(1))
                 if subject is None:
-                    return _FORGET_DECLINED
+                    return _ForgetDeclined((), beside) if beside else _FORGET_DECLINED
+                subjects = [part.strip() for part in _SUBJECT_JOINER_RE.split(subject)
+                            if part.strip()]
+                if beside or len(subjects) > 1:
+                    return _ForgetDeclined(subjects or [subject], beside)
                 return subject
         return None
 
@@ -1422,7 +1533,23 @@ class MemoryManager:
         """Execute a forget request and return the response."""
         if subject == _FORGET_DECLINED:
             # Nothing was forgotten or cleared: the reply says so, and how to ask
-            # for what the request did not make plain.
+            # for what the request did not make plain. A request that asked for
+            # more than the forget is answered with what it asked for, by name.
+            named = getattr(subject, "subjects", ())
+            beside = getattr(subject, "beside", "")
+            if beside:
+                what = (" or ".join(f"\"{s}\"" for s in named) if named
+                        else "anything")
+                example = f", like \"forget {named[0]}\"" if named else ""
+                return (f"I haven't forgotten {what}, and I haven't done the "
+                        f"rest of that request either (\"{beside}\"): it asked "
+                        f"for more than the forget. Ask for the forget on its "
+                        f"own{example}, and for the rest separately.")
+            if len(named) > 1:
+                return ("I haven't forgotten anything: that names more than one "
+                        "thing to forget (" + ", ".join(f"\"{s}\"" for s in named)
+                        + f"). Ask me to forget them one at a time, like "
+                        f"\"forget {named[0]}\".")
             return ("I haven't forgotten or cleared anything: I couldn't tell "
                     "exactly what to forget from that. Name the one thing to "
                     "forget, or say \"clear all my memories\" on its own to "
