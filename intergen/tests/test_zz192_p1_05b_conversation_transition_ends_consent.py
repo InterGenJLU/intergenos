@@ -3555,15 +3555,19 @@ class ADialogThatCannotBeTakenDownIsNotRecordedClosed(unittest.TestCase):
     whether the program it had to take down still runs, and whether an ERROR
     names that program's pid. The review gate's dialog, which shares the
     launcher, is a failed review when its teardown fails, never a timed-out
-    one. The control: a kill refused for a program that had already ended is
-    no failure."""
+    one. A caller's stop that raised while the branded dialog was on screen
+    left it untried: the error went on to the caller and the dialog stayed on
+    screen. It is now taken down first, and a teardown that fails is
+    not-taken-down, the error its cause. The control: a kill refused for a
+    program that had already ended is no failure."""
 
     maxDiff = None
 
     def _ask(self, mode: str, branded_popen=None, fallback_popen=None,
              stop_after_render: bool = False, stop_after_fallback: bool = False,
              with_stop: bool = True, deadline: float | None = None,
-             render_timeout: float | None = None) -> dict:
+             render_timeout: float | None = None,
+             stop_raises_after_render: bool = False) -> dict:
         import logging
         import subprocess
         import threading
@@ -3634,11 +3638,17 @@ class ADialogThatCannotBeTakenDownIsNotRecordedClosed(unittest.TestCase):
         outcome: list = []
         out: dict = {}
 
+        def raising_stop() -> bool:
+            if dialogs.rendered():
+                raise RuntimeError("the stop could not be read")
+            return False
+
         def ask() -> None:
             try:
                 out["answered"] = consent_modal.prompt_send_consent(
                     FRONTIER_QUESTION, "frontier", outcome=outcome,
-                    should_stop=stop.is_set if with_stop else None)
+                    should_stop=(raising_stop if stop_raises_after_render
+                                 else stop.is_set) if with_stop else None)
             except BaseException as exc:  # read by the case
                 out["answered"] = f"<raised {type(exc).__name__}>"
 
@@ -3698,6 +3708,27 @@ class ADialogThatCannotBeTakenDownIsNotRecordedClosed(unittest.TestCase):
         self.assertEqual(self._ask(
             "renders", branded_popen=_never_reaped_popen(),
             stop_after_render=True), self._not_taken_down(["branded"]))
+
+    def test_a_stop_that_raises_when_the_branded_dialogs_teardown_fails(self):
+        """The caller's stop raises while the branded dialog is on screen and
+        its kill is refused: not verified closed, so recorded not taken down,
+        nothing sent - never the stop's error alone with the dialog left on
+        screen untried."""
+        self.assertEqual(self._ask(
+            "renders", branded_popen=_kill_refused_popen(),
+            stop_raises_after_render=True), self._not_taken_down(["branded"]))
+
+    def test_a_stop_that_raises_takes_the_branded_dialog_down(self):
+        """The caller's stop raises while the branded dialog is on screen: the
+        error goes on to the caller, and the dialog is taken down first, as
+        the fallback's runner takes its program down on any error."""
+        self.assertEqual(self._ask("renders", stop_raises_after_render=True), {
+            "the consent answered": "<raised RuntimeError>",
+            "the consent recorded": [],
+            "dialogs opened": ["branded"],
+            "the program to take down still running": False,
+            "an ERROR names its pid": False,
+        })
 
     def test_a_dialog_never_on_screen_that_cannot_be_taken_down_opens_no_fallback(
             self):
@@ -3883,7 +3914,11 @@ class EveryProgramTheModalsRunIsTornDownWithinItsBound(unittest.TestCase):
     KILL_REAP_SECONDS and a poll. A program not verified ended is logged with
     its pid and the reason and answered as the dialog's own failure (the
     consent step's not-taken-down, the review's review_failed), or, for a
-    notification or a probe, as that step's failure was answered before.
+    notification or a probe, as that step's failure was answered before. When
+    an error stops the wait (the caller's stop raising) and the teardown that
+    follows fails, the runner raises DialogNotTakenDown naming the program's
+    pid, the error its cause: it re-raised the error alone, and the caller
+    never learned the program was still running.
 
     Each case runs the real modal code with its program replaced by the case's
     own (_Held) and every Popen's kill made a no-op, its bound shortened where
@@ -4092,6 +4127,46 @@ class EveryProgramTheModalsRunIsTornDownWithinItsBound(unittest.TestCase):
             "the program still running": False,
             "an ERROR names its pid": False,
         })
+
+    def test_a_stop_that_raises_when_the_teardown_fails(self):
+        """The caller's stop raises while the fallback dialog is open, and
+        the dialog's kill is refused: the program may still be on screen, so
+        the runner raises DialogNotTakenDown naming its pid, the stop's error
+        its cause - never the stop's error alone, which told the caller
+        nothing of a program left running."""
+        import subprocess
+        from intergen import consent_dialog, consent_modal
+        program = _Held(self, "zenity")
+        asked = {"times": 0}
+
+        def stop() -> bool:
+            asked["times"] += 1
+            if asked["times"] > 5 and program.pid() is not None:
+                raise RuntimeError("the stop could not be read")
+            return False
+
+        def ask():
+            try:
+                consent_modal._prompt_consent_zenity(
+                    FRONTIER_QUESTION, "frontier", "", should_stop=stop)
+            except consent_dialog.DialogNotTakenDown as exc:
+                return {
+                    "raised": type(exc).__name__,
+                    "it names the pid": f"(pid {program.pid()})" in str(exc),
+                    "its cause": type(exc.__cause__).__name__,
+                }
+            return "<returned>"
+
+        self.assertEqual(self._held(
+            program, ask, bound=4.0, kill_ends_it=True, patches=(
+                mock.patch.object(subprocess, "Popen", _kill_refused_popen()),
+                mock.patch.object(consent_modal.shutil, "which",
+                                  side_effect=program.which))),
+            self._reported({
+                "raised": "DialogNotTakenDown",
+                "it names the pid": True,
+                "its cause": "RuntimeError",
+            }))
 
     def test_control_a_review_dialog_the_kill_ends_is_a_timed_out_review(self):
         from intergen import review_modal
