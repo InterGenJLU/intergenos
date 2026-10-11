@@ -1433,12 +1433,12 @@
   dom.btnMetrics.addEventListener('click', () => send({ type: 'request_metrics' }));
   dom.btnHealth.addEventListener('click', () => send({ type: 'request_health' }));
   // Phone — open the escalation (phone-a-friend) provider config on the
-  // dashboard. getAuthToken() has already mirrored the token to sessionStorage
-  // so the static dashboard page authenticates; the #providers hash deep-links
-  // straight to the Providers tab.
+  // dashboard. The panel window's getAuthToken() mirrors its token to
+  // sessionStorage; a browser page's sign-in path has already stored its session
+  // under the same key. The #providers hash opens the Providers tab.
   if (dom.btnEscalation) {
     dom.btnEscalation.addEventListener('click', () => {
-      getAuthToken();  // ensure the token is in sessionStorage for the dashboard
+      getAuthToken();  // store the panel-window token; a browser session is already stored
       window.location.href = '/dashboard.html#providers';
     });
   }

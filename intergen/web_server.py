@@ -11,13 +11,16 @@ Architecture:
     router, llm, tools, governance, metrics, event_logger, state_cache
 
 Static files are served from intergen/web/ with Content-Security-Policy headers.
-WebSocket auth is a single-token check at handshake — no per-message auth.
+WebSocket auth checks one credential at handshake — the account token or a
+browser session issued for that token; there is no per-message auth.
+Every socket closes when the credential that opened it is no longer honoured.
 
 Connection lifecycle:
-  1. Client opens ws://<host>:<port>/ws?token=<hex>&source_interface=<web|console>
+  1. Client opens ws://<host>:<port>/ws?source_interface=<web|console>
      on the address the server binds (web_server.host and web_server.port;
-     127.0.0.1:8089 as shipped)
-  2. Server validates token, creates ConnectionContext, sends {type:"connected"}
+     127.0.0.1:8089 as shipped), presenting "intergen, bearer.<credential>"
+     in Sec-WebSocket-Protocol.
+  2. Server validates the credential, creates ConnectionContext, sends {type:"connected"}
   3. Message dispatch loop — type→handler map for all client→server message types
   4. On disconnect: cleanup connection registry, release session resources
   5. Graceful shutdown: SIGTERM/SIGINT → force-close all WS → stop aiohttp → exit

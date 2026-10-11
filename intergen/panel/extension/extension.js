@@ -66,13 +66,13 @@ function _engineFailureReason(status) {
 }
 
 // Open the panel in the person's browser, signed in, at the address the daemon
-// serves it on, read from the daemon's own status, so the item follows whatever
-// address the panel was configured to serve. A browser opening an address sends
-// no token, so the item first asks the panel, with the panel's token, for a
-// one-time sign-in and opens the address carrying that; the panel exchanges it
-// once for a cookie and sends the browser on to the clean address. When the
-// panel is not serving, the daemon does not answer, or no sign-in can be had,
-// it says so in words instead of opening a page that cannot connect.
+// serves it on, read from the daemon's own status. The item first asks the
+// panel, with the panel's token, for a one-time sign-in and opens the address
+// carrying it in the fragment, which the browser sends to no server. The page
+// removes it from the address and exchanges it once for an origin-scoped
+// session kept in sessionStorage. When the panel is not serving, the daemon
+// does not answer, or no sign-in can be had, it says so instead of opening a
+// page that cannot connect.
 function _openPanelInBrowser() {
   Gio.DBus.session.call(
     INTERGEN_BUS, INTERGEN_PATH, INTERGEN_BUS, "Status", null,
@@ -116,11 +116,11 @@ function _readPanelToken() {
   return token;
 }
 
-// Ask the panel at panelUrl for a one-time sign-in and open the address
-// carrying it in the fragment, which the browser sends to no server; the page
-// exchanges it, once, for a session of its own. The sign-in is never shown in
-// words, and it is spent within a second: the address is the browser's
-// command line, which other accounts on the machine can read.
+// Ask the panel at panelUrl for a one-time sign-in and open the address carrying
+// it in the fragment, which the browser sends to no server; the page exchanges
+// it once for a session of its own. The sign-in is one-use and lapses within a
+// minute. It may appear in a browser-launch process's command line, which other
+// accounts on the machine can read, until that process exits.
 function _openSignedIn(panelUrl) {
   let message;
   try {
