@@ -462,6 +462,120 @@ class AnOpenSocketEndsWithItsSession(unittest.TestCase):
         self.assertEqual(fate[0], "served", fate)
 
 
+class ASocketTheTokenOpenedEndsWhenTheTokenChanges(unittest.TestCase):
+    """The panel window and the console open their sockets with the token
+    itself. A socket's credential is checked once, at its handshake, so the
+    server closes a socket the token opened once the token is no longer that
+    token, as it closes one a browser session opened when that session ends:
+    one rule for every socket it holds. An open socket was otherwise served
+    after the token that opened it had changed, while a new socket and a new
+    request with that token were refused. The console's own client is told
+    it is disconnected, and its next start reads the token as it is now."""
+
+    def assertClosedAsChanged(self, fate):
+        self.assertEqual(fate[0], "closed",
+                         f"the socket was still served: {fate}")
+        self.assertEqual(fate[1], aiohttp.WSCloseCode.POLICY_VIOLATION, fate)
+
+    def test_a_changed_token_closes_the_socket_the_token_opened(self):
+        panel = _Panel(self)
+
+        async def rotate(session):
+            panel.token_path.write_text(OTHER_TOKEN + "\n", encoding="utf-8")
+
+        async def scenario(session):
+            fate = await panel.socket_fate(session, TOKEN, rotate)
+            new = await panel.socket(session, "intergen", f"bearer.{OTHER_TOKEN}")
+            old = await panel.socket(session, "intergen", f"bearer.{TOKEN}")
+            return fate, new, old
+
+        fate, new, old = panel.run(scenario)
+        self.assertClosedAsChanged(fate)
+        self.assertEqual(new.get("type"), "connected", new)
+        self.assertEqual(old, 401)
+
+    def test_a_removed_token_file_closes_the_socket_the_token_opened(self):
+        panel = _Panel(self)
+
+        async def remove(session):
+            panel.token_path.unlink()
+
+        async def scenario(session):
+            return await panel.socket_fate(session, TOKEN, remove)
+
+        self.assertClosedAsChanged(panel.run(scenario))
+
+    def test_a_token_file_that_is_not_text_closes_the_socket_the_token_opened(self):
+        panel = _Panel(self)
+
+        async def garble(session):
+            panel.token_path.write_bytes(b"\xff\xfe not text\n")
+
+        async def scenario(session):
+            return await panel.socket_fate(session, TOKEN, garble)
+
+        self.assertClosedAsChanged(panel.run(scenario))
+
+    def test_the_same_token_written_again_keeps_the_socket_it_opened(self):
+        panel = _Panel(self)
+
+        async def rewrite(session):
+            panel.token_path.write_text(TOKEN + "\n", encoding="utf-8")
+
+        async def scenario(session):
+            return await panel.socket_fate(session, TOKEN, rewrite, wait=2.5)
+
+        fate = panel.run(scenario)
+        self.assertEqual(fate[0], "served", fate)
+
+    def test_the_console_is_disconnected_and_its_next_start_presents_the_new_token(self):
+        """The console's own client: told it is disconnected when the token
+        changes, and its next start reads the token as it is now."""
+        from intergen.console import client as console_client
+        panel = _Panel(self)
+        patcher = mock.patch.object(console_client, "TOKEN_PATH",
+                                    panel.token_path)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        url = f"ws://127.0.0.1:{panel.port}/ws"
+
+        async def frames_until_disconnected(console, wait: float):
+            seen = []
+
+            async def read():
+                async for msg in console.messages():
+                    seen.append(msg.get("type"))
+                    if msg.get("type") == "disconnected":
+                        return
+
+            try:
+                await asyncio.wait_for(read(), timeout=wait)
+            except asyncio.TimeoutError:
+                pass
+            return seen
+
+        async def scenario(session):
+            console = console_client.ConsoleClient(ws_url=url)
+            try:
+                first = await console.connect()
+                panel.token_path.write_text(OTHER_TOKEN + "\n",
+                                            encoding="utf-8")
+                seen = await frames_until_disconnected(console, 5.0)
+            finally:
+                await console.close()
+            again = console_client.ConsoleClient(ws_url=url)
+            try:
+                second = await again.connect()
+            finally:
+                await again.close()
+            return first, seen, second
+
+        first, seen, second = panel.run(scenario)
+        self.assertEqual(first.get("type"), "connected", first)
+        self.assertIn("disconnected", seen, seen)
+        self.assertEqual(second.get("type"), "connected", second)
+
+
 class ACredentialOutsideAsciiIsRefused(unittest.TestCase):
     """A credential carrying bytes outside ASCII is refused like any other
     wrong one. Compared as strings it raised, and the panel answered 500."""

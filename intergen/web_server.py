@@ -180,10 +180,11 @@ PANEL_SESSION_TTL_S = 12 * 3600.0
 # first: each Open in Browser makes one of each.
 _PANEL_BOOTSTRAPS_KEPT = 8
 _PANEL_SESSIONS_KEPT = 16
-# How often the server reads the token while a browser session is kept, so a
-# session whose token has changed, or that has lapsed, ends within this long
-# even when nothing asks the server anything, and the sockets it opened close
-# with it (see WebServer._end_panel_sessions).
+# How often the server reads the token while a browser session is kept or a
+# socket is open, so a session whose token has changed, or that has lapsed,
+# ends within this long even when nothing asks the server anything, and the
+# sockets it opened close with it, as does every socket the token opened once
+# the token has changed (see WebServer._end_panel_sessions).
 _PANEL_SESSION_WATCH_S = 1.0
 
 # The panel's words for a sign-in it refuses, shown by the page. They do not
@@ -295,7 +296,8 @@ class ConnectionContext:
     user_agent: str = ""
     # The key of the browser session that opened this socket (see
     # PANEL_BOOTSTRAP_TTL_S); None when the token opened it. The socket is
-    # closed when that session ends (see WebServer._end_panel_sessions).
+    # closed when that session ends, or, when the token opened it, when the
+    # token changes (see WebServer._end_panel_sessions).
     panel_session: str | None = None
 
     def __post_init__(self) -> None:
@@ -774,7 +776,8 @@ class WebServer:
         """Whether a presented credential is honoured, and the key of the
         browser session it is (None for the token itself). The token is read
         here, so every session made for a token that has since changed, or
-        that has lapsed, ends here, with the sockets it opened."""
+        that has lapsed, ends here, with the sockets it opened, and every
+        socket a token that has since changed opened closes here."""
         expected = self._load_auth_token()
         self._end_panel_sessions(expected)
         if not (expected and presented):
@@ -789,15 +792,21 @@ class WebServer:
     def _end_panel_sessions(self, expected: str | None) -> None:
         """End every one-time sign-in and browser session that has lapsed or
         was made for a token other than ``expected`` (every one of them while
-        no token is configured), then close every open socket whose session
-        is no longer kept, however it ended: lapsed, made for a changed
-        token, or dropped for newer ones (_PANEL_SESSIONS_KEPT).
+        no token is configured), then close every open socket whose
+        credential is no longer honoured: one a browser session opened, once
+        that session is no longer kept, however it ended (lapsed, made for a
+        changed token, or dropped for newer ones, _PANEL_SESSIONS_KEPT); one
+        the token opened (the panel window's, the console's), once the token
+        is no longer that token (every one of them while no token is
+        configured). One rule for every socket the server holds.
 
         A socket's credential is checked once, at its handshake, so this is
-        where a session's end reaches the sockets it opened; without it an
-        open socket went on being served after its session had ended. The
-        page then asks the server whether its session is still honoured and,
-        told it is not, says how to sign in again."""
+        where a credential's end reaches the sockets it opened; without it an
+        open socket went on being served after its session had ended, or
+        after the token that opened it had changed. The page then asks the
+        server whether its session is still honoured and, told it is not,
+        says how to sign in again; the console reads the token anew when it
+        starts again."""
         now = time.monotonic()
         current = _digest(expected) if expected else None
         for store in (self._panel_bootstraps, self._panel_sessions):
@@ -806,13 +815,21 @@ class WebServer:
                         or not hmac.compare_digest(made_for, current)]:
                 del store[key]
         for ctx in list(self._connections.values()):
-            if (ctx.panel_session is not None and not ctx.ws.closed
-                    and ctx.panel_session not in self._panel_sessions):
-                close = asyncio.get_running_loop().create_task(ctx.ws.close(
-                    code=WSCloseCode.POLICY_VIOLATION,
-                    message=b"Browser session ended"))
-                self._session_closes.add(close)
-                close.add_done_callback(self._session_closes.discard)
+            if ctx.ws.closed:
+                continue
+            if ctx.panel_session is not None:
+                if ctx.panel_session in self._panel_sessions:
+                    continue
+                words = b"Browser session ended"
+            else:
+                if current is not None and hmac.compare_digest(
+                        _digest(ctx.auth_token), current):
+                    continue
+                words = b"Token changed"
+            close = asyncio.get_running_loop().create_task(ctx.ws.close(
+                code=WSCloseCode.POLICY_VIOLATION, message=words))
+            self._session_closes.add(close)
+            close.add_done_callback(self._session_closes.discard)
 
     # -- Static file handlers -----------------------------------------------
 
@@ -3995,9 +4012,10 @@ class WebServer:
 
     def _watch_panel_sessions(self) -> None:
         """Read the token every _PANEL_SESSION_WATCH_S while a browser session
-        is kept or a socket one opened is open, so a session whose token has
-        changed, or that has lapsed, ends within that time and the sockets it
-        opened close with it, even when nothing asks the server anything.
+        is kept or any socket is open, so a session whose token has changed,
+        or that has lapsed, ends within that time and the sockets it opened
+        close with it, and every socket the token opened closes once the
+        token has changed, even when nothing asks the server anything.
 
         A timer on the server's loop, set again at each run while the server
         serves: start() sets it and stop() cancels it. The work is
@@ -4006,9 +4024,7 @@ class WebServer:
         if not self._running:
             return
         try:
-            if self._panel_sessions or any(
-                    ctx.panel_session is not None
-                    for ctx in self._connections.values()):
+            if self._panel_sessions or self._connections:
                 self._end_panel_sessions(self._load_auth_token())
         except Exception:
             logger.exception("Error in the browser-session watch")
