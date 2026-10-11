@@ -127,12 +127,26 @@
   // ── Auth token ─────────────────────────────────────────────────────────
   // The real token is set as window.__INTERGEN_TOKEN__ by the panel's
   // document-start user script, the one path that sets it: the server writes
-  // no script into the page, and the page's policy refuses inline script. If
-  // it is absent the client has NO valid credential — fabricating a random
+  // no script into the page, and the page's policy refuses inline script.
+  //
+  // A browser holds a session instead, and only when the shell extension's
+  // Open in Browser item opened it. The item puts a one-time sign-in in the
+  // address's fragment, which the browser sends to no server; the page takes
+  // it from there, strips it from the address and the history before it asks
+  // the server anything, and exchanges it once for a session (browserSession).
+  // The session is kept in sessionStorage, which belongs to this origin (its
+  // port included) and this tab, so a reload keeps it, the dashboard reads it
+  // from there, and no other server on the machine is ever sent it. It ends
+  // when InterGen restarts or its token changes, and the page then says how to
+  // sign in again.
+  //
+  // With neither, the client has NO valid credential — fabricating a random
   // one only produces an endless 401 reconnect loop that hides the real
-  // cause. Return null and let connect() FAIL LOUD instead, naming both ways
-  // a page ends up without one: opened in a browser directly, or an account
-  // not set up yet.
+  // cause. connect() FAILS LOUD instead, naming both ways a page ends up
+  // without one: opened in a browser directly, or an account not set up yet.
+  const CREDENTIAL_KEY = 'intergen_web_token';
+  let signInWords = null;  // why this browser holds no session, when known
+
   function getAuthToken() {
     const token = window.__INTERGEN_TOKEN__ || null;
     // Hand the real token off to same-origin sub-pages (the dashboard is served
@@ -140,20 +154,108 @@
     // is per-tab and cleared on close; on the single-user loopback panel this only
     // mirrors a token already in this page's JS.
     if (token) {
-      try { sessionStorage.setItem('intergen_web_token', token); } catch (e) {}
+      try { sessionStorage.setItem(CREDENTIAL_KEY, token); } catch (e) {}
     }
     return token;
   }
 
+  // The item's one-time sign-in from the address's fragment, or null. The
+  // address and the history keep no credential once the page has read it.
+  function takeSignIn() {
+    const fragment = (location.hash || '').replace(/^#/, '');
+    if (!fragment.startsWith('bootstrap=')) return null;
+    history.replaceState(null, '', location.pathname + location.search);
+    try {
+      return decodeURIComponent(fragment.slice('bootstrap='.length)) || null;
+    } catch (e) {
+      return null;  // not a sign-in the item wrote
+    }
+  }
+
+  // Exchange the sign-in, once, for this tab's session: a POST to this page's
+  // own origin, the sign-in in the body, nothing kept by the browser itself.
+  async function exchangeSignIn(bootstrap) {
+    try {
+      const response = await fetch('/api/panel-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bootstrap }),
+        credentials: 'omit',
+        cache: 'no-store',
+      });
+      const answer = await response.json();
+      if (response.ok && answer.session) return answer.session;
+      signInWords = answer.message || ('InterGen answered ' + response.status);
+    } catch (e) {
+      signInWords = 'InterGen could not be asked to sign this browser in: '
+        + e.message;
+    }
+    return null;
+  }
+
+  // Whether InterGen still honours this tab's session. A page cannot read
+  // why a socket was refused, so it asks over HTTP before it opens one; a
+  // server that does not answer leaves the session to the socket's retries.
+  async function sessionStillHonoured(session) {
+    try {
+      const response = await fetch('/api/status', {
+        headers: { 'Authorization': 'Bearer ' + session },
+        credentials: 'omit',
+        cache: 'no-store',
+      });
+      return response.status !== 401;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  // This tab's session: exchanged for the item's sign-in when the address
+  // carries one, otherwise the one kept, once InterGen says it still honours
+  // it. A promise of it, or null when there is nothing to ask the server.
+  function browserSession() {
+    const bootstrap = takeSignIn();
+    if (bootstrap) {
+      return exchangeSignIn(bootstrap).then((session) => {
+        if (session) {
+          try { sessionStorage.setItem(CREDENTIAL_KEY, session); } catch (e) {}
+        }
+        return session;
+      });
+    }
+    let kept = null;
+    try { kept = sessionStorage.getItem(CREDENTIAL_KEY); } catch (e) {}
+    if (!kept) return null;
+    return sessionStillHonoured(kept).then((honoured) => {
+      if (honoured) return kept;
+      try { sessionStorage.removeItem(CREDENTIAL_KEY); } catch (e) {}
+      signInWords = 'This browser\'s InterGen session has ended: InterGen '
+        + 'restarted or its token changed. Choose Open in Browser in the '
+        + 'InterGen icon\'s menu again.';
+      return null;
+    });
+  }
+
   // ── WebSocket ──────────────────────────────────────────────────────────
+  // The socket opens at once with the panel window's token, and when there is
+  // nothing to ask the server; with a browser's session, once the server has
+  // answered for it.
   function connect() {
     const token = getAuthToken();
+    const pending = token ? null : browserSession();
+    if (pending) {
+      pending.then(openSocket);
+      return;
+    }
+    openSocket(token);
+  }
+
+  function openSocket(token) {
     if (!token) {
       updateConnectionStatus('disconnected');
-      showBanner('This page has no InterGen credential — a browser opened on '
-        + 'it directly is not given one. Open InterGen from its app; if '
-        + 'InterGen is not set up on this account yet, run `intergen setup` '
-        + 'in a terminal first.', 'error');
+      showBanner(signInWords || ('This page has no InterGen credential — a '
+        + 'browser opened on it directly is not given one. Open InterGen from '
+        + 'its app; if InterGen is not set up on this account yet, run '
+        + '`intergen setup` in a terminal first.'), 'error');
       return;  // no credential → do not open a doomed socket or reconnect-loop
     }
     const url = `${WS_URL}?source_interface=web`;

@@ -8,10 +8,10 @@ own content security policy (script-src 'self') refused it in a browser, and
 with no check of the value and no escaping, so a value carrying markup closed
 the script element and opened another, the policy being all that kept it from
 running. The handler now writes no script for a header at all: the panel
-window's token reaches the page by its own document-start user script, and the
-one inline script the page is ever served is the browser session's, which
-carries the account's own token, escaped, under a nonce the response's policy
-names.
+window's token reaches the page by its own document-start user script, and a
+browser the item signed in holds a session of its own, kept by the page's
+script in its sessionStorage, so the page is served no inline script and never
+carries the token.
 
 These cells pin that removal. Each serves a real WebServer on a free loopback
 port with a token file of its own; nothing here touches the panel's own
@@ -19,7 +19,6 @@ address or the account's token.
 """
 from __future__ import annotations
 
-import json
 import re
 import unittest
 
@@ -66,44 +65,52 @@ class AHeaderIsServedNoToken(unittest.TestCase):
 
 class WithTheBrowserItemsSessionAHeaderStillReachesNothing(unittest.TestCase):
 
-    def signed_in_page(self, header_value: str, account_token: str = TOKEN):
+    def signed_in_page(self, header_value: str | None,
+                       account_token: str = TOKEN):
+        """The page served, with an Authorization header, to a browser the
+        item signed in, and the session that browser was given; a header value
+        of None presents that session itself."""
         panel = item._Panel(self, token=account_token)
 
         async def scenario(session):
-            bootstrap = await panel.mint(session, account_token)
-            await panel.get(session, f"/?bootstrap={bootstrap}")
-            return await panel.get(
-                session, "/",
-                headers={"Authorization": f"Bearer {header_value}"})
+            browser_session = await panel.sign_in(session, account_token)
+            value = browser_session if header_value is None else header_value
+            return browser_session, await panel.get(
+                session, "/", headers={"Authorization": f"Bearer {value}"})
 
-        status, headers, html, _ = panel.run(scenario)
-        return status, headers, html
+        browser_session, (status, _, html, _) = panel.run(scenario)
+        return browser_session, status, html
 
-    def test_the_page_carries_only_the_accounts_token_and_none_of_the_header(self):
-        status, headers, html = self.signed_in_page(MARKUP)
+    def test_the_page_carries_no_script_and_none_of_the_header(self):
+        _, status, html = self.signed_in_page(MARKUP)
         self.assertEqual(status, 200)
         self.assertNotIn("__header_case_ran__", html)
-        self.assertEqual(len(_inline_scripts(html)), 1,
-                         "the page carries an inline script besides the session's")
-        self.assertEqual(
-            item._page_token(html, headers["Content-Security-Policy"]), TOKEN)
+        self.assertEqual(_inline_scripts(html), [])
+        self.assertNotIn(TOKEN, html)
 
-    def test_a_wrong_token_in_the_header_does_not_replace_the_accounts(self):
-        status, headers, html = self.signed_in_page(OTHER_TOKEN)
+    def test_a_wrong_token_in_the_header_is_served_none_of_it(self):
+        _, status, html = self.signed_in_page(OTHER_TOKEN)
         self.assertEqual(status, 200)
         self.assertNotIn(OTHER_TOKEN, html)
-        self.assertEqual(
-            item._page_token(html, headers["Content-Security-Policy"]), TOKEN)
+        self.assertNotIn(TOKEN, html)
+        self.assertEqual(_inline_scripts(html), [])
 
-    def test_the_accounts_token_is_escaped_in_the_page(self):
-        # An account token carrying markup would close the script element
-        # unless the page writes it escaped.
-        hostile = "0123456789abcdef</script><script>window.__token_case_ran__=1</script>"
-        status, headers, html = self.signed_in_page(TOKEN, account_token=hostile)
+    def test_the_session_in_a_header_is_served_no_credential(self):
+        browser_session, status, html = self.signed_in_page(None)
         self.assertEqual(status, 200)
-        self.assertNotIn("</script><script>window.__token_case_ran__", html)
-        literal = json.dumps(hostile).replace("<", "\\u003c")
-        self.assertIn(literal, html)
+        self.assertNotIn(browser_session, html)
+        self.assertNotIn(TOKEN, html)
+        self.assertEqual(_inline_scripts(html), [])
+
+    def test_an_account_token_carrying_markup_never_reaches_the_page(self):
+        # An account token carrying markup would close a script element the
+        # page carried it in; the page carries no token at all.
+        hostile = "0123456789abcdef</script><script>window.__token_case_ran__=1</script>"
+        _, status, html = self.signed_in_page(TOKEN, account_token=hostile)
+        self.assertEqual(status, 200)
+        self.assertNotIn("__token_case_ran__", html)
+        self.assertNotIn(hostile, html)
+        self.assertEqual(_inline_scripts(html), [])
 
 
 if __name__ == "__main__":

@@ -158,23 +158,31 @@ TOKEN_PATH = Path.home() / ".config" / "intergen" / "web-token"
 
 # THE BROWSER'S SIGN-IN. A browser opening the panel's address is served the
 # page with no token (the panel window's comes by its own user script), so the
-# page opens no socket. The shell extension's Open in Browser item therefore asks for a
-# one-time sign-in with the token (POST /api/panel-bootstrap) and opens the
-# panel's address carrying it; the index exchanges it, once, for a cookie the
-# page's script cannot read (HttpOnly) and no other site's page can send
-# (SameSite=Strict), and sends the browser on to the clean address, so the
-# sign-in leaves the address bar and the history. The page that cookie opens
-# carries the token in one inline script under a per-response nonce.
+# page opens no socket. The shell extension's Open in Browser item therefore
+# asks for a one-time sign-in with the token (POST /api/panel-bootstrap) and
+# opens the panel's address carrying it in the fragment, which a browser sends
+# to no server. The page's own script takes it from the address, strips it from
+# the address and the history, and exchanges it once (POST /api/panel-session)
+# for a browser session, which it keeps in sessionStorage: storage that belongs
+# to the panel's origin alone, its port included. The page presents that
+# session where the panel window presents the token, on the socket and on every
+# request it makes, and the server checks it on each of them.
+#
+# No cookie is set: a cookie is scoped to a host, not to a port, so a browser
+# sends it to every server on the machine, and any of them could hand it back.
+# The session itself never travels in an address: the address the item opens
+# is the browser's command line, which other accounts on the machine can read
+# for as long as that browser runs, so what it carries is spent within a
+# second and lapses within a minute. The token never enters the page.
 PANEL_BOOTSTRAP_TTL_S = 60.0
 PANEL_SESSION_TTL_S = 12 * 3600.0
-PANEL_COOKIE = "intergen_panel"
 # How many unused sign-ins and browser sessions are kept, the oldest dropped
 # first: each Open in Browser makes one of each.
 _PANEL_BOOTSTRAPS_KEPT = 8
 _PANEL_SESSIONS_KEPT = 16
 
-# The panel's own page, in words, for a sign-in it refuses. It does not tell
-# an account that has a token to run setup.
+# The panel's words for a sign-in it refuses, shown by the page. They do not
+# tell an account that has a token to run setup.
 _PANEL_REFUSED_WORDS = (
     "This sign-in was already used, has lapsed or was never issued, so it "
     "opens nothing. Choose Open in Browser in the InterGen icon's menu again "
@@ -198,8 +206,7 @@ _503_BODY = json.dumps({"type": "error", "code": "server_not_ready",
                          "message": "InterGen components not yet initialized."})
 
 
-def _content_security_policy(host: str, port: int,
-                             nonce: str | None = None) -> str:
+def _content_security_policy(host: str, port: int) -> str:
     """The pages' content security policy for a server bound on host:port.
 
     connect-src allows the page's own origin ('self') and the socket on the
@@ -207,15 +214,11 @@ def _content_security_policy(host: str, port: int,
     address it was configured to serve. A source expression cannot carry an
     IPv6 address, so on an IPv6 host the page's socket is allowed through its
     own origin alone.
-
-    A nonce lets the one inline script that carries it run: the token script
-    of a page a browser session opens. Without one, no inline script runs.
     """
     connect = "'self'" if ":" in host else f"'self' ws://{host}:{port}"
-    script = "'self'" if nonce is None else f"'self' 'nonce-{nonce}'"
     return (
         "default-src 'self'; "
-        f"script-src {script}; "
+        "script-src 'self'; "
         "style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data:; "
         f"connect-src {connect}; "
@@ -306,32 +309,20 @@ class ConnectionContext:
         self.conversation.history[:] = list(value or [])
 
 
-def _panel_page(status: int, words: str) -> web.Response:
-    """One of the panel's own plain pages: the words, the attribution, and no
-    script, so nothing on it can open a socket or say anything else."""
-    attribution_line = _attribution_html()
-    body = (
-        '<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">'
-        "<title>InterGen</title></head>"
-        "<body style='background:#050810;color:#e2e8f0;"
-        "font-family:Inter,sans-serif;padding:40px;text-align:center'>"
-        "<h2 style='color:#0099FF'>InterGen</h2>"
-        f"<p>{html_escape(words)}</p>"
-        + (f"<p style='color:#7a8ba8'>{attribution_line}</p>"
-           if attribution_line else "")
-        + "</body></html>\n")
-    headers = {"Cache-Control": "no-store"}
-    if status == 401:
-        # A scheme a browser never prompts for, so the words are shown.
-        headers["WWW-Authenticate"] = 'Bearer realm="InterGen panel"'
-    return web.Response(status=status, text=body, content_type="text/html",
-                        headers=headers)
-
-
 def _digest(value: str) -> str:
     """The SHA-256 a sign-in or a browser session is kept by; the value
-    itself is never kept."""
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+    itself is never kept. Every string has one, so a value no server issued
+    (one carrying a lone surrogate among them) is a key nothing is kept by,
+    never an error."""
+    return hashlib.sha256(value.encode("utf-8", "surrogatepass")).hexdigest()
+
+
+def _same(presented: str, expected: str) -> bool:
+    """Whether a presented credential is the expected one, compared in
+    constant time as bytes: compared as strings, a credential carrying a
+    character outside ASCII raised instead of being refused."""
+    return hmac.compare_digest(presented.encode("utf-8", "surrogatepass"),
+                               expected.encode("utf-8", "surrogatepass"))
 
 
 def _keep(store: dict[str, tuple[float, str]], key: str,
@@ -540,9 +531,12 @@ class WebServer:
         app.router.add_post("/api/providers/primary", self._handle_providers_primary)
         app.router.add_delete("/api/providers/{name}", self._handle_providers_delete)
 
-        # The browser's one-time sign-in, asked for with the token.
+        # The browser's one-time sign-in, asked for with the token, and the
+        # page's exchange of it for its session.
         app.router.add_post("/api/panel-bootstrap",
                             self._handle_panel_bootstrap)
+        app.router.add_post("/api/panel-session",
+                            self._handle_panel_session)
 
         # Static file serving with CSP
         app.router.add_get("/", self._handle_index)
@@ -732,42 +726,54 @@ class WebServer:
         """Validate Authorization header for HTTP endpoints.
 
         Fails closed: returns False if no token is configured OR the provided
-        token does not match. Matches the WS handshake's fail-close posture so
-        pre-setup state has no data-surface exposure (Arc4-OPDECISION-1
-        unified fail-close per security-only alignment).
+        credential is neither the token nor a browser session issued for it.
+        Matches the WS handshake's fail-close posture so pre-setup state has
+        no data-surface exposure (Arc4-OPDECISION-1 unified fail-close per
+        security-only alignment).
         """
+        return self._credential_is_valid(self._extract_auth_token(request))
+
+    def _credential_is_valid(self, presented: str | None) -> bool:
+        """True for the token, or for a browser session this server issued
+        for the token as it is now; False for anything else, and for
+        everything while no token is configured."""
         expected = self._load_auth_token()
-        if not expected:
+        if not (expected and presented):
             return False
-        token = self._extract_auth_token(request)
-        return bool(token and hmac.compare_digest(token, expected))
+        if _same(presented, expected):
+            return True
+        key = _digest(presented)
+        entry = self._panel_sessions.get(key)
+        if entry is None:
+            return False
+        if (entry[0] <= time.monotonic()
+                or not hmac.compare_digest(entry[1], _digest(expected))):
+            # Lapsed, or made for a token that has since changed: it ends.
+            del self._panel_sessions[key]
+            return False
+        return True
 
     # -- Static file handlers -----------------------------------------------
 
     async def _handle_index(self, request: web.Request) -> web.Response:
         """Serve index.html with the model attribution rendered into it.
 
-        No script is written into the page for a request that carries no
-        browser session, the panel window's own among them. This handler used
-        to write the Authorization header's token into an inline script that
-        set ``window.__INTERGEN_TOKEN__``, but the page's own policy
+        No script is written into the page. This handler used to write the
+        Authorization header's token into an inline script that set
+        ``window.__INTERGEN_TOKEN__``, but the page's own policy
         (``script-src 'self'``) refuses inline script: a real browser was seen
         to refuse that one and leave the global unset. The panel window's
         token reaches the page by its document-start user script
         (intergen/panel/__init__.py), which the page's policy does not govern.
 
-        A browser the shell extension's Open in Browser item signed in carries
-        a session cookie this server issued for the token as it is now; its
-        page carries the token in one inline script, under a per-response
-        nonce the page's policy names, and is never cached. A one-time
-        sign-in in the address is exchanged for that session first.
+        A browser the shell extension's Open in Browser item signed in is
+        served the same page: its credential is a session the page's own
+        script holds (see PANEL_BOOTSTRAP_TTL_S), so the page carries no
+        credential whoever asks for it.
         """
         if not self._check_ready():
             return web.Response(text=_503_BODY, status=503,
                                 content_type="application/json")
-        bootstrap = request.query.get("bootstrap")
-        if bootstrap is not None:
-            return self._exchange_panel_bootstrap(bootstrap)
         index_path = STATIC_DIR / "index.html"
         if not index_path.exists():
             return web.Response(text="InterGen web UI not installed.",
@@ -784,65 +790,7 @@ class WebServer:
         # small file that the page load is already waiting on.
         html = html.replace(attribution.HTML_PLACEHOLDER,
                             _attribution_html())
-
-        token = self._panel_session_token(request)
-        if token:
-            # The one inline script the page is served, carrying a nonce the
-            # page's policy names, because the policy runs no inline script
-            # without one; and never cached, because it carries the token.
-            nonce = secrets.token_urlsafe(16)
-            literal = json.dumps(token).replace("<", "\\u003c")
-            token_script = (f'<script nonce="{nonce}">window.__INTERGEN_TOKEN__'
-                            f' = {literal};</script>\n')
-            html = html.replace('<head>', '<head>\n' + token_script)
-            return web.Response(text=html, content_type="text/html", headers={
-                "Content-Security-Policy": _content_security_policy(
-                    self._host, self._port, nonce=nonce),
-                "Cache-Control": "no-store",
-            })
-
         return web.Response(text=html, content_type="text/html")
-
-    def _exchange_panel_bootstrap(self, presented: str) -> web.Response:
-        """Exchange a one-time sign-in for a browser session, once.
-
-        The sign-in is spent whether or not it is honoured. It is honoured
-        only before it lapses and only while the token it was made for is the
-        token; then the browser is sent on to the clean address with a cookie
-        for the session. Otherwise the page says so in plain words.
-        """
-        entry = self._panel_bootstraps.pop(_digest(presented), None)
-        expected = self._load_auth_token()
-        if (entry is None or entry[0] <= time.monotonic() or not expected
-                or not hmac.compare_digest(entry[1], _digest(expected))):
-            return _panel_page(403, _PANEL_REFUSED_WORDS)
-        session = secrets.token_urlsafe(32)
-        _keep(self._panel_sessions, _digest(session),
-              (time.monotonic() + PANEL_SESSION_TTL_S, entry[1]),
-              _PANEL_SESSIONS_KEPT)
-        response = web.Response(status=303, headers={
-            "Location": "/", "Cache-Control": "no-store"})
-        response.set_cookie(PANEL_COOKIE, session, path="/", httponly=True,
-                            samesite="Strict")
-        return response
-
-    def _panel_session_token(self, request: web.Request) -> str | None:
-        """The token, for a request carrying a browser session this server
-        issued for the token as it is now; None for any other request."""
-        session = request.cookies.get(PANEL_COOKIE)
-        if not session:
-            return None
-        key = _digest(session)
-        entry = self._panel_sessions.get(key)
-        if entry is None:
-            return None
-        expected = self._load_auth_token()
-        if (entry[0] <= time.monotonic() or not expected
-                or not hmac.compare_digest(entry[1], _digest(expected))):
-            # Lapsed, or made for a token that has since changed: it ends.
-            del self._panel_sessions[key]
-            return None
-        return expected
 
     async def _handle_panel_bootstrap(self, request: web.Request) -> web.Response:
         """POST /api/panel-bootstrap — a one-time browser sign-in, made only
@@ -852,8 +800,7 @@ class WebServer:
                                 content_type="application/json")
         expected = self._load_auth_token()
         presented = self._extract_auth_token(request)
-        if not (expected and presented
-                and hmac.compare_digest(presented, expected)):
+        if not (expected and presented and _same(presented, expected)):
             return self._auth_error()
         bootstrap = secrets.token_urlsafe(32)
         _keep(self._panel_bootstraps, _digest(bootstrap),
@@ -861,6 +808,39 @@ class WebServer:
               _PANEL_BOOTSTRAPS_KEPT)
         return web.json_response(
             {"bootstrap": bootstrap, "expires_in": PANEL_BOOTSTRAP_TTL_S},
+            headers={"Cache-Control": "no-store"})
+
+    async def _handle_panel_session(self, request: web.Request) -> web.Response:
+        """POST /api/panel-session — the page's exchange of a one-time sign-in
+        (the JSON body's "bootstrap") for a browser session, once.
+
+        The sign-in is spent whether or not it is honoured. It is honoured
+        only before it lapses and only while the token it was made for is the
+        token; the session is then answered in the body, and in nothing a
+        browser keeps by itself (no cookie). Otherwise the answer says so in
+        the words the page shows.
+        """
+        if not self._check_ready():
+            return web.Response(text=_503_BODY, status=503,
+                                content_type="application/json")
+        try:
+            presented = (await request.json()).get("bootstrap")
+        except (ValueError, AttributeError):
+            presented = None
+        entry = (self._panel_bootstraps.pop(_digest(presented), None)
+                 if isinstance(presented, str) else None)
+        expected = self._load_auth_token()
+        if (entry is None or entry[0] <= time.monotonic() or not expected
+                or not hmac.compare_digest(entry[1], _digest(expected))):
+            return web.json_response(
+                _make_error("sign_in_refused", _PANEL_REFUSED_WORDS),
+                status=403, headers={"Cache-Control": "no-store"})
+        session = secrets.token_urlsafe(32)
+        _keep(self._panel_sessions, _digest(session),
+              (time.monotonic() + PANEL_SESSION_TTL_S, entry[1]),
+              _PANEL_SESSIONS_KEPT)
+        return web.json_response(
+            {"session": session, "expires_in": PANEL_SESSION_TTL_S},
             headers={"Cache-Control": "no-store"})
 
     def _auth_error(self) -> web.Response:
@@ -1123,22 +1103,22 @@ class WebServer:
         """WebSocket endpoint — auth via Sec-WebSocket-Protocol subprotocol.
 
         Token passed as 'bearer.<token>' subprotocol component in the
-        Sec-WebSocket-Protocol header. Validated BEFORE upgrade accept
-        via hmac.compare_digest. Invalid auth returns HTTP 401 — the
-        WebSocket upgrade never occurs.
+        Sec-WebSocket-Protocol header: the token, or a browser session this
+        server issued for it (see PANEL_BOOTSTRAP_TTL_S). Validated BEFORE
+        upgrade accept via hmac.compare_digest. Invalid auth returns HTTP
+        401 — the WebSocket upgrade never occurs.
         """
         if not self._check_ready():
             return web.Response(status=503,
                                 text="InterGen components not yet initialized.")
 
-        expected_token = self._load_auth_token()
         source_interface = request.query.get("source_interface", "web")
 
         if source_interface not in VALID_SOURCE_INTERFACES:
             source_interface = "web"
 
         token = self._extract_ws_token(request)
-        if not token or not expected_token or not hmac.compare_digest(token, expected_token):
+        if not self._credential_is_valid(token):
             logger.warning("WebSocket auth rejected (source=%s, ip=%s)",
                            source_interface, request.remote)
             return web.Response(status=401, text="Invalid auth token.")

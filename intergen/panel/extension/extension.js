@@ -117,7 +117,10 @@ function _readPanelToken() {
 }
 
 // Ask the panel at panelUrl for a one-time sign-in and open the address
-// carrying it. The sign-in is never shown in words: it opens the panel once.
+// carrying it in the fragment, which the browser sends to no server; the page
+// exchanges it, once, for a session of its own. The sign-in is never shown in
+// words, and it is spent within a second: the address is the browser's
+// command line, which other accounts on the machine can read.
 function _openSignedIn(panelUrl) {
   let message;
   try {
@@ -159,7 +162,7 @@ function _openSignedIn(panelUrl) {
       try {
         Gio.AppInfo.launch_default_for_uri(
           GLib.Uri.resolve_relative(
-            panelUrl, "?bootstrap=" + encodeURIComponent(bootstrap),
+            panelUrl, "#bootstrap=" + encodeURIComponent(bootstrap),
             GLib.UriFlags.NONE),
           null);
       } catch (e) {
