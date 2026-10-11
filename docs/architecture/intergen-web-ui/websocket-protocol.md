@@ -14,7 +14,7 @@ shipped behavior.
 
 ```
 Browser: ws://localhost:8089/ws?source_interface=<web|console>
-         Sec-WebSocket-Protocol: intergen, bearer.<hex_token>
+         Sec-WebSocket-Protocol: intergen, bearer.<credential>
 
 Server → {type: "connected",
           client_id: "...",
@@ -24,15 +24,18 @@ Server → {type: "connected",
          }
 ```
 
-The auth token is generated at `intergen setup` time and written to
-`~/.config/intergen/web-token`. The panel gives it to the page as
-`window.__INTERGEN_TOKEN__` by a document-start user script (the page's
-Content-Security-Policy refuses inline script, and the server writes none);
-the page and the console send it as the `bearer.<token>` component of the
-`Sec-WebSocket-Protocol` header, and the server answers with the `intergen`
-subprotocol alone. The token is validated once at the WebSocket handshake —
-there is no per-message auth. An invalid or missing token is refused with
-HTTP 401 before the upgrade.
+The account token is generated at `intergen setup` time and written to
+`~/.config/intergen/web-token`. The panel window gives it to the page as
+`window.__INTERGEN_TOKEN__` by a document-start user script; the
+Content-Security-Policy refuses inline script, and the server writes none. A
+browser opened through the shell item instead exchanges a one-time sign-in
+for an origin-scoped browser session held in sessionStorage. The page and
+console present their credential as the `bearer.<credential>` component of
+the `Sec-WebSocket-Protocol` header, and the server answers with the
+`intergen` subprotocol alone. The credential is validated once at the
+WebSocket handshake; there is no per-message auth. Every socket closes when
+the credential that opened it is no longer honoured. An invalid or missing
+credential is refused with HTTP 401 before the upgrade.
 
 ---
 
