@@ -633,6 +633,9 @@ class WebServer:
             return False
         self._bind_error = None
         self._running = True
+        # Serving again: a connection that closes from now on was closed by
+        # the person or the network, not by the stop before this start.
+        self._stop_reason = None
         self._startup_time = time.monotonic()
         logger.info("Web server listening on http://%s:%d", self._host, self._port)
 
