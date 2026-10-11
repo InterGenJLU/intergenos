@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2015-2016, 2026 InterGenJLU
 #
-# webkitgtk 2.50.5 — Web content engine for GTK (GTK-4 version)
+# webkitgtk 2.54.1 — Web content engine for GTK (GTK-4 version)
 # BLFS 13.0
 
 configure() {

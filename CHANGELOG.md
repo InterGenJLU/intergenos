@@ -2229,6 +2229,8 @@ instructions are unchanged from R001.
 
 ### Fixed
 
+- Update the WebKitGTK GTK 4 and GTK 3 packages from 2.50.5 to 2.54.1.
+
 - No instance of the assistant's model engine opens a graphics card it was
   not given. Pinning a card fixed the case where one was chosen; two launches
   had no pinned card and still opened every card in the machine. The first is a

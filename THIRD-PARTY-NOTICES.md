@@ -5653,14 +5653,14 @@ Wayland protocol extensions
 - License: `MIT`
 - Homepage: https://wayland.freedesktop.org/
 
-### webkitgtk (2.50.5)
+### webkitgtk (2.54.1)
 
 Web content engine for GTK
 
 - License: `LGPL-2.0-or-later`
 - Homepage: https://webkitgtk.org/
 
-### webkitgtk-gtk3 (2.50.5)
+### webkitgtk-gtk3 (2.54.1)
 
 Web content engine for GTK (GTK-3 version)
 
