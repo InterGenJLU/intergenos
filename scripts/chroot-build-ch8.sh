@@ -604,8 +604,8 @@ run_package "gcc-core" "gcc" "15.2.0" \
 # 8.31 — 8.43: Core system utilities
 # ============================================================================
 
-run_package "ncurses-core" "ncurses" "6.6" \
-    "ncurses-6.6.tar.gz" \
+run_package "ncurses-core" "ncurses" "6.6-20261010" \
+    "ncurses-6.6-20261010.tgz" \
     "Terminal-independent screen handling library"
 
 run_package "sed-core" "sed" "4.9" \

@@ -1,13 +1,13 @@
 name: ncurses-tmp
-version: "6.6"
-release: 1
+version: '6.6-20261010'
+release: 2  # r2: update to the ncurses 6.6-20261010 snapshot.
 description: "Terminal-independent handling of character screens"
 license: MIT
 homepage: https://invisible-island.net/ncurses/
 
 source:
-  - url: https://invisible-mirror.net/archives/ncurses/ncurses-${version}.tar.gz
-    sha256: 355b4cbbed880b0381a04c46617b7656e362585d52e9cf84a67e2009b749ff11
+  - url: https://invisible-island.net/archives/ncurses/current/ncurses-${version}.tgz
+    sha256: 00a1d10c51c3aa1b4dae9ea4421aec2dd227fa4724e645850ed43fd6fc0a56ec
 
 dependencies:
   build: []

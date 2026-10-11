@@ -22,6 +22,8 @@ landed is in the repository README, not here.
 
 ### Changed
 
+- Update the core, compatibility and temporary ncurses recipes to the
+  6.6-20261010 snapshot, using the same source archive in both build drivers.
 - Update Linux-PAM to 1.7.3, with matching source selection and documentation
   paths in the core build.
 

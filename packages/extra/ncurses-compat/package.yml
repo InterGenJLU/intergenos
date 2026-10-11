@@ -1,6 +1,6 @@
 name: ncurses-compat
-version: "6.6"
-release: 2  # r2: release-only bump. The package was rebuilt in the R001.2 cycle after the 2026-08-25 toolchain-recipe rename; the build inputs did not change, so the rebuilt archive carries the same version-release as the one the mirror already serves with different bytes, which the publish gate refuses (a changed package must strictly advance or installed systems never see it). No build change in this commit; the rebuild itself is proven by the chroot build and the mirror publish that follow.
+version: '6.6-20261010'
+release: 3  # r3: update to the ncurses 6.6-20261010 snapshot.  # r2: release-only bump. The package was rebuilt in the R001.2 cycle after the 2026-08-25 toolchain-recipe rename; the build inputs did not change, so the rebuilt archive carries the same version-release as the one the mirror already serves with different bytes, which the publish gate refuses (a changed package must strictly advance or installed systems never see it). No build change in this commit; the rebuild itself is proven by the chroot build and the mirror publish that follow.
 description: LSB compatibility — libncurses.so.5 and libncursesw.so.5 (ABI 5)
 license: MIT
 homepage: https://invisible-island.net/ncurses/
@@ -8,8 +8,8 @@ tier: extra
 build_style: custom
 install_func: do_install
 source:
-- url: https://invisible-mirror.net/archives/ncurses/ncurses-${version}.tar.gz
-  sha256: 355b4cbbed880b0381a04c46617b7656e362585d52e9cf84a67e2009b749ff11
+- url: https://invisible-island.net/archives/ncurses/current/ncurses-${version}.tgz
+  sha256: 00a1d10c51c3aa1b4dae9ea4421aec2dd227fa4724e645850ed43fd6fc0a56ec
 dependencies:
   build:
   - ncurses-core

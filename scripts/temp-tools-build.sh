@@ -158,7 +158,7 @@ make DESTDIR=$IGOS TIC_PATH=$(pwd)/build/progs/tic install
 ln -sv libncursesw.so $IGOS/usr/lib/libncurses.so
 sed -e 's/^#if.*XOPEN.*$/#if 1/' -i $IGOS/usr/include/curses.h
 BUILDEOF
-run_pkg "ncurses" "6.6" "ncurses-6.6.tar.gz" /tmp/build-ncurses.sh || exit 1
+run_pkg "ncurses" "6.6-20261010" "ncurses-6.6-20261010.tgz" /tmp/build-ncurses.sh || exit 1
 
 # --- 6.4: Bash ---
 cat > /tmp/build-bash.sh << 'BUILDEOF'

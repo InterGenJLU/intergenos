@@ -230,7 +230,7 @@ GNU make (temporary tools)
 - License: `GPL-3.0-or-later`
 - Homepage: https://www.gnu.org/software/make/
 
-### ncurses-tmp (6.6)
+### ncurses-tmp (6.6-20261010)
 
 Terminal-independent handling of character screens
 
@@ -1654,7 +1654,7 @@ Netwide Assembler
 - License: `BSD-2-Clause`
 - Homepage: https://www.nasm.us/
 
-### ncurses-core (6.6)
+### ncurses-core (6.6-20261010)
 
 Terminal handling library
 
@@ -6855,7 +6855,7 @@ Brush data files for applications using libmypaint
 - License: `CC0-1.0`
 - Homepage: https://github.com/mypaint/mypaint-brushes
 
-### ncurses-compat (6.6)
+### ncurses-compat (6.6-20261010)
 
 LSB compatibility — libncurses.so.5 and libncursesw.so.5 (ABI 5)
 
