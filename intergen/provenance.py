@@ -41,9 +41,10 @@ The dispatcher is consulted twice in the normal flow:
 Composes with:
   - D-007 Option A pkexec gate (downstream; verify_tool_call sets
     needs_pkexec for the PRIVILEGED_STATE_CHANGING tier)
-  - audit_log module (after dispatch + user review, an AuditRecord is
-    written; this module exposes build_audit_record_for_decision to
-    keep the construction in one place)
+  - audit_log module (after dispatch + user review, or after a registry
+    refusal before the gate, an AuditRecord is written; this module
+    exposes build_audit_record and build_refusal_audit_record to keep
+    the construction in one place)
   - spotlighting module (orthogonal; ingress tools wrap their own
     outputs which influence the LLM's source_of_request declaration)
 """
