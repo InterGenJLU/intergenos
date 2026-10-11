@@ -258,7 +258,7 @@ Python programming language (temporary tools)
 - License: `PSF-2.0`
 - Homepage: https://www.python.org/
 
-### sed-tmp (4.9)
+### sed-tmp (4.10)
 
 GNU sed stream editor (temporary tools)
 
@@ -2104,7 +2104,7 @@ Build backend for CMake-based Python projects
 - License: `Apache-2.0`
 - Homepage: https://github.com/scikit-build/scikit-build-core
 
-### sed-core (4.9)
+### sed-core (4.10)
 
 GNU stream editor
 

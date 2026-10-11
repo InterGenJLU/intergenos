@@ -1,12 +1,12 @@
 name: sed-core
 ships_as: sed  # ch8 dual-name twin — the driver archives this recipe under the ship name (chroot-build-ch8.sh run_package arg 2; runtime deps elsewhere may name 'sed')
-version: '4.9'
-release: 1
+version: '4.10'
+release: 2  # r2: update GNU sed to 4.10 with matching source and documentation paths.
 description: GNU stream editor
 license: GPL-3.0-or-later
 source:
 - url: https://ftpmirror.gnu.org/sed/sed-${version}.tar.xz
-  sha256: 6e226b732e1cd739464ad6862bd1a1aba42d7982922da7a53519631d24975181
+  sha256: b8e72182b2ec96a3574e2998c47b7aaa64cc20ce000d8e9ac313cc07cecf28c7
 dependencies:
   build: []
   host: []
@@ -15,4 +15,4 @@ tier: core
 build_style: autotools
 verify_paths:
   - /usr/bin/sed
-  - /usr/share/doc/sed-4.9
+  - /usr/share/doc/sed-4.10

@@ -22,6 +22,8 @@ landed is in the repository README, not here.
 
 ### Changed
 
+- Update the core and temporary GNU sed recipes to 4.10, including the
+  core documentation path and both build drivers.
 - Update the core, compatibility and temporary ncurses recipes to the
   6.6-20261010 snapshot, using the same source archive in both build drivers.
 - Update Linux-PAM to 1.7.3, with matching source selection and documentation

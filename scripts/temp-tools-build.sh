@@ -297,7 +297,7 @@ cat > /tmp/build-sed.sh << 'BUILDEOF'
 make -j${IGOS_JOBS}
 make DESTDIR=$IGOS install
 BUILDEOF
-run_pkg "sed" "4.9" "sed-4.9.tar.xz" /tmp/build-sed.sh || exit 1
+run_pkg "sed" "4.10" "sed-4.10.tar.xz" /tmp/build-sed.sh || exit 1
 
 # --- 6.15: Tar ---
 cat > /tmp/build-tar.sh << 'BUILDEOF'

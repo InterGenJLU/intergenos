@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2015-2016, 2026 InterGenJLU
 #
-# Sed 4.9
+# Sed 4.10
 # LFS 13.0 Section 8.32
 
 configure() {
@@ -25,6 +25,6 @@ check() {
 do_install() {
     set -e
     make DESTDIR="$DESTDIR" install
-    install -d -m755 "${DESTDIR}/usr/share/doc/sed-4.9"
-    install -m644 doc/sed.html "${DESTDIR}/usr/share/doc/sed-4.9"
+    install -d -m755 "${DESTDIR}/usr/share/doc/sed-4.10"
+    install -m644 doc/sed.html "${DESTDIR}/usr/share/doc/sed-4.10"
 }

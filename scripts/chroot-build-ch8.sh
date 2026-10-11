@@ -608,8 +608,8 @@ run_package "ncurses-core" "ncurses" "6.6-20261010" \
     "ncurses-6.6-20261010.tgz" \
     "Terminal-independent screen handling library"
 
-run_package "sed-core" "sed" "4.9" \
-    "sed-4.9.tar.xz" \
+run_package "sed-core" "sed" "4.10" \
+    "sed-4.10.tar.xz" \
     "Stream editor"
 
 run_package "psmisc" "psmisc" "23.7" \
