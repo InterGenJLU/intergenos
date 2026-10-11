@@ -658,6 +658,11 @@ class WebServer:
         logger.info("Web server shutting down...")
         self._running = False
         self._stop_reason = end_reason
+        # A stop ends every one-time sign-in and browser session this server
+        # holds, so a start on this same server honours none of them, as a
+        # new server would not; its sockets close below with the rest.
+        self._panel_bootstraps.clear()
+        self._panel_sessions.clear()
 
         # Cancel stats broadcaster
         if self._stats_task and not self._stats_task.done():
