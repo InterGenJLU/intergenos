@@ -1,11 +1,16 @@
 name: lz4
 version: "1.10.0"
-release: 1
+release: 2  # r2: apply the upstream frame API parameter checks from f64efec0.
+content_hash: 007abc57ff4030a1
 description: Extremely fast compression
 license: BSD-2-Clause
 source:
 - url: https://github.com/lz4/lz4/releases/download/v${version}/lz4-${version}.tar.gz
   sha256: 537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b
+patches:
+  - file: 0001-lz4frame-null-parameters.patch
+    sha256: cbaae4be33a2ca5ccda7189e791e5c4c97e69c730ce08b37ccbdc217356ddda6
+
 dependencies:
   build: []
   host: []

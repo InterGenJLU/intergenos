@@ -22,6 +22,7 @@ landed is in the repository README, not here.
 
 ### Changed
 
+- Apply the upstream LZ4 frame API parameter checks while retaining 1.10.0.
 - Update the core and temporary GNU sed recipes to 4.10, including the
   core documentation path and both build drivers.
 - Update the core, compatibility and temporary ncurses recipes to the
