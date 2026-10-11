@@ -117,6 +117,7 @@ class _Case(unittest.TestCase):
             call, review_callback=lambda c, d: self.cards.append(d) or "deny")
 
     def assertRefusedBeforeTheCard(self, arguments: dict, *says: str) -> ToolResult:
+        written_before = len(self.written)
         result = self._dispatch(arguments)
         self.assertEqual(self.cards, [],
                          "%r reached the review card" % (arguments,))
@@ -125,8 +126,16 @@ class _Case(unittest.TestCase):
         for words in says:
             self.assertIn(words, result.content)
         self.assertEqual(self.escalated, [])
-        self.assertEqual(self.written, [],
-                         "%r was recorded as a dispatch decision" % (arguments,))
+        # Every tool call records (RFC section 9): the refusal is recorded once,
+        # as the registry's own refusal before the gate, never as a decision.
+        written = self.written[written_before:]
+        self.assertEqual(len(written), 1,
+                         "%r was not recorded once as a refusal: %r"
+                         % (arguments, written))
+        record = written[0]
+        self.assertEqual((record.user_decision, record.exit_code), ("denied", 1),
+                         "%r was recorded as %r" % (arguments, record))
+        self.assertEqual(record.result_summary, result.content[:256])
         self.assertEqual(self.manager.refused, [])
         return result
 

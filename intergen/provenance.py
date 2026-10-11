@@ -285,9 +285,12 @@ def build_audit_record(
                                approval is not kept for later calls)
       "allowed_conversation" — the person reviewed and approved this
                                (tool, source) pair for the conversation
-      "denied"               — the call did not run: the gate refused it, or
-                               the person pressed Deny; result_summary says
-                               which
+      "denied"               — the call did not run: the gate refused it, the
+                               person pressed Deny, or the registry refused it
+                               before the gate (an unknown tool, invalid
+                               arguments, the BLOCKED tier; recorded through
+                               build_refusal_audit_record); result_summary
+                               says which
       "deny_conversation"    — the person denied this (tool, source) pair for
                                the rest of the conversation; the call did not
                                run
@@ -327,6 +330,56 @@ def build_audit_record(
                                above
     Flagged content the person approved adds no suffix.
     """
+    return _audit_record(
+        call, decision.effective_provenance, ingress_tracker, user_outcome,
+        exit_code, result_summary, source_attribution, excerpt,
+    )
+
+
+def build_refusal_audit_record(
+    call: ToolCall,
+    ingress_tracker: IngressTracker,
+    reason: str,
+    source_attribution: str = "",
+    excerpt: str = "",
+) -> AuditRecord:
+    """Construct the AuditRecord for a call the registry refused before the
+    dispatcher gate was consulted: a tool that is not registered, arguments
+    the tool refuses at validation, or a call in the BLOCKED safety tier.
+
+    RFC §9 records every tool call, and these refusals return before any
+    DispatchDecision exists. The record has the shape of the gate's own
+    reject: the outcome "denied", exit code 1, the reason as the summary. Its
+    effective provenance is the one verify_tool_call computes for the call,
+    the declared label after the ingress watermark (escalate_provenance), or
+    ingress_derived when no label was declared, so a refusal is recorded under
+    the label the gate would have given the call.
+    """
+    if call.source_of_request is None:
+        effective = Provenance.INGRESS_DERIVED
+    else:
+        effective = escalate_provenance(
+            call.source_of_request,
+            ingress_tracker.ingress_fired_this_turn(),
+            ingress_tracker.ingress_fired_this_conversation(),
+        )
+    return _audit_record(
+        call, effective, ingress_tracker, "denied", 1, reason,
+        source_attribution, excerpt,
+    )
+
+
+def _audit_record(
+    call: ToolCall,
+    effective_provenance: Provenance,
+    ingress_tracker: IngressTracker,
+    user_outcome: str,
+    exit_code: int,
+    result_summary: str,
+    source_attribution: str,
+    excerpt: str,
+) -> AuditRecord:
+    """The one place an AuditRecord is shaped, for both builders above."""
     truncated = result_summary[:256] if result_summary else ""
     return AuditRecord(
         timestamp=utc_iso_now(),
@@ -337,7 +390,7 @@ def build_audit_record(
             if call.source_of_request is not None
             else "missing"
         ),
-        effective_provenance=decision.effective_provenance.value,
+        effective_provenance=effective_provenance.value,
         ingress_tools_this_turn=ingress_tracker.history(),
         user_decision=user_outcome,
         exit_code=exit_code,
@@ -352,4 +405,5 @@ __all__: list[str] = [
     "verify_tool_call",
     "record_user_decision",
     "build_audit_record",
+    "build_refusal_audit_record",
 ]

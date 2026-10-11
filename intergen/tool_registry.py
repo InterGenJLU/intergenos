@@ -108,6 +108,7 @@ from intergen.interfaces.provenance import (
 )
 from intergen.provenance import (
     build_audit_record,
+    build_refusal_audit_record,
     record_user_decision,
     verify_tool_call,
 )
@@ -795,11 +796,21 @@ class ToolRegistry:
 
         tool = self._tools.get(tool_name)
         external_handler = self._external_handlers.get(tool_name)
+        # A call refused here, at validation or at the BLOCKED tier below,
+        # returns before the gate is consulted; RFC §9 records every tool call,
+        # so each of these refusals is recorded like the gate's own reject
+        # before it returns (_audit_log_refusal).
         if tool is None and external_handler is None:
+            content = f"Unknown tool: {tool_name}"
+            self._audit_log_refusal(
+                call, ingress_tracker, content,
+                source_attribution=source_attribution,
+                excerpt=excerpt,
+            )
             return ToolResult(
                 call_id=call.call_id,
                 name=tool_name,
-                content=f"Unknown tool: {tool_name}",
+                content=content,
                 success=False,
                 executed=False,
             )
@@ -813,10 +824,16 @@ class ToolRegistry:
         if tool is not None:
             validation_error = tool.validate_arguments(arguments)
             if validation_error:
+                content = f"Validation error: {validation_error}"
+                self._audit_log_refusal(
+                    call, ingress_tracker, content,
+                    source_attribution=source_attribution,
+                    excerpt=excerpt,
+                )
                 return ToolResult(
                     call_id=call.call_id,
                     name=tool_name,
-                    content=f"Validation error: {validation_error}",
+                    content=content,
                     success=False,
                     executed=False,
                 )
@@ -827,6 +844,13 @@ class ToolRegistry:
             if safety == SafetyTier.BLOCKED:
                 from intergen.safety import get_blocked_response
                 cmd = arguments.get("command", str(arguments))
+                self._audit_log_refusal(
+                    call, ingress_tracker,
+                    f"Blocked: {tool_name} classifies this call in the BLOCKED "
+                    "safety tier, so it was refused before the dispatcher gate.",
+                    source_attribution=source_attribution,
+                    excerpt=excerpt,
+                )
                 return ToolResult(
                     call_id=call.call_id,
                     name=tool_name,
@@ -1981,6 +2005,26 @@ class ToolRegistry:
             excerpt=excerpt,
         )
         write_record(record)
+
+    @staticmethod
+    def _audit_log_refusal(
+        call: ToolCall,
+        ingress_tracker: IngressTracker,
+        reason: str,
+        *,
+        source_attribution: str,
+        excerpt: str,
+    ) -> None:
+        """Best-effort audit log write per RFC §9 for a call refused before
+        the dispatcher gate was consulted, so no DispatchDecision exists: the
+        record says denied, exit code 1, with the reason as its summary."""
+        write_record(build_refusal_audit_record(
+            call=call,
+            ingress_tracker=ingress_tracker,
+            reason=reason,
+            source_attribution=source_attribution,
+            excerpt=excerpt,
+        ))
 
     def get_tool(self, name: str) -> BaseTool | None:
         """Get a registered tool by name."""
