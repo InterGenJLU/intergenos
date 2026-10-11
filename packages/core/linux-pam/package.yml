@@ -1,6 +1,6 @@
 name: linux-pam
-version: "1.7.2"
-release: 3  # hook-contract wave: full PAM/security config set moved post_install -> do_install (owned payload)
+version: "1.7.3"
+release: 4  # r4: update Linux-PAM to 1.7.3 and use its documentation directory.  # hook-contract wave: full PAM/security config set moved post_install -> do_install (owned payload)
 description: Pluggable Authentication Modules
 license: GPL-2.0-or-later
 homepage: https://github.com/linux-pam/linux-pam
@@ -10,7 +10,7 @@ install_func: do_install
 
 source:
   - url: https://github.com/linux-pam/linux-pam/releases/download/v${version}/Linux-PAM-${version}.tar.xz
-    sha256: 3d86b6383fb5fd9eb9578d2cd47d92801191f4bf3f9bc61419bfefc8aa1e531a
+    sha256: 2ce4765fd49df6693771ef2941f81e33d8ee14b94a81a5c7b369aa3b137b85a5
 
 dependencies:
   build:

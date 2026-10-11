@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2015-2016, 2026 InterGenJLU
 #
-# Linux-PAM 1.7.2 — Pluggable Authentication Modules
+# Linux-PAM 1.7.3 — Pluggable Authentication Modules
 # BLFS 13.0
 # IMPORTANT: Shadow and Systemd must be reinstalled after this
 
@@ -25,7 +25,7 @@ EOF
       --prefix=/usr       \
       --libdir=/usr/lib   \
       --buildtype=release \
-      -D docdir=/usr/share/doc/Linux-PAM-1.7.2
+      -D docdir=/usr/share/doc/Linux-PAM-1.7.3
 }
 
 build() {

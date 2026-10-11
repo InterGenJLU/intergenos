@@ -1443,7 +1443,7 @@ Linux kernel (pass 2 — rebuild with merged config fragments)
 - License: `GPL-2.0-only`
 - Homepage: https://www.kernel.org/
 
-### linux-pam (1.7.2)
+### linux-pam (1.7.3)
 
 Pluggable Authentication Modules
 

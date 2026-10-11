@@ -525,8 +525,8 @@ run_package "libtirpc" "libtirpc" "1.3.7" \
     "libtirpc-1.3.7.tar.bz2" \
     "Transport-Independent RPC library"
 
-run_package "linux-pam" "linux-pam" "1.7.2" \
-    "Linux-PAM-1.7.2.tar.xz" \
+run_package "linux-pam" "linux-pam" "1.7.3" \
+    "Linux-PAM-1.7.3.tar.xz" \
     "Pluggable Authentication Modules"
 
 run_package "shadow-pam" "shadow-pam" "4.19.3" \

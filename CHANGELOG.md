@@ -20,6 +20,11 @@ landed is in the repository README, not here.
 
 ## [Unreleased]
 
+### Changed
+
+- Update Linux-PAM to 1.7.3, with matching source selection and documentation
+  paths in the core build.
+
 ### Known limits in R001.3
 
 - The small (2B) tier states wrong facts with confidence and answers some direct
