@@ -712,14 +712,16 @@ class WebServer:
 
         Token is generated at 'intergen setup' time (B-005). If the token
         file doesn't exist, the server refuses WebSocket connections with
-        an auth error.
+        an auth error. A token file that cannot be read, or whose bytes are
+        not text, is no token either: every credential is refused and every
+        browser session ends with the sockets it opened.
         """
         try:
             if TOKEN_PATH.exists():
                 token = TOKEN_PATH.read_text().strip()
                 if token:
                     return token
-        except OSError:
+        except (OSError, UnicodeDecodeError):
             pass
         return None
 

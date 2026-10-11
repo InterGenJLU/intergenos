@@ -388,6 +388,21 @@ class AnOpenSocketEndsWithItsSession(unittest.TestCase):
 
         self.assertClosedAsEnded(panel.run(scenario))
 
+    def test_a_token_file_that_is_not_text_closes_the_socket_and_refuses(self):
+        panel = _Panel(self)
+
+        async def garble(session):
+            panel.token_path.write_bytes(b"\xff\xfe not text\n")
+
+        async def scenario(session):
+            browser_session = await panel.sign_in(session)
+            fate = await panel.socket_fate(session, browser_session, garble)
+            return fate, await panel.api_status(session, browser_session)
+
+        fate, status = panel.run(scenario)
+        self.assertClosedAsEnded(fate)
+        self.assertEqual(status, 401)
+
     def test_a_lapsed_session_closes_the_socket_it_opened(self):
         panel = _Panel(self)
         lapse = mock.patch.object(web_server, "PANEL_SESSION_TTL_S", 1.0)
