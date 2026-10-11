@@ -1,7 +1,7 @@
 name: opensc
 version: "0.27.1"
-release: 1
-content_hash: ff70a96fcbf24e66
+release: 2  # r2: apply the upstream SetCOS attribute validation update from ad730304; retain the existing PIV patch.
+content_hash: faea52ccde421a92
 description: PKCS#11 modules and tools for smart cards (PIV/PKCS#15), patched for NK1 RSA-4096
 license: LGPL-2.1-or-later
 homepage: https://github.com/OpenSC/OpenSC
@@ -23,6 +23,10 @@ source:
 # could ship the stale binary. source_tree is honored regardless of pinning.
 source_tree:
   - packages/core/opensc/patches
+
+patches:
+  - file: 0002-setcos-attribute-lengths.patch
+    sha256: 3ac23c1cb709ba6083e7c359fb889c24c226a42c7e390d75c62d6c9febc5615f
 
 dependencies:
   build:
