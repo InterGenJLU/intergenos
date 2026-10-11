@@ -158,6 +158,37 @@ class _Panel:
                 headers={"Authorization": f"Bearer {credential}"}) as r:
             return r.status
 
+    async def socket_fate(self, session, credential: str, change,
+                          wait: float = 5.0):
+        """Open the page's socket on a credential, run change(session), and
+        read what becomes of the socket: ("closed", code, reason) when the
+        server closes it within `wait` seconds, or ("served", reply) when it
+        is still open then, with the server's answer to a message sent on it
+        (an unknown type, answered only by a socket still being served)."""
+        async with session.ws_connect(
+                f"ws://127.0.0.1:{self.port}/ws?source_interface=web",
+                protocols=("intergen", f"bearer.{credential}")) as ws:
+            connected = await ws.receive_json(timeout=5)
+            if connected.get("type") != "connected":
+                raise AssertionError(f"the socket did not connect: {connected}")
+            await change(session)
+            loop = asyncio.get_running_loop()
+            deadline = loop.time() + wait
+            while (left := deadline - loop.time()) > 0:
+                try:
+                    msg = await ws.receive(timeout=left)
+                except asyncio.TimeoutError:
+                    break
+                if msg.type in (aiohttp.WSMsgType.CLOSE,
+                                aiohttp.WSMsgType.CLOSING,
+                                aiohttp.WSMsgType.CLOSED):
+                    return "closed", msg.data, msg.extra
+            await ws.send_json({"type": "a_message_after_the_change"})
+            while True:
+                reply = await ws.receive_json(timeout=5)
+                if reply.get("code") == "unknown_type":
+                    return "served", reply
+
 
 class TheBrowserItemsSignIn(unittest.TestCase):
 
@@ -329,6 +360,91 @@ class TheBrowserItemsSignIn(unittest.TestCase):
             return api, await panel.socket(session, "intergen")
 
         self.assertEqual(panel.run(scenario), (401, 401))
+
+
+class AnOpenSocketEndsWithItsSession(unittest.TestCase):
+    """A socket's credential is checked once, at its handshake, so the server
+    closes the sockets a browser session opened when that session ends: when
+    the token changes, when the session lapses, and when newer sessions drop
+    it. An open socket was otherwise served after its session had ended,
+    while a new request and a new socket on that session were refused. The
+    page then asks whether its session is still honoured and, told it is
+    not, says how to sign in again."""
+
+    def assertClosedAsEnded(self, fate):
+        self.assertEqual(fate[0], "closed",
+                         f"the socket was still served: {fate}")
+        self.assertEqual(fate[1], aiohttp.WSCloseCode.POLICY_VIOLATION, fate)
+
+    def test_a_changed_token_closes_the_socket_its_session_opened(self):
+        panel = _Panel(self)
+
+        async def rotate(session):
+            panel.token_path.write_text(OTHER_TOKEN + "\n", encoding="utf-8")
+
+        async def scenario(session):
+            browser_session = await panel.sign_in(session)
+            return await panel.socket_fate(session, browser_session, rotate)
+
+        self.assertClosedAsEnded(panel.run(scenario))
+
+    def test_a_lapsed_session_closes_the_socket_it_opened(self):
+        panel = _Panel(self)
+        lapse = mock.patch.object(web_server, "PANEL_SESSION_TTL_S", 1.0)
+        lapse.start()
+        self.addCleanup(lapse.stop)
+
+        async def nothing(session):
+            return None
+
+        async def scenario(session):
+            browser_session = await panel.sign_in(session)
+            return await panel.socket_fate(session, browser_session, nothing)
+
+        self.assertClosedAsEnded(panel.run(scenario))
+
+    def test_a_session_newer_ones_dropped_closes_the_socket_it_opened(self):
+        panel = _Panel(self)
+        kept = mock.patch.object(web_server, "_PANEL_SESSIONS_KEPT", 2)
+        kept.start()
+        self.addCleanup(kept.stop)
+
+        async def two_newer(session):
+            await panel.sign_in(session)
+            await panel.sign_in(session)
+
+        async def scenario(session):
+            browser_session = await panel.sign_in(session)
+            return await panel.socket_fate(session, browser_session, two_newer)
+
+        self.assertClosedAsEnded(panel.run(scenario))
+
+    def test_a_kept_session_keeps_its_socket(self):
+        panel = _Panel(self)
+
+        async def nothing(session):
+            return None
+
+        async def scenario(session):
+            browser_session = await panel.sign_in(session)
+            return await panel.socket_fate(session, browser_session, nothing,
+                                           wait=2.5)
+
+        fate = panel.run(scenario)
+        self.assertEqual(fate[0], "served", fate)
+
+    def test_the_tokens_own_socket_is_kept_while_a_session_is_watched(self):
+        panel = _Panel(self)
+
+        async def a_browser_session(session):
+            await panel.sign_in(session)
+
+        async def scenario(session):
+            return await panel.socket_fate(session, TOKEN, a_browser_session,
+                                           wait=2.5)
+
+        fate = panel.run(scenario)
+        self.assertEqual(fate[0], "served", fate)
 
 
 class ACredentialOutsideAsciiIsRefused(unittest.TestCase):
