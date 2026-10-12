@@ -316,6 +316,7 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- A build resumed at the core phase over a populated build root recreates the unprivileged test account the Chapter 8 driver removes at its end, so the eleven Chapter 8 test suites that run as that user execute on a resume instead of failing before they start.
 - The pre-build silent-feature-loss check no longer stops a resumed build on the build log of a package that run is about to rebuild: when the package's recipe hash differs from the installed one (the builder's own rebuild test) and its build phase is inside the resume window, the finding is set aside with its reason printed, and the end-of-build run of the same check verifies the new build log.
 - No instance of the assistant's model engine opens a graphics card it was
   not given. Pinning a card fixed the case where one was chosen; two launches

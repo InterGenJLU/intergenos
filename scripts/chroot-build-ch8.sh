@@ -460,6 +460,26 @@ fi
 # 8.3 — 8.5: Man-pages, Iana-Etc, Glibc
 # ============================================================================
 
+# --- The Chapter 8 test account ------------------------------------------------
+# Eleven Chapter 8 check() functions run their suite as the unprivileged `tester`
+# user (gcc, sed, coreutils, bash, findutils, gawk, make, vim, util-linux x2,
+# procps-ng). chroot-build.sh creates the account with the essential files and
+# this driver removes it at its own end (the 8.85 cleanup below), so a resume
+# that re-enters Chapter 8 over a populated chroot (`--start-at core` on the
+# lineage substrate) finds no tester: every such check dies at
+# `chown: invalid user: 'tester'` and the driver's informational check policy
+# reports it as a non-fatal failure — the suites silently never run. Measured on
+# the R001.3 resume of 2026-10-12 (gcc and sed lost before the build was
+# stopped). Recreate the account here, exactly as chroot-build.sh does, when it
+# is absent; a from-scratch build finds it present and changes nothing.
+if ! grep -q '^tester:' /etc/passwd; then
+    log "  tester account absent (a resume over a populated chroot) — recreating it as chroot-build.sh does"
+    echo "tester:x:101:101::/home/tester:/bin/bash" >> /etc/passwd
+    grep -q '^tester:' /etc/group || echo "tester:x:101:" >> /etc/group
+    install -o tester -d /home/tester
+fi
+id tester >/dev/null 2>&1 || { log "error: the tester account is unusable after its creation — the Chapter 8 check() suites cannot run"; exit 1; }
+
 run_package "man-pages" "man-pages" "6.17" \
     "man-pages-6.17.tar.xz" \
     "Linux man pages"
