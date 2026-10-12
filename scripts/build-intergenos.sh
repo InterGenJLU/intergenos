@@ -1142,6 +1142,27 @@ phase_validate() {
         fi
     fi
 
+    # pkg-config resolution gate (decided 2026-10-12, L2774): on a populated
+    # substrate every installed .pc file's requirements must resolve against
+    # the chroot's own pkg-config tree, or be allowlisted with a reason. A
+    # library name supplied without its pkg-config name (ncurses r2's libtinfo
+    # links, no tinfo.pc) left readline.pc saying `Requires.private: tinfo`,
+    # and the core-extra phase halted at its first pkg-config consumer of
+    # readline (libxml2). Same skip shape as the union gate above: the
+    # script fails loud on an empty root, so it runs only where the root is
+    # populated.
+    if [ "${RESUME_CONTEXT:-0}" = "1" ] && [ -d "${IGOS}/var/lib/igos/packages" ] \
+       && [ -d "${IGOS}/mnt/intergenos/build/logs" ]; then
+        log "Running pkg-config resolution gate (every installed .pc file resolves)..."
+        python3 "${SCRIPTS}/check-pkgconfig-resolution.py" --root "${IGOS}" \
+            --allowlist /mnt/intergenos/config/pkgconfig-resolution-allowlist.txt \
+            2>&1 | tee -a "$BUILD_LOG"
+        if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+            log "error: an installed pkg-config file's requirements do not resolve — the next package that asks pkg-config for it halts; disposition per the gate's output before launching"
+            return 1
+        fi
+    fi
+
     # Undeclared-build-dep gate (Scan A.2): for every package's source[0]
     # tarball, extract build-system files (configure.ac / meson.build /
     # CMakeLists.txt) and parse for the 5 dep-discovery patterns
@@ -2034,6 +2055,21 @@ phase_ai() {
         return 1
     fi
     log "  silent-feature-loss gate PASSED — no silently-dropped features."
+
+    # END-OF-BUILD pkg-config resolution gate (decided 2026-10-12, L2774): the
+    # same check the resume pre-flight runs, over the finished chroot — every
+    # installed .pc file's requirements resolve, or are allowlisted with a
+    # reason — so a library name shipped without its pkg-config name can never
+    # reach the capture or the ISO. Fail-closed on the gate's own exit.
+    log ""
+    log "Running END-OF-BUILD pkg-config resolution gate (every installed .pc file resolves)..."
+    python3 "${SCRIPTS}/check-pkgconfig-resolution.py" --root "${IGOS}" \
+        --allowlist /mnt/intergenos/config/pkgconfig-resolution-allowlist.txt 2>&1 | tee -a "$BUILD_LOG"
+    if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+        log "error: END-OF-BUILD pkg-config resolution gate exited nonzero — an installed pkg-config file does not resolve; halting (fail-closed). Resolve per the gate output above (the owning recipe supplies the name, or a reasoned allowlist entry)."
+        return 1
+    fi
+    log "  pkg-config resolution gate PASSED — every installed .pc file resolves."
 }
 
 phase_compute() {

@@ -91,6 +91,7 @@ landed is in the repository README, not here.
 
 ### Added
 
+- A build gate checks that every installed pkg-config file's requirements resolve against the built system itself, at the resume pre-flight and at the end of the build, so a library shipped under a name its pkg-config files do not supply is reported before the first package that asks for it fails to configure.
 - GStreamer's aptX encoder and decoder elements are built: the aptX library is declared a build dependency of the plugin set and the feature is pinned on, so a missing library stops the build instead of silently dropping the elements.
 - Both installers give the machine owner's signing-key passphrase its own setup step.
 - The reboot advisory and first-login page report an unprotected machine-owner key or a new kernel that has not been signed.

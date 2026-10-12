@@ -1,0 +1,24 @@
+# pkg-config resolution allowlist — installed pkg-config modules whose
+# requirements cannot resolve BY THE OWNING PACKAGE'S OWN PACKAGING and that
+# nothing in the tree consumes. Consumed by scripts/check-pkgconfig-resolution.py
+# (a chroot-side build gate, resume pre-flight and end of build).
+#
+# Format: <module><TAB or 2+ spaces><reason>. An entry without a reason refuses
+# the gate. An entry whose module now resolves, or is no longer installed, is
+# stale and FAILS the gate: this list states reality or it states nothing.
+#
+# Discipline: an entry names the mechanism that makes the module unresolvable
+# and says no recipe asks pkg-config for it. A module a recipe does consume is
+# never allowlisted — the owning recipe supplies the missing name instead
+# (ncurses-core r4: tinfo.pc, the gate's origin, 2026-10-12).
+#
+# Seeded 2026-10-12 from the first full scan of the R001.3 build root (1153
+# modules, 8 unresolved: readline — fixed in the recipe — and these seven).
+
+absl_heterogeneous_lookup_testing  abseil-cpp's test-support module: it requires absl_test_instance_tracker, a test library abseil does not install; no recipe asks pkg-config for it (2026-10-12)
+libhwy-test  highway's test-support module: it requires gtest, which is not a shipped package; no recipe asks pkg-config for it (2026-10-12)
+ndr  samba's internal NDR library: it requires talloc, which samba builds bundled as /usr/lib/samba/libtalloc-private-samba.so and installs without a .pc; no recipe asks pkg-config for it (2026-10-12)
+ndr_krb5pac  samba's internal NDR library (krb5pac): requires talloc, bundled by samba without a .pc; no recipe asks pkg-config for it (2026-10-12)
+ndr_nbt  samba's internal NDR library (nbt): requires talloc, bundled by samba without a .pc; no recipe asks pkg-config for it (2026-10-12)
+ndr_standard  samba's internal NDR library (standard): requires talloc, bundled by samba without a .pc; no recipe asks pkg-config for it (2026-10-12)
+samba-util  samba's internal utility library: requires talloc, bundled by samba without a .pc; no recipe asks pkg-config for it (2026-10-12)
