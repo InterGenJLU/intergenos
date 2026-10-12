@@ -1,7 +1,7 @@
 name: intergenos-wiki
 version: "1.0.0"
-release: 15  # r15: the rendered book and its signed page manifest advance to the wiki source that adds "How We're Developing InterGen" (a new page, 88 pages total) and the shipped-claims sweep (four pages that described the largest tier as unshipped); the manifest was regenerated from the fresh render and re-signed 2026-08-27. r14: release-identity strings track the release line.
-content_hash: 7491f327b53d67aa
+release: 16  # r16: the rendered book and its signed page manifest advance to the 2026-09-17 published render, including the served-page sweep's wording corrections and every page changed since the 2026-08-27 render; the manifest is regenerated from that render for the R001.3 re-signing. r15: the rendered book and its signed page manifest advance to the wiki source that adds "How We're Developing InterGen" (a new page, 88 pages total) and the shipped-claims sweep (four pages that described the largest tier as unshipped); the manifest was regenerated from the fresh render and re-signed 2026-08-27. r14: release-identity strings track the release line.
+content_hash: b15876187f2ad185
 description: InterGenOS wiki — rendered mdBook HTML docs + release-key-signed per-page sha256 manifest (InterGen verifies a page against this manifest before citing it)
 license: GPL-3.0-or-later
 homepage: https://github.com/InterGenJLU/intergenos
