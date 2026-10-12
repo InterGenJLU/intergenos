@@ -1,6 +1,6 @@
 name: tokei
 version: "12.1.2"
-release: 1
+release: 2  # r2: verify_paths names the bundled Apache license text by the name the tokei archive carries (the British spelling with the -APACHE suffix); a spelling pass had rewritten it and the verify step would have stopped at this recipe. No payload change.
 description: Count your code, quickly
 license: MIT OR Apache-2.0
 homepage: https://github.com/XAMPPRocky/tokei
