@@ -315,6 +315,7 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- The pre-build silent-feature-loss check no longer stops a resumed build on the build log of a package that run is about to rebuild: when the package's recipe hash differs from the installed one (the builder's own rebuild test) and its build phase is inside the resume window, the finding is set aside with its reason printed, and the end-of-build run of the same check verifies the new build log.
 - No instance of the assistant's model engine opens a graphics card it was
   not given. Pinning a card fixed the case where one was chosen; two launches
   had no pinned card and still opened every card in the machine. The first is a

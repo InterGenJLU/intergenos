@@ -106,6 +106,101 @@ def discover_chroot_root(arg_chroot: str | None) -> Path:
 
 
 # ----------------------------------------------------------------------
+# Rule N — a finding against a package THIS RUN REBUILDS is a reading of the
+# superseded build's log, not of the build that ships.
+# ----------------------------------------------------------------------
+#
+# On a --start-at resume over a populated chroot the gate reads each installed
+# package's newest build log. A consumer whose recipe gained a dependency since
+# that log was written (pipewire gained the three Bluetooth codec libraries in
+# the R001.3 round; its chroot build predates them) reports the dependency as
+# "found: NO" — true of the installed build, irrelevant to the one the run is
+# about to make. The builder's own skip-built key decides a rebuild: a package
+# is rebuilt when the recipe's template hash (igos-build/content_hash.py,
+# template_hash — package.yml + build.sh + declared source inputs) differs
+# from the TEMPLATE_HASH its installed manifest carries. Rule N asks the
+# builder's function the same question and sets a finding aside ONLY when
+# (a) the installed manifest carries a TEMPLATE_HASH (the bash tiers carry
+# none and are never rescued here), (b) the recipe's current hash differs,
+# and (c) the package's building phase lies inside the resume window the
+# orchestrator passes (--start-at / --stop-after). Without a window (the
+# end-of-build call site, a report run) nothing is rescued: there the log IS
+# the shipped build's, and a mismatch means the run did not rebuild the
+# package — the finding stands. The rescue is printed by rule and reason;
+# the end-of-build gate re-reads the NEW log and verifies the feature.
+
+# Orchestrator phase order (scripts/build-intergenos.sh PHASES; the relative
+# order of the package phases is what matters here).
+PHASE_ORDER = ["validate", "verify-sources", "setup", "toolchain", "chroot-prep",
+               "chroot-tools", "core", "config", "core-extra", "base", "kernel",
+               "desktop", "extra", "compute", "ai", "bootloader", "image",
+               "manifest", "squashfs", "ukis-verity", "iso"]
+
+# The tiers the Python builder (igos-build, --skip-built keyed on the template
+# hash) builds, each in the orchestrator phase of the same name. The bash tiers
+# (toolchain, core, base) carry no TEMPLATE_HASH and are covered by the
+# bash-tier currency gate instead.
+TEMPLATE_HASH_TIER_PHASE = {"desktop": "desktop", "extra": "extra",
+                            "compute": "compute", "ai": "ai"}
+
+_TEMPLATE_HASH_RE = re.compile(r"^TEMPLATE_HASH:\s*([0-9a-f]{16})\s*$", re.M)
+
+
+def resume_window(start_at: str | None, stop_after: str | None) -> tuple[int, int] | None:
+    """The [first, last] phase indexes a resume runs, or None when no window
+    was given (then Rule N never applies)."""
+    if not start_at and not stop_after:
+        return None
+    first = PHASE_ORDER.index(start_at) if start_at else 0
+    last = PHASE_ORDER.index(stop_after) if stop_after else len(PHASE_ORDER) - 1
+    return (first, last)
+
+
+def _load_builder_hash_fn(repo: Path):
+    """The builder's OWN template_hash + template parser, loaded from the
+    repo under audit (never a copy): the rescue asks the same function the
+    skip-built decision asks."""
+    import importlib
+    builder_dir = str(repo / "igos-build")
+    if builder_dir not in sys.path:
+        sys.path.insert(0, builder_dir)
+    parser_mod = importlib.import_module("parser")
+    hash_mod = importlib.import_module("content_hash")
+    return parser_mod.parse_template, hash_mod.template_hash
+
+
+def scheduled_rebuild_rescue(repo: Path, manifest_path: Path, yml: Path | None,
+                             tier: str | None, window: tuple[int, int] | None,
+                             builder_fns=None) -> str | None:
+    """Rule N. Returns the rescue reason when THIS run rebuilds the package
+    (its installed TEMPLATE_HASH differs from the recipe's current one and
+    its building phase is inside the resume window), else None."""
+    if window is None or yml is None or tier not in TEMPLATE_HASH_TIER_PHASE:
+        return None
+    phase_idx = PHASE_ORDER.index(TEMPLATE_HASH_TIER_PHASE[tier])
+    if not (window[0] <= phase_idx <= window[1]):
+        return None
+    try:
+        manifest_text = manifest_path.read_text(errors="replace")
+    except OSError:
+        return None
+    m = _TEMPLATE_HASH_RE.search(manifest_text)
+    if not m:
+        return None  # a bash-tier manifest: no skip-built key, no rescue
+    installed_hash = m.group(1)
+    try:
+        parse_template, template_hash = builder_fns or _load_builder_hash_fn(repo)
+        current_hash = template_hash(parse_template(yml), repo / "build" / "sources")
+    except Exception as e:  # a recipe the builder refuses is never rescued
+        return None
+    if not current_hash or current_hash == installed_hash:
+        return None
+    return (f"scheduled-rebuild-supersedes (installed TEMPLATE_HASH {installed_hash} "
+            f"!= recipe {current_hash}; phase {TEMPLATE_HASH_TIER_PHASE[tier]} inside "
+            f"the resume window)")
+
+
+# ----------------------------------------------------------------------
 # Name-aliasing for log matching
 # ----------------------------------------------------------------------
 
@@ -464,6 +559,20 @@ def parse_deps_build(pkg_yml_path: Path) -> list[str]:
                 if item:
                     deps.append(item)
     return deps
+
+
+def parse_tier(pkg_yml_path: Path | None) -> str | None:
+    """The recipe's top-level ``tier:`` value (same line reader as the deps
+    parser above; no YAML library in this gate)."""
+    if pkg_yml_path is None or not pkg_yml_path.is_file():
+        return None
+    with pkg_yml_path.open() as fp:
+        for raw in fp:
+            line = raw.rstrip("\n")
+            if line.startswith("tier:"):
+                value = line[len("tier:"):].split("#", 1)[0].strip().strip('"').strip("'")
+                return value or None
+    return None
 
 
 def find_package_yml(packages_dir: Path, pkg_name: str) -> Path | None:
@@ -1118,8 +1227,12 @@ def scan_cmake_block(log_text: str, packages_dir: Path) -> list[dict]:
 # Main scan loop
 # ----------------------------------------------------------------------
 
-def scan(repo: Path, chroot: Path) -> dict:
-    """Run all passes. Returns a result dict with findings + metadata."""
+def scan(repo: Path, chroot: Path,
+         window: tuple[int, int] | None = None) -> dict:
+    """Run all passes. Returns a result dict with findings + metadata.
+
+    ``window`` — the resume's (first, last) phase indexes (resume_window);
+    None disables Rule N."""
     packages_dir = repo / "packages"
     blfs_db = repo / "build" / "blfs-packages.db"
     chroot_installed = chroot / "var/lib/igos/packages"
@@ -1164,6 +1277,8 @@ def scan(repo: Path, chroot: Path) -> dict:
 
     findings: list[dict] = []
     rescued: list[dict] = []  # findings suppressed by Rules A/B/C — kept for visibility
+    current = {"rebuild": None}  # Rule N reason for the package being scanned
+    builder_fns = None
     summary_per_pkg: dict[str, list[dict]] = {}
     meson_per_pkg: dict[str, list[dict]] = {}
     cmake_per_pkg: dict[str, list[dict]] = {}
@@ -1295,6 +1410,10 @@ def scan(repo: Path, chroot: Path) -> dict:
             if later:
                 rescued.append({**payload, "rescue_rule": "M", "rescue_reason": later})
                 return
+        # Rule N (this run rebuilds the consumer — the log is the superseded build's)
+        if current["rebuild"]:
+            rescued.append({**payload, "rescue_rule": "N", "rescue_reason": current["rebuild"]})
+            return
         findings.append(payload)
 
     for pkg_name, manifest in installed:
@@ -1311,6 +1430,18 @@ def scan(repo: Path, chroot: Path) -> dict:
             continue
 
         yml = find_package_yml(packages_dir, pkg_name)
+        # Rule N, once per package: does THIS run rebuild it?
+        current["rebuild"] = None
+        if window is not None and yml is not None:
+            if builder_fns is None:
+                try:
+                    builder_fns = _load_builder_hash_fn(repo)
+                except Exception:
+                    builder_fns = False  # no builder in this tree: Rule N off
+            if builder_fns:
+                current["rebuild"] = scheduled_rebuild_rescue(
+                    repo, chroot_installed / manifest, yml,
+                    parse_tier(yml), window, builder_fns)
         declared_deps = set(parse_deps_build(yml)) if yml else set()
         configure_flags = parse_configure_flags(yml) if yml else []
         lib_only = is_lib_only_mode(configure_flags)
@@ -1421,6 +1552,16 @@ def scan(repo: Path, chroot: Path) -> dict:
                         "rescue_rule": "F", "rescue_reason": accepted,
                     })
                     continue
+                # Rule N — this run rebuilds the consumer
+                if current["rebuild"]:
+                    rescued.append({
+                        "type": "SUMMARY-DISABLED", "pkg": pkg_name,
+                        "dep": sf["feature"], "log": log_path.name,
+                        "line_no": sf["line_no"], "kind": "summary-disabled",
+                        "match": sf["line"][:200],
+                        "rescue_rule": "N", "rescue_reason": current["rebuild"],
+                    })
+                    continue
                 relevant_summary.append(sf)
             if relevant_summary:
                 summary_per_pkg[pkg_name] = relevant_summary
@@ -1486,6 +1627,11 @@ def scan(repo: Path, chroot: Path) -> dict:
                 rescued.append({**meson_payload, "rescue_rule": "M",
                                 "rescue_reason": later})
                 continue
+            # Rule N — this run rebuilds the consumer
+            if current["rebuild"]:
+                rescued.append({**meson_payload, "rescue_rule": "N",
+                                "rescue_reason": current["rebuild"]})
+                continue
             intree_meson.append(m)
         if intree_meson:
             meson_per_pkg[pkg_name] = intree_meson
@@ -1537,6 +1683,11 @@ def scan(repo: Path, chroot: Path) -> dict:
             if accepted_rescue:
                 rescued.append({**cmake_payload, "rescue_rule": "F",
                                 "rescue_reason": accepted_rescue})
+                continue
+            # Rule N — this run rebuilds the consumer
+            if current["rebuild"]:
+                rescued.append({**cmake_payload, "rescue_rule": "N",
+                                "rescue_reason": current["rebuild"]})
                 continue
             intree_cmake.append(c)
         if intree_cmake:
@@ -1712,6 +1863,15 @@ def main() -> int:
     ap.add_argument("--chroot", help="chroot mount point (default /mnt/igos)")
     ap.add_argument("--report", action="store_true",
                     help="also write JSON + TSV artifacts to <repo>/build/")
+    ap.add_argument("--start-at", default=None, metavar="PHASE",
+                    help="the resume's --start-at phase (orchestrator phase name); "
+                         "with it, a finding against a package the resume REBUILDS "
+                         "(Rule N: its installed TEMPLATE_HASH differs from the "
+                         "recipe's, by the builder's own function, and its phase "
+                         "lies inside the window) is set aside with its reason — "
+                         "the end-of-build run of this gate re-reads the new log")
+    ap.add_argument("--stop-after", default=None, metavar="PHASE",
+                    help="the resume's --stop-after phase (closes the Rule N window)")
     ap.add_argument("--require-audit", action="store_true",
                     help="treat a SKIP (chroot/BLFS data absent) as a fail-closed "
                          "halt (exit 3) instead of exit 0 — for build call sites "
@@ -1727,7 +1887,16 @@ def main() -> int:
         return 2
 
     chroot = discover_chroot_root(args.chroot)
-    result = scan(repo, chroot)
+    for ph in (args.start_at, args.stop_after):
+        if ph and ph not in PHASE_ORDER:
+            print(f"ERROR: unknown orchestrator phase {ph!r} (known: "
+                  f"{', '.join(PHASE_ORDER)})", file=sys.stderr)
+            return 2
+    window = resume_window(args.start_at, args.stop_after)
+    # scan(repo, chroot) keeps its two-argument shape when no window was
+    # given (the end-of-build and report call sites; the exit-code tests
+    # stub it that way); the window rides only on a resume.
+    result = scan(repo, chroot, window=window) if window is not None else scan(repo, chroot)
     emit_summary(result)
 
     if args.report:

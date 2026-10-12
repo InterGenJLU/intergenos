@@ -1087,6 +1087,20 @@ phase_validate() {
        && [ -d "${IGOS}/mnt/intergenos/build/logs" ]; then
         log "  (resume with populated chroot — holding silent-loss to --require-audit)"
         silent_loss_flags+=(--require-audit)
+        # The resume window: a finding against a package THIS resume rebuilds
+        # (its installed TEMPLATE_HASH differs from the recipe's, by the
+        # builder's own function; its phase inside the window) is a reading of
+        # the superseded build's log and is set aside by the gate's Rule N with
+        # its reason printed; the END-OF-BUILD run of the same gate (no window)
+        # re-reads the new log and verifies the feature. First met at the
+        # R001.3 launch (2026-10-12): pipewire's chroot log predated the three
+        # Bluetooth codec libraries chain 22 declared.
+        if [ -n "${START_AT:-}" ]; then
+            silent_loss_flags+=(--start-at "${START_AT}")
+        fi
+        if [ -n "${STOP_AFTER:-}" ]; then
+            silent_loss_flags+=(--stop-after "${STOP_AFTER}")
+        fi
     fi
     python3 "${SCRIPTS}/preflight-silent-loss.py" "${silent_loss_flags[@]}" 2>&1 | tee -a "$BUILD_LOG"
 

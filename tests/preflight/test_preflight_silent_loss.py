@@ -731,3 +731,143 @@ class TestLogPickerPrefixCollision(unittest.TestCase):
             self._mklogs(tmp, ["foo-20260101-000000.log"])
             picked = preflight.find_log_for_pkg(Path(tmp), "foo", None)
             self.assertEqual(picked.name, "foo-20260101-000000.log")
+
+
+class TestRuleNScheduledRebuild(unittest.TestCase):
+    """Rule N — a finding against a package THIS RUN REBUILDS is a reading of
+    the superseded build's log. First met at the R001.3 launch (2026-10-12):
+    the chroot's pipewire build predated the three Bluetooth codec libraries
+    its recipe had since declared; the resume's gate read the old log and
+    halted a build that was about to rebuild pipewire with the codecs present.
+
+    The rescue asks the builder's OWN skip-built question (igos-build
+    content_hash.template_hash vs the manifest's TEMPLATE_HASH) and applies
+    only inside the resume window the orchestrator passes. These tests build
+    a one-package repo + chroot the way the gate reads them."""
+
+    LOG = ("The Meson build system\n"
+           "Run-time dependency bar found: NO (tried pkgconfig and cmake)\n"
+           "Build targets in project: 1\n")
+
+    def _make(self, tmp: Path, manifest_hash: str | None, tier: str = "desktop",
+              real_hash: bool = False):
+        repo = tmp / "repo"
+        pkg_dir = repo / "packages" / tier / "foo"
+        pkg_dir.mkdir(parents=True)
+        (pkg_dir / "package.yml").write_text(textwrap.dedent(f"""\
+            name: foo
+            version: "1.0"
+            release: 2
+            description: a consumer whose recipe gained a dependency
+            license: MIT
+            homepage: https://example.invalid/foo
+            tier: {tier}
+            build_style: meson
+            install_func: do_install
+            source:
+            - url: https://example.invalid/foo-${{version}}.tar.gz
+              sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+            dependencies:
+              build:
+              - bar
+              host: []
+              runtime: []
+            verify_paths:
+              - /usr/lib/libfoo.so
+            """))
+        # the builder's own modules, read from the real tree (never a copy)
+        import shutil
+        shutil.copytree(REPO_ROOT / "igos-build", repo / "igos-build",
+                        ignore=shutil.ignore_patterns("__pycache__"))
+        (repo / "build" / "sources").mkdir(parents=True)
+        # a BLFS db with the tables the gate's lookup reads (no rows)
+        import sqlite3
+        con = sqlite3.connect(str(repo / "build" / "blfs-packages.db"))
+        con.executescript("CREATE TABLE aliases (igos_name TEXT, blfs_anchor TEXT);"
+                          "CREATE TABLE packages (id INTEGER, name TEXT, anchor_id TEXT);"
+                          "CREATE TABLE dependencies (package_id INTEGER, dep_name TEXT, dep_type TEXT);")
+        con.commit(); con.close()
+        chroot = tmp / "chroot"
+        installed = chroot / "var/lib/igos/packages"; installed.mkdir(parents=True)
+        logs = chroot / "mnt/intergenos/build/logs"; logs.mkdir(parents=True)
+        if real_hash:
+            parse_template, template_hash = preflight._load_builder_hash_fn(repo)
+            manifest_hash = template_hash(parse_template(pkg_dir / "package.yml"),
+                                          repo / "build" / "sources")
+            self.assertRegex(manifest_hash, r"^[0-9a-f]{16}$")
+        lines = ["PACKAGE NAME: foo-1.0", "PACKAGE VERSION: 1.0", "PACKAGE RELEASE: 1",
+                 "BUILD SYSTEM: InterGenOS igos-build"]
+        if manifest_hash is not None:
+            lines.append(f"TEMPLATE_HASH: {manifest_hash}")
+        (installed / "foo-1.0").write_text("\n".join(lines) + "\nFILE LIST:\nusr/lib/libfoo.so\n")
+        (logs / "foo-20260101-000000.log").write_text(self.LOG)
+        return repo, chroot
+
+    def _run(self, repo: Path, chroot: Path, extra) -> tuple[int, str]:
+        argv_orig = sys.argv
+        sys.argv = ["preflight-silent-loss.py", "--root", str(repo),
+                    "--chroot", str(chroot), "--require-audit"] + extra
+        try:
+            buf = io.StringIO()
+            with redirect_stdout(buf), redirect_stderr(buf):
+                rc = preflight.main()
+            return rc, buf.getvalue()
+        finally:
+            sys.argv = argv_orig
+
+    def test_stale_hash_inside_window_is_rescued_by_rule_n(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo, chroot = self._make(Path(td), manifest_hash="0123456789abcdef")
+            rc, out = self._run(repo, chroot, ["--start-at", "core", "--stop-after", "ai"])
+        self.assertEqual(rc, 0, out)
+        self.assertIn("rule N: 2", out)  # the one log line matches two meson patterns
+        self.assertIn("PASS", out)
+
+    def test_same_finding_without_a_window_still_halts(self):
+        # The end-of-build call site passes no window: the log IS the shipped
+        # build's, so the finding stands (exit 1).
+        with tempfile.TemporaryDirectory() as td:
+            repo, chroot = self._make(Path(td), manifest_hash="0123456789abcdef")
+            rc, out = self._run(repo, chroot, [])
+        self.assertEqual(rc, 1, out)
+        self.assertIn("DECLARED-FAILED", out)
+
+    def test_current_hash_is_never_rescued(self):
+        # The builder would SKIP this package (hash equal) — the old log is
+        # the shipped build's; the finding stands.
+        with tempfile.TemporaryDirectory() as td:
+            repo, chroot = self._make(Path(td), manifest_hash=None, real_hash=True)
+            rc, out = self._run(repo, chroot, ["--start-at", "core", "--stop-after", "ai"])
+        self.assertEqual(rc, 1, out)
+        self.assertNotIn("rule N", out)
+
+    def test_phase_outside_the_window_is_never_rescued(self):
+        # --start-at ai skips the desktop phase: the package is NOT rebuilt.
+        with tempfile.TemporaryDirectory() as td:
+            repo, chroot = self._make(Path(td), manifest_hash="0123456789abcdef")
+            rc, out = self._run(repo, chroot, ["--start-at", "ai"])
+        self.assertEqual(rc, 1, out)
+        self.assertNotIn("rule N", out)
+
+    def test_manifest_without_template_hash_is_never_rescued(self):
+        # A bash-tier manifest carries no skip-built key: Rule N stays out.
+        with tempfile.TemporaryDirectory() as td:
+            repo, chroot = self._make(Path(td), manifest_hash=None)
+            rc, out = self._run(repo, chroot, ["--start-at", "core", "--stop-after", "ai"])
+        self.assertEqual(rc, 1, out)
+        self.assertNotIn("rule N", out)
+
+    def test_unknown_phase_is_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo, chroot = self._make(Path(td), manifest_hash="0123456789abcdef")
+            rc, out = self._run(repo, chroot, ["--start-at", "no-such-phase"])
+        self.assertEqual(rc, 2, out)
+
+    def test_resume_window_helper(self):
+        self.assertIsNone(preflight.resume_window(None, None))
+        first, last = preflight.resume_window("core", "ai")
+        self.assertEqual(preflight.PHASE_ORDER[first], "core")
+        self.assertEqual(preflight.PHASE_ORDER[last], "ai")
+        self.assertEqual(preflight.resume_window(None, "ai")[0], 0)
+        self.assertEqual(preflight.resume_window("desktop", None)[1],
+                         len(preflight.PHASE_ORDER) - 1)
