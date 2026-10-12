@@ -104,6 +104,8 @@ suppressed_counts = defaultdict(int)
 warn_sigs = defaultdict(Bucket)
 pkg_rows = []          # (pkg, tier, version, rc, duration_ms, outcome, counts-per-class, warn_count)
 seen_capture = set()   # dedupe identical captures across duplicate/resumed files
+source_lines = defaultdict(int)
+seen_lines = defaultdict(int)
 
 # ---- run-outcome derivation (per trace file / host log) ----
 # A file's records are tagged green only when its terminal evidence says the
@@ -140,12 +142,22 @@ def hostlog_outcome(text):
         return "green"
     return "unknown"
 
-def scan_text(pkg, tier, text, outcome):
+def scan_text(pkg, tier, text, outcome, source):
     counts = defaultdict(int)
     warn_count = 0
     for line in text.splitlines():
         if not line.strip():
             continue
+        # Captures may be embedded in a host log with additional framing.
+        # Coalesce exact line occurrences across sources, retaining the highest
+        # multiplicity in any one source and keeping different packages apart.
+        key = (pkg, hashlib.sha256(line.encode()).digest())
+        source_key = (source, key)
+        source_lines[source_key] += 1
+        occurrence = source_lines[source_key]
+        if occurrence <= seen_lines[key]:
+            continue
+        seen_lines[key] = occurrence
         matched = False
         for name, rx, is_suppress in CLASSES:
             if rx.search(line):
@@ -171,17 +183,32 @@ def scan_text(pkg, tier, text, outcome):
                 b.sample = f"[{tier}/{pkg}|{outcome}] {line.strip()[:300]}"
     return counts, warn_count
 
+def scan_capture(pkg, tier, text, outcome, version="-", rc=None, duration=0, *, source):
+    # Compare complete bytes, independently of the capture route and metadata.
+    # Keep repeated lines within a capture; only identical captures coalesce.
+    if not text:
+        return 0
+    key = (source, pkg, hashlib.sha256(text.encode()).digest())
+    if key in seen_capture:
+        return 0
+    seen_capture.add(key)
+    counts, warn_count = scan_text(pkg, tier, text, outcome, source)
+    pkg_rows.append((pkg, tier, version, rc, duration, outcome, dict(counts), warn_count))
+    return 1
+
 BUILD_MARK = re.compile(r"^==> Building (\S+) (\S+)\s*$", re.M)
 BUILT_RE = re.compile(r"^==> ✓ (\S+) built in ([\d.]+)s", re.M)
 
-def handle_subprocess_end(r, tier, outcome):
+def handle_subprocess_end(r, tier, outcome, file_pkg=None, *, source):
     # Python tiers: one builder process, whole tier's stdout inline.
     # Split into per-package segments on the '==> Building <pkg> <ver>' marker.
     out = r.get("stdout", "")
     n = 0
     marks = [(m.start(), m.group(1), m.group(2)) for m in BUILD_MARK.finditer(out)]
     segments = []
-    if marks:
+    if file_pkg is not None:
+        segments.append((r.get("pkg", file_pkg), r.get("version", "-"), out))
+    elif marks:
         segments.append(("(tier-preamble)", "-", out[:marks[0][0]]))
         for i, (pos, pkg, ver) in enumerate(marks):
             end = marks[i + 1][0] if i + 1 < len(marks) else len(out)
@@ -189,19 +216,13 @@ def handle_subprocess_end(r, tier, outcome):
     else:
         segments.append(("(tier-stream)", "-", out))
     for pkg, ver, seg in segments:
-        key = hashlib.sha256((tier + pkg + str(len(seg)) + seg[:200]).encode()).hexdigest()
-        if key in seen_capture:
-            continue
-        seen_capture.add(key)
-        n += 1
         m = BUILT_RE.search(seg)
         dur = int(float(m.group(2)) * 1000) if m and m.group(1) == pkg else 0
-        counts, warn_count = scan_text(pkg, tier, seg, outcome)
-        pkg_rows.append((pkg, tier, ver, 0, dur, outcome, dict(counts), warn_count))
+        n += scan_capture(pkg, tier, seg, outcome, ver, r.get("rc"), dur, source=source)
     err = r.get("stderr", "")
     if err.strip():
-        counts, warn_count = scan_text("(tier-stderr)", tier, err, outcome)
-        pkg_rows.append(("(tier-stderr)", tier, "-", r.get("rc"), 0, outcome, dict(counts), warn_count))
+        pkg = r.get("pkg", file_pkg) if file_pkg is not None else "(tier-stderr)"
+        scan_capture(pkg, tier, err, outcome, rc=r.get("rc"), source=source)
     return n
 
 files = sorted(set(
@@ -209,12 +230,16 @@ files = sorted(set(
 ))
 n_records = 0
 n_segments = 0
+n_streams = 0
 outcome_by_file = {}
 for path in files:
     outcome = trace_outcome(path)
     outcome_by_file[os.path.basename(path)] = outcome
     m = re.search(r"build-tier-([a-z0-9-]+)-\d{8}T", os.path.basename(path))
-    file_tier = m.group(1) if m else "host"
+    pkg_match = re.search(r"build-pkg-(.+)-\d{8}T\d{6}Z-", os.path.basename(path))
+    file_pkg = pkg_match.group(1) if pkg_match else None
+    file_tier = m.group(1) if m else ("package" if file_pkg is not None else "host")
+    streams = defaultdict(list)
     with open(path, errors="replace") as f:
         for raw in f:
             try:
@@ -222,26 +247,28 @@ for path in files:
             except json.JSONDecodeError:
                 continue
             rtype = r.get("type")
+            if rtype == "subprocess_output" and file_pkg is not None:
+                streams[r.get("pkg", file_pkg)].append(r.get("text", ""))
+                continue
             if rtype == "subprocess_end":
-                # Only the tier-scoped streams: orchestrator/host streams embed
-                # the tier output NESTED (double-count) — tier files are the
-                # single source of truth for per-package output.
+                # Host/orchestrator files embed tier output. Package files
+                # are leaf sources, including their streamed output records.
+                if file_pkg is not None:
+                    pkg = r.get("pkg", file_pkg)
+                    text = "".join(streams.pop(pkg, []))
+                    n_streams += scan_capture(pkg, file_tier, text, outcome,
+                                             rc=r.get("rc"), duration=r.get("duration_ms", 0), source=path)
                 if file_tier != "host":
-                    n_segments += handle_subprocess_end(r, file_tier, outcome)
+                    n_segments += handle_subprocess_end(r, file_tier, outcome, file_pkg, source=path)
                 continue
             if rtype != "pkg_capture":
                 continue
-            key = hashlib.sha256(
-                (r.get("pkg", "?") + r.get("ts", "") + str(r.get("output_bytes", 0))).encode()
-            ).hexdigest()
-            if key in seen_capture:
-                continue
-            seen_capture.add(key)
-            n_records += 1
-            pkg, tier = r.get("pkg", "?"), r.get("tier", "?")
-            counts, warn_count = scan_text(pkg, tier, r.get("output", ""), outcome)
-            pkg_rows.append((pkg, tier, r.get("version", "?"), r.get("rc"),
-                             r.get("duration_ms", 0), outcome, dict(counts), warn_count))
+            n_records += scan_capture(r.get("pkg", "?"), r.get("tier", "?"),
+                                      r.get("output", ""), outcome, r.get("version", "?"),
+                                      r.get("rc"), r.get("duration_ms", 0), source=path)
+    # A truncated run can end before subprocess_end; its output still matters.
+    for pkg, chunks in streams.items():
+        n_streams += scan_capture(pkg, file_tier, "".join(chunks), outcome, source=path)
 
 # host logs (plain text): toolchain per-pkg + orchestrator legs
 for path in sorted(glob.glob(os.path.join(HOSTLOGS, "*.log"))):
@@ -250,8 +277,7 @@ for path in sorted(glob.glob(os.path.join(HOSTLOGS, "*.log"))):
         text = f.read()
     outcome = hostlog_outcome(text)
     outcome_by_file[os.path.basename(path)] = outcome
-    counts, warn_count = scan_text(name, "hostlog", text, outcome)
-    pkg_rows.append((name, "hostlog", "-", 0, 0, outcome, dict(counts), warn_count))
+    scan_capture(name, "hostlog", text, outcome, source=path)
 
 # ---- emit ----
 def fmt_outcomes(oc):
@@ -299,7 +325,7 @@ rc_bad = [(p, t, rc) for p, t, v, rc, d, o, c, w in pkg_rows if rc not in (0, No
 oc_totals = defaultdict(int)
 for o in outcome_by_file.values():
     oc_totals[o] += 1
-print(f"files={len(files)} pkg_captures={n_records} py_segments={n_segments} rows={len(pkg_rows)}")
+print(f"files={len(files)} pkg_captures={n_records} py_segments={n_segments} stream_captures={n_streams} rows={len(pkg_rows)}")
 print(f"run outcomes (per source file): {dict(oc_totals)}")
 print(f"suppressed (labeled, counted): {dict(suppressed_counts)}")
 print(f"nonzero-rc records: {rc_bad}")
