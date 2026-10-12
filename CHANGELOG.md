@@ -317,6 +317,7 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- The static tpm2-tools build for the early-boot environment tells its configure step not to use libefivar, which it would otherwise auto-detect on a build root where the efivar package is already installed; the multicall binary then links only the shared objects its own check allows, on every build shape.
 - The static cryptsetup build for the early-boot environment restricts its configure step to the libraries it stages itself (PKG_CONFIG_LIBDIR instead of PKG_CONFIG_PATH), so a build over a populated build root no longer picks up the installed device-mapper's pkg-config file, whose private requirement on libudev has no static library and stopped the link.
 - The OpenSSH, libdht and tokei recipes name the upstream license files by the names their source archives actually carry (a tree-wide spelling pass had rewritten them), so the build installs and verifies those files instead of stopping at OpenSSH's install step; the spelling gate exempts each name with its reason.
 - The core-extra build driver creates the unprivileged test account its util-linux test suite runs as, which the Chapter 8 driver removes at its end, so that suite executes instead of failing before it starts on every build.

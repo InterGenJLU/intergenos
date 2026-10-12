@@ -205,13 +205,23 @@ build() {
     # vendor EK certs over HTTPS — not needed for FDE seal/unseal which
     # uses the ESYS layer directly. Companion to tpm2-tss --disable-fapi
     # already passed at line ~125.
+    # --without-efivar: tpm2-tools auto-detects libefivar ("pretty print of
+    # devicepath") when the option is not given. The efivar package builds
+    # later in this same phase, so a from-scratch build never finds it and the
+    # multicall binary links only the whitelisted shared objects below; a build
+    # over a populated build root (the R001.3 resume of 2026-10-12, core-extra
+    # package 38) found the installed one, linked libefivar.so.1, and the DSO
+    # check in check() failed — non-fatally under the driver's policy, so the
+    # defect shipped into the archive. The option states what the whitelist
+    # already requires: no efivar, on every build shape.
     ./configure \
         --prefix=/usr \
         --disable-shared \
         --disable-hardening \
         --disable-unit \
         --disable-doxygen-doc \
-        --disable-fapi
+        --disable-fapi \
+        --without-efivar
 
     echo "[tpm2-tools-static] Building tpm2-tools..."
     make -j"${IGOS_JOBS}"
