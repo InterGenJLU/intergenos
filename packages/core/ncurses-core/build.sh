@@ -56,6 +56,15 @@ do_install() {
     ln -sfv libncursesw.so.6 "${DESTDIR}/usr/lib/libtinfo.so.6"
     ln -sfv libtinfo.so.6 "${DESTDIR}/usr/lib/libtinfo.so"
 
+    # The two links give the terminfo entry points the name libtinfo at run and
+    # link time; pkg-config needs the same name. A consumer whose configure finds
+    # -ltinfo writes `Requires.private: tinfo` into its own .pc file (readline 8.3
+    # does), and without a tinfo.pc every pkg-config lookup of that consumer fails:
+    # "Package 'tinfo', required by 'readline', not found" stopped libxml2's meson
+    # on the R001.3 build (2026-10-12). ncursesw.pc carries the flags exactly as
+    # libncursesw.so.6 carries the symbols, so the link completes the name.
+    ln -sfv ncursesw.pc "${DESTDIR}/usr/lib/pkgconfig/tinfo.pc"
+
     # Remove static libraries
     rm -fv "${DESTDIR}/usr/lib/libncursesw.a"
     rm -fv "${DESTDIR}/usr/lib"/lib{ncurses,form,panel,menu}.a
