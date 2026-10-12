@@ -91,6 +91,7 @@ landed is in the repository README, not here.
 
 ### Added
 
+- GStreamer's aptX encoder and decoder elements are built: the aptX library is declared a build dependency of the plugin set and the feature is pinned on, so a missing library stops the build instead of silently dropping the elements.
 - Both installers give the machine owner's signing-key passphrase its own setup step.
 - The reboot advisory and first-login page report an unprotected machine-owner key or a new kernel that has not been signed.
 - The first-login page states which machine-owner keys the firmware trusts, including keys retained from earlier installations.

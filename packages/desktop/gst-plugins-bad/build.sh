@@ -17,6 +17,7 @@ configure() {
           -Dtests=disabled \
           -Dexamples=disabled \
           -Ddoc=disabled \
+          -Dopenaptx=enabled \
           -Dgpl=enabled
 }
 
