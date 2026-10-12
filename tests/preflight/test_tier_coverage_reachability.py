@@ -29,7 +29,9 @@ def _load():
 def _pkg(root: Path, tier: str, name: str):
     d = root / "packages" / tier / name
     d.mkdir(parents=True)
-    (d / "package.yml").write_text(f"name: {name}\ntier: {tier}\n")
+    # version: "1" — the gate now holds a run_package line's version literal
+    # to the recipe's; the fixture's core call names version "1".
+    (d / "package.yml").write_text(f"name: {name}\nversion: '1'\ntier: {tier}\n")
 
 
 class TestToolchainReachability(unittest.TestCase):
