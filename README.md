@@ -291,7 +291,7 @@ Items actively in flight or planned post R001.2:
 - **Microsoft shim-review submission** — obtaining an InterGenOS-owned MS-signed shim via the `rhboot/shim-review` sponsor track, so Secure Boot works out of the box without the first-boot MOK-enrollment step.
 - **OneDrive and Google Drive integration** — built-in cloud-file access for users coming from Windows: connect a Microsoft or Google account through a guided graphical sign-in that is as easy as logging in on a phone, with files syncing to the local desktop — no command line, no config files.
 - **Switchable desktop environments** — v1 ships GNOME on Wayland; KDE Plasma, XFCE, and other Wayland-capable desktops are planned as additional options, with the per-tier architecture already supporting the split.
-- **Automated CVE advisories** — an automated pipeline that continuously matches published CVE data against the exact package versions each release ships, producing public security advisories and prioritized package updates.
+- **Automated CVE advisories** — a pre-build scan now matches NVD, OSV, Debian security tracker and CISA KEV data against every shipped package at its pinned version before each build, and the per-package result is published with each release on the [Updates page](https://intergenos.org/news.html); a continuous advisory pipeline and prioritized package updates remain upcoming.
 - **Package-set expansion** — new from-source packages planned for upcoming releases, including Qt6 and the KDE frameworks that underpin the switchable-desktop work above.
 
 ## History
