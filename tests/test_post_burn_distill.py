@@ -184,3 +184,22 @@ def test_failure_formats(distill, text):
 def test_nonfailure_progress_and_prose_do_not_fire(distill, text):
     output, _ = distill([capture(text + "\n")])
     assert not class_text(output, "test-fail")
+
+
+def test_warning_class_is_complete_and_only_the_bundle_is_capped(distill):
+    messages = [f"warning: diagnostic {chr(97 + n // 26)}{chr(97 + n % 26)}"
+                for n in range(405)]
+    output, stdout = distill([capture("\n".join(messages) + "\n")], cap=80)
+    text = class_text(output, "warnings")
+    assert text.count("count=1 pkgs=1") == len(messages)
+    for message in messages:
+        assert message in text
+    assert "warnings: 405 signatures, 405 hits" in stdout
+    bundle = (output / "bundles/bundle-warnings.txt").read_text()
+    assert bundle.startswith(f"# CAPPED at 80 of {len(text.encode())} bytes")
+    assert bundle.split("\n", 1)[1] == text[:80]
+
+
+def test_warning_bundle_below_cap_is_complete(distill):
+    output, _ = distill([capture("warning: one diagnostic\n")])
+    assert (output / "bundles/bundle-warnings.txt").read_text() == class_text(output, "warnings")

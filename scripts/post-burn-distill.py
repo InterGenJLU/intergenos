@@ -304,7 +304,7 @@ for name in buckets:
                     f"  sig: {sig}\n  pkgs: {', '.join(sorted(b.pkgs)[:20])}\n\n")
 
 with open(os.path.join(OUT, "class-warnings.txt"), "w") as f:
-    for sig, b in sorted(warn_sigs.items(), key=lambda kv: -kv[1].count)[:400]:
+    for sig, b in sorted(warn_sigs.items(), key=lambda kv: -kv[1].count):
         f.write(f"count={b.count} pkgs={len(b.pkgs)} runs[{fmt_outcomes(b.outcomes)}] :: {b.sample}\n\n")
 
 # judge bundles: byte-capped copies of each class file; the full files stay in out/.
