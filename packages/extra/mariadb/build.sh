@@ -237,6 +237,10 @@ do_install() {
     set -e
     DESTDIR="$DESTDIR" cmake --install build
 
+    # Upstream's rcmysql compatibility link targets /etc/init.d/mysql.
+    # This systemd package supplies no SysV init script at that path.
+    rm -- "$DESTDIR/usr/sbin/rcmysql"
+
     # Install our hardened systemd unit (replaces upstream's
     # support-files/systemd/mariadb.service which lacks the §5e
     # baseline).
