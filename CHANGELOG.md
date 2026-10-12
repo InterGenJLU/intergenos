@@ -315,6 +315,53 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- No instance of the assistant's model engine opens a graphics card it was
+  not given. Pinning a card fixed the case where one was chosen; two launches
+  had no pinned card and still opened every card in the machine. The first is a
+  launch where no card could be chosen at all — cards that cannot be told
+  apart, a listing without addresses, a configured card name that names
+  nothing. The engine then spreads the model across every card it can see, and
+  that is not only an accounting problem: with the model spread across two
+  cards, restoring a saved point in a conversation crashed the engine outright,
+  which was measured three times out of three on a two-card machine and did not
+  happen once in four attempts with a single card visible. Such a launch now
+  picks the largest card that is not driving a screen, confirms by asking the
+  engine again that only that card is visible, and says in the log which card
+  it chose and why. The second is the instance that serves the small text-index
+  model on the processor: it opened both cards, started the graphics runtime on
+  each and held memory there, for work that never touches a card. It now starts
+  with no card visible at all. As before, anything that cannot be confirmed
+  leaves the launch exactly as it was with the reason written to the log, and
+  engines for other kinds of card are untouched.
+- A double-clicked video decodes on the card's video engine. The entry below
+  about hardware decoding recorded what was shipped — /etc/mpv/mpv.conf with
+  hwdec=auto-safe — and that file is read by mpv on the command line. It was
+  not read by the player a person actually gets: Celluloid ships with "load mpv
+  configuration file" turned off, so it started the decoder with configuration
+  loading disabled and never saw the file. Measured on an installed machine:
+  the card's video engine read nothing through a real playback while the
+  graphics engine worked, and read a fifth to a full load when the same player
+  was handed the option directly. The desktop-defaults package now ships a
+  GSettings override turning configuration loading on and naming
+  /etc/mpv/mpv.conf, which was the only one of the two candidate settings that
+  was measured to work. The configuration file itself is unchanged and remains
+  the single place the value is written, and both settings are defaults a
+  person can change in the player's preferences.
+- The assistant's model uses only the graphics card it was given. Pinning the
+  card told the engine where to put the model's layers; it did not stop the
+  graphics runtime from opening every other card in the machine, and the parts
+  of the model the layer pin does not cover — the component that reads images —
+  were placed on whichever card the runtime happened to call the first one. On
+  a two-card machine that is the card driving the screen, so the assistant was
+  quietly using memory on the display card while its own plan said that memory
+  had been taken on the card it was pinned to. A plan that is arithmetically
+  correct about a machine state that does not exist is harder to catch than an
+  obviously wrong number. The engine is now started with the other cards hidden
+  from it, and the card's name is re-read under that filter, because a card
+  that was the second one becomes the first when it is the only one. If any
+  part of that cannot be confirmed on the machine in front of it, the engine
+  starts exactly as it did before and the reason is written to the log.
+
 - Build tracing keeps a command's standard-error output on standard error instead of losing it while recording the command.
 - A resumed build validates the package names it was asked to resume before starting work.
 - A build stops when it cannot write the package manifest instead of reporting the manifest step complete.
@@ -505,7 +552,6 @@ landed is in the repository README, not here.
 - Release-fingerprint rebaselining reads the previous committed definition, refuses an unrelated or absent definition change, and applies all of its writes or none.
 - Declared GPU architecture lists affect package content fingerprints and participate in automatic release-bump checks.
 - An engine receives a device identifier only after its own device list has resolved that identifier.
-- A GPU-serving engine is restricted to its selected card, while a CPU-served instance opens no graphics card.
 
 - **A restored folder comes back with everything in it.** Asking Chronicle to
   restore a directory recreated the directory's recorded permissions and none of
@@ -2497,53 +2543,6 @@ instructions are unchanged from R001.
 
 ### Fixed
 
-
-- No instance of the assistant's model engine opens a graphics card it was
-  not given. Pinning a card fixed the case where one was chosen; two launches
-  had no pinned card and still opened every card in the machine. The first is a
-  launch where no card could be chosen at all — cards that cannot be told
-  apart, a listing without addresses, a configured card name that names
-  nothing. The engine then spreads the model across every card it can see, and
-  that is not only an accounting problem: with the model spread across two
-  cards, restoring a saved point in a conversation crashed the engine outright,
-  which was measured three times out of three on a two-card machine and did not
-  happen once in four attempts with a single card visible. Such a launch now
-  picks the largest card that is not driving a screen, confirms by asking the
-  engine again that only that card is visible, and says in the log which card
-  it chose and why. The second is the instance that serves the small text-index
-  model on the processor: it opened both cards, started the graphics runtime on
-  each and held memory there, for work that never touches a card. It now starts
-  with no card visible at all. As before, anything that cannot be confirmed
-  leaves the launch exactly as it was with the reason written to the log, and
-  engines for other kinds of card are untouched.
-- A double-clicked video decodes on the card's video engine. The entry below
-  about hardware decoding recorded what was shipped — /etc/mpv/mpv.conf with
-  hwdec=auto-safe — and that file is read by mpv on the command line. It was
-  not read by the player a person actually gets: Celluloid ships with "load mpv
-  configuration file" turned off, so it started the decoder with configuration
-  loading disabled and never saw the file. Measured on an installed machine:
-  the card's video engine read nothing through a real playback while the
-  graphics engine worked, and read a fifth to a full load when the same player
-  was handed the option directly. The desktop-defaults package now ships a
-  GSettings override turning configuration loading on and naming
-  /etc/mpv/mpv.conf, which was the only one of the two candidate settings that
-  was measured to work. The configuration file itself is unchanged and remains
-  the single place the value is written, and both settings are defaults a
-  person can change in the player's preferences.
-- The assistant's model uses only the graphics card it was given. Pinning the
-  card told the engine where to put the model's layers; it did not stop the
-  graphics runtime from opening every other card in the machine, and the parts
-  of the model the layer pin does not cover — the component that reads images —
-  were placed on whichever card the runtime happened to call the first one. On
-  a two-card machine that is the card driving the screen, so the assistant was
-  quietly using memory on the display card while its own plan said that memory
-  had been taken on the card it was pinned to. A plan that is arithmetically
-  correct about a machine state that does not exist is harder to catch than an
-  obviously wrong number. The engine is now started with the other cards hidden
-  from it, and the card's name is re-read under that filter, because a card
-  that was the second one becomes the first when it is the only one. If any
-  part of that cannot be confirmed on the machine in front of it, the engine
-  starts exactly as it did before and the reason is written to the log.
 
 - **Upgrading a download-helper package no longer deletes the application it
   installed.** A package such as the CUDA toolkit ships a small installer
