@@ -56,6 +56,26 @@ landed is in the repository README, not here.
 - The scenario harness sits to its timeout when the assistant's bus name is
   already owned (a test-instrument limit).
 - The canonical test suite cannot complete on an installed machine.
+- Published advisories list 281 shipped packages at their shipped versions
+  with a newer fixed version: 3,172 advisory–package pairs, including
+  351 scoring critical (a CVSS score of 9.0 or higher) on 78 packages;
+  138 of those critical pairs concern 51 packages on a default install.
+  This release ships them as they stand. The per-package list and each
+  advisory's severity are published with the release on the project's
+  [Updates page](https://intergenos.org/news.html); the fixable part is the
+  first work of the next cycle. An advisory's score is its published severity,
+  not proof that this build is affected.
+- The machine owner's kernel-signing key is encrypted at rest from this
+  release. A kernel update asks the owner's passphrase and refuses to sign
+  unattended, leaving the previous signed kernel bootable. A machine installed
+  before R001.3 keeps its unencrypted key until it is reinstalled.
+- After `intergen setup` writes a new token, the panel reconnects with the old
+  token and is refused until the panel restarts. The console refuses an
+  undecodable token file by failing closed without naming that cause.
+- The cloud adapter refuses a key over a non-TLS transport only after touching
+  the keyring; this path is reachable only after a person adds a cloud provider.
+- The Intel VA-API driver is not shipped; `vainfo` reports no accelerated
+  driver on Intel graphics.
 
 ### Added
 
