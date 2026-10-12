@@ -132,14 +132,17 @@ def trace_outcome(path):
     return "green" if str(last_rc) == "0" else "halted"
 
 HOSTLOG_FAIL = re.compile(r"BUILD FAILED|build_failure|✗ .* failed|FULL HALT", re.I)
-HOSTLOG_OK = re.compile(r"stop-after|completed successfully|✓ .* built|exit(ing)? 0", re.I)
+HOSTLOG_OK = re.compile(r"stop-after|completed successfully|✓ .* built|exit(ing)? 0|✓ InterGenOS build complete\b", re.I)
 
 def hostlog_outcome(text):
-    tail = text[-4000:]
+    tail = text.rstrip()[-4000:]
     if HOSTLOG_FAIL.search(tail):
         return "halted"
     if HOSTLOG_OK.search(tail):
         return "green"
+    terminal = "\n".join(line for line in tail.splitlines() if line.strip())
+    if re.search(r"\berror:", "\n".join(terminal.splitlines()[-5:]), re.I):
+        return "halted"
     return "unknown"
 
 def scan_text(pkg, tier, text, outcome, source):

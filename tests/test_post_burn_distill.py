@@ -203,3 +203,26 @@ def test_warning_class_is_complete_and_only_the_bundle_is_capped(distill):
 def test_warning_bundle_below_cap_is_complete(distill):
     output, _ = distill([capture("warning: one diagnostic\n")])
     assert (output / "bundles/bundle-warnings.txt").read_text() == class_text(output, "warnings")
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("gate passed\nerror: GRUB_CFG not found: installer/iso/grub/grub.cfg\n", "halted"),
+    ("error: SSH and credentials posture runtime gate failed.\n"
+     "Refusing to assemble squashfs from this chroot.\n"
+     "See the runtime gate output above.\n"
+     "Fix the build pipeline and re-run phase_squashfs.\n", "halted"),
+    ("✓ InterGenOS build complete\n"
+     "    total time: 0h 11m\n    finished: today\n\n"
+     "Build summary written: build-summary.json\n", "green"),
+    ("completed successfully\n", "green"),
+    ("error: final operation stopped\n" + "\n" * 5000, "halted"),
+    ("error: recovered probe\ncompleted successfully\n", "green"),
+    ("error: old diagnostic\n" + "later progress\n" * 6, "unknown"),
+    ("BUILD FAILED\ncompleted successfully\n", "halted"),
+    ("\n\n", "unknown"),
+])
+def test_host_log_terminal_outcomes(distill, text, expected):
+    output, _ = distill(traces={}, logs={"build-example-20260827-120000.log": text})
+    assert (output / "out/run-outcomes.txt").read_text() == (
+        f"{expected}\tbuild-example-20260827-120000.log\n"
+    )
