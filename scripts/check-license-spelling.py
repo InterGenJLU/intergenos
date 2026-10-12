@@ -131,6 +131,26 @@ EXEMPTIONS = [
         reason="the path of the license file inside the pinned wxWidgets "
                "tarball, quoted so a reader can find it there"),
     Exemption(
+        name="openssh-upstream-license-file-name",
+        path="packages/core/openssh/build.sh",
+        marker="LICENCE",
+        reason="the name of the license text inside the pinned OpenSSH tarball; "
+               "the recipe installs it by name, and the other spelling installs "
+               "nothing (the R001.3 build halted there on 2026-10-12)"),
+    Exemption(
+        name="libdht-upstream-license-file-name",
+        path="packages/extra/libdht/build.sh",
+        marker="LICENCE",
+        reason="the name of the license text inside the pinned dht archive, "
+               "installed under its own name; the other spelling installs nothing"),
+    Exemption(
+        name="tokei-upstream-license-file-name",
+        path="packages/extra/tokei/package.yml",
+        marker="LICENCE-APACHE",
+        reason="the name of one of the two license texts inside the pinned tokei "
+               "archive, bundled under its own name by the license extraction; "
+               "verify_paths has to name the file that exists"),
+    Exemption(
         name="linux-firmware-own-licence-file",
         path="docs/research/packaging/nvidia_driver_open_packaging_2026-04-20.md",
         marker="its own LICENCE",

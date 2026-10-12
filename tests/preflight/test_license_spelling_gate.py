@@ -54,6 +54,12 @@ EXEMPT_FILES = {
         "- redistributable via `linux-firmware` under its own LICENCE\n",
     "docs/governance/license-policy.md":
         '| linux-firmware | "Various" — see /lib/firmware/LICENCE.* | No |\n',
+    "packages/core/openssh/build.sh":
+        "install -v -m644 INSTALL LICENCE OVERVIEW README* \\\n",
+    "packages/extra/libdht/build.sh":
+        'install -m 644 LICENCE  "$DESTDIR/usr/share/doc/libdht-0.27/LICENCE"\n',
+    "packages/extra/tokei/package.yml":
+        "  - /usr/share/licenses/tokei/LICENCE-APACHE\n",
     "config/spdx-license-list.json":
         '{"_about": "Identifier sets from the official SPDX licence list."}\n',
     "assets/theming/extensions/AlphabeticalAppGrid@stuarthayhurst.zip":
@@ -73,8 +79,8 @@ EXEMPT_FILES = {
 # record it. A wrong number here is not a style complaint: it means the one
 # place the gate cannot see grew, and nobody said so.
 SELF_EXEMPT_LINE_COUNTS = {
-    "scripts/check-license-spelling.py": 22,
-    "tests/preflight/test_license_spelling_gate.py": 32,
+    "scripts/check-license-spelling.py": 25,
+    "tests/preflight/test_license_spelling_gate.py": 35,
 }
 
 

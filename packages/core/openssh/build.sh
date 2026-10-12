@@ -52,9 +52,9 @@ do_install() {
     install -v -m755 contrib/ssh-copy-id "${DESTDIR}/usr/bin"
     install -v -m644 contrib/ssh-copy-id.1 "${DESTDIR}/usr/share/man/man1"
 
-    # Install documentation
+    # Install documentation (LICENCE is the upstream file's own name)
     install -v -m755 -d "${DESTDIR}/usr/share/doc/openssh-10.2p1"
-    install -v -m644 INSTALL LICENSE OVERVIEW README* \
+    install -v -m644 INSTALL LICENCE OVERVIEW README* \
         "${DESTDIR}/usr/share/doc/openssh-10.2p1"
 
     # Install InterGenOS sshd systemd unit
