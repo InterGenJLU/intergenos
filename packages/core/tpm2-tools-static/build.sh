@@ -214,6 +214,17 @@ build() {
     # check in check() failed — non-fatally under the driver's policy, so the
     # defect shipped into the archive. The option states what the whitelist
     # already requires: no efivar, on every build shape.
+    # ac_cv_header_efivar_efivar_h=no: --without-efivar skips only configure's
+    # LIBRARY check (the PKG_CHECK_MODULES branch). configure.ac also runs
+    # AC_CHECK_HEADERS([efivar/efivar.h]) unconditionally, and the source
+    # (lib/tpm2_eventlog_yaml.c) guards its efidp_* calls on the
+    # HAVE_EFIVAR_EFIVAR_H that check defines. On the populated build root the
+    # header is installed, so the guard opened while EFIVAR_LIBS stayed empty
+    # and the tools/tpm2 link failed on efidp_format_device_path (the same
+    # resume, after the option alone). Presetting the check's own autoconf
+    # cache variable answers it "no" on every build shape, so the opt-out
+    # covers every check that feeds the guard — the library AND the header —
+    # and the transcript says so: "checking for efivar/efivar.h... (cached) no".
     ./configure \
         --prefix=/usr \
         --disable-shared \
@@ -221,7 +232,8 @@ build() {
         --disable-unit \
         --disable-doxygen-doc \
         --disable-fapi \
-        --without-efivar
+        --without-efivar \
+        ac_cv_header_efivar_efivar_h=no
 
     echo "[tpm2-tools-static] Building tpm2-tools..."
     make -j"${IGOS_JOBS}"
