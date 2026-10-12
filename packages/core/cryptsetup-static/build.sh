@@ -206,7 +206,7 @@ build() {
     # === 5. cryptsetup itself, statically linked ===
     # Staging now holds: libjson-c.a + libpopt.a + libdevmapper.a + libuuid.a
     # + their .pc files + headers. Cryptsetup configure.ac auto-detects
-    # static archives via the staged PKG_CONFIG_PATH + AC_CHECK_LIB.
+    # static archives via the staged PKG_CONFIG_LIBDIR + AC_CHECK_LIB.
     #
     # Flag rationale (verified against cryptsetup 2.8.4 configure.ac):
     # --enable-static-cryptsetup   → produce cryptsetup.static; configure
@@ -242,7 +242,20 @@ build() {
     echo "[cryptsetup-static] Configuring cryptsetup-${version}..."
     cd "${cryptsetup_src}"
 
-    export PKG_CONFIG_PATH="${STAGING_DIR}/lib/pkgconfig"
+    # PKG_CONFIG_LIBDIR, not PKG_CONFIG_PATH: the PATH form PREPENDS the staged
+    # directory to pkg-config's default search path, so a build root that already
+    # carries the dynamic packages answers for them too. Measured on the R001.3
+    # resume of 2026-10-12 (core-extra package 37, a populated build root):
+    # configure found /usr/lib/pkgconfig/devmapper.pc from the installed lvm2
+    # ("checking for devmapper >= 1.02.03... yes"), whose Requires.private names
+    # libudev, and the static link failed on "-ludev" — no static udev library
+    # exists. The from-scratch build never meets it because lvm2 builds long
+    # after this package and the check falls through to AC_CHECK_LIB against the
+    # staged libdevmapper.a (the lineage log: "checking for devmapper >= 1.02.03...
+    # no"). The LIBDIR form REPLACES the search path, so configure sees only the
+    # staged modules (json-c, popt, uuid) on every build shape, populated or not,
+    # and devmapper resolves through AC_CHECK_LIB as the comment above states.
+    export PKG_CONFIG_LIBDIR="${STAGING_DIR}/lib/pkgconfig"
     export CFLAGS="-I${STAGING_DIR}/include ${CFLAGS:-}"
     # AC_CHECK_LIB(popt,...) in cryptsetup configure.ac is a direct gcc-link
     # test (not pkg-config-mediated); without -L${STAGING_DIR}/lib the linker
