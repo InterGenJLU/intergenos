@@ -22,6 +22,16 @@ landed is in the repository README, not here.
 
 ### Changed
 
+- The release files, image stamp and installation-image name are checked against the same declared release, so a resumed build cannot publish an image under a different identity.
+- The unused `at` job scheduler is available from the mirror instead of being installed by default; the default system keeps `fcron`.
+- The Exim mail-transfer agent is available from the mirror instead of being installed by default.
+- ROCm recipes declare the GPU architectures they build for, with the narrower upstream-supported lists stated explicitly for hipBLASLt and rocWMMA.
+- Source downloads try the project mirror before upstream and enforce the recipe's checksum on either path.
+- Assistant screenshots use the desktop's screenshot portal and its consent dialog, with no second assistant review card for the same capture.
+- The dispatch-log reading no longer describes an integrity-check result as a general guarantee of trustworthiness.
+- Both GTK variants of WebKitGTK move from 2.50.5 to 2.54.1.
+- The assistant's bundled command catalog includes the download helpers and package-manager commands and flags added in this release.
+
 - Apply the upstream OpenSC SetCOS validation update alongside the existing
   PIV patch, retaining OpenSC 0.27.1.
 - Apply the upstream LZ4 frame API parameter checks while retaining 1.10.0.
@@ -81,6 +91,12 @@ landed is in the repository README, not here.
 
 ### Added
 
+- Both installers give the machine owner's signing-key passphrase its own setup step.
+- The reboot advisory and first-login page report an unprotected machine-owner key or a new kernel that has not been signed.
+- The first-login page states which machine-owner keys the firmware trusts, including keys retained from earlier installations.
+- The signed repository index records the filename and checksum of each published corresponding-source archive, allowing the source download to be verified against the index.
+- The browser menu opens the assistant signed in through a one-time handoff, with the session kept by the page on the panel's own origin rather than in a cookie.
+
 - **Chronicle can show what one backup version holds.** `chronicle contents
   LAYER VERSION` lists the kind of each entry, a file's size in bytes and the
   path, plain or as JSON. The graphical client had always been able to show a
@@ -108,9 +124,6 @@ landed is in the repository README, not here.
   identifier, a process-local sequence, and fixed event and outcome values. It
   excludes prompt text, cookies, identities, credentials, commands, and
   environment data.
-  terminal outcome. The record carries the action identifier, a process-local
-  sequence, and fixed event and outcome values. It excludes prompt text,
-  cookies, identities, credentials, commands, and environment data.
 - **The assistant's system prompt now states the machine it runs on and the
   model serving the conversation.** Asked what it is, the assistant answered
   out of whatever its weights had absorbed, and a local model trained by
@@ -301,6 +314,199 @@ landed is in the repository README, not here.
   `--all` to reach an install's full record.
 
 ### Fixed
+
+- Build tracing keeps a command's standard-error output on standard error instead of losing it while recording the command.
+- A resumed build validates the package names it was asked to resume before starting work.
+- A build stops when it cannot write the package manifest instead of reporting the manifest step complete.
+- A required staging transfer that fails stops the build instead of leaving a partial tree for the next phase.
+- The build arranges mount cleanup before setup begins, so a setup failure still releases the mounts it acquired.
+- The build drivers finalize a failed run and preserve its failure status on every exit path.
+- A failed ISO-writing command keeps its failure status and removes the incomplete image.
+- A resumed build selects its required source tiers from the phases it will actually run.
+- A package selector that the requested build phases would never use is refused instead of ignored.
+- ISO creation waits for its diagnostic logger to finish before reporting the phase complete.
+- The build's diagnostic relay keeps a final message even when the command did not end it with a newline.
+- Archive manifest ownership is read as literal ownership data instead of being reinterpreted by the shell.
+- When a person denies an assistant action, the reply explains the refusal in that person's language instead of displaying the audit record's wording.
+- The assistant's launch log explains why idle-slot clearing is disabled without changing the server's cache layout.
+- Runtime audit configuration changes are no longer refused because the kernel asks a security module that cannot identify the task before one that can.
+- Kernel signing reads the boot-image builder's actual exit status, uses a passphrase already supplied for the operation, and reports the number of attempts actually made.
+- The kernel update reports Secure Boot enabled, disabled and unreadable as distinct states instead of claiming an unreadable firmware setting is disabled.
+- The first-login key-retirement card reads the record available to the signed-in user, so the card can appear.
+- The first-login key statement distinguishes keys deliberately kept from undecided ones and does not identify foreign keys when the machine's own certificate is unreadable.
+- Reattaching a download-helper application records the release of the helper archive that is installed instead of an older payload stamp.
+- The assistant's first start tries the next available engine itself instead of waiting for the watchdog after an engine fails.
+- The GPU offload warning compares the layers actually loaded with the requested plan and says when that comparison cannot be made.
+- `pkm --version` includes the installed release, and `pkm list upgradable` names packages the index cannot compare instead of counting them as up to date.
+- An assistant audit write that fails is reported without turning an already completed tool call into an exception.
+- The upgradable-package listing leaves out build intermediates that the repository index is not meant to publish.
+- `igos-build --dry-run` previews the requested work and exits, whether or not `--build` is also present.
+- The Claude Code and Codex download helpers record why a pinned VS Code extension was not installed, while retaining the successful application's existing exit status.
+- The CUDA engine build extracts its toolkit without depending on the build host's temporary directory layout.
+- Stopping a conversation's memory index waits for its worker, so an old worker cannot write into the record that replaced its own.
+- `intergen status` reports a missing chat server as degraded and names its cause instead of declaring the assistant running merely because the daemon is alive.
+- The assistant's graphics-card answer preserves PCI domain information and reads the card description correctly when a domain is printed.
+- The HIP engine build checks device kernels in the math libraries the engine actually links instead of refusing it for an unused library.
+- A build sources its shell helper from the checkout being built instead of another checkout on the machine.
+- A 32-bit build reads its cross file and build profile from the checkout being built.
+- A staging-only build finds dependencies already staged beside it and does not fall through to the running system's package manager.
+- The staged dependency overlay is written only when a build has staged dependencies to expose.
+- A package overlay whose paths cannot receive the required ownership refuses the build before compilation.
+- Source uploads write to the directory used by the source downloader.
+- A dry-run source upload reports the actual destination directory without writing to it.
+- The 32-bit payload check judges paths staged by the current build, so existing files in a shared staging root do not produce false failures.
+- Source fetching makes a bounded number of upstream attempts before declaring a source unavailable and reports the number it actually made.
+- A source upload rebuilds the served directory index and reads it back before reporting completion.
+- The injected 32-bit cross file and build profile contribute to every consuming package's content fingerprint.
+- The Samba client tools find their default configuration at the path they read.
+- The assistant's package tool and installer evaluation answer the package manager's confirmation explicitly, and the gaming check reads the installed package record.
+- Archive metadata tools name a recipe they cannot parse instead of silently leaving it out of the version and tier maps.
+- A Chronicle capture that could not read part of its source records the omissions and marks the saved version incomplete throughout the capture and timeline reports.
+- Chronicle's window and status output report an incomplete newest version, including the count of source entries it could not capture.
+- Upgrading from a local archive reports an unreadable repository index as a failure instead of a missing package entry.
+- An unreadable cached repository index is reported and preserved instead of silently deleted.
+- Read-only package commands report an unreadable repository index in their own output and exit unsuccessfully.
+- An absent verification keyring leaves the cached index in place, unused and unverified, instead of deleting it.
+- The update advisory refreshed after a transaction names the cause of a refresh failure.
+- The package manager reports repository setup failures instead of leaving the cause unexplained.
+- A scheduled update check explains a failure to write its advisory.
+- An install refusal summary includes the repository-index error that caused the refusal.
+- Repository synchronization stages and validates a replacement before replacing the previously verified cached index.
+- A signed index candidate that fails validation is retained for inspection instead of being lost.
+- The package manager reports a cache file removed only after removal succeeds and distinguishes an unreadable cache search from an absent file.
+- Repository signing and restoration preserve literal archive paths, including names containing shell-special characters.
+- A publication rehearsal refuses missing source coverage and preserves the temporary-directory setting it inherited.
+- An assistant review-card decision applies only to the open card it names; a decision for no open card is reported as such.
+- The browser's `/new` command ends the previous conversation through the same path as the new-session control.
+- An assistant answer grounded in the machine's state reaches the browser instead of leaving the response empty.
+- A turn's prohibition on tools remains its own, so an abandoned turn cannot inherit the next turn's restriction.
+- Ending an assistant conversation closes its outstanding consent cards and cancels the work attached to that conversation.
+- A conversation change tells each open review card why it ended, and a card that times out is resolved only once.
+- A review card cannot replace another open card with the same identifier, and closing a card removes only its own pending response.
+- The browser reports an empty assistant fallback as an error instead of displaying no answer and no explanation.
+- Clearing the assistant's buffer withdraws the offers stored in it, so a later bare yes cannot accept an offer that was cleared.
+- The browser's `/clear` reaches the server and empties the pane only after the server confirms the buffer is clear.
+- The browser's new-conversation controls display the conversation the server created and report a command that could not be sent.
+- After a review card, the browser's liveness check is armed only while a turn is still running, and a new conversation ends the cancelled turn.
+- A completed browser turn disarms its liveness check, preventing an unnecessary reconnect after its review card was answered.
+- An assistant review nobody answered is recorded as unanswered rather than as the person's refusal.
+- An action refused before a review card could open is reported as refused without review rather than as the person's denial.
+- A review ended by a new or switched conversation is recorded as ended rather than as the person's denial.
+- Content withheld without a person's refusal is no longer recorded as though the person denied it.
+- A requested command that did not run reports what happened to its review instead of using the same denial message for every outcome.
+- A review deadline closes its card on the page, so a failed review does not leave an answerable control behind.
+- Pasted text reaches the assistant conversation, and the browser reports it loaded only after the server confirms it.
+- The browser displays the server's answer to `/tier` instead of showing nothing.
+- The assistant page no longer includes a token script that its own content-security policy refuses.
+- An assistant page opened without a token explains that opening the address directly does not grant a token.
+- A held tool call with no review interface is recorded as lacking that interface, not as the person's denial.
+- A privileged action whose authorization token could not be created reports that failure instead of a denial.
+- An exception in either tool-review callback returns a recorded review failure instead of escaping without an outcome.
+- A worker from an ended browser turn cannot write into the next conversation or run beside its next turn.
+- The browser's `/clear` ends the running turn before confirming the buffer is empty, and no later output from that turn is displayed.
+- Clearing the conversation also empties its relevance index, preventing a cleared exchange from being retrieved into a later prompt.
+- The desktop panel stops sending an unused authorization header when loading its page.
+- Ending a browser turn closes all of its model streams, including regenerated answers, instead of continuing to generate text nobody will see.
+- Summarizing a tool result no longer blocks the browser server's event loop and stops when its turn ends.
+- A registered cloud provider's response stops with its turn and cannot answer a conversation that has ended.
+- A consented frontier request occupies its conversation's active turn and receives that turn's cancellation signal.
+- A consent dialog still open when its frontier request ends is withdrawn and recorded as no consent.
+- An ended cloud request does not fall back to a local answer after an error or an empty response.
+- Cloud error responses are read through the same cancellable path as successful responses and are closed when the call ends.
+- A consent dialog is reported closed only after its process has ended; a failed termination or reap is reported separately.
+- Cloud error bodies are read to a bounded length, and cancellation during the final read still stops the call.
+- The console does not file or title a turn as answered when the server explicitly reports no answer.
+- Console consent cards list only keyboard controls that the console actually handles.
+- The console names a missing web token as the reason it cannot connect.
+- A frame the console cannot process is reported as a fault, and the header stops claiming the connection is healthy.
+- A server error frame ends the console's active-stream state.
+- An explicitly empty final response is neither displayed nor counted as an answered console turn.
+- A new console conversation starts without the previous conversation's document buffer.
+- The console refuses an unknown model tier instead of silently selecting the medium tier.
+- The console names a read failure instead of presenting it as a normal connection close.
+- An unreadable cached assistant answer is reported as unreadable rather than absent.
+- The assistant's trace reader reports tracing disabled whenever it is disabled, even when an older trace still contains rows.
+- Question commands report an unreadable reply as an unanswered question instead of printing a traceback.
+- The tier command checks service ownership before calling and identifies which source supplied its answer.
+- The assistant health check explicitly names a stopped inference server as the reason for its failed check.
+- The audit-log health check states only what it read and no longer uses a count frozen at daemon startup.
+- The web-server health check reads the running server instead of a connection count captured when the daemon started.
+- The status report distinguishes model servers stopped deliberately from servers that failed.
+- A guarded start that was refused is reported as refused instead of as a start still in progress.
+- The daemon's frontier-request refusal remains effective when daemon startup stopped before initialization completed.
+- Direct assistant command routes release every subsystem acquired by their session, including after an unsuccessful reply or shutdown.
+- The panel reports whether it acquired its desktop-bus name and releases a partial export when acquisition fails.
+- The console's `/clear` and Ctrl+L clear the server's conversation buffer, not only the visible pane.
+- A console command is sent or reported as not sent, including a denial entered with Escape.
+- Console conversations are saved as console sessions and appear in the console's own session list.
+- An answered turn is recorded in the memory session of the conversation that served it.
+- A memory session ends only once, and a refused end preserves the turns needed to summarize its topic.
+- Resetting a conversation ends the memory session it replaces and records the reason.
+- Stopping the daemon ends the memory sessions it started and reports any end the store refuses.
+- The credential screen recognizes paths passed in structured tool arguments without refusing requests that reach no protected file.
+- The tool-process launcher distinguishes an unreadable credential path from a file confirmed absent.
+- A privileged tool write creates a new file in the requesting owner's home with that owner and owner-only read/write permissions.
+- Any failure to hand a newly created file to its owner is reported instead of leaving that failure unexplained.
+- `intergen tool-log --json` keeps standard output to JSON lines, reports structural diagnostics on standard error, and exits unsuccessfully when damage is detected.
+- The dispatch-log reader requires every field written for each record kind instead of accepting an incomplete row.
+- Out-of-order dispatch-log timestamps are reported as an observation rather than classified as record damage.
+- Every dispatch-log view reports a line containing invalid UTF-8 as damage and identifies the timestamps compared for an ordering observation.
+- An existing audit record that cannot be read, including a dangling link or an inaccessible parent, is reported as unreadable rather than as no record.
+- `intergen tool-log --count` uses the integrity check and exits unsuccessfully when the record does not read cleanly.
+- Each tool-log command obtains its verdict, displayed rows and count from the same read of the record.
+- Clearing the tool log reports an inaccessible path and verifies that the clear succeeded.
+- The GPU offload plan includes the served model's own key/value cache at the configured context length.
+- An engine start that runs out of device memory retries with fewer offloaded layers.
+- A CUDA engine that the installed driver cannot load is declined before launch, with the incompatibility explained.
+- Closing a browser connection ends that connection's conversation memory session.
+- An ended memory session accepts no further turns and reports a late write.
+- A browser turn answered by the model is counted in the memory session of its own conversation.
+- Daemon shutdown waits for the browser server to stop before ending its memory sessions.
+- A tool-enabled turn whose model request receives no response is recorded as such, and a later request that reaches the engine clears that failure state.
+- A conversation reset no longer reports the embedding server working when no embedding was requested.
+- The decision trace records the model call made by a tool-enabled turn.
+- A named forget matches whole subject words, and a forget verb contained inside a longer word is not treated as a command.
+- The assistant decides a forget request from the whole request instead of only part of it.
+- A flagged answer on the tool route receives the normal initial review response instead of skipping ahead in the response sequence.
+- A served turn is counted only while that turn remains open.
+- A concise answer that addresses the question is no longer flagged as nonsense merely because it is short.
+- A request containing a forget is kept whole and reaches the memory handler without being split into separate actions.
+- Tool-result summaries are judged against the person's original request, and a summary that repeats its own instruction is recognized as an echo.
+- When no memory store is available, a request containing a forget reaches the model whole instead of being partly answered first.
+- A remember or recall clause in a split request reaches the memory handler.
+- Model tool-call syntax is recognized as a response artifact and is not displayed as a finished tool summary.
+- Equivalent questions written in another script follow the same route as their English forms.
+- A request that must remain whole cannot trigger an early tool request before the model receives it.
+- A question asking whether something is on is answered as a state question instead of being treated as a request to change it.
+- A service question that names no unit is not dispatched as a service operation.
+- The assistant's command table produces only commands that its executor supports.
+- A tool call refused by the registry before dispatch is still recorded in the audit log.
+- Consent and review dialogs use a bounded process runner that tears down every program they start.
+- Cloud response reads check cancellation on each receive and share one deadline for the complete read, including a response that stalls after starting.
+- A consent dialog is torn down after an error, and a failed teardown identifies the process that remains.
+- The panel server honors its configured address while remaining accessible only on the local machine.
+- Stopping the panel server ends its thread cleanly whether or not binding its address succeeded.
+- The daemon's status explains when the panel is not serving.
+- The assistant page and dashboard connect back to the server that served them, and their content-security policy permits that configured connection.
+- The console uses the panel's configured address and refuses addresses the panel itself would reject.
+- The desktop panel window and shell extension open the address actually served by the daemon.
+- The panel health report checks both the panel's current state and whether its configured address answers.
+- The chat-server health report queries the address the chat server is configured to serve.
+- A daemon status response derives both panel fields from one reading of the panel's state.
+- An engine that exits is reported with its actual exit outcome instead of being mislabeled as a timeout.
+- A GPU memory query that cannot run, fails or returns no size is named in the log without discarding the detected card.
+- CUDA device-code compatibility is checked using the binary-compatibility rule instead of requiring an exact architecture label.
+- Within one restart, a reduced offload plan also applies when recovery moves to the next engine.
+- Each recovery attempt admitted by the chat watchdog actually launches the engine.
+- The panel's web server can start again after it has been stopped.
+- A restarted panel clears its previous stop reason, so a later closed connection is reported as closed rather than stopped.
+- Directories created by a privileged tool write in the requesting owner's home belong to that owner and permit access only to that owner.
+- The CUDA engine build includes device code for every declared architecture and records that set for the engine selector to check.
+- Release-fingerprint rebaselining reads the previous committed definition, refuses an unrelated or absent definition change, and applies all of its writes or none.
+- Declared GPU architecture lists affect package content fingerprints and participate in automatic release-bump checks.
+- An engine receives a device identifier only after its own device list has resolved that identifier.
+- A GPU-serving engine is restricted to its selected card, while a CPU-served instance opens no graphics card.
+
 - **A restored folder comes back with everything in it.** Asking Chronicle to
   restore a directory recreated the directory's recorded permissions and none of
   its files, and told the person to name every stored path individually — an
@@ -1324,8 +1530,8 @@ landed is in the repository README, not here.
   for an integrated processor, so the plan was left with nothing. It now asks
   the chosen engine for its own device list when neither source read the card,
   and uses it only when that list names exactly one device — with no card
-  pinned and several present the model is spread across all of them, so no
-  single card's figure would describe where it goes. Which of that device's two
+  pinned and several present, no single card's figure would establish where
+  the model is to be placed. Which of that device's two
   figures is taken is decided by the same rule that already governs a pinned
   card, so there is still one place that chooses between a total and a free
   figure. A list that cannot be read, or that names no device, keeps the honest
@@ -2026,6 +2232,47 @@ landed is in the repository README, not here.
 
 ### Security
 
+- Chronicle refuses a saved user-data version identifier that names a location outside that version's directory.
+- Repository publication waits for the required signing step and refuses unsupported claims about checks that have not run.
+- Publishing a corrected archive at an existing version requires a signed corrective record that matches the signing key or its primary key.
+- The assistant can be configured to refuse administrator actions at dispatch, and its recorded status states whether that restriction is active.
+- New installations encrypt the machine owner's signing key; kernel and NVIDIA module signing ask for its passphrase and refuse unattended signing while retaining the previous signed kernel.
+- A tracked package deployment is refused outside the build chroot, preventing a build from deploying into the running host.
+- A named-archive installation refuses an unrecognized trust mode instead of treating it as a permitted mode.
+- Corresponding-source publication binds the indexed name and checksum to the source file actually read and refuses publication when source hashes are missing.
+- The assistant dashboard creates no substitute token: without a token it explains the missing authentication and opens no connection.
+- Cloud providers are accepted only when their call interface supports the required cancellation contract; incompatible providers are refused before use.
+- The assistant command line does not pass supplied terminal-control sequences through to the terminal.
+- An internal daemon error is reported as a failure without returning the internal exception text to the caller.
+- The assistant's dispatch log removes credential data before writing a record, using the same redaction as its other persisted logs.
+- The assistant refuses tool requests for the installation's own secret files before dispatch.
+- Credential redaction covers mapping keys as well as values and preserves every entry when redacted keys would otherwise collide.
+- Credential-file protection checks the file a tool actually opens rather than relying only on the requested path.
+- Privileged tool requests resolve the requesting owner's home consistently, so owner-relative credential paths remain protected.
+- A refused write to an absent credential path creates no file there.
+- Processes started by assistant tools cannot open the installation's credential files.
+- Processes started by assistant tools cannot reach the owner's user service manager or session bus.
+- A credential identity that cannot be read causes a refusal; only a file confirmed absent contributes no identity.
+- Credential identities read at daemon startup remain protected even if their paths later change or another identity read fails.
+- Cleanup after a refused file creation removes only the file it created and reports failure if that file survives or was replaced.
+- The dispatch log has an integrity check, and a damaged row is reported instead of silently omitted.
+- The assistant's ask escalation mode obtains consent before sending conversation content to a frontier provider.
+- Frontier consent shows the outbound payload and asks about each destination that would receive it.
+- Only an explicit true consent result authorizes a frontier send, and the sent content is the content that was approved.
+- A request to forget one named subject cannot erase the whole memory store.
+- A forget subject is matched as literal text, so wildcard characters cannot broaden what is removed.
+- Answers on the tool-enabled route are screened, interrupted streams are recorded, and warm-up responses are not counted as served turns.
+- Every route proposing a service change verifies that the service manager knows the named unit.
+- A named-forget request containing additional instructions is declined instead of executing only the destructive part.
+- Cloud requests apply the read deadline while receiving response headers and refuse redirects, so a provider key is not sent to another destination.
+- A browser-session connection closes when its session ends.
+- Stopping the panel invalidates every browser sign-in and session it issued, including after the same server object restarts.
+- An undecodable panel token invalidates browser sessions and their connections, and requests are refused as unauthenticated instead of failing as server errors.
+- A connection authenticated by the panel token closes when that token changes.
+- A privileged tool write opens the exact path that was checked or writes nothing.
+- A privileged tool write refuses a symbolic link not owned by root and names the link in its refusal.
+- A privileged tool write also refuses a root-owned symbolic link that changes while being read.
+
 - **gzip 1.15 fixes two security defects.** CVE-2026-41992 permits an
   out-of-bounds read when an LZH member follows a `.Z` member in one invocation.
   CVE-2026-41991 is a temporary-file race in `gzexe`, `zdiff` and `znew`
@@ -2063,7 +2310,6 @@ landed is in the repository README, not here.
   made. Before this it was opened with no limit at all, so a dialog program that
   never came back held the thread that was going to answer for as long as it
   lived, with nothing recorded anywhere.
-  person's own cancel.
 - **`pkm install <app>` for a proprietary-download package no longer installs
   a cached archive the signed index does not vouch for.** When the helper
   package's database row was missing, the install laid the helper package down
