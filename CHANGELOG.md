@@ -316,6 +316,7 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- The core-extra build driver creates the unprivileged test account its util-linux test suite runs as, which the Chapter 8 driver removes at its end, so that suite executes instead of failing before it starts on every build.
 - The ncurses package ships a tinfo pkg-config file alongside the libtinfo compatibility links it already provides, so a library built against those links (readline) can be found through pkg-config by the packages that depend on it instead of stopping the build at the first such package.
 - The core build drivers name gzip 1.15 and Go 1.26.8, the versions their recipes pin, so a build resumed at the core phase no longer stops at either package with a checksum mismatch between the driver's tarball and the recipe's pinned hash.
 - The pre-build tier-coverage check holds every core and base build-driver entry to the version and source tarball its recipe pins, so a recipe version bump that leaves the driver's entry behind is reported before the build starts instead of stopping the build at that package with a checksum mismatch.

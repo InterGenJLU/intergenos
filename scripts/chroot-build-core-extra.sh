@@ -427,6 +427,24 @@ log ""
 # Initialize package database (continues from Chapter 8)
 pkg_init
 
+# --- The test account ---------------------------------------------------------
+# util-linux-pass2's check() runs its suite as the unprivileged `tester` user
+# (chown -R tester . && su tester -c "make -k check"). chroot-build.sh creates the
+# account for Chapter 8 and chroot-build-ch8.sh removes it at its own end, so this
+# driver has always reached util-linux-pass2 without it: the check died at
+# `chown: invalid user: 'tester'` and the informational check policy reported a
+# non-fatal failure — the suite never ran, on the from-scratch build of
+# 2026-08-15 and the R001.3 build of 2026-10-12 alike. Create the account here
+# when it is absent, exactly as chroot-build.sh and the Chapter 8 driver do, and
+# remove it at this driver's end as Chapter 8 does.
+if ! grep -q '^tester:' /etc/passwd; then
+    log "  tester account absent — creating it for the core-extra check() suites, as chroot-build.sh does"
+    echo "tester:x:101:101::/home/tester:/bin/bash" >> /etc/passwd
+    grep -q '^tester:' /etc/group || echo "tester:x:101:" >> /etc/group
+    install -o tester -d /home/tester
+fi
+id tester >/dev/null 2>&1 || { log "error: the tester account is unusable after its creation — the core-extra check() suites cannot run"; exit 1; }
+
 # 'which' FIRST — built before every other core-extra package. Some upstream
 # build systems probe for tools with `which` (e.g. apparmor's Make.rules does
 # `which awk`); without which in the chroot they misdetect and fail. LFS base
@@ -1507,6 +1525,9 @@ run_package "beautifulsoup4" "beautifulsoup4" "4.15.0" \
 run_package "python-pip" "python-pip" "25.3" \
     "" \
     "Python package installer (ensurepip-bootstrapped, owned payload)"
+
+# Remove the test account, as the Chapter 8 driver does at its end
+userdel -r tester 2>/dev/null || true
 
 # ============================================================================
 # Summary
