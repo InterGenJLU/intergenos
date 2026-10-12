@@ -142,3 +142,45 @@ def test_equal_lines_in_different_packages_remain_distinct(distill):
     output, _ = distill([capture("warning: shared wording\n", pkg="alpha"),
                           capture("warning: shared wording\n", pkg="bravo")])
     assert "count=2 pkgs=2" in class_text(output, "warnings")
+
+
+@pytest.mark.parametrize("name,text", [
+    ("suppressed-not-git", "fatal: not a git repository"),
+    ("suppressed-display", "Failed to open display"),
+    ("suppressed-cfg-probe", "checking for a library... no"),
+    ("error", "error: compilation stopped"),
+    ("test-fail", "FAIL: test_example"),
+    ("fallback", "using bundled library"),
+    ("disabled", "optional feature disabled"),
+    ("missing", "required library not found"),
+    ("deprecated", "deprecated function call"),
+    ("skipped", "test skipped"),
+    ("warnings", "warning: compiler diagnostic"),
+])
+def test_each_pattern_class_has_a_true_positive(distill, name, text):
+    output, stdout = distill([capture(text + "\n")])
+    if name.startswith("suppressed-"):
+        assert f"'{name}': 1" in stdout
+        assert not class_text(output, name)
+    else:
+        assert text in class_text(output, name)
+        assert "count=1 pkgs=1 runs[green=1]" in class_text(output, name)
+
+
+@pytest.mark.parametrize("text", [
+    "FAIL: test_x", "XFAIL: test_x", "# FAIL: 3", "failures=2",
+    "2 tests failed", "[01:20|% 99|+ 4452|- 12]",
+    "+ 20 | - 01", "Failed tests:", "  Failed tests:  ",
+])
+def test_failure_formats(distill, text):
+    output, _ = distill([capture(text + "\n")])
+    assert text.strip() in class_text(output, "test-fail")
+
+
+@pytest.mark.parametrize("text", [
+    "[01:20|% 99|+ 4452|- 0]", "+ 20 | - 00", "+ 20 | - 000",
+    "all tests passed", "Failed tests are retried automatically",
+])
+def test_nonfailure_progress_and_prose_do_not_fire(distill, text):
+    output, _ = distill([capture(text + "\n")])
+    assert not class_text(output, "test-fail")

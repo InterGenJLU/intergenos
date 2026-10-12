@@ -75,7 +75,7 @@ CLASSES = [
     ("suppressed-display",   re.compile(r"Failed to open display|cannot open display|Gtk-WARNING.*display|failed to open X display", re.I), True),
     ("suppressed-cfg-probe", re.compile(r"^checking\b.*\.\.\. n?o?$|^checking (for|whether|if)\b"), True),
     ("error",      re.compile(r"\berror\b[:!]|\bERROR\b|\bfailed\b.*\b(exit|status|code)\b|Traceback \(most recent", re.I), False),
-    ("test-fail",  re.compile(r"^(FAIL|XFAIL|ERROR):|\bfailures?=\d+|\btests? failed\b|# fail:?\s*[1-9]", re.I), False),
+    ("test-fail",  re.compile(r"^(FAIL|XFAIL|ERROR):|\bfailures?=\d+|\btests? failed\b|# fail:?\s*[1-9]|\+\s*\d+\s*\|\s*-\s*0*[1-9]\d*\b|^\s*Failed tests:\s*$", re.I), False),
     ("fallback",   re.compile(r"falling back|fall(s)? back to|fallback (to|enabled)|using bundled|bundled (copy|version)|vendored copy|subproject.*(fallback|download)", re.I), False),
     ("disabled",   re.compile(r"\b(disabled|will not be built|not being built|feature .{0,40}: ?no\b|support: ?no\b)", re.I), False),
     ("missing",    re.compile(r"\b(not found|no such file|missing|could not find|unable to find|cannot find)\b", re.I), False),
