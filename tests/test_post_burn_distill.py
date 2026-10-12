@@ -226,3 +226,40 @@ def test_host_log_terminal_outcomes(distill, text, expected):
     assert (output / "out/run-outcomes.txt").read_text() == (
         f"{expected}\tbuild-example-20260827-120000.log\n"
     )
+
+
+@pytest.mark.parametrize("message", ["warning: " + "a" * 120,
+                                     "warning: " + "é" * 120], ids=["ascii", "utf8"])
+def test_bundle_cap_measures_payload_bytes_and_reports_written_length(distill, message):
+    output, _ = distill([capture(message + "\n")], cap=80)
+    full = (output / "out/class-warnings.txt").read_bytes()
+    banner, payload = (output / "bundles/bundle-warnings.txt").read_bytes().split(b"\n", 1)
+    assert len(payload) <= 80
+    payload.decode("utf-8")
+    assert full.startswith(payload)
+    assert banner.decode() == (
+        f"# CAPPED at {len(payload)} of {len(full)} bytes — full file: out/class-warnings.txt"
+    )
+    if message.isascii():
+        assert len(payload) == 80
+    else:
+        assert 79 <= len(payload) <= 80
+
+
+def test_zero_bundle_cap_keeps_only_the_cap_notice(distill):
+    output, _ = distill([capture("warning: diagnostic\n")], cap=0)
+    banner, payload = (output / "bundles/bundle-warnings.txt").read_bytes().split(b"\n", 1)
+    assert banner.startswith(b"# CAPPED at 0 of ")
+    assert payload == b""
+
+
+def test_negative_bundle_cap_is_rejected_before_reading_inputs(tmp_path):
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "--since", "20260827T0000",
+         "--until", "20260827T2359", "--trace-root", str(tmp_path / "absent"),
+         "--out", str(tmp_path / "result"), "--bundle-cap", "-1"],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 2
+    assert "--bundle-cap must be non-negative" in result.stderr
+    assert not (tmp_path / "result").exists()

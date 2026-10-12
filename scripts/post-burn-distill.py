@@ -45,8 +45,10 @@ ap.add_argument("--host-logs", default=None,
 ap.add_argument("--out", default="./post-burn-sweep",
                 help="output dir; creates out/ and bundles/ under it")
 ap.add_argument("--bundle-cap", type=int, default=250000,
-                help="max bytes per judge bundle file (full class files stay in out/)")
+                help="max content bytes per bundle (cap notice is additional; full class files stay in out/)")
 args = ap.parse_args()
+if args.bundle_cap < 0:
+    ap.error("--bundle-cap must be non-negative")
 
 if not args.trace_root:
     sys.exit("ERROR: no trace root — pass --trace-root or set IGOS_TRACE_ROOT")
@@ -316,12 +318,20 @@ for path in sorted(glob.glob(os.path.join(OUT, "class-*.txt"))):
     cname = os.path.basename(path)[len("class-"):-len(".txt")]
     size = os.path.getsize(path)
     dst = os.path.join(BUNDLES, f"bundle-{cname}.txt")
-    with open(path, errors="replace") as f:
+    with open(path, "rb") as f:
         data = f.read(args.bundle_cap)
-    capped = size > args.bundle_cap
-    with open(dst, "w") as f:
+    # Class files are UTF-8. Keep a valid prefix if the byte cap cuts a
+    # code point; report the actual retained length, including that trim.
+    try:
+        data.decode("utf-8")
+    except UnicodeDecodeError as error:
+        if error.reason != "unexpected end of data" or error.end != len(data):
+            raise
+        data = data[:error.start]
+    capped = size > len(data)
+    with open(dst, "wb") as f:
         if capped:
-            f.write(f"# CAPPED at {args.bundle_cap} of {size} bytes — full file: out/class-{cname}.txt\n")
+            f.write(f"# CAPPED at {len(data)} of {size} bytes — full file: out/class-{cname}.txt\n".encode("utf-8"))
         f.write(data)
 
 rc_bad = [(p, t, rc) for p, t, v, rc, d, o, c, w in pkg_rows if rc not in (0, None, "0")]
