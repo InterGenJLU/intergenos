@@ -815,8 +815,8 @@ run_package "fuse3" "fuse3" "3.18.1" \
     "fuse-3.18.1.tar.gz" \
     "Filesystem in Userspace"
 
-run_package "go" "go" "1.26.4" \
-    "go1.26.4.linux-amd64.tar.gz" \
+run_package "go" "go" "1.26.8" \
+    "go1.26.8.linux-amd64.tar.gz" \
     "The Go programming language compiler and toolchain"
 
 run_package "highway" "highway" "1.3.0" \

@@ -818,8 +818,8 @@ run_package "grub" "grub" "2.14" \
     "grub-2.14.tar.xz" \
     "GRand Unified Bootloader"
 
-run_package "gzip-core" "gzip" "1.14" \
-    "gzip-1.14.tar.xz" \
+run_package "gzip-core" "gzip" "1.15" \
+    "gzip-1.15.tar.xz" \
     "GNU compression utility"
 
 run_package "iproute2" "iproute2" "6.18.0" \
