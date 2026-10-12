@@ -29,7 +29,7 @@ landed is in the repository README, not here.
 - Source downloads try the project mirror before upstream and enforce the recipe's checksum on either path.
 - Assistant screenshots use the desktop's screenshot portal and its consent dialog, with no second assistant review card for the same capture.
 - The dispatch-log reading no longer describes an integrity-check result as a general guarantee of trustworthiness.
-- Both GTK variants of WebKitGTK move from 2.50.5 to 2.54.1.
+- Update the WebKitGTK GTK 4 and GTK 3 packages from 2.50.5 to 2.54.1.
 - The assistant's bundled command catalog includes the download helpers and package-manager commands and flags added in this release.
 
 - Apply the upstream OpenSC SetCOS validation update alongside the existing
@@ -2497,7 +2497,6 @@ instructions are unchanged from R001.
 
 ### Fixed
 
-- Update the WebKitGTK GTK 4 and GTK 3 packages from 2.50.5 to 2.54.1.
 
 - No instance of the assistant's model engine opens a graphics card it was
   not given. Pinning a card fixed the case where one was chosen; two launches
