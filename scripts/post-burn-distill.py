@@ -85,6 +85,23 @@ CLASSES = [
     ("skipped",    re.compile(r"\bskipp(ed|ing)\b|\bSKIP\b", re.I), False),
 ]
 WARN_RE = re.compile(r"\bwarning\b", re.I)
+TEST_PROGRESS = re.compile(r"\+\s*\d+\s*\|\s*-\s*0*[1-9]\d*\b")
+FAILED_TESTS_HEADER = re.compile(r"^\s*Failed tests:\s*$", re.I)
+TEST_NAME = re.compile(r"(?:[\w.+-]+/)*test[\w.+:-]+")
+
+
+def failed_test_name(line):
+    # Lists contain either a test name or a command ending in its test path.
+    # Other build narration inside the block keeps its existing classification.
+    text = line.strip()
+    if TEST_NAME.fullmatch(text):
+        return text
+    words = text.split()
+    if len(words) > 1 and "/test/" in words[-1]:
+        name = words[-1].split("/test/", 1)[1]
+        if TEST_NAME.fullmatch(name):
+            return name
+    return None
 
 def sig_of(line):
     # normalize: strip numbers, hex, paths -> stable class signature
@@ -150,9 +167,25 @@ def hostlog_outcome(text):
 def scan_text(pkg, tier, text, outcome, source):
     counts = defaultdict(int)
     warn_count = 0
+    failed_block = False
+
+    def record(name, signature, line):
+        counts[name] += 1
+        b = buckets[name][signature]
+        b.count += 1
+        b.pkgs.add(pkg)
+        b.outcomes[outcome] += 1
+        if b.sample is None:
+            b.sample = f"[{tier}/{pkg}|{outcome}] {line.strip()[:300]}"
+
     for line in text.splitlines():
         if not line.strip():
+            failed_block = False
             continue
+        header = FAILED_TESTS_HEADER.fullmatch(line)
+        if header:
+            failed_block = True
+        listed = failed_test_name(line) if failed_block and not header else None
         # Captures may be embedded in a host log with additional framing.
         # Coalesce exact line occurrences across sources, retaining the highest
         # multiplicity in any one source and keeping different packages apart.
@@ -163,20 +196,21 @@ def scan_text(pkg, tier, text, outcome, source):
         if occurrence <= seen_lines[key]:
             continue
         seen_lines[key] = occurrence
+        if listed is not None:
+            # Listed failures are evidence in addition to any existing class
+            # the command line matches; retain those other class counts.
+            record("test-fail", "failed test: " + listed, line)
         matched = False
         for name, rx, is_suppress in CLASSES:
             if rx.search(line):
                 matched = True
                 if is_suppress:
                     suppressed_counts[name] += 1
-                else:
-                    counts[name] += 1
-                    b = buckets[name][sig_of(line)]
-                    b.count += 1
-                    b.pkgs.add(pkg)
-                    b.outcomes[outcome] += 1
-                    if b.sample is None:
-                        b.sample = f"[{tier}/{pkg}|{outcome}] {line.strip()[:300]}"
+                elif name != "test-fail" or not header:
+                    signature = (f"{pkg}: + N | - N"
+                                 if name == "test-fail" and TEST_PROGRESS.search(line)
+                                 else sig_of(line))
+                    record(name, signature, line)
                 break
         if not matched and WARN_RE.search(line):
             warn_count += 1

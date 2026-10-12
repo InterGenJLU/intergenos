@@ -173,8 +173,13 @@ def test_each_pattern_class_has_a_true_positive(distill, name, text):
     "+ 20 | - 01", "Failed tests:", "  Failed tests:  ",
 ])
 def test_failure_formats(distill, text):
-    output, _ = distill([capture(text + "\n")])
-    assert text.strip() in class_text(output, "test-fail")
+    body = text + "\n"
+    expected = text.strip()
+    if expected == "Failed tests:":
+        body += "  test_example\n\n"
+        expected = "test_example"
+    output, _ = distill([capture(body)])
+    assert expected in class_text(output, "test-fail")
 
 
 @pytest.mark.parametrize("text", [
@@ -263,3 +268,35 @@ def test_negative_bundle_cap_is_rejected_before_reading_inputs(tmp_path):
     assert result.returncode == 2
     assert "--bundle-cap must be non-negative" in result.stderr
     assert not (tmp_path / "result").exists()
+
+
+def test_progress_counters_have_one_signature_per_package_with_all_hits(distill):
+    output, _ = distill([
+        capture("[00:01|% 20|+ 10|- 1]: test_alpha\n"
+                "[00:02|% 30|+ 20|- 2]: test_bravo\n"
+                "[00:03|% 40|+ 30|- 2]: test_charlie\n", pkg="alpha"),
+        capture("[00:01|% 20|+ 10|- 1]: test_delta\n", pkg="bravo"),
+    ])
+    text = class_text(output, "test-fail")
+    signatures = [line.strip() for line in text.splitlines() if line.startswith("  sig:")]
+    assert signatures == ["sig: alpha: + N | - N", "sig: bravo: + N | - N"]
+    assert "count=3 pkgs=1" in text
+    assert "count=1 pkgs=1" in text
+
+
+def test_failed_test_block_keeps_each_name_and_preserves_other_classes(distill):
+    output, _ = distill([capture(
+        "Failed tests:\n"
+        "node --test-reporter=./test-error-reporter.js /build/project/test/parallel/test-alpha.js\n"
+        "  test_case1\n  test_case2\n"
+        "warning: retained diagnostic\n\n"
+        "  test_outside_block\n"
+    )])
+    text = class_text(output, "test-fail")
+    signatures = {line.strip() for line in text.splitlines() if line.startswith("  sig:")}
+    assert signatures == {"sig: failed test: parallel/test-alpha.js",
+                          "sig: failed test: test_case1", "sig: failed test: test_case2"}
+    assert text.count("count=1 pkgs=1") == 3
+    assert "count=1 pkgs=1" in class_text(output, "error")
+    assert "retained diagnostic" in class_text(output, "warnings")
+    assert "test_outside_block" not in text
