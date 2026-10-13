@@ -10,7 +10,9 @@ source:
 dependencies:
   build: []
   host: []
-  runtime: []
+  runtime:
+  - acl   # sed links libacl (preserving ACLs on in-place edits), undeclared since the first release
+  - attr  # 4.10's gnulib copies extended attributes too, so libattr joins libacl; the drift gate's archive signal named the gained, undeclared library
 tier: core
 build_style: autotools
 verify_paths:
