@@ -18,6 +18,10 @@ version is named by an exact `archive-member: added|removed <member>` allowance 
 reason; every other member stays enforced, and validate refuses an entry the staged
 reference already reflects.
 Unallowlisted answer flips and undeclared gained libraries are RED (exit 1).
+A gained library's providers are the reference's SONAME sets plus the library members
+of the installed package manifests (--installed, default /var/lib/igos/packages), so a
+declared dependency the reference lineage never built resolves; a provider the recipe
+does not declare stays RED, and a manifest without its identity fails closed.
 Executable/library member changes are RED at an unchanged recipe version.
 An answer appearing on only one side is not a flip. Repeated questions compare
 answer sets, not parallel output order; changed ambiguous sets fail closed.
@@ -381,6 +385,62 @@ def provider_map(index):
     return result
 
 
+INSTALLED_DEFAULT = Path('/var/lib/igos/packages')
+MANIFEST_HASH = re.compile(r' sha256:[0-9a-f]{64}$')
+
+
+def installed_provider_map(directory):
+    """Libraries the installed set carries, read from the package manifests in
+    <directory> (the chroot's /var/lib/igos/packages): every shipped library
+    member (usr/lib*/lib*.so*) names its package as a provider. The reference
+    index carries only the packages its lineage built, so a library from a
+    package new since the lineage is otherwise unknown to the archive signal
+    even when the package is declared (gst-plugins-bad's gained libfreeaptx.so.0
+    from the declared libfreeaptx, 2026-10-13). An absent directory supplies
+    nothing; a manifest without its identity or file list fails closed.
+    Returns the provider map and the number of manifests read."""
+    result, manifests = {}, 0
+    if directory is None or not directory.is_dir():
+        return result, manifests
+    for manifest in sorted(directory.iterdir()):
+        if not manifest.is_file():
+            continue
+        name = version = None
+        listing = False
+        for line in manifest.read_text(encoding='utf-8').splitlines():
+            if not listing:
+                if line.startswith('PACKAGE NAME: '):
+                    name = line.removeprefix('PACKAGE NAME: ').strip()
+                elif line.startswith('PACKAGE VERSION: '):
+                    version = line.removeprefix('PACKAGE VERSION: ').strip()
+                elif line == 'FILE LIST:':
+                    if not name or not version or not name.endswith('-' + version):
+                        raise ValueError(f'{manifest}: manifest identity does not name a package and its version')
+                    name = name[:-len(version) - 1]
+                    listing = True
+                continue
+            member = MANIFEST_HASH.sub('', line).strip()
+            if member.endswith('/') or not member:
+                continue
+            if re.fullmatch(r'usr/lib[^/]*/lib[^/]*\.so[^/]*', member):
+                owners = result.setdefault(PurePosixPath(member).name, [])
+                if name not in owners:
+                    owners.append(name)
+        if not listing:
+            raise ValueError(f'{manifest}: manifest carries no FILE LIST')
+        manifests += 1
+    return result, manifests
+
+
+def merge_providers(*maps):
+    result = {}
+    for providers in maps:
+        for library, names in providers.items():
+            owners = result.setdefault(library, [])
+            owners.extend(name for name in names if name not in owners)
+    return result
+
+
 def log_identity(path):
     match = LOG_NAME.fullmatch(Path(path).name)
     if not match:
@@ -566,7 +626,11 @@ def check(args, index):
                 errors, waivers = archive_coverage(package, row, allowlist)
                 archive_findings += [label + ' ' + error for error in errors]
                 archive_allowed += [label + ' ' + waiver for waiver in waivers]
-            changes, waivers = member_waivers(package, compare_archive(reference, current, provider_map(index), recipe_dependencies(recipe)), allowlist)
+            installed, manifests = installed_provider_map(args.installed)
+            print(f'PROVIDERS {package}: reference lineage {index["lineage_id"]} ({len(index["packages"])} packages)'
+                  f' + installed set {args.installed} ({manifests} manifests)')
+            providers = merge_providers(provider_map(index), installed)
+            changes, waivers = member_waivers(package, compare_archive(reference, current, providers, recipe_dependencies(recipe)), allowlist)
             archive_findings += changes
             archive_allowed += waivers
             lost = sorted(set(reference['needed']) - set(current['needed']))
@@ -614,6 +678,8 @@ def main():
             command.add_argument('--recipe', type=Path, required=True)
             command.add_argument('--log', type=Path)
             command.add_argument('--archive', type=Path)
+            command.add_argument('--installed', type=Path, default=INSTALLED_DEFAULT,
+                                help='the installed package manifests: providers of libraries the reference lineage never built')
     args = parser.parse_args()
     try:
         if args.command == 'record-index':

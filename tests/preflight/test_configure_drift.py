@@ -94,6 +94,82 @@ def test_undeclared_or_unknown_gained_library_is_red(gate):
     assert not gate.compare_archive(before, after, {'liboptional.so.1': ['optional']}, {'optional'})
 
 
+def write_manifest(directory, name, version, members):
+    directory.mkdir(parents=True, exist_ok=True)
+    lines = [f'PACKAGE NAME: {name}-{version}', f'PACKAGE VERSION: {version}', 'PACKAGE RELEASE: 1',
+             'UNCOMPRESSED SIZE: 1K (1024 bytes)', 'BUILD DATE: 2026-10-13T00:00:00Z', 'BUILD SYSTEM: fixture',
+             'DESCRIPTION:', f'{name}: a fixture package: with a colon', 'FILE LIST:', 'usr/', 'usr/lib/']
+    lines += [member + (' sha256:' + '0' * 64 if not member.endswith(('.so', '.so.1')) else '') for member in members]
+    (directory / f'{name}-{version}').write_text('\n'.join(lines) + '\n')
+
+
+def test_installed_manifests_supply_the_providers_the_reference_never_built(gate, tmp_path):
+    installed = tmp_path / 'packages'
+    write_manifest(installed, 'libnew', '1.0', ['usr/lib/libnew.so', 'usr/lib/libnew.so.1', 'usr/lib/libnew.so.1.0.0',
+                                                 'usr/include/new.h', 'usr/lib/pkgconfig/new.pc'])
+    write_manifest(installed, 'tool', '2', ['usr/bin/tool', 'usr/lib32/libtool32.so.4', 'usr/share/doc/tool/readme'])
+    providers, manifests = gate.installed_provider_map(installed)
+    assert manifests == 2
+    assert providers == {'libnew.so': ['libnew'], 'libnew.so.1': ['libnew'], 'libnew.so.1.0.0': ['libnew'],
+                         'libtool32.so.4': ['tool']}
+    assert gate.installed_provider_map(tmp_path / 'absent') == ({}, 0)
+    before, after = snapshots()
+    after['needed'] = ['libc.so.6', 'libnew.so.1']
+    merged = gate.merge_providers({}, providers)
+    assert not gate.compare_archive(before, after, merged, {'libnew'})
+    assert gate.compare_archive(before, after, merged, set()) == [
+        'ARCHIVE gained undeclared NEEDED libnew.so.1; providers: libnew']
+    assert gate.compare_archive(before, after, {}, {'libnew'}) == [
+        'ARCHIVE gained undeclared NEEDED libnew.so.1; providers: unknown']
+
+
+def test_merge_providers_keeps_every_provider_once(gate):
+    merged = gate.merge_providers({'liba.so.1': ['a']}, {'liba.so.1': ['a', 'b'], 'libc.so.1': ['c']})
+    assert merged == {'liba.so.1': ['a', 'b'], 'libc.so.1': ['c']}
+
+
+def test_a_manifest_without_its_identity_or_file_list_fails_closed(gate, tmp_path):
+    installed = tmp_path / 'packages'
+    installed.mkdir()
+    (installed / 'odd-1').write_text('PACKAGE NAME: odd\nFILE LIST:\nusr/lib/libodd.so.1\n')
+    with pytest.raises(ValueError, match='identity'):
+        gate.installed_provider_map(installed)
+    (installed / 'odd-1').write_text('PACKAGE NAME: odd-1\nPACKAGE VERSION: 1\nusr/lib/libodd.so.1\n')
+    with pytest.raises(ValueError, match='FILE LIST'):
+        gate.installed_provider_map(installed)
+
+
+def test_the_archive_check_reads_the_installed_set_for_a_declared_provider(gate, tmp_path):
+    index, recipe = reference_with_sample(gate, tmp_path, ['usr/bin/sample'])
+    row = json.loads(index.read_text())
+    row['packages']['sample']['needed'] = []
+    index.write_text(json.dumps(row))
+    recipe.write_text(recipe.read_text() + 'dependencies:\n  build:\n  - glibc\n')
+    archive = tmp_path / 'sample-1-2.igos.tar.gz'
+    make_archive(archive, [('usr/bin/sample', Path('/usr/bin/true').read_bytes())])
+    needed = gate.archive_snapshot(archive)['needed']
+    assert 'libc.so.6' in needed
+    empty = tmp_path / 'empty'
+    empty.mkdir()
+    allowlist = tmp_path / 'allow.txt'
+    allowlist.write_text('')
+    arguments = ['check', '--signal', 'archive', '--package', 'sample', '--recipe', str(recipe), '--index', str(index),
+                 '--allowlist', str(allowlist), '--archive', str(archive)]
+    code, output = run_gate(*arguments, '--installed', str(empty))
+    assert code == 1, output
+    assert 'RED sample: ARCHIVE gained undeclared NEEDED libc.so.6; providers: unknown' in output
+    assert '+ installed set ' + str(empty) + ' (0 manifests)' in output
+    installed = tmp_path / 'packages'
+    write_manifest(installed, 'glibc', '2.42', ['usr/lib/libc.so.6'] + [f'usr/lib/lib{name}.so.1' for name in needed if name != 'libc.so.6'])
+    for name in needed:
+        write_manifest(installed, name.split('.so')[0].removeprefix('lib') or 'ld', '1', [f'usr/lib/{name}'])
+    recipe.write_text(recipe.read_text() + ''.join(f'  - {name.split(".so")[0].removeprefix("lib") or "ld"}\n' for name in needed))
+    code, output = run_gate(*arguments, '--installed', str(installed))
+    assert code == 0, output
+    assert 'GREEN sample: archive; 0 findings, 0 allowlisted' in output
+    assert f'PROVIDERS sample: reference lineage fixture (1 packages) + installed set {installed} ({len(needed) + 1} manifests)' in output
+
+
 def test_member_changes_need_a_version_change_not_a_release_change(gate):
     before, after = snapshots()
     for members in [[], ['usr/bin/sample', 'usr/bin/gui']]:
@@ -432,12 +508,12 @@ def test_an_intended_member_change_needs_its_exact_allowance(gate, tmp_path):
              '--archive', str(archive), '--index', str(index), '--allowlist', str(allowlist))
     allowlist.write_text('# nothing named\n')
     code, output = run_gate(*check)
-    assert code == 1
+    assert code == 1, output
     assert 'RED sample: ARCHIVE added member at unchanged version: usr/bin/new' in output
     assert 'RED sample: ARCHIVE removed member at unchanged version: usr/bin/old' in output
     allowlist.write_text('sample\tarchive-member: added usr/bin/new\tr2 ships the new command\n')
     code, output = run_gate(*check)
-    assert code == 1
+    assert code == 1, output
     assert 'ALLOW sample: ARCHIVE added member at unchanged version: usr/bin/new; allowlisted: r2 ships the new command' in output
     assert 'RED sample: ARCHIVE removed member at unchanged version: usr/bin/old' in output
     allowlist.write_text('sample\tarchive-member: added usr/bin/new\tr2 ships the new command\n'
