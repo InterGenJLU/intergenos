@@ -98,8 +98,12 @@ post_install() {
     pwconv
     grpconv
 
-    # Set default group for new users
+    # Set default group for new users. useradd -D rewrites /etc/default/useradd
+    # and leaves the previous copy beside it as /etc/default/useradd-, a backup
+    # no package owns (the chroot archive-union gate named it as a stray after
+    # every rebuild of this package); remove it.
     useradd -D --gid 999
+    rm -f /etc/default/useradd-
 
     # ROOT'S PASSWORD FIELD IS NOT TOUCHED HERE (decided 2026-09-14, R001.3
     # row 5). This hook runs in two places: inside the build chroot, and ON
