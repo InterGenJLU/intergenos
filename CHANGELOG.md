@@ -23,6 +23,7 @@ landed is in the repository README, not here.
 ### Changed
 
 - Targeted build resumes skip current installed Chapter 8, core-extra and base packages, using each sealed archive's recipe version and release; explicit package restarts still rebuild their target.
+- Tracked builds compare configure detections and sealed archive contents with a staged reference, stop on unapproved drift, and record a new reference candidate during a fresh checkpointed build.
 - The release files, image stamp and installation-image name are checked against the same declared release, so a resumed build cannot publish an image under a different identity.
 - The unused `at` job scheduler is available from the mirror instead of being installed by default; the default system keeps `fcron`.
 - The Exim mail-transfer agent is available from the mirror instead of being installed by default.
