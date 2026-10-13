@@ -1084,6 +1084,64 @@ def _member_display_path(name):
     return "/" + os.path.normpath(name).lstrip("./").lstrip("/")
 
 
+def _staged_kinds(staging):
+    """Every non-directory entry of a staged archive tree, as {path: kind}.
+
+    ``kind`` is "link" for a symbolic link, whatever it names (a link to a
+    directory included), and "file" for any other entry that is not a
+    directory. Paths are relative to the staging root, as in the install's
+    file list, and archive metadata is left out as it is there.
+    """
+    kinds = {}
+    for here, dirs, files in os.walk(staging):
+        for entry in dirs + files:
+            full = os.path.join(here, entry)
+            rel = os.path.relpath(full, staging)
+            if _is_archive_metadata(rel):
+                continue
+            mode = os.lstat(full).st_mode
+            if stat.S_ISLNK(mode):
+                kinds[rel] = "link"
+            elif not stat.S_ISDIR(mode):
+                kinds[rel] = "file"
+    return kinds
+
+
+_KIND_WORDS = {"file": "a regular file", "link": "a symbolic link"}
+
+
+def _kind_change_refusal(name, kind_changes, shown=10):
+    """The refusal for an archive that would change the kind of a file another
+    installed package owns: each such path with its owner (the first
+    ``shown`` of them, then the count of the rest)."""
+    count = len(kind_changes)
+    lines = [
+        f"  {_member_display_path(path)} is {_KIND_WORDS[existing]} owned by "
+        f"{owner}; {name} ships {_KIND_WORDS[member]} there"
+        for path, owner, member, existing in kind_changes[:shown]
+    ]
+    if count > shown:
+        rest = count - shown
+        lines.append(f"  and {rest} more path{'s' if rest != 1 else ''}")
+    return (
+        f"Refusing to install {name}: {count} of its path"
+        f"{'s' if count != 1 else ''} would put a different kind of file where "
+        f"another installed package owns one, and that package would lose its "
+        f"file. Nothing was changed.\n" + "\n".join(lines)
+    )
+
+
+def _co_ownership_lines(co_owned):
+    """One line per other package that already owns paths this install ships
+    as the same kind of file: the owner, the count and the first path."""
+    return [
+        f"co-owned with {owner}: {len(paths):,} path"
+        f"{'s' if len(paths) != 1 else ''}, the same kind of file in both "
+        f"packages (first: {_member_display_path(paths[0])})"
+        for owner, paths in sorted(co_owned.items())
+    ]
+
+
 def _read_target_ids(root):
     """name→id maps from the INSTALL TARGET's passwd/group databases (PI-Z11).
 
@@ -1540,6 +1598,23 @@ class PackageInstaller:
                     f"supersedes for a predecessor that is later in the install "
                     f"queue. Reorder the queue so the predecessor installs first."
                 )
+
+            # A PATH ANOTHER PACKAGE OWNS, checked before anything is written.
+            # Measured on a build root 2026-10-13: an archive carried a regular
+            # file at usr/bin/typer where another installed package owned a
+            # link, nothing compared the two, and that package's file was
+            # rewritten. A different KIND of file at a path another active
+            # package owns is refused here, naming the path and the owner. The
+            # same kind at a shared path is co-ownership as designed (the
+            # second-pass and bootstrap twins ship their package's paths), and
+            # each co-owner is named with its count below, never silently.
+            kind_changes, co_owned = self._paths_other_packages_own(
+                name, _staged_kinds(staging),
+                exempt={p["name"] for p in predecessors_to_supersede},
+            )
+            if kind_changes:
+                return False, _kind_change_refusal(name, kind_changes)
+            co_owned_lines = _co_ownership_lines(co_owned)
 
             # Compute or carry forward content hashes.
             # Primary path: hashes embedded in the staged manifest (Phase 2).
@@ -2198,6 +2273,9 @@ class PackageInstaller:
                 if reporter and degraded_pkmnew:
                     for line in degraded_pkmnew.splitlines():
                         reporter.info(line)
+                if reporter:
+                    for line in co_owned_lines:
+                        reporter.info(line)
                 return False, (
                     f"Installed {name} {self._installed_vr(name, version)} "
                     f"({file_count} files){extra}, "
@@ -2208,12 +2286,18 @@ class PackageInstaller:
                     f"Rollback recommended.\n"
                     f"{hook_summary}"
                     + (f"\n{degraded_pkmnew}" if degraded_pkmnew else "")
+                    + "".join(f"\n{line}" for line in co_owned_lines)
                 )
 
             msg = (f"Installed {name} {self._installed_vr(name, version)} "
                    f"({file_count} files){extra}")
             if hook_summary:
                 msg = msg + "\n" + hook_summary
+            # The co-owners, in the message a caller without a reporter keeps
+            # (the system installer records it per package) and on the
+            # reporter below.
+            for line in co_owned_lines:
+                msg = msg + "\n" + line
             # PKM-A25: the systemd daemon-reload hook is intentionally
             # non-critical (a stale unit cache is recoverable, not broken
             # state), but a SILENT failure means systemd keeps running stale
@@ -2244,6 +2328,8 @@ class PackageInstaller:
                 if hook_summary:
                     for line in hook_summary.splitlines():
                         reporter.info(line)
+                for line in co_owned_lines:
+                    reporter.info(line)
                 if daemon_reload_hint:
                     reporter.warn(daemon_reload_hint.strip())  # PKM-A25
                 if pkmnew_summary:
@@ -2532,6 +2618,62 @@ class PackageInstaller:
                 # path, surfaced later by `pkm verify --strict`.
                 pass
         return hashes
+
+    def _paths_other_packages_own(self, name, kinds, exempt=()):
+        """Compare an archive's paths with what OTHER installed packages own,
+        before anything is written. ``kinds`` is {path: "file" | "link"} for
+        the archive's non-directory entries as they will land on the target
+        (_staged_kinds of the staged tree).
+
+        Returns ``(kind_changes, co_owned)``. ``kind_changes`` lists, as
+        ``(path, owner, member_kind, existing_kind)``, every path where the
+        archive carries a different KIND of file from the one standing on the
+        target and owned by another active package: a regular file where that
+        package keeps a link, or a link where it keeps a regular file. One of
+        the two would lose its file. ``co_owned`` maps each other owner to the
+        paths shared with it as the same kind of file, which is co-ownership
+        as designed: the second-pass and bootstrap builds of a package ship
+        the same paths as the package itself, and the post-install reconcile
+        re-records every owning row.
+
+        Not compared: the package's own rows (an upgrade or reinstall), the
+        predecessors in ``exempt`` (a declared supersede moves their
+        ownership in this same transaction), superseded packages, directory
+        rows, and configuration files under etc/, which have their own
+        protection. A path whose existing object is a directory is left to the
+        deploy's directory handling.
+        """
+        candidates = [p for p in sorted(kinds) if not p.startswith("etc/")]
+        owners = {}
+        for i in range(0, len(candidates), 500):
+            chunk = candidates[i:i + 500]
+            marks = ",".join("?" * len(chunk))
+            for path, owner in self.db.conn.execute(
+                    f"SELECT f.path, i.name FROM files f "
+                    f"JOIN installed i ON f.package_id = i.id "
+                    f"WHERE i.superseded_by IS NULL AND f.is_dir = 0 "
+                    f"AND i.name != ? AND f.path IN ({marks})",
+                    [name, *chunk]):
+                if owner not in exempt:
+                    owners.setdefault(path, set()).add(owner)
+        kind_changes = []
+        co_owned = {}
+        for path in sorted(owners):
+            try:
+                existing = os.lstat(self.root / path)
+            except FileNotFoundError:
+                existing_kind = None
+            else:
+                if stat.S_ISDIR(existing.st_mode):
+                    continue
+                existing_kind = "link" if stat.S_ISLNK(existing.st_mode) else "file"
+            member_kind = kinds[path]
+            for owner in sorted(owners[path]):
+                if existing_kind is not None and existing_kind != member_kind:
+                    kind_changes.append((path, owner, member_kind, existing_kind))
+                else:
+                    co_owned.setdefault(owner, []).append(path)
+        return kind_changes, co_owned
 
     def _paths_owned_by(self, predecessor_name, file_list):
         """Return the subset of file_list paths currently owned by predecessor.
