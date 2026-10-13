@@ -19,6 +19,7 @@ dependencies:
   - gtk4
   - iso-codes
   - libarchive
+  - unzip  # build.sh unpacks the Unicode Character Database zip with it (configure, do_install)
   - vala
   - glib2
   - gnome-desktop
