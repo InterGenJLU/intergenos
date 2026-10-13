@@ -181,11 +181,17 @@ done
 
 # base alone also skips a package whose recipe currency record marks it already
 # built (a targeted resume with skip-built on): that path reports the record's
-# own state as the reason — "skipped (current <version>-<release>, archive
-# <name>)" — so the reader of the stream learns which sealed archive stands;
-# it is its own assertion here.
-ckc "chroot-build-base.sh reports a currency-record skip, with the record's reason" \
-    has_code chroot-build-base.sh 'igos_progress_skip "$name" "$state"'
+# own reason — "current <version>-<release>, archive <name>" — so the reader of
+# the stream learns which sealed archive stands. The record's state already
+# reads "skipped (<reason>)", so the driver hands the library the reason alone;
+# handing it the whole state printed "skipped (skipped (current ...))" on the
+# R001.3 resumes of 2026-10-13. Both halves are their own assertions here.
+ckc "chroot-build-base.sh reports a currency-record skip, with the record's reason alone" \
+    has_code chroot-build-base.sh 'igos_progress_skip "$name" "$reason"'
+ckc "chroot-build-base.sh strips the record's own 'skipped (' wrapper before reporting" \
+    has_code chroot-build-base.sh 'reason="${state#skipped (}"'
+ckc "chroot-build-base.sh no longer hands the whole state to the skip line" \
+    lacks_code chroot-build-base.sh 'igos_progress_skip "$name" "$state"'
 
 ckc "the unified tier script routes narration into the aggregated stream" \
     has_code chroot-build-tier.sh 'IGOS_BUILD_STREAM:+'

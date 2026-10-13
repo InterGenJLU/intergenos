@@ -439,7 +439,10 @@ run_package() {
         fi
         log "  $name: $state"
         if [[ "$state" == 'skipped ('* ]]; then
-            igos_progress_skip "$name" "$state"
+            # the record's state already reads 'skipped (<reason>)'; hand the
+            # progress line the reason alone, or it reads 'skipped (skipped (...))'
+            local reason="${state#skipped (}"; reason="${reason%)}"
+            igos_progress_skip "$name" "$reason"
             if [ -n "$IGOS_STOP_AFTER" ] && { [ "$name" = "$IGOS_STOP_AFTER" ] || [ "$pkg_dir" = "$IGOS_STOP_AFTER" ]; }; then
                 log ">>> Stopping after: $name (IGOS_STOP_AFTER)"
                 exit 0
