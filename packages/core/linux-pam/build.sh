@@ -21,7 +21,11 @@ EOF
     mkdir -p build
     cd    build
 
+    # The 2026-10-12 resume found libnsl and libtirpc installed after PAM.
+    # Disabling NIS preserves the original links and guards every YP
+    # function probe, as well as both dependency lookups, in meson.build.
     meson setup ..        \
+      -D nis=disabled     \
       --prefix=/usr       \
       --libdir=/usr/lib   \
       --buildtype=release \
