@@ -1,6 +1,6 @@
 # Package glob<TAB>check selector<TAB>reason
 # Selectors: "transcript: <question> :: <before> -> <after>" (one answer flip; the package may be a glob);
-# "transcript: archive-only" (exact package; its lineage transcript interleaves parallel configure output, the sealed-archive signal is its verdict);
+# "transcript: archive-only" (exact package; its lineage transcript interleaves parallel configure output, or its current build prints no detection answers where the lineage's did; the sealed-archive signal is its verdict);
 # "archive-unreadable: <member>" (exact package and path); "new-package: <lineage>" (exact package the named reference lineage never built; nothing is compared until a fresh build records it, and validate refuses the entry once the reference carries the package).
 # "archive-member: added|removed <member>" (exact package and the exact shipped path, usr/bin/, usr/sbin/ or usr/lib*/lib*.so*; a release that adds or removes a command or library on purpose at an unchanged upstream version; validate refuses the entry once the staged reference reflects it).
 bash	transcript: for tgetent in -ltinfo :: no -> yes	libtinfo resolves to the same wide ncurses SONAME through the compatibility link.

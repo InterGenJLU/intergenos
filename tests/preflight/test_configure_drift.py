@@ -456,3 +456,31 @@ def test_an_intended_member_change_needs_its_exact_allowance(gate, tmp_path):
         allowlist.write_text(body)
         code, output = run_gate(*validate)
         assert code == 2 and 'stale archive-member allowance' in output and fragment in output
+
+
+def test_no_detection_answers_fails_closed_unless_archive_only_waived(gate, tmp_path):
+    recipe = tmp_path / 'package.yml'
+    recipe.write_text("name: sample\nversion: '1'\nrelease: 2\ndescription: sample\nlicense: MIT\nbuild_style: custom\nsource: []\n")
+    archive = tmp_path / 'sample-1-2.igos.tar.gz'
+    make_archive(archive, [('usr/bin/sample', Path('/usr/bin/true').read_bytes())])
+    log = tmp_path / 'sample-ch8-20260101-000000.log'
+    log.write_text('Found theme: /boot/grub/themes/sample/theme.txt\n')
+    records = tmp_path / 'records'; records.mkdir()
+    (records / 'sample.tsv').write_text(f'transcript\tsample\t{log}\t{recipe}\narchive\tsample\t{archive}\t{recipe}\n')
+    candidate = tmp_path / 'candidate.json'
+    assert gate.record_index(records, Path('/'), candidate, 'fixture') == 0
+    assert gate.load_index(candidate)['packages']['sample']['logs']['ch8']['answers']
+    log.write_text('installed the theme files; the menu is generated later\n')  # no detection answer at all
+    check = [sys.executable, '-I', str(GATE), 'check', '--signal', 'transcript',
+             '--package', 'sample', '--recipe', str(recipe), '--log', str(log), '--index', str(candidate)]
+    result = subprocess.run(check, capture_output=True, text=True)
+    assert result.returncode == 2, result.stdout + result.stderr  # fails closed: nothing to compare is not green
+    assert 'no detection answers' in result.stdout
+    allow = tmp_path / 'reviewed-allowlist'
+    allow.write_text('sample\ttranscript: archive-only\tthe build no longer runs the step whose output read as probes; the archive is the verdict\n')
+    result = subprocess.run(check + ['--allowlist', str(allow)], capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'TRANSCRIPT archive-only' in result.stdout and 'no detection answers' in result.stdout
+    log.write_text('checking for a... no\n')  # an answer present again: the waiver does not hide a flip-free compare, nor is it needed
+    result = subprocess.run(check, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr

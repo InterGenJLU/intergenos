@@ -23,6 +23,9 @@ An answer appearing on only one side is not a flip. Repeated questions compare
 answer sets, not parallel output order; changed ambiguous sets fail closed.
 Library losses are reported
 as observations; the transcript signal independently detects detection losses.
+A current transcript with no detection answers where the reference recorded some fails
+closed, unless the package's exact `transcript: archive-only` allowance states why its
+build prints none; the sealed-archive signal is then its verdict, as for interleaving.
 
 Commands: index --archives DIR --logs DIR --output FILE --lineage-id ID;
 record-index --records DIR --path-root ROOT --output FILE --lineage-id ID; validate;
@@ -526,12 +529,17 @@ def check(args, index):
                     coverage.append(f'TRANSCRIPT COVERAGE {label} interleaved configure output at line {log["coverage"]["line"]}; only preceding pairs are attributable')
             waivers = [reason for name, kind, _, _, reason in allowlist
                        if name == package and kind == 'archive-only']
+            silent = bool(baseline) and not current and not current_log['coverage']
             if coverage and waivers:
                 transcript_allowed.append('TRANSCRIPT archive-only; ' + '; '.join(waivers)
                                           + '; archive verdict is required before deployment')
+            elif silent and waivers:
+                transcript_allowed.append('TRANSCRIPT archive-only; ' + '; '.join(waivers)
+                                          + f'; the current log carries no detection answers where the reference carried {len(baseline)}'
+                                          + '; archive verdict is required before deployment')
             else:
                 transcript_findings += coverage
-                if baseline and not current and not current_log['coverage']:
+                if silent:
                     raise ValueError('current log has no detection answers: ' + str(args.log))
                 changes, waivers = compare_transcript(package, baseline, current, allowlist)
                 transcript_findings += changes
