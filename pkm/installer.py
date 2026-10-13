@@ -668,7 +668,76 @@ class _ArchiveRefused(ValueError):
     header read; the message names why."""
 
 
-def _beneath_a_shipped_link(members, remaps):
+def _member_landings(members, remaps):
+    """Each archive member as the extract lands it, read from the headers, in
+    archive order: (member, path, kind, link). ``path`` is the one
+    _member_target_path gives, or None for a member that lands nowhere (a
+    top-level entry the remaps replace, the root entry, a path that climbs
+    out, a hard link to an absolute path, which the data filter refuses).
+    ``kind`` is "file", "link", "dir", "other" (a special file, which the
+    data filter refuses), or "unresolved" for a hard link that names no
+    member before it; ``link`` is a link's target as the archive writes it.
+
+    A hard-link entry lands as what it names among the members before it,
+    as tarfile resolves it: a regular file as a regular file, another hard
+    link as what that one names, a directory as a directory, and a symbolic
+    link as THAT LINK at the entry's own path. Measured on this Python
+    (3.14.3) 2026-10-13: os.link follows the named link, so where it names a
+    directory the link fails and tarfile falls back to extracting a copy of
+    the named link — then chmods the entry's path, which follows the new
+    link and re-modes the directory it names — and where it names a regular
+    file the entry became a second name for that file. The extract now
+    writes such an entry as the link itself (_safe_extract_tar's member
+    filter), so the landing no longer depends on what the link names, and
+    the header read keyed it as a regular file before. A hard link that
+    names nothing made tarfile raise KeyError mid-extract.
+    """
+    landings = []
+    seen = {}
+    for member in members:
+        rel = _member_target_path(member.name, remaps)
+        if rel is None or rel == "." or _climbs_out(rel):
+            landings.append((member, None, None, None))
+            continue
+        link = None
+        if member.issym():
+            kind, link = "link", member.linkname
+        elif member.isdir():
+            kind = "dir"
+        elif member.islnk():
+            if member.linkname.startswith("/"):
+                landings.append((member, None, None, None))
+                continue
+            named = _member_target_path(member.linkname, remaps)
+            kind, link = seen.get(named, ("unresolved", None))
+        elif member.isfile():
+            kind = "file"
+        else:
+            kind = "other"
+        seen[rel] = (kind, link)
+        landings.append((member, rel, kind, link))
+    return landings
+
+
+def _hard_link_naming_nothing(landings):
+    """Why the extract refuses an archive with a hard-link entry that names
+    no member before it, or None (see _member_landings: tarfile raised
+    KeyError for it mid-extract). tar writes a hard link only after the
+    file it names, so a pkm-built archive never carries one; the extract and
+    the pre-check both refuse it, naming the entry and what it names."""
+    unresolved = [(rel, member.linkname) for member, rel, kind, _ in landings
+                  if kind == "unresolved"]
+    if not unresolved:
+        return None
+    rel, named = unresolved[0]
+    return (
+        f"{len(unresolved)} of its hard-link entries name no member the "
+        f"archive carries before them, so the extract cannot land them "
+        f"(first: {_member_display_path(rel)}, a hard link to {named})"
+    )
+
+
+def _beneath_a_shipped_link(landings):
     """Why the extract refuses an archive with a member that lands beneath a
     symbolic link the same archive ships, or None when it has none.
 
@@ -681,19 +750,13 @@ def _beneath_a_shipped_link(members, remaps):
     pkm-built archive never carries such a member — tar archives a link to a
     directory as the link and does not descend into it — so the extract and
     the pre-check both refuse it, naming the member and the link. Only the
-    archive's own links count; the target's links are the deploy's business.
+    archive's own links count, a hard-link entry naming one of them among
+    them (_member_landings); the target's links are the deploy's business.
     Paths are the ones _member_target_path gives, whatever the order of the
     members.
     """
-    landed = []
-    links = set()
-    for member in members:
-        rel = _member_target_path(member.name, remaps)
-        if rel is None or rel == "." or _climbs_out(rel):
-            continue
-        landed.append(rel)
-        if member.issym():
-            links.add(rel)
+    landed = [rel for _, rel, _, _ in landings if rel is not None]
+    links = {rel for _, rel, kind, _ in landings if kind == "link"}
     beneath = []
     for rel in landed if links else ():
         parts = rel.split("/")
@@ -723,30 +786,30 @@ def _archive_kinds(archive_path, root, name):
     one the extract lands the member at (_member_target_path), so it
     compares with the rows install() records from its staged tree; a member
     that climbs out of the root lands nowhere and the extract refuses it.
-    Archive metadata is left out as it is there, and a hard link, which
-    lands as a regular file, counts as one. The manifest read is the one
-    install() reads: the first, in sorted order, of
+    Archive metadata is left out as it is there. A hard-link entry counts as
+    what it lands as (_member_landings): a regular file, a link where it
+    names a link, and nothing where it names a directory. The manifest read
+    is the one install() reads: the first, in sorted order, of
     var/lib/igos/packages/<name>-*.
 
     Raises _ArchiveRefused for an archive the extract refuses outright: one
-    with a member beneath a link it ships (_beneath_a_shipped_link).
+    with a hard link that names nothing (_hard_link_naming_nothing) or a
+    member beneath a link it ships (_beneath_a_shipped_link).
     """
     remaps = _usrmerge_remaps(root)
     manifest_dir = "var/lib/igos/packages/"
     kinds = {}
     manifests = {}
     with tarfile.open(str(archive_path), "r:gz") as tf:
-        members = tf.getmembers()
-        refused = _beneath_a_shipped_link(members, remaps)
+        landings = _member_landings(tf.getmembers(), remaps)
+        refused = (_hard_link_naming_nothing(landings)
+                   or _beneath_a_shipped_link(landings))
         if refused:
             raise _ArchiveRefused(refused)
-        for member in members:
-            rel = _member_target_path(member.name, remaps)
-            if rel is None or rel == "." or _climbs_out(rel):
+        for member, rel, kind, _ in landings:
+            if rel is None or kind == "dir" or _is_archive_metadata(rel):
                 continue
-            if member.isdir() or _is_archive_metadata(rel):
-                continue
-            kinds[rel] = "link" if member.issym() else "file"
+            kinds[rel] = "link" if kind == "link" else "file"
             leaf = rel[len(manifest_dir):]
             if (member.isfile() and rel.startswith(manifest_dir)
                     and "/" not in leaf and leaf.startswith(f"{name}-")):
@@ -844,6 +907,11 @@ def _safe_extract_tar(archive_path, dest, exclude_paths=None, usrmerge_root=None
     # — use it.
     usrmerge_check_root = Path(usrmerge_root) if usrmerge_root is not None else Path(dest)
     usrmerge_remaps = _usrmerge_remaps(usrmerge_check_root)
+    # What each hard-link entry names, read from the headers before anything
+    # is written (_member_landings): the filter writes an entry that names a
+    # symbolic link as that link and one that names a directory as a
+    # directory, as the header read counts them.
+    hard_link_landings = {}
 
     def _strip_dot_slash(name):
         """Strip leading './' from tar member names so prefix logic is uniform."""
@@ -927,6 +995,25 @@ def _safe_extract_tar(archive_path, dest, exclude_paths=None, usrmerge_root=None
         _is_root_level = "/" not in _member_target_path(member.name, {})
         member.name = _rel
 
+        # A hard-link entry that names the archive's own symbolic link IS
+        # that link at the entry's path, and one that names a directory is a
+        # directory (_member_landings). Left a hard link, tarfile's os.link
+        # follows the named link: for a link to a directory it falls back to
+        # a copy of the link and then chmods the entry's path THROUGH it,
+        # re-moding the directory the link names; for a link to a file the
+        # entry becomes a second name for that file. Written as the link
+        # itself it takes the link's own target text, and every check below
+        # (the root-level remap, the absolute-target rewrite, the data
+        # filter) reads it at the entry's own path.
+        if member.islnk():
+            _kind, _link = hard_link_landings.get(id(member), (None, None))
+            if _kind == "link":
+                member.type = tarfile.SYMTYPE
+                member.linkname = _link
+            elif _kind == "dir":
+                member.type = tarfile.DIRTYPE
+                member.linkname = ""
+
         # Hardlinks + same-tree relative symlinks: remap linkname too.
         # Absolute-target symlinks are handled separately below
         # (Relaxation #1).
@@ -1005,12 +1092,17 @@ def _safe_extract_tar(archive_path, dest, exclude_paths=None, usrmerge_root=None
             # Capture the member objects BEFORE extractall so the correction
             # pass below sees the same (filter-remapped) names extractall used.
             members = tf.getmembers()
-            refused = _beneath_a_shipped_link(members, usrmerge_remaps)
+            landings = _member_landings(members, usrmerge_remaps)
+            refused = (_hard_link_naming_nothing(landings)
+                       or _beneath_a_shipped_link(landings))
             if refused:
                 return False, (
                     f"Archive refused before anything was extracted: "
                     f"{refused}. A member is only ever written at its own path."
                 )
+            hard_link_landings.update(
+                (id(m), (kind, link)) for m, _, kind, link in landings
+                if m.islnk())
             tf.extractall(path=str(dest), filter=member_filter)
             _restore_symlink_target_modes(members, dest)
         return True, ""
