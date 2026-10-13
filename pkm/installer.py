@@ -608,9 +608,8 @@ def _usrmerge_remaps(check_root):
     to <symlink-target>/*. Only top-level dirs that are CONVENTIONALLY
     remapped under FHS UsrMerge are considered. If the check-root's /<entry>
     doesn't exist or isn't a symlink, no remap happens for that prefix.
-    Returns {entry: target}, e.g. {"lib": "usr/lib"}. One definition, read by
-    the deploy (_safe_extract_tar) and by the pre-check that reads an
-    archive's headers (_archive_kinds), so the two cannot map a path apart.
+    Returns {entry: target}, e.g. {"lib": "usr/lib"}. Applied to member paths
+    by _member_target_path only.
     """
     remaps = {}
     for entry in ("lib", "lib64", "bin", "sbin"):
@@ -626,18 +625,42 @@ def _usrmerge_remaps(check_root):
     return remaps
 
 
-def _usrmerge_remap(path, remaps):
-    """A member path under the remaps of _usrmerge_remaps: `./` stripped, a
-    remapped top-level prefix replaced by its target, and None for the
-    top-level entry itself (the deploy drops it)."""
-    stripped = path[2:] if path.startswith("./") else path
+def _member_target_path(name, remaps):
+    """The path, relative to the root, at which the extract lands the archive
+    member ``name``; None for a top-level entry that ``remaps`` (from
+    _usrmerge_remaps) replaces, which the deploy drops so the target keeps
+    its link.
+
+    One definition for every reader of where a member lands: the pre-check
+    that reads an archive's headers (_archive_kinds), both extracts
+    (_safe_extract_tar renames each member to this path before tarfile writes
+    anything, and tests its exclusions on it), and install()'s directory and
+    ownership passes. The extract accepts one member under several spellings
+    — ./usr/bin/../bin/y, ./usr//bin/./y, /usr/bin/y, and ./bin/../bin/y
+    where /bin links to usr/bin — and each lands at, and is compared at, one
+    path: usr/bin/y. Measured 2026-10-13: the header read kept the spelling
+    as written, found no owner for usr/bin/../bin/y, and an upgrade removed
+    the installed release before install() refused against usr/bin/y.
+
+    Leading slashes go, as tarfile's data filter drops them; `.` and `..`
+    segments and repeated slashes are resolved as written
+    (os.path.normpath); then a top-level prefix the target links elsewhere
+    is replaced by the link's target. Resolving first means usr/../bin/y
+    still meets the remap. A path that climbs out of the root keeps its
+    leading `..` (_climbs_out), and the extract refuses it.
+    """
+    rel = os.path.normpath(name.lstrip("/"))
     for prefix, redirect in remaps.items():
-        if stripped == prefix or stripped == prefix + "/":
-            return None  # caller drops the entry
-        if stripped.startswith(prefix + "/"):
-            rest = stripped[len(prefix) + 1:]
-            return redirect + "/" + rest
-    return stripped  # unchanged (no prefix matched)
+        if rel == prefix:
+            return None
+        if rel.startswith(prefix + "/"):
+            return os.path.normpath(redirect + rel[len(prefix):])
+    return rel
+
+
+def _climbs_out(rel):
+    """True for a path from _member_target_path that lands above the root."""
+    return rel == ".." or rel.startswith("../")
 
 
 def _archive_kinds(archive_path, root, name):
@@ -645,12 +668,14 @@ def _archive_kinds(archive_path, root, name):
     from its headers without extracting or writing anything, and the
     predecessors its staged manifest declares it supersedes.
 
-    Returns ({path: "file" | "link"}, [predecessor, ...]). The paths go
-    through the deploy's own UsrMerge remap, so they compare with the rows
-    install() records from its staged tree; archive metadata is left out as
-    it is there, and a hard link, which lands as a regular file, counts as
-    one. The manifest read is the one install() reads: the first, in sorted
-    order, of var/lib/igos/packages/<name>-*.
+    Returns ({path: "file" | "link"}, [predecessor, ...]). Each path is the
+    one the extract lands the member at (_member_target_path), so it
+    compares with the rows install() records from its staged tree; a member
+    that climbs out of the root lands nowhere and the extract refuses it.
+    Archive metadata is left out as it is there, and a hard link, which
+    lands as a regular file, counts as one. The manifest read is the one
+    install() reads: the first, in sorted order, of
+    var/lib/igos/packages/<name>-*.
     """
     remaps = _usrmerge_remaps(root)
     manifest_dir = "var/lib/igos/packages/"
@@ -658,11 +683,10 @@ def _archive_kinds(archive_path, root, name):
     manifests = {}
     with tarfile.open(str(archive_path), "r:gz") as tf:
         for member in tf:
-            rel = _usrmerge_remap(member.name, remaps)
-            if rel is None:
+            rel = _member_target_path(member.name, remaps)
+            if rel is None or rel == "." or _climbs_out(rel):
                 continue
-            rel = rel.rstrip("/")
-            if not rel or rel == "." or member.isdir() or _is_archive_metadata(rel):
+            if member.isdir() or _is_archive_metadata(rel):
                 continue
             kinds[rel] = "link" if member.issym() else "file"
             leaf = rel[len(manifest_dir):]
@@ -785,19 +809,28 @@ def _safe_extract_tar(archive_path, dest, exclude_paths=None, usrmerge_root=None
         return os.path.relpath(target_stripped, member_dir or ".")
 
     def member_filter(member, path):
-        # Normalize the member name the same way the usrmerge/symlink logic
-        # below does BEFORE testing exclusion. Real archives are built
-        # `tar -C <dest> -czf <archive> .` (pkg-functions.sh pkg_archive), so
-        # every member is stored `./`-prefixed (`./.PKGINFO`, `./etc/foo.conf`)
-        # while exclude_set holds un-prefixed names (_ARCHIVE_METADATA_FILES +
-        # the file_list-derived config-protect paths, both `os.path.relpath`
-        # bare). A raw `member.name in exclude_set` test therefore MISSED every
-        # real-archive member — leaking .PKGINFO/package.yml onto the root
-        # (work-plan 1.20) and clobbering the exact user-edited /etc files the
-        # Q4 config-protection plan meant to --exclude. Strip './' first so the
-        # test matches both archive forms (the bare form still normalizes to
-        # itself, so no regression for arcname-without-'./' archives).
-        _rel = _strip_dot_slash(member.name)
+        # The path this member lands at, BEFORE anything else reads its name:
+        # the exclusion test below, the rename, the link handling and the
+        # data filter all see this one path (_member_target_path), and so do
+        # the header read and install()'s later passes. Real archives are
+        # built `tar -C <dest> -czf <archive> .` (pkg-functions.sh
+        # pkg_archive), so every member is stored `./`-prefixed
+        # (`./.PKGINFO`, `./etc/foo.conf`) while exclude_set holds bare paths
+        # (_ARCHIVE_METADATA_FILES + the config-protect paths install() reads
+        # from its staged tree). A raw `member.name in exclude_set` test
+        # MISSED every real-archive member — leaking .PKGINFO/package.yml onto
+        # the root (work-plan 1.20) and clobbering the exact user-edited /etc
+        # files the Q4 config-protection plan meant to --exclude — and
+        # stripping only './' still missed ./etc//foo.conf, which lands at
+        # etc/foo.conf (measured 2026-10-13: the edited file was overwritten).
+        _rel = _member_target_path(member.name, usrmerge_remaps)
+        if _rel is None:
+            return None  # a top-level entry the target links elsewhere; it keeps its link
+        if _climbs_out(_rel):
+            # Refused whatever the destination: from / the data filter would
+            # read ../x as /x, and through a link the archive itself ships a
+            # path that climbs out as written can resolve back inside.
+            raise tarfile.OutsideDestinationError(member, os.path.join(path, _rel))
         if _rel in exclude_set:
             return None
         # An excluded DIRECTORY excludes its subtree. exclude_set holds exact
@@ -813,14 +846,16 @@ def _safe_extract_tar(archive_path, dest, exclude_paths=None, usrmerge_root=None
         # metadata unconditionally would silently stop every sealed hook from
         # ever running. The caller says what to drop; only the deploy call drops
         # metadata.
-        _parts = _rel.rstrip("/").split("/")
+        _parts = _rel.split("/")
         for _i in range(1, len(_parts)):
             if "/".join(_parts[:_i]) in exclude_set:
                 return None
 
-        # Relaxation #2: UsrMerge top-level-dir remap. Apply BEFORE
-        # absolute-symlink rewrite so the rewritten member.name is
-        # consistent throughout the rest of the filter.
+        # Relaxation #2: UsrMerge top-level-dir remap, carried by _rel. The
+        # member is renamed to it BEFORE the absolute-symlink rewrite so the
+        # rewritten member.name is consistent throughout the rest of the
+        # filter, and tarfile writes the member at exactly the path every
+        # other reader names.
         #
         # Both member.name AND member.linkname need remapping. The name
         # tells tar where to WRITE the entry; linkname tells tar what
@@ -831,50 +866,43 @@ def _safe_extract_tar(archive_path, dest, exclude_paths=None, usrmerge_root=None
         # only remap the real file's name (lib/* -> usr/lib/*) and not
         # the hardlink's linkname, tar's hardlink-resolution looks up
         # the pre-remap path "lib/..." and raises KeyError.
-        def _remap(path):
-            return _usrmerge_remap(path, usrmerge_remaps)
+        _is_root_level = "/" not in _member_target_path(member.name, {})
+        member.name = _rel
 
-        if usrmerge_remaps:
-            remapped_name = _remap(member.name)
-            if remapped_name is None:
-                return None  # top-level dir entry itself; skip
-            member.name = remapped_name
-
-            # Hardlinks + same-tree relative symlinks: remap linkname too.
-            # Absolute-target symlinks are handled separately below
-            # (Relaxation #1).
-            #
-            # The two kinds do NOT get the same treatment, because their
-            # linknames are not the same kind of path.
-            #
-            # A hardlink's linkname names another MEMBER OF THE ARCHIVE, from
-            # the archive root, at whatever depth the hardlink sits — that is
-            # the gdk-pixbuf-pass2 case the comment above describes, and tar
-            # raises KeyError if the linkname is not remapped along with the
-            # member it names. So hardlinks are remapped at any depth.
-            #
-            # A symlink's relative linkname is resolved against the directory
-            # the SYMLINK ITSELF sits in. Only at the root are that directory
-            # and the archive root the same, so only there does a root-relative
-            # remap say anything true about the link. Applied deeper it rewrites
-            # a target that was already correct into one that is not: measured
-            # 2026-09-20, the GPU compiler package's `opt/rocm/llvm -> lib/llvm`
-            # (its own sibling, /opt/rocm/lib/llvm) was installed as
-            # `-> usr/lib/llvm`, meaning /opt/rocm/usr/lib/llvm, which does not
-            # exist. The link was created and the install verified, so nothing
-            # objected; the broken target surfaced only when a person followed
-            # it. `_rel` is the member's name BEFORE the name remap, which is
-            # what the depth has to be read from — remapping turns a one-segment
-            # name into two.
-            _is_root_level = "/" not in _rel.rstrip("/")
-            if (
-                member.linkname
-                and not member.linkname.startswith("/")
-                and (not member.issym() or _is_root_level)
-            ):
-                remapped_link = _remap(member.linkname)
-                if remapped_link is not None:
-                    member.linkname = remapped_link
+        # Hardlinks + same-tree relative symlinks: remap linkname too.
+        # Absolute-target symlinks are handled separately below
+        # (Relaxation #1).
+        #
+        # The two kinds do NOT get the same treatment, because their
+        # linknames are not the same kind of path.
+        #
+        # A hardlink's linkname names another MEMBER OF THE ARCHIVE, from
+        # the archive root, at whatever depth the hardlink sits — that is
+        # the gdk-pixbuf-pass2 case the comment above describes, and tar
+        # raises KeyError if the linkname is not remapped along with the
+        # member it names. So hardlinks are remapped at any depth.
+        #
+        # A symlink's relative linkname is resolved against the directory
+        # the SYMLINK ITSELF sits in. Only at the root are that directory
+        # and the archive root the same, so only there does a root-relative
+        # remap say anything true about the link. Applied deeper it rewrites
+        # a target that was already correct into one that is not: measured
+        # 2026-09-20, the GPU compiler package's `opt/rocm/llvm -> lib/llvm`
+        # (its own sibling, /opt/rocm/lib/llvm) was installed as
+        # `-> usr/lib/llvm`, meaning /opt/rocm/usr/lib/llvm, which does not
+        # exist. The link was created and the install verified, so nothing
+        # objected; the broken target surfaced only when a person followed
+        # it. The depth is read from the member's path BEFORE the remap (the
+        # same function with no remaps, above the rename) — remapping turns a
+        # one-segment name into two.
+        if (
+            member.linkname
+            and not member.linkname.startswith("/")
+            and (not member.issym() or _is_root_level)
+        ):
+            remapped_link = _member_target_path(member.linkname, usrmerge_remaps)
+            if remapped_link is not None:
+                member.linkname = remapped_link
 
         # Relaxation #1: absolute-symlink rewrite. data_filter rejects
         # absolute linkname targets because at extraction time they
@@ -1244,8 +1272,9 @@ def _restore_symlink_target_modes(members, dest):
     pointed at by a shipped symlink are touched; everything else is left exactly
     as extracted.
 
-    `members` are the post-extractall member objects (names already UsrMerge-
-    remapped by member_filter); `dest` is the extraction root.
+    `members` are the post-extractall member objects (each name already the
+    path _member_target_path gives, set by member_filter); `dest` is the
+    extraction root.
     """
     dest = Path(dest)
     try:
@@ -1781,19 +1810,28 @@ class PackageInstaller:
             # discriminator the directory-ownership rule below needs: a
             # directory this deploy created is the package's own to own; one
             # the machine already had belongs to the machine.
+            #
+            # This pass and the ownership pass after the deploy name each
+            # member by the path the deploy lands it at (_member_target_path,
+            # with the remaps the deploy below reads from this same root), so
+            # they look at the object the deploy wrote, whatever the spelling.
+            _deploy_remaps = _usrmerge_remaps(self.root)
             _pre_existing_dirs = set()
             try:
                 with tarfile.open(str(archive_path)) as _tf:
                     for _m in _tf:
                         if not _m.isdir():
                             continue
+                        _rel = _member_target_path(_m.name, _deploy_remaps)
+                        if _rel is None or _climbs_out(_rel):
+                            continue
                         try:
-                            _p = (self.root / _m.name.lstrip("/")).resolve()
+                            _p = (self.root / _rel).resolve()
                             _p.relative_to(self.root.resolve())
                         except (ValueError, OSError):
                             continue
                         if _p.exists():
-                            _pre_existing_dirs.add(_m.name)
+                            _pre_existing_dirs.add(_rel)
             except (OSError, tarfile.TarError) as e:
                 return False, (
                     f"cannot read the archive's directory members for {name}: "
@@ -1862,7 +1900,10 @@ class PackageInstaller:
                 wants_owner = (uname not in ("", "root")) or (gname not in ("", "root"))
                 if not special and not wants_owner:
                     continue
-                deployed = (self.root / member.name.lstrip("/")).resolve()
+                _rel = _member_target_path(member.name, _deploy_remaps)
+                if _rel is None or _climbs_out(_rel):
+                    continue  # the deploy dropped this entry
+                deployed = (self.root / _rel).resolve()
                 try:
                     deployed.relative_to(self.root.resolve())
                 except ValueError:
@@ -1909,7 +1950,7 @@ class PackageInstaller:
                     # _ORDINARY_ID_MIN. The rule is what an archive would meet
                     # if one ever did stage a service-owned directory of its
                     # own making.
-                    if member.name in _pre_existing_dirs:
+                    if _rel in _pre_existing_dirs:
                         print(
                             f"  WARNING: archive records the DIRECTORY "
                             f"{_member_display_path(member.name)} as "
