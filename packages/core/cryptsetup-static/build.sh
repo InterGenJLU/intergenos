@@ -139,6 +139,10 @@ build() {
     (
         set -e
         cd "${lvm2_dir}"
+        # The 2026-10-12 resume detected later-installed XFS, AIO and NVMe
+        # inputs. Keep the original device-mapper-only configuration.
+        # libnvme has an option covering its library and constant checks;
+        # the independent XFS/AIO header probes use their cache answers.
         ./configure \
             --prefix="${STAGING_DIR}" \
             --libdir="${STAGING_DIR}/lib" \
@@ -153,7 +157,10 @@ build() {
             --disable-udev_rules \
             --disable-selinux \
             --with-default-locking-dir=/run/lock/lvm \
-            --without-systemd-run
+            --without-systemd-run \
+            --without-libnvme \
+            ac_cv_header_xfs_xfs_h=no \
+            ac_cv_header_libaio_h=no
         # We need ONLY libdevmapper.a + its header — never any dm tool.
         #
         # LVM2 2.03.38 relocated dmsetup into libdm/dm-tools/, and libdm's own
