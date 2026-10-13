@@ -663,6 +663,57 @@ def _climbs_out(rel):
     return rel == ".." or rel.startswith("../")
 
 
+class _ArchiveRefused(ValueError):
+    """An archive the extract refuses before writing anything, raised by the
+    header read; the message names why."""
+
+
+def _beneath_a_shipped_link(members, remaps):
+    """Why the extract refuses an archive with a member that lands beneath a
+    symbolic link the same archive ships, or None when it has none.
+
+    A member beneath such a link is written THROUGH it: an archive carrying
+    usr/lib64 -> lib and then usr/lib64/y puts y at usr/lib/y, a path no
+    member names. The header read cannot follow a link that does not exist
+    yet, so it would key usr/lib64/y while the staged tree holds usr/lib/y
+    (measured 2026-10-13: the pre-check found no owner, and an upgrade would
+    have removed the installed release before install() refused). A
+    pkm-built archive never carries such a member — tar archives a link to a
+    directory as the link and does not descend into it — so the extract and
+    the pre-check both refuse it, naming the member and the link. Only the
+    archive's own links count; the target's links are the deploy's business.
+    Paths are the ones _member_target_path gives, whatever the order of the
+    members.
+    """
+    landed = []
+    links = set()
+    for member in members:
+        rel = _member_target_path(member.name, remaps)
+        if rel is None or rel == "." or _climbs_out(rel):
+            continue
+        landed.append(rel)
+        if member.issym():
+            links.add(rel)
+    beneath = []
+    for rel in landed if links else ():
+        parts = rel.split("/")
+        for i in range(1, len(parts)):
+            if "/".join(parts[:i]) in links:
+                beneath.append((rel, "/".join(parts[:i])))
+                break
+    if not beneath:
+        return None
+    count = len(beneath)
+    path, link = beneath[0]
+    return (
+        f"{count} of its members would land beneath "
+        f"a symbolic link the same archive ships and be written through it "
+        f"to a path the archive does not name (first: "
+        f"{_member_display_path(path)} beneath the link "
+        f"{_member_display_path(link)})"
+    )
+
+
 def _archive_kinds(archive_path, root, name):
     """An archive's non-directory entries as they will land on ``root``, read
     from its headers without extracting or writing anything, and the
@@ -676,13 +727,20 @@ def _archive_kinds(archive_path, root, name):
     lands as a regular file, counts as one. The manifest read is the one
     install() reads: the first, in sorted order, of
     var/lib/igos/packages/<name>-*.
+
+    Raises _ArchiveRefused for an archive the extract refuses outright: one
+    with a member beneath a link it ships (_beneath_a_shipped_link).
     """
     remaps = _usrmerge_remaps(root)
     manifest_dir = "var/lib/igos/packages/"
     kinds = {}
     manifests = {}
     with tarfile.open(str(archive_path), "r:gz") as tf:
-        for member in tf:
+        members = tf.getmembers()
+        refused = _beneath_a_shipped_link(members, remaps)
+        if refused:
+            raise _ArchiveRefused(refused)
+        for member in members:
             rel = _member_target_path(member.name, remaps)
             if rel is None or rel == "." or _climbs_out(rel):
                 continue
@@ -947,6 +1005,12 @@ def _safe_extract_tar(archive_path, dest, exclude_paths=None, usrmerge_root=None
             # Capture the member objects BEFORE extractall so the correction
             # pass below sees the same (filter-remapped) names extractall used.
             members = tf.getmembers()
+            refused = _beneath_a_shipped_link(members, usrmerge_remaps)
+            if refused:
+                return False, (
+                    f"Archive refused before anything was extracted: "
+                    f"{refused}. A member is only ever written at its own path."
+                )
             tf.extractall(path=str(dest), filter=member_filter)
             _restore_symlink_target_modes(members, dest)
         return True, ""
@@ -2729,9 +2793,14 @@ class PackageInstaller:
         or None when the archive changes the kind of no other package's file.
         ``replacing`` and the active predecessors the archive declares it
         supersedes are not compared, as in install(). install() still runs
-        its own check afterwards and stays the authority.
+        its own check afterwards and stays the authority. An archive the
+        extract refuses outright for a member beneath a link it ships is
+        refused here too, before the remove.
         """
-        kinds, supersedes = _archive_kinds(archive_path, self.root, name)
+        try:
+            kinds, supersedes = _archive_kinds(archive_path, self.root, name)
+        except _ArchiveRefused as refused:
+            return f"Refusing to install {name}: {refused}. Nothing was changed."
         exempt = {replacing}
         for pred in supersedes:
             row = self.db.get_installed(pred)
