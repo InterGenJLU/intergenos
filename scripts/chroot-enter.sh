@@ -112,6 +112,9 @@ chroot "$IGOS" /usr/bin/env -i               \
     PATH=/usr/bin:/usr/sbin:/bin:/sbin        \
     PYTHONDONTWRITEBYTECODE=1                 \
     IGOS_BUILD_IN_CHROOT=1                    \
+    IGOS_CONFIGURE_DRIFT_MODE="${IGOS_CONFIGURE_DRIFT_MODE:-enforce}" \
+    IGOS_CONFIGURE_DRIFT_INDEX="${IGOS_CONFIGURE_DRIFT_INDEX:-/mnt/intergenos/build/configure-drift-reference.json}" \
+    IGOS_CONFIGURE_DRIFT_RECORD="${IGOS_CONFIGURE_DRIFT_RECORD:-}" \
     CFLAGS="-march=x86-64-v2 -mtune=generic -O2 -pipe" \
     CXXFLAGS="-march=x86-64-v2 -mtune=generic -O2 -pipe" \
     MAKEFLAGS="-j${JOBS}"                    \
