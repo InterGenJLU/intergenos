@@ -69,6 +69,8 @@ configure_flags:
 silent_loss_accepted:
   - man   # man pages disabled by -Dman=disabled
   - roc   # roc-toolkit (network audio streaming) not in tree; outside the capture mandate's class-compliant/mainline scope — no consumer asks for it
+  - ldacbt-dec   # the LDAC decoder (libldacBT_dec, a separate upstream project) is not in the tree, so the A2DP sink side of LDAC is absent by design; the encoder and its adaptive bit rate (ldacbt-enc, ldacbt-abr) are found and built, and a loss of those stays flagged
+  - lc3plus      # LC3plus is a different codec library from LC3 and is not in the tree; LC3 (lc3) is found and built, and a loss of it stays flagged
 verify_paths:
   - /usr/bin/pipewire
   - /usr/bin/pw-cat
