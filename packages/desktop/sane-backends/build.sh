@@ -54,6 +54,16 @@ configure() {
     #             than a warning here (measured 2026-09-19).
     #   v4l     — treats a video capture device as a scanner; a webcam is not a
     #             scanner, and it pulls libv4l in for a feature nothing asks for.
+    #
+    # --with-lockdir=/run/lock/sane: the backends that serialize access to one
+    # scanner across processes (the plustek family) create lock files in this
+    # directory, and upstream's default puts it at localstatedir/lock, which is
+    # /var/lock here — on an installed machine a symlink into /run (the base
+    # files ship it), and a directory `make install` creates and the archive
+    # gate refuses as a packaged runtime directory (measured 2026-10-13: the
+    # staged var/lock halted the build). The directory is a runtime directory:
+    # tmpfiles.d creates it at boot (files/usr/lib/tmpfiles.d/sane-backends.conf),
+    # do_install never packages it, and the two paths are asserted equal below.
     BACKENDS="abaton agfafocus apple artec artec_eplus48u as6e \
 avision bh canon canon630u canon_dr canon_lide70 cardscan \
 coolscan coolscan2 coolscan3 dc25 dc210 dc240 \
@@ -79,7 +89,8 @@ umax_pp umax1220u xerox_mfp p5" \
         --without-snmp                                \
         --without-libcurl                             \
         --without-poppler-glib                        \
-        --without-v4l
+        --without-v4l                                 \
+        --with-lockdir=/run/lock/sane
 
     # A pinned list that silently lost an entry would ship fewer drivers than
     # this recipe says it does, so the three removals are read back out of the
@@ -100,7 +111,11 @@ build() {
 
 do_install() {
     set -e
-    make DESTDIR="$DESTDIR" install
+    # INSTALL_LOCKPATH= empties the install-data-hook's lock-directory step
+    # (backend/Makefile.am: `$(mkinstalldirs) -m 775 $(DESTDIR)$(locksanedir)`),
+    # upstream's own switch for it: the lock directory lives under /run and is
+    # created by the tmpfiles.d entry at boot, never shipped as a member.
+    make DESTDIR="$DESTDIR" INSTALL_LOCKPATH= install
 
     # The scanner access rule. udev applies it when a scanner is plugged in,
     # which is what lets the logged-in user read the device without being
@@ -129,6 +144,11 @@ do_install() {
     # The hardening drop-in for the sharing daemon's per-connection unit.
     install -Dm644 "$BUILD_DIR/files/usr/lib/systemd/system/saned@.service.d/20-hardening.conf" \
                    "$DESTDIR/usr/lib/systemd/system/saned@.service.d/20-hardening.conf"
+
+    # The lock directory's tmpfiles.d entry (see configure). The package
+    # manager's install hook runs systemd-tmpfiles over it.
+    install -Dm644 "$BUILD_DIR/files/usr/lib/tmpfiles.d/sane-backends.conf" \
+                   "$DESTDIR/usr/lib/tmpfiles.d/sane-backends.conf"
 
     # What this package must be true about, asserted against what was staged.
     #
@@ -166,6 +186,27 @@ do_install() {
         echo "       written about that port; re-decide both before changing it." >&2
         exit 1
     fi
+
+    # 4. The lock directory is a RUNTIME directory. The compiled-in path, the
+    #    tmpfiles.d entry and the staged tree must agree: the path the backends
+    #    open must be the one tmpfiles creates at boot, and nothing under /run,
+    #    /var/lock or /var/run may be a packaged member (the archive gate
+    #    refuses the last two; the first would be a member of a tmpfs).
+    _lockdir="$(sed -n 's/^locksanedir = //p' backend/Makefile)"
+    _tmpfiles_dir="$(awk '$1 == "d" { print $2 }' "$DESTDIR/usr/lib/tmpfiles.d/sane-backends.conf")"
+    if [ "$_lockdir" != "/run/lock/sane" ] || [ "$_tmpfiles_dir" != "$_lockdir" ]; then
+        echo "ERROR: the configured lock directory ('${_lockdir}') and the" >&2
+        echo "       tmpfiles.d entry ('${_tmpfiles_dir}') do not both name /run/lock/sane." >&2
+        exit 1
+    fi
+    for _rt in run var/lock var/run; do
+        if [ -e "$DESTDIR/$_rt" ]; then
+            echo "ERROR: the staged tree carries ${_rt}; runtime directories are" >&2
+            echo "       created by the tmpfiles.d entry, never packaged." >&2
+            ls -ld "$DESTDIR/$_rt" >&2
+            exit 1
+        fi
+    done
 
     # The staged frontend links the staged library, and neither is installed
     # on the machine running this build, so the loader is pointed at the
