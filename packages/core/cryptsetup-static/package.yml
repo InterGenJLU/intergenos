@@ -1,6 +1,6 @@
 name: cryptsetup-static
 version: "2.8.4"
-release: 2  # r2: the configure step sees only the staged static libraries (PKG_CONFIG_LIBDIR replaces the search path that PKG_CONFIG_PATH only prepended to), so a build over a populated build root no longer finds the installed device-mapper's pkg-config file and its private libudev requirement; the R001.3 resume of 2026-10-12 stopped at that static link. The from-scratch build shape is unchanged.
+release: 3  # r3: pin staged device-mapper without libnvme and answer the XFS and AIO header probes no, preserving the original static-build configuration.  # r2: the configure step sees only the staged static libraries (PKG_CONFIG_LIBDIR replaces the search path that PKG_CONFIG_PATH only prepended to), so a build over a populated build root no longer finds the installed device-mapper's pkg-config file and its private libudev requirement; the R001.3 resume of 2026-10-12 stopped at that static link. The from-scratch build shape is unchanged.
 description: Statically-linked cryptsetup + veritysetup for initramfs (LUKS unlock + dm-verity open)
 license: GPL-2.0-or-later
 homepage: https://gitlab.com/cryptsetup/cryptsetup

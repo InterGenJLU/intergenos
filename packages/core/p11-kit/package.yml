@@ -1,7 +1,7 @@
 name: p11-kit
 version: "0.26.2"
-release: 2  # r2: validate the configured anchors and atomically publish TLS outputs.
-content_hash: bac38a816820c8f8
+release: 3  # r3: prefer libc networking before optional libnsl in the Meson build, matching the upstream Autoconf search and keeping populated-root links stable.  # r2: validate the configured anchors and atomically publish TLS outputs.
+content_hash: b870f83c85da5c2d
 description: PKCS#11 module loading library
 license: BSD-3-Clause
 homepage: https://p11-glue.github.io/p11-glue/p11-kit.html

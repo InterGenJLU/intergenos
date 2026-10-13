@@ -1,6 +1,6 @@
 name: linux-pam
 version: "1.7.3"
-release: 4  # r4: update Linux-PAM to 1.7.3 and use its documentation directory.  # hook-contract wave: full PAM/security config set moved post_install -> do_install (owned payload)
+release: 5  # r5: pin NIS off so a populated-root rebuild retains the original configuration without optional libnsl and libtirpc dependencies.  # r4: update Linux-PAM to 1.7.3 and use its documentation directory.  # hook-contract wave: full PAM/security config set moved post_install -> do_install (owned payload)
 description: Pluggable Authentication Modules
 license: GPL-2.0-or-later
 homepage: https://github.com/linux-pam/linux-pam
