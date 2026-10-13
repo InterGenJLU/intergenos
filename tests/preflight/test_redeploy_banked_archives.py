@@ -196,7 +196,12 @@ class RedeployBankedArchivesTest(unittest.TestCase):
 
         def fake_run(cmd, **kw):
             calls.append(cmd)
-            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+            # A verify counts only on pkm's own verdict line for the package
+            # (test_heal_reads_the_verify_verdict.py), so the stand-in prints
+            # the one a clean verify prints.
+            stdout = ("  ✓ lib32-libffi: ok (12 files verified)\n"
+                      if "verify" in cmd else "")
+            return subprocess.CompletedProcess(cmd, 0, stdout=stdout, stderr="")
 
         with mock.patch.object(self.mod.subprocess, "run", side_effect=fake_run):
             rc, out = self.run_main("--apply")

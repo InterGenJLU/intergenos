@@ -168,6 +168,30 @@ def installed_state(chroot: Path, name: str,
             "text_manifest": bool(manifests)}
 
 
+def verify_verdict(name: str, rc: int, stdout: str) -> "tuple[bool, str]":
+    """Whether `pkm verify <name>` said the package verified: (ok, why).
+
+    It counts only when the command exited 0 AND printed the package's own
+    verdict line, `✓ <name>: ok (...)`. The exit status alone is not the
+    answer: the build root's pkm exits 0 for a package that is not installed,
+    and on 2026-10-13 this tool reported 193 of 193 packages healed while 181
+    of those verifies had printed "Package '<name>' is not installed". That
+    line is a failure whatever the exit status says, and so is a verify that
+    printed no verdict for this package at all.
+    """
+    if f"Package '{name}' is not installed" in stdout:
+        return False, f"pkm verify says {name} is not installed (rc={rc})"
+    verdict = f"✓ {name}: ok ("
+    printed_ok = any(line.strip().startswith(verdict)
+                     for line in stdout.splitlines())
+    if rc != 0:
+        return False, f"pkm verify exited rc={rc}"
+    if not printed_ok:
+        return False, (f"pkm verify exited 0 but printed no '{verdict}...' "
+                       f"verdict for {name}")
+    return True, "ok"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--chroot", default="/mnt/igos",
@@ -288,7 +312,15 @@ def main() -> int:
             proc = subprocess.run(cmd, capture_output=True, text=True)
             sys.stdout.write(proc.stdout)
             sys.stderr.write(proc.stderr)
-            if proc.returncode != 0:
+            if desc == "verify":
+                # The verdict the verify printed, and its exit status, both:
+                # never the exit status alone (verify_verdict says why).
+                ok, why = verify_verdict(e["name"], proc.returncode, proc.stdout)
+                if not ok:
+                    log(f"FAIL: {e['name']} verify: {why}")
+                    failures += 1
+                    break
+            elif proc.returncode != 0:
                 log(f"FAIL: {e['name']} {desc} rc={proc.returncode}")
                 failures += 1
                 break
