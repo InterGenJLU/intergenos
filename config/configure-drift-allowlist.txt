@@ -1,0 +1,16 @@
+# Package glob<TAB>check selector<TAB>reason
+bash	transcript: for tgetent in -ltinfo :: no -> yes	libtinfo is a link to the same wide ncurses SONAME; shipped archive contents are unchanged.
+readline	transcript: for tgetent in -ltinfo :: no -> yes	libtinfo is a link to the same wide ncurses SONAME; shipped archive contents are unchanged.
+less	transcript: for tgetent in -ltinfo :: no -> yes	libtinfo is a link to the same wide ncurses SONAME; shipped archive contents are unchanged.
+psmisc	transcript: for tgetent in -ltinfo :: no -> yes	libtinfo is a link to the same wide ncurses SONAME; shipped archive contents are unchanged.
+bash	transcript: which library has the termcap functions :: libcurses -> libtinfo	The compatibility link records the unchanged ncurses SONAME.
+readline	transcript: which library has the termcap functions :: libncursesw -> libtinfo	The compatibility link records the unchanged ncurses SONAME.
+*	transcript: whether fcntl understands F_DUPFD_CLOEXEC :: no -> needs runtime check	The runtime-check answer selects the same gnulib replacement.
+curl	transcript: for httpd :: no -> yes	The program is used by the curl test harness only.
+curl	transcript: for apxs :: no -> yes	The program is used by the curl test harness only.
+curl	transcript: for caddy :: no -> yes	The program is used by the curl test harness only.
+bash-completion	transcript: for pytest :: no -> yes	The program is used by the completion test harness only.
+sudo	transcript: for jq :: no -> yes	The program is used by the sudo test harness only.
+go	archive-unreadable: usr/lib/go/src/debug/elf/testdata/go-relocation-test-gcc930-ranges-no-rela-x86-64	Go debug/elf regression fixture intentionally lacks a valid dynamic section; it is test data, and the rest of the archive is measured.
+go	archive-unreadable: usr/lib/go/src/debug/elf/testdata/go-relocation-test-gcc930-ranges-with-rela-x86-64	Go debug/elf regression fixture intentionally lacks a valid dynamic section; it is test data, and the rest of the archive is measured.
+linux-firmware	archive-unreadable: usr/lib/firmware/qcom/apq8096/modem.mbn	a firmware image in an ELF container, no program interpreter, not a dynamically linked object
