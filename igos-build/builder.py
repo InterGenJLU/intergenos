@@ -1326,6 +1326,54 @@ class BuildExecutor(PackageTracker):
             return False
         return True
 
+    def pkg_configure_drift(self, pkg: Package, signal: str) -> bool:
+        """Enforce both signals for tracked builds; fresh builds record inputs."""
+        if not self.tracked:
+            return True
+        mode = os.environ.get("IGOS_CONFIGURE_DRIFT_MODE", "enforce")
+        log_path = getattr(self.logger, "_log_path", None)
+        if not pkg.template_path or (signal == "transcript" and not log_path):
+            self.logger.error(f"RED configure-drift: missing recipe or log for {pkg.name}")
+            return False
+        root = pkg.template_path.resolve().parents[3]
+        input_path = (Path(log_path) if signal == "transcript" else
+                      self.pkg_archives / archive_filename(pkg.name, pkg.version, pkg.release))
+        if mode == "record":
+            records = os.environ.get("IGOS_CONFIGURE_DRIFT_RECORD")
+            if not records or not input_path.is_file():
+                self.logger.error(f"RED configure-drift: missing record directory or {signal} input for {pkg.name}")
+                return False
+            try:
+                record_dir = Path(records)
+                record_dir.mkdir(parents=True, exist_ok=True)
+                with (record_dir / f"{pkg.name}.tsv").open("a") as stream:
+                    stream.write(f"{signal}\t{pkg.name}\t{input_path}\t{pkg.template_path}\n")
+            except OSError as error:
+                self.logger.error(f"RED configure-drift: cannot record {pkg.name}: {error}")
+                return False
+            self.logger.info(f"RECORD configure-drift: {pkg.name} {signal} {input_path}")
+            return True
+        if mode != "enforce":
+            self.logger.error(f"RED configure-drift: invalid mode {mode}")
+            return False
+        command = [sys.executable, "-I", str(root / "scripts/check-configure-drift.py"),
+                   "check", "--signal", signal, "--package", pkg.name,
+                   "--recipe", str(pkg.template_path), "--index",
+                   os.environ.get("IGOS_CONFIGURE_DRIFT_INDEX",
+                                  str(root / "build/configure-drift-reference.json")),
+                   "--log" if signal == "transcript" else "--archive", str(input_path)]
+        try:
+            result = subprocess.run(command, capture_output=True, text=True)
+        except OSError as error:
+            self.logger.error(f"RED configure-drift: cannot execute gate: {error}")
+            return False
+        for line in (result.stdout + result.stderr).splitlines():
+            self.logger.info(line)
+        if result.returncode:
+            self.logger.error(f"RED configure-drift: {pkg.name} {signal} refused (exit {result.returncode})")
+            return False
+        return True
+
     def build_package(self, pkg: Package) -> bool:
         """Build a single package through all phases.
 
@@ -1442,7 +1490,13 @@ class BuildExecutor(PackageTracker):
 
         phases = style.all_phases(pkg)
 
+        drift_checked = False
         for phase in phases:
+            if phase.name == "install":
+                drift_checked = True
+                if not self.pkg_configure_drift(pkg, "transcript"):
+                    success = False
+                    break
             if not phase.commands:
                 continue
 
@@ -1497,6 +1551,9 @@ class BuildExecutor(PackageTracker):
                 break
 
             self.logger.end_phase(phase.name, 0)
+
+        if success and not drift_checked:
+            success = self.pkg_configure_drift(pkg, "transcript")
 
         # --- Overlay packages/<tier>/<pkg>/files/ into DESTDIR ---
         # Mirrors the PKGBUILD source=(file://...) + dh_install patterns
@@ -1576,6 +1633,9 @@ class BuildExecutor(PackageTracker):
                 elif not self.pkg_archive_from_files(pkg, new_files):
                     success = False
                     self.logger.end_phase("track", 1)
+                elif not self.pkg_configure_drift(pkg, "archive"):
+                    success = False
+                    self.logger.end_phase("track", 1)
                 elif not self.pkg_verify(pkg):
                     success = False
                     self.logger.end_phase("track", 1)
@@ -1616,6 +1676,9 @@ class BuildExecutor(PackageTracker):
                     success = False
                     self.logger.end_phase("track", 1)
                 elif not self.pkg_archive(pkg, staging_dir):
+                    success = False
+                    self.logger.end_phase("track", 1)
+                elif not self.pkg_configure_drift(pkg, "archive"):
                     success = False
                     self.logger.end_phase("track", 1)
                 elif not self.pkg_deploy(pkg, staging_dir):

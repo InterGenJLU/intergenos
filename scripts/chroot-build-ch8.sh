@@ -283,6 +283,13 @@ build_ch8_package() {
         log "  [CHECK] done (see log for results)"
     fi
 
+    # Both configure gains and losses are fatal before installation.
+    local PKG_CONFIGURE_DRIFT_REQUIRED=1
+    if ! pkg_configure_drift transcript "$name" "$pkg_log"; then
+        log "error: configure-drift transcript refused ${name}; full diagnostic above"
+        return 1
+    fi
+
     # --- INSTALL (via DESTDIR staging + package tracking) ---
     cd "$workdir"
     log "  [INSTALL] staging..."

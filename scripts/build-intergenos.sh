@@ -730,6 +730,7 @@ run_phase() {
     "$@"
     local rc=$?
     if [ "$rc" -ne 0 ]; then exit "$rc"; fi
+    configure_drift_record_tier "$phase"
     trap - EXIT
 
     local elapsed=$(( $(date +%s) - start_time ))
@@ -815,7 +816,62 @@ run_phase() {
 # Phase implementations
 # ==========================================================================
 
+# A checkpointed fresh build records a candidate; every resume enforces the
+# staged reference. A populated root cannot become a fresh reference merely
+# by omitting the resume option.
+configure_drift_setup() {
+    IGOS_CONFIGURE_DRIFT_MODE=enforce
+    IGOS_CONFIGURE_DRIFT_INDEX="${SCRIPTS%/scripts}/build/configure-drift-reference.json"
+    IGOS_CONFIGURE_DRIFT_RECORD=""
+    if [ "${CHECKPOINT:-false}" = true ] && [ -z "${START_AT:-}" ]; then
+        local root_member=""
+        if [ -L "$IGOS" ] || { [ -e "$IGOS" ] && [ ! -d "$IGOS" ]; }; then
+            log "error: configure-drift record mode requires a root directory, not a link or file"
+            return 1
+        fi
+        if [ -d "$IGOS" ]; then
+            root_member=$(find "$IGOS" -mindepth 1 -maxdepth 1 ! -name lost+found -print -quit) || {
+                log "error: configure-drift could not verify the empty root"
+                return 1
+            }
+        fi
+        if [ -n "$root_member" ]; then
+            log "error: configure-drift record mode requires an empty root; use --start-at for a resume"
+            return 1
+        fi
+        IGOS_CONFIGURE_DRIFT_MODE=record
+        IGOS_CONFIGURE_DRIFT_RECORD="/mnt/intergenos/build/configure-drift-records/${IGOS_TRACE_RUNID}"
+        log "RECORD configure-drift: fresh build; candidate reference will be written under build/"
+    else
+        python3 -I "${SCRIPTS}/check-configure-drift.py" validate \
+            --index "$IGOS_CONFIGURE_DRIFT_INDEX" || return $?
+        local staged_reference="${IGOS}/mnt/intergenos/build/configure-drift-reference.json"
+        mkdir -p "${staged_reference%/*}" || return $?
+        cp -- "$IGOS_CONFIGURE_DRIFT_INDEX" "$staged_reference" || return $?
+        cmp -s -- "$IGOS_CONFIGURE_DRIFT_INDEX" "$staged_reference" || {
+            log "error: configure-drift reference copy does not match the pre-flight input"
+            return 1
+        }
+        python3 -I "${SCRIPTS}/check-configure-drift.py" validate \
+            --index "$staged_reference" || return $?
+    fi
+    export IGOS_CONFIGURE_DRIFT_MODE IGOS_CONFIGURE_DRIFT_INDEX IGOS_CONFIGURE_DRIFT_RECORD
+}
+
+configure_drift_record_tier() {
+    [ "${IGOS_CONFIGURE_DRIFT_MODE:-enforce}" = record ] || return 0
+    case "$1" in
+        core|core-extra|base|desktop|extra|compute|ai)
+            python3 -I "${SCRIPTS}/check-configure-drift.py" record-index \
+                --records "${IGOS}${IGOS_CONFIGURE_DRIFT_RECORD}" --path-root "$IGOS" \
+                --lineage-id "$IGOS_TRACE_RUNID" \
+                --output "${SCRIPTS%/scripts}/build/configure-drift-reference.json" || return $?
+            ;;
+    esac
+}
+
 phase_validate() {
+    configure_drift_setup || return $?
     # LFS 13.0 requires /bin/sh -> bash (Ubuntu defaults to dash)
     if [ "$(readlink -f /bin/sh)" != "/usr/bin/bash" ]; then
         log "  /bin/sh does not point to bash — fixing..."
