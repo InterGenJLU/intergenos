@@ -1,8 +1,8 @@
 # Package glob<TAB>check selector<TAB>reason
-bash	transcript: for tgetent in -ltinfo :: no -> yes	libtinfo is a link to the same wide ncurses SONAME; shipped archive contents are unchanged.
-readline	transcript: for tgetent in -ltinfo :: no -> yes	libtinfo is a link to the same wide ncurses SONAME; shipped archive contents are unchanged.
-less	transcript: for tgetent in -ltinfo :: no -> yes	libtinfo is a link to the same wide ncurses SONAME; shipped archive contents are unchanged.
-psmisc	transcript: for tgetent in -ltinfo :: no -> yes	libtinfo is a link to the same wide ncurses SONAME; shipped archive contents are unchanged.
+bash	transcript: for tgetent in -ltinfo :: no -> yes	libtinfo resolves to the same wide ncurses SONAME through the compatibility link.
+readline	transcript: for tgetent in -ltinfo :: no -> yes	libtinfo resolves to the same wide ncurses SONAME through the compatibility link.
+less	transcript: for tgetent in -ltinfo :: no -> yes	libtinfo resolves to the same wide ncurses SONAME through the compatibility link.
+psmisc	transcript: for tgetent in -ltinfo :: no -> yes	libtinfo resolves to the same wide ncurses SONAME through the compatibility link.
 bash	transcript: which library has the termcap functions :: libcurses -> libtinfo	The compatibility link records the unchanged ncurses SONAME.
 readline	transcript: which library has the termcap functions :: libncursesw -> libtinfo	The compatibility link records the unchanged ncurses SONAME.
 *	transcript: whether fcntl understands F_DUPFD_CLOEXEC :: no -> needs runtime check	The runtime-check answer selects the same gnulib replacement.
