@@ -1756,6 +1756,43 @@ pkg_assert_known_test_failures() {
 # configure/build/check have completed.
 # ============================================================================
 
+# The bash drivers activate this gate for the packages they track. Record
+# mode needs no Python in the early bootstrap: the host consumes the paths
+# after the tier. Every enforce-mode failure remains fatal before deploy.
+pkg_configure_drift() {
+    local signal="$1" name="$2" input="$3"
+    local recipe="${PKG_TEMPLATE_DIR:?configure-drift requires the recipe directory}/package.yml"
+    local mode="${IGOS_CONFIGURE_DRIFT_MODE:-enforce}"
+    if [ "$mode" = record ]; then
+        local records="${IGOS_CONFIGURE_DRIFT_RECORD:?configure-drift record directory is required}"
+        if [ ! -f "$input" ] || [ ! -f "$recipe" ]; then
+            printf 'RED configure-drift: missing %s input or recipe for %s\n' "$signal" "$name" >&2
+            return 1
+        fi
+        mkdir -p "$records" || return 1
+        printf '%s\t%s\t%s\t%s\n' "$signal" "$name" "$input" "$recipe" >> "$records/$name.tsv" || return 1
+        printf 'RECORD configure-drift: %s %s %s\n' "$name" "$signal" "$input"
+        return 0
+    fi
+    if [ "$mode" != enforce ]; then
+        printf 'RED configure-drift: invalid mode %s\n' "$mode" >&2
+        return 1
+    fi
+    if ! command -v python3 >/dev/null 2>&1; then
+        printf 'RED configure-drift: python3 is absent; cannot verify %s\n' "$name" >&2
+        return 1
+    fi
+    local gate="${PKG_TEMPLATE_DIR%/packages/*}/scripts/check-configure-drift.py"
+    local index="${IGOS_CONFIGURE_DRIFT_INDEX:-${PKG_TEMPLATE_DIR%/packages/*}/build/configure-drift-reference.json}"
+    local args=(check --signal "$signal" --package "$name" --recipe "$recipe" --index "$index")
+    case "$signal" in
+        transcript) args+=(--log "$input") ;;
+        archive) args+=(--archive "$input") ;;
+        *) printf 'RED configure-drift: invalid signal %s\n' "$signal" >&2; return 1 ;;
+    esac
+    python3 -I "$gate" "${args[@]}"
+}
+
 pkg_install() {
     local name="$1"
     local version="$2"
@@ -1834,6 +1871,19 @@ pkg_install() {
             archive_path="$_archive_path" size_bytes::=${_asize:-0} sha="$_asha" rc::=$archive_rc
     fi
     if [ "$archive_rc" -ne 0 ]; then return 1; fi
+
+    if [ "${PKG_CONFIGURE_DRIFT_REQUIRED:-0}" = 1 ]; then
+        local drift_archive="${IGOS_PKG_ARCHIVES}/${name}-${version}${release:+-${release}}.igos.tar.gz"
+        if ! pkg_configure_drift archive "$name" "$drift_archive"; then
+            printf 'RED configure-drift: archive refused for %s; deployment stopped\n' "$name" >&2
+            local refused_dir
+            refused_dir=$(mktemp -d "${IGOS_PKG_ARCHIVES}/.configure-drift-failed.XXXXXX") || return 1
+            mv -- "${IGOS_PKG_DB}/${name}-${version}" "$refused_dir/manifest.failed" || return 1
+            mv -- "$drift_archive" "$refused_dir/archive.failed" || return 1
+            printf 'configure-drift: refused archive and completion marker preserved in %s\n' "$refused_dir" >&2
+            return 1
+        fi
+    fi
 
     [ "${IGOS_TRACE_LIB_LOADED:-0}" = "1" ] && trace_event pkg_deploy_start pkg="$name" version="$version" destdir="${IGOS_PKG_STAGING}/${name}-${version}" system_root="/"
     local _deploy_start_ms
