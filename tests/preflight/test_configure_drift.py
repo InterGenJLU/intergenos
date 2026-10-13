@@ -155,7 +155,7 @@ def test_missing_reference_or_log_is_not_green(tmp_path):
 def test_interleaving_stops_pair_attribution(gate):
     answers, coverage = gate.read_transcript('checking for stable... yes\nchecking for a... checking for b... yes\nchecking for later... no')
     assert answers == {'for stable': ['yes']}
-    assert coverage == {'kind': 'parallel-configure-output', 'line': 2}
+    assert coverage == {'kind': 'interleaved-configure-output', 'line': 2}
     findings, _ = gate.compare_transcript('sample', {'for x': ['yes', 'no']},
                                           {'for x': ['no', 'yes']}, [])
     assert not findings
@@ -200,7 +200,7 @@ def test_fresh_record_candidate_is_usable_and_does_not_edit_reference(gate, tmp_
             '--archive', str(archive), '--index', str(candidate)]
     result = subprocess.run(both, capture_output=True, text=True)
     assert result.returncode == 1, result.stdout + result.stderr
-    assert 'parallel configure output' in result.stdout
+    assert 'interleaved configure output' in result.stdout
     assert 'GREEN sample: archive' in result.stdout
     assert 'yes -> no' not in result.stdout  # after the boundary, no pair is invented
     allow = tmp_path / 'reviewed-allowlist'
@@ -298,3 +298,9 @@ def test_staged_identity_and_member_count_are_checked(gate, tmp_path):
     path.write_text(json.dumps(data))
     with pytest.raises(ValueError, match='lineage identity'):
         gate.load_index(path)
+
+
+def test_a_question_containing_checking_twice_is_not_interleaved(gate):
+    answers, coverage = gate.read_transcript('checking for compiler option needed when checking for declarations... none\nchecking use login and su access checking if PAM not used... no\n')
+    assert coverage is None
+    assert answers == {'use login and su access checking if PAM not used': ['no']}

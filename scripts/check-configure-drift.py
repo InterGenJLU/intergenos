@@ -50,12 +50,12 @@ def file_hash(path):
 
 
 def read_transcript(text):
-    """Retain only pairs before any detected parallel-output interleaving."""
+    """Retain only pairs before detected interleaving."""
     answers = {}
     for number, line in enumerate(text.splitlines(), 1):
         line = re.sub(r'\x1b\[[0-9;]*m', '', line).strip()
-        if len(re.findall(r'\bchecking ', line)) > 1:
-            return dict(sorted(answers.items())), {'kind': 'parallel-configure-output', 'line': number}
+        if len(re.findall(r'\bchecking .*?\.{3}', line)) > 1:
+            return dict(sorted(answers.items())), {'kind': 'interleaved-configure-output', 'line': number}
         match = re.search(r'\bchecking (.+?)\.{3}\s*(.*?)\s*$', line)
         question = answer = None
         if match:
@@ -289,7 +289,7 @@ def load_index(path, pin=None):
             if not HEX.fullmatch(log.get('sha256', '')) or not log.get('name'):
                 raise ValueError('invalid log identity in reference: ' + name)
             coverage = log.get('coverage')
-            if coverage is not None and (not isinstance(coverage, dict) or coverage.get('kind') != 'parallel-configure-output' or type(coverage.get('line')) is not int or coverage['line'] < 1):
+            if coverage is not None and (not isinstance(coverage, dict) or coverage.get('kind') != 'interleaved-configure-output' or type(coverage.get('line')) is not int or coverage['line'] < 1):
                 raise ValueError('invalid transcript coverage in reference: ' + name)
             if not isinstance(log.get('answers'), dict):
                 raise ValueError('invalid reference answers: ' + name)
@@ -466,7 +466,7 @@ def check(args, index):
             coverage = []
             for label, log in [('reference', baseline_log), ('current', current_log)]:
                 if log['coverage']:
-                    coverage.append(f'TRANSCRIPT COVERAGE {label} parallel configure output at line {log["coverage"]["line"]}; only preceding pairs are attributable')
+                    coverage.append(f'TRANSCRIPT COVERAGE {label} interleaved configure output at line {log["coverage"]["line"]}; only preceding pairs are attributable')
             waivers = [reason for name, kind, _, _, reason in allowlist
                        if name == package and kind == 'archive-only']
             if coverage and waivers:
@@ -564,7 +564,7 @@ def main():
             for name, row in index['packages'].items():
                 for phase, log in row['logs'].items():
                     if log['coverage']:
-                        print(f'COVERAGE {name} {phase}: parallel configure output at line {log["coverage"]["line"]}; transcript check fails closed unless reviewed as archive-only')
+                        print(f'COVERAGE {name} {phase}: interleaved configure output at line {log["coverage"]["line"]}; transcript check fails closed unless reviewed as archive-only')
                 errors, waivers = archive_coverage(name, row, load_allowlist(args.allowlist))
                 for error in errors:
                     print('COVERAGE ' + name + ': ' + error + '; archive check fails closed')
