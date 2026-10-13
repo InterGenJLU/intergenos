@@ -37,7 +37,10 @@ dependencies:
     - openssl
     - bc
   host: []
-  runtime: []
+  runtime:
+    - elfutils
+    - openssl
+    - glibc
 tier: core
 build_style: custom
 # 3.0-F28: activation semantics. do_install ships /boot/vmlinuz + /lib/modules

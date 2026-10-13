@@ -28,6 +28,9 @@ dependencies:
   host: []
   runtime:
   - linux-firmware
+  - elfutils
+  - openssl
+  - glibc
 
 supersedes:
   - linux-kernel
