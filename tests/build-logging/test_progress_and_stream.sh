@@ -179,10 +179,13 @@ for spec in "chroot-build-ch8.sh core PKG_COUNT 90" \
         has_code "$script" 'tee -a "$IGOS_LOGS/'
 done
 
-# base alone also skips a package that is already tracked; that path is its own
-# instruction to the reader of the stream and so its own assertion here.
-ckc "chroot-build-base.sh reports an already-tracked skip, with the reason" \
-    has_code chroot-build-base.sh 'igos_progress_skip "$name" "already tracked"'
+# base alone also skips a package whose recipe currency record marks it already
+# built (a targeted resume with skip-built on): that path reports the record's
+# own state as the reason — "skipped (current <version>-<release>, archive
+# <name>)" — so the reader of the stream learns which sealed archive stands;
+# it is its own assertion here.
+ckc "chroot-build-base.sh reports a currency-record skip, with the record's reason" \
+    has_code chroot-build-base.sh 'igos_progress_skip "$name" "$state"'
 
 ckc "the unified tier script routes narration into the aggregated stream" \
     has_code chroot-build-tier.sh 'IGOS_BUILD_STREAM:+'
