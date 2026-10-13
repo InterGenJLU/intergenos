@@ -1,7 +1,7 @@
 name: sane-backends
 version: "1.4.0"
-release: 1
-content_hash: e00253a18447f80a
+release: 2  # r2: the device lock directory moves to /run/lock/sane, created by a tmpfiles.d entry at boot and never packaged (the archive gate refused the staged /var/lock); a sysusers.d fragment declares the scanner group the access rule assigns and the saned account the sharing unit runs as, saned a member of scanner.
+content_hash: 76d56abcac876ea6
 description: Scanner drivers and the library every scanning application talks to
 license: GPL-2.0-or-later
 homepage: https://gitlab.com/sane-project/backends
