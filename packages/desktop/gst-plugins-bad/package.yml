@@ -1,6 +1,6 @@
 name: gst-plugins-bad
 version: "1.28.1"
-release: 2  # r2: the aptX GStreamer elements (openaptxenc/openaptxdec) ship — libfreeaptx is declared a build dependency and the openaptx feature is pinned =enabled in the meson line, so a missing library halts the configure instead of silently dropping the plugin (the pipewire r3 pattern). The silent-loss gate named the in-tree library this package's 2026-08-15 build log did not find (the R001.3 build halt, 2026-10-12). Hand-bumped: this recipe is pinned to an upstream tarball, so scripts/bump-changed-releases.py does not watch it.
+release: 3  # r3: meson states -Dlc3=disabled: the lineage built before the LC3 library existed in the build root and ships no LC3 elements; a populated root would have added the plugin silently. Shipping it is a product decision for after the tag. HAND bump: no content_hash; the release tool does not watch this recipe.  # r2: the aptX GStreamer elements (openaptxenc/openaptxdec) ship — libfreeaptx is declared a build dependency and the openaptx feature is pinned =enabled in the meson line, so a missing library halts the configure instead of silently dropping the plugin (the pipewire r3 pattern). The silent-loss gate named the in-tree library this package's 2026-08-15 build log did not find (the R001.3 build halt, 2026-10-12). Hand-bumped: this recipe is pinned to an upstream tarball, so scripts/bump-changed-releases.py does not watch it.
 description: GStreamer bad plugins
 license: LGPL-2.0-or-later
 homepage: https://gstreamer.freedesktop.org/
