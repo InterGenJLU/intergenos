@@ -31,10 +31,10 @@ The SQLite schema (`pkm/database.py`) consists of several interconnected tables:
 ### Installation (`pkm/installer.py`)
 
 The installation pipeline follows a strict sequence:
-1.  **Staging Extraction**: The archive is extracted to a temporary staging directory using hardened `tar` flags (`--no-same-owner`, `--no-same-permissions`).
+1.  **Staging Extraction**: The archive is extracted to a temporary staging directory by the same `tarfile` extract under the PEP 706 `data` filter, which drops recorded ownership and group/other write permission.
 2.  **Manifest Reading**: The staged archive's manifest is parsed to extract the file list, `SUPERSEDES` declarations, and embedded file hashes.
-3.  **Invariant Checks**: `pkm` checks for directory collisions (e.g., preventing a package from replacing the `/lib` symlink with a directory) and verifies that predecessor packages declared in `SUPERSEDES` exist and are correctly ordered in the install queue.
-4.  **Filesystem Deploy**: The archive is deployed to the root filesystem using `tar --no-overwrite-dir --keep-directory-symlink`. Hardened flags drop setuid/setgid bits, which are then explicitly restored by parsing the `tarfile` header metadata. This deploy step is the point of no return: a successful write here commits the package to disk before the database transaction that records it.
+3.  **Invariant Checks**: `pkm` checks for directory collisions (e.g., preventing a package from replacing the `/lib` symlink with a directory) and verifies that predecessor packages declared in `SUPERSEDES` exist and are correctly ordered in the install queue. A member whose kind differs from what another active package owns at the same path — a regular file where that package installed a symlink, or a symlink where it installed a regular file — is refused before any byte is written, naming the path and the owner; `pkm upgrade` and `pkm reinstall` run the same check before they remove the installed release. A same-kind path shared with another active package is named on the install output with each owner's count.
+4.  **Filesystem Deploy**: The archive is deployed to the root filesystem by Python's `tarfile` under the PEP 706 `data` filter and pkm's member filter (`_safe_extract_tar`): each member is written at the one path it lands at, and an archive with a member that climbs out of the root, lands beneath a symbolic link the same archive ships, or is a hard link naming no member before it is refused before anything is written. The `data` filter drops setuid/setgid bits, which are then restored where the archive records them, by reading the `tarfile` header metadata. This deploy step is the point of no return: a successful write here commits the package to disk before the database transaction that records it. A symlink already present at a regular-file member's path is unlinked first, so the member replaces the link instead of being written through it into the link's target.
 5.  **Atomic DB Transaction**: The database is updated inside a single `BEGIN/COMMIT` block:
     *   An `installed` record is created.
     *   `files` are registered with their content hashes.
@@ -84,6 +84,8 @@ This allows for fine-grained package splits (e.g., `util-linux` splitting into `
 
 ### Content-Hash Verification
 The `pkm verify` command recalculates the SHA-256 hash of every installed file on disk and compares it against the expected hash stored in the `files` table. This detects both accidental corruption and unauthorized modification of installed binaries.
+
+A read-only command sees what the last command committed: the database is opened read-only through the write-ahead log while it holds frames and immutable otherwise, and every command that writes folds the log before it exits.
 
 ### Archive Verification
 Before installation, the `cli.py` layer provides a `--archive-trust` flag. In `strict` or `repo-only` modes, the incoming `.igos.tar.gz` archive's SHA-256 hash is computed and checked against the trusted `available` index synced from the central repository.
