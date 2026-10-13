@@ -13,6 +13,10 @@ A package the reference lineage never built has nothing to compare against until
 fresh build records it; until then an exact `new-package: <lineage>` allowance names it
 with its reason, every check of it prints the allowance, and validate refuses an entry
 that is stale (its package present in the reference, or its lineage not the staged one).
+A release that adds or removes a command or library on purpose at an unchanged upstream
+version is named by an exact `archive-member: added|removed <member>` allowance with its
+reason; every other member stays enforced, and validate refuses an entry the staged
+reference already reflects.
 Unallowlisted answer flips and undeclared gained libraries are RED (exit 1).
 Executable/library member changes are RED at an unchanged recipe version.
 An answer appearing on only one side is not a flip. Repeated questions compare
@@ -123,6 +127,14 @@ def load_allowlist(path):
             if normalized_member(member) != member or any(character in package + member for character in '*?[]'):
                 raise ValueError(f'{path}:{number}: unreadable member needs exact package and path')
             entries.append((package, 'archive-unreadable', member, 'unreadable', reason))
+        elif check.startswith('archive-member: '):
+            match = re.fullmatch(r'archive-member: (added|removed) (\S+)', check)
+            if not match or any(character in package for character in '*?[]'):
+                raise ValueError(f'{path}:{number}: archive-member needs an exact package, "added" or "removed", and one member path')
+            direction, member = match.groups()
+            if any(character in member for character in '*?[]') or normalized_member(member) != member or not shipped_member(member):
+                raise ValueError(f'{path}:{number}: archive-member needs the exact path of a shipped member (usr/bin/, usr/sbin/ or usr/lib*/lib*.so*)')
+            entries.append((package, 'archive-member', member, direction, reason))
         else:
             match = re.fullmatch(r'transcript: (.+) :: (.+) -> (.+)', check)
             if not match:
@@ -267,6 +279,27 @@ def compare_archive(reference, current, providers, declared):
         for name in sorted(set(reference['members']) - set(current['members'])):
             findings.append('ARCHIVE removed member at unchanged version: ' + name)
     return findings
+
+
+MEMBER_CHANGE = re.compile(r'^ARCHIVE (added|removed) member at unchanged version: (.+)$')
+
+
+def member_waivers(package, findings, allowlist):
+    """Split compare_archive's findings: a member change that an exact archive-member allowance
+    names, in its direction, is allowed with the reason; every other finding stays a finding."""
+    remaining, allowed = [], []
+    for finding in findings:
+        match = MEMBER_CHANGE.match(finding)
+        reasons = []
+        if match:
+            direction, member = match.groups()
+            reasons = [reason for name, kind, path, change, reason in allowlist
+                       if name == package and kind == 'archive-member' and path == member and change == direction]
+        if reasons:
+            allowed.append(finding + '; allowlisted: ' + '; '.join(reasons))
+        else:
+            remaining.append(finding)
+    return remaining, allowed
 
 
 def load_index(path, pin=None):
@@ -525,7 +558,9 @@ def check(args, index):
                 errors, waivers = archive_coverage(package, row, allowlist)
                 archive_findings += [label + ' ' + error for error in errors]
                 archive_allowed += [label + ' ' + waiver for waiver in waivers]
-            archive_findings += compare_archive(reference, current, provider_map(index), recipe_dependencies(recipe))
+            changes, waivers = member_waivers(package, compare_archive(reference, current, provider_map(index), recipe_dependencies(recipe)), allowlist)
+            archive_findings += changes
+            archive_allowed += waivers
             lost = sorted(set(reference['needed']) - set(current['needed']))
             if lost:
                 print('OBSERVATION lost NEEDED: ' + ', '.join(lost))
@@ -591,6 +626,17 @@ def main():
                 if name in index['packages']:
                     raise ValueError(f'stale new-package allowance for {name}: the reference carries it')
                 print(f'ALLOW new package {name}: absent from lineage {index["lineage_id"]}; {reason}')
+            for name, kind, member, direction, reason in allowlist:
+                if kind != 'archive-member':
+                    continue
+                row = index['packages'].get(name)
+                if row is None:
+                    raise ValueError(f'stale archive-member allowance for {name}: the reference does not carry the package')
+                if direction == 'added' and member in row['members']:
+                    raise ValueError(f'stale archive-member allowance for {name}: the reference already carries {member}')
+                if direction == 'removed' and member not in row['members']:
+                    raise ValueError(f'stale archive-member allowance for {name}: the reference does not carry {member}')
+                print(f'ALLOW {name}: ARCHIVE {direction} member {member} against reference lineage {index["lineage_id"]}; {reason}')
             missing = [name for name, row in index['packages'].items() if not row['logs']]
             for name in missing:
                 print('COVERAGE missing transcript: ' + name + '; transcript check fails closed')

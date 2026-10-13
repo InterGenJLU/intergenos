@@ -369,3 +369,90 @@ def test_validate_refuses_a_stale_new_package_allowance(gate, tmp_path):
     assert code == 0
     assert 'ALLOW new package sample: absent from lineage fixture; added after the lineage' in output
     assert 'VALID reference lineage fixture' in output
+
+
+def test_archive_member_allowance_is_exact(gate, tmp_path):
+    path = tmp_path / 'allowlist'
+    path.write_text('sample\tarchive-member: added usr/bin/sample\tr2 ships the command\n'
+                    'sample\tarchive-member: removed usr/sbin/old\tr2 drops the setuid helper\n')
+    assert gate.load_allowlist(path) == [('sample', 'archive-member', 'usr/bin/sample', 'added', 'r2 ships the command'),
+                                         ('sample', 'archive-member', 'usr/sbin/old', 'removed', 'r2 drops the setuid helper')]
+    for body in ['samp*\tarchive-member: added usr/bin/sample\treason\n',         # a glob package
+                 'sample\tarchive-member: changed usr/bin/sample\treason\n',      # not a direction
+                 'sample\tarchive-member: added usr/bin/*\treason\n',             # a glob member
+                 'sample\tarchive-member: added etc/sample.conf\treason\n',       # not a shipped member
+                 'sample\tarchive-member: added ./usr/bin/sample\treason\n',      # not the normalized path
+                 'sample\tarchive-member: added usr/bin/../bin/sample\treason\n',
+                 'sample\tarchive-member: added\treason\n']:
+        path.write_text(body)
+        with pytest.raises(ValueError):
+            gate.load_allowlist(path)
+
+
+def test_member_waivers_name_one_member_in_one_direction(gate):
+    before, after = snapshots()
+    after['members'] = ['usr/bin/gui', 'usr/bin/sample', 'usr/sbin/tool']
+    findings = gate.compare_archive(before, after, {}, set())
+    assert len(findings) == 2
+    entries = [('sample', 'archive-member', 'usr/bin/gui', 'added', 'r2 ships the gui')]
+    remaining, allowed = gate.member_waivers('sample', findings, entries)
+    assert remaining == ['ARCHIVE added member at unchanged version: usr/sbin/tool']
+    assert allowed == ['ARCHIVE added member at unchanged version: usr/bin/gui; allowlisted: r2 ships the gui']
+    assert gate.member_waivers('other', findings, entries) == (findings, [])
+    wrong_direction = [('sample', 'archive-member', 'usr/bin/gui', 'removed', 'wrong direction')]
+    assert gate.member_waivers('sample', findings, wrong_direction) == (findings, [])
+    after['members'] = []
+    removal = gate.compare_archive(before, after, {}, set())
+    assert removal == ['ARCHIVE removed member at unchanged version: usr/bin/sample']
+    dropped = [('sample', 'archive-member', 'usr/bin/sample', 'removed', 'r2 drops it')]
+    assert gate.member_waivers('sample', removal, dropped) == ([], [removal[0] + '; allowlisted: r2 drops it'])
+    after['needed'] = ['libc.so.6', 'liboptional.so.1']
+    gained = gate.compare_archive(before, after, {}, set())
+    assert gate.member_waivers('sample', gained, dropped)[0] == [item for item in gained if 'NEEDED' in item]
+
+
+def reference_with_sample(gate, tmp_path, members, lineage='fixture'):
+    archive = tmp_path / 'lineage-sample.tar.gz'
+    make_archive(archive, [(member, b'script') for member in members])
+    row = gate.archive_snapshot(archive)
+    row['release'], row['logs'] = '1', {}
+    index = tmp_path / 'reference.json'
+    index.write_text(json.dumps(dict(schema=2, lineage_id=lineage, member_count=1, packages={'sample': row})))
+    recipe = tmp_path / 'package.yml'
+    recipe.write_text("name: sample\nversion: '1'\nrelease: 2\ndescription: sample\nlicense: MIT\nbuild_style: custom\nsource: []\n")
+    return index, recipe
+
+
+def test_an_intended_member_change_needs_its_exact_allowance(gate, tmp_path):
+    index, recipe = reference_with_sample(gate, tmp_path, ['usr/bin/sample', 'usr/bin/old'])
+    archive = tmp_path / 'sample-1-2.igos.tar.gz'
+    make_archive(archive, [('usr/bin/sample', b'script'), ('usr/bin/new', b'script')])
+    allowlist = tmp_path / 'allowlist'
+    check = ('check', '--signal', 'archive', '--package', 'sample', '--recipe', str(recipe),
+             '--archive', str(archive), '--index', str(index), '--allowlist', str(allowlist))
+    allowlist.write_text('# nothing named\n')
+    code, output = run_gate(*check)
+    assert code == 1
+    assert 'RED sample: ARCHIVE added member at unchanged version: usr/bin/new' in output
+    assert 'RED sample: ARCHIVE removed member at unchanged version: usr/bin/old' in output
+    allowlist.write_text('sample\tarchive-member: added usr/bin/new\tr2 ships the new command\n')
+    code, output = run_gate(*check)
+    assert code == 1
+    assert 'ALLOW sample: ARCHIVE added member at unchanged version: usr/bin/new; allowlisted: r2 ships the new command' in output
+    assert 'RED sample: ARCHIVE removed member at unchanged version: usr/bin/old' in output
+    allowlist.write_text('sample\tarchive-member: added usr/bin/new\tr2 ships the new command\n'
+                         'sample\tarchive-member: removed usr/bin/old\tr2 drops the old command\n')
+    code, output = run_gate(*check)
+    assert code == 0, output
+    assert 'GREEN sample: archive; 0 findings, 2 allowlisted' in output
+    validate = ('validate', '--index', str(index), '--allowlist', str(allowlist))
+    code, output = run_gate(*validate)
+    assert code == 0, output
+    assert 'ALLOW sample: ARCHIVE added member usr/bin/new against reference lineage fixture; r2 ships the new command' in output
+    assert 'ALLOW sample: ARCHIVE removed member usr/bin/old against reference lineage fixture; r2 drops the old command' in output
+    for body, fragment in [('sample\tarchive-member: added usr/bin/sample\treason\n', 'already carries usr/bin/sample'),
+                           ('sample\tarchive-member: removed usr/bin/new\treason\n', 'does not carry usr/bin/new'),
+                           ('other\tarchive-member: added usr/bin/x\treason\n', 'does not carry the package')]:
+        allowlist.write_text(body)
+        code, output = run_gate(*validate)
+        assert code == 2 and 'stale archive-member allowance' in output and fragment in output
