@@ -304,3 +304,68 @@ def test_a_question_containing_checking_twice_is_not_interleaved(gate):
     answers, coverage = gate.read_transcript('checking for compiler option needed when checking for declarations... none\nchecking use login and su access checking if PAM not used... no\n')
     assert coverage is None
     assert answers == {'use login and su access checking if PAM not used': ['no']}
+
+
+def reference_without_sample(gate, tmp_path, lineage='fixture'):
+    archive = tmp_path / 'other.tar.gz'
+    make_archive(archive, [('usr/bin/other', b'script')])
+    row = gate.archive_snapshot(archive)
+    row['name'], row['logs'] = 'other', {}
+    index = tmp_path / 'reference.json'
+    index.write_text(json.dumps(dict(schema=2, lineage_id=lineage, member_count=1, packages={'other': row})))
+    recipe = tmp_path / 'package.yml'
+    recipe.write_text("name: sample\nversion: '1'\nrelease: 2\ndescription: sample\nlicense: MIT\nbuild_style: custom\nsource: []\n")
+    log = tmp_path / 'sample-20260101-000000.log'
+    log.write_text('checking for optional.h... yes\n')
+    return index, recipe, log
+
+
+def run_gate(*arguments):
+    result = subprocess.run([sys.executable, '-I', str(GATE), *arguments], capture_output=True, text=True)
+    return result.returncode, result.stdout + result.stderr
+
+
+def test_new_package_allowance_is_exact_and_lineage_bound(gate, tmp_path):
+    path = tmp_path / 'allowlist'
+    path.write_text('sample\tnew-package: fixture\tadded after the lineage\n')
+    assert gate.load_allowlist(path) == [('sample', 'new-package', 'fixture', 'absent', 'added after the lineage')]
+    for body in ['samp*\tnew-package: fixture\treason\n', 'sample\tnew-package: \treason\n']:
+        path.write_text(body)
+        with pytest.raises(ValueError):
+            gate.load_allowlist(path)
+
+
+def test_a_package_absent_from_the_reference_fails_closed_unless_named(gate, tmp_path):
+    index, recipe, log = reference_without_sample(gate, tmp_path)
+    allowlist = tmp_path / 'allowlist'
+    check = ('check', '--signal', 'both', '--package', 'sample', '--recipe', str(recipe),
+             '--log', str(log), '--index', str(index), '--allowlist', str(allowlist))
+    for body in ['# nothing named\n', 'sample\tnew-package: elsewhere\tanother lineage\n']:
+        allowlist.write_text(body)
+        code, output = run_gate(*check)
+        assert code == 2 and 'missing reference package: sample' in output
+    allowlist.write_text('sample\tnew-package: fixture\tadded after the lineage\n')
+    code, output = run_gate(*check)
+    assert code == 0
+    assert 'ALLOW sample: TRANSCRIPT new package absent from reference lineage fixture; added after the lineage' in output
+    assert 'ALLOW sample: ARCHIVE new package absent from reference lineage fixture' in output
+    assert 'GREEN sample: both; 0 findings, 2 allowlisted' in output
+    code, output = run_gate(*check[:2], 'transcript', *check[3:])
+    assert code == 0 and output.count('ALLOW sample') == 1
+    assert 'GREEN sample: transcript; 0 findings, 1 allowlisted' in output
+
+
+def test_validate_refuses_a_stale_new_package_allowance(gate, tmp_path):
+    index, recipe, log = reference_without_sample(gate, tmp_path)
+    allowlist = tmp_path / 'allowlist'
+    validate = ('validate', '--index', str(index), '--allowlist', str(allowlist))
+    for body, fragment in [('other\tnew-package: fixture\tbut the reference carries it\n', 'the reference carries it'),
+                           ('sample\tnew-package: elsewhere\twrong lineage\n', 'is not the staged reference fixture')]:
+        allowlist.write_text(body)
+        code, output = run_gate(*validate)
+        assert code == 2 and 'stale new-package allowance' in output and fragment in output
+    allowlist.write_text('sample\tnew-package: fixture\tadded after the lineage\n')
+    code, output = run_gate(*validate)
+    assert code == 0
+    assert 'ALLOW new package sample: absent from lineage fixture; added after the lineage' in output
+    assert 'VALID reference lineage fixture' in output

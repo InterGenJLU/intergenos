@@ -9,6 +9,10 @@ Only index generation reads the archive corpus and historical logs. Pre-flight
 stages the private reference in build/; checking validates its lineage identity
 and declared record count and prints its SHA256. An independent --pin is optional.
 The public tree contains the checker and reasoned allowances, not reference data. Missing inputs and unreadable ELF data fail closed (exit 2).
+A package the reference lineage never built has nothing to compare against until a
+fresh build records it; until then an exact `new-package: <lineage>` allowance names it
+with its reason, every check of it prints the allowance, and validate refuses an entry
+that is stale (its package present in the reference, or its lineage not the staged one).
 Unallowlisted answer flips and undeclared gained libraries are RED (exit 1).
 Executable/library member changes are RED at an unchanged recipe version.
 An answer appearing on only one side is not a flip. Repeated questions compare
@@ -109,6 +113,11 @@ def load_allowlist(path):
             if any(character in package for character in '*?[]'):
                 raise ValueError(f'{path}:{number}: archive-only needs an exact package')
             entries.append((package, 'archive-only', '', '', reason))
+        elif check.startswith('new-package: '):
+            lineage = check.removeprefix('new-package: ').strip()
+            if not lineage or any(character in package for character in '*?[]'):
+                raise ValueError(f'{path}:{number}: new-package needs an exact package and the reference lineage it is absent from')
+            entries.append((package, 'new-package', lineage, 'absent', reason))
         elif check.startswith('archive-unreadable: '):
             member = check.removeprefix('archive-unreadable: ')
             if normalized_member(member) != member or any(character in package + member for character in '*?[]'):
@@ -121,6 +130,11 @@ def load_allowlist(path):
             question, before, after = match.groups()
             entries.append((package, question, before, after, reason))
     return entries
+
+
+def new_package_reasons(package, index, allowlist):
+    return [reason for name, kind, lineage, _, reason in allowlist
+            if name == package and kind == 'new-package' and lineage == index['lineage_id']]
 
 
 def compare_transcript(package, reference, current, allowlist):
@@ -444,10 +458,20 @@ def check(args, index):
     package = args.package
     if package not in (recipe.name, recipe.ships_as):
         raise ValueError(f'package {package} does not match recipe {recipe.name}')
-    if package not in index['packages']:
-        raise ValueError('missing reference package: ' + package)
-    reference = index['packages'][package]
     allowlist = load_allowlist(args.allowlist)
+    if package not in index['packages']:
+        reasons = new_package_reasons(package, index, allowlist)
+        if not reasons:
+            raise ValueError('missing reference package: ' + package)
+        signals = ('transcript', 'archive') if args.signal == 'both' else (args.signal,)
+        for signal in signals:
+            print(f'ALLOW {package}: {signal.upper()} new package absent from reference lineage {index["lineage_id"]}; '
+                  + '; '.join(reasons) + '; nothing compared until a fresh build records it')
+            print(f'GREEN {package}: {signal}; 0 findings, 1 allowlisted')
+        if args.signal == 'both':
+            print(f'GREEN {package}: both; 0 findings, {len(signals)} allowlisted')
+        return 0
+    reference = index['packages'][package]
     findings, allowed = [], []
     setup_errors = []
     if args.signal in ('transcript', 'both'):
@@ -558,6 +582,15 @@ def main():
         index = load_index(args.index, args.pin)
         load_allowlist(args.allowlist)
         if args.command == 'validate':
+            allowlist = load_allowlist(args.allowlist)
+            for name, kind, lineage, _, reason in allowlist:
+                if kind != 'new-package':
+                    continue
+                if lineage != index['lineage_id']:
+                    raise ValueError(f'stale new-package allowance for {name}: lineage {lineage} is not the staged reference {index["lineage_id"]}')
+                if name in index['packages']:
+                    raise ValueError(f'stale new-package allowance for {name}: the reference carries it')
+                print(f'ALLOW new package {name}: absent from lineage {index["lineage_id"]}; {reason}')
             missing = [name for name, row in index['packages'].items() if not row['logs']]
             for name in missing:
                 print('COVERAGE missing transcript: ' + name + '; transcript check fails closed')
@@ -565,7 +598,7 @@ def main():
                 for phase, log in row['logs'].items():
                     if log['coverage']:
                         print(f'COVERAGE {name} {phase}: interleaved configure output at line {log["coverage"]["line"]}; transcript check fails closed unless reviewed as archive-only')
-                errors, waivers = archive_coverage(name, row, load_allowlist(args.allowlist))
+                errors, waivers = archive_coverage(name, row, allowlist)
                 for error in errors:
                     print('COVERAGE ' + name + ': ' + error + '; archive check fails closed')
                 for waiver in waivers:

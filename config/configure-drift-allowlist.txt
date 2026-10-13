@@ -1,4 +1,7 @@
 # Package glob<TAB>check selector<TAB>reason
+# Selectors: "transcript: <question> :: <before> -> <after>" (one answer flip; the package may be a glob);
+# "transcript: archive-only" (exact package; its lineage transcript interleaves parallel configure output, the sealed-archive signal is its verdict);
+# "archive-unreadable: <member>" (exact package and path); "new-package: <lineage>" (exact package the named reference lineage never built; nothing is compared until a fresh build records it, and validate refuses the entry once the reference carries the package).
 bash	transcript: for tgetent in -ltinfo :: no -> yes	libtinfo resolves to the same wide ncurses SONAME through the compatibility link.
 readline	transcript: for tgetent in -ltinfo :: no -> yes	libtinfo resolves to the same wide ncurses SONAME through the compatibility link.
 less	transcript: for tgetent in -ltinfo :: no -> yes	libtinfo resolves to the same wide ncurses SONAME through the compatibility link.
