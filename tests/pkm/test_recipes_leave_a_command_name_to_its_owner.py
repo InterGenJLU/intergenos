@@ -12,11 +12,16 @@ kinds of file are fixed at their recipes:
   checker, /usr/lib/erlang/bin/typer, while the Python `typer` package ships
   its command line there as a regular file. On a build root the Python
   script was written through erlang's link into erlang's own tool.
+* /usr/bin/unzip — libarchive's recipe linked it to bsdunzip, while Info-ZIP
+  unzip ships its program there as a regular file. On a default installation
+  /usr/bin/bsdunzip turned out to hold Info-ZIP's unzip, written through the
+  link at install time.
 
 The command name stays with the package that ships a program by that name:
-erlang's tool stays at /usr/lib/erlang/bin/typer. These tests run each
-recipe's own do_install against a stand-in `make` that lays down what the
-upstream install lays down, and read what the recipe leaves in DESTDIR.
+erlang's tool stays at /usr/lib/erlang/bin/typer and libarchive's at
+/usr/bin/bsdunzip. These tests run each recipe's own do_install against a
+stand-in `make` that lays down what the upstream install lays down, and read
+what the recipe leaves in DESTDIR.
 """
 import os
 import subprocess
@@ -58,6 +63,16 @@ for tool in erl erlc escript dialyzer typer ct_run; do
 done
 '''
 
+# libarchive's `make install`: bsdtar, bsdcpio, bsdcat and bsdunzip in
+# /usr/bin, no `unzip` of its own.
+LIBARCHIVE_MAKE = r'''
+d="${DESTDIR:?}"
+mkdir -p "$d/usr/bin"
+for tool in bsdtar bsdcpio bsdcat bsdunzip; do
+    printf 'ELF %s\n' "$tool" > "$d/usr/bin/$tool"
+done
+'''
+
 
 def test_erlang_does_not_install_usr_bin_typer(tmp_path):
     destdir = _run_do_install(tmp_path, "extra/erlang", ERLANG_MAKE)
@@ -70,3 +85,11 @@ def test_erlang_does_not_install_usr_bin_typer(tmp_path):
         link = destdir / "usr" / "bin" / tool
         assert link.is_symlink(), tool
         assert os.readlink(link) == f"../lib/erlang/bin/{tool}"
+
+
+def test_libarchive_does_not_install_usr_bin_unzip(tmp_path):
+    destdir = _run_do_install(tmp_path, "core/libarchive", LIBARCHIVE_MAKE)
+
+    assert not os.path.lexists(destdir / "usr" / "bin" / "unzip"), (
+        "/usr/bin/unzip is Info-ZIP unzip's program")
+    assert (destdir / "usr" / "bin" / "bsdunzip").is_file()
