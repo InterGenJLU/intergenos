@@ -110,3 +110,4 @@ intergen/tests/results/
 
 # CVP / vendor-program working material — never public
 cvp/
+build/gate-memo/
