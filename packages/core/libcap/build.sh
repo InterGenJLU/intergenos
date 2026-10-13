@@ -15,15 +15,21 @@ configure() {
 
 build() {
     set -e
-    make prefix=/usr lib=lib -j${IGOS_JOBS}
+    # captree is a Go program; libcap builds and installs it only when a Go
+    # toolchain is on PATH (Make.Rules auto-detects `go`). A from-scratch
+    # Chapter 8 build has none, so the package never carried it; a resume
+    # over a populated build root does, and the archive gained
+    # usr/sbin/captree. Pin the detection off so every build shape produces
+    # the same archive.
+    make prefix=/usr lib=lib GOLANG=no -j${IGOS_JOBS}
 }
 
 check() {
     set -e
-    make test
+    make GOLANG=no test
 }
 
 do_install() {
     set -e
-    make prefix=/usr lib=lib DESTDIR="$DESTDIR" RAISE_SETFCAP=no install
+    make prefix=/usr lib=lib GOLANG=no DESTDIR="$DESTDIR" RAISE_SETFCAP=no install
 }
