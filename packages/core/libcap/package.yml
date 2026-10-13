@@ -1,6 +1,6 @@
 name: libcap
 version: '2.77'
-release: 2  # r2: verify_paths covers setcap and getcap, the target-time programs required by capability-restoring package hooks.
+release: 3  # r3: the Go-built captree is pinned off (GOLANG=no on the build, test and install invocations) so the archive does not depend on whether a Go toolchain is installed on the build root; a from-scratch build never carried usr/sbin/captree and a resume over a populated root gained it at the unchanged version. r2: verify_paths covers setcap and getcap, the target-time programs required by capability-restoring package hooks.
 description: POSIX capabilities library
 license: BSD-3-Clause
 source:
