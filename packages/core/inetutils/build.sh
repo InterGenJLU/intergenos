@@ -13,7 +13,12 @@ configure() {
     # --disable-traceroute: the dedicated traceroute package (base tier) ships the
     # full-featured traceroute and owns /usr/bin/traceroute; inetutils' minimal one
     # would collide on that path.
+    # The 2026-10-12 resume found PAM headers absent in the original build.
+    # The library option does not guard the separate header probe, so
+    # pin both answers to keep the original non-PAM configuration.
     ./configure --prefix=/usr        \
+        --without-pam                \
+        ac_cv_header_security_pam_appl_h=no \
         --bindir=/usr/bin            \
         --localstatedir=/var         \
         --disable-logger             \
