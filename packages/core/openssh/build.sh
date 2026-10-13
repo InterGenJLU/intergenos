@@ -16,7 +16,15 @@ configure() {
                 --with-default-path=/usr/bin             \
                 --with-superuser-path=/usr/sbin:/usr/bin \
                 --with-pid-dir=/run                      \
-                --with-pam
+                --with-pam                               \
+                --without-xauth                          \
+                --without-security-key-builtin
+    # The last two make explicit what the from-scratch build decides by absence:
+    # configure would otherwise auto-detect xauth (compiling its path into sshd as
+    # the XAuthLocation default) and libfido2 (linking the builtin U2F/FIDO security-key
+    # support into ssh and ssh-sk-helper) whenever a populated build root carries them,
+    # so the shipped binaries would differ by build shape. Both are off, as in every
+    # release so far; enabling either is a product decision with its own release note.
 }
 
 build() {
