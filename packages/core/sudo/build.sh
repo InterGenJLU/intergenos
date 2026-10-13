@@ -7,7 +7,11 @@
 
 configure() {
     set -e
+    # The 2026-10-12 resume found a sendmail path installed after sudo.
+    # Keep the original build without a compiled-in mail transport;
+    # this option also prevents the automatic executable search.
     ./configure --prefix=/usr         \
+                --without-sendmail    \
                 --libexecdir=/usr/lib \
                 --with-secure-path    \
                 --with-env-editor     \
