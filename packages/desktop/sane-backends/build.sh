@@ -145,10 +145,19 @@ do_install() {
     install -Dm644 "$BUILD_DIR/files/usr/lib/systemd/system/saned@.service.d/20-hardening.conf" \
                    "$DESTDIR/usr/lib/systemd/system/saned@.service.d/20-hardening.conf"
 
-    # The lock directory's tmpfiles.d entry (see configure). The package
-    # manager's install hook runs systemd-tmpfiles over it.
+    # The lock directory's tmpfiles.d entry (see configure), and the accounts
+    # the shipped files name: the scanner access rule assigns GROUP="scanner"
+    # to every matched device, and the sharing daemon's unit runs as the
+    # `saned` user — neither is declared by upstream or by any other package,
+    # so the udev rule would name a group that does not exist (udev logs
+    # "unknown group" and leaves the device root-owned for anyone off the
+    # seat) and the deliberately enabled sharing unit would fail to start
+    # ("Failed to determine user credentials"). The package manager's install
+    # hook runs systemd-sysusers and systemd-tmpfiles over the two fragments.
     install -Dm644 "$BUILD_DIR/files/usr/lib/tmpfiles.d/sane-backends.conf" \
                    "$DESTDIR/usr/lib/tmpfiles.d/sane-backends.conf"
+    install -Dm644 "$BUILD_DIR/files/usr/lib/sysusers.d/sane-backends.conf" \
+                   "$DESTDIR/usr/lib/sysusers.d/sane-backends.conf"
 
     # What this package must be true about, asserted against what was staged.
     #
@@ -207,6 +216,39 @@ do_install() {
             exit 1
         fi
     done
+
+    # 5. Every group the scanner access rule assigns is one this package
+    #    declares, read from the STAGED rule (comment lines carry an example
+    #    with GROUP="root" and are not rules).
+    _rule_groups="$(grep -v '^#' "$DESTDIR/usr/lib/udev/rules.d/60-libsane.rules" \
+                    | grep -o 'GROUP="[^"]*"' | sort -u | tr '\n' ' ')"
+    if [ "$_rule_groups" != 'GROUP="scanner" ' ]; then
+        echo "ERROR: the staged scanner access rule assigns a group this package" >&2
+        echo "       does not declare: ${_rule_groups}" >&2
+        exit 1
+    fi
+    if ! grep -qE '^g[[:space:]]+scanner[[:space:]]' "$DESTDIR/usr/lib/sysusers.d/sane-backends.conf"; then
+        echo "ERROR: the sysusers.d fragment does not declare the scanner group" >&2
+        echo "       the access rule assigns." >&2
+        exit 1
+    fi
+
+    # 6. The sharing daemon's unit runs as an account this package declares,
+    #    read from the STAGED unit, so that enabling the unit cannot fail on a
+    #    user that does not exist.
+    _unit_user="$(sed -n 's/^User=//p' "$DESTDIR/usr/lib/systemd/system/saned@.service")"
+    _unit_group="$(sed -n 's/^Group=//p' "$DESTDIR/usr/lib/systemd/system/saned@.service")"
+    if [ "$_unit_user" != "saned" ] || [ "$_unit_group" != "saned" ]; then
+        echo "ERROR: the staged saned@.service runs as '${_unit_user}:${_unit_group}'," >&2
+        echo "       not the saned account the sysusers.d fragment declares." >&2
+        exit 1
+    fi
+    if ! grep -qE '^u[[:space:]]+saned[[:space:]]' "$DESTDIR/usr/lib/sysusers.d/sane-backends.conf" \
+       || ! grep -qE '^m[[:space:]]+saned[[:space:]]+scanner([[:space:]]|$)' "$DESTDIR/usr/lib/sysusers.d/sane-backends.conf"; then
+        echo "ERROR: the sysusers.d fragment does not declare the saned account" >&2
+        echo "       as a member of the scanner group the device rule assigns." >&2
+        exit 1
+    fi
 
     # The staged frontend links the staged library, and neither is installed
     # on the machine running this build, so the loader is pointed at the

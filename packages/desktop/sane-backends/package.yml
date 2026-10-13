@@ -53,3 +53,4 @@ verify_paths:
   - /usr/lib/systemd/system/saned@.service.d/20-hardening.conf
   - /etc/sane.d/dll.conf
   - /usr/lib/tmpfiles.d/sane-backends.conf
+  - /usr/lib/sysusers.d/sane-backends.conf
