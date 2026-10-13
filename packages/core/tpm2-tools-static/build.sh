@@ -151,6 +151,9 @@ build() {
     (
         set -e
         cd "${tpm2_tss_dir}"
+        # The 2026-10-12 resume found libusb installed after this build.
+        # The SPI LTT2GO opt-out guards both the library and header
+        # probes in tpm2-tss; the device TCTI remains enabled.
         PKG_CONFIG_PATH="${STAGING_DIR}/lib/pkgconfig" \
         CFLAGS="-I${STAGING_DIR}/include" \
         LDFLAGS="-L${STAGING_DIR}/lib" \
@@ -166,7 +169,8 @@ build() {
             --disable-tcti-mssim \
             --disable-tcti-swtpm \
             --disable-tcti-pcap \
-            --disable-tcti-cmd
+            --disable-tcti-cmd \
+            --disable-tcti-spi-ltt2go
         make -j"${IGOS_JOBS}"
         make install
     )

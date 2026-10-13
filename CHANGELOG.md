@@ -24,6 +24,7 @@ landed is in the repository README, not here.
 
 - Targeted build resumes skip current installed Chapter 8, core-extra and base packages, using each sealed archive's recipe version and release; explicit package restarts still rebuild their target.
 - Tracked builds compare configure detections and sealed archive contents with a staged reference, stop on unapproved drift, and record a new reference candidate during a fresh checkpointed build.
+- Keep the staged TPM library from auto-enabling the libusb transport during a resumed build.
 - Keep staged device-mapper configuration independent of XFS, AIO and NVMe packages installed later in the build.
 - Keep Linux-PAM NIS support and its library dependencies independent of later build-root packages.
 - Build sudo without auto-detecting a mail transport from the populated build root.
