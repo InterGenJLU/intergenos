@@ -13,6 +13,7 @@ archive-carried files must pass; an empty archives corpus is a LOUD skip
 import contextlib
 import importlib.util
 import io
+import json
 import os
 import sqlite3
 import sys
@@ -20,6 +21,7 @@ import tarfile
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -68,6 +70,10 @@ class ChrootArchiveUnionGateTest(unittest.TestCase):
         conn.commit()
         conn.close()
         self.db = db
+        self.memo_dir = Path(self.tmp.name) / "memo"
+        patcher = mock.patch.object(self.mod, "MEMO_DIR", self.memo_dir, create=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def _write(self, rel, content=b"x"):
         p = self.chroot / rel
@@ -159,6 +165,176 @@ class ChrootArchiveUnionGateTest(unittest.TestCase):
         with self.assertRaises(SystemExit) as ctx:
             self._run()
         self.assertEqual(ctx.exception.code, 2)
+
+
+    def memo_archive(self):
+        self._write("usr/bin/ls", b"elf")
+        return _make_archive(self.archives, "coreutils", "9.9", {"usr/bin/ls": b"elf"})
+
+    def memo_path(self):
+        return self.memo_dir / "chroot-archive-union.json"
+
+    def test_memo_unchanged_preserves_pass_and_counts(self):
+        self.memo_archive()
+        rc, first = self._run()
+        self.assertEqual(rc, 0, first)
+        self.assertIn("union: 1 archives listed, 0 memoized (unchanged)", first)
+        with mock.patch.object(self.mod, "_list_members", side_effect=AssertionError("unexpected listing")):
+            rc, second = self._run()
+        self.assertEqual(rc, 0, second)
+        self.assertIn("union: 0 archives listed, 1 memoized (unchanged)", second)
+        self.assertEqual([x for x in first.splitlines() if "union:" not in x],
+                         [x for x in second.splitlines() if "union:" not in x])
+
+    def test_memo_chroot_scan_still_refuses_new_stray(self):
+        self.memo_archive()
+        self._run()
+        self._write("usr/lib/stray.so")
+        rc, out = self._run()
+        self.assertEqual(rc, 1, out)
+        self.assertIn("/usr/lib/stray.so", out)
+        self.assertIn("0 archives listed, 1 memoized", out)
+
+    def test_memo_database_classification_still_changes(self):
+        self.memo_archive()
+        self._write("usr/lib/stray.so")
+        self._run()
+        self._db_own("usr/lib/stray.so")
+        rc, out = self._run()
+        self.assertEqual(rc, 1, out)
+        self.assertIn("stub class", out)
+        self.assertIn("0 archives listed, 1 memoized", out)
+
+    def test_memo_rewritten_archive_same_path(self):
+        self.memo_archive()
+        self._run()
+        _make_archive(self.archives, "coreutils", "9.9", {"usr/bin/different": b"new"})
+        rc, out = self._run()
+        self.assertEqual(rc, 1, out)
+        self.assertIn("/usr/bin/ls", out)
+        self.assertIn("1 archives listed, 0 memoized", out)
+
+    def test_memo_nanosecond_mtime_change(self):
+        archive = self.memo_archive()
+        self._run()
+        st = archive.stat()
+        os.utime(archive, ns=(st.st_atime_ns, st.st_mtime_ns + 1))
+        _, out = self._run()
+        self.assertIn("1 archives listed, 0 memoized", out)
+
+    def test_memo_same_size_rewrite_with_restored_mtime(self):
+        archive = self.memo_archive()
+        self._run()
+        st = archive.stat()
+        archive.write_bytes(b"!" + archive.read_bytes()[1:])
+        os.utime(archive, ns=(st.st_atime_ns, st.st_mtime_ns))
+        self.assertEqual(archive.stat().st_size, st.st_size)
+        self.assertEqual(archive.stat().st_mtime_ns, st.st_mtime_ns)
+        rc, out = self._run()
+        self.assertEqual(rc, 1, out)
+        self.assertIn("unreadable sealed archive", out)
+        self.assertIn("1 archives listed, 0 memoized", out)
+
+    def test_memo_changed_during_listing_not_saved(self):
+        self.memo_archive()
+        read = self.mod._list_members
+        def changing(archive):
+            result = read(archive)
+            path = Path(archive)
+            st = path.stat()
+            os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns + 1))
+            return result
+        with mock.patch.object(self.mod, "_list_members", changing):
+            rc, out = self._run()
+        self.assertEqual(rc, 0, out)
+        self.assertIn("archive changed during read", out)
+        self.assertEqual(json.loads(self.memo_path().read_text())["entries"], {})
+
+    def test_memo_new_and_removed_archive(self):
+        original = self.memo_archive()
+        self._run()
+        extra = _make_archive(self.archives, "extra", "1", {"usr/bin/extra": b"x"})
+        _, out = self._run()
+        self.assertIn("1 archives listed, 1 memoized", out)
+        extra.unlink()
+        self._write("usr/bin/extra")
+        rc, out = self._run()
+        self.assertEqual(rc, 1, out)
+        self.assertIn("/usr/bin/extra", out)
+        self.assertIn("0 archives listed, 1 memoized", out)
+        memo = json.loads(self.memo_path().read_text())
+        self.assertEqual(set(memo["entries"]), {str(original.resolve())})
+
+    def test_memo_reader_hash_change(self):
+        self.memo_archive()
+        self._run()
+        with mock.patch.object(self.mod._state, "reader_hash", return_value="e" * 64):
+            _, out = self._run()
+        self.assertIn("reader hash changed", out)
+        self.assertIn("1 archives listed, 0 memoized", out)
+
+    def test_memo_no_memo_rewrites(self):
+        self.memo_archive()
+        self._run()
+        rc, out = self._run(["--no-memo"])
+        self.assertEqual(rc, 0, out)
+        self.assertIn("1 archives listed, 0 memoized", out)
+        _, out = self._run()
+        self.assertIn("0 archives listed, 1 memoized", out)
+
+    def test_memo_invalid_json_rebuilds(self):
+        self.memo_archive()
+        self._run()
+        self.memo_path().write_text('{"entries":')
+        rc, out = self._run()
+        self.assertEqual(rc, 0, out)
+        self.assertIn("memo ignored", out)
+        self.assertIn("1 archives listed, 0 memoized", out)
+        json.loads(self.memo_path().read_text())
+
+    def test_memo_invalid_payload_rebuilds(self):
+        self.memo_archive()
+        self._run()
+        memo = json.loads(self.memo_path().read_text())
+        next(iter(memo["entries"].values()))["value"] = {"not": "members"}
+        self.memo_path().write_text(json.dumps(memo))
+        rc, out = self._run()
+        self.assertEqual(rc, 0, out)
+        self.assertIn("memo ignored", out)
+        self.assertIn("1 archives listed, 0 memoized", out)
+
+    def test_memo_unreadable_file_rebuilds(self):
+        self.memo_archive()
+        self._run()
+        read_text = Path.read_text
+        def read(path, *args, **kwargs):
+            if path == self.memo_path():
+                raise PermissionError("fixture memo unreadable")
+            return read_text(path, *args, **kwargs)
+        with mock.patch.object(Path, "read_text", read):
+            rc, out = self._run()
+        self.assertEqual(rc, 0, out)
+        self.assertIn("memo ignored", out)
+        self.assertIn("PermissionError", out)
+        self.assertIn("1 archives listed, 0 memoized", out)
+
+    def test_memo_write_failure_keeps_verdict(self):
+        self.memo_archive()
+        self.memo_dir.write_text("not a directory")
+        rc, out = self._run()
+        self.assertEqual(rc, 0, out)
+        self.assertIn("memo not written", out)
+        self.assertIn("1 archives listed, 0 memoized", out)
+
+    def test_memo_corrupt_archive_never_hides_violation(self):
+        archive = self.memo_archive()
+        self._run()
+        archive.write_bytes(b"not a tar archive")
+        for _ in range(2):
+            rc, out = self._run()
+            self.assertEqual(rc, 1, out)
+            self.assertIn("unreadable sealed archive", out)
+            self.assertIn("1 archives listed, 0 memoized", out)
 
 
 if __name__ == "__main__":

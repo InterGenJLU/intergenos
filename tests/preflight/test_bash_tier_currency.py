@@ -7,6 +7,8 @@ run_package lines, the from-scratch self-skip, and setup-error exits.
 
 import importlib.util
 import io
+import json
+import os
 import sqlite3
 import tempfile
 import unittest
@@ -50,6 +52,10 @@ class BashTierCurrencyTest(unittest.TestCase):
         (self.scripts / "chroot-build-base.sh").write_text(
             'run_package htop\n')
         self.mod = _load()
+        self.memo_dir = base / "memo"
+        patcher = mock.patch.object(self.mod._state, "MEMO_DIR", self.memo_dir, create=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def tearDown(self):
         self._tmp.cleanup()
@@ -154,6 +160,173 @@ class BashTierCurrencyTest(unittest.TestCase):
         rc, out = self.run_main("--start-at", "desktop")
         self.assertEqual(rc, 0, out)
         self.assertNotIn("orphan-pkg", out)
+
+
+    def memo_archive(self):
+        self.add_recipe("core", "zlib", "1.3.1", 2)
+        return make_archive(self.archives, "zlib", "1.3.1", 2)
+
+    def memo_path(self):
+        return self.memo_dir / "bash-tier-headers.json"
+
+    def test_memo_unchanged_preserves_pass_and_counts(self):
+        self.memo_archive()
+        rc, first = self.run_main("--start-at", "desktop")
+        self.assertEqual(rc, 0, first)
+        self.assertIn("currency: 1 archives read, 0 memoized (unchanged)", first)
+        with mock.patch.object(self.mod._state, "read_pkginfo", side_effect=AssertionError("unexpected read")):
+            rc, second = self.run_main("--start-at", "desktop")
+        self.assertEqual(rc, 0, second)
+        self.assertIn("currency: 0 archives read, 1 memoized (unchanged)", second)
+        self.assertEqual([x for x in first.splitlines() if "currency:" not in x],
+                         [x for x in second.splitlines() if "currency:" not in x])
+
+    def test_memo_stale_verdict_recomputed(self):
+        self.memo_archive()
+        self.run_main("--start-at", "desktop")
+        recipe = self.packages / "core/zlib/package.yml"
+        recipe.write_text(recipe.read_text().replace("release: 2", "release: 3"))
+        rc, out = self.run_main("--start-at", "desktop")
+        self.assertEqual(rc, 1, out)
+        self.assertIn("REFUSE: zlib", out)
+        self.assertIn("0 archives read, 1 memoized", out)
+
+    def test_memo_rewritten_archive_same_path(self):
+        archive = self.memo_archive()
+        self.run_main("--start-at", "desktop")
+        replacement = make_archive(self.archives, "zlib", "1.3.1", 1)
+        replacement.replace(archive)
+        rc, out = self.run_main("--start-at", "desktop")
+        self.assertEqual(rc, 1, out)
+        self.assertIn("REFUSE: zlib", out)
+        self.assertIn("1 archives read, 0 memoized", out)
+
+    def test_memo_nanosecond_mtime_change(self):
+        archive = self.memo_archive()
+        self.run_main()
+        st = archive.stat()
+        os.utime(archive, ns=(st.st_atime_ns, st.st_mtime_ns + 1))
+        _, out = self.run_main()
+        self.assertIn("1 archives read, 0 memoized", out)
+
+    def test_memo_same_size_rewrite_with_restored_mtime(self):
+        archive = self.memo_archive()
+        self.run_main()
+        st = archive.stat()
+        archive.write_bytes(b"!" + archive.read_bytes()[1:])
+        os.utime(archive, ns=(st.st_atime_ns, st.st_mtime_ns))
+        self.assertEqual(archive.stat().st_size, st.st_size)
+        self.assertEqual(archive.stat().st_mtime_ns, st.st_mtime_ns)
+        rc, out = self.run_main("--start-at", "desktop")
+        self.assertEqual(rc, 1, out)
+        self.assertIn("REFUSE: zlib", out)
+        self.assertIn("1 archives read, 0 memoized", out)
+
+    def test_memo_changed_during_read_not_saved(self):
+        archive = self.memo_archive()
+        read = self.mod._state.read_pkginfo
+        def changing(path):
+            info = read(path)
+            st = path.stat()
+            os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns + 1))
+            return info
+        with mock.patch.object(self.mod._state, "read_pkginfo", changing):
+            rc, out = self.run_main()
+        self.assertEqual(rc, 0, out)
+        self.assertIn("archive changed during read", out)
+        self.assertEqual(json.loads(self.memo_path().read_text())["entries"], {})
+
+    def test_memo_new_and_removed_archive(self):
+        original = self.memo_archive()
+        self.run_main()
+        newer = make_archive(self.archives, "zlib", "1.3.1", 3)
+        _, out = self.run_main()
+        self.assertIn("1 archives read, 1 memoized", out)
+        newer.unlink()
+        rc, out = self.run_main("--start-at", "desktop")
+        self.assertEqual(rc, 0, out)
+        self.assertIn("0 archives read, 1 memoized", out)
+        memo = json.loads(self.memo_path().read_text())
+        self.assertEqual(set(memo["entries"]), {str(original.resolve())})
+
+    def test_memo_reader_hash_change(self):
+        self.memo_archive()
+        self.run_main()
+        with mock.patch.object(self.mod._state, "reader_hash", return_value="f" * 64):
+            _, out = self.run_main()
+        self.assertIn("reader hash changed", out)
+        self.assertIn("1 archives read, 0 memoized", out)
+
+    def test_memo_no_memo_rewrites(self):
+        self.memo_archive()
+        self.run_main()
+        rc, out = self.run_main("--no-memo")
+        self.assertEqual(rc, 0, out)
+        self.assertIn("1 archives read, 0 memoized", out)
+        _, out = self.run_main()
+        self.assertIn("0 archives read, 1 memoized", out)
+
+    def test_memo_invalid_json_rebuilds(self):
+        self.memo_archive()
+        self.run_main()
+        self.memo_path().write_text('{"entries":')
+        rc, out = self.run_main()
+        self.assertEqual(rc, 0, out)
+        self.assertIn("memo ignored", out)
+        self.assertIn("1 archives read, 0 memoized", out)
+        json.loads(self.memo_path().read_text())
+
+    def test_memo_invalid_payload_rebuilds(self):
+        self.memo_archive()
+        self.run_main()
+        memo = json.loads(self.memo_path().read_text())
+        next(iter(memo["entries"].values()))["value"] = ["not a header"]
+        self.memo_path().write_text(json.dumps(memo))
+        rc, out = self.run_main()
+        self.assertEqual(rc, 0, out)
+        self.assertIn("memo ignored", out)
+        self.assertIn("1 archives read, 0 memoized", out)
+
+    def test_memo_unreadable_file_rebuilds(self):
+        self.memo_archive()
+        self.run_main()
+        read_text = Path.read_text
+        def read(path, *args, **kwargs):
+            if path == self.memo_path():
+                raise PermissionError("fixture memo unreadable")
+            return read_text(path, *args, **kwargs)
+        with mock.patch.object(Path, "read_text", read):
+            rc, out = self.run_main()
+        self.assertEqual(rc, 0, out)
+        self.assertIn("memo ignored", out)
+        self.assertIn("PermissionError", out)
+        self.assertIn("1 archives read, 0 memoized", out)
+
+    def test_memo_write_failure_keeps_verdict(self):
+        self.memo_archive()
+        self.memo_dir.write_text("not a directory")
+        rc, out = self.run_main()
+        self.assertEqual(rc, 0, out)
+        self.assertIn("memo not written", out)
+        self.assertIn("1 archives read, 0 memoized", out)
+
+    def test_memo_strict_reader_rejects_corrupt_archive(self):
+        archive = self.memo_archive()
+        self.run_main()
+        archive.write_bytes(b"not a tar archive")
+        with self.assertRaisesRegex(ValueError, "cannot read package identity"):
+            self.mod._state.newest_archives(self.archives, strict=True)
+
+    def test_memo_different_store_does_not_reuse_header(self):
+        self.memo_archive()
+        self.run_main()
+        other = self.chroot / "other"
+        other.mkdir()
+        make_archive(other, "zlib", "1.3.1", 1)
+        with mock.patch.object(self.mod._state, "read_pkginfo", wraps=self.mod._state.read_pkginfo) as reader:
+            newest = self.mod._state.newest_archives(other)
+        self.assertEqual(reader.call_count, 1)
+        self.assertEqual(newest["zlib"][:2], ("1.3.1", 1))
 
 
 if __name__ == "__main__":
