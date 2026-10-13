@@ -47,6 +47,10 @@ Empty-chroot semantics: a substrate without a populated archives corpus
 SELF-SKIPS LOUDLY (exit 0 with an explicit SKIP line). The orchestrator
 fires it fail-closed on RESUME_CONTEXT (populated-substrate) launches.
 
+Archive member lists are memoized under build/gate-memo by archive identity
+and reader bytes. Every invocation scans the chroot and reads the DB and
+allowlist anew. --no-memo lists every archive and rewrites the memo.
+
 Exit 0 clean or loud-skip, 1 on violations, 2 on usage/setup errors.
 """
 
@@ -66,6 +70,12 @@ from collections import defaultdict
 # default (measured red in this gate's own test suite before switching).
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+
+MEMO_DIR = Path(__file__).resolve().parent.parent / "build/gate-memo"
+_spec = importlib.util.spec_from_file_location(
+    "archive_memo_state", Path(__file__).with_name("bash-tier-build-state.py"))
+_state = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_state)
 
 # Same out-of-scope set as the Step 4.85 ownership gate: pseudo-fs mounts,
 # the source cache, and runtime-trash prefixes. mnt/intergenos and
@@ -120,6 +130,8 @@ def main() -> int:
                     help="parallel archive-listing workers")
     ap.add_argument("--max-report", type=int, default=25,
                     help="max violations printed per group")
+    ap.add_argument("--no-memo", action="store_true", help="list every archive and rewrite the memo")
+    ap.add_argument("--memo-dir", type=Path, default=MEMO_DIR)
     args = ap.parse_args()
 
     if not args.chroot.is_dir():
@@ -155,12 +167,30 @@ def main() -> int:
     t0 = time.monotonic()
     union: set[str] = set()
     unreadable: list[str] = []
+    memo = _state.ArchiveMemo(args.memo_dir / "chroot-archive-union.json",
+                              _state.reader_hash(__file__, _state.__file__),
+                              lambda value: isinstance(value, list) and all(
+                                  isinstance(member, str) for member in value),
+                              no_memo=args.no_memo)
+    pending = {}
+    hits = 0
+    for archive in archives:
+        identity, members = memo.lookup(archive)
+        if members is None:
+            pending[archive] = identity
+        else:
+            hits += 1
+            union.update(members)
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        for archive, members, err in pool.map(_list_members, archives,
+        for archive, members, err in pool.map(_list_members, pending,
                                               chunksize=4):
             if err:
                 unreadable.append(f"{os.path.basename(archive)}: {err}")
+            else:
+                memo.remember(archive, pending[archive], members)
             union.update(members)
+    memo.save()
+    print(f"union: {len(pending)} archives listed, {hits} memoized (unchanged)")
     listing_s = time.monotonic() - t0
 
     violations: dict[str, list[str]] = defaultdict(list)
