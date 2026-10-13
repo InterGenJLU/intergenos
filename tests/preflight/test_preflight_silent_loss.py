@@ -1255,3 +1255,14 @@ class TestPackageMemo(unittest.TestCase):
         self.assertTrue(first["rescued"])
         first.pop("memo"); second.pop("memo")
         self.assertEqual(json.dumps(first), json.dumps(second))
+
+    def test_audit_record_keyed_by_recipe_directory_rescans(self):
+        aliased = self.yml.parent.with_name("foo-core")
+        self.yml.parent.rename(aliased)
+        self.yml = aliased / "package.yml"
+        self.sql("CREATE TABLE package_audit (name TEXT, notes TEXT); INSERT INTO package_audit VALUES ('foo-core', 'before');")
+        self.run_gate()
+        self.sql("UPDATE package_audit SET notes = 'after' WHERE name = 'foo-core';")
+        rc, out = self.run_gate()
+        self.assertEqual(rc, 1, out)
+        self.assert_rescanned(out)

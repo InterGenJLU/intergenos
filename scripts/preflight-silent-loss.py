@@ -297,7 +297,8 @@ class PackageMemo:
                 columns = [column[0] for column in cursor.description]
                 name_idx = columns.index("name")
                 for row in cursor:
-                    values = [value.hex() if isinstance(value, bytes) else value for value in row]
+                    values = [{"blob": value.hex()} if isinstance(value, bytes) else value
+                              for value in row]
                     self.audit.setdefault(row[name_idx], []).append(values)
             else:
                 columns = []
@@ -351,7 +352,8 @@ class PackageMemo:
             return None
         try:
             parse_template, template_hash = self.builder_fns
-            recipe_hash = template_hash(parse_template(yml), self.repo / "build/sources")
+            recipe = parse_template(yml)
+            recipe_hash = template_hash(recipe, self.repo / "build/sources")
             if not recipe_hash:
                 raise ValueError("builder returned an empty template hash")
             return _memo_digest({
@@ -360,7 +362,9 @@ class PackageMemo:
                 "log": [log.name, _file_digest(log),
                         hashlib.sha256(log_text.encode()).hexdigest()],
                 "recipe": [str(yml.relative_to(self.repo)), _file_digest(yml), recipe_hash],
-                "blfs_dependencies": blfs_deps, "audit": self.audit.get(pkg),
+                "blfs_dependencies": blfs_deps,
+                "audit": {name: self.audit.get(name)
+                          for name in sorted({pkg, yml.parent.name, recipe.name})},
                 "superseder": self.superseders.get(pkg),
             })
         except Exception as exc:
