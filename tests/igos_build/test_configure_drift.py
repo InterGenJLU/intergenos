@@ -27,13 +27,18 @@ def executor(tmp_path):
     return result
 
 
+@pytest.mark.parametrize('direct_install', [False, True])
 @pytest.mark.parametrize('refused', ['transcript', 'archive', None])
-def test_both_signals_order_and_fatality(tmp_path, monkeypatch, refused):
+def test_both_signals_order_and_fatality(tmp_path, monkeypatch, refused, direct_install):
     ex = executor(tmp_path)
     template = tmp_path / 'packages/core/sample/package.yml'
     template.parent.mkdir(parents=True); template.write_text('name: sample\n')
-    pkg = make_package(name='sample', template_path=template)
+    pkg = make_package(name='sample', template_path=template, direct_install=direct_install)
     events = []
+    monkeypatch.setattr(ex, '_snapshot_prune', lambda: set())
+    monkeypatch.setattr(ex, 'fs_snapshot', lambda **kwargs: {})
+    monkeypatch.setattr(ex, 'diff_new_files', lambda *args: [])
+    archive_method = 'pkg_archive_from_files' if direct_install else 'pkg_archive'
     style = SimpleNamespace(
         all_phases=lambda pkg: [SimpleNamespace(name=name, commands=[name]) for name in ('configure', 'build', 'check', 'install')],
         post_install=lambda pkg: SimpleNamespace(commands=[]))
@@ -44,6 +49,7 @@ def test_both_signals_order_and_fatality(tmp_path, monkeypatch, refused):
     monkeypatch.setattr(ex, 'pkg_configure_drift', lambda pkg, signal: events.append('gate:' + signal) or signal != refused, raising=False)
     for method in ['overlay_package_files', 'bundle_license', 'run_validation', 'pkg_elf_audit',
                    'pkg_time64_audit', 'pkg_manifest', 'pkg_archive', 'pkg_deploy', 'pkg_verify',
+                   'pkg_manifest_from_diff', 'pkg_archive_from_files', '_auto_derive_verify_paths',
                    'pkg_register_pkm_db', '_force_root_ownership', '_auto_derive_verify_paths_from_staging',
                    '_retire_superseded_archives', '_remove_failed_tracking_artifacts']:
         monkeypatch.setattr(ex, method, lambda *args, method=method, **kwargs: events.append(method) or True)
@@ -52,15 +58,18 @@ def test_both_signals_order_and_fatality(tmp_path, monkeypatch, refused):
     assert events.index('check') < events.index('gate:transcript')
     if refused == 'transcript':
         assert 'install' not in events
-        assert 'pkg_archive' not in events
+        assert archive_method not in events
     else:
         assert events.index('gate:transcript') < events.index('install')
-        assert events.index('pkg_archive') < events.index('gate:archive')
+        assert events.index(archive_method) < events.index('gate:archive')
         if refused == 'archive':
+            assert 'pkg_verify' not in events
             assert 'pkg_deploy' not in events
             assert 'pkg_register_pkm_db' not in events
         else:
-            assert events.index('gate:archive') < events.index('pkg_deploy')
+            assert events.index('gate:archive') < events.index('pkg_verify')
+            if not direct_install:
+                assert events.index('gate:archive') < events.index('pkg_deploy')
     if refused:
         assert '_remove_failed_tracking_artifacts' in events
 
