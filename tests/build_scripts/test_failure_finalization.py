@@ -76,6 +76,7 @@ igos_progress_end() { printf 'PACKAGE_EXIT:%s:%s\n' "$1" "$2"; }
                 setup += function(text, "phase_failure_exit", optional=True) + "\n"
                 setup += function(text, "cleanup") + "\n"
                 setup += 'SCRIPTS="$FIXTURE/absent"\npkill() { :; }\ntrap cleanup SIGTERM\n'
+                setup += function(text, "configure_drift_record_tier", optional=True) + "\n"
                 setup += function(text, "run_phase") + "\n"
                 setup += "fixture_phase() {\n" + body + "\n}\n"
                 setup += 'run_phase core "fixture phase" fixture_phase\n'

@@ -1,0 +1,229 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 InterGenJLU
+"""Execute the real shell hook functions over disposable inputs."""
+import os
+from pathlib import Path
+import re
+import shlex
+import subprocess
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def function(file, name):
+    text = (ROOT / 'scripts' / file).read_text()
+    match = re.search(rf'^{name}\(\) \{{\n.*?^\}}$', text, re.M | re.S)
+    assert match, f'{file} must define {name}'
+    return match.group()
+
+
+def run(tmp_path, body, env=None):
+    script = tmp_path / 'fixture.sh'
+    script.write_text('set -eu\nset -o pipefail\n' + body)
+    return subprocess.run(['/usr/bin/bash', str(script)], cwd=tmp_path,
+                          env={**os.environ, **(env or {})}, text=True,
+                          capture_output=True, timeout=15)
+
+
+def shell_vars(**values):
+    return ''.join(f'{key}={shlex.quote(str(value))}\n' for key, value in values.items())
+
+
+@pytest.mark.parametrize('driver,builder', [
+    ('chroot-build-ch8.sh', 'build_ch8_package'),
+    ('chroot-build-core-extra.sh', 'build_core_package'),
+    ('chroot-build-base.sh', 'build_base_package'),
+])
+@pytest.mark.parametrize('verdict', [0, 1])
+def test_transcript_hook_precedes_install_and_halts(driver, builder, verdict, tmp_path):
+    package = tmp_path / 'sample'; package.mkdir()
+    (package / 'build.sh').write_text('configure() { :; }\nbuild() { :; }\ncheck() { :; }\n')
+    logs = tmp_path / 'logs'; logs.mkdir()
+    body = shell_vars(IGOS_PACKAGES=tmp_path, IGOS_LOGS=logs, IGOS_SOURCES=tmp_path,
+                      IGOS_TRACE_LIB_LOADED=0, PKG_PHASE_RC=0, VERDICT=verdict)
+    body += r'''
+log() { printf '%s\n' "$*"; }
+get_package_sha256() { printf 'fixture\n'; }
+verify_source_checksum() { :; }
+extract_source() { :; }
+apply_package_patches() { :; }
+lib32_env_scrub() { :; }
+source_profile_d() { :; }
+pkg_run_phase() { PKG_PHASE_RC=0; printf 'PHASE %s\n' "$1"; }
+pkg_trace_finish() { :; }
+get_package_release() { printf '1\n'; }
+pkg_configure_drift() { printf 'GATE %s\n' "$1"; return "$VERDICT"; }
+pkg_install() { printf 'INSTALLED\n'; }
+rm() { :; }
+mkdir() { :; }
+cd() { :; }
+'''
+    body += function(driver, builder) + f'\n{builder} sample sample 1 fixture.tar.gz fixture\n'
+    result = run(tmp_path, body)
+    output = result.stdout + result.stderr
+    assert 'GATE transcript' in output, output
+    assert output.index('PHASE check') < output.index('GATE transcript')
+    if verdict:
+        assert result.returncode != 0, output
+        assert 'INSTALLED' not in output
+    else:
+        assert result.returncode == 0, output
+        assert output.index('GATE transcript') < output.index('INSTALLED')
+
+
+@pytest.mark.parametrize('verdict', [0, 1])
+def test_archive_hook_precedes_deploy_and_registration(verdict, tmp_path):
+    body = shell_vars(IGOS_TRACE_LIB_LOADED=0, PKG_CONFIGURE_DRIFT_REQUIRED=1,
+                      IGOS_PKG_ARCHIVES=tmp_path, IGOS_PKG_DB=tmp_path, VERDICT=verdict)
+    body += r'''
+pkg_log() { :; }
+pkg_init() { :; }
+pkg_stage() { :; }
+pkg_manifest() { printf marker > "$IGOS_PKG_DB/$1-$2"; }
+pkg_archive() { printf archive > "$IGOS_PKG_ARCHIVES/$1-$2-$3.igos.tar.gz"; printf 'SEALED\n'; }
+pkg_configure_drift() { printf 'GATE %s %s\n' "$1" "$3"; return "$VERDICT"; }
+pkg_deploy() { printf 'DEPLOYED\n'; }
+pkg_run_pkm_single_flight() { printf 'REGISTERED\n'; }
+pkg_retire_superseded_archives() { :; }
+pkg_cleanup() { :; }
+pkm() { :; }
+'''
+    body += function('pkg-functions.sh', 'pkg_install') + '\npkg_install sample 1 fixture 2\n'
+    result = run(tmp_path, body)
+    output = result.stdout + result.stderr
+    assert 'GATE archive' in output, output
+    assert 'sample-1-2.igos.tar.gz' in output
+    assert output.index('SEALED') < output.index('GATE archive')
+    if verdict:
+        assert result.returncode != 0
+        assert 'DEPLOYED' not in output
+        assert 'REGISTERED' not in output
+        assert not (tmp_path / 'sample-1').exists()
+        assert not (tmp_path / 'sample-1-2.igos.tar.gz').exists()
+        refused = list(tmp_path.glob('.configure-drift-failed.*'))
+        assert len(refused) == 1
+        assert (refused[0] / 'archive.failed').read_text() == 'archive'
+        assert (refused[0] / 'manifest.failed').read_text() == 'marker'
+    else:
+        assert result.returncode == 0, output
+        assert output.index('GATE archive') < output.index('DEPLOYED') < output.index('REGISTERED')
+
+
+def test_record_mode_writes_paths_without_python(tmp_path):
+    recipe = tmp_path / 'package.yml'; recipe.write_text('name: sample\n')
+    log = tmp_path / 'sample-ch8-20260101-000000.log'; log.write_text('checking for x... yes\n')
+    body = shell_vars(PKG_TEMPLATE_DIR=tmp_path, IGOS_CONFIGURE_DRIFT_MODE='record',
+                      IGOS_CONFIGURE_DRIFT_RECORD=tmp_path / 'records')
+    body += 'python3() { printf "UNEXPECTED PYTHON\\n"; return 42; }\n'
+    body += function('pkg-functions.sh', 'pkg_configure_drift')
+    body += '\npkg_configure_drift transcript sample ' + shlex.quote(str(log)) + '\n'
+    result = run(tmp_path, body)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'UNEXPECTED' not in result.stdout
+    assert (tmp_path / 'records/sample.tsv').read_text() == f'transcript\tsample\t{log}\t{recipe}\n'
+
+
+def test_enforce_missing_interpreter_is_red(tmp_path):
+    body = shell_vars(PKG_TEMPLATE_DIR=tmp_path, IGOS_CONFIGURE_DRIFT_MODE='enforce')
+    body += function('pkg-functions.sh', 'pkg_configure_drift')
+    body += '\nPATH=/absent\npkg_configure_drift transcript sample /absent\n'
+    result = run(tmp_path, body)
+    assert result.returncode != 0
+    assert 'RED configure-drift: python3 is absent' in result.stderr
+
+
+@pytest.mark.parametrize('checkpoint,start,populated,expected', [
+    ('true', '', False, 'record'), ('true', 'core', True, 'enforce'),
+    ('false', 'base', True, 'enforce'), ('true', '', True, 'refuse'),
+])
+def test_mode_is_fresh_record_or_resume_enforce(checkpoint, start, populated, expected, tmp_path):
+    (tmp_path / 'root').mkdir()
+    archive_dir = tmp_path / 'root/var/lib/igos/archives'
+    if populated:
+        archive_dir.mkdir(parents=True)
+        (archive_dir / 'sample-1.igos.tar.gz').write_bytes(b'populated')
+    (tmp_path / 'build').mkdir()
+    (tmp_path / 'build/configure-drift-reference.json').write_text('fixture reference')
+    body = shell_vars(CHECKPOINT=checkpoint, START_AT=start, IGOS=tmp_path / 'root',
+                      SCRIPTS=tmp_path / 'scripts', IGOS_TRACE_RUNID='fixture')
+    body += 'log() { printf "%s\\n" "$*"; }\npython3() { printf "VALIDATE %s\\n" "$*"; }\n'
+    body += function('build-intergenos.sh', 'configure_drift_setup')
+    body += '\nconfigure_drift_setup\nprintf "MODE %s\\n" "$IGOS_CONFIGURE_DRIFT_MODE"\n'
+    result = run(tmp_path, body)
+    output = result.stdout + result.stderr
+    if expected == 'refuse':
+        assert result.returncode != 0
+        assert 'requires an empty root' in output
+    else:
+        assert result.returncode == 0, output
+        assert f'MODE {expected}' in output
+        assert ('VALIDATE' in output) == (expected == 'enforce')
+        if expected == 'enforce':
+            assert (tmp_path / 'root/mnt/intergenos/build/configure-drift-reference.json').read_text() == 'fixture reference'
+
+
+def test_reference_validation_failure_halts_setup(tmp_path):
+    body = shell_vars(CHECKPOINT='false', START_AT='core', IGOS=tmp_path,
+                      SCRIPTS=tmp_path / 'scripts', IGOS_TRACE_RUNID='fixture')
+    body += 'log() { :; }\npython3() { return 2; }\n'
+    body += function('build-intergenos.sh', 'configure_drift_setup')
+    result = run(tmp_path, body + '\nconfigure_drift_setup\nprintf CONTINUED\n')
+    assert result.returncode == 2
+    assert 'CONTINUED' not in result.stdout
+
+
+def test_populated_root_without_archive_bank_cannot_record(tmp_path):
+    (tmp_path / 'root/usr').mkdir(parents=True)
+    body = shell_vars(CHECKPOINT='true', START_AT='', IGOS=tmp_path / 'root',
+                      SCRIPTS=tmp_path / 'scripts', IGOS_TRACE_RUNID='fixture')
+    body += 'log() { printf "%s\\n" "$*"; }\npython3() { return 0; }\n'
+    body += function('build-intergenos.sh', 'configure_drift_setup')
+    result = run(tmp_path, body + '\nconfigure_drift_setup\nprintf CONTINUED\n')
+    assert result.returncode != 0
+    assert 'requires an empty root' in result.stdout
+    assert 'CONTINUED' not in result.stdout
+
+
+def test_chroot_entry_forwards_only_named_gate_variables(tmp_path):
+    text = (ROOT / 'scripts/chroot-enter.sh').read_text()
+    entry = text[text.index('chroot "$IGOS" /usr/bin/env -i'):]
+    body = shell_vars(IGOS=tmp_path / 'root', TERM='dumb', HOST_TZ='UTC', JOBS=1,
+                      CHROOT_CMD='/bin/bash fixture.sh', IGOS_CONFIGURE_DRIFT_MODE='record',
+                      IGOS_CONFIGURE_DRIFT_INDEX='/reference with spaces/index.json',
+                      IGOS_CONFIGURE_DRIFT_RECORD='/records', UNRELATED_VALUE='not forwarded')
+    body += 'chroot() { printf "%s\\n" "$@"; }\n' + entry
+    result = run(tmp_path, body)
+    assert result.returncode == 0, result.stderr
+    args = result.stdout.splitlines()
+    assert 'IGOS_CONFIGURE_DRIFT_MODE=record' in args
+    assert 'IGOS_CONFIGURE_DRIFT_INDEX=/reference with spaces/index.json' in args
+    assert 'IGOS_CONFIGURE_DRIFT_RECORD=/records' in args
+    assert not any('UNRELATED_VALUE' in arg for arg in args)
+
+
+def test_host_records_a_candidate_after_each_selected_tier(tmp_path):
+    body = shell_vars(IGOS_CONFIGURE_DRIFT_MODE='record', IGOS=tmp_path / 'root',
+                      SCRIPTS=tmp_path / 'repo/scripts', IGOS_CONFIGURE_DRIFT_RECORD='/records', IGOS_TRACE_RUNID='fixture')
+    body += 'python3() { printf "%s\\n" "$@"; }\n'
+    body += function('build-intergenos.sh', 'configure_drift_record_tier')
+    for phase in ['core', 'core-extra', 'base', 'desktop', 'extra', 'compute', 'ai']:
+        body += '\nconfigure_drift_record_tier ' + phase
+    result = run(tmp_path, body)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines().count('record-index') == 7
+    assert result.stdout.splitlines().count(str(tmp_path / 'root/records')) == 7
+    assert str(tmp_path / 'repo/build/configure-drift-reference.json') in result.stdout
+
+
+def test_failed_root_inspection_cannot_select_record_mode(tmp_path):
+    (tmp_path / 'root').mkdir()
+    body = shell_vars(CHECKPOINT='true', START_AT='', IGOS=tmp_path / 'root',
+                      SCRIPTS=tmp_path / 'scripts', IGOS_TRACE_RUNID='fixture')
+    body += 'log() { printf "%s\\n" "$*"; }\nfind() { return 2; }\n'
+    body += function('build-intergenos.sh', 'configure_drift_setup')
+    result = run(tmp_path, body + '\nconfigure_drift_setup\nprintf CONTINUED\n')
+    assert result.returncode != 0
+    assert 'could not verify the empty root' in result.stdout
+    assert 'CONTINUED' not in result.stdout
