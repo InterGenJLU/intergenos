@@ -19,6 +19,7 @@ configure() {
           -Ddoc=disabled \
           -Dopenaptx=enabled \
           -Dlc3=disabled \
+          -Dldac=disabled \
           -Dgpl=enabled
 }
 
