@@ -1,7 +1,7 @@
 name: sed-core
 ships_as: sed  # ch8 dual-name twin — the driver archives this recipe under the ship name (chroot-build-ch8.sh run_package arg 2; runtime deps elsewhere may name 'sed')
 version: '4.10'
-release: 2  # r2: update GNU sed to 4.10 with matching source and documentation paths.
+release: 3  # r3: declares the acl and attr libraries sed links as runtime dependencies (4.10's gnulib copies extended attributes, so libattr joins libacl); the binary is unchanged, its dependency record is now true.  # r2: update GNU sed to 4.10 with matching source and documentation paths.
 description: GNU stream editor
 license: GPL-3.0-or-later
 source:
