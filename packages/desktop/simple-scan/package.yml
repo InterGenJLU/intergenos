@@ -1,6 +1,6 @@
 name: simple-scan
 version: "49.1"
-release: 1
+release: 2  # r2: the desktop entry's verify path names upstream's org.gnome.SimpleScan.desktop; r1 declared simple-scan.desktop, a file the install never produces, and the archive-seal gate refused the r1 archive.
 description: The desktop's scanning application
 license: GPL-3.0-or-later
 homepage: https://gitlab.gnome.org/GNOME/simple-scan
