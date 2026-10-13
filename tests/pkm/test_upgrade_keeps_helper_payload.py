@@ -228,6 +228,9 @@ class FakeInstaller:
         self.installed.append(name)
         return True, "Installed"
 
+    def refusal_before_replacing(self, name, archive_path, replacing):
+        return None
+
     def reattach_helper_payload(self, name):
         self.reattached.append(name)
         return True, f"Re-recorded {name}"

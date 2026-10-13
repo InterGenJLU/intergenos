@@ -2837,6 +2837,19 @@ def cmd_reinstall(db, args):
             archive_path = dl_result
             expected_sha = repo_pkg.get("sha256")
 
+        # --- the cross-package check, BEFORE the remove ---
+        # install() refuses an archive that would put a different kind of file
+        # where another installed package owns one, but by the time it runs
+        # here the remove below has already taken the installed copy away.
+        # The same check, read from the archive's headers, refuses first.
+        refusal = installer.refusal_before_replacing(
+            pkg_name, archive_path, replacing=pkg_name)
+        if refusal:
+            reporter.error(
+                f"cannot reinstall '{pkg_name}': {refusal}\nNothing was "
+                f"removed — '{pkg_name}' is still installed.")
+            sys.exit(1)
+
         # --- now safe to remove + reinstall ---
         # No pre-remove hook: the package is not going away. Remove-then-
         # install is how reinstall replaces the files, and a hook written
@@ -3592,6 +3605,21 @@ def cmd_upgrade(db, args):
                 f"{txn.format_vr(installed_pkg)} was available; rollback for "
                 f"this step relies on the chronicle restore point"
             )
+
+        # The cross-package check, BEFORE the remove: install() refuses an
+        # archive that would put a different kind of file where another
+        # installed package owns one, but it runs after the remove below has
+        # taken the installed release away. Read from the new archive's
+        # headers, the same check refuses while nothing has changed.
+        refusal = installer.refusal_before_replacing(
+            remote_pkg["name"], dl_result, replacing=installed_pkg["name"])
+        if refusal:
+            emit_error(
+                f"upgrading {installed_pkg['name']}: {refusal}\nNothing was "
+                f"removed — {installed_pkg['name']} "
+                f"{txn.format_vr(installed_pkg)} is still installed.")
+            failed_this_txn.append((installed_pkg["name"], refusal))
+            continue
 
         # Remove old, install new
         from .remover import PackageRemover

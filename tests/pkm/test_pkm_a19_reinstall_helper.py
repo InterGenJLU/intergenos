@@ -65,6 +65,7 @@ class ReinstallHelperRoutingTest(unittest.TestCase):
             Repo.return_value.get_package.return_value = {"sha256": "deadbeef"}
             Remover.return_value.remove.return_value = (True, "removed")
             Installer.return_value.install.return_value = (True, "installed")
+            Installer.return_value.refusal_before_replacing.return_value = None
             cli.cmd_reinstall(db, _args("bash"))
         prop.assert_not_called()
         Remover.return_value.remove.assert_called_once()

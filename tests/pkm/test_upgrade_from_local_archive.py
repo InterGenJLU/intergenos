@@ -118,6 +118,9 @@ class FakeInstaller:
             return False, "deploy failed (test)"
         return True, "Installed"
 
+    def refusal_before_replacing(self, name, archive_path, replacing):
+        return None
+
     def reattach_helper_payload(self, name):
         return True, ""
 

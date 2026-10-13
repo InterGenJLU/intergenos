@@ -241,6 +241,9 @@ class _Installer:
         self.calls.append({"name": name, "archive_path": archive_path})
         return self.result
 
+    def refusal_before_replacing(self, name, archive_path, replacing):
+        return None
+
 
 class _Remover:
     def __init__(self, db, root=None):

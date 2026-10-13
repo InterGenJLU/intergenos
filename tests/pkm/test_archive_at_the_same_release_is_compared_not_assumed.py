@@ -87,6 +87,9 @@ class FakeInstaller:
         self.calls.append({"name": name, **kw})
         return True, "installed"
 
+    def refusal_before_replacing(self, name, archive_path, replacing):
+        return None
+
 
 class FakeRemover:
     calls = []

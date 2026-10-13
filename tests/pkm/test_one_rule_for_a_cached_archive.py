@@ -212,6 +212,7 @@ class _ThreePaths:
              patch("pkm.cli._sha256", return_value=LOCAL_SHA):
             Installer.return_value._find_archive.return_value = archive
             Installer.return_value.install.return_value = (True, "installed")
+            Installer.return_value.refusal_before_replacing.return_value = None
             Remover.return_value.remove.return_value = (True, "removed")
             Repo.return_value.get_package.return_value = index_entry
             Repo.return_value.download_package.return_value = (True, DOWNLOADED)

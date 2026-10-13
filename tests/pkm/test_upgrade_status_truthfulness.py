@@ -105,6 +105,9 @@ class FakeInstaller:
             sidecars_out.extend(self.sidecars)
         return self.result
 
+    def refusal_before_replacing(self, name, archive_path, replacing):
+        return None
+
 
 class FakeRemover:
     def __init__(self, db, root=None):

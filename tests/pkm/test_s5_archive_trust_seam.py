@@ -174,6 +174,7 @@ class CmdReinstallVerifiesCache(unittest.TestCase):
                 True, "/var/cache/pkm/pkgs/bash-5.2.igos.tar.gz")
             Remover.return_value.remove.return_value = (True, "removed")
             Installer.return_value.install.return_value = (True, "installed")
+            Installer.return_value.refusal_before_replacing.return_value = None
             cli.cmd_reinstall(db, self._args("bash"))
             # install() was called with the DOWNLOADED archive + the index sha,
             # never the mismatched local cache.

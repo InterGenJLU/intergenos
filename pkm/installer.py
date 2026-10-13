@@ -601,6 +601,86 @@ def _unlink_existing_file_or_link(target):
             pass
 
 
+def _usrmerge_remaps(check_root):
+    """The UsrMerge prefix remaps a deploy onto ``check_root`` applies.
+
+    Detect UsrMerge symlinks so archive members can be remapped from <dir>/*
+    to <symlink-target>/*. Only top-level dirs that are CONVENTIONALLY
+    remapped under FHS UsrMerge are considered. If the check-root's /<entry>
+    doesn't exist or isn't a symlink, no remap happens for that prefix.
+    Returns {entry: target}, e.g. {"lib": "usr/lib"}. One definition, read by
+    the deploy (_safe_extract_tar) and by the pre-check that reads an
+    archive's headers (_archive_kinds), so the two cannot map a path apart.
+    """
+    remaps = {}
+    for entry in ("lib", "lib64", "bin", "sbin"):
+        link = Path(check_root) / entry
+        if link.is_symlink():
+            target = os.readlink(str(link))
+            # Conventional UsrMerge targets are relative (e.g., "usr/lib").
+            # Absolute targets would point outside dest at extraction time;
+            # only accept relative for safety.
+            if not target.startswith("/"):
+                # Strip trailing slash if any; normalize.
+                remaps[entry] = target.rstrip("/")
+    return remaps
+
+
+def _usrmerge_remap(path, remaps):
+    """A member path under the remaps of _usrmerge_remaps: `./` stripped, a
+    remapped top-level prefix replaced by its target, and None for the
+    top-level entry itself (the deploy drops it)."""
+    stripped = path[2:] if path.startswith("./") else path
+    for prefix, redirect in remaps.items():
+        if stripped == prefix or stripped == prefix + "/":
+            return None  # caller drops the entry
+        if stripped.startswith(prefix + "/"):
+            rest = stripped[len(prefix) + 1:]
+            return redirect + "/" + rest
+    return stripped  # unchanged (no prefix matched)
+
+
+def _archive_kinds(archive_path, root, name):
+    """An archive's non-directory entries as they will land on ``root``, read
+    from its headers without extracting or writing anything, and the
+    predecessors its staged manifest declares it supersedes.
+
+    Returns ({path: "file" | "link"}, [predecessor, ...]). The paths go
+    through the deploy's own UsrMerge remap, so they compare with the rows
+    install() records from its staged tree; archive metadata is left out as
+    it is there, and a hard link, which lands as a regular file, counts as
+    one. The manifest read is the one install() reads: the first, in sorted
+    order, of var/lib/igos/packages/<name>-*.
+    """
+    remaps = _usrmerge_remaps(root)
+    manifest_dir = "var/lib/igos/packages/"
+    kinds = {}
+    manifests = {}
+    with tarfile.open(str(archive_path), "r:gz") as tf:
+        for member in tf:
+            rel = _usrmerge_remap(member.name, remaps)
+            if rel is None:
+                continue
+            rel = rel.rstrip("/")
+            if not rel or rel == "." or member.isdir() or _is_archive_metadata(rel):
+                continue
+            kinds[rel] = "link" if member.issym() else "file"
+            leaf = rel[len(manifest_dir):]
+            if (member.isfile() and rel.startswith(manifest_dir)
+                    and "/" not in leaf and leaf.startswith(f"{name}-")):
+                manifests[rel] = member
+        supersedes = []
+        if manifests:
+            fh = tf.extractfile(manifests[sorted(manifests)[0]])
+            text = fh.read().decode("utf-8", "replace") if fh else ""
+            for line in text.splitlines():
+                if line.startswith("SUPERSEDES:"):
+                    value = line.split(":", 1)[1]
+                    supersedes = [s.strip() for s in value.split(",") if s.strip()]
+                    break
+    return kinds, supersedes
+
+
 def _safe_extract_tar(archive_path, dest, exclude_paths=None, usrmerge_root=None):
     """Extract a .tar.gz archive to dest using the PEP 706 'data' filter
     with two pkm-specific relaxations applied via a member-rewriting wrapper.
@@ -681,23 +761,7 @@ def _safe_extract_tar(archive_path, dest, exclude_paths=None, usrmerge_root=None
     # deploy extract that goes straight to self.root), dest IS the target
     # — use it.
     usrmerge_check_root = Path(usrmerge_root) if usrmerge_root is not None else Path(dest)
-
-    # Detect UsrMerge symlinks so we can remap archive members from
-    # <dir>/* to <symlink-target>/*. Only top-level dirs that are
-    # CONVENTIONALLY remapped under FHS UsrMerge are considered. If the
-    # check-root's /<entry> doesn't exist or isn't a symlink, no remap
-    # happens for that prefix.
-    usrmerge_remaps = {}
-    for entry in ("lib", "lib64", "bin", "sbin"):
-        link = usrmerge_check_root / entry
-        if link.is_symlink():
-            target = os.readlink(str(link))
-            # Conventional UsrMerge targets are relative (e.g., "usr/lib").
-            # Absolute targets would point outside dest at extraction time;
-            # only accept relative for safety.
-            if not target.startswith("/"):
-                # Strip trailing slash if any; normalize.
-                usrmerge_remaps[entry] = target.rstrip("/")
+    usrmerge_remaps = _usrmerge_remaps(usrmerge_check_root)
 
     def _strip_dot_slash(name):
         """Strip leading './' from tar member names so prefix logic is uniform."""
@@ -768,14 +832,7 @@ def _safe_extract_tar(archive_path, dest, exclude_paths=None, usrmerge_root=None
         # the hardlink's linkname, tar's hardlink-resolution looks up
         # the pre-remap path "lib/..." and raises KeyError.
         def _remap(path):
-            stripped = _strip_dot_slash(path)
-            for prefix, redirect in usrmerge_remaps.items():
-                if stripped == prefix or stripped == prefix + "/":
-                    return None  # caller drops the entry
-                if stripped.startswith(prefix + "/"):
-                    rest = stripped[len(prefix) + 1:]
-                    return redirect + "/" + rest
-            return stripped  # unchanged (no prefix matched)
+            return _usrmerge_remap(path, usrmerge_remaps)
 
         if usrmerge_remaps:
             remapped_name = _remap(member.name)
@@ -1124,10 +1181,10 @@ def _kind_change_refusal(name, kind_changes, shown=10):
         rest = count - shown
         lines.append(f"  and {rest} more path{'s' if rest != 1 else ''}")
     return (
-        f"Refusing to install {name}: {count} of its path"
-        f"{'s' if count != 1 else ''} would put a different kind of file where "
-        f"another installed package owns one, and that package would lose its "
-        f"file. Nothing was changed.\n" + "\n".join(lines)
+        f"Refusing to install {name}: {count} of its paths would put a "
+        f"different kind of file where another installed package owns one, "
+        f"and that package would lose its file. Nothing was changed.\n"
+        + "\n".join(lines)
     )
 
 
@@ -2619,11 +2676,37 @@ class PackageInstaller:
                 pass
         return hashes
 
+    def refusal_before_replacing(self, name, archive_path, replacing):
+        """install()'s cross-package refusal, for a caller that removes the
+        installed release BEFORE it installs the new one.
+
+        `pkm upgrade` and `pkm reinstall` remove ``replacing`` first and then
+        call install(), so install()'s own check would refuse only after the
+        remove had changed the system. This reads the archive's member list
+        (its headers; nothing is extracted or written), maps it onto the
+        target as the deploy does, and returns install()'s refusal message,
+        or None when the archive changes the kind of no other package's file.
+        ``replacing`` and the active predecessors the archive declares it
+        supersedes are not compared, as in install(). install() still runs
+        its own check afterwards and stays the authority.
+        """
+        kinds, supersedes = _archive_kinds(archive_path, self.root, name)
+        exempt = {replacing}
+        for pred in supersedes:
+            row = self.db.get_installed(pred)
+            if row and not row.get("superseded_by"):
+                exempt.add(pred)
+        kind_changes, _ = self._paths_other_packages_own(name, kinds, exempt)
+        if kind_changes:
+            return _kind_change_refusal(name, kind_changes)
+        return None
+
     def _paths_other_packages_own(self, name, kinds, exempt=()):
         """Compare an archive's paths with what OTHER installed packages own,
         before anything is written. ``kinds`` is {path: "file" | "link"} for
         the archive's non-directory entries as they will land on the target
-        (_staged_kinds of the staged tree).
+        (_staged_kinds of the staged tree, or _archive_kinds of the archive's
+        headers).
 
         Returns ``(kind_changes, co_owned)``. ``kind_changes`` lists, as
         ``(path, owner, member_kind, existing_kind)``, every path where the

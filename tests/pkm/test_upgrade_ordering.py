@@ -206,6 +206,8 @@ class _CmdUpgradeHarness(unittest.TestCase):
                           lambda db, **k: None), \
              patch.object(cli.PackageInstaller, "install",
                           side_effect=record_install, autospec=False), \
+             patch.object(cli.PackageInstaller, "refusal_before_replacing",
+                          return_value=None), \
              patch.object(pkm.repo, "REPO_PKG_CACHE", self.cache_dir), \
              patch.object(pkm.repo, "REPO_ROLLBACK_DIR", self.rollback_dir), \
              patch("pkm.remover.PackageRemover.remove",

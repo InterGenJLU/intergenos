@@ -166,6 +166,7 @@ class Part1ReinstallRefusesBeforeTouchingAnything(unittest.TestCase):
             Installer.return_value._find_archive.return_value = None
             Remover.return_value.remove.return_value = (True, "removed")
             Installer.return_value.install.return_value = (True, "installed")
+            Installer.return_value.refusal_before_replacing.return_value = None
             buf = io.StringIO()
             raised = None
             try:
@@ -280,6 +281,7 @@ class Part2ReleasesInTransactionLines(unittest.TestCase):
             Installer.return_value._find_archive.return_value = None
             Remover.return_value.remove.return_value = (True, "removed")
             Installer.return_value.install.return_value = (True, "installed")
+            Installer.return_value.refusal_before_replacing.return_value = None
             buf = io.StringIO()
             with redirect_stdout(buf):
                 cli.cmd_reinstall(db, _reinstall_args("forge"))
@@ -759,6 +761,7 @@ class Part8HelperFirstInstallContinues(unittest.TestCase):
             Installer.return_value._find_archive.return_value = Path(
                 "/var/lib/igos/archives/steam-1.0.igos.tar.gz")
             Installer.return_value.install.return_value = (True, "installed")
+            Installer.return_value.refusal_before_replacing.return_value = None
             Repo.return_value.get_package.return_value = _index_entry("steam")
             buf = io.StringIO()
             with redirect_stdout(buf):

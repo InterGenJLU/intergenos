@@ -329,6 +329,8 @@ class UpgradeWiringTests(_WiringHarness):
                           lambda db, **k: None), \
              patch.object(cli.PackageInstaller, "install",
                           side_effect=record_install, autospec=False), \
+             patch.object(cli.PackageInstaller, "refusal_before_replacing",
+                          return_value=None), \
              patch.object(pkm.repo, "REPO_PKG_CACHE", self.tmp / "cache"), \
              patch.object(pkm.repo, "REPO_ROLLBACK_DIR", self.tmp / "rb"), \
              patch("pkm.remover.PackageRemover.remove",
