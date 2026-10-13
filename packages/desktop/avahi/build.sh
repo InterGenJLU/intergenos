@@ -20,6 +20,7 @@ return; \
                 --localstatedir=/var \
                 --disable-static     \
                 --disable-libevent   \
+                --disable-doxygen-doc \
                 --disable-mono       \
                 --disable-monodoc    \
                 --disable-python     \
