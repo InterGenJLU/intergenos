@@ -1,6 +1,6 @@
 name: erlang
 version: "29.0.3"
-release: 1
+release: 2  # r2: the install no longer puts a /usr/bin/typer link to Erlang's type checker; the tool stays at /usr/lib/erlang/bin/typer, and the typer command name stays with the Python typer package, which ships its command line there as a regular file. On a build root that script had been written through the link into Erlang's own tool.
 description: Erlang/OTP concurrent programming language and runtime
 license: Apache-2.0
 homepage: https://www.erlang.org/

@@ -1,6 +1,6 @@
 name: unzip
 version: "6.0"
-release: 1
+release: 2  # r2: release only, no content change. The new release lays /usr/bin/unzip down again as Info-ZIP's regular file on systems that carry libarchive r1's link there (that release linked /usr/bin/unzip to bsdunzip; libarchive r2 ships no such link).
 description: Extractor for PKZIP-compatible .zip archives
 license: Info-ZIP
 homepage: https://infozip.sourceforge.net/UnZip.html
