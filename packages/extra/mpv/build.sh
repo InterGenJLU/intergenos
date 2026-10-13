@@ -19,7 +19,8 @@ configure() {
           -Dx11=enabled           \
           -Dwayland=enabled       \
           -Ddvdnav=enabled        \
-          -Dcdda=enabled
+          -Dcdda=enabled          \
+          -Dlua=disabled
 }
 
 build() {
