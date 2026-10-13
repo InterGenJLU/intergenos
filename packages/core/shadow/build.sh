@@ -53,7 +53,11 @@ configure() {
     # Needed because passwd location is hardcoded in some programs
     touch /usr/bin/passwd
 
+    # The 2026-10-12 resume found PAM installed after the Chapter 8 pass.
+    # Preserve the original non-PAM pass: this option guards the library,
+    # conversation function and header checks together in configure.ac.
     ./configure --sysconfdir=/etc   \
+        --without-libpam            \
         --disable-static            \
         --with-{b,yes}crypt         \
         --without-libbsd            \
