@@ -498,6 +498,52 @@ CREATE TABLE IF NOT EXISTS config_files (
 """
 
 
+def _log_holds_frames(db_path):
+    """True when pkm.db-wal exists beside the database and is not empty: the
+    log holds commits the database file may not have yet. A log this reader
+    cannot stat counts as absent; mode=ro could not open it either."""
+    try:
+        return os.stat(f"{db_path}-wal").st_size > 0
+    except OSError:
+        return False
+
+
+def open_read_only(db_path):
+    """Open the database for reading only. Returns (connection, mode).
+
+    While pkm.db-wal holds frames, `mode=ro`: it reads the write-ahead log,
+    so a row a command committed moments ago is seen at once. With no log,
+    or an empty one, the database file alone is complete, and `immutable=1`
+    reads it and touches nothing beside it — a read creates no pkm.db-wal or
+    pkm.db-shm. `immutable=1` is also the fallback where `mode=ro` cannot
+    open: it needs the log's index file (pkm.db-shm) to exist or to be
+    creatable beside the database. Every command that writes folds its log
+    into the database file at its end (PackageDB.checkpoint_wal), so the
+    file is what the last finished command committed.
+
+    `immutable=1` used to be the only read-only open. It never reads the
+    log, and measured on a build root 2026-10-13 a `pkm verify` run right
+    after `pkm install` answered "not installed" for 181 of 193 packages
+    whose rows were committed and still in the log.
+
+    The mode=ro open is proved with a read of the schema before it is used,
+    because SQLite opens lazily and an open that cannot work only says so
+    at its first statement.
+    """
+    if _log_holds_frames(db_path):
+        try:
+            conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        except sqlite3.OperationalError:
+            conn = None
+        if conn is not None:
+            try:
+                conn.execute("SELECT count(*) FROM sqlite_master").fetchone()
+                return conn, "ro"
+            except sqlite3.OperationalError:
+                conn.close()
+    return sqlite3.connect(f"file:{db_path}?immutable=1", uri=True), "immutable"
+
+
 class PackageDB:
     """Package database interface."""
 
@@ -519,6 +565,10 @@ class PackageDB:
         self.db_path = Path(db_path) if db_path else DB_PATH
         self.root = Path(root)
         self.read_only = read_only
+        # How a read-only open reached the database: "ro" (reads the
+        # write-ahead log) or "immutable" (the database file alone); None for
+        # a read-write open. See open_read_only().
+        self.read_mode = None
         # What the last import_manifests run REFUSED to act on, one line each.
         # A refusal is a finding: a manifest claiming a file it does not own
         # is exactly what an operator needs told, so `pkm import` prints these
@@ -532,18 +582,15 @@ class PackageDB:
         # read command (`pkm list`, `info`, `files`, ...) hit "attempt to write
         # a readonly database" at the WAL pragma and could not inspect their
         # own machine's packages without sudo. Prime Directive: a user must be
-        # able to read their own system state without root. `immutable=1` opens
-        # without touching the db, its -wal/-shm sidecars, or the parent dir —
-        # the only mode that works for a non-root reader of a root-owned WAL
-        # db. cli.py selects this for the read-only subcommands.
+        # able to read their own system state without root. cli.py selects
+        # this for the read-only subcommands; open_read_only() below says how
+        # it opens and why, and read_mode records which way it did.
         if read_only:
             if not self.db_path.exists():
                 raise FileNotFoundError(
                     f"pkm database does not exist at {self.db_path}."
                 )
-            self.conn = sqlite3.connect(
-                f"file:{self.db_path}?immutable=1", uri=True
-            )
+            self.conn, self.read_mode = open_read_only(self.db_path)
             self.conn.execute("PRAGMA foreign_keys = ON")
             # PKM-A31: a read-only (immutable) open CANNOT run the ALTER-TABLE
             # migrations below — so a DB created by an older pkm can be missing
@@ -692,6 +739,34 @@ class PackageDB:
         after = self.db_path.stat().st_size
         _emit_db_event("vacuum", bytes_before=before, bytes_after=after)
         return before, after
+
+    def checkpoint_wal(self):
+        """Fold the write-ahead log into the database file and truncate it.
+
+        The database runs in WAL mode, so a commit lands in pkm.db-wal and
+        reaches pkm.db itself only at a checkpoint. SQLite checkpoints on its
+        own when the LAST connection closes, which is not the same as when a
+        command ends: any other process holding the database open — a
+        reader, a monitor — keeps the log unfolded, and a reader that opens
+        the database file without its log (immutable=1: where mode=ro cannot
+        open, an older pkm, another tool) then reads the state before the
+        command. Measured on a build root 2026-10-13: 181 of 193 packages a
+        heal had just installed read as "not installed". Folded, the log is
+        empty, and pkm's own read-only open reads the file alone, creating
+        nothing beside it (open_read_only).
+
+        Every pkm command that writes calls this at its end (cli.py). Returns
+        SQLite's (busy, log frames, checkpointed frames); busy is 1 when
+        another connection's read held the fold up, and the caller says so.
+        Returns None for a read-only open, which wrote nothing and may not
+        checkpoint. A sqlite3.Error propagates: a connection that ends with
+        an uncommitted transaction cannot checkpoint, and that is the
+        caller's to report.
+        """
+        if self.read_only:
+            return None
+        row = self.conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+        return tuple(row) if row else None
 
     def _table_columns(self, table):
         """Set of column names present in `table`. Used so read queries tolerate

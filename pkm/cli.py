@@ -910,8 +910,11 @@ def _installed_version_string():
     unreadable database is a reason to say less, never to fail.
     """
     try:
-        from .database import DB_PATH
-        conn = sqlite3.connect(f"file:{DB_PATH}?immutable=1", uri=True)
+        from .database import DB_PATH, open_read_only
+        # The same read-only open every read command uses: the write-ahead
+        # log is read where it can be, so the release a `pkm upgrade pkm`
+        # committed a moment ago is the one printed.
+        conn, _mode = open_read_only(DB_PATH)
         try:
             row = conn.execute(
                 "SELECT version, release FROM installed WHERE name = 'pkm'"
@@ -1755,9 +1758,47 @@ def main():
             try:
                 rc = handler(db, args)
             finally:
-                db.close()
+                try:
+                    _fold_the_log(db)
+                finally:
+                    db.close()
         if rc:
             sys.exit(rc)
+
+
+def _fold_the_log(db):
+    """At the end of every command that opened the database for writing: fold
+    the write-ahead log into the database file (PackageDB.checkpoint_wal).
+
+    SQLite folds the log on its own only when the LAST connection closes, and
+    another process holding the database open keeps it from doing so; a
+    reader that opens the database file without its log then reads the state
+    before this command (measured on a build root 2026-10-13: 181 of 193
+    packages just installed read as "not installed"). Folding here makes the
+    file itself what this command committed, whoever else has it open.
+
+    A fold another connection's read holds up, or one that cannot run, is
+    reported in one line and changes nothing about the command's own result:
+    its changes are committed either way, and the next command that writes
+    folds them.
+    """
+    try:
+        result = db.checkpoint_wal()
+    except sqlite3.Error as e:
+        emit_warn(
+            f"the package database's write-ahead log was not folded into the "
+            f"database file at the end of this command ({e}). Its changes are "
+            f"committed; a reader that opens the database file without the "
+            f"log sees them after the next pkm command that changes "
+            f"something.")
+        return
+    if result is not None and result[0]:
+        emit_warn(
+            "the package database's write-ahead log was not folded into the "
+            "database file at the end of this command: another process was "
+            "reading the database. Its changes are committed; a reader that "
+            "opens the database file without the log sees them after the "
+            "next pkm command that changes something.")
 
 
 # ------------------------------------------------------------------
