@@ -555,21 +555,44 @@ def _read_helper_manifest(name, root=None):
     return manifest, None
 
 
-def _unlink_existing_regular_file(target):
-    """Unlink ``target`` iff it is an existing REGULAR file (not a directory or
-    symlink), so a subsequent in-place write lands on a fresh inode.
+def _unlink_existing_file_or_link(target):
+    """Unlink ``target`` iff it is an existing REGULAR file or SYMBOLIC LINK
+    (never a directory), so the regular-file member written next lands as a
+    fresh file AT ``target``.
 
-    This is the ETXTBSY guard for deploy-over-a-running-binary: opening a
-    currently-executing binary for writing raises OSError ETXTBSY, so we remove
-    the old inode first (the running process keeps its own reference to it).
-    Deliberately narrow — only regular files, so directories and symlinks keep
-    tarfile's existing extract semantics. Silently tolerates the file vanishing
-    between the lstat and the unlink (a concurrent-removal race); a genuine
-    write failure still surfaces from the extractall that follows.
+    Two defects share this one remedy.
+
+    ETXTBSY: opening a currently-executing binary for writing raises OSError
+    ETXTBSY, so the old inode is removed first (the running process keeps its
+    own reference to it).
+
+    A link at the member's path: tarfile writes a regular-file member with
+    open(path, "wb"), which FOLLOWS a symlink standing at that path, so the
+    member's bytes went into whatever file the link named. Measured on a build
+    root 2026-10-13: one package's archive carried a regular file at
+    usr/bin/typer, another installed package owned a link there into its own
+    tree, and the deploy rewrote that package's /usr/lib/erlang/bin/typer with
+    the first package's script. Unlinking removes the link itself; the file it
+    names is never opened.
+
+    Directories keep tarfile's own semantics (a directory member over an
+    existing directory or a directory link is the UsrMerge case). A regular
+    file that vanishes or cannot be removed is tolerated as before: the
+    extract that follows writes it in place or reports its own error. A link
+    that cannot be removed is NOT tolerated — the member would be written
+    through it — so the OSError propagates and the extract stops;
+    _safe_extract_tar reports it. Only a link removed concurrently between the
+    lstat and the unlink is tolerated, because nothing stands at the path then.
     """
     try:
         st = os.lstat(target)
     except OSError:
+        return
+    if stat.S_ISLNK(st.st_mode):
+        try:
+            os.unlink(target)
+        except FileNotFoundError:
+            pass
         return
     if stat.S_ISREG(st.st_mode):
         try:
@@ -807,22 +830,31 @@ def _safe_extract_tar(archive_path, dest, exclude_paths=None, usrmerge_root=None
             )
 
         result = tarfile.data_filter(member, path)
-        # Unlink-before-write (ETXTBSY guard). data_filter has now confirmed
-        # this member resolves WITHIN dest, so it is safe to touch the on-disk
-        # target. If a REGULAR FILE already exists there, unlink it first so
-        # extractall creates a FRESH inode instead of open()-ing the existing
-        # file for writing in place. Overwriting a currently-RUNNING binary in
-        # place raises OSError ETXTBSY ("Text file busy") — the redeploy-over-a-
+        # Unlink-before-write. data_filter has now confirmed this member
+        # resolves WITHIN dest, so it is safe to touch the on-disk target. If a
+        # REGULAR FILE or a SYMBOLIC LINK already stands there, unlink it first
+        # so extractall creates a FRESH regular file at the member's own path
+        # instead of open()-ing what is there for writing.
+        #
+        # A regular file: overwriting a currently-RUNNING binary in place
+        # raises OSError ETXTBSY ("Text file busy") — the redeploy-over-a-
         # live-binary case that stranded the llama-cpp r2 deploy (2026-07-07).
         # Unlinking a running executable is safe: the kernel keeps the old inode
         # alive for the running process while the new content lands at a new
         # inode. Every mainstream package manager unlinks first for this reason.
-        # Scoped to regular files — a running executable is the only ETXTBSY
-        # case, and leaving symlinks/dirs to tarfile's existing handling keeps
-        # the change behavior-neutral everywhere else. Best-effort: a genuine
-        # write error still surfaces from extractall.
+        #
+        # A link: open(path, "wb") follows it, so the member's bytes would be
+        # written into the file the link names — another package's file, as
+        # measured on a build root 2026-10-13 — or would create a file at the
+        # path a dangling link names. Removing the link first means a member is
+        # only ever written at its own path.
+        #
+        # Directories keep tarfile's own handling (the UsrMerge directory
+        # links depend on it). A link MEMBER needs nothing here: tarfile
+        # already unlinks whatever stands at a link member's path before it
+        # creates the link.
         if result is not None and result.isreg():
-            _unlink_existing_regular_file(os.path.join(path, result.name))
+            _unlink_existing_file_or_link(os.path.join(path, result.name))
         return result
 
     try:

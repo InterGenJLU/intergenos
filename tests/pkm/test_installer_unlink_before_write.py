@@ -13,6 +13,11 @@ RED (pre-fix): extracting over a running binary returns (False, "...Text file
 busy..."). GREEN (with the unlink): returns (True, "") and the new content lands
 while the process stays alive. A real running ELF (/bin/sleep) is used so the
 ETXTBSY is genuine, not simulated.
+
+The same helper also unlinks a symbolic link at a regular-file member's path,
+so the member is never written through it into the file the link names; that
+case is exercised end to end in
+tests/pkm/test_deploy_replaces_a_link_at_a_file_members_path.py.
 """
 from __future__ import annotations
 
@@ -28,7 +33,9 @@ import time
 import unittest
 from pathlib import Path
 
-from pkm.installer import _safe_extract_tar, _unlink_existing_regular_file
+from unittest import mock
+
+from pkm.installer import _safe_extract_tar, _unlink_existing_file_or_link
 
 
 def _tar_with_file(archive: Path, arcname: str, data: bytes, mode: int = 0o755):
@@ -42,7 +49,8 @@ def _tar_with_file(archive: Path, arcname: str, data: bytes, mode: int = 0o755):
 
 
 class UnlinkHelperTests(unittest.TestCase):
-    """The helper is surgical: it unlinks ONLY existing regular files."""
+    """The helper is surgical: it unlinks ONLY an existing regular file or
+    symbolic link, never a directory."""
 
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
@@ -53,26 +61,47 @@ class UnlinkHelperTests(unittest.TestCase):
     def test_unlinks_regular_file(self):
         f = self.tmp / "f"
         f.write_text("x")
-        _unlink_existing_regular_file(str(f))
+        _unlink_existing_file_or_link(str(f))
         self.assertFalse(f.exists())
 
     def test_leaves_directory_intact(self):
         d = self.tmp / "d"
         d.mkdir()
-        _unlink_existing_regular_file(str(d))
+        _unlink_existing_file_or_link(str(d))
         self.assertTrue(d.is_dir())
 
-    def test_leaves_symlink_intact(self):
+    def test_unlinks_a_symlink_never_its_target(self):
         target = self.tmp / "t"
         target.write_text("x")
         link = self.tmp / "s"
         os.symlink("t", link)
-        _unlink_existing_regular_file(str(link))
-        self.assertTrue(os.path.islink(link), "symlink must be left to tarfile")
-        self.assertTrue(target.exists(), "the symlink's target must be untouched")
+        _unlink_existing_file_or_link(str(link))
+        self.assertFalse(os.path.lexists(link), "the link itself must go")
+        self.assertEqual(target.read_text(), "x",
+                         "the file the link named must be untouched")
+
+    def test_a_link_that_cannot_be_removed_stops_the_write(self):
+        """A link left in place is a link the member would be written
+        through, so a failure to remove one is raised, never swallowed."""
+        target = self.tmp / "t"
+        target.write_text("x")
+        link = self.tmp / "s"
+        os.symlink("t", link)
+        with mock.patch("pkm.installer.os.unlink",
+                        side_effect=PermissionError(errno.EACCES, "denied")):
+            with self.assertRaises(PermissionError):
+                _unlink_existing_file_or_link(str(link))
+
+    def test_a_regular_file_that_cannot_be_removed_is_left_to_the_write(self):
+        f = self.tmp / "f"
+        f.write_text("x")
+        with mock.patch("pkm.installer.os.unlink",
+                        side_effect=PermissionError(errno.EACCES, "denied")):
+            _unlink_existing_file_or_link(str(f))  # must not raise
+        self.assertTrue(f.exists())
 
     def test_missing_target_is_a_noop(self):
-        _unlink_existing_regular_file(str(self.tmp / "nope"))  # must not raise
+        _unlink_existing_file_or_link(str(self.tmp / "nope"))  # must not raise
 
 
 @unittest.skipUnless(sys.platform.startswith("linux"),
