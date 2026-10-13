@@ -7,7 +7,12 @@
 
 configure() {
     set -e
-    ./configure --prefix=/usr --disable-static
+    # --without-xml2: the lineage built libarchive before libxml2 existed in the
+    # build root, so its XML support is expat's; on a populated root configure
+    # finds libxml2, prefers it, and the archive gains a libxml2.so.2 dependency
+    # the lineage never had. State the lineage's choice instead of leaving it to
+    # the root's contents.
+    ./configure --prefix=/usr --disable-static --without-xml2
 }
 
 build() {
