@@ -1,6 +1,6 @@
 name: graphviz
 version: "14.1.2"
-release: 1
+release: 2  # r2: cmake states -DWITH_GHOSTSCRIPT=OFF and -DENABLE_JAVASCRIPT=OFF, the lineage configuration, instead of auto-detecting Ghostscript and JavaScriptCore from the build root; enabling either is a product decision for after the tag.
 description: Graph visualization software
 license: EPL-1.0
 homepage: https://graphviz.org/
