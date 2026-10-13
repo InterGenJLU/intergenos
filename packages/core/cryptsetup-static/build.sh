@@ -106,7 +106,13 @@ build() {
             -DDISABLE_WERROR=ON \
             -DDISABLE_BSYMBOLIC=ON \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_DISABLE_FIND_PACKAGE_Doxygen=TRUE
+        # CMAKE_DISABLE_FIND_PACKAGE_Doxygen: json-c's documentation target is
+        # never built here (the -nodoc tarball carries no sources for it), and
+        # on a populated build root cmake would find doxygen and report it; the
+        # lineage root had none. State the choice instead of leaving it to the
+        # root's contents.
         make -j"${IGOS_JOBS}"
         make install
     )
