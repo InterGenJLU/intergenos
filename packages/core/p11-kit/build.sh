@@ -7,6 +7,12 @@
 
 configure() {
     set -e
+    # The 2026-10-12 resume found an optional libnsl installed later in the
+    # build. Prefer libc's gethostbyname, as the upstream Autoconf path does,
+    # so Meson keeps the original links without moving later dependencies.
+    # The fallback still probes libnsl on platforms where libc lacks it.
+    patch --batch --forward -p1 < \
+        "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/patches/0001-prefer-libc-for-network-functions.patch"
     mkdir -p p11-build
     cd    p11-build
 

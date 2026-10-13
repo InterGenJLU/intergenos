@@ -1,0 +1,12 @@
+--- a/meson.build
++++ b/meson.build
+@@ -153,5 +153,8 @@
+   # for Solaris we need -lsocket -lnsl for socket stuff, gethostbyname
+   # is just a dummy to find -lnsl
+-  libnsl = cc.find_library('nsl', required: false)
++  libnsl = dependency('', required: false)
++  if not cc.has_function('gethostbyname')
++    libnsl = cc.find_library('nsl', required: false)
++  endif
+   if libnsl.found()
+     if cc.has_function('gethostbyname', dependencies: libnsl)
