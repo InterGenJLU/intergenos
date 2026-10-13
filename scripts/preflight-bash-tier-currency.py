@@ -81,6 +81,9 @@ def main() -> int:
     ap.add_argument("--scripts-dir", default=str(REPO_ROOT / "scripts"))
     ap.add_argument("--start-at", default="",
                     help="The resume's --start-at phase (empty = full build)")
+    ap.add_argument("--no-memo", action="store_true", help="read every archive and rewrite the memo")
+    ap.add_argument("--memo-dir", type=Path, default=None,
+                    help="archive memo directory (default: build/gate-memo)")
     args = ap.parse_args()
 
     chroot = Path(args.chroot)
@@ -107,7 +110,8 @@ def main() -> int:
     recipes = _state.load_recipes(packages_dir)
 
     # Newest banked archive per ship name (identity from .PKGINFO).
-    newest = _state.newest_archives(archives_dir)
+    newest = _state.newest_archives(archives_dir, no_memo=args.no_memo,
+                                    memo_dir=args.memo_dir, report=log)
 
     start_idx = PHASE_ORDER.index(args.start_at) if args.start_at else 0
 
