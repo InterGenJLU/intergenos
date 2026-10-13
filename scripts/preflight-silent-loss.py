@@ -65,6 +65,12 @@ Usage:
   scripts/preflight-silent-loss.py --report    # verbose: emit JSON + TSV
   scripts/preflight-silent-loss.py --root /alt/repo --chroot /alt/igos
   scripts/preflight-silent-loss.py --require-audit   # SKIP → fail-closed (exit 3)
+  scripts/preflight-silent-loss.py --no-memo    # full scan, rewrite memo
+
+Package results are memoized in build/gate-memo/silent-loss.json by content.
+Every run prints scan/replay counts; --report also names each replayed package.
+Unreadable or incompatible memos are ignored with a reason. A package whose
+inputs cannot be fingerprinted is scanned normally and is never memoized.
 
 Environment:
   INTERGENOS_ROOT    — repo root (default: autodetect from script location)
@@ -74,11 +80,13 @@ Environment:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
 import sqlite3
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -198,6 +206,216 @@ def scheduled_rebuild_rescue(repo: Path, manifest_path: Path, yml: Path | None,
     return (f"scheduled-rebuild-supersedes (installed TEMPLATE_HASH {installed_hash} "
             f"!= recipe {current_hash}; phase {TEMPLATE_HASH_TIER_PHASE[tier]} inside "
             f"the resume window)")
+
+
+# ----------------------------------------------------------------------
+# Content-keyed package memo. The verdict rules below stay authoritative.
+# ----------------------------------------------------------------------
+
+_MEMO_FAILURE_FIELDS = ("findings", "summary_disabled", "meson_not_found_intree",
+                        "cmake_not_found_intree")
+_MEMO_LIST_FIELDS = _MEMO_FAILURE_FIELDS + ("rescued",)
+
+
+def _memo_digest(value) -> str:
+    return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=True,
+                                     separators=(",", ":")).encode()).hexdigest()
+
+
+def _file_digest(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _memo_tree_stamp(repo: Path) -> str:
+    """Detect recipe or scanner changes during this invocation, including a
+    newly selected superseder. This stamp guards recording, not cache hits:
+    unrelated recipe edits between runs must not invalidate every package."""
+    paths = [Path(__file__).resolve(), repo / "igos-build/parser.py",
+             repo / "igos-build/content_hash.py"]
+    paths.extend((repo / "packages").rglob("package.yml"))
+    return _memo_digest([(str(path), _file_digest(path)) for path in paths])
+
+
+def _memo_verdict(payload: dict) -> str:
+    return "RED" if any(payload[field] for field in _MEMO_FAILURE_FIELDS) else "GREEN"
+
+
+class PackageMemo:
+    """Replay only results whose complete content fingerprint still matches.
+
+    The shared key covers package lookup order/names and the running scanner.
+    Each package adds the selected log's identity and bytes, raw recipe and
+    builder template_hash, installed manifest, resume window, resolved BLFS
+    dependencies, audit row and selected superseding recipe. The latter two
+    lookups include absence: adding a reference or a superseder invalidates it.
+    A hash/parse/read failure disables memoization, never the ordinary scan.
+    The log key also binds the text actually scanned, in case its bytes change
+    between reading and fingerprinting. Entries are keyed by manifest name so
+    installed versions cannot collide.
+    """
+
+    def __init__(self, repo: Path, chroot: Path, blfs, known_names: set[str],
+                 window, no_memo: bool):
+        self.repo = repo
+        self.window = window
+        self.no_memo = no_memo
+        self.path = repo / "build/gate-memo/silent-loss.json"
+        self.old: dict = {}
+        self.entries: dict = {}
+        self.stats = {"rescanned": 0, "memoized": 0, "new": 0, "invalidated": 0,
+                      "packages": [], "messages": []}
+        self.usable = False
+        self.script_hash = ""
+        self.superseders: dict = {}
+        self.audit: dict = {}
+        try:
+            self.tree_stamp = _memo_tree_stamp(repo)
+            self.script_hash = _file_digest(Path(__file__).resolve())
+            self.builder_fns = _load_builder_hash_fn(repo)
+            builder_code = [_file_digest(repo / "igos-build" / name)
+                            for name in ("parser.py", "content_hash.py")]
+            # Preserve directory order: the existing resolver selects the
+            # first matching tier and first superseding package it encounters.
+            layout = []
+            for tier in (repo / "packages").iterdir():
+                if not tier.is_dir():
+                    continue
+                layout.append(str(tier.relative_to(repo)))
+                for pkg in tier.iterdir():
+                    yml = pkg / "package.yml"
+                    if not pkg.is_dir() or not yml.is_file():
+                        continue
+                    rel = str(yml.relative_to(repo))
+                    layout.append(rel)
+                    for name in parse_simple_list_field(yml, "supersedes"):
+                        self.superseders.setdefault(name, [rel, _file_digest(yml)])
+            audit_schema = blfs.con.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='package_audit'"
+            ).fetchone()
+            if audit_schema:
+                cursor = blfs.con.execute("SELECT * FROM package_audit")
+                columns = [column[0] for column in cursor.description]
+                name_idx = columns.index("name")
+                for row in cursor:
+                    values = [value.hex() if isinstance(value, bytes) else value for value in row]
+                    self.audit.setdefault(row[name_idx], []).append(values)
+            else:
+                columns = []
+            self.shared = _memo_digest({
+                "repo": str(repo.resolve()), "chroot": str(chroot.resolve()),
+                "script": self.script_hash, "builder": builder_code,
+                "layout": layout, "known_names": sorted(known_names),
+                "audit_schema": audit_schema, "audit_columns": columns,
+                "window": window,
+            })
+            self.usable = True
+        except Exception as exc:
+            self.stats["messages"].append(f"memo unavailable: {type(exc).__name__}: {exc}")
+        self._load()
+
+    def _load(self) -> None:
+        try:
+            data = json.loads(self.path.read_text())
+            if not isinstance(data, dict) or data.get("version") != 1:
+                raise ValueError("unsupported memo format")
+            entries = data.get("entries")
+            if not isinstance(entries, dict):
+                raise ValueError("entries must be an object")
+            for key, entry in entries.items():
+                if not isinstance(entry, dict):
+                    raise ValueError(f"invalid entry for {key}")
+                body = {k: v for k, v in entry.items() if k != "sha256"}
+                payload = entry.get("result")
+                if (entry.get("sha256") != _memo_digest(body)
+                        or not isinstance(entry.get("package"), str)
+                        or not re.fullmatch(r"[0-9a-f]{64}", str(entry.get("fingerprint")))
+                        or not isinstance(payload, dict)
+                        or any(not isinstance(payload.get(field), list)
+                               or any(not isinstance(item, dict) for item in payload[field])
+                               for field in _MEMO_LIST_FIELDS)
+                        or type(payload.get("blfs_no_truth")) is not bool
+                        or entry.get("verdict") != _memo_verdict(payload)):
+                    raise ValueError(f"invalid entry or checksum for {key}")
+            self.old = entries
+            if data.get("script_sha256") != self.script_hash:
+                self.stats["messages"].append("memo ignored: script hash changed")
+                self.no_memo = True
+        except FileNotFoundError:
+            pass  # The first scan has no memo yet.
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            self.stats["messages"].append(f"memo ignored: {type(exc).__name__}: {exc}")
+
+    def fingerprint(self, pkg: str, manifest: Path, log: Path, yml: Path | None,
+                    blfs_deps: list, log_text: str) -> str | None:
+        if not self.usable or yml is None:
+            return None
+        try:
+            parse_template, template_hash = self.builder_fns
+            recipe_hash = template_hash(parse_template(yml), self.repo / "build/sources")
+            if not recipe_hash:
+                raise ValueError("builder returned an empty template hash")
+            return _memo_digest({
+                "shared": self.shared, "package": pkg,
+                "manifest": [manifest.name, _file_digest(manifest)],
+                "log": [log.name, _file_digest(log),
+                        hashlib.sha256(log_text.encode()).hexdigest()],
+                "recipe": [str(yml.relative_to(self.repo)), _file_digest(yml), recipe_hash],
+                "blfs_dependencies": blfs_deps, "audit": self.audit.get(pkg),
+                "superseder": self.superseders.get(pkg),
+            })
+        except Exception as exc:
+            self.stats["messages"].append(
+                f"{pkg}: memo unavailable: {type(exc).__name__}: {exc}")
+            return None
+
+    def lookup(self, pkg: str, manifest: str, fingerprint: str | None):
+        previous = self.old.get(manifest)
+        if (not self.no_memo and fingerprint is not None and previous
+                and previous["package"] == pkg and previous["fingerprint"] == fingerprint):
+            self.stats["memoized"] += 1
+            self.stats["packages"].append(f"{pkg}: memoized ({manifest})")
+            self.entries[manifest] = previous
+            return previous["result"]
+        self.stats["rescanned"] += 1
+        self.stats["new" if previous is None else "invalidated"] += 1
+        self.stats["packages"].append(f"{pkg}: re-scanned ({manifest})")
+        return None
+
+    def record(self, pkg: str, manifest: str, fingerprint: str | None, payload: dict):
+        if fingerprint is None:
+            return
+        body = {"package": pkg, "fingerprint": fingerprint,
+                "verdict": _memo_verdict(payload), "result": payload}
+        self.entries[manifest] = {**body, "sha256": _memo_digest(body)}
+
+    def save(self) -> None:
+        if self.usable:
+            try:
+                if _memo_tree_stamp(self.repo) != self.tree_stamp:
+                    raise ValueError("recipe or scanner inputs changed during scan")
+            except (OSError, ValueError) as exc:
+                self.entries.clear()
+                self.stats["messages"].append(f"memo not recorded: {exc}")
+        temporary = None
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=self.path.parent,
+                                             prefix=".silent-loss-", delete=False) as stream:
+                temporary = Path(stream.name)
+                json.dump({"version": 1, "script_sha256": self.script_hash,
+                           "entries": self.entries}, stream, indent=2, ensure_ascii=True)
+                stream.write("\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, self.path)
+        except OSError as exc:
+            self.stats["messages"].append(f"memo not written: {type(exc).__name__}: {exc}")
+        finally:
+            if temporary is not None:
+                try:
+                    temporary.unlink(missing_ok=True)
+                except OSError as exc:
+                    self.stats["messages"].append(f"memo temporary cleanup failed: {exc}")
 
 
 # ----------------------------------------------------------------------
@@ -1228,7 +1446,7 @@ def scan_cmake_block(log_text: str, packages_dir: Path) -> list[dict]:
 # ----------------------------------------------------------------------
 
 def scan(repo: Path, chroot: Path,
-         window: tuple[int, int] | None = None) -> dict:
+         window: tuple[int, int] | None = None, *, no_memo: bool = False) -> dict:
     """Run all passes. Returns a result dict with findings + metadata.
 
     ``window`` — the resume's (first, last) phase indexes (resume_window);
@@ -1274,6 +1492,7 @@ def scan(repo: Path, chroot: Path,
     known_names = collect_known_package_names(packages_dir)
     installed = list_installed_packages(chroot_installed, known_names)
     result["installed_count"] = len(installed)
+    memo = PackageMemo(repo, chroot, blfs, known_names, window, no_memo)
 
     findings: list[dict] = []
     rescued: list[dict] = []  # findings suppressed by Rules A/B/C — kept for visibility
@@ -1419,6 +1638,7 @@ def scan(repo: Path, chroot: Path,
     for pkg_name, manifest in installed:
         log_path = find_log_for_pkg(chroot_logs, pkg_name, known_names)
         if log_path is None:
+            memo.lookup(pkg_name, manifest, None)
             result["log_missing"].append(pkg_name)
             continue
         try:
@@ -1426,10 +1646,27 @@ def scan(repo: Path, chroot: Path,
         except OSError:
             # An unreadable log is a NAMED coverage failure, not a silent
             # drop — under --require-audit it fails the gate.
+            memo.lookup(pkg_name, manifest, None)
             result["log_unreadable"].append(pkg_name)
             continue
 
         yml = find_package_yml(packages_dir, pkg_name)
+        blfs_deps = blfs.lookup_deps(pkg_name)
+        fingerprint = memo.fingerprint(pkg_name, chroot_installed / manifest,
+                                       log_path, yml, blfs_deps, log_text)
+        saved = memo.lookup(pkg_name, manifest, fingerprint)
+        if saved is not None:
+            findings.extend(saved["findings"])
+            rescued.extend(saved["rescued"])
+            if saved["blfs_no_truth"]:
+                result["blfs_no_truth"].append(pkg_name)
+            for field, target in (("summary_disabled", summary_per_pkg),
+                                  ("meson_not_found_intree", meson_per_pkg),
+                                  ("cmake_not_found_intree", cmake_per_pkg)):
+                if saved[field]:
+                    target[pkg_name] = saved[field]
+            continue
+        finding_start, rescue_start = len(findings), len(rescued)
         # Rule N, once per package: does THIS run rebuild it?
         current["rebuild"] = None
         if window is not None and yml is not None:
@@ -1448,7 +1685,6 @@ def scan(repo: Path, chroot: Path,
         if yml is None:
             result["yml_missing"].append(pkg_name)
 
-        blfs_deps = blfs.lookup_deps(pkg_name)
         if not blfs_deps:
             result["blfs_no_truth"].append(pkg_name)
 
@@ -1693,6 +1929,24 @@ def scan(repo: Path, chroot: Path,
         if intree_cmake:
             cmake_per_pkg[pkg_name] = intree_cmake
 
+        # Re-read after the scan: an input changed during scanning cannot
+        # certify a reusable result. The current run keeps its ordinary verdict.
+        if fingerprint is not None:
+            after = memo.fingerprint(pkg_name, chroot_installed / manifest,
+                                     log_path, yml, blfs_deps, log_text)
+            if after != fingerprint:
+                memo.stats["messages"].append(f"{pkg_name}: memo not recorded: inputs changed during scan")
+            else:
+                memo.record(pkg_name, manifest, fingerprint, {
+                    "findings": findings[finding_start:], "rescued": rescued[rescue_start:],
+                    "blfs_no_truth": not blfs_deps,
+                    "summary_disabled": relevant_summary if not lib_only and declared_deps else [],
+                    "meson_not_found_intree": intree_meson,
+                    "cmake_not_found_intree": intree_cmake,
+                })
+
+    memo.save()
+    result["memo"] = memo.stats
     # Deduplicate BLFS-* against DECLARED-FAILED for same (pkg, dep-base)
     def dep_base(d: str) -> str:
         return re.sub(r"-[\d.]+$", "", d)
@@ -1723,6 +1977,12 @@ def emit_summary(result: dict) -> None:
     print("=== preflight-silent-loss ===")
     print(f"Repo:    {result['repo']}")
     print(f"Chroot:  {result['chroot']}")
+    memo = result.get("memo", {})
+    print(f"silent-loss: {memo.get('rescanned', 0)} re-scanned, "
+          f"{memo.get('memoized', 0)} memoized (fingerprint unchanged), "
+          f"{memo.get('new', 0)} new, {memo.get('invalidated', 0)} invalidated")
+    for message in memo.get("messages", []):
+        print(f"silent-loss: {message}")
 
     if result["skipped"]:
         print(f"SKIP — {result['skip_reason']}")
@@ -1878,6 +2138,8 @@ def main() -> int:
                          "where the chroot MUST be populated (end-of-extra gate, "
                          "targeted-resume manual fire). A SKIP there means the audit "
                          "could not run, which must not be waved through as a pass.")
+    ap.add_argument("--no-memo", action="store_true",
+                    help="scan every package and rewrite the content-keyed memo")
     args = ap.parse_args()
 
     repo = discover_repo_root(args.root)
@@ -1896,10 +2158,15 @@ def main() -> int:
     # scan(repo, chroot) keeps its two-argument shape when no window was
     # given (the end-of-build and report call sites; the exit-code tests
     # stub it that way); the window rides only on a resume.
-    result = scan(repo, chroot, window=window) if window is not None else scan(repo, chroot)
+    scan_options = {"window": window} if window is not None else {}
+    if args.no_memo:
+        scan_options["no_memo"] = True
+    result = scan(repo, chroot, **scan_options)
     emit_summary(result)
 
     if args.report:
+        for mark in result.get("memo", {}).get("packages", []):
+            print(f"silent-loss: {mark}")
         ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         json_path, tsv_path = write_artifacts(repo, result, ts)
         print()
