@@ -14,6 +14,10 @@ curl	transcript: for apxs :: no -> yes	The program is used by the curl test harn
 curl	transcript: for caddy :: no -> yes	The program is used by the curl test harness only.
 bash-completion	transcript: for pytest :: no -> yes	The program is used by the completion test harness only.
 sudo	transcript: for jq :: no -> yes	The program is used by the sudo test harness only.
+shadow	transcript: for mt :: no -> yes	libtool's manifest-tool probe finds the tape utility mt on the populated build root; the next probe answers that it is not a manifest tool and MANIFEST_TOOL stays ':' as on the lineage, so no shipped byte changes.
+sudo	transcript: for mt :: no -> yes	libtool's manifest-tool probe finds the tape utility mt on the populated build root; the next probe answers that it is not a manifest tool and MANIFEST_TOOL stays ':' as on the lineage, so no shipped byte changes.
+apparmor	transcript: for mt :: no -> yes	libtool's manifest-tool probe finds the tape utility mt on the populated build root; the next probe answers that it is not a manifest tool and MANIFEST_TOOL stays ':' as on the lineage, so no shipped byte changes.
+libarchive	transcript: for mt :: no -> yes	libtool's manifest-tool probe finds the tape utility mt on the populated build root; the next probe answers that it is not a manifest tool and MANIFEST_TOOL stays ':' as on the lineage, so no shipped byte changes.
 go	archive-unreadable: usr/lib/go/src/debug/elf/testdata/go-relocation-test-gcc930-ranges-no-rela-x86-64	Go debug/elf regression fixture intentionally lacks a valid dynamic section; it is test data, and the rest of the archive is measured.
 go	archive-unreadable: usr/lib/go/src/debug/elf/testdata/go-relocation-test-gcc930-ranges-with-rela-x86-64	Go debug/elf regression fixture intentionally lacks a valid dynamic section; it is test data, and the rest of the archive is measured.
 linux-firmware	archive-unreadable: usr/lib/firmware/qcom/apq8096/modem.mbn	a firmware image in an ELF container, no program interpreter, not a dynamically linked object
