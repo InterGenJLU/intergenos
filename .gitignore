@@ -43,6 +43,9 @@ build/*-[0-9]*Z.json
 # + scripts/aggregate-package-audits.py remain public — only the
 # classification *output* lives privately. See build/README.md.
 build/audits/
+# Private configure-drift build inputs staged by the pre-flight.
+build/configure-drift-reference.json
+build/configure-drift-records/
 build/rule5-sweep-results.tsv
 
 # Transient scanner working directories
