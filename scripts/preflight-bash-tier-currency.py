@@ -5,13 +5,11 @@
 a stale bash-tier build.
 
 The Python tiers enforce currency per package via the skip-built template
-hash. The bash-driven tiers (core / core-extra / base, plus the kernel) have
-NO such layer: a bash-tier recipe that advanced after the substrate's archive
-was sealed is invisible to the git delta AND to the build itself, so the
-substrate's stale build ships silently. The manual tree-vs-archive sweep this
-gate encodes reads each sealed archive's own ./.PKGINFO — the only honest
-currency instrument; the database release column has been found corrupted
-corpus-wide and is never consulted.
+hash. The bash-driven tiers (core / core-extra / base) compare archive currency
+on a targeted resume. This gate also covers the kernel and refuses a
+resume that would omit a stale package's entire phase. Both the drivers
+and this gate read each sealed archive's own ./.PKGINFO; the database
+release column has been found corrupted corpus-wide and is never consulted.
 
 For every bash-tier recipe the gate compares tree (version, release) against
 the newest banked archive in the chroot and derives the phase that builds the
@@ -34,12 +32,11 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-# Shared helpers from the redeploy tool — one identity/currency reader, not two
-# drifting copies (it in turn uses pkm's own version comparator).
+# Shared with the bash drivers (and, in turn, pkm's version comparator).
 _spec = importlib.util.spec_from_file_location(
-    "redeploy_banked_archives", REPO_ROOT / "scripts" / "redeploy-banked-archives.py")
-_rba = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_rba)
+    "bash_tier_build_state", REPO_ROOT / "scripts" / "bash-tier-build-state.py")
+_state = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_state)
 
 # Orchestrator phase order (cite scripts/build-intergenos.sh run_phase block;
 # only the relative order of the package phases matters here).
@@ -107,18 +104,10 @@ def main() -> int:
             f"wrong --scripts-dir ({args.scripts_dir})?")
         return 2
 
-    recipes = _rba.load_recipes(packages_dir)
+    recipes = _state.load_recipes(packages_dir)
 
     # Newest banked archive per ship name (identity from .PKGINFO).
-    newest: "dict[str, tuple]" = {}
-    for arc in sorted(archives_dir.glob("*.igos.tar.gz")):
-        info = _rba.read_pkginfo(arc)
-        if not info or "pkgname" not in info:
-            continue
-        name = info["pkgname"]
-        ver, rel = info.get("pkgver", "0"), int(info.get("pkgrel", "1") or 1)
-        if name not in newest or _rba.vcompare(newest[name], (ver, rel)) < 0:
-            newest[name] = (ver, rel)
+    newest = _state.newest_archives(archives_dir)
 
     start_idx = PHASE_ORDER.index(args.start_at) if args.start_at else 0
 
@@ -138,7 +127,7 @@ def main() -> int:
         checked += 1
         banked = newest.get(ship)
         tree = (recipe["version"], recipe["release"])
-        if banked is not None and _rba.vcompare(banked, tree) >= 0:
+        if banked is not None and _state.vcompare(banked[:2], tree) >= 0:
             continue  # archive current (or ahead) — nothing owed
         state = "NEVER-BUILT" if banked is None else \
             f"stale (archive {banked[0]}-{banked[1]} < tree {tree[0]}-{tree[1]})"

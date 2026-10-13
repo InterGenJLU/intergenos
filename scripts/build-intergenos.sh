@@ -1949,7 +1949,7 @@ phase_core() {
     apply_start_at_pkg "core"  # K23: restore IGOS_START_AT if --start-at-pkg explicit
     sync_chroot_scripts
     log "Building core system in chroot (Ch 8, LFS order)..."
-    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-ch8.sh" 2>&1 | tee -a "$BUILD_LOG"
+    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-ch8.sh" "${BASH_TIER_ARGS[@]}" 2>&1 | tee -a "$BUILD_LOG"
 }
 
 phase_config() {
@@ -1968,7 +1968,7 @@ phase_core_extra() {
     apply_start_at_pkg "core-extra"  # K23: restore IGOS_START_AT if --start-at-pkg explicit
     sync_chroot_scripts
     log "Building additional core packages in chroot (BLFS)..."
-    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-core-extra.sh" 2>&1 | tee -a "$BUILD_LOG"
+    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-core-extra.sh" "${BASH_TIER_ARGS[@]}" 2>&1 | tee -a "$BUILD_LOG"
 }
 
 phase_base() {
@@ -1995,7 +1995,7 @@ phase_base() {
     apply_start_at_pkg "base"  # K23: restore IGOS_START_AT if --start-at-pkg explicit
     sync_chroot_scripts
     log "Building base packages in chroot (end-user CLI tools)..."
-    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-base.sh" 2>&1 | tee -a "$BUILD_LOG"
+    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-base.sh" "${BASH_TIER_ARGS[@]}" 2>&1 | tee -a "$BUILD_LOG"
 }
 
 phase_kernel() {
@@ -3100,11 +3100,24 @@ phase_publish() {
 
 BUILD_START=$(date +%s)
 
+# Only a targeted resume opts the bash tiers into archive currency skips.
+# Pass an argument through chroot-enter.sh; its clean environment drops
+# ambient host flags. A checkpoint or a from-scratch run builds every package.
+BASH_TIER_ARGS=()
+if [ -n "$START_AT" ] && ! $CHECKPOINT; then
+    BASH_TIER_ARGS=(--skip-built)
+fi
+
 log ""
 log ">>> InterGenOS build"
 log "    user:    $BUILD_USER"
 log "    target:  $IGOS"
 log "    started: $(date)"
+if [ "${#BASH_TIER_ARGS[@]}" -gt 0 ]; then
+    log "    bash-tier skip-built: enabled (targeted resume)"
+else
+    log "    bash-tier skip-built: disabled (full or checkpoint build)"
+fi
 if [ -n "$START_AT" ]; then
     log "    starting at: $START_AT"
 fi

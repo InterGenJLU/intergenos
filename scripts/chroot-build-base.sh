@@ -38,6 +38,9 @@ IGOS_JOBS=$(nproc)
 IGOS_PACKAGES=/mnt/intergenos/packages/base
 IGOS_START_AT="${IGOS_START_AT:-}"
 IGOS_STOP_AFTER="${IGOS_STOP_AFTER:-}"
+# An explicit driver argument survives chroot-enter.sh's clean environment.
+IGOS_SKIP_BUILT=false
+if [ "${1:-}" = --skip-built ]; then IGOS_SKIP_BUILT=true; fi
 
 export IGOS_SOURCES IGOS_PATCHES IGOS_LOGS IGOS_JOBS
 
@@ -329,16 +332,45 @@ run_package() {
         fi
     fi
 
-    # Skip if already tracked. Must be exact <name>-<version> match.
-    # Prior `compgen -G "${name}-*"` greedy-globbed: `at-*` silently matched
-    # `at-spi2-core-2.58.3` (built earlier in desktop tier), causing the
-    # base/at package to be skipped entirely with no error. Same shape
-    # affects any short-prefix package whose name is a prefix of another
-    # tracked package's name. Exact match eliminates the entire class.
-    if [ -d "/var/lib/igos/packages/${name}-${version}" ]; then
-        igos_progress_skip "$name" "already tracked"
-        log "  Skipping: $name (already tracked at /var/lib/igos/packages/${name}-${version})"
-        return 0
+    # Bash manifests have no TEMPLATE_HASH. Recipe changes advance release
+    # (the bump tool / check-pinned-recipe-bumps.py), so currency is the
+    # archive's version-release key, shared with the preflight, never the DB.
+    if [ "${IGOS_SKIP_BUILT:-false}" = true ] && \
+            [ "$name" != "$IGOS_START_AT" ] && [ "$pkg_dir" != "$IGOS_START_AT" ]; then
+        if [ "${_IGOS_BUILD_STATES_READY:-false}" != true ]; then
+            local rows directory ship version state
+            rows=$(python3 /mnt/intergenos/scripts/bash-tier-build-state.py \
+                --packages-dir "$IGOS_PACKAGES" --archives-dir "$IGOS_PKG_ARCHIVES")
+            declare -gA _IGOS_BUILD_STATES=() _IGOS_BUILD_MANIFESTS=()
+            while IFS=$'\t' read -r directory ship version state; do
+                [ -n "$directory" ] || continue
+                _IGOS_BUILD_STATES["$directory"]="$state"
+                _IGOS_BUILD_MANIFESTS["$directory"]="$ship-$version"
+            done <<< "$rows"
+            _IGOS_BUILD_STATES_READY=true
+        fi
+        local state="${_IGOS_BUILD_STATES[$pkg_dir]:-}"
+        if [ -z "$state" ]; then
+            log "error: no recipe currency record for $pkg_dir"
+            return 2
+        fi
+        if [[ "$state" == 'skipped ('* ]] && \
+                [ ! -f "$IGOS_PKG_DB/${_IGOS_BUILD_MANIFESTS[$pkg_dir]}" ]; then
+            state="rebuild: installed manifest missing (${_IGOS_BUILD_MANIFESTS[$pkg_dir]})"
+        fi
+        log "  $name: $state"
+        if [[ "$state" == 'skipped ('* ]]; then
+            igos_progress_skip "$name" "$state"
+            if [ -n "$IGOS_STOP_AFTER" ] && { [ "$name" = "$IGOS_STOP_AFTER" ] || [ "$pkg_dir" = "$IGOS_STOP_AFTER" ]; }; then
+                log ">>> Stopping after: $name (IGOS_STOP_AFTER)"
+                exit 0
+            fi
+            return 0
+        fi
+    elif [ "${IGOS_SKIP_BUILT:-false}" = true ]; then
+        log "  $name: rebuild (explicit restart at $IGOS_START_AT)"
+    else
+        log "  $name: rebuild (skip-built disabled)"
     fi
 
     # Two-statement form (NOT `build_base_package "$@" || { ... }`).
