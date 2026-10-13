@@ -1,6 +1,6 @@
 name: libarchive
 version: "3.8.6"
-release: 2  # r2: the recipe no longer links /usr/bin/unzip to bsdunzip; the unzip command stays with the unzip package (Info-ZIP), which ships it as a regular file, and libarchive's tool stays at /usr/bin/bsdunzip. On a default installation Info-ZIP's unzip had been written through that link into /usr/bin/bsdunzip. Upgrading from r1 leaves /usr/bin/unzip in place while the unzip package owns it and rewrites /usr/bin/bsdunzip with libarchive's own bytes.
+release: 3  # r3: configure states --without-xml2 — the lineage built before libxml2 existed in the build root, so its XML support is expat's and it has no libxml2 dependency; on a populated root the auto-detection would find libxml2 and the archive would gain libxml2.so.2.  # r2: the recipe no longer links /usr/bin/unzip to bsdunzip; the unzip command stays with the unzip package (Info-ZIP), which ships it as a regular file, and libarchive's tool stays at /usr/bin/bsdunzip. On a default installation Info-ZIP's unzip had been written through that link into /usr/bin/bsdunzip. Upgrading from r1 leaves /usr/bin/unzip in place while the unzip package owns it and rewrites /usr/bin/bsdunzip with libarchive's own bytes.
 description: Multi-format archive and compression library
 license: BSD-2-Clause
 homepage: https://libarchive.org/
