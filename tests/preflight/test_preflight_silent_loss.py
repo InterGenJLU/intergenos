@@ -871,3 +871,387 @@ class TestRuleNScheduledRebuild(unittest.TestCase):
         self.assertEqual(preflight.resume_window(None, "ai")[0], 0)
         self.assertEqual(preflight.resume_window("desktop", None)[1],
                          len(preflight.PHASE_ORDER) - 1)
+
+
+class TestPackageMemo(unittest.TestCase):
+    """The real scanner, builder hash and SQLite lookup on disposable trees."""
+
+    LOG = TestRuleNScheduledRebuild.LOG
+    _make = TestRuleNScheduledRebuild._make
+    _run = TestRuleNScheduledRebuild._run
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.repo, self.chroot = self._make(Path(self.tmp.name), None)
+        self.yml = self.repo / "packages/desktop/foo/package.yml"
+        self.log = self.chroot / "mnt/intergenos/build/logs/foo-20260101-000000.log"
+        self.manifest = self.chroot / "var/lib/igos/packages/foo-1.0"
+        self.memo = self.repo / "build/gate-memo/silent-loss.json"
+
+    def run_gate(self, *extra):
+        return self._run(self.repo, self.chroot, list(extra))
+
+    def load_memo(self):
+        import json
+        return json.loads(self.memo.read_text())
+
+    def sql(self, sql):
+        import sqlite3
+        with sqlite3.connect(self.repo / "build/blfs-packages.db") as con:
+            con.executescript(sql)
+
+    def assert_rescanned(self, out):
+        self.assertIn("silent-loss: 1 re-scanned, 0 memoized (fingerprint unchanged)", out)
+
+    def test_unchanged_inputs_replay_verbatim_without_scanning(self):
+        from unittest.mock import patch
+        rc1, out1 = self.run_gate()
+        first = self.load_memo()
+        with patch.object(preflight, "scan_log_for_dep", side_effect=AssertionError("re-scanned")):
+            rc2, out2 = self.run_gate()
+        self.assertEqual((rc1, rc2), (1, 1))
+        self.assertIn("1 re-scanned, 0 memoized (fingerprint unchanged), 1 new, 0 invalidated", out1)
+        self.assertIn("0 re-scanned, 1 memoized (fingerprint unchanged), 0 new, 0 invalidated", out2)
+        strip = lambda text: "\n".join(line for line in text.splitlines() if not line.startswith("silent-loss:"))
+        self.assertEqual(strip(out1), strip(out2))
+        self.assertEqual(first, self.load_memo())
+        self.assertEqual(first["entries"]["foo-1.0"]["verdict"], "RED")
+        self.assertTrue(first["entries"]["foo-1.0"]["result"]["findings"])
+
+    def test_changed_log_same_size_and_mtime_rescans(self):
+        import os
+        self.run_gate()
+        stamp = self.log.stat()
+        self.log.write_text(self.LOG.replace("NO", "OK"))
+        os.utime(self.log, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+        rc, out = self.run_gate()
+        self.assertEqual(rc, 0, out)
+        self.assert_rescanned(out)
+        self.assertIn("0 new, 1 invalidated", out)
+
+    def test_changed_recipe_rescans(self):
+        self.run_gate()
+        self.yml.write_text(self.yml.read_text() + "silent_loss_accepted:\n  - bar\n")
+        rc, out = self.run_gate()
+        self.assertEqual(rc, 0, out)
+        self.assert_rescanned(out)
+
+    def test_changed_build_script_rescans(self):
+        self.run_gate()
+        (self.yml.parent / "build.sh").write_text("do_build() { true; }\n")
+        self.assert_rescanned(self.run_gate()[1])
+
+    def test_changed_recipe_sidecar_rescans(self):
+        sidecar = self.yml.parent / "feature-matrix.json"
+        sidecar.write_text('{"feature": true}')
+        self.run_gate()
+        sidecar.write_text('{"feature": false}')
+        self.assert_rescanned(self.run_gate()[1])
+
+    def test_changed_source_tree_rescans(self):
+        (self.repo / "payload").mkdir()
+        source = self.repo / "payload/input.txt"
+        source.write_text("before")
+        self.yml.write_text(self.yml.read_text() + "source_tree:\n  - payload\n")
+        self.run_gate()
+        source.write_text("after")
+        self.assert_rescanned(self.run_gate()[1])
+
+    def test_changed_audit_record_rescans(self):
+        self.sql("CREATE TABLE package_audit (name TEXT, notes TEXT); INSERT INTO package_audit VALUES ('foo', 'before');")
+        self.run_gate()
+        self.sql("UPDATE package_audit SET notes = 'after' WHERE name = 'foo';")
+        self.assert_rescanned(self.run_gate()[1])
+
+    def test_changed_blfs_truth_rescans(self):
+        self.log.write_text("checking for zed... no\n")
+        self.sql("INSERT INTO packages VALUES (1, 'foo', 'foo');")
+        self.assertEqual(self.run_gate()[0], 0)
+        self.sql("INSERT INTO dependencies VALUES (1, 'zed', 'required');")
+        rc, out = self.run_gate()
+        self.assertEqual(rc, 1, out)
+        self.assertIn("BLFS-REQUIRED-UNDECLARED-FAILED", out)
+        self.assert_rescanned(out)
+
+    def test_changed_manifest_rescans_rule_n(self):
+        self.manifest.write_text("TEMPLATE_HASH: 0123456789abcdef\n")
+        args = ("--start-at", "core", "--stop-after", "ai")
+        self.assertEqual(self.run_gate(*args)[0], 0)
+        parse, digest = preflight._load_builder_hash_fn(self.repo)
+        self.manifest.write_text("TEMPLATE_HASH: " + digest(parse(self.yml), self.repo / "build/sources") + "\n")
+        rc, out = self.run_gate(*args)
+        self.assertEqual(rc, 1, out)
+        self.assert_rescanned(out)
+
+    def test_changed_resume_window_rescans_rule_n(self):
+        self.manifest.write_text("TEMPLATE_HASH: 0123456789abcdef\n")
+        self.assertEqual(self.run_gate("--start-at", "core", "--stop-after", "ai")[0], 0)
+        rc, out = self.run_gate()
+        self.assertEqual(rc, 1, out)
+        self.assert_rescanned(out)
+
+    def test_changed_superseding_recipe_rescans(self):
+        other = self.repo / "packages/desktop/foo-pass2/package.yml"
+        other.parent.mkdir()
+        other.write_text("name: foo-pass2\nsupersedes:\n  - foo\ndependencies:\n  build:\n    - bar\n")
+        self.assertEqual(self.run_gate()[0], 0)
+        other.write_text(other.read_text().replace("- bar", "- zed"))
+        rc, out = self.run_gate()
+        self.assertEqual(rc, 1, out)
+        self.assert_rescanned(out)
+
+    def test_new_intree_dependency_rescans(self):
+        self.log.write_text("Run-time dependency zed found: NO\n")
+        self.assertEqual(self.run_gate()[0], 0)
+        other = self.repo / "packages/desktop/zed/package.yml"
+        other.parent.mkdir()
+        other.write_text("name: zed\n")
+        rc, out = self.run_gate()
+        self.assertEqual(rc, 1, out)
+        self.assertIn("meson-in-tree-NO", out)
+        self.assert_rescanned(out)
+
+    def test_missing_log_does_not_replay_green(self):
+        self.log.write_text("clean\n")
+        self.assertEqual(self.run_gate()[0], 0)
+        self.log.unlink()
+        rc, out = self.run_gate()
+        self.assertEqual(rc, 3, out)
+        self.assertIn("build log missing", out)
+        self.assert_rescanned(out)
+
+    def test_no_memo_rescans_and_rewrites(self):
+        from unittest.mock import patch
+        self.run_gate()
+        self.memo.write_text("truncated")
+        with patch.object(preflight, "scan_log_for_dep", wraps=preflight.scan_log_for_dep) as scan:
+            rc, out = self.run_gate("--no-memo")
+        self.assertEqual(rc, 1, out)
+        self.assertTrue(scan.called)
+        self.assert_rescanned(out)
+        self.assertEqual(self.load_memo()["entries"]["foo-1.0"]["verdict"], "RED")
+        self.assertIn("0 re-scanned, 1 memoized", self.run_gate()[1])
+
+    def test_truncated_memo_is_ignored_with_reason(self):
+        self.run_gate()
+        self.memo.write_text('{"entries":')
+        rc, out = self.run_gate()
+        self.assertEqual(rc, 1, out)
+        self.assert_rescanned(out)
+        self.assertIn("memo ignored", out)
+
+    def test_unreadable_memo_is_ignored_with_reason(self):
+        from unittest.mock import patch
+        self.run_gate()
+        original = Path.read_text
+        def read(path, *args, **kwargs):
+            if path == self.memo:
+                raise PermissionError("fixture denies memo read")
+            return original(path, *args, **kwargs)
+        with patch.object(Path, "read_text", read):
+            rc, out = self.run_gate()
+        self.assertEqual(rc, 1, out)
+        self.assert_rescanned(out)
+        self.assertIn("memo ignored", out)
+        self.assertIn("fixture denies memo read", out)
+
+    def test_changed_script_hash_invalidates_all(self):
+        import shutil
+        import subprocess
+        script = Path(self.tmp.name) / "scan.py"
+        shutil.copyfile(SCRIPT_PATH, script)
+        cmd = [sys.executable, str(script), "--root", str(self.repo), "--chroot", str(self.chroot), "--require-audit"]
+        one = subprocess.run(cmd, capture_output=True, text=True)
+        self.assertEqual(one.returncode, 1, one.stderr)
+        script.write_text(script.read_text() + "\n# Changed script bytes.\n")
+        two = subprocess.run(cmd, capture_output=True, text=True)
+        self.assertEqual(two.returncode, 1, two.stderr)
+        self.assert_rescanned(two.stdout)
+        self.assertIn("script hash", two.stdout)
+        self.assertIn("0 new, 1 invalidated", two.stdout)
+
+    def test_verbose_output_marks_each_memoized_package(self):
+        self.run_gate()
+        rc, out = self.run_gate("--report")
+        self.assertEqual(rc, 1, out)
+        self.assertIn("foo: memoized", out)
+
+    def test_malformed_entry_cannot_replay_a_pass(self):
+        import json
+        self.run_gate()
+        memo = self.load_memo()
+        memo["entries"]["foo-1.0"]["result"]["findings"] = []
+        self.memo.write_text(json.dumps(memo))
+        rc, out = self.run_gate()
+        self.assertEqual(rc, 1, out)
+        self.assert_rescanned(out)
+        self.assertIn("memo ignored", out)
+
+    def test_only_changed_package_is_rescanned(self):
+        import shutil
+        other = self.repo / "packages/desktop/quux"
+        shutil.copytree(self.yml.parent, other)
+        (other / "package.yml").write_text(self.yml.read_text().replace("foo", "quux"))
+        (self.manifest.parent / "quux-1.0").write_text("quux\n")
+        other_log = self.log.parent / "quux-20260101-000000.log"
+        other_log.write_text("clean\n")
+        self.run_gate()
+        self.log.write_text("clean\n")
+        rc, out = self.run_gate()
+        self.assertEqual(rc, 0, out)
+        self.assertIn("1 re-scanned, 1 memoized (fingerprint unchanged), 0 new, 1 invalidated", out)
+
+    def test_new_package_is_counted_separately(self):
+        # The recipe already exists; only the installed inventory grows.
+        import shutil
+        other = self.repo / "packages/desktop/quux"
+        shutil.copytree(self.yml.parent, other)
+        (other / "package.yml").write_text(self.yml.read_text().replace("foo", "quux"))
+        self.run_gate()
+        (self.manifest.parent / "quux-1.0").write_text("quux\n")
+        (self.log.parent / "quux-20260101-000000.log").write_text("clean\n")
+        rc, out = self.run_gate()
+        self.assertEqual(rc, 1, out)
+        self.assertIn("1 re-scanned, 1 memoized (fingerprint unchanged), 1 new, 0 invalidated", out)
+
+    def test_unreadable_log_does_not_replay_green(self):
+        from unittest.mock import patch
+        self.log.write_text("clean\n")
+        self.run_gate()
+        original = Path.read_text
+        def read(path, *args, **kwargs):
+            if path == self.log:
+                raise PermissionError("fixture denies log read")
+            return original(path, *args, **kwargs)
+        with patch.object(Path, "read_text", read):
+            rc, out = self.run_gate()
+        self.assertEqual(rc, 3, out)
+        self.assertIn("build log unreadable", out)
+        self.assert_rescanned(out)
+
+    def test_missing_recipe_does_not_replay_green(self):
+        self.log.write_text("clean\n")
+        self.run_gate()
+        self.yml.unlink()
+        rc, out = self.run_gate()
+        self.assertEqual(rc, 3, out)
+        self.assertIn("package.yml missing", out)
+        self.assert_rescanned(out)
+
+    def test_template_hash_failure_scans_without_memoizing(self):
+        self.run_gate()
+        self.yml.write_text(self.yml.read_text() + "unknown_field: true\n")
+        for unused in range(2):
+            rc, out = self.run_gate()
+            self.assertEqual(rc, 1, out)
+            self.assert_rescanned(out)
+            self.assertIn("memo unavailable", out)
+            self.assertEqual(self.load_memo()["entries"], {})
+
+    def test_same_package_versions_have_separate_entries(self):
+        other = self.manifest.parent / "foo-2.0"
+        other.write_text("TEMPLATE_HASH: 0123456789abcdef\n")
+        args = ("--start-at", "core", "--stop-after", "ai")
+        rc1, out1 = self.run_gate(*args)
+        rc2, out2 = self.run_gate(*args)
+        self.assertEqual((rc1, rc2), (1, 1))
+        self.assertEqual(set(self.load_memo()["entries"]), {"foo-1.0", "foo-2.0"})
+        self.assertIn("0 re-scanned, 2 memoized", out2)
+        for out in (out1, out2):
+            self.assertIn("rule N: 2", out)
+
+    def test_write_failure_does_not_change_verdict(self):
+        from unittest.mock import patch
+        with patch.object(preflight.os, "replace", side_effect=PermissionError("fixture denies memo write")):
+            rc, out = self.run_gate()
+        self.assertEqual(rc, 1, out)
+        self.assertIn("memo not written", out)
+        self.assertFalse(self.memo.exists())
+        self.assertEqual(list(self.memo.parent.iterdir()), [])
+
+    def test_log_change_between_read_and_fingerprint_is_not_cached(self):
+        from unittest.mock import patch
+        self.log.write_text("clean\n")
+        original = Path.read_text
+        changed = False
+        def read(path, *args, **kwargs):
+            nonlocal changed
+            value = original(path, *args, **kwargs)
+            if path == self.log and not changed:
+                changed = True
+                self.log.write_text(self.LOG)
+            return value
+        with patch.object(Path, "read_text", read):
+            self.run_gate()
+        rc, out = self.run_gate()
+        self.assertEqual(rc, 1, out)
+        self.assert_rescanned(out)
+
+    def test_blfs_alias_change_rescans(self):
+        self.log.write_text("checking for zed... no\n")
+        self.sql("INSERT INTO packages VALUES (1, 'reference', 'reference'); INSERT INTO dependencies VALUES (1, 'zed', 'required');")
+        self.assertEqual(self.run_gate()[0], 0)
+        self.sql("INSERT INTO aliases VALUES ('foo', 'reference');")
+        rc, out = self.run_gate()
+        self.assertEqual(rc, 1, out)
+        self.assert_rescanned(out)
+
+    def test_unrelated_audit_change_keeps_package_memo(self):
+        self.sql("CREATE TABLE package_audit (name TEXT, notes TEXT); INSERT INTO package_audit VALUES ('foo', 'before'); INSERT INTO package_audit VALUES ('unrelated', 'before');")
+        self.run_gate()
+        self.sql("UPDATE package_audit SET notes = 'after' WHERE name = 'unrelated';")
+        self.assertIn("0 re-scanned, 1 memoized", self.run_gate()[1])
+
+    def test_superseder_changes_during_scan_are_not_recorded(self):
+        from unittest.mock import patch
+        other = self.repo / "packages/desktop/foo-pass2/package.yml"
+        other.parent.mkdir()
+        before = "name: foo-pass2\nsupersedes:\n  - foo\ndependencies:\n  build:\n    - zed\n"
+        other.write_text(before)
+        original = preflight.scan_log_for_dep
+        def scan(log, dep):
+            other.write_text(before.replace("- zed", "- bar"))
+            return original(log, dep)
+        with patch.object(preflight, "scan_log_for_dep", scan):
+            self.assertEqual(self.run_gate()[0], 0)
+        other.write_text(before)
+        rc, out = self.run_gate()
+        self.assertEqual(rc, 1, out)
+        self.assert_rescanned(out)
+
+    def test_removed_superseder_rescans(self):
+        other = self.repo / "packages/desktop/foo-pass2/package.yml"
+        other.parent.mkdir()
+        other.write_text("name: foo-pass2\nsupersedes:\n  - foo\ndependencies:\n  build:\n    - bar\n")
+        self.assertEqual(self.run_gate()[0], 0)
+        other.unlink()
+        rc, out = self.run_gate()
+        self.assertEqual(rc, 1, out)
+        self.assert_rescanned(out)
+
+    def test_no_memo_valid_file_scans_every_package(self):
+        from unittest.mock import patch
+        self.run_gate()
+        with patch.object(preflight, "scan_log_for_dep", wraps=preflight.scan_log_for_dep) as scan:
+            rc, out = self.run_gate("--no-memo")
+        self.assertTrue(scan.called)
+        self.assertEqual(rc, 1, out)
+        self.assert_rescanned(out)
+        self.assertIn("0 re-scanned, 1 memoized", self.run_gate()[1])
+
+    def test_supplemental_findings_and_rescues_replay_verbatim(self):
+        import json
+        other = self.repo / "packages/desktop/zed/package.yml"
+        other.parent.mkdir()
+        other.write_text("name: zed\n")
+        self.log.write_text(self.LOG + "  bar : disabled\nRun-time dependency zed found: NO\n-- Could NOT find zed (missing: zed_LIBRARY)\nProgram bar found: NO\n")
+        first = preflight.scan(self.repo, self.chroot)
+        second = preflight.scan(self.repo, self.chroot)
+        self.assertTrue(first["findings"])
+        self.assertTrue(first["summary_disabled"])
+        self.assertTrue(first["meson_not_found_intree"])
+        self.assertTrue(first["cmake_not_found_intree"])
+        self.assertTrue(first["rescued"])
+        first.pop("memo"); second.pop("memo")
+        self.assertEqual(json.dumps(first), json.dumps(second))
