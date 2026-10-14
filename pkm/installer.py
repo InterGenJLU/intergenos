@@ -68,6 +68,8 @@ from .hookrecord import (
     diff_snapshots,
     claimable,
     format_record_summary,
+    own_payload_states,
+    split_own_changes,
 )
 from .configprotect import (
     prepare_config_protection,
@@ -2419,6 +2421,13 @@ class PackageInstaller:
             snap_before = (
                 fs_snapshot(self.root) if hook_present else None
             )
+            # What each of the package's own payload paths IS at the same
+            # moment (a file's sha256, a link's target): the snapshot's ctime
+            # says that a path was touched, and these decide whether its
+            # bytes were rewritten or only its metadata moved.
+            own_before = (
+                self._own_payload_states(name) if hook_present else None
+            )
             archive_hook_result = run_archive_lifecycle_hook(
                 staging, "post_install", name, version, self.root,
             )
@@ -2428,7 +2437,7 @@ class PackageInstaller:
             if hook_present:
                 (generated_paths, own_modified,
                  record_messages) = self._record_hook_outputs(
-                    name, snap_before,
+                    name, snap_before, own_before,
                 )
             canonical_result = run_canonical_hooks(
                 self.root, file_list, name, version, "install",
@@ -3770,19 +3779,26 @@ class PackageInstaller:
     # Helpers — text manifest write-out
     # ------------------------------------------------------------------
 
-    def _record_hook_outputs(self, name, snap_before):
+    def _own_payload_states(self, name):
+        """pkm.hookrecord.own_payload_states over this package's own rows."""
+        return own_payload_states(
+            self.root, [entry["path"] for entry in self.db.get_files(name)])
+
+    def _record_hook_outputs(self, name, snap_before, own_before):
         """Register what a package's archive lifecycle hook just wrote (D-9).
 
         Args:
             name: the package the hook belongs to.
             snap_before: the pkm.hookrecord.fs_snapshot taken immediately
                 before the hook ran.
+            own_before: the pkm.hookrecord.own_payload_states of the
+                package's own rows taken at the same moment.
 
         Returns (generated_paths, own_modified, messages): the paths
         registered to the package as hook-generated, in pkm's storage form
         (directories with a trailing slash); the package's OWN payload paths
-        the hook rewrote in place (D-9b); and the transcript lines describing
-        what happened.
+        whose bytes the hook rewrote in place (D-9b); and the transcript
+        lines describing what happened.
 
         The two path lists are returned separately because the caller must
         re-emit the text manifest for EITHER. A hook that only rewrites its
@@ -3824,14 +3840,30 @@ class PackageInstaller:
         # checked, named bucket — the same D-9 treatment hook-CREATED files
         # get). Paths owned by OTHER packages keep hookrecord's original
         # rule verbatim: reported, never absorbed.
+        #
+        # "Modified" is the snapshot's (size, ctime) diff, and ctime moves on
+        # a chmod, a chown, a touch, an extended attribute (a file capability)
+        # or a new hard link exactly as on a rewrite. Read as a rewrite, a
+        # post_install that only ran `chmod 0700` on its own binary turned the
+        # byte check off for that binary for good, and verify said ok over
+        # whatever it held from then on. So the BYTES decide: only an own
+        # path whose bytes (a link's target, its kind) differ from
+        # own_before is reclassified; one whose bytes are the deploy's keeps
+        # its content check and its recorded hash, and the transcript names
+        # it and what changed. One that could not be read on a side is
+        # neither, and is named too.
         own_paths = {f["path"] for f in self.db.get_files(name)}
-        own_modified = sorted(
+        own_touched = sorted(
             p for p in modified if p.rstrip("/") in own_paths)
         other_modified = sorted(
             p for p in modified if p.rstrip("/") not in own_paths)
+        own_modified, own_kept, own_undetermined = split_own_changes(
+            own_before, own_payload_states(self.root, own_touched),
+            own_touched)
 
         messages = format_record_summary(
-            generated_paths, foreign, other_modified, own_modified)
+            generated_paths, foreign, other_modified, own_modified,
+            own_kept=own_kept, own_undetermined=own_undetermined)
         if not generated_paths and not own_modified:
             return [], [], messages
 

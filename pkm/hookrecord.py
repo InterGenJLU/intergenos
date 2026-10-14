@@ -29,6 +29,18 @@ that shape are the reason it is the right one:
     `cp -a`, `tar -p` and `touch -r`. A hook that rewrites a file and
     restores its mtime is still observed.
 
+ctime says that SOMETHING happened to a path, not what. A chmod, a chown, a
+touch, an extended attribute (a file capability is one) or a new hard link
+moves it exactly as a rewrite does. So for the package's OWN payload, whose
+content class the caller may change, the BYTES decide: own_payload_states
+records what each own path is (a regular file's sha256, a symbolic link's
+target) before the hook, and split_own_changes compares it after. Only a path
+whose bytes changed, whose link target changed, or that became another kind of
+entry was rewritten. A path whose bytes are the deploy's after a
+metadata-only step keeps its content check, and the summary says in one line
+what changed instead — a recorder that read that step as a rewrite turned the
+byte check off for the file for good.
+
 The cost — a whole-tree walk, twice — is affordable for exactly one
 reason: it is paid ONLY by packages that actually ship a lifecycle hook.
 That is one recipe today and a small opt-in set by design (the hook
@@ -50,7 +62,9 @@ and that no package already owns. Two exclusions are deliberate:
     still counted and reported, so the fact is never lost.
 """
 
+import hashlib
 import os
+import stat
 
 # Root-relative directories the snapshot never descends into. Every entry
 # is here for a stated reason; this list is the single definition of what
@@ -196,17 +210,200 @@ def claimable(created, owned_paths):
     return sorted(claim), sorted(foreign)
 
 
-def format_record_summary(claimed, foreign, modified, own_modified=()):
+def _file_sha256(path):
+    """The sha256 of the regular file at `path`, or None if it cannot be read.
+
+    Opened without following a final symbolic link and without blocking, and
+    checked to be a regular file on the open descriptor, so a path swapped for
+    a link, a FIFO or a device after its lstat is never read through.
+    """
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError:
+        return None
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            return None
+        digest = hashlib.sha256()
+        while True:
+            chunk = os.read(fd, 1 << 20)
+            if not chunk:
+                return digest.hexdigest()
+            digest.update(chunk)
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
+
+
+def _xattrs(path):
+    """The path's own extended attributes as sorted (name, value) pairs.
+
+    None when they cannot be listed (a filesystem without them), so a listing
+    that failed on one side is never read as an attribute that changed.
+    """
+    try:
+        names = os.listxattr(path, follow_symlinks=False)
+    except OSError:
+        return None
+    pairs = []
+    for name in sorted(names):
+        try:
+            pairs.append((name, os.getxattr(path, name, follow_symlinks=False)))
+        except OSError:
+            pairs.append((name, None))
+    return tuple(pairs)
+
+
+def own_payload_states(root, paths, prune=None):
+    """Record what each of a package's own payload paths IS, for the bytes rule.
+
+    Args:
+        root: install root (str or Path).
+        paths: root-relative POSIX paths (no leading slash; a directory's
+            trailing slash is ignored), the package's own rows.
+        prune: as for fs_snapshot. A path beneath a pruned directory is never
+            in the diff, so it is not read here either.
+
+    Returns:
+        dict mapping each path that exists to (kind, content, meta):
+          kind     KIND_FILE, KIND_LINK or KIND_DIR, from lstat (a symbolic
+                   link is never followed)
+          content  a regular file's sha256 (None when its bytes could not be
+                   read), a link's own target text, "" for a directory
+          meta     (st_mode, st_uid, st_gid, st_mtime_ns, st_nlink, st_ino,
+                   the extended attributes, or None when they could not be
+                   listed)
+        A path that does not exist, or that is none of the three kinds, is
+        omitted. Reading a file's bytes moves no ctime, so taking this record
+        does not disturb the snapshot it accompanies.
+    """
+    root = os.path.abspath(str(root))
+    prune_set = frozenset(
+        p.strip("/") for p in
+        (SNAPSHOT_PRUNE_DEFAULT if prune is None else prune)
+    )
+    states = {}
+    for raw in paths:
+        rel = str(raw).strip("/")
+        if not rel:
+            continue
+        parts = rel.split("/")
+        if any("/".join(parts[:i]) in prune_set for i in range(1, len(parts))):
+            continue
+        path = os.path.join(root, rel)
+        try:
+            st = os.lstat(path)
+        except OSError:
+            continue
+        if stat.S_ISLNK(st.st_mode):
+            try:
+                kind, content = KIND_LINK, os.readlink(path)
+            except OSError:
+                kind, content = KIND_LINK, None
+        elif stat.S_ISREG(st.st_mode):
+            kind, content = KIND_FILE, _file_sha256(path)
+        elif stat.S_ISDIR(st.st_mode):
+            kind, content = KIND_DIR, ""
+        else:
+            continue
+        states[rel] = (kind, content, (
+            st.st_mode, st.st_uid, st.st_gid, st.st_mtime_ns, st.st_nlink,
+            st.st_ino, _xattrs(path)))
+    return states
+
+
+_ABSENT = object()
+
+
+def metadata_changes(before, after, kind=KIND_FILE):
+    """Name the metadata that moved between two own_payload_states meta tuples.
+
+    Returns a list of phrases (possibly empty: then only the ctime moved, a
+    chmod to the mode the file already had, for instance).
+    """
+    b_mode, b_uid, b_gid, b_mtime, b_nlink, b_ino, b_xattrs = before
+    a_mode, a_uid, a_gid, a_mtime, a_nlink, a_ino, a_xattrs = after
+    changes = []
+    if stat.S_IMODE(b_mode) != stat.S_IMODE(a_mode):
+        changes.append(f"the mode ({stat.S_IMODE(b_mode):04o} -> "
+                       f"{stat.S_IMODE(a_mode):04o})")
+    if (b_uid, b_gid) != (a_uid, a_gid):
+        changes.append(f"the owner ({b_uid}:{b_gid} -> {a_uid}:{a_gid})")
+    if b_mtime != a_mtime:
+        changes.append("the modification time")
+    if b_xattrs is not None and a_xattrs is not None and b_xattrs != a_xattrs:
+        b_map, a_map = dict(b_xattrs), dict(a_xattrs)
+        names = sorted(n for n in set(b_map) | set(a_map)
+                       if b_map.get(n, _ABSENT) != a_map.get(n, _ABSENT))
+        changes.append(f"the extended attributes ({', '.join(names)})")
+    if b_ino != a_ino:
+        changes.append("the inode (the same target in a new link)"
+                       if kind == KIND_LINK else
+                       "the inode (the same bytes in a new file)")
+    elif b_nlink != a_nlink:
+        changes.append(f"the link count ({b_nlink} -> {a_nlink})")
+    return changes
+
+
+def split_own_changes(before, after, paths):
+    """Split the package's own modified paths by what the hook changed.
+
+    before, after: own_payload_states taken immediately before the hook and
+        after it.
+    paths: the package's own paths the snapshot diff reported modified.
+
+    Returns (rewritten, kept, undetermined), in path order:
+      rewritten     paths whose bytes changed, whose link target changed, or
+                    that became another kind of entry: the hook rewrote them
+      kept          (path, kind, changes) for each path whose bytes (a link's
+                    target) are what they were before the hook; `changes`
+                    names the metadata that moved (metadata_changes)
+      undetermined  paths that could not be read on one side, so no
+                    comparison was made; neither rewritten nor kept
+    """
+    rewritten, kept, undetermined = [], [], []
+    for path in sorted(paths):
+        rel = path.strip("/")
+        prior, now = before.get(rel), after.get(rel)
+        if prior is None or now is None:
+            undetermined.append(rel)
+        elif prior[0] != now[0]:
+            rewritten.append(rel)
+        elif prior[1] is None or now[1] is None:
+            undetermined.append(rel)
+        elif prior[1] != now[1]:
+            rewritten.append(rel)
+        else:
+            kept.append((rel, now[0], metadata_changes(prior[2], now[2],
+                                                       now[0])))
+    return rewritten, kept, undetermined
+
+
+def _and_join(parts):
+    if len(parts) < 2:
+        return "".join(parts)
+    return ", ".join(parts[:-1]) + " and " + parts[-1]
+
+
+def format_record_summary(claimed, foreign, modified, own_modified=(),
+                          own_kept=(), own_undetermined=()):
     """One-line-per-fact summary for the install transcript.
 
     Returns a list of message lines (possibly empty), matching the
     HookResult.messages convention in pkm/hooks.py.
 
-    own_modified: paths the hook modified that THIS package's own payload
-        already owns — reclassified to the hook-generated content class by
-        the caller (the D-9b rule; see installer._record_hook_outputs).
+    own_modified: paths of THIS package's own payload whose bytes the hook
+        changed — reclassified to the hook-generated content class by the
+        caller (the D-9b rule; see installer._record_hook_outputs).
         `modified` is every OTHER modified path (ownership and content
         class unchanged, reported so the fact is never lost).
+    own_kept: (path, kind, changes) for each own path the hook changed only
+        the metadata of (split_own_changes). Its content stays checked; one
+        line per path names it and what changed.
+    own_undetermined: own paths the hook touched whose bytes could not be
+        read on one side; their content class stays as recorded, one line
+        per path.
     """
     lines = []
     if claimed:
@@ -228,6 +425,18 @@ def format_record_summary(claimed, foreign, modified, own_modified=()):
             f"hook-managed from here on (existence-checked): "
             f"{', '.join(own_modified[:5])}"
             + (" …" if len(own_modified) > 5 else "")
+        )
+    for path, kind, changes in own_kept:
+        lines.append(
+            f"  hook[record] {path}: its hook changed "
+            f"{_and_join(changes) or 'nothing but the change time'}, not "
+            f"{'the target' if kind == KIND_LINK else 'the bytes'} — the "
+            f"content stays checked"
+        )
+    for path in own_undetermined:
+        lines.append(
+            f"  hook[record] {path}: its bytes could not be read on both "
+            f"sides of its hook — its content class stays as recorded"
         )
     if modified:
         lines.append(
