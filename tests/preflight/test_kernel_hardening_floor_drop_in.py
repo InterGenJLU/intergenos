@@ -62,6 +62,9 @@ DESIGNED = {
     "net.ipv4.conf.all.log_martians": "1",
     "net.ipv4.conf.default.log_martians": "1",
     "net.ipv4.conf.*.log_martians": "1",
+    # Multipath TCP off (decided 2026-10-14): with it on, NetworkManager relaxes the
+    # reverse path filter on the default-route interface and the uplink ends loose.
+    "net.mptcp.enabled": "0",
 }
 
 # systemd.sysctl(5): `key = value`; comments start with # or ;. Keys may carry a
