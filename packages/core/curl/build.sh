@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2015-2016, 2026 InterGenJLU
 #
-# cURL 8.19.0 — URL transfer library and tool
+# cURL 8.23.0 — URL transfer library and tool
 # BLFS 13.0
 
 configure() {
@@ -19,8 +19,13 @@ configure() {
     # ca-certificates package shipped only the bundle file. The
     # vscode/chrome/edge helpers silently failed on a fresh live ISO
     # because their helper-lib curl calls hit verify errors.
+    # Brotli stays disabled to preserve the existing compression dependencies.
+    # LDAP/LDAPS stay disabled to preserve the existing protocols and libraries.
     ./configure --prefix=/usr    \
                 --disable-static \
+                --without-brotli \
+                --disable-ldap   \
+                --disable-ldaps  \
                 --with-openssl   \
                 --with-libssh2   \
                 --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \

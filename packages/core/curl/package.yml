@@ -1,6 +1,6 @@
 name: curl
-version: "8.19.0"
-release: 1
+version: "8.23.0"
+release: 1  # Update curl to 8.23.0 for CVE-2026-92392; SMB support removed upstream in 8.23.0
 description: Command line tool and library for transferring data with URLs
 license: MIT
 homepage: https://curl.se/
@@ -10,7 +10,7 @@ install_func: do_install
 
 source:
   - url: https://curl.se/download/curl-${version}.tar.xz
-    sha256: 4eb41489790d19e190d7ac7e18e82857cdd68af8f4e66b292ced562d333f11df
+    sha256: 8dadd7d2536a314f982ad05a651b713f426bf7d02cc2c76cffb9796f2218e6c5
 
 dependencies:
   build:
