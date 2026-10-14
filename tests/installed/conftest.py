@@ -27,6 +27,14 @@ TWO THINGS THIS FILE HAS TO DEFEND AGAINST, both measured rather than assumed.
    with a reason that says, in words, that nothing was verified. When the variable
    is set but the machine is not an installed InterGenOS system, the tier FAILS —
    it does not skip. "I could not check" is never allowed to read as "I checked".
+
+THE ROOT TIER. Most gates measure the account a person uses — its home, its
+session bus, its own state — and read root's instead when run as root. A gate that
+can only measure as root carries the marker ``root_tier``, registered below.
+scripts/run-installed-gates.py, launched through sudo, runs those gates as root and
+every other gate as the account that invoked it, in one record. Launched without
+root it runs them as that account, where they say NOT VERIFIED and skip, and the
+release gate refuses the record.
 """
 
 from __future__ import annotations
@@ -40,9 +48,22 @@ import pytest
 
 GATE_ENV = "INTERGENOS_INSTALLED_GATES"
 
+# The marker a gate carries when it can only measure as root. The record runner
+# selects on this exact name, so it is registered here rather than left to a
+# warning: a misspelt marker would put a root gate in the user tier unseen.
+ROOT_TIER_MARK = "root_tier"
+
 # An installed package lives under the system library tree. Anything else is
 # source, and this tier has no business reporting on source.
 _INSTALLED_PREFIXES = ("/usr/lib/", "/usr/lib64/", "/usr/local/lib/")
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers",
+        f"{ROOT_TIER_MARK}: the gate can only measure as root. "
+        "scripts/run-installed-gates.py, launched through sudo, runs it as root "
+        "and every other gate as the account that invoked it.")
 
 
 def _looks_installed(path: str) -> bool:

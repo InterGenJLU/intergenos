@@ -33,6 +33,7 @@ class TestRootPasswordKept:
     def test_control_reader_sees_a_locked_field(self):
         assert _root_field("root:!:1:0:99999:7:::\n") in LOCKED
 
+    @pytest.mark.root_tier
     def test_installed_root_has_a_real_hash(self):
         try:
             text = SHADOW.read_text()
