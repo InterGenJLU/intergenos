@@ -672,8 +672,8 @@ run_package "libpsl" "libpsl" "0.21.5" \
 
 # --- Group B: Network tools ---
 
-run_package "curl" "curl" "8.19.0" \
-    "curl-8.19.0.tar.xz" \
+run_package "curl" "curl" "8.23.0" \
+    "curl-8.23.0.tar.xz" \
     "Command line tool and library for transferring data with URLs"
 
 run_package "wget" "wget" "1.25.0" \
