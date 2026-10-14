@@ -454,6 +454,16 @@ produced by `scripts/run-installed-gates.py` on a real installed machine, with
 zero failed gates and zero skips nobody declared in advance. There is no
 override flag.
 
+A record declares the **shape** of the machine it measured. `fresh` (the
+default) is an installation from the release medium: the identity gate requires
+`IMAGE_VERSION` to state the release. `upgrade` (`--shape upgrade` on the runner)
+is a machine moved from an earlier release by the package manager: the identity
+gate requires `IMAGE_VERSION` to be a medium tag of an older or equal release and
+reports it, because that tag is the truth of where the machine came from. The
+checker prints the shape and accepts either with every gate passed under its
+rules; `--require-shape fresh` refuses an upgrade-shape record on a path where
+only a fresh installation may stand, such as the release declaration.
+
 Since 2026-08-25 the record must also be **signed**. Sealing (`SHA256SUMS`)
 shows the record did not change; it does not show who stands behind it, and
 anyone able to write the record directory can re-seal it. The seal therefore

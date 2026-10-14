@@ -288,6 +288,11 @@ def main(argv: list[str] | None = None) -> int:
         help="pinned primary-key fingerprint the signature must carry "
              "(default: the project release key)")
     parser.add_argument(
+        "--require-shape", choices=("fresh", "upgrade"), default=None,
+        help="refuse a record whose declared shape differs: a release "
+             "declaration requires a fresh-install record; the pre-mint "
+             "record of an upgraded machine is an upgrade-shape record")
+    parser.add_argument(
         "--expected-skips", type=Path,
         default=Path(__file__).resolve().parent / "data"
         / "installed-gate-expected-skips.txt",
@@ -332,6 +337,14 @@ def main(argv: list[str] | None = None) -> int:
                f"candidate's is {args.candidate_content_hash!r}. Same release "
                f"number, different bytes.")
 
+    shape = str(record.get("shape") or "fresh")
+    if shape not in ("fresh", "upgrade"):
+        refuse(f"the record declares a shape this gate does not know: {shape!r}.")
+    if args.require_shape and shape != args.require_shape:
+        refuse(f"the record is an {shape}-shape record, but this path requires a "
+               f"{args.require_shape}-shape one. An upgraded machine's record "
+               f"stands for the upgrade path, never for a fresh installation.")
+
     gates = record.get("gates") or []
     if not gates:
         refuse("the record contains no gates at all. Nothing was measured, so "
@@ -355,7 +368,8 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"[check-release-validation] VALIDATED: release "
           f"{args.candidate_release} (content_hash {args.candidate_content_hash}) "
-          f"— {len(gates)} installed-system gates run on {hostname}, "
+          f"— {'an' if shape[0] in 'aeiou' else 'a'} {shape}-shape record: "
+          f"{len(gates)} installed-system gates run on {hostname}, "
           f"{len(gates) - len(skipped)} passed, {len(skipped)} declared skip(s), "
           f"0 failed. Record {record_dir} seal verified.")
     return EXIT_VALIDATED

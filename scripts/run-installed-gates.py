@@ -62,6 +62,11 @@ EXIT_REFUSED = 1
 EXIT_USAGE = 2
 
 GATE_ENV = "INTERGENOS_INSTALLED_GATES"
+# The shape of the machine a record measures, handed to the gates in the environment
+# and written into the record: "fresh" (installed from the release medium) or
+# "upgrade" (moved from an earlier release by the package manager).
+GATE_SHAPE_ENV = "IGOS_RECORD_SHAPE"
+RECORD_SHAPES = ("fresh", "upgrade")
 SEAL_NAME = "SHA256SUMS"
 SIG_NAME = "SHA256SUMS.asc"
 PKM_DB = "/var/lib/igos/pkm.db"
@@ -191,6 +196,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--declare-content-hash", default=None,
                         help="the candidate recipe content_hash, recorded as "
                              "DECLARED — it cannot be measured from an install")
+    parser.add_argument("--shape", choices=RECORD_SHAPES, default="fresh",
+                        help="the shape of this machine: fresh (installed from the "
+                             "release medium; the default) or upgrade (moved from an "
+                             "earlier release by the package manager). Written into the "
+                             "record and handed to the gates; the identity gate reads it.")
     args = parser.parse_args(argv)
 
     cwd = Path.cwd()
@@ -215,6 +225,7 @@ def main(argv: list[str] | None = None) -> int:
 
     env = dict(os.environ)
     env[GATE_ENV] = "1"
+    env[GATE_SHAPE_ENV] = args.shape
     env["PYTHONDONTWRITEBYTECODE"] = "1"
 
     collect = subprocess.run(
@@ -263,6 +274,7 @@ def main(argv: list[str] | None = None) -> int:
     }
     record = {
         "record_version": 1,
+        "shape": args.shape,
         "machine": {
             "hostname": socket.gethostname(),
             "os_id": osr.get("ID", ""),
@@ -291,7 +303,7 @@ def main(argv: list[str] | None = None) -> int:
         "installed_package_path": str(Path(resolved).parent),
         "invocation": {
             "argv": invocation,
-            "env": {GATE_ENV: "1"},
+            "env": {GATE_ENV: "1", GATE_SHAPE_ENV: args.shape},
             "cwd": str(cwd),
             "tier": str(tier),
         },

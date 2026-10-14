@@ -132,7 +132,8 @@ def _good_record(root: Path, *, release: int = 190,
                  content_hash: str = "a2a3e70562acf0f4",
                  gates: list[dict] | None = None,
                  package_path: str = "/usr/lib/python3.13/site-packages/intergen",
-                 hostname: str = "a-real-install") -> Path:
+                 hostname: str = "a-real-install",
+                 shape: str | None = None) -> Path:
     """A record shaped exactly as the runner writes one, and green."""
     if gates is None:
         gates = [
@@ -154,6 +155,7 @@ def _good_record(root: Path, *, release: int = 190,
         "the complete, untruncated pytest capture goes here\n", encoding="utf-8")
     (d / "record.json").write_text(json.dumps({
         "record_version": 1,
+        **({"shape": shape} if shape is not None else {}),
         "machine": {"hostname": hostname, "os_id": "intergenos",
                     "os_version_id": "R001.1", "kernel": "6.18.10"},
         "candidate": {"intergen_release": release,
@@ -355,6 +357,35 @@ class TheGateRefusesWhatIsNotValidated(_SignedRecordCase):
                      "--skip-validation"):
             self.assertNotIn(f'"{word}"', source)
             self.assertNotIn(f"'{word}'", source)
+
+
+@unittest.skipUnless(HAVE_GPG, "gpg + gpgv required (real crypto, no mocks)")
+class TheRecordShape(_SignedRecordCase):
+    """A record declares the shape of the machine it measured; the gate reads it."""
+
+    def test_an_upgrade_shape_record_validates_and_says_so(self) -> None:
+        rec = self._signed_record(shape="upgrade")
+        r = _run_gate(*self._args(rec))
+        self.assertEqual(r.returncode, EXIT_VALIDATED, r.stdout + r.stderr)
+        self.assertIn("an upgrade-shape record", r.stdout)
+
+    def test_a_record_without_a_shape_is_a_fresh_one(self) -> None:
+        rec = self._signed_record()
+        r = _run_gate(*self._args(rec), "--require-shape", "fresh")
+        self.assertEqual(r.returncode, EXIT_VALIDATED, r.stdout + r.stderr)
+        self.assertIn("a fresh-shape record", r.stdout)
+
+    def test_a_required_fresh_shape_refuses_an_upgrade_record(self) -> None:
+        rec = self._signed_record(shape="upgrade")
+        r = _run_gate(*self._args(rec), "--require-shape", "fresh")
+        self.assertEqual(r.returncode, EXIT_REFUSED, r.stdout + r.stderr)
+        self.assertIn("upgrade-shape record", r.stderr)
+
+    def test_an_unknown_shape_is_refused(self) -> None:
+        rec = self._signed_record(shape="other")
+        r = _run_gate(*self._args(rec))
+        self.assertEqual(r.returncode, EXIT_REFUSED, r.stdout + r.stderr)
+        self.assertIn("shape this gate does not know", r.stderr)
 
 
 @unittest.skipUnless(HAVE_GPG, "gpg + gpgv required (real crypto, no mocks)")
