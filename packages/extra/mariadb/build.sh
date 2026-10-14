@@ -180,6 +180,21 @@
 # enforce mode constraining filesystem + capability surface. No
 # auto-fired initdb (operator runs mariadb-setup --initdb explicitly;
 # systemd unit gated on /var/lib/mysql/mariadb_install_complete marker).
+#   -DCONNECT_WITH_JDBC=OFF                the CONNECT storage engine's JDBC table
+#                                          type is stated off, not auto-detected.
+#                                          Its CMake (storage/connect) probes Java
+#                                          and JNI when the option is on; the
+#                                          from-scratch root had no JDK when this
+#                                          package configured and answered 'Could
+#                                          NOT find Java', while the populated root
+#                                          this cycle rebuilds in carries a JDK under
+#                                          /opt/jdk and cmake found it — the
+#                                          configure-drift gate refused the gained
+#                                          answer (measured 2026-10-13). JNI is absent
+#                                          either way, so the feature was never built;
+#                                          enabling it is a product decision for
+#                                          after the tag, taken with the lineage's
+#                                          configuration stated explicitly first.
 
 BUILD_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
@@ -210,7 +225,8 @@ configure() {
           -DPLUGIN_COLUMNSTORE=NO                                           \
           -DPLUGIN_S3=NO                                                    \
           -DWITH_UNIT_TESTS=OFF                                             \
-          -DWITH_EMBEDDED_SERVER=OFF
+          -DWITH_EMBEDDED_SERVER=OFF                                        \
+          -DCONNECT_WITH_JDBC=OFF
 
     # Pre-stage fmt-12.1.0.zip at the path cmake's ExternalProject
     # expects. mariadb's cmake/libfmt.cmake auto-falls-back to bundled
