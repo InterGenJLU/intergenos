@@ -1,6 +1,6 @@
 name: rocblas
 version: "7.2.4"
-release: 2  # r2: the declared GPU architecture list widens from three targets to the six ruled on 2026-09-18 — gfx1030, gfx1100, gfx1101, gfx1102, gfx1200 and gfx1201, the five consumer and workstation architectures AMD's ROCm 7.2.0 compatibility matrix names plus gfx1102 (Navi 33), which this project declares deliberately. This build therefore emits kernels for six architectures instead of three, so the release moves with the bytes. Of the six, three are proven on hardware in this project's set — gfx1201 on the workstation card, gfx1100 and gfx1102 on the reference pair — and three are gate-proven only: gfx1030, gfx1101 and gfx1200, which no machine here carries. The rationale for the list is written once, in packages/compute/llama-cpp-hip/package.yml. This bump was written by hand: measured 2026-09-18, the release-bump machine does not see a gpu_targets change at all, because the field is not in content_hash.py's _BUILD_AFFECTING_YML_KEYS fold.
+release: 3  # r3: declares roctracer as a build and runtime dependency. rocBLAS's library/CMakeLists.txt searches /opt/rocm for roctracer/roctx.h and libroctx64 and, when both are present, links libroctx64 into librocblas for ROCTX tracing markers; upstream offers no switch to refuse the link, only a path hint. A build root without roctracer installed produces a librocblas without the link, a root with it produces one that needs libroctx64.so.4 at load time, so the dependency is declared to make the result the same in every build order and to pull roctracer in wherever rocblas is installed, as hipblaslt, rccl and rocsparse already declare it. No source or build-step change. A package.yml-only change, bumped by hand: the release-bump machine's fingerprint does not fold package.yml. r2: the declared GPU architecture list widens from three targets to the six ruled on 2026-09-18 — gfx1030, gfx1100, gfx1101, gfx1102, gfx1200 and gfx1201, the five consumer and workstation architectures AMD's ROCm 7.2.0 compatibility matrix names plus gfx1102 (Navi 33), which this project declares deliberately. This build therefore emits kernels for six architectures instead of three, so the release moves with the bytes. Of the six, three are proven on hardware in this project's set — gfx1201 on the workstation card, gfx1100 and gfx1102 on the reference pair — and three are gate-proven only: gfx1030, gfx1101 and gfx1200, which no machine here carries. The rationale for the list is written once, in packages/compute/llama-cpp-hip/package.yml. This bump was written by hand: measured 2026-09-18, the release-bump machine does not see a gpu_targets change at all, because the field is not in content_hash.py's _BUILD_AFFECTING_YML_KEYS fold.
 content_hash: b38c07d0b7e22986
 description: ROCm BLAS library with Tensile-generated GPU kernels
 license: MIT
@@ -44,6 +44,7 @@ dependencies:
   - rocm-cmake
   - rocm-llvm
   - rocm-hip
+  - roctracer
   - msgpack-cxx
   - python
   - python-msgpack
@@ -55,6 +56,7 @@ dependencies:
   host: []
   runtime:
   - rocm-hip
+  - roctracer
 verify_paths:
   - /opt/rocm/lib/librocblas.so
   # The Tensile kernel library is THE load-bearing artifact — a rocblas
