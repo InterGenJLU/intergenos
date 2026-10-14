@@ -55,3 +55,7 @@
 #     - CVE-2026-46300
 
 # (no live advisories at v1.0 ship; populate as patches land)
+
+curl-8.23.0:
+  cves:
+    - CVE-2026-92392
