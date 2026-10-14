@@ -26,7 +26,7 @@ name: yelp
 # flavour this release links, so a later version bump that crosses the GTK
 # boundary cannot pass quietly.
 version: "49.2"
-release: 1
+release: 2  # r2: the silent-loss audit accepts, by its exact name, the bzip2 pkg-config probe meson answers NO by design (bzip2 ships no .pc); the bz2 decoder is built through the library probe, so the shipped bytes are unchanged and only the declaration moves.
 description: GNOME help viewer — the window F1 and every Help menu item open
 license: GPL-2.0-or-later
 homepage: https://gitlab.gnome.org/GNOME/yelp
@@ -75,6 +75,16 @@ tests:
   failure_policy: strict
   reason: "upstream registers three tests and every one of them validates a file this package installs: desktop-file-validate over the generated org.gnome.Yelp.desktop, glib-compile-schemas --strict --dry-run over the GSettings schema, and appstreamcli validate over the metainfo file. All three tools are declared build dependencies and none needs a display, a bus or a network, so strict is honest here: a failure would mean this package is about to install a malformed desktop file, schema or metainfo document, which is exactly the case verify_paths cannot catch. Measured on an installed machine of this release line, 2026-09-19: 3 Ok, 0 Fail."
 
+silent_loss_accepted:
+  - bzip2   # the bzip2 pkg-config probe only: bzip2 1.0.8 ships no pkg-config file, so
+            # meson's first probe (dependency('bzip2'), tried pkgconfig) answers NO by design;
+            # the recipe's second probe (cc.find_library('bz2')) answers YES and the bz2
+            # decoder is built — libyelp-1.so.0 links libbz2.so.1.0 (measured 2026-10-13).
+            # The feature's real signal is that second probe's line (Library bz2 found:
+            # YES/NO), which this token matches neither way (its name variants are bzip,
+            # bzip2, libbzip, libbzip2); the audit reads that line by the same variants, so
+            # a loss of the library itself sits outside its declared-dependency rules for
+            # this package today — the archive's NEEDED set carries the shipped-byte check.
 verify_paths:
   - /usr/bin/yelp
   # Upstream's own install script (src/link-gnome-help.sh) makes this symlink,
