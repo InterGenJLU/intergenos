@@ -991,6 +991,33 @@ class TestPackageMemo(unittest.TestCase):
         self.assertEqual(rc, 1, out)
         self.assert_rescanned(out)
 
+    def test_changed_resume_window_keeps_an_unaffected_entry_memoized(self):
+        # The window itself is not part of the key: a package this resume does
+        # not rebuild (no skip-built hash here) replays under any window, so a
+        # --start-at change re-scans only the packages whose Rule N decision
+        # flips (measured 2026-10-13: the whole memo went cold on each change).
+        memoized = "0 re-scanned, 1 memoized (fingerprint unchanged), 0 new, 0 invalidated"
+        self.assertEqual(self.run_gate("--start-at", "core", "--stop-after", "ai")[0], 1)
+        rc, out = self.run_gate("--start-at", "extra", "--stop-after", "ai")
+        self.assertEqual(rc, 1, out)
+        self.assertIn(memoized, out)
+        rc, out = self.run_gate()
+        self.assertEqual(rc, 1, out)
+        self.assertIn(memoized, out)
+
+    def test_changed_resume_window_keeps_a_current_hash_entry_memoized(self):
+        # A matching TEMPLATE_HASH is the same Rule N decision (not rebuilt)
+        # inside and outside the window: the entry replays.
+        parse_template, template_hash = preflight._load_builder_hash_fn(self.repo)
+        current = template_hash(parse_template(self.yml), self.repo / "build" / "sources")
+        self.manifest.write_text(self.manifest.read_text().replace(
+            "BUILD SYSTEM: InterGenOS igos-build",
+            f"BUILD SYSTEM: InterGenOS igos-build\nTEMPLATE_HASH: {current}"))
+        self.assertEqual(self.run_gate("--start-at", "core", "--stop-after", "ai")[0], 1)
+        rc, out = self.run_gate("--start-at", "extra", "--stop-after", "ai")
+        self.assertEqual(rc, 1, out)
+        self.assertIn("0 re-scanned, 1 memoized (fingerprint unchanged), 0 new, 0 invalidated", out)
+
     def test_changed_superseding_recipe_rescans(self):
         other = self.repo / "packages/desktop/foo-pass2/package.yml"
         other.parent.mkdir()

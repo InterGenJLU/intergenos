@@ -245,7 +245,8 @@ class PackageMemo:
 
     The shared key covers package lookup order/names and the running scanner.
     Each package adds the selected log's identity and bytes, raw recipe and
-    builder template_hash, installed manifest, resume window, resolved BLFS
+    builder template_hash, installed manifest, Rule N decision (whether this
+    resume rebuilds the package; never the window itself), resolved BLFS
     dependencies, audit row and selected superseding recipe. The latter two
     lookups include absence: adding a reference or a superseder invalidates it.
     A hash/parse/read failure disables memoization, never the ordinary scan.
@@ -307,7 +308,6 @@ class PackageMemo:
                 "script": self.script_hash, "builder": builder_code,
                 "layout": layout, "known_names": sorted(known_names),
                 "audit_schema": audit_schema, "audit_columns": columns,
-                "window": window,
             })
             self.usable = True
         except Exception as exc:
@@ -356,8 +356,25 @@ class PackageMemo:
             recipe_hash = template_hash(recipe, self.repo / "build/sources")
             if not recipe_hash:
                 raise ValueError("builder returned an empty template hash")
+            # Rule N's decision for THIS resume, not the window itself: the
+            # window only matters through "does this run rebuild the package"
+            # (its phase inside the window and its installed TEMPLATE_HASH
+            # stale against the recipe). Keying the window would invalidate
+            # every entry on each --start-at change (measured 2026-10-13:
+            # 1123 entries re-scanned cold, about six minutes, twice in one
+            # evening); keying the decision re-scans only the packages whose
+            # Rule N status actually flips.
+            rule_n = False
+            tier = parse_tier(yml)
+            if self.window is not None and tier in TEMPLATE_HASH_TIER_PHASE:
+                phase_idx = PHASE_ORDER.index(TEMPLATE_HASH_TIER_PHASE[tier])
+                if self.window[0] <= phase_idx <= self.window[1]:
+                    installed = _TEMPLATE_HASH_RE.search(
+                        manifest.read_text(errors="replace"))
+                    rule_n = bool(installed and installed.group(1) != recipe_hash)
             return _memo_digest({
                 "shared": self.shared, "package": pkg,
+                "rule_n_rebuild": rule_n,
                 "manifest": [manifest.name, _file_digest(manifest)],
                 "log": [log.name, _file_digest(log),
                         hashlib.sha256(log_text.encode()).hexdigest()],
