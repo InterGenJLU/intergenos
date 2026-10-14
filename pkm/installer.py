@@ -70,6 +70,12 @@ from .hookrecord import (
     format_record_summary,
     own_payload_states,
     split_own_changes,
+    metadata_changes,
+    comparable_meta,
+    encode_meta,
+    decode_meta,
+    format_kept_line,
+    KIND_FILE,
 )
 from .configprotect import (
     prepare_config_protection,
@@ -3912,34 +3918,34 @@ class PackageInstaller:
         boundary is what stops this mechanism from being a way to silence
         another package's byte check.
 
-        Returns {path: "sha256:ctime_ns:owner_sha256"} for existing readable
-        regular files. ctime records an identical-content rewrite as well as a
-        byte change. The owner's recorded checksum is captured before the
-        hook too ('-' when unavailable), so a metadata-only change cannot
-        reclassify pre-existing damage. Missing or unreadable paths are OMITTED
-        rather than recorded as None: absent-then-present and unreadable-then-readable are
-        not evidence that a hook rewrote content, and inventing a value for
-        either would manufacture a change the machine never observed.
+        Returns {path: "sha256:ctime_ns:owner_sha256:<meta>"} for existing
+        readable regular files, <meta> being pkm.hookrecord.encode_meta's
+        mode, owner, modification time, link count, inode and extended
+        attributes. The bytes are what record_hook_changes decides by; the
+        rest is there so that a file whose bytes did not change can be named
+        with what did. The owner's recorded checksum ('-' when unavailable)
+        is still written, and no longer decides anything. Missing or
+        unreadable paths are OMITTED rather than recorded as None:
+        absent-then-present and unreadable-then-readable are not evidence that
+        a hook rewrote content, and inventing a value for either would
+        manufacture a change the machine never observed.
         """
         baseline = {}
         checksums = self.db.get_file_checksums(name)
-        for entry in self.db.get_files(name):
-            if entry["is_dir"]:
+        states = own_payload_states(
+            self.root,
+            [entry["path"] for entry in self.db.get_files(name)
+             if not entry["is_dir"]],
+            prune=())
+        for path, (kind, checksum, meta) in states.items():
+            if kind != KIND_FILE or checksum is None:
                 continue
-            path = entry["path"]
-            abs_path = str(self.root / path)
-            if not os.path.isfile(abs_path) or os.path.islink(abs_path):
-                continue
-            try:
-                checksum = _sha256(abs_path)
-                ctime_ns = os.stat(abs_path).st_ctime_ns
-                expected = checksums.get(path)
-                if not isinstance(expected, str) or not re.fullmatch(
-                        r"[0-9a-f]{64}", expected):
-                    expected = "-"
-                baseline[path] = f"{checksum}:{ctime_ns}:{expected}"
-            except (OSError, PermissionError):
-                continue
+            expected = checksums.get(path)
+            if not isinstance(expected, str) or not re.fullmatch(
+                    r"[0-9a-f]{64}", expected):
+                expected = "-"
+            baseline[path] = (f"{checksum}:{meta[7]}:{expected}:"
+                              f"{encode_meta(meta)}")
         return baseline
 
     def record_hook_changes(self, name, baseline):
@@ -3947,10 +3953,14 @@ class PackageInstaller:
 
         The second half. Compares the live content of the package's own files
         against `baseline` — captured by hook_baseline before the recipe's
-        post_install ran — and treats a path whose bytes or ctime changed
-        across that window as hook-managed content. Unlike archive observation,
-        a ctime-only change also requires a matching starting payload checksum
-        for this owner, so metadata changes cannot classify existing damage.
+        post_install ran — and treats a path whose BYTES changed across that
+        window as hook-managed content, the same rule the archive install
+        path's recorder follows. A file whose bytes are unchanged keeps its
+        content check whatever else the hook did to it: a chmod, a chown, a
+        touch, an extended attribute such as a file capability, a new hard
+        link or the same bytes written into a new file each move ctime, and
+        reading that as a rewrite turned the byte check off for the file for
+        good. Such a file is named, with what changed, one line each.
 
         A path is considered ONLY if it is in the baseline AND owned by this
         package. Divergence is never inferred from the recorded checksum: a
@@ -3971,51 +3981,53 @@ class PackageInstaller:
                         f"to record"]
 
         owned = {e["path"] for e in self.db.get_files(name) if not e["is_dir"]}
-        checksums = self.db.get_file_checksums(name)
+        live = own_payload_states(
+            self.root, [p for p in sorted(baseline) if p in owned], prune=())
         changed = []
-        unclassified = []
+        kept = []
         for path, before in sorted(baseline.items()):
             if path not in owned:
                 # The rows moved under us between the two halves. Say so
                 # rather than acting on a path this package no longer owns.
                 continue
-            abs_path = str(self.root / path)
-            if not os.path.isfile(abs_path) or os.path.islink(abs_path):
+            kind, after, meta = live.get(path, (None, None, None))
+            if kind != KIND_FILE or after is None:
                 continue
-            # The CLI transports this token verbatim. Legacy hash-only
-            # baselines retain their content-only comparison; they cannot
-            # supply evidence of an identical-content rewrite.
+            # The CLI transports this token verbatim: a legacy hash-only
+            # baseline, the sha256:ctime:owner form, or that form with the
+            # metadata hook_baseline writes now.
             if not isinstance(before, str) or not re.fullmatch(
-                    r"[0-9a-f]{64}(?::[0-9]+:(?:[0-9a-f]{64}|-))?", before):
+                    r"[0-9a-f]{64}(?::[0-9]+:(?:[0-9a-f]{64}|-)"
+                    r"(?::[0-9]+:[0-9]+:[0-9]+:-?[0-9]+:[0-9]+:[0-9]+:"
+                    r"(?:[0-9a-f]+|-))?)?", before):
                 raise ValueError(f"invalid hook baseline state for {path}")
             before_hash, *before_state = before.split(":")
-            try:
-                after = _sha256(abs_path)
-                after_ctime = os.stat(abs_path).st_ctime_ns
-            except (OSError, PermissionError):
-                continue
             if after != before_hash:
                 changed.append(path)
-            elif before_state and after_ctime != int(before_state[0]):
-                # ctime includes chmod/chown/touch. An identical-content
-                # state change is enough only when the starting bytes matched
-                # THIS owner's checksum before the hook, and that checksum
-                # still belongs to this owner. Reconciliation during the hook
-                # must not retroactively establish a trustworthy baseline.
-                expected = before_state[1]
-                if (expected != "-" and before_hash == expected and
-                        checksums.get(path) == expected):
-                    changed.append(path)
-                else:
-                    unclassified.append(path)
+                continue
+            if not before_state:
+                # A hash-only baseline holds no state to compare beyond the
+                # bytes, which are unchanged.
+                continue
+            # The bytes are the ones the baseline read, so the content check
+            # stays as recorded whatever moved; name what did.
+            moved = meta[7] != int(before_state[0])
+            if len(before_state) == 9:
+                try:
+                    changes = metadata_changes(
+                        decode_meta(before_state[2:], before_state[0]),
+                        comparable_meta(meta))
+                except ValueError as e:
+                    raise ValueError(
+                        f"invalid hook baseline state for {path}: {e}")
+                if changes or moved:
+                    kept.append((path, KIND_FILE, changes))
+            elif moved:
+                kept.append((path, KIND_FILE, [
+                    "the change time (this baseline records no other "
+                    "metadata)"]))
 
-        messages = []
-        if unclassified:
-            messages = [
-                f"  hook[record] {name}: {len(unclassified)} own file state "
-                f"change(s) kept their existing content class because the "
-                f"starting bytes lacked an unchanged checksum for this owner"
-            ] + [f"    {p}" for p in unclassified]
+        messages = [format_kept_line(*entry) for entry in kept]
         if not changed:
             return [], messages
 

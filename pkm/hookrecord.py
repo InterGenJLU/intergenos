@@ -63,6 +63,7 @@ and that no package already owns. Two exclusions are deliberate:
 """
 
 import hashlib
+import json
 import os
 import stat
 
@@ -273,7 +274,7 @@ def own_payload_states(root, paths, prune=None):
                    read), a link's own target text, "" for a directory
           meta     (st_mode, st_uid, st_gid, st_mtime_ns, st_nlink, st_ino,
                    the extended attributes, or None when they could not be
-                   listed)
+                   listed, st_ctime_ns)
         A path that does not exist, or that is none of the three kinds, is
         omitted. Reading a file's bytes moves no ctime, so taking this record
         does not disturb the snapshot it accompanies.
@@ -309,8 +310,55 @@ def own_payload_states(root, paths, prune=None):
             continue
         states[rel] = (kind, content, (
             st.st_mode, st.st_uid, st.st_gid, st.st_mtime_ns, st.st_nlink,
-            st.st_ino, _xattrs(path)))
+            st.st_ino, _xattrs(path), st.st_ctime_ns))
     return states
+
+
+def _xattr_digests(xattrs):
+    if xattrs is None:
+        return None
+    return tuple((name, None if value is None else
+                  hashlib.sha256(value).hexdigest())
+                 for name, value in xattrs)
+
+
+def comparable_meta(meta):
+    """A meta tuple with each extended attribute's value reduced to its
+    sha256, the form encode_meta writes and decode_meta reads back."""
+    return meta[:6] + (_xattr_digests(meta[6]),) + meta[7:]
+
+
+def encode_meta(meta):
+    """A meta tuple's first seven fields as colon-separated text with no
+    space in it, for a state that travels through a file (the source-build
+    lane's baseline): the extended attributes as the hex of their names and
+    value digests, or '-' when they could not be listed."""
+    mode, uid, gid, mtime_ns, nlink, ino, xattrs = comparable_meta(meta)[:7]
+    listed = ("-" if xattrs is None else
+              json.dumps([list(pair) for pair in xattrs]).encode().hex())
+    return f"{mode}:{uid}:{gid}:{mtime_ns}:{nlink}:{ino}:{listed}"
+
+
+def decode_meta(fields, ctime_ns):
+    """encode_meta's seven fields read back as a comparable meta tuple.
+
+    Raises ValueError for text encode_meta does not write, so a damaged
+    baseline is refused rather than half read.
+    """
+    mode, uid, gid, mtime_ns, nlink, ino, listed = fields
+    xattrs = None
+    if listed != "-":
+        pairs = json.loads(bytes.fromhex(listed))
+        if not isinstance(pairs, list) or not all(
+                isinstance(pair, list) and len(pair) == 2
+                and isinstance(pair[0], str)
+                and (pair[1] is None or isinstance(pair[1], str))
+                for pair in pairs):
+            raise ValueError("the extended attributes field is not a list "
+                             "of names and digests")
+        xattrs = tuple(tuple(pair) for pair in pairs)
+    return (int(mode), int(uid), int(gid), int(mtime_ns), int(nlink),
+            int(ino), xattrs, int(ctime_ns))
 
 
 _ABSENT = object()
@@ -322,8 +370,8 @@ def metadata_changes(before, after, kind=KIND_FILE):
     Returns a list of phrases (possibly empty: then only the ctime moved, a
     chmod to the mode the file already had, for instance).
     """
-    b_mode, b_uid, b_gid, b_mtime, b_nlink, b_ino, b_xattrs = before
-    a_mode, a_uid, a_gid, a_mtime, a_nlink, a_ino, a_xattrs = after
+    b_mode, b_uid, b_gid, b_mtime, b_nlink, b_ino, b_xattrs = before[:7]
+    a_mode, a_uid, a_gid, a_mtime, a_nlink, a_ino, a_xattrs = after[:7]
     changes = []
     if stat.S_IMODE(b_mode) != stat.S_IMODE(a_mode):
         changes.append(f"the mode ({stat.S_IMODE(b_mode):04o} -> "
@@ -386,6 +434,17 @@ def _and_join(parts):
     return ", ".join(parts[:-1]) + " and " + parts[-1]
 
 
+def format_kept_line(path, kind, changes):
+    """The one line that names an own path a hook changed only the metadata
+    of, and what changed; the same line for both recorders."""
+    return (
+        f"  hook[record] {path}: its hook changed "
+        f"{_and_join(changes) or 'nothing but the change time'}, not "
+        f"{'the target' if kind == KIND_LINK else 'the bytes'} — the "
+        f"content stays checked"
+    )
+
+
 def format_record_summary(claimed, foreign, modified, own_modified=(),
                           own_kept=(), own_undetermined=()):
     """One-line-per-fact summary for the install transcript.
@@ -427,12 +486,7 @@ def format_record_summary(claimed, foreign, modified, own_modified=(),
             + (" …" if len(own_modified) > 5 else "")
         )
     for path, kind, changes in own_kept:
-        lines.append(
-            f"  hook[record] {path}: its hook changed "
-            f"{_and_join(changes) or 'nothing but the change time'}, not "
-            f"{'the target' if kind == KIND_LINK else 'the bytes'} — the "
-            f"content stays checked"
-        )
+        lines.append(format_kept_line(path, kind, changes))
     for path in own_undetermined:
         lines.append(
             f"  hook[record] {path}: its bytes could not be read on both "
