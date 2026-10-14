@@ -507,7 +507,7 @@ Statically-linked cryptsetup + veritysetup for initramfs (LUKS unlock + dm-verit
 - License: `GPL-2.0-or-later`
 - Homepage: https://gitlab.com/cryptsetup/cryptsetup
 
-### curl (8.19.0)
+### curl (8.23.0)
 
 Command line tool and library for transferring data with URLs
 

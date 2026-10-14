@@ -2299,6 +2299,7 @@ landed is in the repository README, not here.
 
 ### Security
 
+- curl updated to 8.23.0 to fix CVE-2026-92392; the upstream release removes SMB support.
 - Chronicle refuses a saved user-data version identifier that names a location outside that version's directory.
 - Repository publication waits for the required signing step and refuses unsupported claims about checks that have not run.
 - Publishing a corrected archive at an existing version requires a signed corrective record that matches the signing key or its primary key.
