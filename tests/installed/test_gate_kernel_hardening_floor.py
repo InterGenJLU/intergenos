@@ -44,6 +44,9 @@ PROC_SYS = Path("/proc/sys")
 REQUIRED_GLOBAL = {
     "kernel/kptr_restrict": "1",
     "kernel/randomize_va_space": "2",
+    # multipath TCP off: with it on, NetworkManager relaxes the reverse path
+    # filter on the default-route interface (see the drop-in's last section).
+    "net/mptcp/enabled": "0",
 }
 REQUIRED_PER_IPV4_INTERFACE = {
     "rp_filter": "1",
