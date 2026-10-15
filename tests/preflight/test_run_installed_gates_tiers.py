@@ -32,6 +32,7 @@ import io
 import json
 import os
 import pwd
+import re
 import shutil
 import stat
 import subprocess
@@ -539,6 +540,38 @@ class TheRunnerRefusesALaunchItCannotAttribute(_RunnerCase):
     def test_a_root_launch_whose_root_tier_wrote_an_empty_report(self) -> None:
         self._refused("no readable report for the root tier", euid=0,
                       sudo_user="gate-user", empty_report="root")
+
+
+class AHandBackTheAccountCannotCompleteKeepsTheRecord(_RunnerCase):
+    """When the account cannot create the output directory, the sealed record
+    is not lost and the run does not read as a success: one refusal names the
+    account and the path, the next line names where the sealed record is kept,
+    and the launch exits non-zero."""
+
+    def test_the_sealed_record_is_kept_and_the_launch_refuses(self) -> None:
+        if os.geteuid() == 0:
+            self.skipTest("root writes through a directory mode; this case "
+                          "needs an account the mode stops")
+        locked = self.tmp / "locked"
+        locked.mkdir()
+        locked.chmod(0o555)
+        self.addCleanup(locked.chmod, 0o755)
+        self.out = locked / "run-1"
+        code, output, _ = self._launch(euid=0, sudo_user="gate-user")
+        self.assertEqual(code, 1, output)
+        refusals = [line for line in output.splitlines() if "REFUSED" in line]
+        self.assertEqual(len(refusals), 1, output)
+        self.assertIn(f"could not be handed back to gate-user at {self.out}",
+                      refusals[0])
+        kept = re.search(r"It is kept, sealed, at (\S+) \(", output)
+        self.assertIsNotNone(kept, output)
+        staging = Path(kept.group(1))
+        self.addCleanup(shutil.rmtree, staging, ignore_errors=True)
+        self.assertEqual(
+            sorted(p.name for p in staging.iterdir()),
+            ["SHA256SUMS", "junit-root-tier.xml", "junit.xml",
+             "pytest-output-root-tier.txt", "pytest-output.txt", "record.json"])
+        self.assertFalse(self.out.exists())
 
 
 class ARootLaunchRunsOnlyCodeRootAloneCanChange(_RunnerCase):
