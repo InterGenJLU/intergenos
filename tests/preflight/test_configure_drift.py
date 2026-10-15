@@ -318,6 +318,44 @@ def test_fresh_record_candidate_is_usable_and_does_not_edit_reference(gate, tmp_
     assert result.returncode == 2
 
 
+def test_the_helper_writes_no_parser_cache_into_the_tree(gate, tmp_path):
+    # The chroot entry point sets PYTHONDONTWRITEBYTECODE=1 (3.0-F26), which the
+    # helper's python3 -I ignores; the gate loads the builder's parser from its
+    # own resolved root, so the gate is copied (a symlink resolves to this
+    # checkout) and only -B keeps igos-build/__pycache__ out of that root.
+    index, recipe = reference_with_sample(gate, tmp_path, ['usr/bin/sample'])
+    log = tmp_path / 'sample-ch8-20260101-000000.log'
+    log.write_text('checking for a... yes\n')
+    data = json.loads(index.read_text())
+    data['packages']['sample']['logs']['ch8'] = gate.transcript_snapshot(log)
+    index.write_text(json.dumps(data))
+    root = tmp_path / 'copied-root'
+    template = root / 'packages/core/sample'
+    template.mkdir(parents=True)
+    (template / 'package.yml').write_bytes(recipe.read_bytes())
+    for path in ('scripts/check-configure-drift.py', 'igos-build/parser.py'):
+        (root / path).parent.mkdir(parents=True, exist_ok=True)
+        (root / path).write_bytes((ROOT / path).read_bytes())
+    (root / 'config').mkdir()
+    (root / 'config/configure-drift-allowlist.txt').write_text('')
+    source = (ROOT / 'scripts/pkg-functions.sh').read_text()
+    helper = re.search(r'^pkg_configure_drift\(\) \{\n.*?^\}', source, re.M | re.S).group()
+    env = {**os.environ, 'PYTHONDONTWRITEBYTECODE': '1', 'PKG_TEMPLATE_DIR': str(template),
+           'IGOS_CONFIGURE_DRIFT_MODE': 'enforce', 'IGOS_CONFIGURE_DRIFT_INDEX': str(index)}
+    cache = root / 'igos-build/__pycache__'
+    result = subprocess.run(['/usr/bin/bash', '-c', helper + '\npkg_configure_drift transcript sample "$1"\n',
+                             '--', str(log)], env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'GREEN sample: transcript; 0 findings, 0 allowlisted' in result.stdout
+    assert not cache.exists(), sorted(os.listdir(cache))
+    # Without -B the same gate writes the cache there, so the check above can fail.
+    result = subprocess.run([sys.executable, '-I', str(root / 'scripts/check-configure-drift.py'), 'check',
+                             '--signal', 'transcript', '--package', 'sample', '--recipe', str(template / 'package.yml'),
+                             '--log', str(log), '--index', str(index)], env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert cache.is_dir()
+
+
 def test_incomplete_records_cannot_make_a_candidate(gate, tmp_path):
     records = tmp_path / 'records'; records.mkdir()
     log = tmp_path / 'sample-ch8-20260101-000000.log'; log.write_text('checking for a... yes\n')
