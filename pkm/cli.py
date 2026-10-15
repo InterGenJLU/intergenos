@@ -1244,9 +1244,10 @@ def build_parser():
         "hook-baseline",
         help="Record a package's own file state before its post_install runs",
         description=(
-            "Writes the sha256 and change time of each regular file the package "
-            "owns to a file, for comparison after the package's post_install "
-            "has run. Reads only; changes nothing."
+            "Writes the sha256, change time and metadata (mode, owner, "
+            "modification time, link count, inode and extended attributes) of "
+            "each regular file the package owns to a file, for comparison after "
+            "the package's post_install has run. Reads only; changes nothing."
         ),
     )
     p_hook_base.add_argument("package")
@@ -1259,13 +1260,14 @@ def build_parser():
         description=(
             "Compares the package's own files against a baseline written by "
             "`pkm hook-baseline` before its post_install ran. Files whose "
-            "content changed, or whose change time changed from a matching "
-            "recorded payload checksum, are recorded as hook-managed: "
-            "existence is checked, the byte comparison against the payload "
-            "hash is not, and the text manifest is re-emitted stating the "
-            "class so the record survives a later import. Only the package's "
-            "own files are considered; a file another package owns is never "
-            "touched."
+            "content changed are recorded as hook-managed: existence is "
+            "checked, the byte comparison against the payload hash is not, and "
+            "the text manifest is re-emitted stating the class so the record "
+            "survives a later import. A file whose bytes did not change keeps "
+            "its content check; if its mode, owner, times, extended attributes, "
+            "link count or inode changed, it is named with what changed. Only "
+            "the package's own files are considered; a file another package "
+            "owns is never touched."
         ),
     )
     p_hook_rec.add_argument("package")
@@ -4951,7 +4953,7 @@ def cmd_record_hook_changes(db, args):
                 line = line.rstrip("\n")
                 if not line:
                     continue
-                # "<sha256>:<ctime_ns>:<owner_sha256>  <path>" (or legacy hash-only), split
+                # "<sha256>:<ctime_ns>:<owner_sha256>:<metadata>  <path>" (or an earlier form), split
                 # on the FIRST double space so a
                 # path containing spaces survives the round trip.
                 digest, _, path = line.partition("  ")
