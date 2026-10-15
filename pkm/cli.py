@@ -910,22 +910,33 @@ def _installed_version_string():
     unreadable database is a reason to say less, never to fail.
     """
     try:
-        from .database import DB_PATH, open_read_only
+        from .database import DB_PATH, open_read_only, release_suffix_verdict
         # The same read-only open every read command uses: the write-ahead
         # log is read where it can be, so the release a `pkm upgrade pkm`
         # committed a moment ago is the one printed.
         conn, _mode = open_read_only(DB_PATH)
         try:
-            row = conn.execute(
-                "SELECT version, release FROM installed WHERE name = 'pkm'"
-            ).fetchone()
+            cur = conn.execute("SELECT * FROM installed WHERE name = 'pkm'")
+            found = cur.fetchone()
+            row = dict(zip([d[0] for d in cur.description], found)) \
+                if found else None
         finally:
             conn.close()
     except Exception:
         return __version__
-    if not row or not row[0]:
+    if not row or not row.get("version"):
         return __version__
-    version, release = row[0], row[1]
+    version, release = row["version"], row.get("release")
+    # Read through the rule the read-write open repairs by, in memory: release
+    # 73 recorded '<version>-<release>' from a release-carrying file name, and
+    # this line would otherwise print the release twice.
+    try:
+        stem, _why = release_suffix_verdict("pkm", version, release,
+                                            row.get("archive_path"))
+    except Exception:
+        stem = None
+    if stem is not None:
+        version = stem
     if release in (None, ""):
         return str(version)
     return f"{version}-{release}"

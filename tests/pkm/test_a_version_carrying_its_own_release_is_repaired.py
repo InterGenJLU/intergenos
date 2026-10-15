@@ -263,10 +263,14 @@ class RepairAtTheOpen(unittest.TestCase):
         before = self.db_path.read_bytes()
 
         db, out, err = self._open(read_only=True)
-        self.assertEqual(db.get_installed("widget")["version"], "1.0-3")
+        # The read-only open reads the row through the same rule in memory
+        # (test_a_read_only_open_reads_the_repaired_version.py); the record
+        # itself stays as it was until a read-write open repairs it.
+        self.assertEqual(db.get_installed("widget")["version"], "1.0")
         db.close()
 
         self.assertEqual(self.db_path.read_bytes(), before)
+        self.assertEqual(self._rows()["widget"], ("1.0-3", 3))
         self.assertEqual((out, err), ("", ""))
 
     def test_the_repaired_row_is_accepted_by_the_next_forward_move(self):

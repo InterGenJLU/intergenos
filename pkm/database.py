@@ -546,6 +546,54 @@ def open_read_only(db_path):
     return sqlite3.connect(f"file:{db_path}?immutable=1", uri=True), "immutable"
 
 
+def release_suffix_verdict(name, version, release, archive_path):
+    """THE RULE for a recorded version that carries its own release, decided once.
+
+    The one definition both paths call: PackageDB._repair_release_suffixed_versions,
+    which writes the result on a read-write open, and PackageDB._version_as_read,
+    which a read-only open reads every installed row through, in memory. Two copies
+    of the rule could drift; one cannot.
+
+    Returns (stem, why):
+      (None, None)  the version does not end in "-<its release>"; there is nothing
+                    to decide and the row reads as recorded.
+      (stem, None)  it does, and the archive it was installed from (archive_path)
+                    states, in its .PKGINFO, this name, this release and the
+                    version without that tail: the row's version is stem.
+      (None, why)   it does, but the archive is gone, unreadable, carries no
+                    .PKGINFO or states anything else; why says which, and the row
+                    reads as recorded.
+    The archive is the only evidence. A version whose upstream form holds a dash
+    does not end in its own release, or its archive states the dashed form.
+    """
+    tail = f"-{release}"
+    if release is None or not isinstance(version, str) \
+            or len(version) <= len(tail) or not version.endswith(tail):
+        return None, None
+    stem = version[:-len(tail)]
+    if not archive_path or not os.path.isfile(archive_path):
+        return None, ("the archive it was installed from "
+                      f"({archive_path or 'none recorded'}) is not on disk")
+    # Imported here, not at the top: repo imports this module.
+    from .repo import _read_package_meta, ArchiveReadError
+    try:
+        meta = _read_package_meta(archive_path)
+    except (ArchiveReadError, OSError) as e:
+        return None, f"its archive cannot be read ({e})"
+    if not meta:
+        return None, f"its archive {archive_path} carries no .PKGINFO"
+    try:
+        same_release = int(meta.get("release")) == int(release)
+    except (TypeError, ValueError):
+        same_release = False
+    if meta.get("name") != name or not same_release \
+            or meta.get("version") != stem:
+        return None, (f"its archive {archive_path} states "
+                      f"{meta.get('name')} version {meta.get('version')!r} "
+                      f"release {meta.get('release')}")
+    return stem, None
+
+
 class PackageDB:
     """Package database interface."""
 
@@ -1246,8 +1294,10 @@ class PackageDB:
         after the column migrations: every command outside cli.py's read-only
         set opens here, inside the lock, before it acts. A database with no
         row ending in its own release is only read, so a second open writes
-        nothing. A read-only open cannot write and reads the row as recorded
-        until the next read-write open.
+        nothing. A read-only open cannot write; it reads each row through the
+        same rule in memory (_version_as_read), so a read-only command such as
+        the scheduled check-updates compares the version this repair would
+        record, and the next read-write open records it.
         """
         # A table older than the archive_path column (no migration adds it)
         # records no archive to confirm a repair against, so the rule cannot
@@ -1255,51 +1305,19 @@ class PackageDB:
         if not {"version", "release", "archive_path"} <= \
                 self._table_columns("installed"):
             return 0
-        candidates = []
+        # The rule itself is release_suffix_verdict, the one definition the
+        # read-only path (_version_as_read) calls too.
+        repairs, left = [], []
         for row_id, name, version, release, archive_path in self.conn.execute(
                 "SELECT id, name, version, release, archive_path FROM installed "
-                "WHERE instr(version, '-') > 0"):
-            tail = f"-{release}"
-            if release is None or len(version) <= len(tail) \
-                    or not version.endswith(tail):
-                continue
-            candidates.append((row_id, name, version, release, archive_path,
-                               version[:-len(tail)]))
-        if not candidates:
+                "WHERE instr(version, '-') > 0").fetchall():
+            stem, why = release_suffix_verdict(name, version, release, archive_path)
+            if stem is not None:
+                repairs.append((row_id, name, version, release, archive_path, stem))
+            elif why is not None:
+                left.append((name, version, release, why))
+        if not repairs and not left:
             return 0
-
-        # Imported here, not at the top: repo imports this module.
-        from .repo import _read_package_meta, ArchiveReadError
-
-        repairs, left = [], []
-        for row_id, name, version, release, archive_path, stem in candidates:
-            if not archive_path or not os.path.isfile(archive_path):
-                left.append((name, version, release,
-                             "the archive it was installed from "
-                             f"({archive_path or 'none recorded'}) is not on disk"))
-                continue
-            try:
-                meta = _read_package_meta(archive_path)
-            except (ArchiveReadError, OSError) as e:
-                left.append((name, version, release,
-                             f"its archive cannot be read ({e})"))
-                continue
-            if not meta:
-                left.append((name, version, release,
-                             f"its archive {archive_path} carries no .PKGINFO"))
-                continue
-            try:
-                same_release = int(meta.get("release")) == int(release)
-            except (TypeError, ValueError):
-                same_release = False
-            if meta.get("name") != name or not same_release \
-                    or meta.get("version") != stem:
-                left.append((name, version, release,
-                             f"its archive {archive_path} states "
-                             f"{meta.get('name')} version {meta.get('version')!r} "
-                             f"release {meta.get('release')}"))
-                continue
-            repairs.append((row_id, name, version, release, archive_path, stem))
 
         if repairs:
             self.conn.execute("BEGIN IMMEDIATE")
@@ -1358,8 +1376,41 @@ class PackageDB:
     # Installed packages
     # ------------------------------------------------------------------
 
+    def _version_as_read(self, name, version, release, archive_path):
+        """The version a read of an installed row returns.
+
+        A read-write open has already repaired every row the rule confirms, so
+        it reads the row as recorded. A read-only open cannot write, and a row
+        release 73 recorded as '<version>-<release>' would compare newer than
+        the next build of that version: the scheduled check (a read-only
+        command in a read-only unit) would list no update for it, and nobody
+        would be told. So a read-only open reads the row through the SAME rule
+        the repair applies, release_suffix_verdict, in memory, writing nothing;
+        -v says so for each row it reads that way. A row the rule does not
+        confirm reads exactly as recorded.
+        """
+        if not self.read_only:
+            return version
+        stem, _why = release_suffix_verdict(name, version, release, archive_path)
+        if stem is None:
+            return version
+        try:
+            from . import output as _o
+            if _o.process_level() >= _o.VERBOSE:
+                print(f"pkm: this read-only command reads {name}'s recorded "
+                      f"version {version!r} as {stem!r}: it ends in its own "
+                      f"release {release}, and the archive it was installed "
+                      f"from, {archive_path}, states {stem!r}. The next "
+                      f"read-write command records it.",
+                      file=sys.stderr, flush=True)
+        except Exception:
+            pass
+        return stem
+
     def get_installed(self, name):
-        """Get an installed package by name. Returns dict or None."""
+        """Get an installed package by name. Returns dict or None.
+
+        The version is the one _version_as_read returns."""
         cursor = self.conn.execute(
             "SELECT * FROM installed WHERE name = ?", (name,)
         )
@@ -1367,7 +1418,12 @@ class PackageDB:
         if not row:
             return None
         cols = [d[0] for d in cursor.description]
-        return dict(zip(cols, row))
+        pkg = dict(zip(cols, row))
+        if "version" in pkg:
+            pkg["version"] = self._version_as_read(
+                pkg.get("name"), pkg["version"], pkg.get("release"),
+                pkg.get("archive_path"))
+        return pkg
 
     def list_installed(self, tier=None):
         """List all installed packages. Optionally filter by tier.
@@ -1380,9 +1436,11 @@ class PackageDB:
         # PKM-A31: build the column list schema-tolerantly so a read-only open
         # of a DB created by an older pkm (missing e.g. `degraded`) yields NULL
         # for the absent column rather than crashing every read command.
+        # archive_path is read only for _version_as_read; the dicts returned
+        # keep their shape.
         sel = ", ".join(self._col(c) for c in (
             "name", "version", "release", "tier", "description",
-            "install_reason", "degraded", "reboot_required"))
+            "install_reason", "degraded", "reboot_required", "archive_path"))
         if tier:
             rows = self.conn.execute(
                 f"SELECT {sel} FROM installed WHERE tier = ? ORDER BY name",
@@ -1393,7 +1451,9 @@ class PackageDB:
                 f"SELECT {sel} FROM installed ORDER BY name"
             ).fetchall()
         return [
-            {"name": r[0], "version": r[1], "release": r[2], "tier": r[3],
+            {"name": r[0],
+             "version": self._version_as_read(r[0], r[1], r[2], r[8]),
+             "release": r[2], "tier": r[3],
              "description": r[4], "install_reason": r[5] or "manual",
              "degraded": r[6],  # PKM-A25: NULL = healthy
              "reboot_required": r[7]}  # 3.0-F28: NULL/0 = activates live
