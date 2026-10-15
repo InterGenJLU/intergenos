@@ -225,17 +225,45 @@ log ""
 # gate wave, 2026-07-12). The module dir + vmlinuz are RELEASE-named
 # (CONFIG_LOCALVERSION=-igos-<release>), so a release-bumped rebuild
 # ORPHANS the prior release's tree instead of overwriting it (ge9b-02:
-# the r3->r4 rebuild left 6.18.10-igos-3 beside -igos-4, caught only by
+# the r3->r4 rebuild left the -igos-3 tree beside -igos-4, caught only by
 # nvidia's recipe gate). Prune every staged kernel that is not the one
 # this phase is about to build, then assert exclusivity after the deploy.
 # NOTE: the kernel deploy path's pkm-DB re-registration gap on
 # same-version release bumps is a tracked pkm-layer item — this prune
 # fixes the filesystem state; the DB fix
 # lands at the pkm layer.
-KVER_FILE=/mnt/intergenos/packages/core/linux-kernel/package.yml
+#
+# The kernel this phase builds is the one its recipe declares: the version,
+# the release and the source archive are read from linux-kernel's
+# package.yml at run time and never restated in this driver. The release
+# is read by get_package_release, the reader the package's own record uses
+# below; the archive is named by scripts/download-sources.py's resolver,
+# the one that staged it into /sources. An empty value is refused HERE,
+# before the prune: the prune keeps only the kernel these values name, so
+# an empty version or release would name a kernel this phase does not
+# build and remove every staged one.
+KVER_FILE="${IGOS_PACKAGES}/linux-kernel/package.yml"
+_kernel_refuse() {  # _kernel_refuse <variable> <what the recipe did not give>
+    log "error: $1 is empty: ${KVER_FILE} gave no $2; refusing before the staged-kernel prune"
+    exit 1
+}
 KVER=$(grep '^version:' "$KVER_FILE" | awk '{print $2}' | tr -d '"')
-KREL=$(grep '^release:' "$KVER_FILE" | awk '{print $2}' | tr -d '"')
-FULL_KVER="${KVER}-igos-${KREL:-1}"
+[ -n "$KVER" ] || _kernel_refuse KVER "version"
+KREL=$(get_package_release "$KVER_FILE")
+[ -n "$KREL" ] || _kernel_refuse KREL "numeric release"
+if ! KTARBALL=$(python3 -I -c '
+import importlib.util, sys, yaml
+spec = importlib.util.spec_from_file_location("igos_download_sources", sys.argv[2])
+resolver = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(resolver)
+with open(sys.argv[1]) as recipe:
+    sources = resolver.get_source_info(yaml.safe_load(recipe))
+print(sources[0]["filename"] if sources else "")
+' "$KVER_FILE" /mnt/intergenos/scripts/download-sources.py); then
+    _kernel_refuse KTARBALL "source archive the resolver could name (its error is above)"
+fi
+[ -n "$KTARBALL" ] || _kernel_refuse KTARBALL "source archive"
+FULL_KVER="${KVER}-igos-${KREL}"
 shopt -s nullglob
 for _mod_tree in /usr/lib/modules/*/; do
     _mod_tree="${_mod_tree%/}"
@@ -256,8 +284,7 @@ unset _mod_tree _staged_kver
 # and a non-zero return halts at this call; the rc check holds the same
 # contract if errexit is ever off here. See chroot-build-ch8.sh's comment
 # block for the class.
-build_ch10_package "linux-kernel" "linux-kernel" "6.18.51" \
-    "linux-6.18.51.tar.xz" \
+build_ch10_package "linux-kernel" "linux-kernel" "$KVER" "$KTARBALL" \
     "Linux kernel"
 _ch10_rc=$?
 if [ "$_ch10_rc" -ne 0 ]; then
@@ -282,8 +309,8 @@ bash /mnt/intergenos/scripts/preflight-single-kernel.sh --expect "$FULL_KVER" ||
 log ""
 log ">>> Chapter 10 build complete"
 log ""
-log "    Kernel installed to /boot/vmlinuz-${version}-igos-<release> (release per linux-kernel/package.yml)"
-log "    Modules installed to /lib/modules/6.18.51-igos-<release>"
+log "    Kernel installed to /boot/vmlinuz-${FULL_KVER}"
+log "    Modules installed to /lib/modules/${FULL_KVER}"
 log ""
 log "    note: /etc/fstab and GRUB configuration will be"
 log "    completed during image deployment to the target VM."
