@@ -1533,6 +1533,13 @@ pkg_record_hook_changes() {
     # Reported either way. A recording failure leaves files on disk whose
     # classification the shipped image will get wrong, and a warning that
     # scrolls past is the only notice anyone gets, so it says what was lost.
+    # pipefail is set here, local to this function, because not every driver
+    # that calls it sets it: without it the pipeline's status is the indenting
+    # sed's, and a refusal from pkm printed no warning. The test stays an
+    # if-condition, so a refusal is reported and never becomes a halt under
+    # errexit; `local -` restores the caller's options when this returns.
+    local -
+    set -o pipefail
     if ! pkm record-hook-changes "$name" --baseline "$PKG_HOOK_BASELINE_FILE" 2>&1 | sed 's/^/  /'; then
         pkg_log "  WARNING: pkm record-hook-changes failed for ${name} — any file its post_install rewrote stays recorded as ordinary payload"
     fi
