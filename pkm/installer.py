@@ -75,6 +75,8 @@ from .hookrecord import (
     encode_meta,
     decode_meta,
     format_kept_line,
+    format_by_rule_line,
+    hook_managed_by_rule,
     KIND_FILE,
 )
 from .configprotect import (
@@ -2445,6 +2447,15 @@ class PackageInstaller:
                  record_messages) = self._record_hook_outputs(
                     name, snap_before, own_before,
                 )
+            # The module tables depmod writes are hook-managed BY RULE for a
+            # package whose payload ships them, with a hook of its own or
+            # without one (pkm.hookrecord, DEPMOD_TABLES): the next module any
+            # package adds rewrites them, and a byte check on them reported
+            # the kernel that ships them as modified.
+            by_rule, rule_messages = self._record_hook_managed_by_rule(
+                name, file_list,
+            )
+            record_messages = record_messages + rule_messages
             canonical_result = run_canonical_hooks(
                 self.root, file_list, name, version, "install",
                 note_fold=self.note_fold,
@@ -2475,7 +2486,10 @@ class PackageInstaller:
             # has no row to carry it from, registered the file as ordinary
             # owned content for the metadata-sync gate to byte-compare against
             # the pre-hook archive bytes.
-            if generated_paths or own_modified:
+            #
+            # The tables hook-managed by rule are stated the same way, so the
+            # manifest says what the rows say.
+            if generated_paths or own_modified or by_rule:
                 manifest_sha256 = self._write_manifest(
                     name, version,
                     file_list + generated_paths,
@@ -2483,7 +2497,7 @@ class PackageInstaller:
                     supersedes=superseded_names,
                     description=pkginfo.get("description"),
                     release=(self.db.get_installed(name) or {}).get("release"),
-                    generated=generated_paths + own_modified,
+                    generated=generated_paths + own_modified + by_rule,
                 )
                 self.db.set_manifest_sha256(name, manifest_sha256)
 
@@ -3897,6 +3911,42 @@ class PackageInstaller:
             ]
         return generated_paths, own_modified, messages
 
+    def _record_hook_managed_by_rule(self, name, file_list):
+        """Record the package's own paths that are hook-managed by rule.
+
+        file_list: the package's payload entries as deployed (directories
+            with a trailing slash). The paths among them that
+            pkm.hookrecord.hook_managed_by_rule names (the module tables
+            depmod writes) are marked hook-managed on the package's own rows,
+            whether or not a hook ran or changed them.
+
+        Returns (paths, messages): the paths marked, in the stored form, and
+        the transcript line naming them. A failure is durable, as in
+        _record_hook_outputs: the package is marked degraded and the line
+        says so.
+        """
+        by_rule = hook_managed_by_rule(file_list)
+        if not by_rule:
+            return [], []
+        pkg = self.db.get_installed(name)
+        if pkg is None:
+            return [], [
+                f"  hook[record] CRITICAL: {name} is not registered — "
+                f"{len(by_rule)} module table(s) could not be recorded as "
+                f"hook-managed"
+            ]
+        try:
+            self.db.mark_files_generated(pkg["id"], by_rule)
+        except (sqlite3.Error, OSError) as e:
+            self.db.mark_degraded(
+                name, f"hook-managed rule recording failed: {e}")
+            return [], [
+                f"  hook[record] CRITICAL: could not record {len(by_rule)} "
+                f"module table(s) as hook-managed; package marked DEGRADED: "
+                f"{e}"
+            ]
+        return by_rule, [format_by_rule_line(by_rule)]
+
     # ------------------------------------------------------------------
     # Source-build lane: recording what a recipe's post_install changed
     # ------------------------------------------------------------------
@@ -3962,6 +4012,13 @@ class PackageInstaller:
         reading that as a rewrite turned the byte check off for the file for
         good. Such a file is named, with what changed, one line each.
 
+        The one exception is decided by rule, not by this window: the module
+        tables depmod writes (pkm.hookrecord.DEPMOD_TABLES) among the
+        package's own rows, in the baseline or not, are recorded as
+        hook-managed content whether or not their bytes changed, because the
+        next module any package adds rewrites them. They are named in one
+        line.
+
         A path is considered ONLY if it is in the baseline AND owned by this
         package. Divergence is never inferred from the recorded checksum: a
         file that simply disagrees with its manifest hash may be damaged, and
@@ -3981,6 +4038,7 @@ class PackageInstaller:
                         f"to record"]
 
         owned = {e["path"] for e in self.db.get_files(name) if not e["is_dir"]}
+        by_rule = hook_managed_by_rule(owned)
         live = own_payload_states(
             self.root, [p for p in sorted(baseline) if p in owned], prune=())
         changed = []
@@ -4001,6 +4059,9 @@ class PackageInstaller:
                     r"(?::[0-9]+:[0-9]+:[0-9]+:-?[0-9]+:[0-9]+:[0-9]+:"
                     r"(?:[0-9a-f]+|-))?)?", before):
                 raise ValueError(f"invalid hook baseline state for {path}")
+            if path in by_rule:
+                # Decided by its class, not by this window.
+                continue
             before_hash, *before_state = before.split(":")
             if after != before_hash:
                 changed.append(path)
@@ -4028,24 +4089,27 @@ class PackageInstaller:
                     "metadata)"]))
 
         messages = [format_kept_line(*entry) for entry in kept]
-        if not changed:
+        if by_rule:
+            messages.append(format_by_rule_line(by_rule))
+        if not changed and not by_rule:
             return [], messages
 
-        messages += [
-            f"  hook[record] {name}: post_install rewrote "
-            f"{len(changed)} of its own payload file(s) — recorded as "
-            f"hook-managed content (existence-checked)"
-        ] + [f"    {p}" for p in changed]
+        if changed:
+            messages += [
+                f"  hook[record] {name}: post_install rewrote "
+                f"{len(changed)} of its own payload file(s) — recorded as "
+                f"hook-managed content (existence-checked)"
+            ] + [f"    {p}" for p in changed]
 
         try:
-            self.db.mark_files_generated(pkg["id"], changed)
+            self.db.mark_files_generated(pkg["id"], changed + by_rule)
         except (sqlite3.Error, OSError) as e:
             self.db.mark_degraded(
                 name, f"hook-change recording failed: {e}")
             return [], messages + [
-                f"  hook[record] CRITICAL: could not record {len(changed)} "
-                f"hook-managed path(s) for {name}; package marked DEGRADED: "
-                f"{e}"
+                f"  hook[record] CRITICAL: could not record "
+                f"{len(changed) + len(by_rule)} hook-managed path(s) for "
+                f"{name}; package marked DEGRADED: {e}"
             ]
 
         # Re-emit from the committed rows so the manifest mirrors exactly what
@@ -4062,7 +4126,7 @@ class PackageInstaller:
             hashes=self.db.get_file_checksums(name),
             release=pkg.get("release"),
             description=pkg.get("description"),
-            generated=sorted(set(changed) | set(already)),
+            generated=sorted(set(changed) | set(already) | set(by_rule)),
         )
         self.db.set_manifest_sha256(name, manifest_sha256)
         return changed, messages

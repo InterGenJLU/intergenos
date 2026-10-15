@@ -41,6 +41,21 @@ metadata-only step keeps its content check, and the summary says in one line
 what changed instead — a recorder that read that step as a rewrite turned the
 byte check off for the file for good.
 
+ONE CLASS IS DECIDED BY RULE, NOT BY THE BYTES: the eleven tables depmod
+writes into usr/lib/modules/<release>/ (DEPMOD_TABLES). They are indexes of
+whatever modules that directory holds on the machine, rewritten whenever any
+package adds a module there, by its install's depmod or by a hook that builds
+a module and runs depmod itself. depmod over the same set of modules writes
+them byte for byte, so the bytes rule above kept them content-checked, and the
+next module any package added made `pkm verify` report the kernel that ships
+them as modified. So they are hook-managed content (existence-checked, the
+class stated in the text manifest) for whichever package ships them, whether
+or not a hook changed them: in this module's recorder and its caller, in the
+source-build lane's recorder, and in the manifest import. The match is the
+<release> directory and the eleven names, never a kernel version. Every other
+file under usr/lib/modules/<release>/ — the modules themselves, modules.order,
+modules.builtin, modules.builtin.modinfo — keeps the bytes rule.
+
 The cost — a whole-tree walk, twice — is affordable for exactly one
 reason: it is paid ONLY by packages that actually ship a lifecycle hook.
 That is one recipe today and a small opt-in set by design (the hook
@@ -98,6 +113,45 @@ SNAPSHOT_PRUNE_DEFAULT = frozenset({
 KIND_FILE = "f"
 KIND_LINK = "l"
 KIND_DIR = "d"
+
+# The tables depmod writes into usr/lib/modules/<release>/ from the modules
+# present there: hook-managed by rule for whichever package ships them (the
+# module docstring). modules.order, modules.builtin and modules.builtin.modinfo
+# are depmod's inputs, written by the kernel's own build, and are not here.
+DEPMOD_TABLES = frozenset({
+    "modules.alias", "modules.alias.bin", "modules.builtin.alias.bin",
+    "modules.builtin.bin", "modules.dep", "modules.dep.bin",
+    "modules.devname", "modules.softdep", "modules.symbols",
+    "modules.symbols.bin", "modules.weakdep",
+})
+
+
+def is_depmod_table(path):
+    """True when `path` names one of DEPMOD_TABLES directly inside
+    usr/lib/modules/<release>/, <release> being any one directory name.
+
+    lib/modules/<release>/ matches too: the kernel's own install writes there
+    and reaches usr/lib/modules/ only through the merged-usr links staging
+    provides, so the canonical depmod trigger (pkm.hooks) accepts both forms
+    and this rule does not depend on that invariant either. `path` is
+    root-relative POSIX (a leading slash is ignored). A directory entry,
+    written with its trailing slash, is never a table.
+    """
+    text = str(path)
+    if text.endswith("/"):
+        return False
+    parts = text.lstrip("/").split("/")
+    if parts[0] == "usr":
+        parts = parts[1:]
+    return (len(parts) == 4 and parts[:2] == ["lib", "modules"]
+            and parts[2] not in ("", ".", "..")
+            and parts[3] in DEPMOD_TABLES)
+
+
+def hook_managed_by_rule(paths):
+    """The paths among `paths` that are hook-managed by rule, sorted, in the
+    stored form (no leading slash)."""
+    return sorted({str(p).lstrip("/") for p in paths if is_depmod_table(p)})
 
 
 def fs_snapshot(root, prune=None):
@@ -409,9 +463,14 @@ def split_own_changes(before, after, paths):
                     names the metadata that moved (metadata_changes)
       undetermined  paths that could not be read on one side, so no
                     comparison was made; neither rewritten nor kept
+    A path hook-managed by rule (is_depmod_table) is in none of the three:
+    its class does not depend on what the hook did, and the caller records it
+    by rule.
     """
     rewritten, kept, undetermined = [], [], []
     for path in sorted(paths):
+        if is_depmod_table(path):
+            continue
         rel = path.strip("/")
         prior, now = before.get(rel), after.get(rel)
         if prior is None or now is None:
@@ -442,6 +501,17 @@ def format_kept_line(path, kind, changes):
         f"{_and_join(changes) or 'nothing but the change time'}, not "
         f"{'the target' if kind == KIND_LINK else 'the bytes'} — the "
         f"content stays checked"
+    )
+
+
+def format_by_rule_line(paths):
+    """The one line that names a package's own paths hook-managed by rule
+    (hook_managed_by_rule); the same line for both recorders."""
+    return (
+        f"  hook[record] {len(paths)} module table(s) depmod writes — "
+        f"hook-managed by rule (existence-checked), whether or not a hook "
+        f"changed them: {', '.join(paths[:5])}"
+        + (" …" if len(paths) > 5 else "")
     )
 
 

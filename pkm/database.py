@@ -18,6 +18,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .hookrecord import hook_managed_by_rule
+
 # Forensic-trace shim — defensive import.
 try:
     from . import _trace
@@ -1442,6 +1444,14 @@ class PackageDB:
                     f"failed to record ownership row for '{path}' "
                     f"(package_id={package_id}): {e}"
                 ) from e
+        # The module tables depmod writes are hook-managed BY RULE for any
+        # package that ships them (pkm.hookrecord.DEPMOD_TABLES), stated in its
+        # manifest or not. The archive install, the manifest import and a
+        # builder's own registration (igos-build's tracker) all write their
+        # rows here, so none of them records the tables content-checked.
+        by_rule = hook_managed_by_rule(file_list)
+        if by_rule:
+            self.mark_files_generated(package_id, by_rule, commit=False)
         if commit:
             self.conn.commit()
 
@@ -2323,6 +2333,8 @@ class PackageDB:
                     # The manifest states; the row keeps what it already knows
                     # where the manifest is silent — the same precedence every
                     # other carried column above follows.
+                    # The module tables depmod writes need neither: add_files
+                    # records them hook-managed by rule.
                     to_flag = manifest_generated | prior_generated
                     if to_flag:
                         self.mark_files_generated(
