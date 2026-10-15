@@ -485,6 +485,9 @@ sudo tar -x -f <tree>.tar -C /var/lib/intergenos-validation/<commit>
 sudo python3 /var/lib/intergenos-validation/<commit>/scripts/run-installed-gates.py \
     --tier /var/lib/intergenos-validation/<commit>/tests/installed \
     --output <dir> --shape fresh
+
+# 3. Once the record is written, remove the export; only root can.
+sudo rm -r /var/lib/intergenos-validation/<commit>
 ```
 
 `tar.umask=0022` keeps group and other write off the exported files; without
