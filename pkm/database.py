@@ -629,6 +629,7 @@ class PackageDB:
         self._migrate_files_source_column()
         self._migrate_payload_version_column()
         self._migrate_files_unique_path()
+        self._repair_release_suffixed_versions()
         # PKM-A31: snapshot columns AFTER migrations (read-write path is fully
         # migrated, so this is the complete set). Keeps the read-tolerant _col
         # helper correct on both open paths.
@@ -1215,6 +1216,127 @@ class PackageDB:
             "update_helper_merge", pkg=name, version=version,
             release=release, pkg_id=pkg_id, payload_version=payload_version,
         )
+
+    def _repair_release_suffixed_versions(self):
+        """Idempotent repair: a recorded version that carries its own release.
+
+        pkm through release 73 took an installed package's version from the
+        archive's FILE NAME. Since 2026-09-22 a built archive is named
+        <name>-<version>-<release>.igos.tar.gz, and the index path downloads it
+        under that name, so release 73 recorded version "<version>-<release>"
+        beside the same release. The comparison then reads the tail as part of
+        the version, and the next build of the same version is refused as a
+        downgrade: "refusing to downgrade intergen 0.1.0-335-335 -> 0.1.0-337",
+        measured on an upgraded machine on 2026-10-15. Release 76 onwards takes
+        the version the archive's .PKGINFO states (installer), so no new row
+        takes that shape; this repairs the rows release 73 wrote.
+
+        THE RULE, exact, with the archive as the only evidence. A row is
+        repaired when its version ends in "-<its release>" and the archive it
+        was installed from (archive_path) states, in its .PKGINFO, the same
+        name, the same release and the version without that tail. A version
+        whose upstream form holds a dash (dialog 1.3-20260107, imagemagick
+        7.1.2-13) does not end in its own release, or its archive states the
+        dashed form, so it is never touched. A row whose archive is gone,
+        unreadable or states anything else is left exactly as it is; -v says
+        why, and the comparison keeps refusing it as before.
+
+        Each repair is one line on stderr at every verbosity and one history
+        row, all written in one transaction. It runs on every read-write open,
+        after the column migrations: every command outside cli.py's read-only
+        set opens here, inside the lock, before it acts. A database with no
+        row ending in its own release is only read, so a second open writes
+        nothing. A read-only open cannot write and reads the row as recorded
+        until the next read-write open.
+        """
+        candidates = []
+        for row_id, name, version, release, archive_path in self.conn.execute(
+                "SELECT id, name, version, release, archive_path FROM installed "
+                "WHERE instr(version, '-') > 0"):
+            tail = f"-{release}"
+            if release is None or len(version) <= len(tail) \
+                    or not version.endswith(tail):
+                continue
+            candidates.append((row_id, name, version, release, archive_path,
+                               version[:-len(tail)]))
+        if not candidates:
+            return 0
+
+        # Imported here, not at the top: repo imports this module.
+        from .repo import _read_package_meta, ArchiveReadError
+
+        repairs, left = [], []
+        for row_id, name, version, release, archive_path, stem in candidates:
+            if not archive_path or not os.path.isfile(archive_path):
+                left.append((name, version, release,
+                             "the archive it was installed from "
+                             f"({archive_path or 'none recorded'}) is not on disk"))
+                continue
+            try:
+                meta = _read_package_meta(archive_path)
+            except (ArchiveReadError, OSError) as e:
+                left.append((name, version, release,
+                             f"its archive cannot be read ({e})"))
+                continue
+            if not meta:
+                left.append((name, version, release,
+                             f"its archive {archive_path} carries no .PKGINFO"))
+                continue
+            try:
+                same_release = int(meta.get("release")) == int(release)
+            except (TypeError, ValueError):
+                same_release = False
+            if meta.get("name") != name or not same_release \
+                    or meta.get("version") != stem:
+                left.append((name, version, release,
+                             f"its archive {archive_path} states "
+                             f"{meta.get('name')} version {meta.get('version')!r} "
+                             f"release {meta.get('release')}"))
+                continue
+            repairs.append((row_id, name, version, release, archive_path, stem))
+
+        if repairs:
+            self.conn.execute("BEGIN IMMEDIATE")
+            try:
+                for row_id, name, version, release, archive_path, stem in repairs:
+                    self.conn.execute(
+                        "UPDATE installed SET version = ? WHERE id = ? AND version = ?",
+                        (stem, row_id, version))
+                    self.log_operation("repair-version", name, old_version=version,
+                                       new_version=stem, method="archive-pkginfo",
+                                       commit=False)
+                self.conn.commit()
+            except BaseException:
+                self.conn.rollback()
+                raise
+            for row_id, name, version, release, archive_path, stem in repairs:
+                _emit_db_event("repair_version", pkg=name, old_version=version,
+                               new_version=stem, release=release,
+                               archive=archive_path)
+
+        # Console lines, guarded: reporting a repair must never stop the open
+        # that made it (the same reasoning as _OneTimeUpdateReport).
+        def say(text):
+            try:
+                print(text, file=sys.stderr, flush=True)
+            except Exception:
+                pass
+
+        for row_id, name, version, release, archive_path, stem in repairs:
+            say(f"pkm: repaired {name}'s recorded version {version!r} to {stem!r}: "
+                f"it ended in its own release {release}, and the archive it was "
+                f"installed from, {archive_path}, states version {stem!r}.")
+        if left:
+            try:
+                from . import output as _o
+                verbose = _o.process_level() >= _o.VERBOSE
+            except Exception:
+                verbose = False
+            if verbose:
+                for name, version, release, why in left:
+                    say(f"pkm: {name}'s recorded version {version!r} ends in its "
+                        f"own release {release}, but {why}; left as it is.")
+        return len(repairs)
 
     def close(self):
         self.conn.close()
