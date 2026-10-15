@@ -51,8 +51,9 @@ next module any package added made `pkm verify` report the kernel that ships
 them as modified. So they are hook-managed content (existence-checked, the
 class stated in the text manifest) for whichever package ships them, whether
 or not a hook changed them: in this module's recorder and its caller, in the
-source-build lane's recorder, and in the manifest import. The match is the
-<release> directory and the eleven names, never a kernel version. Every other
+source-build lane's recorder, in the manifest import and in a builder's own
+registration (PackageDB.add_files). The match is the <release> directory and
+the eleven names, never a kernel version. Every other
 file under usr/lib/modules/<release>/ — the modules themselves, modules.order,
 modules.builtin, modules.builtin.modinfo — keeps the bytes rule.
 
