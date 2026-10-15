@@ -454,6 +454,50 @@ produced by `scripts/run-installed-gates.py` on a real installed machine, with
 zero failed gates and zero skips nobody declared in advance. There is no
 override flag.
 
+### Producing the record: one root launch, two tiers
+
+Most installed gates measure the account a person uses — its home, its session
+bus, its own state — and read root's instead when run as root. A few can only
+measure as root; they carry the `root_tier` marker, registered in
+`tests/installed/conftest.py`. One launch of the runner through `sudo` measures
+both: the user tier runs as the account `sudo` was invoked from (or the one
+named with `--user`), with that account's home, groups, runtime directory and
+session bus, and the root tier runs as root. The record names, per gate, the
+tier it belongs to and the identity that measured it, and this gate's verdict
+names the identities it saw. The sealed record is copied into place by that
+account, so it is handed back to it.
+
+Root runs the runner, the conftests, the gates and the project modules the
+root conftest imports, all from the tree the runner is in. So the commit is
+exported first into a directory only root can write, and launched from there.
+The runner refuses a root launch, in one line naming the path, when the tree,
+anything in it or any directory above it can be written by another account, or
+when the tier is outside that tree.
+
+```sh
+# 1. Export the commit under test into a fresh directory only root can write.
+git -C <checkout> -c tar.umask=0022 archive -o <tree>.tar <commit>
+sudo mkdir -p -m 0755 /var/lib/intergenos-validation
+sudo mkdir -m 0755 /var/lib/intergenos-validation/<commit>
+sudo tar -x -f <tree>.tar -C /var/lib/intergenos-validation/<commit>
+
+# 2. From a directory outside any checkout, as the account the gates measure:
+sudo python3 /var/lib/intergenos-validation/<commit>/scripts/run-installed-gates.py \
+    --tier /var/lib/intergenos-validation/<commit>/tests/installed \
+    --output <dir> --shape fresh
+```
+
+`tar.umask=0022` keeps group and other write off the exported files; without
+it `git archive` makes them group-writable and the runner refuses the tree. The
+commit's own directory is made without `-p`, so an export never lands on top of
+an earlier one. `<dir>` must not exist yet and must be a path the measuring
+account can create. On an upgraded machine the shape is `--shape upgrade`.
+
+Launched without root, the runner still runs both tiers, as the invoking
+account; the root-tier gates cannot measure there and skip, the runner says so
+in one line (`ROOT TIER NOT MEASURED`), and this gate refuses the record for
+the undeclared skip.
+
 A record declares the **shape** of the machine it measured. `fresh` (the
 default) is an installation from the release medium: the identity gate requires
 `IMAGE_VERSION` to state the release. `upgrade` (`--shape upgrade` on the runner)
