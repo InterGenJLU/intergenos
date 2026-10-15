@@ -1265,9 +1265,11 @@ def build_parser():
             "the text manifest is re-emitted stating the class so the record "
             "survives a later import. A file whose bytes did not change keeps "
             "its content check; if its mode, owner, times, extended attributes, "
-            "link count or inode changed, it is named with what changed. Only "
-            "the package's own files are considered; a file another package "
-            "owns is never touched."
+            "link count or inode changed, it is named with what changed. The "
+            "one exception is the eleven module tables depmod writes into "
+            "usr/lib/modules/<release>/, which are recorded as hook-managed "
+            "whether or not their bytes changed. Only the package's own files "
+            "are considered; a file another package owns is never touched."
         ),
     )
     p_hook_rec.add_argument("package")
