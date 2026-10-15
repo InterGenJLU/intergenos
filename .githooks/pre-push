@@ -1570,7 +1570,9 @@ fi
 #   different bytes cannot say which bytes it judged.
 #
 # There is no override. A missing record is NOT VALIDATED, never validated by
-# absence. Producing one is scripts/run-installed-gates.py on a real install.
+# absence. Producing one is scripts/run-installed-gates.py on a real install,
+# launched through sudo from a tree only root can write: a launch without root
+# leaves the root tier unmeasured, and the release gate refuses that record.
 RELVAL_MASTER=""
 for refline in "${PUSH_REFS[@]}"; do
     read -r _lref local_sha remote_ref remote_sha <<< "$refline"
@@ -1592,8 +1594,17 @@ if [ -n "$RELVAL_MASTER" ]; then
         echo "[pre-push] BLOCK: RELEASE_VALIDATION_RECORD is not set."
         echo "  Promoting to master publishes this release to users, and the"
         echo "  installed-system gates have not been recorded against it."
-        echo "  Produce a record on a real installed machine:"
-        echo "    scripts/run-installed-gates.py --output <dir> --tier <repo>/tests/installed"
+        echo "  Produce a record on a real installed machine: export the commit"
+        echo "  into a directory only root can write, then launch the runner"
+        echo "  through sudo from the account the gates measure. A launch without"
+        echo "  root leaves the root tier unmeasured, and that record is refused."
+        echo "    git -c tar.umask=0022 archive -o <tree>.tar <commit>"
+        echo "    sudo mkdir -p -m 0755 /var/lib/intergenos-validation"
+        echo "    sudo mkdir -m 0755 /var/lib/intergenos-validation/<commit>"
+        echo "    sudo tar -x -f <tree>.tar -C /var/lib/intergenos-validation/<commit>"
+        echo "    sudo python3 /var/lib/intergenos-validation/<commit>/scripts/run-installed-gates.py \\"
+        echo "        --tier /var/lib/intergenos-validation/<commit>/tests/installed --output <dir>"
+        echo "  (docs/operations/11-resolving-validation-gates.md). Sign the record,"
         echo "  then set RELEASE_VALIDATION_RECORD=<dir> and push again."
         echo "  A missing record is NOT VALIDATED."
         exit 1
