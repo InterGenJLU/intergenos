@@ -26,6 +26,7 @@ itself is proven by the runner's real firing through sudo, shipped with the cut.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import importlib.util
 import io
 import json
@@ -36,6 +37,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import warnings
 from pathlib import Path
 from unittest import mock
 
@@ -87,6 +89,49 @@ def _load_runner():
     return module
 
 
+def _crypt_chars(seed: bytes, n: int) -> str:
+    """``n`` characters of the crypt alphabet, fixed by ``seed``: a stand-in
+    salt or hash that reads like a real one and is the same on every run."""
+    alphabet = ("./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                "abcdefghijklmnopqrstuvwxyz")
+    out, counter = "", 0
+    while len(out) < n:
+        block = hashlib.sha512(seed + counter.to_bytes(4, "big")).digest()
+        out += "".join(alphabet[b % 64] for b in block)
+        counter += 1
+    return out[:n]
+
+
+# A field that is locked but still carries its hash, as passwd -l leaves one.
+SALT = _crypt_chars(b"root-gate-control-salt", 16)
+HASH = _crypt_chars(b"root-gate-control-hash", 86)
+LOCKED_OVER_HASH = f"!$6${SALT}${HASH}"
+
+# The stand-in machine for the root gate: the gate file itself, unchanged, with
+# a conftest that registers the marker, stands in for the installed-system
+# fixture and points the gate at a crafted shadow file.
+_STAND_IN_CONFTEST = '''\
+from pathlib import Path
+
+import pytest
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "root_tier: measures only as root")
+
+
+@pytest.fixture(scope="session")
+def require_installed_intergenos():
+    """The stand-in machine: the crafted shadow file is all there is."""
+
+
+@pytest.fixture(autouse=True)
+def crafted_shadow(request, monkeypatch):
+    if hasattr(request.module, "SHADOW"):
+        monkeypatch.setattr(request.module, "SHADOW", Path({shadow!r}))
+'''
+
+
 def _selection(argv: list[str]) -> "str | None":
     """The marker expression a pytest argv selects, or None for the whole tier."""
     rest = argv[argv.index("pytest") + 1:]
@@ -127,22 +172,27 @@ class _Launch:
     replaced; the runner's own logic, its staging directory, its seal and the
     hand-back copy are real."""
 
-    def __init__(self, euid: int, empty_report: "str | None" = None) -> None:
+    def __init__(self, euid: int, empty_report: "str | None" = None,
+                 real_pytest: bool = False) -> None:
         self.euid = euid
         self.empty_report = empty_report
+        self.real_pytest = real_pytest
         self.calls: list[tuple[list[str], dict]] = []
         self.chowns: list[tuple] = []
 
     def run(self, argv: list[str], **kw) -> subprocess.CompletedProcess:
         argv = list(argv)
         self.calls.append((argv, dict(kw)))
+        real = {k: v for k, v in kw.items()
+                if k not in ("user", "group", "extra_groups")}
         if argv[1:3] == ["-I", "-c"]:
             # The hand-back copy runs for real, as this test's own account.
-            real = {k: v for k, v in kw.items()
-                    if k not in ("user", "group", "extra_groups")}
             return _REAL_RUN(argv, **real)
         if "-c" in argv and "import intergen" in argv[argv.index("-c") + 1]:
             return subprocess.CompletedProcess(argv, 0, INSTALLED_INTERGEN, "")
+        if self.real_pytest:
+            # pytest itself, over whatever tier the launch names.
+            return _REAL_RUN(argv, **real)
         if "--collect-only" in argv:
             ids = [f"{c}::{n}" for c, n in USER_TIER_GATES + ROOT_TIER_GATES]
             return subprocess.CompletedProcess(argv, 0, "\n".join(ids) + "\n", "")
@@ -182,8 +232,9 @@ class _RunnerCase(unittest.TestCase):
 
     def _launch(self, *, euid: int, sudo_user: "str | None" = None,
                 extra: tuple = (), empty_report: "str | None" = None,
-                environ: "dict | None" = None):
-        launch = _Launch(euid, empty_report)
+                environ: "dict | None" = None, tier: Path = TIER,
+                real_pytest: bool = False):
+        launch = _Launch(euid, empty_report, real_pytest)
         runner = self.runner
         output = io.StringIO()
         cwd = os.getcwd()
@@ -215,7 +266,7 @@ class _RunnerCase(unittest.TestCase):
                 stack.enter_context(contextlib.redirect_stderr(output))
                 try:
                     code = runner.main(["--output", str(self.out), "--tier",
-                                        str(TIER), "--shape", "upgrade", *extra])
+                                        str(tier), "--shape", "upgrade", *extra])
                 except SystemExit as e:
                     code = e.code
         finally:
@@ -476,6 +527,102 @@ class TheRunnerRefusesALaunchItCannotAttribute(_RunnerCase):
     def test_a_root_launch_whose_root_tier_wrote_an_empty_report(self) -> None:
         self._refused("no readable report for the root tier", euid=0,
                       sudo_user="gate-user", empty_report="root")
+
+
+class TheRootGateReportsTheFieldsClassNeverItsBytes(_RunnerCase):
+    """The root gate runs as root on every validation machine, and its failure
+    message lands in the capture, the report and the sealed record. A field that
+    is locked but still carries its hash fails the gate: the record must say
+    what the field is and carry no fragment of the hash or its salt.
+
+    Proven end to end: the real gate file, unchanged, run by real pytest under
+    the runner, against a crafted shadow file; every file of the record read."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        tier = self.tmp / "tier"
+        tier.mkdir()
+        shutil.copyfile(ROOT_GATE_FILE, tier / ROOT_GATE_FILE.name)
+        shadow = self.tmp / "shadow"
+        shadow.write_text(f"root:{LOCKED_OVER_HASH}:20000:0:99999:7:::\n",
+                          encoding="utf-8")
+        (tier / "conftest.py").write_text(
+            _STAND_IN_CONFTEST.format(shadow=str(shadow)), encoding="utf-8")
+        self.code, self.output, _ = self._launch(euid=4242, tier=tier,
+                                                 real_pytest=True)
+
+    def _root_gate(self) -> dict:
+        gates = [g for g in self._record()["gates"]
+                 if g["id"].endswith("::test_installed_root_has_a_real_hash")]
+        self.assertEqual(len(gates), 1, self.output)
+        return gates[0]
+
+    def test_the_gate_read_the_crafted_field_and_failed(self) -> None:
+        """The control: a record with no hash in it proves nothing unless the
+        gate read the field that carries one."""
+        self.assertEqual(self.code, 0, self.output)
+        gate = self._root_gate()
+        self.assertEqual((gate["tier"], gate["outcome"]), ("root", "failed"), gate)
+
+    def test_the_failure_names_the_fields_class(self) -> None:
+        self.assertIn("root's password field is locked ('!') over a $6$ hash of "
+                      "106 characters", self._root_gate()["reason"])
+
+    def test_no_fragment_of_the_hash_or_its_salt_reaches_the_record(self) -> None:
+        files = sorted(self.out.iterdir())
+        self.assertEqual([p.name for p in files],
+                         ["SHA256SUMS", "junit-root-tier.xml", "junit.xml",
+                          "pytest-output-root-tier.txt", "pytest-output.txt",
+                          "record.json"], self.output)
+        carriers = []
+        for path in files:
+            text = path.read_text(encoding="utf-8", errors="replace")
+            for label, secret in (("salt", SALT), ("hash", HASH)):
+                if any(secret[i:i + 8] in text for i in range(len(secret) - 7)):
+                    carriers.append(f"{path.name} ({label})")
+        self.assertEqual(carriers, [],
+                         "files of the record carrying eight or more characters "
+                         "of the crafted field's salt or hash")
+
+
+class TheRootGatesMessageIsAClass(unittest.TestCase):
+    """Each kind of field the gate refuses, and the words it uses for it."""
+
+    def setUp(self) -> None:
+        spec = importlib.util.spec_from_file_location("root_gate", ROOT_GATE_FILE)
+        self.gate = importlib.util.module_from_spec(spec)
+        # The tier's own conftest registers root_tier; imported from here, outside
+        # the tier, the gate's marker is unknown to this session. That one warning
+        # is expected for this import and is filtered for it alone.
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore", message=r"Unknown pytest\.mark\.root_tier")
+            spec.loader.exec_module(self.gate)
+
+    def test_each_refused_field_is_named_by_its_class(self) -> None:
+        yescrypt = f"$y$j9T${SALT}${HASH}"
+        cases = {
+            "": "empty",
+            "!": "the locked marker '!'",
+            "*": "the locked marker '*'",
+            "!!": "the locked marker '!!'",
+            LOCKED_OVER_HASH: "locked ('!') over a $6$ hash of 106 characters",
+            f"!!{yescrypt}": (f"locked ('!!') over a $y$ hash of "
+                              f"{len(yescrypt)} characters"),
+            f"*{SALT}": ("locked ('*') over a value of 16 characters that is not "
+                         "a hash of a known crypt scheme"),
+            f"!${SALT}${HASH}": (f"locked ('!') over a value of "
+                                 f"{len(SALT) + len(HASH) + 2} characters that is "
+                                 f"not a hash of a known crypt scheme"),
+            f"{SALT}{HASH}": ("a value of 102 characters that is not a hash of a "
+                              "known crypt scheme"),
+        }
+        for field, expected in cases.items():
+            with self.subTest(expected=expected):
+                said = self.gate._field_class(field)
+                self.assertEqual(said, expected)
+                for secret in (SALT, HASH):
+                    self.assertFalse(secret[:8] in said)
 
 
 if __name__ == "__main__":

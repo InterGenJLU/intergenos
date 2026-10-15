@@ -10,6 +10,14 @@ so an unprivileged run says NOT VERIFIED rather than pretending.
 
 The installed system is not media: D-007's locked root applies to the ISO and
 the image, never to a machine whose owner set a password in the installer.
+
+THE FAILURE NAMES THE FIELD'S CLASS, NEVER ITS BYTES. The message lands in the
+run's capture, its report and its sealed record, and this gate runs as root on
+every validation machine. A field that is locked but still carries its hash
+(passwd -l puts '!' in front of it) fails the gate, so printing the field would
+put root's hash into all three. The message says what the field is — the locked
+marker, or the hash scheme and the hash's length — and the gate fails without a
+traceback, which would otherwise print the comparison's operands.
 """
 
 from pathlib import Path
@@ -18,6 +26,11 @@ import pytest
 
 SHADOW = Path("/etc/shadow")
 LOCKED = {"*", "!", "!*", "!!", "x", ""}
+# The crypt schemes libxcrypt documents, by the identifier between the first two
+# dollar signs. Only these names are reported; anything else in that position
+# could be the field's own bytes.
+SCHEMES = {"y", "gy", "7", "2b", "2a", "2x", "2y", "6", "5", "sha1", "md5", "1",
+           "3", "sm3", "sm3y"}
 
 
 def _root_field(text: str):
@@ -26,6 +39,23 @@ def _root_field(text: str):
         if parts and parts[0] == "root":
             return parts[1] if len(parts) > 1 else ""
     return None
+
+
+def _field_class(field: str) -> str:
+    """What root's password field is, in words that carry none of its bytes."""
+    if field == "":
+        return "empty"
+    if field in LOCKED:
+        return f"the locked marker {field!r}"
+    rest = field.lstrip("!*")
+    marker = field[:len(field) - len(rest)]
+    scheme = rest[1:].split("$", 1)[0] if rest.startswith("$") else None
+    if scheme in SCHEMES and rest.startswith(f"${scheme}$"):
+        what = f"a ${scheme}$ hash of {len(rest)} characters"
+    else:
+        what = (f"a value of {len(rest)} characters that is not a hash of a "
+                f"known crypt scheme")
+    return f"locked ({marker!r}) over {what}" if marker else what
 
 
 @pytest.mark.usefixtures("require_installed_intergenos")
@@ -42,6 +72,7 @@ class TestRootPasswordKept:
                         "run this gate as root (the root tier)")
         field = _root_field(text)
         assert field is not None, "no root entry in /etc/shadow"
-        assert field not in LOCKED and field.startswith("$"), (
-            f"root's password field is {field!r}: the install left root with no "
-            f"usable credential (R001.3 row 5)")
+        if field in LOCKED or not field.startswith("$"):
+            pytest.fail(f"root's password field is {_field_class(field)}: the "
+                        f"install left root with no usable credential (R001.3 "
+                        f"row 5)", pytrace=False)
