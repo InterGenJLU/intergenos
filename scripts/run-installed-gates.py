@@ -38,6 +38,24 @@ system. The recipe content_hash cannot be recomputed from an installed system �
 it describes the source that produced the archive — so when it is supplied it is
 recorded under "declared" and never under "measured", and the record says which
 is which rather than presenting both as facts of equal standing.
+
+TWO TIERS, ONE RECORD. Most gates measure the account a person uses — its home,
+its session bus, its own state — and read root's instead when they run as root.
+A few can only measure as root; they carry the ``root_tier`` marker, which
+tests/installed/conftest.py registers. Every launch runs the tier twice, once per
+marker selection, and the record says which identity measured each gate:
+
+  * LAUNCHED THROUGH SUDO, the user tier runs as the account sudo was invoked
+    from (SUDO_USER, or the account named with --user), with that account's
+    home, groups, runtime directory and session bus and none of sudo's
+    variables; the root tier runs as root. The record is then copied into place
+    by that account, from a staging directory only root can change, so it is
+    handed back to the account and root never writes into a directory another
+    account controls.
+  * LAUNCHED WITHOUT ROOT, both runs measure as the invoking account. The
+    root-tier gates cannot measure there and skip; the runner says so in one
+    line, and the release gate refuses the record for its undeclared skips. A
+    launch that could not measure the root tier never reads as one that did.
 """
 
 from __future__ import annotations
@@ -47,6 +65,7 @@ import hashlib
 import json
 import os
 import platform
+import pwd
 import shutil
 import socket
 import sqlite3
@@ -71,6 +90,32 @@ SEAL_NAME = "SHA256SUMS"
 SIG_NAME = "SHA256SUMS.asc"
 PKM_DB = "/var/lib/igos/pkm.db"
 _INSTALLED_PREFIXES = ("/usr/lib/", "/usr/lib64/", "/usr/local/lib/")
+
+# The marker a gate carries when it can only measure as root; registered in
+# tests/installed/conftest.py under this exact name.
+ROOT_TIER_MARK = "root_tier"
+# Each tier: its name in the record, the marker expression that selects it, and
+# the capture and report its run writes. The two selections partition the tier.
+TIERS = (
+    ("user", f"not {ROOT_TIER_MARK}", "pytest-output.txt", "junit.xml"),
+    ("root", ROOT_TIER_MARK, "pytest-output-root-tier.txt", "junit-root-tier.xml"),
+)
+# The variables a root launch sets afresh for the account the user tier measures
+# as, after removing root's and sudo's values for them.
+_ACCOUNT_ENV = ("HOME", "USER", "LOGNAME", "MAIL", "XDG_RUNTIME_DIR",
+                "DBUS_SESSION_BUS_ADDRESS")
+# Run as the measured account to hand the sealed record back: it creates the
+# output directory itself and copies each sealed file into it from the staging
+# directory. Isolated (-I), so nothing in the environment or the working
+# directory reaches the copy.
+_PLACE = (
+    "import os, shutil, sys\n"
+    "src, dst, names = sys.argv[1], sys.argv[2], sys.argv[3:]\n"
+    "os.makedirs(os.path.dirname(dst), exist_ok=True)\n"
+    "os.mkdir(dst, 0o700)\n"
+    "for name in names:\n"
+    "    shutil.copyfile(os.path.join(src, name), os.path.join(dst, name))\n"
+)
 
 
 def refuse(message: str) -> None:
@@ -170,6 +215,168 @@ def _parse_junit(path: Path) -> list[dict]:
     return gates
 
 
+def _account(requested: str | None) -> "tuple[pwd.struct_passwd, bool]":
+    """The account the user tier measures as, and whether this is a root launch.
+
+    Launched as root, the user tier must still measure the account a person
+    uses, so the runner is told which one: --user, or the account sudo was
+    invoked from. Root itself is refused there, because measuring the user tier
+    as root is the failure the two tiers exist to end. Launched as anyone else,
+    the runner can only measure as that account, and refuses to be asked for
+    another.
+    """
+    euid = os.geteuid()
+    if euid == 0:
+        name = requested or os.environ.get("SUDO_USER") or ""
+        if not name:
+            refuse("launched as root with no account to measure the user tier "
+                   "as. Launch through sudo from the account the gates are "
+                   "about, or name that account with --user.")
+        try:
+            account = pwd.getpwnam(name)
+        except KeyError:
+            refuse(f"the account {name!r} is not in the password database, so "
+                   f"the user tier has no account to measure as.")
+        if account.pw_uid == 0:
+            refuse(f"the user tier measures the account a person uses, and "
+                   f"{name!r} is root (uid 0). Launch through sudo from that "
+                   f"account, or name it with --user.")
+        return account, True
+    try:
+        account = pwd.getpwuid(euid)
+    except KeyError:
+        refuse(f"the launching uid {euid} has no entry in the password "
+               f"database, so the record could not name who measured it.")
+    if requested is not None and requested != account.pw_name:
+        refuse(f"--user {requested} names another account, and only a root "
+               f"launch can measure as another account; this launch is "
+               f"{account.pw_name} (uid {euid}).")
+    return account, False
+
+
+def _self_identity() -> dict:
+    """This process's identity: what a run started without a change of account
+    measures as."""
+    euid = os.geteuid()
+    return {"user": pwd.getpwuid(euid).pw_name, "uid": euid,
+            "gid": os.getegid(), "groups": sorted(set(os.getgroups()))}
+
+
+def _account_identity(account: pwd.struct_passwd) -> dict:
+    """The identity a root launch gives the user tier: the account's own uid,
+    primary group and supplementary groups, as a login would."""
+    return {"user": account.pw_name, "uid": account.pw_uid,
+            "gid": account.pw_gid,
+            "groups": sorted(set(os.getgrouplist(account.pw_name,
+                                                 account.pw_gid)))}
+
+
+def _account_env(account: pwd.struct_passwd) -> dict[str, str]:
+    """The account's own home, names, runtime directory and session bus."""
+    runtime = f"/run/user/{account.pw_uid}"
+    return {"HOME": account.pw_dir, "USER": account.pw_name,
+            "LOGNAME": account.pw_name, "XDG_RUNTIME_DIR": runtime,
+            "DBUS_SESSION_BUS_ADDRESS": f"unix:path={runtime}/bus"}
+
+
+def _run_tier(name: str, selection: str, capture_name: str, junit_name: str, *,
+              tier: Path, cwd: Path, staging: Path, env: dict[str, str],
+              set_env: dict[str, str], measured_as: dict,
+              account: "pwd.struct_passwd | None") -> dict:
+    """One pytest run over the tier, restricted to one marker selection.
+
+    With ``account`` the run measures as that account: the child changes to its
+    uid, primary and supplementary groups before pytest starts. The staging
+    directory is root's own, so for that run it is opened to traversal only
+    (0711) and the report file is created in advance and given to the account —
+    the one file in it the account may write. Returns the run's entry for the
+    record.
+    """
+    junit = staging / junit_name
+    argv = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
+            "-m", selection, f"--junitxml={junit}", str(tier)]
+    change: dict = {}
+    if account is not None:
+        change = {"user": account.pw_uid, "group": account.pw_gid,
+                  "extra_groups": measured_as["groups"]}
+        os.chmod(staging, 0o711)
+        fd = os.open(junit, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                     0o644)
+        try:
+            os.fchown(fd, account.pw_uid, account.pw_gid)
+        finally:
+            os.close(fd)
+    try:
+        run = subprocess.run(argv, capture_output=True, text=True,
+                             cwd=str(cwd), env=env, timeout=7200, **change)
+    finally:
+        if account is not None:
+            os.chmod(staging, 0o700)
+    (staging / capture_name).write_text(run.stdout + run.stderr,
+                                        encoding="utf-8")
+    return {"tier": name, "measured_as": measured_as, "argv": argv,
+            "env": set_env, "returncode": run.returncode,
+            "capture": capture_name, "junit": junit_name}
+
+
+def _read_report(staging: Path, name: str, junit_name: str) -> list[dict]:
+    """The tier's per-gate outcomes, or a refusal: a report that is absent,
+    unreadable or empty measured nothing that can be recorded."""
+    junit = staging / junit_name
+    gates = None
+    if junit.is_file():
+        try:
+            gates = _parse_junit(junit)
+        except ET.ParseError:
+            gates = None
+    if gates is None:
+        shutil.rmtree(staging, ignore_errors=True)
+        refuse(f"pytest wrote no readable report for the {name} tier, so no "
+               f"per-gate outcome can be read.")
+    if not gates:
+        shutil.rmtree(staging, ignore_errors=True)
+        refuse(f"the {name} tier's report contains no gates, so nothing was "
+               f"measured there.")
+    return gates
+
+
+def _hand_back(staging: Path, out: Path, account: pwd.struct_passwd,
+               env: dict[str, str]) -> None:
+    """Copy the sealed record into place AS the account it measured.
+
+    The output directory is the account's, so root never writes into it: in a
+    directory another account controls, a symbolic link can be put into the
+    path between any check and any write, and a root write or chown made
+    through it lands wherever the link points. Instead the staged files are
+    given to the account inside root's own staging directory, which no other
+    account can change, and the account creates the output directory and copies
+    them itself. On failure the sealed record is kept in staging and the run
+    says where.
+    """
+    names = sorted(p.name for p in staging.iterdir())
+    for name in names:
+        os.chown(staging / name, account.pw_uid, account.pw_gid)
+        os.chmod(staging / name, 0o600)
+    os.chmod(staging, 0o711)
+    place = subprocess.run(
+        [sys.executable, "-I", "-c", _PLACE, str(staging), str(out.absolute()),
+         *names],
+        capture_output=True, text=True, cwd="/", env=env, timeout=600,
+        user=account.pw_uid, group=account.pw_gid,
+        extra_groups=sorted(set(os.getgrouplist(account.pw_name,
+                                                account.pw_gid))))
+    os.chmod(staging, 0o700)
+    if place.returncode != 0:
+        detail = (place.stderr or place.stdout or "").strip().splitlines()
+        print(f"[run-installed-gates] REFUSED: the sealed record could not be "
+              f"handed back to {account.pw_name} at {out}: "
+              f"{detail[-1] if detail else 'no error text'}", file=sys.stderr)
+        print(f"[run-installed-gates] It is kept, sealed, at {staging} "
+              f"(readable by root only).", file=sys.stderr)
+        sys.exit(EXIT_REFUSED)
+    shutil.rmtree(staging)
+
+
 def _seal(record_dir: Path) -> str:
     lines = []
     for p in sorted(record_dir.rglob("*")):
@@ -201,6 +408,10 @@ def main(argv: list[str] | None = None) -> int:
                              "release medium; the default) or upgrade (moved from an "
                              "earlier release by the package manager). Written into the "
                              "record and handed to the gates; the identity gate reads it.")
+    parser.add_argument("--user", default=None,
+                        help="in a root launch, the account the user tier "
+                             "measures as (default: the account sudo was invoked "
+                             "from); the record is handed back to it")
     args = parser.parse_args(argv)
 
     cwd = Path.cwd()
@@ -210,6 +421,8 @@ def main(argv: list[str] | None = None) -> int:
                f"({checkout}). Run from a directory outside any checkout and "
                f"pass the tier with --tier, so the installed package cannot be "
                f"shadowed by the source tree.")
+
+    account, root_launch = _account(args.user)
 
     tier = args.tier or (Path(__file__).resolve().parents[1] / "tests" / "installed")
     tier = tier.resolve()
@@ -223,13 +436,19 @@ def main(argv: list[str] | None = None) -> int:
                f"installed package path — it reads as a source checkout. The "
                f"gates would measure source, not the shipped system.")
 
-    env = dict(os.environ)
-    env[GATE_ENV] = "1"
-    env[GATE_SHAPE_ENV] = args.shape
-    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    gate_env = {GATE_ENV: "1", GATE_SHAPE_ENV: args.shape,
+                "PYTHONDONTWRITEBYTECODE": "1"}
+    env = {**os.environ, **gate_env}
+    # A root launch's user tier: root's and sudo's values removed, the
+    # account's own set in their place.
+    account_env = {**_account_env(account), **gate_env}
+    user_env = {k: v for k, v in os.environ.items()
+                if k not in _ACCOUNT_ENV and not k.startswith("SUDO_")}
+    user_env.update(account_env)
 
     collect = subprocess.run(
-        [sys.executable, "-m", "pytest", "--collect-only", "-q", str(tier)],
+        [sys.executable, "-m", "pytest", "--collect-only", "-q",
+         "-p", "no:cacheprovider", str(tier)],
         capture_output=True, text=True, cwd=str(cwd), env=env, timeout=1800)
     collected = sum(1 for line in collect.stdout.splitlines() if "::" in line)
     if collected == 0:
@@ -244,23 +463,26 @@ def main(argv: list[str] | None = None) -> int:
                f"to write over one that may be somebody's evidence.")
     staging = Path(tempfile.mkdtemp(prefix="installed-gate-record-"))
     started = datetime.now(timezone.utc).isoformat()
-    junit = staging / "junit.xml"
-    capture = staging / "pytest-output.txt"
 
-    invocation = [sys.executable, "-m", "pytest", "-q",
-                  f"--junitxml={junit}", str(tier)]
-    run = subprocess.run(invocation, capture_output=True, text=True,
-                         cwd=str(cwd), env=env, timeout=7200)
+    self_identity = _self_identity()
+    runs: list[dict] = []
+    gates: list[dict] = []
+    for name, selection, capture_name, junit_name in TIERS:
+        as_account = root_launch and name == "user"
+        measured_as = (_account_identity(account) if as_account
+                       else self_identity)
+        runs.append(_run_tier(
+            name, selection, capture_name, junit_name, tier=tier, cwd=cwd,
+            staging=staging, env=user_env if as_account else env,
+            set_env=account_env if as_account else dict(gate_env),
+            measured_as=measured_as,
+            account=account if as_account else None))
+        for gate in _read_report(staging, name, junit_name):
+            gate["tier"] = name
+            gate["measured_as"] = {"user": measured_as["user"],
+                                   "uid": measured_as["uid"]}
+            gates.append(gate)
     finished = datetime.now(timezone.utc).isoformat()
-    capture.write_text(run.stdout + run.stderr, encoding="utf-8")
-
-    if not junit.is_file():
-        shutil.rmtree(staging, ignore_errors=True)
-        refuse("pytest wrote no report, so no per-gate outcome can be read.")
-    gates = _parse_junit(junit)
-    if not gates:
-        shutil.rmtree(staging, ignore_errors=True)
-        refuse("the report contains no gates, so nothing was measured.")
 
     osr = _os_release()
     identity = _installed_identity()
@@ -270,10 +492,13 @@ def main(argv: list[str] | None = None) -> int:
         "failed": sum(1 for g in gates if g["outcome"] == "failed"),
         "skipped": sum(1 for g in gates if g["outcome"] == "skipped"),
         "errors": sum(1 for g in gates if g["outcome"] == "error"),
-        "pytest_returncode": run.returncode,
+        # The first run that did not exit 0, so a red tier is never hidden
+        # behind a green one; each run's own code is in the invocation.
+        "pytest_returncode": next(
+            (r["returncode"] for r in runs if r["returncode"] != 0), 0),
     }
     record = {
-        "record_version": 1,
+        "record_version": 2,
         "shape": args.shape,
         "machine": {
             "hostname": socket.gethostname(),
@@ -302,10 +527,12 @@ def main(argv: list[str] | None = None) -> int:
         },
         "installed_package_path": str(Path(resolved).parent),
         "invocation": {
-            "argv": invocation,
-            "env": {GATE_ENV: "1", GATE_SHAPE_ENV: args.shape},
+            "launched_by": {"user": self_identity["user"],
+                            "uid": self_identity["uid"],
+                            "sudo_user": os.environ.get("SUDO_USER", "")},
             "cwd": str(cwd),
             "tier": str(tier),
+            "runs": runs,
         },
         "started_utc": started,
         "finished_utc": finished,
@@ -318,11 +545,24 @@ def main(argv: list[str] | None = None) -> int:
                                          encoding="utf-8")
     seal_digest = _seal(staging)
 
-    out.parent.mkdir(parents=True, exist_ok=True)
-    shutil.move(str(staging), str(out))
+    if root_launch:
+        _hand_back(staging, out, account, user_env)
+    else:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(staging), str(out))
     verdict = "GREEN" if outcome["failed"] == 0 and outcome["errors"] == 0 \
         else "RED"
     print(f"[run-installed-gates] record written: {out}")
+    if root_launch:
+        print(f"[run-installed-gates] the user tier ran as {account.pw_name} "
+              f"(uid {account.pw_uid}), the root tier as root (uid 0); the "
+              f"record is handed back to {account.pw_name}")
+    else:
+        print(f"[run-installed-gates] ROOT TIER NOT MEASURED: launched as "
+              f"{account.pw_name} (uid {account.pw_uid}) without root, so the "
+              f"root-tier gates ran as {account.pw_name}, where they cannot "
+              f"measure, and the release gate refuses this record; launch "
+              f"through sudo to measure them")
     print(f"[run-installed-gates] {verdict} — {outcome['collected']} gates: "
           f"{outcome['passed']} passed, {outcome['failed']} failed, "
           f"{outcome['errors']} error, {outcome['skipped']} skipped")
