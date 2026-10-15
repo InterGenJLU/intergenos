@@ -249,12 +249,21 @@ done
 shopt -u nullglob
 unset _mod_tree _staged_kver
 
+# Two-statement form (NOT `build_ch10_package ... || { ... }`): a function
+# called on the left of || runs with errexit ignored through its whole body,
+# so an unchecked failure inside the kernel build ran on and reported
+# success. Called as its own statement, errexit halts at the failing command
+# and a non-zero return halts at this call; the rc check holds the same
+# contract if errexit is ever off here. See chroot-build-ch8.sh's comment
+# block for the class.
 build_ch10_package "linux-kernel" "linux-kernel" "6.18.51" \
     "linux-6.18.51.tar.xz" \
-    "Linux kernel" || {
+    "Linux kernel"
+_ch10_rc=$?
+if [ "$_ch10_rc" -ne 0 ]; then
     log "error: kernel build failed"
-    exit 1
-}
+    exit "$_ch10_rc"
+fi
 
 # ---- Staged-kernel exclusivity gate at the point of creation: the deploy
 # just above is the only place a kernel enters the chroot, so assert
