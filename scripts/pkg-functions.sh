@@ -1797,7 +1797,7 @@ pkg_configure_drift() {
         archive) args+=(--archive "$input") ;;
         *) printf 'RED configure-drift: invalid signal %s\n' "$signal" >&2; return 1 ;;
     esac
-    python3 -I "$gate" "${args[@]}"
+    python3 -I -B "$gate" "${args[@]}"
 }
 
 pkg_install() {

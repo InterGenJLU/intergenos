@@ -238,7 +238,10 @@ log ""
 # package.yml at run time and never restated in this driver. The release
 # is read by get_package_release, the reader the package's own record uses
 # below; the archive is named by scripts/download-sources.py's resolver,
-# the one that staged it into /sources. An empty value is refused HERE,
+# the one that staged it into /sources, and the version is the recipe's
+# parsed YAML value from the same parse the resolver is handed (never a
+# grep of the line: that keeps a single quote and takes every matching
+# line). An empty value is refused HERE,
 # before the prune: the prune keeps only the kernel these values name, so
 # an empty version or release would name a kernel this phase does not
 # build and remove every staged one.
@@ -247,22 +250,29 @@ _kernel_refuse() {  # _kernel_refuse <variable> <what the recipe did not give>
     log "error: $1 is empty: ${KVER_FILE} gave no $2; refusing before the staged-kernel prune"
     exit 1
 }
-KVER=$(grep '^version:' "$KVER_FILE" | awk '{print $2}' | tr -d '"')
-[ -n "$KVER" ] || _kernel_refuse KVER "version"
-KREL=$(get_package_release "$KVER_FILE")
-[ -n "$KREL" ] || _kernel_refuse KREL "numeric release"
-if ! KTARBALL=$(python3 -I -c '
+# One parse gives both values. -B restates the chroot entry point's
+# PYTHONDONTWRITEBYTECODE=1 (3.0-F26): -I ignores the environment, and the
+# module loaded by path would otherwise write a cache into the build tree.
+_kernel_values_rc=0
+_kernel_values=$(python3 -I -B -c '
 import importlib.util, sys, yaml
+with open(sys.argv[1]) as recipe:
+    data = yaml.safe_load(recipe)
+print(str(data.get("version") or "") if isinstance(data, dict) else "")
 spec = importlib.util.spec_from_file_location("igos_download_sources", sys.argv[2])
 resolver = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(resolver)
-with open(sys.argv[1]) as recipe:
-    sources = resolver.get_source_info(yaml.safe_load(recipe))
+sources = resolver.get_source_info(data)
 print(sources[0]["filename"] if sources else "")
-' "$KVER_FILE" /mnt/intergenos/scripts/download-sources.py); then
-    _kernel_refuse KTARBALL "source archive the resolver could name (its error is above)"
-fi
+' "$KVER_FILE" /mnt/intergenos/scripts/download-sources.py) || _kernel_values_rc=$?
+KVER=$(printf '%s\n' "$_kernel_values" | sed -n 1p)
+[ -n "$KVER" ] || _kernel_refuse KVER "version"
+KREL=$(get_package_release "$KVER_FILE")
+[ -n "$KREL" ] || _kernel_refuse KREL "numeric release"
+[ "$_kernel_values_rc" -eq 0 ] || _kernel_refuse KTARBALL "source archive the resolver could name (its error is above)"
+KTARBALL=$(printf '%s\n' "$_kernel_values" | sed -n 2p)
 [ -n "$KTARBALL" ] || _kernel_refuse KTARBALL "source archive"
+unset _kernel_values _kernel_values_rc
 FULL_KVER="${KVER}-igos-${KREL}"
 shopt -s nullglob
 for _mod_tree in /usr/lib/modules/*/; do

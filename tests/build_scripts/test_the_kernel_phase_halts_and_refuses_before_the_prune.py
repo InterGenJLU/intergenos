@@ -13,7 +13,9 @@ and a stand-in staged-kernel gate; /usr/lib/modules, /boot and /tmp are empty
 tmpfs mounts holding two staged kernels; the network is unshared. Nothing of a
 real kernel build runs and nothing outside the sandbox is written. Where
 bubblewrap is absent, or cannot make a sandbox here, the cases are skipped
-with that reason.
+with that reason. Two cases hold the reads themselves: a single-quoted
+version line is read as the resolver reads it, and no bytecode cache is
+written into the tree under the chroot's PYTHONDONTWRITEBYTECODE=1.
 """
 
 import importlib.util
@@ -131,7 +133,7 @@ class TheKernelPhase(unittest.TestCase):
                 f"bubblewrap cannot make a sandbox here (exit {probe.returncode}): "
                 f"{probe.stderr.strip()}")
 
-    def fire(self, recipe=RECIPE, resolver=True, fail_inside=False):
+    def fire(self, recipe=RECIPE, resolver=True, fail_inside=False, env=()):
         driver = source("scripts/chroot-build-ch10.sh")
         resolver_text = source("scripts/download-sources.py")
         reader = function(source("scripts/pkg-functions.sh"), "get_package_release")
@@ -159,6 +161,7 @@ class TheKernelPhase(unittest.TestCase):
             result = subprocess.run(
                 [self.bwrap, "--die-with-parent", "--unshare-all", "--clearenv",
                  "--setenv", "PATH", "/usr/bin:/usr/sbin", "--setenv", "HOME", "/tmp"]
+                + [arg for name, value in env for arg in ("--setenv", name, value)]
                 + host_paths()
                 + ["--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp",
                    "--tmpfs", "/usr/lib/modules", "--tmpfs", "/boot",
@@ -169,7 +172,9 @@ class TheKernelPhase(unittest.TestCase):
             out = result.stdout + result.stderr
             exit_line = re.search(r"^DRIVER EXIT (\d+)$", result.stdout, re.M)
             self.assertIsNotNone(exit_line, out)
+            cache = scripts / "__pycache__"
             return {
+                "cache": sorted(p.name for p in cache.iterdir()) if cache.exists() else [],
                 "out": out,
                 "exit": int(exit_line.group(1)),
                 "kept": sorted(re.findall(r"^KEPT (\S+)$", result.stdout, re.M)),
@@ -226,6 +231,20 @@ class TheKernelPhase(unittest.TestCase):
 
     def test_an_archive_the_resolver_cannot_name_is_refused_before_the_prune(self):
         self.assert_refused_before_the_prune(self.fire(resolver=False), "KTARBALL")
+
+    def test_a_single_quoted_version_is_read_as_the_resolver_reads_it(self):
+        recipe = RECIPE.replace(f'version: "{VERSION}"', f"version: '{VERSION}'")
+        run = self.fire(recipe=recipe)
+        self.assertEqual(run["exit"], 0, run["out"])
+        self.assertEqual(run["built"], [VERSION], run["out"])
+        self.assertEqual(run["extracted"], [self.archive()], run["out"])
+        self.assertEqual(run["pruned"], [PREVIOUS], run["out"])
+        self.assertEqual(run["kept"], [THIS], run["out"])
+
+    def test_the_phase_writes_no_bytecode_cache_into_the_tree(self):
+        run = self.fire(env=(("PYTHONDONTWRITEBYTECODE", "1"),))
+        self.assertEqual(run["exit"], 0, run["out"])
+        self.assertEqual(run["cache"], [], run["out"])
 
 
 if __name__ == "__main__":
