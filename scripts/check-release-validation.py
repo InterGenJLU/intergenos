@@ -59,6 +59,12 @@ TWO TIERS OF FAILURE, and only one of them can ever be relaxed:
     which is how an unsigned development image is built without weakening what
     a release requires. Never silent: a downgrade nobody can see in the output
     is indistinguishable from a verified record.
+
+THE VERDICT NAMES WHO MEASURED. The runner records, per gate, the identity that
+measured it — the invoking account for the user tier, root for the root tier
+when it was launched through sudo. The VALIDATED line names each identity it
+saw and how many gates it measured, and says so when a record does not state
+one, so the operator signing a record reads who stood behind each tier.
 """
 
 from __future__ import annotations
@@ -260,6 +266,22 @@ def _verify_seal(record_dir: Path) -> None:
                    f"computed {actual}. The record changed after it was sealed.")
 
 
+def _identities(gates: list) -> str:
+    """Who measured the gates, as the record states it: each identity with the
+    number of gates it measured, in the record's order. A record from before
+    the runner kept identities says so rather than leaving it out."""
+    counts: dict[str, int] = {}
+    for gate in gates:
+        who = gate.get("measured_as") if isinstance(gate, dict) else None
+        if isinstance(who, dict) and who.get("user") and who.get("uid") is not None:
+            name = f"{who['user']} (uid {who['uid']})"
+        else:
+            name = "an identity the record does not state"
+        counts[name] = counts.get(name, 0) + 1
+    return "; ".join(f"{name}: {n} gate{'' if n == 1 else 's'}"
+                     for name, n in counts.items())
+
+
 def _load_record(record_dir: Path) -> dict:
     path = record_dir / RECORD_NAME
     if not path.is_file():
@@ -371,7 +393,8 @@ def main(argv: list[str] | None = None) -> int:
           f"— {'an' if shape[0] in 'aeiou' else 'a'} {shape}-shape record: "
           f"{len(gates)} installed-system gates run on {hostname}, "
           f"{len(gates) - len(skipped)} passed, {len(skipped)} declared skip(s), "
-          f"0 failed. Record {record_dir} seal verified.")
+          f"0 failed; measured as {_identities(gates)}. "
+          f"Record {record_dir} seal verified.")
     return EXIT_VALIDATED
 
 

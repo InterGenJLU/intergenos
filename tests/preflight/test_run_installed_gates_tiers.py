@@ -408,6 +408,12 @@ class ARootLaunchMeasuresEachTierAsItsOwnIdentity(_RunnerCase):
         r = self._check(self.out)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
+    def test_the_release_gate_names_who_measured_the_gates(self) -> None:
+        r = self._check(self.out)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("measured as gate-user (uid 4242): 3 gates; "
+                      "root (uid 0): 1 gate.", r.stdout)
+
 
 class AnUnprivilegedLaunchSaysTheRootTierWasNotMeasured(_RunnerCase):
     """Launched without root: both tiers measure as the invoking account, the

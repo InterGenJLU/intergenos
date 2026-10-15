@@ -389,6 +389,39 @@ class TheRecordShape(_SignedRecordCase):
 
 
 @unittest.skipUnless(HAVE_GPG, "gpg + gpgv required (real crypto, no mocks)")
+class TheVerdictNamesWhoMeasured(_SignedRecordCase):
+    """The runner records which identity measured each gate; the verdict says
+    what it saw, so a record whose root tier was measured as root reads
+    differently from one that was not."""
+
+    def test_the_verdict_names_each_identity_and_its_gate_count(self) -> None:
+        user = {"user": "gate-user", "uid": 4242}
+        rec = self._signed_record(gates=[
+            {"id": "tests/installed/test_gate_state_permissions.py::test_modes",
+             "outcome": "passed", "reason": "", "tier": "user",
+             "measured_as": user},
+            {"id": "tests/installed/test_gate_privilege_boundary.py::test_unit",
+             "outcome": "passed", "reason": "", "tier": "user",
+             "measured_as": user},
+            {"id": "tests/installed/test_gate_root_password_kept.py::test_hash",
+             "outcome": "passed", "reason": "", "tier": "root",
+             "measured_as": {"user": "root", "uid": 0}}])
+        r = _run_gate(*self._args(rec))
+        self.assertEqual(r.returncode, EXIT_VALIDATED, r.stdout + r.stderr)
+        self.assertIn("measured as gate-user (uid 4242): 2 gates; "
+                      "root (uid 0): 1 gate.", r.stdout)
+
+    def test_a_record_that_does_not_state_identities_says_so(self) -> None:
+        """A record from before identities were kept validates as it did; the
+        verdict says the identity is not stated instead of leaving it out."""
+        rec = self._signed_record()
+        r = _run_gate(*self._args(rec))
+        self.assertEqual(r.returncode, EXIT_VALIDATED, r.stdout + r.stderr)
+        self.assertIn("measured as an identity the record does not state: "
+                      "2 gates.", r.stdout)
+
+
+@unittest.skipUnless(HAVE_GPG, "gpg + gpgv required (real crypto, no mocks)")
 class TheExpectedSkipAllowlist(_SignedRecordCase):
     """A skip may pass only when somebody wrote down, in the repo, why."""
 
