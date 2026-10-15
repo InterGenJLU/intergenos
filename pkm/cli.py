@@ -931,8 +931,8 @@ def _installed_version_string():
     # 73 recorded '<version>-<release>' from a release-carrying file name, and
     # this line would otherwise print the release twice.
     try:
-        stem, _why = release_suffix_verdict("pkm", version, release,
-                                            row.get("archive_path"))
+        stem, _why, _unreadable = release_suffix_verdict(
+            "pkm", version, release, row.get("archive_path"))
     except Exception:
         stem = None
     if stem is not None:

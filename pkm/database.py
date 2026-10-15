@@ -554,34 +554,55 @@ def release_suffix_verdict(name, version, release, archive_path):
     which a read-only open reads every installed row through, in memory. Two copies
     of the rule could drift; one cannot.
 
-    Returns (stem, why):
-      (None, None)  the version does not end in "-<its release>"; there is nothing
-                    to decide and the row reads as recorded.
-      (stem, None)  it does, and the archive it was installed from (archive_path)
-                    states, in its .PKGINFO, this name, this release and the
-                    version without that tail: the row's version is stem.
-      (None, why)   it does, but the archive is gone, unreadable, carries no
-                    .PKGINFO or states anything else; why says which, and the row
-                    reads as recorded.
+    Returns (stem, why, unreadable):
+      (None, None, False)  the version does not end in "-<its release>"; there is
+                    nothing to decide and the row reads as recorded.
+      (stem, None, False)  it does, and the archive it was installed from
+                    (archive_path) states, in its .PKGINFO, this name, this
+                    release and the version without that tail: the row's
+                    version is stem.
+      (None, why, unreadable)  it does, but the archive is gone, carries no
+                    .PKGINFO, states anything else, or cannot be read; why says
+                    which, and the row reads as recorded. unreadable is True only
+                    when the archive is there but THIS user cannot read it: the
+                    package cache is root-only (/var/cache/pkm/packages, mode
+                    0700), so a person's read-only command meets that while a
+                    command run as root can still confirm the row. A gone
+                    archive is not that: no user can confirm it.
     The archive is the only evidence. A version whose upstream form holds a dash
     does not end in its own release, or its archive states the dashed form.
     """
     tail = f"-{release}"
     if release is None or not isinstance(version, str) \
             or len(version) <= len(tail) or not version.endswith(tail):
-        return None, None
+        return None, None, False
     stem = version[:-len(tail)]
-    if not archive_path or not os.path.isfile(archive_path):
+    if not archive_path:
         return None, ("the archive it was installed from "
-                      f"({archive_path or 'none recorded'}) is not on disk")
+                      "(none recorded) is not on disk"), False
+    try:
+        st = os.stat(archive_path)
+    except PermissionError:
+        return None, (f"its archive {archive_path} cannot be read by this "
+                      f"user"), True
+    except OSError:
+        st = None
+    if st is None or not stat.S_ISREG(st.st_mode):
+        return None, ("the archive it was installed from "
+                      f"({archive_path}) is not on disk"), False
     # Imported here, not at the top: repo imports this module.
     from .repo import _read_package_meta, ArchiveReadError
     try:
         meta = _read_package_meta(archive_path)
     except (ArchiveReadError, OSError) as e:
-        return None, f"its archive cannot be read ({e})"
+        # The reader wraps the OSError it met (raise ... from e).
+        if isinstance(e, PermissionError) \
+                or isinstance(e.__cause__, PermissionError):
+            return None, (f"its archive {archive_path} cannot be read by "
+                          f"this user"), True
+        return None, f"its archive cannot be read ({e})", False
     if not meta:
-        return None, f"its archive {archive_path} carries no .PKGINFO"
+        return None, f"its archive {archive_path} carries no .PKGINFO", False
     try:
         same_release = int(meta.get("release")) == int(release)
     except (TypeError, ValueError):
@@ -590,8 +611,8 @@ def release_suffix_verdict(name, version, release, archive_path):
             or meta.get("version") != stem:
         return None, (f"its archive {archive_path} states "
                       f"{meta.get('name')} version {meta.get('version')!r} "
-                      f"release {meta.get('release')}")
-    return stem, None
+                      f"release {meta.get('release')}"), False
+    return stem, None, False
 
 
 class PackageDB:
@@ -1311,7 +1332,8 @@ class PackageDB:
         for row_id, name, version, release, archive_path in self.conn.execute(
                 "SELECT id, name, version, release, archive_path FROM installed "
                 "WHERE instr(version, '-') > 0").fetchall():
-            stem, why = release_suffix_verdict(name, version, release, archive_path)
+            stem, why, _unreadable = release_suffix_verdict(
+                name, version, release, archive_path)
             if stem is not None:
                 repairs.append((row_id, name, version, release, archive_path, stem))
             elif why is not None:
@@ -1388,11 +1410,38 @@ class PackageDB:
         the repair applies, release_suffix_verdict, in memory, writing nothing;
         -v says so for each row it reads that way. A row the rule does not
         confirm reads exactly as recorded.
+
+        One case is said at the default level: the archive is there but this
+        user cannot read it, because the package cache is root-only. A
+        person's pkm list or info, and the notifier's unprivileged upgrade
+        --all --dry-run, then read the row as recorded and list no update for
+        it, so the open says so once (not once per row), naming the row and
+        the command that records the repair. A gone archive says nothing at
+        the default level: no command can confirm it.
         """
         if not self.read_only:
             return version
-        stem, _why = release_suffix_verdict(name, version, release, archive_path)
+        stem, _why, unreadable = release_suffix_verdict(
+            name, version, release, archive_path)
         if stem is None:
+            if unreadable and not getattr(self, "_unreadable_said", False):
+                self._unreadable_said = True
+                try:
+                    from . import output as _o
+                    if _o.process_level() >= _o.NORMAL:
+                        print(f"pkm: {name}'s recorded version {version!r} "
+                              f"ends in its own release {release}, and this "
+                              f"user cannot read the archive that would "
+                              f"confirm the version without it "
+                              f"({archive_path}; the package cache is "
+                              f"root-only), so this read-only command reads "
+                              f"it, and any other row like it, as recorded "
+                              f"and may list no update for it. The first "
+                              f"read-write pkm command, such as sudo pkm "
+                              f"update, records the repair.",
+                              file=sys.stderr, flush=True)
+                except Exception:
+                    pass
             return version
         try:
             from . import output as _o
