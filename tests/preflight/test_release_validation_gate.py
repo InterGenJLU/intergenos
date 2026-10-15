@@ -308,6 +308,33 @@ class TheGateRefusesWhatIsNotValidated(_SignedRecordCase):
         self.assertEqual(r.returncode, EXIT_REFUSED, r.stdout + r.stderr)
         self.assertIn("skip", (r.stdout + r.stderr).lower())
 
+    def test_a_record_with_an_outcome_the_gate_does_not_know_is_refused(self) -> None:
+        """Only passed, failed, error and skipped are outcomes. Anything else
+        was never measured as passing, so it must not be counted as passed."""
+        for outcome in ("xpassed", "PASSED", "passed ", "", None):
+            with self.subTest(outcome=outcome):
+                rec = self._signed_record(gates=[
+                    {"id": "tests/installed/test_gate_state_permissions.py::test_modes",
+                     "outcome": "passed", "reason": ""},
+                    {"id": "tests/installed/test_gate_privilege_boundary.py::test_unit",
+                     "outcome": outcome, "reason": ""}])
+                r = _run_gate(*self._args(rec))
+                self.assertEqual(r.returncode, EXIT_REFUSED, r.stdout + r.stderr)
+                self.assertIn("an outcome this gate does not know", r.stderr)
+                self.assertIn("test_gate_privilege_boundary.py::test_unit", r.stderr)
+
+    def test_a_gate_that_is_not_a_record_is_refused_not_crashed_on(self) -> None:
+        rec = _good_record(self.tmp)
+        data = json.loads((rec / "record.json").read_text(encoding="utf-8"))
+        data["gates"].append("tests/installed/test_gate_x.py::test_y passed")
+        (rec / "record.json").write_text(json.dumps(data), encoding="utf-8")
+        _seal(rec)
+        self._sign(rec)
+        r = _run_gate(*self._args(rec))
+        self.assertEqual(r.returncode, EXIT_REFUSED, r.stdout + r.stderr)
+        self.assertIn("an outcome this gate does not know", r.stderr)
+        self.assertNotIn("Traceback", r.stderr)
+
     def test_a_record_that_collected_nothing_is_refused(self) -> None:
         """Zero gates is the most dangerous green of all: everything passed
         because nothing ran."""

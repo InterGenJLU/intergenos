@@ -373,6 +373,21 @@ def main(argv: list[str] | None = None) -> int:
                "nothing passed — a run that collected zero tests is the most "
                "dangerous green there is.")
 
+    # Only these four are outcomes. Anything else — a misspelling, a status a
+    # later pytest invents, a gate that is not a record at all — was never
+    # measured as passing, and counting it as passed would be the silent green
+    # this gate exists to refuse.
+    unknown = [g for g in gates if not isinstance(g, dict)
+               or g.get("outcome") not in ("passed", "failed", "error", "skipped")]
+    if unknown:
+        names = ", ".join(
+            f"{g.get('id')} ({g.get('outcome')!r})" if isinstance(g, dict)
+            else repr(g) for g in unknown[:10])
+        refuse(f"{len(unknown)} gate(s) carry an outcome this gate does not "
+               f"know: {names}{' …' if len(unknown) > 10 else ''}. An outcome "
+               f"is passed, failed, error or skipped; anything else was never "
+               f"measured as passing.")
+
     failed = [g for g in gates if g.get("outcome") in ("failed", "error")]
     if failed:
         names = ", ".join(str(g.get("id")) for g in failed[:10])
