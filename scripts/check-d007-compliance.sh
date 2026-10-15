@@ -115,15 +115,19 @@ fi
 # nothing baked into the shipped ISO/qcow2. D-019's 2026-05-22 amendment
 # explicitly permits user-provided-at-INSTALL-TIME authorized_keys via
 # the Forge installer's SSH public-key paste flow (audit-row sshd-
-# password-auth Option C closure). Three specific installer files
+# password-auth Option C closure). Four specific installer files
 # implement that flow:
 #   - installer/backend/users.py (the _install_ssh_authorized_key helper)
 #   - installer/frontend/tui.py (the TUI public-key inputbox prompt)
 #   - installer/frontend/gui/screens/packages.py (the GUI textarea)
+#   - installer/backend/sshkeys.py (the key parser and renderer the three
+#     above consume: it reads the keys the person pasted during the
+#     install and renders the lines users.py writes into the TARGET
+#     root's authorized_keys; nothing in the image pipeline imports it)
 # These are excluded below. The gate continues to forbid authorized_keys
 # references everywhere else: packages/, scripts/, config/, and any
 # OTHER installer/ file. New code that needs to touch authorized_keys
-# outside the three D-019-blessed paths must (a) demonstrate it's not a
+# outside the four D-019-blessed paths must (a) demonstrate it's not a
 # baked-key path, and (b) update D-019 and this gate to add the new
 # code's path to the exemption list.
 header "Gate D — no pre-installed authorized_keys files"
@@ -132,7 +136,7 @@ HITS_D=$(grep -rn -E 'authorized_keys' \
     | grep -v -E 'check-d007-(compliance|runtime)\.sh|\.md:|/research/|/audit/|/docs/' \
     | grep -v -E '^[^:]+:[0-9]+:[[:space:]]*[#/]' \
     | grep -v -E 'apparmor|grep.*authorized_keys|find.*authorized_keys' \
-    | grep -v -E '^(installer/backend/users\.py|installer/frontend/tui\.py|installer/frontend/gui/screens/packages\.py):')
+    | grep -v -E '^(installer/backend/users\.py|installer/frontend/tui\.py|installer/frontend/gui/screens/packages\.py|installer/backend/sshkeys\.py):')
 if [ -n "$HITS_D" ]; then
     violation "tree contains references to authorized_keys" \
               "D-007 forbids ANY pre-installed SSH authorized_keys on any lane, ever. Review and remove."
