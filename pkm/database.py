@@ -1249,6 +1249,12 @@ class PackageDB:
         nothing. A read-only open cannot write and reads the row as recorded
         until the next read-write open.
         """
+        # A table older than the archive_path column (no migration adds it)
+        # records no archive to confirm a repair against, so the rule cannot
+        # apply to any of its rows.
+        if not {"version", "release", "archive_path"} <= \
+                self._table_columns("installed"):
+            return 0
         candidates = []
         for row_id, name, version, release, archive_path in self.conn.execute(
                 "SELECT id, name, version, release, archive_path FROM installed "

@@ -229,6 +229,31 @@ class RepairAtTheOpen(unittest.TestCase):
         self.assertEqual((out, err), ("", ""))
         self.assertEqual(self._rows()["w1"], ("1.0-3", 3))
 
+    def test_a_table_that_records_no_archive_path_opens_and_is_left_as_it_is(self):
+        # An installed table from before the archive_path column; no migration
+        # adds the column, so a live database of that age still has none.
+        con = sqlite3.connect(self.db_path)
+        con.executescript(
+            """
+            CREATE TABLE installed (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                version TEXT NOT NULL,
+                release INTEGER DEFAULT 1,
+                UNIQUE(name)
+            );
+            INSERT INTO installed (id, name, version, release)
+                VALUES (1, 'widget', '1.0-3', 3);
+            """)
+        con.commit()
+        con.close()
+
+        db, out, err = self._open()
+        db.close()
+
+        self.assertEqual(self._rows()["widget"], ("1.0-3", 3))
+        self.assertEqual(err, "")
+
     def test_a_read_only_open_writes_nothing(self):
         path = self._archive("widget-1.0-3.igos.tar.gz", "widget", "1.0", 3)
         self._seed([("widget", "1.0-3", 3, path)])
