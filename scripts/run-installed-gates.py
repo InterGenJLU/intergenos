@@ -56,6 +56,21 @@ marker selection, and the record says which identity measured each gate:
     root-tier gates cannot measure there and skip; the runner says so in one
     line, and the release gate refuses the record for its undeclared skips. A
     launch that could not measure the root tier never reads as one that did.
+
+A ROOT LAUNCH RUNS ONLY CODE THAT ROOT ALONE CAN CHANGE. Root runs this runner,
+pytest's configuration and conftests, every gate in the tier and the project
+modules the root conftest imports — all from the tree this runner is in. So a
+root launch refuses, in one line naming the path, when the tier is outside that
+tree, or when the tree, anything in it, anything a symbolic link in it points
+to, or any directory above it can be written by an account other than root. A
+directory above the tree that carries the sticky bit is accepted: no other
+account can rename or replace root's entry in it. And no interpreter the runner
+starts puts its working directory on the import path (-P), so a launch from a
+directory another account can write never imports that account's files as root.
+The check runs inside the runner, so it cannot vouch for a runner that was
+already replaced; what it does is refuse, before any gate runs, the launch form
+that would allow that. docs/operations/11-resolving-validation-gates.md gives
+the form that passes: the tree exported into a directory only root can write.
 """
 
 from __future__ import annotations
@@ -69,6 +84,7 @@ import pwd
 import shutil
 import socket
 import sqlite3
+import stat
 import subprocess
 import sys
 import tempfile
@@ -139,10 +155,11 @@ def _resolve_intergen_from(cwd: Path) -> str:
 
     Measured in a subprocess rather than reasoned about, because the answer
     depends on sys.path construction that this process has already done
-    differently for itself.
+    differently for itself. Started the way the gate runs are, with -P, so it
+    measures the import path they will have.
     """
     probe = subprocess.run(
-        [sys.executable, "-c",
+        [sys.executable, "-P", "-c",
          "import intergen, sys; sys.stdout.write(intergen.__file__ or '')"],
         capture_output=True, text=True, cwd=str(cwd), timeout=120)
     if probe.returncode != 0:
@@ -213,6 +230,73 @@ def _parse_junit(path: Path) -> list[dict]:
                 reason = (child.get("message") or "").strip()
         gates.append({"id": test_id, "outcome": outcome, "reason": reason})
     return gates
+
+
+def _another_can_write(path: Path, *, above_tree: bool) -> str | None:
+    """Why an account other than root could change ``path``, or None.
+
+    Owned by anyone but root, the owner can change it. Writable by its group or
+    by every account, they can. A symbolic link's own mode means nothing; the
+    caller follows it. Above the tree, a directory with the sticky bit is
+    accepted: no other account can rename or replace root's entry in it.
+    """
+    st = os.lstat(path)
+    if st.st_uid != 0:
+        return f"is owned by uid {st.st_uid}, not root"
+    if stat.S_ISLNK(st.st_mode):
+        return None
+    if st.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+        if above_tree and stat.S_ISDIR(st.st_mode) and st.st_mode & stat.S_ISVTX:
+            return None
+        return "can be written by its group or by every account"
+    return None
+
+
+def _chain_problem(path: Path) -> str | None:
+    """The first directory from / down to ``path``'s parent that another
+    account could change, as one line; None when there is none."""
+    for d in reversed(path.parents):
+        try:
+            why = _another_can_write(d, above_tree=True)
+        except FileNotFoundError:
+            # Nothing below an absent directory exists either, and only an
+            # account that can write the directory above could create it.
+            return None
+        if why:
+            return f"{d} {why}"
+    return None
+
+
+def _root_launch_problem(tree: Path, tier: Path) -> str | None:
+    """Why a root launch from ``tree`` would run code another account could
+    change, as one line naming the path; None when it would not."""
+    if tree != tier and tree not in tier.parents:
+        return (f"the tier {tier} is outside the tree this runner is in "
+                f"({tree}); a root launch runs the tier of its own tree")
+    problem = _chain_problem(tree)
+    if problem:
+        return problem
+    for dirpath, dirnames, filenames in os.walk(tree):
+        dirnames.sort()
+        here = Path(dirpath)
+        why = _another_can_write(here, above_tree=False)
+        if why:
+            return f"{here} {why}"
+        for name in sorted(filenames) + [d for d in dirnames
+                                         if (here / d).is_symlink()]:
+            entry = here / name
+            why = _another_can_write(entry, above_tree=False)
+            if why:
+                return f"{entry} {why}"
+            if entry.is_symlink():
+                target = Path(os.path.realpath(entry))
+                problem = _chain_problem(target)
+                if problem is None and target.exists():
+                    why = _another_can_write(target, above_tree=False)
+                    problem = f"{target} {why}" if why else None
+                if problem:
+                    return f"{problem} (the target of {entry})"
+    return None
 
 
 def _account(requested: str | None) -> "tuple[pwd.struct_passwd, bool]":
@@ -293,7 +377,7 @@ def _run_tier(name: str, selection: str, capture_name: str, junit_name: str, *,
     record.
     """
     junit = staging / junit_name
-    argv = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
+    argv = [sys.executable, "-P", "-m", "pytest", "-q", "-p", "no:cacheprovider",
             "-m", selection, f"--junitxml={junit}", str(tier)]
     change: dict = {}
     if account is not None:
@@ -424,10 +508,18 @@ def main(argv: list[str] | None = None) -> int:
 
     account, root_launch = _account(args.user)
 
-    tier = args.tier or (Path(__file__).resolve().parents[1] / "tests" / "installed")
+    tree = Path(__file__).resolve().parents[1]
+    tier = args.tier or (tree / "tests" / "installed")
     tier = tier.resolve()
     if not tier.is_dir():
         refuse(f"the installed-gate tier is not at {tier}.")
+    if root_launch:
+        problem = _root_launch_problem(tree, tier)
+        if problem:
+            refuse(f"a root launch runs this tree's code as root, and {problem}. "
+                   f"Export the tree into a directory only root can write and "
+                   f"launch from there (docs/operations/"
+                   f"11-resolving-validation-gates.md, the record section).")
 
     resolved = _resolve_intergen_from(cwd)
     if not resolved.startswith(_INSTALLED_PREFIXES) or \
@@ -447,7 +539,7 @@ def main(argv: list[str] | None = None) -> int:
     user_env.update(account_env)
 
     collect = subprocess.run(
-        [sys.executable, "-m", "pytest", "--collect-only", "-q",
+        [sys.executable, "-P", "-m", "pytest", "--collect-only", "-q",
          "-p", "no:cacheprovider", str(tier)],
         capture_output=True, text=True, cwd=str(cwd), env=env, timeout=1800)
     collected = sum(1 for line in collect.stdout.splitlines() if "::" in line)

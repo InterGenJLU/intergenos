@@ -33,6 +33,7 @@ import json
 import os
 import pwd
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -173,12 +174,19 @@ class _Launch:
     hand-back copy are real."""
 
     def __init__(self, euid: int, empty_report: "str | None" = None,
-                 real_pytest: bool = False) -> None:
+                 real_pytest: bool = False,
+                 foreign: "dict[str, str] | None" = None) -> None:
         self.euid = euid
         self.empty_report = empty_report
         self.real_pytest = real_pytest
+        # Paths of the tree another account could write, with the reason; a
+        # test cannot make root own files, so every other path reads as root's.
+        self.foreign = foreign or {}
         self.calls: list[tuple[list[str], dict]] = []
         self.chowns: list[tuple] = []
+
+    def another_can_write(self, path, *, above_tree: bool) -> "str | None":
+        return self.foreign.get(str(path))
 
     def run(self, argv: list[str], **kw) -> subprocess.CompletedProcess:
         argv = list(argv)
@@ -233,8 +241,9 @@ class _RunnerCase(unittest.TestCase):
     def _launch(self, *, euid: int, sudo_user: "str | None" = None,
                 extra: tuple = (), empty_report: "str | None" = None,
                 environ: "dict | None" = None, tier: Path = TIER,
-                real_pytest: bool = False):
-        launch = _Launch(euid, empty_report, real_pytest)
+                real_pytest: bool = False,
+                foreign: "dict[str, str] | None" = None):
+        launch = _Launch(euid, empty_report, real_pytest, foreign)
         runner = self.runner
         output = io.StringIO()
         cwd = os.getcwd()
@@ -262,6 +271,9 @@ class _RunnerCase(unittest.TestCase):
                     runner, "_installed_identity", lambda: dict(INSTALLED_IDENTITY)))
                 stack.enter_context(mock.patch.object(
                     runner, "_os_release", lambda: dict(OS_RELEASE)))
+                stack.enter_context(mock.patch.object(
+                    runner, "_another_can_write", launch.another_can_write,
+                    create=True))
                 stack.enter_context(contextlib.redirect_stdout(output))
                 stack.enter_context(contextlib.redirect_stderr(output))
                 try:
@@ -527,6 +539,170 @@ class TheRunnerRefusesALaunchItCannotAttribute(_RunnerCase):
     def test_a_root_launch_whose_root_tier_wrote_an_empty_report(self) -> None:
         self._refused("no readable report for the root tier", euid=0,
                       sudo_user="gate-user", empty_report="root")
+
+
+class ARootLaunchRunsOnlyCodeRootAloneCanChange(_RunnerCase):
+    """Root runs the runner, pytest's configuration and conftests, every gate
+    and the project modules the root conftest imports, all from the runner's
+    tree. A root launch refuses, in one line naming the path, before anything
+    runs, when another account could change any of it."""
+
+    def _refused(self, needle: str, **launch) -> None:
+        code, output, run = self._launch(euid=0, sudo_user="gate-user", **launch)
+        self.assertEqual(code, 1, output)
+        refusals = [line for line in output.splitlines() if "REFUSED" in line]
+        self.assertEqual(len(refusals), 1, output)
+        self.assertIn(needle, refusals[0])
+        self.assertEqual([a for a, _ in run.calls], [],
+                         "the runner started a process before refusing")
+        self.assertFalse(self.out.exists(), "a refused launch left a record")
+
+    def _foreign(self, path: Path) -> None:
+        self._refused(f"{path} is owned by uid 4242, not root",
+                      foreign={str(path): "is owned by uid 4242, not root"})
+
+    def test_a_runner_another_account_owns(self) -> None:
+        self._foreign(RUNNER)
+
+    def test_the_tiers_conftest(self) -> None:
+        self._foreign(TIER / "conftest.py")
+
+    def test_the_project_root_conftest(self) -> None:
+        self._foreign(REPO_ROOT / "conftest.py")
+
+    def test_a_module_the_root_conftest_imports(self) -> None:
+        self._foreign(REPO_ROOT / "pkm" / "repo.py")
+
+    def test_a_gate_in_the_tier(self) -> None:
+        self._foreign(ROOT_GATE_FILE)
+
+    def test_the_tier_directory(self) -> None:
+        self._foreign(TIER)
+
+    def test_a_directory_above_the_tree(self) -> None:
+        self._foreign(REPO_ROOT.parent)
+
+    def test_a_tier_outside_the_runners_tree(self) -> None:
+        elsewhere = self.tmp / "tier"
+        elsewhere.mkdir()
+        self._refused("is outside the tree this runner is in", tier=elsewhere)
+
+    def test_an_unprivileged_launch_does_not_ask(self) -> None:
+        """Only root runs code another account could have changed; an account
+        running its own tree measures itself."""
+        code, output, _ = self._launch(
+            euid=4242, foreign={str(RUNNER): "is owned by uid 4242, not root"})
+        self.assertEqual(code, 0, output)
+
+    def test_no_interpreter_the_runner_starts_takes_its_working_directory(self) -> None:
+        """python -m and -c put the working directory first on the import path;
+        launched through sudo from a directory another account can write, that
+        account's files would be imported as root."""
+        code, output, run = self._launch(euid=0, sudo_user="gate-user")
+        self.assertEqual(code, 0, output)
+        self.assertEqual(len(run.calls), 5, [a for a, _ in run.calls])
+        for argv, _ in run.calls:
+            self.assertIn(argv[1], ("-P", "-I"), argv)
+
+
+class TheRootLaunchCheckReadsOwnershipAndMode(unittest.TestCase):
+    """The check itself, on a small real tree. A test cannot make root own
+    files, so os.lstat reports root as the owner except where a case says
+    otherwise; the modes are the files' own, set here."""
+
+    def setUp(self) -> None:
+        self.runner = _load_runner()
+        self.tmp = Path(tempfile.mkdtemp(prefix="root-launch-check-"))
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        self.tree = self.tmp / "tree"
+        self.tier = self.tree / "tests" / "installed"
+        for d in (self.tree / "scripts", self.tier):
+            d.mkdir(parents=True)
+        for name in ("conftest.py", "pytest.ini", "scripts/run-installed-gates.py",
+                     "tests/installed/conftest.py", "tests/installed/test_gate.py"):
+            (self.tree / name).write_text("# stand-in\n", encoding="utf-8")
+        for dirpath, dirnames, filenames in os.walk(self.tmp):
+            os.chmod(dirpath, 0o755)
+            for name in filenames:
+                os.chmod(os.path.join(dirpath, name), 0o644)
+        self.owners: dict[str, int] = {}
+        self.modes: dict[str, int] = {}
+
+    def _problem(self, tier: "Path | None" = None) -> "str | None":
+        real = os.lstat
+        inside = str(self.tmp)
+
+        def lstat(path, *args, **kw):
+            st = real(path, *args, **kw)
+            key = str(path)
+            mode = st.st_mode
+            if not key.startswith(inside) and not mode & stat.S_ISVTX:
+                # Above the scratch directory, group and other write bits are
+                # dropped (a sticky directory keeps its own), so the machine's
+                # own directories never decide a case.
+                mode &= ~0o022
+            mode = self.modes.get(key, mode)
+            return os.stat_result((mode, st.st_ino, st.st_dev, st.st_nlink,
+                                   self.owners.get(key, 0), 0, st.st_size,
+                                   int(st.st_atime), int(st.st_mtime),
+                                   int(st.st_ctime)))
+
+        with mock.patch.object(os, "lstat", lstat):
+            return self.runner._root_launch_problem(self.tree, tier or self.tier)
+
+    def test_a_tree_only_root_can_write_passes(self) -> None:
+        self.assertIsNone(self._problem())
+
+    def test_a_file_another_account_owns_is_named(self) -> None:
+        runner = self.tree / "scripts" / "run-installed-gates.py"
+        self.owners[str(runner)] = 4242
+        self.assertEqual(self._problem(), f"{runner} is owned by uid 4242, not root")
+
+    def test_a_group_writable_conftest_is_named(self) -> None:
+        conftest = self.tier / "conftest.py"
+        conftest.chmod(0o664)
+        self.assertEqual(self._problem(), f"{conftest} can be written by its "
+                                          f"group or by every account")
+
+    def test_a_world_writable_tier_directory_is_named(self) -> None:
+        self.tier.chmod(0o777)
+        self.assertEqual(self._problem(), f"{self.tier} can be written by its "
+                                          f"group or by every account")
+
+    def test_a_directory_above_the_tree_another_account_owns_is_named(self) -> None:
+        self.owners[str(self.tmp)] = 4242
+        self.assertEqual(self._problem(), f"{self.tmp} is owned by uid 4242, not root")
+
+    def test_a_sticky_directory_above_the_tree_is_accepted(self) -> None:
+        self.modes[str(self.tmp)] = stat.S_IFDIR | 0o1777
+        self.assertIsNone(self._problem())
+
+    def test_a_sticky_directory_inside_the_tree_is_not(self) -> None:
+        tests = self.tree / "tests"
+        tests.chmod(0o1777)
+        self.assertEqual(self._problem(), f"{tests} can be written by its group "
+                                          f"or by every account")
+
+    def test_a_link_to_a_file_another_account_owns_is_named(self) -> None:
+        outside = self.tmp / "outside.py"
+        outside.write_text("# not root's\n", encoding="utf-8")
+        outside.chmod(0o644)
+        self.owners[str(outside)] = 4242
+        link = self.tier / "test_linked.py"
+        link.symlink_to(outside)
+        self.assertEqual(self._problem(),
+                         f"{outside} is owned by uid 4242, not root "
+                         f"(the target of {link})")
+
+    def test_a_link_within_the_tree_is_followed_and_accepted(self) -> None:
+        (self.tier / "test_linked.py").symlink_to("test_gate.py")
+        self.assertIsNone(self._problem())
+
+    def test_a_tier_outside_the_tree_is_named(self) -> None:
+        elsewhere = self.tmp / "elsewhere"
+        elsewhere.mkdir()
+        self.assertIn("is outside the tree this runner is in",
+                      self._problem(tier=elsewhere))
 
 
 class TheRootGateReportsTheFieldsClassNeverItsBytes(_RunnerCase):
