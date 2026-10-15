@@ -182,9 +182,9 @@ get_package_sha256() {
 }
 
 # Read the `release:` field from a package.yml, for the PACKAGE RELEASE manifest
-# header (release honesty). Same shape as get_package_sha256 above, and the same
-# idiom chroot-build-ch10.sh already uses to read the kernel release for
-# CONFIG_LOCALVERSION — one way to read a recipe field, not three.
+# header (release honesty). Same shape as get_package_sha256 above, and the
+# reader chroot-build-ch10.sh uses for the kernel release its prune keeps —
+# one way to read a recipe field, not three.
 #
 # Anchored at col 0 so a nested `release:` inside a comment or a sub-mapping
 # cannot win, and digit-validated so a malformed value yields EMPTY rather than
