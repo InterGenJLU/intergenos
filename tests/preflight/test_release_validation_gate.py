@@ -668,15 +668,27 @@ class TheRunnerRefusesToProduceAMeaninglessRecord(unittest.TestCase):
         self.assertTrue(RUNNER.is_file(), f"{RUNNER} is missing")
 
     def test_the_runner_refuses_to_run_from_a_source_checkout(self) -> None:
-        """Run from inside this repo, which IS a checkout. A record produced
-        here would describe the source tree, not the shipped system, and would
-        then satisfy a gate about a release nobody installed."""
+        """Run from inside a checkout. A record produced there would describe
+        the source tree, not the shipped system, and would then satisfy a gate
+        about a release nobody installed.
+
+        The checkout is made here rather than taken to be this repository: a
+        tree exported for a reader is not a checkout, and a premise that fails
+        silently there let the runner go on to run the real tier on the machine
+        running this test. The tier handed to it is empty for the same reason:
+        should the refusal ever regress, the runner stops at "no gates" instead
+        of measuring the machine."""
+        checkout = self.tmp / "checkout"
+        (checkout / ".git").mkdir(parents=True)
+        empty_tier = self.tmp / "empty-tier"
+        empty_tier.mkdir()
         r = subprocess.run([sys.executable, str(RUNNER),
-                            "--output", str(self.tmp / "rec")],
-                           capture_output=True, text=True, cwd=str(REPO_ROOT),
+                            "--output", str(self.tmp / "rec"),
+                            "--tier", str(empty_tier)],
+                           capture_output=True, text=True, cwd=str(checkout),
                            timeout=300)
         self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("checkout", (r.stdout + r.stderr).lower())
+        self.assertIn("is inside a source checkout", r.stdout + r.stderr)
         self.assertFalse((self.tmp / "rec").exists(),
                          "a refused run must leave no record behind")
 
