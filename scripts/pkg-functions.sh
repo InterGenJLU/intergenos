@@ -1889,8 +1889,8 @@ pkg_install() {
             # removed, so the package rebuilds on the next run instead of
             # being skipped as built, and the archive stays beside the
             # store's archives as <archive>.failed — the ONE quarantine shape
-            # build-squashfs Step 2.6 sweeps out of the install set and the
-            # hub's proofs read. A directory of its own inside the store (the
+            # build-squashfs Step 4.6 sweeps out of the install set. A
+            # directory of its own inside the store (the
             # shape until 2026-10-16) was swept by nothing: five of them from
             # the 10-13 halts rode the lineage into the R001.3 mint, and the
             # squashfs ownership gate refused the image over their ten files

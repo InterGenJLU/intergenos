@@ -61,11 +61,12 @@ UNREGISTERED_ON_DISK = ("baseline for an /etc file on disk that no installed "
                         "package registers")
 OTHER_OWNER = ("judged against another package's registration (the row "
                "names a package that does not register the path)")
-OWNERS_DISAGREE = "co-owners register different stock; unjudged"
+OWNERS_DISAGREE = "two or more other packages register the path; unjudged"
 NO_CHECKSUM_LIVE = "owner registered no checksum; judged against the live bytes"
 NO_CHECKSUM_UNREADABLE = ("owner registered no checksum and the file is not "
                           "readable; unjudged")
-NULL_BASELINE = "baseline unknown (NULL): pkm protects the file; unjudged"
+NULL_BASELINE = ("baseline unknown (NULL): the remover deletes the file, the "
+                 "upgrade path protects it; unjudged")
 RESIDUE = "residue row of a removed package (no owner, not on disk)"
 
 

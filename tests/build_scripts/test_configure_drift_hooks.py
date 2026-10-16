@@ -106,7 +106,7 @@ pkm() { :; }
         # The refused build leaves the store as the Python builder's failure
         # path does: the completion marker gone, the archive beside the
         # store's archives as <archive>.failed (the one shape build-squashfs
-        # Step 2.6 sweeps), and no directory of its own inside the store —
+        # Step 4.6 sweeps), and no directory of its own inside the store —
         # five such directories rode the lineage into the R001.3 mint and
         # the ownership gate refused the image over them (2026-10-16).
         assert (tmp_path / 'sample-1-2.igos.tar.gz.failed').read_text() == 'archive'

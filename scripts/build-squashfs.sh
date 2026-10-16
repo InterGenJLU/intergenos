@@ -445,8 +445,8 @@ fi
 
 # ----------------------------------------------------------------------------
 # Step 2.45: configuration-baseline gate — the record the prune below reads.
-#            pkm removes a package's /etc file only when its live bytes equal
-#            the baseline it recorded for the file; a baseline left at an
+#            pkm keeps a removed package's /etc file when its live bytes differ
+#            from the non-NULL baseline it recorded for the file; a baseline left at an
 #            OLDER release's bytes by a rebuild makes Step 2.5 preserve the
 #            pruned package's stock file as an edit, and Step 4.85 refuses
 #            the image over it hours later (halt #2 of the R001.3 mint,
@@ -1003,15 +1003,16 @@ if [ ! -d "$ARCHIVE_DIR" ]; then
     status_line "install-set audit (Forge-parseable)" FAIL
     die "no staged archive dir at $ARCHIVE_DIR — there is no install set to seal; refusing to build squashfs"
 fi
-# Sweep seal-gate quarantine files out of the install set before it seals.
-# *.failed archives are the archive-seal gate's rejected attempts; a later
+# Sweep quarantined archives (*.failed) out of the install set before it seals.
+# *.failed archives are rejected attempts (the archive-seal gate's and the
+# configure-drift refusal's); a later
 # successful rebuild sealed the real archive beside them. They are dead
 # weight the media must not carry (ge9b-06 shipped 8 of them, 124 MB) — and
 # if a package's ONLY artifact were a .failed, the audit below fails on the
 # missing real archive, so this sweep can never mask a loss. Logged, loud.
 failed_count=$(find "$ARCHIVE_DIR" -maxdepth 1 -name '*.failed' | wc -l)
 if [ "$failed_count" -gt 0 ]; then
-    log "sweeping $failed_count seal-gate quarantine file(s) (*.failed) from the install set:"
+    log "sweeping $failed_count quarantined archive(s) (*.failed) from the install set:"
     find "$ARCHIVE_DIR" -maxdepth 1 -name '*.failed' -print | logpipe "[quarantine-sweep]"
     find "$ARCHIVE_DIR" -maxdepth 1 -name '*.failed' -delete
 fi
