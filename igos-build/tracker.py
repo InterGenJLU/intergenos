@@ -1304,6 +1304,27 @@ class PackageTracker:
         self._pending_pkm_manifest_sha256 = None
         return result
 
+    @staticmethod
+    def _rebaseline_config_files(db, own_paths, file_hashes) -> int:
+        """Record this build's staged bytes as the baseline of every regular
+        /etc file it registers. Returns the number of baselines written.
+
+        A path is re-baselined only when the build hashed it — a regular
+        file with stock bytes. A symbolic link or a directory under etc/ has
+        no stock bytes and keeps whatever add_files recorded for it.
+        """
+        count = 0
+        for path in own_paths or ():
+            if not path.startswith("etc/") or path.endswith("/"):
+                continue
+            digest = (file_hashes or {}).get(path)
+            if not digest:
+                continue
+            count += db.update_original_checksum(path, digest, commit=False)
+        if count:
+            db.conn.commit()
+        return count
+
     def _write_pkm_db(self, pkg: Package, rel_paths: list[str],
                        file_hashes: dict[str, str],
                        own_paths: list[str] | None = None,
@@ -1368,6 +1389,25 @@ class PackageTracker:
             # Manifests already carry sha256 (pkg_manifest above); propagate
             # them so the build-time pkm DB matches the manifest.
             db.add_files(pkg_id, own_paths, hashes=file_hashes)
+            # add_files keeps a configuration file's FIRST baseline on a
+            # re-registration, on purpose: on an installed machine only the
+            # upgrade path moves it, file by file, after proving the person
+            # did not edit the file. A build root has no person, and a
+            # rebuild re-registers every package it builds again, so the
+            # baseline of an /etc file a release bump changed stayed at the
+            # lineage's older bytes — the squashfs prune then read the new
+            # stock as an edit, preserved it, and the ownership gate refused
+            # the image (halt #2 of the R001.3 mint, 2026-10-16: nvidia r17
+            # and rsyslog r2 registered over the lineage's rows). The bytes
+            # this build staged ARE the stock, so the baselines are set to
+            # them here; scripts/check-config-baselines.py proves the record
+            # before every prune.
+            rebaselined = self._rebaseline_config_files(
+                db, own_paths, file_hashes)
+            if rebaselined:
+                self.logger.info(
+                    f"  config baselines set to this build's stock: "
+                    f"{rebaselined} file(s)")
 
             # Supersede transition: transfer ownership of overlap paths from
             # each predecessor to this package, then mark each predecessor as

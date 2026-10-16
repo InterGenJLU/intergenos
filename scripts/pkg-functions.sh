@@ -1926,6 +1926,15 @@ pkg_install() {
     if command -v pkm >/dev/null 2>&1; then
         [ "${IGOS_TRACE_LIB_LOADED:-0}" = "1" ] && trace_event pkm_invoke subcommand=import pkg="$name" version="$version" cwd="$PWD"
         pkg_run_pkm_single_flight import
+        # pkm keeps a configuration file's FIRST baseline across a
+        # re-registration on purpose: on an installed machine only the
+        # upgrade path moves it, after proving the person did not edit the
+        # file. A build root has no person, so a rebuild that changed an
+        # /etc file left its baseline at the OLDER release's bytes; the
+        # squashfs prune then read the new stock as an edit, preserved it,
+        # and the ownership gate refused the image (halt #2 of the R001.3
+        # mint, 2026-10-16). The bytes just deployed ARE this build's stock.
+        pkg_rebaseline_config_files "$name" "$version" || return 1
     fi
 
     # The mirror image of a failed install: once this build is deployed and
@@ -1940,6 +1949,65 @@ pkg_install() {
     pkg_log "Package ${name}-${version} installed successfully (${elapsed}s)"
     pkg_log ""
 
+    return 0
+}
+
+# ============================================================================
+# pkg_rebaseline_config_files — set the config baselines to this build's stock
+#
+# Usage: pkg_rebaseline_config_files <name> <version>
+#
+# Reads the FILE LIST of the manifest pkg_manifest wrote for this build and,
+# for every hashed /etc entry (a regular file under etc/ with its sha256 on
+# the line), records the live file's sha256 as pkm's original_checksum through
+# `pkm refresh-baseline`. Right after pkg_deploy the live bytes are the stock
+# this build staged, so the baseline then says what the rebuild installed,
+# not what the lineage's first install of the package did (see the call site
+# in pkg_install). Entries without a hash — symbolic links, directories —
+# have no stock bytes and are left as pkm recorded them. A manifest without
+# such entries makes no pkm call. A path pkm does not track as a
+# configuration file, or cannot read, fails the install: that is a
+# registration defect, never something to pass over.
+# ============================================================================
+
+pkg_rebaseline_config_files() {
+    local name="$1"
+    local version="$2"
+    local manifest="${IGOS_PKG_DB}/${name}-${version}"
+    if [ ! -f "$manifest" ]; then
+        pkg_error "rebaseline: manifest ${manifest} missing after import"
+        return 1
+    fi
+    local -a etc_paths=()
+    local in_list=0 line
+    while IFS= read -r line; do
+        if [ "$in_list" -eq 0 ]; then
+            [ "$line" = "FILE LIST:" ] && in_list=1
+            continue
+        fi
+        case "$line" in
+            etc/*" sha256:"*) etc_paths+=("/${line% sha256:*}") ;;
+        esac
+    done < "$manifest"
+    [ "${#etc_paths[@]}" -gt 0 ] || return 0
+    pkg_log "re-baselining ${#etc_paths[@]} configuration file(s) to this build's stock"
+    # The single-flight runner returns 0 whatever pkm did (its job is the
+    # one-at-a-time assertion), so the outcome is read from pkm's own lines:
+    # one "refreshed baseline for <path>" per path, or the install fails.
+    local out rc=0 refreshed
+    if ! out=$(pkg_run_pkm_single_flight refresh-baseline "${etc_paths[@]}"); then
+        rc=1
+    fi
+    [ -n "$out" ] && printf '%s\n' "$out"
+    if [ "$rc" -ne 0 ]; then
+        pkg_error "rebaseline: pkm refresh-baseline failed for ${name}-${version}"
+        return 1
+    fi
+    refreshed=$(printf '%s\n' "$out" | grep -c 'refreshed baseline for ')
+    if [ "$refreshed" -ne "${#etc_paths[@]}" ]; then
+        pkg_error "rebaseline: ${refreshed} of ${#etc_paths[@]} configuration baseline(s) refreshed for ${name}-${version}; pkm's lines above name the rest"
+        return 1
+    fi
     return 0
 }
 

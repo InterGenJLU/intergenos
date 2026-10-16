@@ -90,6 +90,7 @@ pkg_retire_superseded_archives() { :; }
 pkg_cleanup() { :; }
 pkm() { :; }
 '''
+    body += function('pkg-functions.sh', 'pkg_rebaseline_config_files') + '\n'
     body += function('pkg-functions.sh', 'pkg_install') + '\npkg_install sample 1 fixture 2\n'
     result = run(tmp_path, body)
     output = result.stdout + result.stderr
@@ -114,6 +115,88 @@ pkm() { :; }
     else:
         assert result.returncode == 0, output
         assert output.index('GATE archive') < output.index('DEPLOYED') < output.index('REGISTERED')
+
+
+def _manifest_with(entries):
+    return 'PACKAGE NAME: sample-1\nPACKAGE VERSION: 1\nFILE LIST:\n' + ''.join(e + '\n' for e in entries)
+
+
+@pytest.mark.parametrize('entries,expected', [
+    # Every hashed /etc regular file is re-baselined, in manifest order; a
+    # symbolic link (no hash), a directory and a non-/etc file are not.
+    (['etc/', 'etc/demo.conf sha256:' + 'a' * 64, 'etc/link', 'etc/sub/',
+      'etc/sub/two.conf sha256:' + 'b' * 64, 'usr/bin/demo sha256:' + 'c' * 64],
+     ['/etc/demo.conf', '/etc/sub/two.conf']),
+    # A path with a space keeps it whole.
+    (['etc/with space.conf sha256:' + 'd' * 64], ['/etc/with space.conf']),
+    # No hashed /etc entry: no pkm call at all.
+    (['usr/bin/demo sha256:' + 'c' * 64, 'etc/'], []),
+])
+def test_install_rebaselines_the_etc_files_it_registered(entries, expected, tmp_path):
+    body = shell_vars(IGOS_TRACE_LIB_LOADED=0, PKG_CONFIGURE_DRIFT_REQUIRED=0,
+                      IGOS_PKG_ARCHIVES=tmp_path, IGOS_PKG_DB=tmp_path,
+                      MANIFEST_BODY=_manifest_with(entries))
+    body += r'''
+pkg_log() { printf '%s\n' "$*"; }
+pkg_error() { printf '%s\n' "$*" >&2; }
+pkg_init() { :; }
+pkg_stage() { :; }
+pkg_manifest() { printf '%s' "$MANIFEST_BODY" > "$IGOS_PKG_DB/$1-$2"; }
+pkg_archive() { printf archive > "$IGOS_PKG_ARCHIVES/$1-$2-$3.igos.tar.gz"; }
+pkg_deploy() { printf 'DEPLOYED\n'; }
+pkg_run_pkm_single_flight() {
+    printf 'PKM'; printf ' [%s]' "$@"; printf '\n'
+    if [ "$1" = refresh-baseline ]; then shift; for p in "$@"; do printf '  refreshed baseline for %s -> stock...\n' "$p"; done; fi
+}
+pkg_retire_superseded_archives() { :; }
+pkg_cleanup() { :; }
+pkm() { :; }
+'''
+    body += function('pkg-functions.sh', 'pkg_rebaseline_config_files') + '\n'
+    body += function('pkg-functions.sh', 'pkg_install') + '\npkg_install sample 1 fixture 2\n'
+    result = run(tmp_path, body)
+    output = result.stdout + result.stderr
+    assert result.returncode == 0, output
+    calls = [line for line in output.splitlines() if line.startswith('PKM')]
+    assert calls[0] == 'PKM [import]', output
+    if expected:
+        assert calls[1:] == ['PKM [refresh-baseline]' + ''.join(f' [{p}]' for p in expected)], output
+        assert output.index('DEPLOYED') < output.index('PKM [import]') < output.index('PKM [refresh-baseline]')
+    else:
+        assert calls == ['PKM [import]'], output
+
+
+@pytest.mark.parametrize('runner', [
+    # The real runner returns 0 whatever pkm did and relays pkm's lines: a
+    # path pkm does not track is read from those lines, not from a code.
+    r'''pkg_run_pkm_single_flight() { if [ "$1" = refresh-baseline ]; then printf '  /etc/demo.conf: not tracked as a config file\n'; fi; return 0; }''',
+    # A runner that fails outright fails the install too.
+    r'''pkg_run_pkm_single_flight() { if [ "$1" = refresh-baseline ]; then printf 'REFUSED\n'; return 1; fi; }''',
+])
+def test_a_failed_rebaseline_fails_the_install(runner, tmp_path):
+    body = shell_vars(IGOS_TRACE_LIB_LOADED=0, PKG_CONFIGURE_DRIFT_REQUIRED=0,
+                      IGOS_PKG_ARCHIVES=tmp_path, IGOS_PKG_DB=tmp_path,
+                      MANIFEST_BODY=_manifest_with(['etc/demo.conf sha256:' + 'a' * 64]))
+    body += r'''
+pkg_log() { printf '%s\n' "$*"; }
+pkg_error() { printf '%s\n' "$*" >&2; }
+pkg_init() { :; }
+pkg_stage() { :; }
+pkg_manifest() { printf '%s' "$MANIFEST_BODY" > "$IGOS_PKG_DB/$1-$2"; }
+pkg_archive() { :; }
+pkg_deploy() { :; }
+''' + runner + r'''
+pkg_retire_superseded_archives() { printf 'RETIRED\n'; }
+pkg_cleanup() { :; }
+pkm() { :; }
+'''
+    body += function('pkg-functions.sh', 'pkg_rebaseline_config_files') + '\n'
+    body += function('pkg-functions.sh', 'pkg_install') + '\npkg_install sample 1 fixture 2\n'
+    result = run(tmp_path, body)
+    output = result.stdout + result.stderr
+    assert result.returncode != 0, output
+    assert 'RETIRED' not in output
+    assert 'rebaseline: 0 of 1' in output or 'REFUSED' in output
 
 
 def test_record_mode_writes_paths_without_python(tmp_path):
