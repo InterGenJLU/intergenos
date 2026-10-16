@@ -951,7 +951,12 @@ status_line "tmpfiles.d owner resolvability gate" PASS
 # the seal too: a parsed archive that maps to no packages/<tier>/ dir can never
 # be selected by get_group_packages, which is the same ships-but-never-installs
 # class. (Validated against the full ge9b-03 933-archive set 2026-07-15 —
-# clean; the earlier 'left off until validated' condition is met.)
+# clean; the earlier 'left off until validated' condition is met.) The audit
+# also compares every staged archive's reading with the name, version and
+# release its own .PKGINFO states, and refuses a disagreement or an unreadable
+# .PKGINFO by name: the parser reads a name a recipe accounts for without
+# opening its .PKGINFO, and Step 4.7 below checks only that the fields are
+# present. That is one full read of each archive here; 4.7 reads each again.
 ISET_SCRIPT="$(dirname "$0")/preflight-install-set.py"
 ARCHIVE_DIR="$CHROOT/var/lib/igos/archives"
 step_begin "[4.6/6]"
@@ -984,11 +989,12 @@ log "install-set audit (Forge get_archives parses every staged archive; strict t
 iset_out="$(python3 "$ISET_SCRIPT" --archive-dir "$ARCHIVE_DIR" --packages-dir "$PKGS_DIR" --strict-tier 2>&1)" && iset_rc=0 || iset_rc=$?
 [ -n "$iset_out" ] && printf '%s\n' "$iset_out" | logpipe "[install-set]"
 if [ "$iset_rc" -eq 0 ]; then
-    detail "every staged archive parses AND resolves to a packages/<tier>/ dir"
+    detail "every staged archive parses, resolves to a packages/<tier>/ dir AND is the build its .PKGINFO states"
     status_line "install-set audit (Forge-parseable + tier-resolved)" PASS
 else
-    detail "an archive ships in the image but Forge would never install it"
-    detail "(silent-drop / tier-orphan class). Run: python3 $ISET_SCRIPT --archive-dir"
+    detail "an archive ships in the image but Forge would never install it, or would"
+    detail "install it as a build it is not (silent-drop / tier-orphan / .PKGINFO"
+    detail "disagreement class). Run: python3 $ISET_SCRIPT --archive-dir"
     detail "$ARCHIVE_DIR --strict-tier  for the full list."
     status_line "install-set audit (Forge-parseable + tier-resolved)" FAIL
     die "install-set audit failed (rc=$iset_rc) — refusing to build squashfs"

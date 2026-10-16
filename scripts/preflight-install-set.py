@@ -23,15 +23,28 @@ Forge applies on the target, so the audit and the installer cannot disagree
 about a name. An archive neither accounts for is reported at ERROR by the
 parser and DROPPED here.
 
+Every staged archive's reading is then compared with the name, version and
+release its own .PKGINFO states (pkm's own reader, pkm/repo.py). The parser
+opens no .PKGINFO for a name a recipe accounts for, and the build's .PKGINFO
+sweep (Step 4.7) only checks that the fields are present, so without this an
+earlier build whose version ends in what reads as a release (dialog's
+1.3-20260107 against a recipe that says 1.3) would install as a build it is
+not. A disagreement, or a .PKGINFO that cannot be read, fails the audit by
+name. Each .PKGINFO is read once here, in full: it is an archive's last
+member.
+
 Exit codes:
   0 — every staged archive is parsed (and, with --strict-tier, tier-resolvable)
-  1 — one or more archives are dropped / collide / orphaned
+      and agrees with its own .PKGINFO
+  1 — one or more archives are dropped / collide / orphaned / disagree with
+      their .PKGINFO / carry none that can be read
   2 — argument or environment error
 """
 
 import argparse
 import logging
 import sys
+import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -39,9 +52,61 @@ sys.path.insert(0, str(REPO))
 
 try:
     from installer.backend import packages as P
+    from pkm.archive_names import parse_archive_filename
+    from pkm.repo import _read_package_meta
 except Exception as e:  # noqa: BLE001 — surface import failure as an env error
     sys.stderr.write(f"ERROR: cannot import installer.backend.packages: {e}\n")
     sys.exit(2)
+
+
+def _release_text(release):
+    return "with no release" if release is None else f"release {release}"
+
+
+def pkginfo_agreement(files, declared):
+    """(agreed, errors) for the staged archive files.
+
+    Each file's name is read the way get_archives reads it: by a recipe's
+    declared version when one composes the name, otherwise by its own
+    .PKGINFO, in which case the name must compose from that .PKGINFO. The
+    name, version and (when the name states one) release so read must be
+    the ones the archive's .PKGINFO states.
+    """
+    agreed, errors = 0, []
+    for f in files:
+        try:
+            meta = _read_package_meta(f)
+        except Exception as e:  # noqa: BLE001 — ArchiveReadError, a malformed field
+            errors.append(f"PKGINFO-UNREADABLE: {f.name} -> its .PKGINFO cannot "
+                          f"be read ({e})")
+            continue
+        if not meta or not meta.get("name") or not meta.get("version"):
+            errors.append(f"PKGINFO-UNREADABLE: {f.name} -> it carries no .PKGINFO "
+                          f"stating its package name and version")
+            continue
+        pk = (meta["name"], meta["version"], meta.get("release"))
+        named = parse_archive_filename(f.name, declared)
+        how = "by its recipe's declared version"
+        if named is None or declared.get(named.name) != named.version:
+            # No recipe accounts for the name, so its reading is this .PKGINFO.
+            named = parse_archive_filename(f.name, {pk[0]: pk[1]})
+            how = "by its own .PKGINFO"
+            if named is None or (named.name, named.version) != pk[:2]:
+                errors.append(
+                    f"PKGINFO-DISAGREES: {f.name} -> its .PKGINFO states "
+                    f"{pk[0]} {pk[1]} {_release_text(pk[2])}, which does not "
+                    f"compose this name")
+                continue
+        if (named.name, named.version) != pk[:2] or (
+                named.release is not None and named.release != pk[2]):
+            errors.append(
+                f"PKGINFO-DISAGREES: {f.name} reads as {named.name} "
+                f"{named.version} {_release_text(named.release)} {how}, but its "
+                f".PKGINFO states {pk[0]} {pk[1]} {_release_text(pk[2])} -> it "
+                f"would install as a build it is not")
+            continue
+        agreed += 1
+    return agreed, errors
 
 
 def main():
@@ -118,6 +183,18 @@ def main():
                     f"packages/<tier>/ dir -> get_group_packages can never "
                     f"select it")
 
+    # 3. Agreement: every staged archive is the build its .PKGINFO says it is.
+    declared = P._declared_versions(pdir)
+    t0 = time.monotonic()
+    agreed, disagreements = pkginfo_agreement(files, declared)
+    errors.extend(disagreements)
+    print(f"pkginfo agreement: {agreed} of {len(files)} staged archives agree "
+          f"with their own .PKGINFO; "
+          f"{sum(e.startswith('PKGINFO-DISAGREES') for e in disagreements)} "
+          f"disagree; "
+          f"{sum(e.startswith('PKGINFO-UNREADABLE') for e in disagreements)} "
+          f"unreadable; read in {time.monotonic() - t0:.1f} s")
+
     if errors:
         sys.stderr.write("install-set audit FAILED:\n")
         for e in errors:
@@ -126,7 +203,8 @@ def main():
 
     print(f"install-set audit OK: {len(files)} staged archives all parsed by "
           f"Forge get_archives() ({len(parsed)} unique names"
-          f"{', all tier-resolvable' if args.strict_tier else ''}).")
+          f"{', all tier-resolvable' if args.strict_tier else ''}"
+          f", each the build its own .PKGINFO states).")
     return 0
 
 
