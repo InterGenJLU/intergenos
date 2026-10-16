@@ -58,10 +58,14 @@ cp "$INIT_SCRIPT" "$WORK/init"
 chmod +x "$WORK/init"
 
 # Busybox + applet symlinks. Limited applet set: only what /init exec's.
+# chmod, mktemp and rmdir are what init.sh runs beyond the original set
+# (scripts/check-initramfs-commands.py --init installer/init/init.sh --list
+# names every command word it runs); the gate below refuses an initramfs that
+# lacks any of them, so a new command in init.sh fails this build, not a boot.
 cp "$BUSYBOX" "$WORK/bin/busybox"
 chmod +x "$WORK/bin/busybox"
 
-APPLETS="sh mount umount switch_root awk blkid sleep modprobe mkdir cp ln echo cat printf grep sed find sha256sum"
+APPLETS="sh mount umount switch_root awk blkid sleep modprobe mkdir cp ln echo cat printf grep sed find sha256sum chmod mktemp rmdir"
 for applet in $APPLETS; do
     ln -sf busybox "$WORK/bin/$applet"
 done
@@ -79,6 +83,24 @@ done
 cp "$VERITYSETUP_STATIC" "$WORK/sbin/veritysetup"
 chmod +x "$WORK/sbin/veritysetup"
 ln -sf "/sbin/veritysetup" "$WORK/bin/veritysetup"
+
+# ---- Every command /init runs must exist in this initramfs (fail-closed) ----
+# init.sh runs under `set -e`, so a command word with no executable here ends
+# PID 1 with status 127 and the kernel panics ("Attempted to kill init!"); the
+# R001.3 live medium did exactly that on a chmod call. The gate reads the
+# staged /init and resolves every command word inside $WORK: the applet links
+# against this busybox's own applet list, the copied binaries, and the shell
+# builtins as this busybox's shell reports them. It refuses the build here,
+# before anything is packed.
+INITRAMFS_COMMAND_GATE="${INITRAMFS_COMMAND_GATE:-$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../scripts/check-initramfs-commands.py}"
+[ -f "$INITRAMFS_COMMAND_GATE" ] || {
+    echo "ERROR: the initramfs command gate is missing: $INITRAMFS_COMMAND_GATE" >&2
+    exit 1
+}
+python3 -I "$INITRAMFS_COMMAND_GATE" --root "$WORK" || {
+    echo "ERROR: the initramfs command gate refused this initramfs (its lines above); nothing was packed" >&2
+    exit 1
+}
 
 # ---- Kernel modules — required for live boot -------------------------------
 # Modules and their dependencies must be physically present in the cpio
