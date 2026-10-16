@@ -46,14 +46,15 @@ covers any reasoned exception.
 
 Symbolic links to directories (added 2026-10-16): os.walk lists a live link
 to a directory under `dirs`, not `files`, and never descends it, so no check
-above ever met one -- 313 such links shipped on the R001.3 substrate with no
-row and no verdict, and only a DANGLING one (its target pruned, so scandir
+above ever met one -- 315 such links sat on the R001.3 build root (313 on its
+pruned image) with no row and no verdict, and only a DANGLING one (its target pruned, so scandir
 lists it under `files`) surfaced, as /opt/jdk did at halt #2 of the R001.3
 mint. A link is a file-class entry whatever it points to: it is owned by a
-row of its own path, allowlisted, or a violation. The top-level merged-usr
-links (bin, lib, lib64, sbin) are the system's skeleton, owned by no package
-by rule (the archiver excludes the skeleton; the remover refuses a top-level
-path), and are not judged.
+row of its own path, allowlisted, or a violation, at every depth including
+the top level. The merged-usr skeleton links (bin, lib, lib64, sbin) are the
+system's own, owned by no package by rule (the archiver excludes the skeleton;
+the remover refuses a top-level path), and are the only ones not judged; a
+link inside a tree the walk excludes is not judged either.
 
 Exit 0 clean, 1 on violations, 2 on usage/setup errors.
 """
@@ -83,6 +84,10 @@ from pkm.archive_names import candidate_filenames  # noqa: E402
 SKIP_TOP = {"sources", "proc", "sys", "dev", "run", "tmp"}
 SKIP_PREFIX = ("var/cache/", "var/log/journal/", "var/tmp/")
 SKIP_EXACT = {".igos-chroot-ownership-normalized", "root/.bash_history"}
+# The merged-usr skeleton: top-level links to directories owned by no package
+# by rule (the archiver excludes the skeleton; the remover refuses a top-level
+# path). The ONLY links to directories the gate does not judge.
+SKELETON_LINKS = frozenset({"bin", "lib", "lib64", "sbin"})
 
 ARCHIVE_RE = re.compile(r"^(?P<base>.+)\.igos\.tar\.gz$")
 
@@ -278,18 +283,24 @@ def main() -> int:
         # A symbolic link to a DIRECTORY sits under `dirs`; os.walk never
         # descends it and the per-file loop never sees it, so until 2026-10-16
         # a live one shipped with no verdict (the module docstring). Judged
-        # here as the file-class entry it is: a row of its own path, an
-        # allowlist entry, or a violation. The top-level skeleton links are
-        # owned by no package by rule and are not judged.
-        if rel_root_posix:
-            for d in dirs:
-                if not os.path.islink(os.path.join(root, d)):
-                    continue
-                rel = f"{rel_root_posix}/{d}"
-                counts["symlinked_dirs"] += 1
-                if rel in owned or allow.match(rel):
-                    continue
-                violations["unowned symlink (to a directory)"].append(rel)
+        # here, at every depth, as the file-class entry it is: a row of its
+        # own path, an allowlist entry, or a violation. Only the merged-usr
+        # skeleton links (SKELETON_LINKS) and a link inside a tree the walk
+        # excludes are not judged.
+        for d in dirs:
+            if not os.path.islink(os.path.join(root, d)):
+                continue
+            rel = f"{rel_root_posix}/{d}" if rel_root_posix else d
+            if not rel_root_posix and d in SKELETON_LINKS:
+                continue
+            if (rel in SKIP_EXACT
+                    or any((rel + "/").startswith(p) for p in SKIP_PREFIX)
+                    or rel in ("mnt/intergenos", "mnt/hot-storage")):
+                continue
+            counts["symlinked_dirs"] += 1
+            if rel in owned or allow.match(rel):
+                continue
+            violations["unowned symlink (to a directory)"].append(rel)
         for f in files:
             rel = f"{rel_root_posix}/{f}" if rel_root_posix else f
             if rel in SKIP_EXACT or f.startswith("gid_Module_"):

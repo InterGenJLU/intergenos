@@ -3,15 +3,17 @@
 """scripts/check-squashfs-ownership.py judges a symbolic link to a directory.
 
 os.walk lists a live link to a directory under `dirs` and never descends it,
-so the gate's per-file loop never met one: 313 such links shipped on the
-R001.3 substrate with no row and no verdict, and only the dangling /opt/jdk
+so the gate's per-file loop never met one: 315 such links sat on the R001.3
+build root (313 on its pruned image) with no row and no verdict, and only the
+dangling /opt/jdk
 (its target pruned, so listed under `files`) surfaced, at halt #2 of the
 R001.3 mint, 2026-10-16. A link is a file-class entry whatever it points to.
 
 What is pinned: an unowned live link to a directory is a violation of its own
-class; a row of the link's own path, or an allowlist entry, clears it; the
-top-level merged-usr skeleton links are not judged; a dangling link keeps the
-verdict it always had; the summary names how many such links were judged.
+class at any depth, the top level included; a row of the link's own path, or
+an allowlist entry, clears it; only the merged-usr skeleton links and a link
+inside an excluded tree are not judged; a dangling link keeps the verdict it
+always had; the summary names how many such links were judged.
 """
 
 import importlib.util
@@ -114,6 +116,25 @@ class TestSymlinkedDirectories(unittest.TestCase):
         os.symlink("usr/lib", self.chroot / "lib")
         os.symlink("usr/lib", self.chroot / "lib64")
         self._own("usr", "usr/bin", "usr/lib")
+        rc, out = self._run()
+        self.assertEqual(rc, 0, out)
+        self.assertIn("0 symbolic links to directories", out)
+
+    def test_a_non_skeleton_top_level_link_is_judged(self):
+        (self.chroot / "usr/share").mkdir(parents=True)
+        os.symlink("usr/share", self.chroot / "media")
+        self._own("usr", "usr/share")
+        rc, out = self._run()
+        self.assertEqual(rc, 1, out)
+        self.assertIn("== unowned symlink (to a directory): 1 ==", out)
+        self.assertIn("/media", out)
+        self.assertIn("1 symbolic links to directories", out)
+
+    def test_a_link_inside_an_excluded_tree_is_not_judged(self):
+        (self.chroot / "var/cache").mkdir(parents=True)
+        (self.chroot / "var/lib").mkdir()
+        os.symlink("../lib", self.chroot / "var/cache/pkgs")
+        self._own("var", "var/cache", "var/lib")
         rc, out = self._run()
         self.assertEqual(rc, 0, out)
         self.assertIn("0 symbolic links to directories", out)
