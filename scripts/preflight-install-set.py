@@ -17,6 +17,12 @@ against the staged archive directory and FAILS the build if any staged archive
 is not yielded by it, or (with --strict-tier) resolves to no packages/<tier>/
 directory so get_group_packages could never select it.
 
+The parser reads each archive name by the versions the recipes under
+--packages-dir declare, else by the archive's own .PKGINFO: the same reading
+Forge applies on the target, so the audit and the installer cannot disagree
+about a name. An archive neither accounts for is reported at ERROR by the
+parser and DROPPED here.
+
 Exit codes:
   0 — every staged archive is parsed (and, with --strict-tier, tier-resolvable)
   1 — one or more archives are dropped / collide / orphaned
@@ -24,6 +30,7 @@ Exit codes:
 """
 
 import argparse
+import logging
 import sys
 from pathlib import Path
 
@@ -43,7 +50,9 @@ def main():
     ap.add_argument("--archive-dir", required=True,
                     help="staged archive dir, e.g. /mnt/igos/var/lib/igos/archives")
     ap.add_argument("--packages-dir", default=str(REPO / "packages"),
-                    help="packages/ tree for tier resolution (default: repo packages/)")
+                    help="packages/ tree whose declared versions read each "
+                         "archive name and whose tiers resolve it (default: "
+                         "repo packages/)")
     ap.add_argument("--strict-tier", action="store_true",
                     help="also fail if a parsed archive maps to no packages/<tier>/ dir")
     args = ap.parse_args()
@@ -53,25 +62,36 @@ def main():
         sys.stderr.write(f"ERROR: archive dir not found: {adir}\n")
         return 2
 
+    pdir = Path(args.packages_dir)
+    if not pdir.is_dir():
+        sys.stderr.write(f"ERROR: packages dir not found: {pdir}\n")
+        return 2
+
     files = sorted(f for f in adir.iterdir() if f.name.endswith(".igos.tar.gz"))
     if not files:
         sys.stderr.write(f"ERROR: no .igos.tar.gz archives under {adir}\n")
         return 2
 
+    # The parser's own ERROR and WARNING lines (a name it cannot identify, a
+    # duplicate) are part of this audit's report.
+    logging.basicConfig(level=logging.WARNING, stream=sys.stderr,
+                        format="%(levelname)s: %(message)s")
+
     # Run the REAL Forge parser — a regression in get_archives() is caught here.
-    parsed = P.get_archives(adir)              # {name: (version, path)}
+    parsed = P.get_archives(adir, pdir)        # {name: (version, path)}
     parsed_paths = {str(p) for (_v, p) in parsed.values()}
 
     errors = []
 
     # 1. Completeness: every staged archive must be represented. A file missing
-    #    from parsed_paths was either skipped (unparseable version) or clobbered
-    #    by a later same-name archive — both are the silent-drop class.
+    #    from parsed_paths either names no package the parser can identify or
+    #    was clobbered by a same-name archive — both are the silent-drop class.
     for f in files:
         if str(f) not in parsed_paths:
             errors.append(
                 f"DROPPED: {f.name} is staged but Forge get_archives() never "
-                f"yields it (version-parse miss or duplicate-name clobber) -> "
+                f"yields it (no recipe's declared version and no .PKGINFO of "
+                f"its own names it, or a duplicate-name clobber) -> "
                 f"present in the image, never installed")
 
     if len(parsed) < len(files):
@@ -83,7 +103,6 @@ def main():
     #    can never be put in any group's tier set, so get_group_packages would
     #    never select it even though it parses.
     if args.strict_tier:
-        pdir = Path(args.packages_dir)
         names_in_tiers = set()
         for tdir in sorted(pdir.iterdir()):
             if not tdir.is_dir():

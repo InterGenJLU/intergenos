@@ -13,6 +13,7 @@ from pathlib import Path
 # Add project root so we can import pkm
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from pkm.archive_names import SUFFIX, parse_archive_filename
 from pkm.database import PackageDB
 from pkm.installer import PackageInstaller
 
@@ -543,13 +544,13 @@ def _name_version_from_pkginfo(archive_path):
     The builder stamps .PKGINFO into every archive and the mirror index is built
     from the very same fields (pkm/repo.py), so .PKGINFO — not the filename — is
     the single source of truth for a package's name/version. Returns (None, None)
-    if absent/unreadable so the caller falls back to filename parsing (legacy
-    archives predating the .PKGINFO ratification).
+    if absent/unreadable (legacy archives predating the .PKGINFO ratification),
+    and the caller then refuses the archive rather than guess its name.
 
     NOTE: .PKGINFO is the LAST member in our archives, so reading it decompresses
-    the whole tar. get_archives() therefore consults this ONLY to disambiguate a
-    filename parse it cannot trust (a hyphen left in the parsed version), never
-    for the clean-semver majority.
+    the whole tar. get_archives() therefore consults this ONLY for an archive
+    whose name no recipe's declared version accounts for, never for the
+    archives the recipes name.
     """
     import tarfile
     try:
@@ -567,8 +568,8 @@ def _name_version_from_pkginfo(archive_path):
                             ver = line.split("=", 1)[1].strip()
                     return (name or None, ver or None)
     except (tarfile.TarError, OSError) as e:
-        LOG.warning("get_archives: could not read .PKGINFO from %r (%s); "
-                    "falling back to filename parse", archive_path.name, e)
+        LOG.warning("get_archives: could not read .PKGINFO from %r (%s)",
+                    archive_path.name, e)
     return (None, None)
 
 
@@ -613,10 +614,82 @@ def _newer_of_two_builds(new_path, new_version, old_path, old_version):
     return False, f"both hold {new_build[0]}-{new_build[1]}; the first was kept"
 
 
-def get_archives(archive_dir):
+def _declared_versions(package_dir):
+    """Package name -> the version its recipe declares, for every package.yml
+    under package_dir.
+
+    A version is declared once, in package.yml, and derived everywhere else.
+    The build composes an archive's name from the recipe's name: and version:
+    (igos-build/parser.py reads the version as str() of the yaml value), so
+    those two fields are what settle where an archive's name ends. The
+    ships_as name is keyed too, as scripts/check-corpus-correspondence.py keys
+    it. Discovery is the build's own: every package.yml at any depth. A
+    recipe that cannot be read contributes nothing; its archives are then
+    read from their own .PKGINFO.
+    """
+    if not package_dir:
+        return {}
+    package_dir = Path(package_dir)
+    if not package_dir.is_dir():
+        return {}
+    try:
+        import yaml
+    except ImportError:
+        return {}
+    declared = {}
+    for yml in sorted(package_dir.rglob("package.yml")):
+        try:
+            with open(yml) as fh:
+                data = yaml.safe_load(fh)
+        except Exception:  # noqa: BLE001 — yaml.YAMLError + IO; never fatal
+            continue
+        if not isinstance(data, dict) or data.get("version") is None:
+            continue
+        version = str(data["version"])
+        for key in (data.get("name"), data.get("ships_as")):
+            if key:
+                declared.setdefault(str(key).strip(), version)
+    return declared
+
+
+def _read_archive_name(archive_path, declared):
+    """(name, version) of the package one archive holds, or None.
+
+    Where an archive's name ends cannot be read from the text alone: split at
+    the first hyphen followed by a digit, llama-cpp-cuda-b8796-8 reads as a
+    package llama-cpp-cuda-b8796 at version 8, and ntfs-3g-2026.2.25 as ntfs.
+    So the name is read by a recipe's declared version
+    (pkm/archive_names.parse_archive_filename with `declared`): a declared
+    name and version that compose the stem, alone or followed by a release.
+    A name no recipe accounts for (an earlier build's version left in the
+    store, or a recipe this tree does not carry) is read from the archive's
+    own .PKGINFO. With neither, the name could only be guessed, and None is
+    returned for the caller to refuse the archive by name.
+    """
+    parsed = parse_archive_filename(archive_path.name, declared)
+    # Without a declared version that composes the stem, parse_archive_filename
+    # falls back to the same first-digit split; only a result whose version is
+    # the one declared for its name came from a recipe.
+    if parsed is not None and declared.get(parsed.name) == parsed.version:
+        return parsed.name, parsed.version
+    pkgname, pkgver = _name_version_from_pkginfo(archive_path)
+    if pkgname and pkgver:
+        return pkgname, pkgver
+    return None
+
+
+def get_archives(archive_dir, package_dir=None):
     """Scan archive directory and return dict of {name: (version, path)}.
 
-    Archives are named: <name>-<version>.igos.tar.gz
+    Archives are named <name>-<version>-<release>.igos.tar.gz, or
+    <name>-<version>.igos.tar.gz when the build stated no release (and for
+    every archive built before the name carried it). Each name is read by
+    _read_archive_name: by the versions the recipes under package_dir
+    declare, else by the archive's own .PKGINFO. An archive neither accounts
+    for is never installed under a guessed name: it is reported at ERROR, by
+    name, and left out, and the install-set audit
+    (scripts/preflight-install-set.py, which reads through this function)
+    refuses an image that carries one.
     """
     archive_dir = Path(archive_dir)
     archives = {}
@@ -624,46 +697,23 @@ def get_archives(archive_dir):
     if not archive_dir.exists():
         return archives
 
+    declared = _declared_versions(package_dir)
     for f in sorted(archive_dir.iterdir()):
-        if not f.name.endswith(".igos.tar.gz"):
+        if not f.name.endswith(SUFFIX):
             continue
-        stem = f.name.replace(".igos.tar.gz", "")
-        # Archives are '<name>-<version>'. The digit-anchored regex handles the
-        # common semver case (non-greedy name up to the first '-<digit>'). But
-        # it SILENTLY DROPS any archive whose version does not start with a
-        # digit — e.g. llama.cpp's upstream 'b5545' build tag. That single gap
-        # kept the llama-server inference engine off EVERY Forge install: the
-        # binary was in the chroot/squashfs so the live ISO worked and the
-        # pre-squashfs verify-paths audit passed, but Forge installs from these
-        # archives and get_archives() never even saw llama-cpp, so it was never
-        # installed and never logged. GBC002.4 (2026-06-08): fall back to a
-        # last-hyphen split so a non-digit version is PARSED, not dropped; warn
-        # (never silently skip) if a name is genuinely unparseable.
-        import re
-        match = re.match(r'^(.+?)-(\d.*)$', stem)
-        if match:
-            name = match.group(1)
-            version = match.group(2)
-        elif "-" in stem:
-            name, version = stem.rsplit("-", 1)
-        else:
-            LOG.warning("get_archives: cannot parse archive name %r — SKIPPING "
-                        "(no version delimiter); this package will NOT install", f.name)
+        # The name was once split at the first '-<digit>': that dropped
+        # llama-cpp's 'b5545' (GBC002.4), mis-split ntfs-3g (GBC003.4) and,
+        # once names carried the release, read both GPU engines'
+        # 'llama-cpp-<gpu>-b8796-<release>' as packages no tier names, so
+        # Forge could never select them.
+        read = _read_archive_name(f, declared)
+        if read is None:
+            LOG.error("get_archives: %r names no package this installer can "
+                      "identify — no recipe declares a version that composes "
+                      "it and it carries no readable .PKGINFO; it will NOT "
+                      "install", f.name)
             continue
-        # A hyphen surviving in the parsed VERSION means the filename split can't
-        # be trusted: either the non-greedy regex mis-split a hyphen-in-name
-        # package (ntfs-3g-2026.2.25 -> name=ntfs / version=3g-2026.2.25, which
-        # then never matches the mirror's `ntfs-3g` and won't version-compare),
-        # or the version is legitimately hyphenated. For these bounded cases use
-        # the archive's authoritative .PKGINFO so the installed name/version match
-        # the build + mirror exactly. Clean semver versions cannot be mis-split (a
-        # -<digit>-bearing name is what leaves the hyphen behind), so they skip the
-        # (expensive, full-decompress) .PKGINFO read entirely.
-        # (GBC003.4, 2026-06-17 — ntfs-3g installed as name=ntfs/ver=3g-...).
-        if version and "-" in version:
-            pn, pv = _name_version_from_pkginfo(f)
-            if pn and pv:
-                name, version = pn, pv
+        name, version = read
         # A second archive resolving to the same package name would SILENTLY
         # clobber the first in this dict — the same silent-drop class as the
         # llama-cpp version-parse miss (one of the two packages then never
@@ -739,9 +789,9 @@ def _archive_name_candidates(hook_name: str) -> list[str]:
     # Legacy fallback only. `ntfs-3g` is the real package name (recipe + .PKGINFO
     # + mirror all agree). The bogus `ntfs` alias existed because get_archives()
     # used to mis-split the filename `ntfs-3g-2026.2.25` into name=`ntfs` — fixed
-    # at the source (get_archives now reads the authoritative .PKGINFO for any
-    # hyphen-bearing parse; GBC003.4 2026-06-17). This remap is retained ONLY so a
-    # legacy archive predating .PKGINFO that still mis-splits to `ntfs` resolves.
+    # at the source (get_archives now reads every name by its recipe's declared
+    # version or its own .PKGINFO; GBC003.4 2026-06-17). This remap is retained
+    # ONLY so a legacy archive that still resolves to `ntfs` resolves.
     _name_remaps = {
         "ntfs-3g": "ntfs",
     }
@@ -1011,8 +1061,8 @@ def get_group_packages(groups, archive_dir, package_dir=None,
         if group:
             tiers.update(group["tiers"])
 
-    # Get available archives
-    archives = get_archives(archive_dir)
+    # Get available archives, each name read by its recipe's declared version
+    archives = get_archives(archive_dir, package_dir)
 
     # If we have a packages directory, filter by tier. Build the
     # tier-allowed name set via _archive_name_candidates so the
@@ -1223,7 +1273,7 @@ def compute_install_set_gap(groups, archive_dir, package_dir,
     if not tiers:
         return []
 
-    archives = get_archives(archive_dir)
+    archives = get_archives(archive_dir, package_dir)
     tier_packages, gate_by_name, eula_by_name, _ = \
         _discover_tier_membership(Path(package_dir), tiers)
 

@@ -6,7 +6,9 @@ the full queue. These tests pin the wiring so a future regression that
 drops the kwarg fails loudly instead of silently disabling the invariant.
 """
 
+import io
 import shutil
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
@@ -14,6 +16,16 @@ from unittest.mock import MagicMock, patch
 
 from installer.backend.packages import (
     install_packages, get_group_packages, compute_install_set_gap)
+
+
+def _self_describing_archive(path, name, version, release=1):
+    """A real gzip archive whose last member is a .PKGINFO, as the builder
+    writes it: the shape that names its package without a package.yml."""
+    with tarfile.open(path, "w:gz") as tar:
+        body = f"pkgname={name}\npkgver={version}\npkgrel={release}\n".encode()
+        info = tarfile.TarInfo("./.PKGINFO")
+        info.size = len(body)
+        tar.addfile(info, io.BytesIO(body))
 
 
 class TestInstallQueueThreading(unittest.TestCase):
@@ -142,23 +154,26 @@ class TestHardwareGate(unittest.TestCase):
         self.archive_dir = Path(self.tmp) / "archives"
         self.archive_dir.mkdir()
         self.pkg_dir = Path(self.tmp) / "packages"
-        # Archives (content irrelevant — get_archives only parses names)
+        # Archives (content irrelevant — get_archives reads each name by the
+        # version its package.yml declares)
         for name in ("nvidia-580.159.04", "firefox-1.0", "nodejs-22.0",
                      "bash-5.2"):
             (self.archive_dir / f"{name}.igos.tar.gz").write_text("x")
         # Tier tree: extra/{nvidia(gated),firefox,nodejs}, core/bash
-        self._mk_pkg("extra", "nvidia", 'requires_pci_vendor: "10de"\n')
-        self._mk_pkg("extra", "firefox", "")        # no gate
-        self._mk_pkg("extra", "nodejs", "")          # no gate
-        self._mk_pkg("core", "bash", "")
+        self._mk_pkg("extra", "nvidia", "580.159.04",
+                     'requires_pci_vendor: "10de"\n')
+        self._mk_pkg("extra", "firefox", "1.0", "")        # no gate
+        self._mk_pkg("extra", "nodejs", "22.0", "")         # no gate
+        self._mk_pkg("core", "bash", "5.2", "")
 
     def tearDown(self):
         shutil.rmtree(self.tmp)
 
-    def _mk_pkg(self, tier, name, yml_body):
+    def _mk_pkg(self, tier, name, version, yml_body):
         d = self.pkg_dir / tier / name
         d.mkdir(parents=True)
-        (d / "package.yml").write_text(f"name: {name}\ntier: {tier}\n{yml_body}")
+        (d / "package.yml").write_text(
+            f'name: {name}\nversion: "{version}"\ntier: {tier}\n{yml_body}')
 
     def _names(self, groups, vendors):
         out = get_group_packages(groups, str(self.archive_dir),
@@ -212,22 +227,23 @@ class TestNestedAndNamedDiscovery(unittest.TestCase):
                      "renamed-3.1"):
             (self.archive_dir / f"{name}.igos.tar.gz").write_text("x")
         # core/bash (canonical), extra/nodejs (canonical)
-        self._mk_yml("core/bash", "bash")
-        self._mk_yml("extra/nodejs", "nodejs")
+        self._mk_yml("core/bash", "bash", "5.2")
+        self._mk_yml("extra/nodejs", "nodejs", "22.0")
         # extra/intergen-web-ui/websockets — NESTED one level too deep, the
         # G3-10 anomaly: dir is 'websockets' but parent is a grouping dir.
-        self._mk_yml("extra/intergen-web-ui/websockets", "websockets")
+        self._mk_yml("extra/intergen-web-ui/websockets", "websockets", "16.0")
         # extra/zztool — dir name != yaml name ('renamed'), archive 'renamed'.
-        self._mk_yml("extra/zztool", "renamed")
+        self._mk_yml("extra/zztool", "renamed", "3.1")
 
     def tearDown(self):
         shutil.rmtree(self.tmp)
 
-    def _mk_yml(self, relpath, name):
+    def _mk_yml(self, relpath, name, version):
         d = self.pkg_dir / relpath
         d.mkdir(parents=True)
         tier = relpath.split("/")[0]
-        (d / "package.yml").write_text(f"name: {name}\ntier: {tier}\n")
+        (d / "package.yml").write_text(
+            f'name: {name}\nversion: "{version}"\ntier: {tier}\n')
 
     def _names(self, groups):
         out = get_group_packages(groups, str(self.archive_dir),
@@ -300,11 +316,12 @@ class TestEulaGate(unittest.TestCase):
         d = self.pkg_dir / "extra" / "nvidia"
         d.mkdir(parents=True)
         (d / "package.yml").write_text(
-            'name: nvidia\ntier: extra\nrequires_pci_vendor: "10de"\n'
-            "eula_helper: nvidia-eula\n")
+            'name: nvidia\nversion: "580.159.04"\ntier: extra\n'
+            'requires_pci_vendor: "10de"\neula_helper: nvidia-eula\n')
         d = self.pkg_dir / "extra" / "firefox"
         d.mkdir(parents=True)
-        (d / "package.yml").write_text("name: firefox\ntier: extra\n")
+        (d / "package.yml").write_text(
+            'name: firefox\nversion: "1.0"\ntier: extra\n')
 
     def tearDown(self):
         shutil.rmtree(self.tmp)
@@ -345,9 +362,11 @@ class TestRuntimeDepClosureYmlChain(unittest.TestCase):
         self.archive_dir = Path(self.tmp) / "archives"
         self.archive_dir.mkdir()
         self.pkg_dir = Path(self.tmp) / "packages"
-        for name in ("freerdp-3.22.0", "sdl3-ttf-3.2.2",
-                     "plutosvg-0.0.8", "plutovg-1.3.3"):
-            (self.archive_dir / f"{name}.igos.tar.gz").write_text("x")
+        for name, version in self.VERSIONS.items():
+            (self.archive_dir / f"{name}-{version}.igos.tar.gz").write_text("x")
+
+    VERSIONS = {"freerdp": "3.22.0", "sdl3-ttf": "3.2.2",
+                "plutosvg": "0.0.8", "plutovg": "1.3.3"}
 
     def tearDown(self):
         shutil.rmtree(self.tmp)
@@ -360,7 +379,8 @@ class TestRuntimeDepClosureYmlChain(unittest.TestCase):
             deps = "".join(f"  - {r}\n" for r in runtime)
             dep_block = f"dependencies:\n  runtime:\n{deps}"
         (d / "package.yml").write_text(
-            f"name: {name}\ntier: {tier}\n{dep_block}")
+            f'name: {name}\nversion: "{self.VERSIONS[name]}"\ntier: {tier}\n'
+            f"{dep_block}")
 
     def _names(self, groups):
         out = get_group_packages(groups, str(self.archive_dir),
@@ -385,7 +405,10 @@ class TestRuntimeDepClosureYmlChain(unittest.TestCase):
     def test_missing_yml_on_pulled_package_warns_loudly(self):
         # sdl3-ttf has an archive but NO package.yml anywhere (the stale
         # hooks-tree shape): it is pulled by name, its deps are unreachable,
-        # and that MUST be said loudly — never a silent skip.
+        # and that MUST be said loudly — never a silent skip. With no recipe
+        # to declare its version, its own .PKGINFO names it.
+        _self_describing_archive(self.archive_dir / "sdl3-ttf-3.2.2.igos.tar.gz",
+                                 "sdl3-ttf", "3.2.2")
         self._mk_pkg("desktop", "freerdp", runtime=("sdl3-ttf",))
         self._mk_pkg("extra", "plutosvg", runtime=("plutovg",))
         self._mk_pkg("extra", "plutovg")

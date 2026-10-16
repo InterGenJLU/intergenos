@@ -75,14 +75,18 @@ class TestTheInstallSetReadsTheRelease(unittest.TestCase):
         self.assertIn("legacy", found, sorted(found))
         self.assertEqual(found["legacy"][0], "2.0")
 
-    def test_an_archive_without_a_pkginfo_is_still_read_from_its_name(self):
+    def test_an_archive_without_a_pkginfo_is_read_by_its_recipe(self):
         # The pre-python bootstrap archives carry no .PKGINFO until the
-        # backfill runs. Dropping them would keep a package off every install
-        # silently, which is the class this function was already hardened
-        # against.
+        # backfill runs. Dropping them would keep a package off every install,
+        # so the version their recipe declares reads the name; an archive
+        # that neither a recipe nor a .PKGINFO accounts for is refused by name
+        # (test_the_install_set_reads_names_by_the_declared_version.py).
         _archive(self.archives / "early-1.2.igos.tar.gz", "early", "1.2", 1,
                  with_pkginfo=False)
-        found = backend.get_archives(self.archives)
+        recipe = self.tmp / "packages" / "core" / "early" / "package.yml"
+        recipe.parent.mkdir(parents=True)
+        recipe.write_text('name: early\nversion: "1.2"\nrelease: 1\n')
+        found = backend.get_archives(self.archives, self.tmp / "packages")
         self.assertIn("early", found, sorted(found))
         self.assertEqual(found["early"][0], "1.2")
 
