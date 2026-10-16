@@ -102,10 +102,15 @@ pkm() { :; }
         assert 'REGISTERED' not in output
         assert not (tmp_path / 'sample-1').exists()
         assert not (tmp_path / 'sample-1-2.igos.tar.gz').exists()
-        refused = list(tmp_path.glob('.configure-drift-failed.*'))
-        assert len(refused) == 1
-        assert (refused[0] / 'archive.failed').read_text() == 'archive'
-        assert (refused[0] / 'manifest.failed').read_text() == 'marker'
+        # The refused build leaves the store as the Python builder's failure
+        # path does: the completion marker gone, the archive beside the
+        # store's archives as <archive>.failed (the one shape build-squashfs
+        # Step 2.6 sweeps), and no directory of its own inside the store —
+        # five such directories rode the lineage into the R001.3 mint and
+        # the ownership gate refused the image over them (2026-10-16).
+        assert (tmp_path / 'sample-1-2.igos.tar.gz.failed').read_text() == 'archive'
+        assert list(tmp_path.glob('.configure-drift-failed.*')) == []
+        assert 'kept as' in output and 'sample-1-2.igos.tar.gz.failed' in output
     else:
         assert result.returncode == 0, output
         assert output.index('GATE archive') < output.index('DEPLOYED') < output.index('REGISTERED')

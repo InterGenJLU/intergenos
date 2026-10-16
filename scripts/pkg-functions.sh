@@ -1883,11 +1883,21 @@ pkg_install() {
         local drift_archive="${IGOS_PKG_ARCHIVES}/${name}-${version}${release:+-${release}}.igos.tar.gz"
         if ! pkg_configure_drift archive "$name" "$drift_archive"; then
             printf 'RED configure-drift: archive refused for %s; deployment stopped\n' "$name" >&2
-            local refused_dir
-            refused_dir=$(mktemp -d "${IGOS_PKG_ARCHIVES}/.configure-drift-failed.XXXXXX") || return 1
-            mv -- "${IGOS_PKG_DB}/${name}-${version}" "$refused_dir/manifest.failed" || return 1
-            mv -- "$drift_archive" "$refused_dir/archive.failed" || return 1
-            printf 'configure-drift: refused archive and completion marker preserved in %s\n' "$refused_dir" >&2
+            # The refused build leaves the store the way a build that failed
+            # any later gate does (igos-build/builder.py
+            # _remove_failed_tracking_artifacts): the completion marker is
+            # removed, so the package rebuilds on the next run instead of
+            # being skipped as built, and the archive stays beside the
+            # store's archives as <archive>.failed — the ONE quarantine shape
+            # build-squashfs Step 2.6 sweeps out of the install set and the
+            # hub's proofs read. A directory of its own inside the store (the
+            # shape until 2026-10-16) was swept by nothing: five of them from
+            # the 10-13 halts rode the lineage into the R001.3 mint, and the
+            # squashfs ownership gate refused the image over their ten files
+            # (halt #2 of the mint, 2026-10-16).
+            rm -f -- "${IGOS_PKG_DB}/${name}-${version}" || return 1
+            mv -- "$drift_archive" "${drift_archive}.failed" || return 1
+            printf 'configure-drift: completion marker removed; refused archive kept as %s\n' "${drift_archive}.failed" >&2
             return 1
         fi
     fi
