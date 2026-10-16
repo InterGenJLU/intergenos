@@ -10,7 +10,8 @@ over staged trees, and run both real builders: the live builder's archive
 must carry every command its /init runs, and the builder must refuse an init
 that runs a command the archive lacks; the FDE builder's archive must carry
 every command fde-init.sh runs, its two experimental unlock tool sets being
-optional exactly when the build environment does not have them.
+optional exactly when the build environment does not have them (the archive
+is built with neither set, with each one alone and with both).
 """
 import importlib.util
 import os
@@ -29,8 +30,16 @@ LIVE_INIT = ROOT / "installer" / "init" / "init.sh"
 FDE_INIT = ROOT / "installer" / "init" / "fde-init.sh"
 BUSYBOX = Path("/usr/bin/busybox.static")
 # fde-init.sh probes for these (command -v) and build-fde-initramfs.sh bundles
-# them only when tpm2-tools-static / fido2-tools-static are installed.
-FDE_OPTIONAL = ("tpm2_load", "tpm2_unseal", "fido2-token", "fido2-assert")
+# each set only when its package (tpm2-tools-static, fido2-tools-static) is
+# installed: {set: (the files its package directory holds, the names fde-init.sh runs)}.
+FDE_BUNDLES = {
+    "tpm2": (("tpm2", "tpm2_unseal"), ("tpm2_load", "tpm2_unseal")),
+    "fido2": (("fido2-token", "fido2-cred", "fido2-assert"), ("fido2-token", "fido2-assert")),
+}
+FDE_OPTIONAL = FDE_BUNDLES["tpm2"][1] + FDE_BUNDLES["fido2"][1]
+# The FDE builder runs ldd over every tool it bundles, so each stand-in is a
+# dynamically linked program, as the real tools are.
+DYNAMIC_STAND_IN = Path("/usr/bin/true")
 
 needs_busybox = pytest.mark.skipif(
     not os.access(BUSYBOX, os.X_OK),
@@ -234,14 +243,21 @@ def _build_live(tmp_path, init_script):
     return r, out
 
 
-def _build_fde(tmp_path, init_script):
+def _build_fde(tmp_path, init_script, present=()):
     kver = "0.0.0-initramfs-gate-test"
     modules = tmp_path / "modules" / kver
     modules.mkdir(parents=True)
     out = tmp_path / "fde.cpio.gz"
+    tool_dirs = {}
+    for name, (files, _) in FDE_BUNDLES.items():
+        tool_dirs[name] = tmp_path / ("%s-tools-static" % name if name in present else "absent-%s" % name)
+        if name in present:
+            tool_dirs[name].mkdir()
+            for f in files:
+                shutil.copy2(DYNAMIC_STAND_IN, tool_dirs[name] / f)
     env = dict(os.environ, INIT_SCRIPT=str(init_script), BUSYBOX=str(BUSYBOX),
                CRYPTSETUP_STATIC=str(_stub(tmp_path / "cryptsetup-static")), MODULES_DIR=str(modules),
-               TPM2_TOOLS_DIR=str(tmp_path / "absent-tpm2"), FIDO2_TOOLS_DIR=str(tmp_path / "absent-fido2"),
+               TPM2_TOOLS_DIR=str(tool_dirs["tpm2"]), FIDO2_TOOLS_DIR=str(tool_dirs["fido2"]),
                CRYPTTAB_SRC=str(tmp_path / "absent-crypttab"))
     r = subprocess.run(["bash", str(FDE_BUILDER), kver, str(out)], capture_output=True, text=True, timeout=180,
                        env=env, stdin=subprocess.DEVNULL)
@@ -290,6 +306,35 @@ def test_the_fde_builder_archive_carries_every_command_fde_init_runs(tmp_path):
     bare = _run_gate("--cpio", out)
     assert bare.returncode == 1
     assert bare.stdout.count("  MISSING     ") == len(FDE_OPTIONAL)
+
+
+@needs_busybox
+@needs_build_tools
+@pytest.mark.skipif(not shutil.which("ldd"), reason="the FDE builder runs ldd over every unlock tool it bundles")
+@pytest.mark.parametrize("present", [("tpm2",), ("fido2",), ("tpm2", "fido2")], ids="+".join)
+def test_a_probed_unlock_tool_is_optional_exactly_while_its_set_is_absent(tmp_path, present):
+    r, out = _build_fde(tmp_path, FDE_INIT, present)
+    assert r.returncode == 0, r.stdout + r.stderr
+    for name in FDE_BUNDLES:
+        assert ("bundling %s-tools-static" % name in r.stdout) == (name in present), r.stdout
+    absent = [t for name, (_, tools) in FDE_BUNDLES.items() if name not in present for t in tools]
+    args = ["--cpio", out]
+    for t in absent:
+        args += ["--optional", t]
+    g = _run_gate(*args)
+    assert g.returncode == 0, g.stdout + g.stderr
+    # each name a bundled set carries resolves in the archive with no declaration behind it
+    for name in present:
+        for t in FDE_BUNDLES[name][1]:
+            assert "  program     %-14s -> sbin/" % t in g.stdout, g.stdout
+    if absent:
+        clause = g.stdout.split("(optional and absent, by declaration: ", 1)[1].split(")", 1)[0]
+        assert set(clause.split(", ")) == set(absent)
+    else:
+        assert "by declaration" not in g.stdout
+    bare = _run_gate("--cpio", out)
+    assert bare.returncode == (1 if absent else 0), bare.stdout + bare.stderr
+    assert bare.stdout.count("  MISSING     ") == len(absent)
 
 
 @needs_busybox
