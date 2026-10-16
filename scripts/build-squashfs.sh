@@ -444,6 +444,36 @@ CUSTOMIZE_AIROOTFS
 fi
 
 # ----------------------------------------------------------------------------
+# Step 2.45: configuration-baseline gate — the record the prune below reads.
+#            pkm removes a package's /etc file only when its live bytes equal
+#            the baseline it recorded for the file; a baseline left at an
+#            OLDER release's bytes by a rebuild makes Step 2.5 preserve the
+#            pruned package's stock file as an edit, and Step 4.85 refuses
+#            the image over it hours later (halt #2 of the R001.3 mint,
+#            2026-10-16: nvidia r17 and rsyslog r2). Fail-closed before the
+#            prune, over the whole table, so a stale row on a package the
+#            ISO keeps is found as well (13 such rows rode the R001.3
+#            substrate with no symptom).
+# ----------------------------------------------------------------------------
+BASELINE_GATE="$PROJECT_DIR/scripts/check-config-baselines.py"
+step_begin "[2.45/6]"
+if [ ! -f "$BASELINE_GATE" ]; then
+    status_line "config-baseline gate (pkm record)" FAIL
+    die "config-baseline gate MISSING at $BASELINE_GATE — refusing to prune on an unproven record"
+fi
+log "config-baseline gate (every /etc baseline is the stock its owner registered)..."
+cb_out="$(python3 "$BASELINE_GATE" --chroot "$CHROOT" 2>&1)" && cb_rc=0 || cb_rc=$?
+[ -n "$cb_out" ] && printf '%s\n' "$cb_out" | logpipe "[config-baselines]"
+if [ "$cb_rc" -ne 0 ]; then
+    detail "a stale baseline makes the prune keep a pruned package's stock file"
+    detail "as an edit; fix the record (pkm refresh-baseline, after proving the"
+    detail "live bytes are the stock), never the gate."
+    status_line "config-baseline gate (pkm record)" FAIL
+    die "config-baseline gate failed (rc=$cb_rc) — refusing to prune on a stale record"
+fi
+status_line "config-baseline gate (pkm record)" PASS
+
+# ----------------------------------------------------------------------------
 # Step 2.5: pkm iso-prep — evict iso_include:false (MIRROR-only) packages
 #                          from the chroot before mksquashfs assembles it.
 # ----------------------------------------------------------------------------
