@@ -92,12 +92,17 @@ class _TrackerHarness:
         # a method to PackageTracker that pkg_manifest calls broke this double
         # with an AttributeError that said nothing about the change. A derived
         # bind cannot fall behind the class.
+        # Static and class methods are bound the same derived way: the three
+        # that used to be named here by hand were the one list left that
+        # could fall behind, and did (2026-10-16, a new static helper that
+        # _write_pkm_db calls).
         for meth, fn in vars(PackageTracker).items():
-            if callable(fn) and not isinstance(fn, (staticmethod, classmethod)):
+            if isinstance(fn, staticmethod):
+                setattr(self.stub, meth, fn.__func__)
+            elif isinstance(fn, classmethod):
+                setattr(self.stub, meth, MethodType(fn.__func__, PackageTracker))
+            elif callable(fn):
                 setattr(self.stub, meth, MethodType(fn, self.stub))
-        self.stub._compute_file_hashes = PackageTracker._compute_file_hashes
-        self.stub.diff_snapshots = PackageTracker.diff_snapshots
-        self.stub._parse_manifest_paths = PackageTracker._parse_manifest_paths
         self.stub.SNAPSHOT_PRUNE_DEFAULT = PackageTracker.SNAPSHOT_PRUNE_DEFAULT
         self._db_path, self._root = db_path, root
 
