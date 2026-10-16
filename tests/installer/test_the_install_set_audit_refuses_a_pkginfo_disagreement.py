@@ -125,6 +125,41 @@ class TestAPkginfoThatCannotBeReadIsRefusedByName(_Audit):
                            ".PKGINFO cannot be read")
 
 
+class TestAReleaseNotWrittenAsANameWritesItIsRefusedByName(_Audit):
+    """One rule for a release, in a name and in a header: the .PKGINFO's
+    pkgrel, read as written, must be ASCII digits without a leading zero.
+    Read by int() each of these spellings agreed with the name."""
+
+    REFUSED = "PKGINFO-UNREADABLE: {} -> its .PKGINFO release "
+
+    def _refused(self, filename, name, version, pkgrel_lines):
+        _recipe(self.packages, "extra", name, version)
+        _archive(self.archives / filename, name,
+                 f"pkgname={name}\npkgver={version}\n{pkgrel_lines}")
+        self.assertRefused(self.audit(), self.REFUSED.format(filename))
+
+    def test_a_digit_of_another_script(self):
+        # ARABIC-INDIC DIGIT THREE: int() reads it as 3.
+        self._refused("demo-1.0-3.igos.tar.gz", "demo", "1.0", "pkgrel=٣\n")
+
+    def test_a_padded_release(self):
+        self._refused("demo-1.0-3.igos.tar.gz", "demo", "1.0", "pkgrel=03\n")
+
+    def test_a_release_with_whitespace(self):
+        self._refused("demo-1.0-3.igos.tar.gz", "demo", "1.0", "pkgrel=3 \n")
+
+    def test_an_empty_release(self):
+        # A release-less name compares no release, so only the rule sees it.
+        self._refused("legacy-2.0.igos.tar.gz", "legacy", "2.0", "pkgrel=\n")
+
+    def test_a_release_that_is_no_number(self):
+        self._refused("legacy-2.0.igos.tar.gz", "legacy", "2.0", "pkgrel=x\n")
+
+    def test_a_release_stated_twice(self):
+        self._refused("demo-1.0-3.igos.tar.gz", "demo", "1.0",
+                      "pkgrel=3\npkgrel=3\n")
+
+
 class TestArchivesThatAgreePass(_Audit):
     def test_both_name_shapes_agree_and_are_counted(self):
         _recipe(self.packages, "extra", "demo", "1.0")

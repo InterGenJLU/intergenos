@@ -24,14 +24,16 @@ about a name. An archive neither accounts for is reported at ERROR by the
 parser and DROPPED here.
 
 Every staged archive's reading is then compared with the name, version and
-release its own .PKGINFO states (pkm's own reader, pkm/repo.py). The parser
+release its own .PKGINFO states (pkm's own parser, pkm/repo.py). The parser
 opens no .PKGINFO for a name a recipe accounts for, and the build's .PKGINFO
 sweep (Step 4.7) only checks that the fields are present, so without this an
 earlier build whose version ends in what reads as a release (dialog's
 1.3-20260107 against a recipe that says 1.3) would install as a build it is
-not. A disagreement, or a .PKGINFO that cannot be read, fails the audit by
-name. Each .PKGINFO is read once here, in full: it is an archive's last
-member.
+not. The release is read from the .PKGINFO's own text by the rule an archive
+name's release is read by (pkm/archive_names.py), not by int(), which takes
+'03' or a digit of another script for 3. A disagreement, or a .PKGINFO or a
+release in it that cannot be read, fails the audit by name. Each .PKGINFO is
+read once here, in full: it is an archive's last member.
 
 Exit codes:
   0 — every staged archive is parsed (and, with --strict-tier, tier-resolvable)
@@ -43,7 +45,9 @@ Exit codes:
 
 import argparse
 import logging
+import os
 import sys
+import tarfile
 import time
 from pathlib import Path
 
@@ -52,8 +56,8 @@ sys.path.insert(0, str(REPO))
 
 try:
     from installer.backend import packages as P
-    from pkm.archive_names import parse_archive_filename
-    from pkm.repo import _read_package_meta
+    from pkm.archive_names import _RELEASE_TEXT, parse_archive_filename
+    from pkm.repo import _parse_pkginfo
 except Exception as e:  # noqa: BLE001 — surface import failure as an env error
     sys.stderr.write(f"ERROR: cannot import installer.backend.packages: {e}\n")
     sys.exit(2)
@@ -61,6 +65,46 @@ except Exception as e:  # noqa: BLE001 — surface import failure as an env erro
 
 def _release_text(release):
     return "with no release" if release is None else f"release {release}"
+
+
+def _pkginfo_text(archive_path):
+    """The raw text of an archive's .PKGINFO, or None when it carries none.
+
+    The member is found as pkm/repo.py's _read_package_meta finds it (the first
+    regular file named .PKGINFO, decoded as UTF-8); the text is kept so that
+    the release can be read from what the header actually says. Raises on a
+    read error.
+    """
+    with tarfile.open(str(archive_path), "r:gz") as tf:
+        for member in tf:
+            if not member.isfile():
+                continue
+            if os.path.basename(member.name) != ".PKGINFO":
+                continue
+            handle = tf.extractfile(member)
+            if handle is None:
+                continue
+            return handle.read().decode("utf-8")
+    return None
+
+
+def _pkginfo_release(text):
+    """(release, problem) from a .PKGINFO's text.
+
+    One rule for a release, in a name and in a header: the pkgrel line, read
+    as written, must be ASCII digits without a leading zero, as
+    pkm/archive_names.py reads a release out of an archive name. pkm's own
+    parser strips the value and takes it by int(), so ' 3', '03' and a digit
+    of another script all read as 3. No pkgrel line at all is (None, None).
+    """
+    lines = [line for line in text.splitlines()
+             if line.partition("=")[0].strip() == "pkgrel"]
+    if not lines:
+        return None, None
+    raw = lines[0][len("pkgrel="):] if lines[0].startswith("pkgrel=") else None
+    if len(lines) != 1 or raw is None or not _RELEASE_TEXT.fullmatch(raw):
+        return None, ", ".join(ascii(line) for line in lines)
+    return int(raw), None
 
 
 def pkginfo_agreement(files, declared):
@@ -75,8 +119,9 @@ def pkginfo_agreement(files, declared):
     agreed, errors = 0, []
     for f in files:
         try:
-            meta = _read_package_meta(f)
-        except Exception as e:  # noqa: BLE001 — ArchiveReadError, a malformed field
+            text = _pkginfo_text(f)
+            meta = _parse_pkginfo(text) if text is not None else None
+        except Exception as e:  # noqa: BLE001 — a read or decode error, a malformed field
             errors.append(f"PKGINFO-UNREADABLE: {f.name} -> its .PKGINFO cannot "
                           f"be read ({e})")
             continue
@@ -84,7 +129,13 @@ def pkginfo_agreement(files, declared):
             errors.append(f"PKGINFO-UNREADABLE: {f.name} -> it carries no .PKGINFO "
                           f"stating its package name and version")
             continue
-        pk = (meta["name"], meta["version"], meta.get("release"))
+        release, problem = _pkginfo_release(text)
+        if problem:
+            errors.append(f"PKGINFO-UNREADABLE: {f.name} -> its .PKGINFO release "
+                          f"{problem} is not one release written in ASCII digits "
+                          f"without a leading zero, as an archive name writes it")
+            continue
+        pk = (meta["name"], meta["version"], release)
         named = parse_archive_filename(f.name, declared)
         how = "by its recipe's declared version"
         if named is None or declared.get(named.name) != named.version:
