@@ -114,6 +114,21 @@ OS_RELEASE="${BOOTLOADER_DIR}/os-release"
 [ -f "$OS_RELEASE" ] || { echo "ERROR: os-release not staged at $OS_RELEASE" >&2; exit 1; }
 [ -f "$VERITY_PARAMS" ] || { echo "ERROR: verity params file not found: $VERITY_PARAMS" >&2; exit 1; }
 
+# The staged initramfs must carry every command its /init runs (fail-closed).
+# build-initramfs.sh refuses such an archive when it writes one; this build
+# packs whatever archive is staged, which on a relaunch from this phase can be
+# one an earlier builder wrote. The same gate reads the archive itself (its own
+# /init, every command word resolved inside it) before any UKI is packed.
+INITRAMFS_COMMAND_GATE="${INITRAMFS_COMMAND_GATE:-$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/check-initramfs-commands.py}"
+[ -f "$INITRAMFS_COMMAND_GATE" ] || {
+    echo "ERROR: the initramfs command gate is missing: $INITRAMFS_COMMAND_GATE" >&2
+    exit 1
+}
+python3 -I "$INITRAMFS_COMMAND_GATE" --cpio "$INITRAMFS" || {
+    echo "ERROR: the initramfs command gate refused $INITRAMFS (its lines above); no UKI was packed" >&2
+    exit 1
+}
+
 # Microcode cpios — NOT fully optional. The UKI must carry early-load microcode
 # for the running CPU vendor (Intel needs intel-ucode, AMD needs amd-ucode). A
 # generic ISO boots on both, so the canonical build stages BOTH; the other

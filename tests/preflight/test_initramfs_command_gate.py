@@ -13,6 +13,7 @@ every command fde-init.sh runs, its two experimental unlock tool sets being
 optional exactly when the build environment does not have them (the archive
 is built with neither set, with each one alone and with both).
 """
+import gzip
 import importlib.util
 import os
 import shutil
@@ -28,6 +29,7 @@ LIVE_BUILDER = ROOT / "installer" / "init" / "build-initramfs.sh"
 FDE_BUILDER = ROOT / "installer" / "init" / "build-fde-initramfs.sh"
 LIVE_INIT = ROOT / "installer" / "init" / "init.sh"
 FDE_INIT = ROOT / "installer" / "init" / "fde-init.sh"
+UKIS_VERITY = ROOT / "scripts" / "build-ukis-verity.sh"
 BUSYBOX = Path("/usr/bin/busybox.static")
 # fde-init.sh probes for these (command -v) and build-fde-initramfs.sh bundles
 # each set only when its package (tpm2-tools-static, fido2-tools-static) is
@@ -62,8 +64,9 @@ def _calls(src):
 
 
 def _programs(src):
+    """The words a script runs: calls (not its own functions), and the programs exec, a runner or busybox runs."""
     calls, functions = _calls(src)
-    return [w for w, how in calls if how == "call" and w not in functions]
+    return [w for w, how in calls if (how == "call" and w not in functions) or how in ("program", "applet")]
 
 
 def _run_gate(*args):
@@ -141,7 +144,8 @@ def test_exec_command_and_a_command_v_probe():
            "if ! command -v tpm2_unseal >/dev/null 2>&1; then :; fi\n"
            "command mount -a\n")
     calls, _ = _calls(src)
-    assert calls == [("exec", "call"), ("switch_root", "call"), ("command", "call"), ("tpm2_unseal", "probe"),
+    # exec replaces the shell with a program, so its word is a program (a builtin is not one); command runs either
+    assert calls == [("exec", "call"), ("switch_root", "program"), ("command", "call"), ("tpm2_unseal", "probe"),
                      (":", "call"), ("command", "call"), ("mount", "call")]
 
 
@@ -221,6 +225,68 @@ def test_an_interpreter_the_tree_lacks_is_refused(tmp_path):
     r = _run_gate("--root", root)
     assert r.returncode == 1, r.stdout + r.stderr
     assert "/bin/ash (the interpreter line:" in r.stdout
+
+
+# ---- constructs that run code a first version passed unread (each refused by name now) ----------------------
+
+@needs_busybox
+@pytest.mark.parametrize("init, refused", [
+    ('trap "$ACTION" EXIT\n', '"$ACTION" (line 3: a command built at run time'),
+    ("trap -- 'frobnicate' EXIT\n", "frobnicate (no executable"),
+], ids=["trap-action-built-at-run-time", "trap-action-after-double-dash"])
+def test_a_trap_action_is_read_or_refused(tmp_path, init, refused):
+    r = _run_gate("--root", _stage(tmp_path, "#!/bin/sh\nset -e\n" + init + "echo x\n"))
+    assert r.returncode == 1 and refused in r.stdout, r.stdout + r.stderr
+
+
+@needs_busybox
+@pytest.mark.parametrize("init", ["echo $(( $(frobnicate) + 1 ))\n", 'echo "$(( `frobnicate` ))"\n',
+                                  "cat <<EOF\n$(( $(frobnicate) ))\nEOF\n"], ids=["bare", "double-quoted", "here-document"])
+def test_a_command_substitution_inside_arithmetic_is_read(tmp_path, init):
+    r = _run_gate("--root", _stage(tmp_path, "#!/bin/sh\n" + init, applets=("sh", "cat")))
+    assert r.returncode == 1 and "frobnicate (no executable" in r.stdout, r.stdout + r.stderr
+
+
+@needs_busybox
+@pytest.mark.parametrize("init, refused", [
+    ("env FOO=1 frobnicate\n", "frobnicate (no executable"),
+    ("nohup frobnicate --now\n", "frobnicate (no executable"),
+    ("timeout -s KILL 5 frobnicate\n", "frobnicate (no executable"),
+    ("busybox frobnicate\n", "frobnicate (the archive's busybox has no frobnicate applet"),
+    ("busybox env frobnicate\n", "frobnicate (no executable"),
+    ("env -S 'frobnicate --now'\n", "env (line 2: the option -S"),
+    ("xargs < /list\n", "xargs (line 2: with no program named"),
+    ("env echo hi\n", "echo (no executable"),
+], ids=["env", "nohup", "timeout", "busybox-applet", "busybox-runner", "env-split-string", "xargs-default", "runner-builtin"])
+def test_a_program_another_program_runs_is_resolved_or_refused(tmp_path, init, refused):
+    r = _run_gate("--root", _stage(tmp_path, "#!/bin/sh\n" + init, applets=("sh", "env", "nohup", "timeout", "xargs")))
+    assert r.returncode == 1 and refused in r.stdout, r.stdout + r.stderr
+
+
+@needs_busybox
+@pytest.mark.parametrize("init, refused", [
+    ("sh -ec 'frobnicate'\n", "frobnicate (no executable"),
+    ("sh -e -c 'frobnicate'\n", "frobnicate (no executable"),
+    ("sh /etc/rc.local\n", "sh (line 2: it runs the script file /etc/rc.local"),
+    ("echo frobnicate | sh\n", "sh (line 2: it runs the commands on its standard input"),
+    ("sh <<EOF\nfrobnicate\nEOF\n", "sh (line 2: it runs the commands on its standard input"),
+    ("exec echo hi\n", "echo (no executable"),
+], ids=["option-cluster", "options-apart", "script-file", "pipe", "here-document", "exec-builtin"])
+def test_a_shell_or_exec_running_code_the_gate_cannot_see_is_refused(tmp_path, init, refused):
+    # no echo link: echo is this shell's builtin, which exec cannot run
+    r = _run_gate("--root", _stage(tmp_path, "#!/bin/sh\n" + init, applets=("sh",)))
+    assert r.returncode == 1 and refused in r.stdout, r.stdout + r.stderr
+
+
+@needs_busybox
+def test_runners_busybox_and_exec_pass_when_their_programs_resolve(tmp_path):
+    root = _stage(tmp_path, "#!/bin/sh\nset -e\nenv FOO=1 mount -a\nnohup sleep 1\nbusybox mkdir -p /x\n"
+                            "timeout 5 sleep 1\nexec switch_root /newroot /sbin/init\n",
+                  applets=("sh", "env", "mount", "nohup", "sleep", "timeout", "switch_root"))
+    r = _run_gate("--root", root)
+    assert r.returncode == 0, r.stdout + r.stderr
+    for line in ("  runs        mount ", "  runs        switch_root ", "  applet      mkdir "):
+        assert line in r.stdout, r.stdout
 
 
 # ---- the real builders ------------------------------------------------------------------------------------
@@ -352,3 +418,50 @@ def test_the_fde_check_refuses_an_fde_init_that_runs_a_command_the_archive_lacks
     g = _run_gate(*args)
     assert g.returncode == 1, g.stdout + g.stderr
     assert "frobnicate (no executable in sbin/, usr/sbin/, bin/, usr/bin/;" in g.stdout
+
+
+# ---- the UKI build reads the staged initramfs before packing it ------------------------------------------------
+
+def _pack(root, out):
+    """A gzip-compressed newc archive of <root>, packed as the live builder packs one but with no gate before it."""
+    names = subprocess.run(["find", "."], cwd=root, capture_output=True, check=True).stdout
+    archive = subprocess.run(["cpio", "-o", "-H", "newc"], cwd=root, input=names, capture_output=True, check=True).stdout
+    out.write_bytes(gzip.compress(archive))
+
+
+def _ukis_verity(tmp_path, root):
+    """scripts/build-ukis-verity.sh over a bootloader directory staging <root> as its initramfs, with a stub ukify
+    and stub and NO microcode: past the gate the script stops on the missing microcode, so no UKI is packed here."""
+    bl = tmp_path / "bootloader"
+    bl.mkdir()
+    _pack(root, bl / "initramfs.cpio.gz")
+    for f in ("vmlinuz", "os-release"):
+        (bl / f).write_text("stub\n")
+    params = tmp_path / "verity-params"
+    params.write_text("DATA_BLOCKS=1\nHASH_ALGO=sha256\n")
+    stub = tmp_path / "linuxx64.efi.stub"
+    stub.write_text("stub\n")
+    env = dict(os.environ, BOOTLOADER_DIR=str(bl), VERITY_PARAMS=str(params), UKIFY=str(_stub(tmp_path / "ukify")),
+               STUB=str(stub), CMDLINE_DIR=str(tmp_path), IGOS=str(tmp_path / "no-chroot"))
+    r = subprocess.run(["bash", str(UKIS_VERITY)], capture_output=True, text=True, timeout=120, env=env,
+                       stdin=subprocess.DEVNULL)
+    return r, bl
+
+
+@needs_busybox
+@needs_build_tools
+def test_the_uki_build_refuses_an_initramfs_whose_init_runs_a_missing_command(tmp_path):
+    r, bl = _ukis_verity(tmp_path, _stage(tmp_path, "#!/bin/sh\nset -e\nfrobnicate --now\n"))
+    assert r.returncode != 0, r.stdout + r.stderr
+    assert "[initramfs-commands] REFUSED: 1 command word(s)" in r.stdout and "frobnicate (no executable" in r.stdout
+    assert "no UKI was packed" in r.stderr and "no microcode cpio staged" not in r.stderr, r.stderr  # stopped at the gate
+    assert not list(bl.glob("*.efi"))
+
+
+@needs_busybox
+@needs_build_tools
+def test_the_uki_build_passes_a_complete_initramfs_on_to_its_next_step(tmp_path):
+    r, bl = _ukis_verity(tmp_path, _stage(tmp_path, "#!/bin/sh\nset -e\necho start\n"))
+    assert "[initramfs-commands] PASS: every command word /init runs resolves inside" in r.stdout, r.stdout + r.stderr
+    assert "no microcode cpio staged" in r.stderr, r.stderr  # the step after the gate ran, and ends this test's build
+    assert not list(bl.glob("*.efi"))

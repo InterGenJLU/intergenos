@@ -23,10 +23,21 @@ command it can run, and resolves each one INSIDE the initramfs:
   - a word built at run time ($cmd, eval, a sourced file) cannot be
     resolved and is refused.
 
-Words reached through `exec`, `command`, `sh -c '<literal>'`, a `trap`
-action, a command substitution (also inside double quotes and inside an
-unquoted here-document) are read too. The bodies of quoted here-documents are
+Words reached through `exec`, `command`, `sh -c '<literal>'` (with any
+option cluster such as -ec), a `trap` action, a command substitution (also
+inside double quotes, inside an unquoted here-document and inside an
+arithmetic expansion) are read too. The bodies of quoted here-documents are
 data and are not read. `command -v NAME` is a probe, not a call.
+
+A program another one runs is resolved too, and must be an executable file
+(a builtin or a function is not one): the word `exec` hands on; the program
+a runner names (env, nohup, timeout, nice, setsid, xargs, chroot, flock,
+stdbuf, taskset, ionice, time, read by each one's own options); and
+busybox's first argument, which must be an applet that busybox lists. A
+runner whose program cannot be read (an unknown option, xargs or chroot with
+no program, a word built at run time where an option could be), a trap
+action built at run time, and a shell that runs a script file or the
+commands on a redirected or piped standard input are refused by name.
 
 Usage:
   check-initramfs-commands.py --init SCRIPT --root DIR   [--optional NAME]...
@@ -71,6 +82,34 @@ BUILTIN_CANDIDATES = frozenset({
 })
 # Builtins whose arguments are code the gate cannot see.
 DYNAMIC_BUILTINS = frozenset({"eval", ".", "source"})
+SHELLS = frozenset({"sh", "ash", "bash"})
+# Programs that run another program named among their own arguments, each with its option grammar: (options whose
+# value is the next word, options with no value, operands before the program, options that mean no program runs).
+# A runner's program must be an executable file (a shell builtin or function is not one it can run); an option not
+# listed here, or a word built at run time where the program could be, cannot be read, so the runner is refused.
+RUNNERS = {
+    "env": ({"-u", "--unset", "-C", "--chdir"}, {"-i", "--ignore-environment", "-0", "--null", "-"}, 0, set()),
+    "nohup": (set(), set(), 0, set()),
+    "timeout": ({"-k", "--kill-after", "-s", "--signal"}, {"--preserve-status", "--foreground", "-v", "--verbose"}, 1, set()),
+    "nice": ({"-n", "--adjustment"}, set(), 0, set()),
+    "setsid": (set(), {"-c", "--ctty", "-f", "--fork", "-w", "--wait"}, 0, set()),
+    "xargs": ({"-a", "--arg-file", "-d", "--delimiter", "-E", "-I", "-L", "-n", "--max-args", "-P", "--max-procs", "-s",
+               "--max-chars"}, {"-0", "--null", "-r", "--no-run-if-empty", "-t", "--verbose", "-x", "--exit", "-p",
+                                "--interactive"}, 0, set()),
+    "chroot": ({"--userspec", "--groups"}, {"--skip-chdir"}, 1, set()),
+    "flock": ({"-w", "--timeout", "-E", "--conflict-exit-code"}, {"-s", "--shared", "-x", "-e", "--exclusive", "-u",
+                                                                 "--unlock", "-n", "--nonblock", "-o", "--close", "-F",
+                                                                 "--no-fork", "--verbose"}, 1, set()),
+    "stdbuf": ({"-i", "-o", "-e", "--input", "--output", "--error"}, set(), 0, set()),
+    "taskset": (set(), {"-a", "--all-tasks", "-c", "--cpu-list"}, 1, {"-p", "--pid"}),
+    "ionice": ({"-c", "--class", "-n", "--classdata"}, {"-t", "--ignore"}, 0, {"-p", "--pid", "-P", "--pgid", "-u", "--uid"}),
+    "time": ({"-f", "--format", "-o", "--output"}, {"-p", "--portability", "-a", "--append", "-v", "--verbose", "-q",
+                                                   "--quiet"}, 0, set()),
+}
+# With no program named these run one of their own choosing (xargs runs echo, chroot the new root's shell), which the
+# gate cannot read here.
+RUNNERS_WITH_A_DEFAULT = frozenset({"xargs", "chroot"})
+STDIN_REDIRECTIONS = frozenset({"<", "<<", "<<-", "<>"})
 
 START_KEYWORDS = frozenset({"if", "then", "else", "elif", "while", "until", "do", "!", "{"})
 END_KEYWORDS = frozenset({"fi", "done", "}"})
@@ -195,7 +234,10 @@ def _substitutions(text):
             j = end
             continue
         if text.startswith("$((", j):
-            j = _match_close(text, j, "$((")
+            # the shell evaluates an arithmetic expansion, running every command substitution inside it
+            end = _match_close(text, j, "$((")
+            out.extend((j + 3 + o, s) for o, s in _substitutions(text[j + 3:end - 2]))
+            j = end
             continue
         if text.startswith("$(", j):
             end = _match_close(text, j, "$(")
@@ -225,7 +267,9 @@ def _dq_substitutions(text):
             j += 2
             continue
         if text.startswith("$((", j):
-            j = _match_close(text, j, "$((")
+            end = _match_close(text, j, "$((")
+            out.extend((j + 3 + o, s) for o, s in _substitutions(text[j + 3:end - 2]))
+            j = end
             continue
         if text.startswith("$(", j):
             end = _match_close(text, j, "$(")
@@ -382,6 +426,7 @@ def walk(toks):
     calls, functions, nested = [], set(), []
     case_stack = []
     at_start = True
+    forced, piped = None, False
     i, n = 0, len(toks)
 
     def next_word(k):
@@ -396,6 +441,62 @@ def walk(toks):
             return k
         return k
 
+    def ends_command(t):
+        return t.kind == "NL" or (t.kind == "OP" and (t.text in SEPARATORS or t.text in (")", ";;")))
+
+    def stdin_redirected(k):
+        """Whether the simple command around toks[k] redirects its standard input (<, <<, <<-, <>; fd 0 or none)."""
+        a = k
+        while a > 0 and not ends_command(toks[a - 1]):
+            a -= 1
+        b = k
+        while b < n and not ends_command(toks[b]):
+            b += 1
+        return any(toks[x].kind == "OP" and toks[x].text in STDIN_REDIRECTIONS
+                   and not (x > 0 and toks[x - 1].kind == "IONUM" and toks[x - 1].text != "0") for x in range(a, b))
+
+    def runner_program(k, name):
+        """What a runner runs: ("program", index of its program word), ("script", index of a flock -c command
+        string), ("none", None) when it runs none, or ("unreadable", why)."""
+        with_arg, without, operands, nopgm = RUNNERS[name]
+        ended = False
+        while True:
+            k = next_word(k)
+            if k >= n or toks[k].kind != "WORD":
+                return "none", None
+            lit = toks[k].literal
+            if lit is None:
+                if ended or operands == 0:
+                    return "program", k  # the program word itself is built at run time: refused as such
+                return "unreadable", "an argument built at run time where an option or an operand stands"
+            if not ended and lit == "--":
+                ended, k = True, k + 1
+                continue
+            if not ended and lit.startswith("-") and (len(lit) > 1 or name == "env"):
+                opt = lit.split("=", 1)[0]
+                if opt in nopgm:
+                    return "none", None
+                if name == "flock" and opt in ("-c", "--command"):
+                    p = next_word(k + 1)
+                    return ("script", p) if p < n and toks[p].kind == "WORD" else ("unreadable", "%s with no command" % lit)
+                if opt in with_arg and "=" not in lit:
+                    v = next_word(k + 1)
+                    if v >= n or toks[v].kind != "WORD":
+                        return "unreadable", "the option %s with no value" % lit
+                    k = v + 1
+                    continue
+                if opt in with_arg or opt in without or any(len(s) == 2 and lit.startswith(s) and len(lit) > 2 for s in with_arg):
+                    k += 1
+                    continue
+                return "unreadable", "the option %s, which this gate cannot read" % lit
+            if name == "env" and _assignment(toks[k]):
+                k += 1
+                continue
+            if operands:
+                operands, k = operands - 1, k + 1
+                continue
+            return "program", k
+
     while i < n:
         t = toks[i]
         if case_stack and case_stack[-1] == "pattern":
@@ -408,11 +509,11 @@ def walk(toks):
             i += 1
             continue
         if t.kind == "NL" or (t.kind == "OP" and t.text in SEPARATORS):
-            at_start = True
+            at_start, forced, piped = True, None, t.kind == "OP" and t.text == "|"
             i += 1
             continue
         if t.kind == "OP" and t.text == ")":
-            at_start = False
+            at_start, forced = False, None
             i += 1
             continue
         if t.kind == "OP" and t.text == ";;":
@@ -431,46 +532,51 @@ def walk(toks):
         if not at_start:
             i += 1
             continue
-        if _assignment(t):
+        # a word exec, a runner or busybox hands on is the program it runs: never an assignment, a keyword or a function
+        how, forced = forced or "call", None
+        kw = how == "call"
+        if kw and _assignment(t):
             i += 1
             continue
         w = t.literal
-        if w in START_KEYWORDS:
+        if kw and w in START_KEYWORDS:
             i += 1
             continue
-        if w in END_KEYWORDS:
+        if kw and w in END_KEYWORDS:
             at_start = False
             i += 1
             continue
-        if w == "esac" and case_stack:
+        if kw and w == "esac" and case_stack:
             case_stack.pop()
             at_start = False
             i += 1
             continue
-        if w == "for":
+        if kw and w == "for":
             i += 1
             while i < n and not (toks[i].kind == "NL" or (toks[i].kind == "OP" and toks[i].text == ";")):
                 i += 1
             continue
-        if w == "case":
+        if kw and w == "case":
             i += 1
             while i < n and not (toks[i].kind == "WORD" and toks[i].literal == "in"):
                 i += 1
             case_stack.append("pattern")
             i += 1
             continue
-        if (i + 2 < n and toks[i + 1].kind == "OP" and toks[i + 1].text == "("
+        if (kw and i + 2 < n and toks[i + 1].kind == "OP" and toks[i + 1].text == "("
                 and toks[i + 2].kind == "OP" and toks[i + 2].text == ")" and w is not None and NAME_RE.match(w)):
             functions.add(w)
             i += 3
             at_start = True
             continue
-        calls.append((t, "call"))
+        calls.append((t, how))
         at_start = False
+        here = i
         i += 1
-        if w == "exec":
-            at_start = True
-        elif w == "command":
+        base = os.path.basename(w) if w else None
+        if kw and w == "exec":
+            at_start, forced = True, "program"  # exec replaces the shell with a program; a builtin is not one
+        elif kw and w == "command":
             k = next_word(i)
             if k < n and toks[k].kind == "WORD" and toks[k].literal and toks[k].literal.startswith("-"):
                 if set(toks[k].literal[1:]) & {"v", "V"}:
@@ -481,19 +587,62 @@ def walk(toks):
                     continue
                 i = k + 1
             at_start = True
-        elif w == "trap":
+        elif kw and w == "trap":
             k = next_word(i)
-            if k < n and toks[k].kind == "WORD" and toks[k].literal and not toks[k].literal.startswith("-"):
-                nested.append((toks[k].line, toks[k].literal))
-        elif w is not None and os.path.basename(w) in ("sh", "ash", "bash"):
+            if k < n and toks[k].kind == "WORD" and toks[k].literal == "--":
+                k = next_word(k + 1)
+            if k < n and toks[k].kind == "WORD":
+                if toks[k].literal is None:  # an action built at run time runs code the gate cannot see
+                    calls.append((toks[k], "dynamic-script"))
+                elif not toks[k].literal.startswith("-"):
+                    nested.append((toks[k].line, toks[k].literal))
+        elif base in SHELLS:
+            # the shell's options (clusters such as -ec; -o takes a name), then -c's command string, else a script
+            # file, else commands read from its standard input: only a shell left on the console's input is read as
+            # running nothing the gate cannot see
+            k, cmode, smode = next_word(i), False, False
+            while k < n and toks[k].kind == "WORD" and toks[k].literal is not None:
+                lit = toks[k].literal
+                if lit == "--":
+                    k = next_word(k + 1)
+                    break
+                if len(lit) < 2 or lit[0] not in "-+":
+                    break
+                cmode, smode = cmode or "c" in lit[1:], smode or "s" in lit[1:]
+                k = next_word(next_word(k + 1) + 1) if "o" in lit[1:] else next_word(k + 1)
+            arg = toks[k] if k < n and toks[k].kind == "WORD" else None
+            if cmode:
+                if arg is None:
+                    calls.append((t, "unreadable:-c with no command string"))
+                elif arg.literal is None:
+                    calls.append((arg, "dynamic-script"))
+                else:
+                    nested.append((arg.line, arg.literal))
+            elif arg is not None and not smode:
+                calls.append((t, "unreadable:it runs the script file %s, which this gate does not read" % arg.text))
+            elif piped or stdin_redirected(here):
+                calls.append((t, "unreadable:it runs the commands on its standard input (a pipe, a file or a "
+                                 "here-document), which this gate does not read"))
+        elif base == "busybox":
             k = next_word(i)
-            if k < n and toks[k].kind == "WORD" and toks[k].literal == "-c":
-                p = next_word(k + 1)
-                if p < n and toks[p].kind == "WORD":
-                    if toks[p].literal is None:
-                        calls.append((toks[p], "dynamic-script"))
-                    else:
-                        nested.append((toks[p].line, toks[p].literal))
+            if k < n and toks[k].kind == "WORD":
+                if toks[k].literal is None:
+                    calls.append((toks[k], "dynamic-script"))
+                elif not toks[k].literal.startswith("-"):  # busybox APPLET runs that applet, link or not
+                    i, at_start, forced = k, True, "applet"
+        elif base in RUNNERS:
+            kind, k = runner_program(i, base)
+            if kind == "program":
+                i, at_start, forced = k, True, "program"
+            elif kind == "script":  # flock -c: a command string the shell runs
+                if toks[k].literal is None:
+                    calls.append((toks[k], "dynamic-script"))
+                else:
+                    nested.append((toks[k].line, toks[k].literal))
+            elif kind == "unreadable":
+                calls.append((t, "unreadable:" + k))
+            elif base in RUNNERS_WITH_A_DEFAULT:
+                calls.append((t, "unreadable:with no program named it runs one of its own choosing"))
     return calls, functions, nested
 
 
@@ -687,13 +836,22 @@ def check(init_path, tree, optional):
     else:
         src = Path(init_path).read_text(encoding="utf-8", errors="surrogateescape")
     calls, functions = enumerate_commands(src)
-    lines, probes, dynamic = {}, {}, []
+    lines, probes, dynamic, progs, applets, unread = {}, {}, [], {}, {}, []
     for tok, how in calls:
+        if how.startswith("unreadable:"):
+            unread.append((tok, how.split(":", 1)[1]))
+            continue
         if how == "dynamic-script" or tok.literal is None:
             dynamic.append(tok)
             continue
         if how == "probe":
             probes.setdefault(tok.literal, []).append(tok.line)
+            continue
+        if how == "applet":  # busybox APPLET: the applet must be in the archive's busybox
+            applets.setdefault(tok.literal, []).append(tok.line)
+            continue
+        if how == "program":  # run by exec or a runner: an executable file, never a builtin or a function
+            progs.setdefault(tok.literal, []).append(tok.line)
             continue
         if tok.literal in functions:
             continue
@@ -745,6 +903,34 @@ def check(init_path, tree, optional):
             else:
                 refused.append("%s (%s; %s)" % (w, how, at))
                 report.append("  MISSING     %-14s %s    %s" % (w, how, at))
+        for w in sorted(progs, key=lambda x: (progs[x][0], x)):
+            at = "line" + ("s " if len(progs[w]) > 1 else " ") + ", ".join(str(x) for x in sorted(set(progs[w])))
+            final, how = find_program(tree, w)
+            if final and os.path.basename(final) == "busybox" and busybox:
+                name = os.path.basename(w)
+                if name != "busybox" and name not in busybox.applets:
+                    final, how = None, "%s links to busybox, which has no %s applet" % (how, name)
+            if final:
+                n_program += 1
+                report.append("  runs        %-14s -> %-40s %s (a program exec or a runner starts)" % (w, final + (" (busybox applet)" if os.path.basename(final) == "busybox" else ""), at))
+            elif w in optional:
+                absent_optional.append(w)
+                report.append("  OPTIONAL    %-14s absent: %s (declared optional)    %s" % (w, how, at))
+            else:
+                refused.append("%s (%s, and exec or a runner needs an executable file here, a shell builtin is not one; %s)" % (w, how, at))
+                report.append("  MISSING     %-14s %s (run by exec or a runner)    %s" % (w, how, at))
+        for w in sorted(applets, key=lambda x: (applets[x][0], x)):
+            at = "line" + ("s " if len(applets[w]) > 1 else " ") + ", ".join(str(x) for x in sorted(set(applets[w])))
+            if busybox and w in busybox.applets:
+                n_program += 1
+                report.append("  applet      %-14s (busybox %s)                       %s" % (w, w, at))
+            else:
+                why = "the archive's busybox has no %s applet" % w if busybox else "the archive holds no busybox"
+                refused.append("%s (%s; %s)" % (w, why, at))
+                report.append("  MISSING     %-14s %s    %s" % (w, why, at))
+        for tok, why in unread:
+            refused.append("%s (line %d: %s)" % (tok.text, tok.line, why))
+            report.append("  UNREADABLE  %-14s line %d: %s" % (tok.text, tok.line, why))
         for tok in dynamic:
             refused.append("%s (line %d: a command built at run time, which this gate cannot resolve)" % (tok.text, tok.line))
             report.append("  DYNAMIC     %-14s line %d" % (tok.text, tok.line))
@@ -753,7 +939,7 @@ def check(init_path, tree, optional):
             busybox.close()
     head = ("[%s] %s in %s: %d command word(s) — %d shell builtin(s) confirmed by the archive's shell, %d program(s); "
             "functions defined: %s; probed with command -v: %s"
-            % (PROG, init_path, tree.label, len(lines), n_builtin, n_program, ", ".join(sorted(functions)) or "none",
+            % (PROG, init_path, tree.label, len(lines) + len(progs) + len(applets), n_builtin, n_program, ", ".join(sorted(functions)) or "none",
                ", ".join(sorted(probes)) or "none"))
     return head, report, refused, absent_optional
 
@@ -783,7 +969,7 @@ def main(argv=None):
             for (w, how), lns in sorted(seen.items(), key=lambda kv: (kv[1][0], kv[0])):
                 print("%s\t%s\t%s" % (w, how, ",".join(str(x) for x in sorted(set(lns)))))
             print("[%s] %s: %d distinct command word(s); functions defined: %s"
-                  % (PROG, a.init, len({w for w, how in seen if how == "call"}), ", ".join(sorted(functions)) or "none"))
+                  % (PROG, a.init, len({w for w, how in seen if how in ("call", "program", "applet")}), ", ".join(sorted(functions)) or "none"))
             return 0
         if a.root and not Path(a.root).is_dir():
             raise ParseError("--root %s is not a directory" % a.root)
