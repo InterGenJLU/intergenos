@@ -25,4 +25,3 @@ def test_package_instruction_fallback_in_a_compound_does_not_stage_an_offer(rout
     assert router._pending_action_offer is None
     offer.assert_not_called()
     router._tools.execute.assert_not_called()
-
