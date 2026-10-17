@@ -5,8 +5,8 @@
     "triggers": [
       "what's the task manager on linux"
     ],
-    "answer": "The equivalent is **System Monitor** — it's installed and does what Task Manager does: a Processes tab (with % CPU, memory, and \"End Process\" to force-quit) and a Resources tab (live CPU/RAM/network graphs). Just open \"System Monitor\" from the Activities overview (press Super and type it). There's no `Ctrl+Alt+Del`-to-task-manager habit here — that combo opens the power-off dialog instead.",
-    "doc_source": "tools/intergen-coverage/drafts",
+    "answer": "Use **System Monitor**, included with the desktop, to inspect processes and resource usage. Press `Super` to open Activities and find System Monitor. The terminal also has **htop** for a process view.\n\n`Ctrl+Alt+Del` logs out on InterGenOS. Use the system menu at the top right for power-off or restart.",
+    "doc_source": "docs/users/desktop-experience.md",
     "requires": []
   },
   {
@@ -25,8 +25,8 @@
     "triggers": [
       "how do I run windows programs on linux"
     ],
-    "answer": "Honest answer: not yet on InterGenOS. The usual tools for this — Wine and Proton — are **not installed today**; running Windows software is part of a gaming/compatibility capability that's still being built and is not yet merged, so I won't point you at something that isn't here. For now, the best path is a native Linux equivalent (for example LibreOffice for Office files, GIMP/Inkscape for creative work — all installable via pkm) or, for a real Windows app you truly need, a Windows VM. Tell me the specific program and I'll suggest the best route. (Once Wine/Proton support ships, I'll be able to walk you through it directly.)",
-    "doc_source": "tools/intergen-coverage/drafts",
+    "answer": "InterGenOS packages **Wine** (`wine`), a Windows compatibility layer, and the optional **GE-Proton** download-helper (`ge-proton`) for Steam compatibility. Check their installation state first:\n```\npkm info wine\npkm info ge-proton\n```\nAn available package is not necessarily installed. You can install Wine with `sudo pkm install wine`; GE-Proton is available through `sudo pkm install ge-proton` and its helper prompts.\n\nCompatibility depends on the application, so naming these packages does not promise that every Windows program will work. Which program do you want to run?",
+    "doc_source": "packages/extra/wine/package.yml; packages/extra/ge-proton/package.yml; docs/users/package-management.md",
     "requires": []
   },
   {
