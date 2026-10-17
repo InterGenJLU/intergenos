@@ -3804,7 +3804,7 @@ InterGenOS GRUB boot-menu theme + resolution-aware background scaffold (design d
 
 ### intergenos-icon-theme (1.0)
 
-InterGenOS first-party icon theme — 285 marks (applications + places + shell status/symbolic) compiled by the in-house icon compiler; inherits Adwaita/hicolor for full coverage.
+InterGenOS first-party icon theme — 286 marks (applications + places + shell status/symbolic) compiled by the in-house icon compiler; inherits Adwaita/hicolor for full coverage.
 
 - License: `GPL-3.0-or-later`
 - Homepage: https://intergenos.org

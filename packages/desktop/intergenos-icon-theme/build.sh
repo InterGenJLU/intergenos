@@ -4,7 +4,7 @@
 #
 # packages/desktop/intergenos-icon-theme/build.sh
 #
-# InterGenOS first-party icon theme — 285 marks (applications + places +
+# InterGenOS first-party icon theme — 286 marks (applications + places +
 # shell status/symbolic) compiled by the in-house icon compiler (igic
 # 0.2.0) into a freedesktop icon theme (index.theme
 # Inherits=Adwaita,hicolor; 16..256px + scalable,
@@ -19,7 +19,7 @@
 # reproduces the archive bytes exactly; verified by double-build), and
 # update EXPECTED_SHA256 in the same commit (atomic provenance).
 
-EXPECTED_SHA256="b4fcc72011c96810bd7f4f3b9b504615a6c009e089b346333a74e16af4166ea7"
+EXPECTED_SHA256="edaadb45860a8cf8455f40c69945644cde2ff50ff9812e69684e54b392d7913b"
 
 configure() { :; }
 build() { :; }
