@@ -197,8 +197,8 @@
     "triggers": [
       "how do I unzip a file"
     ],
-    "answer": "```\nunzip archive.zip                   # extract a .zip (provided by bsdunzip -> /usr/bin/unzip)\nunzip archive.zip -d ~/dest         # extract into ~/dest\n# GUI: open the .zip in Files and choose \"Extract\" (file-roller).\n```\nNote: on InterGenOS `unzip` is the libarchive `bsdunzip` engine — same syntax as Info-ZIP for common cases.",
-    "doc_source": "tools/intergen-coverage/drafts",
+    "answer": "Extract a ZIP archive with:\n```\nunzip archive.zip\nunzip archive.zip -d <destination-directory>\n```\nInterGenOS's **Info-ZIP** package supplies `/usr/bin/unzip`. The libarchive package supplies the separate `bsdunzip` program; `unzip` is not a link to it.",
+    "doc_source": "packages/base/unzip/package.yml; packages/core/libarchive/build.sh",
     "requires": []
   },
   {
@@ -217,8 +217,8 @@
     "triggers": [
       "how do I edit a file in the terminal"
     ],
-    "answer": "```\nnano file.txt          # beginner-friendly editor (on-screen shortcut hints)\nvim file.txt           # modal power editor\n# InterGenOS ships nano and vim (no nvim). GUI: gnome-text-editor file.txt\n```",
-    "doc_source": "tools/intergen-coverage/drafts",
+    "answer": "Open the file in a terminal editor:\n```\nnano file.txt   # shows key hints on screen\nvim file.txt   # modal editor\n```\nNeovim is also packaged as `neovim`, with the `nvim` command. Use `pkm info neovim` to check its installation state before choosing it. The desktop also includes GNOME Text Editor.",
+    "doc_source": "docs/users/desktop-experience.md; packages/core/nano/package.yml; packages/base/neovim/package.yml",
     "requires": []
   },
   {
