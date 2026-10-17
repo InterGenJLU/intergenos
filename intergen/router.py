@@ -2953,6 +2953,14 @@ class ConversationRouter(RouterInterface):
                       cited=bool("Source:" in (explain_result.text or "")))
             self._record(explain_result, t0, "explain")
             return explain_result
+        if explain_prior:
+            # Refusing an unrelated document does not authorize an action.
+            # An uncovered single instruction follows the same explanation-only
+            # path as an uncovered instructional clause.
+            result = self._try_llm_freeform(user_input)
+            self._won("llm_freeform", explain_prior=True)
+            self._record(result, t0, "llm_freeform")
+            return result
 
         # "What's my IP" -> the code-owned IP handler (internal + external IPv4 AUTO,
         # IPv6 offered). After _try_explain so an instructional "how do I find my ip"

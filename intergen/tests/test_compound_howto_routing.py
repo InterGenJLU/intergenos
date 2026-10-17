@@ -162,3 +162,15 @@ def test_disabled_teaching_data_does_not_turn_a_clause_into_an_action(router):
         answer = router._route_single("how do I install an application")
     assert answer is explanation
     router._tools.execute.assert_not_called()
+
+
+def test_a_rejected_weak_single_howto_stays_out_of_the_action_ladder(router):
+    fallback = RouteResult(text="An explanation.", source="llm_freeform",
+                           handled=True, used_llm=True)
+    with embedding_choice(router, entry(router, "igos-forge-install"), 0.757), \
+            mock.patch.object(router, "_try_llm_freeform", return_value=fallback), \
+            mock.patch.object(router, "_try_keyword_match",
+                              side_effect=AssertionError("instruction entered action ladder")):
+        answer = router.route("how do I check for updates")
+    assert answer is fallback
+    router._tools.execute.assert_not_called()
