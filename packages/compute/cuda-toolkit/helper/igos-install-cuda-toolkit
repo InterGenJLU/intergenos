@@ -299,6 +299,20 @@ install -m 644 "$EXTRACT_DIR/EULA.txt" "$CUDA_PREFIX/EULA.txt"
 [ -f "$EXTRACT_DIR/version.json" ] && \
     install -m 644 "$EXTRACT_DIR/version.json" "$CUDA_PREFIX/version.json"
 
+# Older installs can carry these two repeated links inside the target tree.
+# Remove only the known dangling pair; preserve other files and link targets.
+for legacy_link in targets/x86_64-linux/include/include targets/x86_64-linux/lib/lib64; do
+    case "$legacy_link" in
+        */include/include) legacy_target="targets/x86_64-linux/include" ;;
+        */lib/lib64) legacy_target="targets/x86_64-linux/lib" ;;
+    esac
+    legacy_path="$CUDA_PREFIX/$legacy_link"
+    if [ -L "$legacy_path" ] && [ ! -e "$legacy_path" ] && \
+            [ "$(readlink -- "$legacy_path")" = "$legacy_target" ]; then
+        rm -- "$legacy_path"
+    fi
+done
+
 # Post-install shape assertion, on the installed tree this time.
 for required in bin/nvcc include/cuda_runtime.h lib64/libcudart.so lib64/libcublas.so; do
     if [ ! -e "$CUDA_PREFIX/$required" ]; then
