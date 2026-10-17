@@ -5091,7 +5091,8 @@ class ConversationRouter(RouterInterface):
             return result
         return None
 
-    def _try_explain(self, user_input: str) -> "tuple[RouteResult | None, bool]":
+    def _try_explain(self, user_input: str, *, offer_action: bool = True
+                     ) -> "tuple[RouteResult | None, bool]":
         """Explain/teach intent gate (PI-218-2). Returns (result, prior_seen).
 
         A lexical instructional prior ("how do I…", "how to…", "show me how…") OR a
@@ -5104,6 +5105,8 @@ class ConversationRouter(RouterInterface):
         path (never auto-run). Returns (None, prior) when no curated answer matched;
         the caller routes compound instructional questions clause by clause before
         using this gate. A prior without a match still asks for an explanation.
+        Compound clauses suppress action offers: the conversation has one offer
+        slot, so a later clause could clear an offer an earlier answer advertised.
         """
         # getattr-guarded for partial-construction tests — same convention as
         # getattr(self, '_reference', None) elsewhere in the router.
@@ -5141,10 +5144,12 @@ class ConversationRouter(RouterInterface):
                     # the honest-handoff work: arm the offer, OR — if this action was already
                     # declined this conversation — substitute the honest handoff
                     # instead of re-arming it (loop-killer).
-                    offer_or_handoff = self._stage_action_offer_or_handoff(
-                        command, "run_command", user_input)
-                    answer = (f"To {human_verb} {app}, run `{command}`.\n\n"
-                              + offer_or_handoff)
+                    answer = f"To {human_verb} {app}, run `{command}`."
+                    if offer_action:
+                        answer += "\n\n" + self._stage_action_offer_or_handoff(
+                            command, "run_command", user_input)
+                    else:
+                        self._stage_single_offer()
                     self._append_history(user_input, answer)
                     return RouteResult(text=answer, source="explain",
                                        handled=True,
@@ -5154,7 +5159,7 @@ class ConversationRouter(RouterInterface):
             return None, prior
         self._last_semantic_score = score
         answer = entry.answer
-        if entry.action is not None:
+        if entry.action is not None and offer_action:
             # explain-FIRST, then OFFER the gated action (decision #4). the honest-handoff work:
             # a previously-declined action is not re-offered — the honest handoff
             # is substituted (loop-killer).
@@ -5301,7 +5306,8 @@ class ConversationRouter(RouterInterface):
             _note("memory", "won")
             return memory_answer
         if _EXPLAIN_PRIOR_RE.search(user_input):
-            explanation, explain_prior = self._try_explain(user_input)
+            explanation, explain_prior = self._try_explain(
+                user_input, offer_action=trail_scope is None)
             if explanation is not None:
                 _note("explain", "won", prior=explain_prior)
                 return explanation
