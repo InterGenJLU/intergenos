@@ -23,6 +23,25 @@ written into the record. Every question in the battery goes down ONE socket,
 because the server binds one conversation per connection and a follow-up must
 see the turn before it (``ws_harness.WSConversation``).
 
+TWO WAYS TO REACH THE MACHINE. The tunnel form (``--target user@host``) runs
+anywhere and reaches the target over ssh: the port-forward above, and every
+reading — the identity, the token, the truth probes, the trace — a command
+sent over the same ssh. The shipped sshd hardening refuses TCP forwarding
+(``AllowTcpForwarding no`` in ``/etc/ssh/sshd_config.d/``), so the tunnel form
+cannot reach an installed R001.3 machine from outside (found 2026-10-16). The
+local form (``--local``) runs ON the installed machine and drives its own
+panel at ``127.0.0.1:8089`` directly: no ssh, no forward, no key. It takes
+every reading the tunnel form takes with the SAME command text, run by
+``/bin/sh`` on this machine with ``~`` meaning the invoking user's home from
+the passwd database (the home an ssh login gets), and the token it sends is
+the one the daemon writes for its own local UI. So a completed record from
+either form has the same members, the same predicates and the same readings,
+and the two are comparable member for member. The local form refuses
+everything the tunnel form refuses — a checkout, an output that exists, a
+machine whose own ``pkm info intergen`` names no installed release — and
+refuses the tunnel's flags (``--ssh-port``, ``--local-port``) rather than
+silently ignore them.
+
 HOW IT GRADES — every predicate is a FAIL, none is a warning:
 
   * an ``error`` frame ends the turn                          -> FAIL
@@ -69,8 +88,9 @@ are MEASURED and recorded beside it, kept apart.
 THE RECORD. ``<output>/`` holds ``frames.jsonl`` (every frame the server sent,
 whole, with the wall time it arrived), ``verdicts.tsv`` (one line per
 question), ``summary.json`` (counts, the target identity read from
-``pkm info intergen`` over ssh, the tree sha, the file hashes, the exact
-commands, wall times, the origin-evidence statement), ``target-identity.txt``
+``pkm info intergen`` over ssh or, in the local form, on the machine itself,
+the tree sha, the file hashes, the exact commands, wall times, the
+origin-evidence statement), ``target-identity.txt``
 (the raw pkm/hostname output), ``ground-truth.txt`` (the target's own reading
 of what the CORRECTNESS predicates check an answer against),
 ``glass-excerpt.jsonl`` (the target's trace
@@ -86,6 +106,7 @@ import asyncio
 import hashlib
 import json
 import os
+import pwd
 import re
 import shlex
 import socket
@@ -231,6 +252,35 @@ def _ssh_read(target: str, ssh_port: int, remote_cmd: str,
               timeout: int = 60) -> subprocess.CompletedProcess:
     return subprocess.run(_ssh_base(target, ssh_port) + [remote_cmd],
                           capture_output=True, text=True, timeout=timeout)
+
+
+# The shell the local form takes its readings with. The tunnel form's readings
+# run in the target user's login shell over ssh; the command text is the same.
+LOCAL_SHELL = "/bin/sh"
+
+
+def _local_read(remote_cmd: str,
+                timeout: int = 60) -> subprocess.CompletedProcess:
+    """Take one reading ON THIS MACHINE: the local form's counterpart of
+    _ssh_read, given the same command text. ``~`` in that text is the invoking
+    user's home from the passwd database, the home an ssh login gets, so a
+    redirected $HOME cannot move a reading off the files the installed
+    service writes."""
+    env = dict(os.environ)
+    env["HOME"] = pwd.getpwuid(os.getuid()).pw_dir
+    return subprocess.run([LOCAL_SHELL, "-c", remote_cmd],
+                          capture_output=True, text=True, timeout=timeout,
+                          env=env)
+
+
+def _read(target: str | None, ssh_port: int, remote_cmd: str,
+          timeout: int = 60) -> subprocess.CompletedProcess:
+    """One reading of the machine under test: over ssh in the tunnel form
+    (``target`` is user@host), on this machine in the local form (``target``
+    is None). Every reading the battery takes goes through here."""
+    if target is None:
+        return _local_read(remote_cmd, timeout)
+    return _ssh_read(target, ssh_port, remote_cmd, timeout)
 
 
 @dataclass
@@ -535,13 +585,19 @@ def _write_verdicts(path: Path, verdicts: list[Verdict]) -> None:
             fh.write("\t".join(_verdict_cells(v)) + "\n")
 
 
-def _target_identity(target: str, ssh_port: int) -> tuple[dict, str]:
-    """Read who the target is, from the target: hostname, release, kernel."""
+def _target_identity(target: str | None, ssh_port: int) -> tuple[dict, str]:
+    """Read who the target is, from the target: hostname, release, kernel.
+    In the local form the target is this machine, read with the same command,
+    and a machine whose own pkm names no installed intergen is refused exactly
+    as a target is: the local form does not run where the assistant is only a
+    checkout. Neither form reads which process answers on the panel port; the
+    record names the release pkm reports as installed."""
     cmd = ("hostname; uname -r; cat /etc/os-release 2>/dev/null; "
            "echo '--- pkm info intergen ---'; pkm info intergen 2>&1")
-    p = _ssh_read(target, ssh_port, cmd)
+    p = _read(target, ssh_port, cmd)
     if p.returncode != 0:
-        refuse(f"the target identity could not be read over ssh "
+        how = "on this machine" if target is None else "over ssh"
+        refuse(f"the target identity could not be read {how} "
                f"(rc={p.returncode}): {p.stderr.strip()}")
     raw = p.stdout
     ident: dict[str, Any] = {"hostname": "", "kernel": "", "intergen": ""}
@@ -550,7 +606,8 @@ def _target_identity(target: str, ssh_port: int) -> tuple[dict, str]:
         ident["hostname"], ident["kernel"] = lines[0].strip(), lines[1].strip()
     m = re.search(r"^\s*intergen\s+(\S+)\s*$", raw, re.MULTILINE)
     if not m:
-        refuse("`pkm info intergen` on the target did not name an installed "
+        where = "this machine" if target is None else "the target"
+        refuse(f"`pkm info intergen` on {where} did not name an installed "
                "release; a record that cannot name what it measured is not a "
                "record of anything.\n" + raw)
     ident["intergen"] = m.group(1)
@@ -561,24 +618,26 @@ def _target_identity(target: str, ssh_port: int) -> tuple[dict, str]:
     return ident, raw
 
 
-def _read_token(target: str, ssh_port: int) -> str:
-    p = _ssh_read(target, ssh_port, f"cat ~/{TOKEN_PATH}")
+def _read_token(target: str | None, ssh_port: int) -> str:
+    p = _read(target, ssh_port, f"cat ~/{TOKEN_PATH}")
     if p.returncode != 0 or not p.stdout.strip():
-        refuse(f"the panel token could not be read from the target's "
+        whose = "this machine's" if target is None else "the target's"
+        refuse(f"the panel token could not be read from {whose} "
                f"~/{TOKEN_PATH} (rc={p.returncode}): {p.stderr.strip()}")
     return p.stdout.strip()
 
 
-def _read_glass(target: str, ssh_port: int, turn_ids: list[str],
+def _read_glass(target: str | None, ssh_port: int, turn_ids: list[str],
                 ) -> tuple[dict[str, list[dict]] | None, str, str]:
     """The target's trace rows for the given turn ids; None when unreadable."""
     if not turn_ids:
         return {}, "", "no turn ids were minted, nothing to read"
     pattern = " ".join(f"-e {shlex.quote(t)}" for t in turn_ids)
     cmd = f"grep -F {pattern} ~/{GLASS_PATH}"
-    p = _ssh_read(target, ssh_port, cmd, timeout=120)
+    p = _read(target, ssh_port, cmd, timeout=120)
     if p.returncode not in (0, 1):
-        return None, "", (f"glass.jsonl unreadable on the target "
+        where = "this machine" if target is None else "the target"
+        return None, "", (f"glass.jsonl unreadable on {where} "
                           f"(rc={p.returncode}): {p.stderr.strip()}")
     rows: dict[str, list[dict]] = {}
     for line in p.stdout.splitlines():
@@ -592,7 +651,7 @@ def _read_glass(target: str, ssh_port: int, turn_ids: list[str],
 
 async def _drive(tree_root: Path, local_port: int, token: str,
                  deadline_s: float, frames_out: Path,
-                 target: str, ssh_port: int,
+                 target: str | None, ssh_port: int,
                  truth_reads: dict[str, tuple[str, int, str]],
                  ) -> list[tuple[Question, Any]]:
     from intergen.tests import ws_harness  # the pinned copy, put on sys.path by main()
@@ -623,7 +682,7 @@ async def _drive(tree_root: Path, local_port: int, token: str,
                 # the answer is one turn old — not at the end of the run.
                 probe = TRUTH_PROBES.get(q.truth or "")
                 if probe:
-                    gt = _ssh_read(target, ssh_port, probe, timeout=60)
+                    gt = _read(target, ssh_port, probe, timeout=60)
                     truth_reads[q.key] = (probe, gt.returncode,
                                           gt.stdout if gt.returncode == 0
                                           else gt.stdout + gt.stderr)
@@ -646,11 +705,21 @@ def _seal(record_dir: Path) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Drive the fresh-user web battery against an installed "
-                    "machine over an ssh tunnel and seal the record.")
-    parser.add_argument("--target", required=True,
-                        help="ssh destination of the installed machine, "
-                             "user@host")
-    parser.add_argument("--ssh-port", type=int, default=22)
+                    "machine, over an ssh tunnel (--target) or on the "
+                    "machine itself (--local), and seal the record.")
+    reach = parser.add_mutually_exclusive_group(required=True)
+    reach.add_argument("--target",
+                       help="ssh destination of the installed machine, "
+                            "user@host")
+    reach.add_argument("--local", action="store_true",
+                       help="run ON the installed machine against its own "
+                            f"panel at 127.0.0.1:{TARGET_PORT}: no ssh, no "
+                            "tunnel, no key; every reading the tunnel form "
+                            "takes over ssh is taken here with the same "
+                            "command")
+    parser.add_argument("--ssh-port", type=int, default=None,
+                        help="the target's ssh port (default 22); not with "
+                             "--local")
     parser.add_argument("--output", required=True, type=Path,
                         help="directory to write the sealed record into "
                              "(must not exist)")
@@ -659,9 +728,22 @@ def main(argv: list[str] | None = None) -> int:
                              "exported from — recorded as DECLARED")
     parser.add_argument("--deadline", type=float, default=DEFAULT_DEADLINE_S,
                         help="per-turn ceiling in seconds")
-    parser.add_argument("--local-port", type=int, default=0,
-                        help="local end of the tunnel (0 = pick a free port)")
+    parser.add_argument("--local-port", type=int, default=None,
+                        help="local end of the tunnel (0 = pick a free port); "
+                             "not with --local")
     args = parser.parse_args(argv)
+    if args.local:
+        given = [flag for flag, value in (("--ssh-port", args.ssh_port),
+                                          ("--local-port", args.local_port))
+                 if value is not None]
+        if given:
+            refuse(f"--local drives the panel at 127.0.0.1:{TARGET_PORT} on "
+                   f"this machine directly and opens no ssh and no tunnel, so "
+                   f"{' and '.join(given)} would be ignored; leave "
+                   f"{'them' if len(given) > 1 else 'it'} out.")
+    # None in the local form: every reading is taken on this machine.
+    target: str | None = None if args.local else args.target
+    ssh_port = 22 if args.ssh_port is None else args.ssh_port
 
     here = Path(__file__).resolve()
     tree_root = here.parents[2]
@@ -690,15 +772,21 @@ def main(argv: list[str] | None = None) -> int:
 
     started_wall = datetime.now(timezone.utc).isoformat()
     t_start = time.monotonic()
-    identity, identity_raw = _target_identity(args.target, args.ssh_port)
-    token = _read_token(args.target, args.ssh_port)
+    identity, identity_raw = _target_identity(target, ssh_port)
+    token = _read_token(target, ssh_port)
 
-    local_port = args.local_port or _free_local_port()
-    tunnel_cmd = _ssh_base(args.target, args.ssh_port)[:-1] + [
-        "-N", "-L", f"127.0.0.1:{local_port}:127.0.0.1:{TARGET_PORT}",
-        args.target]
-    tunnel = subprocess.Popen(tunnel_cmd, stdout=subprocess.DEVNULL,
-                              stderr=subprocess.PIPE, text=True)
+    tunnel: subprocess.Popen | None = None
+    if target is None:
+        # The local form: the panel is on this machine; there is nothing to
+        # forward and no ssh to open.
+        local_port = TARGET_PORT
+    else:
+        local_port = args.local_port or _free_local_port()
+        tunnel_cmd = _ssh_base(target, ssh_port)[:-1] + [
+            "-N", "-L", f"127.0.0.1:{local_port}:127.0.0.1:{TARGET_PORT}",
+            target]
+        tunnel = subprocess.Popen(tunnel_cmd, stdout=subprocess.DEVNULL,
+                                  stderr=subprocess.PIPE, text=True)
     out.mkdir(parents=True)
     (out / "target-identity.txt").write_text(identity_raw, encoding="utf-8")
     truth_reads: dict[str, tuple[str, int, str]] = {}
@@ -707,12 +795,21 @@ def main(argv: list[str] | None = None) -> int:
         from intergen.tests import ws_harness
         reachable = False
         for _ in range(60):
-            if tunnel.poll() is not None:
+            if tunnel is not None and tunnel.poll() is not None:
                 break
             if ws_harness.daemon_reachable("127.0.0.1", local_port):
                 reachable = True
                 break
             time.sleep(0.5)
+        if not reachable and tunnel is None:
+            print(f"[web-battery] the panel did not answer on this machine "
+                  f"(127.0.0.1:{TARGET_PORT})", file=sys.stderr)
+            summary = {"refused_after_record_opened":
+                       f"panel unreachable on this machine at "
+                       f"127.0.0.1:{TARGET_PORT}"}
+            (out / "summary.json").write_text(json.dumps(summary, indent=2))
+            _seal(out)
+            return EXIT_FAIL
         if not reachable:
             err = ""
             if tunnel.poll() is not None:
@@ -730,13 +827,14 @@ def main(argv: list[str] | None = None) -> int:
 
         results = asyncio.run(_drive(tree_root, local_port, token,
                                      args.deadline, out / "frames.jsonl",
-                                     args.target, args.ssh_port, truth_reads))
+                                     target, ssh_port, truth_reads))
     finally:
-        tunnel.terminate()
-        try:
-            tunnel.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            tunnel.kill()
+        if tunnel is not None:
+            tunnel.terminate()
+            try:
+                tunnel.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                tunnel.kill()
 
     turn_ids: list[str] = []
     for _q, r in results:
@@ -745,7 +843,7 @@ def main(argv: list[str] | None = None) -> int:
                 turn_ids.append(str(m["turn_id"]))
                 break
     glass_rows, glass_raw, glass_err = _read_glass(
-        args.target, args.ssh_port, turn_ids)
+        target, ssh_port, turn_ids)
     (out / "glass-excerpt.jsonl").write_text(glass_raw, encoding="utf-8")
 
     # The readings the CORRECTNESS predicates check answers against, each taken
@@ -753,10 +851,11 @@ def main(argv: list[str] | None = None) -> int:
     # the record so a reader can redo the comparison. A read that FAILED is
     # recorded as the failure it is; the predicate then reports the question as
     # unchecked rather than passing it.
+    via = "local" if target is None else f"ssh {target}"
     gt_lines = []
     for key in sorted(truth_reads):
         cmd, rc, output = truth_reads[key]
-        gt_lines.append(f"=== {key}: ssh {args.target} {cmd} (rc={rc}) ===\n"
+        gt_lines.append(f"=== {key}: {via} {cmd} (rc={rc}) ===\n"
                         f"{output}")
     (out / "ground-truth.txt").write_text(
         "\n".join(gt_lines) or "no question in this battery carries a "
@@ -797,8 +896,10 @@ def main(argv: list[str] | None = None) -> int:
             "tree_root": str(tree_root),
             "target": identity,
         },
-        "target_ssh": args.target,
-        "tunnel": f"127.0.0.1:{local_port} -> 127.0.0.1:{TARGET_PORT}",
+        "target_ssh": target,
+        "tunnel": (f"none: the local form drives 127.0.0.1:{TARGET_PORT} on "
+                   f"this machine directly" if target is None else
+                   f"127.0.0.1:{local_port} -> 127.0.0.1:{TARGET_PORT}"),
         "deadline_s": args.deadline,
         "questions": len(verdicts),
         "passed": passed,
