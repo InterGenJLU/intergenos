@@ -1,0 +1,42 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 InterGenJLU
+#
+# /etc/grub.d/05_intergenos_theme -- sets the boot menu's theme when 00_header cannot.
+#
+# 00_header writes `set theme=` only when GRUB_THEME (from /etc/default/grub)
+# names a file on this system that GRUB can read: it tests [ -f "$GRUB_THEME" ]
+# and is_path_readable_by_grub at the moment grub-mkconfig runs. An EFI install
+# names its theme by its path on the EFI system partition,
+# /EFI/InterGenOS/themes/intergenos/theme.txt, which GRUB opens at boot (the
+# partition is its root then) but which is not a path on the running system, so
+# 00_header writes nothing and the regenerated menu was unthemed. This script
+# writes the directive GRUB evaluates at boot instead, from the same setting:
+#
+#   - GRUB_THEME empty: no theme was asked for; nothing is written.
+#   - GRUB_THEME a file GRUB can read here: 00_header has set it; nothing is
+#     written, so the menu never carries the directive twice.
+#   - otherwise: the theme is set at boot if GRUB finds the file there.
+#
+# The installer composes the installed menu with grub-mkconfig like any later
+# regeneration, so the menu an install writes and the one a regeneration writes
+# carry the same directive from the same place.
+
+set -e
+
+. "${pkgdatadir:-/usr/share/grub}/grub-mkconfig_lib"
+
+[ -n "${GRUB_THEME}" ] || exit 0
+if [ -f "${GRUB_THEME}" ] && is_path_readable_by_grub "${GRUB_THEME}"; then
+  exit 0
+fi
+
+cat << EOF
+# The theme is named by its path where GRUB finds it at boot (GRUB_THEME in
+# /etc/default/grub); 00_header could not open that path when this was written.
+insmod gfxmenu
+if [ -e ${GRUB_THEME} ]; then
+  set theme=${GRUB_THEME}
+  export theme
+fi
+EOF

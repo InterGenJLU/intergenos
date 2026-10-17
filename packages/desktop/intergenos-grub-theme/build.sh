@@ -13,6 +13,9 @@
 #      no menu border so brand mark stays unobscured)
 #   4. /etc/grub.d/06_intergenos_multi_background script (resolution-aware override
 #      that runs after upstream 05_debian_theme, composes-with-not-forks)
+#   4a. /etc/grub.d/05_intergenos_theme: the theme directive 00_header cannot write
+#      when GRUB_THEME names the theme by its EFI-partition path, so every
+#      grub-mkconfig run — the installer's and any later one — keeps the theme
 #   5. /etc/default/grub modifications: GRUB_TIMEOUT_STYLE + GRUB_TIMEOUT +
 #      GRUB_GFXMODE chain (12 resolutions + auto) + GRUB_BACKGROUND +
 #      GRUB_THEME + GRUB_COLOR_NORMAL + GRUB_COLOR_HIGHLIGHT
@@ -65,6 +68,10 @@ do_install() {
     install -dv "${DESTDIR}/etc/grub.d"
     install -m 0755 -v "${assets}/etc-grub.d/06_intergenos_multi_background" \
         "${DESTDIR}/etc/grub.d/06_intergenos_multi_background"
+
+    # 4a. /etc/grub.d/05_intergenos_theme (0755, so grub-mkconfig runs it).
+    install -m 0755 -v "${assets}/etc-grub.d/05_intergenos_theme" \
+        "${DESTDIR}/etc/grub.d/05_intergenos_theme"
 
     # 4b. /etc/grub.d/06_uki — auto-detect UKIs at /boot/efi/EFI/Linux/
     # and emit chainloader menuentries. Numbered 06_ so the UKI entries

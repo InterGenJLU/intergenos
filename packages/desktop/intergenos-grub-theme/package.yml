@@ -21,6 +21,7 @@ dependencies:
   # grub-mkconfig_lib (which 06_intergenos_multi_background sources).
   - grub
 verify_paths:
+  - /etc/grub.d/05_intergenos_theme
   - /etc/grub.d/06_intergenos_multi_background
   - /boot/grub/themes/intergenos/theme.txt
   - /boot/grub/backgrounds/1920x1080.png

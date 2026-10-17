@@ -941,24 +941,31 @@ def compose_boot_menu(target, partitions, detect_other_oses=True):
     if rc != 0:
         raise RuntimeError(f"grub-mkconfig failed: {stderr}")
 
-    # grub-mkconfig's 00_header emits `set theme=` ONLY when [ -f "$GRUB_THEME" ]
-    # holds at mkconfig time. On an EFI/FDE install GRUB_THEME is the ESP-relative
-    # /EFI/InterGenOS/themes/intergenos/theme.txt (config.py), which does NOT
-    # resolve here in the chroot — so 00_header silently drops the directive and
-    # the installed menu renders unthemed (GBC004.3 A12, 2026-06-22). Inject a
-    # RUNTIME-guarded `set theme=` (grub evaluates -e at boot against the staged
-    # ESP theme), mirroring the working installer/iso/grub/grub.cfg.
-    _inject_grub_theme(grub_cfg_out, target)
-
-    if not efi:
-        return
-    kver = installed_kernel_release(target)
+    # THE MENU IS grub-mkconfig's OUTPUT, UNEDITED. Its theme directive comes from
+    # the theme package's /etc/grub.d/05_intergenos_theme: 00_header writes
+    # `set theme=` only when GRUB_THEME is a file it can read at mkconfig time,
+    # and an EFI install's GRUB_THEME is the theme's path on the EFI partition
+    # (config.py), which it cannot. Until 2026-10-17 this step appended a
+    # runtime-guarded directive to the generated file instead; any later
+    # grub-mkconfig on the installed system dropped it (measured on an R001.3
+    # install, 2026-10-16), because nothing in /etc/grub.d produced it. Whether
+    # the composed menu sets a theme is recorded, not enforced: an unthemed menu
+    # still boots.
     menu = Path(target) / grub_cfg_out.lstrip("/")
     try:
         text = menu.read_text(encoding="utf-8", errors="replace")
     except OSError as exc:
         text = ""
         logger.error("boot menu %s unreadable after composition: %s", menu, exc)
+    trace.trace_event(
+        "boot_menu_theme", menu=grub_cfg_out,
+        sets_theme=bool(re.search(r"^\s*set theme=", text, re.M)),
+        intent="record whether the composed menu sets its theme; the directive "
+               "comes from /etc/grub.d, so a later regeneration keeps it")
+
+    if not efi:
+        return
+    kver = installed_kernel_release(target)
     if not menu_chainloads_uki(text, kver):
         raise trace.install_failure(
             where="bootloader.py:compose_boot_menu",
@@ -1588,46 +1595,6 @@ def _stage_grub_assets_to_esp(target):
         dst_mods = esp_dir / GRUB_FORMAT
         shutil.copytree(src_mods, dst_mods, dirs_exist_ok=True)
         logger.info("Staged grub %s modules to ESP: %s", GRUB_FORMAT, dst_mods)
-
-
-def _inject_grub_theme(grub_cfg_chroot_path, target):
-    """Inject a runtime-guarded `set theme=` into the generated grub.cfg.
-
-    grub-mkconfig's 00_header emits `set theme=` only when [ -f "$GRUB_THEME" ]
-    holds at mkconfig time. On EFI/FDE installs GRUB_THEME is ESP-relative
-    (/EFI/InterGenOS/themes/intergenos/theme.txt) and does not resolve in the
-    chroot, so the directive is dropped and the menu renders unthemed. Emit a
-    runtime-guarded block instead — grub evaluates `-e` at boot against the
-    staged ESP theme (BIOS path kept as the fallback) — mirroring the working
-    installer/iso/grub/grub.cfg. Inserted right after `terminal_output gfxterm`
-    so the theme is set before the menu renders. Idempotent. Validated on the
-    A12 FDE install 2026-06-22 (GBC004.3).
-    """
-    cfg = Path(target) / grub_cfg_chroot_path.lstrip("/")
-    if not cfg.is_file():
-        logger.warning("grub theme inject: %s not found; skipping", cfg)
-        return
-    text = cfg.read_text()
-    if "InterGenOS theme (Forge-injected)" in text:
-        return
-    block = (
-        "\n### InterGenOS theme (Forge-injected) — 00_header's [ -f GRUB_THEME ]\n"
-        "### check fails on the ESP-relative theme path at chroot mkconfig time,\n"
-        "### so emit a runtime-guarded set theme= here (mirrors the ISO grub.cfg).\n"
-        "insmod gfxmenu\n"
-        "if [ -e /EFI/InterGenOS/themes/intergenos/theme.txt ]; then\n"
-        "    set theme=/EFI/InterGenOS/themes/intergenos/theme.txt\n"
-        "elif [ -e /boot/grub/themes/intergenos/theme.txt ]; then\n"
-        "    set theme=/boot/grub/themes/intergenos/theme.txt\n"
-        "fi\n"
-    )
-    marker = "terminal_output gfxterm\n"
-    if marker in text:
-        text = text.replace(marker, marker + block, 1)
-    else:
-        text = text + block
-    cfg.write_text(text)
-    logger.info("Injected runtime-guarded grub theme directive into %s", cfg)
 
 
 def _install_bios_grub(target, disk):

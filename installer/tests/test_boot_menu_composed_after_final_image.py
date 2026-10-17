@@ -72,6 +72,9 @@ class FakeTarget:
         self.root = Path(root)
         self.esp_linux = self.root / "boot/efi/EFI/Linux"
         self.calls = []
+        # What the stand-in generator wrote, by output path: the menu the
+        # installer leaves must be exactly this, never edited afterwards.
+        self.generated = {}
         # Fault switches for the two checks the installer must make itself:
         # an image that does not verify, and a menu without the image.
         self.signs = signs
@@ -101,6 +104,7 @@ class FakeTarget:
                      "menuentry 'UEFI Firmware Settings' $menuentry_id_option 'uefi-firmware' {",
                      "    fwsetup", "}"]
             out.write_text("\n".join(text) + "\n")
+            self.generated[m.group(1)] = "\n".join(text) + "\n"
             return 0, "", ""
         if "/var/lib/pkm/hooks/linux-kernel/post-install" in cmd:
             if not env.get("IGOS_MOK_PASSPHRASE"):
@@ -249,3 +253,21 @@ class AMenuWithoutTheImageStopsTheInstall(_Base):
         self.assertFalse(self.result.success,
                          "an install whose menu boots no InterGenOS image finished")
         self.assertIn("intergenos-uki", self.result.error_message or "")
+
+
+class TheInstalledMenuIsTheGeneratorsOutput(_Base):
+    """The installer leaves grub-mkconfig's menu exactly as generated.
+
+    Until 2026-10-17 it appended a theme directive to the generated file, which
+    the first later grub-mkconfig on the installed system dropped; the
+    directive now comes from the theme package's /etc/grub.d script, so the
+    installed menu and any regeneration of it are the same generator's output.
+    """
+    luks = True
+
+    def test_the_menu_on_disk_is_what_the_generator_wrote(self):
+        self.assertTrue(self.result.success, self.result.error_message)
+        generated = self.fake.generated.get("/boot/efi/EFI/InterGenOS/grub.cfg")
+        self.assertIsNotNone(generated, "the generator never wrote the menu")
+        self.assertEqual(self.menu(), generated,
+                         "the installer edited the menu after grub-mkconfig wrote it")
