@@ -130,8 +130,8 @@
     "triggers": [
       "why can't I resolve domain names"
     ],
-    "answer": "```\nping -c1 1.1.1.1                   # if this works but names don't, it's a DNS problem\ngetent hosts intergenos.org       # test name resolution directly (no dig/nslookup on InterGenOS)\nresolvectl status                  # show the active DNS servers (systemd-resolved)\nnmcli device show | grep IP4.DNS  # which DNS servers NetworkManager handed out\n```\nNote: InterGenOS does not ship `dig`/`nslookup`/`host` — use `getent hosts <name>` or `ping <name>` to test\nresolution, and `resolvectl` / `nmcli` to inspect the DNS servers.",
-    "doc_source": "tools/intergen-coverage/drafts",
+    "answer": "Check name lookup and the network connection's reported settings:\n```\ngetent hosts <name>\nnmcli device show\n```\nIf traffic to a known address works but name lookup fails, investigate the DNS configuration and the resolver's reported error rather than changing unrelated settings.\n\nInterGenOS packages `dig`, `host` and `nslookup` in **bind-utils**; they are not excluded from the distribution. Check `pkm info bind-utils` to distinguish an available package from one installed on this machine. If you need those tools, install the package with `sudo pkm install bind-utils`.",
+    "doc_source": "packages/base/bind-utils/package.yml; packages/desktop/networkmanager/package.yml; docs/users/package-management.md",
     "requires": []
   },
   {
