@@ -62,23 +62,72 @@ log() {
     echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ') $msg" >> "$LOGFILE" 2>/dev/null || true
 }
 
+# Has the system this hook is populating ever booted? The predicate is
+# systemd's own (machine-id(5), FIRST BOOT SEMANTICS): the marker absent, or
+# holding the literal string "uninitialized", means no boot has happened yet.
+# An EMPTY file is explicitly NOT a first boot, and that is the case that is
+# easy to get backwards. Same resolution, and the same root scoping, as the
+# systemd recipe's post_install (packages/core/systemd/build.sh) — pkm runs
+# lifecycle hooks on the HOST and passes the target root in PKM_PACKAGE_ROOT,
+# so a predicate about that root is read under that root.
+#
+# WHY THIS HOOK NEEDS IT. Three conditions below are EXPECTED SEQUENCING during
+# an install and a REAL FAILURE on a running machine, and until this predicate
+# existed the messages could not tell the operator which one had happened:
+#   - the signing helper absent. It is shipped by the linux-kernel package, and
+#     the second kernel pass (linux-kernel-pass2) installs this same hook and
+#     extracts first, so its fire finds no helper yet (measured on the R001.3
+#     install of 2026-10-16: the pass2 fire at 23:57:21 exited 1 on it, the
+#     linux-kernel fire later in the same install found it).
+#   - ukify absent. It is built by the desktop-tier systemd-pass2 recipe
+#     (-D ukify=enabled), not by the core-tier systemd recipe
+#     (-D ukify=disabled), so the core-tier linux-kernel package extracts and
+#     fires this hook before any UKI builder is on the target.
+#   - the ESP GRUB menu absent. The installer composes it AFTER the package
+#     hooks run, from the installed kernel, so there is nothing to repoint yet.
+# The second and third were measured on the R001.1 install of 2026-08-22, in the
+# installed system's own /var/log/intergen-kernel-postinstall.log: the fire at
+# 02:08:58 found no ukify, the fire at 02:28:09 found it and built and signed the
+# UKI, and the menu update at 02:28:09 failed because the menu did not exist yet.
+first_install_ordering() {
+    local root="${PKM_PACKAGE_ROOT:-/}"
+    local marker="${root%/}/etc/machine-id"
+    if [ ! -e "$marker" ]; then
+        return 0
+    fi
+    if [ "$(cat "$marker" 2>/dev/null)" = "uninitialized" ]; then
+        return 0
+    fi
+    return 1
+}
+
 # The one place that answers "may this machine sign, and with what". Sourced
 # rather than reimplemented here, because the driver module signer asks the same
 # question and the two must not answer it differently.
 #
-# Absent helper = refusal. It is shipped by this package and named in its
-# verify_paths, so its absence means the payload on this machine is incomplete,
-# and an incomplete payload must not produce a boot image that nothing checked.
+# Absent helper on a machine that has booted = refusal. It is shipped by this
+# package and named in its verify_paths, so its absence means the payload on
+# this machine is incomplete, and an incomplete payload must not produce a boot
+# image that nothing checked. The status is the refusal status the helper
+# defines (77), written out here because the helper is the thing that is
+# missing; the package manager reports it as an install that did not finish.
+# During an install it is the expected order (above), and the installer signs
+# the boot image itself once the package phase is over.
 MOK_HELPER=/usr/lib/intergen/mok-signing.sh
 if [ -r "$MOK_HELPER" ]; then
     # shellcheck source=/dev/null
     . "$MOK_HELPER"
+elif first_install_ordering; then
+    log "$MOK_HELPER not yet deployed (first-install ordering) — no boot image is built by this"
+    log "  fire; the helper is shipped by the linux-kernel package, which extracts after this one,"
+    log "  and the installer builds and signs the boot image after the package phase."
+    exit 0
 else
     log "FATAL: $MOK_HELPER is missing, so this hook cannot ask for the signing passphrase."
     log "  No boot image will be built or signed for this kernel, and the ESP keeps the"
     log "  previous release's signed image, which stays bootable. Reinstall the kernel"
     log "  package to restore the helper: sudo pkm reinstall linux-kernel"
-    exit 1
+    exit 77
 fi
 
 # Refuse, in one place, with the whole truth in it. Every refusal below leaves
@@ -94,41 +143,10 @@ refuse_to_sign() {
     log "  still there and is still the boot-menu target, so this machine still boots."
     log "  To finish the job with the passphrase in hand, at the console:"
     log "      sudo pkm reinstall linux-kernel"
-    exit 1
-}
-
-# Has the system this hook is populating ever booted? The predicate is
-# systemd's own (machine-id(5), FIRST BOOT SEMANTICS): the marker absent, or
-# holding the literal string "uninitialized", means no boot has happened yet.
-# An EMPTY file is explicitly NOT a first boot, and that is the case that is
-# easy to get backwards. Same resolution, and the same root scoping, as the
-# systemd recipe's post_install (packages/core/systemd/build.sh) — pkm runs
-# lifecycle hooks on the HOST and passes the target root in PKM_PACKAGE_ROOT,
-# so a predicate about that root is read under that root.
-#
-# WHY THIS HOOK NEEDS IT. Two conditions below are EXPECTED SEQUENCING during
-# an install and a REAL FAILURE on a running machine, and until this predicate
-# existed the messages could not tell the operator which one had happened:
-#   - ukify absent. It is built by the desktop-tier systemd-pass2 recipe
-#     (-D ukify=enabled), not by the core-tier systemd recipe
-#     (-D ukify=disabled), so the core-tier linux-kernel package extracts and
-#     fires this hook before any UKI builder is on the target.
-#   - the ESP GRUB menu absent. The installer composes it AFTER the package
-#     hooks run, from the installed kernel, so there is nothing to repoint yet.
-# Both were measured on the R001.1 install of 2026-08-22, in the installed
-# system's own /var/log/intergen-kernel-postinstall.log: the fire at 02:08:58
-# found no ukify, the fire at 02:28:09 found it and built and signed the UKI,
-# and the menu update at 02:28:09 failed because the menu did not exist yet.
-first_install_ordering() {
-    local root="${PKM_PACKAGE_ROOT:-/}"
-    local marker="${root%/}/etc/machine-id"
-    if [ ! -e "$marker" ]; then
-        return 0
-    fi
-    if [ "$(cat "$marker" 2>/dev/null)" = "uninitialized" ]; then
-        return 0
-    fi
-    return 1
+    # The refusal status, not a plain failure: the package manager reports a
+    # package whose post-install hook exits with it as an install that did not
+    # finish, and every hook that starts this one passes it on.
+    exit "$MOK_REFUSED_EXIT"
 }
 
 # Identify the newly-installed kernel — pick the most-recently-modified
@@ -435,25 +453,27 @@ fi
 # only ukify path was the swallowed-output pkm-hook fire.
 log "ukify cmdline (${#UKIFY_ARGS[@]} args):"
 printf '  %s\n' "${UKIFY_ARGS[@]}" | tee -a "$LOGFILE" >&2
-# The passphrase reaches the boot-image signer on standard input. The builder
-# runs that signer as a child and does not redirect its standard input, so what
-# is piped here is what the signer reads — one line, which is exactly what it
-# asks for. It is never an argument: arguments are readable in the process table
-# by every user on the machine, and this one is also written verbatim into the
-# ukify command line logged just above.
+# The passphrase reaches the boot-image signer on standard input, through the
+# helper's mok_build_signed_uki — the one place that signs a boot image. It is
+# never an argument: arguments are readable in the process table by every user
+# on the machine, and this one would also be written verbatim into the ukify
+# command line logged just above.
 #
-# The passphrase arrives on standard input through a process substitution
-# rather than a pipeline, and the reason is not style. Inside a command
-# substitution a pipeline's own statuses are not visible to the outer shell:
-# PIPESTATUS there belongs to the outer shell's last pipeline, which under
-# `set -u` is an unbound variable when there has not been one. Measured on a
-# real firing of this hook, which failed at this line with exactly that.
+# The helper runs the builder detached from any terminal, and that is the fix
+# for a real failure rather than style: this line used to run ukify directly,
+# which works where there is no terminal (the installer) and NOT where a person
+# started the operation from one. OpenSSL asks for a key's passphrase on the
+# terminal whenever there is one, so a driver install run from a terminal
+# window printed a raw "Enter PEM pass phrase:" there, ignored the passphrase
+# this hook had piped in, and the key was refused (measured on a real install,
+# 2026-10-16; the helper's own comment has the measurement).
 #
-# With the substitution the builder is the only command in the assignment, so
-# $? is the builder's own status. printf is a shell builtin, so the passphrase
-# never becomes a process with arguments anyone could read.
+# The helper is a function rather than a pipeline, so $? is the builder's own
+# status — a pipeline's statuses are not visible from inside a command
+# substitution, and under `set -u` its PIPESTATUS is an unbound variable when
+# there has not been one (measured on an earlier real firing of this hook).
 if [ "$SIGN_THIS_UKI" = "yes" ]; then
-    UKIFY_OUTPUT=$(ukify "${UKIFY_ARGS[@]}" 2>&1 < <(printf '%s\n' "$MOK_PASSPHRASE"))
+    UKIFY_OUTPUT=$(mok_build_signed_uki "${UKIFY_ARGS[@]}" 2>&1)
     UKIFY_RC=$?
 else
     UKIFY_OUTPUT=$(ukify "${UKIFY_ARGS[@]}" 2>&1 </dev/null)
@@ -550,13 +570,23 @@ fi
 # Best-effort: nvidia rebuild failure does NOT roll back the kernel
 # install. The kernel install is the load-bearing operation here; nvidia
 # can be rebuilt manually via /var/lib/pkm/hooks/nvidia/rebuild-modules.
+#
+# The one exception is a REFUSED signing, said at the end of this hook with the
+# refusal status: the kernel is fine, but the driver's modules for it were not
+# signed, so on the next boot the kernel refuses them and the NVIDIA GPU has no
+# driver. A machine whose dGPU-wired outputs go dark after an update that
+# reported success is exactly the silence this status exists to end. The
+# passphrase this hook resolved is held for the rebuild (mok-signing.sh rule
+# 5), so the rebuild does not ask again.
 NVIDIA_REBUILD=/var/lib/pkm/hooks/nvidia/rebuild-modules
+NVIDIA_RC=0
 if [ -x "$NVIDIA_REBUILD" ]; then
     log "nvidia package detected — chaining to module rebuild for kernel $NEW_KVER"
     if "$NVIDIA_REBUILD" "$NEW_KVER" 2>&1 | tee -a "$LOGFILE" >&2; then
         log "nvidia module rebuild complete for kernel $NEW_KVER"
     else
-        log "WARNING: nvidia module rebuild failed for kernel $NEW_KVER"
+        NVIDIA_RC=${PIPESTATUS[0]}
+        log "WARNING: nvidia module rebuild failed for kernel $NEW_KVER (exit $NVIDIA_RC)"
         log "  Manual rebuild path: sudo $NVIDIA_REBUILD $NEW_KVER"
     fi
 fi
@@ -577,6 +607,14 @@ if [ -x "$KERNEL_PRUNE" ]; then
         log "WARNING: kernel retention prune reported an error (non-fatal; install proceeds)"
 else
     log "kernel retention helper absent ($KERNEL_PRUNE) — skipping prune (older kernels retained)"
+fi
+
+if [ "$NVIDIA_RC" -eq "$MOK_REFUSED_EXIT" ]; then
+    log "REFUSED: kernel $NEW_KVER is installed and its boot image is signed, but the NVIDIA"
+    log "  driver's modules for it were NOT signed, so this kernel will refuse them at the next"
+    log "  boot and the NVIDIA GPU will have no driver. To finish it with the passphrase in hand:"
+    log "      sudo $NVIDIA_REBUILD $NEW_KVER"
+    exit "$MOK_REFUSED_EXIT"
 fi
 
 exit 0

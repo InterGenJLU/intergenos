@@ -21,16 +21,35 @@
 
 set -uo pipefail
 
-LOGFILE=/var/log/intergen-nvidia-postinstall.log
+LOGFILE="${NVIDIA_HOOK_LOG:-/var/log/intergen-nvidia-postinstall.log}"
 KVER="${1:-$(uname -r)}"
 NV_VERSION="580.159.04"   # MUST match package version
 NV_SRC="/usr/src/nvidia-open-${NV_VERSION}"
+# Where the signer and its helper live, and the log above. Overridable so the
+# preflight tests can run this script against a scratch tree; on a machine these
+# are the paths the packages install. The package manager starts the driver's
+# hooks with an environment stripped to a fixed list that names none of them.
+NVIDIA_HOOK_DIR="${NVIDIA_HOOK_DIR:-/var/lib/pkm/hooks/nvidia}"
+MOK_HELPER="${MOK_HELPER:-/usr/lib/intergen/mok-signing.sh}"
 
 log() {
     local msg="[nvidia:rebuild] $*"
     echo "$msg" >&2
     echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ') $msg" >> "$LOGFILE" 2>/dev/null || true
 }
+
+# The one place that answers "may this machine sign, and with what" — the same
+# helper the module signer and the kernel's hook use. This script resolves the
+# passphrase ONCE for the five modules it signs (mok-signing.sh rule 5): each
+# signer is a process of its own, and each used to ask the owner again.
+if [ -r "$MOK_HELPER" ]; then
+    # shellcheck source=/dev/null
+    . "$MOK_HELPER"
+else
+    log "FATAL: $MOK_HELPER is missing, so no module can be signed for kernel $KVER."
+    log "  Nothing was built or installed. Restore it with: sudo pkm reinstall linux-kernel"
+    exit 77
+fi
 
 if [ ! -d "$NV_SRC" ]; then
     log "FATAL: NVIDIA source tree missing at $NV_SRC"
@@ -49,7 +68,10 @@ cd "$NV_SRC"
 log "compiling kernel-open/ against /lib/modules/$KVER/build"
 
 JOBS=$(nproc 2>/dev/null || echo 1)
-if ! make modules -j"$JOBS" KERNEL_UNAME="$KVER" \
+# The compile runs without the held passphrase: a compiler and everything it
+# starts have no business holding it, and an environment is inherited by every
+# process below this one.
+if ! env -u "$MOK_PASS_ENV" make modules -j"$JOBS" KERNEL_UNAME="$KVER" \
     SYSSRC="/lib/modules/$KVER/build" \
     SYSOUT="/lib/modules/$KVER/build" 2>&1 | tee -a "$LOGFILE" >&2; then
     log "FATAL: make modules failed for kernel $KVER"
@@ -66,6 +88,28 @@ if ! make modules -j"$JOBS" KERNEL_UNAME="$KVER" \
     exit 1
 fi
 
+# One passphrase for the five signatures. Taken over from whatever started this
+# script when it already holds one (the driver's post-install, or the kernel's
+# hook on a kernel update), asked of the owner once otherwise, and held for the
+# signers below. A key with no passphrase on it is protected first, as each
+# signer would otherwise do on its own. No key at all is left to the signer,
+# which refuses with its own reason.
+if [ -f "$MOK_KEY" ] && [ -f "$MOK_CERT" ]; then
+    if ! mok_key_is_encrypted "$MOK_KEY"; then
+        if ! mok_migrate_plain_key "$MOK_KEY"; then
+            log "REFUSED: the signing key has no passphrase and none was set; no module was signed"
+            log "  and nothing was installed for kernel $KVER. To finish it with a passphrase:"
+            log "      sudo $NVIDIA_HOOK_DIR/rebuild-modules $KVER"
+            exit "$MOK_REFUSED_EXIT"
+        fi
+    elif ! mok_resolve_passphrase "$MOK_KEY" "the NVIDIA driver's modules for kernel $KVER"; then
+        log "REFUSED: no usable signing passphrase; no module was signed and nothing was"
+        log "  installed for kernel $KVER. To finish it with the passphrase in hand:"
+        log "      sudo $NVIDIA_HOOK_DIR/rebuild-modules $KVER"
+        exit "$MOK_REFUSED_EXIT"
+    fi
+fi
+
 # Sign each module with the per-machine MOK
 SIGNED_OK=0
 SIGNED_FAIL=0
@@ -77,7 +121,7 @@ for mod in nvidia nvidia-modeset nvidia-drm nvidia-uvm nvidia-peermem; do
     fi
     if [ -f "$KO" ]; then
         log "signing $mod.ko with MOK"
-        if /var/lib/pkm/hooks/nvidia/sign-module.sh "$KO" "$KVER" 2>&1 | tee -a "$LOGFILE" >&2; then
+        if "$NVIDIA_HOOK_DIR/sign-module.sh" "$KO" "$KVER" 2>&1 | tee -a "$LOGFILE" >&2; then
             SIGNED_OK=$((SIGNED_OK + 1))
         else
             SIGNED_FAIL=$((SIGNED_FAIL + 1))
@@ -87,6 +131,18 @@ for mod in nvidia nvidia-modeset nvidia-drm nvidia-uvm nvidia-peermem; do
     fi
 done
 log "signed $SIGNED_OK module(s); $SIGNED_FAIL signing failure(s)"
+
+# A module that was not signed is not installed, and the run says so with the
+# refusal status. It used to be installed anyway and the run exited 0, so the
+# driver package reported installed while this kernel (CONFIG_MODULE_SIG_FORCE=y)
+# would refuse the module at the next boot. Whatever signed set an earlier run
+# installed for this kernel stays where it is.
+if [ "$SIGNED_FAIL" -gt 0 ]; then
+    log "REFUSED: $SIGNED_FAIL module(s) could not be signed (the reasons are above); nothing was"
+    log "  installed for kernel $KVER, and any previously installed signed modules are unchanged."
+    log "  To finish it: sudo $NVIDIA_HOOK_DIR/rebuild-modules $KVER"
+    exit "$MOK_REFUSED_EXIT"
+fi
 
 # Install signed .ko files
 INSTALL_DIR="/lib/modules/$KVER/extra/nvidia"

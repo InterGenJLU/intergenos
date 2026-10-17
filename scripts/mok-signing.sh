@@ -27,6 +27,11 @@
 #      further down with a page of library errors.
 #   4. An absent key, a plain key and a protected key are three different
 #      answers and are never collapsed into two.
+#   5. The owner is asked once per operation, not once per signature. A driver
+#      install signs five modules and then the boot image, each in a process
+#      of its own; the first step to resolve the passphrase holds it for the
+#      processes it starts (see _mok_hold_for_operation), and every later step
+#      checks that held value against the key like any supplied one.
 
 # Where the key lives. Overridable so the tests can run against a scratch copy;
 # on a machine these are the real paths.
@@ -58,8 +63,36 @@ MOK_PASS_ENV="IGOS_MOK_PASSPHRASE"
 # Set by mok_resolve_passphrase on success. Never printed by anything here.
 MOK_PASSPHRASE=""
 
+# The exit status a signing hook uses when it REFUSED to sign (rule 1). The
+# package manager reads it from a package's own post-install hook and reports
+# that install as not finished, because the thing the hook exists to produce was
+# not produced. Every other non-zero status keeps its old meaning. The same
+# number is pkm/installer.py's SIGNING_REFUSED_EXIT; a preflight test holds the
+# two equal.
+MOK_REFUSED_EXIT=77
+
 mok_log() {
     echo "[mok-signing] $*" >&2
+}
+
+# Hold the resolved passphrase for the rest of THIS operation (rule 5).
+#
+# A driver install signs five modules, each through its own signer process, and
+# then the boot image through the kernel's hook, another process. Each of them
+# used to resolve the passphrase for itself, so the owner was asked once per
+# signature: six times for one driver install, measured on a real one. The step
+# that resolves it first exports it under the name the installer already uses
+# to hand it over, so the processes it starts afterwards find it there and
+# check it against the key like any supplied value (rule 3).
+#
+# Where it goes, said once: into this process's environment, which only the
+# processes it starts from here on inherit. Never a file, never a command line
+# (rule 2), and gone when the operation's processes exit. A caller that starts
+# something with no business holding it (a compiler, for one) starts it with
+# the variable removed.
+_mok_hold_for_operation() {
+    [ -n "$MOK_PASSPHRASE" ] || return 1
+    export "${MOK_PASS_ENV}=${MOK_PASSPHRASE}"
 }
 
 # 0 = the key is encrypted, 1 = it is a plain key, 2 = there is no key.
@@ -127,13 +160,15 @@ mok_resolve_passphrase() {
         return 2
     fi
 
-    # An install supplies it. Checked against the key like any other candidate:
-    # a wrong value here is a bug in the installer, and letting it through would
+    # An install supplies it, and so does an earlier step of the same operation
+    # (rule 5). Checked against the key like any other candidate: a wrong value
+    # here is a bug in whatever handed it over, and letting it through would
     # surface as an unexplained signing failure three layers down.
     local supplied="${!MOK_PASS_ENV:-}"
     if [ -n "$supplied" ]; then
         if mok_passphrase_opens_key "$key" "$supplied"; then
             MOK_PASSPHRASE="$supplied"
+            _mok_hold_for_operation
             return 0
         fi
         mok_log "the passphrase supplied for this operation does not open $key"
@@ -170,6 +205,7 @@ mok_resolve_passphrase() {
         if mok_passphrase_opens_key "$key" "$answer"; then
             MOK_PASSPHRASE="$answer"
             answer=""
+            _mok_hold_for_operation
             return 0
         fi
         mok_log "that passphrase does not open the machine owner key (attempt ${attempt} of ${MOK_ASK_ATTEMPTS})"
@@ -285,6 +321,7 @@ mok_migrate_plain_key() {
         mok_log "  using the passphrase already supplied for this operation"
         if _mok_rewrite_key_encrypted "$key" "$supplied"; then
             MOK_PASSPHRASE="$supplied"
+            _mok_hold_for_operation
             mok_record_protection yes
             mok_log "the machine owner signing key is now protected by that passphrase."
             return 0
@@ -329,6 +366,7 @@ mok_migrate_plain_key() {
 
     MOK_PASSPHRASE="$first"
     first=""
+    _mok_hold_for_operation
 
     # The first-login page runs as the person and cannot read the key, so the
     # fact that it is now protected is recorded where the person can read it.
@@ -365,15 +403,35 @@ mok_record_protection() {
 }
 
 
-# Build and sign a unified kernel image with the resolved passphrase.
+# Build and sign a unified kernel image with the resolved passphrase. The one
+# place the boot image is signed; the kernel's hook calls it.
 #
 # The builder passes its own standard input through to the boot-image signer,
-# which reads the passphrase as one line — measured on the installed tools. The
-# output path is the caller's; the caller is responsible for not putting an
+# which reads the passphrase as one line — but ONLY when the signer has no
+# terminal. OpenSSL asks for a key's passphrase on /dev/tty whenever the
+# process has a controlling terminal, and reads standard input only when it has
+# none. Measured with the installed sbsign and an encrypted key: under a
+# terminal, with the passphrase piped in, it printed "Enter PEM pass phrase:" on
+# the terminal and waited there; detached from the terminal it read the piped
+# line, signed, and the signature verified. The installer has no terminal,
+# which is why this worked there and failed the first time a person ran a driver
+# install from a terminal window: the raw prompt, then a refused key.
+#
+# So the builder runs in a session of its own (setsid --wait, which also
+# returns the builder's own exit status), where no terminal is there to ask.
+# The passphrase arrives through a process substitution of the printf builtin:
+# never an argument, never a process anyone could read the arguments of.
+#
+# The output path is the caller's; the caller is responsible for not putting an
 # unsigned image where the boot chain would pick it up, and this function never
 # produces one, because the signer writes nothing when it cannot open the key.
 mok_build_signed_uki() {
-    printf '%s\n' "$MOK_PASSPHRASE" | ukify "$@"
+    if ! command -v setsid >/dev/null 2>&1; then
+        mok_log "setsid is not on this system, so the boot-image signer would ask on the terminal"
+        mok_log "  instead of reading the passphrase it is given. Nothing will be signed."
+        return 1
+    fi
+    setsid --wait ukify "$@" < <(printf '%s\n' "$MOK_PASSPHRASE")
 }
 
 # Sign a kernel module with the resolved passphrase.

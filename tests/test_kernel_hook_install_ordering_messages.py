@@ -81,8 +81,10 @@ NEEDED = (
     # The signing helper reads the key's protection state with openssl and its
     # Secure Boot state with od. Both are present on any machine this hook runs
     # on; leaving them out would make the helper fail for a reason that has
-    # nothing to do with the messages under test.
-    "openssl", "od",
+    # nothing to do with the messages under test. tail is the helper's last step
+    # in reading the Secure Boot state byte; without it a fixture's enforcing
+    # state reads as unreadable.
+    "openssl", "od", "tail",
 )
 
 
@@ -94,19 +96,42 @@ class Fixture:
     """A throwaway target tree the hook can be fired against."""
 
     def __init__(self, tmp, *, machine_id=None, with_ukify=False,
-                 with_updater=False, esp_menu_dir=None, menu_repointable=True):
+                 with_updater=False, esp_menu_dir=None, menu_repointable=True,
+                 with_helper=True, encrypted_key=False,
+                 secure_boot_enforcing=False):
         self.root = Path(tmp)
         for rel in ("boot/efi/EFI/Linux", "varlog", "libintergen", "bin",
-                    "pkgroot/etc", "efivars"):
+                    "pkgroot/etc", "efivars", "varlibintergen/mok"):
             (self.root / rel).mkdir(parents=True, exist_ok=True)
 
         # The REAL signing helper, at the path the linux-kernel recipe installs
         # it to. The hook sources it before anything else and refuses without
         # it, which is correct on a machine — the same package ships both — and
         # would otherwise make every test here fail for that one reason.
-        helper = self.root / "libintergen" / "mok-signing.sh"
-        shutil.copy2(MOK_HELPER, helper)
-        helper.chmod(0o644)
+        if with_helper:
+            helper = self.root / "libintergen" / "mok-signing.sh"
+            shutil.copy2(MOK_HELPER, helper)
+            helper.chmod(0o644)
+
+        # The signing key lives at a fixed path the hook names itself
+        # (/var/lib/intergen/mok); the fixture's own directory is bound over it,
+        # so the key the hook finds is this one or none — never the host's.
+        if encrypted_key:
+            env = dict(os.environ, IGOS_TEST_PASS="fixture-passphrase-1")
+            mok = self.root / "varlibintergen" / "mok"
+            proc = subprocess.run(
+                ["openssl", "req", "-new", "-x509", "-newkey", "rsa:2048",
+                 "-keyout", str(mok / "mok.key"), "-out", str(mok / "mok.crt"),
+                 "-days", "30", "-subj", "/CN=fixture owner key/",
+                 "-passout", "env:IGOS_TEST_PASS"],
+                env=env, capture_output=True, text=True)
+            assert proc.returncode == 0, proc.stderr
+
+        # Four attribute bytes and one state byte, as the firmware writes it.
+        if secure_boot_enforcing:
+            (self.root / "efivars"
+             / "SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c").write_bytes(
+                 b"\x06\x00\x00\x00\x01")
 
         # A vmlinuz has to exist or the hook exits before anything under test.
         (self.root / "boot" / f"vmlinuz-{KVER}").write_text("not a real kernel\n")
@@ -187,6 +212,7 @@ def _run(fixture):
         'mount --bind "$FIXTURE_ROOT/boot" /boot && '
         'mount --bind "$FIXTURE_ROOT/varlog" /var/log && '
         'mount --bind "$FIXTURE_ROOT/libintergen" /usr/lib/intergen && '
+        'mount --bind "$FIXTURE_ROOT/varlibintergen" /var/lib/intergen && '
         # An EMPTY directory over the firmware variables, so the fixture's
         # Secure Boot state is UNREADABLE rather than whatever the machine
         # running the suite happens to report. Without this these tests would
@@ -390,6 +416,65 @@ class KernelHookMessages(unittest.TestCase):
         self.assertIn("emergency mode", msgs,
                       "on a system that has booted, a failed menu update is "
                       "still the one degrade that breaks the NEXT boot")
+
+
+class RefusalsCarryTheRefusalStatus(unittest.TestCase):
+    """A refused signing exits 77, which the package manager reports.
+
+    Measured on a real driver install, 2026-10-16: the boot-image signing was
+    refused, the hook exited 1, the driver's post-install logged a warning, and
+    the package manager reported the install complete; the machine rebooted
+    into an image without the driver's cmdline. 77 is the signing helper's
+    MOK_REFUSED_EXIT, the status pkm reads as "this install did not finish".
+    On the tree before the change every case below exited 1.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp = self._tmp.name
+
+    def test_no_usable_passphrase_is_the_refusal_status(self):
+        # A protected key and no way to ask the owner: the refusal path.
+        f = Fixture(self.tmp, machine_id=VALID_MACHINE_ID, with_ukify=True,
+                    with_updater=True, encrypted_key=True)
+        proc = _run(f)
+        msgs = hook_lines(proc.stdout + proc.stderr)
+        self.assertIn("REFUSING TO SIGN", msgs)
+        self.assertEqual(proc.returncode, 77, msgs)
+
+    def test_no_key_where_secure_boot_enforces_is_the_refusal_status(self):
+        f = Fixture(self.tmp, machine_id=VALID_MACHINE_ID, with_ukify=True,
+                    with_updater=True, secure_boot_enforcing=True)
+        proc = _run(f)
+        msgs = hook_lines(proc.stdout + proc.stderr)
+        self.assertIn("Secure Boot is enabled on this machine", msgs)
+        self.assertEqual(proc.returncode, 77, msgs)
+
+    def test_no_helper_on_a_booted_system_is_the_refusal_status(self):
+        f = Fixture(self.tmp, machine_id=VALID_MACHINE_ID, with_helper=False)
+        proc = _run(f)
+        msgs = hook_lines(proc.stdout + proc.stderr)
+        self.assertIn("FATAL", msgs)
+        self.assertEqual(proc.returncode, 77, msgs)
+
+    def test_no_helper_during_an_install_is_the_expected_order(self):
+        # The second kernel pass installs this same hook and extracts before
+        # the package that ships the helper (the R001.3 install of 2026-10-16:
+        # its fire exited 1 at 23:57:21). The installer signs the boot image
+        # itself after the package phase, so this fire has nothing to refuse.
+        f = Fixture(self.tmp, with_helper=False)       # not yet booted
+        proc = _run(f)
+        msgs = hook_lines(proc.stdout + proc.stderr)
+        self.assertIn("first-install ordering", msgs)
+        self.assertEqual(proc.returncode, 0, msgs)
+
+    def test_the_boot_image_is_signed_only_through_the_helper(self):
+        # The helper runs the signer away from the terminal; a second copy of
+        # the signing line in the hook would be the raw-prompt defect again.
+        text = HOOK.read_text(encoding="utf-8")
+        self.assertIn("mok_build_signed_uki", text)
+        self.assertNotIn('ukify "${UKIFY_ARGS[@]}" 2>&1 < <(printf', text)
 
 
 if __name__ == "__main__":

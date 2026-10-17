@@ -18,8 +18,17 @@
 
 set -uo pipefail
 
-LOGFILE=/var/log/intergen-nvidia-postinstall.log
+LOGFILE="${NVIDIA_HOOK_LOG:-/var/log/intergen-nvidia-postinstall.log}"
 mkdir -p "$(dirname "$LOGFILE")" 2>/dev/null || true
+
+# Where this package's hooks, the kernel's hook and the signing helper live,
+# and the log above. Overridable so the preflight tests can run this script
+# against stand-ins; on a machine these are the paths the packages install. The
+# package manager starts this hook with an environment stripped to a fixed
+# list that names none of them.
+NVIDIA_HOOK_DIR="${NVIDIA_HOOK_DIR:-/var/lib/pkm/hooks/nvidia}"
+KERNEL_HOOK="${KERNEL_HOOK:-/var/lib/pkm/hooks/linux-kernel/post-install}"
+MOK_HELPER="${MOK_HELPER:-/usr/lib/intergen/mok-signing.sh}"
 
 log() {
     local msg="[nvidia:post-install] $*"
@@ -29,12 +38,24 @@ log() {
 
 log "starting (PKM package: ${PKM_PACKAGE_NAME:-?} ${PKM_PACKAGE_VERSION:-?})"
 
+# The signing helper, for the one passphrase entry this install asks for (step
+# 2b). Shipped by the kernel package; without it nothing here can be signed,
+# which is a refusal (the helper's status, 77), not a warning.
+if [ -r "$MOK_HELPER" ]; then
+    # shellcheck source=/dev/null
+    . "$MOK_HELPER"
+else
+    log "FATAL: $MOK_HELPER is missing, so the driver's modules and the boot image cannot be signed."
+    log "  Nothing was built. Restore it with: sudo pkm reinstall linux-kernel, then: sudo pkm reinstall nvidia"
+    exit 77
+fi
+
 # Step 1: hardware check
-if [ -x /var/lib/pkm/hooks/nvidia/check-hardware.sh ]; then
-    if ! /var/lib/pkm/hooks/nvidia/check-hardware.sh 2>&1 | tee -a "$LOGFILE" >&2; then
+if [ -x "$NVIDIA_HOOK_DIR/check-hardware.sh" ]; then
+    if ! "$NVIDIA_HOOK_DIR/check-hardware.sh" 2>&1 | tee -a "$LOGFILE" >&2; then
         log "FATAL: hardware check failed — no Turing+ NVIDIA GPU detected on this system"
         log "Aborting module rebuild. nouveau (already in kernel) handles pre-Turing NVIDIA hardware."
-        log "If this is wrong (e.g. lspci returned stale data), re-run /var/lib/pkm/hooks/nvidia/rebuild-modules manually."
+        log "If this is wrong (e.g. lspci returned stale data), re-run $NVIDIA_HOOK_DIR/rebuild-modules manually."
         exit 1
     fi
 fi
@@ -55,7 +76,7 @@ fi
 if [ -z "$KVER" ] || [ ! -d "/lib/modules/$KVER/build" ]; then
     if ! KVER=$(nvidia_kver_from_modules /lib/modules); then
         log "FATAL: more than one staged kernel under /lib/modules has a build tree; refusing to guess."
-        log "Pass the kernel explicitly: /var/lib/pkm/hooks/nvidia/rebuild-modules <version>-igos-<release>"
+        log "Pass the kernel explicitly: $NVIDIA_HOOK_DIR/rebuild-modules <version>-igos-<release>"
         exit 1
     fi
 fi
@@ -73,13 +94,42 @@ if [ ! -d "/lib/modules/$KVER/build" ]; then
     exit 1
 fi
 
+# Step 2b: ONE passphrase entry for this whole install. The driver signs five
+# modules here and the kernel's hook then signs the boot image that carries the
+# driver's cmdline; each signer is a process of its own, and each used to ask
+# the owner again — six entries for one install, then a raw prompt from the
+# boot-image signer (measured on a real install, 2026-10-16). Resolved once
+# here, before the long compile, and held for every step this hook starts
+# (mok-signing.sh rule 5). No key at all is left to the signers, which refuse
+# with their own reason.
+if [ -f "$MOK_KEY" ] && [ -f "$MOK_CERT" ]; then
+    if ! mok_key_is_encrypted "$MOK_KEY"; then
+        if ! mok_migrate_plain_key "$MOK_KEY"; then
+            log "REFUSED: the signing key has no passphrase and none was set, so nothing was built"
+            log "  or signed. To finish it: sudo pkm reinstall nvidia"
+            exit "$MOK_REFUSED_EXIT"
+        fi
+    elif ! mok_resolve_passphrase "$MOK_KEY" "the NVIDIA driver and the boot image for kernel $KVER"; then
+        log "REFUSED: no usable signing passphrase, so nothing was built or signed."
+        log "  To finish it with the passphrase in hand: sudo pkm reinstall nvidia"
+        exit "$MOK_REFUSED_EXIT"
+    fi
+fi
+
 # Step 3: invoke the rebuild (factored so the linux-kernel hook can call
 # the same code path on kernel upgrade — see hooks/rebuild-modules.sh).
-if ! /var/lib/pkm/hooks/nvidia/rebuild-modules "$KVER"; then
-    log "WARNING: rebuild-modules exited non-zero for kernel $KVER"
+# A refused signing keeps its status on the way out, so the package manager
+# reports this install as not finished.
+"$NVIDIA_HOOK_DIR/rebuild-modules" "$KVER"
+REBUILD_RC=$?
+if [ "$REBUILD_RC" -ne 0 ]; then
+    log "WARNING: rebuild-modules exited $REBUILD_RC for kernel $KVER"
     log "Modules may not load on next boot. Diagnose with:"
     log "  cat $LOGFILE"
-    log "  /var/lib/pkm/hooks/nvidia/rebuild-modules $KVER"
+    log "  $NVIDIA_HOOK_DIR/rebuild-modules $KVER"
+    if [ "$REBUILD_RC" -eq "$MOK_REFUSED_EXIT" ]; then
+        exit "$MOK_REFUSED_EXIT"
+    fi
     exit 1
 fi
 
@@ -102,14 +152,30 @@ fi
 # install reads cmdline.d fragments at rebuild time. Without this trigger,
 # the cmdline params don't take effect until the next kernel update.
 # Skip in chroot install context — no UKI on the build VM.
+#
+# A boot image that was not rebuilt is a FAILURE of this install, not a note.
+# Without nvidia-drm.modeset=1 in the signed cmdline the driver loads with KMS
+# off and every output wired to the NVIDIA GPU stays dark, so a machine that
+# reboots here reboots into a dead HDMI port. This used to log a warning and
+# exit 0: the package reported installed and the next step said reboot
+# (measured on a real install, 2026-10-16: the boot-image signer refused the
+# key, modeset read N after the reboot). The kernel's hook says why and how to
+# finish; this passes its status on.
 if [ -n "${PKM_PACKAGE_ROOT:-}" ] && [ "$PKM_PACKAGE_ROOT" = "/" ]; then
-    KERNEL_HOOK="/var/lib/pkm/hooks/linux-kernel/post-install"
     if [ -x "$KERNEL_HOOK" ]; then
         log "triggering UKI rebuild via $KERNEL_HOOK so cmdline.d/40-nvidia.conf takes effect"
         if "$KERNEL_HOOK" 2>&1 | tee -a "$LOGFILE" >&2; then
             log "UKI rebuild complete — nvidia cmdline params active on next boot"
         else
-            log "WARNING: UKI rebuild failed (exit $?) — nvidia cmdline params take effect on next kernel update instead"
+            KERNEL_HOOK_RC=${PIPESTATUS[0]}
+            log "REFUSED: the boot image was NOT rebuilt (the kernel hook exited $KERNEL_HOOK_RC; its reason"
+            log "  is above), so the driver's cmdline is not in the image this machine boots and the"
+            log "  outputs wired to the NVIDIA GPU would stay dark. Do not reboot for the driver yet."
+            log "  To finish it with the passphrase in hand: sudo pkm reinstall linux-kernel"
+            if [ "$KERNEL_HOOK_RC" -eq "$MOK_REFUSED_EXIT" ]; then
+                exit "$MOK_REFUSED_EXIT"
+            fi
+            exit 1
         fi
     else
         log "$KERNEL_HOOK absent — UKI rebuild skipped (cmdline params take effect on next kernel update)"
