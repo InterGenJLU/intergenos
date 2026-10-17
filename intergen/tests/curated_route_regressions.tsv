@@ -1,0 +1,149 @@
+IDX	ROUTE	BASE_ROUTE	QUERY
+1	explain	explain	how do I install software on linux
+2	explain	explain	how do I install a .deb file
+3	explain	explain	how do I uninstall a program
+4	explain	explain	how do I search for a package
+5	explain	explain	how do I install google chrome
+6	explain	explain	how do I install vscode
+7	explain	explain	how do I install steam
+8	explain	explain	how do I install spotify on linux
+9	explain	explain	how do I install discord on linux
+10	explain	explain	how do I install zoom on linux
+11	explain	explain	how do I install vlc
+12	explain	explain	what's the difference between snap, flatpak and apt
+13	explain	explain	where's the app store
+14	explain	explain	how do I update my system
+15	explain	explain	how do I update everything
+16	explain	explain	how do I upgrade to the latest version
+17	explain	explain	how do I update just one program
+18	explain	explain	do I need to reboot after updating
+21	explain	explain	how do I kill a frozen program
+22	explain	explain	an app is not responding how do I close it
+23	explain	explain	how do I force quit on linux
+24	explain	explain	how do I kill a process by name
+25	explain	explain	how do I start a service
+26	explain	explain	how do I stop a service
+27	explain	explain	how do I enable a service to start at boot
+28	explain	explain	how do I disable a service
+29	explain	explain	how do I check if a service is running
+30	explain	explain	how do I restart a service
+31	explain	explain	how do I make a program start automatically when I log in
+32	keyword	keyword	what version am I running
+33	keyword	explain	what OS is this
+34	cache	cache	what kernel am I running
+35	cache	cache	what version of the kernel am I running
+36	explain	explain	is my system 32 bit or 64 bit
+37	direct_answer	direct_answer	how much RAM do I have
+38	keyword	keyword	how much memory is in this computer
+39	keyword	keyword	check my memory
+40	keyword	keyword	what CPU do I have
+41	keyword	keyword	how many cores do I have
+44	direct_answer	direct_answer	what's my uptime
+45	direct_answer	direct_answer	how long has my computer been running
+46	direct_answer	direct_answer	what's my hostname
+47	explain	explain	how do I change my computer's name
+48	keyword	keyword	what graphics card do I have
+49	keyword	keyword	how much disk space do I have
+50	direct_answer	direct_answer	how much free space is left
+51	direct_answer	direct_answer	is my disk full
+53	explain	explain	how do I find large files
+54	explain	explain	how do I free up disk space
+55	explain	explain	how do I clean up my system
+56	explain	explain	how do I clear the package cache
+58	explain	explain	how do I change my password
+59	explain	explain	how do I change the root password
+60	explain	explain	how do I add a new user
+61	explain	explain	how do I give a user sudo rights
+62	explain	explain	how do I delete a user
+63	explain	explain	what is sudo
+64	explain	explain	how do I run a command as admin
+65	explain	explain	why do I get permission denied
+66	explain	explain	how do I make a file executable
+67	explain	explain	how do I run a shell script
+68	explain	explain	how do I change file permissions
+69	explain	explain	what does chmod 777 mean
+70	explain	explain	how do I change the owner of a file
+71	explain	explain	how do I see a file's permissions
+72	explain	explain	how do I find a file by name
+74	explain	explain	how do I search for text inside files
+75	explain	explain	how do I find which file contains a word
+76	explain	explain	how do I copy a file
+77	explain	explain	how do I move a file to another folder
+78	explain	explain	how do I rename a file
+79	explain	explain	how do I delete a file
+80	explain	explain	how do I delete a folder and everything in it
+81	explain	explain	how do I create a new folder
+82	explain	explain	how do I show hidden files
+83	explain	explain	how do I create a symlink
+84	explain	explain	how do I extract a tar.gz file
+85	explain	explain	how do I unzip a file
+86	explain	explain	how do I zip a folder
+87	explain	explain	how do I edit a file in the terminal
+88	explain	explain	how do I save and quit in vim
+89	explain	explain	how do I save and exit nano
+90	ip_answer	ip_answer	what's my ip address
+91	ip_answer	ip_answer	what is my ip address
+92	ip_answer	ip_answer	what's my ip
+93	ip_answer	ip_answer	what's my local ip address
+94	explain	explain	how do I find my ip address
+95	ip_answer	ip_answer	what's my public ip address
+96	ip_answer	ip_answer	what's my external ip
+97	explain	explain	how do I find my public ip
+98	explain	explain	how do I connect to wifi
+99	explain	explain	how do I connect to wifi from the terminal
+100	explain	explain	why won't my wifi connect
+101	explain	explain	why is my wifi not working
+102	explain	explain	how do I see available wifi networks
+103	explain	explain	how do I test my internet connection
+104	explain	explain	how do I ping a website
+105	explain	explain	why can't I resolve domain names
+106	explain	explain	how do I change my DNS server
+107	explain	explain	how do I ssh into another machine
+108	explain	explain	how do I copy a file to another computer
+109	explain	explain	how do I mount a usb drive
+110	explain	explain	how do I add a printer
+111	explain	explain	why won't my printer print
+112	explain	explain	how do I install nvidia drivers
+113	explain	explain	how do I switch between integrated and nvidia graphics
+114	explain	explain	how do I connect my bluetooth headphones
+115	explain	explain	how do I pair a bluetooth mouse
+116	explain	explain	my bluetooth isn't working
+117	explain	explain	why is there no sound
+118	explain	explain	how do I change my audio output device
+119	explain	explain	my microphone isn't working
+120	explain	explain	my webcam isn't working
+121	explain	explain	my usb drive isn't showing up
+122	explain	explain	how do I check what graphics card I have
+123	explain	explain	how do I check my battery health
+124	explain	explain	how do I change my screen resolution
+125	explain	explain	how do I set up dual monitors
+126	explain	explain	my second monitor isn't detected
+127	explain	explain	how do I adjust my screen brightness
+128	explain	explain	how do I make everything bigger
+129	explain	explain	how do I turn on night light
+130	explain	explain	how do I take a screenshot
+131	explain	explain	where are my screenshots saved
+132	explain	explain	how do I record my screen
+133	explain	explain	how do I change my refresh rate
+134	explain	explain	why won't my video play
+135	explain	explain	how do I install codecs
+136	explain	explain	how do I change my wallpaper
+137	explain	explain	how do I enable dark mode
+138	explain	explain	how do I change the theme
+139	explain	explain	how do I change the default application for pdfs
+140	explain	explain	how do I set a custom keyboard shortcut
+141	explain	explain	how do I change the timezone
+142	explain	explain	how do I change the keyboard layout
+143	explain	explain	my computer is running really slow
+144	explain	explain	my system froze how do I force quit
+145	explain	explain	my computer won't boot
+146	explain	explain	I just get a black screen after login
+147	explain	explain	my wifi keeps dropping
+148	explain	explain	why is my cpu usage so high
+149	explain	explain	what's using all my ram
+150	explain	explain	what's the task manager on linux
+151	explain	explain	where's the control panel
+152	explain	explain	how do I run windows programs on linux
+153	explain	explain	where is my C drive
+154	explain	explain	what's the command prompt equivalent on linux
+155	explain	explain	where's the device manager on linux
