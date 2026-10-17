@@ -2519,6 +2519,18 @@ def cmd_install(db, args):
                 sys.exit(1)
             continue
 
+        # It landed, and a critical post-install hook failed after it did: not
+        # a missing archive, whatever the hook's output said ("not found" in a
+        # hook's stderr would otherwise send this down the repository path to
+        # install it again).
+        unfinished = _unfinished_install(db, pkg_name, ok)
+        if unfinished:
+            reporter.error(msg)
+            reporter.error(
+                f"{pkg_name} is installed, but its install did not finish "
+                f"({unfinished}). {_unfinished_advice(pkg_name, unfinished)}")
+            sys.exit(1)
+
         # No usable local archive — either none is cached, or a cached one was
         # unverifiable and install()'s S5-1 backstop refused it. Either way, fetch
         # the verified package from the repo.
@@ -2757,6 +2769,35 @@ def cmd_install_helper(db, args):
         sys.exit(1)
 
 
+def _unfinished_install(db, name, ok):
+    """pkm's degraded reason when install() said not-ok but the package LANDED.
+
+    install() returns False both when a package did not land and when it
+    landed and a critical post-install hook then failed — a hook that refused
+    to sign among them — and only the second marks the installed row DEGRADED.
+    The callers that replace a package read every False as "did not land":
+    reinstall printed "removed but not reinstalled. Run `pkm install <name>`
+    to recover", a command that refuses an installed package, and upgrade
+    tried to install the rollback archive over the package that had landed and
+    printed CRITICAL when that refused too (found by a second read,
+    2026-10-17). The marker on the row is what tells the two apart. Returns
+    None when ok, or when no row exists afterwards.
+    """
+    if ok:
+        return None
+    row = db.get_installed(name)
+    return (row or {}).get("degraded") or None
+
+
+def _unfinished_advice(name, reason):
+    """The one command that finishes an install that landed degraded."""
+    if "refused to sign" in reason:
+        return (f"Finish it with the signing key passphrase in hand (the one "
+                f"set at install, not the MOK enrollment password): "
+                f"sudo pkm reinstall {name}")
+    return f"Retry it with: sudo pkm reinstall {name}"
+
+
 def cmd_reinstall(db, args):
     """Reinstall packages — ACQUIRE the verified replacement BEFORE removing.
 
@@ -2922,6 +2963,15 @@ def cmd_reinstall(db, args):
             pkg_name, archive_path=str(archive_path),
             expected_sha256=expected_sha, reporter=reporter,
         )
+        unfinished = _unfinished_install(db, pkg_name, ok)
+        if unfinished:
+            # It landed; a critical post-install hook failed after it did. The
+            # installer's own message says which and why.
+            reporter.error(imsg)
+            reporter.error(
+                f"{pkg_name} is reinstalled, but its install did not finish "
+                f"({unfinished}). {_unfinished_advice(pkg_name, unfinished)}")
+            sys.exit(1)
         if not ok:
             # With acquire-before-remove this is now genuinely rare (the
             # archive was verified present + sha-matched before remove). Keep
@@ -3528,6 +3578,10 @@ def cmd_upgrade(db, args):
     # exit code was told the upgrade worked. Collected here and turned into
     # a non-zero exit at the end, after every other package has had its turn.
     failed_this_txn = []
+    # Packages whose new release LANDED but did not finish (a critical
+    # post-install hook failed, a refused signing among them): not "did not
+    # upgrade", and named apart from those in the closing line.
+    unfinished_this_txn = []
     # Did this transaction change installed state at all? Not the same
     # question as "did anything upgrade": a package whose files deployed and
     # whose critical hook then failed IS a changed system — it is registered,
@@ -3724,12 +3778,19 @@ def cmd_upgrade(db, args):
             sidecars_out=pkg_sidecars,
         )
         sidecars_this_txn.extend(pkg_sidecars)
+        # A new release that LANDED and then had a critical post-install hook
+        # fail (a refused signing among them) is not a failed install: its
+        # row is there, marked degraded, and the rollback below would try to
+        # install the old archive over it and refuse. It is named as what it
+        # is, with the command that finishes it, and nothing is rolled back.
+        unfinished = _unfinished_install(db, remote_pkg["name"], ok)
         # Q1 (O-007): install-failure rollback. If installer.install
         # returned not-ok, the old package is gone (removed) and the new
         # package didn't land. Reinstall from the rollback archive to
         # leave the system at its pre-upgrade state.
         _rollback_usable = (
             not ok
+            and not unfinished
             and rollback_archive is not None
             and rollback_archive.exists()
         )
@@ -3838,6 +3899,15 @@ def cmd_upgrade(db, args):
                     args, installed_pkg, remote_pkg, db,
                     remaining=len(upgradable) - 1,
                 )
+        elif unfinished:
+            _installed_row = db.get_installed(remote_pkg["name"]) or remote_pkg
+            emit_error(f"upgrading {remote_pkg['name']}: {msg}")
+            emit_error(
+                f"{remote_pkg['name']} is upgraded to "
+                f"{txn.format_vr(_installed_row)}, but its install did not "
+                f"finish ({unfinished}); nothing was rolled back. "
+                f"{_unfinished_advice(remote_pkg['name'], unfinished)}")
+            unfinished_this_txn.append(remote_pkg["name"])
         else:
             emit_error(f"upgrading {remote_pkg['name']}: {msg}")
             failed_this_txn.append((remote_pkg["name"], msg))
@@ -3871,6 +3941,12 @@ def cmd_upgrade(db, args):
     # packages that DID upgrade are already installed and are not undone by
     # this; the code describes the transaction, and a transaction with a
     # failed member did not do what it was asked.
+    if unfinished_this_txn:
+        emit_error(
+            f"{len(unfinished_this_txn)} of {len(upgradable)} package(s) "
+            f"upgraded but did not finish: {', '.join(unfinished_this_txn)}. "
+            f"See the lines above for the command that finishes each."
+        )
     if failed_this_txn:
         names = ", ".join(n for n, _ in failed_this_txn)
         emit_error(
@@ -3878,6 +3954,8 @@ def cmd_upgrade(db, args):
             f"upgrade: {names}. See the errors above. Exiting non-zero so a "
             f"caller that checks the exit code is not told this succeeded."
         )
+        return 1
+    if unfinished_this_txn:
         return 1
     return 0
 
