@@ -238,5 +238,58 @@ class ChromeInstallSteps(InstallStepCase):
         self.assert_refused(self.run_chrome())
 
 
+class ClaudeInstallSteps(InstallStepCase):
+    def setUp(self):
+        super().setUp()
+        self.module = self.extracted / "module"
+        self.entry = self.put("module/cli.js", "#!/bin/sh\nexit 0\n", True)
+        self.binary = self.root / "usr/bin/cli"
+        self.binary.symlink_to(self.entry)
+
+    def run_claude(self):
+        prefix = f"CLAUDE_DIR={shlex.quote(str(self.module))}\n"
+        prefix += f"CLAUDE_BIN={shlex.quote(str(self.binary))}\n"
+        return self.run_step("claude-code", "# H-007: record every file under", "igos_helper_record_dep nodejs", prefix)
+
+    def test_module_and_literal_command_link_are_recorded(self):
+        result = self.run_claude()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(f"file {self.entry}", result.stdout)
+        self.assertIn(f"link {self.binary}", result.stdout)
+
+    def test_regular_command_is_recorded(self):
+        self.binary.unlink()
+        self.binary.write_text("#!/bin/sh\nexit 0\n")
+        self.binary.chmod(0o755)
+        result = self.run_claude()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(f"file {self.binary}", result.stdout)
+
+    def test_missing_module_refuses(self):
+        self.module.rename(self.extracted / "other-module")
+        self.assert_refused(self.run_claude())
+
+    def test_empty_module_refuses(self):
+        self.entry.unlink()
+        self.assert_refused(self.run_claude())
+
+    def test_failed_enumeration_does_not_record_partial_output(self):
+        command = self.root / "commands/find"
+        command.write_text(f"#!/bin/sh\nprintf '%s\\n' {shlex.quote(str(self.entry))}\nexit 73\n")
+        command.chmod(0o755)
+        result = self.run_claude()
+        self.assert_refused(result)
+        self.assertNotIn(f"file {self.entry}", result.stdout)
+
+    def test_missing_command_refuses(self):
+        self.binary.unlink()
+        self.assert_refused(self.run_claude())
+
+    def test_dangling_command_link_refuses(self):
+        self.binary.unlink()
+        self.binary.symlink_to(self.module / "missing")
+        self.assert_refused(self.run_claude())
+
+
 if __name__ == "__main__":
     unittest.main()

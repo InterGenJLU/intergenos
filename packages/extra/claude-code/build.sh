@@ -198,18 +198,34 @@ CLAUDE_DIR="$NPM_GLOBAL_ROOT/@anthropic-ai/claude-code"
 # H-007: record every file under the npm-installed module dir. npm's
 # global prefix typically lands under /usr/lib/node_modules which
 # matches the manifest's /usr/ allowlist.
-if [ -d "$CLAUDE_DIR" ]; then
-    while IFS= read -r f; do
-        igos_helper_record_file "$f"
-    done < <(find "$CLAUDE_DIR" -type f -o -type l 2>/dev/null)
+if [ ! -d "$CLAUDE_DIR" ]; then
+    echo "  ERROR: The installed Claude Code package directory is missing." >&2
+    exit 1
 fi
+if ! CLAUDE_FILES=$(find "$CLAUDE_DIR" -type f -o -type l); then
+    echo "  ERROR: Could not list the installed Claude Code files." >&2
+    exit 1
+fi
+if [ -z "$CLAUDE_FILES" ]; then
+    echo "  ERROR: The installed Claude Code package directory is empty." >&2
+    exit 1
+fi
+while IFS= read -r f; do
+    igos_helper_record_file "$f"
+done <<< "$CLAUDE_FILES"
 
 # npm creates a symlink in <prefix>/bin/ pointing into the module dir.
 # Record it so pkm remove unlinks the binary surface.
-if [ -L "$CLAUDE_BIN" ]; then
+if [ ! -x "$CLAUDE_BIN" ]; then
+    echo "  ERROR: The installed Claude Code command is missing or cannot be run." >&2
+    exit 1
+elif [ -L "$CLAUDE_BIN" ]; then
     igos_helper_record_symlink_literal "$CLAUDE_BIN"
 elif [ -f "$CLAUDE_BIN" ]; then
     igos_helper_record_file "$CLAUDE_BIN"
+else
+    echo "  ERROR: Could not record the installed Claude Code command." >&2
+    exit 1
 fi
 
 igos_helper_record_dep nodejs
