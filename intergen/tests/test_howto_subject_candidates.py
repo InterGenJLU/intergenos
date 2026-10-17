@@ -25,7 +25,7 @@ def test_keyword_candidate_answers_the_requested_package_subject(corpus, questio
     assert entry is not None, score
     assert entry.id == entry_id
     assert command in entry.answer
-    assert "package-manager" in entry.doc_source
+    assert entry.domain == "pkm"
 
 
 @pytest.mark.parametrize("score,accepted", [(0.757, False), (STRONG_THRESHOLD, True)])
