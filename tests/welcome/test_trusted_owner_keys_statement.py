@@ -1,27 +1,30 @@
-"""The first-login page always says which machine owner keys the firmware trusts
-(R001.3 row 49).
+"""The first-login page says nothing about which machine owner keys the firmware
+trusts.
 
-Row 10 made the install offer to retire the machine owner keys earlier installs
-left behind, and made this page say when a retirement that was asked for did not
-happen. That leaves every other machine silent: a machine nobody asked, or one
-installed before the offer existed, can trust several keys — this workstation
-trusts four today — and the page said nothing at all about them.
+The page used to end with a statement, shown on every machine at every login, of
+how many certificates carrying this project's machine owner name the firmware
+trusts, whether this machine's own is among them by fingerprint, and the mokutil
+commands that retire the rest. That statement is removed: the page neither shows
+nor mentions the firmware's trusted certificates, enrolled keys, fingerprints or
+mokutil.
 
-So the page now states the fact on every machine, every time: how many
-certificates carrying this project's machine owner name the firmware trusts,
-whether this machine's own is among them by fingerprint, which of the others
-someone decided to keep and which nobody has decided about, and — when more than
-one is trusted — the documented command that retires the rest through the
-firmware's own confirmation.
+Two advisories on the same page are not that statement and are unchanged: one
+speaks only while this machine's own key is staged and not enrolled, the other
+only when a retirement the person chose during the install did not happen. Each
+reports a failure of this machine and has its own tests. Here both are silent,
+which is the state of almost every machine, so what is left on the page is
+exactly what the statement used to add to it.
 
-It reads only what a person may read: mokutil's listings, the world-readable
-copy of this machine's certificate, and the world-readable record of what was
-decided at install time. A count it cannot read is stated as unreadable and
-never as zero.
+The firmware is asked through a stand-in mokutil placed first on PATH, so the
+page is built in every state the statement could be in: one key named for this
+project, several, none but a vendor's, none at all, and a firmware that could
+not be asked. The stand-in records every question put to it, and the page must
+put none.
 """
 
-import hashlib
 import importlib.util
+import os
+import shlex
 import tempfile
 import unittest
 from pathlib import Path
@@ -29,6 +32,7 @@ from pathlib import Path
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
+from gi.repository import Gtk
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 WELCOME_PY = REPO_ROOT / "assets" / "intergen-welcome" / "intergen-welcome.py"
@@ -36,15 +40,24 @@ _spec = importlib.util.spec_from_file_location("intergen_welcome_trusted", WELCO
 welcome = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(welcome)
 
-OWN_DER = b"\x30\x82\x02\x00" + b"this-machines-own-key" * 10
-OLD_A = b"\x30\x82\x02\x00" + b"an-earlier-install-a" * 10
-OLD_B = b"\x30\x82\x02\x00" + b"an-earlier-install-b" * 10
-OWN = hashlib.sha1(OWN_DER).hexdigest()
-FP_A = hashlib.sha1(OLD_A).hexdigest()
-FP_B = hashlib.sha1(OLD_B).hexdigest()
+OWNER_CN = "InterGenOS Machine Owner Key"
+FP_A = "8a541b1738e975d378646339be215d6a7892aab0"
+FP_B = "17f8adde8d70dee58521b561126051d8879aa23d"
+FP_C = "d41d8cd98f00b204e9800998ecf8427e1a2b3c4d"
 VENDOR = "2bb010e24d94c632245889baaa9ed0f3d5ef1f68"
 
-OWNER_CN = "InterGenOS Machine Owner Key"
+# Words the page must not carry, matched without regard to case. The first four
+# are the ones the removal names; the rest are the statement's own phrases.
+FORBIDDEN = ("mokutil", "fingerprint", "enrolled", "trusted certificate",
+             "certificate", "firmware trusts", "machine owner",
+             "to ask it yourself")
+
+# What the removal takes out of the module: the statement, everything that fed it,
+# and its style.
+REMOVED_NAMES = ("_build_trusted_owner_keys_card", "_trusted_owner_key_state",
+                 "_trusted_owner_keys_text", "_owner_key_removal_action",
+                 "_enrolled_owner_fingerprints", "_subject_common_name",
+                 "_statement_box", "_capitalised", "_MOK_OWNER_COMMON_NAME")
 
 
 def _colons(fingerprint):
@@ -52,14 +65,7 @@ def _colons(fingerprint):
 
 
 def _listing(entries):
-    """mokutil --list-enrolled output, in the shape mokutil really prints it.
-
-    Taken from a real listing on an installed machine: a [key N] header, an
-    Owner line, the SHA1 fingerprint, then the decoded certificate, in which
-    BOTH an Issuer line and a Subject line carry a CN, and a "Subject Public Key
-    Info:" line follows the subject. A parser that matches "Subject" loosely, or
-    that reads the issuer's CN, gets the wrong answer on real output.
-    """
+    """mokutil --list-enrolled output, in the shape mokutil really prints it."""
     lines = []
     for i, (fingerprint, common_name) in enumerate(entries, start=1):
         lines += [
@@ -69,7 +75,7 @@ def _listing(entries):
             "Certificate:",
             "    Data:",
             "        Version: 3 (0x2)",
-            f"        Issuer: CN=some other authority",
+            "        Issuer: CN=some other authority",
             "        Validity",
             f"        Subject: CN={common_name}",
             "        Subject Public Key Info:",
@@ -78,313 +84,188 @@ def _listing(entries):
     return lines
 
 
-def _mokutil(entries=(), fails=False):
-    def run(*args):
-        if args == ("--list-enrolled",):
-            return None if fails else _listing(entries)
-        return None
-    return run
+# The states the statement could be in, as the firmware would answer.
+# None is a firmware that could not be asked: mokutil fails and prints nothing.
+STATES = {
+    "one key named for this project": [(FP_C, OWNER_CN), (VENDOR, "fedoraca")],
+    "several": [(FP_A, OWNER_CN), (FP_C, OWNER_CN), (FP_B, OWNER_CN)],
+    "none but a vendor's": [(VENDOR, "fedoraca")],
+    "none at all": [],
+    "a firmware that could not be asked": None,
+}
 
 
-def _own_cert(tmp, der=OWN_DER):
-    path = Path(tmp) / "mok.der"
-    path.write_bytes(der)
-    return str(path)
-
-
-def _decision_record(tmp, kept=(), retired=()):
-    path = Path(tmp) / "mok-prior-keys"
-    body = ["# what was decided about earlier machine owner keys",
-            "decided=2026-09-17T22:00:00Z"]
-    body += [f"kept={f}" for f in kept]
-    body += [f"retired={f}" for f in retired]
-    path.write_text("\n".join(body) + "\n", encoding="utf-8")
-    return str(path)
-
-
-class TestTheStateItReads(unittest.TestCase):
-    def test_one_trusted_key_and_it_is_this_machines(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            state = welcome._trusted_owner_key_state(
-                cert_path=_own_cert(tmp),
-                decisions_path=str(Path(tmp) / "absent"),
-                mokutil=_mokutil([(OWN, OWNER_CN), (VENDOR, "fedoraca")]))
-        self.assertEqual(state["count"], 1)
-        self.assertIs(state["own_is_trusted"], True)
-        self.assertEqual(state["others"], [])
-
-    def test_vendor_certificates_are_not_counted(self):
-        """Only certificates carrying this project's machine owner name count.
-
-        A firmware trusts a vendor's authority too, and counting those would
-        tell a person to retire the keys that let their machine boot at all.
-        """
-        with tempfile.TemporaryDirectory() as tmp:
-            state = welcome._trusted_owner_key_state(
-                cert_path=_own_cert(tmp),
-                decisions_path=str(Path(tmp) / "absent"),
-                mokutil=_mokutil([(VENDOR, "fedoraca"),
-                                  (OWN, OWNER_CN)]))
-        self.assertEqual(state["count"], 1)
-
-    def test_several_trusted_with_this_machines_among_them(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            state = welcome._trusted_owner_key_state(
-                cert_path=_own_cert(tmp),
-                decisions_path=str(Path(tmp) / "absent"),
-                mokutil=_mokutil([(FP_A, OWNER_CN), (OWN, OWNER_CN),
-                                  (FP_B, OWNER_CN)]))
-        self.assertEqual(state["count"], 3)
-        self.assertIs(state["own_is_trusted"], True)
-        self.assertEqual(sorted(state["others"]), sorted([FP_A, FP_B]))
-        self.assertEqual(state["undecided"], sorted([FP_A, FP_B]))
-        self.assertEqual(state["kept"], [])
-
-    def test_a_kept_decision_is_read_from_the_record(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            state = welcome._trusted_owner_key_state(
-                cert_path=_own_cert(tmp),
-                decisions_path=_decision_record(tmp, kept=[FP_A]),
-                mokutil=_mokutil([(FP_A, OWNER_CN), (OWN, OWNER_CN),
-                                  (FP_B, OWNER_CN)]))
-        self.assertEqual(state["kept"], [FP_A])
-        self.assertEqual(state["undecided"], [FP_B])
-
-    def test_this_machines_own_key_is_not_among_them(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            state = welcome._trusted_owner_key_state(
-                cert_path=_own_cert(tmp),
-                decisions_path=str(Path(tmp) / "absent"),
-                mokutil=_mokutil([(FP_A, OWNER_CN), (FP_B, OWNER_CN)]))
-        self.assertEqual(state["count"], 2)
-        self.assertIs(state["own_is_trusted"], False)
-
-    def test_an_unreadable_store_is_not_a_count_of_zero(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            state = welcome._trusted_owner_key_state(
-                cert_path=_own_cert(tmp),
-                decisions_path=str(Path(tmp) / "absent"),
-                mokutil=_mokutil(fails=True))
-        self.assertIsNone(state["count"])
-        self.assertIsNone(state["own_is_trusted"])
-
-    def test_an_unreadable_own_certificate_leaves_membership_unknown(self):
-        """This workstation's real state: four trusted owner certificates, and
-        no world-readable copy of the machine's own certificate, because it was
-        installed before that copy was staged. Saying "yours is not among them"
-        there would be a claim the page cannot support."""
-        with tempfile.TemporaryDirectory() as tmp:
-            state = welcome._trusted_owner_key_state(
-                cert_path=str(Path(tmp) / "no-such-file.der"),
-                decisions_path=str(Path(tmp) / "absent"),
-                mokutil=_mokutil([(FP_A, OWNER_CN), (FP_B, OWNER_CN)]))
-        self.assertEqual(state["count"], 2)
-        self.assertIsNone(state["own_is_trusted"])
-
-
-class TestWhatItSays(unittest.TestCase):
-    def _text(self, **kw):
-        return welcome._trusted_owner_keys_text(kw)
-
-    def test_the_statement_is_never_silent(self):
-        """Every state produces a statement — that is the whole point of the
-        change: the page stopped being silent about what the firmware trusts."""
-        states = [
-            {"count": 1, "own_is_trusted": True, "others": [], "kept": [],
-             "undecided": []},
-            {"count": 3, "own_is_trusted": True, "others": [FP_A, FP_B],
-             "kept": [FP_A], "undecided": [FP_B]},
-            {"count": 2, "own_is_trusted": False, "others": [FP_A, FP_B],
-             "kept": [], "undecided": [FP_A, FP_B]},
-            {"count": 2, "own_is_trusted": None, "others": [FP_A, FP_B],
-             "kept": [], "undecided": [FP_A, FP_B]},
-            {"count": 0, "own_is_trusted": False, "others": [], "kept": [],
-             "undecided": []},
-            {"count": None, "own_is_trusted": None, "others": [], "kept": [],
-             "undecided": []},
-        ]
-        # No subTest here, deliberately: a unittest subTest failure is reported
-        # by pytest while the test that contains it still prints PASSED, so a
-        # reader of the per-test lines would see a green test whose cases
-        # failed. Each state is asserted directly, naming itself on failure.
-        for state in states:
-            text = welcome._trusted_owner_keys_text(state)
-            self.assertIsNotNone(text, f"silent in state {state}")
-            title, body, action = text
-            self.assertTrue(title.strip(), f"no title in state {state}")
-            self.assertTrue(body.strip(), f"no body in state {state}")
-
-    def test_one_key_says_so_and_asks_for_nothing(self):
-        title, body, action = self._text(count=1, own_is_trusted=True,
-                                         others=[], kept=[], undecided=[])
-        self.assertIn("one", (title + body).lower())
-        self.assertNotIn("mokutil --delete", action)
-
-    def test_several_keys_name_the_documented_removal_path(self):
-        title, body, action = self._text(count=3, own_is_trusted=True,
-                                         others=[FP_A, FP_B], kept=[],
-                                         undecided=[FP_A, FP_B])
-        self.assertIn("mokutil --export", action)
-        self.assertIn("mokutil --delete", action)
-
-    def test_kept_keys_are_not_written_up_as_a_problem(self):
-        title, body, action = self._text(count=3, own_is_trusted=True,
-                                         others=[FP_A, FP_B], kept=[FP_A, FP_B],
-                                         undecided=[])
-        self.assertIn("chose to keep", body)
-
-    def test_undecided_keys_are_named_as_undecided(self):
-        title, body, action = self._text(count=3, own_is_trusted=True,
-                                         others=[FP_A, FP_B], kept=[],
-                                         undecided=[FP_A, FP_B])
-        self.assertIn("nobody has decided", body)
-
-    def test_an_unreadable_count_says_unreadable_and_never_zero(self):
-        title, body, action = self._text(count=None, own_is_trusted=None,
-                                         others=[], kept=[], undecided=[])
-        text = (title + " " + body).lower()
-        self.assertIn("could not", text)
-        for wrong in ("no certificates", "zero", "none of"):
-            self.assertNotIn(wrong, text)
-
-    def test_an_unknown_own_key_is_never_reported_as_absent(self):
-        title, body, action = self._text(count=2, own_is_trusted=None,
-                                         others=[FP_A, FP_B], kept=[],
-                                         undecided=[FP_A, FP_B])
-        text = (title + " " + body).lower()
-        self.assertIn("could not", text)
-        self.assertNotIn("is not among", text)
-
-
-class TestItReadsLikeSomebodyWroteIt(unittest.TestCase):
-    """Three wording defects the first real render showed, each of them a claim
-    or a misreading rather than a matter of taste."""
-
-    def test_sentences_begin_with_a_capital(self):
-        """The count words are written out ("four of them are ..."), and one of
-        them opened a sentence in the middle of the paragraph in lower case."""
-        title, body, action = welcome._trusted_owner_keys_text(
-            {"count": 3, "own_is_trusted": True, "others": [FP_A, FP_B],
-             "kept": [FP_A], "undecided": [FP_B], "asked_to_retire": []})
-        for sentence in body.split(". "):
-            sentence = sentence.strip()
-            if sentence:
-                self.assertTrue(sentence[0].isupper() or sentence[0].isdigit(),
-                                f"sentence starts lower case: {sentence[:40]!r}")
-
-    def test_the_body_does_not_repeat_the_title(self):
-        """The first render said 'trusts four certificates named for this
-        project' in the title and 'trusts four certificates carrying this
-        project's machine owner name' as the next line."""
-        title, body, action = welcome._trusted_owner_keys_text(
-            {"count": 4, "own_is_trusted": None, "others": [FP_A, FP_B],
-             "kept": [], "undecided": [FP_A, FP_B], "asked_to_retire": []})
-        self.assertNotIn("firmware trusts four", body)
-
-    def test_unknown_membership_does_not_label_the_others_as_not_yours(self):
-        """With the machine's own certificate unreadable, the page cannot know
-        which of the listed fingerprints is its own, so it must not print them
-        under a heading that says they are not."""
-        title, body, action = welcome._trusted_owner_keys_text(
-            {"count": 2, "own_is_trusted": None, "others": [FP_A, FP_B],
-             "kept": [], "undecided": [FP_A, FP_B], "asked_to_retire": []})
-        self.assertNotIn("not this machine's own", action)
-        self.assertIn("fingerprints the firmware trusts", action)
-
-    def test_known_membership_still_labels_them_as_the_others(self):
-        title, body, action = welcome._trusted_owner_keys_text(
-            {"count": 3, "own_is_trusted": True, "others": [FP_A, FP_B],
-             "kept": [], "undecided": [FP_A, FP_B], "asked_to_retire": []})
-        self.assertIn("not this machine's own", action)
-
-
-class TestTheBoxItBuilds(unittest.TestCase):
-    def test_the_card_is_built_in_every_state(self):
-        for count, own in ((1, True), (3, True), (2, False), (2, None),
-                           (0, False), (None, None)):
-            box = welcome._build_trusted_owner_keys_card(
-                {"count": count, "own_is_trusted": own,
-                 "others": [FP_A] if (count or 0) > 1 else [],
-                 "kept": [], "undecided": [FP_A] if (count or 0) > 1 else []})
-            self.assertIsNotNone(box, f"no card for count={count} own={own}")
-
-    def test_a_settled_machine_is_not_painted_as_a_warning(self):
-        """One key, this machine's own: a statement, not an advisory. An amber
-        box on a machine with nothing to fix teaches people to skim amber."""
-        box = welcome._build_trusted_owner_keys_card(
-            {"count": 1, "own_is_trusted": True, "others": [], "kept": [],
-             "undecided": []})
-        classes = box.get_css_classes()
-        self.assertIn("intergen-statement", classes)
-        self.assertNotIn("intergen-advisory", classes)
-
-    def test_keys_kept_on_purpose_are_not_painted_as_a_warning(self):
-        """Seen in the render: keys somebody was asked about and chose to keep
-        came out in the amber box under a heading telling the person to retire
-        them, which contradicts the sentence right above it."""
-        box = welcome._build_trusted_owner_keys_card(
-            {"count": 3, "own": OWN, "own_is_trusted": True,
-             "others": [FP_A, FP_B], "kept": [FP_A, FP_B], "undecided": [],
-             "asked_to_retire": []})
-        classes = box.get_css_classes()
-        self.assertIn("intergen-statement", classes)
-        self.assertNotIn("intergen-advisory", classes)
-
-    def test_the_kept_wording_offers_rather_than_instructs(self):
-        title, body, action = welcome._trusted_owner_keys_text(
-            {"count": 3, "own": OWN, "own_is_trusted": True,
-             "others": [FP_A, FP_B], "kept": [FP_A, FP_B], "undecided": [],
-             "asked_to_retire": []})
-        self.assertIn("change your mind", action)
-        self.assertNotIn("To retire the others", action)
-
-    def test_several_trusted_keys_are_an_advisory(self):
-        box = welcome._build_trusted_owner_keys_card(
-            {"count": 3, "own_is_trusted": True, "others": [FP_A, FP_B],
-             "kept": [], "undecided": [FP_A, FP_B]})
-        self.assertIn("intergen-advisory", box.get_css_classes())
-
-
-class TestThePageAlwaysCarriesIt(unittest.TestCase):
-    """The wiring, not the wording: a statement the page never appends is a
-    statement nobody reads. This builds the real welcome page with every other
-    card silent and looks for this one in the widget tree it produced."""
-
-    def _labels(self, widget, out=None):
-        out = [] if out is None else out
-        if hasattr(widget, "get_label"):
-            try:
-                text = widget.get_label()
-            except TypeError:
-                text = None
-            if text:
-                out.append(text)
-        child = widget.get_first_child() if hasattr(widget, "get_first_child") else None
-        while child is not None:
-            self._labels(child, out)
-            child = child.get_next_sibling()
-        return out
-
-    def test_the_welcome_page_states_what_the_firmware_trusts(self):
-        saved = (welcome._mok_enrolment_state, welcome._mok_retirement_state,
-                 welcome._machine_has_a_signing_key,
-                 welcome._trusted_owner_key_state)
+def _labels(widget, out=None):
+    """Every label text in the widget tree, however deep."""
+    out = [] if out is None else out
+    if hasattr(widget, "get_label"):
         try:
-            welcome._mok_enrolment_state = lambda *a, **k: None
-            welcome._mok_retirement_state = lambda *a, **k: None
-            welcome._machine_has_a_signing_key = lambda *a, **k: False
-            welcome._trusted_owner_key_state = lambda *a, **k: {
-                "count": 4, "own": None, "own_is_trusted": None,
-                "others": [FP_A, FP_B], "kept": [], "undecided": [FP_A, FP_B],
-                "asked_to_retire": []}
-            page = welcome.build_welcome_page()
-        finally:
-            (welcome._mok_enrolment_state, welcome._mok_retirement_state,
-             welcome._machine_has_a_signing_key,
-             welcome._trusted_owner_key_state) = saved
-        text = " ".join(self._labels(page))
-        self.assertIn("firmware trusts", text)
-        self.assertIn("four certificates", text)
+            text = widget.get_label()
+        except TypeError:
+            text = None
+        if text:
+            out.append(text)
+    child = widget.get_first_child() if hasattr(widget, "get_first_child") else None
+    while child is not None:
+        _labels(child, out)
+        child = child.get_next_sibling()
+    return out
+
+
+def _css_classes(widget, out=None):
+    out = set() if out is None else out
+    out.update(widget.get_css_classes())
+    child = widget.get_first_child()
+    while child is not None:
+        _css_classes(child, out)
+        child = child.get_next_sibling()
+    return out
+
+
+def _forbidden_in(texts):
+    """(word, text) for every forbidden word found in the given texts."""
+    found = []
+    for text in texts:
+        low = text.lower()
+        for word in FORBIDDEN:
+            if word in low:
+                found.append((word, text))
+    return found
+
+
+class _StandInFirmware(unittest.TestCase):
+    """A stand-in mokutil first on PATH, and the two advisories made silent."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.asked = self.tmp / "asked"
+        self.asked.write_text("", encoding="utf-8")
+        self._saved_path = os.environ.get("PATH", "")
+        os.environ["PATH"] = str(self.tmp / "bin") + os.pathsep + self._saved_path
+        self._saved = (welcome._mok_enrolment_state, welcome._mok_retirement_state,
+                       welcome._machine_has_a_signing_key)
+        welcome._mok_enrolment_state = lambda *a, **k: None
+        welcome._mok_retirement_state = lambda *a, **k: None
+        welcome._machine_has_a_signing_key = lambda *a, **k: False
+
+    def tearDown(self):
+        (welcome._mok_enrolment_state, welcome._mok_retirement_state,
+         welcome._machine_has_a_signing_key) = self._saved
+        os.environ["PATH"] = self._saved_path
+        self._tmp.cleanup()
+
+    def firmware(self, entries):
+        """Write the stand-in: it records its arguments, then answers
+        --list-enrolled with the listing, or fails with no output when the
+        firmware could not be asked."""
+        (self.tmp / "bin").mkdir(exist_ok=True)
+        listing = self.tmp / "listing"
+        listing.write_text("\n".join(_listing(entries or [])) + "\n",
+                           encoding="utf-8")
+        tool = self.tmp / "bin" / "mokutil"
+        answer = ("exit 1" if entries is None
+                  else f'[ "$1" = --list-enrolled ] && cat {shlex.quote(str(listing))}\nexit 0')
+        tool.write_text("#!/bin/sh\n"
+                        f'printf "%s\\n" "$*" >> {shlex.quote(str(self.asked))}\n'
+                        + answer + "\n", encoding="utf-8")
+        tool.chmod(0o755)
+
+    def questions(self):
+        return self.asked.read_text(encoding="utf-8").splitlines()
+
+
+class TestTheFirstPageSaysNothingAboutTrustedKeys(_StandInFirmware):
+    """Each state the statement could be in, one test each: a subTest failure is
+    reported by pytest while its parent test still prints PASSED."""
+
+    def _assert_silent_in(self, state):
+        self.firmware(STATES[state])
+        page = welcome.build_welcome_page()
+        texts = _labels(page)
+        self.assertTrue(any("Welcome to InterGenOS" in t for t in texts),
+                        f"the page itself was not built in state {state!r}")
+        self.assertEqual(_forbidden_in(texts), [],
+                         f"the first page names the trusted keys in state {state!r}")
+        self.assertEqual(self.questions(), [],
+                         f"the first page asked the firmware in state {state!r}")
+        classes = _css_classes(page)
+        self.assertNotIn("intergen-statement", classes,
+                         f"a statement box is on the page in state {state!r}")
+        self.assertNotIn("intergen-advisory", classes,
+                         f"an advisory box is on the page in state {state!r}")
+
+    def test_one_key_named_for_this_project(self):
+        self._assert_silent_in("one key named for this project")
+
+    def test_several_keys_named_for_this_project(self):
+        self._assert_silent_in("several")
+
+    def test_only_a_vendors_key(self):
+        self._assert_silent_in("none but a vendor's")
+
+    def test_no_key_at_all(self):
+        self._assert_silent_in("none at all")
+
+    def test_a_firmware_that_could_not_be_asked(self):
+        self._assert_silent_in("a firmware that could not be asked")
+
+
+class TestTheStatementIsGoneFromTheModule(unittest.TestCase):
+    def test_the_statement_and_what_fed_it_are_gone(self):
+        present = [name for name in REMOVED_NAMES if hasattr(welcome, name)]
+        self.assertEqual(present, [])
+
+    def test_the_statement_style_is_gone(self):
+        self.assertNotIn("intergen-statement", welcome.CUSTOM_CSS)
+
+
+class TestTheChecksSeeWhatTheyLookFor(_StandInFirmware):
+    """The planted-text control: each check above, shown finding the thing it
+    looks for, so that its empty answer on the real page means something."""
+
+    def test_a_planted_statement_is_found_where_the_cards_are_appended(self):
+        self.firmware(STATES["several"])
+        page = welcome.build_welcome_page()
+        title = [w for w in self._walk(page)
+                 if isinstance(w, Gtk.Label)
+                 and w.get_label() == "Welcome to InterGenOS"]
+        self.assertEqual(len(title), 1)
+        planted = ("This machine's firmware trusts four certificates named "
+                   "for this project",
+                   "To ask it yourself, in a terminal: mokutil --list-enrolled")
+        box = title[0].get_parent()
+        for text in planted:
+            box.append(Gtk.Label(label=text))
+        box.add_css_class("intergen-statement")
+        # Only the planted lines are counted here, so this control reads the
+        # same on a page that still carries the statement and on one that does
+        # not; whether the page itself is clean is what the tests above decide.
+        found = [(word, text) for word, text in _forbidden_in(_labels(page))
+                 if text in planted]
+        self.assertEqual(sorted({text for _, text in found}), sorted(planted))
+        self.assertEqual(sorted(word for word, _ in found),
+                         sorted(["firmware trusts", "certificate",
+                                 "mokutil", "enrolled", "to ask it yourself"]))
+        self.assertIn("intergen-statement", _css_classes(page))
+
+    def test_a_planted_question_to_the_firmware_is_recorded(self):
+        self.firmware(STATES["several"])
+        lines = welcome._mokutil_lines("--list-enrolled")
+        self.assertEqual(self.questions(), ["--list-enrolled"])
+        self.assertIn(f"SHA1 Fingerprint: {_colons(FP_A)}", lines)
+
+    def test_the_stand_in_fails_as_a_firmware_that_could_not_be_asked(self):
+        self.firmware(STATES["a firmware that could not be asked"])
+        self.assertIsNone(welcome._mokutil_lines("--list-enrolled"))
+        self.assertEqual(self.questions(), ["--list-enrolled"])
+
+    def _walk(self, widget):
+        yield widget
+        child = widget.get_first_child()
+        while child is not None:
+            yield from self._walk(child)
+            child = child.get_next_sibling()
 
 
 if __name__ == "__main__":
