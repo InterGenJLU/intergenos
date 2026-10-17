@@ -660,8 +660,17 @@ class TestRunInstallAiOptInIsNotSilent(_RunInstallTestBase):
 
     ENABLE = "systemctl --global enable intergen.service"
     COMPILE = "glib-compile-schemas /usr/share/glib-2.0/schemas"
+    # The two read-backs, by their text: what the target holds after each.
+    SERVICE_READBACK = "systemctl --global is-enabled intergen.service"
+    PANEL_READBACK = "gsettings get org.gnome.shell enabled-extensions"
+    ENABLED_LINE = "InterGen AI panel extension enabled (opt-in)"
+    # The compiled org.gnome.shell enabled-extensions, as gsettings prints it.
+    DEFAULT_LIST = "['apps-menu@gnome-shell-extensions.gcampax.github.com']\n"
+    WITH_PANEL = ("['apps-menu@gnome-shell-extensions.gcampax.github.com', "
+                  "'intergen@intergenos.org']\n")
 
-    def _run(self, enable_rc=0, compile_rc=0, panel=True):
+    def _run(self, enable_rc=0, compile_rc=0, panel=True, enable_err="",
+             is_enabled="enabled\n", compile_err="", compiled=WITH_PANEL):
         target = Path(self.tmp) / "target"
         (target / "usr/bin").mkdir(parents=True)
         (target / "usr/bin/intergen").write_text("#!/bin/sh\n")
@@ -670,16 +679,80 @@ class TestRunInstallAiOptInIsNotSilent(_RunInstallTestBase):
         def run_chroot(_target, command):
             if command.startswith("systemctl --global enable intergen.service"):
                 return (enable_rc, "", "Failed to enable unit: Unit "
-                        "intergen.service does not exist" if enable_rc else "")
+                        "intergen.service does not exist" if enable_rc else enable_err)
+            if command == self.SERVICE_READBACK:
+                return (0, is_enabled, "")
             if command.startswith("glib-compile-schemas"):
-                return (compile_rc, "", "schema error" if compile_rc else "")
+                return (compile_rc, "", "schema error" if compile_rc else compile_err)
+            if command.endswith(self.PANEL_READBACK):
+                return (0, compiled, "")
             return (0, "", "")
         self.hooks.run_chroot.side_effect = run_chroot
+        said = []
         result = run_install(
             self.yaml_path, dict(VALID_INSTALL_IO, intergen_ai_enable=True),
-            str(self.archive_dir), str(self.packages_dir), target=str(target))
+            str(self.archive_dir), str(self.packages_dir), target=str(target),
+            progress_callback=lambda _p, _c, _t, message: said.append(message))
         commands = [c.args[1] for c in self.hooks.run_chroot.call_args_list]
+        self.said = said
         return result, commands
+
+    def test_an_enable_that_links_nothing_reaches_the_warnings(self):
+        # systemd 259.1, a unit with no install section: the enable exits 0
+        # with a notice and creates no link, and the unit reads "static".
+        result, commands = self._run(
+            enable_err="The unit files have no installation config (WantedBy=, "
+                       "RequiredBy=, UpheldBy=,\nAlso=, or Alias= settings in "
+                       "the [Install] section, ...\n",
+            is_enabled="static\n")
+        self.assertTrue(result.success, msg=result.error_message)
+        self.assertIn(self.SERVICE_READBACK, commands)
+        found = [w for w in result.warnings if "intergen.service" in w]
+        self.assertEqual(len(found), 1, result.warnings)
+        self.assertIn("'static'", found[0])
+        self.assertIn("systemctl --user enable --now intergen.service", found[0])
+
+    def test_an_override_the_compile_ignored_reaches_the_warnings(self):
+        # glib's compiler exits 0 for each of these and the compiled default
+        # keeps the list without the panel: a malformed value, a key the
+        # schema does not have, and a schema id that does not exist.
+        shapes = {
+            "malformed value": "Error parsing key “enabled-extensions” in "
+                               "schema “org.gnome.shell” ... Ignoring "
+                               "override for this key.\n",
+            "no such key": "No such key “enabled-extension” in schema "
+                           "“org.gnome.shell” ...; ignoring override "
+                           "for this key.\n",
+            "no such schema": "",
+        }
+        for shape, err in shapes.items():
+            with self.subTest(shape=shape):
+                self.tearDown()
+                self.setUp()
+                result, commands = self._run(compile_err=err,
+                                             compiled=self.DEFAULT_LIST)
+                self.assertTrue(result.success, msg=result.error_message)
+                self.assertTrue(any(c.endswith(self.PANEL_READBACK) for c in commands), commands)
+                found = [w for w in result.warnings if "panel extension" in w]
+                self.assertEqual(len(found), 1, result.warnings)
+                self.assertIn("does not carry intergen@intergenos.org", found[0])
+                self.assertNotIn(self.ENABLED_LINE, self.said)
+
+    def test_the_compiled_default_is_read_whatever_the_writer_returned(self):
+        # The writer's False: the 91 list missing or unparseable (reads back
+        # without the panel, a warning) or the panel already on by default
+        # (reads back with it, no warning).
+        result, commands = self._run(panel=False, compiled=self.DEFAULT_LIST)
+        self.assertNotIn(self.COMPILE, commands)
+        self.assertTrue(any(c.endswith(self.PANEL_READBACK) for c in commands), commands)
+        self.assertEqual(len([w for w in result.warnings if "panel extension" in w]), 1,
+                         result.warnings)
+        self.assertNotIn(self.ENABLED_LINE, self.said)
+        self.tearDown()
+        self.setUp()
+        result, _commands = self._run(panel=False)
+        self.assertEqual([w for w in result.warnings if "panel extension" in w], [])
+        self.assertIn(self.ENABLED_LINE, self.said)
 
     def test_a_refused_enable_reaches_the_warnings(self):
         result, commands = self._run(enable_rc=1)

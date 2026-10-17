@@ -38,6 +38,7 @@ import yaml
 from . import (bootloader, config, disks, hooks, integrity, mok, packages,
                restorepoint, trace, users)
 from ._validators import validate_mok_key_passphrase
+from .config import AI_PANEL_EXTENSION_UUID
 
 
 PHASE_VALIDATE = "validate"
@@ -471,6 +472,50 @@ def validate_install_inputs(cfg, install_io):
         raise ValueError(
             "install validation failed:\n  - " + "\n  - ".join(errors)
         )
+
+
+# The opt-in assistant's two outcomes, read back in the target. An exit status
+# is what a command said; the read-back is what the target holds (users.py's
+# fstrim read-back is the same rule). Each command exits 0 on a shape where its
+# outcome is not there: `systemctl --global enable` links nothing for a unit
+# with no install section (the unit then reads "static"), and
+# glib-compile-schemas ignores an override it cannot apply (a malformed value,
+# a key or a schema id that does not exist) and still exits 0 (measured with
+# systemd 259.1 and glib's compiler in a chroot, 2026-10-17).
+AI_SERVICE_READBACK = "systemctl --global is-enabled intergen.service"
+AI_PANEL_READBACK = ("GSETTINGS_SCHEMA_DIR=/usr/share/glib-2.0/schemas "
+                     "GSETTINGS_BACKEND=memory "
+                     "gsettings get org.gnome.shell enabled-extensions")
+
+
+def ai_service_reads_enabled(target):
+    """Whether the target's user units read intergen.service as enabled.
+
+    Returns (True, "") when the read-back prints exactly "enabled", otherwise
+    (False, what it printed), for the install's warning.
+    """
+    rc, out, err = hooks.run_chroot(target, AI_SERVICE_READBACK)
+    state = out.strip()
+    if rc == 0 and state == "enabled":
+        return True, ""
+    said = f"{AI_SERVICE_READBACK} printed {state or 'nothing'!r} (rc={rc})"
+    return False, said + (f": {err.strip()}" if err.strip() else "")
+
+
+def ai_panel_reads_enabled(target):
+    """Whether the target's compiled GNOME Shell default enables the panel.
+
+    Reads org.gnome.shell enabled-extensions from the compiled schemas with the
+    memory backend (no user database is consulted) and looks for the
+    extension's id as a list member. Returns (True, "") or (False, what the
+    read-back printed), for the install's warning.
+    """
+    rc, out, err = hooks.run_chroot(target, AI_PANEL_READBACK)
+    if rc == 0 and f"'{AI_PANEL_EXTENSION_UUID}'" in out:
+        return True, ""
+    return False, ("the compiled org.gnome.shell enabled-extensions does not "
+                   f"carry {AI_PANEL_EXTENSION_UUID} (gsettings rc={rc}: "
+                   f"{out.strip() or err.strip() or 'nothing'})")
 
 
 def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
@@ -1099,12 +1144,28 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
                            "--now intergen.service")
                     result.warnings.append(msg)
                     _emit(PHASE_SERVICES, 11, f"warning: {msg}")
+                else:
+                    # A status of 0 is not the outcome; the target is read.
+                    enabled, said = ai_service_reads_enabled(target)
+                    if not enabled:
+                        msg = ("InterGen AI was requested and its service's "
+                               "enable exited 0, but the target does not read "
+                               f"it as enabled ({said}); the assistant will not "
+                               "start at first login. Enable it from the "
+                               "session with: systemctl --user enable --now "
+                               "intergen.service")
+                        result.warnings.append(msg)
+                        _emit(PHASE_SERVICES, 11, f"warning: {msg}")
                 # Opt-in (D-010): enable the AI panel GNOME extension so the
                 # top-bar icon + Super+I appear on first login. The default
                 # gschema override deliberately omits intergen@intergenos.org;
                 # this writes a higher-priority 95 override derived from the
                 # default list + recompiles the schemas. Never abort the install
-                # over this, and never call it enabled when the compile failed.
+                # over this, and never call it enabled unless the compiled
+                # default reads back with it: the compile exits 0 while it
+                # ignores an override it cannot apply, and the writer's False
+                # is both "already on by default" and "the 91 list missing or
+                # unparseable", so the read-back runs whichever it returned.
                 try:
                     if config.enable_ai_panel_extension(target):
                         rc, _out, err = hooks.run_chroot(
@@ -1113,8 +1174,11 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
                         if rc != 0:
                             raise RuntimeError(
                                 f"glib-compile-schemas rc={rc}: {err.strip()}")
-                        _emit(PHASE_SERVICES, 11,
-                              "InterGen AI panel extension enabled (opt-in)")
+                    enabled, said = ai_panel_reads_enabled(target)
+                    if not enabled:
+                        raise RuntimeError(said)
+                    _emit(PHASE_SERVICES, 11,
+                          "InterGen AI panel extension enabled (opt-in)")
                 except Exception as e:  # noqa: BLE001 — diagnostics, not fatal
                     wmsg = f"could not enable the AI panel extension: {e}"
                     result.warnings.append(wmsg)
