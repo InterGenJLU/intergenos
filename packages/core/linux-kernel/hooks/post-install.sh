@@ -141,6 +141,11 @@ else
     log "  No boot image will be built or signed for this kernel, and the ESP keeps the"
     log "  previous release's signed image, which stays bootable. Reinstall the kernel"
     log "  package to restore the helper: sudo pkm reinstall linux-kernel"
+    # Started by another package's post-install (intel-ucode), the package
+    # manager marks THAT package unfinished, and only its own reinstall clears it.
+    if [ -n "${PKM_PACKAGE_NAME:-}" ] && [ "$PKM_PACKAGE_NAME" != "linux-kernel" ]; then
+        log "  then finish the install of $PKM_PACKAGE_NAME: sudo pkm reinstall $PKM_PACKAGE_NAME"
+    fi
     exit 77
 fi
 
@@ -157,7 +162,9 @@ refuse_to_sign() {
     log "  still there and is still the boot-menu target, so this machine still boots."
     log "  To finish the job with the signing key passphrase in hand (the one set at install,"
     log "  not the MOK enrollment password), at the console:"
-    log "      sudo pkm reinstall linux-kernel"
+    # The package the package manager marks unfinished is the one whose
+    # post-install it ran: intel-ucode or nvidia when either started this hook.
+    log "      sudo pkm reinstall ${PKM_PACKAGE_NAME:-linux-kernel}"
     # The refusal status, not a plain failure: the package manager reports a
     # package whose post-install hook exits with it as an install that did not
     # finish, and every hook that starts this one passes it on.
@@ -604,7 +611,11 @@ if [ -x "$NVIDIA_REBUILD" ]; then
     else
         NVIDIA_RC=${PIPESTATUS[0]}
         log "WARNING: nvidia module rebuild failed for kernel $NEW_KVER (exit $NVIDIA_RC)"
-        log "  Manual rebuild path: sudo $NVIDIA_REBUILD $NEW_KVER"
+        # A refused signing is said at the end, with the reinstall that clears
+        # the unfinished mark; the rebuild alone would leave that mark.
+        if [ "$NVIDIA_RC" -ne "$MOK_REFUSED_EXIT" ]; then
+            log "  Manual rebuild path: sudo $NVIDIA_REBUILD $NEW_KVER"
+        fi
     fi
 fi
 
@@ -631,7 +642,9 @@ if [ "$NVIDIA_RC" -eq "$MOK_REFUSED_EXIT" ]; then
     log "  driver's modules for it were NOT signed, so this kernel will refuse them at the next"
     log "  boot and the NVIDIA GPU will have no driver. To finish it with the signing key passphrase"
     log "  in hand (not the MOK enrollment password):"
-    log "      sudo $NVIDIA_REBUILD $NEW_KVER"
+    # The install the package manager marks unfinished, not the rebuild alone:
+    # the rebuild signs the modules and leaves that mark in place.
+    log "      sudo pkm reinstall ${PKM_PACKAGE_NAME:-linux-kernel}"
     exit "$MOK_REFUSED_EXIT"
 fi
 

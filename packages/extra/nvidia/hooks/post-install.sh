@@ -173,7 +173,7 @@ if [ -n "${PKM_PACKAGE_ROOT:-}" ] && [ "$PKM_PACKAGE_ROOT" = "/" ]; then
             log "  is above), so the driver's cmdline is not in the image this machine boots and the"
             log "  outputs wired to the NVIDIA GPU would stay dark. Do not reboot for the driver yet."
             log "  To finish it with the signing key passphrase in hand (the one set at install,"
-            log "  not the MOK enrollment password): sudo pkm reinstall linux-kernel"
+            log "  not the MOK enrollment password): sudo pkm reinstall nvidia"
             if [ "$KERNEL_HOOK_RC" -eq "$MOK_REFUSED_EXIT" ]; then
                 exit "$MOK_REFUSED_EXIT"
             fi

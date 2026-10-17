@@ -53,7 +53,10 @@ def test_a_refused_signing_is_passed_on_as_the_refusal_status(tmp_path):
     r = fire(tmp_path, 77)
     assert r.returncode == 77, r.stderr
     assert "REFUSED: the boot image was NOT rebuilt" in r.stderr
-    assert "sudo pkm reinstall linux-kernel" in r.stderr
+    assert "sudo pkm reinstall intel-ucode" in r.stderr
+    # The package pkm marks unfinished is this one, and only its reinstall
+    # clears that mark; the kernel's reinstall left it in place.
+    assert "sudo pkm reinstall linux-kernel" not in r.stderr
     assert "not the MOK enrollment password" in r.stderr
     assert "WARNING" not in r.stderr
 

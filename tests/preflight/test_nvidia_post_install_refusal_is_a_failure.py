@@ -102,7 +102,10 @@ class TestTheDriverPostInstall:
         out = proc.stdout + proc.stderr
         assert kernel_ran.exists(), out
         assert proc.returncode == 77, out
-        assert "sudo pkm reinstall linux-kernel" in out
+        assert "sudo pkm reinstall nvidia" in out
+        # The package pkm marks unfinished is this one, and only its reinstall
+        # clears that mark; the kernel's reinstall left it in place.
+        assert "sudo pkm reinstall linux-kernel" not in out
         assert "not the MOK enrollment password" in out
         assert "Do not reboot" in out
 

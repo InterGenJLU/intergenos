@@ -98,11 +98,25 @@ class Fixture:
     def __init__(self, tmp, *, machine_id=None, with_ukify=False,
                  with_updater=False, esp_menu_dir=None, menu_repointable=True,
                  with_helper=True, encrypted_key=False,
-                 secure_boot_enforcing=False):
+                 secure_boot_enforcing=False, driver_rebuild_rc=None):
         self.root = Path(tmp)
         for rel in ("boot/efi/EFI/Linux", "varlog", "libintergen", "bin",
-                    "pkgroot/etc", "efivars", "varlibintergen/mok"):
+                    "pkgroot/etc", "efivars", "varlibintergen/mok",
+                    "varlibpkm"):
             (self.root / rel).mkdir(parents=True, exist_ok=True)
+
+        # The driver's module rebuild the hook chains to when the driver is
+        # installed, at the fixed path the hook names (/var/lib/pkm/hooks/...;
+        # the fixture's own directory is bound over /var/lib/pkm, so the hook
+        # finds this stand-in or none, never the machine's). It exits with the
+        # given status, 77 being the signing refusal.
+        if driver_rebuild_rc is not None:
+            rebuild = self.root / "varlibpkm" / "hooks" / "nvidia" / "rebuild-modules"
+            rebuild.parent.mkdir(parents=True, exist_ok=True)
+            rebuild.write_text("#!/bin/sh\n"
+                               "echo '[nvidia:rebuild-modules] stand-in' >&2\n"
+                               f"exit {driver_rebuild_rc}\n")
+            rebuild.chmod(0o755)
 
         # The REAL signing helper, at the path the linux-kernel recipe installs
         # it to. The hook sources it before anything else and refuses without
@@ -202,18 +216,24 @@ def hook_lines(out):
                       if "[linux-kernel:post-install]" in l)
 
 
-def _run(fixture, package_version="6.18.10"):
+def _run(fixture, package_version="6.18.10", package_name="linux-kernel"):
     """Run the real hook inside a user+mount namespace over the fixture.
 
     The namespace is what keeps this off the machine running the suite; see
     the module docstring. ``package_version`` is what pkm passes in
     PKM_PACKAGE_VERSION; the installer's own re-run passes "installer-final".
+    ``package_name`` is PKM_PACKAGE_NAME: the package whose post-install pkm
+    ran, which is intel-ucode or nvidia when either starts this hook, and the
+    one pkm marks unfinished when it refuses.
     """
     inner = (
         'mount --bind "$FIXTURE_ROOT/boot" /boot && '
         'mount --bind "$FIXTURE_ROOT/varlog" /var/log && '
         'mount --bind "$FIXTURE_ROOT/libintergen" /usr/lib/intergen && '
         'mount --bind "$FIXTURE_ROOT/varlibintergen" /var/lib/intergen && '
+        # The driver's module rebuild is found under /var/lib/pkm; a machine
+        # without that directory has none for the hook to reach.
+        '{ [ ! -d /var/lib/pkm ] || mount --bind "$FIXTURE_ROOT/varlibpkm" /var/lib/pkm; } && '
         # An EMPTY directory over the firmware variables, so the fixture's
         # Secure Boot state is UNREADABLE rather than whatever the machine
         # running the suite happens to report. Without this these tests would
@@ -230,7 +250,7 @@ def _run(fixture, package_version="6.18.10"):
     env.update({
         "FIXTURE_ROOT": str(fixture.root),
         "HOOK_PATH": str(HOOK),
-        "PKM_PACKAGE_NAME": "linux-kernel",
+        "PKM_PACKAGE_NAME": package_name,
         "PKM_PACKAGE_VERSION": package_version,
         "PKM_PACKAGE_ROOT": str(fixture.root / "pkgroot"),
     })
@@ -521,6 +541,68 @@ class RefusalsCarryTheRefusalStatus(unittest.TestCase):
         text = HOOK.read_text(encoding="utf-8")
         self.assertIn("mok_build_signed_uki", text)
         self.assertNotIn('ukify "${UKIFY_ARGS[@]}" 2>&1 < <(printf', text)
+
+
+def _recovery_lines(msgs):
+    """The hook's lines that end in a command, the command alone."""
+    return [l.split("[linux-kernel:post-install]", 1)[1].strip()
+            for l in msgs.splitlines() if "sudo " in l]
+
+
+class RefusalsNameTheInstallThatDidNotFinish(unittest.TestCase):
+    """A refusal names the reinstall that clears what pkm marks unfinished.
+
+    pkm marks the package whose post-install exited 77 as degraded and names
+    `sudo pkm reinstall <that package>`. When intel-ucode's or nvidia's
+    post-install started this hook, that package is the one marked, yet the
+    refusal line named linux-kernel, and following it left the mark in place
+    (pkm verify failing, the Welcomer's driver step unfinished). A refused
+    driver-module signing named the driver's rebuild script, which signs the
+    modules and leaves the mark too.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp = self._tmp.name
+
+    def test_a_refused_signing_names_the_package_pkm_ran(self):
+        for name in ("linux-kernel", "linux-kernel-pass2", "intel-ucode", "nvidia"):
+            with self.subTest(package=name):
+                f = Fixture(os.path.join(self.tmp, name), machine_id=VALID_MACHINE_ID,
+                            with_ukify=True, with_updater=True, encrypted_key=True)
+                proc = _run(f, package_name=name)
+                msgs = hook_lines(proc.stdout + proc.stderr)
+                self.assertEqual(proc.returncode, 77, msgs)
+                self.assertEqual(_recovery_lines(msgs), [f"sudo pkm reinstall {name}"], msgs)
+
+    def test_a_missing_helper_names_the_kernel_then_the_package_pkm_ran(self):
+        f = Fixture(os.path.join(self.tmp, "chained"), machine_id=VALID_MACHINE_ID,
+                    with_helper=False)
+        proc = _run(f, package_name="intel-ucode")
+        msgs = hook_lines(proc.stdout + proc.stderr)
+        self.assertEqual(proc.returncode, 77, msgs)
+        self.assertIn("restore the helper: sudo pkm reinstall linux-kernel", msgs)
+        self.assertIn("then finish the install of intel-ucode: sudo pkm reinstall intel-ucode", msgs)
+        f = Fixture(os.path.join(self.tmp, "own"), machine_id=VALID_MACHINE_ID,
+                    with_helper=False)
+        msgs = hook_lines(fire(f))
+        self.assertIn("restore the helper: sudo pkm reinstall linux-kernel", msgs)
+        self.assertNotIn("then finish the install", msgs)
+
+    def test_a_refused_driver_signing_names_the_install_not_the_rebuild(self):
+        for name in ("linux-kernel", "intel-ucode"):
+            with self.subTest(package=name):
+                f = Fixture(os.path.join(self.tmp, name), machine_id=VALID_MACHINE_ID,
+                            with_ukify=True, with_updater=True, driver_rebuild_rc=77)
+                proc = _run(f, package_name=name)
+                msgs = hook_lines(proc.stdout + proc.stderr)
+                self.assertEqual(proc.returncode, 77, msgs)
+                self.assertIn("NVIDIA", msgs)
+                self.assertIn(f"sudo pkm reinstall {name}", _recovery_lines(msgs), msgs)
+                self.assertNotIn("rebuild-modules", "\n".join(_recovery_lines(msgs)),
+                                 "the refusal still offers the rebuild alone, which "
+                                 "leaves the install marked unfinished")
 
 
 if __name__ == "__main__":

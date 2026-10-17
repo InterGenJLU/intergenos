@@ -60,7 +60,7 @@ if [ -x "$KERNEL_HOOK" ]; then
         log "REFUSED: the boot image was NOT rebuilt (the kernel hook refused to sign it; its reason is"
         log "  above), so the new microcode is not in the image this machine boots. To finish it with the"
         log "  signing key passphrase in hand (the one set at install, not the MOK enrollment password):"
-        log "  sudo pkm reinstall linux-kernel"
+        log "  sudo pkm reinstall intel-ucode"
         exit "$MOK_REFUSED_EXIT"
     fi
     log "WARNING: chained kernel hook exited $KERNEL_HOOK_RC — the boot path may still carry the prior microcode image; manual re-run: sudo $KERNEL_HOOK"
