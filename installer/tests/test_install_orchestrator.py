@@ -669,8 +669,8 @@ class TestRunInstallAiOptInIsNotSilent(_RunInstallTestBase):
 
         def run_chroot(_target, command):
             if command.startswith("systemctl --global enable intergen.service"):
-                return (enable_rc, "", "Failed to enable unit: Unit file "
-                        "intergen.service does not exist." if enable_rc else "")
+                return (enable_rc, "", "Failed to enable unit: Unit "
+                        "intergen.service does not exist" if enable_rc else "")
             if command.startswith("glib-compile-schemas"):
                 return (compile_rc, "", "schema error" if compile_rc else "")
             return (0, "", "")
