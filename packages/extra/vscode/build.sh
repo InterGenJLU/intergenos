@@ -202,9 +202,95 @@ fi
 rm -rf /opt/vscode
 mkdir -p /opt/vscode
 cp -a usr/share/code/. /opt/vscode/
-mkdir -p /usr/share/applications
-cp -a usr/share/applications/code*.desktop /usr/share/applications/ 2>/dev/null || true
-cp -a usr/share/man/* /usr/share/man/ 2>/dev/null || true
+if [ ! -x /opt/vscode/code ] || [ ! -x /opt/vscode/bin/code ]; then
+    echo "  ERROR: Visual Studio Code is missing its application or command launcher." >&2
+    exit 1
+fi
+
+if ! mkdir -p /usr/share/applications; then
+    echo "  ERROR: Could not create the Visual Studio Code launcher directory." >&2
+    exit 1
+fi
+# Discover the launchers in the extracted package, including moved layouts.
+if ! find "$TMPDIR" -type f -name 'code*.desktop' -print0 > "$TMPDIR/vscode-desktops"; then
+    echo "  ERROR: Could not find the Visual Studio Code launchers." >&2
+    exit 1
+fi
+main_launcher=0
+url_launcher=0
+while IFS= read -r -d '' desktop; do
+    target="/usr/share/applications/${desktop##*/}"
+    if ! sed -e 's|/usr/share/code/code|/opt/vscode/code|g' \
+             -e 's|^Icon=.*|Icon=vscode|' "$desktop" > "$target"; then
+        echo "  ERROR: Could not install the Visual Studio Code launcher: $target" >&2
+        exit 1
+    fi
+    case "${desktop##*/}" in
+        code.desktop) main_launcher=1 ;;
+        code-url-handler.desktop) url_launcher=1 ;;
+    esac
+done < "$TMPDIR/vscode-desktops"
+
+if [ "$main_launcher" -eq 0 ]; then
+    if ! cat > /usr/share/applications/code.desktop << 'DESKTOPEOF'
+[Desktop Entry]
+Name=Visual Studio Code
+GenericName=Text Editor
+Exec=/opt/vscode/code %F
+Icon=vscode
+Type=Application
+StartupNotify=false
+StartupWMClass=Code
+Categories=TextEditor;Development;IDE;
+MimeType=application/x-code-workspace;
+Actions=new-empty-window;
+
+[Desktop Action new-empty-window]
+Name=New Empty Window
+Exec=/opt/vscode/code --new-window %F
+Icon=vscode
+DESKTOPEOF
+    then
+        echo "  ERROR: Could not write the Visual Studio Code launcher." >&2
+        exit 1
+    fi
+fi
+if [ "$url_launcher" -eq 0 ]; then
+    if ! cat > /usr/share/applications/code-url-handler.desktop << 'URLDESKTOPEOF'
+[Desktop Entry]
+Name=Visual Studio Code - URL Handler
+Exec=/opt/vscode/code --open-url %U
+Icon=vscode
+Type=Application
+NoDisplay=true
+StartupNotify=true
+Categories=Utility;TextEditor;Development;IDE;
+MimeType=x-scheme-handler/vscode;
+URLDESKTOPEOF
+    then
+        echo "  ERROR: Could not write the Visual Studio Code URL launcher." >&2
+        exit 1
+    fi
+fi
+for desktop in /usr/share/applications/code.desktop /usr/share/applications/code-url-handler.desktop; do
+    if ! grep -qx 'Type=Application' "$desktop" || \
+       ! grep -qx 'Icon=vscode' "$desktop" || \
+       ! grep -q '^Exec=/opt/vscode/code ' "$desktop" || \
+       ! chmod 644 "$desktop"; then
+        echo "  ERROR: The Visual Studio Code launcher is incomplete: $desktop" >&2
+        exit 1
+    fi
+done
+
+if [ -d usr/share/man ]; then
+    mkdir -p /usr/share/man
+    if ! cp -a usr/share/man/. /usr/share/man/; then
+        echo "  ERROR: Could not install the Visual Studio Code manual pages." >&2
+        exit 1
+    fi
+else
+    echo "  NOTE: This Visual Studio Code package contains no manual pages."
+fi
 
 # Install VS Code's bundled icon under the name the .desktop references
 # (Icon=vscode). The .deb ships usr/share/pixmaps/vscode.png; fall back to the
@@ -215,18 +301,20 @@ if [ -f usr/share/pixmaps/vscode.png ]; then
     cp -a usr/share/pixmaps/vscode.png /usr/share/pixmaps/vscode.png
 elif [ -f /opt/vscode/resources/app/resources/linux/code.png ]; then
     install -m644 /opt/vscode/resources/app/resources/linux/code.png /usr/share/pixmaps/vscode.png
+else
+    echo "  ERROR: The Visual Studio Code package contains no launcher icon." >&2
+    exit 1
 fi
-
-# The .deb's .desktop files hardcode Exec=/usr/share/code/code, but we install
-# to /opt/vscode — rewrite so the launcher actually starts VS Code (otherwise
-# the icon is dead: the Exec path does not exist on this system).
-sed -i 's|/usr/share/code/code|/opt/vscode/code|g' /usr/share/applications/code*.desktop 2>/dev/null || true
 
 # H-007: record everything deposited under /opt/vscode + the .desktop
 # launchers + man pages.
-while IFS= read -r f; do
+if ! find /opt/vscode \( -type f -o -type l \) -print0 > "$TMPDIR/vscode-files"; then
+    echo "  ERROR: Could not list the installed Visual Studio Code files." >&2
+    exit 1
+fi
+while IFS= read -r -d '' f; do
     igos_helper_record_file "$f"
-done < <(find /opt/vscode -type f -o -type l 2>/dev/null)
+done < "$TMPDIR/vscode-files"
 for f in /usr/share/applications/code*.desktop /usr/share/man/man*/code* /usr/share/pixmaps/vscode.png; do
     if [ -f "$f" ]; then
         igos_helper_record_file "$f"
