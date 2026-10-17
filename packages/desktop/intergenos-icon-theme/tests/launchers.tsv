@@ -1,0 +1,135 @@
+# launchers.tsv — the image's launcher inventory, read by test_launcher_icon_coverage.py: every .desktop file under
+# /usr/share/applications of the installed R001.3 candidate (-02), with the Icon=, NoDisplay= and Hidden= keys of its
+# [Desktop Entry] group and the package that owns it (pkm provides), read read-only from that install on 2026-10-17,
+# 129 files. com.google.Chrome.desktop is written by the chrome download helper outside the package manifest, so it is
+# listed under that helper's recipe. Re-read it from an installed image whenever the image's launcher set changes.
+# file	icon	nodisplay	hidden	package
+audacity.desktop	audacity	false	false	audacity
+bluetooth-sendto.desktop	bluetooth	true	false	gnome-bluetooth
+btop.desktop	btop	false	false	btop
+com.google.Chrome.desktop	google-chrome	true	false	chrome
+cups.desktop	cups	false	false	cups
+firefox.desktop	firefox	false	false	firefox
+forge-gui.desktop	intergenos	true	false	forge
+gcr-prompter.desktop	security-medium	true	false	gcr
+gcr-viewer.desktop		true	false	gcr
+geoclue-demo-agent.desktop	mark-location-symbolic	true	false	geoclue2
+geoclue-where-am-i.desktop	mark-location-symbolic	true	false	geoclue2
+gimp.desktop	gimp	false	false	gimp
+gnome-about-panel.desktop	org.gnome.Settings-about-symbolic	true	false	gnome-control-center
+gnome-applications-panel.desktop	org.gnome.Settings-applications-symbolic	true	false	gnome-control-center
+gnome-background-panel.desktop	org.gnome.Settings-appearance-symbolic	true	false	gnome-control-center
+gnome-bluetooth-panel.desktop	org.gnome.Settings-bluetooth-symbolic	true	false	gnome-control-center
+gnome-color-panel.desktop	org.gnome.Settings-color-symbolic	true	false	gnome-control-center
+gnome-datetime-panel.desktop	org.gnome.Settings-time-symbolic	true	false	gnome-control-center
+gnome-disk-image-mounter.desktop	drive-removable-media	true	false	gnome-disk-utility
+gnome-disk-image-writer.desktop	drive-removable-media	true	false	gnome-disk-utility
+gnome-display-panel.desktop	org.gnome.Settings-display-symbolic	true	false	gnome-control-center
+gnome-keyboard-panel.desktop	org.gnome.Settings-keyboard-symbolic	true	false	gnome-control-center
+gnome-mouse-panel.desktop	org.gnome.Settings-mouse-symbolic	true	false	gnome-control-center
+gnome-multitasking-panel.desktop	org.gnome.Settings-multitasking-symbolic	true	false	gnome-control-center
+gnome-network-panel.desktop	org.gnome.Settings-network-symbolic	true	false	gnome-control-center
+gnome-notifications-panel.desktop	org.gnome.Settings-notifications-symbolic	true	false	gnome-control-center
+gnome-online-accounts-panel.desktop	org.gnome.Settings-online-accounts-symbolic	true	false	gnome-control-center
+gnome-power-panel.desktop	org.gnome.Settings-power-symbolic	true	false	gnome-control-center
+gnome-printers-panel.desktop	org.gnome.Settings-printers-symbolic	true	false	gnome-control-center
+gnome-privacy-panel.desktop	org.gnome.Settings-privacy-symbolic	true	false	gnome-control-center
+gnome-region-panel.desktop	org.gnome.Settings-region-symbolic	true	false	gnome-control-center
+gnome-search-panel.desktop	org.gnome.Settings-search-symbolic	true	false	gnome-control-center
+gnome-sharing-panel.desktop	org.gnome.Settings-sharing-symbolic	true	false	gnome-control-center
+gnome-sound-panel.desktop	org.gnome.Settings-sound-symbolic	true	false	gnome-control-center
+gnome-system-monitor-kde.desktop	org.gnome.SystemMonitor	false	false	gnome-system-monitor
+gnome-system-panel.desktop	org.gnome.Settings-system-symbolic	true	false	gnome-control-center
+gnome-universal-access-panel.desktop	org.gnome.Settings-accessibility-symbolic	true	false	gnome-control-center
+gnome-users-panel.desktop	org.gnome.Settings-users-symbolic	true	false	gnome-control-center
+gnome-wacom-panel.desktop	org.gnome.Settings-wacom-symbolic	true	false	gnome-control-center
+gnome-wellbeing-panel.desktop	org.gnome.Settings-wellbeing-symbolic	true	false	gnome-control-center
+gnome-wifi-panel.desktop	network-wireless-symbolic	true	false	gnome-control-center
+gnome-wwan-panel.desktop	org.gnome.Settings-mobile-network-symbolic	true	false	gnome-control-center
+google-chrome.desktop	google-chrome	false	false	chrome
+gparted.desktop	gparted	false	false	gparted
+gtk3-demo.desktop	gtk3-demo	true	false	gtk3
+gtk3-icon-browser.desktop		true	false	gtk3
+gtk3-widget-factory.desktop	gtk3-widget-factory	true	false	gtk3
+gvim.desktop	gvim	false	false	vim
+htop.desktop	htop	false	false	htop
+intergen-toggle.desktop	intergen-toggle	false	false	intergen-toggle
+intergen-welcome.desktop	intergen-welcome	false	false	intergen-welcome
+io.github.celluloid_player.Celluloid.desktop	io.github.celluloid_player.Celluloid	false	false	celluloid
+libreoffice-base.desktop	libreoffice-base	false	false	libreoffice
+libreoffice-calc.desktop	libreoffice-calc	false	false	libreoffice
+libreoffice-draw.desktop	libreoffice-draw	false	false	libreoffice
+libreoffice-impress.desktop	libreoffice-impress	false	false	libreoffice
+libreoffice-math.desktop	libreoffice-math	false	false	libreoffice
+libreoffice-startcenter.desktop	libreoffice-startcenter	false	false	libreoffice
+libreoffice-writer.desktop	libreoffice-writer	false	false	libreoffice
+libreoffice-xsltfilter.desktop		true	false	libreoffice
+mpv.desktop	mpv	true	false	mpv
+nautilus-autorun-software.desktop	application-x-executable	true	false	nautilus
+nvim.desktop	nvim	false	false	neovim
+org.freedesktop.IBus.Panel.Wayland.Gtk3.desktop	ibus	true	false	ibus
+org.freedesktop.IBus.Setup.desktop	ibus-setup	false	false	ibus
+org.freedesktop.Xwayland.desktop		true	false	xwayland
+org.gnome.Adwaita1.Demo.desktop	org.gnome.Adwaita1.Demo	true	false	libadwaita1
+org.gnome.Calculator.desktop	org.gnome.Calculator	false	false	gnome-calculator
+org.gnome.Calendar.desktop	org.gnome.Calendar	false	false	gnome-calendar
+org.gnome.Characters.desktop	org.gnome.Characters	false	false	gnome-characters
+org.gnome.Connections.desktop	org.gnome.Connections	false	false	gnome-connections
+org.gnome.Contacts.desktop	org.gnome.Contacts	false	false	gnome-contacts
+org.gnome.DiskUtility.desktop	org.gnome.DiskUtility	false	false	gnome-disk-utility
+org.gnome.Evince-previewer.desktop	document-print-preview	true	false	evince
+org.gnome.Evince.desktop	org.gnome.Evince	false	false	evince
+org.gnome.Evolution-alarm-notify.desktop	org.gnome.Evolution-alarm-notify	true	false	evolution-data-server
+org.gnome.Extensions.desktop	org.gnome.Extensions	false	false	gnome-shell
+org.gnome.FileRoller.desktop	org.gnome.FileRoller	false	false	file-roller
+org.gnome.Logs.desktop	org.gnome.Logs	false	false	gnome-logs
+org.gnome.Loupe.desktop	org.gnome.Loupe	false	false	loupe
+org.gnome.Maps.desktop	org.gnome.Maps	false	false	gnome-maps
+org.gnome.Music.desktop	org.gnome.Music	false	false	gnome-music
+org.gnome.Mutter.Mdk.desktop	org.gnome.Mutter.Mdk	true	false	mutter
+org.gnome.Nautilus.desktop	org.gnome.Nautilus	false	false	nautilus
+org.gnome.OnlineAccounts.OAuth2.desktop		true	false	gnome-online-accounts
+org.gnome.RestDemo.desktop		true	false	librest
+org.gnome.Rhythmbox3.desktop	org.gnome.Rhythmbox3	false	false	rhythmbox
+org.gnome.Rhythmbox3.device.desktop	org.gnome.Rhythmbox3	true	false	rhythmbox
+org.gnome.Screenshot.desktop	org.gnome.Screenshot	false	false	gnome-screenshot
+org.gnome.Settings.desktop	org.gnome.Settings	false	false	gnome-control-center
+org.gnome.Shell.Extensions.desktop	org.gnome.Shell.Extensions	true	false	gnome-shell
+org.gnome.Shell.PortalHelper.desktop	org.gnome.Shell.CaptivePortal	true	false	gnome-shell
+org.gnome.SimpleScan.desktop	org.gnome.SimpleScan	false	false	simple-scan
+org.gnome.Snapshot.desktop	org.gnome.Snapshot	false	false	snapshot
+org.gnome.SystemMonitor.desktop	org.gnome.SystemMonitor	false	false	gnome-system-monitor
+org.gnome.Tecla.desktop	org.gnome.Tecla	true	false	tecla
+org.gnome.Terminal.Preferences.desktop	org.gnome.Terminal.Preferences	true	false	gnome-terminal
+org.gnome.Terminal.desktop	org.gnome.Terminal	false	false	gnome-terminal
+org.gnome.TextEditor.desktop	org.gnome.TextEditor	false	false	gnome-text-editor
+org.gnome.Vte.App.Gtk3.desktop	org.gnome.Terminal	true	false	vte
+org.gnome.Vte.App.Gtk4.desktop	org.gnome.Terminal	true	false	vte
+org.gnome.Weather.desktop	org.gnome.Weather	false	false	gnome-weather
+org.gnome.Yelp.desktop	org.gnome.Yelp	false	false	yelp
+org.gnome.Zenity.desktop		true	false	zenity
+org.gnome.baobab.desktop	org.gnome.baobab	false	false	baobab
+org.gnome.clocks.desktop	org.gnome.clocks	false	false	gnome-clocks
+org.gnome.evolution-data-server.OAuth2-handler.desktop		true	false	evolution-data-server
+org.gnome.font-viewer.desktop	org.gnome.font-viewer	false	false	gnome-font-viewer
+org.gnome.seahorse.Application.desktop	org.gnome.seahorse.Application	false	false	seahorse
+org.gnome.tweaks.desktop	org.gnome.tweaks	false	false	gnome-tweaks
+org.gtk.Demo4.desktop	org.gtk.Demo4	true	false	gtk4
+org.gtk.PrintEditor4.desktop	org.gtk.PrintEditor4	true	false	gtk4
+org.gtk.WidgetFactory4.desktop	org.gtk.WidgetFactory4	true	false	gtk4
+org.gtk.gtk4.NodeEditor.desktop	org.gtk.gtk4.NodeEditor	true	false	gtk4
+org.inkscape.Inkscape.desktop	org.inkscape.Inkscape	false	false	inkscape
+org.intergenos.Chronicle.desktop	org.intergenos.Chronicle	false	false	intergenos-backup
+org.intergenos.InterGenPanel.desktop	org.intergenos.InterGenPanel	false	false	intergen
+org.opensc.notify.desktop	utilities-system-monitor	true	false	opensc
+org.remmina.Remmina-file.desktop	org.remmina.Remmina	true	false	remmina
+org.remmina.Remmina.desktop	org.remmina.Remmina	false	false	remmina
+qemu.desktop	qemu	true	false	qemu
+remote-viewer.desktop	virt-viewer	false	false	virt-viewer
+thunderbird.desktop	thunderbird	false	false	thunderbird
+timeshift-gtk.desktop	timeshift	false	false	timeshift
+transmission-gtk.desktop	transmission-gtk	false	false	transmission
+vim.desktop	gvim	false	false	vim
+virt-manager.desktop	virt-manager	false	false	virt-manager
+xdg-desktop-portal-gnome.desktop	applications-system-symbolic	true	false	xdg-desktop-portal-gnome
+xdg-desktop-portal-gtk.desktop	applications-system-symbolic	true	false	xdg-desktop-portal-gtk
