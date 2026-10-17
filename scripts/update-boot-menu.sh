@@ -22,17 +22,23 @@
 # them), the rewrite is deterministic and idempotent, and it is exactly the
 # manual remediation proven on four machines during the incident.
 #
-# A MENU WITH NO KERNEL AT ALL is the one case a rewrite cannot fix: there is no
-# token to rewrite. The installer composes the menu with grub-mkconfig, and
-# /etc/grub.d/06_uki emits the unified-kernel entries from the images on the ESP
-# at that moment; a menu composed before the image existed has that generator's
-# section and nothing in it (a real R001.3 install, 2026-10-16: the installed
-# menu's only entry was the firmware's, and the machine had nothing of its own
-# to boot). When the menu is recognisably this system's own composition — the
-# generator's section markers are both there — the section is filled with what
-# the same generator emits now, and nothing else in the menu changes: not the
-# header, not the theme, not another system's entries. A menu without those
-# markers is still refused as unrecognised.
+# AN EMPTY UNIFIED-KERNEL SECTION is the one case a rewrite cannot fix: there is
+# no entry in it to rewrite. The installer composes the menu with grub-mkconfig,
+# and /etc/grub.d/06_uki emits the unified-kernel entries from the images on the
+# ESP at that moment; a menu composed before the image existed has that
+# generator's section and nothing in it (a real R001.3 install, 2026-10-16: the
+# installed menu's only entry was the firmware's, and the machine had nothing of
+# its own to boot). When the menu is recognisably this system's own composition
+# — the generator's section markers are both there, once each — the section is
+# filled with what the same generator emits now, WHATEVER the other sections
+# hold: a plain install keeps the stock Linux entries beside an empty section,
+# and those entries' kernel-release tokens used to send this script down the
+# rewrite path, which reported "nothing to do" with no unified-kernel entry, or
+# refused on a release change. After the section is filled, entries outside it
+# that still name an earlier release are pointed at this one, outside the
+# section only; nothing else in the menu changes: not the header, not the
+# theme, not another system's entries. A menu without those markers and with no
+# kernel-release token is still refused as unrecognised.
 #
 # Fail-safe: never deletes; missing/unwritable menu or a post-edit verification
 # miss exits non-zero so the CALLER can warn loudly — the caller must treat
@@ -106,12 +112,37 @@ fi
 # Kernel-release tokens in the menu: <digits><ver-chars>-igos-<digits>.
 TOKEN_RE='[0-9][0-9a-zA-Z.]*-igos-[0-9]\{1,\}'
 
+# The unified-kernel section's state: "absent" (no markers), "empty" (each marker
+# once, in order, and no menu entry between them), "filled", or "malformed"
+# (a marker repeated or out of order — such a menu is never composed into).
+uki_section_state() {
+    awk -v b="$UKI_SECTION_BEGIN" -v e="$UKI_SECTION_END" '
+        $0 == b { nb++; if (ne) bad = 1; inside = 1; next }
+        $0 == e { ne++; if (!nb) bad = 1; inside = 0; next }
+        inside && $0 ~ /^[[:space:]]*menuentry[[:space:]]/ { entries++ }
+        END {
+            if (!nb && !ne) { print "absent"; exit }
+            if (nb != 1 || ne != 1 || bad) { print "malformed"; exit }
+            print (entries ? "filled" : "empty")
+        }' "$GRUB_CFG"
+}
+
+# The kernel-release tokens on the lines outside the unified-kernel section.
+outside_section_tokens() {
+    awk -v b="$UKI_SECTION_BEGIN" -v e="$UKI_SECTION_END" \
+        '$0==b{s=1;next} $0==e{s=0;next} !s' "$GRUB_CFG" | grep -o -e "$TOKEN_RE"
+}
+
+ENTRY_LINE="menuentry \"InterGenOS $NEW_KVER (UKI)\" --id intergenos-uki "
+CHAIN_LINE="    chainloader /EFI/Linux/intergenos-$NEW_KVER.efi"
+
 # Fill this system's own unified-kernel section with what its generator emits
-# now (see A MENU WITH NO KERNEL AT ALL, above). Exits.
+# now (see AN EMPTY UNIFIED-KERNEL SECTION, above). Writes the backup first;
+# exits non-zero, with the menu restored, on any failure; returns 0 when done.
 compose_uki_section() {
     local image="$ESP_UKI_DIR/intergenos-$NEW_KVER.efi"
-    local entry_line="menuentry \"InterGenOS $NEW_KVER (UKI)\" --id intergenos-uki "
-    local chain_line="    chainloader /EFI/Linux/intergenos-$NEW_KVER.efi"
+    local entry_line="$ENTRY_LINE"
+    local chain_line="$CHAIN_LINE"
     if [ ! -f "$image" ]; then
         _m "ERROR: $GRUB_CFG has no InterGenOS entry, and there is no boot image for $NEW_KVER at $image to give it one — nothing composed"
         exit 1
@@ -163,14 +194,53 @@ compose_uki_section() {
         cp -p "$BAK" "$GRUB_CFG"
         exit 1
     fi
-    _m "menu composed: it had no InterGenOS entry, and now boots $NEW_KVER by default (backup at $BAK)"
-    exit 0
+    return 0
 }
 
-if ! grep -q -- "-igos-" "$GRUB_CFG"; then
-    if grep -qxF -- "$UKI_SECTION_BEGIN" "$GRUB_CFG" && grep -qxF -- "$UKI_SECTION_END" "$GRUB_CFG"; then
-        compose_uki_section
+# Point the entries OUTSIDE the unified-kernel section at this release, after
+# the section was just composed (its entries are the generator's, each naming
+# its own image, and are left exactly as composed). Restores from $BAK and
+# exits non-zero on any failure or verification miss.
+repoint_outside_section() {
+    local composed="$GRUB_CFG.composed-section.$$" new_file="$GRUB_CFG.repointed.$$"
+    _section_of() { awk -v b="$UKI_SECTION_BEGIN" -v e="$UKI_SECTION_END" '$0==b{s=1;next} $0==e{s=0;next} s' "$1"; }
+    if ! _section_of "$GRUB_CFG" > "$composed" ||
+       ! awk -v b="$UKI_SECTION_BEGIN" -v e="$UKI_SECTION_END" -v kv="$NEW_KVER" '
+            $0 == b { s = 1; print; next }
+            $0 == e { s = 0; print; next }
+            !s { gsub(/[0-9][0-9a-zA-Z.]*-igos-[0-9]+/, kv) }
+            { print }' "$GRUB_CFG" > "$new_file" ||
+       ! cp "$new_file" "$GRUB_CFG"; then
+        rm -f "$composed" "$new_file"
+        _m "ERROR: pointing the other entries at $NEW_KVER failed — restoring from $BAK"
+        cp -p "$BAK" "$GRUB_CFG"
+        exit 1
     fi
+    rm -f "$new_file"
+    if outside_section_tokens | grep -qv -F "$NEW_KVER" ||
+       ! cmp -s "$composed" <(_section_of "$GRUB_CFG") ||
+       ! grep -qF -- "$ENTRY_LINE" "$GRUB_CFG" || ! grep -qxF -- "$CHAIN_LINE" "$GRUB_CFG"; then
+        rm -f "$composed"
+        _m "ERROR: post-edit menu failed its checks (a stale release outside the section, the section changed, or no default entry) — restoring from $BAK"
+        cp -p "$BAK" "$GRUB_CFG"
+        exit 1
+    fi
+    rm -f "$composed"
+    return 0
+}
+
+if [ "$(uki_section_state)" = empty ]; then
+    compose_uki_section
+    if ! outside_section_tokens | grep -qv -F "$NEW_KVER"; then
+        _m "menu composed: its unified-kernel section was empty, and the menu now boots $NEW_KVER by default (backup at $BAK)"
+        exit 0
+    fi
+    repoint_outside_section
+    _m "menu composed: its unified-kernel section was empty, and the menu now boots $NEW_KVER by default; its other entries now reference $NEW_KVER (backup at $BAK)"
+    exit 0
+fi
+
+if ! grep -q -- "-igos-" "$GRUB_CFG"; then
     _m "ERROR: $GRUB_CFG contains no InterGenOS kernel-release tokens — refusing to edit an unrecognized menu"
     exit 1
 fi

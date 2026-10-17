@@ -161,5 +161,75 @@ ck "no generator on the system: refused" '[ $RC -ne 0 ]'
 ck "no generator: menu untouched" 'cmp -s "$T/before.cfg" "$T/grub.cfg"'
 teardown
 
+# A PLAIN install's menu composed before its image existed: the stock Linux
+# entries are kept (they carry kernel-release tokens) beside an EMPTY
+# unified-kernel section. Its tokens used to send the script down the rewrite
+# path: "nothing to do" with no unified-kernel entry at the same release, and a
+# refusal (no intergenos-<new>.efi after the rewrite) on a release change.
+plain_menu() { # plain_menu <kver of the stock Linux entries>
+    cat > "$T/grub.cfg" <<EOF
+### BEGIN /etc/grub.d/00_header ###
+   set default="intergenos-uki"
+terminal_output gfxterm
+### END /etc/grub.d/00_header ###
+
+### BEGIN /etc/grub.d/06_uki ###
+### END /etc/grub.d/06_uki ###
+
+### BEGIN /etc/grub.d/10_linux ###
+menuentry 'InterGenOS GNU/Linux' --class intergenos --class gnu-linux --class os \$menuentry_id_option 'gnulinux-simple-0b1c' {
+	load_video
+	echo	'Loading Linux $1 ...'
+	linux	/boot/vmlinuz-$1 root=PARTUUID=0b1c-02 ro rootwait vt.default_utf8=1
+	echo	'Loading initial ramdisk ...'
+	initrd	/boot/initramfs.img
+}
+submenu 'Advanced options for InterGenOS GNU/Linux' \$menuentry_id_option 'gnulinux-advanced-0b1c' {
+	menuentry 'InterGenOS GNU/Linux, with Linux $1' --class intergenos \$menuentry_id_option 'gnulinux-$1-advanced-0b1c' {
+		linux	/boot/vmlinuz-$1 root=PARTUUID=0b1c-02 ro rootwait vt.default_utf8=1
+	}
+}
+### END /etc/grub.d/10_linux ###
+
+### BEGIN /etc/grub.d/30_uefi-firmware ###
+menuentry 'UEFI Firmware Settings' \$menuentry_id_option 'uefi-firmware' {
+	fwsetup
+}
+### END /etc/grub.d/30_uefi-firmware ###
+EOF
+}
+section() { awk '$0=="### BEGIN /etc/grub.d/06_uki ###"{s=1;next} $0=="### END /etc/grub.d/06_uki ###"{s=0;next} s' "$1"; }
+
+setup; plain_menu 6.18.51-igos-6; generator; : > "$T/esp-linux/intergenos-6.18.51-igos-6.efi"
+cp "$T/grub.cfg" "$T/before.cfg"
+run_compose 6.18.51-igos-6; RC=$?
+ck "plain install, same release: composed (exit 0)" '[ $RC -eq 0 ]'
+ck "plain install, same release: the default entry is there" 'grep -qF "menuentry \"InterGenOS 6.18.51-igos-6 (UKI)\" --id intergenos-uki " "$T/grub.cfg"'
+ck "plain install, same release: it chainloads the image" 'grep -qxF "    chainloader /EFI/Linux/intergenos-6.18.51-igos-6.efi" "$T/grub.cfg"'
+ck "plain install, same release: nothing outside the section changed" '[ "$(outside "$T/before.cfg")" = "$(outside "$T/grub.cfg")" ]'
+ck "plain install, same release: backup is the menu as it was" 'cmp -s "$T/before.cfg" "$T/grub.cfg.bak-6.18.51-igos-6"'
+run_compose 6.18.51-igos-6; RC=$?
+ck "plain install, same release: rerun exits 0 with one pinned default" '[ $RC -eq 0 ] && [ "$(grep -c -- "--id intergenos-uki " "$T/grub.cfg")" -eq 1 ]'
+teardown
+
+setup; plain_menu 6.18.51-igos-5; generator
+: > "$T/esp-linux/intergenos-6.18.51-igos-5.efi"; sleep 1; : > "$T/esp-linux/intergenos-6.18.51-igos-6.efi"
+cp "$T/grub.cfg" "$T/before.cfg"
+run_compose 6.18.51-igos-6; RC=$?
+ck "plain install, release change: composed (exit 0)" '[ $RC -eq 0 ]'
+ck "plain install, release change: the new release is the default" 'grep -qF "menuentry \"InterGenOS 6.18.51-igos-6 (UKI)\" --id intergenos-uki " "$T/grub.cfg"'
+ck "plain install, release change: the section is the generator's, older image kept by its own id" '[ "$(section "$T/grub.cfg")" = "$("$T/06_uki")" ] && grep -qF -- "--id intergenos-uki-6.18.51-igos-5 " "$T/grub.cfg"'
+ck "plain install, release change: the stock entries now name the new release" '[ "$(grep -c "vmlinuz-6.18.51-igos-6 " "$T/grub.cfg")" -eq 2 ] && ! outside "$T/grub.cfg" | grep -q "igos-5"'
+ck "plain install, release change: backup is the menu as it was" 'cmp -s "$T/before.cfg" "$T/grub.cfg.bak-6.18.51-igos-6"'
+teardown
+
+setup; plain_menu 6.18.51-igos-6
+printf '### BEGIN /etc/grub.d/06_uki ###\n' >> "$T/grub.cfg"
+generator; : > "$T/esp-linux/intergenos-6.18.51-igos-6.efi"
+cp "$T/grub.cfg" "$T/before.cfg"
+run_compose 6.18.51-igos-6; RC=$?
+ck "a repeated section marker is never composed into" '! grep -q -- "--id intergenos-uki" "$T/grub.cfg" && cmp -s "$T/before.cfg" "$T/grub.cfg"'
+teardown
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
