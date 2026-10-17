@@ -2922,14 +2922,30 @@ class ConversationRouter(RouterInterface):
             self._won("current_data_offer", source=_cd.source)
             return _cd
 
-        # Explain/teach intent (PI-218-2): an instructional query ("how do I update
-        # my system") must be ANSWERED with a verified how-to, not routed to an
-        # action. This runs BEFORE P0 decomposition so the query is never split
-        # into actions or dispatched to manage_packages — the exact mis-route
-        # PI-218-2 reported. Curated corpus answers beat a 2B improvising commands
-        # (security-first); explain-first-then-offer preserves the user's ability to act.
+        # A compound instruction must reach the clause router before a single
+        # how-to can answer it. Each clause keeps its teaching intent, including
+        # a shared prefix: "how do I update ... and list ..." asks how to do both.
+        instructional_compound = (
+            decomposition.needs_decomposition and not forget_in_compound
+            and any(_EXPLAIN_PRIOR_RE.search(clause)
+                    for clause in decomposition.sub_queries))
+        if instructional_compound and _EXPLAIN_PRIOR_RE.search(
+                decomposition.sub_queries[0]):
+            independent_question = re.compile(
+                r"^(?:what|how|is|are|which|when|where|who|why|does|do|can|"
+                r"could|would|should)\b", re.IGNORECASE)
+            decomposition = dataclasses.replace(
+                decomposition, sub_queries=[decomposition.sub_queries[0]] + [
+                    clause if (_EXPLAIN_PRIOR_RE.search(clause)
+                               or independent_question.search(clause))
+                    else "how do I " + clause
+                    for clause in decomposition.sub_queries[1:]])
+
+        # Single instructional questions are answered before any action route.
+        # Compound instructions receive the same teaching gate per clause.
         explain_result, explain_prior = (
-            (None, False) if (carried_subject or forget_in_compound)
+            (None, False) if (carried_subject or forget_in_compound
+                              or instructional_compound)
             else self._try_explain(user_input))
         _span.set_attribute("explain_prior", explain_prior)
         if explain_result is not None:
@@ -2946,10 +2962,9 @@ class ConversationRouter(RouterInterface):
             self._won("ip", matched=True)
             return self._answer_ip_query(user_input, t0)
 
-        # P0: Compound query detection — multi-part queries bypass cache. Skipped
-        # when an explain prior is present but no curated answer matched: an
-        # instructional query must not be split into actions; it falls through to
-        # the answer paths (P4 freeform with reference grounding) instead.
+        # P0: Compound queries bypass cache. Instructional clauses are answered
+        # by the clause router's teaching gate, including a model explanation
+        # when the documentation has no answer; they never enter its action ladder.
         #
         # M5 COMPLETION (the fast-path handoff): a genuine compound is split ONLY
         # when a clause is fast-path-carriable (system-state / action / IP / time /
@@ -2971,6 +2986,7 @@ class ConversationRouter(RouterInterface):
         route_compound_whole = (
             decomposition.needs_decomposition
             and not explain_prior
+            and not instructional_compound
             and (forget_in_compound
                  or not self._compound_has_fastpath_clause(decomposition.sub_queries))
         )
@@ -5072,8 +5088,8 @@ class ConversationRouter(RouterInterface):
         the matched entry carries a runnable command, we explain FIRST then OFFER
         to run it — the offer is resolved next turn through the normal safety-gated
         path (never auto-run). Returns (None, prior) when no curated answer matched;
-        a True prior then suppresses P0 decomposition so the instructional query is
-        answered, not split into actions.
+        the caller routes compound instructional questions clause by clause before
+        using this gate. A prior without a match still asks for an explanation.
         """
         # getattr-guarded for partial-construction tests — same convention as
         # getattr(self, '_reference', None) elsewhere in the router.
@@ -5304,6 +5320,16 @@ class ConversationRouter(RouterInterface):
         if memory_answer is not None:
             _note("memory", "won")
             return memory_answer
+        explanation, explain_prior = self._try_explain(user_input)
+        if explanation is not None:
+            _note("explain", "won", prior=explain_prior)
+            return explanation
+        if explain_prior or _EXPLAIN_PRIOR_RE.search(user_input):
+            # An uncovered how-to remains a question, including when teaching
+            # data is unavailable. Never turn its verbs into an action dispatch.
+            answer = self._try_llm_freeform(user_input)
+            _note("llm_freeform", "won", explain_prior=True)
+            return answer
         result = self._try_keyword_match(user_input)
         if result.handled:
             _note("keyword", "won")

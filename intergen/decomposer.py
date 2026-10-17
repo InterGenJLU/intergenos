@@ -137,7 +137,7 @@ def validate_decomposition_cap(
 _ACTION_VERB_ALT = (
     r"check|show|display|list|start|stop|restart|enable|disable|install|"
     r"remove|uninstall|run|execute|open|launch|search|tell|"
-    r"find|read|write|create|delete|update|save|use"
+    r"find|read|write|create|delete|update|save|use|reboot|shutdown"
 )
 # Kept as the name the signals and split points read, now sourced from the one
 # alternation above so it cannot drift from the counting list again.
