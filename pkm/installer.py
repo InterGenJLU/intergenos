@@ -166,6 +166,27 @@ HELPER_ENV_ALLOWLIST = frozenset({
 })
 
 
+# The machine owner's signing-key passphrase, by the name the installer hands it
+# over under (installer/backend/mok.py) and the signing helper reads
+# (scripts/mok-signing.sh MOK_PASS_ENV). A package's OWN post-install hook — the
+# kernel's, which builds and signs the boot image, and the NVIDIA driver's —
+# receives it when it is set; a download helper never does, so it is not on
+# HELPER_ENV_ALLOWLIST. It used to reach neither: the per-package hook's
+# environment is built from that list, so during an install the kernel's hook
+# asked an empty room for the passphrase, waited out the two-minute prompt and
+# refused to sign (measured on a real R001.3 install, 2026-10-16).
+MOK_PASSPHRASE_VAR = "IGOS_MOK_PASSPHRASE"
+
+# The exit status a signing hook uses when it REFUSED to sign: no passphrase, a
+# wrong one, or no key on a machine that enforces Secure Boot. A package whose
+# own post-install hook exits with it did not finish installing — the boot
+# image or driver modules it exists to sign were not signed — so the install is
+# reported as not finished and the package is marked degraded, instead of the
+# warning every other hook failure gets. The same number is
+# scripts/mok-signing.sh's MOK_REFUSED_EXIT; a test holds the two equal.
+SIGNING_REFUSED_EXIT = 77
+
+
 class HelperEnvironmentError(ValueError):
     """The inherited environment carries a value a helper must not receive."""
 
@@ -2392,7 +2413,9 @@ class PackageInstaller:
             # (executable). Used by linux-kernel to rebuild + sign the UKI on
             # every install/upgrade per D-005 Option A. Pre-Q2-framework path;
             # kept for backward compatibility with linux-kernel's existing wiring.
-            self._run_post_install_hook(name, version)
+            # Its status is kept: a hook that refused to sign leaves this
+            # install not finished (SIGNING_REFUSED_EXIT, reported below).
+            post_install_rc = self._run_post_install_hook(name, version)
 
             # Q2 hook framework (approved 2026-05-19) +
             # canonical pre/post split (2026-05-27 sysusers migration).
@@ -2530,6 +2553,16 @@ class PackageInstaller:
                 + archive_hook_result.critical_failures
                 + canonical_result.critical_failures
             )
+            # A package's own post-install hook that REFUSED to sign: the boot
+            # image or driver modules it exists to sign were not signed, so the
+            # install did not finish. This used to be a warning, and the
+            # NVIDIA driver install reported success while the boot image
+            # carrying its cmdline was refused — the machine rebooted into an
+            # output that stayed dark (measured 2026-10-16).
+            signing_refused = post_install_rc == SIGNING_REFUSED_EXIT
+            if signing_refused:
+                critical_hook_ids = critical_hook_ids + [
+                    f"{name} post-install (refused to sign)"]
             if critical_hook_ids:
                 # Critical hook failure surfaces install as failed-with-rollback-
                 # required. Deploy + DB commit already happened; the caller
@@ -2559,6 +2592,16 @@ class PackageInstaller:
                 if reporter:
                     for line in co_owned_lines:
                         reporter.info(line)
+                # A refusal alone is finished by running it again with the
+                # passphrase, not by a rollback: a refusing signer writes no
+                # boot image, so the machine still boots the signed one it had,
+                # and rolling back would only remove what did install.
+                if signing_refused and len(critical_hook_ids) == 1:
+                    advice = (f"It refused to sign, so do not reboot for it "
+                              f"yet. Finish it with the passphrase in hand: "
+                              f"sudo pkm reinstall {name}")
+                else:
+                    advice = "Rollback recommended."
                 return False, (
                     f"Installed {name} {self._installed_vr(name, version)} "
                     f"({file_count} files){extra}, "
@@ -2566,7 +2609,7 @@ class PackageInstaller:
                     f"{', '.join(critical_hook_ids)}. Live system state may "
                     f"diverge from package metadata. Package marked DEGRADED "
                     f"(see `pkm list`/`pkm verify`); reinstall to retry. "
-                    f"Rollback recommended.\n"
+                    f"{advice}\n"
                     f"{hook_summary}"
                     + (f"\n{degraded_pkmnew}" if degraded_pkmnew else "")
                     + "".join(f"\n{line}" for line in co_owned_lines)
@@ -2697,11 +2740,15 @@ class PackageInstaller:
 
         Failure is non-fatal: log + continue. The deploy + DB transaction
         already committed; the hook is a side-channel that can be re-run
-        manually if it fails.
+        manually if it fails. The one exception is a hook that REFUSED to sign
+        (exit SIGNING_REFUSED_EXIT): the caller reports that install as not
+        finished.
+
+        Returns the hook's exit status, or None when no hook ran.
         """
         hook = self.root / "var" / "lib" / "pkm" / "hooks" / name / "post-install"
         if not hook.is_file() or not os.access(str(hook), os.X_OK):
-            return
+            return None
         # H-024 (same vulnerability class as _run_helper): strip env to
         # HELPER_ENV_ALLOWLIST. Hook executes as the install process; inherited
         # LD_PRELOAD / *_PROXY / PYTHONPATH would let an attacker who can set
@@ -2714,7 +2761,13 @@ class PackageInstaller:
                 f"Re-run manually once the variable is corrected: {hook}",
                 file=sys.stderr,
             )
-            return
+            return None
+        # The signing passphrase, when whatever started pkm holds one (the
+        # system installer, for the length of its package phase). Only this
+        # hook path receives it; see MOK_PASSPHRASE_VAR.
+        passphrase = os.environ.get(MOK_PASSPHRASE_VAR)
+        if passphrase:
+            env[MOK_PASSPHRASE_VAR] = passphrase
         env["PKM_PACKAGE_NAME"] = name
         env["PKM_PACKAGE_VERSION"] = version
 
@@ -2751,13 +2804,21 @@ class PackageInstaller:
                 )
             else:
                 result = subprocess.run(cmd, env=env)  # trace-coverage: allow — _trace shim unavailable fallback
-            if result.returncode != 0:
+            if result.returncode == SIGNING_REFUSED_EXIT:
+                print(
+                    f"  ERROR: post-install hook for {name} REFUSED TO SIGN "
+                    f"(exit {result.returncode}); its own output above says "
+                    f"why and how to finish. This install is not finished.",
+                    file=sys.stderr,
+                )
+            elif result.returncode != 0:
                 print(
                     f"  WARNING: post-install hook for {name} exited "
                     f"{result.returncode}; install proceeds (hook is "
                     f"non-fatal). Re-run manually: {hook}",
                     file=sys.stderr,
                 )
+            return result.returncode
         except (OSError, subprocess.SubprocessError) as e:
             if _TRACE_AVAILABLE:
                 try:
@@ -2772,6 +2833,7 @@ class PackageInstaller:
                 f"execute: {e}; install proceeds (hook is non-fatal).",
                 file=sys.stderr,
             )
+            return None
 
     # ------------------------------------------------------------------
     # Helpers — manifest reading + predecessor validation + hash building
