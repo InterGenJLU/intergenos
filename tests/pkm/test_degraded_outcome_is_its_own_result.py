@@ -77,6 +77,12 @@ class _StandInRepo:
     def download_package(self, name, reporter=None):
         raise AssertionError("nothing may be fetched in this test")
 
+    def has_synced_index(self):
+        # No repository index exists here. Without this answer the upgrade's
+        # advisory refresh met a stand-in lacking the method and reported it
+        # as an internal error in pkm.
+        return False
+
     def resolve_dependencies(self, name, db):
         raise AssertionError(
             f"{name} landed, and the command went to the repository to resolve "
@@ -185,6 +191,10 @@ class UpgradeAfterARefusedSigning(_Fixture):
         self.assertIn(f"sudo pkm reinstall {PKG}", said)
         self.assertIn(f"1 of 1 package(s) upgraded but did not finish: {PKG}", said)
         self.assertNotIn("did not upgrade", said)
+        # The advisory refresh after the upgrade reads that no index is synced
+        # and skips; it is not an internal error of pkm's.
+        self.assertNotIn("INTERNAL ERROR", said)
+        self.assertIn("skipped refreshing the available-updates advisory", said)
 
 
 class InstallThatLandedDegraded(_Fixture):
