@@ -56,8 +56,8 @@
     "triggers": [
       "how do I change the root password"
     ],
-    "answer": "```\nsudo passwd root\n```\nNote: InterGenOS ships locked-down by default, and direct root login is typically disabled — you\nnormally administer via `sudo` from your own account rather than logging in as root.",
-    "doc_source": "tools/intergen-coverage/drafts",
+    "answer": "Change the local root account's password with:\n```\nsudo passwd root\n```\nThat local credential is separate from SSH access. InterGenOS's SSH defaults prohibit root login; changing the root password does not enable it. Use your own account and `sudo` for routine administration.",
+    "doc_source": "docs/users/security-defaults.md; packages/core/shadow/package.yml",
     "requires": []
   },
   {
@@ -66,8 +66,8 @@
     "triggers": [
       "how do I add a new user"
     ],
-    "answer": "```\nsudo useradd -m -s /bin/bash <username>   # create with a home dir + shell\nsudo passwd <username>                    # set their password\n```\nTo let them administer the system, add them to the sudo/wheel group (see the next answer).",
-    "doc_source": "tools/intergen-coverage/drafts",
+    "answer": "Create an account with a home directory and shell, then set its password:\n```\nsudo useradd -m -s /bin/bash <username>\nsudo passwd <username>\n```\nIf that account should also administer the machine, explicitly add it to InterGenOS's `wheel` group:\n```\nsudo usermod -aG wheel <username>\n```\nThe new group membership takes effect at the user's next login.",
+    "doc_source": "packages/core/shadow/package.yml; packages/core/sudo/build.sh",
     "requires": []
   },
   {
@@ -76,8 +76,8 @@
     "triggers": [
       "how do I give a user sudo rights"
     ],
-    "answer": "Add them to the administrators group (InterGenOS uses `wheel`):\n```\nsudo usermod -aG wheel <username>\n```\nThey pick up sudo rights on their next login. Verify with `groups <username>`.\nconfig in `config/`; it's `wheel` by LFS/BLFS convention but verify before this ships.",
-    "doc_source": "tools/intergen-coverage/drafts",
+    "answer": "InterGenOS grants administrator access through the `wheel` group:\n```\nsudo usermod -aG wheel <username>\n```\nThe `-aG` form adds this membership while keeping the user's other groups. The change applies at their next login. Check the account's groups with `groups <username>`.",
+    "doc_source": "packages/core/sudo/build.sh; packages/core/shadow/package.yml",
     "requires": []
   },
   {
@@ -116,8 +116,8 @@
     "triggers": [
       "why do I get permission denied"
     ],
-    "answer": "Two common causes:\n- **The action needs root** — prefix the command with `sudo` (e.g. `sudo pkm install ...`,\n  editing files under `/etc`, `/usr`).\n- **The file isn't executable or isn't yours** — check with `ls -l <file>`; fix with\n  `chmod +x <file>` (make runnable) or `sudo chown you:you <file>` (take ownership).\nNote InterGenOS ships with strict lockdown defaults, so some system paths are read-only by design.",
-    "doc_source": "tools/intergen-coverage/drafts",
+    "answer": "Start with the exact command and denied path. Inspect its owner and permissions:\n```\nls -l <file>\nid\n```\nIf your own script needs its executable bit, use `chmod +x <file>`. An administrative operation may require `sudo`; changing ownership of a system file is not a general fix for a denial.\n\nThe installed root filesystem is an ordinary writable filesystem. The live ISO's root is read-only, and individual services can have their own restrictions. Distinguish those situations and inspect the relevant service's log before changing permissions.",
+    "doc_source": "docs/users/security-defaults.md; docs/users/intergen.md",
     "requires": []
   },
   {
@@ -146,8 +146,8 @@
     "triggers": [
       "how do I change file permissions"
     ],
-    "answer": "```\nchmod <mode> <file>\n# examples:\nchmod +x script.sh         # make executable\nchmod 644 file.txt         # owner read/write, others read-only\nchmod 600 secret.txt       # owner-only read/write (good for private keys)\n```\nSee \"what does chmod 777 mean\" for how the number works.",
-    "doc_source": "tools/intergen-coverage/drafts",
+    "answer": "Set permissions with `chmod`:\n```\nchmod <mode> <file>\nchmod +x script.sh   # make a script executable\nchmod 644 file.txt   # owner read/write; group and others read-only\nchmod 600 file.txt   # owner-only read/write\n```\nIn a numeric mode, the digits apply to owner, group and others. Each digit adds read (4), write (2) and execute (1): for example, 6 means read plus write. Inspect the result with `ls -l <file>`.",
+    "doc_source": "packages/core/coreutils-core/package.yml",
     "requires": []
   },
   {
