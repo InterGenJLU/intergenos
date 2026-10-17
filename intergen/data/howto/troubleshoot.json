@@ -15,8 +15,8 @@
     "triggers": [
       "my system froze how do I force quit"
     ],
-    "answer": "If one app is frozen: open System Monitor, select it, and click \"End Process\". If the whole shell is stuck, try `Alt+F2` then type `r` and Enter to restart GNOME Shell without logging out. As a last resort, `Ctrl+Alt+F3` switches to a text console where you can log in and kill the process; `Ctrl+Alt+F2` returns to the desktop.",
-    "doc_source": "tools/intergen-coverage/drafts",
+    "answer": "If one application is frozen and the desktop still responds, open a terminal with `Ctrl+Alt+T`, identify its process and try normal termination:\n```\npgrep -a <name>\nkill <pid>\n```\nIf it will not exit, `kill -9 <pid>` forces it to stop and can lose unsaved work. System Monitor is also included for inspecting running processes.\n\nThe `Alt+F2` then `r` in-place shell restart is an X11 feature and is unavailable on InterGenOS's Wayland desktop. If the system menu still responds, use its restart action. If the whole session is unresponsive, say what input or console access still works before choosing the next recovery step.",
+    "doc_source": "docs/users/desktop-experience.md; packages/core/procps-ng/package.yml",
     "requires": []
   },
   {
@@ -25,8 +25,8 @@
     "triggers": [
       "my computer won't boot"
     ],
-    "answer": "At the boot menu (GRUB), pick a previous kernel entry from \"Advanced options\" to rule out a bad update. InterGenOS uses signed Unified Kernel Images with Secure Boot, so if boot fails right after enabling something like the NVIDIA driver, the earlier entry is your safe fallback. If you reach a login screen but not the desktop, that's the \"black screen after login\" case below. If you're fully stuck at firmware, tell me what you see on screen and I'll walk you through it.",
-    "doc_source": "tools/intergen-coverage/drafts",
+    "answer": "First identify where boot stops and keep the exact message: firmware, the GRUB menu, kernel startup, or graphical login.\n\nIf the boot menu actually offers a previously working signed Unified Kernel Image (UKI), it may provide a recovery option. A bootable fallback is not guaranteed. In particular, an encrypted install with only a placeholder initramfs can deliberately omit the bare-kernel entries; do not assume an Advanced options menu contains a usable older kernel.\n\nReport the visible message and available boot entries so the next step can be chosen from what is actually on this machine.",
+    "doc_source": "docs/users/secure-boot-and-mok.md",
     "requires": []
   },
   {
