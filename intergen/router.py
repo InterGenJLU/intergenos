@@ -2957,6 +2957,12 @@ class ConversationRouter(RouterInterface):
             # Refusing an unrelated document does not authorize an action.
             # An uncovered single instruction follows the same explanation-only
             # path as an uncovered instructional clause.
+            if decide_only:
+                glass.emit("route", "decided", detail={
+                    "source": "llm_freeform", "decide_only": True, "streamed": True,
+                    "query_type": self._current_query_type,
+                    "semantic_score": self._last_semantic_score})
+                return RouteResult(text="", source="llm_freeform", handled=False)
             result = self._try_llm_freeform(user_input)
             self._won("llm_freeform", explain_prior=True)
             self._record(result, t0, "llm_freeform")
@@ -5294,11 +5300,11 @@ class ConversationRouter(RouterInterface):
         if memory_answer is not None:
             _note("memory", "won")
             return memory_answer
-        explanation, explain_prior = self._try_explain(user_input)
-        if explanation is not None:
-            _note("explain", "won", prior=explain_prior)
-            return explanation
-        if explain_prior or _EXPLAIN_PRIOR_RE.search(user_input):
+        if _EXPLAIN_PRIOR_RE.search(user_input):
+            explanation, explain_prior = self._try_explain(user_input)
+            if explanation is not None:
+                _note("explain", "won", prior=explain_prior)
+                return explanation
             # An uncovered how-to remains a question, including when teaching
             # data is unavailable. Never turn its verbs into an action dispatch.
             answer = self._try_llm_freeform(user_input)

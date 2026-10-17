@@ -174,3 +174,13 @@ def test_a_rejected_weak_single_howto_stays_out_of_the_action_ladder(router):
         answer = router.route("how do I check for updates")
     assert answer is fallback
     router._tools.execute.assert_not_called()
+
+
+def test_rejected_howto_decide_only_defers_generation(router):
+    with embedding_choice(router, entry(router, "igos-forge-install"), 0.757):
+        answer = router.route("how do I check for updates", decide_only=True)
+    assert answer.source == "llm_freeform"
+    assert not answer.handled
+    router._llm.chat.assert_not_called()
+    router._llm.stream_with_tools.assert_not_called()
+    router._tools.execute.assert_not_called()
