@@ -2598,7 +2598,9 @@ class PackageInstaller:
                 # and rolling back would only remove what did install.
                 if signing_refused and len(critical_hook_ids) == 1:
                     advice = (f"It refused to sign, so do not reboot for it "
-                              f"yet. Finish it with the passphrase in hand: "
+                              f"yet. Finish it with the signing key passphrase "
+                              f"in hand (the one set at install, not the MOK "
+                              f"enrollment password): "
                               f"sudo pkm reinstall {name}")
                 else:
                     advice = "Rollback recommended."

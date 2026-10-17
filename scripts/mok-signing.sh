@@ -189,6 +189,11 @@ mok_resolve_passphrase() {
         return 1
     fi
 
+    # The prompt names the secret by the installer's own label for it, and says
+    # which secret it is NOT. An installed machine has two: this passphrase and
+    # the MOK enrollment password typed once at the firmware's first boot. A
+    # prompt that named neither was answered with the enrollment password on a
+    # real install (2026-10-16), and the key was refused.
     local attempt answer made=0
     for (( attempt = 1; attempt <= MOK_ASK_ATTEMPTS; attempt++ )); do
         made=$attempt
@@ -196,7 +201,7 @@ mok_resolve_passphrase() {
                     --timeout="$MOK_ASK_TIMEOUT" \
                     --icon=changes-prevent \
                     --id="intergenos-mok:${purpose}" \
-                    "Machine owner signing key passphrase (${purpose}), attempt ${attempt} of ${MOK_ASK_ATTEMPTS}:" \
+                    "Signing key passphrase, the one set at install for this machine's own key (not the MOK enrollment password), for ${purpose}, attempt ${attempt} of ${MOK_ASK_ATTEMPTS}:" \
                  2>/dev/null)
         if [ -z "$answer" ]; then
             mok_log "no passphrase was given (attempt ${attempt} of ${MOK_ASK_ATTEMPTS})"

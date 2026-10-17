@@ -104,7 +104,8 @@ if [ -f "$MOK_KEY" ] && [ -f "$MOK_CERT" ]; then
         fi
     elif ! mok_resolve_passphrase "$MOK_KEY" "the NVIDIA driver's modules for kernel $KVER"; then
         log "REFUSED: no usable signing passphrase; no module was signed and nothing was"
-        log "  installed for kernel $KVER. To finish it with the passphrase in hand:"
+        log "  installed for kernel $KVER. To finish it with the signing key passphrase in hand"
+        log "  (the one set at install, not the MOK enrollment password):"
         log "      sudo $NVIDIA_HOOK_DIR/rebuild-modules $KVER"
         exit "$MOK_REFUSED_EXIT"
     fi

@@ -103,6 +103,7 @@ class TestTheDriverPostInstall:
         assert kernel_ran.exists(), out
         assert proc.returncode == 77, out
         assert "sudo pkm reinstall linux-kernel" in out
+        assert "not the MOK enrollment password" in out
         assert "Do not reboot" in out
 
     def test_a_built_boot_image_is_a_finished_install(self, tmp_path):

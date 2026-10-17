@@ -442,6 +442,9 @@ class RefusalsCarryTheRefusalStatus(unittest.TestCase):
         msgs = hook_lines(proc.stdout + proc.stderr)
         self.assertIn("REFUSING TO SIGN", msgs)
         self.assertEqual(proc.returncode, 77, msgs)
+        # The recovery line names the secret it needs and the one it is not.
+        self.assertIn("signing key passphrase", msgs)
+        self.assertIn("not the MOK enrollment password", msgs)
 
     def test_no_key_where_secure_boot_enforces_is_the_refusal_status(self):
         f = Fixture(self.tmp, machine_id=VALID_MACHINE_ID, with_ukify=True,

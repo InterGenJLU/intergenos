@@ -236,6 +236,11 @@ class TestOneSigningOperation:
             f"image log: {uki_log.read_text() if uki_log.exists() else ''!r}")
         assert len(asked) == 1, (
             f"one operation asked the owner {len(asked)} times: {asked}")
+        # The one question names the secret by the installer's own label and
+        # says which secret it is not: at a prompt that named neither, the
+        # owner of a real install typed the MOK enrollment password.
+        assert "Signing key passphrase" in asked[0], asked[0]
+        assert "not the MOK enrollment password" in asked[0], asked[0]
         for module, before in zip(modules, befores):
             data = module.read_bytes()
             assert data != before, f"{module.name} came back unchanged"

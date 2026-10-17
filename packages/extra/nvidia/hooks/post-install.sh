@@ -111,7 +111,8 @@ if [ -f "$MOK_KEY" ] && [ -f "$MOK_CERT" ]; then
         fi
     elif ! mok_resolve_passphrase "$MOK_KEY" "the NVIDIA driver and the boot image for kernel $KVER"; then
         log "REFUSED: no usable signing passphrase, so nothing was built or signed."
-        log "  To finish it with the passphrase in hand: sudo pkm reinstall nvidia"
+        log "  To finish it with the signing key passphrase in hand (the one set at install,"
+        log "  not the MOK enrollment password): sudo pkm reinstall nvidia"
         exit "$MOK_REFUSED_EXIT"
     fi
 fi
@@ -171,7 +172,8 @@ if [ -n "${PKM_PACKAGE_ROOT:-}" ] && [ "$PKM_PACKAGE_ROOT" = "/" ]; then
             log "REFUSED: the boot image was NOT rebuilt (the kernel hook exited $KERNEL_HOOK_RC; its reason"
             log "  is above), so the driver's cmdline is not in the image this machine boots and the"
             log "  outputs wired to the NVIDIA GPU would stay dark. Do not reboot for the driver yet."
-            log "  To finish it with the passphrase in hand: sudo pkm reinstall linux-kernel"
+            log "  To finish it with the signing key passphrase in hand (the one set at install,"
+            log "  not the MOK enrollment password): sudo pkm reinstall linux-kernel"
             if [ "$KERNEL_HOOK_RC" -eq "$MOK_REFUSED_EXIT" ]; then
                 exit "$MOK_REFUSED_EXIT"
             fi

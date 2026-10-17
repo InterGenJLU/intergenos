@@ -139,6 +139,7 @@ class RefusedSigningIsNotFinishedTest(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("refused to sign", msg)
         self.assertIn("sudo pkm reinstall kpkg", msg)
+        self.assertIn("not the MOK enrollment password", msg)
         self.assertNotIn("Rollback recommended", msg)
         self.assertTrue(row["degraded"])
         self.assertIn("refused to sign", row["degraded"])

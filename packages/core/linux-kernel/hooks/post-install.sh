@@ -141,7 +141,8 @@ refuse_to_sign() {
     log "  Kernel $NEW_KVER is installed on disk but is NOT BOOTABLE UNTIL SIGNED."
     log "  Nothing was written to the ESP. The previous release's signed boot image is"
     log "  still there and is still the boot-menu target, so this machine still boots."
-    log "  To finish the job with the passphrase in hand, at the console:"
+    log "  To finish the job with the signing key passphrase in hand (the one set at install,"
+    log "  not the MOK enrollment password), at the console:"
     log "      sudo pkm reinstall linux-kernel"
     # The refusal status, not a plain failure: the package manager reports a
     # package whose post-install hook exits with it as an install that did not
@@ -612,7 +613,8 @@ fi
 if [ "$NVIDIA_RC" -eq "$MOK_REFUSED_EXIT" ]; then
     log "REFUSED: kernel $NEW_KVER is installed and its boot image is signed, but the NVIDIA"
     log "  driver's modules for it were NOT signed, so this kernel will refuse them at the next"
-    log "  boot and the NVIDIA GPU will have no driver. To finish it with the passphrase in hand:"
+    log "  boot and the NVIDIA GPU will have no driver. To finish it with the signing key passphrase"
+    log "  in hand (not the MOK enrollment password):"
     log "      sudo $NVIDIA_REBUILD $NEW_KVER"
     exit "$MOK_REFUSED_EXIT"
 fi
