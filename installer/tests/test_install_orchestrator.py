@@ -188,6 +188,8 @@ class _RunInstallTestBase(unittest.TestCase):
         # this the fully-mocked `packages` module returns a truthy MagicMock and
         # preflight_check_install_set_complete would spuriously abort every test.
         self.packages.compute_install_set_gap.return_value = []
+        # The same for the EFI boot-chain preflight: the set carries it.
+        self.packages.efi_boot_chain_gap.return_value = []
         self.mok.generate_mok_keypair.return_value = {
             "key_path": "/var/lib/intergen/mok/mok.key",
             "cert_path": "/var/lib/intergen/mok/mok.crt",

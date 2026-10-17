@@ -537,6 +537,31 @@ GROUPS = {
     },
 }
 
+#: What an EFI install's boot chain is built from, by package, with what each
+#: one provides. The installer builds, signs and checks the boot image and
+#: composes the boot menu after the disk is written (bootloader.build_final_uki,
+#: bootloader.compose_boot_menu), and refuses there without any of these.
+EFI_BOOT_CHAIN_PACKAGES = {
+    "systemd-pass2": "ukify, which builds the boot image",
+    "sbsigntool": "sbsign and sbverify, which sign the boot image and check it",
+    "intergenos-grub-theme": ("/etc/grub.d/06_uki, which gives the boot menu "
+                              "its boot image entry"),
+}
+
+
+def efi_boot_chain_gap(groups, archive_dir, package_dir, detected_vendors=None):
+    """Return [(name, what it provides), ...] for each package in
+    EFI_BOOT_CHAIN_PACKAGES that the resolved install set for ``groups`` lacks.
+
+    Read from the same resolution the package phase installs
+    (get_group_packages), so a group left out, an archive the media lacks and
+    a recipe moved between tiers all give the same answer.
+    """
+    names = {name for (name, _ver, _path) in get_group_packages(
+        groups, archive_dir, package_dir, detected_vendors)}
+    return [(name, what) for name, what in EFI_BOOT_CHAIN_PACKAGES.items()
+            if name not in names]
+
 
 def _name_version_from_pkginfo(archive_path):
     """Authoritative (pkgname, pkgver) read from an archive's .PKGINFO.

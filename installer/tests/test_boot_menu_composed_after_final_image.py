@@ -199,6 +199,7 @@ class _Base(unittest.TestCase):
         # ESP, because its fire of the kernel's hook refused to sign.
         packages.install_packages.return_value = (5, 0, [], [])
         packages.compute_install_set_gap.return_value = []
+        packages.efi_boot_chain_gap.return_value = []
         mok.generate_mok_keypair.return_value = {
             "key_path": "/var/lib/intergen/mok/mok.key",
             "cert_path": "/var/lib/intergen/mok/mok.crt",

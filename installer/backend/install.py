@@ -346,6 +346,43 @@ def preflight_check_install_set_complete(cfg, archive_dir, packages_dir,
         )
 
 
+def preflight_check_efi_boot_chain(cfg, archive_dir, packages_dir, efi,
+                                   detected_vendors=None):
+    """Refuse, before any disk write, an EFI install whose package set lacks
+    what its boot chain is built from (packages.EFI_BOOT_CHAIN_PACKAGES).
+
+    An EFI install builds, signs and checks its boot image and composes its
+    boot menu after the disk has been partitioned and written, and refuses
+    there without ukify, the signing tools or the menu's boot image generator.
+    The text installer lets the desktop group, which carries two of them, be
+    deselected (it forces only core), so a set that cannot boot is refused
+    here, where nothing has been touched yet, for either frontend.
+
+    BIOS installs build no boot image, and are not held to it.
+
+    Raises:
+        RuntimeError naming each missing package and what it provides.
+    """
+    if not efi:
+        return
+    selected_groups = cfg.get("package_groups", []) or []
+    gap = packages.efi_boot_chain_gap(
+        selected_groups, archive_dir, packages_dir, detected_vendors)
+    if gap:
+        listed = "; ".join(f"{name} ({what})" for name, what in gap)
+        unselected = [name for name, group in packages.GROUPS.items()
+                      if group.get("required") and name not in selected_groups]
+        hint = (f" The required package group(s) {unselected!r} are not "
+                f"selected." if unselected else "")
+        raise RuntimeError(
+            f"this EFI install's package set lacks what its boot chain is "
+            f"built from: {listed}. The boot image and the boot menu are "
+            f"built after the disk is written, so the install would fail "
+            f"there.{hint} Aborting before any disk write. "
+            f"(package_groups={selected_groups!r}, archive_dir={archive_dir!r})"
+        )
+
+
 def validate_install_inputs(cfg, install_io):
     """Validate yaml + install_io. Aggregates errors; raises ValueError once
     listing every problem so frontends can surface them together rather than
@@ -529,6 +566,10 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
             # into the install set (hardware-gated drops excepted) — else raise
             # before PHASE_PARTITION. Catches the websockets/llama-cpp class.
             preflight_check_install_set_complete(cfg, archive_dir, packages_dir)
+            # An EFI install's boot chain is built after the disk is written;
+            # a set it cannot be built from is refused here instead.
+            preflight_check_efi_boot_chain(cfg, archive_dir, packages_dir,
+                                           disks.is_efi())
 
         result.phase_completed = PHASE_VALIDATE
         _emit(PHASE_VALIDATE, 1, "config valid")
