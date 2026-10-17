@@ -17,8 +17,8 @@ ck() { if eval "$2"; then PASS=$((PASS+1)); else echo "  FAIL: $1"; FAIL=$((FAIL
 
 fixture() { # fixture <kver> — an installer-shaped menu pinned at <kver>
     cat > "$T/grub.cfg" <<EOF
-set default="0"
-menuentry "InterGenOS $1 (UKI)" --class intergenos {
+set default="intergenos-uki"
+menuentry "InterGenOS $1 (UKI)" --id intergenos-uki --class intergenos {
     chainloader /EFI/Linux/intergenos-$1.efi
 }
 menuentry 'InterGenOS GNU/Linux' {
@@ -276,12 +276,61 @@ ck "that refusal restores the menu as it was" 'cmp -s "$T/before.cfg" "$T/grub.c
 teardown
 
 # The installer-shaped menu above (a unified-kernel entry, no section markers)
-# at its own release: a line chainloads the image, so nothing to do.
+# at its own release: its pinned default entry chainloads the image, so
+# nothing to do.
 setup; fixture 6.18.10-igos-7
 cp "$T/grub.cfg" "$T/before.cfg"
 run_said 6.18.10-igos-7; RC=$?
 ck "a menu that chainloads the release's image: nothing to do (exit 0)" '[ $RC -eq 0 ] && grep -q "nothing to do" "$T/said"'
 ck "nothing to do: menu untouched" 'cmp -s "$T/before.cfg" "$T/grub.cfg"'
+teardown
+
+# The release's chainloader only in an entry that is not the pinned default
+# (an id of its own, as the generator gives an older image), after a stock
+# entry, and no entry carrying the pinned id: GRUB finds no default and starts
+# its first entry, the stock one. The installer's own check refuses this menu;
+# the updater said "nothing to do" with every token at the release, and "menu
+# updated" one release behind. Each is refused, the menu as it was.
+unpinned_menu() { # unpinned_menu <kver>
+    cat > "$T/grub.cfg" <<EOF
+### BEGIN /etc/grub.d/00_header ###
+   set default="intergenos-uki"
+### END /etc/grub.d/00_header ###
+menuentry 'InterGenOS GNU/Linux' --class intergenos {
+    linux /boot/vmlinuz-$1 root=UUID=0b1c ro
+}
+menuentry "InterGenOS $1 (UKI)" --id intergenos-uki-$1 --class intergenos {
+    insmod chain
+    chainloader /EFI/Linux/intergenos-$1.efi
+}
+EOF
+}
+
+setup; unpinned_menu 6.18.51-igos-9
+cp "$T/grub.cfg" "$T/before.cfg"
+run_said 6.18.51-igos-9; RC=$?
+ck "the image's chainloader only outside the pinned default: refused (exit non-zero)" '[ $RC -ne 0 ]'
+ck "that refusal names the pinned default entry" 'grep -q "pinned default entry (--id intergenos-uki) does not chainload" "$T/said"'
+ck "that refusal leaves the menu as it was" 'cmp -s "$T/before.cfg" "$T/grub.cfg"'
+teardown
+
+setup; unpinned_menu 6.18.51-igos-8
+cp "$T/grub.cfg" "$T/before.cfg"
+run_said 6.18.51-igos-9; RC=$?
+ck "the same menu one release behind: the rewrite is refused (exit non-zero)" '[ $RC -ne 0 ]'
+ck "that rewrite's refusal names the pinned default entry" 'grep -q "pinned default entry (--id intergenos-uki) does not chainload" "$T/said"'
+ck "that refusal restores the menu as it was" 'cmp -s "$T/before.cfg" "$T/grub.cfg"'
+teardown
+
+# The pinned entry's body is read to its closing line only: the release's
+# chainloader in the NEXT entry is not the pinned entry's, even right after it.
+setup; fixture 6.18.10-igos-7
+sed -i 's|^    chainloader /EFI/Linux/intergenos-6.18.10-igos-7.efi$|    chainloader /EFI/Linux/other.efi|' "$T/grub.cfg"
+printf 'menuentry "InterGenOS 6.18.10-igos-7 (spare)" --id intergenos-uki-spare {\n    chainloader /EFI/Linux/intergenos-6.18.10-igos-7.efi\n}\n' >> "$T/grub.cfg"
+cp "$T/grub.cfg" "$T/before.cfg"
+run_said 6.18.10-igos-7; RC=$?
+ck "the pinned entry chainloads another image, the next entry the release's: refused" '[ $RC -ne 0 ] && grep -q "pinned default entry" "$T/said"'
+ck "that refusal leaves the menu as it was" 'cmp -s "$T/before.cfg" "$T/grub.cfg"'
 teardown
 
 echo "PASS=$PASS FAIL=$FAIL"

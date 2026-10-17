@@ -41,11 +41,13 @@
 # kernel-release token is still refused as unrecognised.
 #
 # NAMING THE RELEASE IS NOT BOOTING IT. A menu whose release tokens already all
-# name the new release is left alone only when one of its lines chainloads that
+# name the new release is left alone only when its pinned default entry (the
+# entry with --id intergenos-uki, which /etc/default/grub names) chainloads that
 # release's image. Otherwise — the unified-kernel section absent or malformed,
-# the stock entries naming the release — it is refused, naming the section's
+# the stock entries naming the release, the image's chainloader only in an
+# entry GRUB does not start by default — it is refused, naming the section's
 # state: "nothing to do" there had the caller report an updated menu that had
-# nothing to start the release with.
+# nothing to start the release with by default.
 #
 # Fail-safe: never deletes; missing/unwritable menu or a post-edit verification
 # miss exits non-zero so the CALLER can warn loudly — the caller must treat
@@ -143,32 +145,41 @@ outside_section_tokens() {
 ENTRY_LINE="menuentry \"InterGenOS $NEW_KVER (UKI)\" --id intergenos-uki "
 CHAIN_LINE="    chainloader /EFI/Linux/intergenos-$NEW_KVER.efi"
 
-# Whether a line of the menu chainloads this release's boot image: the line
-# itself, blanks around it aside (the installer's own check, bootloader.py
-# menu_chainloads_uki, compares the same way). A menu that only names the
-# release, in its titles or its stock entries, does not boot the image.
+# Whether the menu's pinned default entry chainloads this release's boot image,
+# read exactly as the installer's own check reads it (bootloader.py
+# menu_chainloads_uki): an entry whose menuentry line carries
+# --id intergenos-uki (the id /etc/default/grub pins, which the unified-kernel
+# generator gives the newest image) and, in its body up to the line that is
+# only "}", the line "chainloader /EFI/Linux/intergenos-<release>.efi", blanks
+# around it aside. The image's chainloader in any other entry is not that:
+# GRUB starts the pinned id by default and, with no entry carrying it, its
+# first entry. A menu that only names the release, in its titles or its stock
+# entries, does not boot the image either.
 menu_chainloads_release() {
     WANT="chainloader /EFI/Linux/intergenos-$NEW_KVER.efi" awk '
         { line = $0; sub(/^[[:space:]]+/, "", line); sub(/[[:space:]]+$/, "", line) }
-        line == ENVIRON["WANT"] { found = 1 }
+        body && line == "}" { body = 0 }
+        body && line == ENVIRON["WANT"] { found = 1 }
+        /^[[:space:]]*menuentry([^[:alnum:]_].*)?[[:space:]]--id[[:space:]]+intergenos-uki([[:space:]]|[{]|$)/ { body = 1 }
         END { exit !found }' "$GRUB_CFG"
 }
 
-# Refuse a menu whose release tokens already name this release while no line
-# chainloads its boot image. "Nothing to do" there told the caller the menu
-# boots this release when nothing in it starts the image. Names the state of
-# the unified-kernel section, which is why: absent (no section markers),
-# malformed (a marker repeated or out of order; such a section is never
-# composed into), or filled with entries for other images only. Writes nothing.
+# Refuse a menu whose release tokens already name this release while its
+# pinned default entry does not chainload its boot image. "Nothing to do" there
+# told the caller the menu boots this release when nothing GRUB starts by
+# default starts the image. Names the state of the unified-kernel section,
+# which is why: absent (no section markers), malformed (a marker repeated or
+# out of order; such a section is never composed into), or filled with no
+# pinned entry for this release's image. Writes nothing.
 refuse_no_chainloader() {
     local state why
     state=$(uki_section_state)
     case "$state" in
         absent)    why="its unified-kernel section is absent (no $UKI_SECTION_BEGIN line)" ;;
         malformed) why="its unified-kernel section is malformed (a section marker repeated or out of order), and a malformed section is never composed into" ;;
-        *)         why="its unified-kernel section is $state, with no entry for this release's image" ;;
+        *)         why="its unified-kernel section is $state, with no pinned entry for this release's image" ;;
     esac
-    _m "ERROR: $GRUB_CFG names $NEW_KVER, but no entry in it chainloads /EFI/Linux/intergenos-$NEW_KVER.efi: $why — nothing changed, and the next boot may not start $NEW_KVER"
+    _m "ERROR: $GRUB_CFG names $NEW_KVER, but its pinned default entry (--id intergenos-uki) does not chainload /EFI/Linux/intergenos-$NEW_KVER.efi: $why — nothing changed, and the next boot may not start $NEW_KVER"
     exit 1
 }
 
@@ -217,9 +228,10 @@ compose_uki_section() {
     fi
     rm -f "$sect_file" "$new_file"
 
-    # Post-edit verification: the default entry is this release's and chainloads
-    # its image; everything outside the section is byte for byte what it was.
-    if ! grep -qF -- "$entry_line" "$GRUB_CFG" || ! grep -qxF -- "$chain_line" "$GRUB_CFG"; then
+    # Post-edit verification: the default entry is this release's and its body
+    # chainloads its image; everything outside the section is byte for byte
+    # what it was.
+    if ! grep -qF -- "$entry_line" "$GRUB_CFG" || ! menu_chainloads_release; then
         _m "ERROR: post-edit menu lacks the default entry for intergenos-$NEW_KVER.efi — restoring from $BAK"
         cp -p "$BAK" "$GRUB_CFG"
         exit 1
@@ -255,7 +267,7 @@ repoint_outside_section() {
     rm -f "$new_file"
     if outside_section_tokens | grep -qv -F "$NEW_KVER" ||
        ! cmp -s "$composed" <(_section_of "$GRUB_CFG") ||
-       ! grep -qF -- "$ENTRY_LINE" "$GRUB_CFG" || ! grep -qxF -- "$CHAIN_LINE" "$GRUB_CFG"; then
+       ! grep -qF -- "$ENTRY_LINE" "$GRUB_CFG" || ! menu_chainloads_release; then
         rm -f "$composed"
         _m "ERROR: post-edit menu failed its checks (a stale release outside the section, the section changed, or no default entry) — restoring from $BAK"
         cp -p "$BAK" "$GRUB_CFG"
@@ -282,8 +294,10 @@ if ! grep -q -- "-igos-" "$GRUB_CFG"; then
 fi
 
 # Idempotence fast-path: nothing to change, when every release token already
-# names this release AND a line chainloads its image. The tokens alone said
-# "nothing to do" for a menu with no unified-kernel entry at all.
+# names this release AND the pinned default entry chainloads its image. The
+# tokens alone said "nothing to do" for a menu with no unified-kernel entry at
+# all, and a chainloader anywhere for one whose only such entry was not the
+# default.
 if ! grep -e "$TOKEN_RE" "$GRUB_CFG" | grep -qv -F "$NEW_KVER"; then
     menu_chainloads_release || refuse_no_chainloader
     _m "menu already points at $NEW_KVER — nothing to do"
@@ -302,11 +316,11 @@ if ! sed -i "s/$TOKEN_RE/$NEW_KVER/g" "$GRUB_CFG"; then
     exit 1
 fi
 
-# Post-edit verification: a line must now chainload the new release's image
-# (the image's name anywhere else in the menu is not that), and no other
-# release token may remain.
+# Post-edit verification: the pinned default entry must now chainload the new
+# release's image (the image's name anywhere else in the menu, a chainloader in
+# another entry included, is not that), and no other release token may remain.
 if ! menu_chainloads_release; then
-    _m "ERROR: post-edit menu has no line that chainloads /EFI/Linux/intergenos-$NEW_KVER.efi — restoring from $BAK"
+    _m "ERROR: post-edit menu's pinned default entry (--id intergenos-uki) does not chainload /EFI/Linux/intergenos-$NEW_KVER.efi — restoring from $BAK"
     cp -p "$BAK" "$GRUB_CFG"
     exit 1
 fi
