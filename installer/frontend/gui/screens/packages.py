@@ -519,8 +519,12 @@ class PackagesPage(_ForgePage):
             label = key.comment or "(no comment)"
             bits = f"{key.bits}-bit " if key.bits else ""
             row.set_title(GLib.markup_escape_text(label))
-            row.set_subtitle(GLib.markup_escape_text(
-                f"{bits}{key.key_type}   ·   {key.fingerprint}"))
+            fingerprint = f"{bits}{key.key_type}   ·   {key.fingerprint}"
+            row.set_subtitle(GLib.markup_escape_text(fingerprint))
+            row.set_title_lines(1)
+            row.set_subtitle_lines(1)
+            row.set_title_selectable(True)
+            row.set_subtitle_selectable(True)
             check = Gtk.CheckButton()
             check.set_valign(Gtk.Align.CENTER)
             # Default OFF: keeping a key is a decision the person makes,
@@ -533,7 +537,16 @@ class PackagesPage(_ForgePage):
             group.add(row)
             checks[key.fingerprint] = check
 
-        dialog.set_extra_child(group)
+        # Keep key lines intact, with horizontal scrolling for an unusually
+        # long comment and vertical scrolling when the list fills the window.
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scroller.set_propagate_natural_height(True)
+        scroller.set_max_content_height(max(1, self._window.get_height() - 320))
+        scroller.set_child(group)
+        scroller.set_focusable(True)
+        dialog.set_extra_child(scroller)
+        dialog.set_focus(scroller)
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("keep", "Install the ticked keys")
         dialog.set_response_appearance(
@@ -555,6 +568,14 @@ class PackagesPage(_ForgePage):
 
         dialog.connect("response", _on_response)
         dialog.present(self._window)
+        # Measure after parenting so the title font and row spacing match the
+        # displayed widgets, including unusually long comments.
+        content_width = group.measure(Gtk.Orientation.HORIZONTAL, -1)[1]
+        group.set_size_request(content_width, -1)
+        scroller.set_min_content_width(min(content_width,
+                                          max(1, self._window.get_width() - 96)))
+        dialog.set_content_width(min(max(560, content_width + 48),
+                                     max(1, self._window.get_width() - 48)))
 
     def _on_intro_link(self, _label, uri):
         # Custom URL scheme — route to the inline doc viewer instead of

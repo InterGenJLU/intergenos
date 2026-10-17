@@ -131,6 +131,23 @@ def _make_paste_disabled_entry(expected_phrase, on_match_change):
     return entry
 
 
+def _fit_warning_dialog(dialog, parent_window):
+    """Keep the complete warning scrollable within the parent window."""
+    label = Gtk.Label(label=dialog.get_body())
+    label.set_wrap(True)
+    label.set_selectable(True)
+    label.set_xalign(0)
+    label.set_can_focus(False)
+    scroller = Gtk.ScrolledWindow()
+    scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+    scroller.set_propagate_natural_height(True)
+    scroller.set_max_content_height(max(1, parent_window.get_height() - 220))
+    scroller.set_child(label)
+    dialog.set_body("")
+    dialog.set_extra_child(scroller)
+    dialog.set_default_size(min(720, max(1, parent_window.get_width() - 48)), -1)
+
+
 def _show_warning_dialog_blocking(parent_window, package_name, expected_sha256, actual_sha256):
     """Show the warning to the user; block the worker thread until they dismiss it.
 
@@ -148,6 +165,7 @@ def _show_warning_dialog_blocking(parent_window, package_name, expected_sha256, 
             heading="⚠ Integrity Mismatch Detected",
             body=_build_warning_text(package_name, expected_sha256, actual_sha256),
         )
+        _fit_warning_dialog(dialog, parent_window)
         dialog.add_response("understood", "I understand — show me the override option")
         dialog.set_default_response("understood")
         dialog.set_close_response("understood")
@@ -248,6 +266,7 @@ def open_integrity_dialog_async(
         heading=f"INTEGRITY WARNING — {package_name}",
         body=_build_warning_text(package_name, expected_sha256, actual_sha256),
     )
+    _fit_warning_dialog(warning, parent_window)
     warning.add_response("ack", "Continue")
     warning.set_default_response("ack")
     warning.set_close_response("ack")
