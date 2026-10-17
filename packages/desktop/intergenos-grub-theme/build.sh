@@ -16,7 +16,7 @@
 #   5. /etc/default/grub modifications: GRUB_TIMEOUT_STYLE + GRUB_TIMEOUT +
 #      GRUB_GFXMODE chain (12 resolutions + auto) + GRUB_BACKGROUND +
 #      GRUB_THEME + GRUB_COLOR_NORMAL + GRUB_COLOR_HIGHLIGHT
-#   6. post_install: regenerate /boot/grub/grub.cfg via update-grub
+#   6. post_install: regenerate the running system's existing boot menu
 
 configure() { :; }
 build() { :; }
@@ -117,15 +117,28 @@ DEFGRUB_BLOCK
 }
 
 post_install() {
-    # A fresh install configures its bootloader after package hooks. Probing
-    # the live overlay at this stage cannot produce the target's boot menu.
-    local menu
+    # pkm runs this hook on the host and names, in PKM_PACKAGE_ROOT, the root it
+    # installed the package into: "/" when it upgrades the running system, the
+    # target's mount point during a fresh install. Only the running system's own
+    # menu is regenerated here. A target's menu is composed by the installer's
+    # bootloader step after the package phase, and grub-mkconfig run from the
+    # host would probe the host's devices, not the target's (it failed on the
+    # live session's overlay root on every fresh install). The installer's own
+    # hook phase runs this inside the target with no PKM_PACKAGE_ROOT, after it
+    # has composed and checked that menu, and the build runs it in the build
+    # chroot; neither regenerates anything either.
+    if [ "${PKM_PACKAGE_ROOT:-}" != "/" ]; then
+        echo "GRUB theme installed; the boot menu is composed by that system's bootloader setup, not regenerated from here."
+        return 0
+    fi
+    local menu=
     if [ -f /boot/efi/EFI/InterGenOS/grub.cfg ]; then
         menu=/boot/efi/EFI/InterGenOS/grub.cfg
     elif [ -f /boot/grub/grub.cfg ]; then
         menu=/boot/grub/grub.cfg
-    else
-        echo "GRUB theme installed; menu generation awaits bootloader configuration."
+    fi
+    if [ -z "$menu" ]; then
+        echo "GRUB theme installed; this system has no boot menu to regenerate yet."
         return 0
     fi
     if ! command -v grub-mkconfig >/dev/null 2>&1; then
