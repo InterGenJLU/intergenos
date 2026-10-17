@@ -223,12 +223,65 @@ ck "plain install, release change: the stock entries now name the new release" '
 ck "plain install, release change: backup is the menu as it was" 'cmp -s "$T/before.cfg" "$T/grub.cfg.bak-6.18.51-igos-6"'
 teardown
 
+# Menus whose stock entries already name the release while nothing chainloads
+# its image: the unified-kernel section malformed (a marker repeated, or out of
+# order) or absent. Each used to exit 0 "nothing to do" with no unified-kernel
+# entry in the menu; each is refused, naming the section's state, and the menu
+# is left as it was. A malformed section is never composed into.
+run_said() { GRUB_CFG="$T/grub.cfg" UKI_GENERATOR="$T/06_uki" ESP_UKI_DIR="$T/esp-linux" bash "$UBM" "$1" > "$T/said" 2>&1; }
+
 setup; plain_menu 6.18.51-igos-6
 printf '### BEGIN /etc/grub.d/06_uki ###\n' >> "$T/grub.cfg"
 generator; : > "$T/esp-linux/intergenos-6.18.51-igos-6.efi"
 cp "$T/grub.cfg" "$T/before.cfg"
-run_compose 6.18.51-igos-6; RC=$?
+run_said 6.18.51-igos-6; RC=$?
+ck "a repeated section marker: refused (exit non-zero)" '[ $RC -ne 0 ]'
+ck "a repeated section marker: the refusal names the section malformed" 'grep -q "unified-kernel section is malformed" "$T/said"'
 ck "a repeated section marker is never composed into" '! grep -q -- "--id intergenos-uki" "$T/grub.cfg" && cmp -s "$T/before.cfg" "$T/grub.cfg"'
+teardown
+
+setup; plain_menu 6.18.51-igos-6
+sed -i '/^### BEGIN \/etc\/grub.d\/06_uki ###$/d' "$T/grub.cfg"
+printf '### BEGIN /etc/grub.d/06_uki ###\n' >> "$T/grub.cfg"
+generator; : > "$T/esp-linux/intergenos-6.18.51-igos-6.efi"
+cp "$T/grub.cfg" "$T/before.cfg"
+run_said 6.18.51-igos-6; RC=$?
+ck "the end marker before the begin marker: refused (exit non-zero)" '[ $RC -ne 0 ]'
+ck "the end marker before the begin marker: the refusal names the section malformed" 'grep -q "unified-kernel section is malformed" "$T/said"'
+ck "the end marker before the begin marker: menu untouched" 'cmp -s "$T/before.cfg" "$T/grub.cfg"'
+teardown
+
+setup; plain_menu 6.18.51-igos-6
+sed -i '/06_uki/d' "$T/grub.cfg"
+generator; : > "$T/esp-linux/intergenos-6.18.51-igos-6.efi"
+cp "$T/grub.cfg" "$T/before.cfg"
+run_said 6.18.51-igos-6; RC=$?
+ck "no unified-kernel section, stock entries at the release: refused (exit non-zero)" '[ $RC -ne 0 ]'
+ck "no unified-kernel section: the refusal names the section absent" 'grep -q "unified-kernel section is absent" "$T/said"'
+ck "no unified-kernel section: menu untouched" 'cmp -s "$T/before.cfg" "$T/grub.cfg"'
+teardown
+
+# A release change on a menu that names the old image only outside any
+# chainloader line: the token rewrite renames that mention, which the old
+# post-edit check (the image's name anywhere) took for the boot entry. It is
+# refused and the menu restored, as the rewrite of any menu with no line that
+# chainloads the new image is.
+setup; plain_menu 6.18.51-igos-5
+sed -i '/06_uki/d' "$T/grub.cfg"
+printf '# intergenos-6.18.51-igos-5.efi was the unified-kernel image of this menu\n' >> "$T/grub.cfg"
+cp "$T/grub.cfg" "$T/before.cfg"
+run_said 6.18.51-igos-6; RC=$?
+ck "a rewrite whose only mention of the image is not a chainloader line: refused" '[ $RC -ne 0 ]'
+ck "that refusal restores the menu as it was" 'cmp -s "$T/before.cfg" "$T/grub.cfg"'
+teardown
+
+# The installer-shaped menu above (a unified-kernel entry, no section markers)
+# at its own release: a line chainloads the image, so nothing to do.
+setup; fixture 6.18.10-igos-7
+cp "$T/grub.cfg" "$T/before.cfg"
+run_said 6.18.10-igos-7; RC=$?
+ck "a menu that chainloads the release's image: nothing to do (exit 0)" '[ $RC -eq 0 ] && grep -q "nothing to do" "$T/said"'
+ck "nothing to do: menu untouched" 'cmp -s "$T/before.cfg" "$T/grub.cfg"'
 teardown
 
 echo "PASS=$PASS FAIL=$FAIL"

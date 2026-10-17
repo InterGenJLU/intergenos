@@ -418,6 +418,30 @@ class KernelHookMessages(unittest.TestCase):
                       "on a system that has booted, a failed menu update is "
                       "still the one degrade that breaks the NEXT boot")
 
+    def test_a_menu_naming_the_release_without_its_image_is_a_failure(self):
+        """Every entry already names the release and none chainloads its image
+        (the menu has no unified-kernel section): the updater said "nothing to
+        do" and this hook "boot menu updated". The updater refuses it now,
+        naming the section's state, and the warning sends the reader to that
+        reason rather than to a token rewrite the menu already has."""
+        f = Fixture(self.tmp, machine_id=VALID_MACHINE_ID, with_ukify=True,
+                    with_updater=True)
+        menu_dir = f.root / "boot" / "efi" / "EFI" / "InterGenOS"
+        menu_dir.mkdir(parents=True, exist_ok=True)
+        (menu_dir / "grub.cfg").write_text(
+            "menuentry 'InterGenOS GNU/Linux' {\n"
+            f"    linux /boot/vmlinuz-{KVER} ro\n"
+            "}\n")
+        out = fire(f)
+        msgs = hook_lines(out)
+        self.assertNotIn(f"boot menu updated to {KVER}", msgs,
+                         "a menu with nothing that starts the release's image "
+                         "is reported as updated")
+        self.assertIn("boot-menu update FAILED", msgs)
+        self.assertIn("the updater's own reason is on the line above", msgs)
+        self.assertIn("unified-kernel section is absent", out,
+                      "the updater's refusal does not name the section's state")
+
     def test_the_installers_own_rebuild_is_not_an_emergency_warning(self):
         """The installer re-runs this hook (bootloader.build_final_uki, which
         passes PKM_PACKAGE_VERSION=installer-final) after the target's

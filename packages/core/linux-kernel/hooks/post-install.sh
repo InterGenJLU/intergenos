@@ -571,7 +571,7 @@ if [ -x "$MENU_UPDATER" ]; then
         elif first_install_ordering; then
             log "boot menu not updated to $NEW_KVER — the updater's own reason is on the line above. This system has not booted yet, and on an install the boot menu at $MENU_PATH is composed by the installer AFTER the package hooks run, from the installed kernel, so a menu that is not there yet is the expected order and nothing is lost. To check it afterwards: sudo $MENU_UPDATER $NEW_KVER"
         else
-            log "WARNING: boot-menu update FAILED — the GRUB default entry may still chainload a PREVIOUS kernel whose modules were just removed; the next boot can drop to emergency mode. Manual fix: point every kernel-release token in $MENU_PATH at $NEW_KVER (sudo $MENU_UPDATER $NEW_KVER)."
+            log "WARNING: boot-menu update FAILED — the updater's own reason is on the line above. The GRUB default entry may still chainload a PREVIOUS kernel whose modules were just removed, or nothing that starts $NEW_KVER; the next boot can drop to emergency mode. Manual fix: put right what that reason names in $MENU_PATH (for a menu still naming an earlier release, every kernel-release token pointed at $NEW_KVER), then run the updater again: sudo $MENU_UPDATER $NEW_KVER"
         fi
     fi
 else
