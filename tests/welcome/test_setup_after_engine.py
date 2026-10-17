@@ -73,11 +73,28 @@ def test_missing_or_unreadable_record_keeps_the_default_order(error):
         assert welcome._driver_leg_is_done() is False
 
 
-def _completion_poll(outcome, events, running=False, attached=True, callback=True):
+def _outcome(installed, activation, message, unfinished=()):
+    """A stand-in for _install_outcome's answer, in the shape it returns."""
+    return {"installed": installed, "missing": [], "unknown": [],
+            "unfinished": list(unfinished), "activation": activation,
+            "message": message}
+
+
+def test_the_stand_in_outcome_has_the_shape_the_page_returns():
+    """The poll reads the outcome's keys directly; a stand-in missing one of
+    them tests a poll the page never runs (an unfinished list added to the
+    outcome went unread by these cases until this check)."""
+    real = welcome._install_outcome([], [], probe=lambda name: True)
+    assert set(_outcome(True, "none", "Done")) == set(real)
+
+
+def _completion_poll(outcome, events, running=False, attached=True, callback=True,
+                     button=None):
     """Compile only the shipped completion poll, without entering an action.
 
     The enclosing click handler can launch an install, so tests never call it.
-    The poll's dependencies are supplied exactly as its closure supplies them.
+    The poll's dependencies are supplied exactly as its closure supplies them;
+    ``button`` is the install button's stand-in, for a case that reads it.
     """
     module = ast.parse(SCRIPT.read_text(encoding="utf-8"))
     builder = next(node for node in module.body
@@ -87,7 +104,7 @@ def _completion_poll(outcome, events, running=False, attached=True, callback=Tru
                  if isinstance(node, ast.FunctionDef) and node.name == "_watch")
     poll = next(node for node in watch.body
                 if isinstance(node, ast.FunctionDef) and node.name == "_poll")
-    button = Mock()
+    button = button or Mock()
     button.get_root.return_value = object() if attached else None
     status = Mock()
     status.set_text.side_effect = lambda message: events.append(("status", message))
@@ -113,8 +130,7 @@ def _completion_poll(outcome, events, running=False, attached=True, callback=Tru
 def test_only_successful_engine_outcome_reveals_setup_after_its_message(
         installed, activation):
     events = []
-    outcome = {"installed": installed, "activation": activation,
-               "message": "The verified package outcome."}
+    outcome = _outcome(installed, activation, "The verified package outcome.")
     assert _completion_poll(outcome, events)() is False
     expected = [("status", outcome["message"])]
     if installed is True and activation == "service-restart":
@@ -125,16 +141,32 @@ def test_only_successful_engine_outcome_reveals_setup_after_its_message(
 @pytest.mark.parametrize("running,attached", [(True, True), (False, False)])
 def test_pending_terminal_or_closed_page_cannot_advance_to_setup(running, attached):
     events = []
-    outcome = {"installed": True, "activation": "service-restart", "message": "Done"}
+    outcome = _outcome(True, "service-restart", "Done")
     _completion_poll(outcome, events, running, attached)()
     assert events == []
 
 
 def test_standalone_offer_can_report_success_without_a_page_callback():
     events = []
-    outcome = {"installed": True, "activation": "service-restart", "message": "Done"}
+    outcome = _outcome(True, "service-restart", "Done")
     assert _completion_poll(outcome, events, callback=False)() is False
     assert events == [("status", "Done")]
+
+
+def test_an_unfinished_install_offers_no_retry_and_reveals_no_setup():
+    """A driver whose hook refused to sign is installed and unfinished. The
+    same install run again would find it installed and finish nothing, so the
+    retry is withdrawn; the message (the outcome's) names the command that
+    finishes it."""
+    events = []
+    button = Mock()
+    outcome = _outcome(False, "reboot", "Installed, but the install did not finish.",
+                       unfinished=[("nvidia", "post-install (refused to sign)")])
+    assert _completion_poll(outcome, events, button=button)() is False
+    assert events == [("status", outcome["message"])]
+    button.set_visible.assert_called_once_with(False)
+    button.set_label.assert_not_called()
+    button.set_sensitive.assert_not_called()
 
 
 _PAGE_CHECK = r'''
