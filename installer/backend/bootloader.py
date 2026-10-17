@@ -581,79 +581,129 @@ def ingest_kernel_hook_log(target):
     trace.trace_event("kernel_hook_log_end", path=str(logfile))
 
 
-def rebuild_fde_uki(target, partitions, mok_passphrase=None):
-    """Rebuild the kernel UKI with the REAL FDE initramfs, after crypttab exists.
+def installed_kernel_release(target):
+    """The release of the kernel this install boots: <version>-igos-<release>.
 
-    Gap B (FDE Phase-D completion). The linux-kernel post_install hook builds the
-    UKI during PHASE_PACKAGES, but /etc/crypttab is not written until PHASE_CONFIG
-    — so on a LUKS install the first UKI ships the ~50-byte STUB initramfs
-    (IS_LUKS_INSTALL=no at hook-fire time) and cannot unlock the root at boot.
-
-    Re-running the hook here in PHASE_BOOTLOADER — AFTER config.generate_crypttab
-    wrote /etc/crypttab AND stage_uki_prereqs staged build-fde-initramfs.sh +
-    fde-init.sh — makes the hook take its LUKS branch: it builds the real FDE
-    initramfs (fde-init.sh + busybox.static + cryptsetup-static + dm_crypt +
-    storage drivers) and rebuilds + MOK-signs the UKI bundling it. The hook owns
-    all UKI-build logic; this only re-invokes it at the right time (no duplicated
-    logic), then VERIFIES the rebuilt UKI carries a real (non-stub) initramfs.
-
-    LUKS installs only (no-op otherwise). Runs before the PHASE_HOOKS checksum
-    reconcile so the rebuilt UKI/kernel state is reconciled. Fail-closed: a LUKS
-    UKI that can't unlock is worse than a halted install, so any failure raises
-    here (where the cause is clear) rather than at the user's first boot.
-
-    `mok_passphrase` is the machine owner's signing-key passphrase. The hook
-    re-run signs the rebuilt image, and the key is encrypted at rest, so without
-    it the hook refuses and this raises.
+    The same choice the kernel's post-install hook makes — the most recently
+    written /boot/vmlinuz-*-igos* — so the image this checks for is the image
+    the hook built. Raises when the target has no InterGenOS kernel at all.
     """
-    if not partitions.get("luks_enabled"):
+    boot = Path(target) / "boot"
+    images = [p for p in boot.glob("vmlinuz-*-igos*") if p.is_file()]
+    if not images:
+        raise trace.install_failure(
+            where="bootloader.py:installed_kernel_release",
+            why=("no /boot/vmlinuz-<version>-igos-<release> on the target, so "
+                 "there is no kernel to build a boot image from"),
+            extra={"boot": str(boot)},
+        )
+    newest = max(images, key=lambda p: p.stat().st_mtime)
+    return newest.name[len("vmlinuz-"):]
+
+
+def build_final_uki(target, partitions, mok_passphrase=None):
+    """Build and sign the boot image the installed system boots, and prove it.
+
+    Every EFI install, encrypted or not. The boot menu is composed from what is
+    on the ESP when it is composed, so the image has to be there first, signed;
+    compose_boot_menu runs after this. Measured on a real R001.3 install
+    (2026-10-16): the package-phase fire of the kernel's hook refused to sign
+    (it never received the passphrase), the menu was composed while
+    /boot/efi/EFI/Linux held no image, this step's encrypted-install re-run then
+    built and signed one, and the installed system had a menu with no entry for
+    it — no InterGenOS entry at all. A plain install did not even have the
+    re-run, so the same refusal left it with no boot image.
+
+    The kernel's post-install hook owns every part of building the image; this
+    re-runs it at the point in the install where everything it reads exists —
+    /etc/crypttab (written in PHASE_CONFIG), the staged FDE scripts, the
+    owner's passphrase — and then CHECKS what it produced instead of trusting
+    its exit status:
+
+      * the image for the installed kernel is at
+        /boot/efi/EFI/Linux/intergenos-<release>.efi;
+      * it verifies against this machine's own certificate (sbverify), because
+        a menu that chainloads an image the firmware will refuse is the same
+        dead end as no entry;
+      * on an encrypted install it carries the real unlock initramfs, not the
+        stub (Gap B, FDE Phase-D) — an image that cannot unlock the root is
+        worse than a halted install.
+
+    Fail-closed, every check: raises here, where the cause is clear, rather than
+    at the person's first boot. Runs before the PHASE_HOOKS checksum reconcile
+    so the rebuilt image is reconciled.
+
+    `mok_passphrase` is the machine owner's signing-key passphrase. The key is
+    encrypted at rest, so without it the hook refuses and this raises.
+    """
+    if not partitions.get("efi"):
         return
+    luks = bool(partitions.get("luks_enabled"))
 
     hook_rel = "var/lib/pkm/hooks/linux-kernel/post-install"
     if not (Path(target) / hook_rel).is_file():
         raise trace.install_failure(
-            where="bootloader.py:rebuild_fde_uki",
-            why=(f"LUKS install but the kernel post-install hook (/{hook_rel}) "
-                 "is missing on the target, so the FDE UKI cannot be rebuilt — "
-                 "the encrypted root would never unlock at boot. The "
-                 "linux-kernel package must ship this hook."),
+            where="bootloader.py:build_final_uki",
+            why=(f"the kernel post-install hook (/{hook_rel}) is missing on the "
+                 "target, so the boot image cannot be built or signed and the "
+                 "installed system would have nothing to boot. The linux-kernel "
+                 "package must ship this hook."),
             extra={"hook": hook_rel},
         )
 
-    # The hook signs the rebuilt image, and the signing key is encrypted at
-    # rest, so the hook needs the owner's passphrase. It travels in the child's
+    # The hook signs the image, and the signing key is encrypted at rest, so
+    # the hook needs the owner's passphrase. It travels in the child's
     # environment rather than in this command string: the command string is in
     # the process table while it runs and is recorded verbatim in the install
     # trace, and an environment variable named for what it holds is scrubbed by
-    # the trace's own redaction. With no passphrase the hook refuses and the
-    # install stops here, which is the same fail-closed rule as everywhere else
-    # — an unsigned image on an encrypted root is not a lesser outcome.
+    # the trace's own redaction. With no passphrase signing_env raises and the
+    # install stops here, which is the same fail-closed rule as everywhere else.
     rc, _, stderr = trace.traced_run_chroot(target,
-        "PKM_PACKAGE_NAME=linux-kernel PKM_PACKAGE_VERSION=fde-rebuild "
+        "PKM_PACKAGE_NAME=linux-kernel PKM_PACKAGE_VERSION=installer-final "
         f"bash /{hook_rel}",
         phase="bootloader",
-        intent="re-run linux-kernel post-install hook after /etc/crypttab exists "
-               "so the UKI bundles the real FDE initramfs (Gap B Phase-D)",
+        intent="build and sign the boot image the installed system boots, now "
+               "that /etc/crypttab, the FDE scripts and the passphrase are all "
+               "in place, before the boot menu is composed from it",
         env=mok.signing_env(mok_passphrase),
     )
     # Surface the hook's own ukify/FDE log into the Forge trace either way.
     ingest_kernel_hook_log(target)
     if rc != 0:
         raise RuntimeError(
-            f"FDE UKI rebuild (kernel hook re-run) failed rc={rc}: {stderr}"
+            f"boot image build (kernel hook re-run) failed rc={rc}: {stderr}"
         )
 
-    # Verify the rebuilt UKI actually carries a real FDE initramfs, not the stub.
-    uki_dir = Path(target) / "boot/efi/EFI/Linux"
-    ukis = sorted(uki_dir.glob("intergenos-*.efi")) if uki_dir.is_dir() else []
-    if not ukis:
+    kver = installed_kernel_release(target)
+    uki_rel = f"boot/efi/EFI/Linux/intergenos-{kver}.efi"
+    uki = Path(target) / uki_rel
+    if not uki.is_file():
         raise trace.install_failure(
-            where="bootloader.py:rebuild_fde_uki",
-            why=("LUKS install: no UKI at /boot/efi/EFI/Linux after the FDE "
-                 "rebuild — the encrypted root cannot boot."),
-            extra={"uki_dir": str(uki_dir)},
+            where="bootloader.py:build_final_uki",
+            why=(f"no boot image at /{uki_rel} after the kernel hook reported "
+                 f"success, so the installed system would have nothing to boot."),
+            extra={"uki": uki_rel, "kernel": kver},
         )
-    uki = ukis[-1]
+    cert = f"{mok.MOK_DIR}/mok.crt"
+    rc, out, err = trace.traced_run_chroot(target,
+        f"sbverify --cert {cert} /{uki_rel}",
+        phase="bootloader",
+        intent="prove the boot image verifies against this machine's own "
+               "certificate before the boot menu points at it",
+    )
+    if rc != 0:
+        raise trace.install_failure(
+            where="bootloader.py:build_final_uki",
+            why=(f"the boot image /{uki_rel} does not verify against {cert} "
+                 f"(sbverify rc={rc}); with Secure Boot on, the firmware would "
+                 f"refuse it."),
+            extra={"uki": uki_rel, "stdout": out, "stderr": err},
+        )
+    if not luks:
+        logger.info("Boot image built and verified: %s", uki.name)
+        return
+
+    # Verify the rebuilt UKI actually carries a real FDE initramfs, not the stub.
     rc, out, _ = trace.traced_run_chroot(target,
         f"objcopy -O binary --only-section=.initrd "
         f"/boot/efi/EFI/Linux/{uki.name} /tmp/igos-fde-initrd-check && "
@@ -668,7 +718,7 @@ def rebuild_fde_uki(target, partitions, mok_passphrase=None):
         initrd_bytes = -1
     if initrd_bytes < FDE_INITRD_MIN_BYTES:
         raise trace.install_failure(
-            where="bootloader.py:rebuild_fde_uki",
+            where="bootloader.py:build_final_uki",
             why=(f"LUKS install: the rebuilt UKI ({uki.name}) still carries a "
                  f"stub/empty initramfs (.initrd={initrd_bytes} bytes, need "
                  f">={FDE_INITRD_MIN_BYTES}). The FDE initramfs build did not "
@@ -748,56 +798,11 @@ def install_bootloader(target, disk, partitions, mok_keypair=None,
     else:
         _install_bios_grub(target, disk)
 
-    # Generate GRUB config (both modes).
-    # The one-shot env-var here matches what config.generate_grub_defaults
-    # wrote to /etc/default/grub. Without the env-var, this first
-    # grub-mkconfig would read the just-written file and produce the
-    # same result; the env-var is belt-and-suspenders for the unusual
-    # case where this call somehow precedes the config write. Either
-    # way: install-time setting + every-kernel-update setting are now
-    # consistent (was a real defect pre-Option-C: install-time runs
-    # with =false override, post-install kernel updates run with the
-    # file's hardcoded =false → Windows entry persisted as expected;
-    # but if the file had said =true, Windows would have vanished on
-    # the first kernel update. Threading detect_other_oses through both
-    # paths eliminates that class of asymmetry).
-    os_prober_value = "false" if detect_other_oses else "true"
-    # EFI installs: the menu grub.cfg lives on the unencrypted ESP
-    # (/EFI/InterGenOS/grub.cfg), NOT /boot/grub on the root fs. On FDE installs
-    # the root fs is LUKS-encrypted and the installed grub (no GRUB argon2id
-    # support) cannot read it — so grub's config + assets must live on the ESP.
-    # The core image's prefix points at the ESP (_grub_mkimage_sbat_efi) and
-    # _stage_grub_assets_to_esp (below) copies the font/theme/module dir there,
-    # so grub touches NOTHING on the root fs. The UKI is already on the ESP
-    # (/EFI/Linux) and 06_uki chainloads it ESP-relative. BIOS keeps /boot/grub.
-    # grub-mkconfig (os-prober + 06_uki + theme) remains the single menu source;
-    # only its output location moves. (Plain installs use the same ESP path —
-    # uniform, and re-validated alongside FDE.)
-    grub_cfg_out = (
-        "/boot/efi/EFI/InterGenOS/grub.cfg" if efi else "/boot/grub/grub.cfg"
-    )
-    # Decide, BEFORE the menu is generated, whether the stock Linux generator
-    # may contribute entries at all. On an encrypted install whose /boot still
-    # holds the placeholder initramfs its entries cannot open the root
-    # filesystem, and a menu row that looks like the working one and cannot ever
-    # boot is worse than no row. See apply_fde_menu_policy for the measurement
-    # the decision turns on.
-    menu_decision = apply_fde_menu_policy(target, partitions)
-    logger.info("Boot menu policy: %s", menu_decision.reason)
-    rc, _, stderr = trace.traced_run_chroot(target,
-        f"GRUB_DISABLE_OS_PROBER={os_prober_value} grub-mkconfig -o {grub_cfg_out}"
-    )
-    if rc != 0:
-        raise RuntimeError(f"grub-mkconfig failed: {stderr}")
-
-    # grub-mkconfig's 00_header emits `set theme=` ONLY when [ -f "$GRUB_THEME" ]
-    # holds at mkconfig time. On an EFI/FDE install GRUB_THEME is the ESP-relative
-    # /EFI/InterGenOS/themes/intergenos/theme.txt (config.py), which does NOT
-    # resolve here in the chroot — so 00_header silently drops the directive and
-    # the installed menu renders unthemed (GBC004.3 A12, 2026-06-22). Inject a
-    # RUNTIME-guarded `set theme=` (grub evaluates -e at boot against the staged
-    # ESP theme), mirroring the working installer/iso/grub/grub.cfg.
-    _inject_grub_theme(grub_cfg_out, target)
+    # The boot MENU is not composed here. It is composed from what is on the
+    # ESP when it is composed, so it waits for the boot image the installed
+    # system boots: install.py calls build_final_uki and then
+    # compose_boot_menu. Composed here, before that image existed, it was a
+    # menu with no InterGenOS entry (a real R001.3 install, 2026-10-16).
 
     # Belt-and-suspenders: ensure /boot/grub/fonts/unicode.pf2 exists.
     # The generated grub.cfg unconditionally calls `terminal_output
@@ -848,6 +853,128 @@ def install_bootloader(target, disk, partitions, mok_keypair=None,
     # font belt-suspenders guaranteed /boot/grub/fonts/unicode.pf2.
     if efi:
         _stage_grub_assets_to_esp(target)
+
+
+#: The menu id /etc/grub.d/06_uki gives the newest boot image's entry, matched
+#: as a whole word: older images' entries carry intergenos-uki-<release>.
+_PINNED_ENTRY_RE = re.compile(
+    r"^\s*menuentry\b.*\s--id\s+" + re.escape(STABLE_UKI_MENU_ID) + r"(\s|\{|$)")
+
+
+def menu_chainloads_uki(menu_text, kver):
+    """Whether the menu's pinned default entry chainloads this release's image.
+
+    The entry /etc/default/grub pins (STABLE_UKI_MENU_ID) has to exist AND its
+    body has to chainload /EFI/Linux/intergenos-<kver>.efi. Either one alone is
+    not enough: a menu whose pinned entry points at another release boots that
+    release, and a menu that mentions the image without the pinned entry has
+    no default to boot it by.
+    """
+    want = f"chainloader /EFI/Linux/intergenos-{kver}.efi"
+    lines = menu_text.splitlines()
+    for i, line in enumerate(lines):
+        if not _PINNED_ENTRY_RE.search(line):
+            continue
+        for body in lines[i + 1:]:
+            if body.strip() == "}":
+                break
+            if body.strip() == want:
+                return True
+    return False
+
+
+def compose_boot_menu(target, partitions, detect_other_oses=True):
+    """Compose the installed system's boot menu, after its boot image exists.
+
+    install.py calls this AFTER build_final_uki on an EFI install. The menu is
+    generated from what is on the ESP at the moment it is generated, and
+    composing it before the final signed image existed produced, on a real
+    R001.3 install (2026-10-16), a menu with no InterGenOS entry: the image was
+    built a step later and nothing put it in the menu. On an EFI install this
+    then REFUSES TO FINISH unless the menu's pinned default entry chainloads the
+    installed kernel's image (menu_chainloads_uki) — an install that writes a
+    menu it cannot boot from is a failed install, said here rather than at the
+    person's first boot.
+
+    BIOS installs have no image and are composed exactly as before.
+    """
+    target = str(target)
+    efi = partitions.get("efi", False)
+    # The one-shot env-var here matches what config.generate_grub_defaults
+    # wrote to /etc/default/grub. Without the env-var, this first
+    # grub-mkconfig would read the just-written file and produce the
+    # same result; the env-var is belt-and-suspenders for the unusual
+    # case where this call somehow precedes the config write. Either
+    # way: install-time setting + every-kernel-update setting are now
+    # consistent (was a real defect pre-Option-C: install-time runs
+    # with =false override, post-install kernel updates run with the
+    # file's hardcoded =false → Windows entry persisted as expected;
+    # but if the file had said =true, Windows would have vanished on
+    # the first kernel update. Threading detect_other_oses through both
+    # paths eliminates that class of asymmetry).
+    os_prober_value = "false" if detect_other_oses else "true"
+    # EFI installs: the menu grub.cfg lives on the unencrypted ESP
+    # (/EFI/InterGenOS/grub.cfg), NOT /boot/grub on the root fs. On FDE installs
+    # the root fs is LUKS-encrypted and the installed grub (no GRUB argon2id
+    # support) cannot read it — so grub's config + assets must live on the ESP.
+    # The core image's prefix points at the ESP (_grub_mkimage_sbat_efi) and
+    # _stage_grub_assets_to_esp copies the font/theme/module dir there, so grub
+    # touches NOTHING on the root fs. The UKI is already on the ESP
+    # (/EFI/Linux) and 06_uki chainloads it ESP-relative. BIOS keeps /boot/grub.
+    # grub-mkconfig (os-prober + 06_uki + theme) remains the single menu source;
+    # only its output location moves. (Plain installs use the same ESP path —
+    # uniform, and re-validated alongside FDE.)
+    grub_cfg_out = (
+        "/boot/efi/EFI/InterGenOS/grub.cfg" if efi else "/boot/grub/grub.cfg"
+    )
+    # Decide, BEFORE the menu is generated, whether the stock Linux generator
+    # may contribute entries at all. On an encrypted install whose /boot still
+    # holds the placeholder initramfs its entries cannot open the root
+    # filesystem, and a menu row that looks like the working one and cannot ever
+    # boot is worse than no row. See apply_fde_menu_policy for the measurement
+    # the decision turns on.
+    menu_decision = apply_fde_menu_policy(target, partitions)
+    logger.info("Boot menu policy: %s", menu_decision.reason)
+    rc, _, stderr = trace.traced_run_chroot(target,
+        f"GRUB_DISABLE_OS_PROBER={os_prober_value} grub-mkconfig -o {grub_cfg_out}"
+    )
+    if rc != 0:
+        raise RuntimeError(f"grub-mkconfig failed: {stderr}")
+
+    # grub-mkconfig's 00_header emits `set theme=` ONLY when [ -f "$GRUB_THEME" ]
+    # holds at mkconfig time. On an EFI/FDE install GRUB_THEME is the ESP-relative
+    # /EFI/InterGenOS/themes/intergenos/theme.txt (config.py), which does NOT
+    # resolve here in the chroot — so 00_header silently drops the directive and
+    # the installed menu renders unthemed (GBC004.3 A12, 2026-06-22). Inject a
+    # RUNTIME-guarded `set theme=` (grub evaluates -e at boot against the staged
+    # ESP theme), mirroring the working installer/iso/grub/grub.cfg.
+    _inject_grub_theme(grub_cfg_out, target)
+
+    if not efi:
+        return
+    kver = installed_kernel_release(target)
+    menu = Path(target) / grub_cfg_out.lstrip("/")
+    try:
+        text = menu.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        text = ""
+        logger.error("boot menu %s unreadable after composition: %s", menu, exc)
+    if not menu_chainloads_uki(text, kver):
+        raise trace.install_failure(
+            where="bootloader.py:compose_boot_menu",
+            why=(f"the composed boot menu {grub_cfg_out} has no default entry "
+                 f"(--id {STABLE_UKI_MENU_ID}) chainloading "
+                 f"/EFI/Linux/intergenos-{kver}.efi, so the installed system "
+                 f"would start to a menu with nothing of its own to boot. The "
+                 f"image is built before the menu (build_final_uki); check "
+                 f"/etc/grub.d/06_uki on the target and the ESP's /EFI/Linux."),
+            extra={"menu": grub_cfg_out, "kernel": kver},
+        )
+    trace.trace_event(
+        "boot_menu_verified", menu=grub_cfg_out, kernel=kver,
+        entry=STABLE_UKI_MENU_ID,
+        intent="record that the installed menu's pinned default entry "
+               "chainloads the installed kernel's signed boot image")
 
 
 #: The removable-media fallback set: (source under ESP_BOOT_DIR, name under

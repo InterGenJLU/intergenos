@@ -904,18 +904,32 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
             mok_passphrase=install_io.get("mok_key_passphrase"),
         )
 
-        # Gap B (FDE Phase-D): on a LUKS install, rebuild the UKI with the REAL
-        # FDE initramfs now that /etc/crypttab exists (written in PHASE_CONFIG)
-        # and the FDE scripts are staged. The PHASE_PACKAGES UKI shipped the stub
-        # initramfs (crypttab didn't exist yet), which cannot unlock the root.
-        # No-op on plain installs; fail-closed on LUKS (a UKI that can't unlock
-        # is worse than a halted install). Runs before the PHASE_HOOKS checksum
-        # reconcile so the rebuilt UKI state is reconciled.
+        # The boot image, then the menu, in that order. The menu is composed
+        # from what is on the ESP when it is composed, and composed before the
+        # final signed image existed it had no InterGenOS entry at all (a real
+        # R001.3 install, 2026-10-16: the package-phase image was refused, the
+        # menu was composed, and only then was the image built).
+        #
+        # build_final_uki re-runs the kernel's hook for EVERY EFI install, now
+        # that /etc/crypttab (PHASE_CONFIG), the FDE scripts and the passphrase
+        # are all in place — on an encrypted install that is also Gap B (FDE
+        # Phase-D: the real unlock initramfs, not the package-phase stub) — and
+        # proves the image is there and verifies against this machine's key.
+        # compose_boot_menu then generates the menu and refuses to finish unless
+        # its pinned default entry chainloads that image. Fail-closed both:
+        # before the PHASE_HOOKS checksum reconcile, so the rebuilt image state
+        # is reconciled.
         if efi:
-            _emit(PHASE_BOOTLOADER, 10, "rebuilding FDE UKI (LUKS unlock)")
-            bootloader.rebuild_fde_uki(
+            _emit(PHASE_BOOTLOADER, 10,
+                  "building and signing the boot image"
+                  + (" (LUKS unlock)" if luks_enabled else ""))
+            bootloader.build_final_uki(
                 target, partitions,
                 mok_passphrase=install_io.get("mok_key_passphrase"))
+        _emit(PHASE_BOOTLOADER, 10, "composing the boot menu")
+        bootloader.compose_boot_menu(
+            target, partitions,
+            detect_other_oses=install_io.get("detect_other_oses", True))
 
         result.phase_completed = PHASE_BOOTLOADER
         _emit(PHASE_BOOTLOADER, 10, "bootloader installed")
