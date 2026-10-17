@@ -102,6 +102,19 @@ first_install_ordering() {
     return 1
 }
 
+# The installer's own re-run of this hook (installer/backend/bootloader.py
+# build_final_uki) names itself in PKM_PACKAGE_VERSION. It fires after the
+# target's /etc/machine-id is written, so first_install_ordering reads a system
+# that has booted, yet the boot menu is still the installer's to compose: it
+# composes it from the image this fire builds, right after it, and refuses to
+# finish the install unless that menu's default entry chainloads the image.
+# On the R001.3 install of 2026-10-16 this fire wrote the emergency-mode warning
+# below into the installed system's own log; with the menu composed after this
+# fire, every EFI install's fire finds no menu yet and would write it again.
+installer_final_fire() {
+    [ "${PKM_PACKAGE_VERSION:-}" = "installer-final" ]
+}
+
 # The one place that answers "may this machine sign, and with what". Sourced
 # rather than reimplemented here, because the driver module signer asks the same
 # question and the two must not answer it differently.
@@ -553,7 +566,9 @@ if [ -x "$MENU_UPDATER" ]; then
         # only way this message stays true when that resolution changes.
         MENU_PATH=$("$MENU_UPDATER" --print-menu-path 2>/dev/null)
         [ -n "$MENU_PATH" ] || MENU_PATH="the ESP GRUB menu"
-        if first_install_ordering; then
+        if installer_final_fire; then
+            log "boot menu not updated to $NEW_KVER here — the updater's own reason is on the line above. This is the installer's own build of the boot image: the installer composes the boot menu at $MENU_PATH from this image next, and refuses to finish the install unless that menu's default entry chainloads it."
+        elif first_install_ordering; then
             log "boot menu not updated to $NEW_KVER — the updater's own reason is on the line above. This system has not booted yet, and on an install the boot menu at $MENU_PATH is composed by the installer AFTER the package hooks run, from the installed kernel, so a menu that is not there yet is the expected order and nothing is lost. To check it afterwards: sudo $MENU_UPDATER $NEW_KVER"
         else
             log "WARNING: boot-menu update FAILED — the GRUB default entry may still chainload a PREVIOUS kernel whose modules were just removed; the next boot can drop to emergency mode. Manual fix: point every kernel-release token in $MENU_PATH at $NEW_KVER (sudo $MENU_UPDATER $NEW_KVER)."

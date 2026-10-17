@@ -202,11 +202,12 @@ def hook_lines(out):
                       if "[linux-kernel:post-install]" in l)
 
 
-def _run(fixture):
+def _run(fixture, package_version="6.18.10"):
     """Run the real hook inside a user+mount namespace over the fixture.
 
     The namespace is what keeps this off the machine running the suite; see
-    the module docstring.
+    the module docstring. ``package_version`` is what pkm passes in
+    PKM_PACKAGE_VERSION; the installer's own re-run passes "installer-final".
     """
     inner = (
         'mount --bind "$FIXTURE_ROOT/boot" /boot && '
@@ -230,7 +231,7 @@ def _run(fixture):
         "FIXTURE_ROOT": str(fixture.root),
         "HOOK_PATH": str(HOOK),
         "PKM_PACKAGE_NAME": "linux-kernel",
-        "PKM_PACKAGE_VERSION": "6.18.10",
+        "PKM_PACKAGE_VERSION": package_version,
         "PKM_PACKAGE_ROOT": str(fixture.root / "pkgroot"),
     })
     proc = subprocess.run(
@@ -240,9 +241,9 @@ def _run(fixture):
     return proc
 
 
-def fire(fixture):
+def fire(fixture, **kwargs):
     """The hook's combined output."""
-    proc = _run(fixture)
+    proc = _run(fixture, **kwargs)
     return proc.stdout + proc.stderr
 
 
@@ -416,6 +417,24 @@ class KernelHookMessages(unittest.TestCase):
         self.assertIn("emergency mode", msgs,
                       "on a system that has booted, a failed menu update is "
                       "still the one degrade that breaks the NEXT boot")
+
+    def test_the_installers_own_rebuild_is_not_an_emergency_warning(self):
+        """The installer re-runs this hook (bootloader.build_final_uki, which
+        passes PKM_PACKAGE_VERSION=installer-final) after the target's
+        machine-id is written, so the hook reads a system that has booted, and
+        before the installer composes the menu from the image it builds. The
+        fixture is the running-system case's above, which stays loud; only the
+        version differs."""
+        f = Fixture(self.tmp, machine_id=VALID_MACHINE_ID, with_ukify=True,
+                    with_updater=True)
+        msgs = hook_lines(fire(f, package_version="installer-final"))
+        self.assertNotIn("emergency mode", msgs,
+                         "the installer's own rebuild, before the installer "
+                         "composes the menu, is reported as an impending "
+                         "emergency-mode boot")
+        self.assertNotIn("boot-menu update FAILED", msgs)
+        self.assertIn("the installer composes the boot menu", msgs,
+                      "the message does not say who composes the menu next")
 
 
 class RefusalsCarryTheRefusalStatus(unittest.TestCase):
