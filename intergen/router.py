@@ -3020,11 +3020,20 @@ class ConversationRouter(RouterInterface):
                            and not explain_prior and not route_compound_whole)})
         if decomposition.needs_decomposition and not explain_prior \
                 and not route_compound_whole:
-            result = self._handle_compound(user_input, decomposition)
+            result = self._handle_compound(
+                user_input, decomposition, decide_only=decide_only)
             if result.handled:
                 self._won("decomposed",
                           sub_queries=len(decomposition.sub_queries))
                 self._record(result, t0, "decomposed")
+                return result
+            if decide_only and result.source == "llm_freeform":
+                # An uncovered instruction leaves the whole question for the
+                # streaming caller, rather than returning a partial answer.
+                glass.emit("route", "decided", detail={
+                    "source": result.source, "decide_only": True, "streamed": True,
+                    "query_type": self._current_query_type,
+                    "semantic_score": self._last_semantic_score})
                 return result
 
         # Smart cache — instant response for single-value system state only.
@@ -4248,7 +4257,8 @@ class ConversationRouter(RouterInterface):
         return " ".join(rendered)
 
     def _handle_compound(self, user_input: str,
-                         decomposition: DecomposedQuery) -> RouteResult:
+                         decomposition: DecomposedQuery, *,
+                         decide_only: bool = False) -> RouteResult:
         """P0: Handle compound queries by executing sub-queries sequentially."""
         results_text = [decomposition.response_prefix, ""]
         all_tool_calls = []
@@ -4262,7 +4272,11 @@ class ConversationRouter(RouterInterface):
         for i, sub_query in enumerate(decomposition.sub_queries, 1):
             _tsub = time.monotonic()
             sub_result = self._route_single(sub_query,
-                                            trail_scope=f"sub_query:{i}")
+                                            trail_scope=f"sub_query:{i}",
+                                            decide_only=decide_only)
+            if decide_only and not sub_result.handled \
+                    and sub_result.source == "llm_freeform":
+                return sub_result
             # Record a concrete object this clause dispatched on, so the NEXT
             # clause can resolve "it" against it instead of dispatching the
             # pronoun. Only names, never search phrases (see _resolved_referent).
@@ -5282,7 +5296,8 @@ class ConversationRouter(RouterInterface):
         return citation, support
 
     def _route_single(self, user_input: str,
-                      *, trail_scope: "str | None" = None) -> RouteResult:
+                      *, trail_scope: "str | None" = None,
+                      decide_only: bool = False) -> RouteResult:
         """Route a single (non-compound) query through P1→P4.
 
         ``trail_scope`` (BLOCK-2 ride b): when this routes a DECOMPOSED sub-query,
@@ -5313,6 +5328,9 @@ class ConversationRouter(RouterInterface):
                 return explanation
             # An uncovered how-to remains a question, including when teaching
             # data is unavailable. Never turn its verbs into an action dispatch.
+            if decide_only:
+                _note("llm_freeform", "won", explain_prior=True, decide_only=True)
+                return RouteResult(text="", source="llm_freeform", handled=False)
             answer = self._try_llm_freeform(user_input)
             _note("llm_freeform", "won", explain_prior=True)
             return answer
