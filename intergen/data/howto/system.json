@@ -107,8 +107,8 @@
     "triggers": [
       "how do I find large files"
     ],
-    "answer": "```\ndu -ah ~ | sort -rh | head -20         # 20 biggest files+dirs under your home\n```\nFor a whole filesystem: `sudo du -ahx / | sort -rh | head -20`. The interactive TUI tool\n**ncdu** is handy if installed (`sudo pkm install ncdu`).",
-    "doc_source": "tools/intergen-coverage/drafts",
+    "answer": "Find the largest files and directories under your home:\n```\ndu -ah ~ | sort -rh | head -20\n```\nFor one filesystem, `sudo du -ahx / | sort -rh | head -20` stays on that filesystem. The desktop also includes **Disk Usage Analyzer** for a graphical view. Check package names with `pkm search <term>` before trying to install an additional tool.",
+    "doc_source": "docs/users/desktop-experience.md; docs/users/package-management.md",
     "requires": []
   },
   {
@@ -154,8 +154,8 @@
     "triggers": [
       "how do I clear the package cache"
     ],
-    "answer": "```\nsudo pkm cache clean          # keep the archive for each installed version, drop the rest\nsudo pkm cache clean --all    # remove every cached archive (re-downloaded on next install)\nsudo pkm cache clean --rollback   # prune the pre-upgrade rollback snapshots too\n```\nThe cache lives at `/var/cache/pkm/`. `clean` (default) is safe; `--all` frees the most.",
-    "doc_source": "tools/intergen-coverage/drafts",
+    "answer": "The package and rollback caches are separate directories under `/var/cache/pkm/`:\n```\nsudo pkm cache clean              # clean the packages/ cache\nsudo pkm cache clean --all        # remove every archive from packages/\nsudo pkm cache clean --rollback   # select the separate rollback/ cache\n```\nDefault cleanup keeps the installed version/release and the previous release of that version; it removes other package archives. Packages no longer installed keep no package-cache archives.\n\n`--rollback` changes the target to `rollback/`: it keeps the most recent rollback archive for each installed package and removes older entries. It does not clean both caches at once. Removing all cached archives means a later install may need to download them again.",
+    "doc_source": "intergen/data/capability-surface.json; pkm/cli.py",
     "requires": []
   },
   {
