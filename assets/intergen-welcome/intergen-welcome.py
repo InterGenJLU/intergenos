@@ -3266,15 +3266,15 @@ def _package_is_installed(name):
     database could not be read. An installed package prints an `install_date`
     record, and an absent one prints "is not installed". A registered download
     helper can still lack its application payload, which is reported separately.
+    A package whose install did not finish (pkm's `degraded` line) is not an
+    installed one here: its install record is real, but what it was installed
+    for has not happened — see _package_unfinished_reason.
     """
-    try:
-        proc = subprocess.run(['pkm', 'info', name],
-                              capture_output=True, text=True, timeout=30)
-    except (OSError, subprocess.SubprocessError):
+    text = _pkm_info_text(name)
+    if text is None:
         return None
-    text = (proc.stdout or '') + (proc.stderr or '')
-    if not text.strip():
-        return None
+    if _unfinished_reason_in(text):
+        return False
     has_install_record = False
     for line in text.splitlines():
         stripped = line.strip()
@@ -3295,6 +3295,40 @@ def _package_is_installed(name):
     # does not understand. Saying "not installed" would accuse a possibly
     # successful install of having failed; unknown is the honest answer.
     return None
+
+
+def _pkm_info_text(name):
+    """`pkm info <name>`'s whole output, or None when pkm could not be asked."""
+    try:
+        proc = subprocess.run(['pkm', 'info', name],
+                              capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    text = (proc.stdout or '') + (proc.stderr or '')
+    return text if text.strip() else None
+
+
+_UNFINISHED_LINE = re.compile(r'^\s*degraded\s*:\s*(.+?)\s*$', re.M)
+
+
+def _unfinished_reason_in(text):
+    """The reason on pkm info's `degraded` line, or None when there is none."""
+    m = _UNFINISHED_LINE.search(text or '')
+    return m.group(1) if m else None
+
+
+def _package_unfinished_reason(name):
+    """Why the package database records ``name``'s install as NOT FINISHED.
+
+    pkm marks a package DEGRADED when a critical post-install hook fails, and a
+    hook that refused to sign is one: the driver installs, but the boot image
+    that carries it was not signed, so a reboot starts the machine without it
+    (measured 2026-10-16: the external display wired to the NVIDIA card stayed
+    dark). Returns pkm's own reason, or None when the install finished or pkm
+    could not be asked — the latter is _package_is_installed's None to report.
+    """
+    text = _pkm_info_text(name)
+    return _unfinished_reason_in(text) if text else None
 
 # Written when a driver install is started from this page; the launcher reads
 # it after this process exits. The path is built from $HOME rather than from
@@ -3816,7 +3850,7 @@ def _install_notice(selected, offers):
     return ' '.join(parts)
 
 
-def _install_outcome(selected, offers, probe=None):
+def _install_outcome(selected, offers, probe=None, unfinished_probe=None):
     """What actually happened, asked of the package database.
 
     A terminal window closing is not an outcome. The released build's engine
@@ -3827,21 +3861,37 @@ def _install_outcome(selected, offers, probe=None):
 
     Returns a dict:
         installed  — True (everything selected is present), False (something
-                     is confirmed absent), or None (the question could not be
-                     answered for at least one package and none is confirmed
-                     absent). Three states, because "it failed" and "I could
-                     not tell" are not the same thing to a user deciding what
-                     to do next.
+                     is confirmed absent, or its install did not finish), or
+                     None (the question could not be answered for at least one
+                     package and none is confirmed absent). Three states,
+                     because "it failed" and "I could not tell" are not the
+                     same thing to a user deciding what to do next.
         missing    — the packages confirmed absent.
         unknown    — the packages whose state could not be read.
+        unfinished — (package, pkm's reason) for each package installed but
+                     not finished: a critical post-install hook failed, a
+                     refused signing among them. Checked first, because such a
+                     package has an install record and would otherwise read as
+                     installed — and then the page said to reboot into a boot
+                     image that does not carry it (2026-10-16).
         activation — the step this selection still needs, from
                      _activation_required.
         message    — the sentence to show.
+
+    ``unfinished_probe`` answers pkm's reason or None per package; it defaults
+    to the package database only when ``probe`` does, so an injected probe is
+    never mixed with a real query.
     """
     ask = probe or _package_is_installed
+    why = unfinished_probe or (
+        _package_unfinished_reason if probe is None else (lambda name: None))
     names = _selected_packages(selected, offers)
-    missing, unknown = [], []
+    missing, unknown, unfinished = [], [], []
     for name in names:
+        reason = why(name)
+        if reason:
+            unfinished.append((name, reason))
+            continue
         state = ask(name)
         if state is False:
             missing.append(name)
@@ -3849,7 +3899,23 @@ def _install_outcome(selected, offers, probe=None):
             unknown.append(name)
 
     activation = _activation_required(selected, offers)
-    if missing:
+    if unfinished:
+        installed = False
+        who = _and_list([name for name, _ in unfinished])
+        reasons = '; '.join(reason for _, reason in unfinished)
+        finish = ' and '.join(f'sudo pkm reinstall {name}'
+                              for name, _ in unfinished)
+        message = (
+            who + ' installed, but the install did not finish (' + reasons
+            + '). '
+            + ('DO NOT REBOOT for it yet: it does not take effect until this '
+               'is finished. ' if activation == 'reboot' else '')
+            + 'Finish it in a terminal with: ' + finish + '. If it asks for '
+            'the signing key passphrase, that is the one set when this system '
+            'was installed, not the MOK enrollment password.'
+            + (' Reboot once it has finished. ' + _WELCOMER_RETURNS_AFTER_REBOOT
+               if activation == 'reboot' else ''))
+    elif missing:
         installed = False
         message = (
             'The terminal window closed and ' + _and_list(missing) + ' '
@@ -3886,6 +3952,7 @@ def _install_outcome(selected, offers, probe=None):
         'installed': installed,
         'missing': missing,
         'unknown': unknown,
+        'unfinished': unfinished,
         'activation': activation,
         'message': message,
     }
@@ -4231,6 +4298,11 @@ def _build_gpu_install_offer(record, probe=None, on_engine_installed=None):
                 if (outcome['activation'] == 'service-restart'
                         and on_engine_installed is not None):
                     on_engine_installed()
+            elif outcome['unfinished']:
+                # Running the same install again would find the package
+                # installed and finish nothing; the message names the command
+                # that does.
+                btn.set_visible(False)
             else:
                 btn.set_sensitive(True)
                 btn.set_label(_GPU_INSTALL_RETRY_LABEL)

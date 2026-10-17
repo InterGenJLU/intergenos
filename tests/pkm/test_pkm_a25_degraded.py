@@ -150,6 +150,19 @@ class DegradedCliTest(unittest.TestCase):
         self.assertIn("[DEGRADED", buf.getvalue())
         self.assertIn("uki-sign", buf.getvalue())
 
+    def test_cmd_info_names_the_unfinished_install(self):
+        # `info` is the verb the Welcomer asks about one package; it used to
+        # print the install record of a degraded package and nothing else.
+        args = argparse.Namespace(package="kernel")
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = cli.cmd_info(self.db, args)
+        self.assertEqual(rc, 0)
+        lines = [l.strip() for l in buf.getvalue().splitlines()]
+        i = lines.index("degraded            : uki-sign")
+        self.assertEqual(lines[i + 1], "this install did not finish. Run: "
+                                       "sudo pkm reinstall kernel")
+
     def test_cmd_verify_reports_degraded(self):
         args = argparse.Namespace(verify_all=False, package="kernel",
                                   verify_mode="strict")

@@ -4261,6 +4261,16 @@ def cmd_info(db, args):
         print(f"  {'payload':20s}: not installed — this package is the "
               f"installer for a vendor download that has not run yet. "
               f"Run: sudo pkm install {pkg['name']}")
+    # A package whose install did not finish: a critical post-install hook
+    # failed — a refused signing among them — so the row carries the DEGRADED
+    # marker. `pkm list` and `pkm verify` already said so; `info`, the verb a
+    # person and the Welcomer ask about one package, did not, so after a driver
+    # install whose boot image had been refused the Welcomer read an ordinary
+    # install record and said to reboot (2026-10-16). Read by the Welcomer.
+    if pkg.get("degraded"):
+        print(f"  {'degraded':20s}: {pkg['degraded']}")
+        print(f"  {'':20s}  this install did not finish. Run: "
+              f"sudo pkm reinstall {pkg['name']}")
 
     deps = db.get_depends(args.package)
     if deps:
