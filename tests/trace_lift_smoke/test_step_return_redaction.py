@@ -16,7 +16,13 @@ passes the same shape check. (5) A trace an earlier writer left on disk is
 brought to the same rule by redact_recorded_step_returns: only the offending
 rows change, the file stays 0600 with its owner, a row records the change,
 and a second run changes nothing. (6) The module's command line does the same
-and fails loudly on a file it cannot process.
+and fails loudly on a file it cannot process. (7) A hash right after a quote,
+bracket, brace, parenthesis, '=' or ',' is seen: an exception whose text
+starts with one and a tuple, list or dict holding one used to reach the trace.
+(8) A step handed a secret has its exception's text withheld, the type kept:
+ValueError(f"rejected {password!r}") used to put the plaintext in the trace.
+(9) The pass over a trace on disk applies the same rules to step_exception
+rows, which it used to skip.
 """
 
 import importlib.util
@@ -160,6 +166,117 @@ def test_exception_text_passes_the_shape_check():
     assert rows[0]["exception_redacted"] == "credential-shaped exception"
     assert rows[1]["exception"] == "RuntimeError('chpasswd exited 1')"
     assert rows[1]["exception_redacted"] is None
+
+
+def test_a_hash_inside_a_quote_bracket_brace_or_parenthesis_is_seen():
+    mod, sink = _fresh_mod_and_sink()
+
+    @mod.trace_install_step("raise_hash_first")
+    def raise_hash_first(target):
+        raise ValueError(CRYPT_HASH)
+
+    @mod.trace_install_step("return_tuple")
+    def return_tuple(target):
+        return ("root", CRYPT_HASH)
+
+    @mod.trace_install_step("return_list")
+    def return_list(target):
+        return [CRYPT_HASH]
+
+    @mod.trace_install_step("return_dict")
+    def return_dict(target):
+        return {"field": CRYPT_HASH}
+
+    @mod.trace_install_step("return_keyword")
+    def return_keyword(target):
+        return "hash=" + CRYPT_HASH
+
+    @mod.trace_install_step("return_comma_separated")
+    def return_comma_separated(target):
+        return "root," + CRYPT_HASH
+
+    for fn in (raise_hash_first, return_tuple, return_list, return_dict,
+               return_keyword, return_comma_separated):
+        try:
+            fn("/mnt/target")
+        except ValueError:
+            pass
+    assert CRYPT_HASH not in sink.read_text() and "j9T$salt" not in sink.read_text()
+    (exc_row,) = _events(sink, "step_exception")
+    assert (exc_row["exception"], exc_row["exception_type"],
+            exc_row["exception_redacted"]) == (
+        "<REDACTED>", "ValueError", "credential-shaped exception")
+    exits = _events(sink, "step_exit")
+    assert [(e["return"], e["return_redacted"]) for e in exits] == [
+        ("<REDACTED>", "credential-shaped return")] * 5
+
+    for before in ("'", '"', "(", "[", "{", "=", ","):
+        assert mod._CREDENTIAL_SHAPE_RE.search(before + CRYPT_HASH), before
+    for ordinary in ("cost is $5 today", "PATH=$HOME/bin", "echo $1 $2",
+                     "x = {'a': 1}"):
+        assert not mod._CREDENTIAL_SHAPE_RE.search(ordinary), ordinary
+
+
+def test_a_secret_bearing_steps_exception_text_is_withheld_its_type_kept():
+    mod, sink = _fresh_mod_and_sink()
+
+    @mod.trace_install_step("set_root_password")
+    def set_root_password(target, password):
+        raise ValueError(f"rejected {password!r}")
+
+    for call in (lambda: set_root_password("/mnt/target", "plaintext-secret-7"),
+                 lambda: set_root_password("/mnt/target", password="plaintext-secret-7")):
+        try:
+            call()
+        except ValueError:
+            pass
+    assert "plaintext-secret-7" not in sink.read_text(), (
+        "the secret the step was handed reached the trace in its exception")
+    rows = _events(sink, "step_exception")
+    assert [(r["exception"], r["exception_type"], r["exception_redacted"])
+            for r in rows] == [
+        ("<REDACTED>", "ValueError", "secret-bearing step: takes password")] * 2
+
+
+def test_trace_on_disk_withholds_exception_text_by_the_same_rules():
+    mod, _ = _fresh_mod_and_sink()
+    tmp = tempfile.mkdtemp(prefix="trace-at-rest-exception-")
+    rows = [
+        {"type": "step_enter", "step": "read_shadow",
+         "args_positional": ["/mnt/target"], "kwargs": {}},
+        {"type": "step_exception", "step": "read_shadow",
+         "exception": repr(ValueError(CRYPT_HASH))},
+        {"type": "step_enter", "step": "set_root_password",
+         "args_positional": ["/mnt/target"], "kwargs": {"password": "<REDACTED>"}},
+        {"type": "step_exception", "step": "set_root_password",
+         "exception": repr(ValueError("rejected 'plaintext-secret-7'"))},
+        {"type": "step_enter", "step": "mount_target",
+         "args_positional": ["/mnt/target"], "kwargs": {}},
+        {"type": "step_exception", "step": "mount_target",
+         "exception": "RuntimeError('mount exited 32')"},
+    ]
+    path = Path(tmp) / "forge-install-20261016T235254Z-0a560944392341b1.log"
+    path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+    os.chmod(path, 0o600)
+    before = path.read_bytes().splitlines(keepends=True)
+
+    assert mod.redact_recorded_step_returns(path, by="test") == 2
+
+    raw = path.read_bytes()
+    assert CRYPT_HASH.encode() not in raw and b"plaintext-secret-7" not in raw
+    after = raw.splitlines(keepends=True)
+    changed = [i for i, (a, b) in enumerate(zip(before, after)) if a != b]
+    assert changed == [1, 3], f"only the two exception rows may change; changed {changed}"
+    shaped, secret = json.loads(after[1]), json.loads(after[3])
+    assert (shaped["exception"], shaped["exception_type"], shaped["exception_redacted"]) == (
+        "<REDACTED>", "ValueError", "credential-shaped exception (withheld at rest)")
+    assert (secret["exception"], secret["exception_type"], secret["exception_redacted"]) == (
+        "<REDACTED>", "ValueError",
+        "secret-bearing step: it was handed a secret (withheld at rest)")
+    assert json.loads(after[5])["exception"] == "RuntimeError('mount exited 32')"
+    note = json.loads(after[-1])
+    assert note["type"] == "trace_redacted_at_rest" and note["rows_withheld"] == 2
+    assert mod.redact_recorded_step_returns(path, by="test") == 0
 
 
 def _earlier_writer_trace(directory):

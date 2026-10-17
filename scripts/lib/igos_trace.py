@@ -61,8 +61,12 @@ Secret hygiene:
     named in REDACT_KEYS, and for any credential-shaped return (decided
     2026-10-17: set_root_password returns the crypt hash of the password it
     was given, and an R001.3 install recorded that hash in the target's trace).
-    A trace an earlier writer left on disk is brought to the same rule by
-    redact_recorded_step_returns, which the forge package runs on upgrade.
+    The text of an exception such a step raises is withheld the same way in
+    its `step_exception` row (the exception's type kept), and so is any
+    credential-shaped exception text.
+    A trace an earlier writer left on disk is brought to the same rules, both
+    row kinds, by redact_recorded_step_returns, which the forge package runs
+    on upgrade.
   - The `env` dict passed to `traced_run` has its values scrubbed for any
     key matching REDACT_ENV_SUBSTRINGS (TOKEN/PASSWORD/KEY/SECRET/PASSPHRASE).
     The security-only-alignment constraint: build-host env may carry signing-key passphrases
@@ -173,10 +177,14 @@ STDOUT_CREDENTIAL_PRODUCERS = frozenset({"fido2-assert", "tpm2_unseal"})
 # LOOKS like a credential is redacted too — a crypt hash ($1$/$5$/$6$/$y$/
 # $2b$ ...) anywhere in it, or a `name:<secret>` password-file line.
 _CREDENTIAL_SHAPE_RE = re.compile(
-    # a crypt hash anywhere, or a password-file line `account:<token>` with
-    # NO space after the colon (a YAML `key: value` line has one, an nft
-    # ruleset has none of these shapes, so ordinary payloads stay readable)
-    r"(^|[\s:])\$(?:1|5|6|y|2[abxy]|gy|argon2[id]*)\$|^[a-z_][a-z0-9_-]{0,31}:[^\s:]{8,}$",
+    # a crypt hash at the start of a line or after whitespace, a colon, a
+    # quote, a bracket, a brace, a parenthesis, '=' or ',' — the shapes Python
+    # gives a hash it prints inside something else (an exception's repr, a
+    # tuple, a list, a dict, a keyword) — or a password-file line
+    # `account:<token>` with NO space after the colon (a YAML `key: value`
+    # line has one, an nft ruleset has none of these shapes, so ordinary
+    # payloads stay readable)
+    r"(^|[\s:'\"(\[{=,])\$(?:1|5|6|y|2[abxy]|gy|argon2[id]*)\$|^[a-z_][a-z0-9_-]{0,31}:[^\s:]{8,}$",
     re.M,
 )
 
@@ -988,7 +996,8 @@ def trace_install_step(name: Optional[str] = None):
     The return value is emitted only for a step handed no secret and only when
     it is not credential-shaped (_secret_step_reason, _CREDENTIAL_SHAPE_RE);
     otherwise `return` is `<REDACTED>` and `return_redacted` says why. An
-    exception's text passes the same shape check.
+    exception's text follows the same two rules (`exception`,
+    `exception_redacted`); its type is recorded either way (`exception_type`).
 
     Kept compatible with the existing Forge call sites
     (`installer/backend/users.py` set_root_password, create_user, etc.).
@@ -1014,13 +1023,19 @@ def trace_install_step(name: Optional[str] = None):
             try:
                 result = fn(*args, **kwargs)
             except Exception as exc:
+                # A step handed a secret can raise with it in the message
+                # (ValueError(f"rejected {password!r}")), so its exception's
+                # text is withheld as its return is; the type is kept.
                 exc_text = repr(exc)
-                exc_reason = ("credential-shaped exception"
-                              if _CREDENTIAL_SHAPE_RE.search(exc_text) else None)
+                exc_reason = (
+                    _secret_step_reason(_sig_params, args, kwargs)
+                    or ("credential-shaped exception"
+                        if _CREDENTIAL_SHAPE_RE.search(exc_text) else None))
                 _emit({
                     "type": "step_exception",
                     "step": step_name,
                     "exception": "<REDACTED>" if exc_reason else exc_text,
+                    "exception_type": type(exc).__name__,
                     "exception_redacted": exc_reason,
                     "duration_ms": int((time.monotonic() - start) * 1000),
                 })
@@ -1218,9 +1233,11 @@ def redact_recorded_step_returns(path, by: str = "igos_trace.py") -> int:
     installed keeps, in /var/log/forge-install-*.log, the crypt hash
     set_root_password returned (an R001.3 install, 2026-10-16). A step_exit row
     is withheld when its step was handed a secret (the matching step_enter row
-    recorded a <REDACTED> argument) or when its return is credential-shaped.
-    Every other line is kept byte for byte, and one trace_redacted_at_rest row
-    is appended naming the count, so the file itself records that it changed.
+    recorded a <REDACTED> argument) or when its return is credential-shaped; a
+    step_exception row by the same two rules, its exception's type kept (read
+    from the recorded text when the row has no exception_type). Every other
+    line is kept byte for byte, and one trace_redacted_at_rest row is appended
+    naming the count, so the file itself records that it changed.
 
     The file is replaced by a rename from a 0600 file in the same directory,
     with the original's owner. A rename leaves any writer still holding the old
@@ -1248,16 +1265,21 @@ def redact_recorded_step_returns(path, by: str = "igos_trace.py") -> int:
         elif kind in ("step_exit", "step_exception"):
             pending = open_steps.get(step) or []
             took_secret = pending.pop() if pending else False
-            ret = event.get("return")
-            if kind == "step_exit" and ret is not None and ret != "<REDACTED>":
+            field = "return" if kind == "step_exit" else "exception"
+            value = event.get(field)
+            if value is not None and value != "<REDACTED>":
                 reason = None
                 if took_secret:
                     reason = "secret-bearing step: it was handed a secret"
-                elif _CREDENTIAL_SHAPE_RE.search(str(ret)):
-                    reason = "credential-shaped return"
+                elif _CREDENTIAL_SHAPE_RE.search(str(value)):
+                    reason = f"credential-shaped {field}"
                 if reason:
-                    event["return"] = "<REDACTED>"
-                    event["return_redacted"] = reason + " (withheld at rest)"
+                    if kind == "step_exception" and "exception_type" not in event:
+                        named = re.match(r"([A-Za-z_][\w.]*)\(", str(value))
+                        if named:
+                            event["exception_type"] = named.group(1)
+                    event[field] = "<REDACTED>"
+                    event[f"{field}_redacted"] = reason + " (withheld at rest)"
                     out.append((json.dumps(event, default=str, ensure_ascii=False)
                                 + "\n").encode("utf-8"))
                     withheld += 1
@@ -1308,7 +1330,8 @@ def _main(argv=None) -> int:
     sub = ap.add_subparsers(dest="command", required=True)
     red = sub.add_parser(
         "redact-step-returns",
-        help="withhold recorded returns of steps that were handed a secret")
+        help="withhold recorded returns and exception texts of steps that were "
+             "handed a secret, and any that have a credential's shape")
     red.add_argument("--by", default="igos_trace.py",
                      help="who is redacting, recorded in the appended row")
     red.add_argument("files", nargs="+")
@@ -1322,8 +1345,9 @@ def _main(argv=None) -> int:
             rc = 1
             continue
         if n:
-            print(f"{f}: withheld {n} recorded return(s) of a step that was "
-                  f"handed a secret")
+            print(f"{f}: withheld {n} recorded return(s) or exception text(s) "
+                  f"of a step that was handed a secret or that had a "
+                  f"credential's shape")
     return rc
 
 
