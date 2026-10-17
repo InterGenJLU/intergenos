@@ -22,7 +22,14 @@ starts with one and a tuple, list or dict holding one used to reach the trace.
 (8) A step handed a secret has its exception's text withheld, the type kept:
 ValueError(f"rejected {password!r}") used to put the plaintext in the trace.
 (9) The pass over a trace on disk applies the same rules to step_exception
-rows, which it used to skip.
+rows, which it used to skip. (10) A hash is seen by its own shape, whatever
+character precedes it: after an escaped newline or tab, '>', '<', '|', ';',
+'/', a backslash, a letter or '-', in an exception's text or a tuple's or
+list's str, 24 shapes reached the trace while the rule listed the characters
+a hash may follow. (11) Every prefixed method this system's libxcrypt builds
+is a hash shape, scrypt and sm3-yescrypt among them, and ordinary text with
+dollars and digits ($1$2, a price) stays readable. (12) The pass over a trace
+on disk withholds those shapes too.
 """
 
 import importlib.util
@@ -38,6 +45,12 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 IGOS_TRACE_PY = REPO_ROOT / "scripts" / "lib" / "igos_trace.py"
 
 CRYPT_HASH = "$y$j9T$saltsaltsaltsaltsalt$" + "H" * 43
+SHA512_HASH = "$6$saltsaltsaltsalt$" + "S" * 86
+
+# Characters Python can print a hash after inside an exception's text. repr
+# escapes a newline and a tab, so the character before the hash is then the
+# letter n or t; it doubles a backslash.
+LEFT_NEIGHBOURS = ("line one\n", "\t", ">", "<", "|", ";", "/", "\\", "x", "-")
 
 
 def _load_trace_module(tmpdir):
@@ -217,6 +230,62 @@ def test_a_hash_inside_a_quote_bracket_brace_or_parenthesis_is_seen():
         assert not mod._CREDENTIAL_SHAPE_RE.search(ordinary), ordinary
 
 
+def test_a_hash_is_seen_by_its_own_shape_whatever_precedes_it():
+    mod, sink = _fresh_mod_and_sink()
+    for h in (CRYPT_HASH, SHA512_HASH):
+        for before in LEFT_NEIGHBOURS:
+            @mod.trace_install_step("raise_shape")
+            def raise_shape(target, _text=before + h):
+                raise ValueError(_text)
+            try:
+                raise_shape("/mnt/target")
+            except ValueError:
+                pass
+        for value in (("ok\n" + h,), ["\t" + h], "line one\n" + h):
+            @mod.trace_install_step("return_shape")
+            def return_shape(target, _value=value):
+                return _value
+            return_shape("/mnt/target")
+    raw = sink.read_text()
+    assert CRYPT_HASH not in raw and SHA512_HASH not in raw, (
+        "a hash after a character the rule did not list reached the trace")
+    assert [(r["exception"], r["exception_type"], r["exception_redacted"])
+            for r in _events(sink, "step_exception")] == [
+        ("<REDACTED>", "ValueError", "credential-shaped exception")] * 20
+    assert [(e["return"], e["return_redacted"]) for e in _events(sink, "step_exit")] == [
+        ("<REDACTED>", "credential-shaped return")] * 6
+
+
+def test_the_shape_rule_finds_every_hash_shape_and_leaves_ordinary_text_readable():
+    mod, _ = _fresh_mod_and_sink()
+    shapes = []
+    for h in (CRYPT_HASH, SHA512_HASH):
+        shapes += [repr(ValueError(before + h)) for before in LEFT_NEIGHBOURS]
+        shapes += [str(("ok\n" + h,)), str(["\t" + h])]
+        shapes += [before + h for before in ("'", '"', "(", "[", "{", "=", ",")]
+        shapes += [h, "root:" + h + ":19000:0:99999:7:::", "field was " + h, h[:20]]
+    # Every prefixed method this system's libxcrypt builds (crypt_gensalt's
+    # settings for each; stand-in bodies), and argon2's encoding.
+    for h in ("$y$j9T$saltsaltsaltsaltsalt$" + "H" * 43,
+              "$gy$j9T$saltsaltsaltsaltsalt$" + "H" * 43,
+              "$sm3y$j9T$saltsaltsaltsaltsalt$" + "H" * 43,
+              "$7$CU..../....saltsaltsaltsalt$" + "H" * 43,
+              "$2b$05$" + "S" * 53, "$2a$05$" + "S" * 53, "$2y$05$" + "S" * 53,
+              "$6$saltsaltsaltsalt$" + "S" * 86, "$5$saltsaltsaltsalt$" + "S" * 43,
+              "$1$saltsalt$" + "S" * 22,
+              "$argon2id$v=19$m=65536,t=3,p=4$c2FsdHNhbHQ$" + "S" * 43):
+        shapes += [h, repr(ValueError("line one\n" + h)), str(("ok\n" + h,))]
+    missed = [t for t in shapes if not mod._CREDENTIAL_SHAPE_RE.search(t)]
+    assert missed == [], f"hash shapes the rule does not find: {missed}"
+    readable = ["cost is $5 today", "PATH=$HOME/bin", "echo $1 $2", "x = {'a': 1}",
+                "awk '{print $1$2}'", "echo $1$2 $3",
+                "the $6$ prefix marks a SHA-512 crypt hash", "price: $5$ off",
+                "grep -E '\\$6\\$' /etc/shadow", "set -- a b; echo \"$1$2\"",
+                "key: value", "nft add rule inet filter input tcp dport 22 accept"]
+    withheld = [t for t in readable if mod._CREDENTIAL_SHAPE_RE.search(t)]
+    assert withheld == [], f"ordinary texts the rule would withhold: {withheld}"
+
+
 def test_a_secret_bearing_steps_exception_text_is_withheld_its_type_kept():
     mod, sink = _fresh_mod_and_sink()
 
@@ -276,6 +345,30 @@ def test_trace_on_disk_withholds_exception_text_by_the_same_rules():
     assert json.loads(after[5])["exception"] == "RuntimeError('mount exited 32')"
     note = json.loads(after[-1])
     assert note["type"] == "trace_redacted_at_rest" and note["rows_withheld"] == 2
+    assert mod.redact_recorded_step_returns(path, by="test") == 0
+
+
+def test_trace_on_disk_withholds_a_hash_whatever_precedes_it():
+    mod, _ = _fresh_mod_and_sink()
+    tmp = tempfile.mkdtemp(prefix="trace-at-rest-shape-")
+    rows = []
+    for i, before in enumerate(("line one\n", ">", "x")):
+        rows.append({"type": "step_enter", "step": f"read_shadow_{i}",
+                     "args_positional": ["/mnt/target"], "kwargs": {}})
+        rows.append({"type": "step_exception", "step": f"read_shadow_{i}",
+                     "exception": repr(ValueError(before + SHA512_HASH))})
+    path = Path(tmp) / "forge-install-20261016T235254Z-0a560944392341b1.log"
+    path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+    os.chmod(path, 0o600)
+
+    assert mod.redact_recorded_step_returns(path, by="test") == 3
+
+    raw = path.read_bytes()
+    assert SHA512_HASH.encode() not in raw, "a hash at rest was kept"
+    after = [json.loads(l) for l in raw.splitlines()]
+    assert [(r["exception"], r["exception_type"], r["exception_redacted"])
+            for r in after if r["type"] == "step_exception"] == [
+        ("<REDACTED>", "ValueError", "credential-shaped exception (withheld at rest)")] * 3
     assert mod.redact_recorded_step_returns(path, by="test") == 0
 
 

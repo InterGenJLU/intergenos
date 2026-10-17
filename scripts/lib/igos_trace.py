@@ -177,14 +177,21 @@ STDOUT_CREDENTIAL_PRODUCERS = frozenset({"fido2-assert", "tpm2_unseal"})
 # LOOKS like a credential is redacted too — a crypt hash ($1$/$5$/$6$/$y$/
 # $2b$ ...) anywhere in it, or a `name:<secret>` password-file line.
 _CREDENTIAL_SHAPE_RE = re.compile(
-    # a crypt hash at the start of a line or after whitespace, a colon, a
-    # quote, a bracket, a brace, a parenthesis, '=' or ',' — the shapes Python
-    # gives a hash it prints inside something else (an exception's repr, a
-    # tuple, a list, a dict, a keyword) — or a password-file line
+    # A crypt hash by its own shape, wherever it sits: a method's id between
+    # dollars, then at least eight characters of a hash's alphabet. The
+    # character before it decides nothing: Python prints a hash inside an
+    # exception's repr or a container's str after an escaped newline (the
+    # letter n), a tab (t), a quote, a bracket or any other character, and a
+    # rule keyed on that neighbour missed every one it did not list. The ids
+    # are every prefixed method this system's libxcrypt builds
+    # (--enable-hashes=strong,glibc: yescrypt, gost-yescrypt, sm3-yescrypt,
+    # scrypt, bcrypt, sha512crypt, sha256crypt, md5crypt) and argon2's. A
+    # dollar and a digit in ordinary text (`echo $1$2 $3`, a price) have no
+    # such run after them, so those stay readable. Or a password-file line
     # `account:<token>` with NO space after the colon (a YAML `key: value`
-    # line has one, an nft ruleset has none of these shapes, so ordinary
-    # payloads stay readable)
-    r"(^|[\s:'\"(\[{=,])\$(?:1|5|6|y|2[abxy]|gy|argon2[id]*)\$|^[a-z_][a-z0-9_-]{0,31}:[^\s:]{8,}$",
+    # line has one, an nft ruleset has none of these shapes).
+    r"\$(?:1|5|6|7|y|gy|sm3y|2[abxy]|argon2(?:id|i|d)?)\$[./0-9A-Za-z=,$]{8,}"
+    r"|^[a-z_][a-z0-9_-]{0,31}:[^\s:]{8,}$",
     re.M,
 )
 
