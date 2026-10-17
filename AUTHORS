@@ -2,7 +2,8 @@ InterGenOS Authors
 ==================
 
 This file lists the contributors to InterGenOS — the people whose work
-appears in the project's git history. It is maintained alongside the
+appears in the project's git history — and the AI models whose
+co-authorship that history records. It is maintained alongside the
 CREDITS file (which lists upstream projects InterGenOS builds upon)
 and SOURCES.md (the GPL source-availability commitment).
 
@@ -34,9 +35,10 @@ Coordinator roles
 The project uses an AI-coordinator fleet for routine build, audit,
 documentation, and verification work. Coordinator commits are
 operator-signed (per DCO.md §4) and carry a `Co-Authored-By:` trailer
-identifying the coordinator role. Coordinators do not hold
-independent authorship for purposes of this AUTHORS file; the
-operator's Signed-off-by is the load-bearing contributor record.
+naming the AI model that produced the change (the record is the "AI
+models" section below). Coordinators do not hold independent
+authorship for purposes of this AUTHORS file; the operator's
+Signed-off-by is the load-bearing contributor record.
 
 * build-system coordinator
   Build VM and chroot pipeline work, mirror/signing infrastructure,
@@ -50,6 +52,112 @@ operator's Signed-off-by is the load-bearing contributor record.
   Cross-host integration, documentation surfaces, repository trust
   architecture, supply-chain audit. Coordinator role since 2026-04
   (approx).
+
+AI models (the co-authorship record)
+------------------------------------
+
+InterGenOS is built with AI-augmented development, and the project
+records that fact rather than hiding it. Every change produced with a
+model's help carries a `Co-Authored-By:` trailer naming the model,
+under the e-mail address its vendor is attributed with on GitHub.
+None of these addresses is a linked GitHub account, so GitHub renders
+the name as written. The operator's Signed-off-by stays the
+load-bearing contributor record (DCO.md §4); the models hold no
+copyright and no independent authorship, exactly as the coordinator
+roles above.
+
+Each entry below is the trailer exactly as the history carries it —
+one line per spelling, in order of first use — followed by its
+figures; the entries are in order of first contribution. The "Public"
+figures are counted over this repository's `dev` history at its
+2026-10-17 tip (1,847 commits, 1,797 of them carrying at least one
+model trailer), one count per commit per distinct trailer:
+
+    git log --date=short --format='%x00%ad%x01%B' dev
+
+The "Pre-publication" figures cover the development history of
+2026-03-30 to 2026-08-16 (3,775 commits, 3,567 with a model trailer).
+That history is not in this repository — the import commit of
+2026-08-16 stands for it and names the models that worked in it — so
+those figures are stated by the maintainer and cannot be reproduced
+from the public tree. "The import commit" means the model's only
+public appearance is that commit's trailer list.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+  Public: the import commit.
+  Pre-publication: 509 commits, 2026-03-31 → 2026-04-17.
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+  Public: the import commit. Pre-publication: 1 commit, 2026-04-08.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
+  Public: the import commit.
+  Pre-publication: 1,195 commits, 2026-04-17 → 2026-06-02.
+
+Co-Authored-By: Gemini 3.1 (PRO) <218195315+gemini-cli@users.noreply.github.com>
+Co-Authored-By: Gemini 3.1 Pro <218195315+gemini-cli@users.noreply.github.com>
+Co-Authored-By: Gemini Pro 3.1 <noreply@google.com>
+  Public: the import commit.
+  Pre-publication: 11 commits, 2026-04-28 → 2026-05-11.
+
+Co-Authored-By: DeepSeek V4 (PRO) <280117185+intergenos-deepseek@users.noreply.github.com>
+Co-Authored-By: DeepSeek V4 PRO <noreply@deepseek.com>
+Co-Authored-By: DeepSeek V4 PRO (1M context) <noreply@deepseek.com>
+Co-Authored-By: Kilo 7.2.42 (DeepSeek v4-pro, max reasoning) <noreply@deepseek.com>
+Co-Authored-By: DeepSeek <noreply@deepseek.com>
+Co-Authored-By: DeepSeek V4 Pro <noreply@deepseek.com>
+  Public: the import commit.
+  Pre-publication: 63 commits, 2026-04-28 → 2026-05-28 (the Kilo line
+  is the same model reached through the Kilo coding agent, 12 of the
+  63).
+
+Co-Authored-By: Gemini 2.5 Pro <218195315+gemini-cli@users.noreply.github.com>
+Co-Authored-By: Gemini 3 Flash <218195315+gemini-cli@users.noreply.github.com>
+  Public: none. Pre-publication: 1 commit each, 2026-04-29.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+  Public: the import commit.
+  Pre-publication: 947 commits, 2026-05-29 → 2026-07-24.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+  Public: 183 commits, 2026-08-16 → 2026-08-27.
+  Pre-publication: 698 commits, 2026-07-01 → 2026-08-06.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+  Public: 747 commits, 2026-08-16 → 2026-10-01.
+  Pre-publication: 156 commits, 2026-07-24 → 2026-08-06.
+
+Co-Authored-By: ChatGPT 5.6 Sol <noreply@openai.com>
+  Public: 14 commits, 2026-08-16 → 2026-09-11. Pre-publication: none.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+  Public: 158 commits, 2026-09-02 → 2026-09-30. Pre-publication: none.
+
+Co-Authored-By: ChatGPT-6 Astra <noreply@openai.com>
+Co-Authored-By: GPT-6 Astra <noreply@openai.com>
+Co-Authored-By: GPT-6-Astra <noreply@openai.com>
+  Public: 197 commits, 2026-09-04 → 2026-10-17. Pre-publication: none.
+
+Co-Authored-By: ChatGPT-6 Sol <noreply@openai.com>
+  Public: 16 commits, 2026-09-14 → 2026-09-22. Pre-publication: none.
+
+Co-Authored-By: ChatGPT-5.6 Daybreak Blue <noreply@openai.com>
+  Public: 20 commits, 2026-09-15 → 2026-09-22. Pre-publication: none.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+  Public: 372 commits, 2026-09-22 → 2026-10-17. Pre-publication: none.
+
+Co-Authored-By: Claude Mythos 5.1 <noreply@anthropic.com>
+  Public: 116 commits, 2026-10-08 → 2026-10-17. Pre-publication: none.
+
+Seventeen pre-publication commits of April to July 2026 carry a
+workstation label, or a model family without a version, in place of a
+model name; one of them carries a misattributed vendor address. They
+are inside the totals above and in no entry.
 
 External contributors
 ---------------------
@@ -89,5 +197,8 @@ Authored 2026-05-18 as part of the InterGenOS v1.0 legal-readiness
 sprint, closing audit finding P-008 (Medium: no AUTHORS /
 CONTRIBUTORS.md file at root) from the 2026-05-18 comprehensive
 state audit.
+
+Amended 2026-10-17: the AI-model co-authorship record added, with the
+counting method it was derived by.
 
 — InterGenJLU
