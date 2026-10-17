@@ -333,5 +333,49 @@ ck "the pinned entry chainloads another image, the next entry the release's: ref
 ck "that refusal leaves the menu as it was" 'cmp -s "$T/before.cfg" "$T/grub.cfg"'
 teardown
 
+# The composed section's post-edit checks, the compose's and the repoint's,
+# read the pinned entry's body too. A generator whose pinned entry chainloads
+# another image, with the release's chainloader in a second entry of its own
+# id, passed both while they took that chainloader anywhere in the menu: the
+# updater reported a composed menu that boots the release by default while
+# GRUB would start the other image. What it emits is refused and the menu
+# restored, in a menu with no kernel outside the section and in one whose
+# stock entries are a release behind (the menu the repoint edits next).
+split_generator() { # split_generator <kver>
+    mkdir -p "$T/esp-linux"
+    cat > "$T/06_uki" <<EOF
+#!/bin/bash
+cat <<'MENU'
+menuentry "InterGenOS $1 (UKI)" --id intergenos-uki --class intergenos {
+    insmod chain
+    chainloader /EFI/Linux/other.efi
+}
+menuentry "InterGenOS $1 (UKI, spare)" --id intergenos-uki-$1 --class intergenos {
+    insmod chain
+    chainloader /EFI/Linux/intergenos-$1.efi
+}
+MENU
+EOF
+    chmod +x "$T/06_uki"
+}
+
+setup; empty_section_menu; split_generator 6.18.51-igos-10; : > "$T/esp-linux/intergenos-6.18.51-igos-10.efi"
+cp "$T/grub.cfg" "$T/before.cfg"
+run_said 6.18.51-igos-10; RC=$?
+ck "the generator's pinned entry chainloads another image: the compose is refused (exit 1)" '[ $RC -eq 1 ]'
+ck "that refusal is a post-edit check's, naming the default entry, restoring from the backup" 'grep -q "post-edit menu.*default entry" "$T/said" && grep -qF "restoring from $T/grub.cfg.bak-6.18.51-igos-10" "$T/said"'
+ck "that refusal never reports a composed menu" '! grep -q "menu composed" "$T/said"'
+ck "that refusal leaves the menu as it was, byte for byte" 'cmp -s "$T/before.cfg" "$T/grub.cfg"'
+teardown
+
+setup; plain_menu 6.18.51-igos-9; split_generator 6.18.51-igos-10; : > "$T/esp-linux/intergenos-6.18.51-igos-10.efi"
+cp "$T/grub.cfg" "$T/before.cfg"
+run_said 6.18.51-igos-10; RC=$?
+ck "the same generator, stock entries a release behind (the repoint path): refused (exit 1)" '[ $RC -eq 1 ]'
+ck "the repoint path's refusal is a post-edit check's, naming the default entry, restoring from the backup" 'grep -q "post-edit menu.*default entry" "$T/said" && grep -qF "restoring from $T/grub.cfg.bak-6.18.51-igos-10" "$T/said"'
+ck "the repoint path's refusal never reports a composed menu" '! grep -q "menu composed" "$T/said"'
+ck "the repoint path's refusal leaves the menu as it was, its stock entries a release behind" 'cmp -s "$T/before.cfg" "$T/grub.cfg"'
+teardown
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
