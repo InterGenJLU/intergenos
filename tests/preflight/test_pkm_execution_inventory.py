@@ -90,9 +90,9 @@ def test_real_tree_matches_the_committed_contract():
         REPO_ROOT, INVENTORY_PATH, PROCESS_PATH, SHAPES_PATH, SAFE_LAUNCH_PATH
     )
     assert issues == []
-    assert surfaces == 187
+    assert surfaces == 188
     assert calls > 0
-    assert shapes == 60
+    assert shapes == 61
     assert safe_launchers == 5
 
 
