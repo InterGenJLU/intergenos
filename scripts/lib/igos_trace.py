@@ -56,6 +56,13 @@ gets utf-8 errors=replace decoded; we do not truncate.
 
 Secret hygiene:
   - Named-arg values matching REDACT_KEYS are scrubbed in `step_enter` events.
+  - A step handed a secret never has its return recorded: `step_exit` writes
+    `<REDACTED>` and a `return_redacted` reason for any step with a parameter
+    named in REDACT_KEYS, and for any credential-shaped return (decided
+    2026-10-17: set_root_password returns the crypt hash of the password it
+    was given, and an R001.3 install recorded that hash in the target's trace).
+    A trace an earlier writer left on disk is brought to the same rule by
+    redact_recorded_step_returns, which the forge package runs on upgrade.
   - The `env` dict passed to `traced_run` has its values scrubbed for any
     key matching REDACT_ENV_SUBSTRINGS (TOKEN/PASSWORD/KEY/SECRET/PASSPHRASE).
     The security-only-alignment constraint: build-host env may carry signing-key passphrases
@@ -97,6 +104,8 @@ import os
 import re
 import shutil
 import subprocess
+import sys
+import tempfile
 import threading
 import time
 import uuid
@@ -278,6 +287,32 @@ def _redact_positional(params: Optional[list], args: tuple) -> list:
         else:
             out.append(str(a)[:200])
     return out
+
+
+def _secret_step_reason(params: Optional[list], args: tuple,
+                        kwargs: dict) -> Optional[str]:
+    """Why a step's return must not be recorded because of what it was handed.
+
+    A step given a secret may hand back something made from it: users.py
+    set_root_password returns the crypt hash of the password it was given (the
+    installer keeps it for verify_root_password_kept), and an R001.3 install
+    recorded that hash in the target's trace (2026-10-16). So the return of any
+    step with a parameter named in REDACT_KEYS, or called with such a keyword,
+    is withheld whatever its shape. A signature that cannot be read, or
+    positional values no parameter name covers, fail closed exactly as
+    _redact_positional does. Returns None for a step handed no secret.
+    """
+    if params is None:
+        return "secret-bearing step: its parameters could not be read"
+    names = {p.name for p in params if p.name in REDACT_KEYS}
+    names.update(k for k in kwargs if k in REDACT_KEYS)
+    if names:
+        return "secret-bearing step: takes " + ", ".join(sorted(names))
+    positional = [p for p in params
+                  if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)]
+    if len(args) > len(positional):
+        return "secret-bearing step: takes positional values no parameter names"
+    return None
 
 
 def _redact_env(env: Optional[dict]) -> Optional[dict]:
@@ -950,9 +985,13 @@ def trace_install_step(name: Optional[str] = None):
     """Decorator: log function entry + exit + return value + duration.
 
     Use on phase-boundary functions. Args are emitted (with REDACT_KEYS scrubbed).
+    The return value is emitted only for a step handed no secret and only when
+    it is not credential-shaped (_secret_step_reason, _CREDENTIAL_SHAPE_RE);
+    otherwise `return` is `<REDACTED>` and `return_redacted` says why. An
+    exception's text passes the same shape check.
 
-    Preserved verbatim from Forge's prior art for backward compatibility with
-    existing Forge call sites (`installer/backend/users.py:289-291` etc.).
+    Kept compatible with the existing Forge call sites
+    (`installer/backend/users.py` set_root_password, create_user, etc.).
     """
     def deco(fn):
         step_name = name or fn.__name__
@@ -975,18 +1014,32 @@ def trace_install_step(name: Optional[str] = None):
             try:
                 result = fn(*args, **kwargs)
             except Exception as exc:
+                exc_text = repr(exc)
+                exc_reason = ("credential-shaped exception"
+                              if _CREDENTIAL_SHAPE_RE.search(exc_text) else None)
                 _emit({
                     "type": "step_exception",
                     "step": step_name,
-                    "exception": repr(exc),
+                    "exception": "<REDACTED>" if exc_reason else exc_text,
+                    "exception_redacted": exc_reason,
                     "duration_ms": int((time.monotonic() - start) * 1000),
                 })
                 raise
             if _VERBOSE:
+                ret_text, ret_reason = None, None
+                if result is not None:
+                    ret_text = str(result)
+                    ret_reason = (
+                        _secret_step_reason(_sig_params, args, kwargs)
+                        or ("credential-shaped return"
+                            if _CREDENTIAL_SHAPE_RE.search(ret_text) else None))
                 _emit({
                     "type": "step_exit",
                     "step": step_name,
-                    "return": str(result)[:500] if result is not None else None,
+                    "return": ("<REDACTED>" if ret_reason
+                               else ret_text[:500] if ret_text is not None
+                               else None),
+                    "return_redacted": ret_reason,
                     "duration_ms": int((time.monotonic() - start) * 1000),
                 })
             return result
@@ -1143,6 +1196,138 @@ def build_failure(
 
 
 # ---------------------------------------------------------------------------
+# A trace already on disk: withhold what the current writer would not record.
+# ---------------------------------------------------------------------------
+
+def _enter_row_took_secret(event: dict) -> bool:
+    """True when a recorded step_enter row shows the step was handed a secret:
+    the writer replaced at least one of its arguments with <REDACTED>."""
+    values = list(event.get("args_positional") or [])
+    kwargs = event.get("kwargs")
+    if isinstance(kwargs, dict):
+        values.extend(kwargs.values())
+    return any(v == "<REDACTED>" for v in values)
+
+
+def redact_recorded_step_returns(path, by: str = "igos_trace.py") -> int:
+    """Withhold, in a trace file on disk, every step return the current writer
+    would not record. Returns how many rows were withheld; 0 leaves the file
+    untouched.
+
+    The writer before 2026-10-17 recorded every step's return, so a system it
+    installed keeps, in /var/log/forge-install-*.log, the crypt hash
+    set_root_password returned (an R001.3 install, 2026-10-16). A step_exit row
+    is withheld when its step was handed a secret (the matching step_enter row
+    recorded a <REDACTED> argument) or when its return is credential-shaped.
+    Every other line is kept byte for byte, and one trace_redacted_at_rest row
+    is appended naming the count, so the file itself records that it changed.
+
+    The file is replaced by a rename from a 0600 file in the same directory,
+    with the original's owner. A rename leaves any writer still holding the old
+    file appending to an unlinked copy, so this must run only on a trace whose
+    writer has finished: the forge package calls it on the running system's
+    own root, never on a target an installer is writing.
+    """
+    p = Path(path)
+    lines = p.read_bytes().splitlines(keepends=True)
+    open_steps: dict = {}
+    out = []
+    withheld = 0
+    for line in lines:
+        try:
+            event = json.loads(line.decode("utf-8", errors="replace"))
+        except ValueError:
+            out.append(line)
+            continue
+        if not isinstance(event, dict):
+            out.append(line)
+            continue
+        kind, step = event.get("type"), event.get("step")
+        if kind == "step_enter":
+            open_steps.setdefault(step, []).append(_enter_row_took_secret(event))
+        elif kind in ("step_exit", "step_exception"):
+            pending = open_steps.get(step) or []
+            took_secret = pending.pop() if pending else False
+            ret = event.get("return")
+            if kind == "step_exit" and ret is not None and ret != "<REDACTED>":
+                reason = None
+                if took_secret:
+                    reason = "secret-bearing step: it was handed a secret"
+                elif _CREDENTIAL_SHAPE_RE.search(str(ret)):
+                    reason = "credential-shaped return"
+                if reason:
+                    event["return"] = "<REDACTED>"
+                    event["return_redacted"] = reason + " (withheld at rest)"
+                    out.append((json.dumps(event, default=str, ensure_ascii=False)
+                                + "\n").encode("utf-8"))
+                    withheld += 1
+                    continue
+        out.append(line)
+    if not withheld:
+        return 0
+    if out and not out[-1].endswith(b"\n"):
+        out[-1] += b"\n"
+    out.append((json.dumps({"type": "trace_redacted_at_rest",
+                            "rows_withheld": withheld, "by": by,
+                            "ts": _iso_ts()}, ensure_ascii=False)
+                + "\n").encode("utf-8"))
+    st = p.stat()
+    fd, tmp = tempfile.mkstemp(dir=str(p.parent), prefix=f".{p.name}.")
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            os.fchmod(fh.fileno(), 0o600)
+            os.fchown(fh.fileno(), st.st_uid, st.st_gid)
+            fh.writelines(out)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, str(p))
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+    dfd = os.open(str(p.parent), os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(dfd)
+    finally:
+        os.close(dfd)
+    return withheld
+
+
+def _main(argv=None) -> int:
+    """`python3 igos_trace.py redact-step-returns [--by WHO] FILE...`
+
+    Prints one line per file it changed and one per file it could not
+    process; exits 1 when any file could not be processed, so the package
+    hook that runs it reports the failure instead of passing over a secret
+    left on disk.
+    """
+    import argparse
+    ap = argparse.ArgumentParser(prog="igos_trace.py")
+    sub = ap.add_subparsers(dest="command", required=True)
+    red = sub.add_parser(
+        "redact-step-returns",
+        help="withhold recorded returns of steps that were handed a secret")
+    red.add_argument("--by", default="igos_trace.py",
+                     help="who is redacting, recorded in the appended row")
+    red.add_argument("files", nargs="+")
+    args = ap.parse_args(argv)
+    rc = 0
+    for f in args.files:
+        try:
+            n = redact_recorded_step_returns(f, by=args.by)
+        except (OSError, ValueError) as exc:
+            print(f"{f}: NOT REDACTED: {exc}", file=sys.stderr)
+            rc = 1
+            continue
+        if n:
+            print(f"{f}: withheld {n} recorded return(s) of a step that was "
+                  f"handed a secret")
+    return rc
+
+
+# ---------------------------------------------------------------------------
 # Re-export the canonical name list for `from igos_trace import *` consumers.
 # ---------------------------------------------------------------------------
 
@@ -1159,7 +1344,13 @@ __all__ = [
     "trace_install_step", "trace_build_step", "trace_event",
     # Structured-failure builders
     "install_failure", "build_failure",
+    # A trace already on disk
+    "redact_recorded_step_returns",
     # Module-level redact policy (callers may extend per-package)
     "REDACT_KEYS", "REDACT_ENV_SUBSTRINGS", "STDIN_CREDENTIAL_CONSUMERS",
     "STDOUT_CREDENTIAL_PRODUCERS",
 ]
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main())

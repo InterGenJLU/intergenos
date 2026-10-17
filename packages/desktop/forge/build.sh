@@ -221,18 +221,34 @@ LAUNCHER
     fi
 }
 
-# No post_install hook.
+# post_install: bring the install trace already on this system to the current rule.
 #
-# This recipe's post_install existed only to run `systemctl enable forge-tui.service`.
-# That default is decided in intergenos-base-files'
-# /usr/lib/systemd/system-preset/80-intergenos-enable.preset
-# and applied by the `systemctl preset-all` the image build and the installer both
-# run; measured 2026-08-19 against that same engine (`systemctl --root <root>
-# preset-all` over the tree's own preset files), the policy resolves forge-tui.service
-# to ENABLED, so the call changed nothing on a fresh install.
+# The installer's trace writer before r359 recorded every step's return value, so
+# a system it installed keeps, in /var/log/forge-install-*.log (root, 0600), the
+# crypt hash of the root password that set_root_password returned (an R001.3
+# install, 2026-10-16). This release's writer never records the return of a step
+# that was handed a secret; on upgrade this hook withholds the ones an earlier
+# writer left (igos_trace.py redact-step-returns, which appends a row saying so).
 #
-# What it changed was an upgrade: pkm fires a sealed post_install on every upgrade
-# and nothing re-runs preset-all afterwards, so a user who had turned the unit off
-# got it back on with no message. With the call gone the function had nothing left
-# to do, and a hook that does nothing is not kept for symmetry — it is removed, so
-# nothing fires on every install and upgrade to accomplish nothing. Decided 2026-08-19.
+# It acts ONLY when pkm runs it against the running system's own root
+# (PKM_PACKAGE_ROOT is "/"). pkm also runs it during a fresh install with the
+# target as the root, the installer's own hook phase runs it inside the target
+# with no PKM_PACKAGE_ROOT at all, and the build runs it in the build chroot; in
+# the first two the installer is still writing that trace, and replacing the file
+# under it would leave the rest of the install recorded nowhere. The trace an
+# installer of this release writes holds no such value, so there is nothing for
+# those runs to do.
+#
+# The earlier post_install (removed 2026-08-19) only ran `systemctl enable
+# forge-tui.service`, which the preset policy already decides; nothing here
+# enables, starts or changes a unit.
+post_install() {
+    [ "${PKM_PACKAGE_ROOT:-}" = "/" ] || return 0
+    local traces=() f
+    for f in /var/log/forge-install-*.log; do
+        [ -f "$f" ] && traces+=("$f")
+    done
+    [ "${#traces[@]}" -gt 0 ] || return 0
+    python3 -I -B /usr/lib/intergenos/igos_trace.py redact-step-returns \
+        --by "forge ${PKM_PACKAGE_VERSION:-} post-install" "${traces[@]}"
+}
