@@ -7,6 +7,8 @@ and shipped teaching corpus execute normally on the keyword retrieval path;
 only the system probes are replaced. Row 97 replays the networking entry present
 in its recorded answer because keyword retrieval differs at that boundary.
 BASE_ROUTE records the result of this same fixture at the input revision.
+Row 97 is the named correction: its weak local-address candidate is refused
+and generation is deferred. Every other row must retain its baseline route.
 Live embedding selection and the correctness of the recorded answer are not
 measured by this route regression.
 """
@@ -64,7 +66,7 @@ def route_row(router, row):
         chosen = next(e for e in router._howto._entries if e.id == "net-status")
         router._howto._embeddings = object()
         router._howto._retrieve_embedding = mock.Mock(return_value=(chosen, 0.757, False))
-    return router.route(row["QUERY"])
+    return router.route(row["QUERY"], decide_only=row["IDX"] == "97")
 
 
 @pytest.mark.parametrize("row", ROWS, ids=lambda row: row["IDX"])
@@ -74,6 +76,10 @@ def test_recorded_curated_route(router, row, request):
         ("row_idx", row["IDX"]), ("captured_route", row["ROUTE"]),
         ("observed_route", result.source), ("used_llm", str(result.used_llm)),
     ])
-    assert result.source in CURATED
     assert not result.used_llm
-    assert result.source == row["BASE_ROUTE"], (row["IDX"], result.source, result.text)
+    if row["IDX"] == "97":
+        assert result.source == "llm_freeform"
+        assert not result.handled
+    else:
+        assert result.source in CURATED
+        assert result.source == row["BASE_ROUTE"], (row["IDX"], result.source, result.text)

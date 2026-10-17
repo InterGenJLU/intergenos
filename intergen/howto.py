@@ -221,7 +221,7 @@ _SUBJECT_STOPWORDS = _STOPWORDS | frozenset((
     "who", "why", "will", "would", "your", "yours", "check", "see", "find",
     "list", "run", "start", "stop", "add", "remove", "change", "make", "install",
     "installed", "installing", "system", "computer", "machine", "intergenos",
-    "linux", "everything", "something",
+    "linux", "everything", "something", "fix", "repair",
 ))
 
 
@@ -238,9 +238,29 @@ def _subject_words(text: str, *, question: bool = False) -> set[str]:
     return (words - {"update", "upgrade"} or words) if question else words
 
 
+def _instruction_query(query: str) -> str:
+    """Focus an instruction with its own subject after an introductory sentence."""
+    instruction = re.search(
+        r"[.!?]\s+(?=how\s+(?:(?:do|can|would|could|should)\s+(?:i|we|you)|to)\b)",
+        query, re.IGNORECASE)
+    if instruction is not None:
+        focused = query[instruction.end():]
+        if _subject_words(focused, question=True):
+            return focused
+    return query
+
+
 def _shares_subject(query: str, entry: "HowtoEntry") -> bool:
-    return bool(_subject_words(query, question=True).intersection(
-        _subject_words(" ".join(entry.triggers))))
+    question = _subject_words(_instruction_query(query), question=True)
+    subject = _subject_words(" ".join(entry.triggers))
+    # An interface-status lesson does not discover an address observed outside
+    # this machine. Sharing "IP" alone cannot satisfy that explicit qualifier.
+    ip = {"ip", "ipv4", "ipv6"}
+    external = {"public", "external", "egress"}
+    if question.intersection(ip) and question.intersection(external):
+        return bool(subject.intersection(ip | {"address"})
+                    and subject.intersection(external))
+    return bool(question.intersection(subject))
 
 
 @dataclass(frozen=True)
@@ -488,13 +508,7 @@ class HowtoCorpus:
         # An introductory sentence is context, not the instruction's subject.
         # Focus an explicit how-to after a sentence boundary only when it names
         # a subject of its own; a referential "how do I use it" keeps its context.
-        instruction = re.search(
-            r"[.!?]\s+(?=how\s+(?:(?:do|can|would|could|should)\s+(?:i|we|you)|to)\b)",
-            query, re.IGNORECASE)
-        if instruction is not None:
-            focused = query[instruction.end():]
-            if _subject_words(focused, question=True):
-                query = focused
+        query = _instruction_query(query)
         q_words = self._content_words(query)
         if not q_words:
             return None, 0.0
