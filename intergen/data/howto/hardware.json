@@ -5,8 +5,8 @@
     "triggers": [
       "how do I install nvidia drivers"
     ],
-    "answer": "InterGenOS ships open Mesa drivers by default, which cover AMD and Intel graphics with no setup. For NVIDIA cards (Turing / RTX 20-series or newer) the proprietary driver is available from the mirror and is opt-in:\n```\nsudo pkm install nvidia\n```\nOn install you'll be shown the NVIDIA license to accept, the module is built and signed against your machine's Secure Boot key automatically, and it takes effect after a reboot. Older (pre-Turing) NVIDIA cards use the built-in nouveau driver — no install needed.",
-    "doc_source": "tools/intergen-coverage/drafts",
+    "answer": "The NVIDIA driver is an optional package, offered on hardware with an NVIDIA GPU:\n```\nsudo pkm install nvidia\n```\nFollow the NVIDIA license prompt. Signing a driver module with the machine owner key requires the key's passphrase; it is not completed merely by accepting the vendor license. Follow the signing and key-enrollment instructions, particularly when Secure Boot is enabled, before expecting the module to load after reboot.\n\nAMD and Intel graphics use the packaged Mesa stack by default.",
+    "doc_source": "docs/users/desktop-experience.md; docs/users/security-defaults.md; docs/users/secure-boot-and-mok.md",
     "requires": []
   },
   {
@@ -15,8 +15,8 @@
     "triggers": [
       "how do I switch between integrated and nvidia graphics"
     ],
-    "answer": "Honest answer: InterGenOS does not currently ship a GPU switcher (no PRIME/switcheroo tooling), so there's no one-click \"run this app on the NVIDIA GPU\" toggle yet. Intel/AMD integrated graphics run through Mesa by default. If you install the NVIDIA driver (`sudo pkm install nvidia`), on a laptop you can launch a single app on the NVIDIA GPU from a terminal with the standard offload variables:\n```\n__NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia <app>\n```\nA polished graphics-switching UI is on the roadmap. If this matters to you, tell me and I'll flag it.",
-    "doc_source": "tools/intergen-coverage/drafts",
+    "answer": "InterGenOS packages **switcheroo-control** for GNOME's **Launch using Discrete Graphics Card** integration. Whether that option appears and works depends on the detected hardware and the service's hardware conditions; its presence in the package tree is not a guarantee for every laptop.\n\nIntel and AMD graphics use Mesa by default. The NVIDIA driver is a separate opt-in package (`sudo pkm install nvidia`); follow its license, signing and key-enrollment instructions. Identify the available graphics devices before choosing an application-launch route.",
+    "doc_source": "packages/desktop/switcheroo-control/package.yml; docs/users/desktop-experience.md",
     "requires": []
   },
   {
@@ -105,8 +105,8 @@
     "triggers": [
       "how do I check my battery health"
     ],
-    "answer": "Open GNOME Settings → Power to see charge level and power-saving options; the top-right menu shows battery percentage (shown by default). For detailed health — capacity vs. original design capacity and charge cycles — battery info comes from upower.",
-    "doc_source": "tools/intergen-coverage/drafts",
+    "answer": "Read the battery information reported by UPower:\n```\nupower --dump\n```\nFor battery health, compare the reported full-charge capacity with the original design capacity when both are supplied. Current charge percentage tells you how full the battery is now, not how much capacity it has retained. Read cycle or capacity information only when the device reports it; a missing measurement is unavailable, not a healthy or failed battery.",
+    "doc_source": "intergen/data/readonly-state-map.json; packages/desktop/upower/package.yml",
     "requires": []
   },
   {
@@ -135,12 +135,12 @@
       "what's my CPU architecture",
       "what processor do I have"
     ],
-    "answer": "InterGenOS can read the processor straight from the machine:\n```\nlscpu                  # model, architecture, cores/threads, caches, flags\n```\nThe first lines answer the common questions: **Model name** is the exact CPU, **Architecture** is `x86_64` (64-bit) on every InterGenOS system, **CPU(s)** is the thread count, and **Core(s) per socket** the physical cores. For just the core count, `nproc` prints the number of usable threads.",
+    "answer": "Read the processor information from the machine:\n```\nlscpu\n```\n**Model name** identifies the processor and **Architecture** reports its architecture. **CPU(s)** counts logical processors; physical cores are described separately by the socket/core topology. Those quantities can differ when a core has multiple hardware threads.\n\n`nproc` reports usable logical processors, not physical cores. Do not use that number as the physical-core count or assume a particular CPU model without reading the machine.",
     "action": {
       "command": "lscpu",
       "tool": "run_command"
     },
-    "doc_source": "tools/intergen-coverage/drafts",
+    "doc_source": "intergen/data/readonly-state-map.json; packages/core/util-linux-core/package.yml; packages/core/coreutils-core/package.yml",
     "requires": [
       "lscpu"
     ]
