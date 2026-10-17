@@ -200,37 +200,80 @@ tar xf data.tar.xz
 
 echo "  Installing to /opt/google/chrome/..."
 cp -a opt/google /opt/
-cp -a usr/share/applications/* /usr/share/applications/ 2>/dev/null || true
-cp -a usr/share/icons/* /usr/share/icons/ 2>/dev/null || true
-cp -a usr/share/man/* /usr/share/man/ 2>/dev/null || true
+mkdir -p /usr/share/applications
+if [ ! -f usr/share/applications/google-chrome.desktop ] || \
+   ! cp -a usr/share/applications/. /usr/share/applications/; then
+    echo "  ERROR: Could not install the Google Chrome desktop launcher." >&2
+    exit 1
+fi
+icon_installed=0
+if [ -d usr/share/icons ]; then
+    mkdir -p /usr/share/icons
+    if ! cp -a usr/share/icons/. /usr/share/icons/; then
+        echo "  ERROR: Could not install the Google Chrome icons." >&2
+        exit 1
+    fi
+    for icon in usr/share/icons/hicolor/*/apps/google-chrome.png \
+                usr/share/icons/hicolor/*/apps/google-chrome.svg; do
+        if [ -f "$icon" ]; then
+            icon_installed=1
+            igos_helper_record_file "/$icon"
+        fi
+    done
+fi
+if [ -d usr/share/man ]; then
+    mkdir -p /usr/share/man
+    if ! cp -a usr/share/man/. /usr/share/man/; then
+        echo "  ERROR: Could not install the Google Chrome manual pages." >&2
+        exit 1
+    fi
+else
+    echo "  NOTE: This Google Chrome package contains no manual pages."
+fi
 
 # The .desktop uses Exec=/usr/bin/google-chrome-stable, which the .deb's
 # postinst would create. We do not run postinst, so copy the vendor's usr/bin
 # launcher symlink(s) — otherwise the menu launcher's Exec points at a path
 # that does not exist and the icon is dead.
-cp -a usr/bin/* /usr/bin/ 2>/dev/null || true
+mkdir -p /usr/bin
+if [ ! -x usr/bin/google-chrome-stable ] || \
+   ! cp -a usr/bin/. /usr/bin/ || [ ! -x /usr/bin/google-chrome-stable ]; then
+    echo "  ERROR: Could not install the Google Chrome command launcher." >&2
+    exit 1
+fi
 
 # Chrome ships its icons as /opt/google/chrome/product_logo_<N>.png and relies
 # on postinst to register them under hicolor; replicate that so Icon=google-chrome
 # resolves (without this the launcher shows no icon even though it installed).
 for n in 16 24 32 48 64 128 256; do
-    [ -f "/opt/google/chrome/product_logo_$n.png" ] && \
-        install -Dm644 "/opt/google/chrome/product_logo_$n.png" \
-        "/usr/share/icons/hicolor/${n}x${n}/apps/google-chrome.png"
+    if [ -f "/opt/google/chrome/product_logo_$n.png" ]; then
+        if ! install -Dm644 "/opt/google/chrome/product_logo_$n.png" \
+            "/usr/share/icons/hicolor/${n}x${n}/apps/google-chrome.png"; then
+            echo "  ERROR: Could not install a Google Chrome launcher icon." >&2
+            exit 1
+        fi
+        icon_installed=1
+    fi
 done
+if [ "$icon_installed" -eq 0 ]; then
+    echo "  ERROR: The Google Chrome package contains no launcher icons." >&2
+    exit 1
+fi
 
 # H-007: record every file deposited into /opt/google/chrome (the bulk
 # of chrome's install footprint). Walk recursively + record each
 # regular file. Symlinks inside /opt/google/chrome are recorded as
 # regular files too — pkm-remove's os.remove() unlinks the symlink
 # itself (POSIX unlink semantics) which is the desired behavior.
-while IFS= read -r f; do
+if ! find /opt/google/chrome \( -type f -o -type l \) -print0 > "$TMPDIR/chrome-files"; then
+    echo "  ERROR: Could not list the installed Google Chrome files." >&2
+    exit 1
+fi
+while IFS= read -r -d '' f; do
     igos_helper_record_file "$f"
-done < <(find /opt/google/chrome -type f -o -type l 2>/dev/null)
+done < "$TMPDIR/chrome-files"
 
-# Record .desktop launchers + icons + man pages that were copied
-# system-wide (best-effort; the cp -a above may have skipped some
-# subtrees if the .deb didn't include them).
+# Record the copied desktop launchers and any supplied manual pages.
 for subtree in /usr/share/applications/google-chrome*.desktop \
                /usr/share/man/man*/google-chrome*; do
     for f in $subtree; do
@@ -259,7 +302,10 @@ igos_helper_record_dep glibc
 # Update icon cache — descriptive only in v1.0 (per H-007 design Q3);
 # pkm logs the action to operation history but does not replay it on
 # remove.
-gtk-update-icon-cache /usr/share/icons/hicolor 2>/dev/null || true
+if ! gtk-update-icon-cache /usr/share/icons/hicolor; then
+    echo "  ERROR: Google Chrome files were installed, but the launcher icon cache could not be updated." >&2
+    exit 1
+fi
 igos_helper_record_post_install_action \
     "gtk-update-icon-cache /usr/share/icons/hicolor"
 

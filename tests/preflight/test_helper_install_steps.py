@@ -160,5 +160,83 @@ class VSCodeInstallSteps(InstallStepCase):
         self.assert_refused(self.run_vscode())
 
 
+class ChromeInstallSteps(InstallStepCase):
+    def setUp(self):
+        super().setUp()
+        self.put("opt/google/chrome/google-chrome", "#!/bin/sh\nexit 0\n", True)
+        self.put("opt/google/chrome/product_logo_128.png", "product icon")
+        self.put("usr/share/applications/google-chrome.desktop", "[Desktop Entry]\n"
+                 "Type=Application\nExec=/usr/bin/google-chrome-stable %U\nIcon=google-chrome\n")
+        binary = self.extracted / "usr/bin/google-chrome-stable"
+        binary.parent.mkdir(parents=True)
+        binary.symlink_to(self.root / "opt/google/chrome/google-chrome")
+        cache = self.root / "commands/gtk-update-icon-cache"
+        cache.write_text("#!/bin/sh\nexit 0\n")
+        cache.chmod(0o755)
+
+    def run_chrome(self):
+        return self.run_step("chrome", "cp -a opt/google /opt/", "igos_helper_commit")
+
+    def test_launcher_command_icon_and_manual_are_installed_and_recorded(self):
+        self.put("usr/share/man/man1/google-chrome.1", "manual")
+        result = self.run_chrome()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for name in ("usr/share/applications/google-chrome.desktop", "usr/bin/google-chrome-stable",
+                     "usr/share/icons/hicolor/128x128/apps/google-chrome.png",
+                     "usr/share/man/man1/google-chrome.1"):
+            self.assertTrue((self.root / name).is_file(), name)
+            self.assertIn(str(self.root / name), result.stdout)
+
+    def test_missing_launcher_refuses(self):
+        (self.extracted / "usr/share/applications/google-chrome.desktop").unlink()
+        self.assert_refused(self.run_chrome())
+
+    def test_launcher_copy_failure_refuses(self):
+        self.fail_command("cp", "*usr/share/applications*")
+        self.assert_refused(self.run_chrome())
+
+    def test_missing_command_refuses(self):
+        (self.extracted / "usr/bin/google-chrome-stable").unlink()
+        self.assert_refused(self.run_chrome())
+
+    def test_command_copy_failure_refuses(self):
+        self.fail_command("cp", "*usr/bin*")
+        self.assert_refused(self.run_chrome())
+
+    def test_vendor_icon_copy_failure_refuses(self):
+        self.put("usr/share/icons/hicolor/48x48/apps/google-chrome.png", "vendor icon")
+        self.fail_command("cp", "*usr/share/icons*")
+        self.assert_refused(self.run_chrome())
+
+    def test_vendor_icon_suffices_without_product_logos(self):
+        (self.extracted / "opt/google/chrome/product_logo_128.png").unlink()
+        self.put("usr/share/icons/hicolor/48x48/apps/google-chrome.png", "vendor icon")
+        result = self.run_chrome()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.root / "usr/share/icons/hicolor/48x48/apps/google-chrome.png").read_text(), "vendor icon")
+
+    def test_absent_icons_refuse(self):
+        (self.extracted / "opt/google/chrome/product_logo_128.png").unlink()
+        self.assert_refused(self.run_chrome())
+
+    def test_manual_copy_failure_refuses(self):
+        self.put("usr/share/man/man1/google-chrome.1", "manual")
+        self.fail_command("cp", "*usr/share/man*")
+        self.assert_refused(self.run_chrome())
+
+    def test_absent_manual_is_reported(self):
+        result = self.run_chrome()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("manual", result.stdout.lower())
+
+    def test_footprint_enumeration_failure_refuses(self):
+        self.fail_command("find", "*/opt/google/chrome*")
+        self.assert_refused(self.run_chrome())
+
+    def test_icon_cache_failure_refuses(self):
+        self.fail_command("gtk-update-icon-cache")
+        self.assert_refused(self.run_chrome())
+
+
 if __name__ == "__main__":
     unittest.main()
