@@ -1075,9 +1075,9 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
             # asked for the assistant, so its binaries MUST be on the target
             # (the 'ai' package group is force-coupled to this opt-in in both
             # the GUI Packages screen and the TUI walking sequence). If
-            # /usr/bin/intergen is missing, the enable below would silently
-            # no-op on an absent unit (`|| true`) and the AI would be GONE on
-            # first boot with no feedback -- surface that loudly instead.
+            # /usr/bin/intergen is missing, the enable below fails on an
+            # absent unit and the AI would be GONE on first boot -- say so by
+            # its cause instead.
             if not (Path(target) / "usr/bin/intergen").exists():
                 msg = ("InterGen AI was requested but its binaries are not on "
                        "the target (the 'ai' package group was not applied); "
@@ -1085,23 +1085,34 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
                 result.warnings.append(msg)
                 _emit(PHASE_SERVICES, 11, f"warning: {msg}")
             else:
-                hooks.run_chroot(
-                    target,
-                    "systemctl --global enable intergen.service 2>/dev/null || true",
-                )
+                # Run bare and read: the enable used to end in
+                # "2>/dev/null || true", so a refusal left the assistant off at
+                # first login with nothing in the install's warnings.
+                rc, _out, err = hooks.run_chroot(
+                    target, "systemctl --global enable intergen.service")
+                if rc != 0:
+                    msg = ("InterGen AI was requested but its service could not "
+                           "be enabled (systemctl --global enable "
+                           f"intergen.service rc={rc}: {err.strip()}); the "
+                           "assistant will not start at first login. Enable it "
+                           "from the session with: systemctl --user enable "
+                           "--now intergen.service")
+                    result.warnings.append(msg)
+                    _emit(PHASE_SERVICES, 11, f"warning: {msg}")
                 # Opt-in (D-010): enable the AI panel GNOME extension so the
                 # top-bar icon + Super+I appear on first login. The default
                 # gschema override deliberately omits intergen@intergenos.org;
                 # this writes a higher-priority 95 override derived from the
                 # default list + recompiles the schemas. Never abort the install
-                # over this.
+                # over this, and never call it enabled when the compile failed.
                 try:
                     if config.enable_ai_panel_extension(target):
-                        hooks.run_chroot(
+                        rc, _out, err = hooks.run_chroot(
                             target,
-                            "glib-compile-schemas "
-                            "/usr/share/glib-2.0/schemas 2>/dev/null || true",
-                        )
+                            "glib-compile-schemas /usr/share/glib-2.0/schemas")
+                        if rc != 0:
+                            raise RuntimeError(
+                                f"glib-compile-schemas rc={rc}: {err.strip()}")
                         _emit(PHASE_SERVICES, 11,
                               "InterGen AI panel extension enabled (opt-in)")
                 except Exception as e:  # noqa: BLE001 — diagnostics, not fatal

@@ -647,5 +647,70 @@ class TestRunInstallVerifyPhase(_RunInstallTestBase):
         self.assertTrue(result.success, msg=result.error_message)
 
 
+class TestRunInstallAiOptInIsNotSilent(_RunInstallTestBase):
+    """The opt-in assistant's enable, and the panel extension's schema compile
+    after it, report a failure instead of swallowing it.
+
+    Both ran in the target with "2>/dev/null || true" and their status was
+    never read: a refused enable left the assistant off at first login, and a
+    failed compile left the panel extension off while the install said it was
+    enabled, with nothing in the install's warnings. Each failure now reaches
+    the step's warnings; neither stops the install.
+    """
+
+    ENABLE = "systemctl --global enable intergen.service"
+    COMPILE = "glib-compile-schemas /usr/share/glib-2.0/schemas"
+
+    def _run(self, enable_rc=0, compile_rc=0, panel=True):
+        target = Path(self.tmp) / "target"
+        (target / "usr/bin").mkdir(parents=True)
+        (target / "usr/bin/intergen").write_text("#!/bin/sh\n")
+        self.config.enable_ai_panel_extension.return_value = panel
+
+        def run_chroot(_target, command):
+            if command.startswith("systemctl --global enable intergen.service"):
+                return (enable_rc, "", "Failed to enable unit: Unit file "
+                        "intergen.service does not exist." if enable_rc else "")
+            if command.startswith("glib-compile-schemas"):
+                return (compile_rc, "", "schema error" if compile_rc else "")
+            return (0, "", "")
+        self.hooks.run_chroot.side_effect = run_chroot
+        result = run_install(
+            self.yaml_path, dict(VALID_INSTALL_IO, intergen_ai_enable=True),
+            str(self.archive_dir), str(self.packages_dir), target=str(target))
+        commands = [c.args[1] for c in self.hooks.run_chroot.call_args_list]
+        return result, commands
+
+    def test_a_refused_enable_reaches_the_warnings(self):
+        result, commands = self._run(enable_rc=1)
+        self.assertTrue(result.success, msg=result.error_message)
+        self.assertIn(self.ENABLE, commands)
+        found = [w for w in result.warnings if "intergen.service" in w]
+        self.assertEqual(len(found), 1, result.warnings)
+        self.assertIn("rc=1", found[0])
+        self.assertIn("does not exist", found[0])
+
+    def test_a_failed_schema_compile_reaches_the_warnings(self):
+        result, commands = self._run(compile_rc=1)
+        self.assertTrue(result.success, msg=result.error_message)
+        self.assertIn(self.COMPILE, commands)
+        found = [w for w in result.warnings if "panel extension" in w]
+        self.assertEqual(len(found), 1, result.warnings)
+        self.assertIn("rc=1", found[0])
+
+    def test_neither_call_masks_its_status(self):
+        _result, commands = self._run()
+        for command in commands:
+            self.assertNotIn("|| true", command)
+            self.assertNotIn("2>/dev/null", command)
+
+    def test_a_clean_opt_in_adds_no_warning(self):
+        result, _commands = self._run()
+        self.assertTrue(result.success, msg=result.error_message)
+        self.assertEqual(
+            [w for w in result.warnings
+             if "intergen.service" in w or "panel extension" in w], [])
+
+
 if __name__ == "__main__":
     unittest.main()
