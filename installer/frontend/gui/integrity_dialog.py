@@ -15,7 +15,7 @@ worker on a threading.Event until the user responds.
 Acknowledgment dialog hardening (per design doc §6.5.1):
 
   * paste-clipboard signal suppressed (Gtk.Entry never accepts paste)
-  * right-click paste menu suppressed (extra-menu set to None)
+  * no optional extra context-menu entries (extra-menu set to None)
   * live-validation: submit button only enabled when entered text
     equals expected_override_phrase(package_name) exactly
   * input-hints set to NO_SPELLCHECK | NO_EMOJI to keep IME/autocomplete
@@ -68,7 +68,7 @@ def _make_paste_disabled_entry(expected_phrase, on_match_change):
     DnD-closure added 2026-05-07 fix-wave):
 
       1. paste-clipboard signal suppressed — blocks Ctrl-V + middle-click.
-      2. extra-menu=None — removes right-click context menu (no GUI Paste).
+      2. extra-menu=None — keeps optional context-menu additions empty.
       3. Multi-character-insertion guard — rejects text growth >1 char per
          change event, which catches drag-and-drop, IME paste, and any
          other path that bypasses the paste-clipboard signal. Typing
@@ -91,12 +91,11 @@ def _make_paste_disabled_entry(expected_phrase, on_match_change):
     # Suppress the paste-clipboard signal — any paste attempt is a no-op.
     def _block_paste(widget):
         widget.stop_emission_by_name("paste-clipboard")
-    entry.connect("paste-clipboard", _block_paste)
+    # Gtk.Entry delegates editing and this signal to its Gtk.Text widget.
+    entry.get_delegate().connect("paste-clipboard", _block_paste)
 
-    # GTK4 drops the populate-popup signal in favour of `extra-menu`.
-    # Setting extra-menu to None removes the right-click menu entirely
-    # (no Cut/Copy/Paste/etc. context menu).
-    entry.set_extra_menu(None)
+    # Keep the optional menu empty through the editing widget's public API.
+    entry.get_delegate().set_extra_menu(None)
 
     # Combined typing-only validator + live-match notifier.
     # `last_text` tracks the previously-accepted text so we can revert any

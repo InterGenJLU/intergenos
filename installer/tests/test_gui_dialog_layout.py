@@ -50,6 +50,9 @@ class Widget:
     def get_vadjustment(self):
         return Widget()
 
+    def get_delegate(self):
+        return self
+
     def measure(self, orientation, for_size):
         # Deterministic natural widths; the actual font and layout are checked
         # separately with GTK at both target display sizes.
