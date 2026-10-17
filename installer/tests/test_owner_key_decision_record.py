@@ -4,10 +4,10 @@ the person can read it (R001.3 row 49).
 The install already offers to retire the machine owner keys earlier installs
 left in the firmware, and already records the answer as a trace event. A trace
 event is not readable by the person at their first login, and the first-login
-page runs as them: without a world-readable record the page cannot tell a key
-somebody looked at and chose to keep from a key nobody has ever been asked
-about. Those are different facts and the page says them differently, so the
-install writes them down.
+page runs as them: its retirement advisory reads the retired= lines of this
+world-readable record to report a retirement that did not happen. The page
+states nothing about which keys the firmware trusts. The kept= lines record a
+decline as deliberately as a removal, for the person reading the file.
 
 The record is deliberately dull — fingerprint per line, a word for the decision,
 readable with cat — and it is a record, not a promise: a machine with no record

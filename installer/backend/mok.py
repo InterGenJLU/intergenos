@@ -378,9 +378,10 @@ MOK_PROTECTION_RECORD = "/etc/intergenos/mok-key-protection"
 #
 # The decision was already recorded as a trace event, and a trace event is the
 # install's own diary: the first-login page runs as the person and cannot read
-# it. Without this file that page cannot tell a key somebody looked at and chose
-# to keep from a key nobody was ever asked about — and it says those two things
-# differently, because they are different facts about a machine.
+# it. That page's retirement advisory reads the retired= lines of this file to
+# report a retirement the person chose that did not happen; the page states
+# nothing about which keys the firmware trusts. The kept= lines record a decline
+# as deliberately as a removal, for the person reading the file.
 OWNER_KEY_DECISION_RECORD = "/etc/intergenos/mok-prior-keys"
 
 
@@ -738,10 +739,9 @@ def record_owner_key_decision(kept, removed, target=None):
 
     Two records, for two readers. The trace event is the install's own account
     of what happened. The file under `target` is for the person: world-readable,
-    one fingerprint per line with the word for what was decided, so the
-    first-login page — which runs as them and cannot read the install trace —
-    can say "you chose to keep this one" instead of treating every trusted key
-    as an open question.
+    one fingerprint per line with the word for what was decided. The first-login
+    page, which runs as them and cannot read the install trace, reads its
+    retired= lines to report a retirement that did not happen.
 
     Writing that file NEVER fails the install and never raises: a machine whose
     status line could not be written is still a correctly installed machine, and
