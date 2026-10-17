@@ -111,30 +111,14 @@ class TryExplainTests(unittest.TestCase):
         self.assertIn("pkm search", result.text)
         self.assertIsNone(r._pending_action_offer)  # parameterized cmd → no auto-offer
 
-    def test_compound_instructional_is_taught_not_decomposed_v1(self):
-        # v1 BOUNDARY DECISION — decided, code review 2026-06-27
-        # (157f03e9/334d45e5): a COMPOUND instructional query ("how do I update my
-        # system AND reboot") is treated as ONE teach. The lexical prior fires, so
-        # the explain gate serves the curated answer for the matched how-to, and
-        # prior=True suppresses P0 decomposition downstream (router._route_impl:
-        # `if decomposition.needs_decomposition and not explain_prior`). Accepted
-        # consequence for v1: the second clause is NOT split into its own action —
-        # it fails in the SAFE direction (teach, never auto-act on either clause),
-        # and compound-instructional is rare. This test LOCKS that behavior so the
-        # decision is deliberate, not a silent gap: changing it must update this
-        # assertion on purpose. Revisit only if real usage shows the dropped clause
-        # matters, re-pinning whatever behavior we then pick.
+    def test_a_second_subject_is_not_covered_by_a_weak_update_match(self):
+        # A weak match to updating does not cover the reboot subject. Compound
+        # arbitration must route the clauses before asking for a single answer.
         r = _explain_router()
         result, prior = r._try_explain("how do I update my system and reboot")
-        self.assertTrue(prior)                        # prior present → decomposition suppressed
-        self.assertIsNotNone(result)                  # taught as one how-to, not split into actions
-        self.assertEqual(result.source, "explain")
-        self.assertIn("pkm", result.text)             # the first-clause (update) how-to is served
-        # Only the teach-offer is armed (explain-first) — never an auto-run of
-        # either clause; the reboot clause produces no action of its own.
-        self.assertIsNotNone(r._pending_action_offer)
-        _cmd, tool, _orig = r._pending_action_offer
-        self.assertEqual(tool, "manage_packages")
+        self.assertTrue(prior)
+        self.assertIsNone(result)
+        self.assertIsNone(r._pending_action_offer)
 
     def test_disabled_corpus_is_inert(self):
         r = _explain_router()
