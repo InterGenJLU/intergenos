@@ -15,8 +15,8 @@
     "triggers": [
       "how do I set up dual monitors"
     ],
-    "answer": "Plug in the second monitor — GNOME 49 detects it immediately, including mixed-DPI and mixed-refresh setups with no config. Open GNOME Settings → Displays to arrange them: drag the monitor rectangles to match your physical layout and choose Join Displays, Mirror, or Single Display. Tip: `Super+Shift+Arrow` moves the focused window to the next monitor.",
-    "doc_source": "tools/intergen-coverage/drafts",
+    "answer": "Connect the monitor and open **GNOME Settings → Displays** to arrange the detected outputs and configure their layout. Mixed-DPI and mixed-refresh layouts are supported, but the available modes and behavior depend on the hardware and applications; immediate detection is not guaranteed.\n\nUse `Super+Shift+Left` or `Super+Shift+Right` to move the focused window to the adjacent monitor. If an output is missing, inspect the connection and detected hardware before assuming a layout setting can enable it.",
+    "doc_source": "docs/users/desktop-experience.md",
     "requires": []
   },
   {
