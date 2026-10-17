@@ -19,6 +19,39 @@ created files) are recorded as absent, so a reversal knows to delete them.
 from . import manifest as _manifest
 from . import paths as _paths
 
+#: The package database every restore point carries: pkm's own footprint names
+#: it as db_path (pkm/pretxn.py, PKM_DB_RELPATH under the system's root).
+PKM_DB_PATH = "/var/lib/igos/pkm.db"
+
+
+def on_demand_footprint(paths, reason, db_path=None):
+    """The footprint of a restore point taken with no transaction pending.
+
+    Restore points are taken before every pkm transaction and on demand (spec
+    §10). A transaction hands its footprint over; an on-demand capture —
+    `chronicle capture restore-point [PATH...]`, and the installer's restore
+    point of the system as installed — has none, and until 2026-10-17 the
+    engine refused it ("requires a footprint dict as scope"), so neither ever
+    produced a restore point. Its footprint is the paths named, if any, plus
+    the package database: the same shape pkm hands over for a fresh install,
+    whose reversal is the database diff.
+
+    Raises ValueError for anything but a list of absolute paths, so a
+    malformed request is refused instead of capturing something else.
+    """
+    named = [] if paths is None else paths
+    if not isinstance(named, (list, tuple)) or not all(
+            isinstance(p, str) and p.startswith("/") for p in named):
+        raise ValueError(
+            "an on-demand restore point takes a list of absolute paths")
+    return {
+        "verb": "on-demand",
+        "reason": reason or "on-demand restore point",
+        "packages": [],
+        "paths": sorted(set(named)),
+        "db_path": db_path or PKM_DB_PATH,
+    }
+
 
 def capture_from_footprint(footprint, store_root, store, sequence, wall_clock):
     """Capture a restore point from a pkm pre-transaction footprint.

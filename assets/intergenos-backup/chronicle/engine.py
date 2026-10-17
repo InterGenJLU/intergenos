@@ -311,12 +311,17 @@ class Engine:
                 paths_set, self.local_root, self.local_store, seq, wall, reason
             )
         elif layer == _paths.LAYER_RESTORE_POINT:
-            if not isinstance(scope, dict):
-                raise EngineError(
-                    "restore-point capture requires a footprint dict as scope"
-                )
+            # pkm's pre-transaction handler hands a footprint dict over; an
+            # on-demand capture (no scope, or the CLI's PATH list) gets the
+            # footprint of no pending transaction: those paths and pkm.db.
+            footprint = scope
+            if not isinstance(footprint, dict):
+                try:
+                    footprint = _restorepoint.on_demand_footprint(scope, reason)
+                except ValueError as error:
+                    raise EngineError(str(error)) from error
             vid = _restorepoint.capture_from_footprint(
-                scope, self.local_root, self.local_store, seq, wall
+                footprint, self.local_root, self.local_store, seq, wall
             )
         elif layer == _paths.LAYER_USER_DATA:
             target_root = self.target_root()
