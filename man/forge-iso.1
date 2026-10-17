@@ -107,15 +107,22 @@ theme renderer.
 .TP
 .B VOLID
 ISO9660 volume id (default:
-.B IGOS_X86_64_<YYYYMMDD>
+.B IGOS_<TAG>
 where
-.IR YYYYMMDD
-is derived from
-.BR SOURCE_DATE_EPOCH ).
-The custom 100-line
+.I TAG
+is the tag of the
+.B OUTPUT
+name, upper-cased, its dashes made underscores and every other character
+outside A-Z, 0-9 and _ dropped, the whole id cut to 32 characters:
+.I intergenos-r001.3-02.iso
+gives
+.BR IGOS_R0013_02 ).
+The live
 .B /init
-in the UKI's initramfs uses this to discover the boot media via
-.BR root=live:LABEL=$VOLID .
+does not read it: it tries the label
+.B IGOS_LIVE
+and then scans the block devices for
+.IR /live/filesystem.squashfs .
 .TP
 .B SOURCE_DATE_EPOCH
 For reproducible builds. xorriso 1.5.6+ honours this directly. If unset, the

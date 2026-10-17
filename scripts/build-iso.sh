@@ -30,7 +30,8 @@
 #   GRUB_CFG       — ESP-side grub.cfg (default: installer/iso/grub/grub.cfg)
 #   THEME_DIR      — GRUB theme directory to embed (default: skipped if absent)
 #   UNICODE_PF2    — GRUB unicode font (default: /usr/share/grub/unicode.pf2)
-#   VOLID          — ISO volume ID (default: IGOS_X86_64_<YYYYMMDD-from-SDE>)
+#   VOLID          — ISO volume ID (default: IGOS_<tag of the OUTPUT name>,
+#                    e.g. IGOS_R0013_02 for intergenos-r001.3-02.iso)
 #   SOURCE_DATE_EPOCH — for reproducibility; passed through to xorriso/mtools
 #   LOG_DIR        — log directory (default: build/logs/iso)
 #   ESP_HEADROOM_MB — extra MB to add to ESP image beyond computed file size
@@ -287,19 +288,20 @@ if ! python3 "${_BUILD_ISO_REPO_ROOT}/scripts/iso-sbom-gen.py" "${SBOM_ARGS[@]}"
 fi
 echo "[build-iso] ISO SBOM gate passed — document at $SBOM_OUTPUT" >&2
 
-# Derive default VOLID from the candidate tag (OUTPUT basename) + the
-# SOURCE_DATE_EPOCH date, so a stick identifies WHICH build it carries, not
-# just when it was built (two sticks side by side were indistinguishable —
-# the date-only label needed the builder's date-to-candidate mapping).
-# Deterministic for a given OUTPUT + SDE. ISO9660 volume ids are A-Z0-9_,
-# max 32 chars; the tag is sanitized and the whole id truncated to fit.
+# Derive default VOLID from the tag the OUTPUT basename carries — the tag
+# scripts/check-release-identity.py derives from the same name
+# (intergenos-r001.3-02.iso -> r001.3-02 -> IGOS_R0013_02) — so a stick
+# identifies WHICH build it carries. No date: a re-mint rotates the ordinal
+# onto the name, so the tag alone tells two mints apart. Deterministic for a
+# given OUTPUT. ISO9660 volume ids are A-Z0-9_, max 32 chars; the tag is
+# sanitized and the whole id truncated to fit.
 if [ -z "${VOLID:-}" ]; then
     _tag=$(basename "$OUTPUT")
     _tag="${_tag#intergenos-}"
     _tag="${_tag%.unsigned-test.iso}"
     _tag="${_tag%.iso}"
     _tag=$(printf '%s' "$_tag" | tr '[:lower:]-' '[:upper:]_' | tr -cd 'A-Z0-9_')
-    VOLID="IGOS_${_tag}_$(date -u -d "@${SOURCE_DATE_EPOCH}" +%Y%m%d)"
+    VOLID="IGOS_${_tag}"
     VOLID="${VOLID:0:32}"
 fi
 
@@ -785,8 +787,10 @@ mkdir -p "$(dirname "$OUTPUT")"
 #                                   distros' build scripts speak this)
 #   -iso-level 3                  : large file support (>4GB), Joliet ext.
 #   -full-iso9660-filenames       : 31-char filenames (vs 8.3); easier paths
-#   -volid "$VOLID"               : ISO9660 volume id; used by /init's
-#                                   `root=live:LABEL=$VOLID` discovery
+#   -volid "$VOLID"               : ISO9660 volume id: names the build on
+#                                   the medium; /init does not read it (it
+#                                   tries the label IGOS_LIVE, then scans
+#                                   for /live/filesystem.squashfs)
 #   -append_partition 2 0xef ESP  : embed ESP image as MBR/GPT partition 2
 #                                   with EFI System Partition type (0xef)
 #   -appended_part_as_gpt         : route the appended partition through GPT
