@@ -5,8 +5,8 @@
     "triggers": [
       "why won't my video play"
     ],
-    "answer": "InterGenOS ships the full GStreamer plugin set (base/good/bad/ugly + gst-libav), so common formats — H.264, HEVC, AAC, MP3, WebM/VP9, and more — play out of the box in Totem (Videos). If a specific file won't play, try opening it in Celluloid or mpv (both included), which use their own decoders. If it still fails, the file may be corrupt or use an unusual container — tell me the file and I'll help dig in.",
-    "doc_source": "tools/intergen-coverage/drafts",
+    "answer": "The included Videos application is **Celluloid**, the GTK front end for **mpv**. Try the file there, or open it with mpv to see its diagnostic output:\n```\nmpv <video-file>\n```\nIf playback fails, keep the error message and identify the file's format. A player, decoder, graphics-driver or file problem needs that evidence; the presence of a codec package alone does not prove that this particular file will play.",
+    "doc_source": "docs/users/desktop-experience.md",
     "requires": []
   },
   {
@@ -45,8 +45,8 @@
     "triggers": [
       "how do I change the theme"
     ],
-    "answer": "Open the first-boot Welcome tour's Appearance page, or GNOME Settings → Appearance, to switch among the curated InterGenOS looks. For deeper control of GTK theme, icons, and cursor, use GNOME Tweaks (installed). The default is the InterGenOS metatheme with the first-party InterGenOS icons and the Bibata cursor; several alternate combos ship.",
-    "doc_source": "tools/intergen-coverage/drafts",
+    "answer": "Use **GNOME Tweaks** to choose icon and cursor themes. The first-boot **Welcomer** also offers the curated appearance choices.\n\nThe documented defaults are the InterGenOS icons and the Bibata-Modern-Classic cursor. Papirus-Dark and Cybernetic Blue are available icon alternatives. The GTK4 baseline is Adwaita with the distribution's defaults; icon and cursor choices are separate from an application's light/dark appearance.",
+    "doc_source": "docs/users/desktop-experience.md; packages/desktop/gnome-tweaks/package.yml",
     "requires": []
   },
   {
