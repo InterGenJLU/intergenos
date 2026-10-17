@@ -1005,8 +1005,8 @@ _MOK_DECISION_RECORD = '/etc/intergenos/mok-prior-keys'
 def _prior_key_decisions(path=_MOK_DECISION_RECORD):
     """{fingerprint: 'kept' | 'retired'} from the install's own record.
 
-    An absent record means nobody was asked: no key was kept and none was
-    retired. It is not an error and it is not a decision.
+    An absent record supplies no recorded choice to keep or retire a key.
+    It is not an error and it is not a decision.
     """
     try:
         with open(path, 'r', encoding='utf-8') as fh:
