@@ -18,14 +18,21 @@
 # pkm provides env: PKM_PACKAGE_NAME, PKM_PACKAGE_VERSION, PKM_PACKAGE_ROOT.
 # The chained kernel hook logs the triggering package name from that env.
 #
-# Best-effort throughout: this hook NEVER fails the package install (exit 0
-# on every path), matching the kernel hook's own degrade semantics.
+# Best-effort, with one exception: a boot image the chained kernel hook
+# REFUSED TO SIGN (its status 77, mok-signing.sh's MOK_REFUSED_EXIT) is passed
+# on as 77, so the package manager reports this install as not finished and
+# marks the package degraded — the new microcode is on disk but not in the
+# image this machine boots. It used to be a warning and exit 0, so a microcode
+# update reported installed while the boot image kept the old microcode
+# (found by a second read, 2026-10-17). Any other failure of the chained hook
+# is passed on as 1, which the package manager reports as a warning; every
+# other path exits 0.
 
 set -uo pipefail
 
 # Same persistent log file as the kernel hook — boot-chain operations keep
 # one place to look during boot-time troubleshooting.
-LOGFILE=/var/log/intergen-kernel-postinstall.log
+LOGFILE="${INTEL_UCODE_HOOK_LOG:-/var/log/intergen-kernel-postinstall.log}"
 mkdir -p "$(dirname "$LOGFILE")" 2>/dev/null || true
 
 log() {
@@ -34,17 +41,30 @@ log() {
     echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ') $msg" >> "$LOGFILE" 2>/dev/null || true
 }
 
-KERNEL_HOOK=/var/lib/pkm/hooks/linux-kernel/post-install
+# Overridable so the preflight tests can run this script against a stand-in;
+# on a machine this is the path the kernel package installs, and the package
+# manager starts this hook with an environment that names none of these.
+KERNEL_HOOK="${KERNEL_HOOK:-/var/lib/pkm/hooks/linux-kernel/post-install}"
 MICROCODE_HELPER=/usr/lib/intergen/build-microcode-cpio.sh
+MOK_REFUSED_EXIT=77
 
 if [ -x "$KERNEL_HOOK" ]; then
     log "chaining to $KERNEL_HOOK (microcode cpio regeneration + UKI rebuild for the installed kernel)"
-    if "$KERNEL_HOOK"; then
+    "$KERNEL_HOOK"
+    KERNEL_HOOK_RC=$?
+    if [ "$KERNEL_HOOK_RC" -eq 0 ]; then
         log "boot-chain refresh complete"
-    else
-        log "WARNING: chained kernel hook exited $? — the boot path may still carry the prior microcode image; manual re-run: sudo $KERNEL_HOOK"
+        exit 0
     fi
-    exit 0
+    if [ "$KERNEL_HOOK_RC" -eq "$MOK_REFUSED_EXIT" ]; then
+        log "REFUSED: the boot image was NOT rebuilt (the kernel hook refused to sign it; its reason is"
+        log "  above), so the new microcode is not in the image this machine boots. To finish it with the"
+        log "  signing key passphrase in hand (the one set at install, not the MOK enrollment password):"
+        log "  sudo pkm reinstall linux-kernel"
+        exit "$MOK_REFUSED_EXIT"
+    fi
+    log "WARNING: chained kernel hook exited $KERNEL_HOOK_RC — the boot path may still carry the prior microcode image; manual re-run: sudo $KERNEL_HOOK"
+    exit 1
 fi
 
 # Fallback: the kernel hook is not present. The expected case is
