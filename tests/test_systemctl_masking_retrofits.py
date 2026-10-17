@@ -272,8 +272,19 @@ ENABLEMENT_DELETED = {
     "desktop/forge": ("forge-tui.service", "80-intergenos-enable.preset"),
 }
 
+# package -> the one operation its post_install came back to do, for a package
+# above whose recipe declares the hook again with work of its own. forge's
+# returned on 2026-10-17: on an upgrade of the running system it withholds, in
+# the install traces an earlier installer wrote, the step returns recorded for
+# steps that were handed a secret. That hook is neither empty nor an
+# enablement, and the tests below still refuse either.
+POST_INSTALL_RETURNED_WITH_WORK = {
+    "desktop/forge": "redact-step-returns",
+}
 
-@pytest.mark.parametrize("pkg", sorted(ENABLEMENT_DELETED))
+
+@pytest.mark.parametrize(
+    "pkg", sorted(set(ENABLEMENT_DELETED) - set(POST_INSTALL_RETURNED_WITH_WORK)))
 def test_the_recipe_declares_no_post_install_at_all(pkg):
     """Each of these hooks existed only to make the enablement call. With the
     call gone the body was empty, and an empty post_install still costs a hook
@@ -290,6 +301,20 @@ def test_the_recipe_declares_no_post_install_at_all(pkg):
     assert not re.search(r"(?m)^post_install\(\) \{", code), (
         f"{pkg} declares a post_install again:\n"
         + "\n".join(l for l in code.splitlines() if "post_install" in l))
+
+
+@pytest.mark.parametrize("pkg", sorted(POST_INSTALL_RETURNED_WITH_WORK))
+def test_a_returned_post_install_does_its_named_work_and_no_unit_call(pkg):
+    """The exception above is held to what it was made for: the hook is
+    declared, its code carries the operation it came back to do, and it calls
+    systemctl for nothing at all (the deleted enablement's preset still
+    decides that unit)."""
+    assert pkg in ENABLEMENT_DELETED
+    assert re.search(r"(?m)^post_install\(\) \{", code_lines(recipe_text(pkg))), (
+        f"{pkg} is listed as having its post_install back, and declares none")
+    body = code_lines(post_install_body(pkg))
+    assert POST_INSTALL_RETURNED_WITH_WORK[pkg] in body, body
+    assert "systemctl" not in body, body
 
 
 @pytest.mark.parametrize("pkg", sorted(ENABLEMENT_DELETED))
