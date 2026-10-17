@@ -12,14 +12,15 @@
 # Phase A scope (this hook):
 #   - Build UKI from new vmlinuz + intel-ucode.img + initramfs.img + cmdline
 #   - Sign UKI with /var/lib/intergen/mok/mok.{key,crt}, asking the owner for
-#     the key's passphrase; a signing step that cannot get it REFUSES (exit 1)
+#     the key's passphrase; a signing step that cannot get it REFUSES (exit 77)
 #     and leaves the previous release's signed image in place as the boot target
 #   - Install UKI to /boot/efi/EFI/Linux/intergenos-<kver>.efi, and only after
 #     its signature has been verified — an unsigned image is never placed where
 #     the boot chain would pick it up
 #   - Degrade without signing (exit 0) only where there is nothing to enforce it:
-#     no builder yet during first-install ordering, or no key on a machine whose
-#     firmware is not enforcing Secure Boot. Both say which case they are.
+#     no builder or no signing helper yet during first-install ordering, or no key
+#     on a machine whose firmware is not enforcing Secure Boot. Each says which case
+#     it is.
 #
 # The D-005 phases this header used to list as still to be done have landed,
 # and saying otherwise above code that runs them sent readers away from it:

@@ -96,7 +96,7 @@ if [ -z "${MOK_PASSPHRASE:-}" ]; then
     if ! mok_resolve_passphrase "$MOK_KEY" "the driver module $(basename "$KO_FILE")"; then
         echo "[nvidia:sign-module] ERROR: no usable signing passphrase; $KO_FILE is NOT signed." >&2
         echo "[nvidia:sign-module]   It will be REJECTED by this kernel (CONFIG_MODULE_SIG_FORCE=y)." >&2
-        echo "[nvidia:sign-module]   Re-run the rebuild at the console with the passphrase in hand:" >&2
+        echo "[nvidia:sign-module]   Re-run the rebuild at the console with the signing key passphrase in hand (the one set at install, not the MOK enrollment password):" >&2
         echo "[nvidia:sign-module]       sudo /var/lib/pkm/hooks/nvidia/rebuild-modules $KVER" >&2
         exit 1
     fi

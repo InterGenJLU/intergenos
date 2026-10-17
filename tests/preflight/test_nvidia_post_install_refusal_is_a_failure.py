@@ -2,7 +2,7 @@
 # Copyright (C) 2015-2016, 2026 InterGenJLU
 """The NVIDIA driver's post-install asks once and fails when a signing is refused.
 
-Measured on a real driver install on 2026-10-16 (the hub's capture
+Measured on a real driver install on 2026-10-16 (its captured log,
 09-hdmi-drop-after-driver-install.log): the kernel's hook, started by this
 script to rebuild the boot image with the driver's cmdline, refused to sign;
 this script logged "WARNING: UKI rebuild failed (exit 1) — nvidia cmdline
