@@ -128,6 +128,11 @@ class _Base(unittest.TestCase):
     luks = False
     signs = True
     menu_lists_images = True
+    # What the post-install hooks phase does to the menu the bootloader phase
+    # composed and checked: None leaves it alone; "regenerate" re-runs the
+    # generator over the ESP as it is; "drop-the-image" regenerates it the way a
+    # generator that cannot see /EFI/Linux would.
+    hooks_on_menu = None
 
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
@@ -177,7 +182,15 @@ class _Base(unittest.TestCase):
         mocks = [p.start() for p in patches]
         for p in patches:
             self.addCleanup(p.stop)
-        disks, packages, _config, _users, mok, _hooks, shutil_mock = mocks[:7]
+        disks, packages, _config, _users, mok, hooks, shutil_mock = mocks[:7]
+        if self.hooks_on_menu is not None:
+            def _hook_writes_the_menu(*_args, **_kwargs):
+                if self.hooks_on_menu == "drop-the-image":
+                    self.fake.menu_lists_images = False
+                self.fake.run_chroot(
+                    str(self.target),
+                    "grub-mkconfig -o /boot/efi/EFI/InterGenOS/grub.cfg")
+            hooks.run_post_install_hooks.side_effect = _hook_writes_the_menu
         shutil_mock.which.return_value = "/usr/bin/fake-binary"
         disks.is_efi.return_value = True
         disks.partition_disk.return_value = partitions
@@ -253,6 +266,32 @@ class AMenuWithoutTheImageStopsTheInstall(_Base):
         self.assertFalse(self.result.success,
                          "an install whose menu boots no InterGenOS image finished")
         self.assertIn("intergenos-uki", self.result.error_message or "")
+
+
+class AHookThatRewritesTheMenuStopsTheInstall(_Base):
+    """The post-install hooks run after the menu was checked, inside the target,
+    and one that regenerates it can drop the entry; the check is repeated after
+    them."""
+    hooks_on_menu = "drop-the-image"
+
+    def test_the_install_does_not_finish(self):
+        self.assertFalse(self.result.success,
+                         "an install whose post-install hooks left a menu that "
+                         "boots no InterGenOS image finished")
+        self.assertIn("after the post-install hooks ran",
+                      self.result.error_message or "")
+
+
+class AHookThatRegeneratesTheMenuFaithfullyIsAccepted(_Base):
+    """The repeated check reads the menu, not whether it was written again: a
+    regeneration that keeps the entry finishes."""
+    hooks_on_menu = "regenerate"
+    luks = True
+
+    def test_the_install_finishes(self):
+        self.assertTrue(self.result.success, self.result.error_message)
+        self.assertEqual(pinned_entry_image(self.menu()),
+                         f"/EFI/Linux/intergenos-{KVER}.efi")
 
 
 class TheInstalledMenuIsTheGeneratorsOutput(_Base):

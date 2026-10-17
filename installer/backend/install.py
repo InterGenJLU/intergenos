@@ -950,6 +950,10 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         # the root password the users phase wrote (R001.3 row 5). Prove the
         # hash survived before this phase is called complete.
         users.verify_root_password_kept(target, root_hash)
+        # The same hooks run after the bootloader phase checked the menu, and a
+        # hook that regenerates or edits it would leave a menu nothing checked;
+        # the check is repeated here, the last step that can write the menu.
+        bootloader.verify_boot_menu_after_hooks(target, partitions)
         result.phase_completed = PHASE_HOOKS
         _emit(PHASE_HOOKS, 11, "post-install hooks complete; root password kept")
 

@@ -860,6 +860,9 @@ def install_bootloader(target, disk, partitions, mok_keypair=None,
 _PINNED_ENTRY_RE = re.compile(
     r"^\s*menuentry\b.*\s--id\s+" + re.escape(STABLE_UKI_MENU_ID) + r"(\s|\{|$)")
 
+#: An EFI install's boot menu, on the unencrypted ESP (see compose_boot_menu).
+EFI_BOOT_MENU = "/boot/efi/EFI/InterGenOS/grub.cfg"
+
 
 def menu_chainloads_uki(menu_text, kver):
     """Whether the menu's pinned default entry chainloads this release's image.
@@ -924,9 +927,7 @@ def compose_boot_menu(target, partitions, detect_other_oses=True):
     # grub-mkconfig (os-prober + 06_uki + theme) remains the single menu source;
     # only its output location moves. (Plain installs use the same ESP path —
     # uniform, and re-validated alongside FDE.)
-    grub_cfg_out = (
-        "/boot/efi/EFI/InterGenOS/grub.cfg" if efi else "/boot/grub/grub.cfg"
-    )
+    grub_cfg_out = EFI_BOOT_MENU if efi else "/boot/grub/grub.cfg"
     # Decide, BEFORE the menu is generated, whether the stock Linux generator
     # may contribute entries at all. On an encrypted install whose /boot still
     # holds the placeholder initramfs its entries cannot open the root
@@ -982,6 +983,54 @@ def compose_boot_menu(target, partitions, detect_other_oses=True):
         entry=STABLE_UKI_MENU_ID,
         intent="record that the installed menu's pinned default entry "
                "chainloads the installed kernel's signed boot image")
+
+
+def verify_boot_menu_after_hooks(target, partitions):
+    """Check the menu again once the post-install hooks have run.
+
+    compose_boot_menu checks the menu it composes, but it is not the last step
+    that can write it: the hooks phase runs every installed recipe's
+    post_install inside the target after the bootloader phase, and a hook that
+    regenerates or edits the menu would leave the installed system a menu
+    nothing checked. install.py calls this right after that phase, and nothing
+    after it writes the menu, so this is the install's last word on it: the
+    pinned default entry still chainloads the installed kernel's image, or the
+    install does not finish.
+
+    BIOS installs have no image to chainload, and nothing is checked.
+    """
+    if not partitions.get("efi"):
+        return
+    target = str(target)
+    menu = Path(target) / EFI_BOOT_MENU.lstrip("/")
+    try:
+        text = menu.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        raise trace.install_failure(
+            where="bootloader.py:verify_boot_menu_after_hooks",
+            why=(f"the boot menu {EFI_BOOT_MENU} could not be read after the "
+                 f"post-install hooks ran ({exc}); it was checked when it was "
+                 f"composed, so a hook removed or replaced it."),
+            extra={"menu": EFI_BOOT_MENU},
+        )
+    kver = installed_kernel_release(target)
+    if not menu_chainloads_uki(text, kver):
+        raise trace.install_failure(
+            where="bootloader.py:verify_boot_menu_after_hooks",
+            why=(f"after the post-install hooks ran, the boot menu "
+                 f"{EFI_BOOT_MENU} has no default entry (--id "
+                 f"{STABLE_UKI_MENU_ID}) chainloading "
+                 f"/EFI/Linux/intergenos-{kver}.efi. It had one when it was "
+                 f"composed, so a hook rewrote it, and the installed system "
+                 f"would start to a menu with nothing of its own to boot."),
+            extra={"menu": EFI_BOOT_MENU, "kernel": kver},
+        )
+    trace.trace_event(
+        "boot_menu_verified_after_hooks", menu=EFI_BOOT_MENU, kernel=kver,
+        entry=STABLE_UKI_MENU_ID,
+        intent="record that the menu's pinned default entry still chainloads "
+               "the installed kernel's signed boot image after the post-install "
+               "hooks ran")
 
 
 #: The removable-media fallback set: (source under ESP_BOOT_DIR, name under
