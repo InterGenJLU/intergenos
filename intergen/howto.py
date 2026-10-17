@@ -143,6 +143,9 @@ STRONG_THRESHOLD = 0.82
 # "how do I take a screenshot" exists twice, under two ids, in two domain files.
 # Serving either is a correct answer; the measurement counts only one of them as
 # exact, so 50.8% is a floor on how often this path is right, not a ceiling.
+# These figures describe that calibration's original candidate selection.
+# Weak candidates now also need a shared subject before ranking and admission;
+# the measured score floors themselves remain unchanged.
 KEYWORD_THRESHOLD = 0.34
 KEYWORD_MIN_KNOWN_SHARE = 0.60
 # The keyword-scale counterpart of STRONG_THRESHOLD, measured the same way
@@ -206,6 +209,38 @@ _STOPWORDS = frozenset((
     "can", "you", "me", "of", "on", "in", "for", "and", "it", "this", "that",
     "with", "show", "tell", "explain", "command", "s",
 ))
+
+# These words describe asking or operating, rather than the subject requested.
+# Keep short subject names such as IP and singular-fold ordinary plurals.
+_SUBJECT_STOPWORDS = _STOPWORDS | frozenset((
+    "am", "any", "are", "as", "at", "be", "been", "by", "current", "currently",
+    "did", "does", "from", "get", "had", "has", "have", "if", "its", "just",
+    "mine", "or", "our", "please", "set", "should", "so", "some", "than",
+    "their", "them", "then", "there", "these", "they", "those", "up", "us",
+    "use", "used", "using", "was", "we", "were", "when", "where", "which",
+    "who", "why", "will", "would", "your", "yours", "check", "see", "find",
+    "list", "run", "start", "stop", "add", "remove", "change", "make", "install",
+    "installed", "installing", "system", "computer", "machine", "intergenos",
+    "linux", "everything", "something",
+))
+
+
+def _subject_words(text: str, *, question: bool = False) -> set[str]:
+    words = set()
+    for word in re.findall(r"[^\W_]+", text.lower()):
+        if word in _SUBJECT_STOPWORDS:
+            continue
+        if len(word) > 3 and word.endswith("s") and not word.endswith("ss"):
+            word = word[:-1]
+        words.add(word)
+    # Updating DNS names an object; an objectless update question names the
+    # update operation itself. Do not let the verb override an explicit object.
+    return (words - {"update", "upgrade"} or words) if question else words
+
+
+def _shares_subject(query: str, entry: "HowtoEntry") -> bool:
+    return bool(_subject_words(query, question=True).intersection(
+        _subject_words(" ".join(entry.triggers))))
 
 
 @dataclass(frozen=True)
@@ -407,6 +442,9 @@ class HowtoCorpus:
             thr = STRONG_THRESHOLD if strong else DEFAULT_THRESHOLD
         if entry is None or score < thr or not self._eligible(entry):
             return None, score
+        strong_floor = KEYWORD_STRONG_THRESHOLD if keyword_path else STRONG_THRESHOLD
+        if score < strong_floor and not _shares_subject(query, entry):
+            return None, score
         return entry, score
 
     def _retrieve_embedding(self, query: str
@@ -447,6 +485,16 @@ class HowtoCorpus:
         single overlap floor cannot separate, because such a query can contain a
         real trigger outright.
         """
+        # An introductory sentence is context, not the instruction's subject.
+        # Focus an explicit how-to after a sentence boundary only when it names
+        # a subject of its own; a referential "how do I use it" keeps its context.
+        instruction = re.search(
+            r"[.!?]\s+(?=how\s+(?:(?:do|can|would|could|should)\s+(?:i|we|you)|to)\b)",
+            query, re.IGNORECASE)
+        if instruction is not None:
+            focused = query[instruction.end():]
+            if _subject_words(focused, question=True):
+                query = focused
         q_words = self._content_words(query)
         if not q_words:
             return None, 0.0
@@ -460,6 +508,13 @@ class HowtoCorpus:
             if not overlap:
                 continue
             score = overlap / len(q_words)
+            # Rank subject-bearing weak candidates before selecting a winner.
+            # Otherwise a generic "which ... are installed" printer trigger
+            # beats the package listing, and rejecting it later loses the
+            # package answer that was already among the candidates.
+            if score < KEYWORD_STRONG_THRESHOLD and not _shares_subject(
+                    query, self._entries[owner]):
+                continue
             # Ties go to the NARROWER trigger. Query coverage alone cannot
             # choose between "how do I verify a package" and a longer trigger
             # that also happens to contain those words: both supply the whole

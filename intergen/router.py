@@ -5115,40 +5115,6 @@ class ConversationRouter(RouterInterface):
         orientation = bool(_EXPLAIN_ORIENTATION_RE.search(normalized))
         entry, score = self._howto.retrieve(
             normalized, strong=not (prior and not orientation))
-        if entry is not None and prior and not orientation:
-            # A loose semantic match needs a shared subject. Generic question
-            # and action words cannot make an installer page relevant to a
-            # question about installed packages. The entry's trigger phrases
-            # describe its subject; its answer may mention unrelated subjects.
-            noise = _FACT_MATCH_STOPWORDS | {
-                "s", "check", "see", "find", "show", "list", "run", "start",
-                "stop", "add", "remove", "change", "make", "install",
-                "installed", "installing", "system", "computer", "machine",
-                "intergenos", "linux", "everything", "something", "command",
-            }
-
-            def subject_words(text: str) -> set[str]:
-                words = set()
-                for word in re.findall(r"[^\W_]+", text.lower()):
-                    if word in noise:
-                        continue
-                    if len(word) > 3 and word.endswith("s") and not word.endswith("ss"):
-                        word = word[:-1]
-                    words.add(word)
-                return words
-
-            # A named object takes precedence over a general update/upgrade
-            # verb: updating DNS is not a question about system updates.
-            query_subject = subject_words(normalized)
-            named_subject = query_subject - {"update", "upgrade"}
-            query_subject = named_subject or query_subject
-            entry_subject = subject_words(" ".join(entry.triggers))
-            if not query_subject.intersection(entry_subject):
-                # Ask the corpus for its strong floor instead of comparing a
-                # cosine threshold to a keyword score after an embedder outage.
-                strong_entry, _ = self._howto.retrieve(normalized, strong=True)
-                if strong_entry is None or strong_entry.id != entry.id:
-                    entry = None
         if entry is None:
             # F2 mis-route fix: an instructional package action the corpus does
             # not cover ("how do I install zoom") is still TAUGHT the canonical

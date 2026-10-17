@@ -2,10 +2,10 @@
 # Copyright (C) 2026 InterGenJLU
 """Compound teaching keeps every clause and weak matches share a subject.
 
-The captured whole-question embedding choice and explicit per-clause candidates
-exercise the real router, decomposition and corpus thresholds. These tests do
-not measure a live embedding model's candidate selection. No model or tool is
-allowed to execute during a teaching turn.
+The captured whole-question embedding choice exercises the real router,
+decomposition and corpus thresholds. Clause candidates come from the shipped
+corpus's real keyword retriever. No model or tool is allowed to execute during
+a teaching turn; live embedding selection is measured separately.
 """
 from __future__ import annotations
 
@@ -73,10 +73,7 @@ def test_both_instructions_answered_after_the_captured_installer_match(router, q
         if "and how" in query.lower():
             with embedding_choice(router, installer, 0.757392168045044):
                 return retrieve(query, **kwargs)
-        chosen = entry(router, "pkm-update-system" if "updates" in query
-                       else "pkm-info-list")
-        with embedding_choice(router, chosen, 0.90):
-            return retrieve(query, **kwargs)
+        return retrieve(query, **kwargs)
 
     with mock.patch.object(corpus, "retrieve", side_effect=recorded_choice):
         answer = router.route(question)
@@ -85,6 +82,17 @@ def test_both_instructions_answered_after_the_captured_installer_match(router, q
     assert "pkm upgrade" in answer.text
     assert "pkm list" in answer.text
     assert "Forge" not in answer.text
+    assert not answer.used_llm
+    router._tools.execute.assert_not_called()
+
+
+@pytest.mark.parametrize("question", [COMPOUND, CONTEXTUAL])
+def test_keyword_retrieval_answers_both_instructions_without_a_replayed_choice(router, question):
+    answer = router.route(question)
+    assert answer.source == "decomposed"
+    assert "pkm sync" in answer.text
+    assert "pkm upgrade" in answer.text
+    assert "pkm list" in answer.text
     assert not answer.used_llm
     router._tools.execute.assert_not_called()
 
