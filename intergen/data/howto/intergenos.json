@@ -41,9 +41,14 @@
       "how do I turn on secure boot and MOK"
     ],
     "answer": "On InterGenOS, Secure Boot is **OFF by default and optional** — the boot chain (shim → GRUB → signed kernel image) is signed and verifiable either way, and the kernel runs in lockdown=integrity regardless. You don't have to enable Secure Boot, and on a default install no key enrollment is required.\n\nIf you *want* firmware-enforced Secure Boot: enable it in your firmware setup, then on the next reboot **MokManager** prompts you to enroll InterGenOS's Machine Owner Key (MOK) — accept it once. Forge generates that per-machine MOK during install; enrolling it only matters when Secure Boot is on (and for trusting your own out-of-tree/DKMS modules under enforcement).\n\nCheck the current state:\n\n```\nmokutil --sb-state        # SecureBoot enabled / disabled\n```",
-    "action": { "command": "mokutil --sb-state", "tool": "run_command" },
+    "action": {
+      "command": "mokutil --sb-state",
+      "tool": "run_command"
+    },
     "doc_source": "wiki install/verified-boot.md; docs/users/secure-boot-and-mok.md",
-    "requires": ["mokutil"]
+    "requires": [
+      "mokutil"
+    ]
   },
   {
     "id": "igos-signing-trust",
@@ -56,10 +61,15 @@
       "how do I verify the package index is genuine",
       "how do I check a package hasn't been tampered with"
     ],
-    "answer": "Every InterGenOS package index is signed by the project's **operator master key**, and `pkm` verifies that signature against the keyring shipped on your system before it trusts any index it downloads — a forged or modified index is rejected. The master key's fingerprint is pinned (`5597 A3E0 587B 2530 06D0  DD7B 8C50 8261 8208 3050`).\n\nTo check that your installed files still match what was installed (tamper / corruption check), use:\n\n```\npkm verify            # re-hash every installed package's files\n```\n\nThis is the package-integrity counterpart to the signed *index*: signing proves the index is genuine; `pkm verify` proves your on-disk files haven't changed since install.",
-    "action": { "command": "pkm verify", "tool": "manage_packages" },
-    "doc_source": "wiki packages/reproducibility.md; docs/repository-trust.md",
-    "requires": ["pkm"]
+    "answer": "The InterGenOS package index is signed with the release signing key. pkm checks that signature against the bundled key and verifies each downloaded package archive's SHA-256 against the signed index before extraction.\n\nChecking an installed package is a separate operation:\n```\nsudo pkm verify --all\n```\nOrdinary payload files are compared by SHA-256. Configuration files and files generated during package setup have separately reported existence-only rules, which do not prove their contents are unchanged. Unreadable or missing reference data is undetermined, not a pass. Read those classifications rather than treating every successful check as a complete content comparison.",
+    "action": {
+      "command": "sudo pkm verify --all",
+      "tool": "manage_packages"
+    },
+    "doc_source": "docs/users/package-management.md",
+    "requires": [
+      "pkm"
+    ]
   },
   {
     "id": "igos-live-web-and-realtime-data",
@@ -72,8 +82,8 @@
       "what's the news today",
       "can you tell me today's weather"
     ],
-    "answer": "I run **fully locally** on your machine and I'm offline by design — I don't browse the web or pull live feeds, so I can't give you real-time facts like today's stock prices, news headlines, or the current weather. My knowledge is what I was trained on plus what's on this system, and I'd rather tell you that plainly than guess.\n\nFor anything live, a web browser (Firefox is installed) or your usual news, markets, or weather source is the right tool. Where I'm genuinely useful is your machine itself — packages, services, files, hardware, and how InterGenOS works.",
-    "doc_source": "README.md; docs/VISION.md",
+    "answer": "InterGen has an explicit **web-search tool**. Ask **“search the web for …”**; that is the documented reliable phrasing for an online lookup.\n\nA web search sends the query to the configured search provider. Ordinary local-system questions stay on the machine; web search is a disclosed network exception.\n\nFor current prices, news or weather, use a fresh search result and check its source and date. Model training alone does not establish a live fact, and a failed lookup is not evidence of a current value.",
+    "doc_source": "docs/users/intergen.md; intergen/data/capability-surface.json",
     "requires": []
   }
 ]
