@@ -72,6 +72,10 @@ def _result_dict_from_variant(variant: GLib.Variant) -> Dict[str, Any]:
         ),
         "integrity_aborted_at": str(raw.get("integrity_aborted_at", "") or ""),
         "failed_packages": list(raw.get("failed_packages", []) or []),
+        # The disk's recovery key, when one was generated; the Done page
+        # shows it once. An older service that does not send it reads as
+        # none, never as an error.
+        "luks_recovery_key": str(raw.get("luks_recovery_key", "") or ""),
     }
 
 

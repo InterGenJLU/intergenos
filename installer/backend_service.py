@@ -375,6 +375,15 @@ class ForgeInstallerService:
                 getattr(result, "integrity_aborted_at", "") or "",
             ),
             "failed_packages": failed_packages,
+            # The recovery key the disk phase generated, when the person
+            # asked for one: carried to the GUI for the one time it is
+            # shown (its Done page), and nowhere else. Empty when none.
+            # It must cross this boundary in the completion payload: the
+            # GUI runs in another process and has no other path to the
+            # install result.
+            "luks_recovery_key": str(
+                getattr(result, "luks_recovery_key", "") or "",
+            ),
         }
 
     def _mark_worker_done(self):
@@ -514,6 +523,7 @@ class ForgeInstallerService:
             "integrity_overrides_granted": 0,
             "integrity_aborted_at": "",
             "failed_packages": [],
+            "luks_recovery_key": "",
         })
 
     def _emit_complete_dict(self, install_id: str, result: Dict[str, Any]):
@@ -556,6 +566,13 @@ class ForgeInstallerService:
             )),
             "integrity_aborted_at": _v_str(result.get("integrity_aborted_at", "")),
             "failed_packages": failed_variant,
+            # Never logged here or anywhere in this service: the only
+            # reader is the GUI's completion handler. Who may receive this
+            # signal at all is set by the shipped bus policy
+            # (installer/data/org.intergenos.ForgeInstaller1.conf): root
+            # and the administrators' group; every other connection is
+            # denied receipt of the service's messages.
+            "luks_recovery_key": _v_str(result.get("luks_recovery_key", "")),
         }
 
         self._bus.emit_signal(
