@@ -327,14 +327,22 @@ target_head_if_present() {
 }
 
 # LOCAL/REMOTE drive gates 3-9 (range = merge-base(LOCAL,REMOTE)..LOCAL).
-# A brand-new branch (remote_sha all-zero) has no remote counterpart yet.
-# The gates validate the commits THIS push introduces TO ORIGIN, so:
-#   1. Ref-alias push (branch rename): the exact SHA is already published
-#      under another origin ref — every commit already passed these gates;
-#      the validation range is EMPTY. (Found 2026-07-12 renaming the two
-#      held feature lanes: the fallback re-scanned the whole published
-#      history and halted on a pre-existing, already-landed commit.)
-#   2. Genuinely-new branch: baseline at the DEEPEST published ancestor —
+# The gates validate the commits THIS push introduces TO THE REMOTE, so:
+#   1. Already-published sha — a ref-alias push (branch rename) or a
+#      fast-forward promotion of the published dev tip to master: the exact
+#      SHA is already under one of that remote's refs, every commit in it
+#      passed these gates on its way there, and the validation range is
+#      EMPTY. The gates that judge the push ITSELF still run: 1 (the pushed
+#      bytes), 9.5 (the release-validation record on a master push), 10
+#      (the ledger anchor). (Found 2026-07-12 renaming the two held feature
+#      lanes: the fallback re-scanned the whole published history and halted
+#      on a pre-existing, already-landed commit. Until 2026-10-18 this case
+#      was asked only for a brand-new branch, so a release promotion whose
+#      1,265 commits were all already on the remote's dev was re-judged by
+#      gate versions newer than the commits and refused on history that had
+#      passed the gate of its day.)
+#   2. Genuinely-new branch (remote_sha all-zero, sha not yet on the
+#      remote): baseline at the DEEPEST published ancestor —
 #      merge-base with origin/dev when at-or-below the branch (covers both
 #      a branch off the current dev tip AND one forked from an older dev
 #      tip after dev moved on), else merge-base with origin/master. The
@@ -353,64 +361,62 @@ target_head_if_present() {
 #   not running. The second push printed "all gates PASS" having run fewer of
 #   them. The question is now asked of the remote being pushed to.
 LOCAL="$PUSH_LOCAL"
-if [ -z "$PUSH_REMOTE" ] || [ "$PUSH_REMOTE" = "$ZERO" ]; then
-    _published_here=""
-    if [ -n "$TARGET_REFS" ]; then
-        _published_here=$(git branch -r --list "${TARGET_REFS#refs/remotes/}/*" --contains "$PUSH_LOCAL" 2>/dev/null)
-    fi
-    if [ -n "$_published_here" ]; then
-        # Case 1 is correct to validate nothing -- every commit here already
-        # passed these gates on its way to this remote -- but it used to do so
-        # without a word, so "all gates PASS" on this path meant the gates
-        # driven by the push range had run over nothing. It is now said.
-        _published_as=$(printf '%s\n' "$_published_here" | awk 'NF && !found {print $1; found = 1}')
-        REMOTE="$PUSH_LOCAL"
-        echo "[pre-push] $PUSH_LOCAL is already on $TARGET_REMOTE (contained in $_published_as); the gates driven by the push range have no new commits to validate for this push."
+_published_here=""
+if [ -n "$TARGET_REFS" ]; then
+    _published_here=$(git branch -r --list "${TARGET_REFS#refs/remotes/}/*" --contains "$PUSH_LOCAL" 2>/dev/null)
+fi
+if [ -n "$_published_here" ]; then
+    # Case 1 is correct to validate nothing -- every commit here already
+    # passed these gates on its way to this remote -- but it used to do so
+    # without a word, so "all gates PASS" on this path meant the gates
+    # driven by the push range had run over nothing. It is now said.
+    _published_as=$(printf '%s\n' "$_published_here" | awk 'NF && !found {print $1; found = 1}')
+    REMOTE="$PUSH_LOCAL"
+    echo "[pre-push] $PUSH_LOCAL is already on $TARGET_REMOTE (contained in $_published_as); the gates driven by the push range have no new commits to validate for this push."
+elif [ -z "$PUSH_REMOTE" ] || [ "$PUSH_REMOTE" = "$ZERO" ]; then
+    _dev_head=$(target_head_if_present dev)
+    _master_head=$(target_head_if_present master)
+    _mb_dev=""
+    _mb_master=""
+    [ -n "$_dev_head" ] && _mb_dev=$(git merge-base "$PUSH_LOCAL" "$_dev_head" 2>/dev/null || echo "")
+    [ -n "$_master_head" ] && _mb_master=$(git merge-base "$PUSH_LOCAL" "$_master_head" 2>/dev/null || echo "")
+    if [ -n "$_mb_dev" ] && { [ -z "$_mb_master" ] || git merge-base --is-ancestor "$_mb_master" "$_mb_dev" 2>/dev/null; }; then
+        REMOTE="$_mb_dev"
+    elif [ -n "$_mb_master" ]; then
+        REMOTE="$_mb_master"
     else
-        _dev_head=$(target_head_if_present dev)
-        _master_head=$(target_head_if_present master)
-        _mb_dev=""
-        _mb_master=""
-        [ -n "$_dev_head" ] && _mb_dev=$(git merge-base "$PUSH_LOCAL" "$_dev_head" 2>/dev/null || echo "")
-        [ -n "$_master_head" ] && _mb_master=$(git merge-base "$PUSH_LOCAL" "$_master_head" 2>/dev/null || echo "")
-        if [ -n "$_mb_dev" ] && { [ -z "$_mb_master" ] || git merge-base --is-ancestor "$_mb_master" "$_mb_dev" 2>/dev/null; }; then
-            REMOTE="$_mb_dev"
-        elif [ -n "$_mb_master" ]; then
-            REMOTE="$_mb_master"
+        # The remote being pushed to shows no dev and no master this
+        # checkout can resolve -- a fresh bare mirror, a backup remote, a
+        # push named by URL whose tips are not among the local objects.
+        # Leaving the baseline empty here would collapse the validation
+        # range to nothing and the range-driven gates would go silent,
+        # which is the very defect this block was rewritten to end. So the
+        # baseline is taken from THIS checkout's own dev, else its master,
+        # and the substitution is PRINTED: a narrower baseline is allowed,
+        # a quiet one is not.
+        _local_dev=$(git rev-parse --verify --quiet refs/heads/dev 2>/dev/null || echo "")
+        _local_master=$(git rev-parse --verify --quiet refs/heads/master 2>/dev/null || echo "")
+        _mb_local_dev=""
+        _mb_local_master=""
+        [ -n "$_local_dev" ] && _mb_local_dev=$(git merge-base "$PUSH_LOCAL" "$_local_dev" 2>/dev/null || echo "")
+        [ -n "$_local_master" ] && _mb_local_master=$(git merge-base "$PUSH_LOCAL" "$_local_master" 2>/dev/null || echo "")
+        if [ -n "$_mb_local_dev" ] && { [ -z "$_mb_local_master" ] || git merge-base --is-ancestor "$_mb_local_master" "$_mb_local_dev" 2>/dev/null; }; then
+            REMOTE="$_mb_local_dev"
+            echo "[pre-push] $TARGET_REMOTE has no dev or master this checkout can read; the gates are measured from the local dev branch instead."
+        elif [ -n "$_mb_local_master" ]; then
+            REMOTE="$_mb_local_master"
+            echo "[pre-push] $TARGET_REMOTE has no dev or master this checkout can read; the gates are measured from the local master branch instead."
         else
-            # The remote being pushed to shows no dev and no master this
-            # checkout can resolve -- a fresh bare mirror, a backup remote, a
-            # push named by URL whose tips are not among the local objects.
-            # Leaving the baseline empty here would collapse the validation
-            # range to nothing and the range-driven gates would go silent,
-            # which is the very defect this block was rewritten to end. So the
-            # baseline is taken from THIS checkout's own dev, else its master,
-            # and the substitution is PRINTED: a narrower baseline is allowed,
-            # a quiet one is not.
-            _local_dev=$(git rev-parse --verify --quiet refs/heads/dev 2>/dev/null || echo "")
-            _local_master=$(git rev-parse --verify --quiet refs/heads/master 2>/dev/null || echo "")
-            _mb_local_dev=""
-            _mb_local_master=""
-            [ -n "$_local_dev" ] && _mb_local_dev=$(git merge-base "$PUSH_LOCAL" "$_local_dev" 2>/dev/null || echo "")
-            [ -n "$_local_master" ] && _mb_local_master=$(git merge-base "$PUSH_LOCAL" "$_local_master" 2>/dev/null || echo "")
-            if [ -n "$_mb_local_dev" ] && { [ -z "$_mb_local_master" ] || git merge-base --is-ancestor "$_mb_local_master" "$_mb_local_dev" 2>/dev/null; }; then
-                REMOTE="$_mb_local_dev"
-                echo "[pre-push] $TARGET_REMOTE has no dev or master this checkout can read; the gates are measured from the local dev branch instead."
-            elif [ -n "$_mb_local_master" ]; then
-                REMOTE="$_mb_local_master"
-                echo "[pre-push] $TARGET_REMOTE has no dev or master this checkout can read; the gates are measured from the local master branch instead."
-            else
-                # Nothing is left to measure from. This branch used to set an
-                # empty baseline, print the sentence below and carry on: the
-                # three range gates then ran over an empty range and printed
-                # PASS, the gates guarded on a baseline did not run at all, and
-                # the push ended "all gates PASS" with exit status 0 -- the
-                # hook contradicting its own sentence. A gate that cannot run
-                # refuses the push; decided 2026-09-22.
-                echo "[pre-push] BLOCK: $TARGET_REMOTE has no dev or master this checkout can read, and this checkout has neither either; the gates that need a baseline cannot be measured for this push."
-                echo "  Resolve: give this checkout a local dev or master branch that this push descends from -- for example, fetch dev from a remote that has it and run: git branch dev FETCH_HEAD -- then push again."
-                exit 1
-            fi
+            # Nothing is left to measure from. This branch used to set an
+            # empty baseline, print the sentence below and carry on: the
+            # three range gates then ran over an empty range and printed
+            # PASS, the gates guarded on a baseline did not run at all, and
+            # the push ended "all gates PASS" with exit status 0 -- the
+            # hook contradicting its own sentence. A gate that cannot run
+            # refuses the push; decided 2026-09-22.
+            echo "[pre-push] BLOCK: $TARGET_REMOTE has no dev or master this checkout can read, and this checkout has neither either; the gates that need a baseline cannot be measured for this push."
+            echo "  Resolve: give this checkout a local dev or master branch that this push descends from -- for example, fetch dev from a remote that has it and run: git branch dev FETCH_HEAD -- then push again."
+            exit 1
         fi
     fi
 else
