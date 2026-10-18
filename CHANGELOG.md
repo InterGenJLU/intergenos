@@ -20,36 +20,110 @@ landed is in the repository README, not here.
 
 ## [Unreleased]
 
-### Changed
+Nothing yet.
 
-- Targeted build resumes skip current installed Chapter 8, core-extra and base packages, using each sealed archive's recipe version and release; explicit package restarts still rebuild their target.
-- Tracked builds compare configure detections and sealed archive contents with a staged reference, stop on unapproved drift, and record a new reference candidate during a fresh checkpointed build.
-- Let p11-kit use libc networking functions before considering an optional libnsl from the build root.
-- Keep the staged TPM library from auto-enabling the libusb transport during a resumed build.
-- Keep staged device-mapper configuration independent of XFS, AIO and NVMe packages installed later in the build.
-- Keep Linux-PAM NIS support and its library dependencies independent of later build-root packages.
-- Build sudo without auto-detecting a mail transport from the populated build root.
-- Keep inetutils PAM library and header detection unchanged across fresh and resumed builds.
-- Keep the Chapter 8 shadow build independent of PAM already installed in a resumed build root.
-- The release files, image stamp and installation-image name are checked against the same declared release, so a resumed build cannot publish an image under a different identity.
-- The unused `at` job scheduler is available from the mirror instead of being installed by default; the default system keeps `fcron`.
-- The Exim mail-transfer agent is available from the mirror instead of being installed by default.
-- ROCm recipes declare the GPU architectures they build for, with the narrower upstream-supported lists stated explicitly for hipBLASLt and rocWMMA.
-- Source downloads try the project mirror before upstream and enforce the recipe's checksum on either path.
-- Assistant screenshots use the desktop's screenshot portal and its consent dialog, with no second assistant review card for the same capture.
-- The dispatch-log reading no longer describes an integrity-check result as a general guarantee of trustworthiness.
-- Update the WebKitGTK GTK 4 and GTK 3 packages from 2.50.5 to 2.54.1.
-- The assistant's bundled command catalog includes the download helpers and package-manager commands and flags added in this release.
+---
 
-- Apply the upstream OpenSC SetCOS validation update alongside the existing
-  PIV patch, retaining OpenSC 0.27.1.
-- Apply the upstream LZ4 frame API parameter checks while retaining 1.10.0.
-- Update the core and temporary GNU sed recipes to 4.10, including the
-  core documentation path and both build drivers.
-- Update the core, compatibility and temporary ncurses recipes to the
-  6.6-20261010 snapshot, using the same source archive in both build drivers.
-- Update Linux-PAM to 1.7.3, with matching source selection and documentation
-  paths in the core build.
+## [R001.3] — 2026-10-18
+
+The third point release. R001.3 was produced as a targeted rebuild against
+R001's substrate — every changed package recompiled with the full validation
+gate set enforced — then installed and evaluated on real hardware before
+publication. This cycle reached the release policy's drift limit, which calls
+for a major release; R001.3 ships as a point release by a one-time exception,
+and the complete from-source rebuild follows as the next major release. The
+image, its checksum, the signature over that checksum, and the release key are
+published together on the project mirror; verification instructions are
+unchanged from R001.
+
+### Summary
+
+What changed, by subsystem, written from the release notes each changed
+package's recipe carries. The sections after this summary are the detailed
+record from the development branch, unchanged.
+
+#### Package manager
+
+- **Upgrades and rollback.** `pkm upgrade <name> --archive <file>` moves an installed package forward from a local archive under the same trust gate as a named install; an upgrade keeps a copy of the build it replaced, and a rollback copy is always the release it claims to be; the end-of-transaction line, `pkm --version` and the upgradable listing name releases; a cached archive is used only when the signed index vouches for it; and a recorded version that carries its own release is repaired when the database opens, so the next build of that version is no longer refused as a downgrade.
+- **Safer deploys.** Archive members are named by the path they land at; a symbolic link standing where a regular file belongs is replaced instead of written through; hard-link and symbolic-link entries keep the targets their package shipped; and an archive's recorded ownership can no longer re-own an existing directory or hand a file in a system path to an ordinary account.
+- **Lifecycle hooks.** pkm runs in Python's safe-path mode and calls reviewed absolute executables; what a canonical hook writes to standard error is shown as NOTE lines, folded when repeated; files a hook made on the machine are no longer treated as archive payload by `remove` and `verify`; the hook recorders decide a rewrite by the bytes; the module tables `depmod` writes are recorded as hook-managed; the certificate-trust hook fires for the paths this system installs; and the kernel hook can receive the signing-key passphrase from the installer during an install.
+- **Exit statuses and reads you can rely on.** `pkm info` and `verify` exit non-zero for a package that is not installed; a refused `--archive` install exits non-zero; `check-updates` no longer reports "up to date" when it could not read the repository; reads take the shared lock instead of opening a database a write is changing; an index-lookup error is no longer reported as a missing entry; `restart-services --all` restarts only the services of packages changed since this boot and never the units that carry the login session; and `upgrade --all` upgrades pkm first and continues under the new release.
+
+#### Assistant
+
+- **Requests to your frontier model.** The dialog that asks before anything is sent cannot send until you confirm you have read the content, closes after an hour unanswered, and closes when its conversation is cleared or replaced; a request ends with its conversation; a provider's error reply is read only up to 64 KiB; and a cloud provider that cannot stop a call when its turn ends is refused at registration.
+- **Turns end cleanly in the web chat.** `/clear`, a new conversation, a session switch or a closed page stops the model's work for that turn and withdraws its review cards; a card's Approve authorizes that card and no other; the answer kept is the one you watched arrive, or the final message says why; an action card reaches the browser before the turn ends; a turn that runs no tool no longer says it is running one; and the fast answering paths no longer treat a follow-up as a fresh question.
+- **A turn that forbids tools gets none.** A message that says not to use tools, run commands or read files is offered no tools, and no fast path runs a command for it; a sentence saying what not to do is no longer read as a request for several things.
+- **How-to questions.** A compound how-to question keeps every clause, a weak documentation match needs a shared subject, and an instructional clause the documentation does not cover is left to the model.
+- **Serving engine and graphics cards.** The assistant serves from exactly one card and measures that card, its free memory included, when deciding whether a model fits; the ROCm engine sees only the card it is pinned to, and an instance served on the processor opens no card; the CUDA engine is chosen only for card architectures the installed build carries, and the log says why it was passed over; cards behind Thunderbolt or VMD bridges are found; a first start moves to the next engine on its own; stopping the assistant is reported as a stop; and `intergen status` reports the model server, not just the daemon process.
+- **Panel and browser.** The panel is served on the loopback address its configuration names (127.0.0.1:8089 as shipped; any other address is refused with the reason); the shell's Open in Browser item opens it signed in through a one-time sign-in that lapses after sixty seconds; the panel sets no cookie; and every socket closes once the credential that opened it is no longer honored.
+- **Privileged actions.** A write through the privileged runner is refused when its path passes through a link that root does not own, or through one replaced while it is read; directories it creates in a home are handed to that account; the assistant can be run with administrator actions turned off; and declining an action is answered in plain language.
+- **Screenshots** are taken through the desktop's screenshot portal and its consent dialog.
+- **Memory and wiki index.** Stopping the session memory index waits for its worker; every trace row names the turn that produced it; the wiki index catches up after a turn even while an embedding is in flight; and the text taken from a wiki page is bounded.
+- **Version and model records.** The version command and status print the installed release from the package manager's record, or say it could not be read; model records carry the package identity and an explicit license address and are re-verified during setup; and the runtime manifest records the chat model, its projector and the embedding model, whose bytes are verified before loading.
+
+#### Backup
+
+- **Restore.** A package restore point can restore a package; naming a directory restores everything the version holds beneath it; restore paths are validated before any work and quoted in every preview and result; a restore that failed says so in its exit status; and an on-demand restore point is captured when asked for, with no scope or with the paths named on the command line, instead of being refused.
+- **Capture and retention.** A capture that could not read part of its source records each omitted path in the committed manifest and exits non-zero; an unchanged file is reused only after its bytes are verified; retention checks a prune plan whole before removing anything and enforces the size cap; and every backup unit shares the engine's group and runtime-directory mode.
+
+#### Base system, kernel and security
+
+- **Updated components.** The kernel moves to 6.18.51 on the 6.18 long-term series, closing the known-exploited local flaw CVE-2026-53362 and the other advisories fixed since 6.18.10; gzip 1.15 (CVE-2026-41992 and CVE-2026-41991); GNU inetutils 2.8; Go 1.26.8; Linux-PAM 1.7.3; GNU sed 4.10; ncurses 6.6-20261010; WebKitGTK 2.54.1 for GTK 4 and GTK 3; and the upstream LZ4 frame-API checks and OpenSC SetCOS validation update are applied.
+- **Hardening floor.** A shipped sysctl drop-in sets kernel pointer restriction, full address-space randomization, strict reverse-path filtering, no ICMP redirects, logged martian packets and multipath TCP off; and the kernel no longer pins every process's heap start (CONFIG_COMPAT_BRK off).
+- **Accounts and sudo.** An installed system no longer has root locked after the installer set its password; login.defs declares the password hashing method; the sudo configuration ships with the mode `visudo -c` requires; and the duplicate `secure_path` is gone.
+- **Remote login** ships with TCP and agent forwarding off.
+- **Fewer privileged programs.** screen and libgtop's helper ship without the setuid bit, the Kerberos `ksu` program is no longer shipped, and ping6 and gnome-keyring use file capabilities instead.
+- **AppArmor.** A program's profile is loaded only when the package that installs the program links it into /etc/apparmor.d; traceroute, zgrep, ping, avahi-daemon, dnsmasq and eight Samba programs link theirs.
+- **Kernel and module signing** asks the machine owner for the signing key's passphrase and refuses rather than signing unattended, in the kernel hooks and the NVIDIA module signer alike.
+- **Signing at install and update, completed on real hardware.** A driver install asks the signing key's passphrase once and holds it for its module signings and the boot image; the installer's package phase hands that passphrase to the kernel hook, so the first boot image is signed during the install; the kernel hook signs through the signing helper, away from any terminal; a refused signing leaves the package marked unfinished, and the line that reports it names the exact `pkm reinstall` that finishes it and says the passphrase is the signing key's, not the MOK enrollment password; the Welcomer's driver step says the same after such a refusal; the boot-menu script composes the unified-kernel entry whatever else the menu holds and refuses a menu that names the release without chainloading its image; and a degraded install is its own outcome for `pkm reinstall` and `pkm upgrade`.
+- **Audit.** Runtime audit configuration changes are accepted with auditing enabled; the kernel's security modules are now asked in an order that allows them.
+- **Root-run helpers** reach their interpreters and tools by absolute path, Python with `-P`, so PATH and the working directory cannot choose them.
+- **TLS trust store.** The trust updater ships with its manual, validates the configured anchors and publishes its outputs atomically.
+- **Logs.** Authentication traces never carry the PolicyKit cookie, and rsyslog ships with its strict secure defaults.
+- **Boot and crash diagnostics.** A kernel panic shows the kernel's own log on screen and leaves a record the next boot can read; the kernel console also reaches the serial port; unified kernel images on AMD-only machines omit the Intel microcode; and the boot-menu theme regenerates only the running system's own existing menu, never the live session's during an install.
+- **Default install and services.** The release identity files state R001.3; the `at` scheduler is available from the mirror instead of installed by default, with fcron the default scheduler; and the shipped service presets state why weekly discard is left to the disk layout.
+- **One owner per command.** `/usr/bin/unzip` is Info-ZIP's program again, with libarchive's tool at `bsdunzip`; Erlang no longer links `/usr/bin/typer`; MariaDB drops a dangling SysV link; and ncurses ships libtinfo compatibility links and a `tinfo.pc`, so prebuilt programs that ask for libtinfo.so.6 load.
+
+#### Desktop and hardware
+
+- **Audio.** The aptX, LDAC and LC3 Bluetooth codecs ship, with GStreamer's aptX elements; the ALSA default device reaches PipeWire, so recording through it works; and the microphone boost is no longer part of the microphone's volume range.
+- **Video.** mpv and Celluloid decode on the graphics card's video engine where the driver supports it; Celluloid opens WebM and the common audio types; and `vainfo` is on the installation image.
+- **Printing, scanning and network discovery.** Driverless USB printing (ipp-usb), network printer discovery (cups-browsed), scanning (SANE backends, sane-airscan and Simple Scan) and Windows-network discovery (wsdd) arrive; the daemons that would offer this machine to the network ship off and follow the Welcomer's Print Services and Network Discovery switches; and Samba's client tools read a shipped smb.conf.
+- **Devices.** iPhones pair: usbmuxd starts from a device-triggered unit instead of a udev RUN that systemd-udevd ended; mobile broadband starts on request through ModemManager's bus activation; and the legacy nvidiafb framebuffer no longer loads beside the NVIDIA DRM driver.
+- **Service restrictions.** Avahi, BlueZ, CUPS, NetworkManager, RealtimeKit, switcheroo-control and UDisks run with service restrictions that keep the device and network access each needs; switcheroo-control skips start-up where its node is absent; and wpa_supplicant's wireless-hardware condition applies only to its nl80211 unit.
+- **Welcomer.** A name server chosen on the name-lookup page becomes the one that answers, and giving the choice up restores exactly what it changed; the first page states this machine's Secure Boot key state: staged but not enrolled, whether a passphrase protects it, and a key retirement that did not happen (the count of machine owner certificates the firmware trusts, shown for a while, is no longer stated); and the model-setup card follows the engine's state.
+- **Accessibility.** The screen-reader control stays off and cannot be switched on until a supported screen reader ships.
+- **Icon theme.** Marks for Document Scanner, Help and ChatGPT join the theme, bringing it to 286 application marks.
+- **Installer.** Of two builds of one package, the installer keeps the newer by the version and release each archive's sealed header states; it keeps the port of a Genesys Logic GL9755 SD card reader powered on machines that have one; and it names an empty or partly unreadable PCI device listing in the install record.
+- **Installer, after the real-hardware evaluations.** Every EFI install builds and signs its boot image after the package phase, composes the boot menu from it and refuses to finish unless the image verifies; the install record never keeps a password hash or any credential-shaped value; the Done page shows the encrypted disk's recovery key the service already held; the live medium's init links the three commands its first boot runs (the first R001.3 candidate stopped at boot without them); when the assistant is chosen, its service enable and panel schema compile are run and read back in the installed system, a refusal becoming a warning of the install; key-review rows size to their content and warning dialogs stay within the window; and the install set reads archive names by the version each recipe declares.
+
+#### GPU compute
+
+- **ROCm architectures.** The ROCm stack builds for six architectures, gfx1030, gfx1100, gfx1101, gfx1102, gfx1200 and gfx1201; hipBLASLt and rocWMMA build for the five their upstream supports.
+- **ROCm tools work by name.** The toolkit's programs (rocm-smi, amd-smi, rocgdb and the rest) are on PATH, the compiler sits where its driver looks for the ROCm root, and the runtime dependencies its tools call are declared.
+- **Inference engines.** The CUDA engine carries compiled kernels for every card generation it claims, and both engines record the architectures they were built for and check the libraries they link.
+
+#### Applications and download helpers
+
+- **License acceptance records** name the user who ran `sudo`, or say that no consenting user was named, through one shared helper library.
+- **Vendor versions.** The Brave, ChatGPT, Chrome, Edge, Signal, Spotify, Steam and VS Code helpers can report the vendor's version without installing, and choose versions only from package lists verified through the signed release file; Debian version ordering is compared field by field.
+- **Helper records.** A helper records a symbolic link as the link the machine holds, records the release it installs, and records a pinned editor extension it could not install, with the reason.
+- **Pins.** Claude Code moves to 2.1.270, and `CLAUDE_CODE_INSTALL_CURRENT=1` selects the registry's current stable release under the same checks; the Codex helper pins OpenAI CLI 0.159.2 and its VS Code extension.
+- **Helpers refuse an incomplete install.** The Chrome, Claude Code and VS Code helpers refuse missing launchers, icons, files or entry points and failed copies instead of recording a finished install, and the CUDA toolkit helper's upgrade removes only the dangling links it knows it left.
+- **Tailscale** moves to 1.102.4 with its own updater turned off (updates come through `pkm upgrade tailscale`) and uses the native nftables backend.
+
+#### Build and supply chain
+
+- **Resumed builds match fresh ones.** Optional features a populated build root would detect on its own are stated explicitly in the recipes concerned (cryptsetup, tpm2-tools, shadow, inetutils, sudo, Linux-PAM, p11-kit, libcap, libarchive, OpenSSH, Avahi, Graphviz, GStreamer, mpv and MariaDB), so a resumed build produces the packages a from-scratch build does.
+- **32-bit libraries** rebuild when their shared build profile changes, and their staged-payload checks judge only what each build staged.
+- **Dependency records** are completed where a package's programs load libraries it did not declare (the kernel build tree's host tools, sed's acl and attr), and the final kernel pass runs `depmod` through its own recorded hook.
+- **Build gates** accept, by exact name, the optional probes a recipe deliberately leaves unanswered, and stray or misnamed files the archive gates report are corrected.
+- **Corresponding source.** The signed repository index records each package's corresponding-source archive by name and SHA-256, the lookup refuses names that resolve outside the source directory, and the shipped SOURCES.md describes the two fields a reader verifies; shim's license metadata now matches its BSD text.
+- **Offline wiki.** The rendered wiki and its signed page manifest advance to the 2026-09-17 render and are signed again.
+- **Installer package releases.** The installer package's release moves whenever a recipe it carries changes; those releases change no installer code.
+- **Wording.** The project's own text spells "license" the American way throughout, and upstream license files keep the names their archives give them.
+- **Record-keeping releases.** Some releases record a composition of several changes, regenerate the assistant's command catalog from the live command parsers, or change only test or explanation text; they change nothing a person runs.
 
 ### Known limits in R001.3
 
@@ -97,6 +171,21 @@ landed is in the repository README, not here.
   the keyring; this path is reachable only after a person adds a cloud provider.
 - The Intel VA-API driver is not shipped; `vainfo` reports no accelerated
   driver on Intel graphics.
+- The assistant's testing harness, run on a laptop that uses the small local
+  model, found six of its 155 reference questions answered incorrectly by the
+  assistant's routing: three were met with a web-search offer instead of an
+  answer, three were answered from the model without the data they needed.
+  These are routing defects, not limits of the model; corrections are
+  scheduled for the next point release.
+- `pkm verify` reports dangling symbolic links in two theme packages
+  (`nordic-theme`, `whitesur-icon-theme`); cosmetic, nothing fails.
+- The NVIDIA driver install pauses for up to two minutes after the one
+  passphrase with nothing on screen; it is working (building and signing the
+  modules).
+- The text installer's dialog can be overdrawn by timer lines at the top of
+  the hour; press Enter to redraw.
+- Printer administration from the root account is refused by CUPS; run
+  `lpadmin` as a member of the `lpadmin` group, or use the Settings panel.
 
 ### Added
 
@@ -2193,6 +2282,35 @@ landed is in the repository README, not here.
 - `shim-signed`: the source license metadata matches shim's two-clause BSD text.
 
 ### Changed
+
+- Targeted build resumes skip current installed Chapter 8, core-extra and base packages, using each sealed archive's recipe version and release; explicit package restarts still rebuild their target.
+- Tracked builds compare configure detections and sealed archive contents with a staged reference, stop on unapproved drift, and record a new reference candidate during a fresh checkpointed build.
+- Let p11-kit use libc networking functions before considering an optional libnsl from the build root.
+- Keep the staged TPM library from auto-enabling the libusb transport during a resumed build.
+- Keep staged device-mapper configuration independent of XFS, AIO and NVMe packages installed later in the build.
+- Keep Linux-PAM NIS support and its library dependencies independent of later build-root packages.
+- Build sudo without auto-detecting a mail transport from the populated build root.
+- Keep inetutils PAM library and header detection unchanged across fresh and resumed builds.
+- Keep the Chapter 8 shadow build independent of PAM already installed in a resumed build root.
+- The release files, image stamp and installation-image name are checked against the same declared release, so a resumed build cannot publish an image under a different identity.
+- The unused `at` job scheduler is available from the mirror instead of being installed by default; the default system keeps `fcron`.
+- The Exim mail-transfer agent is available from the mirror instead of being installed by default.
+- ROCm recipes declare the GPU architectures they build for, with the narrower upstream-supported lists stated explicitly for hipBLASLt and rocWMMA.
+- Source downloads try the project mirror before upstream and enforce the recipe's checksum on either path.
+- Assistant screenshots use the desktop's screenshot portal and its consent dialog, with no second assistant review card for the same capture.
+- The dispatch-log reading no longer describes an integrity-check result as a general guarantee of trustworthiness.
+- Update the WebKitGTK GTK 4 and GTK 3 packages from 2.50.5 to 2.54.1.
+- The assistant's bundled command catalog includes the download helpers and package-manager commands and flags added in this release.
+
+- Apply the upstream OpenSC SetCOS validation update alongside the existing
+  PIV patch, retaining OpenSC 0.27.1.
+- Apply the upstream LZ4 frame API parameter checks while retaining 1.10.0.
+- Update the core and temporary GNU sed recipes to 4.10, including the
+  core documentation path and both build drivers.
+- Update the core, compatibility and temporary ncurses recipes to the
+  6.6-20261010 snapshot, using the same source archive in both build drivers.
+- Update Linux-PAM to 1.7.3, with matching source selection and documentation
+  paths in the core build.
 
 - Update GNU inetutils from 2.7 to 2.8. Retain the telnet compiler compatibility
   edit, disabled servers and traceroute, and the existing ping profile and

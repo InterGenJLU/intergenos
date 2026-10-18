@@ -6,8 +6,8 @@
 
 **[Website](https://intergenos.org)** · **[Updates](https://intergenos.org/news.html)** · **[Documentation](https://wiki.intergenos.org)** · **[InterGen Studios](https://intergenstudios.com)**
 
-> ### 📀 [Download InterGenOS R001.2](https://repo.intergenos.org/iso/intergenos-r001.2.iso)
-> x86_64 UEFI live ISO · 9.7 GiB · sha256 `37b0d8fe4a48e56a6c6a4182d1f9a812cb123ed03ae5dfe934f3676f2d6fa6ff` — [checksum file](https://repo.intergenos.org/iso/intergenos-r001.2.iso.sha256) and the [signature over it](https://repo.intergenos.org/iso/intergenos-r001.2.iso.sha256.asc)
+> ### 📀 [Download InterGenOS R001.3](https://repo.intergenos.org/iso/intergenos-r001.3.iso)
+> x86_64 UEFI live ISO · 9.8 GiB · sha256 `098c8747deedc14c7d844b8047cfa239c655381b1614c950e3a676dcae53f256` — [checksum file](https://repo.intergenos.org/iso/intergenos-r001.3.iso.sha256) and the [signature over it](https://repo.intergenos.org/iso/intergenos-r001.3.iso.sha256.asc)
 > **Verify before you write it:** check the signature on the checksum file, then check the image against the checksum — [the steps are here](docs/getting-started.md#2-verifying-the-iso-image).
 > Signed on-hardware with the [release key](https://repo.intergenos.org/keys/intergenos-release-key.asc), fingerprint `5597 A3E0 587B 2530 06D0 DD7B 8C50 8261 8208 3050` — the same key signs the image checksum, the release tag and the package mirror index.
 
@@ -286,7 +286,7 @@ R001.x is the first public release line; the project is in active development. T
 
 ## Upcoming
 
-Items actively in flight or planned post R001.2:
+Items actively in flight or planned post R001.3:
 
 - **Microsoft shim-review submission** — obtaining an InterGenOS-owned MS-signed shim via the `rhboot/shim-review` sponsor track, so Secure Boot works out of the box without the first-boot MOK-enrollment step.
 - **OneDrive and Google Drive integration** — built-in cloud-file access for users coming from Windows: connect a Microsoft or Google account through a guided graphical sign-in that is as easy as logging in on a phone, with files syncing to the local desktop — no command line, no config files.
