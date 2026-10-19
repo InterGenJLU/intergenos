@@ -14,7 +14,7 @@ import PIL
 
 
 HERE = Path(__file__).resolve().parent
-MARK = HERE.parent / "svg" / "intergenos_logo_transparent.svg"
+MARK = HERE.parents[1] / "assets" / "intergen-mark" / "svg" / "intergenos_logo_transparent.svg"
 SCALE = 4
 HEIGHT = 90
 VOID = "#050810"
@@ -105,7 +105,7 @@ def render(width, font_data, mark_data, output):
     image = image.resize((width, HEIGHT), Image.Resampling.LANCZOS)
     metadata = PngImagePlugin.PngInfo()
     metadata.add(b"sRGB", b"\x00")
-    target = output / f"distrowatch-{width}x90.png"
+    target = output / f"distrowatch-leaderboard-{width}x90.png"
     image.save(target, pnginfo=metadata, optimize=False, compress_level=9)
     print(json.dumps({"output": str(target), "size": image.size,
                       "mode": image.mode, "bytes": target.stat().st_size,

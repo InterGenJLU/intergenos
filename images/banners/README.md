@@ -1,6 +1,6 @@
 # DistroWatch leaderboards
 
-Regenerate both PNGs from the repository root with `python3 assets/intergen-mark/banners/render.py`; requires Pillow, librsvg's `rsvg-convert`, and Inter Variable at `/usr/share/fonts/inter/InterVariable.ttf` (or pass `--font PATH`).
+Regenerate both PNGs from the repository root with `python3 images/banners/make-distrowatch-banners.py`; requires Pillow, librsvg's `rsvg-convert`, and Inter Variable at `/usr/share/fonts/inter/InterVariable.ttf` (or pass `--font PATH`).
 
 The script renders the committed SVG pulse and typesets Inter directly at each
 target size, preserving the wide tracking of the canonical wordmark. Only
