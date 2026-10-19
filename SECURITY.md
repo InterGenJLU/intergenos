@@ -2,7 +2,7 @@
 
 InterGenOS takes security seriously. This document describes how to report vulnerabilities and how we respond.
 
-> **Project status:** the current release is the newest point release of the **R001.x** line, always stated at https://intergenos.org/news.html. InterGenOS keeps a single supported line — the latest release is the supported release, and fixes reach users by advancing that line rather than through maintenance branches or backports, so every user runs the package set the project evaluates. The full policy is in [docs/release-policy.md](docs/release-policy.md). This policy applies to all InterGenOS code and infrastructure from the date below onward. We are a small team; if we cannot meet a target, we will communicate openly and directly with the reporter. For each release, its Updates entry lists shipped packages named at their shipped versions in published advisories, with each advisory's severity, and the project patches the fixable part in the following cycle.
+> **Project status:** R001.x is the first public release line; the project is in active development. The current release is always stated at https://intergenos.org/news.html. InterGenOS keeps a single supported line — the latest release is the supported release, and fixes reach users by advancing that line rather than through maintenance branches or backports, so every user runs the package set the project evaluates. The full policy is in [docs/release-policy.md](docs/release-policy.md). This policy applies to all InterGenOS code and infrastructure from the date below onward. We are a small team; if we cannot meet a target, we will communicate openly and directly with the reporter. For each release, its Updates entry lists shipped packages named at their shipped versions in published advisories, with each advisory's severity, and the project patches the fixable part in the following cycle.
 
 ## Reporting a vulnerability
 
@@ -130,7 +130,7 @@ them requires trusting this document:
 
 | Artifact | Where |
 |---|---|
-| Installation image | `https://repo.intergenos.org/iso/intergenos-r001.iso` |
+| Installation image | the current image, named on the [Updates page](https://intergenos.org/news.html); for example, `https://repo.intergenos.org/iso/intergenos-r001.3.iso` for R001.3 |
 | Image checksum | the same name with `.sha256` |
 | Signature over that checksum | the same name with `.sha256.asc` |
 | Release public key | `https://repo.intergenos.org/keys/intergenos-release-key.asc` |
@@ -165,9 +165,10 @@ Known vulnerabilities and our response. InterGenOS ships with mitigations pre-ap
 
 | Advisory | CVE | Severity | Mitigated |
 |----------|-----|----------|-----------|
+| [Updates — canonical advisory list](https://intergenos.org/news.html) | See each release's entry | See each advisory | See each release's entry |
 | [Copy Fail](docs/security/advisories/CVE-2026-31431-copy-fail.md) | CVE-2026-31431 | HIGH (7.8) | 2026-04-29 |
 | [Dirty Frag + Fragnesia](docs/security/advisories/dirty-frag-fragnesia.md) | CVE-2026-43284, CVE-2026-43500, CVE-2026-46300 | HIGH | 2026-05-18 |
 
 ---
 
-*Last updated: 2026-07-29*
+*Last updated: 2026-10-19*

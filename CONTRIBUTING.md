@@ -1,7 +1,8 @@
 # Contributing to InterGenOS
 
-Thanks for your interest in InterGenOS. The project is in active development,
-currently at version 1.0-dev. It is a Linux distribution built entirely from
+Thanks for your interest in InterGenOS. R001.x is the first public release line; the project is in active development. The current release is always stated at https://intergenos.org/news.html.
+
+InterGenOS is a Linux distribution built entirely from
 source, with a custom package manager (`pkm`), the Forge installer, a mandatory
 Secure Boot chain, and a tiered local AI assistant (InterGen). Today it ships
 GNOME 49 on Wayland; contributions of all kinds are welcome.
