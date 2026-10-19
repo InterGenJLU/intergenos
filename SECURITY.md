@@ -135,7 +135,7 @@ them requires trusting this document:
 | Signature over that checksum | the same name with `.sha256.asc` |
 | Release public key | `https://repo.intergenos.org/keys/intergenos-release-key.asc` |
 | Signed package index | `https://repo.intergenos.org/x86_64/current/InterGenOS.db` and `.sig` |
-| Signed source tag | the tag named after the release (`R001`, `R001.1`, `R001.2`, …) in this repository |
+| Signed source tag | the tag matching the current release named on the [Updates page](https://intergenos.org/news.html) |
 
 Verification is two steps and the order matters: **check the signature on the
 checksum file first, then check the image against the checksum.** The signature
@@ -151,7 +151,7 @@ the one to check, and it is also published in
 
 The commands, with the same filenames, are in
 [docs/getting-started.md](docs/getting-started.md#2-verifying-the-iso-image).
-The signed source tag is verified with `git tag -v <release>`, for example `git tag -v R001.2`.
+The signed source tag is verified with `git tag -v <release>`, substituting the release name from the Updates page.
 
 If any of these checks fails, do not install the image, and report it to
 security@intergenstudios.com — a verification failure on a published artifact
