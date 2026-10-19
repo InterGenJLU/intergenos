@@ -41,6 +41,18 @@ A full from-source rebuild is triggered by any of the following:
    any change can exist without having proven itself in a complete from-source
    build.
 
+
+## The one exception: a security-only point release past the drift limit
+
+When the rules above already make the next release a major release, and a
+published advisory rated Critical or High (the severities in `SECURITY.md`)
+affects a package reachable on a default install, and the fix cannot wait for
+the major release in progress, a point release limited to that fix may be
+published. It carries the security fix and nothing else: no other package
+change, no feature, no addition. It is built, installed and evaluated like
+every point release, its Updates entry names this exception, and it does not
+reset the drift count: the release after it remains the major release.
+
 ## Support model: one supported line
 
 InterGenOS is a **curated rolling** distribution with a single supported line:
