@@ -236,6 +236,20 @@ class HortativeActionClaimTests(unittest.TestCase):
                 self.assertEqual(verdict, "violation", text)
                 self.assertTrue(marker.lower().startswith("let"), marker)
 
+    def test_a_back_referring_lets_do_that_after_an_act_is_caught(self):
+        # Measured on this machine's own model at this lane's tip, verbatim.
+        answer = ("To show you what's taking up the most space, I'll need to "
+                  "check the disk usage. Let's do that.")
+        verdict, marker = safety.screen_execution_claim(answer, dispatched=False)
+        self.assertEqual((verdict, marker), ("violation", "let's do that"))
+        for text in ("Sure — let's do that. Open Settings and choose Printers.",
+                     "Let's do this step by step.",
+                     "I'll explain the options first. Let's do that now."):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("clean", None))
+
     def test_honest_shapes_stay_clean(self):
         for text in ("Let me know if you'd like me to run it.",
                      "Let's not run that yet.",

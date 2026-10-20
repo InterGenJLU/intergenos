@@ -1135,6 +1135,18 @@ _BARE_PROGRESSIVE_RE = re.compile(
     r"[^.?!\n]{0,60}?\b(?:now|in\s+the\s+background)\b",
     re.IGNORECASE)
 
+# The back-referring hortative: "let's do that / it / this" carries no verb of its
+# own, so it is a claim only right after a first-person act on the machine that
+# it refers to ("I'll need to check the disk usage. Let's do that.").
+_HORTATIVE_BACK_REFERENCE_RE = re.compile(
+    r"\blet(?:['’]s|\s+us|\s+me)\s+(?:go\s+ahead\s+and\s+|just\s+)?do\s+"
+    r"(?:that|it|this)\b")
+_ACT_ON_THE_MACHINE_RE = re.compile(
+    r"\b(?:i(?:['’]ll|\s+will|\s+can|\s+need\s+to|['’]ll\s+need\s+to|\s+have\s+to)"
+    r"|we(?:['’]ll|\s+will|\s+need\s+to))\s+(?:first\s+)?"
+    r"(?:check|run|scan|look\s+(?:at|into)|read|query|install|update|upgrade|"
+    r"remove|restart)\b[^.?!\n]{0,60}?(?:`|" + _HORTATIVE_OBJECT + r")")
+
 # A claim lives in a clause. These end one.
 #
 # Sentence punctuation is the obvious boundary, but it is not the only one: a
@@ -1208,6 +1220,14 @@ def _execution_claim_marker(text: str) -> str | None:
         if low[start:m.start()].strip(" \t-*•"):
             continue
         if _claim_is_live(low, start, end, m.start()):
+            return m.group(0).strip()
+    # "Let's do that." naming no verb of its own, right after the act it refers
+    # to: "I'll need to check the disk usage. Let's do that." (this machine's own
+    # model at this lane's tip, on a turn that dispatched nothing).
+    for m in _HORTATIVE_BACK_REFERENCE_RE.finditer(low):
+        start, end = _clause_bounds(low, m.start())
+        if (_ACT_ON_THE_MACHINE_RE.search(low, max(0, m.start() - 160), m.start())
+                and _claim_is_live(low, start, end, m.start())):
             return m.group(0).strip()
     # "successfully" — affirmative only (a negated one is honest failure reporting)
     for occ in re.finditer(r"successfully", low):
