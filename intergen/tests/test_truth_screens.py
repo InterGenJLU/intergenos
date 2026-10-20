@@ -621,5 +621,28 @@ class BrowserStateScreenTests(unittest.TestCase):
             ["clean"])
 
 
+class BrowserSelfOfferTests(unittest.TestCase):
+    def test_the_browser_self_offer_note_states_the_registered_capability(self):
+        # The streamer passed no marker into the self-offer regeneration, so
+        # its note stated no capability, on a turn whose offer was to install
+        # software the assistant does install when asked (turn 39).
+        router = _router()
+        router._llm.chat, seen = _model("I can install packages when you ask.")
+        with mock.patch("intergen.router.glass.emit") as emit:
+            end, _ = _web_turn(router, TURN39_DRAFT,
+                               user="so, are you going to install it?")
+        self.assertEqual(len(seen), 1)
+        note = seen[0][-1].content
+        self.assertIn(capability_registry.phrase("manage_packages"), note)
+        self.assertIn("confirmation prompt", note)
+        self.assertNotIn("can't do it directly", note)
+        self.assertEqual(end["full_response"],
+                         "I can install packages when you ask.")
+        rows = _rows(emit, "model_offer_screen")
+        self.assertEqual([(r["verdict"], r["marker"]) for r in rows],
+                         [("violation_regenerated",
+                           "I can install the Steam client for you")])
+
+
 if __name__ == "__main__":
     unittest.main()

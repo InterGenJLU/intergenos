@@ -3079,11 +3079,16 @@ class WebServer:
                 "verdict": "clean", "marker": None, "source": route_result.source})
         else:
             _offer_ctx = glass.bind_context()
+            # The marker and the draft it was found in, as the router passes
+            # them: when the offered action is one a registered tool performs,
+            # the corrective note states that tool's true capability, so the
+            # regeneration cannot deny it.
+            _offer_draft = full_response
             _off_corrected = await loop.run_in_executor(
                 None,
                 lambda: _offer_ctx.run(
                     self._bound, ctx, self._router._regenerate_without_selfoffer,
-                    messages))
+                    messages, _off_marker, _offer_draft))
             if _off_corrected is not None:
                 full_response = _off_corrected
                 _off_outcome = "violation_regenerated"

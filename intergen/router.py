@@ -6968,8 +6968,8 @@ class ConversationRouter(RouterInterface):
         `marker` is the offer the screen found and `draft` the text it was found
         in. When the offered action is one a registered tool performs, the note
         states that tool's true capability so the regeneration cannot deny it;
-        with neither (the web path passes none) the note asserts no capability
-        and invites no denial."""
+        with neither, the note asserts no capability and invites no denial.
+        The browser streamer passes both, as the freeform path does."""
         tool = offer_action_tool(marker) or offer_action_tool(draft)
         corrective = Message(role=MessageRole.USER,
                              content=model_offer_correction_note(
