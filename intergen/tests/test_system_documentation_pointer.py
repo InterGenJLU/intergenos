@@ -138,3 +138,36 @@ def test_instructional_clause_uses_the_same_documentation_boundary(decide_only):
     assert result.source == "wiki_uncovered"
     assert result.handled is True
     router._llm.chat.assert_not_called()
+
+
+@pytest.mark.parametrize("query", [UNCOVERED, "How do I open a terminal?"])
+def test_completed_streaming_decision_records_the_answered_turn(query):
+    router = router_without_documentation()
+    router._record = Mock()
+    with router.bind_conversation(router.new_conversation()):
+        result = router.route(query, decide_only=True)
+    assert result.handled and result.text
+    router._record.assert_called_once()
+    assert router._record.call_args.args[0] is result
+
+
+def test_normal_pointer_records_once_without_a_second_inner_record():
+    router = router_without_documentation()
+    router._record = Mock()
+    with router.bind_conversation(router.new_conversation()):
+        result = router.route(UNCOVERED)
+    assert result.source == "wiki_uncovered"
+    router._record.assert_called_once()
+    assert router._record.call_args.args[0] is result
+
+
+def test_compound_pointer_records_the_combined_answer_once():
+    router = router_without_documentation()
+    router._record = Mock()
+    query = "How do I open a terminal and how do I enable a hypothetical frobnicator in InterGenOS?"
+    with router.bind_conversation(router.new_conversation()):
+        result = router.route(query, decide_only=True)
+    assert result.handled and result.source == "decomposed"
+    assert "I don't have documentation for that" in result.text
+    router._record.assert_called_once()
+    assert router._record.call_args.args[0] is result

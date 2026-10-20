@@ -3627,7 +3627,7 @@ class ConversationRouter(RouterInterface):
                     "source": "llm_freeform", "decide_only": True, "streamed": True,
                     "query_type": self._current_query_type,
                     "semantic_score": self._last_semantic_score})
-                return self._try_llm_freeform(user_input, decide_only=True)
+                return self._try_llm_freeform(user_input, decide_only=True, record_started_at=t0)
             result = self._try_llm_freeform(user_input)
             self._won("llm_freeform", explain_prior=True)
             self._record(result, t0, "llm_freeform")
@@ -4008,7 +4008,7 @@ class ConversationRouter(RouterInterface):
                 "source": "llm_freeform", "decide_only": True, "streamed": True,
                 "query_type": self._current_query_type,
                 "semantic_score": self._last_semantic_score})
-            return self._try_llm_freeform(user_input, decide_only=True)
+            return self._try_llm_freeform(user_input, decide_only=True, record_started_at=t0)
         with get_tracer().span("router.llm_freeform", kind="llm") as _llm_span:
             result = self._try_llm_freeform(user_input)
             _llm_span.set_attribute("prompt_tok_count", result.tokens_prompt)
@@ -6960,8 +6960,13 @@ class ConversationRouter(RouterInterface):
         return RouteResult(handled=False)
 
     def _try_llm_freeform(self, user_input: str, *,
-                          decide_only: bool = False) -> RouteResult:
-        """P4: documentation fallback, then a free response or deferred generation."""
+                          decide_only: bool = False,
+                          record_started_at: float | None = None) -> RouteResult:
+        """P4: documentation fallback, then a free response or deferred generation.
+
+        A top-level decision-only caller supplies its turn start so an immediate
+        answer is recorded. A clause leaves that record to its enclosing request.
+        """
         grounding = self._grounding_context(user_input)
         # Free-form wiki lookup-and-cite (RC001): with no curated how-to answer
         # and no installed-tool facts to ground on, search the INSTALLED wiki and
@@ -6980,11 +6985,14 @@ class ConversationRouter(RouterInterface):
                 pointer = self._system_documentation_pointer(user_input)
                 if pointer:
                     self._append_history(user_input, pointer)
-                    return RouteResult(
+                    result = RouteResult(
                         text=pointer, source="wiki_uncovered", handled=True,
                         answer_linkage=AnswerLinkage(
                             kind="code", renderer="wiki_uncovered"),
                     )
+                    if decide_only and record_started_at is not None:
+                        self._record(result, record_started_at, result.source)
+                    return result
         if decide_only:
             return RouteResult(text="", source="llm_freeform", handled=False)
         messages = self._build_messages(user_input, with_tools=False,
