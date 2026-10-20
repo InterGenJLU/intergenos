@@ -24,13 +24,18 @@ dispatches under its existing gating; mutating tools stay CONFIRM.
 
 from __future__ import annotations
 
+import io
+import contextlib
+import http.client
+import socket
 import unittest
+from types import SimpleNamespace
 from unittest import mock
 
 from intergen.interfaces.types import SafetyTier
 from intergen.router import (ConversationRouter, detect_file_lifecycle_intent,
                              _WEB_CAP_Q_RE)
-from intergen.tools.web_search import render_search_results
+from intergen.tools.web_search import WebSearchTool, render_search_results
 from intergen.tool_registry import ToolRegistry
 
 
@@ -113,6 +118,186 @@ class M8WebSearchGatingRegressionTests(unittest.TestCase):
             self.registry.classify_safety(
                 "write_file", {"path": "/home/t/a.txt", "content": "x"}),
             SafetyTier.CONFIRM)
+
+
+class SearchPageEvidenceTests(unittest.TestCase):
+    @contextlib.contextmanager
+    def _network(self, page, *, source="https://example.com/news", headers=None):
+        search = (
+            f'<a class="result__a" href="{source}">News</a>'
+            '<a class="result__snippet">Visit for the latest headlines.</a>'
+        ).encode()
+        body = io.BytesIO(page)
+        response = mock.Mock(status=200)
+        response.read1 = body.read1
+        response.isclosed.return_value = False
+        fields = {"Content-Type": "text/html; charset=utf-8", **(headers or {})}
+        response.getheader.side_effect = lambda key, default=None: fields.get(key, default)
+        connection = mock.Mock()
+        connection.getresponse.return_value = response
+        sock = mock.Mock()
+        context = mock.Mock()
+        context.wrap_socket.return_value = sock
+        # The network is entirely simulated. TEST-NET represents the public peer;
+        # the classifier stand-in admits only that documentation address.
+        with mock.patch.dict("os.environ", {}, clear=True), \
+                mock.patch("urllib.request.urlopen", return_value=io.BytesIO(search)) as search_call, \
+                mock.patch("socket.getaddrinfo", return_value=[
+                    (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.0.2.10", 443))
+                ]) as lookup, \
+                mock.patch("ipaddress.ip_address", side_effect=lambda value:
+                           SimpleNamespace(is_global=value == "192.0.2.10")), \
+                mock.patch("socket.create_connection", return_value=sock) as connect, \
+                mock.patch("ssl.create_default_context", return_value=context), \
+                mock.patch("http.client.HTTPConnection", return_value=connection):
+            yield search_call, lookup, connect, connection, response
+
+    def test_a_navigation_snippet_is_supplemented_with_the_page_text(self):
+        page = (
+            "<html><head><title>News</title></head><body>"
+            "<nav>Home Subscribe</nav><article>"
+            "<h1>New observatory opens its first telescope</h1>"
+            "<p>The observatory opened to visitors on Tuesday.</p>"
+            "</article><script>ignored script text</script></body></html>"
+        ).encode()
+        with self._network(page) as (search_call, lookup, connect, connection, _response):
+            result = WebSearchTool().execute({"query": "latest headline example.com"})
+        self.assertEqual(search_call.call_count, 1)
+        self.assertEqual(connection.request.call_count, 1)
+        self.assertEqual(lookup.call_count, 1)
+        self.assertEqual(connect.call_args.args[0], ("192.0.2.10", 443))
+        self.assertGreater(connect.call_args.kwargs["timeout"], 0)
+        self.assertLessEqual(connect.call_args.kwargs["timeout"], 8)
+        self.assertEqual(connection.request.call_args.kwargs["headers"]["Host"],
+                         "example.com")
+        self.assertTrue(result.success)
+        self.assertIn("New observatory opens its first telescope", result.content)
+        self.assertIn("https://example.com/news", result.content)
+        self.assertNotIn("ignored script text", result.content)
+
+    def test_large_pages_are_capped_and_keep_page_evidence_in_the_model_summary(self):
+        page = b"<p>New observatory opens</p>" + b"<p>More details.</p>" * 20000
+        with self._network(page) as (_search, _lookup, _connect, _connection, response):
+            read = mock.Mock(wraps=response.read1)
+            response.read1 = read
+            result = WebSearchTool().execute({"query": "latest headline example.com"})
+        self.assertIn("Page excerpt (truncated)", result.content)
+        self.assertIn("New observatory opens", result.model_summary)
+        self.assertIn("Source: https://example.com/news", result.model_summary)
+        self.assertLessEqual(len(result.model_summary), 4000)
+        self.assertEqual(sum(call.args[0] for call in read.call_args_list), 128 * 1024 + 1)
+
+    def test_a_private_destination_is_not_contacted(self):
+        with self._network(b"<p>not fetched</p>") as (_search, lookup, connect, _conn, _resp):
+            lookup.return_value = [
+                (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 443))
+            ]
+            result = WebSearchTool().execute({"query": "latest headline example.com"})
+        connect.assert_not_called()
+        self.assertTrue(result.success)
+        self.assertIn("did not provide readable text", result.content)
+
+    def test_a_redirect_cannot_switch_to_a_private_destination(self):
+        with self._network(b"") as (_search, lookup, connect, _conn, response):
+            lookup.side_effect = [
+                [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.0.2.10", 443))],
+                [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 443))],
+            ]
+            response.status = 302
+            response.getheader.side_effect = lambda key, default=None: (
+                "https://internal.invalid/" if key == "Location" else default)
+            result = WebSearchTool().execute({"query": "latest headline example.com"})
+        self.assertEqual(connect.call_count, 1)
+        self.assertIn("did not provide readable text", result.content)
+
+    def test_a_redirect_loop_stops_after_three_redirects(self):
+        with self._network(b"") as (_search, _lookup, connect, _conn, response):
+            response.status = 302
+            response.getheader.side_effect = lambda key, default=None: (
+                "/news" if key == "Location" else default)
+            result = WebSearchTool().execute({"query": "latest headline example.com"})
+        self.assertEqual(connect.call_count, 4)
+        self.assertEqual(response.close.call_count, 4)
+        self.assertIn("did not provide readable text", result.content)
+
+    def test_non_http_sources_and_credentials_are_not_fetched(self):
+        for source in ("file:///etc/hosts", "https://user:password@example.com/news"):
+            with self.subTest(source=source), self._network(b"", source=source) as network:
+                result = WebSearchTool().execute({"query": "latest headline"})
+                network[1].assert_not_called()
+                network[2].assert_not_called()
+                self.assertIn("did not provide readable text", result.content)
+
+    def test_a_dynamic_page_does_not_turn_its_title_or_script_into_an_answer(self):
+        with self._network(b"<html><head><title>News</title></head>"
+                           b"<body><script>loadHeadlines()</script></body></html>"):
+            result = WebSearchTool().execute({"query": "latest headline example.com"})
+        self.assertIn("did not provide readable text", result.content)
+        self.assertNotIn("loadHeadlines", result.content)
+
+    def test_a_timeout_keeps_the_search_results_and_reports_missing_page_text(self):
+        with self._network(b"") as (_search, _lookup, connect, _conn, _response):
+            connect.side_effect = TimeoutError("timed out")
+            result = WebSearchTool().execute({"query": "latest headline example.com"})
+        self.assertTrue(result.success)
+        self.assertIn("1. News", result.content)
+        self.assertIn("did not provide readable text", result.content)
+
+    def test_the_http_response_closing_at_eof_does_not_discard_the_page(self):
+        page = b"<h1>New observatory opens its first telescope</h1>"
+        wire = (b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n"
+                b"Content-Length: " + str(len(page)).encode() + b"\r\n\r\n" + page)
+        source = mock.Mock()
+        source.makefile.return_value = io.BytesIO(wire)
+        response = http.client.HTTPResponse(source)
+        response.begin()
+
+        def timeout_on_open_socket(_timeout):
+            if response.isclosed():
+                raise OSError("closed socket")
+
+        with self._network(page) as (_search, _lookup, connect, connection, _response):
+            connection.getresponse.return_value = response
+            connect.return_value.settimeout.side_effect = timeout_on_open_socket
+            result = WebSearchTool().execute({"query": "latest headline example.com"})
+        self.assertIn("New observatory opens its first telescope", result.content)
+        self.assertNotIn("did not provide readable text", result.content)
+
+    def test_a_link_only_model_answer_is_replaced_with_the_fetched_fact(self):
+        from intergen.tests.test_router_executes_recognised_search import _build_router
+
+        router, registry, _executed = _build_router()
+        registry.execute = lambda call, **_kwargs: WebSearchTool().execute(call.arguments)
+        router._llm.stream = lambda *_args, **_kwargs: iter([
+            "The most current headline is available at https://example.com/news."])
+        with self._network(b"<article><h1>New observatory opens its first telescope</h1>"
+                           b"<p>The observatory opened on Tuesday.</p></article>"):
+            result = router.route("search the web for the latest headline")
+        self.assertIn("New observatory opens its first telescope", result.text)
+        self.assertIn("\nSource: https://example.com/news", result.text)
+        self.assertNotIn("is available at", result.text)
+
+    def test_unavailable_page_text_is_spoken_without_a_model_guess(self):
+        from intergen.tests.test_router_executes_recognised_search import _build_router
+
+        router, registry, _executed = _build_router()
+        registry.execute = lambda call, **_kwargs: WebSearchTool().execute(call.arguments)
+        with self._network(b"<html><head><title>News</title></head>"
+                           b"<body><script>loadHeadlines()</script></body></html>"):
+            result = router.route("search the web for the latest headline")
+        self.assertIn("no readable text", result.text)
+        self.assertIn("https://example.com/news", result.text)
+        self.assertEqual(router._llm.synthesis_calls, 0)
+
+    def test_a_short_factual_answer_keeps_its_words_and_adds_the_source_line(self):
+        from intergen.tests.test_router_executes_recognised_search import _build_router
+
+        router, registry, _executed = _build_router()
+        registry.execute = lambda call, **_kwargs: WebSearchTool().execute(call.arguments)
+        router._llm.stream = lambda *_args, **_kwargs: iter(["Closed today."])
+        with self._network(b"<article><p>Closed today.</p></article>"):
+            result = router.route("search the web for observatory opening hours")
+        self.assertEqual(result.text, "Closed today.\n\nSource: https://example.com/news")
 
 
 if __name__ == "__main__":

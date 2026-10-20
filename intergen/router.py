@@ -1437,6 +1437,19 @@ def _distilled_web_query(text: str) -> str:
         return _WEB_SEARCH_TAIL_RE.sub("", question).strip()
     return text
 
+
+def _web_page_details(output: str) -> tuple[str, str] | None:
+    """Read the search tool's source and page excerpt before its result listing."""
+    header = re.search(
+        r"(?m)^Source: ([^\n]+)\n(Page excerpt(?: \(truncated\))?:\n"
+        r"|The linked page did not provide readable text\.)", output)
+    if header is None:
+        return None
+    excerpt = ""
+    if header.group(2).startswith("Page excerpt"):
+        excerpt = output[header.end():].split("\n\nSearch results for:", 1)[0].strip()
+    return header.group(1), excerpt
+
 _LIVE_ACTION_RE = re.compile(
     r"^\s*(?:restart|stop|start|enable|disable|open|launch|run|install|remove|"
     r"uninstall|delete|write|create|save|mount|unmount|kill)\b", re.IGNORECASE)
@@ -8452,6 +8465,11 @@ class ConversationRouter(RouterInterface):
                 "exact output"):
             return out
 
+        if tool_name == "web_search":
+            page = _web_page_details(output)
+            if page is not None and not page[1]:
+                return f"The page returned no readable text; the link is {page[0]}"
+
         # Provenance gate. Output that did NOT come from the shell executor can
         # only take the tool-agnostic templates; the system-info renderers below
         # would be reading a shape they were never written for.
@@ -9091,6 +9109,13 @@ class ConversationRouter(RouterInterface):
                 and self._FAILED_EXIT_RE.search(
                     raw_output if raw_output is not None else tool_output or "")):
             instruction += self._FAILED_RESULT_RULE
+        page = (_web_page_details(raw_output or tool_output)
+                if tool_name == "web_search" else None)
+        if page is not None:
+            instruction += (
+                "\nAnswer the requested fact from the page excerpt and snippets. "
+                "If they do not contain the fact, say so. A URL is a source, "
+                "not an answer. Put the page URL on a separate Source: line.")
         synthesis_prompt = (
             f"The user asked: \"{user_input}\"\n\n"
             f"Data from the {tool_name} tool to base your answer on:\n"
@@ -9120,12 +9145,26 @@ class ConversationRouter(RouterInterface):
         reason = self._synthesis_rejection_reason(
             response, text, user_input,
             raw_output=raw_output if raw_output is not None else tool_output)
+        if page is not None and not page[1]:
+            reason = "web_page_unavailable"
+        elif page is not None and not reason:
+            prose = re.sub(r"https?://[^\s)\]]+", "", text).strip(" \n.:;()[]-")
+            referral = re.fullmatch(
+                r"(?:the .+? (?:is|are) (?:available|found) (?:at|on)"
+                r"|(?:you can|please) (?:find|read|see|visit).*"
+                r"|(?:find|read|see|visit) (?:it|the (?:page|link|source|headline)).*"
+                r"|(?:here(?:'s| is)|this is) (?:the )?(?:link|source|page)"
+                r"|source|link|here|here it is)", prose, re.IGNORECASE)
+            if not prose or referral:
+                reason = "web_link_only"
         # Recorded on EVERY decision, pass and reject alike — the agentic lane
         # records its gate the same way, and for the same reason: a served
         # answer looks identical whether it was checked or never checked.
         glass.emit("model", "tool_synthesis_gate", detail={
             "tool": tool_name, "verdict": reason or "pass"})
         if not reason:
+            if page is not None and f"Source: {page[0]}" not in text:
+                text += f"\n\nSource: {page[0]}"
             return text
 
         self._last_synthesis_rejection = reason
@@ -9136,6 +9175,13 @@ class ConversationRouter(RouterInterface):
             "tool": tool_name, "reason": reason, "raw": text})
         logger.warning("Tool-synthesis rejected (%s) for %s — answering from "
                        "the tool's own output", reason, tool_name)
+        if reason == "web_page_unavailable" and page is not None:
+            return f"The page returned no readable text; the link is {page[0]}"
+        if reason == "web_link_only" and page is not None:
+            excerpt = page[1][:1200].rstrip()
+            if len(page[1]) > 1200:
+                excerpt += "…"
+            return f"From the page:\n{excerpt}\n\nSource: {page[0]}"
         return self._tool_output_answer(
             tool_name, raw_output if raw_output is not None else tool_output)
 
@@ -9263,6 +9309,10 @@ class ConversationRouter(RouterInterface):
         """
         if not used_llm:
             return "template"
+        if getattr(self, "_last_synthesis_rejection", None) == "web_link_only":
+            return "web_page_excerpt"
+        if getattr(self, "_last_synthesis_rejection", None) == "web_page_unavailable":
+            return "web_page_unavailable"
         # getattr-safe: a partially-built router (no __init__, as several tests
         # and the capability-probe path construct) must still be able to name
         # its composer rather than raise inside answer assembly.

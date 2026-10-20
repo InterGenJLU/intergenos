@@ -11,12 +11,18 @@ InterGen's "local first, cloud optional" philosophy.
 
 from __future__ import annotations
 
+import http.client
+import ipaddress
 import json
 import logging
 import os
 import re
+import socket
+import ssl
+import time
 import urllib.parse
 import urllib.request
+from html.parser import HTMLParser
 from typing import Any
 
 from intergen.interfaces.tool import BaseTool
@@ -36,6 +42,133 @@ USER_AGENT = "InterGen/0.1 (InterGenOS AI Assistant)"
 # the full content unchanged (model_summary stays None).
 _MODEL_OVERFLOW_CHARS = 4000   # matches continue_after_tool_call's floor
 _SNIPPET_CAP = 160
+_PAGE_MAX_BYTES = 128 * 1024
+_PAGE_TEXT_CHARS = 8000
+_PAGE_MODEL_CHARS = 2400
+_PAGE_TIMEOUT = 8
+_PAGE_REDIRECTS = 3
+
+
+class _PageText(HTMLParser):
+    """Collect visible body text without scripts, styling or navigation."""
+
+    _IGNORED = frozenset({
+        "head", "script", "style", "nav", "footer", "header", "svg", "template",
+    })
+    _BLOCKS = frozenset({
+        "p", "div", "article", "section", "li", "br", "h1", "h2", "h3", "h4",
+    })
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.ignored = []
+        self.parts = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag in self._IGNORED:
+            self.ignored.append(tag)
+        if not self.ignored and tag in self._BLOCKS:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag):
+        if tag in self.ignored:
+            self.ignored.remove(tag)
+        if not self.ignored and tag in self._BLOCKS:
+            self.parts.append("\n")
+
+    def handle_data(self, data):
+        if not self.ignored:
+            self.parts.append(data)
+
+    def text(self):
+        return "\n".join(
+            line for part in "".join(self.parts).splitlines()
+            if (line := " ".join(part.split()))
+        )
+
+
+def _fetch_page_text(url: str) -> tuple[str, str, bool]:
+    """Fetch public page text with byte and socket-I/O bounds.
+
+    DNS uses the host resolver; its latency is not a socket timeout.
+    """
+    deadline = time.monotonic() + _PAGE_TIMEOUT
+
+    def remaining():
+        budget = deadline - time.monotonic()
+        if budget <= 0:
+            raise TimeoutError("page fetch timed out")
+        return budget
+
+    for hop in range(_PAGE_REDIRECTS + 1):
+        if len(url) > 2048 or any(ord(char) < 32 for char in url):
+            raise ValueError("invalid page URL")
+        parsed = urllib.parse.urlsplit(url)
+        if (parsed.scheme not in {"http", "https"} or not parsed.hostname
+                or parsed.username is not None or parsed.password is not None):
+            raise ValueError("page URL must name an HTTP or HTTPS host")
+        host = parsed.hostname.encode("idna").decode("ascii")
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        if port not in {80, 443}:
+            raise ValueError("page URL uses an unsupported port")
+        addresses = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+        if not addresses or any(
+                not ipaddress.ip_address(row[4][0]).is_global for row in addresses):
+            raise ValueError("page URL does not resolve exclusively to public addresses")
+        # Connect to the checked numeric address, keeping the original hostname
+        # for TLS and Host. A second hostname lookup cannot change the destination.
+        address = addresses[0][4][0]
+        connection = http.client.HTTPConnection(host, port, timeout=remaining())
+        sock = socket.create_connection((address, port), timeout=remaining())
+        response = None
+        try:
+            if parsed.scheme == "https":
+                sock = ssl.create_default_context().wrap_socket(sock, server_hostname=host)
+            connection.sock = sock
+            sock.settimeout(remaining())
+            path = urllib.parse.urlunsplit(("", "", parsed.path or "/", parsed.query, ""))
+            connection.request("GET", path, headers={
+                "Host": parsed.netloc, "User-Agent": USER_AGENT,
+                "Accept": "text/html,text/plain", "Accept-Encoding": "identity",
+                "Connection": "close",
+            })
+            response = connection.getresponse()
+            if response.status in {301, 302, 303, 307, 308}:
+                location = response.getheader("Location")
+                if not location or hop == _PAGE_REDIRECTS:
+                    raise ValueError("page redirect limit reached")
+                url = urllib.parse.urljoin(url, location)
+                continue
+            if response.status != 200:
+                raise ValueError(f"page returned HTTP {response.status}")
+            content_type = response.getheader("Content-Type", "").lower()
+            if content_type.split(";", 1)[0].strip() not in {"text/html", "text/plain"}:
+                raise ValueError("page did not return HTML or plain text")
+            if response.getheader("Content-Encoding", "identity").lower() != "identity":
+                raise ValueError("page returned an unsupported content encoding")
+            body = bytearray()
+            while len(body) <= _PAGE_MAX_BYTES and not response.isclosed():
+                sock.settimeout(remaining())
+                chunk = response.read1(min(8192, _PAGE_MAX_BYTES + 1 - len(body)))
+                if not chunk:
+                    break
+                body.extend(chunk)
+            truncated = len(body) > _PAGE_MAX_BYTES
+            charset = re.search(r"charset\s*=\s*[\"']?([\w.-]+)", content_type)
+            encoding = charset.group(1) if charset else "utf-8"
+            text = bytes(body[:_PAGE_MAX_BYTES]).decode(encoding, errors="replace")
+            if content_type.startswith("text/html"):
+                parser = _PageText()
+                parser.feed(text)
+                text = parser.text()
+            truncated = truncated or len(text) > _PAGE_TEXT_CHARS
+            return url, text[:_PAGE_TEXT_CHARS].strip(), truncated
+        finally:
+            if response is not None:
+                response.close()
+            connection.close()
+            sock.close()
+    raise ValueError("page redirect limit reached")
 
 
 def render_search_results(query: str, results: list[tuple[str, str, str]]):
@@ -175,7 +308,7 @@ class WebSearchTool(BaseTool):
                 (item.get("title", ""), item.get("link", ""), item.get("snippet", ""))
                 for item in organic[:num]
             ]
-            content, model_summary = render_search_results(query, results)
+            content, model_summary = self._render_with_page(query, results)
             return ToolResult(
                 call_id="", name=self.name,
                 content=content,
@@ -207,7 +340,7 @@ class WebSearchTool(BaseTool):
                     success=True,
                 )
 
-            content, model_summary = render_search_results(query, results)
+            content, model_summary = self._render_with_page(query, results)
             return ToolResult(
                 call_id="", name=self.name,
                 content=content,
@@ -220,6 +353,34 @@ class WebSearchTool(BaseTool):
                 content=f"Search failed: {e}",
                 success=False,
             )
+
+    def _render_with_page(self, query, results):
+        """Carry page evidence through the same ingress boundary as snippets."""
+        content, summary = render_search_results(query, results)
+        if not results:
+            return content, summary
+        source = results[0][1]
+        try:
+            source, text, truncated = _fetch_page_text(source)
+            if not text:
+                raise ValueError("page contains no readable body text")
+            label = "Page excerpt (truncated)" if truncated else "Page excerpt"
+            page = f"Source: {source}\n{label}:\n{text}"
+            model_page = f"Source: {source}\nPage excerpt:\n{text[:_PAGE_MODEL_CHARS]}"
+        except Exception as exc:
+            log.warning("Search page fetch unavailable: %s", exc)
+            source = " ".join(source.split())
+            page = f"Source: {source}\nThe linked page did not provide readable text."
+            model_page = page
+        # The source and retrieval outcome precede the external text, so the
+        # answer renderer reads this header before any page or snippet content.
+        content = page + "\n\n" + content
+        if len(content) > _MODEL_OVERFLOW_CHARS:
+            compact, _ = render_search_results(
+                query, [(title, url, snippet[:_SNIPPET_CAP])
+                        for title, url, snippet in results[:3]])
+            summary = (model_page + "\n\n" + compact)[:_MODEL_OVERFLOW_CHARS]
+        return content, summary
 
     def _parse_ddg_html(self, html: str, num: int) -> list[tuple[str, str, str]]:
         """Parse DuckDuckGo HTML results page.
