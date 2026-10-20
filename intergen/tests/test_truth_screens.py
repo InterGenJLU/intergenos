@@ -774,5 +774,84 @@ class PurposeClaimTests(unittest.TestCase):
             [("violation_regenerated", "pkm (to list disk usage)")])
 
 
+# ── one draft, both paths ─────────────────────────────────────────────────────
+_SCREEN_ROWS = ("claim_screen", "state_claim_screen", "model_offer_screen",
+                "capability_screen")
+
+
+def _screen_decisions(emit):
+    """(screen, verdict, marker) for every delivery-screen row, in order."""
+    out = []
+    for c in emit.call_args_list:
+        if c.args[:1] == ("decision",) and c.args[1] in _SCREEN_ROWS:
+            detail = c.kwargs.get("detail") or c.args[2]
+            out.append((c.args[1], detail["verdict"], detail["marker"]))
+    return out
+
+
+def _both_paths(draft, replies, user):
+    """The browser streamer and the router's freeform screens on one draft,
+    each with its own router and the same model replies; the console side is
+    given the very prompt the browser side generated from. Returns
+    ((decisions, text, model calls) for the browser, the same for the
+    console)."""
+    web = _router()
+    web._llm.chat, web_seen = _model(*replies)
+    with mock.patch("intergen.router.glass.emit") as emit:
+        end, prompt = _web_turn(web, draft, user=user)
+    browser = (_screen_decisions(emit), end["full_response"], len(web_seen))
+    console = _router()
+    console._llm.chat, console_seen = _model(*replies)
+    with mock.patch("intergen.router.glass.emit") as emit:
+        text = console._screen_and_correct_claim(
+            draft, prompt, dispatched=False, source="llm_freeform")
+    return browser, (_screen_decisions(emit), text, len(console_seen))
+
+
+class BothPathsTests(unittest.TestCase):
+    """The browser streamer keeps its own copy of the screen sequence, so the
+    two paths can drift apart; these hold them to one decision per draft."""
+
+    def test_both_paths_make_the_same_screen_decisions_on_one_draft(self):
+        cases = (
+            ("the invented table", TURN14_FINAL, TURN14_USER,
+             ("I haven't read how the space is divided on this machine.",)),
+            ("the self-offer", TURN39_DRAFT, "so, are you going to install it?",
+             ("I can install packages when you ask.",)),
+            ("the hortative claim", TURN22_FINAL, "check the printers",
+             ("To check for printers, run `lpstat -p -d` in a terminal.",)),
+            ("the bare pkm purpose", BARE_PKM_PURPOSE, TURN14_USER,
+             ("pkm manages software packages; `du -sh /*` shows what takes "
+              "the space.",)),
+            ("a clean answer", "Linux was first released in 1991.",
+             "When was Linux first released?", ()),
+        )
+        for name, draft, user, replies in cases:
+            with self.subTest(case=name):
+                browser, console = _both_paths(draft, replies, user)
+                self.assertEqual([d[0] for d in browser[0]], list(_SCREEN_ROWS))
+                self.assertEqual(browser, console)
+
+    def test_each_screen_regenerates_at_most_once_on_both_paths(self):
+        # Every regeneration is accepted by its own screen and trips the next:
+        # a hortative claim, then an invented reading, then a self-offer, then
+        # an invented subcommand twice. Four screens, four model calls, then
+        # the deterministic fallback; never a fifth call.
+        replies = ("Your disk has 20G free.",
+                   "I can install the Steam client for you.",
+                   "To install it, run `pkm add steam`.",
+                   "Run `pkm add steam`.")
+        browser, console = _both_paths(TURN22_FINAL, replies, "check the printers")
+        self.assertEqual(browser, console)
+        decisions, text, calls = browser
+        self.assertEqual(calls, 4)
+        self.assertEqual([(d[0], d[1]) for d in decisions], [
+            ("claim_screen", "violation_regenerated"),
+            ("state_claim_screen", "violation_regenerated"),
+            ("model_offer_screen", "violation_regenerated"),
+            ("capability_screen", "violation_regen_failed_fallback")])
+        self.assertEqual(text, safety.honest_capability_fallback("pkm add"))
+
+
 if __name__ == "__main__":
     unittest.main()
