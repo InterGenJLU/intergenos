@@ -664,5 +664,115 @@ class BareCommandFrameTests(unittest.TestCase):
             safety.screen_capability_claim("Run pkm install steam."),
             ("clean", None))
 
+
+# Verbatim from this machine's own model, a real firing of turn 14 at the
+# truth-screens tip (2026-10-20): every screen passed it.
+BARE_PKM_PURPOSE = (
+    "I don't have current data on this system's live state, but to find out "
+    "what's taking up the most space, you can use the `pkm` command to list "
+    "disk usage.")
+
+
+class PurposeClaimTests(unittest.TestCase):
+    def test_the_recorded_bare_pkm_purpose_is_a_capability_claim(self):
+        self.assertEqual(safety.screen_capability_claim(BARE_PKM_PURPOSE),
+                         ("violation", "pkm (to list disk usage)"))
+
+    def test_other_unserved_purposes_are_caught(self):
+        for text, marker in (
+                ("Use the pkm command to check your memory usage.",
+                 "pkm (to check your memory usage)"),
+                ("pkm can show you what's using your disk space.",
+                 "pkm (to show you what's using your disk space)"),
+                ("No problem! Try pkm to see which processes are running.",
+                 "pkm (to see which processes are running)")):
+            with self.subTest(text=text):
+                self.assertEqual(safety.screen_capability_claim(text),
+                                 ("violation", marker))
+
+    def test_true_purposes_corrections_and_unjudged_commands_stay_clean(self):
+        for text in ("You can use pkm to install Steam.",
+                     "Use the pkm command to update your software.",
+                     "pkm can show you which package owns a file.",
+                     "Use `pkm search` to find a package.",
+                     "Use pkm to check for updates.",
+                     "Use pkm to clean its cache.",
+                     "Use pkm for package management, and `du -sh *` to see "
+                     "what takes the space.",
+                     "You can't use pkm to list disk usage — use `du -sh` "
+                     "instead.",
+                     "pkm is not a tool for disk usage.",
+                     # No registered phrase: not judged (its invocations are).
+                     "Forge can also re-run an install over an existing one.",
+                     "InterGen can help you find large files."):
+            with self.subTest(text=text):
+                self.assertEqual(safety.screen_capability_claim(text),
+                                 ("clean", None))
+
+    def test_the_judged_command_is_the_registrys_package_manager(self):
+        self.assertTrue(capability_registry.PKM_UPDATE_COMMAND.startswith("pkm "))
+        self.assertEqual(safety._registry_phrase("pkm"),
+                         capability_registry.phrase("manage_packages"))
+        self.assertIsNotNone(safety._registry_phrase("pkm"))
+
+    def test_the_note_states_the_registry_capability_and_asks_for_the_subcommand(self):
+        _, marker = safety.screen_capability_claim(BARE_PKM_PURPOSE)
+        note = safety.capability_grounding_note(marker)
+        self.assertIn(capability_registry.phrase("manage_packages"), note)
+        self.assertIn("pkm's real subcommands are:", note)
+        self.assertIn("name it in full", note)
+        self.assertIn("list disk usage", note)
+        for denial in ("cannot", "can't", "does not list"):
+            self.assertNotIn(denial, note)
+
+    def test_the_fallback_says_the_claim_is_unconfirmed_never_impossible(self):
+        _, marker = safety.screen_capability_claim(BARE_PKM_PURPOSE)
+        text = safety.honest_capability_fallback(marker)
+        self.assertTrue(text.startswith(
+            "To be accurate: I can't confirm that pkm can list disk usage."))
+        self.assertIn(capability_registry.phrase("manage_packages"), text)
+        self.assertNotIn("pkm cannot", text)
+        self.assertNotIn("pkm can't", text)
+
+    def test_the_router_regenerates_with_the_registry_capability(self):
+        router = _router()
+        honest = ("pkm manages software packages and does not report disk "
+                  "usage; `du -sh /*` shows what takes the space.")
+        router._llm.chat, seen = _model(honest)
+        with mock.patch("intergen.router.glass.emit") as emit:
+            out = router._screen_and_correct_capability(
+                BARE_PKM_PURPOSE, _turn(user=TURN14_USER), source="llm_freeform")
+        self.assertEqual(out, honest)
+        self.assertIn(capability_registry.phrase("manage_packages"),
+                      seen[0][-1].content)
+        self.assertEqual(
+            [(r["verdict"], r["marker"]) for r in _rows(emit, "capability_screen")],
+            [("violation_regenerated", "pkm (to list disk usage)")])
+
+    def test_a_regeneration_repeating_the_claim_gets_the_fallback(self):
+        router = _router()
+        router._llm.chat, _ = _model(BARE_PKM_PURPOSE)
+        with mock.patch("intergen.router.glass.emit") as emit:
+            out = router._screen_and_correct_capability(
+                BARE_PKM_PURPOSE, _turn(user=TURN14_USER), source="llm_freeform")
+        self.assertTrue(out.startswith("To be accurate: I can't confirm"), out)
+        self.assertEqual(
+            [r["verdict"] for r in _rows(emit, "capability_screen")],
+            ["violation_regen_failed_fallback"])
+
+    def test_the_browser_path_screens_the_same_claim(self):
+        router = _router()
+        honest = ("pkm manages software packages and does not report disk "
+                  "usage; `du -sh /*` shows what takes the space.")
+        router._llm.chat, seen = _model(honest)
+        with mock.patch("intergen.router.glass.emit") as emit:
+            end, _ = _web_turn(router, BARE_PKM_PURPOSE)
+        self.assertEqual(end["full_response"], honest)
+        self.assertEqual(len(seen), 1)
+        self.assertEqual(
+            [(r["verdict"], r["marker"]) for r in _rows(emit, "capability_screen")],
+            [("violation_regenerated", "pkm (to list disk usage)")])
+
+
 if __name__ == "__main__":
     unittest.main()

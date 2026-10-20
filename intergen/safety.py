@@ -20,6 +20,7 @@ import functools
 import logging
 from pathlib import Path
 
+from intergen import capability_registry
 from intergen.interfaces.types import SafetyTier
 from intergen.reference import WRONG_PKG_MANAGERS
 
@@ -1981,7 +1982,7 @@ _CMD_END_RE = re.compile(r"[`\n]|\s[—–]\s|[.!?,;:]\s|[.!?]$")
 # "for" are no first-party tool's subcommand, and neither is the noun naming the
 # tool. Read as a command line, the gate called `pkm to` an invented subcommand
 # and its fallback told the user so, replacing a true sentence (measured
-# 2026-10-20).
+# 2026-10-20). The purpose screen below reads this frame.
 _BARE_COMMAND_NOUN = r"(?:command|tool|utility|program|package\s+manager|cli)"
 _BARE_COMMAND_FRAME_RE = re.compile(
     r"\s*(?:" + _BARE_COMMAND_NOUN + r"\s+)?(?:to|for)\b", re.IGNORECASE)
@@ -2228,6 +2229,92 @@ def _check_invocation(tool: str, args: "list[str]", spec: "dict"
     return None
 
 
+# ── A FIRST-PARTY COMMAND NAMED FOR A PURPOSE, WITH NO SUBCOMMAND ──
+# Measured on this machine's own model (a real firing of a recorded session's
+# turn 14, 2026-10-20): asked what was taking up the most space, it answered
+# "to find out what's taking up the most space, you can use the `pkm` command
+# to list disk usage." pkm is the package manager, and none of its subcommands
+# lists disk usage. The invocation check above passed the reply: a bare `pkm`
+# names no subcommand, so there was nothing to check. A command named as the
+# MEANS to an end is a capability claim with or without a command line.
+#
+# The claim is judged only for a command whose capability the registry states
+# (capability_registry: the package manager's phrase), because that phrase is
+# the ground truth for what the command is FOR. forge, intergen and the igos-*
+# commands have no registered phrase, so a purpose named for them is not judged
+# here; their invocations are still checked above.
+#
+# The purpose is taken at its word when it names anything the command does: a
+# word of the registry's phrase, or a package word its subcommands act on
+# ("use pkm to install Steam", "pkm can show a package's files"). A purpose that
+# names none of them is screened, and the regeneration is asked to name, in
+# full, the subcommand that does it (which the invocation check then verifies)
+# or to say plainly that the command is not the way. Nothing here asserts that
+# the command cannot do it: the fallback says the claim could not be confirmed.
+_REGISTRY_TOOL_OF_COMMAND = {"pkm": "manage_packages"}
+_PURPOSE_FRAME_RE = re.compile(
+    r"\b(?:use|run|try|using|with|via)\s+(?:the\s+)?`?" + _TOOL_NAME + r"`?"
+    r"(?:\s+" + _BARE_COMMAND_NOUN + r")?\s+(?:to|for)\s+"
+    r"|`?\b" + _TOOL_NAME + r"`?(?:\s+" + _BARE_COMMAND_NOUN + r")?"
+    r"\s+(?:can|lets\s+you|allows\s+you\s+to|helps\s+you|is\s+used\s+to)\s+",
+    re.IGNORECASE)
+_PURPOSE_END_RE = re.compile(r"[.!?;:\n(]|,\s|\s[—–]\s")
+# The package words pkm's subcommands act on, beyond the registry phrase's own.
+_PACKAGE_PURPOSE_RE = re.compile(
+    r"\b(?:(?:re|un)install\w*|remov\w*|upgrad\w*|downgrad\w*|autoremov\w*|"
+    r"packages?|dependenc(?:y|ies)|repositor(?:y|ies)|repos?|versions?|"
+    r"releases?|updates?|cache|unhold|hold)\b",
+    re.IGNORECASE)
+_PURPOSE_MAX_WORDS = 12
+_PURPOSE_MARKER_RE = re.compile(r"^(\S+) \(to (.+)\)$")
+
+
+def _registry_phrase(tool: str) -> str | None:
+    """What `tool` does, in the registry's own words, or None."""
+    registered = _REGISTRY_TOOL_OF_COMMAND.get(tool)
+    return capability_registry.phrase(registered) if registered else None
+
+
+def _purpose_is_served(tool: str, purpose: str) -> bool:
+    """True when `purpose` names something `tool` does: a word of its registry
+    phrase (as a word start, so "installed" counts for "install") or a package
+    word its subcommands act on."""
+    low = purpose.lower()
+    words = re.findall(r"[a-z]{4,}", (_registry_phrase(tool) or "").lower())
+    if any(re.search(r"\b" + re.escape(w.rstrip("s")), low)
+           for w in words if w != "and"):
+        return True
+    return _PACKAGE_PURPOSE_RE.search(low) is not None
+
+
+def _unserved_purpose(text: str) -> str | None:
+    """The marker "<tool> (to <purpose>)" for the first non-negated purpose
+    named for a registry-described command that names nothing it does, or
+    None."""
+    for m in _PURPOSE_FRAME_RE.finditer(text):
+        tool = (m.group(1) or m.group(2)).lower()
+        if tool not in _REGISTRY_TOOL_OF_COMMAND:
+            continue
+        window = text[max(0, m.start() - 48):m.end()]
+        window = re.split(r"[.!?\n]", window)[-1]
+        if _CAP_NEGATORS.search(window):
+            continue
+        rest = text[m.end():]
+        stop = _PURPOSE_END_RE.search(rest)
+        purpose = " ".join(
+            rest[:stop.start() if stop else len(rest)]
+            .replace("`", "").replace('"', "").split()[:_PURPOSE_MAX_WORDS])
+        if purpose and not _purpose_is_served(tool, purpose):
+            return f"{tool} (to {purpose})"
+    return None
+
+
+def _purpose_claim(marker: str | None) -> "tuple[str, str] | None":
+    """(tool, purpose) when `marker` is a purpose marker, else None."""
+    m = _PURPOSE_MARKER_RE.match(marker or "")
+    return (m.group(1), m.group(2)) if m else None
+
+
 def screen_capability_claim(draft: str) -> tuple[str, str | None]:
     """M4 capability gate over the whole first-party command surface.
 
@@ -2236,7 +2323,10 @@ def screen_capability_claim(draft: str) -> tuple[str, str | None]:
                                  draft names is one the tool really accepts.
       ("violation", marker)    — surface present; the draft invokes a tool we do
                                  not ship, or a subcommand or flag the tool does
-                                 not have. marker is the offending fragment.
+                                 not have, or names a registry-described command
+                                 as the way to do something it names nothing of
+                                 (see _unserved_purpose). marker is the offending
+                                 fragment, or "<tool> (to <purpose>)".
       ("unverifiable", marker) — the tool ships but its argument surface is not
                                  introspectable (a shell command), and the draft
                                  passes it arguments. Nothing is asserted either
@@ -2281,6 +2371,9 @@ def screen_capability_claim(draft: str) -> tuple[str, str | None]:
             return ("violation", marker)
         if unverifiable is None:
             unverifiable = marker
+    purpose = _unserved_purpose(text)
+    if purpose is not None:
+        return ("violation", purpose)
     if unverifiable is not None:
         return ("unverifiable", unverifiable)
     return ("clean", None)
@@ -2416,7 +2509,22 @@ def _surface_sentence(tool: str) -> str:
 def capability_grounding_note(marker: str | None = None) -> str:
     """Corrective note for regeneration: grounds the model in the REAL interface
     of the tool it got wrong, so it drops the invented command. Derived from the
-    surface artifact (no hand-kept list)."""
+    surface artifact (no hand-kept list).
+
+    For a purpose marker ("pkm (to list disk usage)") the note states what the
+    registry says the command does and its real subcommands, and asks for the
+    subcommand in full or a plain statement — never asserting that the command
+    cannot do it."""
+    claim = _purpose_claim(marker)
+    if claim is not None:
+        tool, purpose = claim
+        return (f"{tool} is a real InterGenOS command, and it can "
+                f"{_registry_phrase(tool)}. {_surface_sentence(tool)} Your answer "
+                f"named {tool} as the way to {purpose} without naming a {tool} "
+                "subcommand that does it. Correct your answer: if one of those "
+                f"subcommands does it, name it in full (`{tool} <subcommand>`); if "
+                f"none of them does, do not point the user to {tool} for it, and "
+                "say plainly what you can tell them instead.")
     tool = _tool_of(marker)
     named = f" `{marker}` is not one of them." if marker else ""
     extra = (" To install software the command is `pkm install <package>`."
@@ -2431,7 +2539,14 @@ def capability_grounding_note(marker: str | None = None) -> str:
 
 def honest_capability_fallback(marker: str | None = None) -> str:
     """Deterministic non-fabricating reply if the model still invents a command
-    after one corrective regeneration. Honesty over helpfulness."""
+    after one corrective regeneration. Honesty over helpfulness. For a purpose
+    marker it says the claim could not be confirmed and states what the command
+    does; it never says the command cannot do it."""
+    claim = _purpose_claim(marker)
+    if claim is not None:
+        tool, purpose = claim
+        return (f"To be accurate: I can't confirm that {tool} can {purpose}. "
+                f"{tool} can {_registry_phrase(tool)}; {_surface_sentence(tool)}")
     tool = _tool_of(marker)
     named = f"`{marker}` is not a command {tool} accepts. " if marker else ""
     extra = (" To install software, use `pkm install <package>`."
