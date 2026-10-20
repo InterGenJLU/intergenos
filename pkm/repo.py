@@ -857,6 +857,13 @@ class RepoManager:
                     total = (
                         None if body_len is None else body_len + resumed_from
                     )
+                    if on_bytes is not None:
+                        try:
+                            # A zero-byte update marks the response boundary:
+                            # retries may resume, or a 200 may restart at zero.
+                            on_bytes(0, total, resumed_from)
+                        except Exception:
+                            pass
                     with open(partial_path, mode) as f:
                         while True:
                             chunk = resp.read(self._DOWNLOAD_CHUNK_BYTES)
@@ -1561,17 +1568,17 @@ class RepoManager:
                 _bytes_report = _progress.ByteProgress(
                     f"Get: {filename}",
                     total_bytes=pkg.get("size") or None,
+                    stream=getattr(reporter, "stream", None),
                     level=getattr(reporter, "level", None),
                 )
+                _bytes_report.start()
 
             def _on_bytes(n, total, resumed_from, _r=_bytes_report):
                 if _r is None:
                     return
-                if total and not _r.total:
-                    # A resumed transfer declares only what remains; the
-                    # whole-file total the helper was handed already
-                    # accounts for the offset.
-                    _r.total = total
+                if n == 0:
+                    _r.reset(resumed_from, total)
+                    return
                 _r.advance(n)
 
             try:

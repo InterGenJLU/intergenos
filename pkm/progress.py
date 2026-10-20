@@ -36,6 +36,7 @@ per-command invention, and so a test can ask which parts a command claims
 to have.
 """
 
+import threading
 import time
 
 # The named parts of a user-visible pkm operation. Stated once, in the order
@@ -295,7 +296,7 @@ class ByteProgress:
     # on purpose: its job is to prove liveness in a captured log, not to
     # animate.
     TTY_INTERVAL = 0.2
-    LOG_INTERVAL = 10.0
+    LOG_INTERVAL = 3.0
 
     def __init__(self, label, total_bytes=None, stream=None, level=None):
         self.label = label
@@ -306,6 +307,33 @@ class ByteProgress:
         self._started = time.monotonic()
         self._last = 0.0
         self._wrote_tty_line = False
+        self._lock = threading.RLock()
+        self._stop = threading.Event()
+        self._thread = None
+
+    def start(self):
+        """Keep reporting during connection, read and retry waits."""
+        try:
+            if self._thread is not None or self._resolve_level() <= 0:
+                return
+            self.advance(0)
+            interval = (self.TTY_INTERVAL if self._is_tty(self._resolve_stream())
+                        else self.LOG_INTERVAL)
+
+            def heartbeat():
+                while not self._stop.wait(interval):
+                    self.advance(0)
+
+            self._thread = threading.Thread(target=heartbeat, daemon=True)
+            self._thread.start()
+        except Exception:
+            pass
+
+    def reset(self, completed_bytes, total_bytes=None):
+        """Use the actual offset and length when an attempt opens a response."""
+        with self._lock:
+            self._done = int(completed_bytes)
+            self.total = int(total_bytes) if total_bytes else None
 
     def _resolve_stream(self):
         if self._stream is not None:
@@ -331,34 +359,38 @@ class ByteProgress:
     def advance(self, n_bytes):
         """Record ``n_bytes`` more transferred, printing if it is time."""
         try:
-            self._done += int(n_bytes)
-            now = time.monotonic()
-            stream = self._resolve_stream()
-            tty = self._is_tty(stream)
-            interval = self.TTY_INTERVAL if tty else self.LOG_INTERVAL
-            if self._last and (now - self._last) < interval:
-                return
-            self._last = now
-            self._emit(stream, tty, now)
+            with self._lock:
+                self._done += int(n_bytes)
+                now = time.monotonic()
+                stream = self._resolve_stream()
+                tty = self._is_tty(stream)
+                interval = self.TTY_INTERVAL if tty else self.LOG_INTERVAL
+                if self._last and (now - self._last) < interval:
+                    return
+                self._last = now
+                self._emit(stream, tty, now)
         except Exception:
             pass
 
-    def _render(self, now):
+    def _render(self, now, tty=False):
         from .output import human_size
         elapsed = max(now - self._started, 1e-6)
         rate = self._done / elapsed
         got = human_size(self._done, precision=1)
         speed = f"{human_size(rate, precision=1)}/s"
+        duration = f"elapsed {now - self._started:.1f}s"
         if self.total:
             pct = min(100.0, 100.0 * self._done / self.total)
             of = human_size(self.total, precision=1)
-            return f"  {self.label}  {got} of {of}  {pct:5.1f}%  {speed}"
-        return f"  {self.label}  {got}  {speed}"
+            cells = int(pct / 5)
+            bar = f"[{'=' * cells}{' ' * (20 - cells)}] " if tty else ""
+            return f"  {self.label}  {bar}{got} of {of}  {pct:5.1f}%  {speed}  {duration}"
+        return f"  {self.label}  {got}  total unknown  {speed}  {duration}"
 
     def _emit(self, stream, tty, now):
         if self._resolve_level() <= 0:      # QUIET
             return
-        line = self._render(now)
+        line = self._render(now, tty)
         if tty:
             print(f"\r{line}", end="", file=stream, flush=True)
             self._wrote_tty_line = True
@@ -374,11 +406,14 @@ class ByteProgress:
         this report worth keeping in a log.
         """
         try:
+            self._stop.set()
+            if self._thread is not None and self._thread.is_alive():
+                self._thread.join()
             if self._resolve_level() <= 0:
                 return
             stream = self._resolve_stream()
             now = time.monotonic()
-            line = self._render(now)
+            line = self._render(now, self._is_tty(stream))
             if outcome:
                 line += f"  {outcome}"
             if self._is_tty(stream) and self._wrote_tty_line:

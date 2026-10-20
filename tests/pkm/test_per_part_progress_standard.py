@@ -286,6 +286,37 @@ class ByteProgressTest(unittest.TestCase):
         bp.close("✓")
         self.assertTrue(True)
 
+    def test_captured_progress_reports_elapsed_time_every_few_seconds(self):
+        buf = io.StringIO()
+        with unittest.mock.patch("pkm.progress.time.monotonic", return_value=100.0) as clock:
+            bp = self.progress.ByteProgress(
+                "Get: archive", total_bytes=8000, stream=buf, level=output.NORMAL)
+            for second in range(8):
+                clock.return_value = 100.0 + second
+                bp.advance(1000)
+            bp.close("done")
+        lines = buf.getvalue().splitlines()
+        self.assertEqual(len(lines), 4, buf.getvalue())
+        for elapsed, line in zip((0, 3, 6, 7), lines):
+            self.assertIn(f"elapsed {elapsed:.1f}s", line)
+            self.assertIn("%", line)
+            self.assertIn("/s", line)
+        self.assertNotIn("\r", buf.getvalue())
+
+    def test_terminal_progress_has_an_in_place_bar(self):
+        class Terminal(io.StringIO):
+            def isatty(self):
+                return True
+
+        buf = Terminal()
+        bp = self.progress.ByteProgress(
+            "Get: archive", total_bytes=1000, stream=buf, level=output.NORMAL)
+        bp.advance(500)
+        bp.close("done")
+        self.assertIn("[==========          ]", buf.getvalue())
+        self.assertIn("elapsed ", buf.getvalue())
+        self.assertEqual(buf.getvalue().count("\n"), 1)
+
 
 # ----------------------------------------------------------------------
 # The structural half — a new silent loop must FAIL, not wait for a report.
