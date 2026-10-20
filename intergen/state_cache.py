@@ -641,9 +641,8 @@ class StateCache:
             # see", not a flat "not running".
             blocks.append(self._dated_block(
                 "service_list",
-                "Currently running services (the running-units list I can "
-                "see; if a service is not in this list, say it is not among "
-                "the running services rather than flatly 'not running'):",
+                "Currently running services (a bounded list of visible "
+                "running units):",
                 "(none visible)"))
         if want_procs:
             v = self.get("top_processes")

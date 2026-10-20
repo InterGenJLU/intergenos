@@ -7683,6 +7683,15 @@ class ConversationRouter(RouterInterface):
         """
         messages = self._llm.build_system_messages(query_type="system_map",
                                                    with_tools=False)
+        messages.append(Message(
+            role=MessageRole.SYSTEM,
+            content=(
+                "The running-service list is bounded. If a service is absent, "
+                "say only that it is not among the visible running services. "
+                "Absence from this list does not establish that the service "
+                "is not running."
+            ),
+        ))
         for msg in self._conv.history[-self._max_history:]:
             messages.append(msg)
         messages.append(Message(
