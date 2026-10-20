@@ -682,7 +682,10 @@ _ACCEPTANCE_RESTATE_TOKEN = (
     r"(?:please|thanks?|thank\s+you|go\s+ahead|go\s+for\s+it|go|proceed|"
     r"do\s+(?:it|that|so)|run\s+(?:it|that)|check(?:\s+(?:it|that))?|"
     r"look|verify|try\s+(?:it|that)|sure|ok|okay|now|then|for\s+me|"
-    r"sounds\s+good|that\s+works|do|it|that)")
+    r"sounds\s+good|that\s+works|do|it|that|"
+    # The connective between two acceptance words — "yes, go ahead and do it"
+    # (2026-10-20). A content word after it still fails the full match.
+    r"and)")
 _ACCEPTANCE_RESTATE_RE = re.compile(
     r"^\s*" + _ACCEPTANCE_RESTATE_TOKEN +
     r"(?:[\s,.!]+" + _ACCEPTANCE_RESTATE_TOKEN + r")*\s*[.!?,]*\s*$",

@@ -272,6 +272,12 @@ class HowtoAction:
 
     command: str       # the exact command shape, e.g. "pkm upgrade"
     tool: str          # the InterGen tool that executes it, e.g. "manage_packages"
+    # The structured arguments that tool takes for this action — manage_packages
+    # → {"action": "install", "package": "steam"} — so the offer runs through the
+    # tool's own path and never as a shell line (a staged "sudo pkm sync && …"
+    # dispatched as run_command was blocked at the safety tier, 2026-10-19).
+    # Pairs, so the entry stays hashable; empty when the tool takes the command.
+    arguments: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -357,8 +363,13 @@ class HowtoCorpus:
             action_raw = item.get("action")
             action = None
             if isinstance(action_raw, dict) and action_raw.get("command"):
+                raw_args = action_raw.get("arguments")
+                arguments = (tuple(sorted((str(k), str(v))
+                                          for k, v in raw_args.items()))
+                             if isinstance(raw_args, dict) else ())
                 action = HowtoAction(command=str(action_raw["command"]),
-                                     tool=str(action_raw.get("tool", "")))
+                                     tool=str(action_raw.get("tool", "")),
+                                     arguments=arguments)
             return HowtoEntry(
                 id=str(item["id"]),
                 domain=str(item.get("domain", "")),

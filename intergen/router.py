@@ -855,6 +855,57 @@ def _last_named(history: "list", pattern: "re.Pattern[str]") -> str:
     return ""
 
 
+_PKM_WHOLE_SYSTEM_RE = re.compile(r"\bpkm\s+(?:upgrade|sync|update)\b", re.IGNORECASE)
+_PKM_ACTION_OF_VERB = {"install": "install", "remove": "remove",
+                       "uninstall": "remove", "upgrade": "update",
+                       "update": "update"}
+
+
+def _package_action_arguments(command: str) -> "dict[str, str] | None":
+    """The manage_packages arguments a pkm command line MEANS — "sudo pkm
+    install steam" → install steam; "sudo pkm sync && sudo pkm upgrade --all"
+    → the whole-system update — or None when the line is not a pkm action.
+    The staged offer then runs through the package manager's own tool, which
+    asks for the authorization itself, instead of as a shell line the safety
+    tier blocks for its sudo."""
+    text = (command or "").strip().lower()
+    m = _PKM_PACKAGE_RE.match(text)
+    if m:
+        verb = re.match(r"(?:sudo\s+)?pkm\s+(\w+)", text).group(1)
+        action = _PKM_ACTION_OF_VERB[verb]
+        target = m.group(1).rstrip("-")
+        if target.startswith("-") or not target:
+            return {"action": "update"} if action == "update" else None
+        return {"action": action, "package": target}
+    if _PKM_WHOLE_SYSTEM_RE.search(text):
+        return {"action": "update"}
+    return None
+
+
+def _names_the_staged_action(text: str, command: str, tool: str,
+                             args: "dict | None") -> bool:
+    """True when the turn is an imperative for the STAGED action itself —
+    "run that install", "install it", "run it" over a staged install — and
+    never a different action ("remove it" over an install offer is not this).
+    The verb must be the staged action's, or a plain run/do; its object must
+    refer to the offer (it, that, the install), not name something else."""
+    verb, _kind = _follow_up_action(text or "")
+    if verb is None:
+        return False
+    refers = bool(_acts_on_a_referent(text) or _ACTION_NOUN_RE.search(text or "")
+                  or _PRO_VERB_AFFIRMATIVE_RE.match(text or ""))
+    if not refers:
+        return False
+    if verb in ("run", "execute", "do", "try"):
+        return True
+    staged = None
+    if isinstance(args, dict):
+        staged = args.get("action")
+    if staged is None:
+        staged = (_package_action_arguments(command) or {}).get("action")
+    return _PKM_ACTION_OF_VERB.get(verb) == staged
+
+
 def _command_as_request(cmd: str) -> str:
     """A shown command as the text the ladder acts on: a pkm command is its own
     carrier ("pkm install steam"); anything else is "run <command>"."""
@@ -4940,7 +4991,8 @@ class ConversationRouter(RouterInterface):
         return honest_handoff_message("", command, needs_admin)
 
     def _stage_action_offer_or_handoff(self, command: str, tool: str,
-                                       original: str) -> str:
+                                       original: str,
+                                       arguments: "dict | None" = None) -> str:
         """Either arm a fresh action offer and return the offer line, OR — when
         this action was already declined/handed off this conversation — suppress
         the re-offer and return an honest acknowledgement + handoff instead
@@ -4952,7 +5004,15 @@ class ConversationRouter(RouterInterface):
             # No live offer is armed — the action already ran its course.
             self._stage_single_offer()
             return self._handoff_line(command)
-        self._stage_single_offer(action=(command, tool, original))
+        # A pkm line is staged for the package manager's OWN tool with the
+        # arguments it means, whichever tool the caller named: the person sees
+        # the command, the gate sees manage_packages install steam.
+        if not arguments and tool in ("run_command", "manage_packages"):
+            derived = _package_action_arguments(command)
+            if derived:
+                tool, arguments = "manage_packages", derived
+        self._stage_single_offer(action=(command, tool, original,
+                                         arguments or None))
         return self._offer_line(command)
 
     def _stage_single_offer(self, *, action=None, ipv6=None, memory=None) -> None:
@@ -4976,6 +5036,8 @@ class ConversationRouter(RouterInterface):
                  else "memory" if memory else None)
         glass.emit("decision", "offer_stage", detail={
             "slot": _live, "command": action[0] if action else None,
+            "tool": action[1] if action else None,
+            "arguments": (action[3] if action and len(action) > 3 else None),
             "cleared": _live is None})
 
     def _turn_relates_to_offer(self, user_input: str) -> bool:
@@ -5293,10 +5355,7 @@ class ConversationRouter(RouterInterface):
             # re-routed through the matcher/model). A run_command offer keeps the
             # established _run_staged_command seam; an M8-4 write_file offer
             # dispatches its {path, content} through _run_staged_action.
-            if _tool == "write_file" and _args:
-                result = self._run_staged_action(command, _tool, _args)
-            else:
-                result = self._run_staged_command(command)
+            result = self._run_staged_offer(command, _tool, _args)
             self._record(result, t0, "explain_offer_run")
             return result
         if MemoryManager.is_affirmative(user_input):
@@ -5311,10 +5370,7 @@ class ConversationRouter(RouterInterface):
                     "command": command, "user_msg": user_input,
                     "dispatched": True, "restated_acceptance": True,
                     "tail": tail})
-                if _tool == "write_file" and _args:
-                    result = self._run_staged_action(command, _tool, _args)
-                else:
-                    result = self._run_staged_command(command)
+                result = self._run_staged_offer(command, _tool, _args)
                 self._record(result, t0, "explain_offer_run")
                 return result
             # Prefixed "Yes, <content tail>" over a LIVE offer — the
@@ -5331,6 +5387,21 @@ class ConversationRouter(RouterInterface):
             self._reoffer_tail = tail or user_input
             self._reoffer_reminder = reminder
             return None
+        # AN ACCEPTANCE IN THE PERSON'S OWN WORDS over a live offer is the
+        # acceptance: "run it", "please do it", and an imperative that names the
+        # offered action itself — "run that install", "install it" (turn 50 of
+        # the 2026-10-19 session lapsed the install offer on "run that
+        # install"). Only the exact staged action runs; a different verb over
+        # the offer is not this and lapses as before.
+        if (MemoryManager.is_acceptance_restating_tail(user_input)
+                or _names_the_staged_action(user_input, command, _tool, _args)):
+            self._conv.pending_action_offer = None
+            glass.emit("decision", "offer_consume", detail={
+                "command": command, "user_msg": user_input, "dispatched": True,
+                "own_words": True, "tool": _tool, "arguments": _args})
+            result = self._run_staged_offer(command, _tool, _args)
+            self._record(result, t0, "explain_offer_run")
+            return result
         if MemoryManager.is_bare_negative(user_input):
             self._conv.pending_action_offer = None
             glass.emit("decision", "offer_decline", detail={
@@ -5429,6 +5500,15 @@ class ConversationRouter(RouterInterface):
             "post_generation": True, "default_applied": spec.get("default_applied")})
         return self._file_offer_line(spec["label"])
 
+    def _run_staged_offer(self, command: str, tool: "str | None",
+                          args: "dict | None") -> RouteResult:
+        """Run a staged offer through the tool it was staged for: a tool with
+        structured arguments (manage_packages, write_file, …) through
+        _run_staged_action; a bare shell line through _run_staged_command."""
+        if args and tool and tool != "run_command":
+            return self._run_staged_action(command, tool, args)
+        return self._run_staged_command(command)
+
     def _run_staged_command(self, command: str) -> RouteResult:
         """Back-compat wrapper — a staged run_command shell line (see
         _run_staged_action)."""
@@ -5484,6 +5564,13 @@ class ConversationRouter(RouterInterface):
             call = ToolCall(name="write_file", arguments=dict(args),
                             source_of_request=Provenance.USER_DIRECT)
             display = args.get("path", command)
+        elif tool in ("manage_packages", "manage_services") and args:
+            # The structured action the offer staged, through the tool's own
+            # path: the package manager's privileged dispatcher asks for the
+            # authorization; a shell line with sudo never reaches it.
+            call = ToolCall(name=tool, arguments=dict(args),
+                            source_of_request=Provenance.USER_DIRECT)
+            display = command
         elif tool == "web_search" and args:
             # A search the user asked for and then accepted. It goes out through
             # the same gate as every other dispatch; the query is the question
@@ -5769,7 +5856,8 @@ class ConversationRouter(RouterInterface):
             # a previously-declined action is not re-offered — the honest handoff
             # is substituted (loop-killer).
             answer = f"{answer}\n\n" + self._stage_action_offer_or_handoff(
-                entry.action.command, entry.action.tool, user_input)
+                entry.action.command, entry.action.tool, user_input,
+                dict(entry.action.arguments) or None)
         else:
             self._stage_single_offer()
         # Cite the source page — a link to the LOCAL installed wiki page (+ the

@@ -15,7 +15,10 @@
     "answer": "Update installed packages in two explicit steps:\n\n```\nsudo pkm sync            # refresh the signed package index\nsudo pkm upgrade --all   # install available upgrades for installed packages\n```\n\nSync refreshes metadata; it does not install updates. The upgrade uses the synced index and installs newer package builds. To upgrade only selected packages, name them instead of using `--all`, for example `sudo pkm upgrade firefox`. A bare `pkm upgrade` without names or `--all` is refused.",
     "action": {
       "command": "sudo pkm sync && sudo pkm upgrade --all",
-      "tool": "manage_packages"
+      "tool": "manage_packages",
+      "arguments": {
+        "action": "update"
+      }
     },
     "doc_source": "docs/users/package-management.md",
     "requires": [
@@ -164,6 +167,14 @@
     ],
     "answer": "Chrome is proprietary, so InterGenOS ships a **download-helper** rather than bundling it. Same\ncommand as any package:\n```\nsudo pkm install chrome\n```\npkm shows a consent pause, then runs Google's \"I ACCEPT\" EULA and downloads the real Chrome.\n(An open alternative that's built from source and needs no EULA: `sudo pkm install firefox`.)",
     "doc_source": "tools/intergen-coverage/drafts",
+    "action": {
+      "command": "sudo pkm install chrome",
+      "tool": "manage_packages",
+      "arguments": {
+        "action": "install",
+        "package": "chrome"
+      }
+    },
     "requires": []
   },
   {
@@ -174,6 +185,14 @@
     ],
     "answer": "VS Code is proprietary Microsoft software, delivered via a download-helper:\n```\nsudo pkm install vscode\n```\npkm pauses for consent, runs Microsoft's EULA, then downloads the real VS Code. (A fully-open\nbuild is not shipped separately; the helper fetches Microsoft's official binary.)",
     "doc_source": "tools/intergen-coverage/drafts",
+    "action": {
+      "command": "sudo pkm install vscode",
+      "tool": "manage_packages",
+      "arguments": {
+        "action": "install",
+        "package": "vscode"
+      }
+    },
     "requires": []
   },
   {
@@ -184,6 +203,14 @@
     ],
     "answer": "Steam is available through the **steam download-helper package**:\n```\nsudo pkm install steam\n```\nThe helper package comes from the InterGenOS repository; it downloads the Valve client separately. Follow the vendor license prompt before the download proceeds. To check whether the package is already registered as installed, use `pkm info steam`. Package availability does not mean the client is already installed on your machine.",
     "doc_source": "docs/users/package-management.md; packages/extra/steam/package.yml",
+    "action": {
+      "command": "sudo pkm install steam",
+      "tool": "manage_packages",
+      "arguments": {
+        "action": "install",
+        "package": "steam"
+      }
+    },
     "requires": []
   },
   {
@@ -194,6 +221,14 @@
     ],
     "answer": "Spotify is proprietary; InterGenOS ships a download-helper:\n```\nsudo pkm install spotify\n```\npkm pauses for consent, runs Spotify's terms acceptance, and downloads the real client.",
     "doc_source": "tools/intergen-coverage/drafts",
+    "action": {
+      "command": "sudo pkm install spotify",
+      "tool": "manage_packages",
+      "arguments": {
+        "action": "install",
+        "package": "spotify"
+      }
+    },
     "requires": []
   },
   {
@@ -204,6 +239,14 @@
     ],
     "answer": "Discord is proprietary; installed via its download-helper:\n```\nsudo pkm install discord\n```\npkm shows the consent pause, runs Discord's ToS acceptance, and downloads the real client.",
     "doc_source": "tools/intergen-coverage/drafts",
+    "action": {
+      "command": "sudo pkm install discord",
+      "tool": "manage_packages",
+      "arguments": {
+        "action": "install",
+        "package": "discord"
+      }
+    },
     "requires": []
   },
   {
@@ -214,6 +257,14 @@
     ],
     "answer": "Zoom is available through the **zoom download-helper package**:\n```\nsudo pkm install zoom\n```\nThe InterGenOS package supplies the helper; the vendor application is downloaded separately after the license prompt. `pkm info zoom` reports the package's registration state, so you can distinguish an available package from one already installed.",
     "doc_source": "docs/users/package-management.md; packages/extra/zoom/package.yml",
+    "action": {
+      "command": "sudo pkm install zoom",
+      "tool": "manage_packages",
+      "arguments": {
+        "action": "install",
+        "package": "zoom"
+      }
+    },
     "requires": []
   },
   {
@@ -224,6 +275,14 @@
     ],
     "answer": "InterGenOS doesn't ship VLC. The included, from-source media player is **mpv** (plus the\nCelluloid GTK front-end and Rhythmbox for music):\n```\nsudo pkm install mpv          # command-line + desktop player\nsudo pkm install celluloid    # GNOME/GTK front-end for mpv\n```\nmpv plays essentially everything VLC does. If you specifically need VLC, it isn't packaged yet.",
     "doc_source": "tools/intergen-coverage/drafts",
+    "action": {
+      "command": "sudo pkm install mpv",
+      "tool": "manage_packages",
+      "arguments": {
+        "action": "install",
+        "package": "mpv"
+      }
+    },
     "requires": []
   },
   {
