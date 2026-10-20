@@ -1976,6 +1976,16 @@ _TOOL_INVOKE_RE = re.compile(
 # arguments and half of it read as invented flags.
 _CMD_END_RE = re.compile(r"[`\n]|\s[—–]\s|[.!?,;:]\s|[.!?]$")
 
+# A command named as the MEANS to an end, not run: "use pkm to install Steam",
+# "run pkm for a full upgrade", "use pkm command to list packages". "to" and
+# "for" are no first-party tool's subcommand, and neither is the noun naming the
+# tool. Read as a command line, the gate called `pkm to` an invented subcommand
+# and its fallback told the user so, replacing a true sentence (measured
+# 2026-10-20).
+_BARE_COMMAND_NOUN = r"(?:command|tool|utility|program|package\s+manager|cli)"
+_BARE_COMMAND_FRAME_RE = re.compile(
+    r"\s*(?:" + _BARE_COMMAND_NOUN + r"\s+)?(?:to|for)\b", re.IGNORECASE)
+
 # Honest correction / negation guard: the model naming an invalid command while
 # DENYING it ("there is no `pkm add`", "not `pkm add` — use `pkm install`") is
 # correct behavior and must never trip the gate (anti-lobotomy).
@@ -2092,6 +2102,8 @@ def _iter_invocations(text: str) -> "list[tuple[str, list[str], str]]":
         rest = text[m.end():]
         stop = _CMD_END_RE.search(rest)
         line = rest[:stop.start()] if stop else rest
+        if _BARE_COMMAND_FRAME_RE.match(line):
+            continue
         add(tool, line.split())
 
     lines = text.splitlines()

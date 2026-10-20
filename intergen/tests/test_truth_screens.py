@@ -644,5 +644,25 @@ class BrowserSelfOfferTests(unittest.TestCase):
                            "I can install the Steam client for you")])
 
 
+# ── a first-party command named for a purpose ────────────────────────────────
+class BareCommandFrameTests(unittest.TestCase):
+    def test_a_command_named_as_the_means_is_not_run_with_a_subcommand(self):
+        # Each was screened as an invented `pkm to`, `pkm for` or `pkm command`,
+        # and the fallback told the user that, in place of a true sentence.
+        for text in ("You can use pkm to install Steam.",
+                     "Use pkm to check for updates.",
+                     "Run pkm for a full upgrade.",
+                     "Use pkm command to list packages."):
+            with self.subTest(text=text):
+                self.assertEqual(safety.screen_capability_claim(text),
+                                 ("clean", None))
+
+    def test_a_command_line_after_the_lead_in_is_still_checked(self):
+        self.assertEqual(safety.screen_capability_claim("Use pkm add steam."),
+                         ("violation", "pkm add"))
+        self.assertEqual(
+            safety.screen_capability_claim("Run pkm install steam."),
+            ("clean", None))
+
 if __name__ == "__main__":
     unittest.main()
