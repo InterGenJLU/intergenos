@@ -3,7 +3,7 @@
 """An instructional compound leaves model work to the streaming caller."""
 from unittest import mock
 import pytest
-from intergen.interfaces.types import RouteResult
+from intergen.interfaces.types import LLMResponse, RouteResult
 from intergen.tests.test_compound_howto_routing import router
 @pytest.mark.parametrize('query',[
  'how do I check for updates and how do I calibrate the frobnicator',
@@ -11,12 +11,12 @@ from intergen.tests.test_compound_howto_routing import router
  'how do I calibrate the frobnicator',
 ])
 def test_decide_only_never_generates(router,query):
- with mock.patch.object(router,'_try_llm_freeform',return_value=RouteResult(text='Generated explanation.',source='llm_freeform',handled=True,used_llm=True)) as generation, mock.patch.object(router,'_try_llm_tools',return_value=RouteResult(text='Generated explanation.',source='llm_tools',handled=True,used_llm=True)) as tools:
+ with mock.patch.object(router._llm,'chat',return_value=LLMResponse(text='Generated explanation.',model='test',local=True)) as generation, mock.patch.object(router,'_try_llm_tools',return_value=RouteResult(text='Generated explanation.',source='llm_tools',handled=True,used_llm=True)) as tools:
   result=router.route(query,decide_only=True)
  assert generation.call_count+tools.call_count==0
  router._tools.execute.assert_not_called()
 def test_generation_instrument_detects_normal_generation(router):
- with mock.patch.object(router,'_try_llm_freeform',return_value=RouteResult(text='Generated explanation.',source='llm_freeform',handled=True,used_llm=True)) as generation, mock.patch.object(router,'_try_llm_tools',return_value=RouteResult(text='Generated explanation.',source='llm_tools',handled=True,used_llm=True)) as tools:
+ with mock.patch.object(router._llm,'chat',return_value=LLMResponse(text='Generated explanation.',model='test',local=True)) as generation, mock.patch.object(router,'_try_llm_tools',return_value=RouteResult(text='Generated explanation.',source='llm_tools',handled=True,used_llm=True)) as tools:
   result=router.route('how do I calibrate the frobnicator',decide_only=False)
  assert generation.call_count+tools.call_count==1
  assert result.used_llm
@@ -28,7 +28,7 @@ def test_generation_instrument_detects_normal_generation(router):
     "how do I calibrate the frobnicator and how do I tune the fluxometer",
 ])
 def test_uncovered_compound_returns_a_generation_decision(router, query):
-    with mock.patch.object(router, "_try_llm_freeform") as generation, \
+    with mock.patch.object(router._llm, "chat") as generation, \
             mock.patch.object(router, "_try_llm_tools") as tools:
         result = router.route(query, decide_only=True)
     generation.assert_not_called()
@@ -41,7 +41,7 @@ def test_uncovered_compound_returns_a_generation_decision(router, query):
 
 
 def test_covered_compound_keeps_both_answers_during_route_decision(router):
-    with mock.patch.object(router, "_try_llm_freeform") as generation, \
+    with mock.patch.object(router._llm, "chat") as generation, \
             mock.patch.object(router, "_try_llm_tools") as tools:
         result = router.route(
             "how do I check for updates and how do I list installed packages",

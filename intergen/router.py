@@ -3627,7 +3627,7 @@ class ConversationRouter(RouterInterface):
                     "source": "llm_freeform", "decide_only": True, "streamed": True,
                     "query_type": self._current_query_type,
                     "semantic_score": self._last_semantic_score})
-                return RouteResult(text="", source="llm_freeform", handled=False)
+                return self._try_llm_freeform(user_input, decide_only=True)
             result = self._try_llm_freeform(user_input)
             self._won("llm_freeform", explain_prior=True)
             self._record(result, t0, "llm_freeform")
@@ -4008,7 +4008,7 @@ class ConversationRouter(RouterInterface):
                 "source": "llm_freeform", "decide_only": True, "streamed": True,
                 "query_type": self._current_query_type,
                 "semantic_score": self._last_semantic_score})
-            return RouteResult(text="", source="llm_freeform", handled=False)
+            return self._try_llm_freeform(user_input, decide_only=True)
         with get_tracer().span("router.llm_freeform", kind="llm") as _llm_span:
             result = self._try_llm_freeform(user_input)
             _llm_span.set_attribute("prompt_tok_count", result.tokens_prompt)
@@ -6125,6 +6125,35 @@ class ConversationRouter(RouterInterface):
         )
         return block, hit.citation, hit.passage
 
+    @staticmethod
+    def _system_documentation_pointer(user_input: str) -> str | None:
+        """Point an uncovered system how-to to the wiki without inventing a page."""
+        if not (_EXPLAIN_PRIOR_RE.search(user_input) or re.search(
+                r"\bhow\s+does\b|\bhow\s+do\b.*\bwork\b",
+                user_input, re.IGNORECASE)):
+            return None
+        # A request to produce code keeps its existing conversational route,
+        # including when the requested program would administer the system.
+        if re.search(
+                r"\b(?:write|generate|create|develop|implement|debug)\b"
+                r".*\b(?:code|scripts?|programs?|functions?|python|javascript)\b"
+                r"|\b(?:code|program)\s+(?:a|an|the|my|this)\b",
+                user_input, re.IGNORECASE | re.DOTALL):
+            return None
+        if not (_SYSTEM_SCOPE_RE.search(user_input) or re.search(
+                r"\b(?:intergenos|boot|install|installation|packages?|services?|"
+                r"kernel|secure\s+boot|backups?|chronicle|desktop|gnome|"
+                r"terminal|taskbar|dock|workspaces?|wallpaper)\b",
+                user_input, re.IGNORECASE)):
+            return None
+        from intergen.wiki_citations import WIKI_URL_BASE
+        return (
+            "I don't have documentation for that. You can browse the "
+            f"[InterGenOS wiki]({WIKI_URL_BASE}). If the wiki package is "
+            "installed, its local index is "
+            "`/usr/share/doc/intergenos/wiki/index.html`."
+        )
+
     def _wiki_citation_if_used(self, answer: str, citation: "str | None",
                                passage: "str | None", user_input: str
                                ) -> "tuple[str | None, float]":
@@ -6202,7 +6231,7 @@ class ConversationRouter(RouterInterface):
             # data is unavailable. Never turn its verbs into an action dispatch.
             if decide_only:
                 _note("llm_freeform", "won", explain_prior=True, decide_only=True)
-                return RouteResult(text="", source="llm_freeform", handled=False)
+                return self._try_llm_freeform(user_input, decide_only=True)
             answer = self._try_llm_freeform(user_input)
             _note("llm_freeform", "won", explain_prior=True)
             return answer
@@ -6928,8 +6957,9 @@ class ConversationRouter(RouterInterface):
 
         return RouteResult(handled=False)
 
-    def _try_llm_freeform(self, user_input: str) -> RouteResult:
-        """P4: LLM free response (no tools)."""
+    def _try_llm_freeform(self, user_input: str, *,
+                          decide_only: bool = False) -> RouteResult:
+        """P4: documentation fallback, then a free response or deferred generation."""
         grounding = self._grounding_context(user_input)
         # Free-form wiki lookup-and-cite (RC001): with no curated how-to answer
         # and no installed-tool facts to ground on, search the INSTALLED wiki and
@@ -6944,6 +6974,17 @@ class ConversationRouter(RouterInterface):
                 user_input)
             if wiki_block:
                 grounding = wiki_block
+            else:
+                pointer = self._system_documentation_pointer(user_input)
+                if pointer:
+                    self._append_history(user_input, pointer)
+                    return RouteResult(
+                        text=pointer, source="wiki_uncovered", handled=True,
+                        answer_linkage=AnswerLinkage(
+                            kind="code", renderer="wiki_uncovered"),
+                    )
+        if decide_only:
+            return RouteResult(text="", source="llm_freeform", handled=False)
         messages = self._build_messages(user_input, with_tools=False,
                                         grounding=grounding)
 
