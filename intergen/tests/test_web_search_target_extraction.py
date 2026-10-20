@@ -75,6 +75,14 @@ class WebSearchTargetExtraction(unittest.TestCase):
                     f"{sentence!r} names nothing to look up, so it must not be read as "
                     f"a dispatch — it is a question about the capability.")
 
+    def test_an_earlier_request_is_not_discarded_as_conversational_framing(self):
+        for sentence in (
+            "show my disk usage. can you web search the latest news?",
+            "what is a prism? can you web search the latest news?",
+        ):
+            with self.subTest(sentence=sentence):
+                self.assertIsNone(_web_search_target(sentence))
+
 
 if __name__ == "__main__":
     unittest.main()

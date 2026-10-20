@@ -1380,6 +1380,18 @@ def _web_request_text(text: str) -> str:
         r"[.!?]\s+(?=(?:(?:can|could|would|will)\s+you\s+"
         r"|(?:please\s+)?(?:web\s*search|search\s+(?:the\s+)?web|look\s+up)\b))",
         text, flags=re.IGNORECASE)
+    if len(parts) > 1:
+        prefix = text[:-len(parts[-1])]
+        # Earlier questions or commands are part of the request, not framing.
+        if re.search(r"\?(?:\s|$)", prefix):
+            return text
+        for clause in re.split(r"[.!?]+\s+", prefix):
+            clause = _WEB_SEARCH_LEAD_RE.sub("", clause, count=1)
+            if (_WEB_SEARCH_REQUEST_FRAME_RE.match(clause) or re.match(
+                    r"^(?:show|list|check|run|execute|read|write|create|delete|"
+                    r"remove|install|uninstall|start|stop|restart|open|launch|"
+                    r"save|find|search|tell|explain)\b", clause, re.IGNORECASE)):
+                return text
     text = _WEB_SEARCH_LEAD_RE.sub("", parts[-1], count=1)
     text = _WEB_SEARCH_REQUEST_FRAME_RE.sub("", text, count=1)
     return _WEB_SEARCH_LEAD_RE.sub("", text, count=1)
