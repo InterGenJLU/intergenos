@@ -1577,6 +1577,24 @@ def local_state_probe_offer(subject_text: str | None) -> str:
             "graphics card right now — ask me about any of them")
 
 
+# A regeneration that turns the reading into a yes-or-no offer is not accepted:
+# no code-owned offer backs it, so a "yes" has nothing to start. Fired on this
+# machine's own model, the state-guard regeneration did that in two runs of
+# three ("Would you like to know how much free space is left on the root
+# filesystem?") even with the note forbidding it, so the acceptance test reads it.
+_STATE_YES_NO_OFFER_RE = re.compile(
+    r"\b(?:would\s+you\s+like|do\s+you\s+want|want\s+me)\s+(?:me\s+)?to\b"
+    r"|\bif\s+you(?:['’]d|\s+would)\s+like\b|\bshall\s+i\b|\bsay\s+yes\b",
+    re.IGNORECASE)
+
+
+def local_state_regeneration_ok(text: str, *, context=()) -> bool:
+    """True when a state-guard regeneration may be served: it asserts no reading
+    nothing took, and it poses no yes-or-no offer that nothing backs."""
+    return (local_state_claim_marker(text or "", context=context) is None
+            and _STATE_YES_NO_OFFER_RE.search(text or "") is None)
+
+
 def local_state_correction_note(marker: str | None, subject_text: str = "") -> str:
     """Corrective note for the one regeneration: the state guard, stated as a
     FACT about this turn, with the reading the user can ask for instead."""

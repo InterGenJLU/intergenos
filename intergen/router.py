@@ -70,7 +70,7 @@ from intergen.safety import (
     screen_model_text_offer, model_offer_correction_note, honest_no_selfoffer_fallback,
     offer_action_tool,
     screen_local_state_claim, local_state_correction_note,
-    honest_local_state_fallback,
+    honest_local_state_fallback, local_state_regeneration_ok,
     screen_general_refusal, scope_grounding_note, honest_scope_steer,
 )
 from intergen.semantic import SemanticMatcher
@@ -6911,9 +6911,9 @@ class ConversationRouter(RouterInterface):
         except Exception as e:  # noqa: BLE001 — a regen failure must not crash the turn
             logger.error("state-claim-screen regeneration failed: %s", e)
             return None
-        verdict, _ = screen_local_state_claim(regen.text, dispatched=False,
-                                              context=context)
-        return regen.text if verdict == "clean" else None
+        return (regen.text
+                if local_state_regeneration_ok(regen.text, context=context)
+                else None)
 
     def _screen_and_correct_local_state(self, draft: str, messages: "list[Message]",
                                         *, dispatched: bool, source: str) -> str:

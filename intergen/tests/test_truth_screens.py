@@ -416,6 +416,20 @@ class LocalStateRouterTests(unittest.TestCase):
         self.assertEqual(_rows(emit, "state_claim_screen")[0]["verdict"],
                          "violation_regen_failed_fallback")
 
+    def test_a_regeneration_posing_a_yes_or_no_offer_gets_the_honest_line(self):
+        # Verbatim from this machine's model, fired with the recorded draft.
+        router = _router()
+        router._llm.chat, _ = _model(
+            "I can't provide real-time system state details. Would you like to "
+            "know the free space on the root filesystem?")
+        with mock.patch("intergen.router.glass.emit") as emit:
+            out = router._screen_and_correct_local_state(
+                TURN14_FINAL, _turn(user=TURN14_USER), dispatched=False,
+                source="llm_freeform")
+        self.assertTrue(out.startswith("I haven't read that from this machine"))
+        self.assertEqual(_rows(emit, "state_claim_screen")[0]["verdict"],
+                         "violation_regen_failed_fallback")
+
     def test_a_figure_from_the_conversation_passes_without_a_model_call(self):
         router = _router()
         messages = _turn(("How much free space do I have?", TURN13_FINAL),
