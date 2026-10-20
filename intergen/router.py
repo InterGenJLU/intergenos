@@ -5844,7 +5844,9 @@ class ConversationRouter(RouterInterface):
         # This site already declined the templates for a non-shell tool by hand;
         # passing the tool makes it the SAME gate the other three routes use, so
         # there is one rule rather than one rule and one local convention.
-        response = self._template_synthesis(display, tool_result.content, tool)
+        response = self._template_synthesis(
+            display, tool_result.content, tool,
+            executed_command=command, succeeded=tool_result.success)
         used_llm = False
         if response is None:
             response = self._synthesize_tool_result(
@@ -8541,7 +8543,9 @@ class ConversationRouter(RouterInterface):
 
     @staticmethod
     def _template_synthesis(user_input: str, output: str,
-                            tool_name: str | None = None) -> str | None:
+                            tool_name: str | None = None, *,
+                            executed_command: str | None = None,
+                            succeeded: bool | None = None) -> str | None:
         """Template-based synthesis for P1 matches — instant, no LLM.
 
         Maps known query patterns to natural language templates.
@@ -8567,6 +8571,9 @@ class ConversationRouter(RouterInterface):
         cache, the keyword route, the deterministic fallback, the semantic
         route, and the staged-action path — so no delivered answer depends on
         that default.
+
+        Failure interpretations additionally require the executed command and
+        its failed status; the user's wording does not establish either.
         """
         lower = user_input.lower().strip()
         out = output.strip()
@@ -8664,6 +8671,22 @@ class ConversationRouter(RouterInterface):
         status = ConversationRouter._status_template(lower, out)
         if status is not None:
             return status
+
+        # This known printer-list failure has a useful meaning. Keep unknown
+        # or mixed failures on the existing path, with the full output intact.
+        if (tool_name == ConversationRouter._SHELL_OUTPUT_TOOL
+                and succeeded is False and isinstance(executed_command, str)):
+            try:
+                argv = shlex.split(executed_command)
+            except ValueError:
+                argv = []
+            if argv and argv[0] in ("lpstat", "/usr/bin/lpstat"):
+                lines = {line.strip() for line in out.splitlines() if line.strip()}
+                required = {
+                    "[stderr]", "lpstat: No destinations added.", "[exit code: 1]",
+                }
+                if required <= lines <= required | {"no system default destination"}:
+                    return "CUPS reports no configured printers."
 
         # No template matched (services/packages carry their own model_summary
         # and are synthesized via the LLM path) — LLM handles it.
