@@ -374,20 +374,37 @@ class ByteProgress:
         except Exception:
             pass
 
-    def _render(self, now, tty=False):
+    def _render(self, now, tty=False, outcome=None):
         from .output import human_size
         elapsed = max(now - self._started, 1e-6)
         rate = self._transferred / elapsed
         got = human_size(self._done, precision=1)
         speed = f"{human_size(rate, precision=1)}/s"
         duration = f"elapsed {now - self._started:.1f}s"
+        pct = None
         if self.total:
             pct = min(100.0, 100.0 * self._done / self.total)
             of = human_size(self.total, precision=1)
-            cells = int(pct / 5)
-            bar = f"[{'=' * cells}{' ' * (20 - cells)}] " if tty else ""
-            return f"  {self.label}  {bar}{got} of {of}  {pct:5.1f}%  {speed}  {duration}"
-        return f"  {self.label}  {got}  total unknown  {speed}  {duration}"
+            amount = f"{got} of {of}  {pct:5.1f}%"
+        else:
+            amount = f"{got}  total unknown"
+        suffix = f"  {outcome}" if outcome else ""
+        if not tty:
+            return f"  {self.label}  {amount}  {speed}  {duration}{suffix}"
+        # Reserve the last column so rewriting a long filename does not
+        # wrap the terminal and turn the bar into a scrolling column.
+        import os
+        try:
+            width = os.get_terminal_size(self._resolve_stream().fileno()).columns or 80
+        except (OSError, AttributeError, ValueError):
+            width = 80
+        width -= 1
+        metrics = f"{amount} {duration}{suffix}"
+        bar_width = max(1, min(20, width - len(metrics) - 5))
+        cells = int(pct * bar_width / 100) if pct is not None else 0
+        label = self.label[:max(0, width - len(metrics) - bar_width - 6)]
+        prefix = f"{label} " if label else ""
+        return f"  {prefix}[{'=' * cells}{' ' * (bar_width - cells)}] {metrics}".ljust(width)
 
     def _emit(self, stream, tty, now):
         if self._resolve_level() <= 0:      # QUIET
@@ -415,9 +432,7 @@ class ByteProgress:
                 return
             stream = self._resolve_stream()
             now = time.monotonic()
-            line = self._render(now, self._is_tty(stream))
-            if outcome:
-                line += f"  {outcome}"
+            line = self._render(now, self._is_tty(stream), outcome)
             if self._is_tty(stream) and self._wrote_tty_line:
                 print(f"\r{line}", file=stream, flush=True)
             else:

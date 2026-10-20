@@ -328,6 +328,20 @@ class ByteProgressTest(unittest.TestCase):
         self.assertIn("75.0%", buf.getvalue())
         self.assertIn("250 B/s", buf.getvalue())
 
+    def test_terminal_progress_fits_a_normal_terminal_with_a_long_filename(self):
+        class Terminal(io.StringIO):
+            def isatty(self):
+                return True
+
+        buf = Terminal()
+        bp = self.progress.ByteProgress(
+            "Get: " + "archive-name-" * 8, total_bytes=2**32,
+            stream=buf, level=output.NORMAL)
+        bp.advance(2**31)
+        bp.close("done")
+        for line in buf.getvalue().split("\r"):
+            self.assertLessEqual(len(line.rstrip("\n")), 80)
+
 
 # ----------------------------------------------------------------------
 # The structural half — a new silent loop must FAIL, not wait for a report.
