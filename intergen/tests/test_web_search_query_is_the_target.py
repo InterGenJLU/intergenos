@@ -130,5 +130,36 @@ class NoSearchLeavesTheBoxTests(_Base):
                          "argument extraction executed a tool")
 
 
+class LiveQuestionQueryTests(unittest.TestCase):
+    def test_an_accepted_live_question_sends_the_subject_and_fact(self):
+        from intergen.tests.test_router_executes_recognised_search import _build_router
+        from intergen.interfaces.types import ToolResult
+
+        router, registry, _executed = _build_router()
+        calls = []
+
+        def record(call, **_kwargs):
+            calls.append(call)
+            return ToolResult(call_id="", name=call.name,
+                              content="No matching headline was found.", success=True)
+
+        registry.execute = record
+        offered = router.route("What's the most current headline on msn.com?")
+        self.assertEqual(offered.source, "current_data_offer")
+        self.assertEqual(calls, [])
+        router.route("yes please")
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0].arguments["query"],
+                         "most current headline on msn.com")
+
+    def test_a_repeated_explicit_request_loses_its_conversational_frame(self):
+        router = ConversationRouter.__new__(ConversationRouter)
+        router._semantic = SemanticMatcher(embedder=None)
+        sentence = ("I wanted you to web search the most current headline "
+                    "from msn.com and tell me what it is- in a human readable format")
+        self.assertEqual(router._extract_arguments("web_search", sentence),
+                         {"query": "the most current headline from msn.com"})
+
+
 if __name__ == "__main__":
     unittest.main()

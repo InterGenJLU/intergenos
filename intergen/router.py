@@ -1358,6 +1358,26 @@ _WEB_SEARCH_EMPTY_WORDS = frozenset({
     "web", "internet", "online", "net", "search", "searches", "searching",
     "google", "browse", "look", "find", "see", "get", "go",
 })
+_WEB_SEARCH_REQUEST_FRAME_RE = re.compile(
+    r"^\s*(?:(?:can|could|would|will)\s+you(?:\s+please)?"
+    r"|i\s+(?:want(?:ed)?|need)\s+you\s+to)\s+", re.IGNORECASE)
+_WEB_SEARCH_EXPLANATION_TAIL_RE = re.compile(
+    r"\s+and\s+(?:(?:tell|show)\s+me\s+"
+    r"(?:about\s+(?:it|that|them)|what\s+(?:it|that)\s+(?:is|says)|it|that)"
+    r"|(?:explain|summari[sz]e)\s+(?:it|that|them))"
+    r"(?:\s*[-,]?\s*in\s+(?:a\s+)?(?:human[- ]readable\s+format"
+    r"|plain\s+(?:english|language)))?\s*[?!.]*\s*$", re.IGNORECASE)
+
+
+def _web_request_text(text: str) -> str:
+    """Remove conversational sentences before an explicit lookup request."""
+    parts = re.split(
+        r"[.!?]\s+(?=(?:(?:can|could|would|will)\s+you\s+"
+        r"|(?:please\s+)?(?:web\s*search|search\s+(?:the\s+)?web|look\s+up)\b))",
+        text, flags=re.IGNORECASE)
+    text = _WEB_SEARCH_LEAD_RE.sub("", parts[-1], count=1)
+    text = _WEB_SEARCH_REQUEST_FRAME_RE.sub("", text, count=1)
+    return _WEB_SEARCH_LEAD_RE.sub("", text, count=1)
 
 
 def _web_search_target(normalized: str) -> str | None:
@@ -1375,7 +1395,7 @@ def _web_search_target(normalized: str) -> str | None:
     """
     if not normalized:
         return None
-    text = _WEB_SEARCH_LEAD_RE.sub("", normalized, count=1)
+    text = _web_request_text(normalized)
     verb = _WEB_SEARCH_VERB_RE.match(text)
     if not verb:
         return None
@@ -1386,12 +1406,30 @@ def _web_search_target(normalized: str) -> str | None:
         if stripped == text:
             break
         text = stripped
+    text = _WEB_SEARCH_EXPLANATION_TAIL_RE.sub("", text)
     text = _WEB_SEARCH_TAIL_RE.sub("", text).strip()
     if not text:
         return None
     words = [w.strip(".,;:!?\"'") for w in text.lower().split()]
     if not any(w and w not in _WEB_SEARCH_EMPTY_WORDS for w in words):
         return None
+    return text
+
+
+def _distilled_web_query(text: str) -> str:
+    """Keep the requested fact and subject when shaping a lookup argument."""
+    normalized = SemanticMatcher._normalize_input(text or "")
+    target = _web_search_target(normalized)
+    if target:
+        return target
+    # A live-data offer carries the original question until it is accepted.
+    # Shape only its query; the original still governs offer/answer matching.
+    question = re.sub(
+        r"^\s*(?:please\s+)?(?:tell\s+me\s+)?"
+        r"what(?:['’]s|\s+is|\s+are)\s+(?:the\s+)?",
+        "", normalized, count=1, flags=re.IGNORECASE)
+    if question != normalized and question.strip():
+        return _WEB_SEARCH_TAIL_RE.sub("", question).strip()
     return text
 
 _LIVE_ACTION_RE = re.compile(
@@ -5328,7 +5366,7 @@ class ConversationRouter(RouterInterface):
                 "offered_query": offered, "user_msg": user_input,
                 "tail": tail, "reason": "new_ask"})
             return None
-        query = _merge_named_place(offered, tail)
+        query = _distilled_web_query(_merge_named_place(offered, tail))
         self._conv.pending_search_offer = None
         glass.emit("decision", "search_offer_consume", detail={
             "offered_query": offered, "user_msg": user_input, "query": query,
@@ -7853,12 +7891,7 @@ class ConversationRouter(RouterInterface):
             # independently of the web dispatch, and handing the tool an empty
             # string would be worse than handing it the sentence.
             try:
-                matcher = getattr(self, "_semantic", None)
-                if matcher is not None:
-                    target = _web_search_target(
-                        matcher._normalize_input(user_input or ""))
-                    if target:
-                        return {"query": target}
+                return {"query": _distilled_web_query(user_input)}
             except Exception:  # noqa: BLE001 — never fail a turn over argument shaping
                 logger.debug("web-search target extraction failed", exc_info=True)
             return {"query": user_input}
