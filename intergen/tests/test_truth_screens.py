@@ -671,6 +671,9 @@ BARE_PKM_PURPOSE = (
     "I don't have current data on this system's live state, but to find out "
     "what's taking up the most space, you can use the `pkm` command to list "
     "disk usage.")
+PKM_LIST_REGEN = (
+    "To check disk usage, you can use the `pkm list` command. This will show "
+    "you the files and directories that are taking up space on the system.")
 
 
 class PurposeClaimTests(unittest.TestCase):
@@ -720,7 +723,8 @@ class PurposeClaimTests(unittest.TestCase):
         note = safety.capability_grounding_note(marker)
         self.assertIn(capability_registry.phrase("manage_packages"), note)
         self.assertIn("pkm's real subcommands are:", note)
-        self.assertIn("name it in full", note)
+        self.assertIn("point the user to a pkm command only for something it "
+                      "does", note)
         self.assertIn("list disk usage", note)
         for denial in ("cannot", "can't", "does not list"):
             self.assertNotIn(denial, note)
@@ -759,6 +763,59 @@ class PurposeClaimTests(unittest.TestCase):
         self.assertEqual(
             [r["verdict"] for r in _rows(emit, "capability_screen")],
             ["violation_regen_failed_fallback"])
+
+    def test_the_recorded_move_onto_a_real_subcommand_is_caught(self):
+        # Verbatim: this machine's model, regenerating the recorded bare-pkm
+        # answer through the browser path (2026-10-20), moved the claim onto
+        # `pkm list`, which exists, and the regeneration was accepted.
+        for text, marker in (
+                (PKM_LIST_REGEN, "pkm list (to check disk usage)"),
+                ("To check disk usage, you can use the `pkm list` command. It "
+                 "will show you which directories and files are taking up the "
+                 "most space on the system.",
+                 "pkm list (to check disk usage)"),
+                ("The `pkm` command can be used to list disk usage. To find out "
+                 "which files or directories are taking up the most space, you "
+                 "can run `pkm list`.",
+                 "pkm (to list disk usage)"),
+                ("Use `pkm files` to see which files take up the most space.",
+                 "pkm files (to see which files take up the most space)")):
+            with self.subTest(text=text):
+                self.assertEqual(safety.screen_capability_claim(text),
+                                 ("violation", marker))
+
+    def test_a_subcommand_named_for_what_it_does_stays_clean(self):
+        for text in ("To install Steam, run `pkm install steam`.",
+                     "Use `pkm autoremove` to reclaim disk space.",
+                     "Use `pkm cache clean` to free up disk space.",
+                     "Use `pkm vacuum` to free disk space.",
+                     "To see which packages are installed, run `pkm list`.",
+                     "Run `pkm files steam` to see which files the package "
+                     "installed."):
+            with self.subTest(text=text):
+                self.assertEqual(safety.screen_capability_claim(text),
+                                 ("clean", None))
+
+    def test_a_regeneration_onto_a_real_subcommand_is_not_served(self):
+        router = _router()
+        router._llm.chat, _ = _model(PKM_LIST_REGEN)
+        with mock.patch("intergen.router.glass.emit") as emit:
+            out = router._screen_and_correct_capability(
+                BARE_PKM_PURPOSE, _turn(user=TURN14_USER), source="llm_freeform")
+        self.assertTrue(out.startswith(
+            "To be accurate: I can't confirm that pkm can list disk usage."), out)
+        self.assertEqual(
+            [r["verdict"] for r in _rows(emit, "capability_screen")],
+            ["violation_regen_failed_fallback"])
+
+    def test_the_subcommand_note_and_fallback_name_the_subcommand(self):
+        marker = "pkm list (to check disk usage)"
+        note = safety.capability_grounding_note(marker)
+        self.assertIn("named `pkm list` as the way to check disk usage", note)
+        self.assertNotIn("name it in full", note)
+        self.assertTrue(safety.honest_capability_fallback(marker).startswith(
+            "To be accurate: I can't confirm that `pkm list` can check disk "
+            "usage."))
 
     def test_the_browser_path_screens_the_same_claim(self):
         router = _router()

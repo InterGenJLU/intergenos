@@ -2229,14 +2229,24 @@ def _check_invocation(tool: str, args: "list[str]", spec: "dict"
     return None
 
 
-# ── A FIRST-PARTY COMMAND NAMED FOR A PURPOSE, WITH NO SUBCOMMAND ──
+# ── A FIRST-PARTY COMMAND NAMED FOR A PURPOSE IT DOES NOT SERVE ──
 # Measured on this machine's own model (a real firing of a recorded session's
 # turn 14, 2026-10-20): asked what was taking up the most space, it answered
 # "to find out what's taking up the most space, you can use the `pkm` command
 # to list disk usage." pkm is the package manager, and none of its subcommands
 # lists disk usage. The invocation check above passed the reply: a bare `pkm`
-# names no subcommand, so there was nothing to check. A command named as the
-# MEANS to an end is a capability claim with or without a command line.
+# names no subcommand, so there was nothing to check. Corrected, the model moved
+# the same claim onto a real subcommand ("To check disk usage, you can use the
+# `pkm list` command"), which the invocation check passes too: `pkm list`
+# exists. A command named as the MEANS to an end is a capability claim with or
+# without a subcommand, and a subcommand's existence says nothing of the end.
+#
+# Read: the command, bare or with up to two subcommand words, after "use / run
+# / try / with ... to|for <purpose>", before "can / can be used to / lets you /
+# allows you to / helps you / is used to <purpose>", and after a fronted
+# purpose ("To <purpose>, you can use <command>"). A negated clause is not a
+# claim, and a first word that is not a real subcommand is the invocation
+# check's to judge.
 #
 # The claim is judged only for a command whose capability the registry states
 # (capability_registry: the package manager's phrase), because that phrase is
@@ -2245,19 +2255,30 @@ def _check_invocation(tool: str, args: "list[str]", spec: "dict"
 # here; their invocations are still checked above.
 #
 # The purpose is taken at its word when it names anything the command does: a
-# word of the registry's phrase, or a package word its subcommands act on
-# ("use pkm to install Steam", "pkm can show a package's files"). A purpose that
-# names none of them is screened, and the regeneration is asked to name, in
-# full, the subcommand that does it (which the invocation check then verifies)
-# or to say plainly that the command is not the way. Nothing here asserts that
-# the command cannot do it: the fallback says the claim could not be confirmed.
+# word of the registry's phrase, a package word its subcommands act on ("use
+# pkm to install Steam", "pkm can show a package's files"), or a word of the
+# named subcommand's own description in the surface ("use `pkm autoremove` to
+# reclaim disk space"). A purpose naming none of them is screened. Nothing here
+# asserts that the command cannot do it: the note asks for a command only for
+# what it does, and the fallback says the claim could not be confirmed.
 _REGISTRY_TOOL_OF_COMMAND = {"pkm": "manage_packages"}
-_PURPOSE_FRAME_RE = re.compile(
-    r"\b(?:use|run|try|using|with|via)\s+(?:the\s+)?`?" + _TOOL_NAME + r"`?"
-    r"(?:\s+" + _BARE_COMMAND_NOUN + r")?\s+(?:to|for)\s+"
-    r"|`?\b" + _TOOL_NAME + r"`?(?:\s+" + _BARE_COMMAND_NOUN + r")?"
-    r"\s+(?:can|lets\s+you|allows\s+you\s+to|helps\s+you|is\s+used\s+to)\s+",
-    re.IGNORECASE)
+# The command as a purpose names it: the tool (group 1), then up to two words
+# (group 2) that are not the frame's own ("command", "to"), in a code span or
+# not.
+_PURPOSE_COMMAND = (
+    r"`?" + _TOOL_NAME + r"((?:[ \t]+(?!(?:command|tool|utility|program|"
+    r"package|cli|to|for|can|lets|allows|helps|is)\b)[a-z][a-z0-9-]*){0,2})`?"
+    r"(?![\w./\-(*'’])")
+_PURPOSE_AFTER_RE = re.compile(
+    r"\b(?:use|run|try|using|with|via)\s+(?:the\s+)?" + _PURPOSE_COMMAND
+    + r"(?:\s+" + _BARE_COMMAND_NOUN + r")?\s+(?:to|for)\s+", re.IGNORECASE)
+_PURPOSE_CAN_RE = re.compile(
+    r"(?<![\w-])" + _PURPOSE_COMMAND + r"(?:\s+" + _BARE_COMMAND_NOUN + r")?"
+    r"\s+(?:can\s+be\s+used\s+to|can|lets\s+you|allows\s+you\s+to|helps\s+you|"
+    r"is\s+used\s+to)\s+", re.IGNORECASE)
+_PURPOSE_FRONTED_RE = re.compile(
+    r"\bto\s+([^,.;:!?\n`]{3,80}),\s+(?:you\s+can\s+|just\s+|simply\s+)?"
+    r"(?:use|run|try)\s+(?:the\s+)?" + _PURPOSE_COMMAND, re.IGNORECASE)
 _PURPOSE_END_RE = re.compile(r"[.!?;:\n(]|,\s|\s[—–]\s")
 # The package words pkm's subcommands act on, beyond the registry phrase's own.
 _PACKAGE_PURPOSE_RE = re.compile(
@@ -2265,8 +2286,13 @@ _PACKAGE_PURPOSE_RE = re.compile(
     r"packages?|dependenc(?:y|ies)|repositor(?:y|ies)|repos?|versions?|"
     r"releases?|updates?|cache|unhold|hold)\b",
     re.IGNORECASE)
+# Words too common to tie a purpose to a subcommand's description.
+_DESCRIPTION_GENERIC = frozenset({
+    "about", "after", "before", "being", "could", "every", "other", "their",
+    "there", "these", "those", "under", "using", "where", "which", "while",
+    "would", "should", "system", "machine"})
 _PURPOSE_MAX_WORDS = 12
-_PURPOSE_MARKER_RE = re.compile(r"^(\S+) \(to (.+)\)$")
+_PURPOSE_MARKER_RE = re.compile(r"^(\S+)((?: [a-z][a-z0-9-]*)*) \(to (.+)\)$")
 
 
 def _registry_phrase(tool: str) -> str | None:
@@ -2275,44 +2301,94 @@ def _registry_phrase(tool: str) -> str | None:
     return capability_registry.phrase(registered) if registered else None
 
 
-def _purpose_is_served(tool: str, purpose: str) -> bool:
+def _subcommand_path(tool: str, words: "list[str]") -> "tuple[list[str], str] | None":
+    """(`words`, the descriptions of the real subcommands among them) for the
+    words after `tool`, or None when the first word is not a real subcommand.
+    Words past the subcommands are the command's arguments, kept as written."""
+    level = (_tool_surface().get(tool) or {}).get("subcommands") or {}
+    path: list[str] = []
+    helps: list[str] = []
+    for word in words:
+        entry = level.get(word) or next(
+            (s for s in level.values() if word in (s.get("aliases") or [])),
+            None)
+        if entry is None:
+            break
+        path.append(word)
+        helps.append(entry.get("help") or "")
+        level = entry.get("subcommands") or {}
+    if words and not path:
+        return None
+    return words, " ".join(helps)
+
+
+def _content_words(text: str) -> "set[str]":
+    return {w for w in re.findall(r"[a-z]{5,}", text.lower())
+            if w not in _DESCRIPTION_GENERIC}
+
+
+def _purpose_is_served(tool: str, purpose: str, words: "list[str]" = (),
+                       description: str = "") -> bool:
     """True when `purpose` names something `tool` does: a word of its registry
-    phrase (as a word start, so "installed" counts for "install") or a package
-    word its subcommands act on."""
-    low = purpose.lower()
-    words = re.findall(r"[a-z]{4,}", (_registry_phrase(tool) or "").lower())
+    phrase (as a word start, so "installed" counts for "install"), a package
+    word its subcommands act on (in the purpose or the command's own words), or
+    a word of the named subcommand's description."""
+    low = " ".join([*words, purpose]).lower()
+    phrase = re.findall(r"[a-z]{4,}", (_registry_phrase(tool) or "").lower())
     if any(re.search(r"\b" + re.escape(w.rstrip("s")), low)
-           for w in words if w != "and"):
+           for w in phrase if w != "and"):
         return True
-    return _PACKAGE_PURPOSE_RE.search(low) is not None
+    if _PACKAGE_PURPOSE_RE.search(low) is not None:
+        return True
+    return bool(_content_words(purpose) & _content_words(description))
+
+
+def _purpose_text(text: str) -> str:
+    return " ".join(text.replace("`", "").replace('"', "").split()
+                    [:_PURPOSE_MAX_WORDS])
 
 
 def _unserved_purpose(text: str) -> str | None:
-    """The marker "<tool> (to <purpose>)" for the first non-negated purpose
+    """The marker "<command> (to <purpose>)" for the first non-negated purpose
     named for a registry-described command that names nothing it does, or
     None."""
-    for m in _PURPOSE_FRAME_RE.finditer(text):
-        tool = (m.group(1) or m.group(2)).lower()
+    # The purpose stated after the command first, in reading order; a fronted
+    # purpose only after those, so a sentence with both is marked by the
+    # purpose named for the command ("... you can use the `pkm` command to
+    # list disk usage").
+    named = sorted((m.start(), m.end(), None, m.group(1), m.group(2))
+                   for rx in (_PURPOSE_AFTER_RE, _PURPOSE_CAN_RE)
+                   for m in rx.finditer(text))
+    fronted_first = [(m.start(), m.end(), m.group(1), m.group(2), m.group(3))
+                     for m in _PURPOSE_FRONTED_RE.finditer(text)]
+    found = [(start, end, fronted, tool.lower(), words.lower().split())
+             for start, end, fronted, tool, words in named + fronted_first]
+    for start, end, fronted, tool, words in found:
         if tool not in _REGISTRY_TOOL_OF_COMMAND:
             continue
-        window = text[max(0, m.start() - 48):m.end()]
-        window = re.split(r"[.!?\n]", window)[-1]
+        window = re.split(r"[.!?\n]", text[max(0, start - 48):end])[-1]
         if _CAP_NEGATORS.search(window):
             continue
-        rest = text[m.end():]
-        stop = _PURPOSE_END_RE.search(rest)
-        purpose = " ".join(
-            rest[:stop.start() if stop else len(rest)]
-            .replace("`", "").replace('"', "").split()[:_PURPOSE_MAX_WORDS])
-        if purpose and not _purpose_is_served(tool, purpose):
-            return f"{tool} (to {purpose})"
+        path = _subcommand_path(tool, words)
+        if path is None:
+            continue
+        words, description = path
+        if fronted is None:
+            rest = text[end:]
+            stop = _PURPOSE_END_RE.search(rest)
+            fronted = rest[:stop.start() if stop else len(rest)]
+        purpose = _purpose_text(fronted)
+        if purpose and not _purpose_is_served(tool, purpose, words,
+                                              description):
+            return f"{' '.join([tool, *words])} (to {purpose})"
     return None
 
 
-def _purpose_claim(marker: str | None) -> "tuple[str, str] | None":
-    """(tool, purpose) when `marker` is a purpose marker, else None."""
+def _purpose_claim(marker: str | None) -> "tuple[str, str, str] | None":
+    """(tool, command, purpose) when `marker` is a purpose marker, else None;
+    the command is the tool with any subcommand words."""
     m = _PURPOSE_MARKER_RE.match(marker or "")
-    return (m.group(1), m.group(2)) if m else None
+    return ((m.group(1), m.group(1) + m.group(2), m.group(3)) if m else None)
 
 
 def screen_capability_claim(draft: str) -> tuple[str, str | None]:
@@ -2326,7 +2402,7 @@ def screen_capability_claim(draft: str) -> tuple[str, str | None]:
                                  not have, or names a registry-described command
                                  as the way to do something it names nothing of
                                  (see _unserved_purpose). marker is the offending
-                                 fragment, or "<tool> (to <purpose>)".
+                                 fragment, or "<command> (to <purpose>)".
       ("unverifiable", marker) — the tool ships but its argument surface is not
                                  introspectable (a shell command), and the draft
                                  passes it arguments. Nothing is asserted either
@@ -2511,20 +2587,27 @@ def capability_grounding_note(marker: str | None = None) -> str:
     of the tool it got wrong, so it drops the invented command. Derived from the
     surface artifact (no hand-kept list).
 
-    For a purpose marker ("pkm (to list disk usage)") the note states what the
-    registry says the command does and its real subcommands, and asks for the
-    subcommand in full or a plain statement — never asserting that the command
-    cannot do it."""
+    For a purpose marker ("pkm (to list disk usage)", "pkm list (to check disk
+    usage)") the note states what the registry says the command does and its
+    real subcommands, and asks for a command only for what it does — never
+    asserting that the command cannot do it. It does not invite naming a
+    subcommand for the purpose: fired on this machine's model, an earlier note
+    that did was answered with `pkm list` for disk usage."""
     claim = _purpose_claim(marker)
     if claim is not None:
-        tool, purpose = claim
+        tool, command, purpose = claim
+        if command == tool:
+            named, how = tool, f" without naming a {tool} subcommand that does it"
+        else:
+            named, how = f"`{command}`", (
+                ", and neither the registry's phrase nor that subcommand's own "
+                "description covers that")
         return (f"{tool} is a real InterGenOS command, and it can "
                 f"{_registry_phrase(tool)}. {_surface_sentence(tool)} Your answer "
-                f"named {tool} as the way to {purpose} without naming a {tool} "
-                "subcommand that does it. Correct your answer: if one of those "
-                f"subcommands does it, name it in full (`{tool} <subcommand>`); if "
-                f"none of them does, do not point the user to {tool} for it, and "
-                "say plainly what you can tell them instead.")
+                f"named {named} as the way to {purpose}{how}. Correct your "
+                f"answer: point the user to a {tool} command only for something "
+                f"it does; if no {tool} command does what they asked, do not name "
+                f"{tool} for it, and say plainly what you can tell them instead.")
     tool = _tool_of(marker)
     named = f" `{marker}` is not one of them." if marker else ""
     extra = (" To install software the command is `pkm install <package>`."
@@ -2544,8 +2627,9 @@ def honest_capability_fallback(marker: str | None = None) -> str:
     does; it never says the command cannot do it."""
     claim = _purpose_claim(marker)
     if claim is not None:
-        tool, purpose = claim
-        return (f"To be accurate: I can't confirm that {tool} can {purpose}. "
+        tool, command, purpose = claim
+        named = tool if command == tool else f"`{command}`"
+        return (f"To be accurate: I can't confirm that {named} can {purpose}. "
                 f"{tool} can {_registry_phrase(tool)}; {_surface_sentence(tool)}")
     tool = _tool_of(marker)
     named = f"`{marker}` is not a command {tool} accepts. " if marker else ""
