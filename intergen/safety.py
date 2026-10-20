@@ -989,6 +989,18 @@ _BLOCKED_RESPONSES = {
 # claims and also do not match. Aligned with the grader's Gate-A fabrication class
 # (_affirmative_success_claim) — the "successfully" marker reuses the same
 # negation-window guard so a negated "did not run successfully" stays honest.
+#
+# The system nouns a hortative claim acts on (see the HORTATIVE alternation): what
+# a check reads, and — narrower, because "update the script so it logs errors" is
+# an edit shown inline — what an update, a removal or a restart changes.
+_HORTATIVE_OBJECT = (
+    r"\b(?:printers?|packages?|updates?|services?|units?|disks?|drives?|"
+    r"partitions?|filesystems?|memory|ram|swap|cpu|processes|network|"
+    r"interfaces?|connections?|devices?|logs?|journal|system|machine|"
+    r"computer)\b")
+_HORTATIVE_CHANGE_OBJECT = (
+    r"\b(?:system|machine|computer|packages?|software|services?|units?|"
+    r"kernel|firmware|drivers?)\b")
 _EXEC_CLAIM_RE = re.compile(
     r"\b(?:"
     # first-person completed action (perfect / simple-past). "I('ve/have/already/
@@ -996,9 +1008,14 @@ _EXEC_CLAIM_RE = re.compile(
     # cannot match by construction; a FUTURE "I'll run" / "I would run" is not a
     # claim and does not match ("'ll"/"would" are not the required \s+<verb>).
     r"i(?:['’]ve| have| already)?\s+(?:just\s+)?(?:now\s+)?"
-    r"(?:ran|run|executed|started|launched|triggered|initiated|installed|"
+    r"(?:ran|executed|started|launched|triggered|initiated|installed|"
     r"updated|upgraded|synced|began|begun|"
     r"kicked[\s-]+off|kicked\s+(?:it|that|the\s+\w+)\s+off|fired[\s-]+off)\b"
+    # "run" is the one verb whose participle is also its present tense, so it
+    # needs its auxiliary: "I've run it" claims an act, "I run locally on this
+    # machine" describes the assistant (measured: the identity answers in the
+    # training bank tripped the bare form).
+    r"|i(?:['’]ve| have| already| just)\s+(?:just\s+)?(?:now\s+)?run\b"
     # first-person IN-PROGRESS action ("I'm/I am (now/currently/already) <gerund>")
     r"|i(?:['’]m| am)\s+(?:now\s+|currently\s+|already\s+)?(?:in\s+the\s+"
     r"process\s+of\s+)?(?:running|executing|starting|installing|updating|"
@@ -1066,6 +1083,32 @@ _EXEC_CLAIM_RE = re.compile(
     # "the file I created", "the program I wrote".
     r"|the\s+(?:script|file|program|command|note|document|config)\s+i\s+"
     r"(?:saved|created|wrote|made|placed|generated|put|stored)\b"
+    # ── HORTATIVE action claims (a recorded 52-turn session, 2026-10-19):
+    # "Alright, let's run the command `lpstat -p -d` for you", "let's go ahead and
+    # install Steam using the `pkm install steam` command", "Sure! Let's check the
+    # printers on the network". Each answered a request to act, on a turn that
+    # dispatched nothing, and reads as the assistant acting; every alternation
+    # above needs a first-person subject or a completed tense, so all five passed
+    # clean. "let me <act>" is the singular of the same claim. The verb must
+    # FOLLOW the lead directly, so "let's not run it" and "let me know" never
+    # match. An install verb always acts on the machine; a run verb needs a
+    # command, "for you" or a system noun after it in its clause ("let's run
+    # through the steps" is an idiom); every other verb needs a system noun
+    # ("let's check the printers" is a claim, "let me update the script" is an
+    # edit shown inline and is not).
+    r"|let(?:['’]s|\s+us|\s+me)\s+(?:go\s+ahead\s+and\s+|now\s+|just\s+|"
+    r"quickly\s+)?(?:proceed\s+(?:with|to)\s+)?(?:"
+    r"(?:re|un)?install(?:ing)?\b"
+    r"|(?:run(?:ning)?|execut(?:e|ing)|launch(?:ing)?|kick(?:ing)?\s+off|"
+    r"fir(?:e|ing)\s+off)\b(?!\s+(?:through|over|down)\b)"
+    r"[^.?!\n]{0,60}?(?:`|\bcommands?\b|\bfor\s+you\b|" + _HORTATIVE_OBJECT + r")"
+    r"|(?:check(?:ing)?|scan(?:ning)?|look(?:ing)?\s+(?:at|into)|"
+    r"quer(?:y|ying))\b[^.?!\n]{0,60}?" + _HORTATIVE_OBJECT +
+    r"|(?:updat(?:e|ing)|upgrad(?:e|ing)|sync(?:ing)?|remov(?:e|ing)|"
+    r"restart(?:ing)?)\b[^.?!\n]{0,60}?" + _HORTATIVE_CHANGE_OBJECT +
+    r"|(?:check(?:ing)?|look(?:ing)?\s+(?:at|into))\s+(?:that|this|it)\s+"
+    r"for\s+you\b"
+    r")"
     r")",
     re.IGNORECASE)
 # Negators for the "successfully" marker (mirrors the grader's window guard): a
