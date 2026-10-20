@@ -1437,11 +1437,26 @@ def _norm_figure(m: "re.Match[str]") -> str:
     return f"{number}{unit[:1].lower()}"
 
 
-def _context_index(context) -> "tuple[frozenset[str], str]":
-    """(the figures, the lower-cased text) the conversation already holds."""
+_STATE_PATH_RE = re.compile(r"(?<![\w/~:.])(?:/[\w.@+-]+)+/?|~/[\w./@+-]*")
+
+
+def _context_index(context) -> "tuple[frozenset[str], str, frozenset[str]]":
+    """(the figures, the lower-cased text, the paths READ) the conversation
+    already holds.
+
+    A path counts as read only where a context line carries it together with a
+    figure (a probe's "/var 12G"). A path that is merely MENTIONED — a passage
+    of documentation in the prompt saying /usr and /etc are read-only — is not
+    a reading of how much space it takes: measured on this machine's own model,
+    a turn whose prompt carried such a passage answered "the main directories
+    that are taking up significant space are /var, /etc, and /usr"."""
     text = "\n".join(c for c in (context or ()) if isinstance(c, str))
     figures = frozenset(_norm_figure(m) for m in _STATE_FIGURE_RE.finditer(text))
-    return figures, text.lower()
+    read_paths = frozenset(
+        p.group(0).rstrip("/").lower() or "/"
+        for line in text.splitlines() if _STATE_FIGURE_RE.search(line)
+        for p in _STATE_PATH_RE.finditer(line))
+    return figures, text.lower(), read_paths
 
 
 def _state_clauses(text: str):
@@ -1460,7 +1475,7 @@ def local_state_claim_marker(text: str, *, context=()) -> str | None:
     history, grounding, the user's message); a figure or name found there is
     backed by it and is never the marker."""
     draft = text or ""
-    held_figures, held_text = _context_index(context)
+    held_figures, held_text, read_paths = _context_index(context)
     for _, clause in _state_clauses(draft):
         figures = list(_STATE_FIGURE_RE.finditer(clause))
         if not figures:
@@ -1490,8 +1505,11 @@ def local_state_claim_marker(text: str, *, context=()) -> str | None:
             return "packages: " + ", ".join(unheld[:3])
     for _, clause in _state_clauses(draft):
         m = _STATE_FILLS_DISK_RE.search(clause)
-        if (m is not None and not _STATE_NOT_A_READING_RE.search(clause)
-                and m.group(1).lower() not in held_text):
+        if m is None or _STATE_NOT_A_READING_RE.search(clause):
+            continue
+        named = {p.group(0).rstrip("/").lower() or "/"
+                 for p in _STATE_PATH_RE.finditer(clause[m.start():])}
+        if named - read_paths:
             return " ".join(clause.split()).strip(" -*•")[:80]
     return None
 

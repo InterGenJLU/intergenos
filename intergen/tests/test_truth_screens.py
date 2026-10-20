@@ -317,6 +317,21 @@ class LocalStateClaimTests(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(self._screen(text)[0], "violation")
 
+    def test_a_path_mentioned_in_documentation_is_not_a_reading_of_it(self):
+        # Measured on this machine's own model at this lane's tip: a turn whose
+        # prompt carried a documentation passage naming these directories
+        # answered that they take the space — verbatim below — and the screen
+        # passed it, counting the passage's mention as a reading.
+        answer = ("The main directories that are taking up significant space "
+                  "are /var, /etc, and /usr. These directories contain system "
+                  "configuration files, services, and installed packages, "
+                  "respectively.")
+        passage = ("The assistant's service runs with /usr and /etc read-only "
+                   "and writes only under /var/lib/intergen.")
+        self.assertEqual(self._screen(answer, passage)[0], "violation")
+        reading = "/var 12G\n/etc 30M\n/usr 9.1G"
+        self.assertEqual(self._screen(answer, reading), ("clean", None))
+
     def test_names_the_context_holds_are_not_a_claim(self):
         units = "Running services: nginx.service, sshd.service, cups.service."
         self.assertEqual(
