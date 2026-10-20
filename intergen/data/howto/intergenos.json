@@ -1,5 +1,34 @@
 [
   {
+    "id": "igos-system-overview",
+    "domain": "intergenos",
+    "triggers": [
+      "what is InterGenOS",
+      "what's different about this distro",
+      "what makes InterGenOS different",
+      "tell me about InterGenOS",
+      "what kind of Linux distribution is this"
+    ],
+    "answer": "**InterGenOS** is a Linux distribution built from source, with a GNOME desktop, the **pkm** package manager, the **Forge** installer, and **InterGen**, its local assistant.\n\nIts emphasis is on a system you can inspect and modify: packages are built from source, and the assistant can explain the system and use its tools with permission. Local questions use the machine's own tools and model; web search and optional cloud features are separate network operations you choose.",
+    "doc_source": "README.md",
+    "requires": []
+  },
+  {
+    "id": "igos-mokmanager-screen",
+    "domain": "intergenos",
+    "triggers": [
+      "what was that blue screen at boot",
+      "what is the blue MokManager screen",
+      "why did a blue screen ask me to enroll a key",
+      "how do I enroll the key from disk",
+      "MokManager shows a black screen",
+      "where is mok.der for key enrollment"
+    ],
+    "answer": "If the blue screen says **MokManager**, it is the boot key-enrollment screen. It lets you enroll the installation's Machine Owner Key for Secure Boot; it is not a desktop crash screen.\n\nFollow the enrollment prompt. If the pending key is not offered, choose **Enroll key from disk**, select the **EFI System Partition (ESP)**, and locate **mok.der**, the installation's key file. Confirm the enrollment and follow the reboot prompt. If this enrollment flow leaves a **black screen**, press **Esc**.\n\nSecure Boot is optional on InterGenOS. If the screen does not say MokManager, its exact message is needed to identify it.",
+    "doc_source": "wiki install/verified-boot.md; docs/users/secure-boot-and-mok.md",
+    "requires": []
+  },
+  {
     "id": "igos-forge-install",
     "domain": "intergenos",
     "triggers": [

@@ -1,5 +1,56 @@
 [
   {
+    "id": "system-backups",
+    "domain": "system",
+    "triggers": [
+      "how do backups work here",
+      "how does Chronicle back up my files",
+      "how does the backup system work",
+      "where are my backups",
+      "how do I check whether my files are backed up"
+    ],
+    "answer": "**Chronicle** keeps a history in three layers: **config-state** for system configuration and package state, **user-data** for home-directory backups on an external target, and **restore-point** for the footprint of a package transaction before it changes.\n\nCheck what is actually available on this machine:\n```\nchronicle status\nchronicle list user-data\n```\nThe status shows target health and capture recency. User-data backups depend on a configured external target being present; a backup feature being installed does not prove that yesterday's files were captured. `chronicle list` requires a layer: use `config-state`, `user-data`, or `restore-point`.",
+    "doc_source": "assets/intergenos-backup/man/chronicle.1",
+    "requires": [
+      "chronicle"
+    ]
+  },
+  {
+    "id": "system-restore-documents",
+    "domain": "system",
+    "triggers": [
+      "put my documents back the way they were yesterday",
+      "how do I restore yesterday's documents",
+      "restore my documents from a backup",
+      "how do I recover an earlier version of a file",
+      "get my files back from Chronicle"
+    ],
+    "answer": "First find whether a **user-data** backup from yesterday is available:\n```\nchronicle list user-data\n```\nChoose the version whose time matches what you need, then inspect its saved paths and preview the restore:\n```\nsudo chronicle contents user-data <version>\nsudo chronicle restore user-data <version> <saved-path> --dry-run\n```\nReplace `<version>` with the listed version and `<saved-path>` with the exact path shown by `contents`; quote a path containing spaces. A directory selects all saved paths beneath it. Review the preview before running the restore without `--dry-run`; the normal restore asks for confirmation. `--mode beside` restores files next to the originals instead of overwriting them.\n\nNo files have been restored by this explanation. If no suitable version is available, Chronicle cannot recreate yesterday's documents from it.",
+    "action": {
+      "command": "chronicle list user-data",
+      "tool": "run_command"
+    },
+    "doc_source": "assets/intergenos-backup/man/chronicle.1",
+    "requires": [
+      "chronicle"
+    ]
+  },
+  {
+    "id": "system-read-logs",
+    "domain": "system",
+    "triggers": [
+      "where are the logs",
+      "where can I read the system logs",
+      "how do I read this boot's logs",
+      "how do I view the system journal"
+    ],
+    "answer": "The system journal holds the service and boot logs. Open a terminal and run:\n```\njournalctl -b\n```\nThis selects the current boot. Use `journalctl -u <service> -b` for one service, or `journalctl -p err -b` for errors. Press **q** to leave the pager. Access to some system records requires administrator privileges.",
+    "doc_source": "intergen/data/howto/services.json",
+    "requires": [
+      "journalctl"
+    ]
+  },
+  {
     "id": "system-disk-space",
     "domain": "system",
     "triggers": [
