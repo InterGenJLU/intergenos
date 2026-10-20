@@ -76,6 +76,16 @@ class ConversationState:
     # which is how three accepted offers in one person's first three days ran
     # no search at all.
     pending_search_offer: str | None = None
+    # The follow-up action path (2026-10-20). ``last_lapsed_offer`` is the
+    # action offer that lapsed THIS turn: a turn that is neither yes nor no
+    # lapses the offer before the follow-up resolver runs, and "run that
+    # install" names exactly the command that just lapsed. Cleared at the
+    # start of every turn. ``pending_referent_gap`` is the ONE question the
+    # resolver asked when a follow-up named nothing it could find —
+    # (verb, kind), so a bare name on the next turn answers it. Cleared by
+    # any other turn.
+    last_lapsed_offer: tuple | None = None
+    pending_referent_gap: tuple[str, str] | None = None
     action_offer_ttl: int = 0
     offer_in_recent_history: bool = False
     offer_topic_terms: frozenset[str] = frozenset()
@@ -149,6 +159,8 @@ class ConversationState:
         self.pending_ipv6_offer = None
         self.pending_memory_offer = None
         self.pending_search_offer = None
+        self.last_lapsed_offer = None
+        self.pending_referent_gap = None
         # M3(ii) option B + PI-Z29: the preventive-grounding window is
         # per-conversation — a discarded conversation's offer must not inject a
         # no-dispatch note into a fresh one. Clear the TTL AND the topic terms.

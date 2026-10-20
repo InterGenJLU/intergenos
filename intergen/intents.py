@@ -241,7 +241,10 @@ def _register_manage_packages(matcher: SemanticMatcher) -> None:
     matcher.register_keyword_pattern(
         "manage_packages",
         [
-            r"^pkm\s+",
+            # The person's own habit of writing sudo ahead of it is not a
+            # different command: the package manager asks for the
+            # authorization itself through its privileged dispatcher.
+            r"^(?:sudo\s+)?pkm\s+",
             r"^(?:install|remove|uninstall|update)\s+(?:package\s+)?",
             # "search" is split out with a negative lookahead so a WEB search
             # ("search the web/online/internet for ...") is NOT stolen by the

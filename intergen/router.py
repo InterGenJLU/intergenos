@@ -277,6 +277,15 @@ _CARRIED_SUBJECT_WORDS = frozenset({
 _NAMES_ITS_OWN_SUBJECT = re.compile(r"[/~]\S|\.\w{2,4}\b|\b[A-Z][a-z]+\b")
 
 
+# "this system" / "that machine" names the machine the assistant runs on: the
+# determiner points at the thing under the person's hands, not at an earlier
+# turn. Measured on the assistant session of 2026-10-19: "please update this
+# system" was taken for a follow-up and stood every code-owned route aside.
+_DETERMINER_NAMES_THE_MACHINE = re.compile(
+    r"\b(?:this|that)\s+(?:machine|system|computer|pc|box|laptop|desktop)\b",
+    re.IGNORECASE)
+
+
 def depends_on_an_earlier_turn(text: str) -> bool:
     """True when this message only makes sense on top of an earlier one.
 
@@ -297,6 +306,7 @@ def depends_on_an_earlier_turn(text: str) -> bool:
         return False
     if _BACK_REFERENCE.search(text):
         return True
+    text = _DETERMINER_NAMES_THE_MACHINE.sub("the machine", text)
     words = re.findall(r"[a-zA-Z']+", text.lower())
     if not words:
         return False
@@ -458,6 +468,11 @@ _PKG_ACTION_TEACH_RE = re.compile(
     r"([a-z0-9][\w.+-]*)",
     re.IGNORECASE,
 )
+# A negation ahead of the verb ("not to install", "don't remove", "never
+# update"): the sentence declines the action, so no action is taught. Checked
+# on the text BEFORE the matched verb.
+_PKG_ACTION_TEACH_NEGATION_RE = re.compile(
+    r"\b(?:not|never|don't|do\s+not|without|no)\s+(?:to\s+)?$", re.IGNORECASE)
 # Tokens that are never a package name — keep "update my system" / "install
 # everything" from producing a bogus target (those are corpus-backed anyway, but
 # the fallback stays defensive).
@@ -476,6 +491,379 @@ _PKG_VERB_TO_PKM = {
 }
 
 
+# ── THE FOLLOW-UP ACTION PATH — the module-level pieces (2026-10-20) ────────
+#
+# The assistant session of 2026-10-19 (52 turns on the locked floor): "can you
+# install that for me?", "run that for me", "I need YOU to install that package
+# FOR me", "run that install", "can YOU do it for me?" — fourteen turns
+# referred to something the conversation had already named, and each was
+# routed past every code-owned route to the model's turn, which on the locked
+# floor can only talk. The person asked for one install fourteen times.
+#
+# Three things, all code-owned: what a follow-up REFERS to is resolved from the
+# conversation (the offer that just lapsed, the last package either side named,
+# the last command the assistant showed, the person's own previous ask); the
+# resolved text RE-ENTERS the ladder, so the same keyword routes, the same
+# consent gate and the same screens serve it; and with nothing to resolve the
+# turn asks ONE question whose answer is then understood. Nothing here
+# dispatches on its own.
+
+# Words that are never the NAME of a thing to act on — "install software",
+# "install it", "start services", "open an app" name nothing.
+_GENERIC_ACTION_OBJECTS = frozenset({
+    "software", "package", "packages", "app", "apps", "application",
+    "applications", "program", "programs", "service", "services", "unit",
+    "units", "thing", "things", "stuff", "anything", "something", "everything",
+    "it", "that", "this", "them", "those", "these", "one", "ones", "me", "us",
+    "a", "an", "the", "my", "your", "some", "any", "new", "more", "other",
+    "for", "to", "of", "on", "in", "with", "from", "now", "please", "again",
+    "here", "there", "too", "also", "and", "or", "but", "if", "when", "so",
+    "yes", "no", "not",
+    # Kinds of things, not names of things: "open a file", "run a program".
+    "file", "files", "folder", "folders", "directory", "directories",
+    "document", "documents", "pdf", "pdfs", "image", "images", "picture",
+    "pictures", "photo", "photos", "screenshot", "screenshots", "terminal",
+    "browser", "window", "windows", "command", "commands", "script", "scripts",
+    "process", "processes", "printer", "printers", "system", "machine",
+    "computer", "pc", "box", "laptop", "desktop", "device", "devices",
+    "update", "updates", "upgrade", "upgrades", "driver", "drivers", "model",
+    "models", "backup", "backups", "network", "disk", "disks", "drive",
+    "drives", "user", "users", "password", "passwords",
+})
+_NAMED_ACTION_TARGET_RE = re.compile(
+    r"\b(install|add|remove|uninstall|delete|update|upgrade|start|stop|"
+    r"restart|enable|disable|open|launch)\s+"
+    r"(?:(?:the|a|an|my|this|that)\s+)?"
+    r"(?:(?:package|app|application|program|service|unit)\s+)?"
+    r"([a-z0-9][\w.@+-]*)", re.IGNORECASE)
+
+
+_PACKAGE_VERBS = frozenset({"install", "add", "remove", "uninstall", "delete",
+                            "update", "upgrade"})
+
+
+def _named_action_target(text: str, *, verbs: "frozenset[str] | None" = None
+                         ) -> "tuple[str, str] | None":
+    """(verb, name) when the sentence names a CONCRETE object for an action verb
+    — "install the steam package" names steam; "install software" and "install
+    it" name nothing. ``verbs`` narrows the verbs considered (the capability
+    intercept declines only on the measured class: a package verb with a
+    name). Tells a request from a capability question."""
+    for m in _NAMED_ACTION_TARGET_RE.finditer(text or ""):
+        verb = m.group(1).lower()
+        if verbs is not None and verb not in verbs:
+            continue
+        name = m.group(2).lower().rstrip(".,;:!?-")
+        if name and name not in _GENERIC_ACTION_OBJECTS:
+            return verb, name
+    return None
+
+
+# A pkm command the person typed — bare ("sudo pkm install steam"), inside
+# backticks in a sentence, or after "run"/"execute"/"type". The sudo is the
+# person's habit, not part of the request: the package manager asks for the
+# authorization itself.
+_TYPED_PKM_COMMAND_RE = re.compile(
+    r"(?:^|`|\b(?:run|execute|type)\s+(?:the\s+)?)\s*(?:sudo\s+)?"
+    r"(pkm\s+(?:install|remove|uninstall|update|upgrade|sync|search|info|"
+    r"verify|list)\b[^`\n]*?)\s*(?:`|$)", re.IGNORECASE)
+
+
+def _typed_package_command(text: str) -> "str | None":
+    """The pkm command the person typed, without its sudo, or None."""
+    m = _TYPED_PKM_COMMAND_RE.search(text or "")
+    if m is None:
+        return None
+    cmd = re.sub(r"\s+", " ", m.group(1)).strip().lower()
+    return cmd or None
+
+
+_PACKAGE_NAME_SKIP = frozenset({
+    "the", "a", "an", "my", "package", "app", "application", "program",
+    "software",
+})
+
+
+def _package_name_after(parts: "list[str]", idx: int) -> str:
+    """The package NAME after the verb at ``parts[idx]``, or "".
+
+    "install the steam package for me" → steam; "remove steam" → steam;
+    "install package vlc" → vlc; "install it" → it (a referent, for the caller
+    to resolve). Articles and kind nouns ahead of the name are the sentence's;
+    the name is the first token that is neither, with the sentence's trailing
+    punctuation stripped. Nothing after the verb → "".
+    """
+    for tok in parts[idx + 1:]:
+        word = tok.strip(".,;:!?'\"").rstrip("-")
+        if not word or word.lower() in _PACKAGE_NAME_SKIP:
+            continue
+        return word
+    return ""
+
+
+# "do it" / "go ahead" / "run it" with NOTHING staged: the person is asking for
+# the thing they asked last turn to be done — not a bare affirmative with
+# nothing to confirm (turn 7 of the 2026-10-19 session: "can YOU do it for me?"
+# after "please update this system" had only been talked about).
+_PRO_VERB_AFFIRMATIVE_RE = re.compile(
+    r"^\s*(?:please\s+|just\s+)?(?:do\s+(?:it|so|that)|go\s+ahead|"
+    r"make\s+it\s+so|let'?s\s+do\s+it|run\s+(?:it|that))\b", re.IGNORECASE)
+
+# The action verbs a follow-up can carry, every form the person writes them in,
+# and what KIND of thing each one acts on (what the resolver looks for).
+_ACTION_VERB_FORMS = {
+    "install": ("install", "installing", "installed", "installs"),
+    "remove": ("remove", "removing", "removed", "removes"),
+    "uninstall": ("uninstall", "uninstalling", "uninstalled", "uninstalls"),
+    "update": ("update", "updating", "updated", "updates"),
+    "upgrade": ("upgrade", "upgrading", "upgraded", "upgrades"),
+    "run": ("run", "running", "ran", "runs"),
+    "execute": ("execute", "executing", "executed", "executes"),
+    "start": ("start", "starting", "started", "starts"),
+    "stop": ("stop", "stopping", "stopped", "stops"),
+    "restart": ("restart", "restarting", "restarted", "restarts"),
+    "enable": ("enable", "enabling", "enabled", "enables"),
+    "disable": ("disable", "disabling", "disabled", "disables"),
+    "open": ("open", "opening", "opened", "opens"),
+    "launch": ("launch", "launching", "launched", "launches"),
+    "do": ("do", "doing", "did", "does", "done"),
+    "try": ("try", "trying", "tried", "tries"),
+}
+_ACTION_VERB_BASE = {form: base for base, forms in _ACTION_VERB_FORMS.items()
+                     for form in forms}
+_ACTION_VERB_RE = re.compile(
+    r"\b(" + "|".join(sorted(_ACTION_VERB_BASE, key=len, reverse=True))
+    + r")\b", re.IGNORECASE)
+_ACTION_VERB_KIND = {
+    "install": "package", "remove": "package", "uninstall": "package",
+    "update": "package", "upgrade": "package",
+    "run": "command", "execute": "command",
+    "start": "service", "stop": "service", "restart": "service",
+    "enable": "service", "disable": "service",
+    "open": "application", "launch": "application",
+    "do": "", "try": "",
+}
+# "run that install" / "do that update": the noun names the action's kind.
+_ACTION_NOUN_RE = re.compile(
+    r"\b(?:that|the|this)\s+(install(?:ation)?|update|upgrade|removal|"
+    r"uninstall)\b", re.IGNORECASE)
+_ACTION_NOUN_VERB = {"install": "install", "installation": "install",
+                     "update": "update", "upgrade": "upgrade",
+                     "removal": "remove", "uninstall": "remove"}
+# A question about whether something WAS done ("did you install it?", "are
+# those installed?") asks for no action — unless it challenges ("are you going
+# to install it?", "you can't install it for me?", "you're still not
+# installing it").
+_STATUS_QUESTION_RE = re.compile(
+    r"^\s*(?:did|do|does|has|have|had|is|are|was|were)\s+"
+    r"(?:you|it|that|this|those|these|they)\b", re.IGNORECASE)
+_CHALLENGE_RE = re.compile(
+    r"\byou\b.*\b(?:can't|cannot|can\s+not|won't|will\s+not|not|didn't|"
+    r"did\s+not|haven't|have\s+not|never|still|again|going\s+to|gonna)\b"
+    r"|\b(?:can't|cannot|won't|not|didn't|never|still|going\s+to|gonna)\b"
+    r".*\byou\b", re.IGNORECASE)
+_REQUEST_FRAME_RE = re.compile(
+    r"\b(?:can|could|would|will)\s+you\b|\bi\s+(?:need|want|would\s+like|'d\s+"
+    r"like)\s+you\s+to\b|\byou\s+(?:need|have)\s+to\b", re.IGNORECASE)
+_IMPERATIVE_START_RE = re.compile(
+    r"^\s*(?:(?:please|just|now|so|ok|okay|go\s+ahead\s+and|also)[\s,]+)*"
+    r"(" + "|".join(sorted(_ACTION_VERB_BASE, key=len, reverse=True)) + r")\b",
+    re.IGNORECASE)
+
+
+# "are you going to install it?", "run that command", "installing it for me":
+# the referring word is the OBJECT of the action verb, wherever the verb sits
+# in the sentence — depends_on_an_earlier_turn reads only the opening words
+# (where a SUBJECT stands), and "so, are you going to install it?" carries its
+# referent in the seventh.
+_ACTION_ON_REFERENT_RE = re.compile(
+    r"\b(?:" + "|".join(sorted(_ACTION_VERB_BASE, key=len, reverse=True))
+    + r")\s+(?:(?:the|that|this)\s+)?(?:it|that|this|them|those|these|one|"
+    r"package|command|app|application|service|program)\b", re.IGNORECASE)
+
+
+def _acts_on_a_referent(text: str) -> bool:
+    """True when the turn asks for an action whose object is a referring word
+    ("install it", "run that command") — a follow-up whatever its opening."""
+    return bool(_ACTION_ON_REFERENT_RE.search(text or "")
+                and _follow_up_action(text)[0] is not None)
+
+
+def _follow_up_action(text: str) -> "tuple[str | None, str | None]":
+    """(verb, kind) when a carried-subject turn asks for an ACTION; (None,
+    None) when it asks for none (the model's turn, as before)."""
+    text = text or ""
+    noun = _ACTION_NOUN_RE.search(text)
+    if noun is not None:
+        verb = _ACTION_NOUN_VERB[noun.group(1).lower()]
+        return verb, "package"
+    m = _ACTION_VERB_RE.search(text)
+    if m is None:
+        return None, None
+    verb = _ACTION_VERB_BASE[m.group(1).lower()]
+    challenged = bool(_CHALLENGE_RE.search(text))
+    if _STATUS_QUESTION_RE.match(text) and not challenged:
+        return None, None
+    if not (challenged or _REQUEST_FRAME_RE.search(text)
+            or _IMPERATIVE_START_RE.match(text)):
+        return None, None
+    return verb, _ACTION_VERB_KIND[verb]
+
+
+_BARE_NAME_RE = re.compile(r"^[a-z0-9][\w.+-]*$")
+_BARE_NAME_FILLER = frozenset({
+    "please", "thanks", "thank", "you", "the", "a", "an", "package", "app",
+    "application", "program", "one", "that", "this", "it",
+})
+
+
+def _bare_name(text: str) -> str:
+    """The one name a turn consists of ("steam", "the steam package", "vlc
+    please"), or "" — the answer to the one question the resolver asked."""
+    words = [w for w in re.findall(r"[^\s,.!?]+", (text or "").lower())
+             if w not in _BARE_NAME_FILLER]
+    if len(words) != 1 or not _BARE_NAME_RE.match(words[0]):
+        return ""
+    word = words[0].rstrip("-")
+    if (not word or word in _GENERIC_ACTION_OBJECTS or word in _PKG_TEACH_STOP
+            or MemoryManager.is_bare_affirmative(word)
+            or MemoryManager.is_bare_negative(word)):
+        return ""
+    return word
+
+
+_ASK_FRAME_RE = re.compile(
+    r"^\s*(?:(?:please|just|now|so|ok|okay|hey|also)[\s,]+"
+    r"|(?:can|could|would|will)\s+you\s+(?:please\s+)?"
+    r"|i\s+(?:need|want|would\s+like|'d\s+like)\s+you\s+to\s+"
+    r"|how\s+(?:do|can|could|should|would)\s+(?:i|we|you)\s+|how\s+to\s+"
+    r"|what(?:'s|\s+is)\s+the\s+command\s+(?:to|for)\s+"
+    r"|show\s+me\s+how\s+to\s+)+", re.IGNORECASE)
+_ASK_TAIL_RE = re.compile(
+    r"(?:[\s,]+(?:for\s+me|please|now|right\s+now|thanks|thank\s+you))+"
+    r"\s*[.!?]*\s*$", re.IGNORECASE)
+
+
+def _strip_ask_frame(text: str) -> str:
+    """"please update this system" / "how do I install steam?" → the action
+    the ask is about ("update this system", "install steam")."""
+    t = _ASK_FRAME_RE.sub("", (text or "").strip())
+    t = _ASK_TAIL_RE.sub("", t)
+    return t.strip(" .!?,").lower()
+
+
+# The first word of a command the assistant SHOWED — a code span whose first
+# token is one of these is a command, not prose in backticks.
+_SHOWN_COMMAND_LEADERS = frozenset({
+    "pkm", "sudo", "lpstat", "lpadmin", "systemctl", "df", "free", "uptime",
+    "lsblk", "ip", "journalctl", "du", "ps", "top", "ss", "nft", "dmesg",
+    "uname", "hostname", "ls", "cat", "chronicle", "flatpak", "nmcli",
+    "lscpu", "lspci", "lsusb", "timedatectl", "hostnamectl", "upower",
+    "sensors", "nvidia-smi", "rocm-smi", "rocminfo", "ping", "intergen",
+})
+_FENCED_RE = re.compile(r"```[^\n]*\n(.*?)```", re.DOTALL)
+_INLINE_CODE_RE = re.compile(r"`([^`\n]+)`")
+
+
+def _commands_shown_in(content: str) -> "list[str]":
+    """Every command a message shows, fenced blocks first (their first line),
+    then inline spans; sudo stripped; prose in backticks left out."""
+    found = []
+    for block in _FENCED_RE.findall(content or ""):
+        lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
+        if lines:
+            found.append(lines[0])
+    found.extend(span.strip() for span in _INLINE_CODE_RE.findall(content or ""))
+    out = []
+    for cmd in found:
+        cmd = re.sub(r"^\s*(?:\$\s+)?(?:sudo\s+)?", "", cmd).strip()
+        first = cmd.split(maxsplit=1)[0].lower() if cmd else ""
+        if first in _SHOWN_COMMAND_LEADERS:
+            out.append(cmd)
+    return out
+
+
+def _last_shown_command(history: "list") -> str:
+    """The most recent command either side showed in a code span, or ""."""
+    for msg in reversed(history or []):
+        for cmd in _commands_shown_in(getattr(msg, "content", "") or ""):
+            return cmd
+    return ""
+
+
+_PKM_PACKAGE_RE = re.compile(
+    r"^(?:sudo\s+)?pkm\s+(?:install|remove|uninstall|upgrade|update)\s+"
+    r"([\w.+-]+)", re.IGNORECASE)
+
+
+def _package_of_command(cmd: str) -> str:
+    """"pkm install steam" → steam; anything else → ""."""
+    m = _PKM_PACKAGE_RE.match((cmd or "").strip())
+    return m.group(1).lower().rstrip("-") if m else ""
+
+
+def _last_named_package(history: "list") -> str:
+    """The most recent package either side NAMED — in a pkm command it showed
+    or typed, in "<verb> <name>" ("install the steam package"), or as the one
+    bare name the person answered with — or ""."""
+    msgs = list(history or [])
+    for i in range(len(msgs) - 1, -1, -1):
+        msg = msgs[i]
+        content = getattr(msg, "content", "") or ""
+        role = getattr(getattr(msg, "role", None), "value", str(getattr(msg, "role", "")))
+        for cmd in _commands_shown_in(content):
+            pkg = _package_of_command(cmd)
+            if pkg:
+                return pkg
+        typed = _typed_package_command(content)
+        if typed:
+            pkg = _package_of_command(typed)
+            if pkg:
+                return pkg
+        named = _named_action_target(content)
+        if named and _ACTION_VERB_KIND.get(named[0]) == "package":
+            return named[1]
+        # One bare word from the person names a package ONLY as the answer to
+        # the question the assistant had just asked ("which package …?") — a
+        # "hello" is not a package.
+        if role == "user" and i > 0:
+            asked = getattr(msgs[i - 1], "content", "") or ""
+            if asked.startswith("I could not tell which package"):
+                bare = _bare_name(content)
+                if bare:
+                    return bare
+    return ""
+
+
+_SERVICE_MENTION_RE = re.compile(
+    r"\b(?:start|stop|restart|enable|disable)\s+(?:the\s+)?"
+    r"(?:service\s+)?([a-z][\w.@-]*)\b|\b([a-z][\w-]+)\.service\b",
+    re.IGNORECASE)
+_APPLICATION_MENTION_RE = re.compile(
+    r"\b(?:open|launch)\s+(?:the\s+)?(?:app(?:lication)?\s+)?([a-z][\w.-]*)\b",
+    re.IGNORECASE)
+
+
+def _last_named(history: "list", pattern: "re.Pattern[str]") -> str:
+    """The most recent concrete name ``pattern`` finds on either side, or ""."""
+    for msg in reversed(history or []):
+        for m in pattern.finditer(getattr(msg, "content", "") or ""):
+            name = next((g for g in m.groups() if g), "")
+            name = name.lower().rstrip(".,;:!?-")
+            if name and name not in _GENERIC_ACTION_OBJECTS:
+                return name
+    return ""
+
+
+def _command_as_request(cmd: str) -> str:
+    """A shown command as the text the ladder acts on: a pkm command is its own
+    carrier ("pkm install steam"); anything else is "run <command>"."""
+    cmd = re.sub(r"^\s*(?:sudo\s+)?", "", cmd or "").strip()
+    if cmd.lower().startswith("pkm "):
+        return cmd.lower()
+    return f"run {cmd}"
+
+
 def _package_action_teach(normalized: str) -> "tuple[str, str, str] | None":
     """Map an instructional package-action query to (pkm_command, app, human_verb).
 
@@ -486,8 +874,15 @@ def _package_action_teach(normalized: str) -> "tuple[str, str, str] | None":
     m = _PKG_ACTION_TEACH_RE.search(normalized)
     if m is None:
         return None
-    app = m.group(2).lower()
-    if app in _PKG_TEACH_STOP:
+    # A negated verb teaches nothing: "No, not to install steam — HOW DO I OPEN
+    # A TERMINAL?" is not a request to be taught the install (the assistant
+    # session of 2026-10-19, turn 49, taught "pkm install steam-").
+    if _PKG_ACTION_TEACH_NEGATION_RE.search(normalized[:m.start()]):
+        return None
+    # The target is a NAME; punctuation that ran into it ("steam-", "vlc.") is
+    # the sentence's, not the package's.
+    app = m.group(2).lower().rstrip(".,;:!?-")
+    if not app or app in _PKG_TEACH_STOP:
         return None
     mapped = _PKG_VERB_TO_PKM.get(m.group(1).lower())
     if mapped is None:
@@ -1892,6 +2287,14 @@ _CONVERSATION_UNSET = object()
 # 2026-08-27, where "find a pdf editor and install it" came back recommending
 # `pdfelement` after the search returned nothing at all.
 _REFERENT_GAP_CLARIFY: dict[str, str] = {
+    "command": (
+        "I could not tell which command you meant — nothing in our conversation "
+        "shows one. Which command would you like me to run?"
+    ),
+    "application": (
+        "I could not tell which application you meant, so I have not opened "
+        "anything. Which application would you like me to open?"
+    ),
     "package": (
         "I could not tell which package you meant. Nothing I found names one, "
         "so I have not installed anything. Which package would you like me to "
@@ -2741,6 +3144,7 @@ class ConversationRouter(RouterInterface):
         # Explain-offer follow-up (PI-218-2): a prior turn explained a command and
         # OFFERED to run it. A yes/no reply resolves it at the turn top, before any
         # re-routing — "yes" dispatches through the normal safety-gated path.
+        self._conv.last_lapsed_offer = None
         action_offer_result = self._resolve_pending_action_offer(user_input, t0)
         if action_offer_result is not None:
             return action_offer_result
@@ -2787,6 +3191,36 @@ class ConversationRouter(RouterInterface):
         # slots are already consumed-or-lapsed above; the guard also checks the
         # memory slot (resolved later in _try_memory) and returns a deterministic
         # clarify rather than a mis-routed action.
+        # THE ANSWER TO THE ONE QUESTION the follow-up path asked ("which
+        # package would you like me to install?" → "steam", turn 37 of the
+        # 2026-10-19 session, which the model then answered as if it knew)
+        # fills the gap it recorded; any other turn clears it, so a stale
+        # question can never claim a later bare word.
+        gap = getattr(self._conv, "pending_referent_gap", None)
+        if gap is not None:
+            self._conv.pending_referent_gap = None
+            name = _bare_name(user_input)
+            if name:
+                answered = self._act_on_resolved(
+                    f"{gap[0]} {name}", user_input, t0,
+                    origin="referent_gap_answered", decide_only=decide_only)
+                if answered is not None:
+                    return answered
+
+        # "do it", "go ahead", "can YOU do it for me?" with NOTHING staged is
+        # the person asking for what they asked last turn to be DONE (turn 7 of
+        # the same session, after "please update this system" was only talked
+        # about). It is not a bare affirmative with nothing to confirm.
+        if (self._conv.history and self._conv.pending_action_offer is None
+                and _PRO_VERB_AFFIRMATIVE_RE.match(user_input)):
+            previous = self._previous_ask_as_action()
+            if previous:
+                done = self._act_on_resolved(
+                    previous, user_input, t0, origin="follow_up:previous_ask",
+                    decide_only=decide_only)
+                if done is not None:
+                    return done
+
         bare_affirmative = self._try_bare_affirmative_guard(user_input, t0)
         if bare_affirmative is not None:
             return bare_affirmative
@@ -2901,8 +3335,35 @@ class ConversationRouter(RouterInterface):
         # It is only a follow-up if there was something to follow: with an
         # empty conversation the message is a first message, whatever its
         # wording, and the fast routes answer it as they always did.
+        # A COMMAND THE PERSON TYPED is acted on, not taught: "sudo pkm install
+        # steam" went to the how-to for the command typed (turn 46 of the
+        # 2026-10-19 session), and a command inside a sentence ("I want YOU to
+        # run the `sudo pkm install steam` command FOR me") to the model (turn
+        # 41). Ahead of the explain route, which would teach it, and of the
+        # follow-up test, which would stand the code-owned routes aside.
+        typed = (None if forget_in_compound
+                 else _typed_package_command(original_input))
+        if typed is not None:
+            acted = self._act_on_resolved(
+                typed, user_input, t0, origin="typed_command",
+                decide_only=decide_only)
+            if acted is not None:
+                return acted
+
         carried_subject = bool(self._conv.history) and depends_on_an_earlier_turn(
             user_input)
+        if carried_subject or (self._conv.history
+                               and _acts_on_a_referent(user_input)):
+            # THE FOLLOW-UP ACTION PATH: a follow-up that asks for an ACTION on
+            # something the conversation already named resolves what it refers
+            # to and re-enters the code-owned ladder with the resolved text;
+            # with nothing to resolve it asks ONE question. Only a follow-up
+            # that asks for no action still goes to the model with its subject
+            # carried.
+            acted = self._try_follow_up_action(
+                user_input, t0, decide_only=decide_only)
+            if acted is not None:
+                return acted
         if carried_subject:
             glass.emit("route", "carried_subject", detail={
                 "user_msg": user_input,
@@ -3931,6 +4392,17 @@ class ConversationRouter(RouterInterface):
                      or _TOOL_CAP_CHALLENGE_RE.search(text))
         if not frame or _CAP_Q_TARGET_RE.search(text):
             return None
+        # A NAMED target is a request, not a capability question: "can YOU
+        # install the steam package FOR me?" names steam, and "Yes — I can
+        # install… Just ask." is the quiz the 2026-10-19 session was given at
+        # turn 38 (and denied at 39). Decline the intercept so the dispatch
+        # paths execute it; the bare "can you install software?" names nothing
+        # and is still answered here. The web analogue is M8-3 above.
+        named = _named_action_target(text, verbs=_PACKAGE_VERBS)
+        if named is not None:
+            glass.emit("decision", "capability_question_declined_for_dispatch",
+                       detail={"topic": named[0], "target": named[1]})
+            return None
         reg = getattr(self, "_tools", None)
         names = reg.get_all_names() if reg is not None else []
         for tool, rx, human in _TOOL_CAP_Q_SPECS:
@@ -4594,6 +5066,122 @@ class ConversationRouter(RouterInterface):
         self._record(result, t0, "affirmative_no_offer")
         return result
 
+    # ── THE FOLLOW-UP ACTION PATH — the conversation-reading half (2026-10-20)
+    # The module-level pieces (the verbs, the resolvers over a history, the
+    # typed command) sit ahead of _package_action_teach; these methods read
+    # THIS conversation and re-enter THIS ladder.
+
+    def _try_follow_up_action(self, user_input: str, t0: float, *,
+                              decide_only: bool = False
+                              ) -> "RouteResult | None":
+        """A carried-subject turn that asks for an action: resolve its referent
+        and re-enter the ladder with the resolved text, or ask the one question.
+        None when the turn asks for no action (the caller's existing path)."""
+        verb, kind = _follow_up_action(user_input)
+        if verb is None:
+            return None
+        resolved, origin = self._resolve_follow_up_referent(verb, kind or "")
+        if resolved:
+            acted = self._act_on_resolved(
+                resolved, user_input, t0, origin=f"follow_up:{origin}",
+                decide_only=decide_only)
+            if acted is not None:
+                return acted
+            return None
+        if not kind:
+            # "do it" with nothing the conversation named: the model's turn,
+            # as before — there is nothing here to act on.
+            return None
+        question = _clarify_for_referent_gap(kind)
+        if question is None:
+            return None
+        self._conv.pending_referent_gap = (verb, kind)
+        glass.emit("decision", "follow_up_unresolved", detail={
+            "user_msg": user_input, "verb": verb, "kind": kind})
+        self._trail_note("follow_up", "asked", verb=verb, kind=kind)
+        self._record(question, t0, "referent_gap")
+        return question
+
+    def _resolve_follow_up_referent(self, verb: str, kind: str
+                                    ) -> "tuple[str, str]":
+        """(the text to act on, where it came from), or ("", "").
+
+        A command: the offer that lapsed this turn, else the last command either
+        side showed. A package: the lapsed offer's package, else the last package
+        either side named. A service or an application: the last one named. No
+        kind ("do it"): the person's own previous ask, done.
+        """
+        history = list(self._conv.history or [])
+        lapsed = getattr(self._conv, "last_lapsed_offer", None)
+        if kind == "command":
+            if lapsed:
+                return _command_as_request(lapsed[0]), "lapsed_offer"
+            shown = _last_shown_command(history)
+            return (_command_as_request(shown), "shown_earlier") if shown else ("", "")
+        if kind == "package":
+            if lapsed:
+                pkg = _package_of_command(lapsed[0])
+                if pkg:
+                    return f"{verb} {pkg}", "lapsed_offer"
+            name = _last_named_package(history)
+            return (f"{verb} {name}", "named_earlier") if name else ("", "")
+        if kind == "service":
+            unit = _last_named(history, _SERVICE_MENTION_RE)
+            return (f"{verb} {unit}", "named_earlier") if unit else ("", "")
+        if kind == "application":
+            app = _last_named(history, _APPLICATION_MENTION_RE)
+            return (f"{verb} {app}", "named_earlier") if app else ("", "")
+        previous = self._previous_ask_as_action()
+        return (previous, "previous_ask") if previous else ("", "")
+
+    def _previous_ask_as_action(self) -> str:
+        """The most recent thing the person asked for that names its own
+        action ("please update this system", "how do I install steam?", a typed
+        pkm command), as the action itself — or "" when no earlier turn does."""
+        for msg in reversed(self._conv.history or []):
+            role = getattr(getattr(msg, "role", None), "value",
+                           str(getattr(msg, "role", "")))
+            if role != "user":
+                continue
+            content = getattr(msg, "content", "") or ""
+            typed = _typed_package_command(content)
+            if typed:
+                return typed
+            stripped = _strip_ask_frame(content)
+            m = _IMPERATIVE_START_RE.match(stripped)
+            if m is None:
+                continue
+            base = _ACTION_VERB_BASE[m.group(1).lower()]
+            if not _ACTION_VERB_KIND.get(base):
+                continue  # "do it" again: keep looking for the real ask
+            if depends_on_an_earlier_turn(stripped):
+                continue  # it refers to something older still
+            return stripped
+        return ""
+
+    def _act_on_resolved(self, resolved: str, user_input: str, t0: float, *,
+                         origin: str, decide_only: bool = False
+                         ) -> "RouteResult | None":
+        """Re-enter the code-owned ladder with the resolved text — the same
+        keyword routes, the same gate, the same screens. Returns the handled
+        result, or None when nothing handled it (the caller continues as if the
+        resolution had not happened; the model is never given the resolved
+        text in the person's name)."""
+        glass.emit("decision", "follow_up_resolved", detail={
+            "user_msg": user_input, "resolved": resolved, "origin": origin})
+        self._trail_note("follow_up", "resolved", origin=origin,
+                         resolved=resolved)
+        result = self._route_single(resolved, trail_scope="follow_up",
+                                    decide_only=decide_only)
+        if not result.handled or result.source == "llm_freeform":
+            self._trail_note("follow_up", "rejected", origin=origin,
+                             resolved=resolved, route=result.source)
+            return None
+        self._won("follow_up", origin=origin, resolved=resolved,
+                  route=result.source)
+        self._record(result, t0, result.source)
+        return result
+
     def _resolve_pending_search_offer(self, user_input: str, t0: float
                                      ) -> "RouteResult | None":
         """Resolve a standing web-search offer on a yes/no reply.
@@ -4764,6 +5352,9 @@ class ConversationRouter(RouterInterface):
         # Neither yes nor no — the offer lapses; route this input on its own merits.
         glass.emit("decision", "offer_lapse", detail={
             "command": command, "user_msg": user_input})
+        # The follow-up resolver, later this turn, may name exactly this
+        # command ("run that install"): keep what lapsed until the turn ends.
+        self._conv.last_lapsed_offer = self._conv.pending_action_offer
         self._conv.pending_action_offer = None
         return None
 
@@ -6831,7 +7422,7 @@ class ConversationRouter(RouterInterface):
             parts = low.split()
             if "install" in parts:
                 idx = parts.index("install")
-                pkg = parts[idx + 1] if idx + 1 < len(parts) else ""
+                pkg = _package_name_after(parts, idx)
                 # A REFERENT is not a package name. "install it" (the second half
                 # of "find a pdf editor and install it", after the decomposer
                 # splits it) used to dispatch package="it", which the consent gate
@@ -6839,7 +7430,7 @@ class ConversationRouter(RouterInterface):
                 # user never meant as a name. Prefer the referent the CALLER
                 # resolved from the earlier clause; with none, decline so the turn
                 # asks which package rather than dispatching a pronoun.
-                if _is_referential_argument(pkg):
+                if not pkg or _is_referential_argument(pkg):
                     resolved = self._resolved_referent()
                     if not resolved:
                         self._referent_gap = "package"
@@ -6847,7 +7438,18 @@ class ConversationRouter(RouterInterface):
                     pkg = resolved
                 return {"action": "install", "package": pkg}
             if "remove" in parts or "uninstall" in parts:
-                return {"action": "remove", "package": parts[-1]}
+                # "remove the steam package" names steam, not "package" (the
+                # last word, which this took until 2026-10-20); "remove it"
+                # names nothing and asks, the same as install.
+                verb = "remove" if "remove" in parts else "uninstall"
+                pkg = _package_name_after(parts, parts.index(verb))
+                if not pkg or _is_referential_argument(pkg):
+                    resolved = self._resolved_referent()
+                    if not resolved:
+                        self._referent_gap = "package"
+                        return None
+                    pkg = resolved
+                return {"action": "remove", "package": pkg}
             # UPDATE / UPGRADE (2026-07-14) — a system-upgrade request
             # ("update this system", "update all my packages", "upgrade
             # everything", bare "update") maps to a whole-system `pkm update`;
