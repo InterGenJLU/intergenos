@@ -2799,6 +2799,7 @@ class PackageInstaller:
                 result = _trace.traced_run(
                     cmd, env=env, phase="pkm_post_install",
                     intent=f"post_install hook for {name}", pkg=name,
+                    stream_output=True,
                 )
                 _trace.trace_event(
                     "pkm_hook_done", pkg=name, hook="post_install",

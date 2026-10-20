@@ -99,13 +99,17 @@ Secret hygiene:
 
 from __future__ import annotations
 
+import codecs
 import functools
 import hashlib
 import json
 import logging
 import inspect
+import locale
 import os
 import re
+import select
+import selectors
 import shutil
 import subprocess
 import sys
@@ -755,6 +759,95 @@ def get_start_ts() -> Optional[str]:
 # Public surface — subprocess + file wrappers (byte-level capture).
 # ---------------------------------------------------------------------------
 
+def _run_with_live_output(cmd, *, input, env, cwd, timeout, binary):
+    """Relay raw pipe chunks while retaining subprocess.run's capture shape.
+
+    Read both streams and feed stdin concurrently, so a child writing a full
+    stderr pipe before reading its input cannot deadlock. Console output keeps
+    carriage returns; text captures retain universal-newline translation.
+    """
+    encoding = locale.getpreferredencoding(False)
+    payload = input if binary or input is None else input.encode(encoding, "replace")
+    captured = {"stdout": [], "stderr": []}
+    consoles = {"stdout": sys.stdout, "stderr": sys.stderr}
+    decoders = {name: codecs.getincrementaldecoder(encoding)(errors="replace")
+                for name in consoles}
+
+    def relay(name, chunk, final=False):
+        console = consoles[name]
+        if hasattr(console, "buffer"):
+            console.flush()
+            console.buffer.write(chunk)
+            console.buffer.flush()
+        else:
+            console.write(decoders[name].decode(chunk, final=final))
+            console.flush()
+
+    with subprocess.Popen(
+        list(cmd), stdin=subprocess.PIPE if input is not None else None,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, cwd=cwd,
+    ) as process:
+        deadline = None if timeout is None else time.monotonic() + timeout
+
+        def remaining():
+            if deadline is None:
+                return None
+            left = deadline - time.monotonic()
+            if left <= 0:
+                raise subprocess.TimeoutExpired(cmd, timeout)
+            return left
+
+        try:
+            with selectors.DefaultSelector() as selector:
+                for name in captured:
+                    selector.register(getattr(process, name), selectors.EVENT_READ, name)
+                offset = 0
+                if payload:
+                    selector.register(process.stdin, selectors.EVENT_WRITE, "stdin")
+                elif process.stdin is not None:
+                    process.stdin.close()
+                    process.stdin = None
+                while selector.get_map():
+                    for key, _ in selector.select(remaining()):
+                        name = key.data
+                        if name == "stdin":
+                            try:
+                                offset += os.write(key.fd, payload[offset:offset + select.PIPE_BUF])
+                            except BrokenPipeError:
+                                offset = len(payload)
+                            if offset == len(payload):
+                                selector.unregister(key.fileobj)
+                                process.stdin.close()
+                                process.stdin = None
+                        else:
+                            chunk = os.read(key.fd, 65536)
+                            if chunk:
+                                captured[name].append(chunk)
+                            else:
+                                selector.unregister(key.fileobj)
+                            relay(name, chunk, final=not chunk)
+                process.wait(timeout=remaining())
+        except BaseException as exc:
+            process.kill()
+            # communicate drains anything written between the last read and
+            # termination, and reaps the child, including on a finite timeout.
+            out, err = process.communicate()
+            for name, chunk in (("stdout", out), ("stderr", err)):
+                if chunk:
+                    captured[name].append(chunk)
+            if isinstance(exc, subprocess.TimeoutExpired):
+                exc.output = b"".join(captured["stdout"])
+                exc.stderr = b"".join(captured["stderr"])
+            raise
+
+    output = {name: b"".join(chunks) for name, chunks in captured.items()}
+    if not binary:
+        output = {name: data.decode(encoding, "replace").replace("\r\n", "\n").replace("\r", "\n")
+                  for name, data in output.items()}
+    return subprocess.CompletedProcess(list(cmd), process.returncode,
+                                       output["stdout"], output["stderr"])
+
+
 def traced_run(
     cmd: Sequence[str],
     *,
@@ -766,6 +859,7 @@ def traced_run(
     phase: Optional[str] = None,
     intent: Optional[str] = None,
     pkg: Optional[str] = None,
+    stream_output: bool = False,
 ) -> subprocess.CompletedProcess:
     """Wrap subprocess.run with full byte capture + JSON trace emit.
 
@@ -786,6 +880,11 @@ def traced_run(
     (binary mode: the child gets the exact bytes, the returned
     CompletedProcess carries bytes stdout/stderr). The credential rules
     apply to both; the event's stdin field is text either way.
+
+    `stream_output` also relays stdout/stderr chunks to their console streams
+    while the child runs. It defaults off; capture and trace redaction remain
+    the same. The console receives the child's raw output, as with inherited
+    stdout/stderr, including partial lines and carriage-return progress meters.
     """
     start = time.monotonic()
     binary = isinstance(input, (bytes, bytearray))
@@ -819,7 +918,12 @@ def traced_run(
         })
 
     try:
-        if binary:
+        if stream_output:
+            result = _run_with_live_output(
+                cmd, input=stdin_arg, env=env, cwd=cwd, timeout=timeout,
+                binary=binary,
+            )
+        elif binary:
             result = subprocess.run(
                 list(cmd),
                 input=stdin_arg,
