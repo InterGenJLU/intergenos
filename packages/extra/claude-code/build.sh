@@ -47,6 +47,14 @@ do_install() {
 
 set -e
 
+source /usr/share/igos/helpers/helper-lib.sh
+if ! declare -F igos_helper_write_acceptance >/dev/null ||
+   ! declare -F igos_helper_download >/dev/null ||
+   ! declare -F igos_helper_step >/dev/null; then
+    echo "  This installer needs an updated install helper library." >&2
+    echo "  Run 'sudo pkm upgrade intergenos-helper-lib' and try again." >&2
+    exit 1
+fi
 source /usr/libexec/igos-install-claude-code-functions.sh
 
 CLAUDE_CODE_PINNED_VERSION="2.1.270"
@@ -66,12 +74,7 @@ elif [ "$#" -ne 0 ]; then
     exit 2
 fi
 
-source /usr/share/igos/helpers/helper-lib.sh
-if ! declare -F igos_helper_write_acceptance >/dev/null; then
-    echo "  This installer needs an updated install helper library." >&2
-    echo "  Run 'sudo pkm upgrade intergenos-helper-lib' and try again." >&2
-    exit 1
-fi
+
 
 ACCEPTANCE_DIR="/var/lib/intergen/legal"
 ACCEPTANCE_FILE="$ACCEPTANCE_DIR/claude-code-1.0-accepted.json"
@@ -273,7 +276,7 @@ code_bin="$(command -v code 2>/dev/null || command -v code-oss 2>/dev/null || tr
 if [ -n "${code_bin}" ]; then
     echo "  Installing Claude Code extension (v${CLAUDE_CODE_VSIX_VERSION}, ${CLAUDE_CODE_VSIX_PLATFORM}) for VS Code..."
     gallery_url="https://anthropic.gallery.vsassets.io/_apis/public/gallery/publisher/anthropic/extension/claude-code/${CLAUDE_CODE_VSIX_VERSION}/assetbyname/Microsoft.VisualStudio.Services.VSIXPackage?targetPlatform=${CLAUDE_CODE_VSIX_PLATFORM}"
-    if curl --compressed -fSL -m 300 --retry 3 --retry-delay 2 -o "${ext_vsix}" "${gallery_url}"; then
+    if igos_helper_download "${ext_vsix}" "${gallery_url}" curl --compressed -m 300 --retry 3 --retry-delay 2; then
         # Integrity gate (default-deny): the gallery exposes no per-extension
         # signed manifest we can verify, so we pin the known-good sha256 of the
         # platform-specific asset. A mismatch refuses the install.

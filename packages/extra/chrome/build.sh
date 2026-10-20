@@ -56,7 +56,8 @@ set -e
 
 # H-007: source the helper-lib API for footprint tracking.
 source /usr/share/igos/helpers/helper-lib.sh
-if ! declare -F igos_helper_write_acceptance >/dev/null; then
+if ! declare -F igos_helper_write_acceptance >/dev/null ||
+   ! declare -F igos_helper_download >/dev/null; then
     echo "  This installer needs an updated install helper library." >&2
     echo "  Run 'sudo pkm upgrade intergenos-helper-lib' and try again." >&2
     exit 1
@@ -171,7 +172,7 @@ POOL_PATH=$(echo "$LATEST" | cut -d'|' -f3)
 igos_helper_set_version "${CHROME_VERSION:-unknown}"
 
 echo "  Downloading ${DEB_NAME}..."
-wget -q --show-progress -O "$TMPDIR/chrome.deb" "${CHROME_APT_BASE}/${POOL_PATH}"
+igos_helper_download "$TMPDIR/chrome.deb" "${CHROME_APT_BASE}/${POOL_PATH}" wget
 
 # K21.E: refuse install if signed-Release verification fails. This
 # checks InRelease GPG signature (against the pinned keyring at

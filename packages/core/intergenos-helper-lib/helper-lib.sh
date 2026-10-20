@@ -79,6 +79,180 @@ igos_helper_emit() {
         | awk 'NR==1 {print "  " $0; next} {print "    " $0}' >&2
 }
 
+# ---- Download progress -------------------------------------------------
+# Keep the caller's transport and options, but report progress according to
+# stdout's actual destination. A capture gets one line every three seconds;
+# a terminal gets an in-place bar. Unknown lengths are never estimated.
+igos_helper_download() {
+    # <destination> <url> <wget|curl> [transport-options ...]
+    python3 - "$@" <<'PYDOWNLOAD'
+import os
+from pathlib import Path
+import re
+import selectors
+import subprocess
+import sys
+import time
+
+destination, url, transport, *options = sys.argv[1:]
+if transport == "curl":
+    command = ["curl", "--fail", "--silent", "--show-error", "--location",
+               "--dump-header", "-", "--output", destination, *options, url]
+    streams = {"stdout": subprocess.PIPE}
+elif transport == "wget":
+    command = ["wget", "--quiet", "--server-response", "-O", destination,
+               *options, url]
+    streams = {"stdout": subprocess.DEVNULL, "stderr": subprocess.PIPE}
+else:
+    raise SystemExit("The download transport must be wget or curl.")
+
+started = time.monotonic()
+tty = sys.stdout.isatty()
+interval = 0.2 if tty else 3.0
+label = Path(destination).name
+total = None
+status = 0
+encoded = False
+in_headers = False
+completed = 0
+initial = os.stat(destination).st_mtime_ns if os.path.exists(destination) else None
+
+def report(final=False, failed=False):
+    elapsed = time.monotonic() - started
+    percent = None
+    if total is None:
+        amount = f"{completed} bytes, total unknown"
+    else:
+        percent = min(100.0, completed * 100.0 / total) if total else 100.0
+        amount = f"{completed}/{total} bytes {percent:.1f}%"
+    outcome = " failed" if failed else (" done" if final else "")
+    metrics = f"{amount} elapsed {elapsed:.1f}s{outcome}"
+    if tty:
+        width = (os.get_terminal_size(sys.stdout.fileno()).columns or 80) - 1
+        bar_width = max(1, min(20, width - len(metrics) - 5))
+        cells = int(percent * bar_width / 100) if percent is not None else 0
+        name = label[:max(0, width - len(metrics) - bar_width - 6)]
+        prefix = f"{name} " if name else ""
+        line = f"\r  {prefix}[{'=' * cells}{' ' * (bar_width - cells)}] {metrics}".ljust(width + 1)
+    else:
+        line = f"  {label} {metrics}"
+    print(line, end="" if tty and not final else "\n", flush=True)
+
+report()
+process = None
+selector = selectors.DefaultSelector()
+try:
+    process = subprocess.Popen(command, **streams)
+    headers = process.stdout if transport == "curl" else process.stderr
+    selector.register(headers, selectors.EVENT_READ)
+    pending = b""
+    next_report = started + interval
+    while process.poll() is None or selector.get_map():
+        for key, _ in selector.select(timeout=max(0, min(0.2, next_report - time.monotonic()))):
+            chunk = os.read(key.fd, 65536)
+            if not chunk:
+                selector.unregister(key.fileobj)
+                continue
+            pending += chunk
+            while b"\n" in pending:
+                line, pending = pending.split(b"\n", 1)
+                text = line.decode("iso-8859-1").strip()
+                match = re.match(r"HTTP/\S+\s+(\d+)", text)
+                if match:
+                    status = int(match[1])
+                    if status >= 400:
+                        print(f"  Download HTTP error: {status}", file=sys.stderr, flush=True)
+                    total = None
+                    encoded = False
+                    completed = 0
+                    in_headers = True
+                elif not text:
+                    in_headers = False
+                elif text.lower().startswith("content-length:"):
+                    value = text.split(":", 1)[1].strip()
+                    if 200 <= status < 300 and value.isdigit() and not encoded:
+                        total = int(value)
+                elif text.lower().startswith("content-encoding:"):
+                    encoded = text.split(":", 1)[1].strip().lower() != "identity"
+                    if encoded:
+                        total = None
+                elif transport == "wget" and not (in_headers and ":" in text):
+                    sys.stderr.buffer.write(line + b"\n")
+                    sys.stderr.buffer.flush()
+        if 200 <= status < 300:
+            try:
+                state = os.stat(destination)
+                if state.st_mtime_ns != initial:
+                    completed = state.st_size
+            except FileNotFoundError:
+                completed = 0
+        now = time.monotonic()
+        if now >= next_report:
+            report()
+            next_report = now + interval
+    code = process.wait()
+    if code == 0:
+        completed = os.stat(destination).st_size
+        if total is None:
+            total = completed
+    report(final=True, failed=code != 0)
+    sys.exit(code)
+except (OSError, ValueError) as error:
+    print(f"  Download failed: {error}", file=sys.stderr, flush=True)
+    report(final=True, failed=True)
+    sys.exit(1)
+finally:
+    selector.close()
+    if process is not None:
+        if process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+        for stream in (process.stdout, process.stderr):
+            if stream is not None:
+                stream.close()
+PYDOWNLOAD
+}
+
+# Run a command with textual stdout, preserving that stdout and its status.
+# The command retains stdin and inherited descriptors (including signing
+# descriptors); the observer reads only its output and needs no daemon.
+igos_helper_step() {
+    local label="$1" started=$SECONDS
+    shift
+    local -a statuses
+    printf '  %s (elapsed 0s)\n' "$label" >&2
+    if "$@" | (
+        last=$SECONDS
+        while :; do
+            remaining=$((3 - (SECONDS - last)))
+            if [ "$remaining" -le 0 ]; then
+                printf '  %s (elapsed %ss)\n' "$label" "$((SECONDS - started))" >&2 || exit 1
+                last=$SECONDS
+                remaining=3
+            fi
+            if IFS= read -r -t "$remaining" line; then
+                printf '%s\n' "$line" || exit 1
+            else
+                read_status=$?
+                printf '%s' "$line" || exit 1
+                [ "$read_status" -gt 128 ] || break
+            fi
+        done
+    ); then
+        statuses=("${PIPESTATUS[@]}")
+    else
+        statuses=("${PIPESTATUS[@]}")
+    fi
+    local result="${statuses[0]}"
+    [ "$result" -ne 0 ] || result="${statuses[1]}"
+    printf '  %s: exit %s (elapsed %ss)\n' "$label" "$result" "$((SECONDS - started))" >&2
+    return "$result"
+}
+
 # ---- Refusals a user can do nothing about -------------------------------
 #
 # Some refusals in this library can only be reached if the installer script

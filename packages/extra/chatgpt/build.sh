@@ -54,7 +54,8 @@ do_install() {
 set -e
 
 source /usr/share/igos/helpers/helper-lib.sh
-if ! declare -F igos_helper_write_acceptance >/dev/null; then
+if ! declare -F igos_helper_write_acceptance >/dev/null ||
+   ! declare -F igos_helper_download >/dev/null; then
     echo "  This installer needs an updated install helper library." >&2
     echo "  Run 'sudo pkm upgrade intergenos-helper-lib' and try again." >&2
     exit 1
@@ -163,7 +164,7 @@ POOL_PATH=$(echo "$LATEST" | cut -d'|' -f3)
 igos_helper_set_version "${CHATGPT_VERSION:-unknown}"
 
 echo "  Downloading ${DEB_NAME}..."
-wget -q --show-progress -O "$TMPDIR/chatgpt.deb" "${CHATGPT_APT_BASE}/${POOL_PATH}"
+igos_helper_download "$TMPDIR/chatgpt.deb" "${CHATGPT_APT_BASE}/${POOL_PATH}" wget
 
 # Refuse install if signed-Release verification fails.
 echo "  Verifying signed-Release integrity chain..."

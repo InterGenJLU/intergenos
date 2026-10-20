@@ -20,7 +20,8 @@
 set -e
 
 source /usr/share/igos/helpers/helper-lib.sh
-if ! declare -F igos_helper_write_acceptance >/dev/null; then
+if ! declare -F igos_helper_write_acceptance >/dev/null ||
+   ! declare -F igos_helper_download >/dev/null; then
     echo "  This installer needs an updated install helper library." >&2
     echo "  Run 'sudo pkm upgrade intergenos-helper-lib' and try again." >&2
     exit 1
@@ -198,7 +199,7 @@ igos_helper_set_version "$CUDA_VERSION"
 # ---- Fetch --------------------------------------------------------------------
 echo ""
 echo "  Downloading ${CUDA_RUN} (about 4.1 GB)..."
-if ! wget -q --show-progress -O "$WORKDIR/$CUDA_RUN" "$CUDA_URL"; then
+if ! igos_helper_download "$WORKDIR/$CUDA_RUN" "$CUDA_URL" wget; then
     echo ""
     echo "  ERROR: download failed from ${CUDA_URL}"
     echo "  Nothing has been installed. Retry when the network is available."

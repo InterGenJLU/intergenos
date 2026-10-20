@@ -31,7 +31,7 @@ claude_code_select_install_version() {
                 echo "  ERROR: npm is required to resolve the current Claude Code release." >&2
                 return 1
             fi
-            if ! current_version=$(npm view "$CLAUDE_CODE_NPM_PACKAGE" dist-tags.latest); then
+            if ! current_version=$(igos_helper_step "Looking up the Claude Code release" npm view "$CLAUDE_CODE_NPM_PACKAGE" dist-tags.latest); then
                 echo "  ERROR: the current Claude Code release could not be read from the npm registry." >&2
                 return 1
             fi

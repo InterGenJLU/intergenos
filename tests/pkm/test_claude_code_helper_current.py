@@ -70,6 +70,10 @@ class _PlanHarness:
             "source /usr/libexec/igos-install-claude-code-functions.sh",
             f"source {FUNCTIONS}",
         )
+        helper = helper.replace(
+            "source /usr/share/igos/helpers/helper-lib.sh",
+            f"source {REPO / 'packages/core/intergenos-helper-lib/helper-lib.sh'}",
+        )
         self.helper = root / "igos-install-claude-code"
         self.helper.write_text(helper, encoding="utf-8")
         self.helper.chmod(0o755)
