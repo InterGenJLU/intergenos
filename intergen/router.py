@@ -68,6 +68,8 @@ from intergen.safety import (
     capability_unverified_fallback, capability_unintrospectable_fallback,
     answer_command_capability_question,
     screen_model_text_offer, model_offer_correction_note, honest_no_selfoffer_fallback,
+    screen_local_state_claim, local_state_correction_note,
+    honest_local_state_fallback,
     screen_general_refusal, scope_grounding_note, honest_scope_steer,
 )
 from intergen.semantic import SemanticMatcher
@@ -6852,6 +6854,12 @@ class ConversationRouter(RouterInterface):
                 "verdict": outcome, "marker": marker,
                 "dispatched": dispatched, "source": source})
 
+        # (1a) a reading of THIS machine that nothing took — an invented size,
+        # package list, unit list or path (safety.screen_local_state_claim). Runs
+        # on the execution-corrected text, against everything the model was given.
+        text = self._screen_and_correct_local_state(
+            text, messages, dispatched=dispatched, source=source)
+
         # (1b) M7 leg 2: a model-AUTHORED offer to perform an action on a toolless
         # turn that no code-owned offer backs (the leg-1 root enabler). Runs on the
         # execution-corrected text; the code-owned offer line stays the only offer
@@ -6871,6 +6879,53 @@ class ConversationRouter(RouterInterface):
         return (self._conv.pending_action_offer is not None
                 or self._conv.pending_memory_offer is not None
                 or self._conv.pending_ipv6_offer is not None)
+
+    def _regenerate_without_state_claim(self, messages: "list[Message]",
+                                        marker: str | None) -> str | None:
+        """Regenerate a freeform draft ONCE with the state guard stated as a fact
+        about this turn, accepting the result only if it no longer asserts a
+        reading nothing took. Returns the text, or None (the caller then serves
+        the honest line and the probe offer). getattr-safe for the web path's
+        executor thread, like the other regenerations."""
+        context = [m.content for m in messages]
+        question = next((m.content for m in reversed(messages)
+                         if m.role == MessageRole.USER), "")
+        corrective = Message(role=MessageRole.USER,
+                             content=local_state_correction_note(marker, question))
+        try:
+            regen = self._llm.chat(list(messages) + [corrective])
+        except Exception as e:  # noqa: BLE001 — a regen failure must not crash the turn
+            logger.error("state-claim-screen regeneration failed: %s", e)
+            return None
+        verdict, _ = screen_local_state_claim(regen.text, dispatched=False,
+                                              context=context)
+        return regen.text if verdict == "clean" else None
+
+    def _screen_and_correct_local_state(self, draft: str, messages: "list[Message]",
+                                        *, dispatched: bool, source: str) -> str:
+        """Screen a model DRAFT for a reading of this machine that nothing took
+        (safety.screen_local_state_claim, against everything the model was
+        given); regenerate once with the state guard, else serve the honest line
+        and the probe offer. Glass-logs the verdict every turn, clean included."""
+        verdict, marker = screen_local_state_claim(
+            draft, dispatched=dispatched, context=[m.content for m in messages])
+        if verdict == "clean":
+            glass.emit("decision", "state_claim_screen", detail={
+                "verdict": "clean", "marker": None, "dispatched": dispatched,
+                "source": source})
+            return draft
+        corrected = self._regenerate_without_state_claim(messages, marker)
+        if corrected is not None:
+            outcome, text = "violation_regenerated", corrected
+        else:
+            question = next((m.content for m in reversed(messages)
+                             if m.role == MessageRole.USER), "")
+            outcome = "violation_regen_failed_fallback"
+            text = honest_local_state_fallback(marker, question)
+        glass.emit("decision", "state_claim_screen", detail={
+            "verdict": outcome, "marker": marker, "dispatched": dispatched,
+            "source": source})
+        return text
 
     def _regenerate_without_selfoffer(self, messages: "list[Message]") -> str | None:
         """M7 leg 2: regenerate a freeform draft ONCE, re-grounded that it has no

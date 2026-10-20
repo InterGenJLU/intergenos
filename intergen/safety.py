@@ -1313,6 +1313,208 @@ def honest_no_selfoffer_fallback() -> str:
             "do it and then act as if it were done.")
 
 
+# ── LOCAL-STATE CLAIM SCREEN: no figure about THIS machine that nothing read ──
+#
+# A recorded session (2026-10-19): asked "Can you show me what's taking up the
+# most space?" on the locked floor, the model answered, on a turn that read
+# nothing from the machine, with an eighteen-row table — "/home: 408G used, 3G
+# free", "/var/lib/dpkg: 11G used, 1G free" — every figure invented; the turn
+# before had read 413G free of 468G. Every screen passed it: the claim screen
+# reads ACTION claims, the capability screen reads command lines, the coherence
+# screen reads shape, and a fluent table of invented state is none of those.
+#
+# The screen reads a STATE ASSERTION about this machine, on a turn that
+# dispatched nothing:
+#   * a size, percentage, temperature or clock figure tied in its own line or
+#     clause to a path, a block device, or this machine's own disk / memory /
+#     cpu ("/home: 408G used", "your disk has 20G free", "you have 12 GiB of
+#     memory available", "Firefox is using 2.3 GB");
+#   * three or more systemd units, or three or more packages, listed as this
+#     machine's ("running services: …", "installed packages: …");
+#   * a path named as what fills the disk ("the biggest folder is ~/Videos").
+# It does NOT read:
+#   * a figure or name the conversation already holds. The check runs against
+#     the context the model was given, so repeating "413G free" from the turn
+#     before, or a figure the user typed, is not a claim — only one the model
+#     produced from nothing is;
+#   * general knowledge, a requirement or a hypothetical ("Steam needs about
+#     1 GB", "if your disk has less than 10G free", "at least 4 GB of RAM"): a
+#     clause with no local subject, or with a hedge, a condition or a
+#     requirement in it, asserts nothing about this machine's current state;
+#   * a negated clause ("I haven't read how much of your disk is used").
+_STATE_FIGURE_RE = re.compile(
+    r"(?<![\w.])(\d+(?:[.,]\d+)?)\s?"
+    r"(?:([KMGTPE])(?:i?B)?(?![A-Za-z])|(bytes?)\b|(%)|°\s?([CF])\b|([MG])Hz\b)")
+_STATE_LOCAL_SUBJECT_RE = re.compile(
+    # a path: "/home", "/var/lib/dpkg", "~/Videos", and the root on its own in a
+    # table row ("/: 468G used"); never the inside of a URL ("://host/x").
+    r"(?<![\w/~:.])(?:/[\w.@+-]+)+/?|(?<![\w/~:.])/(?=\s*[:—–-])|~/[\w./@+-]*"
+    # a block device
+    r"|\b(?:sd[a-z]\d*|nvme\d+n\d+(?:p\d+)?|mmcblk\d+(?:p\d+)?|dm-\d+)\b"
+    # this machine's own disk / memory / cpu
+    r"|\b(?:your|my|this\s+(?:machine|system|computer|laptop|pc)(?:['’]s)?|the\s+"
+    r"(?:machine|system|computer)['’]s)\s+(?:\w+\s+){0,2}?(?:disks?|drives?|ssd|"
+    r"hdd|storage|partitions?|filesystems?|root|home|memory|ram|swap|cpu|"
+    r"processor|gpu|vram|battery|folders?|director(?:y|ies)|space)\b"
+    # a reading stated as current: "you have 12G free", "Firefox is using 2 GB"
+    r"|\byou(?:['’]ve|\s+have|['’]re\s+using|\s+are\s+using)\b"
+    r"|\b(?:is|are)\s+(?:currently\s+|now\s+)?(?:using|taking\s+up|occupying|"
+    r"consuming)\b|\b(?:uses|occupies|consumes|takes\s+up)\b",
+    re.IGNORECASE)
+# A clause that hedges, conditions or states a requirement is not a reading.
+_STATE_NOT_A_READING_RE = re.compile(
+    r"\b(?:about|around|roughly|approximately|typically|usually|generally|"
+    r"normally|often|up\s+to|at\s+least|minimum|recommended|requires?|"
+    r"required|needs?|if|when|unless|would|could|might|may|should|e\.g|"
+    r"for\s+example|such\s+as|like\s+this|example|suppose|say)\b",
+    re.IGNORECASE)
+_STATE_UNIT_RE = re.compile(
+    r"\b[\w@.-]+\.(?:service|socket|timer|mount|target|path|slice|scope)\b",
+    re.IGNORECASE)
+_STATE_UNIT_FRAME_RE = re.compile(
+    r"\b(?:running|active|enabled|failed|loaded|installed|started)\b",
+    re.IGNORECASE)
+_STATE_PACKAGE_FRAME_RE = re.compile(
+    r"\b(?:installed|you\s+have)\b[^.\n:]{0,30}\bpackages?\b[^.\n:]{0,20}[:\n]",
+    re.IGNORECASE)
+_STATE_FILLS_DISK_RE = re.compile(
+    r"\b(?:biggest|largest|most\s+space|taking\s+up|takes\s+up|using\s+the\s+"
+    r"most)\b[^.\n]{0,60}?((?:/[\w.@+-]+)+/?|~/[\w./@+-]*)",
+    re.IGNORECASE)
+_STATE_CLAUSE_END = re.compile(r"\n|[.!?](?:\s|$)|;\s")
+# A negator before the figure makes the clause a statement of what is NOT known.
+_STATE_NEGATORS = re.compile(
+    r"\b(?:not|never|no|none|nothing|without|unable|cannot|can['’]?t|"
+    r"could\s?n['’]?t|did\s?n['’]?t|does\s?n['’]?t|do\s?n['’]?t|"
+    r"has\s?n['’]?t|have\s?n['’]?t|had\s?n['’]?t|is\s?n['’]?t|are\s?n['’]?t|"
+    r"was\s?n['’]?t|were\s?n['’]?t|wo\s?n['’]?t)\b", re.IGNORECASE)
+
+
+def _norm_figure(m: "re.Match[str]") -> str:
+    number = m.group(1).replace(",", ".")
+    unit = next(g for g in m.groups()[1:] if g) if any(m.groups()[1:]) else ""
+    return f"{number}{unit[:1].lower()}"
+
+
+def _context_index(context) -> "tuple[frozenset[str], str]":
+    """(the figures, the lower-cased text) the conversation already holds."""
+    text = "\n".join(c for c in (context or ()) if isinstance(c, str))
+    figures = frozenset(_norm_figure(m) for m in _STATE_FIGURE_RE.finditer(text))
+    return figures, text.lower()
+
+
+def _state_clauses(text: str):
+    """(start, clause) for every line or sentence of the draft."""
+    start = 0
+    for m in _STATE_CLAUSE_END.finditer(text):
+        yield start, text[start:m.start()]
+        start = m.end()
+    yield start, text[start:]
+
+
+def local_state_claim_marker(text: str, *, context=()) -> str | None:
+    """Return the first unbacked assertion about this machine's state, or None.
+
+    `context` is every text the model was given this turn (system prompt,
+    history, grounding, the user's message); a figure or name found there is
+    backed by it and is never the marker."""
+    draft = text or ""
+    held_figures, held_text = _context_index(context)
+    for _, clause in _state_clauses(draft):
+        figures = list(_STATE_FIGURE_RE.finditer(clause))
+        if not figures:
+            continue
+        subject = _STATE_LOCAL_SUBJECT_RE.search(clause)
+        if subject is None or _STATE_NOT_A_READING_RE.search(clause):
+            continue
+        if _STATE_NEGATORS.search(clause[:figures[0].start()]):
+            continue
+        if all(_norm_figure(f) in held_figures for f in figures):
+            continue
+        return " ".join(clause.split()).strip(" -*•")[:80]
+    units = sorted({u.group(0).lower() for u in _STATE_UNIT_RE.finditer(draft)})
+    unheld = [u for u in units if u not in held_text]
+    if len(unheld) >= 3 and _STATE_UNIT_FRAME_RE.search(draft):
+        return "units: " + ", ".join(unheld[:3])
+    frame = _STATE_PACKAGE_FRAME_RE.search(draft)
+    if frame is not None:
+        block = draft[frame.end():].split("\n\n", 1)[0]
+        items = []
+        for raw in re.split(r"[\n,]", block):
+            item = raw.strip().strip("-*•`'\" ").split(" ", 1)[0].lower()
+            if re.fullmatch(r"[a-z0-9][a-z0-9+._-]{1,40}", item or ""):
+                items.append(item)
+        unheld = [i for i in dict.fromkeys(items) if i not in held_text]
+        if len(unheld) >= 3:
+            return "packages: " + ", ".join(unheld[:3])
+    for _, clause in _state_clauses(draft):
+        m = _STATE_FILLS_DISK_RE.search(clause)
+        if (m is not None and not _STATE_NOT_A_READING_RE.search(clause)
+                and m.group(1).lower() not in held_text):
+            return " ".join(clause.split()).strip(" -*•")[:80]
+    return None
+
+
+def screen_local_state_claim(draft: str, *, dispatched: bool,
+                             context=()) -> tuple[str, str | None]:
+    """Screen a model draft for an assertion about this machine's state that
+    nothing read. ("clean", None) when the turn dispatched (its figures come from
+    the tool) or the draft asserts nothing unbacked; ("violation", <marker>)
+    otherwise. The caller regenerates ONCE with the state guard, else serves the
+    honest line and the probe offer — it never ships an invented reading."""
+    if dispatched:
+        return ("clean", None)
+    marker = local_state_claim_marker(draft or "", context=context)
+    return ("violation", marker) if marker else ("clean", None)
+
+
+# The readings this assistant can take on request, as (subject words, what is
+# read, the question that reads it). Every question routes to a code-owned
+# probe with a fixed read-only command and no model, on the unlocked lane and
+# the locked floor alike — the routes are pinned by the curated route table
+# (its free-space, RAM, uptime, CPU and graphics rows) and by this module's
+# tests, so the offer can never name a question that is not answered.
+_STATE_PROBES = (
+    (re.compile(r"\b(?:memory|ram|swap|vram)\b", re.IGNORECASE),
+     "the memory available", "how much RAM do I have?"),
+    (re.compile(r"\b(?:cpu|processor|cores?)\b", re.IGNORECASE),
+     "the CPU", "what CPU do I have?"),
+    (re.compile(r"\b(?:gpu|graphics|video\s+card)\b", re.IGNORECASE),
+     "the graphics card", "what graphics card do I have?"),
+    (re.compile(r"\b(?:uptime|been\s+(?:up|running)|booted)\b", re.IGNORECASE),
+     "the uptime", "what's my uptime?"),
+    (re.compile(r"\b(?:disks?|drives?|storage|space|partitions?|filesystems?|"
+                r"folders?|director(?:y|ies)|free|used|full)\b|/|~", re.IGNORECASE),
+     "the free space on the root filesystem", "how much free space is left?"),
+)
+
+
+def local_state_probe_offer(subject_text: str | None) -> str:
+    """One sentence naming the reading that answers `subject_text`'s subject."""
+    for rx, what, question in _STATE_PROBES:
+        if rx.search(subject_text or ""):
+            return f'I can read {what} right now — ask me "{question}"'
+    return ("I can read this machine's free space, memory, uptime, CPU and "
+            "graphics card right now — ask me about any of them")
+
+
+def local_state_correction_note(marker: str | None, subject_text: str = "") -> str:
+    """Corrective note for the one regeneration: the state guard, stated as a
+    FACT about this turn, with the reading the user can ask for instead."""
+    from intergen.persona import LOCAL_STATE_CORRECTION
+    return LOCAL_STATE_CORRECTION.format(
+        marker=marker or "the figures in your draft",
+        probe=local_state_probe_offer(f"{marker or ''} {subject_text}"))
+
+
+def honest_local_state_fallback(marker: str | None, subject_text: str = "") -> str:
+    """Deterministic reply when the regeneration still asserts an unread state:
+    the honest line, then the probe offer. Never a figure."""
+    return ("I haven't read that from this machine, so I won't give you figures I "
+            "don't have. "
+            + local_state_probe_offer(f"{marker or ''} {subject_text}") + ".")
+
+
 # ── M8-2 RESULT DELIVERY INVARIANT: a dispatched tool's result ALWAYS reaches ──
 # the delivered answer, or the turn fails loud. The dispatched-but-discarded class
 # (ledger sf_dispatch_run_command-20) is a SUCCEEDING read whose value never enters

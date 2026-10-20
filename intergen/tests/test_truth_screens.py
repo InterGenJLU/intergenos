@@ -271,5 +271,138 @@ class HortativeActionClaimTests(unittest.TestCase):
                 self.assertEqual(safety.screen_execution_claim(
                     text, dispatched=False)[0], "violation")
 
+
+# ── (a) the local-state claim screen ──────────────────────────────────────────
+class LocalStateClaimTests(unittest.TestCase):
+    def _screen(self, text, *context):
+        return safety.screen_local_state_claim(
+            text, dispatched=False, context=context)
+
+    def test_the_recorded_invented_table_is_caught(self):
+        verdict, marker = self._screen(TURN14_FINAL, TURN13_FINAL, TURN14_USER)
+        self.assertEqual(verdict, "violation")
+        self.assertIn("/home", marker)
+
+    def test_a_figure_the_conversation_holds_is_not_a_claim(self):
+        self.assertEqual(
+            self._screen("You have 413G free on the root filesystem "
+                         "(of 468G total).", TURN13_FINAL),
+            ("clean", None))
+
+    def test_general_knowledge_requirements_and_hypotheticals_are_clean(self):
+        for text in ("Steam needs about 1 GB of free space.",
+                     "If your disk has less than 10G free, clear the cache.",
+                     "You need at least 4 GB of RAM for that.",
+                     "A 64-bit system can address more than 4 GB of memory.",
+                     "Run `df -h` to see how much space each filesystem has.",
+                     "Logs live under /var/log, and `journalctl` reads them."):
+            with self.subTest(text=text):
+                self.assertEqual(self._screen(text), ("clean", None))
+
+    def test_a_negated_clause_is_clean(self):
+        self.assertEqual(
+            self._screen("I haven't read how much of your 468G disk is used."),
+            ("clean", None))
+
+    def test_other_unread_readings_are_caught(self):
+        for text in ("Your disk has 20G free.",
+                     "Firefox is using 2.3 GB of memory.",
+                     "You have 12 GiB of memory available.",
+                     "/var/log is using 13G.",
+                     "Running services: nginx.service, sshd.service, "
+                     "cups.service.",
+                     "You have these packages installed:\n- vim\n- htop\n"
+                     "- firefox",
+                     "The biggest folder is ~/Videos."):
+            with self.subTest(text=text):
+                self.assertEqual(self._screen(text)[0], "violation")
+
+    def test_names_the_context_holds_are_not_a_claim(self):
+        units = "Running services: nginx.service, sshd.service, cups.service."
+        self.assertEqual(
+            self._screen(units, "live data: nginx.service sshd.service "
+                                "cups.service bluetooth.service"),
+            ("clean", None))
+
+    def test_a_dispatched_turn_is_not_screened(self):
+        self.assertEqual(safety.screen_local_state_claim(
+            TURN14_FINAL, dispatched=True, context=()), ("clean", None))
+
+    def test_the_honest_line_names_a_real_reading_and_no_figure(self):
+        _, marker = self._screen(TURN14_FINAL, TURN13_FINAL)
+        text = safety.honest_local_state_fallback(marker, TURN14_USER)
+        self.assertIn('"how much free space is left?"', text)
+        self.assertIsNone(safety._STATE_FIGURE_RE.search(text), text)
+
+    def test_every_offered_reading_is_answered_by_the_machine(self):
+        # The probe offer may only name a question a code-owned probe answers
+        # with a fixed read-only command and no model — on the locked floor the
+        # recorded session ran on, and on the unlocked lane.
+        for tier, locked in ((HardwareTierLevel.TIER_1, True),
+                             (HardwareTierLevel.TIER_2, False)):
+            for _, _, question in safety._STATE_PROBES:
+                with self.subTest(question=question, tier=tier.name):
+                    router = _router(tier=tier, locked=locked)
+                    result = route_row(router, {"IDX": "0", "QUERY": question})
+                    self.assertIn(result.source, ("direct_answer", "keyword"))
+                    self.assertFalse(result.used_llm)
+                    calls = router._tools.execute.call_args_list
+                    self.assertEqual(len(calls), 1)
+                    self.assertEqual(calls[0].args[0].name, "run_command")
+
+
+class LocalStateRouterTests(unittest.TestCase):
+    """The screen inside the router's freeform delivery path."""
+
+    def test_the_recorded_table_is_regenerated_with_the_state_guard(self):
+        router = _router()
+        honest = ("I haven't read how the space is divided on this machine. "
+                  "Ask me how much free space is left and I'll read it.")
+        router._llm.chat, seen = _model(honest)
+        messages = _turn(("How much free space do I have on this system?",
+                          TURN13_FINAL), user=TURN14_USER)
+        with mock.patch("intergen.router.glass.emit") as emit:
+            out = router._screen_and_correct_local_state(
+                TURN14_FINAL, messages, dispatched=False, source="llm_freeform")
+        self.assertEqual(out, honest)
+        note = seen[0][-1].content
+        self.assertIn("nothing was read from this machine", note)
+        self.assertIn('"how much free space is left?"', note)
+        self.assertEqual(_rows(emit, "state_claim_screen")[0]["verdict"],
+                         "violation_regenerated")
+
+    def test_a_regeneration_that_still_invents_gets_the_honest_line(self):
+        router = _router()
+        router._llm.chat, _ = _model(TURN14_FINAL)
+        messages = _turn(user=TURN14_USER)
+        with mock.patch("intergen.router.glass.emit") as emit:
+            out = router._screen_and_correct_local_state(
+                TURN14_FINAL, messages, dispatched=False, source="llm_freeform")
+        self.assertTrue(out.startswith("I haven't read that from this machine"))
+        self.assertIsNone(safety._STATE_FIGURE_RE.search(out), out)
+        self.assertEqual(_rows(emit, "state_claim_screen")[0]["verdict"],
+                         "violation_regen_failed_fallback")
+
+    def test_a_figure_from_the_conversation_passes_without_a_model_call(self):
+        router = _router()
+        messages = _turn(("How much free space do I have?", TURN13_FINAL),
+                         user="Is that enough for a 50G game?")
+        draft = "Yes — you have 413G free, so a 50G game fits easily."
+        with mock.patch("intergen.router.glass.emit") as emit:
+            out = router._screen_and_correct_local_state(
+                draft, messages, dispatched=False, source="llm_freeform")
+        self.assertEqual(out, draft)
+        self.assertEqual(_rows(emit, "state_claim_screen")[0]["verdict"],
+                         "clean")
+
+    def test_the_freeform_path_runs_the_screen(self):
+        router = _router()
+        router._llm.chat, _ = _model(TURN14_FINAL)
+        with mock.patch("intergen.router.glass.emit"):
+            out = router._screen_and_correct_claim(
+                TURN14_FINAL, _turn(user=TURN14_USER), dispatched=False,
+                source="llm_freeform")
+        self.assertNotIn("408G", out)
+
 if __name__ == "__main__":
     unittest.main()

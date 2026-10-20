@@ -139,6 +139,21 @@ FREEFORM_STATE_GUARD = (
     "data for something general knowledge already covers."
 )
 
+#: The same guard restated as a FACT about one turn, for the single regeneration
+#: after safety.screen_local_state_claim found a reading nothing took (a size, a
+#: package or unit list, a path about this machine on a turn that ran no tool).
+#: Formatted with {marker}, the asserted fragment, and {probe}, the reading the
+#: user can ask for instead (safety.local_state_probe_offer).
+LOCAL_STATE_CORRECTION = (
+    "FACT: nothing was read from this machine on this turn — no command ran and "
+    "no tool returned data — so what your draft states about this machine (for "
+    "example: {marker}) was not measured. Do not state any size, percentage, "
+    "count, package list, service list or path as this machine's current "
+    "state. Say plainly that you have not read it from the machine, and tell "
+    "the user what can be read right now: {probe}. Anything general that is not "
+    "about this machine's current state may stay."
+)
+
 # Injected by router._try_llm_freeform on a SYSTEM-CATEGORY turn (administration,
 # privileges, the authorization/safety layer, or InterGen's own ability to change
 # system state). On the locked 2B floor these questions otherwise drew fabricated
