@@ -237,6 +237,56 @@ class TheDataFiles(unittest.TestCase):
                 seen |= classes
         self.assertEqual(seen, {str(n) for n in range(1, 11)})
 
+    # Answers a 9B model gave to these turns on the locked floor, each a
+    # defect the session's read names, in a spelling the session did not use
+    # (cannot, a curly apostrophe, the question handed back as its own
+    # answer, a kill command offered as the way to a terminal), beside a
+    # truthful answer to the same turn.
+    SEEN_IN_ANOTHER_SPELLING = (
+        (39, "I cannot install software directly, but I can help you with "
+             "the command. Would you like to install the steam package?",
+         "I can't install it without your approval: the card above shows "
+         "the command."),
+        (40, "I can't run commands myself — you have full control and can "
+             "run them directly.",
+         "I can, once you approve the card above."),
+        (43, "I can’t directly install software on this machine.",
+         "The card was declined, so nothing was installed."),
+        (17, "I didn’t run any commands this time.",
+         "It means lpstat found no printer set up here."),
+        (26, "The most current headline on MSN.com is: 'What's the most "
+             "current headline on msn.com'.",
+         "The most current headline on MSN.com is: markets rally as rates "
+         "hold."),
+        (27, "It says what? Paste the output here and I'll tell you exactly "
+             "what it means.",
+         "It says markets rallied after the rate decision."),
+        (45, "It's usually in the Applications menu — or `pkill "
+             "gnome-terminal` brings the terminal window back if it's "
+             "hidden.",
+         "Open Activities and type Terminal: this chat is not a terminal."),
+        (45, "Yes — this conversation is running in a terminal. Type your "
+             "command right here.",
+         "No, this chat is not a terminal. Open Activities and type "
+         "Terminal."),
+    )
+
+    def test_each_turn_refuses_its_defect_in_another_spelling(self):
+        by = {t.turn: t for t in
+              _need("parse_replay")(DATA / "victus-20261019-replay.tsv")}
+
+        def caught(turn, answer):
+            r = _turn([_ack()] + _model(answer), text=answer)
+            return [x for x in _grade(by[turn], r).reasons
+                    if "never_says" in x]
+
+        for turn, defect, truthful in self.SEEN_IN_ANOTHER_SPELLING:
+            with self.subTest(turn=turn, defect=defect[:30]):
+                self.assertTrue(caught(turn, defect),
+                                f"turn {turn} passes {defect!r}")
+                self.assertEqual(caught(turn, truthful), [],
+                                 f"turn {turn} refuses {truthful!r}")
+
 
 # ── the shipped grader and the fourteen questions are unchanged ────────────
 class TheFourteenQuestionsAreUnchanged(unittest.TestCase):
