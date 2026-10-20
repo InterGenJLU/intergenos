@@ -1367,6 +1367,11 @@ _WEB_SEARCH_EXPLANATION_TAIL_RE = re.compile(
     r"|(?:explain|summari[sz]e)\s+(?:it|that|them))"
     r"(?:\s*[-,]?\s*in\s+(?:a\s+)?(?:human[- ]readable\s+format"
     r"|plain\s+(?:english|language)))?\s*[?!.]*\s*$", re.IGNORECASE)
+_WEB_SEARCH_REFERENCE_RE = re.compile(
+    r"(?:look\s+(?:it|that|this)\s+up(?:\s+on\s+(?:the\s+)?(?:web|internet))?"
+    r"|google\s+(?:it|that|this)"
+    r"|(?:web\s*search|search\s+(?:the\s+)?(?:web|internet))"
+    r"(?:\s+for)?\s+(?:it|that|this))\s*[?!.]*", re.IGNORECASE)
 
 
 def _web_request_text(text: str) -> str:
@@ -3497,6 +3502,11 @@ class ConversationRouter(RouterInterface):
             self._won("current_data_offer", source=_cd.source)
             return _cd
 
+        if not forget_in_compound:
+            explicit_search = self._try_explicit_web_search(original_input, t0)
+            if explicit_search is not None:
+                return explicit_search
+
         # A compound instruction must reach the clause router before a single
         # how-to can answer it. Each clause keeps its teaching intent, including
         # a shared prefix: "how do I update ... and list ..." asks how to do both.
@@ -4030,17 +4040,46 @@ class ConversationRouter(RouterInterface):
                 return _answer(key)
         return None
 
+    def _previous_web_query(self, subject: str = "") -> str:
+        """Resolve a lookup reference from the most recent user topic."""
+        history = getattr(getattr(self, "_conv", None), "history", ()) or ()
+        for message in reversed(history):
+            if getattr(message.role, "value", message.role) != "user":
+                continue
+            text = message.content or ""
+            if (MemoryManager.is_bare_affirmative(text)
+                    or MemoryManager.is_bare_negative(text)):
+                continue
+            query = _distilled_web_query(text)
+            if (_web_search_target(text) or _EXTERNAL_LIVE_SUBJECT_RE.search(text)
+                    or _IMPLICIT_LIVE_RE.search(text)):
+                if subject and not (_content_words(subject) & _content_words(query)):
+                    return ""
+                return query
+            if not depends_on_an_earlier_turn(text):
+                return ""
+        return ""
+
+    def _try_explicit_web_search(self, user_input: str, t0: float
+                                 ) -> "RouteResult | None":
+        """Run a complete explicit lookup through the existing tool dispatcher."""
+        target = self._recognised_web_dispatch(user_input)
+        if not target or analyze_query(target, self._hardware_tier).needs_decomposition:
+            return None
+        result = self._run_staged_action(target, "web_search", {"query": target})
+        result.source = "explicit_web_search"
+        self._record(result, t0, "explicit_web_search")
+        return result
+
     def _recognised_web_dispatch(self, user_input: str) -> "str | None":
         """The search target when this sentence is an EXPLICIT, recognised web search.
 
         Returns the thing to look up when all three of these hold, and None otherwise:
 
-          1. the SHIPPED matcher — the same Layer-0 normalisation, keyword layer and
-             embedding layer the product routes on — resolves the sentence to the
-             ``web_search`` tool;
-          2. the sentence NAMES something to search for (``_web_search_target``), which
-             is what separates "web search for the average price of X" from the bare
-             capability question "can you search the web?"; and
+          1. the request parser identifies an explicit lookup, and the shipped
+             matcher resolves its canonical form to ``web_search``;
+          2. the sentence names a target, or explicitly refers to a prior user
+             question that supplies it; a bare capability question has neither; and
           3. ``web_search`` is actually registered.
 
         CONDITION 3 IS NOT A FORMALITY. On a machine where web search is not available
@@ -4049,10 +4088,8 @@ class ConversationRouter(RouterInterface):
         cannot happen — the user would be told nothing rather than told the truth. The
         gate only steps aside when the search it is stepping aside FOR can really run.
 
-        This is the whole of the wiring: the two gates below ask this question and, when
-        the answer is a target, decline the turn so the dispatch paths execute it. No
-        precedence rule is added and no gate is reordered — each gate simply stops
-        answering for a sentence that was never a question.
+        Capability and live-data offers step aside for this target. The explicit
+        lookup route then executes it through the existing registry boundary.
         """
         reg = getattr(self, "_tools", None)
         if reg is None or "web_search" not in reg.get_all_names():
@@ -4074,11 +4111,21 @@ class ConversationRouter(RouterInterface):
             # dispatch however the matcher scores it — so nothing is lost by asking it
             # first and a whole class of turns never touches the matcher at all.
             target = _web_search_target(normalized)
+            request = _WEB_SEARCH_EXPLANATION_TAIL_RE.sub(
+                "", _web_request_text(normalized))
+            reference = _WEB_SEARCH_REFERENCE_RE.fullmatch(request)
+            if reference or (target and re.search(
+                    r"\b(?:it|that|this|them|those|these)\b", request, re.IGNORECASE)):
+                previous = self._previous_web_query(target or "")
+                if previous:
+                    target = previous
             if not target:
                 return None
-            match = matcher._match_keywords(normalized)
+            # The request parser has identified an explicit lookup. Match that
+            # request without its conversational preamble or referential tail.
+            match = matcher._match_keywords("web search for " + target)
             if match.intent_id is None:
-                match = matcher._match_embeddings(normalized)
+                match = matcher._match_embeddings("web search for " + target)
         except Exception:  # noqa: BLE001 — a matcher fault must never break a turn
             logger.debug("web-dispatch recognition failed", exc_info=True)
             return None

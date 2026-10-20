@@ -302,5 +302,63 @@ class RecognisedSearchIsExecuted(unittest.TestCase):
                               f"{sentence!r} did not say the capability is absent")
 
 
+class ConversationalSearchRequests(unittest.TestCase):
+    def test_an_explicit_request_with_a_preamble_executes_without_an_offer(self):
+        router, _registry, executed = _build_router()
+        result = router.route(
+            "I wanted you to web search the most current headline from msn.com "
+            "and tell me what it is- in a human readable format")
+        self.assertEqual(executed, ["web_search"])
+        self.assertEqual(result.source, "explicit_web_search")
+        self.assertIsNone(router._conv.pending_search_offer)
+
+    def test_a_named_followup_uses_the_previous_question(self):
+        router, _registry, executed = _build_router()
+        router._append_history(
+            "What's the most current headline on msn.com?",
+            "The headline is available at https://example.com/news.")
+        result = router.route(
+            "hmmm... I have no idea what that is. "
+            "Can you web search that headline and tell me about it?")
+        self.assertEqual(executed, ["web_search"])
+        self.assertEqual(result.tool_calls[0].arguments["query"],
+                         "most current headline on msn.com")
+        self.assertIsNone(router._conv.pending_search_offer)
+
+    def test_look_it_up_uses_the_previous_question_without_another_offer(self):
+        router, _registry, executed = _build_router()
+        router.route("What's the most current headline on msn.com?")
+        result = router.route("look it up")
+        self.assertEqual(executed, ["web_search"])
+        self.assertEqual(result.tool_calls[0].arguments["query"],
+                         "most current headline on msn.com")
+        self.assertIsNone(router._conv.pending_search_offer)
+
+    def test_a_reference_without_a_topic_does_not_execute_a_search(self):
+        router, _registry, executed = _build_router()
+        router.route("look it up")
+        self.assertEqual(executed, [])
+
+    def test_a_new_topic_prevents_reusing_an_older_search_question(self):
+        router, _registry, executed = _build_router()
+        router._append_history("What's the latest news?", "I can look that up.")
+        router._append_history("What is a prism?", "A prism is an optical element.")
+        router.route("look it up")
+        self.assertEqual(executed, [])
+
+    def test_negative_and_explanatory_frames_are_not_explicit_requests(self):
+        router, _registry, _executed = _build_router()
+        for sentence in ("I don't want you to web search the latest news",
+                         "why would you search the web for that",
+                         "how do I search the web for headlines"):
+            with self.subTest(sentence=sentence):
+                self.assertIsNone(router._recognised_web_dispatch(sentence))
+
+    def test_an_explicit_search_still_obeys_the_whole_turn_tool_prohibition(self):
+        router, _registry, executed = _build_router()
+        router.route("Do not use tools. Can you web search the latest news?")
+        self.assertEqual(executed, [])
+
+
 if __name__ == "__main__":
     unittest.main()
