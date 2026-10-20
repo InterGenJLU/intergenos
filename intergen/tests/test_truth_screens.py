@@ -397,6 +397,10 @@ class LocalStateRouterTests(unittest.TestCase):
         note = seen[0][-1].content
         self.assertIn("nothing was read from this machine", note)
         self.assertIn('"how much free space is left?"', note)
+        # Fired on this machine's model, the regeneration turned the reading
+        # into a yes-or-no offer no code-owned offer backs ("Would you like to
+        # know how much free space is left on the root filesystem?").
+        self.assertIn("do not ask them a yes-or-no question", note)
         self.assertEqual(_rows(emit, "state_claim_screen")[0]["verdict"],
                          "violation_regenerated")
 

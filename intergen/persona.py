@@ -150,8 +150,11 @@ LOCAL_STATE_CORRECTION = (
     "example: {marker}) was not measured. Do not state any size, percentage, "
     "count, package list, service list or path as this machine's current "
     "state. Say plainly that you have not read it from the machine, and tell "
-    "the user what can be read right now: {probe}. Anything general that is not "
-    "about this machine's current state may stay."
+    "the user what can be read right now: {probe}. Name that question for the "
+    "user to ask; do not ask them a yes-or-no question about it and do not "
+    "offer to check it yourself — nothing can run from this reply, so a 'yes' "
+    "would have nothing to start. Anything general that is not about this "
+    "machine's current state may stay."
 )
 
 # Injected by router._try_llm_freeform on a SYSTEM-CATEGORY turn (administration,
