@@ -68,6 +68,7 @@ from intergen.safety import (
     capability_unverified_fallback, capability_unintrospectable_fallback,
     answer_command_capability_question,
     screen_model_text_offer, model_offer_correction_note, honest_no_selfoffer_fallback,
+    offer_action_tool,
     screen_local_state_claim, local_state_correction_note,
     honest_local_state_fallback,
     screen_general_refusal, scope_grounding_note, honest_scope_steer,
@@ -6812,14 +6813,27 @@ class ConversationRouter(RouterInterface):
         note, and accept the result only if it no longer claims an unfounded
         action. Returns the honest text, or None if the regen still violates (the
         caller then serves the deterministic honest fallback). getattr-safe: a
-        thread on the web path calls it via run_in_executor."""
+        thread on the web path calls it via run_in_executor.
+
+        The note asks for the ANSWER as well as the honesty. It used to end "if
+        you were about to report an action, state plainly that nothing was run",
+        and on a turn asking what an EARLIER command's result meant, that is all
+        the model said: asked "What's that mean?" right after `lpstat -p -d` had
+        reported "No destinations added", the regenerated reply was "I'm sorry,
+        but I didn't run any commands this time" (a recorded session,
+        2026-10-19). True, and no answer. The earlier result is in the history
+        the model is given; the note now points it there rather than quoting
+        it, so no earlier text is promoted into the user's voice."""
         corrective = Message(
             role=MessageRole.USER,
             content=(
                 "You did NOT run, start, execute, install, update, or kick off "
                 "anything this turn — no command was dispatched. Do not claim or "
-                "imply that you did. Answer the user honestly; if you were about "
-                "to report an action, state plainly that nothing was run."))
+                "imply that you did, and do not write as if you were doing it now "
+                "(\"let's run it\", \"I've run it\"). Answer the user's actual "
+                "question; never answer only that nothing was run. If the question "
+                "is about a command result in your previous reply, explain in plain "
+                "words what that result means for them and what they can do next."))
         try:
             regen = self._llm.chat(list(messages) + [corrective])
         except Exception as e:  # noqa: BLE001 — a regen failure must not crash the turn
@@ -6927,12 +6941,39 @@ class ConversationRouter(RouterInterface):
             "source": source})
         return text
 
-    def _regenerate_without_selfoffer(self, messages: "list[Message]") -> str | None:
-        """M7 leg 2: regenerate a freeform draft ONCE, re-grounded that it has no
-        tools and must not pose a bindable self-offer. Returns the corrected text, or
-        None if it still offers (the caller then serves the honest fallback)."""
+    def _true_capability_sentence(self, tool: str | None) -> str | None:
+        """What the assistant really does for `tool`: the registry's own phrase,
+        present only if the live tool registry holds the tool, with the consent
+        tail only if the tool's declared tier reaches the gate — the same facts
+        the capability answer states (_answer_tool_capability). None when the
+        tool is unknown, unregistered or has no phrase: then nothing is asserted."""
+        human = capability_registry.phrase(tool) if tool else None
+        reg = getattr(self, "_tools", None)
+        names = reg.get_all_names() if reg is not None else []
+        if human is None or tool not in names:
+            return None
+        tail = (" — the user gets a confirmation prompt before any change is made"
+                if self._tool_is_consent_gated(tool) else "")
+        return (f"InterGen CAN {human} on this machine{tail}, when the user asks "
+                "for it directly.")
+
+    def _regenerate_without_selfoffer(self, messages: "list[Message]",
+                                      marker: str | None = None,
+                                      draft: str | None = None) -> str | None:
+        """M7 leg 2: regenerate a freeform draft ONCE, re-grounded that nothing can
+        be dispatched from it and that it must not pose a bindable self-offer.
+        Returns the corrected text, or None if it still offers (the caller then
+        serves the honest fallback).
+
+        `marker` is the offer the screen found and `draft` the text it was found
+        in. When the offered action is one a registered tool performs, the note
+        states that tool's true capability so the regeneration cannot deny it;
+        with neither (the web path passes none) the note asserts no capability
+        and invites no denial."""
+        tool = offer_action_tool(marker) or offer_action_tool(draft)
         corrective = Message(role=MessageRole.USER,
-                             content=model_offer_correction_note())
+                             content=model_offer_correction_note(
+                                 self._true_capability_sentence(tool)))
         try:
             regen = self._llm.chat(list(messages) + [corrective])
         except Exception as e:  # noqa: BLE001 — a regen failure must not crash the turn
@@ -6954,7 +6995,7 @@ class ConversationRouter(RouterInterface):
             glass.emit("decision", "model_offer_screen", detail={
                 "verdict": "clean", "marker": None, "source": source})
             return draft
-        corrected = self._regenerate_without_selfoffer(messages)
+        corrected = self._regenerate_without_selfoffer(messages, marker, draft)
         if corrected is not None:
             outcome, text = "violation_regenerated", corrected
         else:
@@ -8647,6 +8688,14 @@ class ConversationRouter(RouterInterface):
             return None
         return f"cp {src} {dst}"
 
+    # run_command's own failure mark (tools/run_command.py), and the rule the
+    # synthesis gets when a result carries it.
+    _FAILED_EXIT_RE = re.compile(r"\[exit code: -?[1-9]\d*\]")
+    _FAILED_RESULT_RULE = (
+        "\nThe command FAILED. Say in plain words what its error message means "
+        "for what the user asked, and what they can do next. Do not give the "
+        "exit code as the answer.")
+
     def _synthesize_tool_result(self, user_input: str, tool_name: str,
                                 tool_output: str,
                                 raw_output: str | None = None) -> str:
@@ -8686,6 +8735,16 @@ class ConversationRouter(RouterInterface):
         sanitized = sanitize_output(tool_output)
         instruction = ("Synthesize a clear, concise response for the user.\n"
                        "RULES:\n" + self._llm._SYNTHESIS_RULES)
+        # A FAILED command is answered by what its result MEANS. Measured on a
+        # recorded session (2026-10-19): asked whether a printer was on the
+        # network, `lpstat -p -d` printed "No destinations added." and exited 1,
+        # and the synthesis said exactly that — "The exit code was 1." — which
+        # tells the person nothing they can use. run_command marks a failure
+        # "[exit code: N]"; on that mark the instruction asks for the meaning and
+        # the next step, and rules out the exit status as the answer.
+        if self._FAILED_EXIT_RE.search(raw_output if raw_output is not None
+                                       else tool_output or ""):
+            instruction += self._FAILED_RESULT_RULE
         synthesis_prompt = (
             f"The user asked: \"{user_input}\"\n\n"
             f"Data from the {tool_name} tool to base your answer on:\n"

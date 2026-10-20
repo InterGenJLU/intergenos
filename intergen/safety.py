@@ -1292,15 +1292,56 @@ def screen_model_text_offer(draft: str, *, dispatched: bool,
     return ("violation", fm.group(0).strip())
 
 
-def model_offer_correction_note() -> str:
-    """Corrective note for regeneration: the model has no tools this turn, so it must
-    not pose a bindable self-offer. Honest INPUT, never scripted output."""
-    return ("You have NO tools available this turn — you cannot run, install, update, "
-            "write, save, or otherwise perform any action yourself. Do NOT offer to "
-            "do it and invite the user to 'say yes' — there is no mechanism behind "
-            "such an offer, so a later 'yes' would only make you claim you did "
-            "something you did not. Instead, either explain how the USER can do it "
-            "themselves, or say plainly that you can't do it directly. Rewrite your "
+# Which tool an offered action belongs to, so the corrective note can state what
+# that tool really does. Ordered: the first match names the tool. A draft whose
+# action matches none gets a note that states no capability and denies none.
+_OFFER_ACTION_TOOLS = (
+    ("manage_packages", re.compile(
+        r"\b(?:re|un)?install(?:s|ed|ing)?\b"
+        r"|\b(?:update|upgrade)\s+(?:the\s+|your\s+)?(?:system|packages?|software)\b"
+        r"|\bremove\s+(?:the\s+)?(?:[\w.+-]+\s+)?package\b", re.IGNORECASE)),
+    ("manage_services", re.compile(
+        r"\b(?:start|stop|restart|enable|disable)\b[^.?!]{0,30}\bservices?\b",
+        re.IGNORECASE)),
+    ("write_file", re.compile(
+        r"\b(?:write|save|create)\b[^.?!]{0,30}\b(?:files?|scripts?|notes?|"
+        r"documents?)\b", re.IGNORECASE)),
+    ("take_screenshot", re.compile(r"\bscreenshots?\b", re.IGNORECASE)),
+    ("run_command", re.compile(r"\b(?:run|execute)\b", re.IGNORECASE)),
+)
+
+
+def offer_action_tool(text: str | None) -> str | None:
+    """The tool an offered action in `text` belongs to, or None."""
+    for tool, rx in _OFFER_ACTION_TOOLS:
+        if rx.search(text or ""):
+            return tool
+    return None
+
+
+def model_offer_correction_note(capability: str | None = None) -> str:
+    """Corrective note for regeneration: nothing can be dispatched from this reply,
+    so it must not pose a bindable self-offer. Honest INPUT, never scripted output.
+
+    It must not deny a capability the assistant really has, either. The note used
+    to end "or say plainly that you can't do it directly", and the model did
+    exactly that: one turn after the assistant answered "Yes — I can install,
+    remove, and update software packages", the regenerated reply to "so, are you
+    going to install it?" was "I can't directly install software on this machine"
+    (a recorded session, 2026-10-19). The system prompt's capability guard says the
+    opposite (capability_registry.build_system_capability_guard), so the note was
+    contradicting the one source of truth. `capability` is the caller's sentence
+    of what the assistant really does, read from the live tool registry; without
+    one the note states no capability and invites no denial."""
+    lead = ("Nothing can be run from this reply — no tool is dispatched on this "
+            "turn. Do NOT offer to do it here and do NOT invite the user to 'say "
+            "yes' — there is no mechanism behind such an offer, so a later 'yes' "
+            "would only make you claim you did something you did not.")
+    if capability:
+        return (f"{lead} Do NOT say you cannot do it at all — that is false. The "
+                f"truth: {capability} Say that plainly, then explain how the user "
+                "can also do it themselves. Rewrite your answer accordingly.")
+    return (f"{lead} Explain how the USER can do it themselves. Rewrite your "
             "answer accordingly.")
 
 

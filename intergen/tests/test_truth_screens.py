@@ -404,5 +404,83 @@ class LocalStateRouterTests(unittest.TestCase):
                 source="llm_freeform")
         self.assertNotIn("408G", out)
 
+
+# ── (c) regeneration texts that are true and answer the question ─────────────
+class RegenerationTextTests(unittest.TestCase):
+    def test_the_claim_note_asks_for_the_meaning_not_a_bare_denial(self):
+        router = _router()
+        router._llm.chat, seen = _model("No printer is set up on this machine yet.")
+        messages = _turn(("Are there any printers on the network I can use?",
+                          "Happy to run `lpstat -p -d` — just say yes."),
+                         ("yes", TURN16_FINAL), user="What's that mean?")
+        router._regenerate_without_claim(messages, "successfully")
+        note = seen[0][-1].content
+        self.assertNotIn("state plainly that nothing was run", note)
+        self.assertIn("never answer only that nothing was run", note)
+        self.assertIn("what that result means", note)
+        # The earlier reply is pointed to, never re-quoted in the user's voice.
+        self.assertNotIn("No destinations added", note)
+
+    def test_the_recorded_bare_denial_is_not_what_the_note_asks_for(self):
+        # The regeneration the old note produced, recorded.
+        self.assertIn("didn't run any commands", TURN17_REGEN)
+        self.assertEqual(safety.screen_execution_claim(
+            TURN17_DRAFT, dispatched=False)[1], "successfully")
+
+    def test_the_offer_note_states_the_registered_capability(self):
+        router = _router()
+        router._llm.chat, seen = _model("I can install packages when you ask.")
+        _, marker = safety.screen_model_text_offer(
+            TURN39_DRAFT, dispatched=False, code_offer_staged=False)
+        router._regenerate_without_selfoffer(
+            _turn(user="so, are you going to install it?"), marker, TURN39_DRAFT)
+        note = seen[0][-1].content
+        self.assertIn(capability_registry.phrase("manage_packages"), note)
+        self.assertIn("confirmation prompt", note)
+        self.assertIn("Do NOT say you cannot do it at all", note)
+        self.assertNotIn("can't do it directly", note)
+
+    def test_an_unregistered_tool_is_never_claimed(self):
+        router = _router()
+        router._tools.get_all_names = lambda: ["read_file"]
+        router._llm.chat, seen = _model("You can run pkm install steam.")
+        router._regenerate_without_selfoffer(
+            _turn(user="so, are you going to install it?"),
+            "I can install the Steam client for you", TURN39_DRAFT)
+        note = seen[0][-1].content
+        self.assertNotIn("CAN", note)
+        self.assertNotIn("can't do it directly", note)
+
+    def test_the_offer_note_without_a_capability_invites_no_denial(self):
+        note = safety.model_offer_correction_note()
+        self.assertNotIn("can't do it directly", note)
+        self.assertIn("Explain how the USER can do it themselves", note)
+
+    def test_the_recorded_denial_contradicted_the_capability_guard(self):
+        self.assertIn("NEVER say you cannot run commands",
+                      capability_registry.build_system_capability_guard())
+        self.assertIn("I can't directly install software", TURN39_REGEN)
+
+    def test_a_failed_command_is_synthesized_by_its_meaning(self):
+        router = _router()
+        router._llm.chat, seen = _model("No printer is set up yet.")
+        router._synthesize_tool_result(
+            "lpstat -p -d", "run_command",
+            "lpstat: No destinations added.\n[exit code: 1]")
+        prompt = seen[0][-1].content
+        self.assertIn("The command FAILED", prompt)
+        self.assertIn("Do not give the exit code as the answer", prompt)
+
+    def test_a_successful_command_gets_no_failure_rule(self):
+        router = _router()
+        router._llm.chat, seen = _model("One printer, idle.")
+        router._synthesize_tool_result(
+            "lpstat -p -d", "run_command", "printer office is idle.")
+        self.assertNotIn("The command FAILED", seen[0][-1].content)
+
+    def test_the_recorded_synthesis_reported_only_the_exit_code(self):
+        self.assertIn("The exit code was 1.", TURN16_FINAL)
+
+
 if __name__ == "__main__":
     unittest.main()
