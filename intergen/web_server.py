@@ -3023,6 +3023,49 @@ class WebServer:
                 "verdict": _outcome, "marker": _marker,
                 "dispatched": _dispatched, "source": route_result.source})
 
+        # Local-state claim screen (web-path parity with the router's
+        # _screen_and_correct_local_state). A reading of THIS machine that nothing
+        # took — an invented size, package list, unit list or path — is regenerated
+        # once off-thread under the state guard, else replaced by the honest line
+        # and the probe offer. Runs on the execution-corrected full_response,
+        # against everything the model was given. The recorded session that
+        # delivered an invented eighteen-row usage table (2026-10-19) was a
+        # browser session.
+        _st_question = next((m.content for m in reversed(messages)
+                             if m.role == MessageRole.USER), "")
+        _st_verdict, _st_marker = safety.screen_local_state_claim(
+            full_response, dispatched=_dispatched,
+            context=[m.content for m in messages])
+        if _st_verdict == "clean":
+            glass.emit("decision", "state_claim_screen", detail={
+                "verdict": "clean", "marker": None, "dispatched": _dispatched,
+                "source": route_result.source})
+        else:
+            _state_ctx = glass.bind_context()
+            _st_corrected = await loop.run_in_executor(
+                None,
+                lambda: _state_ctx.run(
+                    self._bound, ctx,
+                    self._router._regenerate_without_state_claim,
+                    messages, _st_marker))
+            if _st_corrected is not None:
+                full_response = _st_corrected
+                _st_outcome = "violation_regenerated"
+                kept_answer_reasons.append(
+                    "the answer stated readings of this machine that were never "
+                    "taken, so it was written again")
+            else:
+                full_response = safety.honest_local_state_fallback(
+                    _st_marker, _st_question)
+                _st_outcome = "violation_regen_failed_fallback"
+                kept_answer_reasons.append(
+                    "the answer stated readings of this machine that were never "
+                    "taken and could not be written again, so a plain statement "
+                    "replaced it")
+            glass.emit("decision", "state_claim_screen", detail={
+                "verdict": _st_outcome, "marker": _st_marker,
+                "dispatched": _dispatched, "source": route_result.source})
+
         # M7 leg 2 — model-authored self-offer screen (web-path parity). A toolless
         # turn whose draft offers to perform an action no code-owned offer backs is
         # the leg-1 root enabler; regenerate off-thread once re-grounded, else the

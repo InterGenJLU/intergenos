@@ -29,6 +29,7 @@ assistant, and each one shipped because no screen read its shape:
 """
 from __future__ import annotations
 
+import asyncio
 import os
 import unittest
 from pathlib import Path
@@ -37,13 +38,15 @@ from unittest import mock
 
 from intergen import capability_registry, safety
 from intergen.howto import HowtoCorpus
-from intergen.interfaces.types import HardwareTierLevel, Message, MessageRole
+from intergen.interfaces.types import (
+    HardwareTierLevel, Message, MessageRole, RouteResult)
 from intergen.intents import register_all_intents
 from intergen.llm import LLMRouter
 from intergen.router import ConversationRouter
 from intergen.semantic import SemanticMatcher
 from intergen.tool_registry import ToolRegistry
 from intergen.tests.test_curated_route_regressions import route_row
+from intergen.web_server import ConnectionContext, WebServer
 
 # ── The recorded texts (verbatim) ─────────────────────────────────────────────
 TURN13_FINAL = (
@@ -527,6 +530,95 @@ class RegenerationTextTests(unittest.TestCase):
 
     def test_the_recorded_synthesis_reported_only_the_exit_code(self):
         self.assertIn("The exit code was 1.", TURN16_FINAL)
+
+
+# ── (d) the browser path runs the same screens ───────────────────────────────
+class _RecordingWS:
+    def __init__(self):
+        self.sent: list[dict] = []
+
+    async def send_json(self, payload):
+        self.sent.append(payload)
+
+    def of_type(self, type_name):
+        return [m for m in self.sent if m.get("type") == type_name]
+
+
+def _web_turn(router, draft, *pairs, user=TURN14_USER):
+    """One tool-less model turn through the browser streamer: the real web
+    server's _stream_llm_response over `router`, the model streaming `draft`,
+    every regeneration from the router's model stub. Returns (the stream_end
+    frame, the prompt the model was streamed from)."""
+    server = WebServer(router=router, llm=router._llm, tools=None,
+                       governance=None)
+    ctx = ConnectionContext(client_id="c1", source_interface="web",
+                            ws=_RecordingWS(),
+                            conversation=router.new_conversation())
+    for asked, answered in pairs:
+        ctx.conversation.history.extend([
+            Message(role=MessageRole.USER, content=asked),
+            Message(role=MessageRole.ASSISTANT, content=answered)])
+    prompts = []
+
+    def stream_with_tools(messages, **_):
+        prompts.append(list(messages))
+        yield draft
+    router._llm.stream_with_tools = stream_with_tools
+    asyncio.run(server._stream_llm_response(
+        ctx, "turn1", user,
+        RouteResult(text="", source="llm_freeform", handled=False)))
+    ends = ctx.ws.of_type("stream_end")
+    assert len(ends) == 1, ctx.ws.sent
+    return ends[0], prompts[0]
+
+
+class BrowserStateScreenTests(unittest.TestCase):
+    """The recorded session was a browser session; the browser streamer runs
+    its own copy of the screen sequence, so the state screen must be in it."""
+
+    def test_the_recorded_table_is_regenerated_on_the_browser_path(self):
+        router = _router()
+        honest = ("I haven't read how the space is divided on this machine. "
+                  "Ask me how much free space is left and I'll read it.")
+        router._llm.chat, seen = _model(honest)
+        with mock.patch("intergen.router.glass.emit") as emit:
+            end, _ = _web_turn(router, TURN14_FINAL,
+                               ("How much free space do I have on this "
+                                "system?", TURN13_FINAL))
+        self.assertEqual(end["full_response"], honest)
+        self.assertEqual(len(seen), 1)
+        self.assertIn("nothing was read from this machine", seen[0][-1].content)
+        rows = _rows(emit, "state_claim_screen")
+        self.assertEqual([r["verdict"] for r in rows], ["violation_regenerated"])
+        self.assertIn("/home", rows[0]["marker"])
+        self.assertTrue(end["replaced_streamed_text"])
+        self.assertIn("readings of this machine", end["replacement_reason"])
+
+    def test_a_browser_regeneration_that_still_invents_gets_the_honest_line(self):
+        router = _router()
+        router._llm.chat, _ = _model(TURN14_FINAL)
+        with mock.patch("intergen.router.glass.emit") as emit:
+            end, _ = _web_turn(router, TURN14_FINAL)
+        out = end["full_response"]
+        self.assertTrue(out.startswith("I haven't read that from this machine"))
+        self.assertIn('"how much free space is left?"', out)
+        self.assertIsNone(safety._STATE_FIGURE_RE.search(out), out)
+        self.assertEqual(
+            [r["verdict"] for r in _rows(emit, "state_claim_screen")],
+            ["violation_regen_failed_fallback"])
+
+    def test_a_backed_figure_passes_the_browser_path_untouched(self):
+        router = _router()
+        draft = "Yes — you have 413G free, so a 50G game fits easily."
+        with mock.patch("intergen.router.glass.emit") as emit:
+            end, _ = _web_turn(router, draft,
+                               ("How much free space do I have?",
+                                TURN13_FINAL),
+                               user="Is that enough for a 50G game?")
+        self.assertEqual(end["full_response"], draft)
+        self.assertEqual(
+            [r["verdict"] for r in _rows(emit, "state_claim_screen")],
+            ["clean"])
 
 
 if __name__ == "__main__":
