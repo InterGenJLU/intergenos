@@ -36,6 +36,40 @@ log() {
     echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ') $msg" >> "$LOGFILE" 2>/dev/null || true
 }
 
+# Observe command output without moving its stdin or signing descriptors.
+run_step() {
+    local label="$1" started=$SECONDS
+    shift
+    local -a statuses
+    log "$label (elapsed 0s)"
+    if "$@" | (
+        last=$SECONDS
+        while :; do
+            remaining=$((3 - (SECONDS - last)))
+            if [ "$remaining" -le 0 ]; then
+                log "$label (elapsed $((SECONDS - started))s)"
+                last=$SECONDS
+                remaining=3
+            fi
+            if IFS= read -r -t "$remaining" line; then
+                printf '%s\n' "$line" || exit 1
+            else
+                read_status=$?
+                printf '%s' "$line" || exit 1
+                [ "$read_status" -gt 128 ] || break
+            fi
+        done
+    ); then
+        statuses=("${PIPESTATUS[@]}")
+    else
+        statuses=("${PIPESTATUS[@]}")
+    fi
+    local result="${statuses[0]}"
+    [ "$result" -ne 0 ] || result="${statuses[1]}"
+    log "$label: exit $result (elapsed $((SECONDS - started))s)"
+    return "$result"
+}
+
 log "starting (PKM package: ${PKM_PACKAGE_NAME:-?} ${PKM_PACKAGE_VERSION:-?})"
 
 # The signing helper, for the one passphrase entry this install asks for (step
@@ -52,7 +86,7 @@ fi
 
 # Step 1: hardware check
 if [ -x "$NVIDIA_HOOK_DIR/check-hardware.sh" ]; then
-    if ! "$NVIDIA_HOOK_DIR/check-hardware.sh" 2>&1 | tee -a "$LOGFILE" >&2; then
+    if ! run_step "Checking NVIDIA hardware" "$NVIDIA_HOOK_DIR/check-hardware.sh" 2>&1 | tee -a "$LOGFILE" >&2; then
         log "FATAL: hardware check failed — no Turing+ NVIDIA GPU detected on this system"
         log "Aborting module rebuild. nouveau (already in kernel) handles pre-Turing NVIDIA hardware."
         log "If this is wrong (e.g. lspci returned stale data), re-run $NVIDIA_HOOK_DIR/rebuild-modules manually."
@@ -121,7 +155,7 @@ fi
 # the same code path on kernel upgrade — see hooks/rebuild-modules.sh).
 # A refused signing keeps its status on the way out, so the package manager
 # reports this install as not finished.
-"$NVIDIA_HOOK_DIR/rebuild-modules" "$KVER"
+run_step "Building and signing NVIDIA modules for $KVER" "$NVIDIA_HOOK_DIR/rebuild-modules" "$KVER"
 REBUILD_RC=$?
 if [ "$REBUILD_RC" -ne 0 ]; then
     log "WARNING: rebuild-modules exited $REBUILD_RC for kernel $KVER"
@@ -140,7 +174,7 @@ fi
 # take over the framebuffer.
 if lsmod 2>/dev/null | grep -q '^nouveau'; then
     log "nouveau is loaded — attempting modprobe -r nouveau"
-    if modprobe -r nouveau 2>/dev/null; then
+    if run_step "Unloading the nouveau driver" sh -c 'exec modprobe -r nouveau 2>/dev/null'; then
         log "nouveau unloaded"
     else
         log "nouveau is in-use (likely by the framebuffer console) — reboot required for nvidia to load"
@@ -165,7 +199,7 @@ fi
 if [ -n "${PKM_PACKAGE_ROOT:-}" ] && [ "$PKM_PACKAGE_ROOT" = "/" ]; then
     if [ -x "$KERNEL_HOOK" ]; then
         log "triggering UKI rebuild via $KERNEL_HOOK so cmdline.d/40-nvidia.conf takes effect"
-        if "$KERNEL_HOOK" 2>&1 | tee -a "$LOGFILE" >&2; then
+        if run_step "Rebuilding the boot image for $KVER" "$KERNEL_HOOK" 2>&1 | tee -a "$LOGFILE" >&2; then
             log "UKI rebuild complete — nvidia cmdline params active on next boot"
         else
             KERNEL_HOOK_RC=${PIPESTATUS[0]}
