@@ -24,6 +24,15 @@ patches:
   # changed. Declared identically in both passes for the reason the CVE set is.
   - file: linux-6.18.51-amdgpu-runtime-resume-hotplug-only-on-change-1.patch
     sha256: 64b4badab9a6cf9f72a23344ad01cc66f8f7d59db2cdeeb3838deac12ec534b5
+  # The keyboard-handshake patch, added 2026-10-20: stable 36981ba106d9
+  # ("HID: asus: fortify keyboard handshake", upstream e82ae34af29e), as
+  # kernel.org serves it. 6.18.49 to 6.18.53 read the keyboard's function
+  # report into a 16-byte buffer before the lighting inits; a longer reply
+  # fails with -EOVERFLOW, so no backlight device registers and the brightness
+  # keys do nothing. 6.18.54 carries the fix: this entry is removed when the
+  # pin moves to 6.18.54 or beyond. Declared identically in both passes.
+  - file: linux-6.18.51-hid-asus-fortify-keyboard-handshake-1.patch
+    sha256: 16f239869505eeb5a4e7a0c32563be0063aa15a16262692042b8ea4d0cb310d1
 
 content_hash: f70ec449aca12fcf
 description: Linux kernel
@@ -98,6 +107,7 @@ source_tree:
 # gate on this cut's own full-suite run, which is the gate working.
 - scripts/parse-package-yml-patches.py
 - build/patches/linux-6.18.51-amdgpu-runtime-resume-hotplug-only-on-change-1.patch
+- build/patches/linux-6.18.51-hid-asus-fortify-keyboard-handshake-1.patch
 - config/kernel
 - scripts/build-microcode-cpio.sh
 - scripts/prune-old-kernels.sh
@@ -151,6 +161,7 @@ sources_extra:
 # gate on this cut's own full-suite run, which is the gate working.
 - scripts/parse-package-yml-patches.py
 - build/patches/linux-6.18.51-amdgpu-runtime-resume-hotplug-only-on-change-1.patch
+- build/patches/linux-6.18.51-hid-asus-fortify-keyboard-handshake-1.patch
 
 verify_paths:
   - /usr/include/linux/limits.h
