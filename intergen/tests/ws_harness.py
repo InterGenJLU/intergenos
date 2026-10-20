@@ -152,6 +152,22 @@ def default_token(config_dir: Path | None = None) -> str:
         + f". Set {TOKEN_FILE_ENV} to read it from somewhere else.")
 
 
+def panel_url(host: str, port: int) -> str:
+    """The panel's WebSocket address, as the shipped page opens it.
+
+    The credential is NOT part of it. The server reads the token only from
+    the Sec-WebSocket-Protocol header ("intergen, bearer.<token>",
+    web_server._extract_ws_token), and it access-logs every request line, so
+    a token in the query string was written into the daemon's log on every
+    connection while authenticating nothing."""
+    return f"ws://{host}:{port}/ws?source_interface=web"
+
+
+def panel_protocols(token: str) -> list[str]:
+    """The subprotocols that carry the credential, as the page sends them."""
+    return ["intergen", f"bearer.{token}"]
+
+
 @dataclass
 class WSTurnResult:
     """Structured outcome of one turn driven over the real WS path."""
@@ -202,8 +218,7 @@ class WSGateClient:
         self._token = token or default_token()
         self._host = host
         self._port = port
-        self._url = (f"ws://{host}:{port}/ws"
-                     f"?token={self._token}&source_interface=web")
+        self._url = panel_url(host, port)
 
     async def run_turn(
         self,
@@ -254,8 +269,7 @@ class WSConversation:
     def __init__(self, *, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT,
                  token: str | None = None) -> None:
         self._token = token or default_token()
-        self._url = (f"ws://{host}:{port}/ws"
-                     f"?token={self._token}&source_interface=web")
+        self._url = panel_url(host, port)
         self._session: aiohttp.ClientSession | None = None
         self._ws: Any = None
         # Every frame the server sent on this socket, across every turn, in
@@ -265,7 +279,7 @@ class WSConversation:
     async def __aenter__(self) -> "WSConversation":
         self._session = aiohttp.ClientSession()
         self._ws = await self._session.ws_connect(
-            self._url, protocols=["intergen", f"bearer.{self._token}"])
+            self._url, protocols=panel_protocols(self._token))
         # Drain to the connected handshake before the first send (rule out a
         # send-before-ready race).
         for _ in range(20):
