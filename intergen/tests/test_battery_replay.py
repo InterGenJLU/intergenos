@@ -269,6 +269,17 @@ class TheDataFiles(unittest.TestCase):
              "command right here.",
          "No, this chat is not a terminal. Open Activities and type "
          "Terminal."),
+        (27, "It says there are no printers set up on this system yet — "
+             "nothing to print to.",
+         "It says markets rallied after the rate decision."),
+        (51, "I'm sorry if I've been unhelpful. Let me try again: to install "
+             "steam, run `sudo pkm install steam` in a terminal.",
+         "I'm sorry this has been frustrating; the install card is above "
+         "whenever you want it."),
+        (52, "I apologize for the confusion. I can't run commands myself, so "
+             "you'll need to type them in a terminal window.",
+         "Of course. If it helps, the card above still installs Steam when "
+         "you approve it."),
     )
 
     def test_each_turn_refuses_its_defect_in_another_spelling(self):
