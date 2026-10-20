@@ -97,7 +97,7 @@ import time
 destination, url, transport, *options = sys.argv[1:]
 if transport == "curl":
     command = ["curl", "--fail", "--silent", "--show-error", "--location",
-               "--dump-header", "-", "--output", destination, *options, url]
+               "--dump-header", "-", "-o", destination, *options, url]
     streams = {"stdout": subprocess.PIPE}
 elif transport == "wget":
     command = ["wget", "--quiet", "--server-response", "-O", destination,

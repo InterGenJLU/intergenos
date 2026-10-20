@@ -56,8 +56,7 @@ set -e
 
 # H-007: source the helper-lib API for footprint tracking.
 source /usr/share/igos/helpers/helper-lib.sh
-if ! declare -F igos_helper_write_acceptance >/dev/null ||
-   ! declare -F igos_helper_download >/dev/null; then
+if ! declare -F igos_helper_write_acceptance >/dev/null; then
     echo "  This installer needs an updated install helper library." >&2
     echo "  Run 'sudo pkm upgrade intergenos-helper-lib' and try again." >&2
     exit 1
@@ -97,6 +96,11 @@ case "${1:-}" in
     *) echo "ERROR: unrecognized installer argument." >&2; exit 2 ;;
 esac
 
+if ! declare -F igos_helper_download >/dev/null; then
+    echo "  This installer needs an updated install helper library." >&2
+    echo "  Run 'sudo pkm upgrade intergenos-helper-lib' and try again." >&2
+    exit 1
+fi
 TMPDIR=$(mktemp -d)
 # BLOCKING-D fix (2026-05-19): register TMPDIR cleanup via the
 # helper-lib's IGOS_HELPER_USER_CLEANUP env var instead of `trap EXIT`.

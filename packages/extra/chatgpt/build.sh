@@ -54,8 +54,7 @@ do_install() {
 set -e
 
 source /usr/share/igos/helpers/helper-lib.sh
-if ! declare -F igos_helper_write_acceptance >/dev/null ||
-   ! declare -F igos_helper_download >/dev/null; then
+if ! declare -F igos_helper_write_acceptance >/dev/null; then
     echo "  This installer needs an updated install helper library." >&2
     echo "  Run 'sudo pkm upgrade intergenos-helper-lib' and try again." >&2
     exit 1
@@ -93,6 +92,11 @@ case "${1:-}" in
     *) echo "ERROR: unrecognized installer argument." >&2; exit 2 ;;
 esac
 
+if ! declare -F igos_helper_download >/dev/null; then
+    echo "  This installer needs an updated install helper library." >&2
+    echo "  Run 'sudo pkm upgrade intergenos-helper-lib' and try again." >&2
+    exit 1
+fi
 TMPDIR=$(mktemp -d)
 # Register TMPDIR cleanup via the helper library's cleanup variable instead
 # of `trap EXIT`; the library installs its own EXIT trap for partial-manifest
