@@ -317,6 +317,17 @@ class ByteProgressTest(unittest.TestCase):
         self.assertIn("elapsed ", buf.getvalue())
         self.assertEqual(buf.getvalue().count("\n"), 1)
 
+    def test_resumed_bytes_count_toward_completion_but_not_transfer_rate(self):
+        buf = io.StringIO()
+        with unittest.mock.patch("pkm.progress.time.monotonic", return_value=100.0) as clock:
+            bp = self.progress.ByteProgress("Get: archive", stream=buf, level=output.NORMAL)
+            bp.reset(500, 1000)
+            clock.return_value = 101.0
+            bp.advance(250)
+            bp.close()
+        self.assertIn("75.0%", buf.getvalue())
+        self.assertIn("250 B/s", buf.getvalue())
+
 
 # ----------------------------------------------------------------------
 # The structural half — a new silent loop must FAIL, not wait for a report.

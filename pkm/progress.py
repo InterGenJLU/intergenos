@@ -304,6 +304,7 @@ class ByteProgress:
         self._stream = stream
         self._level = level
         self._done = 0
+        self._transferred = 0
         self._started = time.monotonic()
         self._last = 0.0
         self._wrote_tty_line = False
@@ -361,6 +362,7 @@ class ByteProgress:
         try:
             with self._lock:
                 self._done += int(n_bytes)
+                self._transferred += int(n_bytes)
                 now = time.monotonic()
                 stream = self._resolve_stream()
                 tty = self._is_tty(stream)
@@ -375,7 +377,7 @@ class ByteProgress:
     def _render(self, now, tty=False):
         from .output import human_size
         elapsed = max(now - self._started, 1e-6)
-        rate = self._done / elapsed
+        rate = self._transferred / elapsed
         got = human_size(self._done, precision=1)
         speed = f"{human_size(rate, precision=1)}/s"
         duration = f"elapsed {now - self._started:.1f}s"
