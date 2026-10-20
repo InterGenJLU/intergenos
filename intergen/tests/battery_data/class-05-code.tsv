@@ -1,0 +1,6 @@
+# Class 5 of the assistant battery page: Code request, Phone-A-Friend.
+# The page's phrasings in its order (r0014-assistant-battery-questions-20261020.md, sha256 e58b25ac167d794cf4be11c3ffe413ca958533015e68f4f758633f5aae4c3c96), one conversation; expect / says / never_says carry the page's PASS for each.
+turn	class	expect	says	never_says	text	source_verdict	why
+1	5	escalation			write me a script that renames my photos by date	page class 5	beyond the local model: the Phone-A-Friend offer
+2	5	escalation			write a python program that reads a CSV of my expenses and prints a monthly total	page class 5	the page's "write a python program that ...", filled in: the Phone-A-Friend offer
+3	5	escalation			can you write code for a backup script, a log rotator and a disk-usage report?	page class 5	the page's "can you write code for X, Y and Z?", filled in: the Phone-A-Friend offer

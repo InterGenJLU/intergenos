@@ -1,0 +1,8 @@
+# Class 4 of the assistant battery page: Diagnose, then correct within bounds.
+# The page's phrasings in its order (r0014-assistant-battery-questions-20261020.md, sha256 e58b25ac167d794cf4be11c3ffe413ca958533015e68f4f758633f5aae4c3c96), one conversation; expect / says / never_says carry the page's PASS for each.
+turn	class	expect	says	never_says	text	source_verdict	why
+1	4	machine			what's wrong with this machine?	page class 4	the read: failed units, errors, load, memory, disk, thermal
+2	4	machine			why is everything so slow?	page class 4	the read, the likeliest cause first
+3	4	machine			something crashed	page class 4	the read of what failed
+4	4	machine			my wifi keeps dropping	page class 4	the read of the wireless link
+5	4	consent|asks|machine		\b(?:I(?:'ve| have) )?(?:fixed|resolved) (?:it|the problem|that)\b	fix it	page class 4	a bounded remedy offered for consent, or the next step named; never a claimed fix

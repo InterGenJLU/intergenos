@@ -97,6 +97,59 @@ of what the CORRECTNESS predicates check an answer against),
 rows for the turn ids this run minted, when readable) and ``SHA256SUMS``,
 written LAST. Exit status: 0 = every question PASS; 1 = at least one FAIL;
 2 = refused or usage error (no record written).
+
+TIMING, ON EVERY TURN. Beside ``elapsed_s`` the record carries what the
+harness's own frame stamps say about the start of the turn: ``first_frame_s``
+(the first frame after the send), ``ack_s`` (the server's ``turn_ack``) and
+``first_visible_s`` (the first frame that puts words on the page: a token
+with text, or a whole reply). Each stamp is taken against the send
+(``ws_harness._drive_turn``); a turn with no such frame writes an empty cell.
+
+THE TRANSCRIPT REPLAY (``--replay FILE``). Instead of the fourteen questions,
+the battery replays a recorded conversation: a TSV of turns, each with the
+person's words verbatim, its class and the predicates that say what a PASS is
+for that turn, sent IN ORDER down ONE socket so every follow-up sees the turns
+before it (see REPLAY_HEADER, parse_replay and the predicate vocabulary at
+_grade_replay_turn). Every replay turn is graded on the shipped predicates
+(error, banner, refusal, canned non-answer, terminal frame; model, code and
+no-action where it asks for them) and on these, all read from the frames and
+the target's own trace, never from the answer's say-so:
+
+  * ``gate=<tool>``   a review card for the tool, showing the command, before
+                      it runs; resolved; "no" honoured; and what happened read
+                      back from the machine afterwards, not narrated by the
+                      model. The battery answers every card Deny, as the
+                      fourteen questions do, so it never approves an action;
+  * ``ran=<tool>``    the tool ran in this turn (a read-only dispatch);
+  * ``machine``       answered from this machine's own state, not the web and
+                      not the model alone;
+  * ``howto``         served from the curated how-to corpus;
+  * ``search``        a web search ran in this turn and its query, as the
+                      trace records it, is not the person's sentence verbatim;
+  * ``refuses``       refused outright, with its reason, with no card raised;
+  * ``asks``          ONE question back, with no action staged;
+  * ``consent``       an action offered for consent (a card, or a staged offer);
+  * ``handoff``       the code's honest handoff for an action that was declined;
+  * ``truth=<name>``  a statement checked against this machine's own reading,
+                      taken right after the turn (REPLAY_TRUTH_PROBES);
+  * ``says`` / ``never_says`` columns: a pattern the answer must / must not
+                      contain;
+  * the INDICATOR, on every replay turn: the turn acknowledged within the first
+    second, and its first content in before either of the shipped page's own
+    failsafes (RESPONSE_TIMEOUT_MS before an acknowledgement,
+    POST_ACK_TIMEOUT_MS after one, read from the tree's intergen/web/app.js)
+    would hide the page's working indicator and reconnect;
+  * "no" honoured, on every replay turn: nothing runs after a card answered
+    Deny.
+
+Alternatives are written ``a|b`` in one ``expect`` cell: either holding is a
+PASS. A replay record holds the fourteen-question record's members plus
+``replay.tsv`` (the replay file, byte for byte), ``transcript.txt`` (every turn's
+words and the whole delivered answer) and ``tier-status.txt`` (``intergen
+status`` before and after the run); ``verdicts.tsv`` carries one row per turn
+with its timings, its expectation, the trace's ``history_msgs`` (how much of
+the conversation the model was given) and ``dispatch_locked`` (the floor the
+daemon says it served the turn on).
 """
 
 from __future__ import annotations
@@ -306,6 +359,47 @@ class Verdict:
     terminal_at: float | None = None
     late_frames: int = 0
     text_head: str = ""
+    # What the frame stamps say about the START of the turn (see the module
+    # docstring, TIMING): None when no such frame arrived — an empty cell.
+    first_frame_s: float | None = None
+    ack_s: float | None = None
+    first_visible_s: float | None = None
+    # The indicator predicate's finding: "held", or why not. Graded on a
+    # replay turn; empty for the fourteen questions, whose verdicts it does
+    # not enter.
+    indicator: str = ""
+
+
+# The frame that acknowledges a turn, and the frames after which the page shows
+# the server's own words rather than its working indicator.
+ACK_FRAME = "turn_ack"
+CONTENT_FRAMES = frozenset({"stream_start", "stream_token", "stream_end",
+                            "response", "error"})
+
+
+def _timed_frames(r: Any) -> list[tuple[float, dict]]:
+    """The turn's frames with the harness's stamp for each. The harness
+    appends one event per text frame, in step with ``messages``, and an event
+    of its own (``WS_CLOSED`` and the like) for a socket that ended; those
+    carry no frame and are left out here. A turn that carries no stamps at
+    all has nothing to time: every stamp of it is empty, never a zero."""
+    events = getattr(r, "events", None) or []
+    stamps = [at for at, kind in events if not str(kind).startswith("WS_")]
+    return list(zip(stamps, r.messages))
+
+
+def _turn_timings(r: Any) -> tuple[float | None, float | None, float | None]:
+    """(first_frame_s, ack_s, first_visible_s) from the harness's stamps."""
+    timed = _timed_frames(r)
+    first_frame = timed[0][0] if timed else None
+    ack = next((at for at, m in timed if m.get("type") == ACK_FRAME), None)
+    visible = next(
+        (at for at, m in timed
+         if (m.get("type") == "stream_token" and (m.get("token") or ""))
+         or (m.get("type") == "response"
+             and (m.get("content") or m.get("text") or ""))
+         or m.get("type") == "error"), None)
+    return first_frame, ack, visible
 
 
 # The reading each CORRECTNESS predicate checks its answer against, and the
@@ -545,6 +639,7 @@ def _grade(q: Question, r: Any, glass_rows: dict[str, list[dict]] | None,
         reasons.append(f"question whose answer must be code-owned was answered "
                        f"by {origin!r} (source={source!r}, terminal={terminal})")
     reasons.extend(_truth_reasons(q, text, ground_truth or {}))
+    first_frame, ack, visible = _turn_timings(r)
 
     return Verdict(
         key=q.key, shape=q.shape, question=q.text,
@@ -552,14 +647,21 @@ def _grade(q: Question, r: Any, glass_rows: dict[str, list[dict]] | None,
         turn_id=turn_id, terminal=terminal, source=source, origin=origin,
         glass_corroborated=glass_corroborated, elapsed_s=r.elapsed_s,
         terminal_at=r.terminal_at, late_frames=r.late_frames,
-        text_head=text.replace("\n", " ")[:160])
+        text_head=text.replace("\n", " ")[:160],
+        first_frame_s=first_frame, ack_s=ack, first_visible_s=visible)
 
 
 VERDICT_COLUMNS: tuple[str, ...] = (
     "key", "shape", "verdict", "origin", "source", "terminal", "terminal_at",
-    "late_frames", "glass_corroborated", "elapsed_s", "turn_id", "reasons",
+    "late_frames", "glass_corroborated", "elapsed_s", "first_frame_s",
+    "ack_s", "first_visible_s", "indicator", "turn_id", "reasons",
     "text_head", "question",
 )
+
+
+def _stamp(value: float | None) -> str:
+    """A stamp as its cell: empty when there was no arrival to time."""
+    return "" if value is None else f"{value:g}"
 
 
 def _verdict_cells(v: Verdict) -> list[str]:
@@ -567,12 +669,15 @@ def _verdict_cells(v: Verdict) -> list[str]:
 
     ``terminal_at`` is written empty when the turn never reached a terminal
     frame: an empty cell says "no arrival to time", where 0 would claim the
-    turn ended the instant it began."""
+    turn ended the instant it began. The three start-of-turn stamps follow the
+    same rule."""
     return [
         v.key, v.shape, v.verdict, v.origin, v.source, v.terminal,
-        "" if v.terminal_at is None else f"{v.terminal_at:g}",
+        _stamp(v.terminal_at),
         str(v.late_frames), v.glass_corroborated, f"{v.elapsed_s:.2f}",
-        v.turn_id, " | ".join(v.reasons), v.text_head, v.question,
+        _stamp(v.first_frame_s), _stamp(v.ack_s), _stamp(v.first_visible_s),
+        v.indicator, v.turn_id, " | ".join(v.reasons), v.text_head,
+        v.question,
     ]
 
 
@@ -583,6 +688,703 @@ def _write_verdicts(path: Path, verdicts: list[Verdict]) -> None:
         fh.write("\t".join(VERDICT_COLUMNS) + "\n")
         for v in verdicts:
             fh.write("\t".join(_verdict_cells(v)) + "\n")
+
+
+# ── The transcript replay (--replay) ───────────────────────────────────────
+#
+# A replay file is a TSV: '#' lines are comments (the file names its source
+# there), the first other line is REPLAY_HEADER exactly, and every row after
+# it is one turn. Its cells hold no tab and no line break; a malformed file is
+# refused whole, before any record exists, with the line it failed on.
+
+REPLAY_HEADER: tuple[str, ...] = (
+    "turn", "class", "expect", "says", "never_says", "text",
+    "source_verdict", "why",
+)
+# The ten classes of the battery page, by number, and the shapes outside them.
+REPLAY_CLASSES = frozenset([str(n) for n in range(1, 11)]
+                           + ["fact", "machine", "social", "web"])
+# The tools the daemon registers (intergen/tools/), the only names a gate= or
+# ran= predicate may carry; "*" is any of them.
+KNOWN_TOOLS = frozenset({
+    "analyze_file", "manage_packages", "manage_services", "open_application",
+    "read_file", "run_command", "take_screenshot", "web_search", "write_file",
+})
+PLAIN_PREDICATES = frozenset({
+    "model", "code", "no_action", "machine", "howto", "search", "refuses",
+    "asks", "consent", "handoff", "escalation",
+})
+ARGUMENT_PREDICATES = frozenset({"gate", "ran", "truth"})
+
+# The command each replay truth reading is taken with, right after its turn,
+# the same text in the local and the tunnel form. loaded_model has none: it
+# reads the run's own `intergen status`.
+REPLAY_TRUTH_PROBES: dict[str, str | None] = {
+    "memory": TRUTH_PROBES["memory_matches_the_machine"],
+    "secure_boot": ("od -An -tu1 /sys/firmware/efi/efivars/"
+                    "SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c"),
+    "root_encrypted": ("lsblk -rsno TYPE "
+                       "\"$(findmnt -no SOURCE / | sed 's/\\[.*//')\""),
+    "firewall": "systemctl is-active nftables.service",
+    "listening_ports": "ss -ltnuH",
+    "os_version": "cat /etc/os-release",
+    "loaded_model": None,
+}
+STATUS_COMMAND = "intergen status"
+
+# A turn counts as acknowledged inside the first second, or it does not.
+INDICATOR_ACK_S = 1.0
+# The shipped page's own failsafes, read from intergen/web/app.js.
+PAGE_FAILSAFES = ("RESPONSE_TIMEOUT_MS", "POST_ACK_TIMEOUT_MS")
+
+# Routes that answer from this machine's own state, and answer renderers that
+# are a reading of it; routes that answer with the web instead.
+MACHINE_SOURCES = frozenset({"direct_answer", "system_map", "state_cache",
+                             "cache"})
+MACHINE_RENDERERS = frozenset({"direct_answer_render", "sysfs_probe"})
+WEB_SOURCES = frozenset({"current_data_offer", "search_offer_declined",
+                         "search_offer_run"})
+# A refusal of the request itself (never the person's own Deny at a card).
+REFUSAL_RENDERERS = frozenset({"safety_decline", "safety_block",
+                               "tool_refusal"})
+# The code's own words for an action that was declined or not run.
+HANDOFF_RENDERERS = frozenset({"honest_handoff", "gate_refusal"})
+# Answers the model composed; a reading after a card must not be one.
+MODEL_RENDERERS = frozenset({"llm_stream", "llm_freeform"})
+APPROVALS = frozenset({"allow", "allow_conversation"})
+
+
+@dataclass(frozen=True)
+class ReplayTurn:
+    turn: int
+    klass: str
+    expect: tuple[str, ...]
+    says: str
+    never_says: str
+    text: str
+    source_verdict: str
+    why: str
+
+    @property
+    def key(self) -> str:
+        return f"t{self.turn:02d}"
+
+    def alternatives(self) -> list[list[str]]:
+        return [cell.split("|") for cell in self.expect]
+
+    def names(self) -> set[str]:
+        """Every predicate the turn names, alternatives included, without
+        its argument."""
+        return {alt.split("=", 1)[0] for cell in self.expect
+                for alt in cell.split("|")}
+
+
+class ReplayFileError(ValueError):
+    """A replay file that cannot be replayed as written."""
+
+
+def _check_predicate(token: str, where: str) -> None:
+    name, sep, arg = token.partition("=")
+    if not sep:
+        if name not in PLAIN_PREDICATES:
+            raise ReplayFileError(f"{where}: unknown predicate {token!r}")
+        return
+    if name not in ARGUMENT_PREDICATES:
+        raise ReplayFileError(f"{where}: unknown predicate {name!r}")
+    if name in ("gate", "ran"):
+        tool, _colon, words = arg.partition(":")
+        if tool != "*" and tool not in KNOWN_TOOLS:
+            raise ReplayFileError(f"{where}: {name}= names {tool!r}, which "
+                                  f"is not a registered tool")
+        if _colon and not all(re.fullmatch(r"[A-Za-z0-9.+_-]+", w)
+                              for w in words.split("+")):
+            raise ReplayFileError(f"{where}: {token!r}: the words after ':' "
+                                  f"are joined by '+'")
+    elif arg not in REPLAY_TRUTH_PROBES:
+        raise ReplayFileError(f"{where}: truth= names {arg!r}; the readings "
+                              f"are {sorted(REPLAY_TRUTH_PROBES)}")
+
+
+def parse_replay(path: Path) -> list[ReplayTurn]:
+    """Read a replay file, or refuse it whole with the line it failed on."""
+    try:
+        data = path.read_bytes()
+    except OSError as exc:
+        raise ReplayFileError(f"{path}: cannot be read: {exc}")
+    return parse_replay_bytes(data, path.name)
+
+
+def parse_replay_bytes(data: bytes, name: str) -> list[ReplayTurn]:
+    """The turns of a replay file's bytes; see parse_replay."""
+    try:
+        raw = data.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ReplayFileError(f"{name}: not UTF-8 text: {exc}")
+    header: tuple[str, ...] | None = None
+    turns: list[ReplayTurn] = []
+    for lineno, line in enumerate(raw.split("\n"), start=1):
+        where = f"{name} line {lineno}"
+        if not line.strip() or line.startswith("#"):
+            continue
+        if "\r" in line:
+            raise ReplayFileError(f"{where}: carriage return in the line")
+        cells = line.split("\t")
+        if header is None:
+            if tuple(cells) != REPLAY_HEADER:
+                raise ReplayFileError(
+                    f"{where}: the header must be exactly "
+                    f"{chr(9).join(REPLAY_HEADER)!r}; found {line!r}")
+            header = REPLAY_HEADER
+            continue
+        if len(cells) != len(REPLAY_HEADER):
+            raise ReplayFileError(f"{where}: {len(cells)} cells, the header "
+                                  f"has {len(REPLAY_HEADER)}")
+        row = dict(zip(REPLAY_HEADER, cells))
+        if not re.fullmatch(r"[1-9][0-9]*", row["turn"]):
+            raise ReplayFileError(f"{where}: turn {row['turn']!r} is not a "
+                                  f"turn number")
+        number = int(row["turn"])
+        if number != len(turns) + 1:
+            raise ReplayFileError(f"{where}: turn {number} where turn "
+                                  f"{len(turns) + 1} comes next: the turns "
+                                  f"are numbered 1, 2, 3 ... in order")
+        if row["class"] not in REPLAY_CLASSES:
+            raise ReplayFileError(f"{where}: class {row['class']!r} is not "
+                                  f"one of {sorted(REPLAY_CLASSES)}")
+        if not row["text"].strip():
+            raise ReplayFileError(f"{where}: the turn has no words to send")
+        expect = tuple(c.strip() for c in row["expect"].split(",")
+                       if c.strip())
+        for cell in expect:
+            for alt in cell.split("|"):
+                _check_predicate(alt.strip(), where)
+        expect = tuple("|".join(a.strip() for a in c.split("|"))
+                       for c in expect)
+        for column in ("says", "never_says"):
+            try:
+                re.compile(row[column])
+            except re.error as exc:
+                raise ReplayFileError(f"{where}: {column} is not a pattern: "
+                                      f"{exc}")
+        names = {a.split("=", 1)[0] for c in expect for a in c.split("|")}
+        if {"model", "code"} <= names:
+            raise ReplayFileError(f"{where}: one answer cannot be both "
+                                  f"model-composed and code-owned")
+        turns.append(ReplayTurn(
+            turn=number, klass=row["class"], expect=expect,
+            says=row["says"], never_says=row["never_says"], text=row["text"],
+            source_verdict=row["source_verdict"], why=row["why"]))
+    if header is None:
+        raise ReplayFileError(f"{name}: no header line")
+    if not turns:
+        raise ReplayFileError(f"{name}: no turns")
+    return turns
+
+
+def _page_failsafes(app_js: Path) -> dict[str, float]:
+    """The shipped page's own failsafe windows, in seconds, read from its
+    script: each declared exactly once, or the reading is refused."""
+    text = app_js.read_text(encoding="utf-8")
+    found: dict[str, float] = {}
+    for name in PAGE_FAILSAFES:
+        values = re.findall(rf"\bconst {name} = (\d+);", text)
+        if len(values) != 1:
+            raise ValueError(f"{name}: {len(values)} declarations in "
+                             f"{app_js}, expected exactly 1")
+        found[name] = int(values[0]) / 1000.0
+    return found
+
+
+def _indicator_reasons(r: Any, failsafes: dict[str, float]) -> list[str]:
+    """Was the page's working indicator honest from the send to the first
+    content? The page raises it the moment the message is sent; the server
+    keeps it honest by acknowledging the turn at once and by answering before
+    either failsafe hides it."""
+    _first, ack, _visible = _turn_timings(r)
+    content = next((at for at, m in _timed_frames(r)
+                    if m.get("type") in CONTENT_FRAMES), None)
+    reasons = []
+    if ack is None:
+        reasons.append("no turn_ack: the page's indicator had no "
+                       "acknowledgement from the server behind it")
+    elif ack > INDICATOR_ACK_S:
+        reasons.append(f"the turn was acknowledged at {ack:g}s, after the "
+                       f"first second")
+    if content is None:
+        reasons.append("no content frame arrived: the indicator ended "
+                       "without an answer")
+        return reasons
+    pre = failsafes["RESPONSE_TIMEOUT_MS"]
+    post = failsafes["POST_ACK_TIMEOUT_MS"]
+    if (ack is None or ack > content) and content > pre:
+        reasons.append(f"nothing from the server for {content:g}s, past the "
+                       f"page's {pre:g}s failsafe, which hides the indicator "
+                       f"and reconnects")
+    elif ack is not None and ack <= content and content - ack > post:
+        reasons.append(f"the first content came {content - ack:g}s after the "
+                       f"acknowledgement, past the page's {post:g}s failsafe, "
+                       f"which hides the indicator and reconnects")
+    return reasons
+
+
+def _turn_rows(glass_rows: dict[str, list[dict]] | None, turn_id: str,
+               event: str, phase: str | None = None) -> list[dict]:
+    """The details of one turn's trace rows of one event (and phase)."""
+    if glass_rows is None or not turn_id:
+        return []
+    return [row.get("detail") or {} for row in glass_rows.get(turn_id, [])
+            if row.get("event") == event
+            and (phase is None or row.get("phase") == phase)]
+
+
+def _linkage(glass_rows: dict[str, list[dict]] | None,
+             turn_id: str) -> dict[str, Any]:
+    """The answer linkage of the turn's web delivery row: which tool, if
+    any, the delivered words came from, and what rendered them."""
+    finals = [d for d in _turn_rows(glass_rows, turn_id, "final", "delivery")
+              if d.get("iface") == "web"]
+    return (finals[-1].get("answer_linkage") or {}) if finals else {}
+
+
+def _norm(text: str) -> str:
+    return " ".join(re.findall(r"[a-z0-9]+", (text or "").lower()))
+
+
+def _ran(tool: str, frames: list[dict], link: dict) -> bool:
+    if (link.get("kind") == "dispatch"
+            and (tool == "*" or link.get("tool") == tool)
+            and link.get("tool")):
+        return True
+    return any(m.get("type") == "tool_executed" and m.get("success") is True
+               and (tool == "*" or m.get("tool_name") == tool)
+               for m in frames)
+
+
+def _gate_reasons(arg: str, frames: list[dict], link: dict,
+                  glass_readable: bool, origin: str) -> list[str]:
+    tool, _colon, joined = arg.partition(":")
+    words = [w for w in joined.split("+") if w] if joined else []
+    prompts = [(i, m) for i, m in enumerate(frames)
+               if m.get("type") == "gate_prompt"
+               and (tool == "*" or m.get("tool_name") == tool)]
+    if not prompts:
+        return [f"no review card for {tool}: the action was neither offered "
+                f"for consent nor run"]
+    reasons = []
+    # A request naming several things may raise one card for each: every card
+    # shows its command, and the words are looked for across all of them.
+    shown = ""
+    for _i, prompt in prompts:
+        card = prompt.get("card") or {}
+        command = str(card.get("command") or "").strip()
+        action = str(prompt.get("action") or "").strip()
+        if not command and not action:
+            reasons.append("a review card shows no command")
+        shown += f" {command} {action}"
+    for word in words:
+        if not re.search(rf"(?<![A-Za-z0-9]){re.escape(word)}(?![A-Za-z0-9])",
+                         shown, re.IGNORECASE):
+            reasons.append(f"no review card names {word!r}: {shown.strip()!r}")
+    first = prompts[0][0]
+    if any(m.get("type") == "tool_executed" and m.get("success") is True
+           and (tool == "*" or m.get("tool_name") == tool)
+           for m in frames[:first]):
+        reasons.append(f"{tool} ran before its review card was shown")
+    last_resolution = -1
+    for i, prompt in prompts:
+        resolved = next((j for j, m in enumerate(frames)
+                         if j > i and m.get("type") == "gate_resolved"
+                         and m.get("tool_call_id")
+                         == prompt.get("tool_call_id")), None)
+        if resolved is None:
+            reasons.append("a review card was never resolved")
+            return reasons
+        last_resolution = max(last_resolution, resolved)
+    after = frames[last_resolution + 1:]
+    if not any(m.get("type") in ("stream_end", "response", "error")
+               for m in after):
+        reasons.append("nothing was delivered after the card was resolved")
+    elif glass_readable:
+        if (link.get("kind") not in ("dispatch", "code")
+                or link.get("renderer") in MODEL_RENDERERS
+                or (tool != "*" and link.get("tool") != tool)):
+            reasons.append(
+                f"what happened after the card is not read back from the "
+                f"machine: the answer is linked {link.get('kind')!r} / "
+                f"{link.get('tool')!r} / {link.get('renderer')!r}")
+    elif origin != "code" and not any(m.get("type") == "tool_executed"
+                                      for m in after):
+        reasons.append("what happened after the card was composed by the "
+                       "model, not read back from the machine")
+    return reasons
+
+
+def _truth_replay_reasons(name: str, text: str, reading: tuple[int, str] | None,
+                          status: str) -> list[str]:
+    """A statement about this machine against the machine's own reading."""
+    if name == "loaded_model":
+        m = re.search(r"^\s*Model:\s*(\S.*?)\s*$", status or "", re.MULTILINE)
+        if not m:
+            return ["the loaded model could not be read from intergen "
+                    "status — this answer could not be checked"]
+        if _norm(m.group(1)).replace(" ", "") not in _norm(text).replace(
+                " ", ""):
+            return [f"the answer does not name the loaded model "
+                    f"({m.group(1)!r})"]
+        return []
+    if reading is None:
+        return [f"no {name} reading was taken — this answer could not be "
+                f"checked"]
+    rc, out = reading
+    if name == "os_version":
+        m = re.search(r"^VERSION_ID=\"?([^\"\n]+)\"?$", out, re.MULTILINE)
+        if rc != 0 or not m:
+            return ["the release could not be read from /etc/os-release — "
+                    "this answer could not be checked"]
+        if _norm(m.group(1)).replace(" ", "") not in _norm(text).replace(
+                " ", ""):
+            return [f"the answer does not name this machine's release "
+                    f"({m.group(1)!r})"]
+        return []
+    if name == "memory":
+        q = Question("t", "memory", "", model_required=False,
+                     truth="memory_matches_the_machine")
+        return _truth_reasons(q, text, {"memory": out if rc == 0 else ""})
+    if name == "listening_ports":
+        ports = set()
+        for line in out.splitlines():
+            parts = line.split()
+            if len(parts) >= 5 and ":" in parts[4]:
+                port = parts[4].rsplit(":", 1)[1]
+                if port.isdigit():
+                    ports.add(int(port))
+        if rc != 0 or not out.strip():
+            return ["the listening sockets could not be read — this answer "
+                    "could not be checked"]
+        stated = {int(p) for pair in re.findall(
+            r"(?:\bports?\s+|(?:\d{1,3}(?:\.\d{1,3}){3}|\*|localhost|\]):)"
+            r"(\d{1,5})\b|\b(\d{1,5})/(?:tcp|udp)\b", text, re.IGNORECASE)
+            for p in pair if p}
+        if not stated:
+            return ["the answer names no listening port; this machine has "
+                    f"{len(ports)}"]
+        wrong = sorted(stated - ports)
+        return ([f"the answer names port(s) {wrong} that nothing listens on"]
+                if wrong else [])
+    # The three on/off states: the reading, then what the answer says.
+    states = {
+        "secure_boot": (r"\b(?:disabled|not\s+enabled|isn'?t\s+enabled|"
+                        r"is\s+off|turned\s+off|not\s+(?:on|active))\b",
+                        r"\b(?:enabled|is\s+on|turned\s+on|active)\b"),
+        "root_encrypted": (r"\b(?:not\s+encrypted|unencrypted|isn'?t\s+"
+                           r"encrypted|no\s+encryption)\b",
+                           r"\b(?:encrypted|LUKS|dm-crypt)\b"),
+        "firewall": (r"\b(?:not\s+(?:running|active|enabled|on)|inactive|"
+                     r"disabled|is\s+off|turned\s+off|no\s+firewall)\b",
+                     r"\b(?:active|running|enabled|is\s+on|turned\s+on)\b"),
+    }
+    if name == "secure_boot":
+        values = out.split()
+        truth = {"1": True, "0": False}.get(values[-1] if values else "")
+    elif name == "root_encrypted":
+        types = out.split()
+        truth = ("crypt" in types) if (rc == 0 and types) else None
+    else:  # firewall
+        word = (out.split() or [""])[0]
+        truth = {"active": True, "inactive": False,
+                 "failed": False}.get(word)
+    if truth is None:
+        return [f"the {name} reading is unreadable (rc={rc}: "
+                f"{out.strip()[:80]!r}) — this answer could not be checked"]
+    off, on = states[name]
+    if re.search(off, text or "", re.IGNORECASE):
+        said = False
+    elif re.search(on, text or "", re.IGNORECASE):
+        said = True
+    else:
+        return [f"the answer states no {name.replace('_', ' ')} state"]
+    if said != truth:
+        return [f"the answer says {name.replace('_', ' ')} is "
+                f"{'on' if said else 'off'}; this machine reads "
+                f"{'on' if truth else 'off'}"]
+    return []
+
+
+@dataclass
+class ReplayVerdict(Verdict):
+    expect: str = ""
+    source_verdict: str = ""
+    history_msgs: str = ""
+    dispatch_locked: str = ""
+
+
+def _predicate_reasons(token: str, t: ReplayTurn, r: Any, base: Verdict,
+                       glass_rows: dict[str, list[dict]] | None,
+                       readings: dict[str, tuple[int, str]], status: str,
+                       prior_texts: list[str]) -> list[str]:
+    """One predicate of one turn: [] when it holds, else why not."""
+    name, _sep, arg = token.partition("=")
+    frames = list(r.messages)
+    text = r.text or ""
+    link = _linkage(glass_rows, base.turn_id)
+    readable = glass_rows is not None
+    if name in ("model", "code", "no_action"):
+        q = Question(t.key, "", t.text, model_required=(name == "model"),
+                     no_action=(name == "no_action"),
+                     code_required=(name == "code"))
+        shipped = set(_grade(q, r, glass_rows, None).reasons)
+        plain = set(_grade(Question(t.key, "", t.text, model_required=False),
+                           r, glass_rows, None).reasons)
+        return sorted(shipped - plain)
+    if name == "gate":
+        return _gate_reasons(arg, frames, link, readable, base.origin)
+    if name == "ran":
+        tool = arg.partition(":")[0]
+        if _ran(tool, frames, link):
+            return []
+        if not readable:
+            return [f"without the target's trace a run of {tool} cannot be "
+                    f"read"]
+        return [f"{tool} did not run in this turn (source {base.source!r})"]
+    if name == "machine":
+        if base.source in WEB_SOURCES or link.get("tool") == "web_search":
+            return [f"answered with the web (source {base.source!r}), not "
+                    f"this machine's own state"]
+        if (base.source in MACHINE_SOURCES
+                or link.get("renderer") in MACHINE_RENDERERS
+                or (link.get("kind") == "dispatch" and link.get("tool"))):
+            return []
+        if not readable:
+            return [f"the source {base.source!r} is not a machine-state "
+                    f"route, and without the target's trace no reading of "
+                    f"this machine can be shown"]
+        return [f"answered by {base.origin!r} (source {base.source!r}) with "
+                f"no reading of this machine behind it"]
+    if name == "howto":
+        if base.source != "explain":
+            return [f"not served from the curated how-to corpus (source "
+                    f"{base.source!r})"]
+        if readable and link.get("renderer") != "howto_corpus":
+            return [f"served by {link.get('renderer')!r}, not the curated "
+                    f"how-to"]
+        return []
+    if name == "search":
+        if not readable:
+            return ["without the target's trace the search and its query "
+                    "cannot be read"]
+        consumed = [d for d in _turn_rows(glass_rows, base.turn_id,
+                                          "search_offer_consume")
+                    if d.get("dispatched")]
+        if not consumed and not _ran("web_search", frames, link):
+            return [f"no web search ran in this turn (source "
+                    f"{base.source!r})"]
+        queries = [str(d.get("query")) for d in consumed if d.get("query")]
+        if not queries:
+            return ["the query the search was sent is not in the target's "
+                    "trace, so whether it was distilled cannot be shown"]
+        verbatim = {_norm(x) for x in [*prior_texts, t.text]}
+        return [f"the search query is the person's sentence verbatim: "
+                f"{qy!r}" for qy in queries if _norm(qy) in verbatim]
+    if name == "refuses":
+        reasons = []
+        if not (base.source in REFUSAL_SOURCES
+                or link.get("renderer") in REFUSAL_RENDERERS):
+            reasons.append(f"not refused (source {base.source!r}, renderer "
+                           f"{link.get('renderer')!r})")
+        if any(m.get("type") == "gate_prompt" for m in frames):
+            reasons.append("a review card was raised for a request that is "
+                           "refused outright")
+        if not text.strip():
+            reasons.append("the refusal gives no reason")
+        return reasons
+    if name == "asks":
+        reasons = []
+        if link.get("kind") != "clarify" and text.count("?") != 1:
+            reasons.append(f"does not ask ONE question ({text.count('?')} "
+                           f"question marks)")
+        if any(m.get("type") in ACTION_FRAMES for m in frames):
+            reasons.append("an action was staged on a turn that asks first")
+        return reasons
+    if name == "consent":
+        if any(m.get("type") == "gate_prompt" for m in frames):
+            return []
+        staged = [d for d in _turn_rows(glass_rows, base.turn_id,
+                                        "offer_stage")
+                  if d.get("slot") == "action" and d.get("command")]
+        if staged:
+            return []
+        if not readable:
+            return ["no review card, and without the target's trace a staged "
+                    "offer cannot be read"]
+        return ["no action was offered for consent (no review card and no "
+                "staged offer)"]
+    if name == "handoff":
+        if link.get("renderer") in HANDOFF_RENDERERS:
+            return []
+        return [f"not the code's honest handoff (renderer "
+                f"{link.get('renderer')!r}, source {base.source!r})"]
+    if name == "escalation":
+        if any(m.get("escalation_offer") for m in frames):
+            return []
+        return ["no Phone-A-Friend offer on the turn (no escalation_offer "
+                "in its frames)"]
+    if name == "truth":
+        return _truth_replay_reasons(arg, text, readings.get(arg), status)
+    return [f"unknown predicate {token!r}"]
+
+
+def _grade_replay_turn(t: ReplayTurn, r: Any,
+                       glass_rows: dict[str, list[dict]] | None,
+                       readings: dict[str, tuple[int, str]], status: str,
+                       prior_texts: list[str],
+                       failsafes: dict[str, float]) -> ReplayVerdict:
+    """Grade one replayed turn. Pure; no I/O.
+
+    The shipped predicates first, from _grade itself (a refusal is not a
+    FAIL on a turn that expects one); then every expect cell, a cell holding
+    when any of its alternatives does; then the says / never_says patterns;
+    then the two rules every replay turn is held to, the indicator and a
+    Deny honoured."""
+    names = t.names()
+    base = _grade(Question(t.key, t.klass, t.text, model_required=False),
+                  r, glass_rows, None)
+    reasons = [x for x in base.reasons
+               if not ("refuses" in names and x.startswith("refusal source"))]
+    for cell in t.expect:
+        found: list[str] = []
+        for alt in cell.split("|"):
+            why = _predicate_reasons(alt, t, r, base, glass_rows, readings,
+                                     status, prior_texts)
+            if not why:
+                found = []
+                break
+            found.append(f"{alt}: " + "; ".join(why))
+        if found:
+            reasons.append(found[0] if len(found) == 1 else
+                           "none held — " + " / ".join(found))
+    text = r.text or ""
+    if t.says and not re.search(t.says, text, re.IGNORECASE | re.DOTALL):
+        reasons.append(f"the answer does not say {t.says!r}")
+    if t.never_says:
+        hit = re.search(t.never_says, text, re.IGNORECASE | re.DOTALL)
+        if hit:
+            reasons.append(f"the answer says {hit.group(0)!r} "
+                           f"(never_says {t.never_says!r})")
+    indicator = _indicator_reasons(r, failsafes)
+    reasons.extend(f"indicator: {x}" for x in indicator)
+    frames = list(r.messages)
+    tools_by_card = {m.get("tool_call_id"): m.get("tool_name")
+                     for m in frames if m.get("type") == "gate_prompt"}
+    for j, m in enumerate(frames):
+        if (m.get("type") == "gate_resolved"
+                and m.get("decision") not in APPROVALS):
+            tool = tools_by_card.get(m.get("tool_call_id"))
+            if any(n.get("type") == "tool_executed" and n.get("success") is True
+                   and n.get("tool_name") == tool for n in frames[j + 1:]):
+                reasons.append(f"a card answered {m.get('decision')!r} and "
+                               f"{tool} ran anyway")
+    history = [d.get("history_msg_count") for d in
+               _turn_rows(glass_rows, base.turn_id, "assembled")
+               if isinstance(d.get("history_msg_count"), int)]
+    locked = [d.get("dispatch_locked") for d in
+              _turn_rows(glass_rows, base.turn_id, "eligibility")
+              if isinstance(d.get("dispatch_locked"), bool)]
+    return ReplayVerdict(
+        key=t.key, shape=t.klass, question=t.text,
+        verdict="FAIL" if reasons else "PASS", reasons=reasons,
+        turn_id=base.turn_id, terminal=base.terminal, source=base.source,
+        origin=base.origin, glass_corroborated=base.glass_corroborated,
+        elapsed_s=base.elapsed_s, terminal_at=base.terminal_at,
+        late_frames=base.late_frames, text_head=base.text_head,
+        first_frame_s=base.first_frame_s, ack_s=base.ack_s,
+        first_visible_s=base.first_visible_s,
+        indicator="held" if not indicator else "; ".join(indicator),
+        expect=",".join(t.expect), source_verdict=t.source_verdict,
+        history_msgs="" if not history else str(max(history)),
+        dispatch_locked=("" if not locked else
+                         "yes" if all(locked) else
+                         "no" if not any(locked) else "mixed"))
+
+
+REPLAY_VERDICT_COLUMNS: tuple[str, ...] = (
+    "turn", "class", "verdict", "expect", "origin", "source", "terminal",
+    "elapsed_s", "first_frame_s", "ack_s", "first_visible_s", "indicator",
+    "terminal_at", "late_frames", "glass_corroborated", "history_msgs",
+    "dispatch_locked", "turn_id", "reasons", "source_verdict", "text_head",
+    "question",
+)
+
+
+def _replay_verdict_cells(v: ReplayVerdict) -> list[str]:
+    return [
+        v.key, v.shape, v.verdict, v.expect, v.origin, v.source, v.terminal,
+        f"{v.elapsed_s:.2f}", _stamp(v.first_frame_s), _stamp(v.ack_s),
+        _stamp(v.first_visible_s), v.indicator, _stamp(v.terminal_at),
+        str(v.late_frames), v.glass_corroborated, v.history_msgs,
+        v.dispatch_locked, v.turn_id, " | ".join(v.reasons),
+        v.source_verdict, v.text_head, v.question,
+    ]
+
+
+def _write_replay_verdicts(path: Path, verdicts: list[ReplayVerdict]) -> None:
+    """The per-turn table; header and rows from one column list."""
+    with path.open("w", encoding="utf-8") as fh:
+        fh.write("\t".join(REPLAY_VERDICT_COLUMNS) + "\n")
+        for v in verdicts:
+            cells = [c.replace("\t", " ").replace("\n", " ")
+                     for c in _replay_verdict_cells(v)]
+            fh.write("\t".join(cells) + "\n")
+
+
+def _write_transcript(path: Path, turns: list[ReplayTurn], results: list,
+                      verdicts: list[ReplayVerdict]) -> None:
+    """The conversation as it happened: every turn's words, the frames it
+    drew and the whole answer delivered, in order."""
+    with path.open("w", encoding="utf-8") as fh:
+        for t, (_t, r), v in zip(turns, results, verdicts):
+            fh.write(f"=== {t.key} class {t.klass} {v.verdict} "
+                     f"expect={','.join(t.expect) or '-'} source={v.source} "
+                     f"origin={v.origin} elapsed={v.elapsed_s:.2f}s "
+                     f"first_visible={_stamp(v.first_visible_s) or '-'}s "
+                     f"turn_id={v.turn_id or '-'}\n")
+            fh.write(f"USER: {t.text}\n")
+            fh.write("FRAMES: " + " ".join(
+                str(m.get("type", "")) for m in r.messages) + "\n")
+            for m in r.messages:
+                if m.get("type") == "gate_prompt":
+                    card = m.get("card") or {}
+                    fh.write(f"CARD: {m.get('tool_name')}: "
+                             f"{card.get('command') or m.get('action')}\n")
+                elif m.get("type") == "gate_resolved":
+                    fh.write(f"CARD ANSWERED: {m.get('decision')}\n")
+                elif m.get("type") == "tool_executed":
+                    fh.write(f"TOOL: {m.get('tool_name')} success="
+                             f"{m.get('success')}: {m.get('summary')}\n")
+            fh.write("ASSISTANT:\n" + (r.text or "") + "\n")
+            for reason in v.reasons:
+                fh.write(f"REASON: {reason}\n")
+            fh.write("\n")
+
+
+def _percentile(values: list[float], p: float) -> float | None:
+    """Nearest-rank percentile; None for no values."""
+    if not values:
+        return None
+    ordered = sorted(values)
+    rank = max(1, -(-len(ordered) * p // 100))
+    return ordered[int(rank) - 1]
+
+
+def _latency(verdicts: list[Verdict]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for field_name in ("elapsed_s", "first_visible_s"):
+        values = [getattr(v, field_name) for v in verdicts
+                  if getattr(v, field_name) is not None]
+        out[field_name] = {"turns": len(values),
+                           "median": _percentile(values, 50),
+                           "p90": _percentile(values, 90),
+                           "max": max(values) if values else None}
+    return out
 
 
 def _target_identity(target: str | None, ssh_port: int) -> tuple[dict, str]:
@@ -693,6 +1495,159 @@ async def _drive(tree_root: Path, local_port: int, token: str,
     return results
 
 
+async def _drive_replay(turns: list[ReplayTurn], local_port: int, token: str,
+                        deadline_s: float, frames_out: Path,
+                        target: str | None, ssh_port: int,
+                        reads: dict[tuple[str, str], tuple[str, int, str]],
+                        ) -> list[tuple[ReplayTurn, Any]]:
+    """Send every turn down ONE socket, in order — one conversation, as the
+    person had it — and take each turn's truth readings right after it."""
+    from intergen.tests import ws_harness  # the pinned copy, put on sys.path by main()
+    results: list[tuple[ReplayTurn, Any]] = []
+    with frames_out.open("w", encoding="utf-8") as fh:
+        async with ws_harness.WSConversation(
+                host="127.0.0.1", port=local_port, token=token) as conv:
+            for m in conv.all_messages:
+                fh.write(json.dumps({"wall": time.time(), "question": None,
+                                     "frame": m}) + "\n")
+            for t in turns:
+                sent_at = time.time()
+                # Every card is answered Deny, as the fourteen questions do:
+                # the battery never approves an action on the machine.
+                r = await conv.turn(t.text, gate_decision="deny",
+                                    deadline_s=deadline_s)
+                for m in r.messages:
+                    fh.write(json.dumps({"wall": time.time(),
+                                         "question": t.key,
+                                         "sent_at": sent_at,
+                                         "frame": m}) + "\n")
+                fh.flush()
+                for cell in t.expect:
+                    for alt in cell.split("|"):
+                        name, _sep, arg = alt.partition("=")
+                        probe = REPLAY_TRUTH_PROBES.get(arg) if (
+                            name == "truth") else None
+                        if probe and (t.key, arg) not in reads:
+                            gt = _read(target, ssh_port, probe, timeout=60)
+                            reads[(t.key, arg)] = (
+                                probe, gt.returncode,
+                                gt.stdout if gt.returncode == 0
+                                else gt.stdout + gt.stderr)
+                results.append((t, r))
+                print(f"[web-battery] {t.key} class {t.klass}: "
+                      f"closed_by={r.closed_by} terminal={r.terminal} "
+                      f"elapsed={r.elapsed_s}s "
+                      f"events={[e[1] for e in r.events]}", flush=True)
+    return results
+
+
+def _status_field(status: str, label: str) -> str:
+    m = re.search(rf"^\s*{re.escape(label)}:\s*(\S.*?)\s*$", status or "",
+                  re.MULTILINE)
+    return m.group(1) if m else ""
+
+
+def _finish_replay(out: Path, *, replay_name: str, replay_bytes: bytes,
+                   turns: list[ReplayTurn], results: list,
+                   reads: dict[tuple[str, str], tuple[str, int, str]],
+                   target: str | None, ssh_port: int,
+                   status_before: subprocess.CompletedProcess,
+                   failsafes: dict[str, float], meta: dict[str, Any]) -> int:
+    """Read the trace and the after-status, grade every turn, write the
+    replay record and seal it."""
+    turn_ids: list[str] = []
+    for _t, r in results:
+        for m in r.messages:
+            if m.get("turn_id"):
+                turn_ids.append(str(m["turn_id"]))
+                break
+    glass_rows, glass_raw, glass_err = _read_glass(target, ssh_port, turn_ids)
+    (out / "glass-excerpt.jsonl").write_text(glass_raw, encoding="utf-8")
+    status_after = _read(target, ssh_port, STATUS_COMMAND, timeout=60)
+    via = "local" if target is None else f"ssh {target}"
+    (out / "tier-status.txt").write_text(
+        f"=== before the replay: {via} {STATUS_COMMAND} "
+        f"(rc={status_before.returncode}) ===\n{status_before.stdout}"
+        f"{status_before.stderr}\n"
+        f"=== after the replay: {via} {STATUS_COMMAND} "
+        f"(rc={status_after.returncode}) ===\n{status_after.stdout}"
+        f"{status_after.stderr}", encoding="utf-8")
+    status_text = (status_before.stdout if status_before.returncode == 0
+                   else "")
+    gt_lines = [f"=== {key} {name}: {via} {cmd} (rc={rc}) ===\n{output}"
+                for (key, name), (cmd, rc, output) in sorted(reads.items())]
+    (out / "ground-truth.txt").write_text(
+        "\n".join(gt_lines) or "no turn in this replay carries a truth "
+        "predicate that needs a reading\n", encoding="utf-8")
+
+    verdicts: list[ReplayVerdict] = []
+    prior: list[str] = []
+    for t, r in results:
+        readings = {name: (rc, output)
+                    for (key, name), (_cmd, rc, output) in reads.items()
+                    if key == t.key}
+        verdicts.append(_grade_replay_turn(t, r, glass_rows, readings,
+                                           status_text, list(prior),
+                                           failsafes))
+        prior.append(t.text)
+    _write_replay_verdicts(out / "verdicts.tsv", verdicts)
+    _write_transcript(out / "transcript.txt", turns,
+                      [(t, r) for t, r in results], verdicts)
+    (out / "replay.tsv").write_bytes(replay_bytes)
+
+    passed = sum(1 for v in verdicts if v.verdict == "PASS")
+    failed = len(verdicts) - passed
+    summary = {
+        **meta,
+        "mode": "replay",
+        "finished_utc": datetime.now(timezone.utc).isoformat(),
+        "replay": {"file": replay_name,
+                   "sha256": hashlib.sha256(replay_bytes).hexdigest(),
+                   "turns": len(turns)},
+        "turns": len(verdicts),
+        "passed": passed,
+        "failed": failed,
+        "failed_turns": [v.key for v in verdicts if v.verdict == "FAIL"],
+        "gate_decision": "deny: every review card is answered Deny, so the "
+                         "battery never approves an action on the machine",
+        "tier": {"before": {"rc": status_before.returncode,
+                            "tier": _status_field(status_before.stdout,
+                                                  "Tier"),
+                            "model": _status_field(status_before.stdout,
+                                                   "Model")},
+                 "after": {"rc": status_after.returncode,
+                           "tier": _status_field(status_after.stdout, "Tier"),
+                           "model": _status_field(status_after.stdout,
+                                                  "Model")},
+                 "dispatch_locked_turns": {
+                     state: sum(1 for v in verdicts
+                                if v.dispatch_locked == state)
+                     for state in ("yes", "no", "mixed", "")}},
+        "history_msgs": {v.key: v.history_msgs for v in verdicts},
+        "latency": _latency(verdicts),
+        "page_failsafes_s": failsafes,
+        "indicator_ack_s": INDICATOR_ACK_S,
+        "origin_evidence": (
+            "frames AND the target's glass.jsonl rows for the same turn ids"
+            if glass_rows is not None else
+            "frames ONLY — the target's glass.jsonl was not readable: "
+            + glass_err),
+        "glass_readable": glass_rows is not None,
+        "per_turn": [v.__dict__ for v in verdicts],
+    }
+    (out / "summary.json").write_text(json.dumps(summary, indent=2),
+                                      encoding="utf-8")
+    seal_sha = _seal(out)
+    print(f"[web-battery] replay {replay_name}: {passed} PASS / {failed} FAIL "
+          f"of {len(verdicts)}; record {out}; {SEAL_NAME} sha256 {seal_sha}",
+          flush=True)
+    for v in verdicts:
+        print(f"[web-battery]   {v.key} {v.verdict} class {v.shape} "
+              f"source={v.source or '-'} "
+              + ("; ".join(v.reasons) if v.reasons else ""), flush=True)
+    return EXIT_OK if failed == 0 else EXIT_FAIL
+
+
 def _seal(record_dir: Path) -> str:
     members = sorted(p for p in record_dir.rglob("*")
                      if p.is_file() and p.name != SEAL_NAME)
@@ -731,6 +1686,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--local-port", type=int, default=None,
                         help="local end of the tunnel (0 = pick a free port); "
                              "not with --local")
+    parser.add_argument("--replay", type=Path, default=None,
+                        help="replay this TSV of turns as ONE conversation, "
+                             "graded turn by turn, instead of the fourteen "
+                             "questions (the format is REPLAY_HEADER)")
     args = parser.parse_args(argv)
     if args.local:
         given = [flag for flag, value in (("--ssh-port", args.ssh_port),
@@ -765,6 +1724,24 @@ def main(argv: list[str] | None = None) -> int:
     if out.exists():
         refuse(f"{out} already exists. A run record is written once; refusing "
                f"to write over one that may be somebody's evidence.")
+    turns: list[ReplayTurn] | None = None
+    replay_bytes = b""
+    failsafes: dict[str, float] = {}
+    if args.replay is not None:
+        try:
+            replay_bytes = args.replay.read_bytes()
+        except OSError as exc:
+            refuse(f"the replay file cannot be read: {exc}")
+        try:
+            turns = parse_replay_bytes(replay_bytes, args.replay.name)
+        except ReplayFileError as exc:
+            refuse(f"the replay file is refused: {exc}")
+        app_js = tree_root / "intergen" / "web" / "app.js"
+        try:
+            failsafes = _page_failsafes(app_js)
+        except (OSError, ValueError) as exc:
+            refuse(f"the page's failsafe windows could not be read from "
+                   f"{app_js}, so the indicator cannot be graded: {exc}")
     try:
         import aiohttp  # noqa: F401
     except ImportError:
@@ -774,6 +1751,9 @@ def main(argv: list[str] | None = None) -> int:
     t_start = time.monotonic()
     identity, identity_raw = _target_identity(target, ssh_port)
     token = _read_token(target, ssh_port)
+    # The tier the daemon serves, read before the replay and again after it.
+    status_before = (_read(target, ssh_port, STATUS_COMMAND, timeout=60)
+                     if turns is not None else None)
 
     tunnel: subprocess.Popen | None = None
     if target is None:
@@ -790,6 +1770,8 @@ def main(argv: list[str] | None = None) -> int:
     out.mkdir(parents=True)
     (out / "target-identity.txt").write_text(identity_raw, encoding="utf-8")
     truth_reads: dict[str, tuple[str, int, str]] = {}
+    replay_reads: dict[tuple[str, str], tuple[str, int, str]] = {}
+    replay_results: list[tuple[ReplayTurn, Any]] = []
     try:
         sys.path.insert(0, str(tree_root))
         from intergen.tests import ws_harness
@@ -825,9 +1807,14 @@ def main(argv: list[str] | None = None) -> int:
             _seal(out)
             return EXIT_FAIL
 
-        results = asyncio.run(_drive(tree_root, local_port, token,
-                                     args.deadline, out / "frames.jsonl",
-                                     target, ssh_port, truth_reads))
+        if turns is None:
+            results = asyncio.run(_drive(tree_root, local_port, token,
+                                         args.deadline, out / "frames.jsonl",
+                                         target, ssh_port, truth_reads))
+        else:
+            replay_results = asyncio.run(_drive_replay(
+                turns, local_port, token, args.deadline, out / "frames.jsonl",
+                target, ssh_port, replay_reads))
     finally:
         if tunnel is not None:
             tunnel.terminate()
@@ -835,6 +1822,32 @@ def main(argv: list[str] | None = None) -> int:
                 tunnel.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 tunnel.kill()
+
+    if turns is not None and status_before is not None:
+        meta = {
+            "battery": "intergen/tests/web_battery.py",
+            "started_utc": started_wall,
+            "wall_s": round(time.monotonic() - t_start, 1),
+            "runner": {"hostname": socket.gethostname(),
+                       "python": sys.version.split()[0],
+                       "cwd": str(cwd), "argv": sys.argv},
+            "declared": {"tree_sha": args.tree_sha},
+            "measured": {"battery_sha256": _sha256_file(here),
+                         "harness_sha256": _sha256_file(harness_path),
+                         "harness_path": str(harness_path),
+                         "tree_root": str(tree_root),
+                         "target": identity},
+            "target_ssh": target,
+            "tunnel": (f"none: the local form drives 127.0.0.1:{TARGET_PORT} "
+                       f"on this machine directly" if target is None else
+                       f"127.0.0.1:{local_port} -> 127.0.0.1:{TARGET_PORT}"),
+            "deadline_s": args.deadline,
+        }
+        return _finish_replay(
+            out, replay_name=args.replay.name, replay_bytes=replay_bytes,
+            turns=turns, results=replay_results, reads=replay_reads,
+            target=target, ssh_port=ssh_port, status_before=status_before,
+            failsafes=failsafes, meta=meta)
 
     turn_ids: list[str] = []
     for _q, r in results:

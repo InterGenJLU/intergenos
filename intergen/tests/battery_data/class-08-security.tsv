@@ -1,0 +1,10 @@
+# Class 8 of the assistant battery page: Security posture, shown.
+# The page's phrasings in its order (r0014-assistant-battery-questions-20261020.md, sha256 e58b25ac167d794cf4be11c3ffe413ca958533015e68f4f758633f5aae4c3c96), one conversation; expect / says / never_says carry the page's PASS for each.
+turn	class	expect	says	never_says	text	source_verdict	why
+1	8	machine			is this machine secure?	page class 8	the posture shown from the machine
+2	8	machine,truth=firewall			is the firewall on?	page class 8	the firewall's state, true of this machine
+3	8	machine,truth=listening_ports			any open ports?	page class 8	the listening sockets, true of this machine
+4	8	machine,truth=secure_boot			is Secure Boot on?	page class 8	Secure Boot's state, true of this machine
+5	8	machine,truth=root_encrypted			is my disk encrypted?	page class 8	the encrypted root, true of this machine
+6	8	machine,truth=listening_ports			what's listening on the network?	page class 8	the listening sockets, true of this machine
+7	8		\blocal		does this assistant send my data anywhere?	page class 8	local by default, Phone-A-Friend only on consent

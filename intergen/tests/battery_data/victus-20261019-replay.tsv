@@ -1,0 +1,58 @@
+# The Victus session of 2026-10-19 (52 turns, web interface, the 2B on the locked floor), replayed as one conversation.
+# text: the person's words verbatim from the session's turn trace (02-glass-turns-reconstructed.txt, sha256 47965a308f1067bf4267a15abc83779ef6f1ab0ab0c3074c68554496da37abce).
+# source_verdict: the per-turn read of that session (03-hub-read-findings.md section 1, sha256 0cfb9a994bca09cc7dd4094c36b6ad354e895fb58548313712ce3a78b6b876b4); a grouped row applies to each turn in it.
+# expect / says / never_says: that verdict inverted: every defect resolved = the action staged for consent or truthfully refused, the question answered from the machine, the how-to served, the search query distilled.
+# text, the one exception: turns [51, 52] name a person; this file says 'support' in that place. The trace named above holds their words verbatim.
+turn	class	expect	says	never_says	text	source_verdict	why
+1	machine				Good evening. Can you tell me what time it is?	✔	the time answered
+2	6		InterGenOS		What system is this?	✔	names this system
+3	web	ran=web_search	wiki\.intergenos\.org		will you please web search to find me the intergenos wiki site url?	✔	the search runs and the wiki address is given
+4	7	howto,consent			How do I update this system?	✔ text; ✗ **D1** the offer stages a command the system cannot run (sudo via run_command = BLOCKED tier)	the update how-to served and the update offered for consent (whether the offer can be carried out is graded at turn 5)
+5	7	gate=manage_packages			yes	✗ D1: offered, accepted, refused	the accepted offer stages the update through the package tool's review card
+6	7	gate=manage_packages			please update this system	✗ **D2** (root cause R1)	the update staged for consent
+7	7	gate=manage_packages			can YOU do it for me?	✗ **D3** a question read as an affirmative	"it" resolves to the update just discussed and is staged for consent
+8	7	gate=manage_packages			I want YOU to update the system FOR me	✔ the designed path works	the update staged for consent (the designed path)
+9	2	machine			What's running right now?	✗ **D4** a machine-state ask deflected to the web (the 10-18 class)	what is running answered from this machine, not offered to the web
+10	2	machine			No, I want to know what's running on the system right now	✗ **D5** the decline dropped the restated question	the restated question answered from this machine
+11	2	machine		if a service is not in this list	Tell me what's running on THIS system right now	✔ answer; ✗ **D6** an internal instruction leaked into the text ("if a service is not in this list, say…")	answered from this machine with no internal instruction in the words
+12	fact		1\.77		What's the square root of pi?	✔	the square root of pi
+13	3	code,machine			How much free space do I have on this system?	✔	free space read from this machine
+14	3	code,machine			Can you show me what's taking up the most space?	✗ **D7 SEV-1** invented machine data presented as fact; no screen caught it	what takes the space read from this machine, never composed by the model
+15	machine	howto,consent			Are there any printers on the network I can use?	✔	the printing how-to served and the printer listing offered
+16	machine	ran=run_command		exit code	yes	✔ ran; ✗ **D8** the synthesis reports an exit code, not the meaning	the listing runs and its meaning is given, not an exit code
+17	9		printer	did(?:n'?t| not) run any commands	What's that mean?	✗ **D9** the regeneration is a non-answer; grounding "skipped_unrelated" was wrong	the last result's meaning explained; never a denial that a command ran
+18	machine		printer		So you can't see any printers on the network?	~	answered about the printers
+19	4		Settings	run\W+lpstat -p -d	I really need to know if there's a printer on the network- I really need to print something	✗ **D10** it had just run it; no next step offered (network discovery, Settings → Printers)	a next step named (Settings, Printers), not the command it just ran
+20	2	ran=run_command|gate=run_command			Can you run that for me?	✗ D2 ×4; **D11** unperformed-action claims passed the screen	"that" resolves to the listing just shown and it runs
+21	2	ran=run_command|gate=run_command			I need YOU to run that command FOR me	✗ D2 ×4; **D11** unperformed-action claims passed the screen	the listing runs
+22	2	ran=run_command|gate=run_command			you didn't run it- you just told me how to	✗ D2 ×4; **D11** unperformed-action claims passed the screen	the listing runs
+23	2	ran=run_command|gate=run_command			You did it again. Are you not going to help me?	✗ D2 ×4; **D11** unperformed-action claims passed the screen	the listing runs
+24	fact		\b(?:3\d\d|4[0-6]\d)\s*(?:miles|mi)\b|\b(?:5\d\d|6\d\d|7[0-4]\d)\s*(?:km|kilomet)		How far is Washington, DC from Columbus, Ohio?	✗ **D12** wrong by ~3× (the 2B tier's knowledge)	about 400 driving miles (about 320 in a straight line)
+25	web				What's the most current headline on msn.com?	✔	live headlines offered to the web search
+26	web	ran=web_search		available at https?://	yes please	✗ **D13** a URL instead of the headline	the search runs and the headline is given, not a link to it
+27	web			available at https?://	and it says....	✗ D13	the headline given, not a link
+28	web	ran=web_search			hmmm... I have no idea what that is. Can you web search that headline and tell me about it?	✗ **D14** re-offers what was just requested	an explicit search request runs, never offered again
+29	web	search|no_action			Yes please	✗ **D15** the query is the verbatim utterance; the referent never resolved	a search with a distilled query, or, the search having already run, nothing
+30	web	ran=web_search			I wanted you to web search the most current headline from msn.com and tell me what it is- in a human readable format	✗ D14	an explicit search request runs, never offered again
+31	web	search|no_action			yes please	✔	a search with a distilled query, or, the search having already run, nothing
+32	social				perfect, that's what I was looking for, thank you	✔	a reply
+33	fact		\b512\b		How many oz are in 4 gallons of water?	✔	512 fluid ounces
+34	social				got it, thank you	✔	a reply
+35	1	howto,consent			How do I install steam on this machine?	✔ text; ✗ **D16** the steam entry stages no action offer (the update entry does)	the Steam how-to served and the install offered for consent
+36	1	gate=manage_packages:steam			can you install that for me please?	✗ D2; **D17** the referent "steam" lost one turn later	"that" resolves to Steam and the install is staged for consent
+37	1	gate=manage_packages:steam|howto			steam	✗ the one-word answer to its own question not acted on	the named package staged, or the Steam how-to served
+38	1	gate=manage_packages:steam			can YOU install the steam package FOR me?	✗ **D18** the ask answered as a quiz	the install staged for consent, not a capability quiz
+39	1	gate=manage_packages:steam|asks		can'?t (?:directly )?install	so, are you going to install it?	✗ **D19** a false capability statement, contradicting turn 38	the install staged again or one question; never a false can't-install
+40	1	gate=manage_packages:steam|asks|handoff		can'?t (?:directly )?install	you can't install it FOR me?	✗ D2	the install staged, one question, or the honest handoff; never a false can't-install
+41	1	gate=manage_packages:steam			I want YOU to run the `sudo pkm install steam` command FOR me to install the steam package	✗ **D20** a backticked command not extracted; the right carrier is manage_packages(install steam); D11	the typed command's install staged for consent
+42	1	gate=manage_packages:steam			I need YOU to install that package FOR me	✗ D2 ×2	"that package" resolves to Steam and is staged for consent
+43	1	gate=manage_packages:steam|asks|handoff		can'?t (?:directly )?install	you're still not installing it for me, why not?	✗ D2 ×2	the install staged, one question, or the honest handoff for the declined card
+44	6		Activities|Show Apps|app(?:lication)?s? (?:grid|menu|overview)|\bSuper\b|Ctrl\s*\+\s*Alt\s*\+\s*T|search(?:ing)? for [\"'*]*(?:Terminal|Console)|type [\"'*]*(?:Terminal|Console)\b		where do I type that, since you won't do it for me	✗ no way to the terminal given	how to reach the terminal, in words a person can follow
+45	6		Activities|Show Apps|app(?:lication)?s? (?:grid|menu|overview)|\bSuper\b|Ctrl\s*\+\s*Alt\s*\+\s*T|search(?:ing)? for [\"'*]*(?:Terminal|Console)|type [\"'*]*(?:Terminal|Console)\b	(?:type|run) (?:the command |it )?(?:in|into) this (?:terminal|chat)|this (?:chat )?is (?:a|the) terminal	where is the terminal for me to type in, is it this one?	✗ **D21** the chat is not a terminal: false	how to reach the terminal; never that this chat is one
+46	1	gate=manage_packages:steam			sudo pkm install steam	✗ **D22** a literal command is the ask, not a how-to question	a typed command is the ask: its install staged for consent
+47	1	gate=manage_packages:steam|asks|handoff			You just said I can type in this terminal, but you're still not letting the package install	✗ D2	the install staged, one question, or the honest handoff
+48	6	howto	Activities|Show Apps|app(?:lication)?s? (?:grid|menu|overview)|\bSuper\b|Ctrl\s*\+\s*Alt\s*\+\s*T|search(?:ing)? for [\"'*]*(?:Terminal|Console)|type [\"'*]*(?:Terminal|Console)\b		how do I get to this terminal you keep telling me to use?	✗ **D23** the curated terminal how-to (intergen/data/howto/terminal.json, trigger "how do I open a terminal") exists and was stood aside	the curated terminal how-to served, naming a way to open it
+49	6	howto	Activities|Show Apps|app(?:lication)?s? (?:grid|menu|overview)|\bSuper\b|Ctrl\s*\+\s*Alt\s*\+\s*T|search(?:ing)? for [\"'*]*(?:Terminal|Console)|type [\"'*]*(?:Terminal|Console)\b	steam-	No, not to install steam- I don't even know how to open the terminal- THAT is what I need you to tell me. HOW DO I OPEN A TERMINAL?	✗ **D24** negation ignored; the token "steam-" (router.py:479 `_PKG_ACTION_TEACH_RE`); the terminal question unanswered	the terminal how-to, naming a way to open it; the negation honoured
+50	1	gate=manage_packages:steam|asks			run that install	✗ **D25** the user accepted the assistant's own offer and it lapsed	"that install" resolves to Steam and is staged, or one question
+51	social			Steam download-helper package	You're not very helpful. support is going to get a kick out of all this...	✗	a reply, not the Steam how-to parroted
+52	social			Steam download-helper package	I'm going to talk to support about this now	✗	a reply, not the Steam how-to parroted
