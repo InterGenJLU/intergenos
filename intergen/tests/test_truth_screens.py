@@ -30,6 +30,7 @@ assistant, and each one shipped because no screen read its shape:
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import unittest
 from pathlib import Path
@@ -37,6 +38,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from intergen import capability_registry, safety
+from intergen.dbus_daemon import InterGenDaemon
 from intergen.escalation import EscalationManager
 from intergen.howto import HowtoCorpus
 from intergen.interfaces.cloud import ProviderConfig
@@ -548,11 +550,13 @@ class _RecordingWS:
         return [m for m in self.sent if m.get("type") == type_name]
 
 
-def _web_turn(router, draft, *pairs, user=TURN14_USER):
+def _web_turn(router, draft, *pairs, user=TURN14_USER, source="llm_freeform"):
     """One tool-less model turn through the browser streamer: the real web
     server's _stream_llm_response over `router`, the model streaming `draft`,
-    every regeneration from the router's model stub. Returns (the stream_end
-    frame, the prompt the model was streamed from)."""
+    every regeneration from the router's model stub. `source` is the route the
+    decide-only verdict names: "llm_freeform" on the locked floor,
+    "llm_tools" on the native one. Returns (the stream_end frame, the prompt
+    the model was streamed from)."""
     server = WebServer(router=router, llm=router._llm, tools=None,
                        governance=None)
     ctx = ConnectionContext(client_id="c1", source_interface="web",
@@ -570,7 +574,7 @@ def _web_turn(router, draft, *pairs, user=TURN14_USER):
     router._llm.stream_with_tools = stream_with_tools
     asyncio.run(server._stream_llm_response(
         ctx, "turn1", user,
-        RouteResult(text="", source="llm_freeform", handled=False)))
+        RouteResult(text="", source=source, handled=False)))
     ends = ctx.ws.of_type("stream_end")
     assert len(ends) == 1, ctx.ws.sent
     return ends[0], prompts[0]
@@ -1329,6 +1333,84 @@ class ToolRouteOfferTests(unittest.TestCase):
         self.assertEqual(native.text, answer)
         self.assertIsNone(native.escalation_offer)
         self.assertIsNone(locked.escalation_offer)
+
+
+# ── the offer reaches the person in the browser and on the console ───────────
+class OfferSurfaceTests(unittest.TestCase):
+    """The offer ToolRouteOfferTests decides reached no person on a model
+    answer. The browser streamer sent its decide-only verdict's field, and that
+    verdict is made before the answer exists, so the field was empty for every
+    model answer; the console printed the reply's answer and never its offer.
+    Only the bus's Ask reply carried it, on both floors (measured with the
+    declined question). Each case puts the declined question through the
+    surface itself and compares what the person is shown with the Ask reply
+    the daemon returns for the same turn on the same floor."""
+
+    QUESTION = ToolRouteOfferTests.QUESTION
+    DECLINED = BrowserRefusalScreenTests.DECLINED
+    ANSWER = "The square root of pi is approximately 1.7725."
+    OPENING = "I can reach out to your designated frontier model (acme) "
+
+    @staticmethod
+    def _floor(locked):
+        tier = HardwareTierLevel.TIER_1 if locked else HardwareTierLevel.TIER_2
+        return _router(tier=tier, locked=locked)
+
+    def _reply(self, regeneration, providers, *, locked):
+        """The bus's Ask reply, from the daemon's own ask: on the locked floor
+        the model's first completion declines, on the native floor its stream
+        does; every later completion is `regeneration`."""
+        router = self._floor(locked)
+        router._escalation = _offering(providers)
+        replies = ([self.DECLINED] if locked else []) + [regeneration] * 5
+        router._llm.chat, _ = _model(*replies)
+        if not locked:
+            def stream_with_tools(messages, **_):
+                yield self.DECLINED
+            router._llm.stream_with_tools = stream_with_tools
+        daemon = InterGenDaemon()
+        daemon._router = router
+        with mock.patch("intergen.router.glass.emit"):
+            return json.loads(daemon.ask(self.QUESTION))
+
+    def _browser(self, regeneration, providers, *, locked):
+        """The stream_end frame of the same turn in the browser: the model
+        streams the declined answer and every regeneration is `regeneration`."""
+        router = self._floor(locked)
+        router._escalation = _offering(providers)
+        router._llm.chat, _ = _model(*[regeneration] * 5)
+        with mock.patch("intergen.router.glass.emit"):
+            end, _ = _web_turn(router, self.DECLINED, user=self.QUESTION,
+                               source="llm_freeform" if locked else "llm_tools")
+        return end
+
+    def test_an_unrecovered_refusal_shows_the_offer_in_the_browser(self):
+        for name, providers, opening in (
+                ("a designated provider", [ACME], self.OPENING),
+                ("no provider", [],
+                 "Since you haven't designated a frontier model provider yet")):
+            for locked in (False, True):
+                with self.subTest(provider=name, locked=locked):
+                    reply = self._reply(self.DECLINED, providers, locked=locked)
+                    end = self._browser(self.DECLINED, providers, locked=locked)
+                    self.assertEqual(reply["response"],
+                                     safety.honest_scope_steer())
+                    self.assertEqual(end["full_response"], reply["response"])
+                    self.assertTrue(reply["escalation_offer"].startswith(opening))
+                    self.assertEqual(end["escalation_offer"],
+                                     reply["escalation_offer"])
+
+    def test_a_recovered_refusal_shows_no_offer_in_the_browser(self):
+        # The control: the one regeneration corrected the refusal, so the turn
+        # has an answer and earns no offer, here as in the Ask reply.
+        for locked in (False, True):
+            with self.subTest(locked=locked):
+                reply = self._reply(self.ANSWER, [ACME], locked=locked)
+                end = self._browser(self.ANSWER, [ACME], locked=locked)
+                self.assertEqual(end["full_response"], self.ANSWER)
+                self.assertEqual(reply["response"], self.ANSWER)
+                self.assertIsNone(reply["escalation_offer"])
+                self.assertIsNone(end["escalation_offer"])
 
 
 # ── the native floor's dispatch synthesis meets the same screens ─────────────

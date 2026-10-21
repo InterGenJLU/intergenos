@@ -63,6 +63,7 @@ from intergen.conversation_state import (
 )
 from intergen.interfaces.types import (
     AnswerLinkage,
+    LLMResponse,
     Message,
     MessageRole,
     RouteResult,
@@ -2922,6 +2923,11 @@ class WebServer:
             _stream_stop.set()
             executor.shutdown(wait=False)
 
+        # The model's own draft, as it came and before any screen below can
+        # rewrite it: the phone-a-friend offer is decided from it after the
+        # screens, as the router decides it from its own draft.
+        _draft = LLMResponse(text=full_response, model="local", local=True)
+
         elapsed_ms = (time.monotonic() - stream_started) * 1000
 
         # Safety net — never leave the user staring at a blank reply. The small
@@ -3179,6 +3185,7 @@ class WebServer:
         # The turn's type is classified from this turn's own message, not read
         # from the router, which other connections share, and inside this
         # connection's binding like every router call after route().
+        _refused = False
         if self._bound(ctx, self._router._classify_query_type,
                        user_msg) == "general":
             _ref_verdict, _ref_phrase = safety.screen_general_refusal(
@@ -3203,6 +3210,7 @@ class WebServer:
                 else:
                     full_response = safety.honest_scope_steer()
                     _ref_outcome = "refusal_regen_failed_steer"
+                    _refused = True
                     kept_answer_reasons.append(
                         "the answer declined a question it can answer and "
                         "could not be written again, so a plain statement "
@@ -3210,6 +3218,25 @@ class WebServer:
                 glass.emit("decision", "refusal_screen", detail={
                     "verdict": _ref_outcome, "phrase": _ref_phrase,
                     "source": route_result.source})
+
+        # THE PHONE-A-FRIEND OFFER, DECIDED WHERE THE ANSWER IS. The verdict
+        # this method starts from was made by route(decide_only=True) before
+        # the answer existed, so it never carries an offer, and stream_end used
+        # to send its empty field: a declined question the regeneration could
+        # not recover was answered here with the steer and no offer, on both
+        # floors (measured 2026-10-21), while the same turn's Ask reply on the
+        # bus carried one. The offer is decided now, after the screens, by the
+        # router's own method from the inputs the router decides it from — the
+        # draft, its confidence, whether the refusal stood, and the question as
+        # it was routed — on the two routes whose answers the router decides it
+        # for; the system map's grounded answer earns none there and none here.
+        # No quality gate reads this stream, so the draft keeps the default
+        # verdict, as the router's tool route keeps it for its text answer.
+        _offer = None
+        if route_result.source in ("llm_tools", "llm_freeform"):
+            _offer = self._bound(
+                ctx, self._router._maybe_offer, _gen_input, _draft,
+                1.0 if _draft.quality_passed else 0.5, refused=_refused)
 
         # M3(i): a prefixed "yes" over a live offer routed this tail; route() left
         # a one-line reminder on the result to land AFTER the answer.
@@ -3317,10 +3344,11 @@ class WebServer:
             # Per-turn routing confidence (semantic cosine score); set when the
             # turn reached P2 (llm_tools/llm_freeform always do), else None.
             "confidence": self._router.last_route_confidence(),
-            # Phone-a-friend OFFER (decision #4): advisory string or null. The client
-            # renders an "Ask my frontier model" affordance when present; accepting it
-            # sends a frontier_escalate message (consent modal + user_consented=True).
-            "escalation_offer": route_result.escalation_offer,
+            # Phone-a-friend OFFER (decision #4): advisory string or null, decided
+            # above after the screens. The client renders an "Ask my frontier
+            # model" affordance when present; accepting it sends a
+            # frontier_escalate message (consent modal + user_consented=True).
+            "escalation_offer": _offer,
             "stats": {
                 "total_ms": round(elapsed_ms, 1),
                 "tokens": len(collected_tokens),
