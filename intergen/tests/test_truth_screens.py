@@ -1450,5 +1450,158 @@ class DispatchSynthesisScreenTests(unittest.TestCase):
         self.assertEqual(regenerations, [])
 
 
+# ── a tool's output presented when no tool ran ───────────────────────────────
+# A console firing on the 2B lane's locked floor (2026-10-20), verbatim: asked
+# "are there any pending updates?", the model answered with pkm's "output" on a
+# turn that dispatched nothing, and every screen passed it. The posture lane
+# answers that phrasing from pkm's own advisory, so the route() cases below ask
+# one that no direct answer takes; the draft is the recorded one.
+UPDATES_DRAFT = (
+    "Here is what pkm returned:\n"
+    "\n"
+    "```\n"
+    "Package updates are available for:\n"
+    "  kernel (2.6.38-1)\n"
+    "  kernel-headers (2.6.38-1)\n"
+    "  linux-image-2.6.38-1\n"
+    "  linux-image-generic-2.6.38-1\n"
+    "  linux-headers-2.6.38-1\n"
+    "```")
+UPDATES_USER = "what needs upgrading?"
+UPDATES_HONEST = ("I haven't checked for updates on this turn, so I can't say "
+                  "which packages have one.")
+
+
+class InventedToolResultTests(unittest.TestCase):
+    """A sentence presenting a tool's output claims that the tool ran. On a
+    turn that ran nothing it is an execution claim, read by the claim screen
+    and regenerated as the others are."""
+
+    def test_the_recorded_result_is_caught(self):
+        self.assertEqual(
+            safety.screen_execution_claim(UPDATES_DRAFT, dispatched=False),
+            ("violation", "here is what pkm returned"))
+
+    def test_other_presented_results_are_caught(self):
+        for text, marker in (
+                ("Here's what `pkm list --upgradable` printed:\n```\n"
+                 "firefox 131.0\n```",
+                 "here's what `pkm list --upgradable` printed"),
+                ("The command printed: lpstat: No destinations added.",
+                 "the command printed"),
+                ("pkm returned the following packages:\n- kernel\n- firefox",
+                 "pkm returned"),
+                ("`lsblk` showed two disks, sda and nvme0n1.", "`lsblk` showed"),
+                ("Here is the output of `df -h`:\n```\n/dev/sda1 20G\n```",
+                 "here is the output of `df -h`"),
+                ("Here's the output:\n```\n3 packages can be upgraded\n```",
+                 "here's the output:"),
+                ("It returned:\n```\n3 packages can be upgraded\n```",
+                 "it returned:"),
+                ("The output was: 3 packages can be upgraded.",
+                 "the output was:"),
+                ("Here are the results from the search:\n1. A news page",
+                 "here are the results from the search")):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("violation", marker))
+
+    def test_descriptions_suppositions_and_reports_stay_clean(self):
+        for text in (
+                "`pkm list --upgradable` shows the packages with updates "
+                "waiting.",
+                "Run `pkm upgrade --check`; it prints the packages it would "
+                "update.",
+                "If the command printed an error, check the journal.",
+                "When you run `pkm sync`, it reports how many packages changed.",
+                "You said pkm returned an error — that usually means the "
+                "index is stale.",
+                "Did the command print anything?",
+                "pkm never returned an answer, because nothing was run.",
+                "Here's what I can tell you about pending updates.",
+                "Here is what the command does: it refreshes the package index.",
+                # The installed wiki, verbatim: a true account of the install.
+                "Type the enrollment password Forge gave you. It is single-use."):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("clean", None))
+
+    def test_a_dispatched_turn_is_not_screened(self):
+        self.assertEqual(
+            safety.screen_execution_claim(UPDATES_DRAFT, dispatched=True),
+            ("clean", None))
+
+    def test_the_recorded_result_is_regenerated_on_both_floors(self):
+        floors = {}
+        for locked in (True, False):
+            result, decisions, regenerations, _ = _route_recorded(
+                UPDATES_DRAFT, UPDATES_HONEST, UPDATES_USER, locked=locked)
+            floors[locked] = decisions
+            with self.subTest(locked=locked):
+                self.assertEqual(result.source,
+                                 "llm_freeform" if locked else "llm_tools")
+                self.assertEqual(decisions[0], ("claim_screen",
+                                                "violation_regenerated",
+                                                "here is what pkm returned"))
+                self.assertEqual([d[1] for d in decisions[1:]],
+                                 ["clean"] * (len(decisions) - 1))
+                self.assertEqual(result.text, UPDATES_HONEST)
+                self.assertEqual(len(regenerations), 1)
+                self.assertTrue(regenerations[0][-1].content.startswith(
+                    "You did NOT run"))
+        self.assertEqual(floors[True], floors[False])
+
+    def test_a_regeneration_presenting_it_again_gets_the_honest_line(self):
+        result, decisions, regenerations, _ = _route_recorded(
+            UPDATES_DRAFT, UPDATES_DRAFT, UPDATES_USER, locked=True)
+        self.assertEqual(decisions[0][:2],
+                         ("claim_screen", "violation_regen_failed_fallback"))
+        self.assertEqual(result.text, safety.honest_action_fallback())
+        self.assertNotIn("2.6.38", result.text)
+        self.assertEqual(len(regenerations), 1)
+
+    def test_the_browser_path_screens_the_same_result(self):
+        router = _router()
+        router._llm.chat, seen = _model(UPDATES_HONEST)
+        with mock.patch("intergen.router.glass.emit") as emit:
+            end, _ = _web_turn(router, UPDATES_DRAFT, user=UPDATES_USER)
+        self.assertEqual(end["full_response"], UPDATES_HONEST)
+        self.assertEqual(len(seen), 1)
+        self.assertEqual(
+            [(r["verdict"], r["marker"]) for r in _rows(emit, "claim_screen")],
+            [("violation_regenerated", "here is what pkm returned")])
+        self.assertTrue(end["replaced_streamed_text"])
+        self.assertIn("claimed an action that was never performed",
+                      end["replacement_reason"])
+        browser, console = _both_paths(UPDATES_DRAFT, (UPDATES_HONEST,),
+                                       UPDATES_USER)
+        self.assertEqual(browser, console)
+
+    def test_a_result_presented_after_a_denied_dispatch_is_screened(self):
+        result, decisions, dispatched, regenerations = _route_dispatch(
+            TURN41_CALL, TURN41_DENIED, UPDATES_DRAFT, TURN41_SYNTHESIS,
+            TURN41_USER)
+        self.assertEqual(result.text, TURN41_SYNTHESIS)
+        self.assertEqual(decisions[0], ("claim_screen", "violation_regenerated",
+                                        "here is what pkm returned"))
+        self.assertEqual(dispatched, [("claim_screen", False),
+                                      ("state_claim_screen", False)])
+        self.assertEqual(len(regenerations), 1)
+
+    def test_the_routers_own_framing_of_a_denied_result_stays_clean(self):
+        # When a synthesis is rejected the router serves the tool's own output
+        # under its own framing, and after a denied dispatch that output is the
+        # denial: true, and screened as a turn on which nothing ran.
+        framed = ConversationRouter._TOOL_OUTPUT_FRAMING.format(
+            tool=TURN41_DENIED.name, output=TURN41_DENIED.content)
+        self.assertTrue(framed.startswith(
+            "Here is what manage_packages returned:"))
+        self.assertEqual(
+            safety.screen_execution_claim(framed, dispatched=False),
+            ("clean", None))
+
+
 if __name__ == "__main__":
     unittest.main()

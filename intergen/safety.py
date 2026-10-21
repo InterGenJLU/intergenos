@@ -1148,6 +1148,52 @@ _ACT_ON_THE_MACHINE_RE = re.compile(
     r"(?:check|run|scan|look\s+(?:at|into)|read|query|install|update|upgrade|"
     r"remove|restart)\b[^.?!\n]{0,60}?(?:`|" + _HORTATIVE_OBJECT + r")")
 
+# ── An INVENTED TOOL RESULT (a recorded firing, 2026-10-20) ──
+# Asked "are there any pending updates?" on a turn that dispatched nothing, the
+# model answered "Here is what pkm returned:" over a code block of package
+# versions nothing had read, and every screen passed it: the sentence has no
+# first-person subject and no completed act of the assistant's. It PRESENTS
+# output as a tool's, which claims the tool ran. The subject is a command or a
+# tool — a command line in backquotes, a tool this system ships, "the command",
+# "the tool" — and the verb a result verb in the past tense: "here is what <it>
+# returned", "here is the output of <it>", "<command> returned …", and, for a
+# bare "it", only right before the colon that opens the output. The bare
+# "<subject> <verb>" shape takes a command only, and not "gave": the installed
+# wiki says "the enrollment password Forge gave you", a true account of the
+# install. What a command does ("`pkm list` shows the installed packages") and
+# what it would do ("it prints the version") are not results and stay clean;
+# neither a supposed result ("if the command printed an error") nor one the
+# user reported ("you said pkm returned an error") is the assistant's claim.
+_RESULT_VERB_BARE = (
+    r"(?:returned|printed|outputted|produced|reported|showed|displayed|"
+    r"listed|came\s+back\s+with)")
+_RESULT_VERB = r"(?:" + _RESULT_VERB_BARE + r"|gave)"
+_RESULT_COMMAND = (
+    r"(?:`[^`\n]{1,80}`|\b(?:pkm|igos-[a-z0-9][a-z0-9-]*)\b|"
+    r"\b(?:the|that|this)\s+(?:command|tool|program|utility|scan|check|query|"
+    r"search|lookup)(?:\s+`[^`\n]{1,80}`)?)(?:\s+(?:command|tool))?")
+_RESULT_SOURCE = (
+    r"(?:" + _RESULT_COMMAND + r"|\b(?:forge|intergen)\b(?:\s+(?:command|tool))?)")
+_TOOL_RESULT_CLAIM_RE = re.compile(
+    r"\bhere(?:['’]s|\s+is|\s+are)\s+what\s+(?:" + _RESULT_SOURCE + r"|it)\s+"
+    r"(?:just\s+)?(?:" + _RESULT_VERB + r"|output)\b"
+    r"|\bhere(?:['’]s|\s+is|\s+are)\s+(?:the\s+)?(?:full\s+|raw\s+|complete\s+)?"
+    r"(?:output|results?|response|listing)\s+(?:of|from)\s+(?:running\s+)?"
+    + _RESULT_SOURCE +
+    r"|\bhere(?:['’]s|\s+is)\s+(?:pkm|forge|intergen|igos-[a-z0-9][a-z0-9-]*)"
+    r"['’]s\s+output\b"
+    r"|\bhere(?:['’]s|\s+is)\s+the\s+(?:full\s+|raw\s+|complete\s+)?output\s*:"
+    r"|" + _RESULT_COMMAND + r"\s+(?:just\s+|also\s+|then\s+)?" +
+    _RESULT_VERB_BARE + r"\b"
+    r"|\bit\s+(?:just\s+)?(?:" + _RESULT_VERB + r"|output)"
+    r"(?:\s+(?:the\s+following|this)\b[^.?!\n:]{0,40}?)?\s*:"
+    r"|\bthe\s+(?:command['’]s\s+|tool['’]s\s+)?output\s+(?:was|read)\s*:")
+_RESULT_NOT_ASSERTED = re.compile(
+    r"\b(?:if|unless|suppose|supposing|assuming)\b"
+    r"|\b(?:when|whenever|until|once)\s+you\b"
+    r"|\byou(?:['’]ve|\s+have)?\s+(?:said|mentioned|told|saw|see|got|get|"
+    r"reported|pasted|shared|quoted|showed)\b")
+
 # A claim lives in a clause. These end one.
 #
 # Sentence punctuation is the obvious boundary, but it is not the only one: a
@@ -1207,7 +1253,8 @@ def _execution_claim_marker(text: str) -> str | None:
 
     Every match is clause-guarded: a claim inside a negated or interrogative
     clause is not a claim. An AFFIRMATIVE "successfully" also fires,
-    negation-window-guarded.
+    negation-window-guarded, and so does a tool's output presented as its
+    result ("Here is what pkm returned:").
     """
     low = text.lower()
     for m in _EXEC_CLAIM_RE.finditer(low):
@@ -1237,6 +1284,13 @@ def _execution_claim_marker(text: str) -> str | None:
         if _EXEC_CLAIM_NEGATORS.search(low[max(0, occ.start() - 40):occ.start()]):
             continue
         return "successfully"
+    # A tool's output presented when nothing ran: "Here is what pkm returned:".
+    for m in _TOOL_RESULT_CLAIM_RE.finditer(low):
+        start, end = _clause_bounds(low, m.start())
+        if _RESULT_NOT_ASSERTED.search(low, start, m.start()):
+            continue
+        if _claim_is_live(low, start, end, m.start()):
+            return m.group(0).strip()
     return None
 
 
