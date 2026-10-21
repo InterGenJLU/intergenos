@@ -163,6 +163,30 @@ def test_instruction_variants_keep_the_same_object_boundary(query):
     assert ConversationRouter._system_documentation_pointer(query) is None
 
 
+@pytest.mark.parametrize(("query", "expected"), [
+    ("How do I turn on smoothing for a Linux penguin drawing?", "llm_freeform"),
+    ("How do I temporarily disable shading in a Linux penguin drawing?", "llm_freeform"),
+    ("How do I enable a hypothetical feature in InterGenOS?", "wiki_uncovered"),
+    ("How do I draw a penguin?", "llm_freeform"),
+])
+@pytest.mark.parametrize("locked", [False, True])
+@pytest.mark.parametrize("decide_only", [False, True])
+def test_instruction_and_object_combinations_keep_the_requested_subject(query, expected, locked, decide_only):
+    router = router_with_source_corpus(locked)
+    assert router._howto.retrieve(query)[0] is None
+    router._llm.stream_with_tools = Mock(side_effect=AssertionError("unexpected tool generation"))
+    router._system_documentation_pointer = Mock(wraps=router._system_documentation_pointer)
+    with router.bind_conversation(router.new_conversation()):
+        result = router.route(query, decide_only=decide_only)
+    assert router._system_documentation_pointer.call_count > 0
+    assert result.source == expected, (query, result.source, result.text)
+    deferred = decide_only and expected == "llm_freeform"
+    assert result.handled is not deferred
+    assert router._llm.chat.call_count == int(expected == "llm_freeform" and not deferred)
+    router._llm.stream_with_tools.assert_not_called()
+    router._tools.execute.assert_not_called()
+
+
 @pytest.mark.parametrize("query", [
     "How do I import packages in R on my computer?",
     "How do I import packages in Julia on my computer?",
