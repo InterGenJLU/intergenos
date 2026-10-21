@@ -122,8 +122,9 @@ def _python_calls(body):
 
 def _shipped_bodies(root):
     """Every heredoc body that a recipe under ROOT writes into its package, as
-    (recipe, delimiter, body): its opener writes into a path under DESTDIR,
-    named directly or through a variable the same build.sh assigns from it."""
+    (recipe, delimiter, body): its opener, read across backslash continuations,
+    writes into a path under DESTDIR, named directly or through a variable the
+    same build.sh assigns from it."""
     found = []
     for build in sorted(root.glob("packages/*/*/build.sh")):
         rel = str(build.relative_to(root))
@@ -143,7 +144,12 @@ def _shipped_bodies(root):
                 j += 1
             if j == len(lines):
                 raise AssertionError(f"{rel}:{i + 1}: the {delimiter} heredoc is never closed")
-            writer = WRITER.search(lines[i])
+            # The writer may sit on an earlier line, joined to this one by a
+            # backslash continuation.
+            start = i
+            while start > 0 and lines[start - 1].rstrip().endswith("\\"):
+                start -= 1
+            writer = WRITER.search(" ".join(line.rstrip().rstrip("\\") for line in lines[start:i + 1]))
             if writer and writer.group(1) in from_destdir and body:
                 found.append((rel, delimiter, body))
             i = j + 1
