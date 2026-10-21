@@ -13,6 +13,12 @@ The direct-answer route now answers every privacy phrasing from the machine's
 own facts: the model serving the router, whether web search is registered, which
 Phone-A-Friend providers are configured; and the two fixed texts no longer say
 that nothing is ever sent.
+
+Where the model is given its tools (the native dispatch mode), a read-only call
+it makes runs without a prompt, so it may start a web search or a network check
+by itself: "only when you ask for it" holds only where the model is kept from
+dispatch, and the answer reads the mode. The fixed texts cannot read it, so they
+say what holds on every lane.
 """
 
 from __future__ import annotations
@@ -75,6 +81,48 @@ class PrivacyAnswer(unittest.TestCase):
                 self.assertNotIn("no queries", text.lower())
                 self.assertNotIn("unless you explicitly configure", text.lower())
                 self.assertIn("web search", text)
+
+    def test_where_the_model_is_kept_from_dispatch_only_a_request_sends(self):
+        r = _router()
+        r._lock_dispatch = True
+        text = r._privacy_answer()
+        self.assertIn("only when you ask for it", text)
+        self.assertNotIn("by itself", text)
+
+    def test_where_the_model_runs_its_own_tools_the_answer_says_so(self):
+        r = _router()
+        r._lock_dispatch = False
+        text = r._privacy_answer()
+        self.assertNotIn("only when you ask for it", text)
+        self.assertNotIn("sent anywhere on its own", text)
+        self.assertIn("may also start a read-only tool by itself", text)
+        self.assertIn("a web search it starts", text)
+        self.assertIn("such as dig or ping", text)
+        self.assertIn("TestModel-2B", text)
+        self.assertIn("no telemetry", text)
+        self.assertIn("No Phone-A-Friend provider is set up", text)
+
+    def test_the_privacy_alias_reads_the_dispatch_mode(self):
+        r = _router()
+        r._lock_dispatch = False
+        res = _ask(r, "does this assistant send my data anywhere?")
+        self.assertEqual(res.source, "direct_answer")
+        self.assertIn("may also start a read-only tool by itself", res.text)
+
+    def test_without_web_search_the_model_is_not_said_to_search(self):
+        r = _router(web=False)
+        r._lock_dispatch = False
+        text = r._privacy_answer()
+        self.assertNotIn("web search", text)
+        self.assertIn("such as dig or ping", text)
+
+    def test_the_identity_texts_hold_on_every_lane(self):
+        for key in ("what about privacy", "do you run locally"):
+            with self.subTest(key=key):
+                text = ConversationRouter._try_self_awareness(key)
+                self.assertNotIn("only when you ask", text)
+                self.assertNotIn("on its own", text)
+                self.assertIn("while I work on something you asked", text)
 
 
 if __name__ == "__main__":

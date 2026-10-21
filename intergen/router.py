@@ -4474,21 +4474,26 @@ class ConversationRouter(RouterInterface):
                 "you've configured one."
             ),
             # A web search the person asks for sends its search words out, so
-            # neither answer may say that nothing is ever sent; what does go out
-            # goes only on a request. The direct-answer route answers the same
-            # questions first, from this machine's own facts (_privacy_answer).
+            # neither answer may say that nothing is ever sent. Nor may either
+            # say that something goes out only on a request: these texts are
+            # fixed and cannot read the lane, and where the model is given its
+            # tools it may start a read-only one, a web search among them, by
+            # itself. What holds on every lane is said instead. The direct-answer
+            # route answers the same questions first, from this machine's own
+            # facts (_privacy_answer).
             "do you run locally": (
                 "Yes — I run on this machine, and so does the model that answers "
-                "you. Nothing you say is sent anywhere on its own; a web search, a "
-                "public IP lookup or a Phone-A-Friend question goes out only when "
-                "you ask for it."
+                "you. Nothing is sent in the background — no telemetry; something "
+                "goes out only while I work on something you asked: a web search, "
+                "a network lookup such as your public IP, or a Phone-A-Friend "
+                "question you approve."
             ),
             "what about privacy": (
-                "What you type here stays on this machine: the model runs locally "
-                "and nothing is sent anywhere on its own — no telemetry. Something "
-                "leaves only when you ask for it: a web search, a public IP lookup, "
-                "a software download from the package mirror, or a Phone-A-Friend "
-                "question you approve."
+                "The model that answers you runs on this machine, and nothing is "
+                "sent in the background — no telemetry. Something leaves only "
+                "while I work on something you asked: a web search, a network "
+                "lookup such as your public IP, a software download from the "
+                "package mirror, or a Phone-A-Friend question you approve."
             ),
             "how do you work": (
                 "I route your queries through a priority chain: cached system "
@@ -4940,7 +4945,7 @@ class ConversationRouter(RouterInterface):
             return self._direct_answer_result(
                 text, self._privacy_answer(), "privacy", "local", t0,
                 # Composed in code from the live registry, the served model's
-                # name and the configured providers.
+                # name, the configured providers and the dispatch mode.
                 linkage=AnswerLinkage(kind="code", renderer="privacy_facts"))
         if _DA_POSTURE_RE.search(text):
             readings = [
@@ -5006,9 +5011,13 @@ class ConversationRouter(RouterInterface):
 
     def _privacy_answer(self) -> str:
         """What leaves this machine, from the machine's own facts: the model
-        serving this router, the tools registered, the providers configured.
-        What goes out at all goes out only on a person's request: a web search,
-        the public-address lookup, a software download, a Phone-A-Friend send."""
+        serving this router, the tools registered, the providers configured and
+        the dispatch mode. Where the model is kept from dispatch (the locked
+        mode), what goes out goes out only on a person's request: a web search,
+        the public-address lookup, a software download, a Phone-A-Friend send.
+        Where the model is given its tools, a read-only one runs without a
+        prompt, so the model may start a web search or a network check by
+        itself while it answers, and the answer says so."""
         model = None
         llm = getattr(self, "_llm", None)
         if llm is not None:
@@ -5024,12 +5033,31 @@ class ConversationRouter(RouterInterface):
             except Exception:  # noqa: BLE001 — an unreadable config means none known
                 providers = []
         served = f" ({model})" if model else ""
-        text = (f"What you type here stays on this machine: the model that answers "
-                f"you{served} runs here, and nothing you say or do is sent anywhere "
-                f"on its own — no telemetry, no usage reports. Something leaves this "
-                f"machine only when you ask for it: ")
+        web = self._web_search_available()
+        own: list[str] = []
+        if getattr(self, "_lock_dispatch", True):
+            text = (f"What you type here stays on this machine: the model that "
+                    f"answers you{served} runs here, and nothing you say or do is "
+                    f"sent anywhere on its own — no telemetry, no usage reports. "
+                    f"Something leaves this machine only when you ask for it: ")
+        else:
+            # Unlocked, the model is offered every registered tool, and a
+            # read-only (AUTO) call runs for any provenance without a prompt;
+            # dig and ping are AUTO commands for run_command.
+            text = (f"The model that answers you{served} runs on this machine, and "
+                    f"nothing is sent in the background — no telemetry, no usage "
+                    f"reports. Something leaves this machine only while I work on "
+                    f"something you asked: ")
+            reg = getattr(self, "_tools", None)
+            names = reg.get_all_names() if reg is not None else []
+            if web:
+                own.append("a web search it starts sends the words it chose to "
+                           "the search service")
+            if "run_command" in names:
+                own.append("a network check it runs, such as dig or ping, sends "
+                           "the name it checks out to the network")
         asks = []
-        if self._web_search_available():
+        if web:
             asks.append("a web search sends its search words to the search service")
         asks.append("asking for your public IP address asks a public resolver")
         asks.append("installing or updating software downloads it from the "
@@ -5039,6 +5067,10 @@ class ConversationRouter(RouterInterface):
                         + ", ".join(providers)
                         + " only after you approve that one send")
         text += "; ".join(asks) + "."
+        if own:
+            text += (" Here the model may also start a read-only tool by itself, "
+                     "without asking you first, when it decides that helps answer "
+                     "you: " + "; ".join(own) + ".")
         if not providers:
             text += (" No Phone-A-Friend provider is set up here, so nothing is "
                      "ever sent to a cloud model.")
