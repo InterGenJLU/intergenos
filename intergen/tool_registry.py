@@ -31,7 +31,8 @@ import shutil
 import stat as stat_module
 import subprocess
 import time
-from dataclasses import replace
+from dataclasses import dataclass, replace
+from enum import Enum
 from pathlib import Path
 from importlib import import_module
 from typing import Any, Callable, NamedTuple
@@ -457,6 +458,87 @@ def review_not_decided(answer: object) -> tuple[str, str]:
                            f"({str(answer)[:40]!r})")
 
 
+# ── A WEB SEARCH RUNS ON THE PERSON'S WORD, NEVER ON THE MODEL'S (2026-10-21) ──
+#
+# On the native floor every conversational turn is offered every schema, and
+# web_search is read-only, so a search the model decided on ran with no word
+# from the person: the query the model composed left the machine for the search
+# engine, and nothing on the way asked. The locked floors search only on a
+# recognised explicit ask or an accepted offer, because there the code owns
+# every dispatch. This gate gives the native floor the same rule, here, at the
+# one place every call passes.
+#
+# WHO BUILT A CALL IS NOT SOMETHING THE CALL CAN SAY. Its source_of_request is
+# the model's own label: the client takes it out of the arguments the model
+# emitted, so a call the model decided can carry user_direct, the label the
+# router's own calls carry. The caller of execute() is the one that knows, and
+# it says so in ``origin``. The default is the model, so a caller that says
+# nothing is gated: a dispatch path added later without the keyword holds its
+# searches instead of running them.
+#
+# THE PERSON'S WORD is a SearchAsk, the router's own reading of the turn, made
+# by its recogniser of an explicit ask or by its resolver of an accepted offer,
+# held for that turn and gone at the next. It is an object the router builds and
+# hands over beside the call, never a tool argument: nothing the model emits can
+# make one, and an argument that claims to be one is only an argument.
+
+
+class CallOrigin(Enum):
+    """Who built a ToolCall, as the caller of ToolRegistry.execute knows it."""
+
+    #: The model emitted the call. The default: a caller that names no origin
+    #: is treated as handing over a call the model decided.
+    MODEL = "model"
+    #: The router or the panel built the call from the person's own words or
+    #: their own button press, and passes it on unchanged.
+    CODE = "code"
+
+
+@dataclass(frozen=True)
+class SearchAsk:
+    """The person asked for a web search on this turn: the router's reading.
+
+    ``how`` is ``"explicit_ask"`` when the router's recogniser read the turn as
+    a request to search, or ``"accepted_offer"`` when the person accepted a
+    search the assistant offered; ``target`` is what they named, for the
+    record. The registry accepts nothing else as the person's word.
+    """
+
+    how: str
+    target: str = ""
+
+
+#: The two ways the router can come to hold the person's word for a search.
+SEARCH_ASK_KINDS = frozenset({"explicit_ask", "accepted_offer"})
+
+#: Tools a call from the model may run only on the person's word. A search
+#: sends the model's query off the machine; with the web lane it also fetches
+#: the first result's page, which happens inside the same call.
+_PERSONS_WORD_TOOLS: frozenset[str] = frozenset({"web_search"})
+
+#: The outcome the audit record carries for a call held for want of the
+#: person's word, and the content of the result the caller receives. Neither is
+#: a message for the person: the caller renders its own offer.
+SEARCH_NOT_ASKED = "held_search_not_asked"
+SEARCH_NOT_ASKED_SUMMARY = (
+    "Held: the model asked for a web search that the person did not ask for "
+    "on this turn, so no query was sent.")
+
+
+def is_search_ask(value: object) -> bool:
+    """True only for a SearchAsk the router made, of a kind it makes."""
+    return isinstance(value, SearchAsk) and value.how in SEARCH_ASK_KINDS
+
+
+def is_search_hold(result: "ToolResult | None") -> bool:
+    """True when the registry held this result's call for want of the
+    person's word, so the caller offers the search instead of reporting a
+    failure."""
+    return (result is not None
+            and not getattr(result, "executed", True)
+            and getattr(result, "content", None) == SEARCH_NOT_ASKED_SUMMARY)
+
+
 def _ingress_source_attribution(
     tool_name: str, arguments: dict[str, Any]
 ) -> tuple[str, str]:
@@ -695,6 +777,8 @@ class ToolRegistry:
         source_attribution: str = "",
         excerpt: str = "",
         review_callback: Callable[[ToolCall, DispatchDecision], str] | None = None,
+        origin: CallOrigin = CallOrigin.MODEL,
+        search_ask: SearchAsk | None = None,
     ) -> ToolResult:
         """Execute a tool call, wrapped in a ``tool.execute`` decision span.
 
@@ -717,6 +801,8 @@ class ToolRegistry:
                 source_attribution=source_attribution,
                 excerpt=excerpt,
                 review_callback=review_callback,
+                origin=origin,
+                search_ask=search_ask,
             )
             _tspan.set_attribute("success", result.success)
             _tspan.set_attribute("executed", getattr(result, "executed", True))
@@ -732,6 +818,8 @@ class ToolRegistry:
         source_attribution: str = "",
         excerpt: str = "",
         review_callback: Callable[[ToolCall, DispatchDecision], str] | None = None,
+        origin: CallOrigin = CallOrigin.MODEL,
+        search_ask: SearchAsk | None = None,
     ) -> ToolResult:
         """Execute a tool call through the D-008 provenance dispatcher gate.
 
@@ -778,6 +866,11 @@ class ToolRegistry:
                   prompts via zenity on session-return + implicit-denies
                   on timeout. The 1-hour promise is preserved through
                   review_modal.py, not through tool_registry.
+            origin: who built the call (CallOrigin). The default is the
+                model, so a caller that names no origin is gated as one.
+            search_ask: the router's SearchAsk when the person asked for a
+                web search on this turn; a web_search the model built runs
+                only with one (see the section above CallOrigin).
 
         Returns:
             ToolResult with success=True on completed dispatch + tool
@@ -886,6 +979,41 @@ class ToolRegistry:
                                          str(decision.effective_provenance)))
             _gspan.set_attribute("needs_pkexec", decision.needs_pkexec)
             _gspan.set_content("gate_reason", decision.reason)
+
+        # THE PERSON'S WORD FOR A SEARCH (the section above CallOrigin). Read
+        # after the gate's verdict exists, so the record carries it, and before
+        # anything can run, raise a card or answer from the read cache: a held
+        # search sends nothing and asks nothing. Only an origin the caller
+        # stated as CODE is exempt, and only a SearchAsk the router made opens
+        # it; the call's own arguments are never consulted for either.
+        if (tool_name in _PERSONS_WORD_TOOLS
+                and origin is not CallOrigin.CODE
+                and not is_search_ask(search_ask)):
+            self._audit_log_decision(
+                call, decision, ingress_tracker,
+                user_outcome=SEARCH_NOT_ASKED,
+                exit_code=1,
+                result_summary=SEARCH_NOT_ASKED_SUMMARY,
+                source_attribution=source_attribution,
+                excerpt=excerpt,
+            )
+            glass.emit("decision", "dispatch_held", detail={
+                "tool": tool_name,
+                "reason": SEARCH_NOT_ASKED,
+                "origin": getattr(origin, "value", repr(origin)),
+                # What stood in for the person's word, when anything did: a
+                # declaration of a kind the router never makes, or an object
+                # that only looks like one, is named here rather than obeyed.
+                "search_ask_given": (type(search_ask).__name__
+                                     if search_ask is not None else None),
+            })
+            return ToolResult(
+                call_id=call.call_id,
+                name=tool_name,
+                content=SEARCH_NOT_ASKED_SUMMARY,
+                success=False,
+                executed=False,
+            )
 
         # DIRECT ARGUMENT REFERENCES ARE SCREENED HERE. This check can reject a
         # canonical textual reference before review or execution, but it does not

@@ -86,8 +86,10 @@ class ConversationState:
     ``pending_action_offer``  an offered command awaiting a yes or no
     ``pending_ipv6_offer``    the follow-up IPv6 offer awaiting a yes or no
     ``pending_memory_offer``  an offered preference awaiting a yes or no
-    ``pending_search_offer``  the live-data question an offered web search would
-                              answer, awaiting a yes or no
+    ``pending_search_offer``  the question an offered web search would answer
+                              (a live-data question, or a search the model
+                              wanted and the person had not asked for),
+                              awaiting a yes or no
     ``action_offer_ttl``      turns the preventive-grounding window stays open
     ``offer_in_recent_history`` whether that window is open for THIS turn
     ``offer_topic_terms``     the offered command's content words

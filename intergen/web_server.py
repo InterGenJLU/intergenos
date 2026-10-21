@@ -1681,14 +1681,25 @@ class WebServer:
             # the callable through it (REC-17).
             _route_ctx = glass.bind_context()
             _route_conversation = ctx.conversation
-            _route_future = loop.run_in_executor(
-                None,
-                lambda: _route_ctx.run(
-                    self._router.route,
+            # The person's word for a web search on this turn is the router's
+            # reading, held per thread, so it is read in the route worker's own
+            # thread the moment route() returns and carried with this turn to
+            # the stream. A turn abandoned at the deadline keeps its own cell.
+            _route_search_ask: list = [None]
+
+            def _route_this_turn():
+                routed = self._router.route(
                     user_msg, decide_only=True,
                     conversation=_route_conversation,
                     review_callback=_route_review_cb,
-                ),
+                )
+                _read = getattr(self._router, "turn_search_ask", None)
+                _route_search_ask[0] = _read() if callable(_read) else None
+                return routed
+
+            _route_future = loop.run_in_executor(
+                None,
+                lambda: _route_ctx.run(_route_this_turn),
             )
             ctx.route_worker = _route_future
             try:
@@ -1812,7 +1823,8 @@ class WebServer:
         # one list.
         if result.source in ("llm_tools", "llm_freeform", "system_map"):
             await self._stream_llm_response(ctx, turn_id, user_msg,
-                                             result, image_data)
+                                             result, image_data,
+                                             search_ask=_route_search_ask[0])
             await self._persist_and_list(ctx)
             return
 
@@ -2371,7 +2383,10 @@ class WebServer:
         # Bind the turn across the thread hop: a tool execution's rows, including
         # its gate decision, belong to the turn that invoked it.
         _tool_ctx = glass.bind_context()
+        from intergen.tool_registry import CallOrigin
         try:
+            # The person pressed the button or typed the command: the call is
+            # the code's, built from their own action.
             tr = await loop.run_in_executor(
                 None,
                 lambda: _tool_ctx.run(
@@ -2381,6 +2396,7 @@ class WebServer:
                     trust_state=ctx.conversation.trust_state,
                     review_callback=self._make_web_review_callback(
                         ctx, turn_id, loop),
+                    origin=CallOrigin.CODE,
                 ),
             )
         except Exception as exc:                      # noqa: BLE001
@@ -2756,7 +2772,8 @@ class WebServer:
     async def _stream_llm_response(self, ctx: ConnectionContext,
                                     turn_id: str, user_msg: str,
                                     route_result: RouteResult,
-                                    image_data: str | None = None) -> None:
+                                    image_data: str | None = None,
+                                    *, search_ask: "Any" = None) -> None:
         """Stream an LLM-generated response token-by-token over WebSocket.
 
         Uses LLMRouter.stream_with_tools() in a thread to avoid blocking the
@@ -2922,6 +2939,7 @@ class WebServer:
                 ctx, turn_id, queue, _SENTINEL,
                 collected_tokens, tool_calls_made, tool_results,
                 messages, tool_schemas, syntheses=syntheses,
+                search_ask=search_ask, turn_text=_gen_input,
             )
         finally:
             _stream_stop.set()
@@ -3413,6 +3431,9 @@ class WebServer:
         messages: list[Message],
         tool_schemas: list,
         syntheses: list | None = None,
+        *,
+        search_ask: "Any" = None,
+        turn_text: str = "",
     ) -> str:
         """Process items from the LLM generator queue.
 
@@ -3420,6 +3441,11 @@ class WebServer:
         (gate check + execution), and error/sentinel signals.
         Returns the complete response text. Each synthesis asked for after a
         dispatch is appended to `syntheses` as it came back (None: none did).
+
+        ``search_ask`` is the router's reading of this turn, the person's word
+        for a web search or None; every call the model emits is handed to the
+        registry with it and as the model's own. ``turn_text`` is what the
+        model was answering, staged as the question if a search is offered.
         """
         while True:
             item = await queue.get()
@@ -3521,6 +3547,7 @@ class WebServer:
                     _review_cb = self._make_web_review_callback(
                         ctx, turn_id, loop,
                     )
+                    from intergen.tool_registry import CallOrigin
                     _exec_ctx = glass.bind_context()
                     exec_future = loop.run_in_executor(
                         None,
@@ -3530,6 +3557,8 @@ class WebServer:
                             ingress_tracker=ctx.conversation.ingress_tracker,
                             trust_state=ctx.conversation.trust_state,
                             review_callback=_review_cb,
+                            origin=CallOrigin.MODEL,
+                            search_ask=search_ask,
                         ),
                     )
                     try:
@@ -3559,6 +3588,25 @@ class WebServer:
                         success=False,
                     )
                 tool_results.append(tr)
+
+                # A SEARCH THE PERSON DID NOT ASK FOR: the registry held it and
+                # sent nothing. The person is offered it in the router's words,
+                # the question staged on this conversation so "yes" next turn
+                # runs it through the offer resolver; then the turn ends.
+                from intergen.tool_registry import is_search_hold
+                if is_search_hold(tr):
+                    offer = (self._bound(ctx, self._router._offer_a_held_search,
+                                         turn_text)
+                             if self._router is not None else
+                             "I can search the web for that — nothing has been "
+                             "searched yet.")
+                    collected_tokens.append(offer)
+                    await ctx.ws.send_json({
+                        "type": "stream_token",
+                        "turn_id": turn_id,
+                        "token": offer,
+                    })
+                    break
 
                 # GATE REFUSAL / HONEST HANDOFF: the registry did NOT run
                 # the action (not executed) and it did not succeed — the user

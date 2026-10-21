@@ -75,7 +75,9 @@ from intergen.safety import (
     screen_general_refusal, scope_grounding_note, honest_scope_steer,
 )
 from intergen.semantic import SemanticMatcher
-from intergen.tool_registry import ToolRegistry
+from intergen.tool_registry import (
+    CallOrigin, SearchAsk, ToolRegistry, is_search_hold,
+)
 # The service tool's own alias map ("ssh" is the unit sshd), imported rather
 # than re-listed so the unit the manager is asked about is by construction the
 # unit the tool would act on; and the tool's own reader of the service manager,
@@ -3302,6 +3304,9 @@ class ConversationRouter(RouterInterface):
         # The turn's own tool prohibition, per thread for the same reason (see
         # the `_turn_forbids_tools` property).
         self._turn_prohibition = threading.local()
+        # The person's word for a web search on this turn, per thread for the
+        # same reason (see the `_turn_search_ask` property).
+        self._turn_search_word = threading.local()
         # M3(i) turn-scoped scratch: a prefixed reply over a live action offer
         # sets the stripped tail to route (consumed in _route_impl) and, for a
         # prefixed "yes", the one-line re-offer reminder (consumed in route()).
@@ -3428,6 +3433,44 @@ class ConversationRouter(RouterInterface):
         if local is None:
             local = self._turn_prohibition = threading.local()
         local.forbids = bool(forbids)
+
+    @property
+    def _turn_search_ask(self) -> "SearchAsk | None":
+        """The person's word for a web search on THIS turn, or None.
+
+        Written in exactly two places: by the recogniser of an explicit ask at
+        the top of the turn (on the native floor, the only one where the model
+        can emit a call), and by the resolver of an accepted offer. Cleared at
+        the top of every turn before either can run, so it never outlives the
+        turn that wrote it. The registry runs a web_search the model built only
+        with one (tool_registry, the section above CallOrigin).
+
+        THREAD-SCOPED for the reason `_turn_forbids_tools` is: a turn abandoned
+        at the server deadline runs on in its worker thread, and a reading kept
+        on the router or on the conversation would let the next turn's ask run
+        the abandoned turn's search.
+        """
+        local = getattr(self, "_turn_search_word", None)
+        if local is None:
+            return None
+        return getattr(local, "ask", None)
+
+    @_turn_search_ask.setter
+    def _turn_search_ask(self, ask: "SearchAsk | None") -> None:
+        local = getattr(self, "_turn_search_word", None)
+        if local is None:
+            local = self._turn_search_word = threading.local()
+        local.ask = ask if isinstance(ask, SearchAsk) else None
+
+    def turn_search_ask(self) -> "SearchAsk | None":
+        """The calling thread's reading of the turn it just routed.
+
+        For a frontend that runs the model's turn outside route(): the browser
+        server reads it in the same worker thread route() ran in, right after
+        route() returns, and hands it to the registry with the call the model
+        emits. Read anywhere else it is the reading of whatever turn that thread
+        last routed, or None."""
+        return self._turn_search_ask
 
     def bind_conversation(self, state: ConversationState):
         """Serve `state` for the duration of the with-block, then restore.
@@ -3779,6 +3822,10 @@ class ConversationRouter(RouterInterface):
         # per THREAD, so it cannot be overwritten by the next turn while this
         # one is still being served (see the property).
         self._turn_forbids_tools = turn_forbids_tools(user_input)
+        # The person's word for a web search, cleared on EVERY turn before
+        # anything can write it, so a fresh turn carries none until the
+        # recogniser or the offer resolver below says otherwise.
+        self._turn_search_ask = None
         # D-008 RFC §5.1 + temporal-watermark fix (audit 2026-05-29): reset the
         # PER-TURN ingress window at each turn boundary, but PRESERVE the
         # per-conversation window across turns. reset() clears same-turn fires
@@ -3909,6 +3956,21 @@ class ConversationRouter(RouterInterface):
         search_offer_result = self._resolve_pending_search_offer(original_input, t0)
         if search_offer_result is not None:
             return search_offer_result
+
+        # THE PERSON'S WORD FOR A SEARCH, read once from the turn's own text by
+        # the product's recogniser of an explicit ask. Only on the native floor:
+        # there the model is offered the schemas and a search it emits runs only
+        # with this word (the registry's gate); on the locked floors the model
+        # emits nothing and the code-owned paths below ask the recogniser
+        # themselves, so the locked turn is not touched. The original sentence,
+        # as the two gates read it.
+        if not getattr(self, "_lock_dispatch", True):
+            _asked = self._recognised_web_dispatch(original_input)
+            if _asked:
+                self._turn_search_ask = SearchAsk(how="explicit_ask",
+                                                  target=_asked)
+                glass.emit("decision", "search_asked", detail={
+                    "how": "explicit_ask", "target": _asked})
 
         # F1 (offer/accept mis-bind fix, 2026-07-01): a bare affirmative/negative
         # with NOTHING staged must never fall through to the LLM, which would
@@ -4895,6 +4957,25 @@ class ConversationRouter(RouterInterface):
         self._append_history(user_input, answer)
         self._record(result, t0, "current_data_offer")
         return result
+
+    def _offer_a_held_search(self, user_input: str) -> str:
+        """The offer made when the registry held a web search the model wanted
+        and the person never asked for (tool_registry, the section above
+        CallOrigin).
+
+        The native floor's counterpart of the locked floor's live-data offer:
+        the search is offered in the code's words, never run and never
+        narrated, and the question it would answer is staged exactly as that
+        offer stages it, so "yes" on the next turn runs it through
+        _resolve_pending_search_offer and "no" declines it. Returns the words
+        for the person; every surface that can hold such a call renders these.
+        """
+        question = (user_input or "").strip()
+        self._conv.pending_search_offer = question
+        glass.emit("decision", "held_search_offer", detail={
+            "offered_query": question})
+        return ("I can search the web for that — nothing has been searched "
+                "yet. Want me to look it up?")
 
     # ── DIRECT-ANSWER intent class (ge9b finding #3) ─────────────────────────
     def _try_direct_answer(self, user_input: str, original_input: str, t0: float
@@ -6186,6 +6267,9 @@ class ConversationRouter(RouterInterface):
             return None
         query = _distilled_web_query(_merge_named_place(offered, tail))
         self._conv.pending_search_offer = None
+        # The person accepted the search: that acceptance is their word for it
+        # on this turn, and the record says which word it was.
+        self._turn_search_ask = SearchAsk(how="accepted_offer", target=query)
         glass.emit("decision", "search_offer_consume", detail={
             "offered_query": offered, "user_msg": user_input, "query": query,
             "dispatched": True})
@@ -6467,11 +6551,15 @@ class ConversationRouter(RouterInterface):
                             source_of_request=Provenance.USER_DIRECT)
             display = command
         try:
+            # Built here from what the person was shown and accepted: the
+            # code's call, with the turn's word for a search beside it.
             tool_result = self._tools.execute(
                 call,
                 ingress_tracker=self._conv.ingress_tracker,
                 trust_state=self._conv.trust_state,
                 review_callback=self._review_callback,
+                origin=CallOrigin.CODE,
+                search_ask=self._turn_search_ask,
             )
             self._conv.record_execution(tool_result, call)
         except Exception as e:  # noqa: BLE001 — a dispatch error must not crash the turn
@@ -6596,7 +6684,8 @@ class ConversationRouter(RouterInterface):
         try:
             tr = self._tools.execute(
                 call, ingress_tracker=self._conv.ingress_tracker,
-                trust_state=self._conv.trust_state, review_callback=self._review_callback)
+                trust_state=self._conv.trust_state, review_callback=self._review_callback,
+                origin=CallOrigin.CODE)
             self._conv.record_execution(tr, call)
         except Exception as e:  # noqa: BLE001 — a probe failure must not crash the turn
             logger.error("IP-handler command failed (%s): %s", command, e)
@@ -7399,12 +7488,15 @@ class ConversationRouter(RouterInterface):
                 # source_of_request per RFC §5.3 (enforced at ToolCall
                 # construction). The registry routes the call through
                 # verify_tool_call with our per-turn ingress tracker and
-                # per-conversation trust state.
+                # per-conversation trust state. The model built this call,
+                # and a search in it runs only on the person's word for one.
                 result = self._tools.execute(
                     chunk,
                     ingress_tracker=self._conv.ingress_tracker,
                     trust_state=self._conv.trust_state,
                     review_callback=self._review_callback,
+                    origin=CallOrigin.MODEL,
+                    search_ask=self._turn_search_ask,
                 )
                 self._conv.record_execution(result, chunk)
                 tool_results.append(result)
@@ -7438,6 +7530,29 @@ class ConversationRouter(RouterInterface):
             _ls.set_attribute("dispatch_any_denied",
                               any((not r.executed) and (not r.success)
                                   for r in tool_results))
+
+            # A SEARCH THE PERSON DID NOT ASK FOR IS OFFERED, NOT RUN. The
+            # registry held it and sent nothing; the person is asked, in the
+            # code's words, and a "yes" next turn runs it through the offer
+            # resolver. Never synthesized: there is no result to speak from.
+            for _tc, _tr in zip(tool_calls, tool_results):
+                if is_search_hold(_tr):
+                    get_tracer().current_span().set_attribute(
+                        "search_held_offered", True)
+                    response_text = self._offer_a_held_search(user_input)
+                    self._append_history(user_input, response_text)
+                    return RouteResult(
+                        text=response_text,
+                        source="llm_tools",
+                        handled=True,
+                        tool_calls=tool_calls,
+                        tool_results=tool_results,
+                        used_llm=True,
+                        # Code-owned words; the dispatch neither executed nor
+                        # succeeded, so the invariant skips it.
+                        answer_linkage=AnswerLinkage(
+                            kind="code", renderer="held_search_offer"),
+                    )
 
             # Fix #1 (defense in depth): a HARD safety block is a deterministic
             # outcome — never let the model synthesize/narrate it, or it
@@ -8728,6 +8843,8 @@ class ConversationRouter(RouterInterface):
                 ingress_tracker=self._conv.ingress_tracker,
                 trust_state=self._conv.trust_state,
                 review_callback=self._review_callback,
+                origin=CallOrigin.CODE,
+                search_ask=self._turn_search_ask,
             )
             self._conv.record_execution(result, call)
             return call, result
