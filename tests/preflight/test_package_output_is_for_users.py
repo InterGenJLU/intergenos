@@ -242,6 +242,54 @@ class PackageOutputIsForUsers(unittest.TestCase):
                 f"{r}:{n} refuses an install without telling the reader whether "
                 f"their machine was altered: {s}")
 
+    def test_every_ge_proton_refusal_after_the_record_begins_names_what_the_run_leaves(self):
+        """Once the GE-Proton installer has begun its record, "nothing on this
+        machine was changed" is not true: the record of the reader's acceptance
+        of the licenses, the library's note of the stopped attempt and the run's
+        working files are left, and once the compatibility-tool directory is
+        made, that directory too. Each refusal from there on says nothing was
+        installed and names what the run leaves, and the download and the
+        unpacking each have one, so neither stops the installer without a word.
+        """
+        lines = (REPO_ROOT / "packages/extra/ge-proton/build.sh").read_text(
+            encoding="utf-8").split("\n")
+        start = [i for i, t in enumerate(lines)
+                 if re.search(r"<<\s*'HELPEREOF'\s*$", t)]
+        self.assertEqual(len(start), 1, f"the installer's heredoc opens {len(start)} times")
+        body = []
+        for i in range(start[0] + 1, len(lines)):
+            if lines[i] == "HELPEREOF":
+                break
+            body.append((i + 1, lines[i]))
+        texts = [t for _, t in body]
+        begins = [i for i, t in enumerate(texts) if t.startswith('igos_helper_init "ge-proton"')]
+        made = [i for i, t in enumerate(texts) if t.startswith('mkdir -p "$COMPAT_ROOT"')]
+        self.assertEqual((len(begins), len(made)), (1, 1),
+                         "the installer's record and its directory: each begins once")
+        for command in ('wget -q --show-progress -O "$TMPDIR/${GE_TARBALL}" "$GE_URL"',
+                        'tar xf "$TMPDIR/${GE_TARBALL}" -C "$STAGING_DIR"'):
+            sites = [t for t in texts if command in t]
+            self.assertEqual(sites, [f"if ! {command}; then"],
+                             f"a failure of {command} must reach its refusal, not stop the installer silently")
+        refusals = [i for i, t in enumerate(texts)
+                    if i > begins[0] and t.lstrip().startswith('echo "  ERROR:')]
+        self.assertEqual(len(refusals), 5, f"refusals after the record begins, at build.sh lines "
+                                           f"{[body[i][0] for i in refusals]}")
+        leaves = ("nothing on this machine was changed beyond the record of your acceptance of the "
+                  "licenses ($ACCEPTANCE_FILE), a note of this stopped attempt for pkm "
+                  "(${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/ge-proton.manifest.partial)")
+        directory = "the directory ${COMPAT_ROOT} and its parent, made if they were not there"
+        for i in refusals:
+            end = next(j for j in range(i, len(texts)) if texts[j].strip().startswith("exit "))
+            said = re.sub(r"\s+", " ", " ".join(
+                re.sub(r'^\s*echo "(.*)"$', r"\1", t) for t in texts[i:end]))
+            where = f"build.sh:{body[i][0]}"
+            self.assertIn("Nothing was installed, and " + leaves, said,
+                          f"{where}: the refusal does not name what the run leaves: {said}")
+            self.assertIn("the run's working files under /tmp", said, where)
+            self.assertEqual(directory in said, i > made[0],
+                             f"{where}: the directory is named exactly where it may have been made")
+
     def test_a_helper_library_contract_failure_is_explained_to_the_reader(self):
         """A refusal only a faulty installer can reach must not print bare
         internal machinery at the user.

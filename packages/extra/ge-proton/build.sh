@@ -106,7 +106,16 @@ igos_helper_record_post_install_action \
     "User accepted the GE-Proton payload licenses (acceptance artifact at $ACCEPTANCE_FILE)"
 
 echo "  Downloading ${GE_TARBALL} (pinned release ${GE_TAG})..."
-wget -q --show-progress -O "$TMPDIR/${GE_TARBALL}" "$GE_URL"
+if ! wget -q --show-progress -O "$TMPDIR/${GE_TARBALL}" "$GE_URL"; then
+    echo "  ERROR: GE-Proton could not be downloaded from its release page, so"
+    echo "  there was nothing to install. Nothing was installed, and nothing on"
+    echo "  this machine was changed beyond the record of your acceptance of the"
+    echo "  licenses ($ACCEPTANCE_FILE), a note of this stopped attempt for pkm"
+    echo "  (${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/ge-proton.manifest.partial)"
+    echo "  and the run's working files under /tmp. This is usually a temporary"
+    echo "  problem with the network or at the release's host — try again later."
+    exit 1
+fi
 
 # THE RECIPE PIN IS THE GATE: refuse on any mismatch. Upstream's
 # sidecar is fetched as corroboration — a sidecar/pin disagreement is
@@ -119,10 +128,14 @@ if [ "$GOT" != "$GE_SHA512" ]; then
     echo "  expected (recipe pin): $GE_SHA512"
     echo "  got:                   $GOT"
     echo "  The downloaded file is not the one this version of the package was"
-    echo "  built to install, so it was not installed and nothing on this machine"
-    echo "  was changed. This usually means the release was replaced after this"
-    echo "  package was published. There is nothing to fix on this machine —"
-    echo "  the package needs updating. Please report it."
+    echo "  built to install. Nothing was installed, and nothing on this machine"
+    echo "  was changed beyond the record of your acceptance of the licenses"
+    echo "  ($ACCEPTANCE_FILE), a note of this stopped attempt for pkm"
+    echo "  (${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/ge-proton.manifest.partial)"
+    echo "  and the run's working files under /tmp. This usually means the"
+    echo "  release was replaced after this package was published. There is"
+    echo "  nothing to fix on this machine — the package needs updating. Please"
+    echo "  report it."
     exit 1
 fi
 if wget -q -O "$TMPDIR/sidecar.sha512sum" "$GE_SIDECAR_URL"; then
@@ -131,8 +144,12 @@ if wget -q -O "$TMPDIR/sidecar.sha512sum" "$GE_SIDECAR_URL"; then
         echo "  ERROR: the checksum published by the release's authors no longer"
         echo "  matches the one this package was built against, which means the"
         echo "  release was changed after this package was published. Nothing was"
-        echo "  installed and nothing on this machine was changed. There is nothing"
-        echo "  to fix here — the package needs updating. Please report it."
+        echo "  installed, and nothing on this machine was changed beyond the record"
+        echo "  of your acceptance of the licenses ($ACCEPTANCE_FILE), a note of"
+        echo "  this stopped attempt for pkm"
+        echo "  (${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/ge-proton.manifest.partial)"
+        echo "  and the run's working files under /tmp. There is nothing to fix"
+        echo "  here — the package needs updating. Please report it."
         exit 1
     fi
 else
@@ -157,15 +174,29 @@ mkdir -p "$COMPAT_ROOT"
 # dot-prefixed and manifest-less (WC re-cert characterization, closed).
 STAGING_DIR=$(mktemp -d "$(dirname "$COMPAT_ROOT")/.ge-proton-staging-XXXXXX")
 IGOS_HELPER_USER_CLEANUP="rm -rf $TMPDIR $STAGING_DIR"
-tar xf "$TMPDIR/${GE_TARBALL}" -C "$STAGING_DIR"
+if ! tar xf "$TMPDIR/${GE_TARBALL}" -C "$STAGING_DIR"; then
+    echo "  ERROR: the downloaded release could not be unpacked. Nothing was"
+    echo "  installed, and nothing on this machine was changed beyond the record"
+    echo "  of your acceptance of the licenses ($ACCEPTANCE_FILE), a note of this"
+    echo "  stopped attempt for pkm"
+    echo "  (${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/ge-proton.manifest.partial),"
+    echo "  the directory ${COMPAT_ROOT} and its parent, made if they were not"
+    echo "  there, and the run's working files under /tmp. Try again; if it keeps"
+    echo "  happening, please report it."
+    exit 1
+fi
 TOP_ENTRIES=$(find "$STAGING_DIR" -mindepth 1 -maxdepth 1 | wc -l)
 TOP_DIR=$(find "$STAGING_DIR" -mindepth 1 -maxdepth 1 -type d)
 if [ "$TOP_ENTRIES" -ne 1 ] || [ -z "$TOP_DIR" ] || [ ! -f "$TOP_DIR/proton" ]; then
     echo "  ERROR: the downloaded release does not contain the files this"
-    echo "  package was built to install, so it was not installed. Nothing was"
-    echo "  placed in ${COMPAT_ROOT} and nothing on this machine was changed."
-    echo "  There is nothing to fix here — the package needs updating for the"
-    echo "  new release layout. Please report it."
+    echo "  package was built to install. Nothing was installed, and nothing on"
+    echo "  this machine was changed beyond the record of your acceptance of the"
+    echo "  licenses ($ACCEPTANCE_FILE), a note of this stopped attempt for pkm"
+    echo "  (${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/ge-proton.manifest.partial),"
+    echo "  the directory ${COMPAT_ROOT} and its parent, made if they were not"
+    echo "  there, and the run's working files under /tmp. There is nothing to"
+    echo "  fix here — the package needs updating for the new release layout."
+    echo "  Please report it."
     exit 1
 fi
 if [ -e "${COMPAT_ROOT}/${GE_TAG}" ]; then
