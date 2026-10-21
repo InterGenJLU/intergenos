@@ -1441,12 +1441,18 @@ def _distilled_web_query(text: str) -> str:
         return target
     # A live-data offer carries the original question until it is accepted.
     # Shape only its query; the original still governs offer/answer matching.
-    question = re.sub(
-        r"^\s*(?:please\s+)?(?:tell\s+me\s+)?"
-        r"what(?:['’]s|\s+is|\s+are)\s+(?:the\s+)?",
-        "", normalized, count=1, flags=re.IGNORECASE)
-    if question != normalized and question.strip():
-        return _WEB_SEARCH_TAIL_RE.sub("", question).strip()
+    question = _WEB_SEARCH_REQUEST_FRAME_RE.sub("", normalized, count=1)
+    question = re.sub(r"^\s*(?:please\s+)?(?:tell|show)\s+me\s+",
+                      "", question, count=1, flags=re.IGNORECASE)
+    question = _WEB_SEARCH_TAIL_RE.sub("", question).strip()
+    indirect = re.fullmatch(r"what\s+(.+?)\s+(?:is|are)", question, re.IGNORECASE)
+    if indirect:
+        question = indirect.group(1)
+    else:
+        question = re.sub(r"^what(?:['’]s|\s+is|\s+are)\s+",
+                          "", question, count=1, flags=re.IGNORECASE)
+    if question != _WEB_SEARCH_TAIL_RE.sub("", normalized).strip() and question:
+        return re.sub(r"^the\s+", "", question, count=1, flags=re.IGNORECASE)
     return text
 
 

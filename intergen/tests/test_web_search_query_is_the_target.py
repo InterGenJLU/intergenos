@@ -131,6 +131,35 @@ class NoSearchLeavesTheBoxTests(_Base):
 
 
 class LiveQuestionQueryTests(unittest.TestCase):
+    def test_accepted_modal_questions_keep_the_fact_and_subject(self):
+        from intergen.tests.test_router_executes_recognised_search import _build_router
+        from intergen.interfaces.types import ToolResult
+
+        for prompt, expected in (
+            ("Could you tell me the most current headline on example.com?",
+             "most current headline on example.com"),
+            ("Can you tell me what the latest headline on example.com is?",
+             "latest headline on example.com"),
+            ("Would you please tell me what the current temperature in Oslo is?",
+             "current temperature in Oslo"),
+        ):
+            with self.subTest(prompt=prompt):
+                router, registry, _ = _build_router()
+                calls = []
+
+                def record(call, **_kwargs):
+                    calls.append(call)
+                    return ToolResult(call_id="", name=call.name,
+                                      content="No matching fact was found.", success=True)
+
+                registry.execute = record
+                offered = router.route(prompt)
+                self.assertEqual(offered.source, "current_data_offer")
+                self.assertEqual(calls, [])
+                router.route("yes please")
+                self.assertEqual(len(calls), 1)
+                self.assertEqual(calls[0].arguments["query"], expected)
+
     def test_an_accepted_live_question_sends_the_subject_and_fact(self):
         from intergen.tests.test_router_executes_recognised_search import _build_router
         from intergen.interfaces.types import ToolResult
