@@ -1485,6 +1485,9 @@ class TruncatedTextAnswerTests(unittest.TestCase):
     QUESTION = ToolRouteOfferTests.QUESTION
     PIECES = ("The square root of pi is approximately 1.7724538509, ",
               "a value that turns up in")
+    OPENING = ("I can reach out to your designated frontier model (acme) for "
+               "this if you'd like me to- my local answer did not pass the "
+               "quality gate")
 
     def _router(self, *, locked=False):
         tier = HardwareTierLevel.TIER_1 if locked else HardwareTierLevel.TIER_2
@@ -1498,6 +1501,11 @@ class TruncatedTextAnswerTests(unittest.TestCase):
         pending = [_SseResponse(_sse_text(*self.PIECES, finish=finish))]
         return mock.patch("urllib.request.urlopen",
                           lambda *_a, **_k: pending.pop(0))
+
+    def _route(self, finish):
+        router = self._router()
+        with self._endpoint(finish), mock.patch("intergen.router.glass.emit"):
+            return router.route(self.QUESTION)
 
     def test_the_tool_stream_records_its_finish_reason_for_the_gate(self):
         # The gate reads the finish reason of the call it judges: "length" is
@@ -1517,6 +1525,20 @@ class TruncatedTextAnswerTests(unittest.TestCase):
                 self.assertEqual("".join(served), text)
                 self.assertEqual(llm._gate_reason(text, self.QUESTION),
                                  verdict)
+
+    def test_a_truncated_text_answer_raises_the_offer_on_the_tool_route(self):
+        result = self._route("length")
+        self.assertEqual(result.source, "llm_tools")
+        # Served as it came — the gate's verdict raises the offer.
+        self.assertEqual(result.text, "".join(self.PIECES))
+        self.assertTrue(result.escalation_offer.startswith(self.OPENING))
+
+    def test_a_complete_text_answer_earns_no_offer_on_the_tool_route(self):
+        # The control: the same draft ending naturally passes the gate.
+        result = self._route("stop")
+        self.assertEqual(result.source, "llm_tools")
+        self.assertEqual(result.text, "".join(self.PIECES))
+        self.assertIsNone(result.escalation_offer)
 
 
 # ── the native floor's dispatch synthesis meets the same screens ─────────────

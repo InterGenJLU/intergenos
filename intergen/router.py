@@ -6614,10 +6614,22 @@ class ConversationRouter(RouterInterface):
             # model again and overwrite them.
             tok_p = getattr(self._llm, '_last_prompt_tokens', 0)
             tok_c = getattr(self._llm, '_last_completion_tokens', 0)
+            # THE GATE THE FREEFORM ROUTE'S ANSWER MEETS (_gate_reason: the
+            # text's own checks and the finish reason the stream recorded),
+            # read now for the same reason. No gate read this answer, so a
+            # draft the cap cut off mid-sentence was served as complete and
+            # could not raise the offer's quality trigger, which the same
+            # draft raises on the freeform route. It is judged against the
+            # question the stream was asked, as chat() judges its own.
+            draft_text = "".join(collected_text)
+            question = next((m.content for m in reversed(messages)
+                             if m.role == MessageRole.USER), "")
+            gate = getattr(self._llm, "_gate_reason", None)
+            gate_reason = gate(draft_text, question) if gate else ""
             draft = LLMResponse(
-                text="".join(collected_text), model="local", local=True,
+                text=draft_text, model="local", local=True,
                 tokens_prompt=tok_p, tokens_completion=tok_c,
-                semantic_flags=stream_flags)
+                semantic_flags=stream_flags, quality_passed=not gate_reason)
             # D6: a flagged text answer on the tool route meets the same first
             # rung as a flagged freeform answer — discarded, and the incoherence
             # fallback served in its place.
@@ -6654,10 +6666,8 @@ class ConversationRouter(RouterInterface):
             # text, and served from here it earned the steer alone, so the
             # same declined question carried the offer on the locked floor and
             # none on the native one. The offer is decided from the same
-            # inputs — the draft, its confidence and whether the refusal stood.
-            # No quality gate reads this stream, so the draft keeps the default
-            # quality verdict and the refusal and the request's own signals
-            # are what can raise the offer here.
+            # inputs — the draft, its confidence (from the gate's verdict
+            # above) and whether the refusal stood.
             confidence = 1.0 if draft.quality_passed else 0.5
             return RouteResult(
                 text=text,
