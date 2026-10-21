@@ -83,7 +83,8 @@ PRETXN_TIMEOUT = 600
 
 
 PreTxnResult = namedtuple(
-    "PreTxnResult", ["ran", "handlers", "failures", "messages"]
+    "PreTxnResult", ["ran", "handlers", "failures", "messages", "restore_points"],
+    defaults=((),),
 )
 
 
@@ -225,6 +226,7 @@ def run_pre_transaction_hook(db, verb, package_names, reason,
 
     failures = []
     messages = []
+    restore_points = []
     for h in handlers:
         try:
             if _TRACE_AVAILABLE:
@@ -238,7 +240,17 @@ def run_pre_transaction_hook(db, verb, package_names, reason,
                     capture_output=True, text=True, timeout=PRETXN_TIMEOUT,
                 )
             if result.returncode == 0:
+                # Chronicle's existing handler reports this line on stderr.
+                # Retain only an identity returned by a successful handler;
+                # an unavailable identity must never become a recovery target.
+                import re
+                ids = re.findall(
+                    r"^chronicle: restore point ([0-9]+-[0-9a-f]+) captured for "
+                    + re.escape(verb) + r"$", result.stderr or "", re.MULTILINE)
+                restore_points.extend(i for i in ids if i not in restore_points)
                 msg = f"  pre-transaction[{h.name}] OK — restore point captured"
+                if ids:
+                    msg += ": " + ", ".join(ids)
                 messages.append(msg)
                 _emit(reporter, msg, is_failure=False)
             else:
@@ -272,5 +284,5 @@ def run_pre_transaction_hook(db, verb, package_names, reason,
 
     return PreTxnResult(
         ran=True, handlers=[h.name for h in handlers],
-        failures=failures, messages=messages,
+        failures=failures, messages=messages, restore_points=tuple(restore_points),
     )

@@ -3803,6 +3803,21 @@ def cmd_upgrade(db, args):
             install_reason=installed_pkg.get("install_reason", "manual"),
             sidecars_out=pkg_sidecars,
         )
+        if not ok:
+            # The lower-level install knows only its own writes. The old
+            # package has already been removed by this transaction, even if
+            # the new archive is refused before that install writes a byte.
+            msg = msg.replace("Nothing was changed.", "").strip()
+            points = getattr(_pretxn_result, "restore_points", ())
+            recovery = (
+                "Recover from Chronicle restore point " + ", ".join(points) + "."
+                if points else
+                "No restore-point id was returned for this transaction. "
+                "Inspect `chronicle list restore-point` for a matching capture, "
+                "or reinstall a verified archive of the previous build."
+            )
+            msg = (f"{installed_pkg['name']} {txn.format_vr(installed_pkg)} "
+                   f"was removed before this install attempt. {msg} {recovery}")
         sidecars_this_txn.extend(pkg_sidecars)
         # A new release that LANDED and then had a critical post-install hook
         # fail (a refused signing among them) is not a failed install: its
