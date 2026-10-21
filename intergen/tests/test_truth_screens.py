@@ -1862,6 +1862,25 @@ class DispatchOfferTests(unittest.TestCase):
         self.assertEqual(requests, [])
         self.assertIsNone(result.escalation_offer)
 
+    def test_a_failed_synthesis_raises_the_offer_in_the_browser(self):
+        # The streamer kept only a synthesis's text and dropped its verdict,
+        # so a synthesis that did not come back left the tool's output served
+        # with no offer, where the route raises one. It has no summarizer of
+        # its own, so the route's turn compared is the one whose summarizer
+        # was spent too: the tool's output served on both surfaces.
+        offer = _dispatch_route(None, self.SPENT)[0].escalation_offer
+        end = _dispatch_browser(None, self.SPENT)
+        self.assertEqual(end["full_response"], SQRT_PI_RESULT.content)
+        # Present, and the route's own.
+        self.assertTrue(end["escalation_offer"].startswith(self.QUALITY))
+        self.assertEqual(end["escalation_offer"], offer)
+
+    def test_a_synthesis_that_passed_earns_no_offer_in_the_browser(self):
+        # The control, in the browser.
+        end = _dispatch_browser(self.ANSWER, self.ANSWER)
+        self.assertEqual(end["full_response"], self.ANSWER)
+        self.assertIsNone(end["escalation_offer"])
+
 
 # ── a tool's output presented when no tool ran ───────────────────────────────
 # A console firing on the 2B lane's locked floor (2026-10-20), verbatim: asked

@@ -2913,11 +2913,14 @@ class WebServer:
         _gctx = glass.bind_context()
         executor.submit(lambda: _gctx.run(_run_llm))
 
+        # Each synthesis asked for after a dispatch, as it came back (None:
+        # none did), so the draft below carries its verdict.
+        syntheses: list[LLMResponse | None] = []
         try:
             full_response = await self._process_llm_stream(
                 ctx, turn_id, queue, _SENTINEL,
                 collected_tokens, tool_calls_made, tool_results,
-                messages, tool_schemas,
+                messages, tool_schemas, syntheses=syntheses,
             )
         finally:
             _stream_stop.set()
@@ -2930,15 +2933,23 @@ class WebServer:
         # reads into its draft (_gate_reason), read now, while the finish
         # reason it reads is still this stream's (a screen below can ask the
         # model again), so a draft the cap cut off is a failed local answer
-        # here as on the bus, on either floor.
+        # here as on the bus, on either floor. An answer after a dispatch
+        # carries its synthesis's verdict: a synthesis comes back only when it
+        # passed the agentic gate, and when none did, what is served is the
+        # tool's own output (or nothing), a failed local answer here as on
+        # the bus, where the dispatch branch decides its offer from the same
+        # verdict.
         _gate_reason = ""
         _gate = getattr(self._llm, "_gate_reason", None)
         if _gate is not None and full_response and not tool_results:
             _gate_reason = _gate(full_response, next(
                 (m.content for m in reversed(messages)
                  if m.role == MessageRole.USER), ""))
-        _draft = LLMResponse(text=full_response, model="local", local=True,
-                             quality_passed=not _gate_reason)
+        _draft = LLMResponse(
+            text=full_response, model="local", local=True,
+            quality_passed=not _gate_reason and all(
+                s is not None and getattr(s, "quality_passed", True)
+                for s in syntheses))
 
         elapsed_ms = (time.monotonic() - stream_started) * 1000
 
@@ -3399,12 +3410,14 @@ class WebServer:
         tool_results: list[ToolResult],
         messages: list[Message],
         tool_schemas: list,
+        syntheses: list | None = None,
     ) -> str:
         """Process items from the LLM generator queue.
 
         Handles text tokens (sent as stream_token), ToolCall objects
         (gate check + execution), and error/sentinel signals.
-        Returns the complete response text.
+        Returns the complete response text. Each synthesis asked for after a
+        dispatch is appended to `syntheses` as it came back (None: none did).
         """
         while True:
             item = await queue.get()
@@ -3624,6 +3637,9 @@ class WebServer:
                             "M8-2: tool %s executed+succeeded but synthesis yielded "
                             "no token; delivered raw content (turn %s)",
                             tr.name, turn_id)
+                    # What came back, for the draft's verdict (None: nothing).
+                    if syntheses is not None:
+                        syntheses.append(synthesis)
 
                 break  # one tool call per turn (current limitation)
 
