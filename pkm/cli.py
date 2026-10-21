@@ -3941,6 +3941,7 @@ def cmd_upgrade(db, args):
             and rollback_archive.exists()
         )
         rb_ok = False
+        rb_unfinished = None
         if _rollback_usable:
             # LAST GATE BEFORE THE RESTORE. The copy was qualified when it was
             # saved; this reads it again at the moment it would be installed,
@@ -3975,11 +3976,20 @@ def cmd_upgrade(db, args):
                 expected_sha256=rollback_sha,
                 install_reason=installed_pkg.get("install_reason", "manual"),
             )
+            # The rollback install has every install's outcomes: restored, not
+            # landed, or LANDED with a critical post-install hook failed (a
+            # refused signing among them). The last leaves the old build's row
+            # present and marked degraded, so the package is not absent: its
+            # one next step is the command that finishes it, named below after
+            # the new build's failure, never the transaction's restore point.
+            rb_unfinished = _unfinished_install(db, installed_pkg["name"], rb_ok)
             if rb_ok:
                 emit_info(
                     f"Rollback succeeded: {installed_pkg['name']} "
                     f"{installed_pkg['version']} restored."
                 )
+            elif rb_unfinished:
+                emit(f"Rollback of {installed_pkg['name']}: {rb_msg}", err=True)
             else:
                 # The facts only, as above: the copy that was just refused is
                 # not offered again as the way back.
@@ -4062,7 +4072,14 @@ def cmd_upgrade(db, args):
         else:
             emit_error(f"upgrading {remote_pkg['name']}: {msg}")
             failed_this_txn.append((remote_pkg["name"], msg))
-            if not rb_ok:
+            if rb_unfinished:
+                _back_row = db.get_installed(installed_pkg["name"]) or installed_pkg
+                emit_error(
+                    f"{installed_pkg['name']} is back at "
+                    f"{txn.format_vr(_back_row)} from the rollback cache, but "
+                    f"its install did not finish ({rb_unfinished}). "
+                    f"{_unfinished_advice(installed_pkg['name'], rb_unfinished)}")
+            elif not rb_ok:
                 absent_this_txn.append(installed_pkg)
 
     # Q5/Q3: ONE consolidated end-of-transaction "Next steps" block across every

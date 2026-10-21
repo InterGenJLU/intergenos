@@ -425,3 +425,47 @@ def test_failed_rollback_install_leaves_one_recovery_sentence(local, monkeypatch
     assert said.count("Recover from") == 1, said
     assert ("widget is not installed. Recover from Chronicle restore point "
             f"{RESTORE_ID}.") in said
+
+
+@pytest.mark.parametrize("failure,points", [
+    ("critical", (RESTORE_ID,)), ("critical", ()),
+    ("signing", (RESTORE_ID,)), ("signing", ())],
+    ids=["critical-with-id", "critical-no-id", "signing-with-id", "signing-no-id"])
+def test_rollback_that_landed_degraded_names_the_command_that_finishes_it(
+        local, monkeypatch, failure, points):
+    # widget's new build refuses after the old build's removal; the rollback
+    # install of 1.0-3 then LANDS and a critical post-install hook fails, or
+    # the signing hook refuses. The old build's row is back, marked degraded:
+    # widget is not absent, so the one next step is the command that finishes
+    # the old build, never the transaction's restore point.
+    change_archive_after_removal(local, monkeypatch)
+    if failure == "critical":
+        critical_hook_fails(monkeypatch)
+        reason = "widget post-install"
+        finish = "Retry it with: sudo pkm reinstall widget"
+    else:
+        signing_refused(monkeypatch)
+        reason = "widget post-install (refused to sign)"
+        finish = ("Finish it with the signing key passphrase in hand (the one set "
+                  "at install, not the MOK enrollment password): sudo pkm "
+                  "reinstall widget")
+    rc, said = attempt(local, monkeypatch, rollback=True, points=points)
+    assert rc == 1, said
+    row = local.db.get_installed("widget")
+    assert row["release"] == 3 and row["degraded"] == reason, row
+    assert (local.root / "usr/bin/widget").read_bytes() == b"old\n"
+    # The row the rollback install wrote is the one _unfinished_install reads,
+    # as it reads a forward install's.
+    assert cli._unfinished_install(local.db, "widget", False) == reason
+    assert "restoring widget 1.0 from rollback cache" in said
+    assert "rollback of widget also failed" not in said
+    assert "widget is not installed" not in said
+    assert "Recover from" not in said and "No restore-point id" not in said
+    assert "chronicle list restore-point" not in said
+    for phrase in INSTALLER_ADVICE:
+        assert phrase not in said
+    assert said.count(finish) == 1, said
+    assert said.count("sudo pkm reinstall widget") == 1, said
+    assert (f"widget is back at 1.0-3 from the rollback cache, but its install "
+            f"did not finish ({reason}). {finish}") in said
+    assert "1 of 1 package(s) did not upgrade: widget" in said
