@@ -132,7 +132,12 @@ fi
 # Parse the manifest FIRST and refuse on an empty/unparseable soname
 # list — feeding the loop from a silenced python3 would otherwise turn
 # a parse failure into a zero-iteration pass (a masked no-op check).
-sonames=$(python3 -c "import json; [print(s) for s in json.load(open('$MANIFEST'))['sonames']]" 2>/dev/null)
+# The read runs isolated (-I): a program given with -c has the working
+# directory first on its import path, so a json.py in the directory Steam
+# is started from would be imported in place of the standard library's;
+# isolated mode keeps the working directory, the user's site directory and
+# every PYTHON* variable off the path.
+sonames=$(python3 -I -c "import json; [print(s) for s in json.load(open('$MANIFEST'))['sonames']]" 2>/dev/null)
 if [ -z "$sonames" ]; then
     refuse "Steam cannot start" \
         "could not read the list of required 32-bit libraries at $MANIFEST," \
