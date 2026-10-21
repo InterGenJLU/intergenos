@@ -1507,6 +1507,25 @@ class TruncatedTextAnswerTests(unittest.TestCase):
         with self._endpoint(finish), mock.patch("intergen.router.glass.emit"):
             return router.route(self.QUESTION)
 
+    def _browser(self, finish, *, locked=False):
+        """The stream_end frame of the same draft in the browser; on the native
+        floor the streamer offers the registry's tools, as the route does."""
+        router = self._router(locked=locked)
+        server = WebServer(router=router, llm=router._llm,
+                           tools=None if locked else router._tools,
+                           governance=None)
+        ctx = ConnectionContext(client_id="c1", source_interface="web",
+                                ws=_RecordingWS(),
+                                conversation=router.new_conversation())
+        with self._endpoint(finish), mock.patch("intergen.router.glass.emit"):
+            asyncio.run(server._stream_llm_response(
+                ctx, "turn1", self.QUESTION, RouteResult(
+                    text="", source="llm_freeform" if locked else "llm_tools",
+                    handled=False)))
+        ends = ctx.ws.of_type("stream_end")
+        self.assertEqual(len(ends), 1, ctx.ws.sent)
+        return ends[0]
+
     def test_the_tool_stream_records_its_finish_reason_for_the_gate(self):
         # The gate reads the finish reason of the call it judges: "length" is
         # a truncated answer, and a call ending "stop" is not judged by the
@@ -1539,6 +1558,26 @@ class TruncatedTextAnswerTests(unittest.TestCase):
         self.assertEqual(result.source, "llm_tools")
         self.assertEqual(result.text, "".join(self.PIECES))
         self.assertIsNone(result.escalation_offer)
+
+    def test_a_truncated_text_answer_raises_the_offer_in_the_browser(self):
+        offer = self._route("length").escalation_offer
+        for locked in (False, True):
+            with self.subTest(locked=locked):
+                end = self._browser("length", locked=locked)
+                self.assertEqual(end["full_response"], "".join(self.PIECES))
+                # Present, and the route's own: equal alone would also hold
+                # where neither surface raised it.
+                self.assertTrue(end["escalation_offer"].startswith(
+                    self.OPENING))
+                self.assertEqual(end["escalation_offer"], offer)
+
+    def test_a_complete_text_answer_earns_no_offer_in_the_browser(self):
+        # The control, in the browser on both floors.
+        for locked in (False, True):
+            with self.subTest(locked=locked):
+                end = self._browser("stop", locked=locked)
+                self.assertEqual(end["full_response"], "".join(self.PIECES))
+                self.assertIsNone(end["escalation_offer"])
 
 
 # ── the native floor's dispatch synthesis meets the same screens ─────────────

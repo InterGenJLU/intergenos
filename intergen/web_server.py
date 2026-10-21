@@ -2925,8 +2925,20 @@ class WebServer:
 
         # The model's own draft, as it came and before any screen below can
         # rewrite it: the phone-a-friend offer is decided from it after the
-        # screens, as the router decides it from its own draft.
-        _draft = LLMResponse(text=full_response, model="local", local=True)
+        # screens, as the router decides it from its own draft. A text answer
+        # nothing was dispatched for meets the gate the router's tool route
+        # reads into its draft (_gate_reason), read now, while the finish
+        # reason it reads is still this stream's (a screen below can ask the
+        # model again), so a draft the cap cut off is a failed local answer
+        # here as on the bus, on either floor.
+        _gate_reason = ""
+        _gate = getattr(self._llm, "_gate_reason", None)
+        if _gate is not None and full_response and not tool_results:
+            _gate_reason = _gate(full_response, next(
+                (m.content for m in reversed(messages)
+                 if m.role == MessageRole.USER), ""))
+        _draft = LLMResponse(text=full_response, model="local", local=True,
+                             quality_passed=not _gate_reason)
 
         elapsed_ms = (time.monotonic() - stream_started) * 1000
 
@@ -3230,8 +3242,8 @@ class WebServer:
         # draft, its confidence, whether the refusal stood, and the question as
         # it was routed — on the two routes whose answers the router decides it
         # for; the system map's grounded answer earns none there and none here.
-        # No quality gate reads this stream, so the draft keeps the default
-        # verdict, as the router's tool route keeps it for its text answer.
+        # The draft's confidence comes from the gate's verdict read above, as
+        # the router's comes from its own.
         _offer = None
         if route_result.source in ("llm_tools", "llm_freeform"):
             _offer = self._bound(
