@@ -370,15 +370,18 @@ def test_absent_upgrade_names_what_its_restore_point_would_revert(
     assert local.db.get_installed("zeta")["release"] == 4
     assert local.db.get_installed("gamma")["release"] == 1
     assert "widget 1.0-3 was removed before this install attempt" in said
-    reverts = ("which also returns alpha from 1.0-4 to 1.0-3 and zeta from 1.0-4 "
-               "to 1.0-3 (upgraded by this transaction) and removes the record of "
-               "gamma (installed by this transaction)")
+    reverts = ("returns alpha from 1.0-4 to 1.0-3 and zeta from 1.0-4 to 1.0-3 "
+               "(upgraded by this transaction) and removes the record of gamma "
+               "(installed by this transaction)")
     if points:
-        recovery = f"Recover from Chronicle restore point {RESTORE_ID}, {reverts}."
+        recovery = (f"Recover from Chronicle restore point {RESTORE_ID}, which "
+                    f"also {reverts}.")
     else:
-        recovery = ("Inspect `chronicle list restore-point` for a matching capture, "
-                    f"{reverts}, or reinstall a verified archive of the previous "
-                    "build.")
+        # What restoring the capture would also undo is said of the restore,
+        # not of the capture.
+        recovery = ("Inspect `chronicle list restore-point` for a matching capture "
+                    f"(restoring it also {reverts}), or reinstall a verified "
+                    "archive of the previous build.")
         assert RESTORE_ID not in said
     assert said.count(recovery) == 1, said
     assert said.count("Recover from") + said.count("No restore-point id") == 1, said

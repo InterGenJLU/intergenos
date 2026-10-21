@@ -2218,14 +2218,16 @@ def _name_header_mode(args):
 
 def _restore_point_recovery(capture, *, previous_build=False, reverts=""):
     """The one recovery sentence a transaction's restore point offers.
-    ``reverts`` names what else restoring it would undo."""
+    ``reverts`` names what else restoring it would undo ("returns ..."); both
+    forms say it of the restore: of the named point, or of the capture the
+    person finds when no id was returned."""
     points = getattr(capture, "restore_points", ())
     if points:
         return ("Recover from Chronicle restore point " + ", ".join(points)
-                + (f", {reverts}" if reverts else "") + ".")
+                + (f", which also {reverts}" if reverts else "") + ".")
     return ("No restore-point id was returned for this transaction. "
-            "Inspect `chronicle list restore-point` for a matching capture, "
-            + (f"{reverts}, " if reverts else "")
+            "Inspect `chronicle list restore-point` for a matching capture"
+            + (f" (restoring it also {reverts})" if reverts else "") + ", "
             + ("or reinstall a verified archive of the previous build."
                if previous_build else "or retry with a verified archive."))
 
@@ -2277,7 +2279,7 @@ def _absent_after_upgrade(absent, capture, returned, installed):
     if installed:
         clauses.append(f"removes the record of {listed(installed)} "
                        f"(installed by this transaction)")
-    reverts = ("which also " + " and ".join(clauses)) if clauses else ""
+    reverts = " and ".join(clauses)
     names = [p["name"] for p in absent]
     return (f"{listed(names)} {'is' if len(names) == 1 else 'are'} not "
             f"installed. "
