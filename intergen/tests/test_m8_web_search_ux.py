@@ -410,6 +410,37 @@ class LocalPageBoundaryTests(unittest.TestCase):
                     self.assertEqual(result.text, answer + "\n\nSource: " + url)
                     self.assertIn(snippet, result.tool_results[0].content)
 
+    def test_empty_snippets_keep_the_unavailable_outcome(self):
+        from intergen.tests.test_router_executes_recognised_search import _build_router
+
+        with self._server(status=404) as url:
+            router, registry, _ = _build_router()
+            del registry.execute
+            search = (f'<a class="result__a" href="{url}">Opening hours</a>'
+                      '<a class="result__snippet"></a>').encode()
+            with mock.patch.dict("os.environ", {"SERPER_API_KEY": ""}), \
+                    mock.patch("urllib.request.urlopen", return_value=io.BytesIO(search)):
+                result = router.route("search the web for observatory opening hours")
+            self.assertIn("no readable text", result.text)
+            self.assertEqual(router._llm.synthesis_calls, 0)
+
+    def test_a_link_only_summary_falls_back_to_the_retrieved_snippet(self):
+        from intergen.tests.test_router_executes_recognised_search import _build_router
+
+        fact = "The observatory opens at 09:00."
+        with self._server(status=404) as url:
+            router, registry, _ = _build_router()
+            del registry.execute
+            router._llm.stream = lambda *_args, **_kwargs: iter([
+                "The opening time is available at " + url + "."])
+            search = (f'<a class="result__a" href="{url}">Opening hours</a>'
+                      f'<a class="result__snippet">{fact}</a>').encode()
+            with mock.patch.dict("os.environ", {"SERPER_API_KEY": ""}), \
+                    mock.patch("urllib.request.urlopen", return_value=io.BytesIO(search)):
+                result = router.route("search the web for observatory opening hours")
+            self.assertEqual(result.text, "From the search snippets:\n" + fact
+                             + "\n\nSource: " + url)
+
 
 if __name__ == "__main__":
     unittest.main()
