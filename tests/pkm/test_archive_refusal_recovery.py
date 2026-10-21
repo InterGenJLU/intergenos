@@ -370,9 +370,11 @@ def test_absent_upgrade_names_what_its_restore_point_would_revert(
     assert local.db.get_installed("zeta")["release"] == 4
     assert local.db.get_installed("gamma")["release"] == 1
     assert "widget 1.0-3 was removed before this install attempt" in said
+    # The point holds none of gamma's files (a package not installed before the
+    # transaction contributes none to its footprint), so a restore leaves them.
     reverts = ("returns alpha from 1.0-4 to 1.0-3 and zeta from 1.0-4 to 1.0-3 "
                "(upgraded by this transaction) and removes the record of gamma "
-               "(installed by this transaction)")
+               "(installed by this transaction), whose files stay")
     if points:
         recovery = (f"Recover from Chronicle restore point {RESTORE_ID}, which "
                     f"also {reverts}.")

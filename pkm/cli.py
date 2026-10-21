@@ -2269,7 +2269,10 @@ def _absent_after_upgrade(absent, capture, returned, installed):
     restoring it also returns every other package this transaction upgraded
     to its previous build (``returned``: "<name> from <new> to <old>") and
     removes the record of every package it installed as a new dependency
-    (``installed``). Both are named, so nobody restores it without knowing."""
+    (``installed``). Both are named, so nobody restores it without knowing.
+    The point holds none of a new dependency's files (a package not installed
+    before the transaction contributes none to its footprint), so a restore
+    leaves them in place, and the sentence says so."""
     def listed(items):
         return (items[0] if len(items) == 1
                 else ", ".join(items[:-1]) + " and " + items[-1])
@@ -2278,7 +2281,7 @@ def _absent_after_upgrade(absent, capture, returned, installed):
         clauses.append(f"returns {listed(returned)} (upgraded by this transaction)")
     if installed:
         clauses.append(f"removes the record of {listed(installed)} "
-                       f"(installed by this transaction)")
+                       f"(installed by this transaction), whose files stay")
     reverts = " and ".join(clauses)
     names = [p["name"] for p in absent]
     return (f"{listed(names)} {'is' if len(names) == 1 else 'are'} not "
