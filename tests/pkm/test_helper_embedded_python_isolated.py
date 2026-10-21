@@ -22,10 +22,15 @@ its work and the planted module is never imported. At the two reader sites
 the same module is planted once in the working directory and once in a
 directory named by PYTHONPATH, and each lookup reads a signed local
 repository.
+
+A static case reads both files at the tree under test and requires -I on
+every call of the interpreter in them, so a call added to either file without
+it fails here whether or not a case above runs it.
 """
 
 import json
 import os
+import re
 import shlex
 import subprocess
 from pathlib import Path
@@ -190,3 +195,96 @@ def test_the_metadata_reader_never_imports_a_planted_module(tmp_path, repository
     assert work_done(result.stdout), result.stdout + result.stderr
     marker = planted / "PLANTED-MARKER"
     assert not marker.exists(), f"{site} imported the planted module through {route}: {marker.read_text()}"
+
+
+# A word naming the interpreter (python, python3, python3.14, with or without a
+# directory) is a call unless it sits on a comment line, in a presence probe
+# whose output is discarded, in the literal message of igos_helper_emit, or in
+# the word list of a loop that only probes each word. A call must carry -I as
+# a word of its own among the interpreter's options, before the program.
+INTERPRETER = re.compile(r"(?<![\w.])python[0-9.]*(?![\w-])")
+COMMENT = re.compile(r"\s*#")
+MESSAGE = re.compile(r'\s*igos_helper_emit\s+"[^"`]*"\s*$')
+TOOL_LIST = re.compile(r"\s*for\s+(\w+)\s+in\s+[\w. -]+;\s*do\s*$")
+DISCARDED = re.compile(r"\s*&?>\s*/dev/null")
+OPTIONS_WITH_A_VALUE = {"-W", "-X", "--check-hash-based-pycs"}
+
+
+def _logical_lines(text):
+    """Each line with its continuations joined, and the line number where each joined piece starts."""
+    logical, joined, pieces = [], "", []
+    for number, line in enumerate(text.splitlines(), 1):
+        pieces.append((len(joined), number))
+        # A backslash ends a comment rather than continuing it.
+        if line.endswith("\\") and not COMMENT.match(line):
+            joined += line[:-1] + " "
+            continue
+        logical.append((joined + line, pieces))
+        joined, pieces = "", []
+    if pieces:
+        logical.append((joined, pieces))
+    return logical
+
+
+def _is_message(line):
+    return bool(MESSAGE.match(line)) and "$(" not in line
+
+
+def _probes_only(logical, index, name):
+    """The loop opened at logical[index] uses its variable only in discarded probes and messages."""
+    use = re.compile(r"\$\{?%s\b" % re.escape(name))
+    probe = re.compile(r'command -v "?\$\{?%s\}?"?%s' % (re.escape(name), DISCARDED.pattern))
+    depth = 0
+    for line, _ in logical[index + 1:]:
+        uses = len(use.findall(line))
+        if uses and not (_is_message(line) or (uses == 1 and probe.search(line))):
+            return False
+        if re.search(r"(?:^|[;\s])do\s*$", line):
+            depth += 1
+        elif re.match(r"\s*done\b", line):
+            if depth == 0:
+                return True
+            depth -= 1
+    return False
+
+
+def _isolated(rest):
+    """-I comes among the interpreter's options, before the program (-, a path, -c or -m)."""
+    words = iter(rest.split())
+    for word in words:
+        if word == "-I":
+            return True
+        if word in OPTIONS_WITH_A_VALUE:
+            next(words, None)
+        elif word in ("-", "-c", "-m", "--") or not word.startswith("-"):
+            return False
+    return False
+
+
+def _interpreter_calls(text):
+    """Every call of the interpreter in a shell file, as (line number, command, isolated)."""
+    logical = _logical_lines(text)
+    calls = []
+    for index, (line, pieces) in enumerate(logical):
+        if COMMENT.match(line) or _is_message(line):
+            continue
+        loop = TOOL_LIST.match(line)
+        if loop and _probes_only(logical, index, loop.group(1)):
+            continue
+        for found in INTERPRETER.finditer(line):
+            rest = line[found.end():]
+            if line[:found.start()].endswith("command -v ") and DISCARDED.match(rest):
+                continue
+            number = max(n for offset, n in pieces if offset <= found.start())
+            calls.append((number, line.strip(), _isolated(rest)))
+    return calls
+
+
+def test_every_python_call_in_the_helpers_runs_isolated():
+    unisolated = []
+    for path in (LIBRARY, CUDA_HELPER):
+        calls = _interpreter_calls(path.read_text(encoding="utf-8"))
+        assert calls, f"no interpreter call was read in {path}"
+        unisolated += [f"{path.relative_to(REPO)}:{number}: {command}"
+                       for number, command, isolated in calls if not isolated]
+    assert not unisolated, "python3 runs without -I:\n" + "\n".join(unisolated)
