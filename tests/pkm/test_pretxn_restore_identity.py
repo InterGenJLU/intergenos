@@ -41,12 +41,14 @@ def test_successful_handler_identity_is_retained(tmp_path, success, reported, ex
 
 def test_shipped_handler_identity_reaches_pkm_from_a_real_capture(tmp_path):
     source = Path(__file__).resolve().parents[2] / "assets/intergenos-backup"
+    bytecode_before = {str(p): p.read_bytes() for p in source.rglob("*.pyc")}
+    cache_dirs_before = set(source.rglob("__pycache__"))
     handlers = tmp_path / "handlers"
     handlers.mkdir()
     store = tmp_path / "store"
     handler = handlers / "chronicle"
     handler.write_text(
-        "#!/usr/bin/python3\nimport runpy, sys\n"
+        "#!/usr/bin/python3 -B\nimport runpy, sys\n"
         f"sys.path.insert(0, {str(source)!r})\n"
         "from chronicle import config, engine\n"
         f"eng = engine.Engine(local_root={str(store)!r}, config=config.Config())\n"
@@ -71,3 +73,5 @@ def test_shipped_handler_identity_reaches_pkm_from_a_real_capture(tmp_path):
     assert any(result.restore_points[0] in p.read_text() for p in manifests)
     assert any(str(tmp_path / "root/var/lib/igos/pkm.db") in p.read_text()
                for p in manifests)
+    assert set(source.rglob("__pycache__")) == cache_dirs_before
+    assert {str(p): p.read_bytes() for p in source.rglob("*.pyc")} == bytecode_before
