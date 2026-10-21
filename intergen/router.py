@@ -6139,20 +6139,46 @@ class ConversationRouter(RouterInterface):
         # Require the requested action itself to concern system administration;
         # drawing, parsing and language imports do not become system how-tos
         # merely because their question also names Linux or this computer.
+        action = None
         if instruction and instruction.group().lower() != "free up":
             request = user_input[instruction.end():]
-            if not re.match(
+            action = re.match(
                     r"\s*(?:(?:how\s+to|to|go\s+about|please|safely|properly|"
                     r"(?:can|could|should|would)\s+(?:i|you|we)\s+use\s+to)\s+)*"
-                    r"(?:(?:enabl|disabl|configur|remov|updat|upgrad|manag|"
+                    r"(?P<action>(?:enabl|disabl|configur|remov|updat|upgrad|manag|"
                     r"restor|chang|clos)(?:e|ing)|"
                     r"(?:install|uninstall|repair|troubleshoot|restart|reboot|"
                     r"boot|backup|connect|disconnect|mount|unmount|partition|"
                     r"encrypt|decrypt|unlock|adjust|open|check|list|show|find)"
                     r"(?:ing)?|(?:re)?set(?:ting)?|back(?:ing)?\s+up|"
                     r"free(?:ing)?\s+up)\b",
-                    request, re.IGNORECASE):
+                    request, re.IGNORECASE)
+            if action is None:
                 return None
+            # Domain-neutral verbs need a system object, not a platform word
+            # somewhere in an object's description or its surrounding context.
+            if re.fullmatch(
+                    r"(?:chang|remov|clos)(?:e|ing)|adjust(?:ing)?|open(?:ing)?|"
+                    r"check(?:ing)?|list(?:ing)?|show(?:ing)?|find(?:ing)?|"
+                    r"(?:re)?set(?:ting)?", action.group("action"), re.IGNORECASE):
+                subject = request[action.end():]
+                determiner = r"(?:(?:a|an|the|my|this|our|hypothetical|new|custom)\s+)*"
+                system_object = (
+                    r"(?:features?|settings?|options?|configuration|packages?|"
+                    r"services?|kernels?|firewalls?|backups?|partitions?|disks?|"
+                    r"filesystems?|permissions?|users?|accounts?|passwords?|"
+                    r"drivers?|networks?|connections?|desktops?|extensions?|"
+                    r"workspaces?|terminals?|machines?|systems?|computers?|pcs?|"
+                    r"cpus?|ram|distros?|pkm|systemd|secure\s+boot|"
+                    r"operating\s+systems?|desktop\s+environments?)\b")
+                if not re.match(
+                        r"\s*" + determiner
+                        + r"(?:(?:colou?rs?|names?|sizes?|appearance)\s+of\s+"
+                        + determiner + r")?"
+                        + r"(?:(?:(?:linux|intergenos|gnome)\s+)?" + system_object
+                        + r"|(?:linux|intergenos)(?=\s*[?.!]*\s*$))",
+                        subject, re.IGNORECASE):
+                    return None
         # Programming questions keep their conversational route, including
         # code that would administer the system or run on this computer.
         if re.search(

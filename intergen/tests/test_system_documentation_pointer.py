@@ -95,6 +95,42 @@ def test_platform_mentions_in_art_and_code_keep_generation(query, locked, decide
 
 
 @pytest.mark.parametrize("query", [
+    "How do I change the colors of the Linux penguin in a drawing?",
+    "How do I adjust a drawing on my computer?",
+    "How do I change the colors of a drawing on Linux?",
+])
+@pytest.mark.parametrize("locked", [False, True])
+@pytest.mark.parametrize("decide_only", [False, True])
+def test_an_administrative_verb_does_not_replace_the_requested_object(query, locked, decide_only):
+    router = router_with_source_corpus(locked)
+    assert router._howto.retrieve(query)[0] is None
+    with router.bind_conversation(router.new_conversation()):
+        result = router.route(query, decide_only=decide_only)
+    assert result.source == "llm_freeform", (query, result.source, result.text)
+    assert result.handled is not decide_only
+    assert result.text == ("" if decide_only else NORMAL_ANSWER)
+    assert router._llm.chat.call_count == int(not decide_only)
+    router._tools.execute.assert_not_called()
+
+
+def test_a_removal_instruction_still_requires_a_system_object():
+    query = "How do I remove an element from a Linux penguin illustration?"
+    assert ConversationRouter._system_documentation_pointer(query) is None
+
+
+@pytest.mark.parametrize("query", [
+    "How do I change a hypothetical feature in Linux?",
+    "How do I adjust Linux desktop settings?",
+    "How do I remove a custom system package?",
+    "How do I check my firewall?",
+    "How do I open GNOME desktop settings?",
+    "How do I change the colors of the Linux desktop?",
+])
+def test_general_actions_with_system_objects_keep_the_pointer(query):
+    assert ConversationRouter._system_documentation_pointer(query) is not None
+
+
+@pytest.mark.parametrize("query", [
     "How do I import packages in R on my computer?",
     "How do I import packages in Julia on my computer?",
 ])
