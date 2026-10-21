@@ -53,6 +53,8 @@ from intergen.llm import LLMRouter
 from intergen.router import ConversationRouter
 from intergen.semantic import SemanticMatcher
 from intergen.tool_registry import ToolRegistry
+from intergen.tests.test_a_tool_turn_answer_is_screened_and_a_failed_stream_is_recorded import (  # noqa: E501
+    _Response as _SseResponse, _text as _sse_text)
 from intergen.tests.test_curated_route_regressions import route_row
 from intergen.web_server import ConnectionContext, WebServer
 from intergen.wiki_retrieval import WikiHit
@@ -1467,6 +1469,54 @@ class OfferSurfaceTests(unittest.TestCase):
                 self.assertTrue(delivered)
                 self.assertEqual(printed, self.ANSWER + "\n")
                 self.assertNotIn("intergen ask-frontier", shown)
+
+
+# ── the tool route's text answer meets the quality gate ──────────────────────
+class TruncatedTextAnswerTests(unittest.TestCase):
+    """No quality gate read the tool route's text answer. The tool stream kept
+    its finish reason in a local, where the gate cannot read it, and the text
+    branch built its draft with the default verdict, so an answer the token
+    cap cut off mid-sentence was served as complete and could not raise the
+    offer's quality trigger, as the same draft does on the freeform route.
+    Each case runs the real tool stream over a reply in the endpoint's own
+    stream format (nothing reaches a model server): a draft ending in
+    "length", and the same draft ending in "stop" as the control."""
+
+    QUESTION = ToolRouteOfferTests.QUESTION
+    PIECES = ("The square root of pi is approximately 1.7724538509, ",
+              "a value that turns up in")
+
+    def _router(self, *, locked=False):
+        tier = HardwareTierLevel.TIER_1 if locked else HardwareTierLevel.TIER_2
+        router = _router(tier=tier, locked=locked)
+        router._escalation = _offering([ACME])
+        del router._llm.stream_with_tools  # the client's own tool stream
+        return router
+
+    def _endpoint(self, finish):
+        """The model endpoint answering one request with the draft."""
+        pending = [_SseResponse(_sse_text(*self.PIECES, finish=finish))]
+        return mock.patch("urllib.request.urlopen",
+                          lambda *_a, **_k: pending.pop(0))
+
+    def test_the_tool_stream_records_its_finish_reason_for_the_gate(self):
+        # The gate reads the finish reason of the call it judges: "length" is
+        # a truncated answer, and a call ending "stop" is not judged by the
+        # "length" an earlier call left behind.
+        router = self._router()
+        llm, tools = router._llm, router._tools.get_tool_schemas()
+        text = "".join(self.PIECES)
+        for finish, left, verdict in (("length", None, "truncated"),
+                                      ("stop", "length", "")):
+            with self.subTest(finish=finish, left_by_an_earlier_call=left):
+                llm._last_finish_reason = left
+                with self._endpoint(finish), \
+                        mock.patch("intergen.router.glass.emit"):
+                    served = list(llm.stream_with_tools(
+                        _turn(user=self.QUESTION), tools=tools))
+                self.assertEqual("".join(served), text)
+                self.assertEqual(llm._gate_reason(text, self.QUESTION),
+                                 verdict)
 
 
 # ── the native floor's dispatch synthesis meets the same screens ─────────────

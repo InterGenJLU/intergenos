@@ -859,6 +859,14 @@ class LLMRouter(LLMInterface):
         Context from prior turns should be injected via XML tags in the
         user message by the upstream router.
         """
+        # THE FINISH REASON THE QUALITY GATE READS (_gate_reason) IS THIS
+        # CALL'S. It was kept in a local only, so a text answer the cap cut off
+        # ("length") passed the gate as complete, and whatever the previous
+        # call had left was read instead. It is cleared here, so a call that
+        # reports none or never reaches the endpoint is not judged by another
+        # call's, and recorded below where the stream reports it, as stream()
+        # records its own.
+        self._last_finish_reason = None
         if image_data and not self._has_vision:
             yield self._vision_unsupported()
             return
@@ -1051,6 +1059,7 @@ class LLMRouter(LLMInterface):
                     finish_reason = chunk["choices"][0].get("finish_reason")
                     if finish_reason:
                         _finish = finish_reason
+                        self._last_finish_reason = finish_reason
                     if _first and (delta.get("tool_calls")
                                    or delta.get("content")):
                         glass.emit("model", "first_token",
