@@ -264,8 +264,13 @@ class LoopKillerTests(unittest.TestCase):
         # A NOT-declined action arms normally (filler=None → template offer line).
         line = r._stage_action_offer_or_handoff(
             "pkm install vim", "run_command", "install vim")
+        # A pkm command line staged under run_command is re-tooled to the
+        # package tool it MEANS, with its structured arguments as the fourth
+        # element, so the review gate sees "manage_packages install vim" and
+        # never a shell line; the person still sees the command.
         self.assertEqual(r._pending_action_offer,
-                         ("pkm install vim", "run_command", "install vim"))
+                         ("pkm install vim", "manage_packages", "install vim",
+                          {"action": "install", "package": "vim"}))
         self.assertIn("pkm install vim", line)
 
 

@@ -84,9 +84,13 @@ class TryExplainTests(unittest.TestCase):
         self.assertIn("pkm", result.text)
         # explain-FIRST then OFFER: the offer is armed for next turn.
         self.assertIsNotNone(r._pending_action_offer)
-        command, tool, _orig = r._pending_action_offer
+        # The armed offer carries the command the person sees, the tool that
+        # runs it and that tool's structured arguments (the fourth element):
+        # an update is manage_packages with action=update, never a shell line.
+        command, tool, _orig, arguments = r._pending_action_offer
         self.assertIn("pkm", command)
         self.assertEqual(tool, "manage_packages")
+        self.assertEqual(arguments, {"action": "update"})
         self.assertIn("Want me to run", result.text)
 
     def test_uninstall_howto_is_explained_not_executed(self):

@@ -115,10 +115,21 @@ def test_the_production_loader_preserves_every_entry_and_its_schema(caplog):
         assert parsed.triggers == tuple(raw["triggers"])
         assert parsed.requires == tuple(raw.get("requires", []))
         if "action" in raw:
-            assert set(raw["action"]) == {"command", "tool"}
-            assert all(isinstance(value, str) and value for value in raw["action"].values())
+            # An action names its command and its tool, and may carry the
+            # structured arguments that tool takes (a staged package action
+            # runs through manage_packages with them, never through a shell
+            # line); every argument is a non-empty string to a non-empty string.
+            assert set(raw["action"]) in ({"command", "tool"},
+                                          {"command", "tool", "arguments"}), (filename, raw["id"])
+            assert all(isinstance(raw["action"][key], str) and raw["action"][key]
+                       for key in ("command", "tool"))
             assert parsed.action.command == raw["action"]["command"]
             assert parsed.action.tool == raw["action"]["tool"]
+            raw_arguments = raw["action"].get("arguments", {})
+            assert isinstance(raw_arguments, dict), (filename, raw["id"])
+            assert all(isinstance(k, str) and k and isinstance(v, str) and v
+                       for k, v in raw_arguments.items()), (filename, raw["id"])
+            assert dict(parsed.action.arguments) == raw_arguments, (filename, raw["id"])
 
 
 def test_curated_first_party_commands_pass_the_real_capability_screen(monkeypatch):
