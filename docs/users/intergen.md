@@ -109,7 +109,12 @@ the hardware recommendation.
 Every tier is vision-capable: InterGen can look at a screenshot or
 image you show it, not just the text you type. A model that declares
 vision but whose vision component is not pinned in the signed model
-manifest is refused rather than served without it.
+manifest is refused rather than served without it. Every picture is
+checked before InterGen looks at it: its text is transcribed locally
+and read by the same scanner that screens web pages and files, a
+picture carrying an instruction aimed at the assistant or a command to
+run is refused with its reason, and an admitted picture is marked as
+untrusted content — words drawn inside a picture are never your request.
 
 
 ## What it can and can't do (the safety chain)
