@@ -899,6 +899,63 @@ class TheTruthReadings(unittest.TestCase):
         self.assertIn("says nothing listens", self._truth(
             "listening_ports", "There are no open ports.", ss)[0])
 
+    def test_only_a_claim_that_nothing_listens_is_zero_listeners(self):
+        """Through the grader, against the reading: a negation about other
+        ports, or about some of them beside ports said to listen, is not the
+        claim that nothing listens."""
+        listener = (0, "tcp LISTEN 0 4096 127.0.0.1:8089 0.0.0.0:*\n")
+        cases = (
+            ("zero_listener_positive", "There are no listening ports.",
+             (0, ""), "PASS"),
+            ("failed_read_negative", "There are no listening ports.",
+             (1, ""), "FAIL"),
+            ("nonempty_listener_negative", "There are no listening ports.",
+             listener, "FAIL"),
+            ("unrelated_negative",
+             "Some ports are listening, but there are no blocked ports.",
+             (0, ""), "FAIL"),
+            ("closed_ports_negative", "There are no closed ports.", (0, ""),
+             "FAIL"),
+            ("qualified_subset_negative",
+             "There are no open UDP ports, but TCP ports are listening.",
+             (0, ""), "FAIL"),
+            ("reported_number_negative", "Port 22 is open.", (0, ""), "FAIL"),
+            ("nonempty_correct_positive", "Port 8089 is listening.", listener,
+             "PASS"),
+        )
+        for case, text, reading, verdict in cases:
+            with self.subTest(case=case):
+                v = _grade(_rt("machine,truth=listening_ports"),
+                           _turn([_ack(), _response(text, "direct_answer")],
+                                 text=text),
+                           _glass(kind="code", renderer="direct_answer_render",
+                                  source="direct_answer"),
+                           readings={"listening_ports": reading})
+                self.assertEqual(v.verdict, verdict, v.reasons)
+
+    def test_a_zero_claim_narrowed_or_contradicted_is_not_one(self):
+        """A claim narrowed to a protocol, a reach or an exception, or said
+        beside ports that listen, or a negation of some other state of the
+        ports, does not say that nothing listens; the claim in its other
+        spellings does."""
+        none = (0, "")
+        for text in ("There are no open ports on UDP, but TCP ports are "
+                     "listening.",
+                     "There are no listening TCP ports.",
+                     "No ports are open to the outside.",
+                     "There are no open ports except SSH.",
+                     "There are no ports blocked by the firewall."):
+            with self.subTest(text=text):
+                why = self._truth("listening_ports", text, none)
+                self.assertTrue(
+                    why and "does not say that nothing listens" in why[0], why)
+        for text in ("No ports are listening.", "There are no listeners.",
+                     "Nothing is listening.",
+                     "There are zero listening sockets."):
+            with self.subTest(text=text):
+                self.assertEqual(self._truth("listening_ports", text, none),
+                                 [])
+
     def test_os_version_and_loaded_model(self):
         release = (0, 'NAME="InterGenOS"\nVERSION_ID=r001.3\n')
         self.assertEqual(self._truth("os_version",

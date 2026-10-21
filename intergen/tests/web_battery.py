@@ -1120,12 +1120,38 @@ def _gate_reasons(arg: str, frames: list[dict], link: dict,
 
 
 # An answer that says nothing listens: "no open ports", "no listening network
-# ports", "there aren't any open ports", "nothing is listening".
+# ports", "there aren't any open ports", "no ports are listening", "no
+# listeners", "nothing is listening". Only the listening or open state stands
+# between the negation and the ports: "no blocked ports", "no closed ports"
+# and "no open UDP ports" deny something else.
 _NO_LISTENERS_RE = re.compile(
-    r"(?:\b(?:no|zero|not\s+any)|n['’]t\s+any)\s+(?:[a-z-]+\s+){0,3}?"
-    r"(?:ports?|sockets?|listeners?)\b"
+    r"(?:\b(?:no|zero|not\s+any)|n['’]t\s+any)\s+(?:network\s+)?"
+    r"(?:(?:listening|open)\s+(?:network\s+)?(?:ports?|sockets?)\b"
+    r"|listeners?\b"
+    r"|(?:ports?|sockets?)\s+(?:(?:are|is)\s+)?(?:listening|open)\b)"
     r"|\bnothing\s+(?:is\s+)?(?:listening|open)\b"
     r"|\bnone\s+(?:are|is)\s+(?:listening|open)\b", re.IGNORECASE)
+# Beside that claim, words that say something does listen, or that narrow the
+# claim to a protocol, an address family, a reach or an exception: the answer
+# then does not say that nothing listens.
+_LISTENING_CLAIM_RE = re.compile(
+    r"\b(?:is|are)\s+(?:(?:currently|still|also|now)\s+)?(?:listening|open)\b"
+    r"|\blistening\s+on\b", re.IGNORECASE)
+_NARROWED_CLAIM_RE = re.compile(
+    r"\b(?:tcp|udp|ipv[46]|external(?:ly)?|outside|public(?:ly)?|exposed|"
+    r"internet|remote(?:ly)?|lan|wan|loopback|localhost|local(?:ly)?|except|"
+    r"excluding|besides|other\s+than|apart\s+from|aside\s+from|save\s+for)\b",
+    re.IGNORECASE)
+
+
+def _says_nothing_listens(text: str) -> bool:
+    """The answer claims that nothing on this machine listens, and nothing
+    beside the claim says that something does or narrows it."""
+    if not _NO_LISTENERS_RE.search(text):
+        return False
+    rest = _NO_LISTENERS_RE.sub(" ", text)
+    return not (_LISTENING_CLAIM_RE.search(rest)
+                or _NARROWED_CLAIM_RE.search(text))
 
 
 def _truth_replay_reasons(name: str, text: str, reading: tuple[int, str] | None,
@@ -1189,7 +1215,7 @@ def _truth_replay_reasons(name: str, text: str, reading: tuple[int, str] | None,
             return [f"the answer names port(s) {wrong} that nothing listens "
                     f"on" + ("" if ports else
                              ": this machine has no listening socket")]
-        says_none = bool(_NO_LISTENERS_RE.search(text or ""))
+        says_none = _says_nothing_listens(text or "")
         if not ports:
             return [] if says_none else [
                 "the answer does not say that nothing listens; this machine "
