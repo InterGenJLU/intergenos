@@ -158,9 +158,12 @@ class TheUpgradeLineNamesTheRelease(unittest.TestCase):
     def test_the_printed_completion_line_names_the_new_release(self):
         db = self.db
         db.add_installed(NAME, VERSION, release=5, tier="core")
+        from tests.pkm.test_upgrade_from_local_archive import _make_archive, _sha
+        archive = _make_archive(self.tmp / f"{NAME}-{VERSION}-9.igos.tar.gz",
+                                NAME, VERSION, 9, {"usr/bin/example": b"new"})
         remote = {NAME: {"name": NAME, "version": VERSION, "release": 9,
-                         "sha256": "0" * 64, "size": 10, "depends": [],
-                         "local_archive": True}}
+                         "sha256": _sha(archive), "size": 10, "depends": [],
+                         "local_archive": str(archive)}}
 
         class _Installer:
             def install(self_inner, name, **kw):

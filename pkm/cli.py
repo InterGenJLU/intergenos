@@ -3738,7 +3738,10 @@ def cmd_upgrade(db, args):
                 remote_pkg["name"], dl_result,
                 expected_sha256=remote_pkg.get("sha256"), root=install_root())
             if refusal:
-                emit_error(f"upgrading {installed_pkg['name']}: {refusal}")
+                emit_error(
+                    f"upgrading {installed_pkg['name']}: {refusal}\nNothing was "
+                    f"removed — {installed_pkg['name']} "
+                    f"{txn.format_vr(installed_pkg)} is still installed.")
                 failed_this_txn.append((installed_pkg["name"], refusal))
                 continue
 
@@ -6019,7 +6022,8 @@ def _local_archive_upgrade_candidates(db, repo, args, archive):
         name, path, expected_sha256=archive_sha, root=install_root(),
         check_payload=True)
     if refusal:
-        emit_error(refusal)
+        emit_error(f"{refusal}\nNothing was removed — {name} "
+                   f"{txn.format_vr(existing)} is still installed.")
         sys.exit(1)
 
     # Direction: the same guard, the same override, the same words as the
