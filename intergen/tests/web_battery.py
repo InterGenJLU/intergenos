@@ -1087,6 +1087,15 @@ def _gate_reasons(arg: str, frames: list[dict], link: dict,
     return reasons
 
 
+# An answer that says nothing listens: "no open ports", "no listening network
+# ports", "there aren't any open ports", "nothing is listening".
+_NO_LISTENERS_RE = re.compile(
+    r"(?:\b(?:no|zero|not\s+any)|n['’]t\s+any)\s+(?:[a-z-]+\s+){0,3}?"
+    r"(?:ports?|sockets?|listeners?)\b"
+    r"|\bnothing\s+(?:is\s+)?(?:listening|open)\b"
+    r"|\bnone\s+(?:are|is)\s+(?:listening|open)\b", re.IGNORECASE)
+
+
 def _truth_replay_reasons(name: str, text: str, reading: tuple[int, str] | None,
                           status: str) -> list[str]:
     """A statement about this machine against the machine's own reading."""
@@ -1126,19 +1135,38 @@ def _truth_replay_reasons(name: str, text: str, reading: tuple[int, str] | None,
                 port = parts[4].rsplit(":", 1)[1]
                 if port.isdigit():
                     ports.add(int(port))
-        if rc != 0 or not out.strip():
+        # A failed read is unreadable; a successful one that printed nothing
+        # is a reading of zero listeners; one that printed lines no port can
+        # be read from is unreadable, never zero.
+        if rc != 0:
             return ["the listening sockets could not be read — this answer "
                     "could not be checked"]
+        if out.strip() and not ports:
+            return [f"the listening sockets reading has "
+                    f"{len(out.strip().splitlines())} line(s) and no port "
+                    f"could be read from them — this answer could not be "
+                    f"checked"]
         stated = {int(p) for pair in re.findall(
             r"(?:\bports?\s+|(?:\d{1,3}(?:\.\d{1,3}){3}|\*|localhost|\]):)"
             r"(\d{1,5})\b|\b(\d{1,5})/(?:tcp|udp)\b", text, re.IGNORECASE)
             for p in pair if p}
-        if not stated:
-            return ["the answer names no listening port; this machine has "
-                    f"{len(ports)}"]
-        wrong = sorted(stated - ports)
-        return ([f"the answer names port(s) {wrong} that nothing listens on"]
-                if wrong else [])
+        if stated:
+            wrong = sorted(stated - ports)
+            if not wrong:
+                return []
+            return [f"the answer names port(s) {wrong} that nothing listens "
+                    f"on" + ("" if ports else
+                             ": this machine has no listening socket")]
+        says_none = bool(_NO_LISTENERS_RE.search(text or ""))
+        if not ports:
+            return [] if says_none else [
+                "the answer does not say that nothing listens; this machine "
+                "has no listening socket"]
+        if says_none:
+            return [f"the answer says nothing listens; this machine has "
+                    f"{len(ports)} listening port(s)"]
+        return ["the answer names no listening port; this machine has "
+                f"{len(ports)}"]
     # The three on/off states: the reading, then what the answer says.
     states = {
         "secure_boot": (r"\b(?:disabled|not\s+enabled|isn'?t\s+enabled|"

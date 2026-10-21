@@ -794,6 +794,27 @@ class TheTruthReadings(unittest.TestCase):
         self.assertIn("names no listening port", self._truth(
             "listening_ports", "Some ports are open.", ss)[0])
 
+    def test_zero_listeners_is_a_reading_and_a_failed_read_is_not(self):
+        none = (0, "")
+        for text in ("There are no listening network ports.",
+                     "Nothing is listening on the network.",
+                     "There aren’t any open ports."):
+            with self.subTest(text=text):
+                self.assertEqual(self._truth("listening_ports", text, none),
+                                 [])
+        self.assertIn("nothing listens on", self._truth(
+            "listening_ports", "Port 22 is open.", none)[0])
+        self.assertIn("does not say that nothing listens", self._truth(
+            "listening_ports", "Let me check that for you.", none)[0])
+        self.assertIn("could not be read", self._truth(
+            "listening_ports", "There are no open ports.", (1, ""))[0])
+        self.assertIn("no port could be read", self._truth(
+            "listening_ports", "There are no open ports.",
+            (0, "ss: unexpected output\n"))[0])
+        ss = (0, "tcp LISTEN 0 4096 127.0.0.1:8089 0.0.0.0:*\n")
+        self.assertIn("says nothing listens", self._truth(
+            "listening_ports", "There are no open ports.", ss)[0])
+
     def test_os_version_and_loaded_model(self):
         release = (0, 'NAME="InterGenOS"\nVERSION_ID=r001.3\n')
         self.assertEqual(self._truth("os_version",
