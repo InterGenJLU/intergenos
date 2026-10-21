@@ -70,6 +70,16 @@ run_step() {
     return "$result"
 }
 
+# Capture only the command output; run_step logs its own progress lines.
+run_logged_command() {
+    local -a statuses
+    "$@" 2>&1 | tee -a "$LOGFILE" >&2
+    statuses=("${PIPESTATUS[@]}")
+    local result="${statuses[0]}"
+    [ "$result" -ne 0 ] || result="${statuses[1]}"
+    return "$result"
+}
+
 log "starting (PKM package: ${PKM_PACKAGE_NAME:-?} ${PKM_PACKAGE_VERSION:-?})"
 
 # The signing helper, for the one passphrase entry this install asks for (step
@@ -86,7 +96,7 @@ fi
 
 # Step 1: hardware check
 if [ -x "$NVIDIA_HOOK_DIR/check-hardware.sh" ]; then
-    if ! run_step "Checking NVIDIA hardware" "$NVIDIA_HOOK_DIR/check-hardware.sh" 2>&1 | tee -a "$LOGFILE" >&2; then
+    if ! run_step "Checking NVIDIA hardware" run_logged_command "$NVIDIA_HOOK_DIR/check-hardware.sh"; then
         log "FATAL: hardware check failed — no Turing+ NVIDIA GPU detected on this system"
         log "Aborting module rebuild. nouveau (already in kernel) handles pre-Turing NVIDIA hardware."
         log "If this is wrong (e.g. lspci returned stale data), re-run $NVIDIA_HOOK_DIR/rebuild-modules manually."
@@ -199,10 +209,10 @@ fi
 if [ -n "${PKM_PACKAGE_ROOT:-}" ] && [ "$PKM_PACKAGE_ROOT" = "/" ]; then
     if [ -x "$KERNEL_HOOK" ]; then
         log "triggering UKI rebuild via $KERNEL_HOOK so cmdline.d/40-nvidia.conf takes effect"
-        if run_step "Rebuilding the boot image for $KVER" "$KERNEL_HOOK" 2>&1 | tee -a "$LOGFILE" >&2; then
+        if run_step "Rebuilding the boot image for $KVER" run_logged_command "$KERNEL_HOOK"; then
             log "UKI rebuild complete — nvidia cmdline params active on next boot"
         else
-            KERNEL_HOOK_RC=${PIPESTATUS[0]}
+            KERNEL_HOOK_RC=$?
             log "REFUSED: the boot image was NOT rebuilt (the kernel hook exited $KERNEL_HOOK_RC; its reason"
             log "  is above), so the driver's cmdline is not in the image this machine boots and the"
             log "  outputs wired to the NVIDIA GPU would stay dark. Do not reboot for the driver yet."

@@ -115,6 +115,21 @@ class TestTheDriverPostInstall:
         assert proc.returncode == 0, out
         assert rebuild_ran.exists() and kernel_ran.exists()
 
+    def test_each_step_line_is_logged_once(self, tmp_path):
+        proc, _, kernel_ran = fire(tmp_path)
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        assert kernel_ran.exists()
+        console = proc.stdout + proc.stderr
+        log = (tmp_path / "nvidia-postinstall.log").read_text()
+        steps = [line for line in console.splitlines() if "(elapsed " in line]
+        assert len(steps) >= 6, console
+        for step in steps:
+            assert console.splitlines().count(step) == 1, step
+            assert sum(line.endswith(step) for line in log.splitlines()) == 1, log
+        child_line = "[linux-kernel:post-install] stand-in, exit 0"
+        assert console.splitlines().count(child_line) == 1
+        assert log.splitlines().count(child_line) == 1
+
     def test_a_refused_module_signing_stops_before_the_boot_image(self, tmp_path):
         proc, _, kernel_ran = fire(tmp_path, rebuild_rc=77)
         assert proc.returncode == 77, proc.stdout + proc.stderr
