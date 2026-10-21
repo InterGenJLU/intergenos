@@ -1699,6 +1699,19 @@ class FailedCommandRuleTests(unittest.TestCase):
         self.assertEqual(result.source, "llm_tools")
         self.assertNotIn(FAILED_RULE, prompt)
 
+    def test_a_successful_command_printing_the_mark_last_gets_no_rule(self):
+        # Where the mark sits is not proof of a failure: a command that
+        # succeeded can print it last itself (here, the last line of a saved
+        # transcript). The result's own verdict decides.
+        result, prompt = _route_summary(
+            PRINTER_CALL,
+            ToolResult(call_id="", name="run_command", success=True,
+                       executed=True,
+                       content="saved transcript, last line:\n[exit code: 1]"),
+            "how does the saved transcript end?")
+        self.assertEqual(result.source, "llm_tools")
+        self.assertNotIn(FAILED_RULE, prompt)
+
 
 if __name__ == "__main__":
     unittest.main()

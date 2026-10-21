@@ -5663,6 +5663,7 @@ class ConversationRouter(RouterInterface):
                 display, tool,
                 tool_result.model_summary or tool_result.content,
                 raw_output=tool_result.content,
+                success=tool_result.success,
             )
             used_llm = True
         self._append_history(display, response)
@@ -6084,6 +6085,7 @@ class ConversationRouter(RouterInterface):
                         user_input, match.tool_name,
                         tool_result.model_summary or tool_result.content,
                         raw_output=tool_result.content,
+                        success=tool_result.success,
                     )
                     used_llm = True
                 # M2a dbus-path fix: persist this fast-path tool turn to history
@@ -6256,6 +6258,7 @@ class ConversationRouter(RouterInterface):
                     user_input, "run_command",
                     tool_result.model_summary or tool_result.content,
                     raw_output=tool_result.content,
+                    success=tool_result.success,
                 )
                 used_llm = True
             # M2a dbus-path fix: persist this fast-path tool turn to history
@@ -6315,6 +6318,7 @@ class ConversationRouter(RouterInterface):
                         user_input, match.tool_name,
                         tool_result.model_summary or tool_result.content,
                         raw_output=tool_result.content,
+                        success=tool_result.success,
                     )
                     used_llm = True
                 # M2a dbus-path fix: persist this fast-path tool turn to history
@@ -6537,6 +6541,7 @@ class ConversationRouter(RouterInterface):
                         tool_results[0].name,
                         tool_results[0].model_summary or tool_results[0].content,
                         raw_output=tool_results[0].content,
+                        success=tool_results[0].success,
                     )
                     # This branch runs the fast-path summarizer, so it inherits
                     # that lane's screen: when the synthesis is rejected the
@@ -8817,7 +8822,8 @@ class ConversationRouter(RouterInterface):
 
     def _synthesize_tool_result(self, user_input: str, tool_name: str,
                                 tool_output: str,
-                                raw_output: str | None = None) -> str:
+                                raw_output: str | None = None,
+                                success: bool | None = None) -> str:
         """Use LLM to synthesize a natural response from tool output.
 
         THE SUMMARIZER IS NOT TRUSTED BLIND. This is the fast-path lane's
@@ -8837,7 +8843,8 @@ class ConversationRouter(RouterInterface):
         ``raw_output`` is that tool text. It is a separate parameter because
         ``tool_output`` may be the model-facing SUMMARY (``model_summary``),
         while what a person should be shown when synthesis fails is the tool's
-        real content.
+        real content. ``success`` is the result's own verdict, passed by every
+        caller that holds the result; None when there is none to pass.
 
         NO SECOND LADDER AND NO SECOND PREDICATE. The retry lives inside
         :meth:`LLMRouter.chat`, which has already spent it by the time this
@@ -8861,12 +8868,14 @@ class ConversationRouter(RouterInterface):
         # tells the person nothing they can use. run_command marks a failure
         # "[exit code: N]"; on that mark the instruction asks for the meaning and
         # the next step, and rules out the exit status as the answer. The mark is
-        # read on that tool's result only, where it ends the output: a web page
-        # or a command's own output can quote the same text, and a search that
-        # succeeded over a page quoting "[exit code: 1]" was told its command had
-        # failed (reproduced through the real registry and a local page).
-        if tool_name == "run_command" and self._FAILED_EXIT_RE.search(
-                raw_output if raw_output is not None else tool_output or ""):
+        # read on that tool's result only, where it ends the output, and never
+        # on a result whose own verdict is success: a web page or a command's
+        # own output can quote the same text, and a search that succeeded over
+        # a page quoting "[exit code: 1]" was told its command had failed
+        # (reproduced through the real registry and a local page).
+        if (tool_name == "run_command" and success is not True
+                and self._FAILED_EXIT_RE.search(
+                    raw_output if raw_output is not None else tool_output or "")):
             instruction += self._FAILED_RESULT_RULE
         synthesis_prompt = (
             f"The user asked: \"{user_input}\"\n\n"
