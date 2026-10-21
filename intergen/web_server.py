@@ -3170,6 +3170,47 @@ class WebServer:
                 "verdict": _cap_outcome, "marker": _cap_marker,
                 "source": route_result.source})
 
+        # Conversational scope boundary — web-path parity with the router's
+        # _try_llm_freeform, which runs _screen_and_correct_refusal after the
+        # claim screens. A benign ask the model declined ("I can't help with
+        # that right now") is regenerated once off-thread, else replaced by the
+        # honest scope steer. Gated to a general turn as the router gates it: a
+        # safety-classified turn should refuse, and its refusal is left alone.
+        # The turn's type is classified from this turn's own message, not read
+        # from the router, which other connections share, and inside this
+        # connection's binding like every router call after route().
+        if self._bound(ctx, self._router._classify_query_type,
+                       user_msg) == "general":
+            _ref_verdict, _ref_phrase = safety.screen_general_refusal(
+                full_response)
+            if _ref_verdict == "clean":
+                glass.emit("decision", "refusal_screen", detail={
+                    "verdict": "clean", "phrase": None,
+                    "source": route_result.source})
+            else:
+                _ref_ctx = glass.bind_context()
+                _ref_corrected = await loop.run_in_executor(
+                    None,
+                    lambda: _ref_ctx.run(
+                        self._bound, ctx,
+                        self._router._regenerate_without_refusal, messages))
+                if _ref_corrected is not None:
+                    full_response = _ref_corrected
+                    _ref_outcome = "refusal_regenerated"
+                    kept_answer_reasons.append(
+                        "the answer declined a question it can answer, so it "
+                        "was written again")
+                else:
+                    full_response = safety.honest_scope_steer()
+                    _ref_outcome = "refusal_regen_failed_steer"
+                    kept_answer_reasons.append(
+                        "the answer declined a question it can answer and "
+                        "could not be written again, so a plain statement "
+                        "replaced it")
+                glass.emit("decision", "refusal_screen", detail={
+                    "verdict": _ref_outcome, "phrase": _ref_phrase,
+                    "source": route_result.source})
+
         # M3(i): a prefixed "yes" over a live offer routed this tail; route() left
         # a one-line reminder on the result to land AFTER the answer.
         if getattr(route_result, "reoffer_reminder", None):

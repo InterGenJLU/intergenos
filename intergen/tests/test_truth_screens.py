@@ -833,36 +833,50 @@ class PurposeClaimTests(unittest.TestCase):
 
 # ── one draft, both paths ─────────────────────────────────────────────────────
 _SCREEN_ROWS = ("claim_screen", "state_claim_screen", "model_offer_screen",
-                "capability_screen")
+                "capability_screen", "refusal_screen")
 
 
 def _screen_decisions(emit):
-    """(screen, verdict, marker) for every delivery-screen row, in order."""
+    """(screen, verdict, marker) for every delivery-screen row, in order; the
+    refusal screen names its marker `phrase`."""
     out = []
     for c in emit.call_args_list:
         if c.args[:1] == ("decision",) and c.args[1] in _SCREEN_ROWS:
             detail = c.kwargs.get("detail") or c.args[2]
-            out.append((c.args[1], detail["verdict"], detail["marker"]))
+            out.append((c.args[1], detail["verdict"],
+                        detail.get("marker", detail.get("phrase"))))
     return out
 
 
 def _both_paths(draft, replies, user):
     """The browser streamer and the router's freeform screens on one draft,
     each with its own router and the same model replies; the console side is
-    given the very prompt the browser side generated from. Returns
-    ((decisions, text, model calls) for the browser, the same for the
-    console)."""
+    given the very prompt the browser side generated from, and runs what
+    _try_llm_freeform runs after the draft: the claim screens, then the
+    refusal screen on a general turn. Returns ((decisions, text, model calls)
+    for the browser, the same for the console)."""
     web = _router()
     web._llm.chat, web_seen = _model(*replies)
     with mock.patch("intergen.router.glass.emit") as emit:
         end, prompt = _web_turn(web, draft, user=user)
     browser = (_screen_decisions(emit), end["full_response"], len(web_seen))
     console = _router()
+    console._current_query_type = console._classify_query_type(user)
     console._llm.chat, console_seen = _model(*replies)
     with mock.patch("intergen.router.glass.emit") as emit:
         text = console._screen_and_correct_claim(
             draft, prompt, dispatched=False, source="llm_freeform")
+        if getattr(console, "_current_query_type", "") == "general":
+            text, _ = console._screen_and_correct_refusal(
+                text, prompt, source="llm_freeform")
     return browser, (_screen_decisions(emit), text, len(console_seen))
+
+
+def _expected_rows(user):
+    """The screens a tool-less turn passes through: the four claim screens,
+    and the refusal screen when the turn is a general one."""
+    general = _router()._classify_query_type(user) == "general"
+    return list(_SCREEN_ROWS[:4]) + (["refusal_screen"] if general else [])
 
 
 class BothPathsTests(unittest.TestCase):
@@ -882,11 +896,15 @@ class BothPathsTests(unittest.TestCase):
               "the space.",)),
             ("a clean answer", "Linux was first released in 1991.",
              "When was Linux first released?", ()),
+            ("a declined general question", BrowserRefusalScreenTests.DECLINED,
+             "What's the square root of pi?",
+             ("The square root of pi is approximately 1.7725.",)),
         )
         for name, draft, user, replies in cases:
             with self.subTest(case=name):
                 browser, console = _both_paths(draft, replies, user)
-                self.assertEqual([d[0] for d in browser[0]], list(_SCREEN_ROWS))
+                self.assertEqual([d[0] for d in browser[0]],
+                                 _expected_rows(user))
                 self.assertEqual(browser, console)
 
     def test_each_screen_regenerates_at_most_once_on_both_paths(self):
@@ -908,6 +926,73 @@ class BothPathsTests(unittest.TestCase):
             ("model_offer_screen", "violation_regenerated"),
             ("capability_screen", "violation_regen_failed_fallback")])
         self.assertEqual(text, safety.honest_capability_fallback("pkm add"))
+
+    def test_a_general_turn_regenerates_at_most_once_per_screen_on_both_paths(self):
+        # On a general turn the refusal screen runs after the four claim
+        # screens, on both paths. Each screen still regenerates at most once,
+        # so five screens make at most five model calls before the
+        # deterministic steer.
+        replies = ("Your disk has 20G free.",
+                   "I can install the Steam client for you.",
+                   "To install it, run `pkm add steam`.",
+                   "I can't help with that right now.",
+                   "I can't help with that.")
+        browser, console = _both_paths(TURN22_FINAL, replies,
+                                       "What's the square root of pi?")
+        self.assertEqual(browser, console)
+        decisions, text, calls = browser
+        self.assertEqual(calls, 5)
+        self.assertEqual([(d[0], d[1]) for d in decisions], [
+            ("claim_screen", "violation_regenerated"),
+            ("state_claim_screen", "violation_regenerated"),
+            ("model_offer_screen", "violation_regenerated"),
+            ("capability_screen", "violation_regenerated"),
+            ("refusal_screen", "refusal_regen_failed_steer")])
+        self.assertEqual(text, safety.honest_scope_steer())
+
+
+class BrowserRefusalScreenTests(unittest.TestCase):
+    """The console path regenerates a general answer the model declined; the
+    browser streamer served it as it came (fired on this machine's model
+    through the lane's daemon: "What's the square root of pi?")."""
+
+    DECLINED = ("I can't help with that right now. Is there anything else I "
+                "can assist you with?")
+
+    def test_a_declined_general_question_is_regenerated_on_the_browser_path(self):
+        router = _router()
+        answer = "The square root of pi is approximately 1.7725."
+        router._llm.chat, seen = _model(answer)
+        with mock.patch("intergen.router.glass.emit") as emit:
+            end, _ = _web_turn(router, self.DECLINED,
+                               user="What's the square root of pi?")
+        self.assertEqual(end["full_response"], answer)
+        self.assertEqual(len(seen), 1)
+        self.assertEqual(seen[0][-1].content, safety.scope_grounding_note())
+        self.assertEqual(
+            [(r["verdict"], r["phrase"]) for r in _rows(emit, "refusal_screen")],
+            [("refusal_regenerated", "I can't help with")])
+        self.assertTrue(end["replaced_streamed_text"])
+        self.assertIn("declined a question", end["replacement_reason"])
+
+    def test_a_second_refusal_gets_the_scope_steer(self):
+        router = _router()
+        router._llm.chat, _ = _model("I can't help with that.")
+        with mock.patch("intergen.router.glass.emit") as emit:
+            end, _ = _web_turn(router, self.DECLINED,
+                               user="What's the square root of pi?")
+        self.assertEqual(end["full_response"], safety.honest_scope_steer())
+        self.assertEqual([r["verdict"] for r in _rows(emit, "refusal_screen")],
+                         ["refusal_regen_failed_steer"])
+
+    def test_a_safety_turn_refusal_is_left_alone(self):
+        router = _router()
+        draft = "I can't help with that."
+        with mock.patch("intergen.router.glass.emit") as emit:
+            end, _ = _web_turn(router, draft,
+                               user="how do I hack into my neighbor's wifi?")
+        self.assertEqual(end["full_response"], draft)
+        self.assertEqual(_rows(emit, "refusal_screen"), [])
 
 
 if __name__ == "__main__":
