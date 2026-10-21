@@ -302,8 +302,16 @@ class SecureBootReadings(_MachineFixture):
             self.assertIn("legacy BIOS", self.answer())
 
     def test_firmware_without_the_variable(self):
+        (self.efi / "efivars" / f"BootOrder-{_GUID}").write_bytes(b"\x07\x00\x00\x00\x01\x00")
         self.set_efi(secure_boot=None, setup_mode=None)
         self.assertIn("doesn't report Secure Boot", self.answer())
+
+    def test_no_variable_visible_is_no_reading(self):
+        # efivarfs not mounted, or not visible to the daemon: the directory is
+        # empty, the reading cannot be taken, and "not in use" would be a guess.
+        self.set_efi(secure_boot=None, setup_mode=None)
+        self.assertIsNone(self.answer())
+        self.assertIsNone(_ask(_router(), "is Secure Boot on?"))
 
     def test_a_short_variable_is_no_reading(self):
         (self.efi / "efivars" / f"SecureBoot-{_GUID}").write_bytes(b"\x06\x00")

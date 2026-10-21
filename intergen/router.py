@@ -2401,6 +2401,15 @@ def _read_efi_flag(name: str) -> "bool | None":
     return raw[4] == 1
 
 
+def _efi_variables_visible() -> bool:
+    """True when efivarfs shows any variable at all; a UEFI firmware always
+    defines some (BootOrder, the boot entries)."""
+    try:
+        return any((_EFI_DIR / "efivars").iterdir())
+    except OSError:
+        return False
+
+
 def _posture_secure_boot() -> "str | None":
     """Secure Boot's state from the firmware's own variables."""
     if not _EFI_DIR.is_dir():
@@ -2409,6 +2418,11 @@ def _posture_secure_boot() -> "str | None":
     try:
         enabled = _read_efi_flag("SecureBoot")
     except FileNotFoundError:
+        # No variable at all means efivarfs is not mounted (or not visible
+        # here): the reading cannot be taken, which is not a firmware that
+        # defines no Secure Boot variable.
+        if not _efi_variables_visible():
+            return None
         return ("This machine's firmware doesn't report Secure Boot at all, so it "
                 "is not in use.")
     if enabled is None:
