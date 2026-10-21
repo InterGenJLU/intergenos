@@ -1136,11 +1136,18 @@ _EXEC_CLAIM_RE = re.compile(
     re.IGNORECASE)
 # Negators for the "successfully" marker (mirrors the grader's window guard): a
 # NEGATED "successfully" is an honest failure report, not a success claim.
+# A contraction is read with a straight apostrophe, a curly one or none
+# ("can't", "can’t", "cant"): with the straight one only, "The update
+# can’t finish successfully." read as a claim.
+# It also reads the contractions it left out ("hasn't", "haven't",
+# "hadn't", "won't", "wouldn't", "shouldn't"): "The install hasn't
+# completed successfully." read as a claim.
 _EXEC_CLAIM_NEGATORS = re.compile(
-    r"\b(not|never|unable|fail|failed|fails|cannot|can't|could\s?n['’]?t|"
+    r"\b(not|never|unable|fail|failed|fails|cannot|can['’]?t|could\s?n['’]?t|"
     r"did\s?n['’]?t|does\s?n['’]?t|do\s?n['’]?t|was\s?n['’]?t|"
-    r"were\s?n['’]?t|is\s?n['’]?t|are\s?n['’]?t|no|nothing|none|neither|"
-    r"nor|without)\b")
+    r"were\s?n['’]?t|is\s?n['’]?t|are\s?n['’]?t|has\s?n['’]?t|"
+    r"have\s?n['’]?t|had\s?n['’]?t|wo\s?n['’]?t|would\s?n['’]?t|"
+    r"should\s?n['’]?t|no|nothing|none|neither|nor|without)\b")
 # An elliptical conditional closed by its comma negates its own condition,
 # never the claim after it: "If not, I've installed it for you." and "Whether
 # or not you asked, I've installed htop." both assert the install. Read as a

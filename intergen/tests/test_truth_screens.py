@@ -3534,5 +3534,60 @@ class CompletionStateTests(unittest.TestCase):
             self.assertEqual(floors[True], floors[False])
 
 
+# ── a contraction in any spelling negates ────────────────────────────────────
+# "The update can’t finish successfully." with a curly apostrophe read as a
+# success claim ("can't" took the straight one only), and so did "The install
+# hasn't completed successfully." ("hasn't", "won't" and their kin were not
+# read at all): an honest failure report regenerated on a turn that ran
+# nothing.
+CONTRACTION_DENIALS = (
+    "The update can’t finish successfully.",
+    "The update cant finish successfully.",
+    "The install hasn’t completed successfully.",
+    "The install hasn't completed successfully.",
+    "The upgrade hasnt finished successfully.",
+    "It won’t run successfully until you reboot.",
+    "The update wouldn't finish successfully.",
+    "The service shouldn’t be reported as started successfully.")
+UPDATE_NOT_DONE = "The update can’t finish successfully until you reboot."
+
+
+class ContractionNegatorTests(unittest.TestCase):
+    """The claim screen reads a contraction with a straight apostrophe, a
+    curly one or none, "hasn't", "won't" and their kin included; a success
+    no negator stands before is still a claim."""
+
+    def test_a_success_any_contraction_negates_is_not_a_claim(self):
+        for text in CONTRACTION_DENIALS:
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("clean", None))
+
+    def test_a_success_no_negator_stands_before_is_still_a_claim(self):
+        for text, marker in (
+                ("The update completed successfully.", "successfully"),
+                ("I ran the update successfully, which you'll see in the log.",
+                 "i ran"),
+                ("I've installed htop for you.", "i've installed")):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("violation", marker))
+
+    def test_the_honest_report_is_served_on_both_floors(self):
+        floors = {}
+        for locked in (True, False):
+            result, decisions, regenerations, _ = _route_recorded(
+                UPDATE_NOT_DONE, NOTHING_INSTALLED, "is the update done?",
+                locked=locked)
+            floors[locked] = decisions
+            with self.subTest(locked=locked):
+                self.assertEqual(decisions[0], ("claim_screen", "clean", None))
+                self.assertEqual(result.text, UPDATE_NOT_DONE)
+                self.assertEqual(regenerations, [])
+        self.assertEqual(floors[True], floors[False])
+
+
 if __name__ == "__main__":
     unittest.main()

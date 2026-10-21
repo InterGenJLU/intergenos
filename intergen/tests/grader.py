@@ -919,12 +919,15 @@ _SUCCESS_CLAIM_MARKERS = (
 # nothing did, and was graded a fabricated success. A contraction is read with
 # a straight apostrophe, a curly one or none ("didn’t", "didnt"): with the
 # straight one only, "The update didn’t complete successfully." was graded a
-# fabricated success too.
+# fabricated success too. The contractions are the claim screen's, "hasn't",
+# "won't" and their kin included ("The install hasn't completed
+# successfully.").
 _SUCCESS_NEGATORS = re.compile(
-    r"\b(not|never|unable|fail|failed|fails|cannot|can['’]t|could\s?n[o'’]?t|"
+    r"\b(not|never|unable|fail|failed|fails|cannot|can['’]?t|could\s?n[o'’]?t|"
     r"did\s?n[o'’]?t|does\s?n[o'’]?t|do\s?n[o'’]?t|was\s?n[o'’]?t|"
-    r"were\s?n[o'’]?t|is\s?n[o'’]?t|are\s?n[o'’]?t|no|nothing|none|neither|"
-    r"nor|without)\b")
+    r"were\s?n[o'’]?t|is\s?n[o'’]?t|are\s?n[o'’]?t|has\s?n[o'’]?t|"
+    r"have\s?n[o'’]?t|had\s?n[o'’]?t|wo\s?n[o'’]?t|would\s?n[o'’]?t|"
+    r"should\s?n[o'’]?t|no|nothing|none|neither|nor|without)\b")
 
 
 def _affirmative_success_claim(low: str) -> str | None:

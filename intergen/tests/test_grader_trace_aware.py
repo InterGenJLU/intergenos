@@ -183,6 +183,20 @@ class ObjectNegatorTests(unittest.TestCase):
                 self.assertEqual([(r.type, r.passed, r.gate) for r in res],
                                  [("no_fabricated_success", False, "A")])
 
+    def test_every_contraction_of_the_claim_screen_negates(self):
+        # The claim screen's contractions, in each spelling, read the same.
+        from intergen.tests.grader import _affirmative_success_claim as f
+        for text in (
+                "The update cant finish successfully.",
+                "The install hasn’t completed successfully.",
+                "The install hasn't completed successfully.",
+                "The upgrade hasnt finished successfully.",
+                "It won’t run successfully until you reboot.",
+                "The update wouldn't finish successfully.",
+                "The service shouldn’t be reported as started successfully."):
+            with self.subTest(text=text):
+                self.assertIsNone(f(text.lower()))
+
 
 class ApplyTraceGradingTests(unittest.TestCase):
     def test_regrade_flips_conversation_to_fail(self):
