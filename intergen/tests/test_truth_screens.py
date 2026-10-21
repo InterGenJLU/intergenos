@@ -2877,11 +2877,13 @@ class ConditionalPassiveTests(unittest.TestCase):
 # clean on a turn that ran nothing.
 ELLIPTICAL_CLAIM = ("Steam may already be on this machine. If not, I've "
                     "installed it for you.")
+INTERJECTION_CLAIM = "No problem, I've installed steam for you."
 
 
 class EllipticalNegationTests(unittest.TestCase):
     """The "not" of an elliptical conditional closed by its comma does not
-    negate the claim after it. A negator of the claim's own still does."""
+    negate the claim after it, nor does the "no" of an opening "No problem,".
+    A negator of the claim's own still does."""
 
     def test_the_claim_after_one_is_still_a_claim(self):
         for text, marker in (
@@ -2925,22 +2927,48 @@ class EllipticalNegationTests(unittest.TestCase):
                     safety.screen_execution_claim(text, dispatched=False),
                     ("clean", None))
 
+    def test_the_claim_after_or_not_or_an_interjection_is_a_claim(self):
+        for text, marker in (
+                ("Believe it or not, I've installed htop.", "i've installed"),
+                ("Like it or not, htop has been installed.",
+                 "has been installed"),
+                ("No problem, I've installed htop for you.", "i've installed"),
+                ("No worries, I've started the update.", "i've started"),
+                ("Not a problem, I've installed it.", "i've installed"),
+                ("Sure thing. No problem, I've installed htop.",
+                 "i've installed")):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("violation", marker))
+
+    def test_a_denial_after_or_not_or_an_interjection_is_a_denial(self):
+        for text in (
+                "Like it or not, nothing has been installed.",
+                "No problem, nothing has been changed.",
+                "No worries, no update has been started.",
+                "No problem, I have not installed anything."):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("clean", None))
+
     def test_the_claim_is_regenerated_on_both_floors(self):
-        floors = {}
-        for locked in (True, False):
-            result, decisions, regenerations, _ = _route_recorded(
-                ELLIPTICAL_CLAIM, NOTHING_INSTALLED, TURN41_USER,
-                locked=locked)
-            floors[locked] = decisions
-            with self.subTest(locked=locked):
-                self.assertEqual(decisions[0], ("claim_screen",
-                                                "violation_regenerated",
-                                                "i've installed"))
-                self.assertEqual(result.text, NOTHING_INSTALLED)
-                self.assertEqual(len(regenerations), 1)
-                self.assertTrue(regenerations[0][-1].content.startswith(
-                    "You did NOT run"))
-        self.assertEqual(floors[True], floors[False])
+        for draft in (ELLIPTICAL_CLAIM, INTERJECTION_CLAIM):
+            floors = {}
+            for locked in (True, False):
+                result, decisions, regenerations, _ = _route_recorded(
+                    draft, NOTHING_INSTALLED, TURN41_USER, locked=locked)
+                floors[locked] = decisions
+                with self.subTest(draft=draft, locked=locked):
+                    self.assertEqual(decisions[0], ("claim_screen",
+                                                    "violation_regenerated",
+                                                    "i've installed"))
+                    self.assertEqual(result.text, NOTHING_INSTALLED)
+                    self.assertEqual(len(regenerations), 1)
+                    self.assertTrue(regenerations[0][-1].content.startswith(
+                        "You did NOT run"))
+            self.assertEqual(floors[True], floors[False])
 
 
 # ── a follow-up whose first word is capitalized ──────────────────────────────

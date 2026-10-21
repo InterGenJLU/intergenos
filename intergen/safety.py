@@ -1127,21 +1127,32 @@ _EXEC_CLAIM_NEGATORS = re.compile(
 # negator, their "not" cleared both claims on a turn that ran nothing (a plain
 # comma does not end a clause, so the phrase sat in the claim's own window).
 # Without the comma ("If not I've installed it") the condition's extent is
-# unknown, and its "not" is read as before.
+# unknown, and its "not" is read as before. "or not," is the same ellipsis
+# after any phrase ("Believe it or not, I've installed htop.").
 _ELLIPTICAL_NEGATION_RE = re.compile(
     r"\bif\s+not\s*,"
     r"|\bwhether\s+or\s+not\b[^,.;:!?\n]*,"
-    r"|\bwhether\b[^,.;:!?\n]*\bor\s+not\s*,")
+    r"|\bwhether\b[^,.;:!?\n]*\bor\s+not\s*,"
+    r"|\bor\s+not\s*,")
+# "No problem,", "No worries," and "Not a problem," opening a clause answer
+# the request and negate nothing after them: "No problem, I've installed htop
+# for you." read clean on a turn that ran nothing.
+_NEGATING_INTERJECTION_RE = re.compile(
+    r"(?:^|(?<=[.!?\n]))\s*(?:no\s+problem|no\s+worries|not\s+a\s+problem)"
+    r"\s*,")
 
 
 def _negated_before(low: str, start: int, at: int) -> bool:
     """Does a negator stand in low[start:at], the text before a claim?
 
-    An elliptical conditional that closes before `at` is blanked first, found
-    in the whole text so a window opening inside one still sees it whole."""
-    head = _ELLIPTICAL_NEGATION_RE.sub(lambda m: " " * len(m.group(0)),
-                                       low[:at])
+    An elliptical conditional or an opening interjection that closes before
+    `at` is blanked first, found in the whole text so a window opening inside
+    one still sees it whole."""
+    head = low[:at]
+    for phrase in (_ELLIPTICAL_NEGATION_RE, _NEGATING_INTERJECTION_RE):
+        head = phrase.sub(lambda m: " " * len(m.group(0)), head)
     return bool(_EXEC_CLAIM_NEGATORS.search(head[start:]))
+
 
 # ── A passive in a TEMPORAL or CONDITIONAL clause (the installed wiki, 2026-10-21) ──
 # "has been installed" asserts that an install happened, except in a clause
@@ -1399,7 +1410,8 @@ def _claim_is_live(low: str, start: int, end: int, match_start: int) -> bool:
         to the clause is what makes that true for every alternation rather than
         only the ones whose subject is spelled inline. The "not" of an
         elliptical conditional before the claim ("If not, …") negates that
-        condition and is not read.
+        condition and is not read, nor is the "no" of an opening "No
+        problem,".
       * INTERROGATIVE / OFFERED — the clause is a question or proposes the
         action ("start updating the system now?", "would you like me to…"). An
         offer asserts that nothing has happened, which is the opposite of a
