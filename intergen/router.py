@@ -4230,11 +4230,11 @@ class ConversationRouter(RouterInterface):
                                    "semantic"]})
 
         # 2B-LANE (operator-found live, 2026-07-09): a CURRENT external-live-data ask
-        # ("dow jones right now", "weather right now") on the locked floor gets an
+        # ("dow jones right now", "weather right now") on every floor gets an
         # honest web-search offer instead of a fabricated/denied freeform answer.
         # Pre-model, after the capability intercepts (it is not a capability
-        # question); the high-precision gate + locked-only scope keep system asks,
-        # non-live asks, and the NATIVE path out.
+        # question); the high-precision gate and its fail-outs keep system asks
+        # and non-live asks out.
         _cd = (None if forget_in_compound or web_clauses
                else self._try_current_data_offer(original_input, t0))
         if _cd is not None:
@@ -4957,9 +4957,12 @@ class ConversationRouter(RouterInterface):
         live data (market/stock/crypto/weather/news) on the LOCKED 2B floor fell to
         freeform, where the model FABRICATED a figure or falsely denied real-time
         access. Meet it with an HONEST offer to web-search (grounded on the live
-        registry) instead of letting the model invent or disown. Scoped to the
-        LOCKED floor: the NATIVE path keeps its model-driven tool decision (no 9B
-        rewrite).
+        registry) instead of letting the model invent or disown. On EVERY floor: the
+        native floor's model, asked the same question, invents the figure too when it
+        decides not to search, on a turn with no tool call to hold or audit; and its
+        own decision to search, which this offer once left alone, is now held and
+        offered rather than run (tool_registry, the section above CallOrigin), so
+        nothing on the native floor needs the offer kept away.
 
         GAP-B breadth (2026-07-09 follow-on, authored against the recorded r57 residual
         corpus): the gate is a listed SUBJECT or a CURRENCY conversion or an IMPLICIT
@@ -4972,8 +4975,6 @@ class ConversationRouter(RouterInterface):
         task over supplied text, a sum over a stated price, a machine-state question
         and a past-dated result.
         Returns a handled RouteResult, or None to route on."""
-        if not getattr(self, "_lock_dispatch", True):
-            return None  # NATIVE keeps its model-driven web decision — no 9B rewrite
         text = user_input or ""
         # Fail OUT: the model answers these honestly itself — an offer would wrongly
         # imply it can't (static knowledge / recommendation / explicit dispatch), or
