@@ -1469,6 +1469,12 @@ def _distilled_web_query(text: str) -> str:
 
 def _web_page_details(output: str) -> tuple[str, str] | None:
     """Read source and page fields from the producer's JSON frame."""
+    if output.startswith("<UNTRUSTED-INGRESS "):
+        from intergen.spotlighting import extract_first_wrapped_region
+        wrapped = extract_first_wrapped_region(output)
+        if wrapped is None or wrapped[1] != "web_search":
+            return None
+        output = wrapped[2]
     prefix = "Web search evidence v1: "
     if not output.startswith(prefix):
         return None
@@ -1485,6 +1491,12 @@ def _web_page_details(output: str) -> tuple[str, str] | None:
 
 def _web_search_snippets(output: str) -> str:
     """Read only snippet fields from the producer's JSON frame."""
+    if output.startswith("<UNTRUSTED-INGRESS "):
+        from intergen.spotlighting import extract_first_wrapped_region
+        wrapped = extract_first_wrapped_region(output)
+        if wrapped is None or wrapped[1] != "web_search":
+            return ""
+        output = wrapped[2]
     prefix = "Web search evidence v1: "
     if not output.startswith(prefix):
         return ""

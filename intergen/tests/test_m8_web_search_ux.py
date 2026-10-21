@@ -582,6 +582,20 @@ class LocalPageBoundaryTests(unittest.TestCase):
                 self.assertIsNone(_web_page_details(content))
                 self.assertEqual(_web_search_snippets(content), "")
 
+    def test_framed_fields_survive_the_existing_ingress_wrapper(self):
+        from intergen.router import _web_page_details, _web_search_snippets
+        from intergen.spotlighting import wrap_ingress_content
+
+        page, snippet = "Opening hours.", "FIRST SNIPPET\nA continuation."
+        with self._server(body=page.encode()) as url:
+            content, _ = WebSearchTool()._render_with_page(
+                "observatory hours", [("Observatory", url, snippet)])
+        for attribution in ("observatory hours", 'observatory "hours"\nSearch results for: text'):
+            wrapped = wrap_ingress_content(content, attribution, "web_search")
+            with self.subTest(attribution=attribution):
+                self.assertEqual(_web_page_details(wrapped), (url, page))
+                self.assertEqual(_web_search_snippets(wrapped), snippet)
+
     def test_empty_snippets_keep_the_unavailable_outcome(self):
         from intergen.tests.test_router_executes_recognised_search import _build_router
 
