@@ -2208,5 +2208,304 @@ class FailedCommandRuleTests(unittest.TestCase):
         self.assertNotIn(FAILED_RULE, prompt)
 
 
+# ── a result a command of the conversation returned, quoted later ────────────
+# The recorded printer exchange: the assistant offered `lpstat -p -d`, the
+# person said yes, the command ran and failed, and the answer reported the
+# failure (TURN16_FINAL). Asked what the error means, the model quotes the
+# command's output with a result verb. That turn runs nothing, and the output
+# it quotes is one a command of this conversation returned, so it claims
+# nothing; the screen read it as a claim because it held no record of what had
+# run. A how-to answer can show the same words when nothing ran: that is no
+# record, and quoting them as a command's result is the claim it always was.
+EXCHANGE_QUESTION = "Are there any printers on the network I can use?"
+PRINTER_FOLLOW_UP = "what does that error mean?"
+QUOTED_EARLIER_RESULT = (
+    "The command printed `lpstat: No destinations added.`, which means no "
+    "printer is set up on this machine yet. You can add one in the printer "
+    "settings.")
+INVENTED_LATER_RESULT = (
+    "The command printed `lpstat: scheduler is not running`, which means the "
+    "printing service is stopped.")
+EARLIER_RESULT_HONEST = ("I haven't run anything on this turn. The earlier "
+                         "error means no printer is set up yet.")
+HOWTO_PRINTERS = (
+    "To see the printers, run `lpstat -p -d`. With no printer set up it "
+    "prints `lpstat: No destinations added.`")
+RAN = (PRINTER_FAILED.content,)
+
+
+def _after_the_printer_exchange(*replies, locked):
+    """A router after the recorded exchange through route(): the offer staged
+    as the explain route stages it, the person's "yes" running `lpstat -p -d`
+    (the registry returns the recorded failure; nothing runs) and its
+    synthesis TURN16_FINAL. `replies` are every later model completion.
+    Returns (the router, the model's requests, the "yes" turn's result)."""
+    tier = HardwareTierLevel.TIER_1 if locked else HardwareTierLevel.TIER_2
+    router = _router(tier=tier, locked=locked)
+    router._llm.chat, seen = _model(TURN16_FINAL, *replies)
+    router._tools.execute = mock.Mock(return_value=PRINTER_FAILED)
+    offer = router._stage_action_offer_or_handoff(
+        "lpstat -p -d", "run_command", EXCHANGE_QUESTION)
+    router._append_history(EXCHANGE_QUESTION, offer)
+    with mock.patch("intergen.router.glass.emit"):
+        ran = router.route("yes")
+    return router, seen, ran
+
+
+def _follow_up(router, draft, *, locked):
+    """The follow-up through route() with the model's `draft`: the locked
+    floor's next completion (the caller queued it), the native floor's text
+    answer. Returns (the result, the screen decisions)."""
+    if not locked:
+        def stream_with_tools(messages, **_):
+            yield draft
+        router._llm.stream_with_tools = stream_with_tools
+    with mock.patch("intergen.router.glass.emit") as emit:
+        result = router.route(PRINTER_FOLLOW_UP)
+    return result, _screen_decisions(emit)
+
+
+def _exchange_then(draft, regeneration, *, locked):
+    """The exchange, then the follow-up answered with `draft`, every
+    regeneration `regeneration`. Returns (the follow-up's result, its screen
+    decisions, its regeneration requests, the router)."""
+    replies = ([draft] if locked else []) + [regeneration] * 5
+    router, seen, ran = _after_the_printer_exchange(*replies, locked=locked)
+    assert ran.source == "explain_offer_run", ran
+    assert router._tools.execute.call_count == 1
+    result, decisions = _follow_up(router, draft, locked=locked)
+    return result, decisions, seen[2 if locked else 1:], router
+
+
+class ExecutedResultTests(unittest.TestCase):
+    """The claim screen reads the conversation's record of what ran: an output
+    a result sentence quotes is not a claim when a tool of the conversation
+    returned it, and is the claim it always was when none did, whatever an
+    earlier answer showed."""
+
+    def test_an_output_on_the_record_is_not_a_claim(self):
+        for text in (
+                QUOTED_EARLIER_RESULT,
+                "The command printed: lpstat: No destinations added.",
+                '`lpstat -p -d` printed "No destinations added", so no printer '
+                "is set up yet.",
+                "Here is what `lpstat -p -d` returned:\n\n```\nlpstat: No "
+                "destinations added.\n```\nNo printer is set up yet.",
+                "It returned:\n```\nlpstat: No destinations added.\n"
+                "[exit code: 1]\n```"):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(
+                        text, dispatched=False, executed_outputs=RAN),
+                    ("clean", None))
+                # With nothing on the record the same sentence is a claim.
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False)[0],
+                    "violation")
+
+    def test_an_output_off_the_record_is_still_a_claim(self):
+        for text, marker in (
+                (INVENTED_LATER_RESULT, "the command printed"),
+                # Quoting nothing, the sentence names no output to find.
+                ("The command printed an error, which means no printer is set "
+                 "up.", "the command printed"),
+                # One line on the record, one not.
+                ("It returned:\n```\nlpstat: No destinations added.\n"
+                 "printer office is idle.\n```", "it returned:"),
+                (UPDATES_DRAFT, "here is what pkm returned")):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(
+                        text, dispatched=False, executed_outputs=RAN),
+                    ("violation", marker))
+
+    def test_the_record_keeps_what_ran_and_nothing_else(self):
+        state = _router().new_conversation()
+        state.record_execution(PRINTER_FAILED)
+        state.record_execution(ToolResult(
+            call_id="", name="system_info", content="full listing",
+            model_summary="the summary the model was given"))
+        state.record_execution(ToolResult(
+            call_id="", name="run_command", success=False, executed=False,
+            content="Tool call denied by user via review modal."))
+        state.record_execution(ToolResult(
+            call_id="", name="run_command", success=False, blocked=True,
+            content="refused: destructive"))
+        state.record_execution(None)
+        self.assertEqual(state.executed_outputs, [
+            PRINTER_FAILED.content, "full listing",
+            "the summary the model was given"])
+        self.assertIsNot(state.executed_outputs,
+                         _router().new_conversation().executed_outputs)
+        state.clear()
+        self.assertEqual(state.executed_outputs, [])
+
+    def test_every_registry_execute_call_records_what_ran(self):
+        # The record holds what ran only if every place a result comes back
+        # from the tool registry writes it: a census of the package's source,
+        # each function that calls the registry's execute also calls
+        # record_execution.
+        import ast
+        package = Path(__file__).resolve().parents[1]
+        sites = []
+        for path in sorted(package.rglob("*.py")):
+            if "tests" in path.relative_to(package).parts:
+                continue
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for fn in ast.walk(tree):
+                if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                nodes = list(ast.walk(fn))
+                if any(isinstance(n, ast.Attribute) and n.attr == "execute"
+                       and isinstance(n.value, (ast.Attribute, ast.Name))
+                       and getattr(n.value, "attr", getattr(n.value, "id", ""))
+                       in ("_tools", "tools", "registry", "_registry",
+                           "tool_registry")
+                       for n in nodes):
+                    sites.append((str(path.relative_to(package)), fn.name,
+                                  any(isinstance(n, ast.Attribute)
+                                      and n.attr == "record_execution"
+                                      for n in nodes)))
+        self.assertEqual(sorted(site[:2] for site in sites), [
+            ("router.py", "_execute_tool_for_intent"),
+            ("router.py", "_run_fixed_command"),
+            ("router.py", "_run_staged_action"),
+            ("router.py", "_try_llm_tools"),
+            ("web_server.py", "_process_llm_stream"),
+            ("web_server.py", "_run_user_invoked_tool")])
+        self.assertEqual([site[:2] for site in sites if not site[2]], [])
+
+    def test_the_recorded_result_is_served_on_both_floors(self):
+        # The exchange runs through the accepted offer on both floors; the
+        # record is written where its result came back.
+        floors = {}
+        for locked in (True, False):
+            result, decisions, regenerations, router = _exchange_then(
+                QUOTED_EARLIER_RESULT, EARLIER_RESULT_HONEST, locked=locked)
+            floors[locked] = decisions
+            with self.subTest(locked=locked):
+                self.assertEqual(router._conv.executed_outputs, list(RAN))
+                self.assertEqual(result.source,
+                                 "llm_freeform" if locked else "llm_tools")
+                self.assertEqual(decisions[0], ("claim_screen", "clean", None))
+                self.assertEqual([d[1] for d in decisions],
+                                 ["clean"] * len(decisions))
+                self.assertEqual(result.text, QUOTED_EARLIER_RESULT)
+                self.assertEqual(regenerations, [])
+        self.assertEqual(floors[True], floors[False])
+
+    def test_the_dispatch_branch_records_what_ran(self):
+        # The native floor's model calls the command itself.
+        router = _router()
+        router._llm.chat, seen = _model(*[EARLIER_RESULT_HONEST] * 5)
+        turns = [PRINTER_CALL, QUOTED_EARLIER_RESULT]
+
+        def stream_with_tools(messages, **_):
+            yield turns.pop(0)
+        router._llm.stream_with_tools = stream_with_tools
+        router._tools.execute = mock.Mock(return_value=PRINTER_FAILED)
+        router._llm.continue_after_tool_call = mock.Mock(
+            return_value=LLMResponse(text=TURN16_FINAL, model="local"))
+        with mock.patch("intergen.router.glass.emit"):
+            ran = router.route(EXCHANGE_QUESTION)
+        self.assertEqual(ran.tool_results, [PRINTER_FAILED])
+        self.assertEqual(router._conv.executed_outputs, list(RAN))
+        with mock.patch("intergen.router.glass.emit") as emit:
+            result = router.route(PRINTER_FOLLOW_UP)
+        self.assertEqual(_screen_decisions(emit)[0],
+                         ("claim_screen", "clean", None))
+        self.assertEqual(result.text, QUOTED_EARLIER_RESULT)
+        self.assertEqual(seen, [])
+
+    def test_an_output_a_how_to_answer_showed_is_a_claim_on_both_floors(self):
+        # An earlier ANSWER showed the very words, and nothing ran: no record.
+        for locked in (True, False):
+            result, decisions, regenerations, _ = _route_recorded(
+                QUOTED_EARLIER_RESULT, EARLIER_RESULT_HONEST, PRINTER_FOLLOW_UP,
+                ("how do I see my printers?", HOWTO_PRINTERS), locked=locked)
+            with self.subTest(locked=locked):
+                self.assertEqual(decisions[0], ("claim_screen",
+                                                "violation_regenerated",
+                                                "the command printed"))
+                self.assertEqual(result.text, EARLIER_RESULT_HONEST)
+                self.assertEqual(len(regenerations), 1)
+
+    def test_an_invented_later_result_is_regenerated_on_both_floors(self):
+        # The control: the same exchange, an output no command returned.
+        for locked in (True, False):
+            result, decisions, regenerations, _ = _exchange_then(
+                INVENTED_LATER_RESULT, EARLIER_RESULT_HONEST, locked=locked)
+            with self.subTest(locked=locked):
+                self.assertEqual(decisions[0], ("claim_screen",
+                                                "violation_regenerated",
+                                                "the command printed"))
+                self.assertEqual(result.text, EARLIER_RESULT_HONEST)
+                self.assertEqual(len(regenerations), 1)
+
+    def test_a_regeneration_quoting_the_recorded_result_is_served(self):
+        # The claim note asks what an earlier result means; the regeneration
+        # that answers by quoting it was refused, and the honest action line
+        # (no answer at all) served in its place.
+        result, decisions, regenerations, _ = _exchange_then(
+            INVENTED_LATER_RESULT, QUOTED_EARLIER_RESULT, locked=True)
+        self.assertEqual(decisions[0], ("claim_screen", "violation_regenerated",
+                                        "the command printed"))
+        self.assertEqual(result.text, QUOTED_EARLIER_RESULT)
+        self.assertEqual(len(regenerations), 1)
+        self.assertNotEqual(result.text, safety.honest_action_fallback())
+
+    def _browser(self, first_turn, draft, regeneration):
+        """Two turns on one browser connection: `first_turn` (the model's
+        stream on the exchange's question: a tool call or a text), then the
+        follow-up answered with `draft`. The registry returns the recorded
+        failure; a synthesis is TURN16_FINAL. Returns (the record after the
+        first turn, the follow-up's stream_end frame, its claim-screen rows,
+        the regeneration requests)."""
+        router = _router()
+        router._llm.chat, seen = _model(regeneration)
+        router._tools.execute = mock.Mock(return_value=PRINTER_FAILED)
+        router._llm.continue_after_tool_call = mock.Mock(
+            return_value=LLMResponse(text=TURN16_FINAL, model="local"))
+        turns = [first_turn, draft]
+
+        def stream_with_tools(messages, **_):
+            yield turns.pop(0)
+        router._llm.stream_with_tools = stream_with_tools
+        server = WebServer(router=router, llm=router._llm,
+                           tools=router._tools, governance=None)
+        ctx = ConnectionContext(client_id="c1", source_interface="web",
+                                ws=_RecordingWS(),
+                                conversation=router.new_conversation())
+        with mock.patch("intergen.router.glass.emit"):
+            asyncio.run(server._stream_llm_response(
+                ctx, "turn1", EXCHANGE_QUESTION,
+                RouteResult(text="", source="llm_tools", handled=False)))
+        record = list(ctx.conversation.executed_outputs)
+        with mock.patch("intergen.router.glass.emit") as emit:
+            asyncio.run(server._stream_llm_response(
+                ctx, "turn2", PRINTER_FOLLOW_UP,
+                RouteResult(text="", source="llm_tools", handled=False)))
+        end = ctx.ws.of_type("stream_end")[-1]
+        rows = [(r["verdict"], r["marker"]) for r in _rows(emit, "claim_screen")]
+        return record, end, rows, seen
+
+    def test_the_browser_streamer_records_and_reads_the_record(self):
+        record, end, rows, seen = self._browser(
+            PRINTER_CALL, QUOTED_EARLIER_RESULT, EARLIER_RESULT_HONEST)
+        self.assertEqual(record, list(RAN))
+        self.assertEqual(end["full_response"], QUOTED_EARLIER_RESULT)
+        self.assertEqual(rows, [("clean", None)])
+        self.assertEqual(seen, [])
+
+    def test_the_browser_regenerates_an_output_a_how_to_answer_showed(self):
+        # The first turn answered with the how-to text and ran nothing.
+        record, end, rows, seen = self._browser(
+            HOWTO_PRINTERS, QUOTED_EARLIER_RESULT, EARLIER_RESULT_HONEST)
+        self.assertEqual(record, [])
+        self.assertEqual(end["full_response"], EARLIER_RESULT_HONEST)
+        self.assertEqual(rows, [("violation_regenerated", "the command printed")])
+        self.assertEqual(len(seen), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

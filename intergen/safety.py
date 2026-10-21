@@ -1194,6 +1194,94 @@ _RESULT_NOT_ASSERTED = re.compile(
     r"|\byou(?:['’]ve|\s+have)?\s+(?:said|mentioned|told|saw|see|got|get|"
     r"reported|pasted|shared|quoted|showed)\b")
 
+# ── A result this conversation actually produced ──
+# On a follow-up turn that ran nothing, an answer quoting the output a command
+# returned on an earlier turn ("the command printed `lpstat: No destinations
+# added.`, which means ...") gives an account of a recorded result; it claims
+# nothing ran now. The screen is given the conversation's record of what ran
+# (ConversationState.executed_outputs: what every tool that ran returned,
+# written where the result came back) and reads the output a result sentence
+# quotes: the fenced block that follows it, the spans it quotes in backquotes
+# or double quotes, the rest of its sentence after its colon, or, when its line
+# ends in a colon, the lines below it. When every line of that output is held,
+# as its own words, in the record, the sentence is not a claim. A line the
+# record does not hold, or a sentence that quotes nothing, is read as before.
+# Text is never the record: an earlier ANSWER can show an output nothing
+# produced (a how-to answer saying what a command prints), and so can the
+# prompt, the grounding or the person's own words.
+_QUOTED_SPAN_RE = re.compile(r"`([^`\n]+)`|\"([^\"\n]+)\"|“([^”\n]+)”")
+_OUTPUT_EDGE = " \t.,;:!?`'\"“”‘’"
+_LIST_MARKER_RE = re.compile(r"^(?:[-*•]|\d+[.)])\s+")
+
+
+def _output_line(raw: str) -> str:
+    """One line of quoted output, compared as text: case and spacing folded,
+    a list marker and the surrounding punctuation dropped."""
+    line = _LIST_MARKER_RE.sub("", raw.strip())
+    return " ".join(line.split()).strip(_OUTPUT_EDGE)
+
+
+def _sentence_end(low: str, at: int, stop: int) -> int:
+    """Where the sentence running from `at` ends, before `stop`: at a full stop,
+    question or exclamation mark followed by a space or the end, never inside a
+    span quoted in backquotes or double quotes."""
+    i = at
+    while i < stop:
+        span = _QUOTED_SPAN_RE.match(low, i, stop)
+        if span is not None:
+            i = span.end()
+            continue
+        if low[i] in ".!?" and (i + 1 >= stop or low[i + 1].isspace()):
+            return i
+        i += 1
+    return stop
+
+
+def _output_lines(text: str) -> list[str]:
+    return [line for line in map(_output_line, text.split("\n")) if line]
+
+
+def _presented_output(low: str, end: int) -> list[str]:
+    """The lines of output the result sentence whose match ends at `end`
+    presents, or none when it quotes nothing."""
+    after = low[end:]
+    lead = len(after) - len(after.lstrip(" \t:\n"))
+    if after.startswith("```", lead):
+        fence = after[lead + 3:]
+        body = fence.split("\n", 1)[1] if "\n" in fence else ""
+        return _output_lines(body.split("```", 1)[0])
+    line_end = low.find("\n", end)
+    line_end = len(low) if line_end < 0 else line_end
+    sentence = low[end:_sentence_end(low, end, line_end)]
+    spans = [next(g for g in s.groups() if g is not None)
+             for s in _QUOTED_SPAN_RE.finditer(sentence)]
+    if spans:
+        return [line for line in map(_output_line, spans) if line]
+    rest = sentence.lstrip(" \t")
+    if rest.startswith(":") or low[end - 1:end] == ":":
+        if _output_line(rest):
+            return [_output_line(rest)]
+    if low[end:line_end].rstrip().endswith(":"):
+        return _output_lines(low[line_end + 1:].split("\n\n", 1)[0])
+    return []
+
+
+def _record_text(executed_outputs) -> str:
+    """Every output on the record, case and spacing folded as _output_line
+    folds a line."""
+    return "\n".join(" ".join(text.lower().split())
+                     for text in (executed_outputs or ())
+                     if isinstance(text, str))
+
+
+def _output_on_record(low: str, end: int, record: str) -> bool:
+    """Is every line of the output this result sentence quotes held, as its own
+    words, in the record of what ran?"""
+    lines = _presented_output(low, end)
+    return bool(lines) and all(
+        re.search(r"(?<![0-9a-z])" + re.escape(line) + r"(?![0-9a-z])", record)
+        for line in lines)
+
 # A claim lives in a clause. These end one.
 #
 # Sentence punctuation is the obvious boundary, but it is not the only one: a
@@ -1248,13 +1336,14 @@ def _claim_is_live(low: str, start: int, end: int, match_start: int) -> bool:
     return True
 
 
-def _execution_claim_marker(text: str) -> str | None:
+def _execution_claim_marker(text: str, record: str = "") -> str | None:
     """Return the matched execution-claim phrase, or None.
 
     Every match is clause-guarded: a claim inside a negated or interrogative
     clause is not a claim. An AFFIRMATIVE "successfully" also fires,
     negation-window-guarded, and so does a tool's output presented as its
-    result ("Here is what pkm returned:").
+    result ("Here is what pkm returned:"), unless the output it quotes is
+    held in `record`, the folded record of what ran in the conversation.
     """
     low = text.lower()
     for m in _EXEC_CLAIM_RE.finditer(low):
@@ -1285,26 +1374,32 @@ def _execution_claim_marker(text: str) -> str | None:
             continue
         return "successfully"
     # A tool's output presented when nothing ran: "Here is what pkm returned:".
+    # An output on the record of what ran is a recorded result.
     for m in _TOOL_RESULT_CLAIM_RE.finditer(low):
         start, end = _clause_bounds(low, m.start())
         if _RESULT_NOT_ASSERTED.search(low, start, m.start()):
+            continue
+        if record and _output_on_record(low, m.end(), record):
             continue
         if _claim_is_live(low, start, end, m.start()):
             return m.group(0).strip()
     return None
 
 
-def screen_execution_claim(draft: str, dispatched: bool) -> tuple[str, str | None]:
+def screen_execution_claim(draft: str, dispatched: bool, *,
+                           executed_outputs=()) -> tuple[str, str | None]:
     """M3(ii): screen a model draft for an unfounded execution claim.
 
     Returns (verdict, marker): ("clean", None) when the turn actually dispatched a
     tool OR the draft makes no execution claim; ("violation", <marker>) when the
     draft claims a first-person action AND nothing was dispatched this turn. The
     caller regenerates ONCE with a corrective note, then falls back to an honest
-    line — it never ships a fabrication."""
+    line — it never ships a fabrication. `executed_outputs` is the conversation's
+    record of what its tools returned (ConversationState.executed_outputs): an
+    output a result sentence quotes that the record holds is not a claim."""
     if dispatched:
         return ("clean", None)
-    marker = _execution_claim_marker(draft or "")
+    marker = _execution_claim_marker(draft or "", _record_text(executed_outputs))
     return ("violation", marker) if marker else ("clean", None)
 
 

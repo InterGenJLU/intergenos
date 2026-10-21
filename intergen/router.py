@@ -5595,6 +5595,7 @@ class ConversationRouter(RouterInterface):
                 trust_state=self._conv.trust_state,
                 review_callback=self._review_callback,
             )
+            self._conv.record_execution(tool_result)
         except Exception as e:  # noqa: BLE001 — a dispatch error must not crash the turn
             logger.error("Staged action dispatch failed: %s", e)
             return RouteResult(text="Sorry — I couldn't do that.",
@@ -5710,6 +5711,7 @@ class ConversationRouter(RouterInterface):
             tr = self._tools.execute(
                 call, ingress_tracker=self._conv.ingress_tracker,
                 trust_state=self._conv.trust_state, review_callback=self._review_callback)
+            self._conv.record_execution(tr)
         except Exception as e:  # noqa: BLE001 — a probe failure must not crash the turn
             logger.error("IP-handler command failed (%s): %s", command, e)
             return None
@@ -6429,6 +6431,7 @@ class ConversationRouter(RouterInterface):
                     trust_state=self._conv.trust_state,
                     review_callback=self._review_callback,
                 )
+                self._conv.record_execution(result)
                 tool_results.append(result)
             else:
                 collected_text.append(chunk)
@@ -7000,7 +7003,9 @@ class ConversationRouter(RouterInterface):
         except Exception as e:  # noqa: BLE001 — a regen failure must not crash the turn
             logger.error("claim-screen regeneration failed: %s", e)
             return None
-        verdict, _ = screen_execution_claim(regen.text, dispatched=False)
+        verdict, _ = screen_execution_claim(
+            regen.text, dispatched=False,
+            executed_outputs=self._conv.executed_outputs)
         return regen.text if verdict == "clean" else None
 
     def _screen_and_correct_claim(self, draft: str, messages: "list[Message]", *,
@@ -7014,8 +7019,11 @@ class ConversationRouter(RouterInterface):
         corrected), per the total-observability rider — the verdicts are never
         silent. A screen that serves its code-owned fallback names itself in
         `fallbacks` when that is a list (_screen_model_answer)."""
-        # (1) execution claim (honesty invariant) — gated on the turn's dispatch.
-        verdict, marker = screen_execution_claim(draft, dispatched=dispatched)
+        # (1) execution claim (honesty invariant) — gated on the turn's dispatch,
+        # read against the conversation's record of what ran.
+        verdict, marker = screen_execution_claim(
+            draft, dispatched=dispatched,
+            executed_outputs=self._conv.executed_outputs)
         if verdict == "clean":
             glass.emit("decision", "claim_screen", detail={
                 "verdict": "clean", "marker": None,
@@ -7671,12 +7679,14 @@ class ConversationRouter(RouterInterface):
             source_of_request=Provenance.USER_DIRECT,
         )
         try:
-            return call, self._tools.execute(
+            result = self._tools.execute(
                 call,
                 ingress_tracker=self._conv.ingress_tracker,
                 trust_state=self._conv.trust_state,
                 review_callback=self._review_callback,
             )
+            self._conv.record_execution(result)
+            return call, result
         except Exception as e:
             logger.error("Tool %s execution failed: %s", tool_name, e)
             return call, None

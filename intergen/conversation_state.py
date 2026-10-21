@@ -58,6 +58,8 @@ class ConversationState:
     ``handed_off_commands``   commands already declined or handed off here
     ``transcript``            every exchange this conversation has had, in
                               order and verbatim, never trimmed
+    ``executed_outputs``      the output of every tool that ran in this
+                              conversation, failed or not, in order
     ``turn_index``            the relevance index over this conversation's turns
     ``first_interaction``     whether nothing has been said yet
     ``memory_session_id``     the long-term memory session this conversation
@@ -102,6 +104,15 @@ class ConversationState:
     # model, no embedder, no trim. It is display/answer state only and is never
     # placed in a prompt, so it cannot grow the model's context.
     transcript: list[tuple[str, str]] = field(default_factory=list)
+    # What every tool that RAN in this conversation returned, failed or not,
+    # verbatim and in order — the code-owned record of what this conversation
+    # actually executed. The claim screen reads it (safety.screen_execution_claim):
+    # an answer quoting an output held here gives an account of a result that
+    # was produced, and an output found only in an earlier ANSWER was not
+    # necessarily produced at all (a how-to answer can show what a command would
+    # print). Written by record_execution at every place a result comes back from
+    # the tool registry; never placed in a prompt.
+    executed_outputs: list[str] = field(default_factory=list)
     turn_index: Any = None
     first_interaction: bool = True
     memory_session_id: str | None = None
@@ -142,7 +153,24 @@ class ConversationState:
         # a discarded conversation's first question must not be readable as the
         # fresh one's.
         self.transcript.clear()
+        # So is the record of what ran: an output a discarded conversation
+        # produced is no result of the fresh one's.
+        self.executed_outputs.clear()
         self.first_interaction = True
+
+    def record_execution(self, result: Any) -> None:
+        """Keep what a tool that RAN returned, failed or not: its full content,
+        and the summary the model was given when the tool made one. A result the
+        gate refused, the person denied or the safety classifier blocked ran
+        nothing, so nothing of it is kept."""
+        if result is None or not getattr(result, "executed", False):
+            return
+        if getattr(result, "blocked", False):
+            return
+        for text in (getattr(result, "content", None),
+                     getattr(result, "model_summary", None)):
+            if isinstance(text, str) and text.strip():
+                self.executed_outputs.append(text)
 
     def clear_offers(self) -> None:
         """Withdraw every offer awaiting a yes or no, and the grounding window

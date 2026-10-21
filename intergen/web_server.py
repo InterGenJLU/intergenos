@@ -2392,6 +2392,7 @@ class WebServer:
                 "summary": f"{tool_name} failed: {exc}",
             })
             return
+        ctx.conversation.record_execution(tr)
 
         summary = tr.model_summary or (tr.content or "")[:256]
         payload: dict[str, Any] = {
@@ -3024,7 +3025,8 @@ class WebServer:
         # only when nothing dispatched this turn; regeneration runs off-thread.
         _dispatched = any(getattr(tr, "executed", False) for tr in tool_results)
         _verdict, _marker = safety.screen_execution_claim(
-            full_response, dispatched=_dispatched)
+            full_response, dispatched=_dispatched,
+            executed_outputs=ctx.conversation.executed_outputs)
         if _verdict == "clean":
             glass.emit("decision", "claim_screen", detail={
                 "verdict": "clean", "marker": None, "dispatched": _dispatched,
@@ -3548,6 +3550,7 @@ class WebServer:
                                     _args.get("service")),
                             })
                         tr = await exec_future
+                    ctx.conversation.record_execution(tr)
                 else:
                     tr = ToolResult(
                         call_id=item.call_id,
