@@ -8,6 +8,7 @@ from unittest.mock import Mock
 import pytest
 
 from intergen.howto import HowtoCorpus
+from intergen.router import ConversationRouter
 from intergen.state_cache import CachedValue, StateCache
 from intergen.tests.howto_content_helpers import DATA
 from intergen.tests.test_wiki_citation_provenance import (
@@ -71,6 +72,57 @@ def test_ambiguous_words_do_not_establish_a_system_subject(query, locked, decide
     assert result.text == ("" if decide_only else NORMAL_ANSWER)
     assert router._llm.chat.call_count == (0 if decide_only else 1)
     router._tools.execute.assert_not_called()
+
+
+@pytest.mark.parametrize("query", [
+    "How do I draw the Linux penguin?",
+    "How do I parse Linux logs in Rust?",
+    "How do I draw the InterGenOS logo on my computer?",
+    "How do I parse Linux logs in Go?",
+])
+@pytest.mark.parametrize("locked", [False, True])
+@pytest.mark.parametrize("decide_only", [False, True])
+def test_platform_mentions_in_art_and_code_keep_generation(query, locked, decide_only):
+    router = router_with_source_corpus(locked)
+    assert router._howto.retrieve(query)[0] is None
+    with router.bind_conversation(router.new_conversation()):
+        result = router.route(query, decide_only=decide_only)
+    assert result.source == "llm_freeform", (query, result.source, result.text)
+    assert result.handled is not decide_only
+    assert result.text == ("" if decide_only else NORMAL_ANSWER)
+    assert router._llm.chat.call_count == (0 if decide_only else 1)
+    router._tools.execute.assert_not_called()
+
+
+@pytest.mark.parametrize("query", [
+    "How do I import packages in R on my computer?",
+    "How do I import packages in Julia on my computer?",
+])
+@pytest.mark.parametrize("locked", [False, True])
+@pytest.mark.parametrize("decide_only", [False, True])
+def test_language_imports_with_computer_context_keep_generation(query, locked, decide_only):
+    router = router_with_source_corpus(locked)
+    assert router._howto.retrieve(query)[0] is None
+    with router.bind_conversation(router.new_conversation()):
+        result = router.route(query, decide_only=decide_only)
+    assert result.source == "llm_freeform", (query, result.source, result.text)
+    assert result.handled is not decide_only
+    assert result.text == ("" if decide_only else NORMAL_ANSWER)
+    assert router._llm.chat.call_count == (0 if decide_only else 1)
+    router._tools.execute.assert_not_called()
+
+
+@pytest.mark.parametrize("query", [
+    "Show me how to enable a hypothetical feature in Linux.",
+    "Explain how to configure a hypothetical feature on my computer.",
+    "Walk me through configuring a hypothetical feature in InterGenOS.",
+    "How would I go about configuring a hypothetical feature in InterGenOS?",
+    "What command can I use to configure a hypothetical feature in Linux?",
+    "What's the right way to configure a hypothetical feature on this computer?",
+    "How does Linux work?",
+])
+def test_system_administration_instruction_forms_keep_the_pointer(query):
+    assert ConversationRouter._system_documentation_pointer(query) is not None
 
 
 @pytest.mark.parametrize(("query", "source"), [

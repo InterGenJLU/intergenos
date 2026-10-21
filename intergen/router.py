@@ -6130,10 +6130,29 @@ class ConversationRouter(RouterInterface):
     @staticmethod
     def _system_documentation_pointer(user_input: str) -> str | None:
         """Point an uncovered system how-to to the wiki without inventing a page."""
-        if not (_EXPLAIN_PRIOR_RE.search(user_input) or re.search(
+        instruction = _EXPLAIN_PRIOR_RE.search(user_input)
+        if not (instruction or re.search(
                 r"\bhow\s+does\b|\bhow\s+do\b.*\bwork\b",
                 user_input, re.IGNORECASE)):
             return None
+        # A platform or computer can be incidental context for any task.
+        # Require the requested action itself to concern system administration;
+        # drawing, parsing and language imports do not become system how-tos
+        # merely because their question also names Linux or this computer.
+        if instruction and instruction.group().lower() != "free up":
+            request = user_input[instruction.end():]
+            if not re.match(
+                    r"\s*(?:(?:how\s+to|to|go\s+about|please|safely|properly|"
+                    r"(?:can|could|should|would)\s+(?:i|you|we)\s+use\s+to)\s+)*"
+                    r"(?:(?:enabl|disabl|configur|remov|updat|upgrad|manag|"
+                    r"restor|chang|clos)(?:e|ing)|"
+                    r"(?:install|uninstall|repair|troubleshoot|restart|reboot|"
+                    r"boot|backup|connect|disconnect|mount|unmount|partition|"
+                    r"encrypt|decrypt|unlock|adjust|open|check|list|show|find)"
+                    r"(?:ing)?|(?:re)?set(?:ting)?|back(?:ing)?\s+up|"
+                    r"free(?:ing)?\s+up)\b",
+                    request, re.IGNORECASE):
+                return None
         # Programming questions keep their conversational route, including
         # code that would administer the system or run on this computer.
         if re.search(
