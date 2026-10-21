@@ -1195,7 +1195,9 @@ igos_helper_find_verified_deb_in_packages() (
     fi
     trap 'rm -rf -- "$workdir"' EXIT
     _igos_helper_fetch_verified_packages "$apt_base" "$keyring" "$dist" "$component" "$workdir" "$scoped_fpr" || return $?
-    python3 "$reader" select "$workdir/Packages" "$package" "$requested"
+    # Isolated (-I), as every Python program this library runs: PYTHONPATH
+    # and the user site directory stay off the reader's import path.
+    python3 -I "$reader" select "$workdir/Packages" "$package" "$requested"
 )
 
 # Print one JSON reply for pkm's non-interactive version check. No license
@@ -1206,7 +1208,8 @@ igos_helper_query_deb_upgrade() {
     local selected filename version pool digest
     selected=$(igos_helper_find_verified_deb_in_packages "$1" "$2" "$3" "$4" "${5:-main}" "" "${6:-}") || return $?
     IFS='|' read -r filename version pool digest <<< "$selected"
-    python3 "${BASH_SOURCE[0]%/*}/deb-metadata.py" query "$version" "$installed"
+    # Isolated (-I), as every Python program this library runs.
+    python3 -I "${BASH_SOURCE[0]%/*}/deb-metadata.py" query "$version" "$installed"
 }
 
 # K21.E helper: find the latest version of a package in apt Packages and
