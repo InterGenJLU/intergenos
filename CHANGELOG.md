@@ -20,7 +20,17 @@ landed is in the repository README, not here.
 
 ## [Unreleased]
 
-Nothing yet.
+### Security
+
+- ca-certificates advanced to the Mozilla CA bundle snapshot of 2026-10-20
+  (118 roots). It no longer carries emSign ECC Root CA - G3, the root to
+  which the compromised eMudhra intermediate CAs chain, nor emSign ECC
+  Root CA - C3, emSign Root CA - C1, SecureSign Root CA12, ePKI Root,
+  Entrust Root Certification Authority (2006) and Atos TrustedRoot 2011;
+  SECOM TLS ECC Root CA 2024, SECOM TLS RSA Root CA 2024, Telia EC TLS Root
+  CA v3 and Telia RSA TLS Root CA v3 are added. A system still carrying the
+  2026-04-30 bundle verifies certificates that chain to the compromised
+  issuer; the updated bundle rejects them.
 
 ---
 

@@ -367,8 +367,8 @@ log "  SSH host keys: deferred to first boot (D-007 compliance)"
 
 # CA certificates: NO build-time fetch.
 # Bundle is deployed hermetically by the `ca-certificates` package, which
-# consumes the in-tree-pinned cacert.pem (curl.se snapshot 2026-04-30,
-# sha256-locked at build/sources/ca-certificates-2026.04.30.tar.gz per
+# consumes the in-tree-pinned cacert.pem (curl.se snapshot 2026-10-20,
+# sha256-locked at build/sources/ca-certificates-2026.10.20.tar.gz per
 # commit 789c7e32 "pin derived source artifacts in tree (Item #2)").
 # Bundle lands at /etc/ssl/certs/ca-certificates.crt + canonical symlinks
 # during phase_core. The previous `make-ca -g` invocation here was the

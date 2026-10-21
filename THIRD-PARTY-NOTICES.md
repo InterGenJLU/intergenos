@@ -433,7 +433,7 @@ Asynchronous DNS resolver library
 
 - License: `MIT`
 
-### ca-certificates (2026.04.30)
+### ca-certificates (2026.10.20)
 
 Mozilla CA root certificate bundle (PEM) for OS-level TLS verification
 

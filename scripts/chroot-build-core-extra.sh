@@ -656,8 +656,8 @@ run_package "nss" "nss" "3.121" \
     "nss-3.121.tar.gz" \
     "Network Security Services"
 
-run_package "ca-certificates" "ca-certificates" "2026.04.30" \
-    "ca-certificates-2026.04.30.tar.gz" \
+run_package "ca-certificates" "ca-certificates" "2026.10.20" \
+    "ca-certificates-2026.10.20.tar.gz" \
     "Mozilla CA root certificate bundle (PEM) for OS-level TLS verification"
 
 run_package "make-ca" "make-ca" "1.16.1" \

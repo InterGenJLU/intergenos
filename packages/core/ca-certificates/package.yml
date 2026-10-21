@@ -1,5 +1,5 @@
 name: ca-certificates
-version: "2026.04.30"
+version: "2026.10.20"
 release: 3  # r3: ship the TLS trust updater and its manual with a declared p11-kit dependency.
 content_hash: 703301d27f5fed88
 description: Mozilla CA root certificate bundle (PEM) for OS-level TLS verification
@@ -10,7 +10,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: file:///ca-certificates-${version}.tar.gz
-  sha256: a38cf629d846eb61f14c7fc27fb8b32611ca28f982ec907a04aee03ddeed9369
+  sha256: af83bf37a42975f4e488e2eb58e6cc8fc63d849ac9972eb95aa8ee3f25600a24
 dependencies:
   build: []
   host: []

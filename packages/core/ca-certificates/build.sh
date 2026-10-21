@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2015-2016, 2026 InterGenJLU
 #
-# ca-certificates 2026.04.30 — Mozilla CA root certificate bundle
+# ca-certificates 2026.10.20 — Mozilla CA root certificate bundle
 #
 # Source: curl.se's cacert.pem (extracted from Mozilla NSS's certdata.txt).
 # License: MPL-2.0 (same as Mozilla's NSS source).
@@ -29,9 +29,17 @@
 #                                               anchor drop-in point)
 #
 # Provenance audit-trail: cacert.pem in the source tarball is the
-# curl.se cacert snapshot as of 2026-04-30, downloaded directly from
-# https://curl.se/ca/cacert.pem (always-latest, no dated mirror at fetch
-# time). sha256 of the inner pem: 86a1f3366afac7c6f8ae9f3c779ac221129328c43f0ab2b8817eb2f362a5025c
+# curl.se cacert snapshot as of 2026-10-20 (Mozilla certificate data as of
+# Tue Oct 20 13:32:40 2026 GMT), downloaded from the dated bundle
+# https://curl.se/ca/cacert-2026-10-20.pem and checked against its
+# published https://curl.se/ca/cacert-2026-10-20.pem.sha256 before it was
+# placed in the tarball. sha256 of the inner pem: 796f1389bfea13c0ed78f663b765baaff54a508e5483786bd6ece73c5e3e3cbe
+# This snapshot no longer carries emSign ECC Root CA - G3, the root to
+# which the compromised eMudhra intermediate CAs chain, nor emSign ECC
+# Root CA - C3, emSign Root CA - C1, SecureSign Root CA12, ePKI Root,
+# Entrust Root CA (2006) and Atos TrustedRoot 2011, and adds SECOM TLS
+# ECC/RSA Root CA 2024 and Telia EC/RSA TLS Root CA v3 (118 roots; the
+# 2026-04-30 snapshot carried 121).
 
 configure() {
     set -e
