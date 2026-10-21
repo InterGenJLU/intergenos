@@ -760,6 +760,29 @@ class TheTruthReadings(unittest.TestCase):
         self.assertTrue(self._truth("firewall", "The firewall is active.",
                                     (3, "inactive\n")))
 
+    def test_a_reading_is_a_state_only_when_its_command_succeeded(self):
+        """The command's status comes before its output: a failed read that
+        printed bytes is not a reading of the machine."""
+        cases = (
+            ("secure_boot", "Secure Boot is enabled.",
+             (1, "   6   0   0   0   1\n")),
+            ("secure_boot", "Secure Boot is enabled.", (0, "   6   0   0   1\n")),
+            ("secure_boot", "Secure Boot is enabled.",
+             (0, "   6   0   0   0   2\n")),
+            ("firewall", "The firewall is active.", (3, "active\n")),
+            ("firewall", "The firewall is off.", (0, "inactive\n")),
+            ("firewall", "The firewall is active.", (0, "active\nactive\n")),
+            ("firewall", "The firewall is off.", (3, "activating\n")),
+        )
+        for name, text, reading in cases:
+            with self.subTest(name=name, reading=reading):
+                why = self._truth(name, text, reading)
+                self.assertTrue(why and "unreadable" in why[0], why)
+        self.assertEqual(self._truth("firewall", "The firewall is off.",
+                                     (3, "inactive\n")), [])
+        self.assertEqual(self._truth("secure_boot", "Secure Boot is off.",
+                                     (0, "   6   0   0   0   0\n")), [])
+
     def test_listening_ports(self):
         ss = (0, "tcp LISTEN 0 4096 127.0.0.1:8089 0.0.0.0:*\n"
                  "udp UNCONN 0 0 0.0.0.0:5353 0.0.0.0:*\n")

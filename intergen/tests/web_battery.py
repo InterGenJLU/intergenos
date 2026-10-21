@@ -1151,16 +1151,26 @@ def _truth_replay_reasons(name: str, text: str, reading: tuple[int, str] | None,
                      r"disabled|is\s+off|turned\s+off|no\s+firewall)\b",
                      r"\b(?:active|running|enabled|is\s+on|turned\s+on)\b"),
     }
+    # A reading is a state only when its command succeeded and printed what
+    # that command prints for one: the variable's four attribute bytes and its
+    # value byte, 0 or 1; the unit's one state word, "active" with status 0
+    # and "inactive" or "failed" with a status that is not. Anything else is
+    # unreadable, never a state.
     if name == "secure_boot":
         values = out.split()
-        truth = {"1": True, "0": False}.get(values[-1] if values else "")
+        truth = ({"1": True, "0": False}.get(values[-1])
+                 if rc == 0 and len(values) == 5
+                 and all(re.fullmatch(r"\d{1,3}", v) and int(v) < 256
+                         for v in values) else None)
     elif name == "root_encrypted":
         types = out.split()
         truth = ("crypt" in types) if (rc == 0 and types) else None
     else:  # firewall
-        word = (out.split() or [""])[0]
-        truth = {"active": True, "inactive": False,
-                 "failed": False}.get(word)
+        words = out.split()
+        word = words[0] if len(words) == 1 else ""
+        truth = (True if word == "active" and rc == 0 else
+                 False if word in ("inactive", "failed") and rc != 0 else
+                 None)
     if truth is None:
         return [f"the {name} reading is unreadable (rc={rc}: "
                 f"{out.strip()[:80]!r}) — this answer could not be checked"]
