@@ -85,7 +85,7 @@ igos_helper_emit() {
 # a terminal gets an in-place bar. Unknown lengths are never estimated.
 igos_helper_download() {
     # <destination> <url> <wget|curl> [transport-options ...]
-    python3 - "$@" <<'PYDOWNLOAD'
+    python3 -I - "$@" <<'PYDOWNLOAD'
 import os
 from pathlib import Path
 import re
