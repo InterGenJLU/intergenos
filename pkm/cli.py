@@ -2211,6 +2211,33 @@ def _name_header_mode(args):
     return "refuse"
 
 
+def _failed_install_message(name, message, capture, *, removed=None,
+                            restored=False, unfinished=None):
+    """Describe recovery only after the install and rollback outcomes are known."""
+    if removed or unfinished:
+        message = message.replace("Nothing was changed.", "").strip()
+    if unfinished:
+        return message
+    if restored:
+        return (f"{name} {txn.format_vr(removed)} was removed and restored "
+                f"from the rollback cache. {message}")
+    points = getattr(capture, "restore_points", ())
+    recovery = (
+        "Recover from Chronicle restore point " + ", ".join(points) + "."
+        if points else
+        "No restore-point id was returned for this transaction. "
+        "Inspect `chronicle list restore-point` for a matching capture, "
+        + ("or reinstall a verified archive of the previous build." if removed
+           else "or retry with a verified archive.")
+    )
+    if removed:
+        return (f"{name} {txn.format_vr(removed)} was removed before this "
+                f"install attempt. {message} {recovery}")
+    # install() does not report whether a failed attempt wrote target files.
+    # Name the available recovery without claiming that any write occurred.
+    return (f"{message} Recovery if this attempt changed files: {recovery}")
+
+
 def cmd_install(db, args):
     installer = package_installer(db)
     repo = repo_manager()
@@ -2541,6 +2568,9 @@ def cmd_install(db, args):
         # hook's stderr would otherwise send this down the repository path to
         # install it again).
         unfinished = _unfinished_install(db, pkg_name, ok)
+        if args.archive and (unfinished or not db.get_installed(pkg_name)):
+            msg = _failed_install_message(
+                pkg_name, msg, _pretxn_result, unfinished=unfinished)
         if unfinished:
             reporter.error(msg)
             reporter.error(
@@ -3806,21 +3836,6 @@ def cmd_upgrade(db, args):
             install_reason=installed_pkg.get("install_reason", "manual"),
             sidecars_out=pkg_sidecars,
         )
-        if not ok:
-            # The lower-level install knows only its own writes. The old
-            # package has already been removed by this transaction, even if
-            # the new archive is refused before that install writes a byte.
-            msg = msg.replace("Nothing was changed.", "").strip()
-            points = getattr(_pretxn_result, "restore_points", ())
-            recovery = (
-                "Recover from Chronicle restore point " + ", ".join(points) + "."
-                if points else
-                "No restore-point id was returned for this transaction. "
-                "Inspect `chronicle list restore-point` for a matching capture, "
-                "or reinstall a verified archive of the previous build."
-            )
-            msg = (f"{installed_pkg['name']} {txn.format_vr(installed_pkg)} "
-                   f"was removed before this install attempt. {msg} {recovery}")
         sidecars_this_txn.extend(pkg_sidecars)
         # A new release that LANDED and then had a critical post-install hook
         # fail (a refused signing among them) is not a failed install: its
@@ -3838,6 +3853,7 @@ def cmd_upgrade(db, args):
             and rollback_archive is not None
             and rollback_archive.exists()
         )
+        rb_ok = False
         if _rollback_usable:
             # LAST GATE BEFORE THE RESTORE. The copy was qualified when it was
             # saved; this reads it again at the moment it would be installed,
@@ -3890,6 +3906,10 @@ def cmd_upgrade(db, args):
                 # The application never left the disk; put it back on the
                 # restored row so verify/remove see it again.
                 installer.reattach_helper_payload(installed_pkg["name"])
+        if not ok:
+            msg = _failed_install_message(
+                remote_pkg["name"], msg, _pretxn_result,
+                removed=installed_pkg, restored=rb_ok, unfinished=unfinished)
         if ok and payload_kept:
             # The new archive is installed and the application is still on
             # disk; record it on the new row from the manifest the remove
