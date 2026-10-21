@@ -1401,7 +1401,7 @@ class PackageDB:
         Earlier helper merges replaced the package version with the application
         build. The recorded archive's matching name and release establish the
         package version. When that archive is absent, the newest successful
-        archive install in this package's history establishes its version;
+        archive install after its last removal establishes its version;
         the row's release stays unchanged. A present but unreadable or
         contradictory archive is not replaced by historical evidence.
         A repository entry or a filename never establishes the version. Keep
@@ -1455,9 +1455,13 @@ class PackageDB:
                         continue
             if missing is not None:
                 recorded = self.conn.execute(
-                    "SELECT id, new_version FROM history WHERE package_name = ? "
+                    "SELECT id, new_version FROM history AS installed_history WHERE package_name = ? "
                     "AND operation = 'install' AND method = 'archive' "
-                    "AND success = 1 ORDER BY id DESC LIMIT 1", (name,)).fetchone()
+                    "AND success = 1 AND NOT EXISTS (SELECT 1 FROM history AS removed_history "
+                    "WHERE removed_history.package_name = installed_history.package_name "
+                    "AND removed_history.operation = 'remove' "
+                    "AND removed_history.id > installed_history.id) "
+                    "ORDER BY id DESC LIMIT 1", (name,)).fetchone()
                 if (not recorded or not isinstance(recorded[1], str)
                         or not recorded[1].strip()):
                     left.append((name, missing + "; no successful archive install "
