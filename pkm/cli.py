@@ -2221,6 +2221,10 @@ def _failed_install_message(name, message, capture, *, removed=None,
     if restored:
         return (f"{name} {txn.format_vr(removed)} was removed and restored "
                 f"from the rollback cache. {message}")
+    if not removed and "Nothing was changed." in message:
+        # install() refused before it wrote anything and says so; its message
+        # is the whole outcome, and there is nothing to recover.
+        return message
     points = getattr(capture, "restore_points", ())
     recovery = (
         "Recover from Chronicle restore point " + ", ".join(points) + "."

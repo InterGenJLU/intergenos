@@ -3,6 +3,7 @@
 
 import hashlib
 import io
+import os
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,6 +15,8 @@ from pkm import cli, output, pretxn
 from pkm import installer as installer_module
 from pkm.installer import PackageInstaller, SIGNING_REFUSED_EXIT
 from pkm.remover import PackageRemover
+from tests.pkm.test_install_refuses_a_kind_change_at_another_packages_path import (
+    _archive as _kind_archive)
 from tests.pkm.test_local_archive_preflight import local, invoke
 from tests.pkm.test_upgrade_from_local_archive import FakeRepo, _make_archive
 
@@ -46,11 +49,11 @@ RESTORE_ID = "0000000042-abcdef123456"
 
 
 def attempt(local, monkeypatch, *, verb="upgrade", rollback=False, names=None,
-            repo=None, points=(RESTORE_ID,)):
+            repo=None, points=(RESTORE_ID,), archive=None):
     names = names or ["widget"]
     argv = [verb, *names]
     if repo is None:
-        argv += ["--archive", str(local.new), "--archive-trust", "loose"]
+        argv += ["--archive", str(archive or local.new), "--archive-trust", "loose"]
     if verb == "upgrade":
         argv.append("--yes")
     args = cli.build_parser().parse_args(argv)
@@ -188,6 +191,27 @@ def test_existing_archive_install_has_no_recovery_advice(local, monkeypatch):
     assert "already installed" in said
     assert RESTORE_ID not in said
     assert "Recover from" not in said
+
+
+def test_refusal_before_any_write_prints_the_installers_message_alone(
+        local, monkeypatch, tmp_path):
+    # Another package owns a symbolic link where this archive ships a regular
+    # file: install() refuses before it writes anything and says so.
+    linked = _kind_archive(tmp_path, "alpha", links={"usr/bin/typer": "alpha-tool"})
+    assert local.installer.install("alpha", archive_path=linked)[0]
+    made = Path(_kind_archive(tmp_path, "beta",
+                              files={"usr/bin/typer": b"#!/bin/sh\necho beta\n"}))
+    beta = made.rename(made.with_name("beta-1.0-1.igos.tar.gz"))
+    rc, said = attempt(local, monkeypatch, verb="install", names=["beta"],
+                       archive=beta)
+    assert rc == 1, said
+    assert local.db.get_installed("beta") is None
+    assert os.readlink(local.root / "usr/bin/typer") == "alpha-tool"
+    assert "would put a different kind of file" in said
+    assert "Nothing was changed." in said
+    assert "Recovery if this attempt changed files" not in said
+    assert RESTORE_ID not in said
+    assert "No restore-point id" not in said
 
 
 def test_later_rollback_does_not_advise_undoing_an_earlier_upgrade(local, monkeypatch):
