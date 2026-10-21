@@ -79,6 +79,9 @@ class WebSearchTargetExtraction(unittest.TestCase):
         for sentence in (
             "show my disk usage. can you web search the latest news?",
             "what is a prism? can you web search the latest news?",
+            "I want to know what a prism is. Can you web search the latest news?",
+            "Please display my disk usage. Can you web search the latest news?",
+            "Calculate seven times nine. Can you web search the latest news?",
         ):
             with self.subTest(sentence=sentence):
                 self.assertIsNone(_web_search_target(sentence))

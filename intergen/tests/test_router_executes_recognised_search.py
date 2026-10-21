@@ -52,6 +52,7 @@ from __future__ import annotations
 
 import threading
 import unittest
+from unittest import mock
 
 from intergen.interfaces.types import ToolResult
 from intergen.intents import register_all_intents
@@ -358,6 +359,27 @@ class ConversationalSearchRequests(unittest.TestCase):
         router, _registry, executed = _build_router()
         router.route("Do not use tools. Can you web search the latest news?")
         self.assertEqual(executed, [])
+
+
+class EarlierRequestBoundaryTests(unittest.TestCase):
+    def test_each_earlier_request_reaches_the_clause_router_with_the_lookup(self):
+        for earlier in ("I want to know what a prism is",
+                        "Please display my disk usage",
+                        "Calculate seven times nine",
+                        "What is my IP"):
+            with self.subTest(earlier=earlier):
+                router, _registry, executed = _build_router()
+                prompt = earlier + ". Can you web search the latest news?"
+                with mock.patch.object(router, "_route_single",
+                                       wraps=router._route_single) as route_clause:
+                    result = router.route(prompt)
+                clauses = [call.args[0] for call in route_clause.call_args_list]
+                self.assertEqual(clauses, [earlier, "Can you web search the latest news?"])
+                self.assertEqual(result.source, "decomposed")
+                self.assertIn("web_search", executed)
+                searches = [call for call in result.tool_calls if call.name == "web_search"]
+                self.assertEqual(len(searches), 1)
+                self.assertEqual(searches[0].arguments["query"], "the latest news")
 
 
 if __name__ == "__main__":

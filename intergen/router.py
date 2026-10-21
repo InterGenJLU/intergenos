@@ -1374,27 +1374,38 @@ _WEB_SEARCH_REFERENCE_RE = re.compile(
     r"(?:\s+for)?\s+(?:it|that|this))\s*[?!.]*", re.IGNORECASE)
 
 
+_WEB_SEARCH_SENTENCE_RE = re.compile(
+    r"[.!?]\s+(?=(?:(?:can|could|would|will)\s+you\s+"
+    r"|(?:please\s+)?(?:web\s*search|search\s+(?:the\s+)?web|look\s+up)\b))",
+    re.IGNORECASE)
+
+
 def _web_request_text(text: str) -> str:
     """Remove conversational sentences before an explicit lookup request."""
-    parts = re.split(
-        r"[.!?]\s+(?=(?:(?:can|could|would|will)\s+you\s+"
-        r"|(?:please\s+)?(?:web\s*search|search\s+(?:the\s+)?web|look\s+up)\b))",
-        text, flags=re.IGNORECASE)
+    parts = _WEB_SEARCH_SENTENCE_RE.split(text)
     if len(parts) > 1:
         prefix = text[:-len(parts[-1])]
-        # Earlier questions or commands are part of the request, not framing.
-        if re.search(r"\?(?:\s|$)", prefix):
-            return text
+        # Drop only recognised conversational framing. An unknown clause may
+        # contain an independent request even when its verb is not in a list.
         for clause in re.split(r"[.!?]+\s+", prefix):
-            clause = _WEB_SEARCH_LEAD_RE.sub("", clause, count=1)
-            if (_WEB_SEARCH_REQUEST_FRAME_RE.match(clause) or re.match(
-                    r"^(?:show|list|check|run|execute|read|write|create|delete|"
-                    r"remove|install|uninstall|start|stop|restart|open|launch|"
-                    r"save|find|search|tell|explain)\b", clause, re.IGNORECASE)):
+            clause = _WEB_SEARCH_LEAD_RE.sub("", clause, count=1).strip(" .!?")
+            if clause and not re.fullmatch(
+                    r"h+m+|oh|well|hello|hi|thanks|thank you|"
+                    r"i (?:have no idea|do not know|don't know|don't understand) "
+                    r"what (?:it|that|this) (?:is|means)", clause, re.IGNORECASE):
                 return text
     text = _WEB_SEARCH_LEAD_RE.sub("", parts[-1], count=1)
     text = _WEB_SEARCH_REQUEST_FRAME_RE.sub("", text, count=1)
     return _WEB_SEARCH_LEAD_RE.sub("", text, count=1)
+
+
+def _web_request_clauses(text: str) -> list[str]:
+    """Keep a preceding request alongside a separately requested lookup."""
+    parts = _WEB_SEARCH_SENTENCE_RE.split(text)
+    if (len(parts) < 2 or _web_request_text(text) != text
+            or not _web_search_target(parts[-1])):
+        return []
+    return [text[:-len(parts[-1])].rstrip(" .!?"), parts[-1]]
 
 
 def _web_search_target(normalized: str) -> str | None:
@@ -3410,7 +3421,12 @@ class ConversationRouter(RouterInterface):
         # object rides the tail ("start and stop services") stays whole and is
         # intercepted here, so the wave-6 sf-cap fix is preserved.
         decomposition = analyze_query(user_input, self._hardware_tier)
-        if self._capability_is_whole_ask(decomposition):
+        web_clauses = _web_request_clauses(original_input)
+        if web_clauses:
+            decomposition = dataclasses.replace(
+                decomposition, is_compound=True, action_count=len(web_clauses),
+                needs_decomposition=True, sub_queries=web_clauses)
+        if not web_clauses and self._capability_is_whole_ask(decomposition):
             for _cap in (self._try_capability_question(original_input, t0),
                          self._try_command_capability_question(original_input, t0),
                          self._try_tool_capability_question(original_input, t0)):
@@ -3535,7 +3551,7 @@ class ConversationRouter(RouterInterface):
         # Pre-model, after the capability intercepts (it is not a capability
         # question); the high-precision gate + locked-only scope keep system asks,
         # non-live asks, and the NATIVE path out.
-        _cd = (None if forget_in_compound
+        _cd = (None if forget_in_compound or web_clauses
                else self._try_current_data_offer(original_input, t0))
         if _cd is not None:
             self._won("current_data_offer", source=_cd.source)
@@ -3569,7 +3585,7 @@ class ConversationRouter(RouterInterface):
         # Compound instructions receive the same teaching gate per clause.
         explain_result, explain_prior = (
             (None, False) if (carried_subject or forget_in_compound
-                              or instructional_compound)
+                              or instructional_compound or web_clauses)
             else self._try_explain(user_input))
         _span.set_attribute("explain_prior", explain_prior)
         if explain_result is not None:
@@ -3596,7 +3612,7 @@ class ConversationRouter(RouterInterface):
         # IPv6 offered). After _try_explain so an instructional "how do I find my ip"
         # still teaches; before the action paths so the composite answer is never
         # reduced to a single-command ifconfig dispatch.
-        if _is_ip_query(user_input) and not forget_in_compound:
+        if _is_ip_query(user_input) and not forget_in_compound and not web_clauses:
             self._won("ip", matched=True)
             return self._answer_ip_query(user_input, t0)
 
