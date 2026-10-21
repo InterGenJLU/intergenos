@@ -1162,16 +1162,35 @@ _NEGATING_INTERJECTION_RE = re.compile(
     r"\s*,")
 
 
-def _negated_before(low: str, start: int, at: int) -> bool:
-    """Does a negator stand in low[start:at], the text before a claim?
-
-    An elliptical conditional or an opening interjection that closes before
-    `at` is blanked first, found in the whole text so a window opening inside
-    one still sees it whole."""
+def _phrases_blanked(low: str, at: int) -> str:
+    """low[:at] with every elliptical conditional and opening interjection in
+    it blanked by spaces of its own length, found in the whole text so a
+    window opening inside one still sees it whole."""
     head = low[:at]
     for phrase in (_ELLIPTICAL_NEGATION_RE, _NEGATING_INTERJECTION_RE):
         head = phrase.sub(lambda m: " " * len(m.group(0)), head)
-    return bool(_EXEC_CLAIM_NEGATORS.search(head[start:]))
+    return head
+
+
+def _negated_before(low: str, start: int, at: int,
+                    negators: "re.Pattern[str]" = _EXEC_CLAIM_NEGATORS) -> bool:
+    """Does a negator stand in low[start:at], the text before a claim?
+
+    An elliptical conditional or an opening interjection that closes before
+    `at` is blanked first. `low` is lower-cased; `negators` is the reading
+    screen's own set, this screen's by default. The local-state and capability
+    screens and the grader's success window read their negators through it
+    too: "No problem, your disk is 80% full." and "If not, run `pkm add htop`."
+    read clean on a turn that ran nothing (2026-10-21)."""
+    return bool(negators.search(_phrases_blanked(low, at)[start:]))
+
+
+def _lower_keeping_offsets(text: str) -> str:
+    """text lower-cased with every offset kept, for a screen that reads the
+    phrases above at offsets into its own text: str.lower() writes a capital
+    I with a dot above as two characters, so it is lower-cased to "i"."""
+    return text.replace("\N{LATIN CAPITAL LETTER I WITH DOT ABOVE}",
+                        "i").lower()
 
 
 # ── A passive in a TEMPORAL or CONDITIONAL clause (the installed wiki, 2026-10-21) ──
@@ -1726,6 +1745,19 @@ _STATE_NEGATORS = re.compile(
     r"could\s?n['’]?t|did\s?n['’]?t|does\s?n['’]?t|do\s?n['’]?t|"
     r"has\s?n['’]?t|have\s?n['’]?t|had\s?n['’]?t|is\s?n['’]?t|are\s?n['’]?t|"
     r"was\s?n['’]?t|were\s?n['’]?t|wo\s?n['’]?t)\b", re.IGNORECASE)
+# Both read the clause through the claim screen's phrase blanking
+# (_negated_before): an elliptical conditional or an opening interjection
+# before the figure negates and conditions nothing in the reading after it.
+# "No problem, your disk is 80% full." and "Whether or not you asked, your disk
+# is 80% full." passed on their "no" and "not", and "If not, your disk is 80%
+# full." on its "if", on a turn that read nothing (2026-10-21).
+
+
+def _hedged(low: str, start: int, at: int, end: int) -> bool:
+    """Does the clause low[start:end] hedge, condition or state a requirement,
+    with the phrases that close before `at` blanked?"""
+    return bool(_STATE_NOT_A_READING_RE.search(
+        _phrases_blanked(low, at)[start:] + low[at:end]))
 
 
 def _norm_figure(m: "re.Match[str]") -> str:
@@ -1772,15 +1804,17 @@ def local_state_claim_marker(text: str, *, context=()) -> str | None:
     history, grounding, the user's message); a figure or name found there is
     backed by it and is never the marker."""
     draft = text or ""
+    low = _lower_keeping_offsets(draft)
     held_figures, held_text, read_paths = _context_index(context)
-    for _, clause in _state_clauses(draft):
+    for start, clause in _state_clauses(draft):
         figures = list(_STATE_FIGURE_RE.finditer(clause))
         if not figures:
             continue
+        at = start + figures[0].start()
         subject = _STATE_LOCAL_SUBJECT_RE.search(clause)
-        if subject is None or _STATE_NOT_A_READING_RE.search(clause):
+        if subject is None or _hedged(low, start, at, start + len(clause)):
             continue
-        if _STATE_NEGATORS.search(clause[:figures[0].start()]):
+        if _negated_before(low, start, at, _STATE_NEGATORS):
             continue
         if all(_norm_figure(f) in held_figures for f in figures):
             continue
@@ -1800,9 +1834,10 @@ def local_state_claim_marker(text: str, *, context=()) -> str | None:
         unheld = [i for i in dict.fromkeys(items) if i not in held_text]
         if len(unheld) >= 3:
             return "packages: " + ", ".join(unheld[:3])
-    for _, clause in _state_clauses(draft):
+    for start, clause in _state_clauses(draft):
         m = _STATE_FILLS_DISK_RE.search(clause)
-        if m is None or _STATE_NOT_A_READING_RE.search(clause):
+        if m is None or _hedged(low, start, start + m.start(),
+                                start + len(clause)):
             continue
         named = {p.group(0).rstrip("/").lower() or "/"
                  for p in _STATE_PATH_RE.finditer(clause[m.start():])}
@@ -2270,6 +2305,10 @@ _CAP_NEGATORS = re.compile(
     r"\b(no|not|never|isn['’]t|aren['’]t|instead\s+of|rather\s+than|unlike|"
     r"avoid|there\s+is\s+no|there['’]s\s+no|no\s+such|don['’]t|doesn['’]t|"
     r"wouldn['’]t|can['’]t|cannot)\b", re.IGNORECASE)
+# Every window that reads them reads through the claim screen's phrase
+# blanking (_negated_before): "If not, run `pkm add htop` to get it." and "No
+# problem, run `pkm add htop` to get it." passed on their "not" and "no", an
+# invented command served on a turn that ran nothing (2026-10-21).
 
 
 # A COMMAND ON ITS OWN LINE. Found by the live proof, not by any test: asked for
@@ -2371,9 +2410,10 @@ def _iter_invocations(text: str) -> "list[tuple[str, list[str], str]]":
         seen.add(key)
         out.append((tool, args, " ".join([tool, *args])))
 
+    low = _lower_keeping_offsets(text)
     for m in _TOOL_INVOKE_RE.finditer(text):
-        window = text[max(0, m.start() - 48):m.start()]
-        if _CAP_NEGATORS.search(window):
+        if _negated_before(low, max(0, m.start() - 48), m.start(),
+                           _CAP_NEGATORS):
             continue
         tool = m.group(1).lower()
         rest = text[m.end():]
@@ -2384,6 +2424,9 @@ def _iter_invocations(text: str) -> "list[tuple[str, list[str], str]]":
         add(tool, line.split())
 
     lines = text.splitlines()
+    starts = [0]
+    for line in text.splitlines(keepends=True):
+        starts.append(starts[-1] + len(line))
     for i, line in enumerate(lines):
         hit = _standalone_line_invocation(line)
         if hit is None:
@@ -2395,8 +2438,8 @@ def _iter_invocations(text: str) -> "list[tuple[str, list[str], str]]":
         # the word "no" at a word boundary, so the live model's
         # `forge install <package> --no-interactive` exempted itself from the
         # gate entirely. Every `--no-…` flag had that effect.
-        window = "\n".join(lines[max(0, i - 2):i])
-        if _CAP_NEGATORS.search(window):
+        if _negated_before(low, starts[max(0, i - 2)], starts[i],
+                           _CAP_NEGATORS):
             continue
         add(*hit)
     return out
@@ -2639,11 +2682,15 @@ def _unserved_purpose(text: str) -> str | None:
                      for m in _PURPOSE_FRONTED_RE.finditer(text)]
     found = [(start, end, fronted, tool.lower(), words.lower().split())
              for start, end, fronted, tool, words in named + fronted_first]
+    low = _lower_keeping_offsets(text)
     for start, end, fronted, tool, words in found:
         if tool not in _REGISTRY_TOOL_OF_COMMAND:
             continue
-        window = re.split(r"[.!?\n]", text[max(0, start - 48):end])[-1]
-        if _CAP_NEGATORS.search(window):
+        # Read from the last sentence end in the 48 characters before the
+        # purpose, through its end.
+        lead = max(0, start - 48)
+        lead = max([lead] + [text.rfind(c, lead, end) + 1 for c in ".!?\n"])
+        if _negated_before(low, lead, end, _CAP_NEGATORS):
             continue
         path = _subcommand_path(tool, words)
         if path is None:

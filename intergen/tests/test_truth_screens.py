@@ -3079,6 +3079,111 @@ class ActMarkerSlotTests(unittest.TestCase):
         self.assertEqual(floors[True], floors[False])
 
 
+# ── the state and capability screens read the phrases as the claim screen does ─
+# Their negator windows read the "not" of an elliptical conditional and the
+# "no" of an opening interjection as negating the reading or the command after
+# them, and the state screen's hedge list read the "if" of "If not," as a
+# condition on the reading, so an invented reading and an invented command
+# behind one read clean on a turn that ran nothing.
+READING_AFTER_INTERJECTION = "No problem, your disk is 80% full."
+COMMAND_AFTER_INTERJECTION = "No problem, run `pkm add htop` to get it."
+HONEST_SPACE = ("I haven't read how the space is divided on this machine. "
+                "Ask me how much free space is left and I'll read it.")
+REAL_COMMAND = "Run `pkm install htop` to get it."
+
+
+class EllipticalNegationStateAndCapabilityTests(unittest.TestCase):
+    """A reading or a command after an elliptical conditional, "or not," or an
+    opening interjection is still screened; a negator or a hedge of its own
+    still clears it."""
+
+    def test_a_reading_after_one_is_a_state_claim(self):
+        for text in (
+                "Whether or not you asked, your disk is 80% full.",
+                "No problem, your disk is 80% full.",
+                "Whether you asked or not, your disk is 80% full.",
+                "Believe it or not, your disk is 80% full.",
+                "No worries, you have 12 GiB of memory available.",
+                "Not a problem, /var/log is using 13G.",
+                "If not, your disk is 80% full.",
+                "If not, the biggest folder is ~/Videos."):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_local_state_claim(
+                        text, dispatched=False, context=()),
+                    ("violation", text.rstrip(".")))
+
+    def test_a_denial_or_a_hedge_after_one_is_not_a_state_claim(self):
+        for text in (
+                "No problem, I haven't read how full your 468G disk is.",
+                "Whether or not you asked, I don't know how much of your "
+                "468G disk is used.",
+                "If not, I haven't read your 468G disk.",
+                "If not, your disk may have 20G free.",
+                # The phrase after the reading still hedges it.
+                "Your disk is 80% full or, if not, close to it.",
+                "If your disk has less than 10G free, clear the cache."):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_local_state_claim(
+                        text, dispatched=False, context=()),
+                    ("clean", None))
+
+    def test_a_command_after_one_is_checked(self):
+        for text, marker in (
+                ("If not, run `pkm add htop` to get it.", "pkm add"),
+                ("No problem, run `pkm add htop` to get it.", "pkm add"),
+                ("Whether or not you asked, run `pkm add htop` to get it.",
+                 "pkm add"),
+                ("Believe it or not, `pkm add htop` gets it.", "pkm add"),
+                ("No worries, run `pkm add htop` to get it.", "pkm add"),
+                # The two lines before a command on its own line.
+                ("No problem, run this:\n\npkm add htop", "pkm add"),
+                ("If not, run this:\npkm add htop", "pkm add"),
+                # The purpose named for a command.
+                ("No problem, try pkm to see which processes are running.",
+                 "pkm (to see which processes are running)"),
+                ("If not, use the pkm command to check your memory usage.",
+                 "pkm (to check your memory usage)"),
+                # str.lower() lengthens this capital, which would move the
+                # window off the phrase.
+                ("\N{LATIN CAPITAL LETTER I WITH DOT ABOVE}" * 2
+                 + " If not, `pkm add htop` gets it.", "pkm add")):
+            with self.subTest(text=text):
+                self.assertEqual(safety.screen_capability_claim(text),
+                                 ("violation", marker))
+
+    def test_a_correction_after_one_is_still_a_correction(self):
+        for text in (
+                "No problem, there is no `pkm add`; use `pkm install htop`.",
+                "If not, don't run `pkm add htop`; it does not exist.",
+                "No problem, there is no such command:\npkm add htop",
+                "No problem, you can't use pkm to list disk usage."):
+            with self.subTest(text=text):
+                self.assertEqual(safety.screen_capability_claim(text),
+                                 ("clean", None))
+
+    def test_the_reading_and_the_command_are_regenerated_on_both_floors(self):
+        for draft, regeneration, user, pairs, row, marker in (
+                (READING_AFTER_INTERJECTION, HONEST_SPACE, TURN14_USER,
+                 (("How much free space do I have on this system?",
+                   TURN13_FINAL),),
+                 "state_claim_screen", "No problem, your disk is 80% full"),
+                (COMMAND_AFTER_INTERJECTION, REAL_COMMAND, TURN41_USER, (),
+                 "capability_screen", "pkm add")):
+            floors = {}
+            for locked in (True, False):
+                result, decisions, regenerations, _ = _route_recorded(
+                    draft, regeneration, user, *pairs, locked=locked)
+                floors[locked] = decisions
+                with self.subTest(draft=draft, locked=locked):
+                    self.assertIn((row, "violation_regenerated", marker),
+                                  decisions)
+                    self.assertEqual(result.text, regeneration)
+                    self.assertEqual(len(regenerations), 1)
+            self.assertEqual(floors[True], floors[False])
+
+
 # ── a follow-up whose first word is capitalized ──────────────────────────────
 # After the recorded printer exchange, "What's that mean?" and "What does that
 # mean?" were answered on both floors from the how-to corpus's chmod 777 page:

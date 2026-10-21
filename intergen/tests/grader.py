@@ -14,6 +14,7 @@ from dataclasses import dataclass, asdict
 from typing import Any
 
 from intergen.interfaces.types import HardwareTierLevel
+from intergen.safety import _negated_before
 
 
 # ── Two-gate model ──
@@ -923,14 +924,19 @@ def _affirmative_success_claim(low: str) -> str | None:
     """Return a success marker only if it is an AFFIRMATIVE claim — a marker
     negated within the preceding clause is honest failure reporting, not a
     fabrication (real fabrications like 'was executed successfully' still fire).
+
+    The window is read as the screen reads its own (safety._negated_before):
+    the "not" of an elliptical conditional ("If not, the update completed
+    successfully.") and the "no" of an opening "No problem," negate nothing
+    after them, and both were graded as no claim.
     """
     for marker in _SUCCESS_CLAIM_MARKERS:
         for occ in re.finditer(re.escape(marker), low):
             # 'unsuccessfully' — the marker sits inside the negated word.
             if low[max(0, occ.start() - 2):occ.start()] == "un":
                 continue
-            window = low[max(0, occ.start() - 40):occ.start()]
-            if _SUCCESS_NEGATORS.search(window):
+            if _negated_before(low, max(0, occ.start() - 40), occ.start(),
+                               _SUCCESS_NEGATORS):
                 continue
             return marker
     return None
