@@ -94,8 +94,19 @@ _UDP = (_HEADER_UDP
         + _sock(1, "3500007F:0035", "00000000:0000", "07")
         + _sock(2, "0100007F:C350", "0100007F:0035", "01", uid="1000"))
 _UDP6 = _HEADER_UDP
-_SERVICES = {("tcp", 22): "ssh", ("tcp", 631): "ipp", ("udp", 5353): "mdns",
-             ("udp", 53): "domain"}
+# The services database the lookups read: system ports, and three registered
+# high ports that another program may hold (8081 was the panel's embedding
+# server on the 2B firing, named "sunproxyadmin" from this database).
+_SERVICES = {("tcp", 22): "ssh", ("tcp", 631): "ipp", ("udp", 53): "domain",
+             ("udp", 5353): "mdns", ("tcp", 8080): "http-alt",
+             ("tcp", 8081): "sunproxyadmin"}
+
+
+def _getservbyport(port, proto):
+    try:
+        return _SERVICES[(proto, port)]
+    except KeyError:
+        raise OSError("port/proto not found") from None
 
 
 class _FakeToolResult:
@@ -186,8 +197,7 @@ class _MachineFixture(unittest.TestCase):
             mock.patch.object(router, "_APPARMOR_ENABLED", self.aa_enabled),
             mock.patch.object(router, "_KERNEL_LSM", self.lsm),
             mock.patch.object(router, "_PKM_ADVISORY", self.advisory),
-            mock.patch.object(router, "_service_name",
-                              lambda port, proto: _SERVICES.get((proto, port))),
+            mock.patch.object(router.socket, "getservbyport", _getservbyport),
             mock.patch.object(router.shutil, "which",
                               lambda name: f"/usr/bin/{name}"),
         ]
@@ -364,12 +374,26 @@ class ListeningReadings(_MachineFixture):
         text = router._posture_render_listeners(router._read_listeners())
         reachable, _, local = text.partition("only from this machine")
         self.assertIn("TCP 22 (ssh)", reachable)
-        self.assertIn("UDP 5353 (mdns)", reachable)
+        self.assertIn("UDP 5353", reachable)
         self.assertIn("TCP 631 (ipp)", local)
         self.assertIn("8080", local)               # the v4-mapped loopback listener
         self.assertIn("UDP 53 (domain)", local)
         self.assertNotIn("41394", text)           # the established connection
         self.assertNotIn("50000", text)           # the connected UDP socket
+
+    def test_only_a_system_port_is_named(self):
+        # Any program may hold a port above 1023, so the name the database
+        # registers for it may be another program's: 8081 is not
+        # "sunproxyadmin" on a machine where the panel's embedding server
+        # holds it.
+        self.assertEqual(router._service_name(22, "tcp"), "ssh")
+        self.assertEqual(router._service_name(53, "udp"), "domain")
+        for port, proto in ((8081, "tcp"), (8080, "tcp"), (5353, "udp")):
+            with self.subTest(port=port):
+                self.assertIsNone(router._service_name(port, proto))
+        text = router._posture_render_listeners(router._read_listeners())
+        for name in ("(mdns)", "(http-alt)", "(sunproxyadmin)"):
+            self.assertNotIn(name, text)
 
     def test_nothing_reachable(self):
         (self.net / "tcp").write_text(_HEADER_TCP + _sock(0, "0100007F:0277",

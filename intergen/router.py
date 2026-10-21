@@ -2561,8 +2561,15 @@ def _read_listeners() -> "list[tuple[str, int, bool]] | None":
 
 
 def _service_name(port: int, proto: str) -> "str | None":
-    """The port's name in the system's services database, as ss and netstat
-    print it; None when it has none."""
+    """The port's name in the system's services database, for a system port
+    only; None for any other. Only root can bind a port below 1024, so the
+    name registered for one is the service a privileged program offers there.
+    Any program may take a higher port: the panel's embedding server on 8081 was
+    named "sunproxyadmin" from the same database (measured on the 2B firing), a
+    service that was not running. A name that may be another program's is not
+    given."""
+    if not 0 < port < 1024:
+        return None
     try:
         return socket.getservbyport(port, proto)
     except (OSError, OverflowError):
