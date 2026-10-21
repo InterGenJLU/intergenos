@@ -122,13 +122,16 @@ class TestExecuteSurfacing(unittest.TestCase):
         ):
             res = self.tool.execute({"source": "screenshot"})
         self.assertTrue(res.success)
-        self.assertIn("data:image/png;base64,", res.content)
+        # the picture rides in image_data (the image gate's input at the
+        # registry; the model's image part at synthesis), never in content
+        self.assertTrue(res.image_data.startswith("data:image/png;base64,"))
+        self.assertNotIn("base64,", res.content)
         self.assertIn("the screenshot portal", res.content)
         # the person's own screenshot stays where it was saved, and the result
         # says where that is
         self.assertIn(f"kept at {self._KEPT}", res.content)
         # the payload round-trips to the exact captured bytes
-        b64 = res.content.split("base64,", 1)[1].strip()
+        b64 = res.image_data.split("base64,", 1)[1].strip()
         self.assertEqual(base64.b64decode(b64), _PNG_1x1)
 
     def test_loud_failure_is_surfaced_verbatim(self):

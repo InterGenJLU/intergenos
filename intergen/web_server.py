@@ -53,7 +53,7 @@ from intergen import attribution
 import aiohttp
 from aiohttp import WSCloseCode, WSMsgType, web
 
-from intergen import glass, safety
+from intergen import glass, image_ingress, safety
 from intergen.governance import GovernanceEngine
 from intergen.llm import bind_turn_stop, unbind_turn_stop
 from intergen.router import correct_identity_collision
@@ -1614,6 +1614,24 @@ class WebServer:
 
         # Extract image data for vision models (M-002)
         image_data = data.get("image_data", None)
+        if image_data:
+            # THE IMAGE GATE: every picture is checked BEFORE the model's turn
+            # (intergen.image_ingress — transcribed by the local vision model,
+            # scanned as ingress, refused on BLOCK or FLAG). A refused picture
+            # ends the turn right here with the gate's own sentence; the model
+            # never sees it. Until 2026-10-20 the picture went into the
+            # person's own turn with no scan and no marker.
+            _image_name = str(data.get("image_name") or "a picture")
+            _admission = await asyncio.get_running_loop().run_in_executor(
+                None, lambda: image_ingress.admit(
+                    image_data, source=f"the image button ({_image_name})",
+                    source_type="image"))
+            if _admission.refused:
+                await self._deliver_code_owned_text(
+                    ctx, turn_id, user_msg,
+                    image_ingress.refusal_text(_admission),
+                    source="image_ingress_refused")
+                return
 
         # Try keyword/semantic/cache fast paths first (P0-P2)
         # These are non-streaming and return complete results
@@ -1872,6 +1890,29 @@ class WebServer:
             })
         except Exception:
             logger.debug("session_list send failed", exc_info=True)
+
+    async def _deliver_code_owned_text(self, ctx: ConnectionContext,
+                                       turn_id: str, user_msg: str,
+                                       text: str, *, source: str) -> None:
+        """Deliver a sentence the CODE owns (no model turn) exactly as the fast
+        paths deliver theirs: the response frame, the delivery record with a
+        code linkage, the history write, the session persist. Used by the image
+        gate's refusal, where the turn ends before routing."""
+        await ctx.ws.send_json({
+            "type": "response",
+            "turn_id": turn_id,
+            "content": text,
+            "source": source,
+            "handled": True,
+            "confidence": 1.0,
+        })
+        glass.emit("delivery", "final", detail={
+            "iface": "web", "text": text, "source": source,
+            "handled": True, "fast_path": True, "tool_count": 0,
+            "answer_linkage": AnswerLinkage(
+                kind="code", renderer=source).as_detail()})
+        self._router._append_history(user_msg, text, state=ctx.conversation)
+        await self._persist_and_list(ctx)
 
     async def _persist_and_list(self, ctx: ConnectionContext) -> None:
         """Persist the live conversation incrementally (survives a restart and
@@ -3408,12 +3449,17 @@ class WebServer:
                     # turn's bound context, as the regenerations do, so it also
                     # stops with the turn (llm.py).
                     _synth_ctx = glass.bind_context()
+                    # A picture the tool produced (a screen capture, admitted
+                    # at the registry) rides into synthesis as an image part;
+                    # the keyword travels only when there is one.
+                    _synth_kw = ({"image_data": tr.image_data}
+                                 if getattr(tr, "image_data", None) else {})
                     synthesis = await asyncio.get_running_loop().run_in_executor(
                         None,
                         lambda: _synth_ctx.run(
                             self._llm.continue_after_tool_call,
                             messages, item, tr.model_summary or tr.content,
-                            success=tr.success))
+                            success=tr.success, **_synth_kw))
                     if synthesis and synthesis.text:
                         collected_tokens.append(synthesis.text)
                         await ctx.ws.send_json({

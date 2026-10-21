@@ -24,6 +24,7 @@ import urllib.request
 from typing import Any, Iterator
 
 from intergen import glass
+from intergen import image_ingress
 from intergen import persona
 from intergen.coherence import degeneracy_reason
 from intergen.interfaces.cloud import CloudCallStopped, CloudProviderAdapter
@@ -577,6 +578,35 @@ class LLMRouter(LLMInterface):
         "doesn't support image input, so I can't analyze it. Vision needs a "
         "vision-capable model on this machine."
     )
+    _IMAGE_NOT_ADMITTED_MSG = (
+        "I can see a picture came with this message, but it did not pass "
+        "through the check every picture gets before I look at it, so I have "
+        "not looked at it. Please send it again."
+    )
+    _IMAGE_NOT_ATTACHED_MSG = (
+        "I could not attach your picture to this turn, so I have answered "
+        "without looking at it. Please send it again on its own."
+    )
+
+    def _image_not_admitted(self) -> str:
+        """Code-owned reply when a picture reaches the model layer without an
+        admission from the image gate (intergen.image_ingress). Fail loud: a
+        caller that skipped the gate cannot put a picture in front of the model,
+        and the person is told the picture was not looked at."""
+        glass.emit("model", "image_not_admitted", detail={
+            "reason": "image_data reached the model layer with no admission "
+                      "from the image gate"})
+        return self._IMAGE_NOT_ADMITTED_MSG
+
+    def _image_not_attached(self) -> str:
+        """Code-owned reply when an admitted picture could not be placed into
+        the request (the last message is not the person's text turn). Until
+        2026-10-20 this case dropped the picture silently and the model
+        answered blind."""
+        glass.emit("model", "image_dropped", detail={
+            "reason": "the last message is not a plain user turn; the image "
+                      "part had nowhere to go"})
+        return self._IMAGE_NOT_ATTACHED_MSG
 
     def _vision_unsupported(self) -> str:
         """Code-owned honest reply for an image turn on a non-vision model.
@@ -680,12 +710,19 @@ class LLMRouter(LLMInterface):
         if image_data and not self._has_vision:
             yield self._vision_unsupported()
             return
+        if image_data and image_ingress.admitted(image_data) is None:
+            yield self._image_not_admitted()
+            return
         if turn_ended():
             self._note_stopped(0)
             return
         msg_dicts = self._to_openai_messages(messages)
         if image_data and msg_dicts:
-            msg_dicts = self._inject_image(msg_dicts, image_data)
+            msg_dicts, _attached = self._inject_image(
+                msg_dicts, image_data, marker=image_ingress.ADMISSION_MARKER)
+            if not _attached:
+                yield self._image_not_attached()
+                return
         payload = {
             "messages": msg_dicts,
             "temperature": temperature or self._temperature,
@@ -826,8 +863,17 @@ class LLMRouter(LLMInterface):
             yield self._vision_unsupported()
             return
         if not self._tool_calling or not tools:
+            # The tool-less turn keeps its picture. Until 2026-10-20 this
+            # branch called stream() WITHOUT image_data, so every picture on a
+            # freeform route — and every picture on the locked floor, where no
+            # tool is ever offered — was dropped silently and the model
+            # described a screen it never saw (the three-machine firing).
             yield from self.stream(messages, max_tokens=max_tokens,
-                                   temperature=temperature)
+                                   temperature=temperature,
+                                   image_data=image_data)
+            return
+        if image_data and image_ingress.admitted(image_data) is None:
+            yield self._image_not_admitted()
             return
 
         # Enforce 2-message constraint: [system, user] only
@@ -841,7 +887,11 @@ class LLMRouter(LLMInterface):
 
         msg_dicts = self._to_openai_messages(tool_messages)
         if image_data and msg_dicts:
-            msg_dicts = self._inject_image(msg_dicts, image_data)
+            msg_dicts, _attached = self._inject_image(
+                msg_dicts, image_data, marker=image_ingress.ADMISSION_MARKER)
+            if not _attached:
+                yield self._image_not_attached()
+                return
         tool_dicts = [t.to_openai() for t in tools]
 
         payload = {
@@ -1698,8 +1748,16 @@ class LLMRouter(LLMInterface):
         executed: bool = True,
         max_tokens: int = 400,
         temperature: float = 0.3,
+        image_data: str | None = None,
     ) -> LLMResponse | None:
         """Send tool result back to LLM for human-readable synthesis.
+
+        ``image_data``: a picture the tool produced (a screen capture), already
+        admitted by the image gate at the registry. It rides into the synthesis
+        request as an image part on the synthesis turn, behind the admission
+        marker; a picture with no admission is NOT sent (fail closed, marked).
+        Until 2026-10-20 a capture reached the model only as base64 text cut
+        at the tool-result cap — the model never saw the picture.
 
         Includes a dedicated synthesis prompt (ported from a prior
         synth_footer pattern) that instructs the model to present
@@ -1752,6 +1810,20 @@ class LLMRouter(LLMInterface):
             "role": "user",
             "content": synthesis_prompt,
         })
+        if image_data:
+            if not self._has_vision or image_ingress.admitted(image_data) is None:
+                glass.emit("model", "image_not_admitted", detail={
+                    "reason": "a tool result's picture reached synthesis "
+                              "without an admission (or on a model without "
+                              "vision); synthesized from the text only",
+                    "tool": tool_call.name, "has_vision": self._has_vision})
+            else:
+                msg_dicts, _attached = self._inject_image(
+                    msg_dicts, image_data, marker=image_ingress.ADMISSION_MARKER)
+                if not _attached:
+                    glass.emit("model", "image_dropped", detail={
+                        "reason": "the synthesis turn could not carry the "
+                                  "image part", "tool": tool_call.name})
 
         payload = {
             "messages": msg_dicts,
@@ -2569,27 +2641,78 @@ class LLMRouter(LLMInterface):
             return None
 
     @staticmethod
-    def _inject_image(msg_dicts: list[dict],
-                       image_data: str) -> list[dict]:
+    def _inject_image(msg_dicts: list[dict], image_data: str,
+                       marker: str = "") -> tuple[list[dict], bool]:
         """Inject base64 image data into the last user message.
 
         Converts the last user message's content from a simple string
         to a multimodal content array with both text and image parts.
         This is the llama.cpp multimodal format compatible with Qwen2-VL
-        and other vision-capable models.
+        and other vision-capable models. ``marker`` is placed before the
+        person's words (the image gate's admission marker: the picture's
+        words are not the person's request).
+
+        Returns the messages and whether the picture was ATTACHED. A last
+        message that is not a plain user turn cannot carry it; the caller
+        answers that case loudly instead of sending the turn without the
+        picture (the silent drop measured 2026-10-20).
         """
         if not msg_dicts or not image_data:
-            return msg_dicts
+            return msg_dicts, False
         result = list(msg_dicts)
-        last = result[-1]
+        last = dict(result[-1])
         if last.get("role") == "user" and isinstance(last.get("content"), str):
+            text = last["content"]
+            if marker:
+                text = f"{marker}\n\n{text}"
             last["content"] = [
                 {"type": "image_url",
                  "image_url": {"url": image_data}},
                 {"type": "text",
-                 "text": last["content"]},
+                 "text": text},
             ]
-        return result
+            result[-1] = last
+            return result, True
+        return result, False
+
+    def transcribe_image(self, image_data: str) -> str:
+        """The image gate's transcription instrument: ask the served vision
+        model for the picture's text, verbatim, under a fixed instruction, and
+        return it. One non-streaming request; the output goes to the scanner
+        only. Raises on any failure so the gate refuses the picture (it never
+        returns an empty string as if the picture were blank)."""
+        if not self._has_vision:
+            raise RuntimeError("the served model declares no vision")
+        payload = {
+            "messages": [
+                {"role": "system", "content": image_ingress.TRANSCRIPTION_SYSTEM},
+                {"role": "user", "content": [
+                    {"type": "image_url", "image_url": {"url": image_data}},
+                    {"type": "text", "text": image_ingress.TRANSCRIPTION_USER},
+                ]},
+            ],
+            "temperature": 0.0,
+            "top_p": 1.0,
+            "top_k": 1,
+            "max_tokens": 600,
+            "stream": False,
+            "cache_prompt": False,
+        }
+        req = urllib.request.Request(
+            self._endpoint,
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        _t0 = time.monotonic()
+        with urllib.request.urlopen(req, timeout=self._request_timeout) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+        text = ((body.get("choices") or [{}])[0].get("message") or {}).get("content")
+        if not isinstance(text, str):
+            raise RuntimeError("the transcription reply carried no text")
+        glass.emit("ingress", "image_transcribed", detail={
+            "chars": len(text), "prompt_tok_count": (body.get("usage") or {}).get("prompt_tokens")},
+            dur_ms=(time.monotonic() - _t0) * 1000)
+        return text
 
     @staticmethod
     def _to_openai_messages(messages: list[Message]) -> list[dict]:

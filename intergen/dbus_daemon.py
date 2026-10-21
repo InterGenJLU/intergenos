@@ -2241,6 +2241,18 @@ class InterGenDaemon(InterGenDBusInterface):
                 "has_vision": model_has_vision,
             }
             self._llm = LLMRouter(llm_config)
+            # THE IMAGE GATE (intergen.image_ingress): every picture meets it
+            # before a model turn. The transcriber is the served vision model;
+            # a model without vision leaves the gate refusing every picture
+            # with that reason, and a missing scanner refuses too (fail closed).
+            from intergen import image_ingress
+            image_ingress.configure(
+                transcriber=(self._llm.transcribe_image
+                             if model_has_vision else None),
+                scanner=getattr(self, "_scanner_policy", None))
+            log.info("Image gate configured (vision=%s, scanner=%s)",
+                     model_has_vision,
+                     getattr(self, "_scanner_policy", None) is not None)
             # Hand the router the engine that serves it. The router never
             # drives it; it asks one question when a request has already
             # failed — was this a fault, or a stop someone asked for — so a

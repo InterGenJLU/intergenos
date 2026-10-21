@@ -30,7 +30,10 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
+from intergen import image_ingress
+from intergen.image_ingress import ImageIngressGate
 from intergen.interfaces.provenance import Provenance
+from intergen.scanner.policy import ScannerPolicy
 from intergen.interfaces.types import ToolCall
 from intergen.tool_registry import ToolRegistry
 import intergen.tools.take_screenshot as ts
@@ -112,6 +115,14 @@ class TheScreenshotCommandConsentsInThePlatformDialogTests(unittest.TestCase):
         cls.bus.close()
 
     def setUp(self):
+        # The image gate admits the case's blank 1x1 capture: the transcriber
+        # is faked (no model here); the gate itself is test_image_ingress_gate.
+        gate_patch = mock.patch.object(
+            image_ingress, "GATE",
+            ImageIngressGate(transcriber=lambda uri: "NO TEXT",
+                             scanner=ScannerPolicy()))
+        gate_patch.start()
+        self.addCleanup(gate_patch.stop)
         tmp = tempfile.TemporaryDirectory(prefix="intergen-shot-case-")
         self.addCleanup(tmp.cleanup)
         self.shot = Path(tmp.name) / "Screenshot From 2026-10-08 12-00-00.png"

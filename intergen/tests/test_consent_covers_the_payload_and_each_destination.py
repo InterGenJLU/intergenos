@@ -41,7 +41,10 @@ import threading
 import unittest
 from unittest import mock
 
+from intergen import image_ingress
 from intergen import llm as llm_module
+from intergen.image_ingress import ImageIngressGate
+from intergen.scanner.policy import ScannerPolicy
 from intergen.interfaces.cloud import CloudProviderAdapter
 from intergen.interfaces.types import EscalationMode, Message, MessageRole
 from intergen.llm import LLMRouter
@@ -186,7 +189,15 @@ class ConsentCoversThePayloadAndEachDestination(unittest.TestCase):
 
     def _one_turn(self, router=None, image_data=None, text=LOCAL_CONTENT):
         router = router or self.llm
-        with mock.patch("urllib.request.urlopen", self.transport), \
+        # The person's own picture is admitted by the image gate before the
+        # turn (the gate itself is test_image_ingress_gate); the model layer
+        # refuses a picture with no admission, so the case admits its own.
+        gate = ImageIngressGate(transcriber=lambda uri: "NO TEXT",
+                                scanner=ScannerPolicy())
+        if image_data:
+            gate.admit(image_data, source="the case's own picture")
+        with mock.patch.object(image_ingress, "GATE", gate), \
+             mock.patch("urllib.request.urlopen", self.transport), \
              mock.patch.object(llm_module.glass, "emit",
                                lambda *_a, **_k: None):
             return router.chat(

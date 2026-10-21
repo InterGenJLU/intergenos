@@ -382,14 +382,14 @@ class TakeScreenshotTool(BaseTool):
             b64_uri = _encode_for_llm(image_bytes)
             size_kb = len(image_bytes) // 1024
 
+            # The picture rides in image_data, not in content: the registry
+            # puts it through the image gate, and the model receives it as an
+            # image part at synthesis. content is the human-readable header.
             return ToolResult(
                 call_id="", name=self.name,
-                content=(
-                    f"[Image captured via {method_name}: "
-                    f"{size_kb}KB PNG{kept}]\n"
-                    f"{b64_uri}"
-                ),
+                content=f"[Image captured via {method_name}: {size_kb}KB PNG{kept}]",
                 success=True,
+                image_data=b64_uri,
             )
 
         except subprocess.CalledProcessError as e:

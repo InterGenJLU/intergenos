@@ -1215,6 +1215,11 @@ class ToolRegistry:
                         result = tool.execute(arguments)
                         self._cache.put(tool_name, arguments, _uid, result)
                 exit_code = 0 if result.success else 1
+                if getattr(result, "image_data", None):
+                    # A picture the tool produced meets the image gate here,
+                    # before the result leaves the registry (intergen.image_ingress).
+                    result = self._gate_tool_picture(result, tool_name, arguments)
+                    exit_code = 0 if result.success else 1
                 # Invalidate cached reads after a successful state-changing call
                 # (no-op for read-only tools). Covers both dispatch paths above.
                 if result.success:
@@ -1425,6 +1430,27 @@ class ToolRegistry:
                     result.model_summary, source, source_type)
 
         return result
+
+    @staticmethod
+    def _gate_tool_picture(result: ToolResult, tool_name: str,
+                           arguments: dict[str, Any]) -> ToolResult:
+        """A picture a tool produced (a screen capture) meets the image gate
+        before the result leaves the registry. Admitted: the result is returned
+        as it is, its picture registered for the model layer. Refused: the
+        result becomes a blocked, executed result carrying the gate's own
+        sentence and no picture — the model never sees it and the router's
+        blocked-result path delivers the sentence without a synthesis hop."""
+        from intergen import image_ingress
+        source, source_type = _ingress_source_attribution(tool_name, arguments)
+        admission = image_ingress.admit(
+            result.image_data, source=source, source_type=source_type)
+        if admission.admitted:
+            return result
+        return ToolResult(
+            call_id=result.call_id, name=result.name,
+            content=image_ingress.refusal_text(admission),
+            success=False, executed=True, blocked=True, image_data=None,
+        )
 
     @staticmethod
     def _dispatch_via_pkexec(

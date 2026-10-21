@@ -6496,12 +6496,16 @@ class ConversationRouter(RouterInterface):
                     "used_model_summary", tool_results[0].model_summary is not None)
                 _synth_span.set_attribute("input_len", len(_synth_in))
                 _synth_span.set_content("synthesis_input", _synth_in)
+                _synth_kw = (
+                    {"image_data": tool_results[0].image_data}
+                    if getattr(tool_results[0], "image_data", None) else {})
                 synthesis = self._llm.continue_after_tool_call(
                     messages,
                     tool_calls[0],
                     tool_results[0].model_summary or tool_results[0].content,
                     success=tool_results[0].success,
                     executed=tool_results[0].executed,
+                    **_synth_kw,
                 )
                 _synth_span.set_attribute("synthesis_ok", synthesis is not None)
                 if synthesis:

@@ -111,6 +111,13 @@ class ToolResult:
     # silently restore the defect (measured 2026-09-16 — a denied action was
     # answered with "Tool call denied by user via review modal.").
     denied_by_user: bool = False
+    # A picture the tool produced (a screen capture), as a data URI, admitted
+    # by the image gate (intergen.image_ingress) at the registry before the
+    # result leaves it; the model receives it as an image part at synthesis
+    # (continue_after_tool_call). `content` carries only the human-readable
+    # header. Until 2026-10-20 the whole data URI rode in `content` and reached
+    # the model as base64 TEXT cut at the tool-result cap — never a picture.
+    image_data: str | None = None
 
 
 @dataclass
