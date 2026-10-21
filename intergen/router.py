@@ -4501,22 +4501,23 @@ class ConversationRouter(RouterInterface):
             # say that something goes out only on a request: these texts are
             # fixed and cannot read the lane, and where the model is given its
             # tools it may start a read-only one, a web search among them, by
-            # itself. What holds on every lane is said instead. The direct-answer
+            # itself. What holds on every lane is said instead, and both still
+            # say "local", the word the person asked about. The direct-answer
             # route answers the same questions first, from this machine's own
             # facts (_privacy_answer).
             "do you run locally": (
-                "Yes — I run on this machine, and so does the model that answers "
-                "you. Nothing is sent in the background — no telemetry; something "
-                "goes out only while I work on something you asked: a web search, "
-                "a network lookup such as your public IP, or a Phone-A-Friend "
-                "question you approve."
+                "Yes — I run locally, on this machine, and so does the model that "
+                "answers you. Nothing is sent in the background — no telemetry; "
+                "something goes out only while I work on something you asked: a "
+                "web search, a network lookup such as your public IP, or a "
+                "Phone-A-Friend question you approve."
             ),
             "what about privacy": (
-                "The model that answers you runs on this machine, and nothing is "
-                "sent in the background — no telemetry. Something leaves only "
-                "while I work on something you asked: a web search, a network "
-                "lookup such as your public IP, a software download from the "
-                "package mirror, or a Phone-A-Friend question you approve."
+                "The model that answers you runs locally, on this machine, and "
+                "nothing is sent in the background — no telemetry. Something "
+                "leaves only while I work on something you asked: a web search, a "
+                "network lookup such as your public IP, a software download from "
+                "the package mirror, or a Phone-A-Friend question you approve."
             ),
             "how do you work": (
                 "I route your queries through a priority chain: cached system "
