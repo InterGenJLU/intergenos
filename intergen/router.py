@@ -6715,9 +6715,11 @@ class ConversationRouter(RouterInterface):
             return flagged
 
         # The delivery screens of an answer nothing was dispatched for, the one
-        # sequence the tool route's text answer meets too.
+        # sequence the tool route's text answer meets too. `fallbacks` collects
+        # each screen that served a code-owned text in place of the model's.
+        fallbacks: list[str] = []
         text, refused = self._screen_model_answer(
-            response.text, messages, source="llm_freeform")
+            response.text, messages, source="llm_freeform", fallbacks=fallbacks)
 
         # M7 follow-on: a single-turn "write <artifact> and save it" — the artifact
         # was just generated, so STAGE the save as a gated offer (branch 3 reused with
@@ -6735,9 +6737,19 @@ class ConversationRouter(RouterInterface):
         # AND the answer text actually draws on that passage: a retrieval hit puts
         # the passage in front of the model but does not make the model use it,
         # and a Source line on an answer that ignored the page claims a provenance
-        # the answer does not have.
-        emitted_citation, wiki_support = self._wiki_citation_if_used(
-            text, wiki_citation, wiki_passage, user_input)
+        # the answer does not have. A code-owned fallback a screen served in
+        # place of the model's text drew on no page at all, so it is never cited,
+        # whatever words it shares with the question and the passage (the honest
+        # state line on a disk-usage question was cited to an unrelated page).
+        if fallbacks:
+            emitted_citation, wiki_support = None, 0.0
+            if wiki_citation:
+                logger.info(
+                    "wiki citation withheld: the delivered text is a code-owned "
+                    "fallback (%s), not the model's answer", ", ".join(fallbacks))
+        else:
+            emitted_citation, wiki_support = self._wiki_citation_if_used(
+                text, wiki_citation, wiki_passage, user_input)
         if emitted_citation:
             text = text.rstrip() + "\n\n" + emitted_citation
         if wiki_citation:
@@ -6746,6 +6758,7 @@ class ConversationRouter(RouterInterface):
             # so a withheld citation is an observed measurement, not a silence.
             _fs_span.set_attribute("wiki_citation_emitted", bool(emitted_citation))
             _fs_span.set_attribute("wiki_answer_support", round(wiki_support, 4))
+            _fs_span.set_attribute("wiki_citation_code_owned", bool(fallbacks))
 
         self._append_history(user_input, text)
 
@@ -6821,7 +6834,8 @@ class ConversationRouter(RouterInterface):
         )
 
     def _screen_model_answer(self, draft: str, messages: "list[Message]", *,
-                             source: str) -> "tuple[str, bool]":
+                             source: str, fallbacks: "list[str] | None" = None
+                             ) -> "tuple[str, bool]":
         """The delivery screens of a model answer that nothing was dispatched
         for, in order: the claim screens, then the refusal screen on a general
         turn. ONE sequence for every route that serves such an answer — the
@@ -6829,14 +6843,16 @@ class ConversationRouter(RouterInterface):
         without calling a tool — so the two cannot drift apart.
 
         Returns (text, refused), as _screen_and_correct_refusal does; `refused`
-        is False when the refusal screen did not run."""
+        is False when the refusal screen did not run. When `fallbacks` is a
+        list, each screen that served a code-owned text instead of the model's
+        appends its name to it, so the caller knows whose text it delivers."""
         # M3(ii) honesty invariant: no dispatch stands behind this answer, so any
         # first-person execution claim in the draft is unfounded. Screen it; on a
         # violation regenerate ONCE with a corrective note, else a deterministic
         # honest fallback — never ship a fabricated action claim. Glass-log the
         # verdict every turn (both paths), per the total-observability rider.
         text = self._screen_and_correct_claim(
-            draft, messages, dispatched=False, source=source)
+            draft, messages, dispatched=False, source=source, fallbacks=fallbacks)
 
         # The conversational path never refuses a benign ask. persona.SCOPE says so
         # in the prompt and the model disregards it (measured 2026-08-26, battery
@@ -6846,7 +6862,7 @@ class ConversationRouter(RouterInterface):
         refused = False
         if getattr(self, "_current_query_type", "") == "general":
             text, refused = self._screen_and_correct_refusal(
-                text, messages, source=source)
+                text, messages, source=source, fallbacks=fallbacks)
         return text, refused
 
     def _regenerate_without_claim(self, messages: "list[Message]",
@@ -6885,14 +6901,16 @@ class ConversationRouter(RouterInterface):
         return regen.text if verdict == "clean" else None
 
     def _screen_and_correct_claim(self, draft: str, messages: "list[Message]", *,
-                                  dispatched: bool, source: str) -> str:
+                                  dispatched: bool, source: str,
+                                  fallbacks: "list[str] | None" = None) -> str:
         """M3(ii) honesty invariant + M4 capability-claim gate, shared by the
         CLI/D-Bus freeform path and the web streamer. Screen the model DRAFT for
         (1) an unfounded execution claim and (2) a fabricated pkm-subcommand claim;
         on a violation regenerate once, else serve the honest fallback. Emit
         decision/claim_screen + decision/capability_screen EVERY turn (clean or
         corrected), per the total-observability rider — the verdicts are never
-        silent."""
+        silent. A screen that serves its code-owned fallback names itself in
+        `fallbacks` when that is a list (_screen_model_answer)."""
         # (1) execution claim (honesty invariant) — gated on the turn's dispatch.
         verdict, marker = screen_execution_claim(draft, dispatched=dispatched)
         if verdict == "clean":
@@ -6906,6 +6924,8 @@ class ConversationRouter(RouterInterface):
                 outcome, text = "violation_regenerated", corrected
             else:
                 outcome, text = "violation_regen_failed_fallback", honest_action_fallback()
+                if fallbacks is not None:
+                    fallbacks.append("claim_screen")
             glass.emit("decision", "claim_screen", detail={
                 "verdict": outcome, "marker": marker,
                 "dispatched": dispatched, "source": source})
@@ -6914,19 +6934,22 @@ class ConversationRouter(RouterInterface):
         # package list, unit list or path (safety.screen_local_state_claim). Runs
         # on the execution-corrected text, against everything the model was given.
         text = self._screen_and_correct_local_state(
-            text, messages, dispatched=dispatched, source=source)
+            text, messages, dispatched=dispatched, source=source,
+            fallbacks=fallbacks)
 
         # (1b) M7 leg 2: a model-AUTHORED offer to perform an action on a toolless
         # turn that no code-owned offer backs (the leg-1 root enabler). Runs on the
         # execution-corrected text; the code-owned offer line stays the only offer
         # surface.
         text = self._screen_and_correct_model_offer(
-            text, messages, dispatched=dispatched, source=source)
+            text, messages, dispatched=dispatched, source=source,
+            fallbacks=fallbacks)
 
         # (2) capability claim (M4 grounded claims) — a fabricated pkm subcommand is
         # wrong regardless of dispatch. Runs on the (possibly execution-corrected)
         # text so ONE delivered answer clears both gates.
-        return self._screen_and_correct_capability(text, messages, source=source)
+        return self._screen_and_correct_capability(text, messages, source=source,
+                                                   fallbacks=fallbacks)
 
     def _code_offer_staged(self) -> bool:
         """True if a CODE-owned offer is armed this turn (its confirmation is
@@ -6958,7 +6981,8 @@ class ConversationRouter(RouterInterface):
                 else None)
 
     def _screen_and_correct_local_state(self, draft: str, messages: "list[Message]",
-                                        *, dispatched: bool, source: str) -> str:
+                                        *, dispatched: bool, source: str,
+                                        fallbacks: "list[str] | None" = None) -> str:
         """Screen a model DRAFT for a reading of this machine that nothing took
         (safety.screen_local_state_claim, against everything the model was
         given); regenerate once with the state guard, else serve the honest line
@@ -6978,6 +7002,8 @@ class ConversationRouter(RouterInterface):
                              if m.role == MessageRole.USER), "")
             outcome = "violation_regen_failed_fallback"
             text = honest_local_state_fallback(marker, question)
+            if fallbacks is not None:
+                fallbacks.append("state_claim_screen")
         glass.emit("decision", "state_claim_screen", detail={
             "verdict": outcome, "marker": marker, "dispatched": dispatched,
             "source": source})
@@ -7026,7 +7052,8 @@ class ConversationRouter(RouterInterface):
         return regen.text if verdict == "clean" else None
 
     def _screen_and_correct_model_offer(self, draft: str, messages: "list[Message]",
-                                        *, dispatched: bool, source: str) -> str:
+                                        *, dispatched: bool, source: str,
+                                        fallbacks: "list[str] | None" = None) -> str:
         """M7 leg 2: screen a model DRAFT for a self-authored action offer on a
         toolless turn with no code-owned offer staged; regenerate once re-grounded,
         else serve the honest no-self-offer fallback. Glass-log the verdict every
@@ -7042,6 +7069,8 @@ class ConversationRouter(RouterInterface):
             outcome, text = "violation_regenerated", corrected
         else:
             outcome, text = "violation_regen_failed_fallback", honest_no_selfoffer_fallback()
+            if fallbacks is not None:
+                fallbacks.append("model_offer_screen")
         glass.emit("decision", "model_offer_screen", detail={
             "verdict": outcome, "marker": marker, "source": source})
         return text
@@ -7063,7 +7092,8 @@ class ConversationRouter(RouterInterface):
         return regen.text if verdict == "clean" else None
 
     def _screen_and_correct_capability(self, draft: str, messages: "list[Message]",
-                                       *, source: str) -> str:
+                                       *, source: str,
+                                       fallbacks: "list[str] | None" = None) -> str:
         """M4 capability gate: verify every first-party command the draft names —
         tool, subcommand and flags — against that tool's real derived interface
         before delivery; regenerate once grounded, else serve the honest
@@ -7085,6 +7115,8 @@ class ConversationRouter(RouterInterface):
             if marker is not None:
                 outcome = "unavailable_no_surface_fallback"
                 text = capability_unverified_fallback(marker)
+                if fallbacks is not None:
+                    fallbacks.append("capability_screen")
             else:
                 outcome, text = "unavailable_no_surface", draft
             glass.emit("decision", "capability_screen", detail={
@@ -7103,12 +7135,16 @@ class ConversationRouter(RouterInterface):
                 "verdict": "unverifiable_tool_surface", "marker": marker,
                 "source": source,
                 "degraded": "tool argument surface is not introspectable"})
+            if fallbacks is not None:
+                fallbacks.append("capability_screen")
             return capability_unintrospectable_fallback(marker)
         corrected = self._regenerate_with_capability_grounding(messages, marker)
         if corrected is not None:
             outcome, text = "violation_regenerated", corrected
         else:
             outcome, text = "violation_regen_failed_fallback", honest_capability_fallback(marker)
+            if fallbacks is not None:
+                fallbacks.append("capability_screen")
         glass.emit("decision", "capability_screen", detail={
             "verdict": outcome, "marker": marker, "source": source})
         return text
@@ -7130,7 +7166,9 @@ class ConversationRouter(RouterInterface):
         return regen.text if verdict == "clean" else None
 
     def _screen_and_correct_refusal(self, draft: str, messages: "list[Message]",
-                                    *, source: str) -> "tuple[str, bool]":
+                                    *, source: str,
+                                    fallbacks: "list[str] | None" = None
+                                    ) -> "tuple[str, bool]":
         """The conversational scope boundary, enforced on the DRAFT.
 
         Returns (text, refused). `refused` is True when the model declined and the
@@ -7149,6 +7187,8 @@ class ConversationRouter(RouterInterface):
         else:
             outcome, text, refused = (
                 "refusal_regen_failed_steer", honest_scope_steer(), True)
+            if fallbacks is not None:
+                fallbacks.append("refusal_screen")
         glass.emit("decision", "refusal_screen", detail={
             "verdict": outcome, "phrase": phrase, "source": source})
         return (text, refused)

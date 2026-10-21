@@ -47,6 +47,7 @@ from intergen.semantic import SemanticMatcher
 from intergen.tool_registry import ToolRegistry
 from intergen.tests.test_curated_route_regressions import route_row
 from intergen.web_server import ConnectionContext, WebServer
+from intergen.wiki_retrieval import WikiHit
 
 # ── The recorded texts (verbatim) ─────────────────────────────────────────────
 TURN13_FINAL = (
@@ -1005,15 +1006,28 @@ TURN41_USER = ("I want YOU to run the `sudo pkm install steam` command FOR me "
                "to install the steam package")
 
 
-def _route_recorded(draft, regeneration, user, *pairs, locked):
+class _OneHit:
+    """Stands in for the installed wiki's retrieval: always the recorded hit."""
+
+    def __init__(self, hit):
+        self._hit = hit
+
+    def retrieve(self, query, **_):
+        return self._hit
+
+
+def _route_recorded(draft, regeneration, user, *pairs, locked, wiki=None):
     """One recorded turn through route(), the console entry, on a router with
     the recorded history. Native (the 9B and 35B lanes' floor): the model
     streams `draft` as a text answer and calls no tool. Locked (the 2B floor):
     `draft` is the model's first completion. Every later completion — a
-    regeneration — is `regeneration`. Returns (the result, the screen
+    regeneration — is `regeneration`. `wiki`, when given, is the page the
+    installed wiki returns for the turn. Returns (the result, the screen
     decisions, the regeneration requests, the tool-route requests)."""
     tier = HardwareTierLevel.TIER_1 if locked else HardwareTierLevel.TIER_2
     router = _router(tier=tier, locked=locked)
+    if wiki is not None:
+        router._wiki_retrieval = _OneHit(wiki)
     for asked, answered in pairs:
         router._append_history(asked, answered)
     replies = ([draft] if locked else []) + [regeneration] * 5
@@ -1155,6 +1169,94 @@ class ToolRouteTextAnswerTests(unittest.TestCase):
                       regenerated[0].content)
         self.assertEqual([(m.role, m.content) for m in regenerated[1:-1]],
                          [(m.role, m.content) for m in drafted[1:]])
+
+
+# The pages the installed wiki returned for turns 14 and 22 on the locked floor,
+# verbatim (title, page, passage, citation line), as retrieved with no embedder.
+CONSTRAINING_PAGE = WikiHit(
+    rel_html="assistant/constraining.html", title="Constraining", score=0.5,
+    passage=(
+        "for this, and what does it touch? Content trust — does data crossing a "
+        "boundary carry an injection (inbound) or leak a secret (outbound)? The "
+        "privilege axis sorts your filesystem into three zones: Zone What it is "
+        "Examples User space Owned by you ~/ and below, your user services and "
+        "files System config / state Root-owned, ordinary administration most of "
+        "/etc , /usr , /opt , /var , system services, installed packages "
+        "System-critical / trust anchor Root-owned and part of the boot and "
+        "security trust chain, plus InterGen’s own files /boot , EFI/UKIs, Secure "
+        "Boot keys, kernel and initramfs, dm-verity hashes, LUKS headers, "
+        "/etc/shadow , /etc/sudoers , /etc/pam.d , and InterGen’s own code and "
+        "data Combined with the operation (read, write, execute), each action "
+        "resolves to one of three outcomes: Free — done immediately, no prompt. "
+        "All reads of non-secret"),
+    citation=(
+        "Source: [Constraining](file:///usr/share/doc/intergenos/wiki/assistant/"
+        "constraining.html) · [online](https://wiki.intergenos.org/assistant/"
+        "constraining.html)"))
+PRINT_PAGE = WikiHit(
+    rel_html="print.html", title="Print", score=0.6,
+    passage=(
+        "transparent: nothing about how it works is hidden. The package manager "
+        "records a hash of every file it installs, so you can re-verify the whole "
+        "system at any time. Verify, don’t trust. Every security claim is "
+        "something you run a command and confirm — see Verify It Yourself. A "
+        "claim you cannot check is just marketing. AI that stays local. InterGen "
+        "is an offline-first assistant with zero telemetry. It is useful out of "
+        "the box; cloud providers are opt-in and explicit, never on by default. "
+        "What ships today, honestly. The wiki is careful to separate enforced "
+        "today from built and coming — for example, the boot chain is fully "
+        "signed, Secure Boot has been validated end to end, and the installer "
+        "stages your own Machine Owner Key and enrollment password so you can "
+        "enable Secure Boot after installing; a default"),
+    citation=(
+        "Source: [Print](file:///usr/share/doc/intergenos/wiki/print.html) · "
+        "[online](https://wiki.intergenos.org/print.html)"))
+
+
+class FreeformCitationTests(unittest.TestCase):
+    """The freeform route cites the wiki page an answer drew on. A code-owned
+    fallback a screen served in place of the model's text drew on no page, and
+    sharing a few of the page's words with the question it repeats does not
+    make it the page's: on the locked floor the honest state line (turn 14) was
+    cited to Constraining and the honest action line (turn 22) to Print."""
+
+    def test_the_honest_state_line_cites_no_page(self):
+        result, decisions, _, _ = _route_recorded(
+            TURN14_FINAL, TURN14_FINAL, TURN14_USER,
+            ("How much free space do I have on this system?", TURN13_FINAL),
+            locked=True, wiki=CONSTRAINING_PAGE)
+        self.assertEqual(result.source, "llm_freeform")
+        self.assertEqual(decisions[1][:2],
+                         ("state_claim_screen", "violation_regen_failed_fallback"))
+        self.assertEqual(result.text, safety.honest_local_state_fallback(
+            decisions[1][2], TURN14_USER))
+        self.assertNotIn("Source:", result.text)
+
+    def test_the_honest_action_line_cites_no_page(self):
+        result, decisions, _, _ = _route_recorded(
+            TURN22_FINAL, TURN22_FINAL, TURN22_USER,
+            (TURN20_USER, TURN20_FINAL), (TURN21_USER, TURN21_FINAL),
+            locked=True, wiki=PRINT_PAGE)
+        self.assertEqual(result.source, "llm_freeform")
+        self.assertEqual(decisions[0][:2],
+                         ("claim_screen", "violation_regen_failed_fallback"))
+        self.assertEqual(result.text, safety.honest_action_fallback())
+        self.assertNotIn("Source:", result.text)
+
+    def test_the_models_own_answer_still_cites_the_page_it_drew_on(self):
+        # The control: an answer of the model's that draws on the passage keeps
+        # its Source line.
+        answer = ("Nothing about how it works is hidden: the package manager "
+                  "records a hash of every file it installs, so you can re-verify "
+                  "the whole system at any time. Verify, don't trust — every "
+                  "security claim is something you can check yourself.")
+        result, decisions, _, _ = _route_recorded(
+            answer, answer, "what does this project stand for?",
+            locked=True, wiki=PRINT_PAGE)
+        self.assertEqual(result.source, "llm_freeform")
+        self.assertEqual([d[1] for d in decisions], ["clean"] * len(decisions))
+        self.assertTrue(result.text.startswith(answer))
+        self.assertTrue(result.text.endswith(PRINT_PAGE.citation))
 
 
 if __name__ == "__main__":
