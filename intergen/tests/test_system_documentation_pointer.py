@@ -27,6 +27,77 @@ def router_without_documentation():
     return router
 
 
+def router_with_source_corpus(locked):
+    router = router_without_documentation()
+    router._howto = HowtoCorpus(data_dir=DATA, embedder=None)
+    router._lock_dispatch = locked
+    router._grounding_context = Mock(return_value=None)
+    router._tools.execute = Mock(side_effect=AssertionError("no tool may execute"))
+    return router
+
+
+@pytest.mark.parametrize("query", [
+    "How do I train a service dog?",
+    "How do I import packages in Python?",
+    "How do I bake bread?",
+])
+@pytest.mark.parametrize("locked", [False, True])
+@pytest.mark.parametrize("decide_only", [False, True])
+def test_non_system_howto_retains_existing_generation(query, locked, decide_only):
+    router = router_with_source_corpus(locked)
+    assert router._howto.retrieve(query)[0] is None
+    with router.bind_conversation(router.new_conversation()):
+        result = router.route(query, decide_only=decide_only)
+    assert result.source == "llm_freeform", (query, result.source, result.text)
+    assert result.handled is not decide_only
+    assert result.text == ("" if decide_only else NORMAL_ANSWER)
+    assert router._llm.chat.call_count == (0 if decide_only else 1)
+    router._tools.execute.assert_not_called()
+
+
+@pytest.mark.parametrize("query", [
+    "How do I train my service dog?",
+    "How do I roast a corn kernel?",
+    "How do I import packages in Python on my computer?",
+])
+@pytest.mark.parametrize("locked", [False, True])
+@pytest.mark.parametrize("decide_only", [False, True])
+def test_ambiguous_words_do_not_establish_a_system_subject(query, locked, decide_only):
+    router = router_with_source_corpus(locked)
+    assert router._howto.retrieve(query)[0] is None
+    with router.bind_conversation(router.new_conversation()):
+        result = router.route(query, decide_only=decide_only)
+    assert result.source == "llm_freeform", (query, result.source, result.text)
+    assert result.text == ("" if decide_only else NORMAL_ANSWER)
+    assert router._llm.chat.call_count == (0 if decide_only else 1)
+    router._tools.execute.assert_not_called()
+
+
+@pytest.mark.parametrize(("query", "source"), [
+    (UNCOVERED, "wiki_uncovered"),
+    ("How do I enable a hypothetical systemd service?", "explain"),
+    ("How do I configure a hypothetical GNOME extension?", "wiki_uncovered"),
+    ("How do I configure a hypothetical feature on this computer?", "wiki_uncovered"),
+])
+@pytest.mark.parametrize("locked", [False, True])
+@pytest.mark.parametrize("decide_only", [False, True])
+def test_system_subjects_keep_their_documentation_route(query, source, locked, decide_only):
+    router = router_with_source_corpus(locked)
+    assert (router._howto.retrieve(query)[0] is None) is (source == "wiki_uncovered")
+    with router.bind_conversation(router.new_conversation()):
+        result = router.route(query, decide_only=decide_only)
+    assert result.source == source, (query, result.source, result.text)
+    assert result.handled is True
+    if source == "wiki_uncovered":
+        assert "/usr/share/doc/intergenos/wiki/index.html" in result.text
+        assert result.answer_linkage.renderer == "wiki_uncovered"
+    else:
+        assert "systemctl enable" in result.text
+        assert result.answer_linkage.renderer == "howto_corpus"
+    router._llm.chat.assert_not_called()
+    router._tools.execute.assert_not_called()
+
+
 def test_uncovered_system_howto_gets_a_pointer_without_a_model_guess():
     assert HowtoCorpus(data_dir=DATA, embedder=None).retrieve(UNCOVERED)[0] is None
     router = router_without_documentation()

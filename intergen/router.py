@@ -6134,19 +6134,26 @@ class ConversationRouter(RouterInterface):
                 r"\bhow\s+does\b|\bhow\s+do\b.*\bwork\b",
                 user_input, re.IGNORECASE)):
             return None
-        # A request to produce code keeps its existing conversational route,
-        # including when the requested program would administer the system.
+        # Programming questions keep their conversational route, including
+        # code that would administer the system or run on this computer.
         if re.search(
                 r"\b(?:write|generate|create|develop|implement|debug)\b"
                 r".*\b(?:code|scripts?|programs?|functions?|python|javascript)\b"
-                r"|\b(?:code|program)\s+(?:a|an|the|my|this)\b",
+                r"|\b(?:code|program)\s+(?:a|an|the|my|this)\b"
+                r"|\b(?:in|using|with)\s+(?:python|javascript)\b",
                 user_input, re.IGNORECASE | re.DOTALL):
             return None
-        if not (_SYSTEM_SCOPE_RE.search(user_input) or re.search(
-                r"\b(?:intergenos|boot|install|installation|packages?|services?|"
-                r"kernel|secure\s+boot|backups?|chronicle|desktop|gnome|"
-                r"terminal|taskbar|dock|workspaces?|wallpaper)\b",
-                user_input, re.IGNORECASE)):
+        # Require a system subject. Shared words such as service, package,
+        # kernel and installation do not establish one on their own.
+        if not re.search(
+                r"\b(?:intergenos|linux|pkm|systemd|secure\s+boot|"
+                r"operating\s+system|desktop\s+environment)\b|"
+                r"\b(?:this|my)\s+(?:machine|system|computer|pc|"
+                r"cpu|ram|kernel|distro|firewall)\b|"
+                r"\b(?:system|linux)\s+(?:packages?|services?|kernel|"
+                r"installation|backups?)\b|"
+                r"\bgnome\s+(?:desktop|extensions?|settings|workspaces?)\b",
+                user_input, re.IGNORECASE):
             return None
         from intergen.wiki_citations import WIKI_URL_BASE
         return (
