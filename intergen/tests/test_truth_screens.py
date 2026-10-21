@@ -2737,6 +2737,114 @@ class TemporalPassiveTests(unittest.TestCase):
         self.assertEqual(calls, 0)
 
 
+# ── a passive in a conditional clause ────────────────────────────────────────
+# A conditional asserts nothing either: a how-to answer saying what to do if a
+# package has been installed read as a claim of this turn's action, so on a
+# turn that ran nothing it was regenerated and then replaced by the honest
+# action line. The page this machine's installed wiki returns for the
+# question, verbatim, as retrieved with no embedder.
+ASSISTANT_PAGE = WikiHit(
+    rel_html="assistant/index.html", title="Assistant", score=1.0,
+    passage=(
+        "the Applications menu or from any terminal with the intergen command. "
+        "InterGen answering a disk-usage question: it runs the underlying "
+        "command, then reads the result back in plain English. What it does "
+        "You talk to InterGen in plain language. It recognizes intent, runs the "
+        "right command, and reports back. Typical requests: “How much free "
+        "space is on my root partition?” — runs the right df invocation and "
+        "summarizes the answer. “What’s my current IP address?” — a direct ip "
+        "lookup plus a plain-English summary. “Write me a systemd timer that "
+        "runs backup.sh every Sunday at 03:00.” — drafts the unit and timer "
+        "files, then asks before installing. “Why did sshd fail to start after "
+        "I edited the config?” — reads the relevant journalctl output, "
+        "summarizes the error, and suggests a fix. “Install htop” — recognizes "
+        "the intent and asks you"),
+    citation=(
+        "Source: [Assistant](file:///usr/share/doc/intergenos/wiki/assistant/"
+        "index.html) · [online](https://wiki.intergenos.org/assistant/"
+        "index.html)"))
+HTOP_QUESTION = "What is htop for?"
+HTOP_ANSWER = (
+    "htop is an interactive process viewer. If htop has been installed, run "
+    "it in a terminal to watch the processes; press q to leave it.")
+
+
+class ConditionalPassiveTests(unittest.TestCase):
+    """A passive inside a conditional clause (if, unless, whether) that opens
+    its clause, or follows an instruction to check, says what to do if
+    something holds, not that it happened on this turn. The same words after
+    an account of acting, or after "as", keep the claim."""
+
+    def test_a_passive_in_a_conditional_clause_is_not_a_claim(self):
+        for text in (
+                HTOP_ANSWER,
+                "If htop has been installed, run it.",
+                "Unless the update has been installed, reboot later.",
+                "Check whether the update has been installed.",
+                "To check whether htop has been installed, run pkm list.",
+                "See if `pkm sync` has been run.",
+                "1. Find out whether the packages have been upgraded.",
+                "- If the resulting image has been installed, evaluate it."):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("clean", None))
+
+    def test_a_conditional_after_an_act_is_still_a_claim(self):
+        # Each claims a check or a sighting on a turn that ran nothing; read
+        # anywhere, the conditional subordinators cleared all twelve.
+        for text in (
+                "It looks as if htop has been installed.",
+                "It seems as if the update has been installed.",
+                "I checked whether htop has been installed, and it has.",
+                "I checked if htop has been installed.",
+                "I've verified whether htop has been installed.",
+                "I looked to see if htop has been installed.",
+                "I asked pkm whether htop has been installed and it said yes.",
+                "We checked whether htop has been installed.",
+                "Checked whether htop has been installed: it is.",
+                "Ran pkm list to see if htop has been installed.",
+                "Let me check if htop has been installed.",
+                "Let's see whether htop has been installed."):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("violation", "has been installed"))
+
+    def test_a_passive_outside_one_is_still_a_claim(self):
+        for text, marker in (
+                # In mid-sentence a conditional is read as before.
+                ("Run htop if it has been installed.", "has been installed"),
+                ("Reboot unless the kernel has been updated.",
+                 "has been updated"),
+                # The comma closes the conditional; more than a subject
+                # between the two is an introductory phrase.
+                ("If so, htop has been installed.", "has been installed"),
+                ("If so htop has been installed.", "has been installed"),
+                ("If needed htop has been installed.", "has been installed")):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("violation", marker))
+
+    def test_the_answer_is_served_on_both_floors(self):
+        floors = {}
+        for locked in (True, False):
+            result, decisions, regenerations, _ = _route_recorded(
+                HTOP_ANSWER, NOTHING_INSTALLED, HTOP_QUESTION,
+                locked=locked, wiki=ASSISTANT_PAGE)
+            floors[locked] = decisions
+            with self.subTest(locked=locked):
+                self.assertEqual(result.source,
+                                 "llm_freeform" if locked else "llm_tools")
+                self.assertEqual(decisions[0], ("claim_screen", "clean", None))
+                self.assertEqual([d[1] for d in decisions],
+                                 ["clean"] * len(decisions))
+                self.assertEqual(result.text, HTOP_ANSWER)
+                self.assertEqual(regenerations, [])
+        self.assertEqual(floors[True], floors[False])
+
+
 # ── a follow-up whose first word is capitalized ──────────────────────────────
 # After the recorded printer exchange, "What's that mean?" and "What does that
 # mean?" were answered on both floors from the how-to corpus's chmod 777 page:
