@@ -1047,8 +1047,9 @@ _EXEC_CLAIM_RE = re.compile(
     # fabricated account of having acted ("I jumped the gun on executing …").
     r"|jumped\s+the\s+gun\b|got\s+ahead\s+of\s+myself\b"
     # passive "has/have been <verb>" — the action is asserted to have happened
-    r"|(?:has|have)\s+been\s+(?:executed|started|run|launched|kicked[\s-]+off|"
-    r"initiated|installed|updated|upgraded|synced)\b"
+    # (unless its own clause is a temporal one: _TEMPORAL_PASSIVE_SUBJECT_RE)
+    r"|(?P<passive>(?:has|have)\s+been\s+(?:executed|started|run|launched|"
+    r"kicked[\s-]+off|initiated|installed|updated|upgraded|synced)\b)"
     # standalone claim that a job is now running/underway (in the background)
     r"|(?:is|are)\s+(?:now\s+)?(?:running\s+in\s+the\s+background|underway|"
     r"in\s+progress)\b"
@@ -1119,6 +1120,37 @@ _EXEC_CLAIM_NEGATORS = re.compile(
     r"did\s?n['’]?t|does\s?n['’]?t|do\s?n['’]?t|was\s?n['’]?t|"
     r"were\s?n['’]?t|is\s?n['’]?t|are\s?n['’]?t|no|nothing|none|neither|"
     r"nor|without)\b")
+
+# ── A passive in a TEMPORAL clause (the installed wiki, 2026-10-21) ──
+# "has been installed" asserts that an install happened, except in a clause
+# that says WHEN something holds. The installed wiki's release rule, "a point
+# release ... is published only after the resulting image has been installed
+# and evaluated on real hardware", read as a claim, so an answer quoting it on
+# a turn that ran nothing was regenerated and then replaced by the honest
+# action line. Such a clause opens with a temporal subordinator that does not
+# presuppose its event (once, after, before, until, when, as soon as) and runs
+# straight into the passive through its subject, with no punctuation between
+# (a comma closes the temporal clause: "after the download, htop has been
+# installed" asserts the install). The subject is one word ("once htop"), a
+# determiner and one word ("after the update"), or a determiner, a participle
+# and one word, the wiki's own ("after the resulting image"). Anything longer
+# can be an introductory phrase followed by the claim's own subject, its comma
+# left out ("after the update htop has been installed", "once done htop has
+# been installed"), and is read as before; so is a demonstrative ("after that
+# htop has been installed") or "all" ("after all"), which open the same
+# phrase as readily as a subject. A bare "htop has been installed.", "now
+# that htop has been installed" and "since the update has been installed"
+# (both presuppose it) stay claims.
+_PASSIVE_SUBJECT_DETERMINER = (
+    r"(?:the|a|an|its|your|their|our|my|each|every|any|some)")
+_PASSIVE_SUBJECT_WORD = (
+    r"(?:`[^`\n]+`|(?!(?:the|a|an|this|that|these|those|its|your|their|our|"
+    r"my|each|every|any|all|some|no|i|we|you|he|she)\b)"
+    r"[^\s,;:!?`]*[^\s.,;:!?`])\s+")
+_TEMPORAL_PASSIVE_SUBJECT_RE = re.compile(
+    r"\b(?:once|after|before|until|till|whenever|when|as\s+soon\s+as)\s+"
+    r"(?:" + _PASSIVE_SUBJECT_DETERMINER + r"\s+(?:\w+(?:ing|ed)\s+)?)?"
+    + _PASSIVE_SUBJECT_WORD + r"$")
 
 
 # ── BARE PRESENT-PROGRESSIVE claim (the anchor-0001 shape) ──
@@ -1340,13 +1372,17 @@ def _execution_claim_marker(text: str, record: str = "") -> str | None:
     """Return the matched execution-claim phrase, or None.
 
     Every match is clause-guarded: a claim inside a negated or interrogative
-    clause is not a claim. An AFFIRMATIVE "successfully" also fires,
+    clause is not a claim, nor is a passive inside a temporal clause ("once
+    the system has been installed"). An AFFIRMATIVE "successfully" also fires,
     negation-window-guarded, and so does a tool's output presented as its
     result ("Here is what pkm returned:"), unless the output it quotes is
     held in `record`, the folded record of what ran in the conversation.
     """
     low = text.lower()
     for m in _EXEC_CLAIM_RE.finditer(low):
+        if m.group("passive") and _TEMPORAL_PASSIVE_SUBJECT_RE.search(
+                low, 0, m.start()):
+            continue
         start, end = _clause_bounds(low, m.start())
         if _claim_is_live(low, start, end, m.start()):
             return m.group(0).strip()

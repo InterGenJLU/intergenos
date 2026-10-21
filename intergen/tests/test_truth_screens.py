@@ -2561,5 +2561,181 @@ class FailedCommandWithoutSynthesisTests(unittest.TestCase):
         self.assertEqual(end["escalation_offer"], reply["escalation_offer"])
 
 
+# ── a passive in a temporal clause ───────────────────────────────────────────
+# The installed wiki (intergenos-wiki 1.0.0-17), paragraph by paragraph as the
+# screen reads its pages (release-notes/index.html, dev/build-release-
+# pipeline.html; print.html repeats both): the release rule says when a
+# release is published, and its "has been installed" read as a claim of this
+# turn's action, so an answer drawing on it, on a turn that ran nothing, was
+# regenerated and then replaced by the honest action line, on both floors.
+WIKI_RELEASE_RULE = (
+    "Releases are named R001 , R002 , … for major releases and R001.1 , "
+    "R001.2 , …\nfor point releases. A major release is produced by a complete "
+    "from-source rebuild;\na point release rebuilds the changed packages "
+    "against the proven build substrate\nof its major release. Both are "
+    "published only after the resulting image has been\ninstalled and "
+    "evaluated on real hardware. The full rules are in\n "
+    "docs/release-policy.md in the\n main repository .")
+WIKI_PIPELINE_RULE = (
+    "Published releases are named in two forms. A major release ( R001 , "
+    "R002 , …)\nis produced by the full from-scratch build described below. A "
+    "point release \n( R001.1 , R001.2 , …) rebuilds only the changed packages "
+    "against the proven build\nsubstrate of its major release, and is "
+    "published only after the resulting image has\nbeen installed and "
+    "evaluated on real hardware. docs/release-policy.md in the main\n"
+    "repository states the rules for both, including the conditions that "
+    "require a full\nfrom-scratch rebuild.")
+# The same wiki's account of a validated install (install/disk-encryption.html,
+# and print.html): no temporal clause, and the same sentence with nothing run
+# is a fabrication, so it is read as a claim — 2 of the wiki's 9000
+# paragraphs.
+WIKI_VALIDATED_INSTALL = (
+    "This composition is not just designed, it is validated . InterGenOS has "
+    "been installed onto a LUKS2-encrypted target and booted to the desktop "
+    "under enforced Secure Boot — the encrypted-root unlock prompt itself "
+    "appearing under Secure Boot enforcement, the strictest combination of "
+    "the two controls. The encrypted install runs every installer phase to "
+    "completion, including the bootloader stage:")
+# The page the installed wiki returns for the question on the locked floor,
+# verbatim, as retrieved with no embedder.
+PIPELINE_PAGE = WikiHit(
+    rel_html="dev/build-release-pipeline.html", title="Build Release Pipeline",
+    score=0.75,
+    passage=(
+        "or machine-specific detail. Status. The flow below is the release model "
+        "the project builds against today; R001, the first public release, was "
+        "produced by it. Concrete candidate numbers advance as the line "
+        "progresses; the structure — candidate, promotion gate, stable golden — "
+        "is stable. Published releases are named in two forms. A major release "
+        "( R001 , R002 , …) is produced by the full from-scratch build described "
+        "below. A point release ( R001.1 , R001.2 , …) rebuilds only the changed "
+        "packages against the proven build substrate of its major release, and "
+        "is published only after the resulting image has been installed and "
+        "evaluated on real hardware. docs/release-policy.md in the main "
+        "repository states the rules for both, including the conditions that "
+        "require a full from-scratch rebuild. A clean build is not a finished "
+        "release InterGenOS is built entirely from"),
+    citation=(
+        "Source: [Build Release Pipeline](file:///usr/share/doc/intergenos/wiki/"
+        "dev/build-release-pipeline.html) · [online](https://wiki.intergenos.org/"
+        "dev/build-release-pipeline.html)"))
+RELEASE_QUESTION = "When is a point release published?"
+RELEASE_ANSWER = (
+    "A point release rebuilds only the changed packages against the proven "
+    "build substrate of its major release, and is published only after the "
+    "resulting image has been installed and evaluated on real hardware.")
+INSTALLED_CLAIM = "The steam package has been installed."
+NOTHING_INSTALLED = "I haven't installed anything on this turn."
+
+
+class TemporalPassiveTests(unittest.TestCase):
+    """A passive inside a temporal clause says when something holds, not that
+    it happened on this turn. The same passive standing in a clause of its own
+    is the claim it always was."""
+
+    def test_a_passive_in_a_temporal_clause_is_not_a_claim(self):
+        for text in (
+                WIKI_RELEASE_RULE, WIKI_PIPELINE_RULE, RELEASE_ANSWER,
+                "Once the system has been installed, reboot.",
+                "Run it after the update has been installed.",
+                "Wait until the packages have been upgraded.",
+                "When `pkm sync` has been run, the index is current.",
+                "The service starts as soon as it has been installed.",
+                "Your files stay as they were before anything has been "
+                "installed."):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("clean", None))
+
+    def test_a_passive_outside_one_is_still_a_claim(self):
+        for text, marker in (
+                ("htop has been installed.", "has been installed"),
+                (INSTALLED_CLAIM, "has been installed"),
+                ("Your system has been updated.", "has been updated"),
+                # Both presuppose the install.
+                ("Now that htop has been installed, you can launch it.",
+                 "has been installed"),
+                ("Since the update has been installed, reboot.",
+                 "has been installed"),
+                # The comma closes the temporal clause; the install is the
+                # main clause's, and so is one after it.
+                ("After the download, htop has been installed.",
+                 "has been installed"),
+                ("htop has been installed after the download finished.",
+                 "has been installed"),
+                # An introductory phrase, its comma left out, before the
+                # claim's own subject: more than a subject between the two.
+                ("After the reboot the kernel has been updated.",
+                 "has been updated"),
+                ("Once the download finished htop has been installed.",
+                 "has been installed"),
+                ("After the update htop has been installed.",
+                 "has been installed"),
+                ("Once done htop has been installed.", "has been installed"),
+                ("After that htop has been installed.", "has been installed"),
+                ("After all htop has been installed.", "has been installed")):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("violation", marker))
+
+    def test_the_same_shape_with_nothing_run_is_still_a_claim(self):
+        # No guard on the subject or the target tells the wiki's account from
+        # the fabrication beside it, so both are read as claims.
+        for text in (WIKI_VALIDATED_INSTALL,
+                     "InterGenOS has been installed onto your second drive."):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("violation", "has been installed"))
+
+    def test_the_release_rule_is_served_on_both_floors(self):
+        floors = {}
+        for locked in (True, False):
+            result, decisions, regenerations, _ = _route_recorded(
+                RELEASE_ANSWER, NOTHING_INSTALLED, RELEASE_QUESTION,
+                locked=locked, wiki=PIPELINE_PAGE)
+            floors[locked] = decisions
+            with self.subTest(locked=locked):
+                self.assertEqual(result.source,
+                                 "llm_freeform" if locked else "llm_tools")
+                self.assertEqual(decisions[0], ("claim_screen", "clean", None))
+                self.assertEqual([d[1] for d in decisions],
+                                 ["clean"] * len(decisions))
+                self.assertEqual(result.text, RELEASE_ANSWER + (
+                    "\n\n" + PIPELINE_PAGE.citation if locked else ""))
+                self.assertEqual(regenerations, [])
+        self.assertEqual(floors[True], floors[False])
+
+    def test_a_bare_install_claim_is_regenerated_on_both_floors(self):
+        # Asked to install, with nothing run, the bare sentence is a claim.
+        floors = {}
+        for locked in (True, False):
+            result, decisions, regenerations, _ = _route_recorded(
+                INSTALLED_CLAIM, NOTHING_INSTALLED, TURN41_USER, locked=locked)
+            floors[locked] = decisions
+            with self.subTest(locked=locked):
+                self.assertEqual(decisions[0], ("claim_screen",
+                                                "violation_regenerated",
+                                                "has been installed"))
+                self.assertEqual(result.text, NOTHING_INSTALLED)
+                self.assertEqual(len(regenerations), 1)
+                self.assertTrue(regenerations[0][-1].content.startswith(
+                    "You did NOT run"))
+        self.assertEqual(floors[True], floors[False])
+
+    def test_the_browser_serves_the_release_rule(self):
+        browser, console = _both_paths(RELEASE_ANSWER, (NOTHING_INSTALLED,),
+                                       RELEASE_QUESTION)
+        self.assertEqual(browser, console)
+        decisions, text, calls = browser
+        self.assertEqual([d[:2] for d in decisions],
+                         [(name, "clean")
+                          for name in _expected_rows(RELEASE_QUESTION)])
+        self.assertEqual(text, RELEASE_ANSWER)
+        self.assertEqual(calls, 0)
+
+
 if __name__ == "__main__":
     unittest.main()
