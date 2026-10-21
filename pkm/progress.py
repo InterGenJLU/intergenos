@@ -399,7 +399,7 @@ class ByteProgress:
         except (OSError, AttributeError, ValueError):
             width = 80
         width -= 1
-        metrics = f"{amount} {duration}{suffix}"
+        metrics = f"{amount} {speed} {duration}{suffix}"
         bar_width = max(1, min(20, width - len(metrics) - 5))
         cells = int(pct * bar_width / 100) if pct is not None else 0
         label = self.label[:max(0, width - len(metrics) - bar_width - 6)]

@@ -313,7 +313,7 @@ class ByteProgressTest(unittest.TestCase):
             "Get: archive", total_bytes=1000, stream=buf, level=output.NORMAL)
         bp.advance(500)
         bp.close("done")
-        self.assertIn("[==========          ]", buf.getvalue())
+        self.assertRegex(buf.getvalue(), r"\[=+ +\]")
         self.assertIn("elapsed ", buf.getvalue())
         self.assertEqual(buf.getvalue().count("\n"), 1)
 
@@ -341,6 +341,35 @@ class ByteProgressTest(unittest.TestCase):
         bp.close("done")
         for line in buf.getvalue().split("\r"):
             self.assertLessEqual(len(line.rstrip("\n")), 80)
+
+    def test_every_terminal_update_and_closing_line_keeps_the_rate(self):
+        import os
+        import pty
+
+        master, slave = pty.openpty()
+        try:
+            with os.fdopen(slave, "w") as stream:
+                with unittest.mock.patch("pkm.progress.time.monotonic", return_value=100.0) as clock:
+                    bp = self.progress.ByteProgress(
+                        "Get: " + "archive-name-" * 8, total_bytes=1000,
+                        stream=stream, level=output.NORMAL)
+                    clock.return_value = 101.0
+                    bp.advance(500)
+                    clock.return_value = 102.0
+                    bp.advance(250)
+                    bp.close("done")
+            text = os.read(master, 4096).decode()
+        finally:
+            os.close(master)
+        lines = [line.strip("\n") for line in text.split("\r") if line.strip()]
+        self.assertEqual(len(lines), 3, text)
+        for line in lines:
+            self.assertIn("/s", line)
+            self.assertIn("elapsed ", line)
+            self.assertIn("%", line)
+            self.assertLessEqual(len(line), 79)
+        self.assertIn("375 B/s", lines[-1])
+        self.assertIn("done", lines[-1])
 
 
 # ----------------------------------------------------------------------
