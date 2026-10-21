@@ -3428,6 +3428,12 @@ class PackageInstaller:
         commit cluster) flips missing-manifest to a hard failure once
         all bundled helpers have migrated.
         """
+        if self.db.get_installed(name) is None:
+            return False, (
+                f"Install helper '{name}' was not run: its package is not "
+                f"registered. Install the package first: sudo pkm install {name}"
+            ), False
+
         if target_version is not None:
             if (name not in APT_DOWNLOAD_HELPERS or not helper_supports_version_queries(helper_path)
                     or not isinstance(target_version, str)
@@ -3662,6 +3668,13 @@ class PackageInstaller:
                 f"not track its upgrades. The helper must call "
                 f"igos_helper_set_version with the upstream version."
             ), False
+        existing = self.db.get_installed(name)
+        if existing is None:
+            return False, (
+                f"Cannot record helper '{name}': its package is not registered. "
+                f"Install the package first: sudo pkm install {name}"
+            ), False
+        package_version = existing["version"]
         # PKM-A26: thread release on the helper path too (parity with the
         # archive path's A02 fix).
         #
@@ -3692,7 +3705,7 @@ class PackageInstaller:
             except (TypeError, ValueError):
                 stamped = None
         prior_release = None
-        prior = self.db.get_installed(name)
+        prior = existing
         if prior is not None:
             try:
                 prior_release = int(prior["release"] or 1)
@@ -3744,35 +3757,15 @@ class PackageInstaller:
             except (OSError, PermissionError):
                 continue
 
-        existing = self.db.get_installed(name)
         self.db.conn.execute("BEGIN")
         try:
-            if existing is not None:
-                # Unified `pkm install <app>` (pkm 2b items 1+3): the <app>
-                # package was just installed (its infra files — igos-install-<app>
-                # + keyring). Merge the helper footprint (the REAL app's files)
-                # into that SAME entry, preserving its row id, so [installed]
-                # shows ONE honest <app> entry and `pkm remove <app>` cleans BOTH
-                # the infra and the real app files. add_installed here would
-                # INSERT OR REPLACE → a fresh id, orphaning the infra file rows.
-                pkg_id = existing["id"]
-                # PKM-A26: UPDATE (preserve the row id so infra file rows are
-                # not orphaned) + emit the db-write trace the bare UPDATE used
-                # to skip. Threads release and the payload build.
-                self.db.update_helper_merge(
-                    pkg_id, name, version, release, commit=False,
-                    payload_version=version,
-                )
-            else:
-                pkg_id = self.db.add_installed(
-                    name=name,
-                    version=version,
-                    release=release,
-                    install_method="helper",
-                    archive_path=str(helper_path),
-                    commit=False,
-                    payload_version=version,
-                )
+            # The archive install established the package identity. Attach the
+            # application to that row without replacing its id or version.
+            pkg_id = existing["id"]
+            self.db.update_helper_merge(
+                pkg_id, name, package_version, release, commit=False,
+                payload_version=version,
+            )
             # Ingestion REPLACES the payload footprint rather than adding to
             # it. Before this, a second helper run for the same package left
             # the previous payload's rows in place beside the new ones: paths
@@ -3785,10 +3778,9 @@ class PackageInstaller:
             # claim survive — the stub's helper binary and vendor keyring are
             # owned by the same package and are not part of what a payload
             # fetch replaces.
-            if existing is not None:
-                self.db.replace_helper_footprint(
-                    pkg_id, rel_paths, commit=False,
-                )
+            self.db.replace_helper_footprint(
+                pkg_id, rel_paths, commit=False,
+            )
             if rel_paths:
                 self.db.add_files(pkg_id, rel_paths, hashes=helper_hashes,
                                   commit=False, source="helper")
@@ -3797,7 +3789,7 @@ class PackageInstaller:
                 if dep_tuples:
                     self.db.add_depends(pkg_id, dep_tuples, commit=False)
             self.db.log_operation(
-                "install", name, new_version=version, method="helper",
+                "install", name, new_version=package_version, method="helper",
             )
             self.db.conn.commit()
         except Exception:
@@ -3824,7 +3816,7 @@ class PackageInstaller:
             for f in self.db.get_files(name)
         ]
         helper_manifest_sha256 = self._write_manifest(
-            name, version, helper_entries,
+            name, package_version, helper_entries,
             hashes=self.db.get_file_checksums(name),
             release=release,
         )
@@ -3838,7 +3830,7 @@ class PackageInstaller:
         # build the row ends up claiming depends on how the two version
         # strings happen to sort. Drop the superseded ones now that the new
         # file is written and its hash recorded.
-        superseded = self._remove_superseded_manifests(name, version)
+        superseded = self._remove_superseded_manifests(name, package_version)
         if superseded:
             print(f"  Superseded manifest(s) removed: {', '.join(superseded)}")
 
@@ -3853,7 +3845,7 @@ class PackageInstaller:
                 print(f"    - {action}")
 
         summary = (
-            f"{verb} {name} {version} via helper "
+            f"{verb} {name} {package_version}-{release} (payload {version}) via helper "
             f"({helper_path.name}) — {len(rel_paths)} files tracked"
         )
         if manifest_depends:

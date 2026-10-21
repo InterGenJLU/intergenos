@@ -124,6 +124,8 @@ class HelperWriterProvenanceTest(unittest.TestCase):
         return p
 
     def _run(self, manifest):
+        if self.db.get_installed("vscode") is None:
+            self.db.add_installed("vscode", "1.0")
         inst = PackageInstaller(self.db, root=str(self.root))
         ok_proc = MagicMock(returncode=0)
         with patch("pkm.installer.subprocess.run", return_value=ok_proc), \
@@ -138,7 +140,7 @@ class HelperWriterProvenanceTest(unittest.TestCase):
             "files": ["/usr/share/code/code"], "symlinks": [], "depends": [],
         })
         self.assertTrue(ok, msg)
-        path = self.root / "var/lib/igos/packages/vscode-1.96.2"
+        path = self.root / "var/lib/igos/packages/vscode-1.0"
         self.assertTrue(path.exists(), "no text manifest was written")
         parsed = _parse_manifest(path.read_text())
         self.assertEqual(parsed["name"], "vscode")
@@ -191,7 +193,7 @@ class HelperWriterProvenanceTest(unittest.TestCase):
         })
         self.assertTrue(ok, msg)
         parsed = _parse_manifest(
-            (self.root / "var/lib/igos/packages/vscode-1.96.2").read_text())
+            (self.root / "var/lib/igos/packages/vscode-0").read_text())
         self.assertIn("usr/bin/igos-install-vscode", parsed["files"])
         self.assertIn("usr/share/code/code", parsed["files"])
 

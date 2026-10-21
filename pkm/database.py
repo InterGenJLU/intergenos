@@ -698,6 +698,7 @@ class PackageDB:
         self._migrate_files_source_column()
         self._migrate_payload_version_column()
         self._migrate_files_unique_path()
+        self._repair_helper_package_versions()
         self._repair_release_suffixed_versions()
         # PKM-A31: snapshot columns AFTER migrations (read-write path is fully
         # migrated, so this is the complete set). Keeps the read-tolerant _col
@@ -1261,8 +1262,8 @@ class PackageDB:
         forensic trace event, so a helper merge was INVISIBLE in the trace
         (asymmetric with the INSERT branch). Emit the db-write event here too.
 
-        payload_version records the vendor build the helper actually fetched,
-        in its own column rather than only in `version`. See the column comment
+        version is the helper package's archive version. payload_version
+        records the vendor build the helper actually fetched. See the comment
         on installed.payload_version for why the two are kept apart. None
         leaves any previously recorded payload build in place rather than
         blanking it — a caller that does not know the payload version must not
@@ -1285,6 +1286,108 @@ class PackageDB:
             "update_helper_merge", pkg=name, version=version,
             release=release, pkg_id=pkg_id, payload_version=payload_version,
         )
+
+    def _repair_helper_package_versions(self):
+        """Restore helper package identities from their recorded archives.
+
+        Earlier helper merges replaced the package version with the application
+        build. Only the recorded archive's matching name and release establish
+        the package version; a repository entry or a filename does not. Keep
+        the application build, filling an empty payload_version from the old
+        value. Vendor-versioned packages already matching their archive stay
+        untouched. Run before the older release-suffix repair so it cannot
+        discard an application build whose suffix resembles a package release.
+
+        This runs only on a read-write open. Each changed row gets one history
+        entry and one printed line, with all repairs committed together.
+        """
+        required = {"id", "name", "version", "release", "archive_path",
+                    "install_method", "payload_version"}
+        if not required <= self._table_columns("installed"):
+            return 0
+        from .repo import _read_package_meta, ArchiveReadError
+
+        repairs, left = [], []
+        rows = self.conn.execute(
+            "SELECT id, name, version, release, archive_path, payload_version "
+            "FROM installed WHERE install_method = 'helper' ORDER BY id"
+        ).fetchall()
+        for row_id, name, version, release, archive_path, payload in rows:
+            if not archive_path:
+                left.append((name, "no installed archive is recorded"))
+                continue
+            try:
+                if not stat.S_ISREG(os.stat(archive_path).st_mode):
+                    left.append((name, f"{archive_path} is not a regular archive"))
+                    continue
+                meta = _read_package_meta(archive_path)
+            except (ArchiveReadError, OSError) as error:
+                left.append((name, str(error)))
+                continue
+            if not meta:
+                left.append((name, f"{archive_path} carries no .PKGINFO"))
+                continue
+            package_version = meta.get("version")
+            try:
+                same_release = int(meta.get("release")) == int(release)
+            except (TypeError, ValueError):
+                same_release = False
+            if (meta.get("name") != name or not same_release
+                    or not isinstance(package_version, str)
+                    or not package_version.strip()):
+                left.append((name, f"{archive_path} does not state this package's "
+                             "name, release and a nonempty version"))
+                continue
+            if package_version != version:
+                repairs.append((row_id, name, version, package_version,
+                                release, archive_path, payload or version))
+
+        repaired = []
+        if repairs:
+            self.conn.execute("BEGIN IMMEDIATE")
+            try:
+                for row in repairs:
+                    row_id, name, old, new, release, archive_path, payload = row
+                    changed = self.conn.execute(
+                        "UPDATE installed SET version = ?, "
+                        "payload_version = CASE WHEN payload_version IS NULL "
+                        "OR payload_version = '' THEN ? ELSE payload_version END "
+                        "WHERE id = ? AND version = ? AND install_method = 'helper'",
+                        (new, old, row_id, old))
+                    if changed.rowcount != 1:
+                        continue
+                    self.log_operation("repair-version", name, old_version=old,
+                                       new_version=new, method="helper-archive-pkginfo",
+                                       commit=False)
+                    repaired.append(row)
+                self.conn.commit()
+            except BaseException:
+                self.conn.rollback()
+                raise
+
+        def say(text):
+            try:
+                print(text, file=sys.stderr, flush=True)
+            except Exception:
+                pass
+
+        for row_id, name, old, new, release, archive_path, payload in repaired:
+            _emit_db_event("repair_helper_version", pkg=name, old_version=old,
+                           new_version=new, release=release, archive=archive_path,
+                           payload_version=payload)
+            say(f"pkm: repaired {name}'s package version {old!r} to {new!r} "
+                f"from {archive_path}; application build {payload!r} retained.")
+        if left:
+            try:
+                from . import output as _o
+                verbose = _o.process_level() >= _o.VERBOSE
+            except Exception:
+                verbose = False
+            if verbose:
+                for name, why in left:
+                    say(f"pkm: {name}'s helper package version was left as "
+                        f"recorded: {why}.")
+        return len(repaired)
 
     def _repair_release_suffixed_versions(self):
         """Idempotent repair: a recorded version that carries its own release.
@@ -1485,11 +1588,12 @@ class PackageDB:
         # PKM-A31: build the column list schema-tolerantly so a read-only open
         # of a DB created by an older pkm (missing e.g. `degraded`) yields NULL
         # for the absent column rather than crashing every read command.
-        # archive_path is read only for _version_as_read; the dicts returned
-        # keep their shape.
+        # archive_path is read only for _version_as_read. Helper identity fields
+        # let callers display the package and application builds separately.
         sel = ", ".join(self._col(c) for c in (
             "name", "version", "release", "tier", "description",
-            "install_reason", "degraded", "reboot_required", "archive_path"))
+            "install_reason", "degraded", "reboot_required", "archive_path",
+            "install_method", "payload_version"))
         if tier:
             rows = self.conn.execute(
                 f"SELECT {sel} FROM installed WHERE tier = ? ORDER BY name",
@@ -1505,7 +1609,8 @@ class PackageDB:
              "release": r[2], "tier": r[3],
              "description": r[4], "install_reason": r[5] or "manual",
              "degraded": r[6],  # PKM-A25: NULL = healthy
-             "reboot_required": r[7]}  # 3.0-F28: NULL/0 = activates live
+             "reboot_required": r[7],  # 3.0-F28: NULL/0 = activates live
+             "install_method": r[9], "payload_version": r[10]}
             for r in rows
         ]
 

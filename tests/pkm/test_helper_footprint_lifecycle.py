@@ -96,6 +96,8 @@ class _HelperIngestBase(unittest.TestCase):
 
     def _ingest(self, version, files, name="vscode"):
         """Run one helper ingestion for `name` at payload build `version`."""
+        if self.db.get_installed(name) is None:
+            self.db.add_installed(name, "1.0", tier="extra")
         self._deposit(files)
         manifest = {
             "version": 1, "name": name, "version_installed": version,
@@ -192,10 +194,14 @@ class ManifestSupersessionTest(_HelperIngestBase):
 
     def test_new_build_writes_its_manifest_and_the_old_one_is_gone(self):
         self._ingest("1.131.0", ["/opt/vscode/code"])
-        self.assertTrue((self._manifest_dir() / "vscode-1.131.0").is_file())
+        self.assertTrue((self._manifest_dir() / "vscode-1.0").is_file())
+        # Retain an old-format payload-named manifest to exercise its removal.
+        (self._manifest_dir() / "vscode-1.131.0").write_text(
+            "PACKAGE NAME: vscode-1.131.0\nPACKAGE VERSION: 1.131.0\n"
+            "FILE LIST:\nopt/vscode/code\n")
         self._ingest("1.132.0", ["/opt/vscode/code"])
         present = sorted(p.name for p in self._manifest_dir().iterdir())
-        self.assertIn("vscode-1.132.0", present)
+        self.assertEqual(present, ["vscode-1.0"])
         self.assertNotIn("vscode-1.131.0", present)
 
     def test_a_different_package_sharing_the_name_prefix_is_untouched(self):
@@ -364,6 +370,7 @@ class DirectInvocationAdvisoryTest(unittest.TestCase):
         # prints on every pkm install and stops meaning anything.
         db = PackageDB(self.tmp / "pkm.db", root=str(self.tmp / "root"))
         self.addCleanup(db.close)
+        db.add_installed("vscode", "1.0")
         inst = PackageInstaller(db, root=str(self.tmp / "root"))
         seen = {}
 

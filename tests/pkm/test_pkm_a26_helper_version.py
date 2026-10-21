@@ -49,6 +49,7 @@ class HelperVersionRejectTest(unittest.TestCase):
         self._td = tempfile.TemporaryDirectory()
         self.tmp = Path(self._td.name)
         self.db = PackageDB(self.tmp / "pkm.db", root=str(self.tmp / "root"))
+        self.db.add_installed("vscode", "1.0", release=1)
 
     def tearDown(self):
         self.db.close()
@@ -68,8 +69,9 @@ class HelperVersionRejectTest(unittest.TestCase):
         self.assertFalse(ok)
         self.assertFalse(declined)
         self.assertIn("version", msg.lower())
-        # Not registered.
-        self.assertIsNone(self.db.get_installed("vscode"))
+        # The archive record remains; no application build was registered.
+        self.assertEqual(self.db.get_installed("vscode")["version"], "1.0")
+        self.assertIsNone(self.db.get_installed("vscode")["payload_version"])
 
     def test_real_version_registers_with_release(self):
         ok, msg, declined = self._run(
@@ -78,7 +80,8 @@ class HelperVersionRejectTest(unittest.TestCase):
         self.assertTrue(ok, msg)
         row = self.db.get_installed("vscode")
         self.assertIsNotNone(row)
-        self.assertEqual(row["version"], "1.96.2")
+        self.assertEqual(row["version"], "1.0")
+        self.assertEqual(row["payload_version"], "1.96.2")
         self.assertEqual(row["release"], 2)
 
     def test_unknown_version_is_accepted_not_rejected(self):
@@ -88,7 +91,8 @@ class HelperVersionRejectTest(unittest.TestCase):
             {"version_installed": "unknown", "files": [], "symlinks": [],
              "depends": []})
         self.assertTrue(ok, msg)
-        self.assertEqual(self.db.get_installed("vscode")["version"], "unknown")
+        self.assertEqual(self.db.get_installed("vscode")["version"], "1.0")
+        self.assertEqual(self.db.get_installed("vscode")["payload_version"], "unknown")
 
 
 if __name__ == "__main__":

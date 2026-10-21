@@ -81,12 +81,14 @@ class HelperMergeKeepsArchiveReleaseTest(unittest.TestCase):
         self.assertTrue(ok, msg)
         self.assertEqual(self.db.get_installed("cuda-toolkit")["release"], 7)
 
-    def test_no_existing_row_defaults_to_release_one(self):
+    def test_no_existing_row_requires_the_package_first(self):
         ok, msg, declined = self._run(
             {"version_installed": "13.3.1", "files": [], "symlinks": [],
              "depends": []})
-        self.assertTrue(ok, msg)
-        self.assertEqual(self.db.get_installed("cuda-toolkit")["release"], 1)
+        self.assertFalse(ok)
+        self.assertFalse(declined)
+        self.assertIn("sudo pkm install cuda-toolkit", msg)
+        self.assertIsNone(self.db.get_installed("cuda-toolkit"))
 
 
 if __name__ == "__main__":

@@ -4054,8 +4054,13 @@ def cmd_list(db, args):
             # flag it loudly so it never reads as a clean install.
             if pkg.get("degraded"):
                 tag = (tag + " " if tag else "") + f"[DEGRADED: {pkg['degraded']}]"
+            version = pkg["version"]
+            if pkg.get("install_method") == "helper":
+                version = _vr_str(version, pkg.get("release", 1))
+                if pkg.get("payload_version"):
+                    version += f" (payload {pkg['payload_version']})"
             _print_pkg_entry(
-                pkg["name"], pkg["version"], pkg.get("tier", ""),
+                pkg["name"], version, pkg.get("tier", ""),
                 pkg.get("description", ""), tag,
             )
     elif args.what == "available":
