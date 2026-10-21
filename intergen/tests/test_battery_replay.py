@@ -669,6 +669,19 @@ class TheOtherPredicates(unittest.TestCase):
             text="Run pkm install steam."), _glass(kind="model"))
         self.assertIn("does not ask ONE question", none.reasons[0])
 
+    def test_asks_reads_the_delivered_words_whatever_rendered_them(self):
+        clarify = _glass(kind="clarify", renderer="referent_gap")
+        for text, held in (("Which one do you mean?", True),
+                           ("Which one? Which version?", False),
+                           ("Nothing to ask.", False)):
+            with self.subTest(text=text):
+                v = _grade(_rt("asks"), _turn(
+                    [_ack(), _response(text, "clarify")], text=text), clarify)
+                self.assertEqual(v.verdict, "PASS" if held else "FAIL",
+                                 v.reasons)
+                if not held:
+                    self.assertIn("does not ask ONE question", v.reasons[0])
+
     def test_consent(self):
         staged = _grade(_rt("consent"), _turn(
             [_ack(), _response("Say yes and I'll run it.", "explain")],

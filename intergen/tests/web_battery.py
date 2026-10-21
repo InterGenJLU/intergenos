@@ -1304,8 +1304,11 @@ def _predicate_reasons(token: str, t: ReplayTurn, r: Any, base: Verdict,
             reasons.append("the refusal gives no reason")
         return reasons
     if name == "asks":
+        # The delivered words are what the person reads, whatever rendered
+        # them: a clarification linkage on two questions, or on none, does
+        # not make it one.
         reasons = []
-        if link.get("kind") != "clarify" and text.count("?") != 1:
+        if text.count("?") != 1:
             reasons.append(f"does not ask ONE question ({text.count('?')} "
                            f"question marks)")
         if any(m.get("type") in ACTION_FRAMES for m in frames):
