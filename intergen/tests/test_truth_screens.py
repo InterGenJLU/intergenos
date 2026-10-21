@@ -2507,5 +2507,59 @@ class ExecutedResultTests(unittest.TestCase):
         self.assertEqual(len(seen), 1)
 
 
+# ── a command that ran and failed, whose synthesis did not come back ─────────
+# Asked about a printer, the model ran `lpstat -p -d`, the command failed, and
+# no synthesis came back. The bus answers from the tool's own output; the
+# browser served an empty answer under the failed card, because its delivery of
+# the tool's output covered a command that succeeded only.
+PRINTER_QUESTION = "Is my printer on the network?"
+
+
+class FailedCommandWithoutSynthesisTests(unittest.TestCase):
+    """The streamer serves the tool's own output for a command that ran and
+    failed when no synthesis came back, as it does for one that succeeded and
+    as the bus does for both."""
+
+    def _router(self):
+        router = _router()
+        router._escalation = _offering([ACME])
+        router._llm.chat = lambda messages, **_: DispatchOfferTests.SPENT
+
+        def stream_with_tools(messages, **_):
+            yield PRINTER_CALL
+        router._llm.stream_with_tools = stream_with_tools
+        router._tools.execute = mock.Mock(return_value=PRINTER_FAILED)
+        router._llm.continue_after_tool_call = mock.Mock(return_value=None)
+        return router
+
+    def test_the_browser_serves_the_failed_commands_own_output(self):
+        daemon = InterGenDaemon()
+        daemon._router = self._router()
+        with mock.patch("intergen.router.glass.emit"):
+            reply = json.loads(daemon.ask(PRINTER_QUESTION))
+        router = self._router()
+        server = WebServer(router=router, llm=router._llm, tools=router._tools,
+                           governance=None)
+        ctx = ConnectionContext(client_id="c1", source_interface="web",
+                                ws=_RecordingWS(),
+                                conversation=router.new_conversation())
+        with mock.patch("intergen.router.glass.emit"):
+            asyncio.run(server._stream_llm_response(
+                ctx, "turn1", PRINTER_QUESTION,
+                RouteResult(text="", source="llm_tools", handled=False)))
+        self.assertEqual(
+            [e.get("success") for e in ctx.ws.of_type("tool_executed")],
+            [False])
+        end = ctx.ws.of_type("stream_end")[0]
+        # Present first, on both surfaces: the failed command's own words.
+        self.assertIn("lpstat: No destinations added.", reply["response"])
+        self.assertIn("lpstat: No destinations added.", end["full_response"])
+        self.assertEqual(end["full_response"], PRINTER_FAILED.content)
+        # The offer for a failed local answer, the bus's own.
+        self.assertTrue(end["escalation_offer"].startswith(
+            DispatchOfferTests.QUALITY))
+        self.assertEqual(end["escalation_offer"], reply["escalation_offer"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -3618,14 +3618,19 @@ class WebServer:
                             "turn_id": turn_id,
                             "token": synthesis.text,
                         })
-                    elif (getattr(tr, "executed", False) and tr.success
+                    elif (getattr(tr, "executed", False)
                           and not getattr(tr, "blocked", False)):
-                        # M8-2 RESULT DELIVERY INVARIANT: the dispatch SUCCEEDED and
-                        # carries content, but synthesis produced no token — the
-                        # dispatched-but-discarded seam that shipped an empty answer
-                        # (the blank-reply net below is guarded OFF once tool_results
-                        # is non-empty). Deliver the tool's own summary/content so its
-                        # value is NEVER discarded, and name the defect loudly.
+                        # M8-2 RESULT DELIVERY INVARIANT: the command RAN and its
+                        # result carries content, but synthesis produced no token —
+                        # the dispatched-but-discarded seam that shipped an empty
+                        # answer (the blank-reply net below is guarded OFF once
+                        # tool_results is non-empty). Deliver the tool's own
+                        # summary/content so its value is NEVER discarded, and name
+                        # the defect loudly. A command that ran and FAILED is served
+                        # its own output too, as the router's dispatch branch answers
+                        # from the tool's output when no synthesis came back, failed
+                        # or not: its error is the answer, and an empty reply under
+                        # its failed card says nothing.
                         _raw = tr.model_summary or tr.content
                         collected_tokens.append(_raw)
                         await ctx.ws.send_json({
@@ -3637,9 +3642,9 @@ class WebServer:
                             "tool": tr.name, "reason": "synthesis_empty_delivered_raw",
                             "recovered": True})
                         logger.warning(
-                            "M8-2: tool %s executed+succeeded but synthesis yielded "
-                            "no token; delivered raw content (turn %s)",
-                            tr.name, turn_id)
+                            "M8-2: tool %s executed (success=%s) but synthesis "
+                            "yielded no token; delivered raw content (turn %s)",
+                            tr.name, tr.success, turn_id)
                     # What came back, for the draft's verdict (None: nothing).
                     if syntheses is not None:
                         syntheses.append(synthesis)
