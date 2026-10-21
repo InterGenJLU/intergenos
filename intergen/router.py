@@ -2458,13 +2458,15 @@ def _posture_render_encrypted_root(out: str) -> "str | None":
     crypts = [i for i, node in enumerate(path) if node.get("type") == "crypt"]
     if not crypts:
         root = path[-1]
-        return (f"No — the root filesystem is not encrypted: it is on "
+        # Stated as the fact, never as "Yes"/"No": the same sentence answers
+        # "is my disk encrypted?" and stands as one line of the posture list.
+        return (f"The root filesystem is not encrypted: it is on "
                 f"{root.get('name')} ({root.get('type')}), with no encrypted layer "
                 f"beneath it.")
     i = crypts[-1]
     luks = i > 0 and (path[i - 1].get("fstype") or "").lower() == "crypto_luks"
     kind = "a LUKS-encrypted volume" if luks else "an encrypted (dm-crypt) volume"
-    return (f"Yes — the root filesystem is encrypted: it is on {path[i].get('name')}, "
+    return (f"The root filesystem is encrypted: it is on {path[i].get('name')}, "
             f"{kind}, so what is stored on the disk can't be read without its key "
             f"while the machine is off.")
 

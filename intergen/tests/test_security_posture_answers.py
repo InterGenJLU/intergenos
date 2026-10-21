@@ -243,7 +243,7 @@ class EachClassAnswersFromTheMachine(_MachineFixture):
 
     def test_encrypted_root(self):
         self.assert_direct("is my disk encrypted?",
-                           "the root filesystem is encrypted", "cryptroot", "LUKS")
+                           "The root filesystem is encrypted", "cryptroot", "LUKS")
 
     def test_firewall(self):
         for text in ("is the firewall on?", "is the firewall running?"):
@@ -270,6 +270,9 @@ class EachClassAnswersFromTheMachine(_MachineFixture):
                                  "TCP 22 (ssh)", "AppArmor is on",
                                  "No updates were pending")
         self.assertNotIn("is secure", res.text.lower().replace("secure boot", ""))
+        # Every line is a stated fact; none answers a yes-or-no nobody asked.
+        for line in res.text.splitlines()[1:]:
+            self.assertFalse(line.startswith(("- Yes", "- No —")), line)
 
 
 # ── the readings, each state and each failure ───────────────────────────────
@@ -309,18 +312,18 @@ class EncryptedRootReadings(unittest.TestCase):
 
     def test_luks_root(self):
         text = self.render(_LSBLK_LUKS_ROOT)
-        self.assertTrue(text.startswith("Yes"))
+        self.assertTrue(text.startswith("The root filesystem is encrypted"))
         self.assertIn("cryptroot", text)
         self.assertIn("LUKS", text)
 
     def test_lvm_on_luks_root(self):
         text = self.render(_LSBLK_LVM_ON_LUKS)
-        self.assertTrue(text.startswith("Yes"))
+        self.assertTrue(text.startswith("The root filesystem is encrypted"))
         self.assertIn("luks-sda2", text)
 
     def test_plain_root(self):
         text = self.render(_LSBLK_PLAIN_ROOT)
-        self.assertTrue(text.startswith("No"))
+        self.assertTrue(text.startswith("The root filesystem is not encrypted"))
         self.assertIn("sda2", text)
 
     def test_no_root_or_no_json_is_no_reading(self):
