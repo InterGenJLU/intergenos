@@ -1287,6 +1287,109 @@ class PackageDB:
             release=release, pkg_id=pkg_id, payload_version=payload_version,
         )
 
+    def _helper_manifest_repair(self, name, old, new, release, payload, stored_hash):
+        """Prepare an identity-only rewrite, retaining the original until commit.
+
+        A committed row may still have its old manifest after an interrupted
+        cleanup. The repair history retains its old filename, and equal
+        corrected bytes prove that cleanup can resume without another history
+        entry. A different existing destination is never overwritten.
+        """
+        mdir = self.root / MANIFEST_DIR.relative_to("/")
+        versions = [old, payload]
+        if old == new:
+            previous = self.conn.execute(
+                "SELECT old_version FROM history WHERE package_name = ? "
+                "AND operation = 'repair-version' AND method = 'helper-archive-pkginfo' "
+                "AND new_version = ? ORDER BY id DESC LIMIT 1", (name, new)).fetchone()
+            if previous:
+                versions.append(previous[0])
+        candidates = []
+        for value in dict.fromkeys(versions):
+            if not value or value == new:
+                continue
+            candidate = mdir / f"{name}-{value}"
+            if candidate.parent != mdir:
+                raise ValueError(f"cannot repair {name}: its manifest identity is not a filename")
+            if candidate.exists() or candidate.is_symlink():
+                candidates.append((value, candidate))
+        if not candidates:
+            return None
+        if len(candidates) != 1:
+            raise ValueError(f"cannot repair {name}: multiple legacy manifests need reconciliation")
+        legacy_version, source = candidates[0]
+        target = mdir / f"{name}-{new}"
+        if source.parent != mdir or target.parent != mdir:
+            raise ValueError(f"cannot repair {name}: its manifest identity is not a filename")
+        try:
+            source_stat = source.lstat()
+        except FileNotFoundError:
+            return None
+        if not stat.S_ISREG(source_stat.st_mode):
+            raise ValueError(f"cannot repair {name}: {source} is not a regular manifest")
+        original = source.read_bytes()
+        content = original.decode("utf-8", "surrogateescape")
+        meta = _parse_manifest(content)
+        if (not meta or meta.get("name") != name
+                or meta.get("version") != legacy_version
+                or meta.get("release", release) != release
+                or (meta.get("payload_version") and meta["payload_version"] != payload)):
+            raise ValueError(f"cannot repair {name}: {source} does not match its recorded identity")
+        lines = content.splitlines(keepends=True)
+        boundary = next((i for i, line in enumerate(lines)
+                         if line.strip() == "FILE LIST:"), None)
+        if boundary is None:
+            raise ValueError(f"cannot repair {name}: {source} has no file list")
+        fields = ("PACKAGE NAME:", "PACKAGE VERSION:", "PACKAGE RELEASE:",
+                  "PAYLOAD VERSION:")
+        for field in fields:
+            if sum(line.startswith(field) for line in lines[:boundary]) > 1:
+                raise ValueError(f"cannot repair {name}: {source} repeats {field}")
+        headers = (f"PACKAGE NAME: {name}-{new}\nPACKAGE VERSION: {new}\n"
+                   f"PACKAGE RELEASE: {release}\nPAYLOAD VERSION: {payload}\n")
+        retained = [line for line in lines[:boundary]
+                    if not line.startswith(fields)]
+        corrected = (headers + "".join(retained + lines[boundary:])).encode(
+            "utf-8", "surrogateescape")
+        before_hash = hashlib.sha256(original).hexdigest()
+        after_hash = hashlib.sha256(corrected).hexdigest()
+        target_present = target.exists()
+        if target_present and (target.is_symlink() or target.read_bytes() != corrected):
+            raise ValueError(f"cannot repair {name}: {target} already holds a different manifest")
+        acceptable_hashes = {before_hash}
+        if target_present:
+            acceptable_hashes.add(after_hash)
+        if stored_hash and stored_hash not in acceptable_hashes:
+            raise ValueError(f"cannot repair {name}: {source} does not match its recorded hash")
+        return {"source": source, "target": target, "data": corrected,
+                "before_hash": before_hash, "after_hash": after_hash,
+                "mode": stat.S_IMODE(source_stat.st_mode)}
+
+    @staticmethod
+    def _publish_helper_manifest(plan):
+        """Publish complete corrected bytes while keeping the legacy file."""
+        if plan is None or plan["target"].exists():
+            return
+        import tempfile
+        fd, temporary = tempfile.mkstemp(prefix=".pkm-helper-", dir=plan["target"].parent)
+        try:
+            with os.fdopen(fd, "wb") as stream:
+                os.fchmod(stream.fileno(), plan["mode"])
+                stream.write(plan["data"])
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, plan["target"])
+            directory_fd = os.open(plan["target"].parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+            if plan["target"].read_bytes() != plan["data"]:
+                raise OSError(f"helper manifest read-back differs: {plan['target']}")
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+
     def _repair_helper_package_versions(self):
         """Restore helper package identities from their recorded archives.
 
@@ -1299,20 +1402,24 @@ class PackageDB:
         discard an application build whose suffix resembles a package release.
 
         This runs only on a read-write open. Each changed row gets one history
-        entry and one printed line, with all repairs committed together.
+        entry and one printed line, with all row repairs committed together.
+        Corrected manifests are published first, their legacy files retained
+        until that commit. An interrupted write or commit can therefore retry
+        from the original; an interrupted cleanup resumes from the payload
+        filename and the committed manifest hash before another command runs.
         """
         required = {"id", "name", "version", "release", "archive_path",
-                    "install_method", "payload_version"}
+                    "install_method", "payload_version", "manifest_sha256"}
         if not required <= self._table_columns("installed"):
             return 0
         from .repo import _read_package_meta, ArchiveReadError
 
         repairs, left = [], []
         rows = self.conn.execute(
-            "SELECT id, name, version, release, archive_path, payload_version "
+            "SELECT id, name, version, release, archive_path, payload_version, manifest_sha256 "
             "FROM installed WHERE install_method = 'helper' ORDER BY id"
         ).fetchall()
-        for row_id, name, version, release, archive_path, payload in rows:
+        for row_id, name, version, release, archive_path, payload, stored_hash in rows:
             if not archive_path:
                 left.append((name, "no installed archive is recorded"))
                 continue
@@ -1338,22 +1445,29 @@ class PackageDB:
                 left.append((name, f"{archive_path} does not state this package's "
                              "name, release and a nonempty version"))
                 continue
-            if package_version != version:
+            plan = self._helper_manifest_repair(
+                name, version, package_version, release, payload or version, stored_hash)
+            if package_version != version or plan:
                 repairs.append((row_id, name, version, package_version,
-                                release, archive_path, payload or version))
+                                release, archive_path, payload or version, stored_hash, plan))
 
         repaired = []
         if repairs:
+            for row in repairs:
+                self._publish_helper_manifest(row[-1])
             self.conn.execute("BEGIN IMMEDIATE")
             try:
                 for row in repairs:
-                    row_id, name, old, new, release, archive_path, payload = row
+                    row_id, name, old, new, release, archive_path, payload, stored_hash, plan = row
+                    manifest_hash = plan["after_hash"] if plan else stored_hash
+                    if old == new and manifest_hash == stored_hash:
+                        continue
                     changed = self.conn.execute(
-                        "UPDATE installed SET version = ?, "
+                        "UPDATE installed SET version = ?, manifest_sha256 = ?, "
                         "payload_version = CASE WHEN payload_version IS NULL "
                         "OR payload_version = '' THEN ? ELSE payload_version END "
                         "WHERE id = ? AND version = ? AND install_method = 'helper'",
-                        (new, old, row_id, old))
+                        (new, manifest_hash, old, row_id, old))
                     if changed.rowcount != 1:
                         continue
                     self.log_operation("repair-version", name, old_version=old,
@@ -1364,6 +1478,18 @@ class PackageDB:
             except BaseException:
                 self.conn.rollback()
                 raise
+            for row in repairs:
+                plan = row[-1]
+                if plan:
+                    if (hashlib.sha256(plan["source"].read_bytes()).hexdigest()
+                            != plan["before_hash"]):
+                        raise OSError(f"helper manifest changed before cleanup: {plan['source']}")
+                    plan["source"].unlink()
+                    directory_fd = os.open(plan["source"].parent, os.O_RDONLY | os.O_DIRECTORY)
+                    try:
+                        os.fsync(directory_fd)
+                    finally:
+                        os.close(directory_fd)
 
         def say(text):
             try:
@@ -1371,12 +1497,18 @@ class PackageDB:
             except Exception:
                 pass
 
-        for row_id, name, old, new, release, archive_path, payload in repaired:
+        for row_id, name, old, new, release, archive_path, payload, stored_hash, plan in repaired:
             _emit_db_event("repair_helper_version", pkg=name, old_version=old,
                            new_version=new, release=release, archive=archive_path,
                            payload_version=payload)
+            detail = (f" Text manifest reconciled; recorded manifest hash "
+                      f"{stored_hash!r} to {plan['after_hash']!r}." if plan else "")
             say(f"pkm: repaired {name}'s package version {old!r} to {new!r} "
-                f"from {archive_path}; application build {payload!r} retained.")
+                f"from {archive_path}; application build {payload!r} retained.{detail}")
+        for row in repairs:
+            if row not in repaired and row[-1]:
+                say(f"pkm: completed helper manifest repair for {row[1]}; "
+                    f"recorded manifest hash {row[-1]['after_hash']}.")
         if left:
             try:
                 from . import output as _o
@@ -2622,12 +2754,14 @@ class PackageDB:
                                  or carried.get("description") or ""),
                     license_=carried.get("license"),
                     build_date=meta.get("build_date"),
-                    install_method=carried.get("install_method") or "source",
+                    install_method=("helper" if meta.get("payload_version")
+                                    else carried.get("install_method") or "source"),
                     archive_path=carried.get("archive_path"),
                     uncompressed_size=meta.get("size", 0),
                     install_reason=carried.get("install_reason") or "manual",
                     manifest_sha256=manifest_sha256,
                     reboot_required=carried.get("reboot_required") or 0,
+                    payload_version=meta.get("payload_version") or carried.get("payload_version"),
                     commit=False,
                     # Declared per the add_installed destructive contract: when
                     # `existing` is set this call cascades the package's files
@@ -3367,6 +3501,8 @@ def _parse_manifest(content):
             rel = line.split(":", 1)[1].strip()
             if rel.isdigit():
                 meta["release"] = int(rel)
+        elif not in_files and line.startswith("PAYLOAD VERSION:"):
+            meta["payload_version"] = line.split(":", 1)[1].strip()
         elif line.startswith("UNCOMPRESSED SIZE:"):
             size_str = line.split(":", 1)[1].strip()
             # Extract bytes from "12.5M (13107200 bytes)"

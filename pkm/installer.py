@@ -3819,6 +3819,7 @@ class PackageInstaller:
             name, package_version, helper_entries,
             hashes=self.db.get_file_checksums(name),
             release=release,
+            payload_version=version,
         )
         self.db.set_manifest_sha256(name, helper_manifest_sha256)
 
@@ -4184,6 +4185,7 @@ class PackageInstaller:
             release=pkg.get("release"),
             description=pkg.get("description"),
             generated=sorted(set(changed) | set(already) | set(by_rule)),
+            payload_version=pkg.get("payload_version"),
         )
         self.db.set_manifest_sha256(name, manifest_sha256)
         return changed, messages
@@ -4229,7 +4231,7 @@ class PackageInstaller:
 
     def _write_manifest(self, name, version, file_list, hashes=None,
                         supersedes=None, release=None, description=None,
-                        generated=None):
+                        generated=None, payload_version=None):
         """Write a text manifest alongside the SQLite entry.
 
         The text manifest is a transparency artifact — pkm SQLite's
@@ -4249,6 +4251,8 @@ class PackageInstaller:
             placeholder. Passing the real text makes the two paths agree.
             None keeps the placeholder, which stays honest about knowing
             nothing rather than inventing something.
+        payload_version: the application build fetched by a helper, separate
+            from the package version so an import can preserve both identities.
         generated: paths whose live content this package's own sealed hook
             created or rewrote (D-9). Emitted as HOOK-MANAGED headers so a
             later `pkm import` can restore the classification on a database
@@ -4283,6 +4287,8 @@ class PackageInstaller:
         ]
         if release is not None:
             lines.append(f"PACKAGE RELEASE: {release}")
+        if payload_version:
+            lines.append(f"PAYLOAD VERSION: {payload_version}")
         lines += [
             f"UNCOMPRESSED SIZE: {human_size} ({total_size} bytes)",
             f"BUILD DATE: {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}",

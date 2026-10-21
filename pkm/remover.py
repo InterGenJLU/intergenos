@@ -640,7 +640,14 @@ class PackageRemover:
                     f"Dry run: would remove "
                     f"{_txn.describe_subject(name, pkg)} (no files tracked). "
                     f"Nothing was changed.")
-            # No files tracked — just remove the DB entry
+            # No payload files are tracked, but a text record must not survive
+            # to re-register this removed package on the next import.
+            manifest = self.root / MANIFEST_DIR.relative_to("/") / f"{name}-{pkg['version']}"
+            if manifest.exists():
+                manifest.unlink()
+            helper_manifest = self.root / "var/lib/igos/helpers" / f"{name}.manifest"
+            if helper_manifest.exists() and not keep_helper_payload:
+                helper_manifest.unlink()
             self.db.remove_installed(name)
             self.db.log_operation("remove", name, old_version=pkg["version"])
             if run_post_remove_hook:
