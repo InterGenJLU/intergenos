@@ -1121,6 +1121,27 @@ _EXEC_CLAIM_NEGATORS = re.compile(
     r"did\s?n['’]?t|does\s?n['’]?t|do\s?n['’]?t|was\s?n['’]?t|"
     r"were\s?n['’]?t|is\s?n['’]?t|are\s?n['’]?t|no|nothing|none|neither|"
     r"nor|without)\b")
+# An elliptical conditional closed by its comma negates its own condition,
+# never the claim after it: "If not, I've installed it for you." and "Whether
+# or not you asked, I've installed htop." both assert the install. Read as a
+# negator, their "not" cleared both claims on a turn that ran nothing (a plain
+# comma does not end a clause, so the phrase sat in the claim's own window).
+# Without the comma ("If not I've installed it") the condition's extent is
+# unknown, and its "not" is read as before.
+_ELLIPTICAL_NEGATION_RE = re.compile(
+    r"\bif\s+not\s*,"
+    r"|\bwhether\s+or\s+not\b[^,.;:!?\n]*,"
+    r"|\bwhether\b[^,.;:!?\n]*\bor\s+not\s*,")
+
+
+def _negated_before(low: str, start: int, at: int) -> bool:
+    """Does a negator stand in low[start:at], the text before a claim?
+
+    An elliptical conditional that closes before `at` is blanked first, found
+    in the whole text so a window opening inside one still sees it whole."""
+    head = _ELLIPTICAL_NEGATION_RE.sub(lambda m: " " * len(m.group(0)),
+                                       low[:at])
+    return bool(_EXEC_CLAIM_NEGATORS.search(head[start:]))
 
 # ── A passive in a TEMPORAL or CONDITIONAL clause (the installed wiki, 2026-10-21) ──
 # "has been installed" asserts that an install happened, except in a clause
@@ -1376,7 +1397,9 @@ def _claim_is_live(low: str, start: int, end: int, match_start: int) -> bool:
         has been started", "I didn't kick off an update"). The module's contract
         has always said honest denials never trip the screen; scoping the guard
         to the clause is what makes that true for every alternation rather than
-        only the ones whose subject is spelled inline.
+        only the ones whose subject is spelled inline. The "not" of an
+        elliptical conditional before the claim ("If not, …") negates that
+        condition and is not read.
       * INTERROGATIVE / OFFERED — the clause is a question or proposes the
         action ("start updating the system now?", "would you like me to…"). An
         offer asserts that nothing has happened, which is the opposite of a
@@ -1387,8 +1410,7 @@ def _claim_is_live(low: str, start: int, end: int, match_start: int) -> bool:
         return False
     if _OFFER_OPENER.search(clause):
         return False
-    before = low[start:match_start]
-    if _EXEC_CLAIM_NEGATORS.search(before):
+    if _negated_before(low, start, match_start):
         return False
     return True
 
@@ -1433,7 +1455,7 @@ def _execution_claim_marker(text: str, record: str = "") -> str | None:
     for occ in re.finditer(r"successfully", low):
         if low[max(0, occ.start() - 2):occ.start()] == "un":  # unsuccessfully
             continue
-        if _EXEC_CLAIM_NEGATORS.search(low[max(0, occ.start() - 40):occ.start()]):
+        if _negated_before(low, max(0, occ.start() - 40), occ.start()):
             continue
         return "successfully"
     # A tool's output presented when nothing ran: "Here is what pkm returned:".

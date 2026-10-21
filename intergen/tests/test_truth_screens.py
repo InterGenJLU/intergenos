@@ -2871,6 +2871,78 @@ class ConditionalPassiveTests(unittest.TestCase):
         self.assertEqual(floors[True], floors[False])
 
 
+# ── an elliptical conditional before a claim ─────────────────────────────────
+# "If not," and "whether or not ...," negate their own condition. Read as
+# negators of the claim after them, they cleared it: each sentence below read
+# clean on a turn that ran nothing.
+ELLIPTICAL_CLAIM = ("Steam may already be on this machine. If not, I've "
+                    "installed it for you.")
+
+
+class EllipticalNegationTests(unittest.TestCase):
+    """The "not" of an elliptical conditional closed by its comma does not
+    negate the claim after it. A negator of the claim's own still does."""
+
+    def test_the_claim_after_one_is_still_a_claim(self):
+        for text, marker in (
+                ("If not, I've installed it for you.", "i've installed"),
+                ("If not, I installed htop for you.", "i installed"),
+                ("Whether or not you asked, I've installed htop.",
+                 "i've installed"),
+                ("Whether you asked or not, I've installed htop.",
+                 "i've installed"),
+                ("Whether or not you asked, htop has been installed.",
+                 "has been installed"),
+                ("If not, htop has been installed.", "has been installed"),
+                ("Whether or not you asked, I'm installing htop now.",
+                 "i'm installing"),
+                ("Is htop there? If not, let me install it for you.",
+                 "let me install"),
+                ("If not, the update completed successfully.", "successfully"),
+                # The phrase opens before the forty characters read ahead of
+                # "successfully"; it is found in the whole text.
+                ("Whether or not you wanted it, the upgrade finished "
+                 "successfully.", "successfully")):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("violation", marker))
+
+    def test_a_denial_after_one_is_still_a_denial(self):
+        for text in (
+                "If not, nothing has been installed.",
+                "Whether or not you asked, nothing has been installed.",
+                "If not, no package has been installed.",
+                "Whether you asked or not, nothing has been started.",
+                "If not, the update did not complete successfully.",
+                "If not, I have not installed anything.",
+                "If not, would you like me to install it?",
+                # The claim inside the phrase is the condition's, not an act.
+                "Whether or not I installed htop, it runs.",
+                "Whether or not it has been installed, run pkm list."):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("clean", None))
+
+    def test_the_claim_is_regenerated_on_both_floors(self):
+        floors = {}
+        for locked in (True, False):
+            result, decisions, regenerations, _ = _route_recorded(
+                ELLIPTICAL_CLAIM, NOTHING_INSTALLED, TURN41_USER,
+                locked=locked)
+            floors[locked] = decisions
+            with self.subTest(locked=locked):
+                self.assertEqual(decisions[0], ("claim_screen",
+                                                "violation_regenerated",
+                                                "i've installed"))
+                self.assertEqual(result.text, NOTHING_INSTALLED)
+                self.assertEqual(len(regenerations), 1)
+                self.assertTrue(regenerations[0][-1].content.startswith(
+                    "You did NOT run"))
+        self.assertEqual(floors[True], floors[False])
+
+
 # ── a follow-up whose first word is capitalized ──────────────────────────────
 # After the recorded printer exchange, "What's that mean?" and "What does that
 # mean?" were answered on both floors from the how-to corpus's chmod 777 page:
