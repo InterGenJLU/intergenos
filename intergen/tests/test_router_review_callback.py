@@ -16,7 +16,7 @@ from __future__ import annotations
 import unittest
 
 from intergen.router import ConversationRouter
-from intergen.interfaces.types import ToolCall, ToolResult
+from intergen.interfaces.types import Message, MessageRole, ToolCall, ToolResult
 from intergen.interfaces.provenance import Provenance
 
 
@@ -58,6 +58,10 @@ class _OneToolLLM:
                                  *, success=True, executed=True, max_tokens=400,
                                  temperature=0.3):
         return None
+
+    def build_system_messages(self, query_type="general", with_tools=True):
+        # The prompt the router screens a dispatch's answer under.
+        return [Message(role=MessageRole.SYSTEM, content="You are InterGen.")]
 
     def _strip_filler(self, text):
         return text

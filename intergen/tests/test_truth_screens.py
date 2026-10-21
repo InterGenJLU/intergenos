@@ -41,7 +41,8 @@ from intergen.escalation import EscalationManager
 from intergen.howto import HowtoCorpus
 from intergen.interfaces.cloud import ProviderConfig
 from intergen.interfaces.types import (
-    EscalationMode, HardwareTierLevel, Message, MessageRole, RouteResult)
+    EscalationMode, HardwareTierLevel, LLMResponse, Message, MessageRole,
+    Provenance, RouteResult, ToolCall, ToolResult)
 from intergen.intents import register_all_intents
 from intergen.llm import LLMRouter
 from intergen.router import ConversationRouter
@@ -1328,6 +1329,125 @@ class ToolRouteOfferTests(unittest.TestCase):
         self.assertEqual(native.text, answer)
         self.assertIsNone(native.escalation_offer)
         self.assertIsNone(locked.escalation_offer)
+
+
+# ── the native floor's dispatch synthesis meets the same screens ─────────────
+# Two turns of a console firing on the 9B lane's native floor (2026-10-21),
+# verbatim: the tool each turn's model called, what the registry returned and
+# the synthesis the model wrote over it (turn 41's call id is a stand-in). The
+# registry is stood in for here: nothing runs and no consent card can open.
+TURN14_CALL = ToolCall(name="run_command", arguments={"command": "df -h"},
+                       source_of_request=Provenance.USER_IMPLIED)
+TURN14_RESULT = ToolResult(
+    call_id="", name="run_command", success=True, executed=True,
+    content=(
+        "Filesystem             Size  Used Avail Use% Mounted on\n"
+        "/dev/mapper/cryptroot  457G   58G  376G  14% /\n"
+        "efivarfs               128K   80K   44K  65% /sys/firmware/efi/efivars\n"
+        "none                    12G     0   12G   0% /dev\n"
+        "tmpfs                   12G   35M   12G   1% /dev/shm\n"
+        "tmpfs                  4.7G  4.7M  4.7G   1% /run\n"
+        "tmpfs                  2.4G   84K  2.4G   1% /run/user/1000\n"
+        "/dev/mmcblk0p1         239G  896K  239G   1% "
+        "/run/media/christopher/IGOS-SDTEST\n"
+        "/dev/nvme0n1p3         931G  727G  204G  79% /run/media/christopher/OS\n"
+        "tmpfs                   12G  186M   12G   2% /tmp\n"
+        "/dev/nvme1n1p1        1022M   76M  947M   8% /boot/efi\n"))
+TURN14_SYNTHESIS = (
+    "The largest partition is the OS drive:\n"
+    "```\n"
+    "Filesystem             Size  Used Avail Use% Mounted on\n"
+    "/dev/nvme0n1p3         931G  727G  204G  79% /run/media/christopher/OS\n"
+    "```\n"
+    "It's 79% full — the rest of the system is mostly empty.")
+TURN41_CALL = ToolCall(name="manage_packages", arguments={"action": "install"},
+                       call_id="c41", source_of_request=Provenance.USER_DIRECT)
+TURN41_DENIED = ToolResult(
+    call_id="c41", name="manage_packages", success=False, executed=False,
+    content=("Nothing was run: this machine refuses the action outright, so no "
+             "review card was raised."))
+TURN41_SYNTHESIS = ("The installation wasn't allowed — it needs your approval "
+                    "and it didn't get it. Nothing was installed.")
+# A synthesis claiming the denied install took place. The lane's model wrote
+# the honest one above, so none was recorded; the claim screen's own case
+# stands in for it.
+FABRICATED_SUCCESS = "Done! I have installed the package."
+
+
+def _route_dispatch(call, result, synthesis, regeneration, user, *pairs):
+    """One tool turn through route() on the native floor: the model calls
+    `call`, the registry returns `result`, the model's synthesis over it is
+    `synthesis`, and every later completion — a regeneration — is
+    `regeneration`. Returns (the result, the screen decisions, the claim and
+    state screens' `dispatched` values, the regeneration requests)."""
+    router = _router()
+    for asked, answered in pairs:
+        router._append_history(asked, answered)
+    router._llm.chat, seen = _model(*[regeneration] * 5)
+
+    def stream_with_tools(messages, **_):
+        yield call
+    router._llm.stream_with_tools = stream_with_tools
+    router._tools.execute = mock.Mock(return_value=result)
+    router._llm.continue_after_tool_call = mock.Mock(
+        return_value=LLMResponse(text=synthesis, model="local"))
+    with mock.patch("intergen.router.glass.emit") as emit:
+        routed = router.route(user)
+    dispatched = [(name, row["dispatched"])
+                  for name in ("claim_screen", "state_claim_screen")
+                  for row in _rows(emit, name)]
+    return routed, _screen_decisions(emit), dispatched, seen
+
+
+class DispatchSynthesisScreenTests(unittest.TestCase):
+    """On the native floor the answer composed after a dispatch was served
+    with no screen at all, while the browser streamer screens the same answer
+    with the turn's dispatch outcome: in a console firing turns 14 and 41
+    carried no screen row, and the browser's same turns carried four. The
+    answer now meets the same sequence, with `dispatched` true only when a tool
+    ran — a denied dispatch ran nothing, so a claim that it did is unfounded."""
+
+    def test_a_fabricated_success_after_a_denied_dispatch_is_screened(self):
+        for name, regeneration, verdict, delivered in (
+                ("an honest regeneration is served", TURN41_SYNTHESIS,
+                 "violation_regenerated", TURN41_SYNTHESIS),
+                ("a repeated claim gets the honest line", FABRICATED_SUCCESS,
+                 "violation_regen_failed_fallback",
+                 safety.honest_action_fallback())):
+            with self.subTest(regeneration=name):
+                result, decisions, dispatched, regenerations = _route_dispatch(
+                    TURN41_CALL, TURN41_DENIED, FABRICATED_SUCCESS,
+                    regeneration, TURN41_USER)
+                self.assertEqual(result.source, "llm_tools")
+                self.assertEqual(result.tool_results, [TURN41_DENIED])
+                self.assertEqual(result.text, delivered)
+                self.assertNotIn(FABRICATED_SUCCESS, result.text)
+                self.assertEqual(decisions[0][:2], ("claim_screen", verdict))
+                self.assertIsNotNone(decisions[0][2])
+                self.assertEqual(dispatched, [("claim_screen", False),
+                                              ("state_claim_screen", False)])
+                # Asked once, with the prompt of a turn that offers no tools.
+                self.assertEqual(len(regenerations), 1)
+                self.assertIn("You cannot run tools or commands on this turn",
+                              regenerations[0][0].content)
+                self.assertTrue(regenerations[0][-1].content.startswith(
+                    "You did NOT run"))
+
+    def test_an_executed_dispatch_keeps_its_answer_and_meets_the_screens(self):
+        # The control: a tool ran, so the claim and state screens pass the
+        # answer as the browser's do, and the answer is served as written.
+        result, decisions, dispatched, regenerations = _route_dispatch(
+            TURN14_CALL, TURN14_RESULT, TURN14_SYNTHESIS, TURN14_SYNTHESIS,
+            TURN14_USER,
+            ("How much free space do I have on this system?", TURN13_FINAL))
+        self.assertEqual(result.source, "llm_tools")
+        self.assertEqual(result.text, TURN14_SYNTHESIS)
+        self.assertEqual([d[:2] for d in decisions], [
+            ("claim_screen", "clean"), ("state_claim_screen", "clean"),
+            ("model_offer_screen", "clean"), ("capability_screen", "clean")])
+        self.assertEqual(dispatched, [("claim_screen", True),
+                                      ("state_claim_screen", True)])
+        self.assertEqual(regenerations, [])
 
 
 if __name__ == "__main__":

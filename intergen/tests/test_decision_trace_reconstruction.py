@@ -301,6 +301,9 @@ def _tool_router():
     llm.continue_after_tool_call.return_value = LLMResponse(
         text="You have 2 printers: printer-1, printer-2.", model="local",
         tokens_prompt=30, tokens_completion=9)
+    # The prompt the router screens a dispatch's answer under.
+    llm.build_system_messages.return_value = [
+        Message(role=MessageRole.SYSTEM, content="You are InterGen.")]
     r._llm = llm
 
     r._grounding_context = lambda *a, **k: ""

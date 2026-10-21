@@ -6545,6 +6545,25 @@ class ConversationRouter(RouterInterface):
                 tok_p = getattr(self._llm, '_last_prompt_tokens', 0)
                 tok_c = getattr(self._llm, '_last_completion_tokens', 0)
 
+            # THE SAME SCREENS AS EVERY OTHER MODEL ANSWER. The answer composed
+            # above speaks for the dispatch, and the browser streamer screens
+            # that same answer with the turn's dispatch outcome; served from
+            # here it met no screen at all (measured on the native console: a
+            # dispatched turn carried no screen row where the browser's same
+            # turn carried four). A claim to have done what a denied dispatch
+            # never did is a claim nothing stands behind, exactly as on a turn
+            # that called no tool. `dispatched` is whether a tool ran, the value
+            # the browser streamer passes; a regeneration offers no tools, so it
+            # is asked with the prompt of a turn that has none, as on the text
+            # branch below.
+            dispatched = any(getattr(tr, "executed", False) for tr in tool_results)
+            screen_messages = self._llm.build_system_messages(
+                query_type=getattr(self, "_current_query_type", "general"),
+                with_tools=False) + messages[1:]
+            response_text, _ = self._screen_model_answer(
+                response_text, screen_messages, source="llm_tools",
+                dispatched=dispatched)
+
             self._append_history(user_input, response_text)
 
             # M8-3 WEB SEARCH UX: render the top-N results (title / url / snippet)
@@ -6847,25 +6866,29 @@ class ConversationRouter(RouterInterface):
         )
 
     def _screen_model_answer(self, draft: str, messages: "list[Message]", *,
-                             source: str, fallbacks: "list[str] | None" = None
-                             ) -> "tuple[str, bool]":
-        """The delivery screens of a model answer that nothing was dispatched
-        for, in order: the claim screens, then the refusal screen on a general
-        turn. ONE sequence for every route that serves such an answer — the
-        freeform route, and the tool route when the model answered in text
-        without calling a tool — so the two cannot drift apart.
+                             source: str, fallbacks: "list[str] | None" = None,
+                             dispatched: bool = False) -> "tuple[str, bool]":
+        """The delivery screens of a model answer, in order: the claim screens,
+        then the refusal screen on a general turn. ONE sequence for every route
+        that serves such an answer — the freeform route, the tool route when the
+        model answered in text without calling a tool, and the tool route's
+        synthesis after a dispatch — so they cannot drift apart. `dispatched`
+        is whether a tool ran for the answer, as the browser streamer passes it:
+        False for an answer nothing was dispatched for, and for one whose
+        dispatch was denied before it ran.
 
         Returns (text, refused), as _screen_and_correct_refusal does; `refused`
         is False when the refusal screen did not run. When `fallbacks` is a
         list, each screen that served a code-owned text instead of the model's
         appends its name to it, so the caller knows whose text it delivers."""
-        # M3(ii) honesty invariant: no dispatch stands behind this answer, so any
-        # first-person execution claim in the draft is unfounded. Screen it; on a
-        # violation regenerate ONCE with a corrective note, else a deterministic
-        # honest fallback — never ship a fabricated action claim. Glass-log the
-        # verdict every turn (both paths), per the total-observability rider.
+        # M3(ii) honesty invariant: when no tool ran, any first-person execution
+        # claim in the draft is unfounded. Screen it; on a violation regenerate
+        # ONCE with a corrective note, else a deterministic honest fallback —
+        # never ship a fabricated action claim. Glass-log the verdict every turn
+        # (both paths), per the total-observability rider.
         text = self._screen_and_correct_claim(
-            draft, messages, dispatched=False, source=source, fallbacks=fallbacks)
+            draft, messages, dispatched=dispatched, source=source,
+            fallbacks=fallbacks)
 
         # The conversational path never refuses a benign ask. persona.SCOPE says so
         # in the prompt and the model disregards it (measured 2026-08-26, battery

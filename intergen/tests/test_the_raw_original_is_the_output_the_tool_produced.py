@@ -33,7 +33,7 @@ from tempfile import TemporaryDirectory
 from unittest import mock
 
 from intergen import cli
-from intergen.interfaces.types import ToolCall, ToolResult
+from intergen.interfaces.types import Message, MessageRole, ToolCall, ToolResult
 from intergen.router import ConversationRouter
 
 FREE_OUTPUT = ("               total        used        free\n"
@@ -60,6 +60,10 @@ class _LLM:
     def continue_after_tool_call(self, messages, call, output, success=True,
                                  executed=True):
         return _Synthesis(SUMMARY)
+
+    def build_system_messages(self, query_type="general", with_tools=True):
+        # The prompt the router screens a dispatch's answer under.
+        return [Message(role=MessageRole.SYSTEM, content="You are InterGen.")]
 
 
 def _router_for(call, result):
