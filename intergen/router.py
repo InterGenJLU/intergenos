@@ -2414,8 +2414,10 @@ def _posture_secure_boot() -> "str | None":
     if enabled is None:
         return None
     if enabled:
-        return ("Secure Boot is on: the firmware only starts a boot loader and "
-                "kernel signed with a key it trusts.")
+        # The variable says what the firmware checks: the boot loader. What the
+        # boot loader checks in turn is its own setting, not read here.
+        return ("Secure Boot is on: the firmware starts only a boot loader signed "
+                "with a key it trusts.")
     try:
         setup = _read_efi_flag("SetupMode")
     except FileNotFoundError:
@@ -2466,8 +2468,11 @@ def _posture_render_encrypted_root(out: str) -> "str | None":
     i = crypts[-1]
     luks = i > 0 and (path[i - 1].get("fstype") or "").lower() == "crypto_luks"
     kind = "a LUKS-encrypted volume" if luks else "an encrypted (dm-crypt) volume"
+    # Only the path to / is read, so the sentence speaks for the root filesystem
+    # alone, never the whole disk: the EFI system partition, or a separate
+    # partition for /home, can sit on the same disk unencrypted.
     return (f"The root filesystem is encrypted: it is on {path[i].get('name')}, "
-            f"{kind}, so what is stored on the disk can't be read without its key "
+            f"{kind}, so what is stored in it can't be read without its key "
             f"while the machine is off.")
 
 
@@ -2674,6 +2679,10 @@ def _posture_pending_updates() -> "str | None":
         text = (f"{count} {noun} pending at the last update check ({when}): "
                 f"{shown}{more}. sudo pkm upgrade --all installs "
                 f"{'it' if count == 1 else 'them'} after showing the plan.")
+    # The check is offline: it compares against the index as last synced, which
+    # the advisory does not date, so a count of none is not "up to date".
+    text += (" That check compares what is installed with the package index as "
+             "last synced; sudo pkm sync fetches the current index.")
     if skipped:
         text += (f" {skipped} installed package{'s' if skipped != 1 else ''} could "
                  f"not be compared, so the count may be low.")

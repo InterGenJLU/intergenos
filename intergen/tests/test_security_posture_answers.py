@@ -282,7 +282,12 @@ class SecureBootReadings(_MachineFixture):
         return router._posture_secure_boot()
 
     def test_on(self):
-        self.assertIn("Secure Boot is on", self.answer())
+        text = self.answer()
+        self.assertIn("Secure Boot is on", text)
+        # The variable shows what the firmware checks, the boot loader; what the
+        # boot loader checks in turn is not read, so the kernel is not claimed.
+        self.assertIn("boot loader signed with a key it trusts", text)
+        self.assertNotIn("kernel", text)
 
     def test_off(self):
         self.set_efi(secure_boot=0, setup_mode=0)
@@ -315,6 +320,10 @@ class EncryptedRootReadings(unittest.TestCase):
         self.assertTrue(text.startswith("The root filesystem is encrypted"))
         self.assertIn("cryptroot", text)
         self.assertIn("LUKS", text)
+        # Only the path to / is read: the sentence speaks for the root
+        # filesystem, never the whole disk (the EFI system partition is plain).
+        self.assertIn("what is stored in it", text)
+        self.assertNotIn("disk", text)
 
     def test_lvm_on_luks_root(self):
         text = self.render(_LSBLK_LVM_ON_LUKS)
@@ -439,6 +448,10 @@ class PendingUpdateReadings(_MachineFixture):
         self.assertIn("No updates were pending", text)
         stamp = time.strftime("%Y-%m-%d %H:%M", time.localtime(1792540800))
         self.assertIn(stamp, text)
+        # The check is offline, against the index as last synced, which the
+        # advisory does not date: none pending is not "up to date".
+        self.assertIn("package index as last synced", text)
+        self.assertIn("sudo pkm sync fetches the current index", text)
 
     def test_some_pending_and_some_unchecked(self):
         names = [f"pkg{i}" for i in range(12)]
@@ -448,6 +461,7 @@ class PendingUpdateReadings(_MachineFixture):
         self.assertIn("pkg0", text)
         self.assertIn("and 4 more", text)
         self.assertIn("2 installed packages could not be compared", text)
+        self.assertIn("package index as last synced", text)
 
     def test_a_broken_advisory_is_no_reading(self):
         self.advisory.write_text("{not json")
