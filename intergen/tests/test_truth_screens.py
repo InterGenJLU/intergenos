@@ -1029,15 +1029,18 @@ class _OneHit:
 
 
 def _route_recorded(draft, regeneration, user, *pairs, locked, wiki=None,
-                    escalation=None):
+                    escalation=None, record=()):
     """One recorded turn through route(), the console entry, on a router with
     the recorded history. Native (the 9B and 35B lanes' floor): the model
     streams `draft` as a text answer and calls no tool. Locked (the 2B floor):
     `draft` is the model's first completion. Every later completion — a
     regeneration — is `regeneration`. `wiki`, when given, is the page the
     installed wiki returns for the turn; `escalation`, when given, is the
-    phone-a-friend manager the turn's offer is decided by. Returns (the result,
-    the screen decisions, the regeneration requests, the tool-route requests)."""
+    phone-a-friend manager the turn's offer is decided by; `record`, when
+    given, is what tools of the conversation returned on earlier turns,
+    written to its record of what ran by record_execution, as every place a
+    result comes back writes it. Returns (the result, the screen decisions,
+    the regeneration requests, the tool-route requests)."""
     tier = HardwareTierLevel.TIER_1 if locked else HardwareTierLevel.TIER_2
     router = _router(tier=tier, locked=locked)
     if wiki is not None:
@@ -1046,6 +1049,9 @@ def _route_recorded(draft, regeneration, user, *pairs, locked, wiki=None,
         router._escalation = escalation
     for asked, answered in pairs:
         router._append_history(asked, answered)
+    for output in record:
+        router._conv.record_execution(ToolResult(
+            call_id="", name="manage_packages", content=output))
     replies = ([draft] if locked else []) + [regeneration] * 5
     router._llm.chat, seen = _model(*replies)
     streamed = []
@@ -3354,6 +3360,178 @@ class CapitalizedFollowUpTests(unittest.TestCase):
                 ("Can you restart this box?", False)):
             with self.subTest(message=message):
                 self.assertEqual(depends_on_an_earlier_turn(message), carried)
+
+
+# ── a completed state reported on a turn that ran nothing ────────────────────
+# Seven sentences that report the state an act would have left, each the
+# model's whole answer on a turn that ran nothing, passed every screen: no
+# first-person act, no tool named. Each is a claim unless the conversation's
+# record of what ran holds an output reporting that state. pkm's own lines:
+# "Installed <name> <version> (<n> files)", "Upgraded <name> to <version>",
+# "Everything is up to date.".
+COMPLETION_STATES = (
+    ("Done! htop is now installed.", "is now installed"),
+    ("htop is now installed on your system.", "is now installed"),
+    ("The update is complete.", "update is complete"),
+    ("All set, htop is installed and ready to use.", "is installed and ready"),
+    ("Installation complete.", "installation complete"),
+    ("Your system is now up to date.", "is now up to date"),
+    ("I took care of that for you: htop is installed.",
+     "i took care of that"))
+# The same class in the words the seven leave out.
+COMPLETION_STATES_SAME_CLASS = (
+    ("htop is installed now.", "is installed now"),
+    ("Your system is up to date now.", "is up to date now"),
+    ("Update complete.", "update complete"),
+    ("Upgrade complete!", "upgrade complete"),
+    ("htop has now been installed.", "has now been installed"),
+    ("The installation is done.", "installation is done"),
+    ("The upgrade has finished.", "upgrade has finished"),
+    ("Your packages are now up to date.", "are now up to date"),
+    ("htop's now installed.", "'s now installed"),
+    ("I've taken care of it.", "i've taken care of it"))
+HTOP_INSTALLED = ("Installing htop...\nInstalled htop 3.3.0-1 (12 files)\n"
+                  "  Installed 1 package")
+PACKAGES_UPGRADED = ("Upgraded pkm to 0.2.0-119\n"
+                     "Upgraded intergen to 0.1.0-358")
+NOTHING_TO_UPGRADE = "  Everything is up to date."
+COMPLETION_REPORTED = {
+    "Done! htop is now installed.": HTOP_INSTALLED,
+    "htop is now installed on your system.": HTOP_INSTALLED,
+    "The update is complete.": PACKAGES_UPGRADED,
+    "All set, htop is installed and ready to use.": HTOP_INSTALLED,
+    "Installation complete.": HTOP_INSTALLED,
+    "Your system is now up to date.": NOTHING_TO_UPGRADE,
+    "I took care of that for you: htop is installed.": HTOP_INSTALLED,
+    "htop is installed now.": HTOP_INSTALLED,
+    "Your system is up to date now.": NOTHING_TO_UPGRADE,
+    "Update complete.": PACKAGES_UPGRADED,
+    "Upgrade complete!": PACKAGES_UPGRADED,
+    "htop has now been installed.": HTOP_INSTALLED,
+    "The installation is done.": HTOP_INSTALLED,
+    "The upgrade has finished.": PACKAGES_UPGRADED,
+    "Your packages are now up to date.": PACKAGES_UPGRADED,
+    "htop's now installed.": HTOP_INSTALLED,
+    "I've taken care of it.": PACKAGES_UPGRADED}
+
+
+class CompletionStateTests(unittest.TestCase):
+    """A sentence reporting a completed state ("Done! htop is now
+    installed.") on a turn that ran nothing is a claim unless an output on the
+    conversation's record of what ran reports that state; a state described
+    in general, or inside a temporal or conditional clause, claims nothing."""
+
+    def test_a_completed_state_when_nothing_ran_is_a_claim(self):
+        for text, marker in COMPLETION_STATES + COMPLETION_STATES_SAME_CLASS:
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("violation", marker))
+
+    def test_a_state_an_output_on_the_record_reports_is_not_a_claim(self):
+        for text, _ in COMPLETION_STATES + COMPLETION_STATES_SAME_CLASS:
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(
+                        text, dispatched=False,
+                        executed_outputs=(COMPLETION_REPORTED[text],)),
+                    ("clean", None))
+                # The turn that ran the tool is never screened for it.
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=True),
+                    ("clean", None))
+
+    def test_a_record_that_reports_no_such_completion_leaves_the_claim(self):
+        for name, output in (
+                ("a failed install",
+                 "[stderr] error: no package named 'htop' in the index\n"
+                 "[exit code: 1]"),
+                ("an action not attempted",
+                 "the package action 'install' changes the system and must "
+                 "run as root, but this process is running as uid 1000 "
+                 "(checked). It was not attempted."),
+                ("a package that is not installed",
+                 "  name                : htop\n"
+                 "  status              : available, not installed"),
+                ("a disk reading",
+                 "Filesystem Size Used Avail Use% Mounted on\n"
+                 "/dev/nvme0n1p2 468G 377G 91G 81% /")):
+            for text, marker in COMPLETION_STATES:
+                with self.subTest(record=name, text=text):
+                    self.assertEqual(
+                        safety.screen_execution_claim(
+                            text, dispatched=False, executed_outputs=(output,)),
+                        ("violation", marker))
+        # Another package's install reports no install of htop, and no update.
+        for text, marker in (COMPLETION_STATES[:4] + COMPLETION_STATES[5:6]
+                             + COMPLETION_STATES_SAME_CLASS[:2]):
+            with self.subTest(record="another package", text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(
+                        text, dispatched=False,
+                        executed_outputs=("Installed fzf 0.56.3-1 (4 files)",)),
+                    ("violation", marker))
+        # An upgrade reports no install.
+        self.assertEqual(
+            safety.screen_execution_claim(
+                "Installation complete.", dispatched=False,
+                executed_outputs=(PACKAGES_UPGRADED,)),
+            ("violation", "installation complete"))
+
+    def test_a_state_described_in_general_is_not_a_claim(self):
+        for text in (
+                "When the installation is complete, click Continue.",
+                "Once the update is complete, reboot to load the new kernel.",
+                "If htop is now installed, run it from a terminal.",
+                "Check whether the update is complete before you reboot.",
+                "htop is installed by default on InterGenOS.",
+                "After an upgrade, your system is up to date until the next "
+                "release.",
+                # The installed wiki's installer steps.
+                "Step 8 — Install complete",
+                "When the log reads Install complete, click Continue.",
+                "Installation finished. Click Reboot now, and remove the "
+                "install media as the system restarts.",
+                "GNOME Shell extensions are pre-installed and ready.",
+                "Step 10 — You are all set",
+                "Is htop now installed?",
+                "Nothing is now installed: the install did not run.",
+                "To check whether your system is up to date, run "
+                "`pkm upgrade --check`."):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("clean", None))
+
+    def test_the_seven_are_regenerated_on_both_floors(self):
+        for text, marker in COMPLETION_STATES:
+            floors = {}
+            for locked in (True, False):
+                result, decisions, regenerations, _ = _route_recorded(
+                    text, NOTHING_INSTALLED, TURN41_USER, locked=locked)
+                floors[locked] = decisions
+                with self.subTest(text=text, locked=locked):
+                    self.assertEqual(decisions[0], ("claim_screen",
+                                                    "violation_regenerated",
+                                                    marker))
+                    self.assertEqual(result.text, NOTHING_INSTALLED)
+                    self.assertEqual(len(regenerations), 1)
+            self.assertEqual(floors[True], floors[False])
+
+    def test_a_completion_the_record_reports_is_served_on_both_floors(self):
+        for text, _ in COMPLETION_STATES:
+            floors = {}
+            for locked in (True, False):
+                result, decisions, regenerations, _ = _route_recorded(
+                    text, NOTHING_INSTALLED, "is it done?", locked=locked,
+                    record=(COMPLETION_REPORTED[text],))
+                floors[locked] = decisions
+                with self.subTest(text=text, locked=locked):
+                    self.assertEqual(decisions[0],
+                                     ("claim_screen", "clean", None))
+                    self.assertEqual(result.text, text)
+                    self.assertEqual(regenerations, [])
+            self.assertEqual(floors[True], floors[False])
 
 
 if __name__ == "__main__":

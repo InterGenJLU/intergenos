@@ -1489,7 +1489,9 @@ def _execution_claim_marker(text: str, record: str = "") -> str | None:
     installed"). An AFFIRMATIVE "successfully" also fires,
     negation-window-guarded, and so does a tool's output presented as its
     result ("Here is what pkm returned:"), unless the output it quotes is
-    held in `record`, the folded record of what ran in the conversation.
+    held in `record`, the folded record of what ran in the conversation,
+    and so does a completed state ("Done! htop is now installed."),
+    unless an output in `record` reports it.
     """
     low = text.lower()
     for m in _EXEC_CLAIM_RE.finditer(low):
@@ -1534,7 +1536,101 @@ def _execution_claim_marker(text: str, record: str = "") -> str | None:
             continue
         if _claim_is_live(low, start, end, m.start()):
             return m.group(0).strip()
+    # A completed state asserted when nothing ran: "Done! htop is now
+    # installed." A state an output on the record reports is a recorded
+    # result.
+    for m in _COMPLETION_STATE_RE.finditer(low):
+        start, end = _clause_bounds(low, m.start())
+        if _COMPLETION_CONDITION_RE.search(low, start, m.start()):
+            continue
+        if record and _completion_on_record(low, m, record):
+            continue
+        if _claim_is_live(low, start, end, m.start()):
+            return m.group(0).strip()
     return None
+
+
+# ── A COMPLETED STATE asserted on a turn that ran nothing (2026-10-21) ──
+# "Done! htop is now installed.", "The update is complete." and "Your system
+# is now up to date." report the state an act would have left, with no
+# first-person act and no tool named, and every screen passed all seven
+# measured shapes on a turn that ran nothing.
+# The phrases are listed: an open "is (now) <state>" slot
+# reads the training bank's and the installed wiki's general descriptions
+# ("is installed" stands in 103 honest texts), so a bare state needs "now",
+# its completion noun or "and ready", and "done" and "finished" need their
+# verb (the installed wiki's installer step reads "Installation finished.
+# Click Reboot now, ...").
+# Such a sentence gives an account of a result when the conversation's record
+# of what ran holds an output reporting that state: the state's report word
+# (pkm prints "Installed <name> <version> (<n> files)", "Upgraded <name> to
+# <version>" and "Everything is up to date."), not negated before it in its
+# output, and, when the sentence names what changed (the word before its
+# verb), that name beside the report word. A failed run, a listing that
+# names the package far from the word, and an earlier answer report no
+# completion. Inside a temporal or conditional clause ("When the installation
+# is complete, click Continue.", "If htop is now installed, run it.") the
+# state is not asserted.
+_COMPLETION_STATE_RE = re.compile(
+    r"(?P<install>(?:\b(?:is|are)|['’]s)\s+(?:now\s+installed|installed\s+now|"
+    r"(?:now\s+)?installed\s+and\s+ready)\b"
+    r"|\b(?:has|have)\s+now\s+been\s+installed\b"
+    r"|\binstallation\s+(?:(?:is|has)\s+(?:now\s+)?)?complete(?:d)?\b"
+    r"|\binstallation\s+(?:is|has)\s+(?:now\s+)?(?:done|finished)\b)"
+    r"|(?P<update>(?:\b(?:is|are)|['’]s)\s+(?:now\s+up[\s-]to[\s-]date|"
+    r"up[\s-]to[\s-]date\s+now)\b"
+    r"|\b(?:has|have)\s+now\s+been\s+(?:updated|upgraded)\b"
+    r"|\b(?:update|upgrade)s?\s+(?:(?:is|are|has|have)\s+(?:now\s+)?)?"
+    r"complete(?:d)?\b"
+    r"|\b(?:update|upgrade)s?\s+(?:is|are|has|have)\s+(?:now\s+)?"
+    r"(?:done|finished)\b)"
+    r"|(?P<act>\bi(?:['’]ve|\s+have)?\s+(?:took|taken)\s+care\s+of\s+"
+    r"(?:that|it|this|everything)\b"
+    r"|\bwe(?:['’]ve|\s+have)\s+taken\s+care\s+of\s+(?:that|it|this|"
+    r"everything)\b)")
+_COMPLETION_REPORT = {
+    "install": r"installed",
+    "update": r"(?:upgraded|updated|up\s+to\s+date)",
+    "act": r"(?:installed|upgraded|updated|up\s+to\s+date)",
+}
+# The words before a state's verb that name nothing that changed.
+_GENERAL_SUBJECTS = frozenset((
+    "it", "this", "that", "these", "those", "they", "them", "both", "all",
+    "each", "everything", "system", "software", "package", "packages",
+    "machine", "computer", "update", "updates", "upgrade", "upgrades",
+    "installation"))
+_COMPLETION_CONDITION_RE = re.compile(
+    r"\b(?:once|after|before|until|till|whenever|when|as\s+soon\s+as|if|"
+    r"unless|whether)\s+(?:" + _PASSIVE_SUBJECT_DETERMINER + r"\s+)?"
+    r"(?:[^\s,;:!?]+\s*)?$")
+
+
+def _completion_on_record(low: str, m: "re.Match[str]", record: str) -> bool:
+    """Does the record of what ran hold an output reporting the completed
+    state this match asserts: the state's report word, not negated before it
+    in its output, with the name of what changed within 40 characters of it
+    when the sentence names one?"""
+    kind = m.lastgroup
+    subject = None
+    if kind != "act" and re.match(r"(?:is|are|has|have)\b|['’]s\b", m.group(0)):
+        words = low[:m.start()].split()
+        word = words[-1].strip("`'\"“”‘’*_()[]") if words else ""
+        if word and word not in _GENERAL_SUBJECTS:
+            subject = word
+    for r in re.finditer(r"(?<![0-9a-z])" + _COMPLETION_REPORT[kind]
+                         + r"(?![0-9a-z])", record):
+        line_start = record.rfind("\n", 0, r.start()) + 1
+        if _negated_before(record, max(line_start, r.start() - 40), r.start()):
+            continue
+        if subject is None:
+            return True
+        line_end = record.find("\n", r.end())
+        line_end = len(record) if line_end < 0 else line_end
+        near = record[max(line_start, r.start() - 40):min(line_end, r.end() + 40)]
+        if re.search(r"(?<![0-9a-z])" + re.escape(subject) + r"(?![0-9a-z])",
+                     near):
+            return True
+    return False
 
 
 def screen_execution_claim(draft: str, dispatched: bool, *,
