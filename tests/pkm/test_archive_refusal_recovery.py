@@ -13,6 +13,7 @@ import pytest
 
 from pkm import cli, output, pretxn
 from pkm import installer as installer_module
+from pkm.hooks import HookResult
 from pkm.installer import PackageInstaller, SIGNING_REFUSED_EXIT
 from pkm.remover import PackageRemover
 from tests.pkm.test_install_refuses_a_kind_change_at_another_packages_path import (
@@ -236,3 +237,86 @@ def test_later_rollback_does_not_advise_undoing_an_earlier_upgrade(local, monkey
     assert "Rollback succeeded" in said
     assert RESTORE_ID not in said
     assert "Recover from" not in said
+
+
+# Advice install() used to compose before its caller knew the outcome.
+INSTALLER_ADVICE = ("Rollback recommended", "reinstall to retry", "Re-run",
+                    "to recover")
+
+
+def critical_hook_fails(monkeypatch):
+    monkeypatch.setattr(installer_module, "run_archive_lifecycle_hook",
+                        lambda *a, **k: HookResult(["widget post-install"], [], []))
+
+
+def signing_refused(monkeypatch):
+    monkeypatch.setattr(PackageInstaller, "_run_post_install_hook",
+                        lambda *a: SIGNING_REFUSED_EXIT)
+
+
+def database_fails_once(monkeypatch):
+    """The first install's database step fails after its files are deployed."""
+    ratchet = installer_module.ratchet_baselines
+    calls = []
+
+    def failing(*args, **kwargs):
+        calls.append(True)
+        if len(calls) == 1:
+            raise RuntimeError("test database failure after deploy")
+        return ratchet(*args, **kwargs)
+
+    monkeypatch.setattr(installer_module, "ratchet_baselines", failing)
+    return calls
+
+
+@pytest.mark.parametrize("verb,failure", [
+    ("upgrade", "critical"), ("install", "critical"),
+    ("upgrade", "signing"), ("install", "signing"),
+    ("upgrade", "signing-and-critical")])
+def test_degraded_install_has_one_recovery_sentence(local, monkeypatch, verb, failure):
+    if verb == "install":
+        assert PackageRemover(local.db).remove("widget", force=True)[0]
+    if "critical" in failure:
+        critical_hook_fails(monkeypatch)
+    if "signing" in failure:
+        signing_refused(monkeypatch)
+    rc, said = attempt(local, monkeypatch, verb=verb, rollback=True)
+    assert rc == 1, said
+    row = local.db.get_installed("widget")
+    assert row["release"] == 4 and row["degraded"]
+    for phrase in INSTALLER_ADVICE:
+        assert phrase not in said
+    finish = ("Finish it with the signing key passphrase in hand"
+              if "signing" in failure else "Retry it with: sudo pkm reinstall widget")
+    assert said.count(finish) == 1, said
+    assert said.count("sudo pkm reinstall widget") == 1, said
+    assert said.count("do not reboot for it yet") == (failure == "signing")
+    assert RESTORE_ID not in said
+
+
+def test_database_failure_after_a_restored_rollback_names_no_install(local, monkeypatch):
+    calls = database_fails_once(monkeypatch)
+    rc, said = attempt(local, monkeypatch, rollback=True)
+    assert rc == 1 and len(calls) == 2, said
+    assert local.db.get_installed("widget")["release"] == 3
+    assert (local.root / "usr/bin/widget").read_bytes() == b"old\n"
+    assert "FAILED at DB transaction after deploy" in said
+    assert "widget 1.0-3 was removed and restored from the rollback cache" in said
+    for phrase in INSTALLER_ADVICE:
+        assert phrase not in said
+    assert "pkm install widget" not in said
+    assert RESTORE_ID not in said
+
+
+def test_archive_install_database_failure_has_one_recovery_sentence(local, monkeypatch):
+    assert PackageRemover(local.db).remove("widget", force=True)[0]
+    calls = database_fails_once(monkeypatch)
+    rc, said = attempt(local, monkeypatch, verb="install")
+    assert rc == 1 and len(calls) == 1, said
+    assert local.db.get_installed("widget") is None
+    assert "FAILED at DB transaction after deploy" in said
+    for phrase in INSTALLER_ADVICE:
+        assert phrase not in said
+    assert said.count("Recover from Chronicle restore point") == 1, said
+    assert ("Recovery if this attempt changed files: Recover from Chronicle "
+            f"restore point {RESTORE_ID}.") in said

@@ -186,6 +186,12 @@ MOK_PASSPHRASE_VAR = "IGOS_MOK_PASSPHRASE"
 # scripts/mok-signing.sh's MOK_REFUSED_EXIT; a test holds the two equal.
 SIGNING_REFUSED_EXIT = 77
 
+# The words install() reports when its database step fails after the files
+# were deployed. It names the failure and leaves the next step to its caller,
+# which knows what the person ran and what was there before; a caller with no
+# outcome of its own to report reads the failure by these words.
+DB_FAILED_AFTER_DEPLOY = "FAILED at DB transaction after deploy"
+
 
 class HelperEnvironmentError(ValueError):
     """The inherited environment carries a value a helper must not receive."""
@@ -2355,9 +2361,9 @@ class PackageInstaller:
             except Exception as e:
                 self.db.conn.execute("ROLLBACK")
                 return False, (
-                    f"Install of {name} {version} FAILED at DB transaction "
-                    f"after deploy. DB rolled back; filesystem may have partial "
-                    f"changes. Re-run 'pkm install {name}' to recover. Error: {e}"
+                    f"Install of {name} {version} {DB_FAILED_AFTER_DEPLOY}. "
+                    f"DB rolled back; filesystem may have partial changes. "
+                    f"Error: {e}"
                 )
 
             # Q4 materialize: copy each staging→<live>.pkmnew for the
@@ -2589,26 +2595,22 @@ class PackageInstaller:
                 if reporter:
                     for line in co_owned_lines:
                         reporter.info(line)
-                # A refusal alone is finished by running it again with the
-                # passphrase, not by a rollback: a refusing signer writes no
-                # boot image, so the machine still boots the signed one it had,
-                # and rolling back would only remove what did install.
-                if signing_refused and len(critical_hook_ids) == 1:
-                    advice = (f"It refused to sign, so do not reboot for it "
-                              f"yet. Finish it with the signing key passphrase "
-                              f"in hand (the one set at install, not the MOK "
-                              f"enrollment password): "
-                              f"sudo pkm reinstall {name}")
-                else:
-                    advice = "Rollback recommended."
+                # The next step is the caller's: it knows whether anything was
+                # rolled back and which command finishes this package (cli.py
+                # _unfinished_advice). A refusal alone keeps its caution here: a
+                # refusing signer writes no boot image, so the machine still
+                # boots the signed one it had and a reboot does not take this
+                # package into use.
+                caution = (" It refused to sign, so do not reboot for it yet."
+                           if signing_refused and len(critical_hook_ids) == 1
+                           else "")
                 return False, (
                     f"Installed {name} {self._installed_vr(name, version)} "
                     f"({file_count} files){extra}, "
                     f"but critical post-install hook(s) FAILED: "
                     f"{', '.join(critical_hook_ids)}. Live system state may "
                     f"diverge from package metadata. Package marked DEGRADED "
-                    f"(see `pkm list`/`pkm verify`); reinstall to retry. "
-                    f"{advice}\n"
+                    f"(see `pkm list`/`pkm verify`).{caution}\n"
                     f"{hook_summary}"
                     + (f"\n{degraded_pkmnew}" if degraded_pkmnew else "")
                     + "".join(f"\n{line}" for line in co_owned_lines)

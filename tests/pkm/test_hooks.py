@@ -458,8 +458,11 @@ class TestFormatHookSummary(unittest.TestCase):
         from pkm.hooks import HookResult
         r = HookResult(["depmod"], [], ["  hook[depmod] CRITICAL: exit 1; ..."])
         summary = format_hook_summary(r)
-        self.assertIn("depmod", summary)
-        self.assertIn("Rollback recommended", summary)
+        self.assertIn("CRITICAL hook failures: depmod.", summary)
+        self.assertIn("Live system state may diverge from package metadata.",
+                      summary)
+        # The next step is the caller's, decided after the install's outcome.
+        self.assertNotIn("Rollback recommended", summary)
 
     def test_cosmetic_failure_in_summary(self):
         from pkm.hooks import HookResult

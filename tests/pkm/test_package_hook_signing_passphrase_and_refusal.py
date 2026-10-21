@@ -138,8 +138,12 @@ class RefusedSigningIsNotFinishedTest(unittest.TestCase):
         ok, msg, row = self._install("exit 77\n")
         self.assertFalse(ok)
         self.assertIn("refused to sign", msg)
-        self.assertIn("sudo pkm reinstall kpkg", msg)
-        self.assertIn("not the MOK enrollment password", msg)
+        self.assertIn("Package marked DEGRADED", msg)
+        self.assertIn("It refused to sign, so do not reboot for it yet.", msg)
+        # The command that finishes it is the caller's to print, once
+        # (cli._unfinished_advice), so install()'s own message carries none.
+        self.assertNotIn("sudo pkm reinstall", msg)
+        self.assertNotIn("reinstall to retry", msg)
         self.assertNotIn("Rollback recommended", msg)
         self.assertTrue(row["degraded"])
         self.assertIn("refused to sign", row["degraded"])

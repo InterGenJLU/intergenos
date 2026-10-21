@@ -29,6 +29,7 @@ from .database import PackageDB, _sha256
 from .installer import (
     PackageInstaller, is_download_helper, payload_installed, APT_DOWNLOAD_HELPERS,
     acceptance_record_exists, deliberate_install_command, archive_preflight,
+    DB_FAILED_AFTER_DEPLOY,
 )
 from .remover import PackageRemover, ancestor_chain, prune_empty_unowned_dirs
 from .verifier import PackageVerifier
@@ -2125,6 +2126,10 @@ def _proprietary_install(db, installer, repo, reporter, pkg_name, payload_licens
         )
         if not inst_ok:
             reporter.error(f"installing {pkg_name}: {inst_msg}")
+            next_step = _failed_install_next_step(
+                db, pkg_name, inst_ok, inst_msg, f"sudo pkm install {pkg_name}")
+            if next_step:
+                reporter.error(next_step)
             return "failed"
 
     # 2. Run the helper — downloads the real app + its own "I ACCEPT" EULA and
@@ -2673,6 +2678,13 @@ def cmd_install(db, args):
                 )
                 if not inst_ok:
                     reporter.error(f"installing {dep_name}: {inst_msg}")
+                    # The person asked for pkg_name; running that again
+                    # resolves this dependency with the reason it had.
+                    next_step = _failed_install_next_step(
+                        db, dep_name, inst_ok, inst_msg,
+                        f"sudo pkm install {pkg_name}")
+                    if next_step:
+                        reporter.error(next_step)
                     sys.exit(1)
                 installed_this_txn.append(dep_name)
 
@@ -2706,6 +2718,11 @@ def cmd_install(db, args):
                 sys.exit(1)
         else:
             reporter.error(msg)
+            # An --archive install's next step is already in msg (above).
+            next_step = None if args.archive else _failed_install_next_step(
+                db, pkg_name, ok, msg, f"sudo pkm install {pkg_name}")
+            if next_step:
+                reporter.error(next_step)
             sys.exit(1)
 
     # WHAT THE HOOKS SAID TWICE IN THIS TRANSACTION. A hook's NOTE output is
@@ -2847,6 +2864,22 @@ def _unfinished_advice(name, reason):
                 f"set at install, not the MOK enrollment password): "
                 f"sudo pkm reinstall {name}")
     return f"Retry it with: sudo pkm reinstall {name}"
+
+
+def _failed_install_next_step(db, name, ok, message, retry):
+    """The one next step after install() failed, for a caller with no outcome
+    of its own to report: the finish advice when the package landed degraded,
+    the command the person ran (``retry``) when the database step failed after
+    the files were deployed, and None when install()'s message is the whole
+    outcome. install() names the failure; the next step is decided here,
+    after it, because only the caller knows what was asked."""
+    unfinished = _unfinished_install(db, name, ok)
+    if unfinished:
+        return (f"{name} is installed, but its install did not finish "
+                f"({unfinished}). {_unfinished_advice(name, unfinished)}")
+    if not ok and DB_FAILED_AFTER_DEPLOY in message:
+        return f"Retry it with: {retry}"
+    return None
 
 
 def cmd_reinstall(db, args):
@@ -3699,6 +3732,11 @@ def cmd_upgrade(db, args):
             )
             if not dep_ok:
                 emit_error(f"installing new dep {new_dep}: {dep_msg}")
+                next_step = _failed_install_next_step(
+                    db, new_dep, dep_ok, dep_msg,
+                    f"sudo pkm upgrade {remote_pkg['name']}")
+                if next_step:
+                    emit_error(next_step)
                 dep_install_failed = True
                 break
             emit_info(f"Installed new dep for {remote_pkg['name']}: {new_dep}")

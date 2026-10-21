@@ -1160,10 +1160,11 @@ def format_hook_summary(*results):
         all_critical.extend(r.critical_failures)
         all_cosmetic.extend(r.cosmetic_failures)
     if all_critical:
+        # The facts only: what to do next depends on what the caller did
+        # after the install, which the summary cannot know.
         lines.append(
             f"  CRITICAL hook failures: {', '.join(all_critical)}. "
-            f"Live system state may diverge from package metadata. "
-            f"Rollback recommended."
+            f"Live system state may diverge from package metadata."
         )
     if all_cosmetic:
         lines.append(
