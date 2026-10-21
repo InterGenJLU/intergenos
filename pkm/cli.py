@@ -28,7 +28,7 @@ from .configprotect import summary_lines as configprotect_summary_lines
 from .database import PackageDB, _sha256
 from .installer import (
     PackageInstaller, is_download_helper, payload_installed, APT_DOWNLOAD_HELPERS,
-    acceptance_record_exists, deliberate_install_command,
+    acceptance_record_exists, deliberate_install_command, archive_preflight,
 )
 from .remover import PackageRemover, ancestor_chain, prune_empty_unowned_dirs
 from .verifier import PackageVerifier
@@ -2231,12 +2231,14 @@ def cmd_install(db, args):
     # No-op when no handler is installed (see pkm/pretxn.py); a handler failure
     # is loud but never blocks the install.
     from . import pretxn
-    pretxn.run_pre_transaction_hook(
-        db, "install", args.packages,
-        reason=f"pre-transaction install: {', '.join(args.packages)}",
-        reporter=reporter,
-        handler_dir=pretxn.handler_directory(install_root()),
-    )
+    _pretxn_result = None
+    if not args.archive:
+        pretxn.run_pre_transaction_hook(
+            db, "install", args.packages,
+            reason=f"pre-transaction install: {', '.join(args.packages)}",
+            reporter=reporter,
+            handler_dir=pretxn.handler_directory(install_root()),
+        )
 
     # 3.0-F28: names successfully installed in THIS transaction, so a single
     # loud reboot banner can be aggregated + printed once at the end (rather
@@ -2457,6 +2459,21 @@ def cmd_install(db, args):
                     "--archive-trust=loose — skipping repo verification. "
                     "Verify SHA256 independently before trusting this archive."
                 )
+
+        if archive:
+            _, refusal = archive_preflight(
+                pkg_name, archive, expected_sha256=archive_sha,
+                name_header_mismatch=_name_header_mode(args),
+                named_on_command_line=True, root=install_root(), check_payload=True)
+            if refusal:
+                reporter.error(refusal)
+                refused_this_txn.append((pkg_name, refusal))
+                continue
+            _pretxn_result = pretxn.run_pre_transaction_hook(
+                db, "install", args.packages,
+                reason=f"pre-transaction install: {', '.join(args.packages)}",
+                reporter=reporter,
+                handler_dir=pretxn.handler_directory(install_root()))
 
         # S5-1 (security-review 2026-07-01): a bare `pkm install <name>` may
         # resolve a cached archive in ARCHIVE_DIR. Trust it ONLY when its sha256
@@ -3715,6 +3732,15 @@ def cmd_upgrade(db, args):
                 f"{txn.format_vr(installed_pkg)} was available; rollback for "
                 f"this step relies on the chronicle restore point"
             )
+
+        if remote_pkg.get("local_archive"):
+            _, refusal = archive_preflight(
+                remote_pkg["name"], dl_result,
+                expected_sha256=remote_pkg.get("sha256"), root=install_root())
+            if refusal:
+                emit_error(f"upgrading {installed_pkg['name']}: {refusal}")
+                failed_this_txn.append((installed_pkg["name"], refusal))
+                continue
 
         # The cross-package check, BEFORE the remove: install() refuses an
         # archive that would put a different kind of file where another
@@ -5973,6 +5999,13 @@ def _local_archive_upgrade_candidates(db, repo, args, archive):
             "--archive-trust=loose — skipping repo verification. Verify "
             "SHA256 independently before trusting this archive."
         )
+
+    _, refusal = archive_preflight(
+        name, path, expected_sha256=archive_sha, root=install_root(),
+        check_payload=True)
+    if refusal:
+        emit_error(refusal)
+        sys.exit(1)
 
     # Direction: the same guard, the same override, the same words as the
     # repository path.

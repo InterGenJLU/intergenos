@@ -36,6 +36,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pkm.cli as cli
+from tests.pkm.test_upgrade_from_local_archive import _make_archive
 
 NAME = "demo-pkg"
 INDEX_SHA = "b" * 64
@@ -57,7 +58,8 @@ class RefusedArchiveInstallExitsNonZero(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.archive = Path(self._tmp.name) / f"{NAME}-1.0-1.igos.tar.gz"
-        self.archive.write_bytes(b"not the archive the index describes")
+        _make_archive(self.archive, NAME, "1.0", 1,
+                      {"usr/share/demo-pkg/example": b"not the indexed build"})
         self.assertNotEqual(
             hashlib.sha256(self.archive.read_bytes()).hexdigest(), INDEX_SHA,
             "the fixture archive must not match the index, or it proves nothing")

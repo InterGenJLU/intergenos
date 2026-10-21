@@ -1586,6 +1586,53 @@ def _archive_build(name, path, tail):
     return (tail, None)
 
 
+def archive_preflight(name, archive_path, expected_sha256=None,
+                      name_header_mismatch="refuse", named_on_command_line=False,
+                      root="/", check_payload=False):
+    """Read an archive's identity and integrity before transaction mutation.
+
+    The installer repeats these checks before deployment. Explicit command
+    paths can also validate the payload in temporary staging before a removal;
+    this runs the existing extraction checks without writing into the target.
+    Trust policy remains the caller's decision, with its accepted digest passed
+    here so a changed archive is refused before the old package is removed.
+    """
+    archive_path = Path(archive_path)
+    try:
+        if expected_sha256:
+            actual = _sha256(str(archive_path))
+            if actual != expected_sha256:
+                return {}, (
+                    f"Archive integrity check FAILED at install time for "
+                    f"{name}: expected sha256 {expected_sha256[:16]}..., "
+                    f"got {actual[:16]}.... Cached file may have been "
+                    f"swapped between download/verify and install. "
+                    f"Re-fetch and verify the archive before retrying.")
+        meta = _read_package_meta(archive_path) or {}
+    except (ArchiveReadError, OSError) as error:
+        return {}, (
+            f"Cannot read package archive for {name}: {error}. The archive "
+            f"may be corrupt or truncated — re-fetch with `pkm install {name}`.")
+    if meta.get("name") and meta["name"] != name:
+        return {}, (
+            f"Refusing to install {name}: the sealed header names "
+            f"{meta['name']}. An archive installs only the package it was built as.")
+    disagreement = _name_header_disagreement(archive_path.name, meta)
+    if disagreement and name_header_mismatch != "report":
+        remedy = "Rename the file to what its header states"
+        if named_on_command_line:
+            remedy += (f", or install it deliberately with `"
+                       f"{deliberate_install_command(name, archive_path, root)}`")
+        return {}, (f"Refusing to install {archive_path.name}: {disagreement} "
+                    f"Nothing was changed. {remedy}.")
+    if check_payload:
+        with tempfile.TemporaryDirectory(prefix=f"pkm-preflight-{name}-") as staging:
+            ok, error = _safe_extract_tar(archive_path, staging, usrmerge_root=root)
+            if not ok:
+                return {}, error
+    return meta, None
+
+
 class PackageInstaller:
     """Install packages from pre-built archives."""
 
@@ -1727,70 +1774,20 @@ class PackageInstaller:
                 f"`{deliberate_install_command(name, archive_path, self.root)}`."
             )
 
-        # L-021: re-hash archive immediately before any tar extract.
-        # Defends against TOCTOU between the caller's sha256 verification
-        # (in repo.download_package or cmd_install --archive path) and
-        # the subprocess tar invocations below. The narrow window between
-        # caller-verify and our hash here is the only remaining attack
-        # surface for the cached-archive-swap scenario; subprocess tar
-        # then runs on the freshly-verified content.
-        if expected_sha256:
-            actual = _sha256(str(archive_path))
-            if actual != expected_sha256:
-                return False, (
-                    f"Archive integrity check FAILED at install time for "
-                    f"{name}: expected sha256 {expected_sha256[:16]}..., "
-                    f"got {actual[:16]}.... Cached file may have been "
-                    f"swapped between download/verify and install. "
-                    f"Cache cleared; retry with `pkm install {name}`."
-                )
-
-        # EULA install-helper gate (hybrid-model, 2026-05-28). Read
-        # .PKGINFO ahead of the staging extract so we can run the EULA
-        # helper BEFORE the user's filesystem sees a single byte of the
-        # archive. The helper checks its own marker file; if accepted,
-        # exit 0 + we proceed. If declined / fetch-failed / non-tty /
-        # write-failure, exit non-zero + we abort with the helper's
-        # message. The .PKGINFO read is cheap (single tar -O extract);
-        # the result is reused below as `pkginfo` after staging so we
-        # avoid double-reading.
-        try:
-            early_pkginfo = _read_package_meta(archive_path) or {}
-        except ArchiveReadError as e:
-            # PKM-A13: a corrupt/truncated archive must abort the install
-            # fail-closed, not read as "no metadata" and proceed to deploy
-            # with empty metadata + release=1. The second read below is then
-            # unreachable for this archive (it only fires when this read
-            # returned an empty dict, i.e. the archive opened cleanly).
-            return False, (
-                f"Cannot read package archive for {name}: {e}. The archive "
-                f"may be corrupt or truncated — re-fetch with "
-                f"`pkm install {name}`."
-            )
-        # AN ARCHIVE'S NAME AND ITS SEALED HEADER MUST NAME THE SAME BUILD
-        # (decided 2026-09-22). The name identifies the build on disk and in
-        # the resolvers; the header is what gets recorded. A second reader
-        # measured a byte copy of demo 1.0 release 7 named as release 11
-        # installing as "demo 1.0-7", exit 0, with no word about the name.
-        # Checked here, before anything is extracted.
+        early_pkginfo, refusal = archive_preflight(
+            name, archive_path, expected_sha256=expected_sha256,
+            name_header_mismatch=name_header_mismatch,
+            named_on_command_line=named_on_command_line, root=self.root)
+        if refusal:
+            return False, refusal
         disagreement = _name_header_disagreement(archive_path.name, early_pkginfo)
         if disagreement:
-            if name_header_mismatch == "report":
-                line = (f"{disagreement} Installing the build the header "
-                        f"states, as --archive-trust loose allows.")
-                if reporter:
-                    reporter.warn(line)
-                else:
-                    print(f"  WARNING: {line}", file=sys.stderr)
+            line = (f"{disagreement} Installing the build the header "
+                    f"states, as --archive-trust loose allows.")
+            if reporter:
+                reporter.warn(line)
             else:
-                remedy = "Rename the file to what its header states"
-                if named_on_command_line:
-                    remedy += (
-                        f", or install it deliberately with `"
-                        f"{deliberate_install_command(name, archive_path, self.root)}`")
-                return False, (
-                    f"Refusing to install {archive_path.name}: {disagreement} "
-                    f"Nothing was changed. {remedy}.")
+                print(f"  WARNING: {line}", file=sys.stderr)
         eula_helper_name = early_pkginfo.get("eula_helper")
         if eula_helper_name:
             # PI-Z6: pass the archive so the gate can fall back to the copy
