@@ -2,6 +2,7 @@
 """Missing helper archives do not discard the package's recorded identity."""
 
 import hashlib
+import os
 import sqlite3
 from pathlib import Path
 from unittest.mock import patch
@@ -9,6 +10,7 @@ from unittest.mock import patch
 import pytest
 
 from pkm.database import PackageDB
+from pkm import output
 from pkm.installer import PackageInstaller
 from pkm.version import is_upgradable
 from tests.pkm.test_helper_manifest_version_repair import seed
@@ -157,3 +159,39 @@ def test_a_real_archive_install_records_the_header_version_used_after_eviction(t
     with PackageDB(path, root=str(root)) as db:
         assert db.get_installed("example")["version"] == "1.0"
         assert db.get_installed("example")["payload_version"] == "0.8"
+
+
+@pytest.mark.parametrize("problem", ["missing", "no-path", "failed-history", "empty-history",
+                                    "corrupt", "other-name", "unreadable"])
+def test_unrepaired_rows_are_reported_once_on_each_default_open(tmp_path, capsys, problem):
+    root, path, legacy, original, before = seed(tmp_path)
+    archive = tmp_path / "example.igos.tar.gz"
+    if problem in {"missing", "no-path", "failed-history", "empty-history"}:
+        archive.unlink()
+        if problem == "no-path":
+            with sqlite3.connect(path) as raw:
+                raw.execute("UPDATE installed SET archive_path = NULL")
+        elif problem == "failed-history":
+            history(path, success=0)
+        elif problem == "empty-history":
+            history(path, "")
+    elif problem == "corrupt":
+        archive.write_bytes(b"not an archive")
+    elif problem == "other-name":
+        _make_archive(archive, "different", "1.0", 7)
+    stat = os.stat
+    def archive_stat(target, *args, **kwargs):
+        if problem == "unreadable" and Path(target) == archive:
+            raise PermissionError("archive cannot be read")
+        return stat(target, *args, **kwargs)
+    capsys.readouterr()
+    with patch.object(output, "process_level", return_value=output.NORMAL), \
+            patch("pkm.database.os.stat", archive_stat):
+        for _ in range(2):
+            with PackageDB(path, root=str(root)) as db:
+                assert db.get_installed("example")["version"] == "0.8"
+                assert not any(h["operation"] == "repair-version" for h in db.get_history("example"))
+            lines = capsys.readouterr().err.splitlines()
+            assert len(lines) == 1
+            assert "example" in lines[0] and "left as recorded:" in lines[0]
+    assert legacy.read_bytes() == original

@@ -1416,6 +1416,8 @@ class PackageDB:
         until that commit. An interrupted write or commit can therefore retry
         from the original; an interrupted cleanup resumes from the payload
         filename and the committed manifest hash before another command runs.
+        A row neither source can establish is reported on every read-write
+        open, including at the default output level.
         """
         required = {"id", "name", "version", "release", "archive_path",
                     "install_method", "payload_version", "manifest_sha256"}
@@ -1547,16 +1549,9 @@ class PackageDB:
             if row not in repaired and row[-1]:
                 say(f"pkm: completed helper manifest repair for {row[1]}; "
                     f"recorded manifest hash {row[-1]['after_hash']}.")
-        if left:
-            try:
-                from . import output as _o
-                verbose = _o.process_level() >= _o.VERBOSE
-            except Exception:
-                verbose = False
-            if verbose:
-                for name, why in left:
-                    say(f"pkm: {name}'s helper package version was left as "
-                        f"recorded: {why}.")
+        for name, why in left:
+            say(f"pkm: {name}'s helper package version was left as "
+                f"recorded: {why}.")
         return len(repaired)
 
     def _repair_release_suffixed_versions(self):
