@@ -25,6 +25,7 @@ dispatches under its existing gating; mutating tools stay CONFIRM.
 from __future__ import annotations
 
 import io
+import json
 import contextlib
 import http.client
 import socket
@@ -499,6 +500,56 @@ class LocalPageBoundaryTests(unittest.TestCase):
                     self.assertEqual(_web_page_details(content), (url, page))
                 with self.subTest(page=name, parser="snippets"):
                     self.assertEqual(_web_search_snippets(content), snippet)
+
+    def test_listing_field_markers_preserve_the_page_and_both_snippets(self):
+        from intergen.router import _web_page_details, _web_search_snippets
+
+        page = "The observatory opens at 09:00."
+        marker = "\n\nSearch results for: an index heading\n   CONTINUATION LINE"
+        first, second = "FIRST SNIPPET lead.", "SECOND SNIPPET retained."
+        for field in ("snippet", "title", "query"):
+            title = "Observatory" + (marker if field == "title" else "")
+            query = "observatory hours" + (marker if field == "query" else "")
+            snippet = first + (marker if field == "snippet" else "")
+            with self._server(body=page.encode()) as url:
+                content, _ = WebSearchTool()._render_with_page(
+                    query, [(title, url, snippet), ("Second", url, second)])
+                with self.subTest(field=field, reader="page"):
+                    self.assertEqual(_web_page_details(content), (url, page))
+                with self.subTest(field=field, reader="snippets"):
+                    snippets = _web_search_snippets(content)
+                    self.assertIn(first, snippets)
+                    self.assertIn(second, snippets)
+
+    def test_distinct_page_boundaries_remain_distinct_after_rendering(self):
+        from intergen.router import _web_page_details
+
+        cases = (
+            ("Opening hours.", "first heading\n\nSearch results for: second heading"),
+            ("Opening hours.\n\nSearch results for: first heading", "second heading"),
+        )
+        contents = []
+        for page, query in cases:
+            with self._server(body=page.encode()) as url:
+                content, _ = WebSearchTool()._render_with_page(
+                    query, [("Observatory", url, "A result snippet.")])
+                contents.append(content)
+                with self.subTest(page=page):
+                    self.assertEqual(_web_page_details(content), (url, page))
+        self.assertNotEqual(contents[0], contents[1])
+
+    def test_page_framing_keeps_the_model_text_readable(self):
+        page = "The observatory opens at 09:00."
+        with self._server(body=page.encode()) as url:
+            content, summary = WebSearchTool()._render_with_page(
+                "observatory hours", [("Observatory", url, "Opening hours.")])
+        header, _, readable = content.partition("\n")
+        self.assertTrue(header.startswith("Web search evidence v1: "))
+        evidence = json.loads(header.removeprefix("Web search evidence v1: "))
+        self.assertEqual(evidence["source"], url)
+        self.assertEqual(evidence["page"], page)
+        self.assertEqual(summary, readable)
+        self.assertTrue(summary.startswith("Source: " + url + "\nPage excerpt:\n"))
 
     def test_empty_snippets_keep_the_unavailable_outcome(self):
         from intergen.tests.test_router_executes_recognised_search import _build_router

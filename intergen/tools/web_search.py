@@ -392,6 +392,7 @@ class WebSearchTool(BaseTool):
         content, summary = render_search_results(query, results)
         if not results:
             return content, summary
+        listing = content
         source = results[0][1]
         try:
             source, text, truncated = _fetch_page_text(source)
@@ -403,6 +404,7 @@ class WebSearchTool(BaseTool):
         except Exception as exc:
             log.warning("Search page fetch unavailable: %s", exc)
             source = " ".join(source.split())
+            text = ""
             page = f"Source: {source}\nThe linked page did not provide readable text."
             model_page = page
         # The source and retrieval outcome precede the external text, so the
@@ -413,6 +415,13 @@ class WebSearchTool(BaseTool):
                 query, [(title, url, snippet[:_SNIPPET_CAP])
                         for title, url, snippet in results[:3]])
             summary = (model_page + "\n\n" + compact)[:_MODEL_OVERFLOW_CHARS]
+        else:
+            summary = content
+        # JSON escapes field contents, so textual headings in any field cannot
+        # change the page/listing boundary. The model keeps the readable view.
+        evidence = json.dumps({"source": source, "page": text, "listing": listing},
+                              separators=(",", ":"))
+        content = "Web search evidence v1: " + evidence + "\n" + content
         return content, summary
 
     def _parse_ddg_html(self, html: str, num: int) -> list[tuple[str, str, str]]:

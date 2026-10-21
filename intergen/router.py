@@ -1468,24 +1468,33 @@ def _distilled_web_query(text: str) -> str:
 
 
 def _web_page_details(output: str) -> tuple[str, str] | None:
-    """Read the search tool's source and page excerpt before its result listing."""
-    header = re.search(
-        r"(?m)^Source: ([^\n]+)\n(Page excerpt(?: \(truncated\))?:\n"
-        r"|The linked page did not provide readable text\.)", output)
-    if header is None:
+    """Read source and page fields from the producer's JSON frame."""
+    prefix = "Web search evidence v1: "
+    if not output.startswith(prefix):
         return None
-    excerpt = ""
-    if header.group(2).startswith("Page excerpt"):
-        excerpt = output[header.end():].rsplit("\n\nSearch results for:", 1)[0].strip()
-    return header.group(1), excerpt
+    try:
+        evidence = json.loads(output[len(prefix):].partition("\n")[0])
+    except (ValueError, TypeError):
+        return None
+    if (not isinstance(evidence, dict)
+            or not isinstance(evidence.get("source"), str)
+            or not isinstance(evidence.get("page"), str)):
+        return None
+    return evidence["source"], evidence["page"]
 
 
 def _web_search_snippets(output: str) -> str:
-    """Read snippet lines from the search listing after the retrieval header."""
-    _, marker, listing = output.rpartition("\n\nSearch results for:")
-    if not marker:
+    """Read snippet lines from the explicitly framed search listing."""
+    prefix = "Web search evidence v1: "
+    if not output.startswith(prefix):
         return ""
-    return "\n".join(re.findall(r"(?m)^   (?!https?://)(\S[^\n]*)$", listing))
+    try:
+        evidence = json.loads(output[len(prefix):].partition("\n")[0])
+    except (ValueError, TypeError):
+        return ""
+    if not isinstance(evidence, dict) or not isinstance(evidence.get("listing"), str):
+        return ""
+    return "\n".join(re.findall(r"(?m)^   (?!https?://)(\S[^\n]*)$", evidence["listing"]))
 
 _LIVE_ACTION_RE = re.compile(
     r"^\s*(?:restart|stop|start|enable|disable|open|launch|run|install|remove|"
