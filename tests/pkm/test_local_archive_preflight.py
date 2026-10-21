@@ -137,3 +137,33 @@ def test_contradicted_hash_preserves_package(local, trust):
     rc, said = invoke(local, trust=trust, repo=repo)
     assert rc == 1, said
     assert_preserved(local)
+
+
+def test_every_archive_check_precedes_the_first_remover_call(local):
+    import pkm.installer as installer_module
+    events = []
+    def recording(label, function):
+        def call(*args, **kwargs):
+            result = function(*args, **kwargs)
+            events.append(label)
+            return result
+        return call
+    def removing(*args, **kwargs):
+        assert {"trust", "hash", "header", "filename", "payload"} <= set(events)
+        events.append("remove")
+        return False, "recording remover: no mutation requested"
+    with patch.object(cli, "_explicit_archive_trust",
+                      recording("trust", cli._explicit_archive_trust)), \
+            patch.object(installer_module, "_sha256",
+                         recording("hash", installer_module._sha256)), \
+            patch.object(installer_module, "_read_package_meta",
+                         recording("header", installer_module._read_package_meta)), \
+            patch.object(installer_module, "_name_header_disagreement",
+                         recording("filename", installer_module._name_header_disagreement)), \
+            patch.object(installer_module, "_safe_extract_tar",
+                         recording("payload", installer_module._safe_extract_tar)), \
+            patch.object(PackageRemover, "remove", removing):
+        rc, said = invoke(local)
+    assert rc == 1, said
+    assert events[-1] == "remove"
+    assert_preserved(local)
