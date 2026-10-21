@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -150,8 +151,13 @@ class TheScreenshotCommandConsentsInThePlatformDialogTests(unittest.TestCase):
         executed = ws.of_type("tool_executed")
         self.assertEqual(len(executed), 1, ws.types())
         self.assertTrue(executed[0]["success"], executed[0])
-        self.assertIn(base64.b64encode(_PNG_1x1).decode("ascii"),
-                      executed[0].get("full_output", ""))
+        # The capture's bytes never travel as text: the frame names the
+        # capture, and the picture rides the result's image_data behind the
+        # image gate (test_image_ingress_gate), not the transcript.
+        self.assertIn("[Image captured", executed[0]["summary"], executed[0])
+        self.assertNotIn(base64.b64encode(_PNG_1x1).decode("ascii"),
+                         json.dumps(executed[0]),
+                         "the capture travelled as base64 text in the tool frame")
 
     def test_a_refusal_no_person_can_override_still_stops_the_command(self):
         ws = _RecordingWS()

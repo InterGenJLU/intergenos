@@ -1622,9 +1622,15 @@ class WebServer:
             # never sees it. Until 2026-10-20 the picture went into the
             # person's own turn with no scan and no marker.
             _image_name = str(data.get("image_name") or "a picture")
+            # The gate runs on a worker thread (the transcription is a model
+            # call); a ContextVar does not cross a thread, so bind the glass
+            # turn context and run the gate through it, as route() is run
+            # below — otherwise every row the gate writes lands as "no-turn".
+            _gate_ctx = glass.bind_context()
             _admission = await asyncio.get_running_loop().run_in_executor(
-                None, lambda: image_ingress.admit(
-                    image_data, source=f"the image button ({_image_name})",
+                None, lambda: _gate_ctx.run(
+                    image_ingress.admit, image_data,
+                    source=f"the image button ({_image_name})",
                     source_type="image"))
             if _admission.refused:
                 await self._deliver_code_owned_text(
