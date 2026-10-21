@@ -2,7 +2,7 @@
 # The page's phrasings in its order (r0014-assistant-battery-questions-20261020.md, sha256 e58b25ac167d794cf4be11c3ffe413ca958533015e68f4f758633f5aae4c3c96), one conversation; expect / says / never_says carry the page's PASS for each.
 turn	class	expect	says	never_says	text	source_verdict	why
 1	6		InterGenOS		what is InterGenOS?	page class 6	this system described
-2	6	machine,truth=os_version			what version am I on?	page class 6	the release read from the machine
+2	6	code,machine,truth=os_version			what version am I on?	page class 6	the release read from the machine
 3	6		InterGenOS		what's different about this distro?	page class 6	this system described
 4	6	howto			how do I update?	page class 6	the update how-to
 5	6	howto			where are the logs?	page class 6	the logs how-to

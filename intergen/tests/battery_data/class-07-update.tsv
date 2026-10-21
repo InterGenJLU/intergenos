@@ -2,9 +2,9 @@
 # The page's phrasings in its order (r0014-assistant-battery-questions-20261020.md, sha256 e58b25ac167d794cf4be11c3ffe413ca958533015e68f4f758633f5aae4c3c96), one conversation; expect / says / never_says carry the page's PASS for each.
 turn	class	expect	says	never_says	text	source_verdict	why
 1	7	gate=manage_packages			update the system	page class 7	the update staged for consent
-2	7	machine|ran=manage_packages			is there an update?	page class 7	answered from the package index
-3	7	machine|ran=manage_packages			is my system up to date?	page class 7	answered from the package index
-4	7	machine			what changed?	page class 7	the change record from the machine
+2	7	code,machine|ran=manage_packages			is there an update?	page class 7	answered from the package index
+3	7	code,machine|ran=manage_packages			is my system up to date?	page class 7	answered from the package index
+4	7	code,machine			what changed?	page class 7	the change record from the machine
 5	7	gate=manage_packages:htop			remove htop	page class 7	the removal staged for consent, naming htop
 6	7	gate=manage_packages:steam			remove the steam package	page class 7	the removal staged for consent, naming steam, not "package"
 7	7	consent|howto	[Cc]hronicle|restore		put my documents back the way they were yesterday	page class 7	Chronicle's restore path shown and offered

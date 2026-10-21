@@ -237,6 +237,55 @@ class TheDataFiles(unittest.TestCase):
                 seen |= classes
         self.assertEqual(seen, {str(n) for n in range(1, 11)})
 
+    # Every row that asks for this machine's live state, by file and turn:
+    # the answer is read by the code, never composed by the model.
+    STATE_ROWS = (("class-02-running.tsv", (1, 2, 3, 4, 5, 6)),
+                  ("class-04-diagnose.tsv", (1, 2, 3, 4)),
+                  ("class-06-identity.tsv", (2,)),
+                  ("class-07-update.tsv", (2, 3, 4)),
+                  ("class-08-security.tsv", (1, 2, 3, 4, 5, 6)),
+                  ("class-10-escape-hatches.tsv", (2,)))
+
+    def test_every_live_state_row_refuses_a_model_composed_answer(self):
+        text = "Only a model-composed answer."
+        composed = _turn([_ack(), *_model(text, source="system_map")],
+                         text=text)
+        glass = _glass(kind="model", renderer="llm_stream",
+                       source="system_map", streamed=True)
+        rows = 0
+        for name, numbers in self.STATE_ROWS:
+            by = {t.turn: t for t in _need("parse_replay")(DATA / name)}
+            for number in numbers:
+                with self.subTest(file=name, turn=number):
+                    rows += 1
+                    v = _grade(by[number], composed, glass)
+                    self.assertEqual(v.verdict, "FAIL")
+                    self.assertTrue(any(w.startswith("code:")
+                                        for w in v.reasons), v.reasons)
+        self.assertEqual(rows, 21)
+
+    def test_the_first_state_row_of_each_file_passes_a_code_owned_answer(self):
+        release = {"os_version": (0, "VERSION_ID=r001.3\n")}
+        firsts = (("class-02-running.tsv", 1, "12 units are running.", {}, ""),
+                  ("class-04-diagnose.tsv", 1, "No unit has failed.", {}, ""),
+                  ("class-06-identity.tsv", 2, "You are on r001.3.", release,
+                   ""),
+                  ("class-07-update.tsv", 2, "Every package is current.", {},
+                   ""),
+                  ("class-08-security.tsv", 1, "Secure Boot is on.", {}, ""),
+                  ("class-10-escape-hatches.tsv", 2, "I run Qwen3.5-9B.", {},
+                   "  Model:      Qwen3.5-9B\n"))
+        glass = _glass(kind="code", renderer="direct_answer_render",
+                       source="direct_answer")
+        for name, number, text, readings, status in firsts:
+            with self.subTest(file=name, turn=number):
+                t = {t.turn: t for t in
+                     _need("parse_replay")(DATA / name)}[number]
+                self.assertIn("code", t.names())
+                v = _grade(t, _turn([_ack(), _response(text, "direct_answer")],
+                                    text=text), glass, readings, status)
+                self.assertEqual(v.verdict, "PASS", v.reasons)
+
     # Answers a 9B model gave to these turns on the locked floor, each a
     # defect the session's read names, in a spelling the session did not use
     # (cannot, a curly apostrophe, the question handed back as its own

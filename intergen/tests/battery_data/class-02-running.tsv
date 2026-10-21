@@ -1,9 +1,9 @@
 # Class 2 of the assistant battery page: What is running.
 # The page's phrasings in its order (r0014-assistant-battery-questions-20261020.md, sha256 e58b25ac167d794cf4be11c3ffe413ca958533015e68f4f758633f5aae4c3c96), one conversation; expect / says / never_says carry the page's PASS for each.
 turn	class	expect	says	never_says	text	source_verdict	why
-1	2	machine			what's running on this system?	page class 2	units and top processes from the machine
-2	2	machine			what's running right now?	page class 2	from the machine, never offered to the web
-3	2	machine			what's using my CPU?	page class 2	the top consumers from the machine
-4	2	machine,truth=firewall			is the firewall running?	page class 2	the firewall's state from the machine
-5	2	machine			show me more	page class 2	detail on request
-6	2	machine			details	page class 2	detail on request
+1	2	code,machine			what's running on this system?	page class 2	units and top processes from the machine
+2	2	code,machine			what's running right now?	page class 2	from the machine, never offered to the web
+3	2	code,machine			what's using my CPU?	page class 2	the top consumers from the machine
+4	2	code,machine,truth=firewall			is the firewall running?	page class 2	the firewall's state from the machine
+5	2	code,machine			show me more	page class 2	detail on request
+6	2	code,machine			details	page class 2	detail on request

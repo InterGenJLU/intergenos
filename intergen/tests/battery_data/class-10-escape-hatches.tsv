@@ -2,7 +2,7 @@
 # The page's phrasings in its order (r0014-assistant-battery-questions-20261020.md, sha256 e58b25ac167d794cf4be11c3ffe413ca958533015e68f4f758633f5aae4c3c96), one conversation; expect / says / never_says carry the page's PASS for each.
 turn	class	expect	says	never_says	text	source_verdict	why
 1	10	code			what can you do?	page class 10	answered from the assistant's own capability record
-2	10	truth=loaded_model			which model are you?	page class 10	the model this daemon has loaded
+2	10	code,truth=loaded_model			which model are you?	page class 10	the model this daemon has loaded
 3	10	code,machine			how much free disk space do I have?	page class 10	a reading, so the next turn has something to show (not a page phrasing)
 4	10		\bdf\b		show me what you ran	page class 10	the command the last turn ran
 5	10				stop	page class 10	answered from the assistant's own state
