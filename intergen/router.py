@@ -6586,20 +6586,46 @@ class ConversationRouter(RouterInterface):
             )
 
         if collected_text:
+            # The draft's own counts, read before a screen below can ask the
+            # model again and overwrite them.
+            tok_p = getattr(self._llm, '_last_prompt_tokens', 0)
+            tok_c = getattr(self._llm, '_last_completion_tokens', 0)
             # D6: a flagged text answer on the tool route meets the same first
             # rung as a flagged freeform answer — discarded, and the incoherence
             # fallback served in its place.
             flagged = self._semantic_flag_fallback(
                 LLMResponse(
                     text="".join(collected_text), model="local", local=True,
-                    tokens_prompt=getattr(self._llm, '_last_prompt_tokens', 0),
-                    tokens_completion=getattr(self._llm, '_last_completion_tokens', 0),
+                    tokens_prompt=tok_p, tokens_completion=tok_c,
                     semantic_flags=stream_flags),
                 user_input, source="llm_tools")
             if flagged is not None:
                 return flagged
+            # THE SAME SCREENS AS A FREEFORM ANSWER. On the native floor every
+            # conversational turn is offered the tools (route()'s eligibility
+            # block), so a model that answers in text without calling one is
+            # served from here and never reaches _try_llm_freeform — and
+            # nothing was dispatched for this answer either. Measured on a
+            # recorded session's drafts routed through route() at
+            # lock_dispatch=False: an invented usage table, "let's run the
+            # command for you" and an unbacked offer to install were delivered
+            # with no screen decision at all, while the locked floor screened
+            # every one. The answer now meets the freeform sequence itself.
+            #
+            # A screen that asks the model again offers it no tools, so that
+            # call is asked with the prompt of a turn that has none: the
+            # diagnostic prompt with tools says "Use your tools … Act
+            # immediately", the instruction/capability mismatch the tool-less
+            # override table in llm.py exists for. The history, grounding and
+            # question are the ones the draft was generated from.
+            screen_messages = self._llm.build_system_messages(
+                query_type=getattr(self, "_current_query_type", "general"),
+                with_tools=False) + messages[1:]
+            text, _ = self._screen_model_answer(
+                self._llm._strip_filler("".join(collected_text)),
+                screen_messages, source="llm_tools")
             return RouteResult(
-                text=self._llm._strip_filler("".join(collected_text)),
+                text=text,
                 source="llm_tools",
                 handled=True,
                 used_llm=True,
@@ -6607,8 +6633,8 @@ class ConversationRouter(RouterInterface):
                 # model text, no dispatch behind it.
                 answer_linkage=AnswerLinkage(
                     kind="model", renderer="llm_tools_text"),
-                tokens_prompt=getattr(self._llm, '_last_prompt_tokens', 0),
-                tokens_completion=getattr(self._llm, '_last_completion_tokens', 0),
+                tokens_prompt=tok_p,
+                tokens_completion=tok_c,
             )
 
         return RouteResult(handled=False)
@@ -6688,23 +6714,10 @@ class ConversationRouter(RouterInterface):
         if flagged is not None:
             return flagged
 
-        # M3(ii) honesty invariant: a freeform (P4) turn dispatches NOTHING, so any
-        # first-person execution claim in the draft is unfounded. Screen it; on a
-        # violation regenerate ONCE with a corrective note, else a deterministic
-        # honest fallback — never ship a fabricated action claim. Glass-log the
-        # verdict every turn (both paths), per the total-observability rider.
-        text = self._screen_and_correct_claim(
-            response.text, messages, dispatched=False, source="llm_freeform")
-
-        # The conversational path never refuses a benign ask. persona.SCOPE says so
-        # in the prompt and the model disregards it (measured 2026-08-26, battery
-        # ids CNV-STEER-SCOPE-01 / ESC-02 / ESC-03), so the boundary is enforced in
-        # code as well as asked for in the prompt. GATED TO THE GENERAL PATH: a
-        # safety-classified turn SHOULD refuse, and its refusal is left alone.
-        refused = False
-        if getattr(self, "_current_query_type", "") == "general":
-            text, refused = self._screen_and_correct_refusal(
-                text, messages, source="llm_freeform")
+        # The delivery screens of an answer nothing was dispatched for, the one
+        # sequence the tool route's text answer meets too.
+        text, refused = self._screen_model_answer(
+            response.text, messages, source="llm_freeform")
 
         # M7 follow-on: a single-turn "write <artifact> and save it" — the artifact
         # was just generated, so STAGE the save as a gated offer (branch 3 reused with
@@ -6806,6 +6819,35 @@ class ConversationRouter(RouterInterface):
             tokens_prompt=getattr(response, "tokens_prompt", 0),
             tokens_completion=getattr(response, "tokens_completion", 0),
         )
+
+    def _screen_model_answer(self, draft: str, messages: "list[Message]", *,
+                             source: str) -> "tuple[str, bool]":
+        """The delivery screens of a model answer that nothing was dispatched
+        for, in order: the claim screens, then the refusal screen on a general
+        turn. ONE sequence for every route that serves such an answer — the
+        freeform route, and the tool route when the model answered in text
+        without calling a tool — so the two cannot drift apart.
+
+        Returns (text, refused), as _screen_and_correct_refusal does; `refused`
+        is False when the refusal screen did not run."""
+        # M3(ii) honesty invariant: no dispatch stands behind this answer, so any
+        # first-person execution claim in the draft is unfounded. Screen it; on a
+        # violation regenerate ONCE with a corrective note, else a deterministic
+        # honest fallback — never ship a fabricated action claim. Glass-log the
+        # verdict every turn (both paths), per the total-observability rider.
+        text = self._screen_and_correct_claim(
+            draft, messages, dispatched=False, source=source)
+
+        # The conversational path never refuses a benign ask. persona.SCOPE says so
+        # in the prompt and the model disregards it (measured 2026-08-26, battery
+        # ids CNV-STEER-SCOPE-01 / ESC-02 / ESC-03), so the boundary is enforced in
+        # code as well as asked for in the prompt. GATED TO THE GENERAL PATH: a
+        # safety-classified turn SHOULD refuse, and its refusal is left alone.
+        refused = False
+        if getattr(self, "_current_query_type", "") == "general":
+            text, refused = self._screen_and_correct_refusal(
+                text, messages, source=source)
+        return text, refused
 
     def _regenerate_without_claim(self, messages: "list[Message]",
                                   marker: str | None) -> str | None:

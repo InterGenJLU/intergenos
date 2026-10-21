@@ -995,5 +995,167 @@ class BrowserRefusalScreenTests(unittest.TestCase):
         self.assertEqual(_rows(emit, "refusal_screen"), [])
 
 
+# ── the native floor's tool route runs the same screens ──────────────────────
+TURN20_USER = "Can you run that for me?"
+TURN21_USER = "I need YOU to run that command FOR me"
+TURN22_USER = "you didn't run it- you just told me how to"
+TURN23_USER = "You did it again. Are you not going to help me?"
+TURN39_USER = "so, are you going to install it?"
+TURN41_USER = ("I want YOU to run the `sudo pkm install steam` command FOR me "
+               "to install the steam package")
+
+
+def _route_recorded(draft, regeneration, user, *pairs, locked):
+    """One recorded turn through route(), the console entry, on a router with
+    the recorded history. Native (the 9B and 35B lanes' floor): the model
+    streams `draft` as a text answer and calls no tool. Locked (the 2B floor):
+    `draft` is the model's first completion. Every later completion — a
+    regeneration — is `regeneration`. Returns (the result, the screen
+    decisions, the regeneration requests, the tool-route requests)."""
+    tier = HardwareTierLevel.TIER_1 if locked else HardwareTierLevel.TIER_2
+    router = _router(tier=tier, locked=locked)
+    for asked, answered in pairs:
+        router._append_history(asked, answered)
+    replies = ([draft] if locked else []) + [regeneration] * 5
+    router._llm.chat, seen = _model(*replies)
+    streamed = []
+    if not locked:
+        def stream_with_tools(messages, **_):
+            streamed.append(list(messages))
+            yield draft
+        router._llm.stream_with_tools = stream_with_tools
+    with mock.patch("intergen.router.glass.emit") as emit:
+        result = router.route(user)
+    return result, _screen_decisions(emit), seen[1:] if locked else seen, streamed
+
+
+class ToolRouteTextAnswerTests(unittest.TestCase):
+    """On the native floor every conversational turn is offered the tools, so a
+    model that answers in text without calling one is served from the tool
+    route, not the freeform route — and nothing was dispatched for that answer
+    either. It meets the freeform answer's screens, in the same order and under
+    the same gates. Each recorded turn below is routed through route() on both
+    floors with the same model replies; the decisions must be the same."""
+
+    HORTATIVE = (
+        ("turn 20", TURN20_FINAL, TURN20_USER, ()),
+        ("turn 21", TURN21_FINAL, TURN21_USER, ()),
+        # With no history this turn reads as a how-to question and is taught,
+        # not routed to the model; the recorded turns before it make it the
+        # follow-up it was.
+        ("turn 22", TURN22_FINAL, TURN22_USER,
+         ((TURN20_USER, TURN20_FINAL), (TURN21_USER, TURN21_FINAL))),
+        ("turn 23", TURN23_FINAL, TURN23_USER, ()),
+        ("turn 41", TURN41_FINAL, TURN41_USER, ()),
+    )
+
+    def _both_floors(self, draft, regeneration, user, pairs):
+        native = _route_recorded(draft, regeneration, user, *pairs, locked=False)
+        locked = _route_recorded(draft, regeneration, user, *pairs, locked=True)
+        self.assertEqual(native[0].source, "llm_tools")
+        self.assertEqual(len(native[3]), 1)
+        self.assertEqual(locked[0].source, "llm_freeform")
+        self.assertEqual(native[1], locked[1])
+        return native
+
+    def test_the_recorded_table_is_screened_on_the_tool_route(self):
+        result, decisions, regenerations, _ = self._both_floors(
+            TURN14_FINAL, TURN14_FINAL, TURN14_USER,
+            (("How much free space do I have on this system?", TURN13_FINAL),))
+        self.assertEqual([d[:2] for d in decisions], [
+            ("claim_screen", "clean"),
+            ("state_claim_screen", "violation_regen_failed_fallback"),
+            ("model_offer_screen", "clean"),
+            ("capability_screen", "clean")])
+        self.assertIn("/home", decisions[1][2])
+        self.assertEqual(result.text, safety.honest_local_state_fallback(
+            decisions[1][2], TURN14_USER))
+        self.assertIsNone(safety._STATE_FIGURE_RE.search(result.text))
+        self.assertEqual(len(regenerations), 1)
+
+    def test_the_recorded_hortative_claims_are_screened_on_the_tool_route(self):
+        for name, draft, user, pairs in self.HORTATIVE:
+            with self.subTest(turn=name):
+                result, decisions, regenerations, _ = self._both_floors(
+                    draft, draft, user, pairs)
+                general = _router()._classify_query_type(user) == "general"
+                self.assertEqual([d[:2] for d in decisions], [
+                    ("claim_screen", "violation_regen_failed_fallback"),
+                    ("state_claim_screen", "clean"),
+                    ("model_offer_screen", "clean"),
+                    ("capability_screen", "clean")]
+                    + ([("refusal_screen", "clean")] if general else []))
+                self.assertTrue(decisions[0][2].lower().startswith("let"))
+                self.assertEqual(result.text, safety.honest_action_fallback())
+                self.assertEqual(len(regenerations), 1)
+
+    def test_the_recorded_self_offer_is_screened_on_the_tool_route(self):
+        # The regeneration is the recorded one, served as on the locked floor;
+        # whether a regeneration may deny a capability is not this screen's
+        # question.
+        result, decisions, regenerations, _ = self._both_floors(
+            TURN39_DRAFT, TURN39_REGEN, TURN39_USER, ())
+        self.assertEqual(decisions, [
+            ("claim_screen", "clean", None),
+            ("state_claim_screen", "clean", None),
+            ("model_offer_screen", "violation_regenerated",
+             "I can install the Steam client for you"),
+            ("capability_screen", "clean", None)])
+        self.assertEqual(result.text, TURN39_REGEN)
+        self.assertNotIn("I'll proceed", result.text)
+        self.assertEqual(len(regenerations), 1)
+
+    def test_a_declined_general_question_is_regenerated_on_the_tool_route(self):
+        answer = "The square root of pi is approximately 1.7725."
+        result, decisions, regenerations, _ = self._both_floors(
+            BrowserRefusalScreenTests.DECLINED, answer,
+            "What's the square root of pi?", ())
+        self.assertEqual(decisions[-1], ("refusal_screen", "refusal_regenerated",
+                                         "I can't help with"))
+        self.assertEqual(result.text, answer)
+        self.assertEqual(regenerations[0][-1].content, safety.scope_grounding_note())
+
+    def test_a_refusal_on_a_turn_that_is_not_general_is_left_alone(self):
+        # The refusal screen runs on a general turn only, on both routes.
+        draft = "I can't help with that."
+        self.assertNotEqual(_router()._classify_query_type(TURN20_USER),
+                            "general")
+        result, decisions, regenerations, _ = self._both_floors(
+            draft, draft, TURN20_USER, ())
+        self.assertEqual([d[0] for d in decisions], list(_SCREEN_ROWS[:4]))
+        self.assertEqual(result.text, draft)
+        self.assertEqual(regenerations, [])
+
+    def test_a_clean_text_answer_is_delivered_as_it_came(self):
+        # Every screen clean, no regeneration, the answer unchanged.
+        answer = "Linux was first released in 1991."
+        result, decisions, regenerations, _ = self._both_floors(
+            answer, answer, "When was Linux first released?", ())
+        self.assertEqual([d[:2] for d in decisions],
+                         [(name, "clean") for name in _SCREEN_ROWS])
+        self.assertEqual(result.text, answer)
+        self.assertEqual(regenerations, [])
+
+    def test_a_regeneration_on_the_tool_route_is_asked_with_no_tools(self):
+        # The draft was asked with the tools on offer; a regeneration offers
+        # none, so it is asked with the prompt of a turn that has none — never
+        # "use your tools" with no tools to use — over the same conversation,
+        # grounding and question the draft was generated from.
+        _, _, regenerations, streamed = _route_recorded(
+            TURN14_FINAL, TURN14_FINAL, TURN14_USER,
+            ("How much free space do I have on this system?", TURN13_FINAL),
+            locked=False)
+        drafted, regenerated = streamed[0], regenerations[0]
+        self.assertIn("TOOL CALL PROVENANCE", drafted[0].content)
+        self.assertIn("Use your tools", drafted[0].content)
+        self.assertEqual(regenerated[0].role, MessageRole.SYSTEM)
+        self.assertNotIn("TOOL CALL PROVENANCE", regenerated[0].content)
+        self.assertNotIn("Use your tools", regenerated[0].content)
+        self.assertIn("You cannot run tools or commands on this turn",
+                      regenerated[0].content)
+        self.assertEqual([(m.role, m.content) for m in regenerated[1:-1]],
+                         [(m.role, m.content) for m in drafted[1:]])
+
+
 if __name__ == "__main__":
     unittest.main()
