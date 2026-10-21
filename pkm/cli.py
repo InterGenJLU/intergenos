@@ -4538,8 +4538,8 @@ def cmd_info(db, args):
     # install record and said to reboot (2026-10-16). Read by the Welcomer.
     if pkg.get("degraded"):
         print(f"  {'degraded':20s}: {pkg['degraded']}")
-        print(f"  {'':20s}  this install did not finish. Run: "
-              f"sudo pkm reinstall {pkg['name']}")
+        print(f"  {'':20s}  this install did not finish. "
+              f"{_unfinished_advice(pkg['name'], pkg['degraded'])}")
 
     deps = db.get_depends(args.package)
     if deps:
@@ -4868,8 +4868,8 @@ def cmd_verify(db, args):
             if p.get("degraded") and p["name"] not in file_problem_names:
                 problem_count += 1
                 print(f"  ✗ {p['name']} {p['version']} — DEGRADED: critical "
-                      f"hook(s) failed at install: {p['degraded']}; reinstall "
-                      f"to retry.")
+                      f"hook(s) failed at install: {p['degraded']}. "
+                      f"{_unfinished_advice(p['name'], p['degraded'])}")
         print()
         ea_note = _expected_absent_note(expected_absent_classes)
         gen_note = _generated_note(generated_total)
@@ -4918,7 +4918,8 @@ def cmd_verify(db, args):
             and not result.get("undeterminable")):
         if _degraded:
             emit_done(f"✗ {args.package}: DEGRADED — files ok, but critical "
-                      f"hook(s) failed at install: {_degraded}; reinstall to retry.")
+                      f"hook(s) failed at install: {_degraded}. "
+                      f"{_unfinished_advice(args.package, _degraded)}")
             sys.exit(1)
         # The same honesty as `pkm info`: a download-helper package whose
         # files verify clean has only proven that its installer script is

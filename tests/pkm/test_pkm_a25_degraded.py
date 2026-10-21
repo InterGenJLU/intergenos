@@ -160,8 +160,8 @@ class DegradedCliTest(unittest.TestCase):
         self.assertEqual(rc, 0)
         lines = [l.strip() for l in buf.getvalue().splitlines()]
         i = lines.index("degraded            : uki-sign")
-        self.assertEqual(lines[i + 1], "this install did not finish. Run: "
-                                       "sudo pkm reinstall kernel")
+        self.assertEqual(lines[i + 1], "this install did not finish. Retry it "
+                                       "with: sudo pkm reinstall kernel")
 
     def test_cmd_verify_reports_degraded(self):
         args = argparse.Namespace(verify_all=False, package="kernel",
@@ -171,6 +171,75 @@ class DegradedCliTest(unittest.TestCase):
             cli.cmd_verify(self.db, args)
         self.assertEqual(ctx.exception.code, 1)
         self.assertIn("DEGRADED", buf.getvalue())
+
+    def test_cmd_verify_names_the_command_that_finishes_it(self):
+        said = _verify_said(self, self.db, verify_all=False)
+        self.assertIn("failed at install: uki-sign. Retry it with: sudo pkm "
+                      "reinstall kernel", said)
+        self.assertNotIn("reinstall to retry", said)
+
+    def test_cmd_verify_all_names_the_command_that_finishes_it(self):
+        said = _verify_said(self, self.db, verify_all=True)
+        self.assertIn("✗ kernel 6.10 — DEGRADED: critical hook(s) failed at "
+                      "install: uki-sign. Retry it with: sudo pkm reinstall "
+                      "kernel", said)
+        self.assertNotIn("reinstall to retry", said)
+
+
+def _verify_said(test, db, *, verify_all):
+    """`pkm verify kernel` (or `--all`) over ``db``: exits 1 for the degraded
+    row; returns what it printed, whitespace folded."""
+    args = argparse.Namespace(verify_all=verify_all,
+                              package=None if verify_all else "kernel",
+                              verify_mode="strict")
+    buf = io.StringIO()
+    with test.assertRaises(SystemExit) as ctx, redirect_stdout(buf):
+        cli.cmd_verify(db, args)
+    test.assertEqual(ctx.exception.code, 1)
+    return " ".join(buf.getvalue().split())
+
+
+class RefusedSigningCliTest(unittest.TestCase):
+    """A row whose install refused to sign is finished with the signing key
+    passphrase in hand. `info` and `verify` name it as every other command
+    that reports an unfinished install does, never "reinstall to retry"."""
+
+    REASON = "kernel post-install (refused to sign)"
+    FINISH = ("Finish it with the signing key passphrase in hand (the one set "
+              "at install, not the MOK enrollment password): sudo pkm "
+              "reinstall kernel")
+
+    def setUp(self):
+        self._td = tempfile.TemporaryDirectory()
+        self.db = PackageDB(Path(self._td.name) / "pkm.db",
+                            root=str(Path(self._td.name) / "root"))
+        self.db.add_installed("kernel", "6.10", tier="core")
+        self.db.mark_degraded("kernel", self.REASON)
+
+    def tearDown(self):
+        self.db.close()
+        self._td.cleanup()
+
+    def test_cmd_info_names_the_passphrase(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = cli.cmd_info(self.db, argparse.Namespace(package="kernel"))
+        self.assertEqual(rc, 0)
+        lines = [l.strip() for l in buf.getvalue().splitlines()]
+        i = lines.index(f"degraded            : {self.REASON}")
+        self.assertEqual(lines[i + 1], f"this install did not finish. {self.FINISH}")
+        self.assertNotIn("reinstall to retry", buf.getvalue())
+
+    def test_cmd_verify_names_the_passphrase(self):
+        said = _verify_said(self, self.db, verify_all=False)
+        self.assertIn(f"failed at install: {self.REASON}. {self.FINISH}", said)
+        self.assertNotIn("reinstall to retry", said)
+
+    def test_cmd_verify_all_names_the_passphrase(self):
+        said = _verify_said(self, self.db, verify_all=True)
+        self.assertIn(f"✗ kernel 6.10 — DEGRADED: critical hook(s) failed at "
+                      f"install: {self.REASON}. {self.FINISH}", said)
+        self.assertNotIn("reinstall to retry", said)
 
 
 if __name__ == "__main__":
