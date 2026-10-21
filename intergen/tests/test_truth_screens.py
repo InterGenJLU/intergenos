@@ -50,7 +50,7 @@ from intergen.interfaces.types import (
     Provenance, RouteResult, ToolCall, ToolResult)
 from intergen.intents import register_all_intents
 from intergen.llm import LLMRouter
-from intergen.router import ConversationRouter
+from intergen.router import ConversationRouter, depends_on_an_earlier_turn
 from intergen.semantic import SemanticMatcher
 from intergen.tool_registry import ToolRegistry
 from intergen.tests.test_a_tool_turn_answer_is_screened_and_a_failed_stream_is_recorded import (  # noqa: E501
@@ -2735,6 +2735,105 @@ class TemporalPassiveTests(unittest.TestCase):
                           for name in _expected_rows(RELEASE_QUESTION)])
         self.assertEqual(text, RELEASE_ANSWER)
         self.assertEqual(calls, 0)
+
+
+# ── a follow-up whose first word is capitalized ──────────────────────────────
+# After the recorded printer exchange, "What's that mean?" and "What does that
+# mean?" were answered on both floors from the how-to corpus's chmod 777 page:
+# the follow-up test took the sentence's own capitalized first word for a
+# subject the message named, so the message went to the routes that read it
+# alone, while its lower-case twin was held and answered about the exchange.
+# Held the same way, "this" before a word naming the machine was the machine
+# itself: "what is this computer's name?" went to the model instead of the
+# hostname page.
+CAPITALIZED_FOLLOW_UPS = ("What's that mean?", "What does that mean?",
+                          "How do I fix that?", "Is this one installed?")
+FOLLOW_UP_ANSWER = "That error means no printer is set up on this machine yet."
+
+
+def _after_the_exchange_ask(message, *, locked):
+    """`message` through route() after the recorded exchange, the model
+    answering FOLLOW_UP_ANSWER. Returns (the result, whether route() held it as
+    a follow-up, the model's requests for it)."""
+    router, seen, ran = _after_the_printer_exchange(
+        *[FOLLOW_UP_ANSWER] * 5, locked=locked)
+    assert ran.source == "explain_offer_run", ran
+    before = len(seen)
+    streamed = []
+    if not locked:
+        def stream_with_tools(messages, **_):
+            streamed.append(list(messages))
+            yield FOLLOW_UP_ANSWER
+        router._llm.stream_with_tools = stream_with_tools
+    with mock.patch("intergen.router.glass.emit") as emit:
+        result = router.route(message)
+    held = any(c.args[:2] == ("route", "carried_subject")
+               for c in emit.call_args_list)
+    return result, held, seen[before:] + streamed
+
+
+class CapitalizedFollowUpTests(unittest.TestCase):
+    """A message's capitalized first word names nothing, so a follow-up is held
+    and answered about the turn before it, as its lower-case twin always was;
+    a capitalized word later in the message still names its subject, and
+    "this" before a word naming the machine is the machine."""
+
+    def _held_and_answered(self, message):
+        for locked in (True, False):
+            with self.subTest(message=message, locked=locked):
+                result, held, asked = _after_the_exchange_ask(
+                    message, locked=locked)
+                self.assertTrue(held)
+                self.assertEqual(result.source,
+                                 "llm_freeform" if locked else "llm_tools")
+                self.assertEqual(result.text, FOLLOW_UP_ANSWER)
+                self.assertEqual(len(asked), 1)
+                self.assertTrue(any("lpstat" in (m.content or "")
+                                    for m in asked[0]))
+
+    def test_a_capitalized_follow_up_is_held_on_both_floors(self):
+        for message in CAPITALIZED_FOLLOW_UPS:
+            self._held_and_answered(message)
+
+    def test_the_lower_case_twins_are_held_as_before(self):
+        for message in ("what's that mean?", "what does that mean?",
+                        "is this one installed?"):
+            self._held_and_answered(message)
+
+    def test_a_capitalized_word_later_in_the_message_names_its_subject(self):
+        self.assertFalse(depends_on_an_earlier_turn(
+            "What does Docker mean here?"))
+        for locked in (True, False):
+            with self.subTest(locked=locked):
+                _, held, _ = _after_the_exchange_ask(
+                    "What does Docker mean here?", locked=locked)
+                self.assertFalse(held)
+
+    def test_this_before_a_word_naming_the_machine_is_the_machine(self):
+        for message in ("What is this computer's name?",
+                        "what is this computer's name?"):
+            for locked in (True, False):
+                with self.subTest(message=message, locked=locked):
+                    result, held, asked = _after_the_exchange_ask(
+                        message, locked=locked)
+                    self.assertFalse(held)
+                    self.assertEqual(result.source, "explain")
+                    self.assertIn("hostname", result.text)
+                    self.assertEqual(asked, [])
+
+    def test_the_follow_up_test_on_each_shape(self):
+        for message, carried in (
+                ("What's that mean?", True),
+                ("Ok, what does that mean?", True),
+                ("Is that package installed?", True),
+                ("Is this one installed?", True),
+                ("What does Docker mean here?", False),
+                ("Is /etc/fstab readable, that one?", False),
+                ("What is this computer's name?", False),
+                ("Is this machine up to date?", False),
+                ("Can you restart this box?", False)):
+            with self.subTest(message=message):
+                self.assertEqual(depends_on_an_earlier_turn(message), carried)
 
 
 if __name__ == "__main__":

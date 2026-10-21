@@ -274,10 +274,26 @@ _CARRIED_SUBJECT_WORDS = frozenset({
     "it", "its", "that", "those", "these", "them", "they", "this",
 })
 
+# "this" directly before a word naming the machine points at the machine the
+# assistant runs on, not back at an earlier turn: "what is this computer's
+# name?" is a fresh question the machine answers from its own means (the
+# hostname page), and holding it as a follow-up sent it to a model that, on
+# the locked floor, has no tool to read the name with.
+_THIS_MACHINE_WORDS = frozenset({
+    "computer", "machine", "system", "laptop", "pc", "device", "box", "host",
+})
+
 # A referring word only carries the subject when nothing in the message names
 # one. "is that file in /etc?" refers to something already on the table, but it
-# also NAMES it, so the fast routes can still answer it.
-_NAMES_ITS_OWN_SUBJECT = re.compile(r"[/~]\S|\.\w{2,4}\b|\b[A-Z][a-z]+\b")
+# also NAMES it, so the fast routes can still answer it. A capitalized word
+# names one too ("what does Docker mean here?"), except the message's first
+# word, which is capitalized because it opens the sentence: "What's that mean?"
+# names no more than "what's that mean?" does, and was answered from an
+# unrelated how-to page while its lower-case twin was held as the follow-up it
+# is.
+_NAMES_ITS_OWN_SUBJECT = re.compile(r"[/~]\S|\.\w{2,4}\b")
+_CAPITALIZED_NAME = re.compile(r"\b[A-Z][a-z]+\b")
+_FIRST_WORD = re.compile(r"^\W*[A-Za-z']+")
 
 
 # "this system" / "that machine" names the machine the assistant runs on: the
@@ -316,9 +332,15 @@ def depends_on_an_earlier_turn(text: str) -> bool:
     # "where the subject belongs": inside the opening clause, not anywhere in a
     # long sentence that has already said what it is about.
     opening = words[:6]
-    if not any(w in _CARRIED_SUBJECT_WORDS for w in opening):
+    if not any(w in _CARRIED_SUBJECT_WORDS
+               and not (w == "this" and i + 1 < len(words)
+                        and words[i + 1].split("'")[0] in _THIS_MACHINE_WORDS)
+               for i, w in enumerate(opening)):
         return False
-    return not _NAMES_ITS_OWN_SUBJECT.search(text)
+    if _NAMES_ITS_OWN_SUBJECT.search(text):
+        return False
+    first = _FIRST_WORD.match(text)
+    return not _CAPITALIZED_NAME.search(text, first.end() if first else 0)
 
 
 def _is_pathlike(tok: str) -> bool:
