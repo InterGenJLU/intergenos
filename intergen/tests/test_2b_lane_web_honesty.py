@@ -139,7 +139,7 @@ class WebCapabilityChallengeFrames(unittest.TestCase):
 
 class CurrentDataOffer(unittest.TestCase):
     """External live-data asks get an honest offer on the locked floor; system and
-    non-live asks are left alone; NATIVE keeps its model-driven decision."""
+    non-live asks are left alone; the native floor gets the same offer."""
 
     def _src(self, q, native=False):
         r = _native_router() if native else _locked_router()
@@ -174,9 +174,11 @@ class CurrentDataOffer(unittest.TestCase):
                   "read my notes file"):
             self.assertNotEqual(self._src(q), "current_data_offer", q)
 
-    def test_native_path_keeps_model_decision(self):
-        # locked-only: NATIVE never routes to the offer (no 9B rewrite).
-        self.assertNotEqual(
+    def test_native_path_gets_the_same_offer(self):
+        # Every floor: the native floor's model invents the figure too when it does
+        # not search, and its own decision to search is held and offered rather
+        # than run, so nothing there needs the offer kept away.
+        self.assertEqual(
             self._src("what is the dow jones trading at right now", native=True),
             "current_data_offer")
 
@@ -468,10 +470,12 @@ class GapACurrentDataPrecision(unittest.TestCase):
                   "open the weather app"):
             self.assertNotEqual(_intercept_route(q), "current_data_offer", q)
 
-    def test_native_floor_keeps_model_decision(self):
-        # locked-only: NATIVE never routes to the offer (no 9B rewrite).
+    def test_native_floor_gets_the_offer(self):
+        # Every floor (CurrentDataOffer.test_native_path_gets_the_same_offer says why).
         r = _native_router()
-        self.assertIsNone(r._try_current_data_offer("what's the dow at", 0.0))
+        result = r._try_current_data_offer("what's the dow at", 0.0)
+        self.assertIsNotNone(result)
+        self.assertEqual(result.source, "current_data_offer")
 
 
 class GapAWebCapabilityPositiveOrder(unittest.TestCase):
