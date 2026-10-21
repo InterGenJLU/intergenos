@@ -3,6 +3,8 @@
 """Networking guidance matches what the installed system ships: the DNS client
 tools it offers, and the firewall's own turn-on and inspection steps."""
 
+import re
+
 from intergen.howto import HowtoCorpus
 from intergen.tests.howto_content_helpers import DATA, answer, commands, entry
 
@@ -32,8 +34,17 @@ def test_the_firewall_answer_gives_the_turn_on_step():
     # the inspection step, and names only paths the release ships.
     text = answer("net-firewall")
     steps = commands(text)
-    assert ["sudo", "systemctl", "enable", "--now", "nftables.service"] in steps
+    enable = ["sudo", "systemctl", "enable", "--now", "nftables.service"]
+    assert enable in steps
     assert ["systemctl", "is-active", "nftables.service"] in steps
     assert ["sudo", "nft", "list", "ruleset"] in steps
     assert "/etc/nftables.conf" in text
     assert "/etc/intergenos-firewall-defaults" not in text
+    # Masking nftables.service is the opt-out the firewall defaults name, and
+    # enable --now refuses a masked unit: the turn-on step says how to tell
+    # (is-enabled prints "masked") and unmasks first, in the same block as
+    # the enable that follows it.
+    unmask = ["sudo", "systemctl", "unmask", "nftables.service"]
+    blocks = [commands(f"```\n{body}```") for body in re.findall(r"```[^\n]*\n(.*?)```", text, re.S)]
+    assert any(block[i:i + 2] == [unmask, enable] for block in blocks for i in range(len(block))), blocks
+    assert "`systemctl is-enabled nftables.service` says `masked`" in text
