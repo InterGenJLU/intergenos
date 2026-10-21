@@ -366,7 +366,18 @@ tar xf data.tar.xz
 #   handled:  usr/lib/steam/, usr/share/, usr/bin/steamdeps, lib/udev/
 #   excluded: usr/bin/steam (the fail-closed wrapper owns that path),
 #             etc/apt/ (pkm owns updates, not Valve's apt sources)
-UNEXPECTED=$(tar tf data.tar.xz | grep -v '/$' | sed 's|^\./||' \
+# The listing is read whole and its own exit status checked before any
+# filter runs. Piped straight into the filters, a listing that failed
+# part-way arrived as a short list, and the pipeline's status was the last
+# filter's, so the gate read it as nothing unexpected.
+if ! PAYLOAD_LISTING=$(tar tf data.tar.xz); then
+    echo "  ERROR: the list of files in this Steam release could not be read,"
+    echo "  so it could not be checked before installing. Nothing was installed"
+    echo "  and nothing on this machine was changed. Try again; if it keeps"
+    echo "  happening, please report it."
+    exit 1
+fi
+UNEXPECTED=$(printf '%s\n' "$PAYLOAD_LISTING" | grep -v '/$' | sed 's|^\./||' \
     | grep -vE '^(usr/lib/steam/|usr/share/|usr/bin/steam$|usr/bin/steamdeps$|lib/udev/|etc/apt/)' || true)
 if [ -n "$UNEXPECTED" ]; then
     echo "  ERROR: this Steam release contains files in places this version of"
