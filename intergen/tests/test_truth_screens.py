@@ -1699,6 +1699,170 @@ class DispatchSynthesisScreenTests(unittest.TestCase):
         self.assertEqual(regenerations, [])
 
 
+# ── the phone-a-friend offer after a dispatch ────────────────────────────────
+# The square-root question answered with a tool call on the native floor. The
+# call and what the command printed are stand-ins (nothing runs here); the
+# declined answer is the one this machine's model gave in text, here as the
+# synthesis over the result.
+SQRT_PI_CALL = ToolCall(
+    name="run_command",
+    arguments={"command": "python3 -c 'import math; print(math.sqrt(math.pi))'"},
+    call_id="c1", source_of_request=Provenance.USER_IMPLIED)
+SQRT_PI_RESULT = ToolResult(call_id="c1", name="run_command", success=True,
+                            executed=True, content="1.7724538509055159\n")
+
+
+def _summary(text, *, kept):
+    """What the fast-path summarizer's model call returns: `text`, with its
+    ladder passed (`kept`) or spent."""
+    return SimpleNamespace(text=text, semantic_flags=[], quality_passed=kept,
+                           local=True, tokens_prompt=0, tokens_completion=0)
+
+
+def _dispatching(synthesis, later, providers=(ACME,)):
+    """A native-floor router for the square-root turn: the model calls the
+    stand-in command, the registry returns its output without running
+    anything, the synthesis over it is `synthesis` (None: none came back) and
+    every later model call — a regeneration, the summarizer — answers `later`
+    (a text, or a summarizer reply from _summary). Returns (the router, the
+    later calls' requests)."""
+    router = _router()
+    router._escalation = _offering(list(providers))
+    if isinstance(later, str):
+        router._llm.chat, seen = _model(*[later] * 5)
+    else:
+        seen = []
+
+        def chat(messages, **_):
+            seen.append(list(messages))
+            return later
+        router._llm.chat = chat
+
+    def stream_with_tools(messages, **_):
+        yield SQRT_PI_CALL
+    router._llm.stream_with_tools = stream_with_tools
+    router._tools.execute = mock.Mock(return_value=SQRT_PI_RESULT)
+    router._llm.continue_after_tool_call = mock.Mock(return_value=(
+        None if synthesis is None
+        else LLMResponse(text=synthesis, model="local")))
+    return router, seen
+
+
+def _dispatch_route(synthesis, later, providers=(ACME,)):
+    """The turn through route(): (the result, the screen decisions, the later
+    calls' requests)."""
+    router, seen = _dispatching(synthesis, later, providers)
+    with mock.patch("intergen.router.glass.emit") as emit:
+        result = router.route(ToolRouteOfferTests.QUESTION)
+    return result, _screen_decisions(emit), seen
+
+
+def _dispatch_reply(synthesis, later, providers=(ACME,)):
+    """The bus's Ask reply for the turn, from the daemon's own ask."""
+    router, _ = _dispatching(synthesis, later, providers)
+    daemon = InterGenDaemon()
+    daemon._router = router
+    with mock.patch("intergen.router.glass.emit"):
+        return json.loads(daemon.ask(ToolRouteOfferTests.QUESTION))
+
+
+def _dispatch_browser(synthesis, later, providers=(ACME,)):
+    """The stream_end frame of the turn in the browser, the streamer offering
+    the registry's tools as the route does."""
+    router, _ = _dispatching(synthesis, later, providers)
+    server = WebServer(router=router, llm=router._llm, tools=router._tools,
+                       governance=None)
+    ctx = ConnectionContext(client_id="c1", source_interface="web",
+                            ws=_RecordingWS(),
+                            conversation=router.new_conversation())
+    with mock.patch("intergen.router.glass.emit"):
+        asyncio.run(server._stream_llm_response(
+            ctx, "turn1", ToolRouteOfferTests.QUESTION,
+            RouteResult(text="", source="llm_tools", handled=False)))
+    assert len(ctx.ws.of_type("tool_executed")) == 1, ctx.ws.sent
+    ends = ctx.ws.of_type("stream_end")
+    assert len(ends) == 1, ctx.ws.sent
+    return ends[0]
+
+
+class DispatchOfferTests(unittest.TestCase):
+    """A general question the model answered after a tool call, declined and
+    declined again when asked once more, was served the scope steer from the
+    dispatch branch with no phone-a-friend offer: the branch dropped whether
+    the refusal stood, so the offer the text branch, the freeform route and
+    the browser streamer raise for the same refusal was never decided there.
+    The branch now decides it from its draft, as the text branch does, and the
+    draft carries the verdict of the text it serves."""
+
+    DECLINED = BrowserRefusalScreenTests.DECLINED
+    ANSWER = OfferSurfaceTests.ANSWER
+    OPENING = OfferSurfaceTests.OPENING
+    QUALITY = TruncatedTextAnswerTests.OPENING
+    SPENT = _summary(LLMRouter._EMPTY_RESPONSE_FALLBACK, kept=False)
+
+    def test_an_unrecovered_refusal_after_a_dispatch_carries_the_offer(self):
+        for name, providers, opening in (
+                ("a designated provider", [ACME], self.OPENING),
+                ("no provider", [],
+                 "Since you haven't designated a frontier model provider yet")):
+            with self.subTest(provider=name):
+                result, decisions, regenerations = _dispatch_route(
+                    self.DECLINED, self.DECLINED, providers)
+                self.assertEqual(result.source, "llm_tools")
+                self.assertEqual(result.tool_results, [SQRT_PI_RESULT])
+                self.assertEqual(decisions[-1][:2], (
+                    "refusal_screen", "refusal_regen_failed_steer"))
+                self.assertEqual(result.text, safety.honest_scope_steer())
+                self.assertEqual(len(regenerations), 1)
+                self.assertTrue(result.escalation_offer.startswith(opening))
+
+    def test_a_recovered_refusal_after_a_dispatch_carries_no_offer(self):
+        # The control: the one regeneration answered the question.
+        result, decisions, _ = _dispatch_route(self.DECLINED, self.ANSWER)
+        self.assertEqual(decisions[-1][:2],
+                         ("refusal_screen", "refusal_regenerated"))
+        self.assertEqual(result.text, self.ANSWER)
+        self.assertIsNone(result.escalation_offer)
+
+    def test_the_browser_frame_equals_the_ask_reply_on_the_refused_turn(self):
+        # The streamer raised the offer for this turn and the bus's Ask reply
+        # carried none. Present first: equal alone would also hold where
+        # neither surface raised it.
+        reply = _dispatch_reply(self.DECLINED, self.DECLINED)
+        end = _dispatch_browser(self.DECLINED, self.DECLINED)
+        self.assertEqual(reply["response"], safety.honest_scope_steer())
+        self.assertEqual(end["full_response"], reply["response"])
+        self.assertTrue(end["escalation_offer"].startswith(self.OPENING))
+        self.assertEqual(end["escalation_offer"], reply["escalation_offer"])
+
+    def test_a_failed_synthesis_raises_the_offer_on_the_tool_route(self):
+        # No synthesis came back and the summarizer's ladder was spent too:
+        # the tool's own output is served, a failed local answer.
+        result, _, _ = _dispatch_route(None, self.SPENT)
+        self.assertIn(SQRT_PI_RESULT.content.strip(), result.text)
+        self.assertEqual(result.answer_linkage.renderer,
+                         "tool_output_verbatim")
+        self.assertTrue(result.escalation_offer.startswith(self.QUALITY))
+
+    def test_a_summary_that_passed_its_gate_earns_no_offer(self):
+        # No synthesis came back and the summarizer's text passed its lane's
+        # gate: that text is the answer served, and a passing answer earns no
+        # offer.
+        result, _, requests = _dispatch_route(
+            None, _summary(self.ANSWER, kept=True))
+        self.assertEqual(len(requests), 1)
+        self.assertEqual(result.text, self.ANSWER)
+        self.assertEqual(result.answer_linkage.renderer, "llm_synth")
+        self.assertIsNone(result.escalation_offer)
+
+    def test_a_synthesis_that_passed_earns_no_offer(self):
+        # The control: the synthesis is served as written, with no offer.
+        result, _, requests = _dispatch_route(self.ANSWER, self.ANSWER)
+        self.assertEqual(result.text, self.ANSWER)
+        self.assertEqual(requests, [])
+        self.assertIsNone(result.escalation_offer)
+
+
 # ── a tool's output presented when no tool ran ───────────────────────────────
 # A console firing on the 2B lane's locked floor (2026-10-20), verbatim: asked
 # "are there any pending updates?", the model answered with pkm's "output" on a

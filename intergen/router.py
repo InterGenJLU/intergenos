@@ -6549,6 +6549,21 @@ class ConversationRouter(RouterInterface):
                     _renderer = self._synth_renderer(True)
                 tok_p = getattr(self._llm, '_last_prompt_tokens', 0)
                 tok_c = getattr(self._llm, '_last_completion_tokens', 0)
+            # The draft the offer below is decided from, read before a screen
+            # can rewrite the answer, with the verdict of the text it serves.
+            # A synthesis comes back only when it passed the agentic gate, and
+            # carries that verdict (read by getattr, as the branch reads the
+            # client's other optional attributes). When none came back — the
+            # gate rejected both attempts, or the call got no answer — the
+            # text served in its place passed a gate only when it is the
+            # fast-path summarizer's and that lane kept it ("llm_synth"); the
+            # model's text from before the call and the tool's own output are
+            # a failed local answer.
+            draft = LLMResponse(
+                text=response_text, model="local", local=True,
+                tokens_prompt=tok_p, tokens_completion=tok_c,
+                quality_passed=(getattr(synthesis, "quality_passed", True)
+                                if synthesis else _renderer == "llm_synth"))
 
             # THE SAME SCREENS AS EVERY OTHER MODEL ANSWER. The answer composed
             # above speaks for the dispatch, and the browser streamer screens
@@ -6565,7 +6580,7 @@ class ConversationRouter(RouterInterface):
             screen_messages = self._llm.build_system_messages(
                 query_type=getattr(self, "_current_query_type", "general"),
                 with_tools=False) + messages[1:]
-            response_text, _ = self._screen_model_answer(
+            response_text, refused = self._screen_model_answer(
                 response_text, screen_messages, source="llm_tools",
                 dispatched=dispatched)
 
@@ -6593,6 +6608,15 @@ class ConversationRouter(RouterInterface):
                 glass.emit("delivery", "web_search_render", detail={
                     "result_chars": len(_ws.content),
                     "verifiable_below": True, "synthesis_on_top": True})
+            # THE SAME OFFER AS THE TEXT BRANCH'S. A refusal the screens could
+            # not correct is a failure of the local answer, and served from
+            # here it earned the steer alone: a general question declined
+            # after a tool call reached no offer, while the same refusal
+            # earns one on the text branch below and on the freeform route,
+            # and the browser streamer raises it for this same turn. The offer
+            # is decided from the same inputs — the draft above, its
+            # confidence from the draft's verdict, and whether the refusal
+            # stood.
             return RouteResult(
                 text=response_text,
                 source="llm_tools",
@@ -6607,6 +6631,9 @@ class ConversationRouter(RouterInterface):
                     renderer=_renderer),
                 tokens_prompt=tok_p,
                 tokens_completion=tok_c,
+                escalation_offer=self._maybe_offer(
+                    user_input, draft, 1.0 if draft.quality_passed else 0.5,
+                    refused=refused),
             )
 
         if collected_text:
