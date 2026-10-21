@@ -22,6 +22,12 @@ is its last command's, so a listing that failed part-way reached the filters
 as a short list and the gate read it as nothing unexpected. The listing is
 read whole and its own exit status checked before any filter runs.
 
+Once the installer has begun the helper library's record of the run, a
+refusal no longer leaves the machine as it was: a first run has written the
+acceptance record, and the library's exit trap writes a note of the stopped
+attempt for pkm. Each refusal from that point says nothing was installed and
+names what the run leaves.
+
 Each case reads the shell it exercises from build.sh in the tree under test,
 so what is tested is the text that ships.
 """
@@ -268,11 +274,16 @@ def _payload(tmp, name, unexpected):
 
 
 def _run_gate(gate, archive, directory):
-    """The gate's shell under the installer's own set -e, in a directory holding ARCHIVE as data.tar.xz."""
+    """The gate's shell under the installer's own set -e, in a directory holding ARCHIVE as data.tar.xz, after the
+    installer's own assignments of the acceptance record's path, which its refusals name."""
     directory.mkdir()
     shutil.copyfile(archive, directory / "data.tar.xz")
-    return subprocess.run(["/bin/bash", "-c", "set -e\n" + gate + 'echo "GATE PASSED"\n'],
-                          cwd=directory, capture_output=True, text=True, timeout=60)
+    paths = [text for _, text in _heredoc("HELPEREOF") if text.startswith(("ACCEPTANCE_DIR=", "ACCEPTANCE_FILE="))]
+    if len(paths) != 2:
+        raise AssertionError(f"the installer's acceptance paths: {paths}")
+    env = {k: v for k, v in os.environ.items() if k != "IGOS_HELPER_MANIFEST_DIR"}
+    return subprocess.run(["/bin/bash", "-c", "set -e\n" + "\n".join(paths) + "\n" + gate + 'echo "GATE PASSED"\n'],
+                          cwd=directory, env=env, capture_output=True, text=True, timeout=60)
 
 
 class LaunchWrapperPythonTests(unittest.TestCase):
@@ -427,7 +438,34 @@ class PayloadListingGateTests(unittest.TestCase):
                              f"unexpected; stderr: {result.stderr}")
             self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
             self.assertIn("ERROR:", result.stdout)
-            self.assertIn("nothing on this machine was changed", re.sub(r"\s+", " ", result.stdout))
+            # It says nothing was installed, and names what the stopped run leaves.
+            said = re.sub(r"\s+", " ", result.stdout)
+            self.assertIn("Nothing was installed, and nothing on this machine was changed beyond", said)
+            for left in ("/var/lib/intergen/legal/steam-1.0-accepted.json",
+                         "/var/lib/igos/helpers/steam.manifest.partial", "working files under /tmp"):
+                self.assertIn(left, said)
+
+
+class InstallerRefusalTests(unittest.TestCase):
+    def test_every_refusal_after_the_record_begins_names_what_the_run_leaves(self):
+        body = _heredoc("HELPEREOF")
+        texts = [text for _, text in body]
+        begins = [i for i, text in enumerate(texts) if text.startswith('igos_helper_init "steam"')]
+        self.assertEqual(len(begins), 1, f"the installer begins its record {len(begins)} times, not once")
+        refusals = [i for i, text in enumerate(texts) if i > begins[0] and text.lstrip().startswith('echo "  ERROR:')]
+        # A zero here would prove nothing: the installer refuses four ways once its record has begun.
+        self.assertEqual(len(refusals), 4, f"refusals after the record begins, at build.sh lines "
+                                           f"{[body[i][0] for i in refusals]}")
+        leaves = ("nothing on this machine was changed beyond the record of your acceptance of the agreement "
+                  "($ACCEPTANCE_FILE), a note of this stopped attempt for pkm "
+                  "(${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/steam.manifest.partial) and the run's "
+                  "working files under /tmp.")
+        for i in refusals:
+            end = next(j for j in range(i, len(texts)) if texts[j].strip().startswith("exit "))
+            said = re.sub(r"\s+", " ", " ".join(re.sub(r'^\s*echo "(.*)"$', r"\1", text) for text in texts[i:end]))
+            self.assertRegex(said, r"(?i)\b(nothing was|was not) installed\b",
+                             f"build.sh:{body[i][0]}: the refusal does not say nothing was installed: {said}")
+            self.assertIn(leaves, said, f"build.sh:{body[i][0]}: the refusal does not name what the run leaves")
 
 
 if __name__ == "__main__":

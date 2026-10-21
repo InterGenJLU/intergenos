@@ -310,10 +310,13 @@ echo "  Finding steam-launcher in Valve's signed apt metadata (component ${STEAM
 LATEST=$(igos_helper_find_verified_deb_in_packages "$STEAM_PKG_NAME" "$STEAM_APT_BASE" "$STEAM_KEYRING" "$STEAM_DIST" "$STEAM_COMPONENT" "$REQUESTED_VERSION" "$STEAM_KEY_FPR")
 if [ -z "$LATEST" ]; then
     echo "  ERROR: Steam could not be found in Valve's own package listing, so"
-    echo "  there was nothing to download. Nothing was installed and nothing on"
-    echo "  this machine was changed. This is usually a temporary problem at"
-    echo "  Valve's end or with the network — try again later. If it keeps"
-    echo "  happening, please report it; the listing that was checked is"
+    echo "  there was nothing to download. Nothing was installed, and nothing on"
+    echo "  this machine was changed beyond the record of your acceptance of the"
+    echo "  agreement ($ACCEPTANCE_FILE), a note of this stopped attempt for pkm"
+    echo "  (${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/steam.manifest.partial)"
+    echo "  and the run's working files under /tmp. This is usually a temporary"
+    echo "  problem at Valve's end or with the network — try again later. If it"
+    echo "  keeps happening, please report it; the listing that was checked is"
     echo "  ${STEAM_APT_BASE}/dists/${STEAM_DIST}/${STEAM_COMPONENT}/"
     exit 1
 fi
@@ -346,11 +349,14 @@ if ! igos_helper_verify_deb_via_signed_release \
     "$STEAM_KEY_FPR"; then
     echo ""
     echo "  ERROR: the download could not be verified as genuinely coming from"
-    echo "  Valve, so it was NOT installed and nothing on this machine was"
-    echo "  changed. This can mean a network problem, or that the download was"
-    echo "  tampered with in transit. Try again later. Do not install the"
-    echo "  downloaded file by hand to work around this — the check is the only"
-    echo "  thing establishing that the bytes are Valve's."
+    echo "  Valve, so it was NOT installed, and nothing on this machine was"
+    echo "  changed beyond the record of your acceptance of the agreement"
+    echo "  ($ACCEPTANCE_FILE), a note of this stopped attempt for pkm"
+    echo "  (${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/steam.manifest.partial)"
+    echo "  and the run's working files under /tmp. This can mean a network"
+    echo "  problem, or that the download was tampered with in transit. Try again"
+    echo "  later. Do not install the downloaded file by hand to work around this"
+    echo "  — the check is the only thing establishing that the bytes are Valve's."
     exit 1
 fi
 
@@ -372,8 +378,12 @@ tar xf data.tar.xz
 # filter's, so the gate read it as nothing unexpected.
 if ! PAYLOAD_LISTING=$(tar tf data.tar.xz); then
     echo "  ERROR: the list of files in this Steam release could not be read,"
-    echo "  so it could not be checked before installing. Nothing was installed"
-    echo "  and nothing on this machine was changed. Try again; if it keeps"
+    echo "  so it could not be checked before installing. Nothing was installed,"
+    echo "  and nothing on this machine was changed beyond the record of your"
+    echo "  acceptance of the agreement ($ACCEPTANCE_FILE), a note of this"
+    echo "  stopped attempt for pkm"
+    echo "  (${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/steam.manifest.partial)"
+    echo "  and the run's working files under /tmp. Try again; if it keeps"
     echo "  happening, please report it."
     exit 1
 fi
@@ -383,9 +393,13 @@ if [ -n "$UNEXPECTED" ]; then
     echo "  ERROR: this Steam release contains files in places this version of"
     echo "  the package was not built to install. Installing only part of it"
     echo "  would leave files on this machine that nothing could later remove,"
-    echo "  so nothing was installed and nothing on this machine was changed."
-    echo "  There is nothing to fix here — the package needs updating. Please"
-    echo "  report it, and include the list below."
+    echo "  so nothing was installed, and nothing on this machine was changed"
+    echo "  beyond the record of your acceptance of the agreement"
+    echo "  ($ACCEPTANCE_FILE), a note of this stopped attempt for pkm"
+    echo "  (${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/steam.manifest.partial)"
+    echo "  and the run's working files under /tmp. There is nothing to fix here"
+    echo "  — the package needs updating. Please report it, and include the list"
+    echo "  below."
     echo "$UNEXPECTED" | sed 's/^/    /'
     exit 1
 fi
