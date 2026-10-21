@@ -1603,5 +1603,102 @@ class InventedToolResultTests(unittest.TestCase):
             ("clean", None))
 
 
+# ── the failed-command rule, on a failed command only ────────────────────────
+# A web search that succeeded, over a page quoting "[exit code: 1]", was given
+# the rule for a FAILED command — "The command FAILED. Say in plain words what
+# its error message means" — though nothing had failed: a reader reproduced it
+# through the real registry and a local page, and the result below is that
+# reproduction's, verbatim. The mark is run_command's own: the tool appends it
+# as the last line of its output when the command's exit status is not zero.
+WEB_CALL = ToolCall(
+    name="web_search", arguments={"query": "command exit status reference",
+                                  "num_results": 1},
+    source_of_request=Provenance.USER_DIRECT)
+WEB_RESULT_WITH_A_LITERAL_MARK = ToolResult(
+    call_id="", name="web_search", success=True, executed=True,
+    content=(
+        '<UNTRUSTED-INGRESS source="command exit status reference '
+        'successful_web_with_literal_status" source_type="web_search">\n'
+        'Search results for: command exit status reference '
+        'successful_web_with_literal_status\n'
+        '\n'
+        '1. Exit status reference\n'
+        '   http://fixture.invalid/page\n'
+        '   This reference prints the literal example [exit code: 1] when '
+        'explaining statuses.\n'
+        '\n'
+        '</UNTRUSTED-INGRESS>'))
+PRINTER_CALL = ToolCall(name="run_command",
+                        arguments={"command": "lpstat -p -d"},
+                        source_of_request=Provenance.USER_DIRECT)
+PRINTER_FAILED = ToolResult(call_id="", name="run_command", success=False,
+                            executed=True,
+                            content="lpstat: No destinations added.\n[exit code: 1]")
+PRINTER_IDLE = ToolResult(call_id="", name="run_command", success=True,
+                          executed=True, content="printer office is idle.")
+# A command that succeeded, whose own output quotes an earlier failure.
+LOG_QUOTING_A_MARK = ToolResult(
+    call_id="", name="run_command", success=True, executed=True,
+    content=("previous run: build failed [exit code: 1]\n"
+             "this run: all 12 checks passed"))
+FAILED_RULE = "The command FAILED"
+
+
+def _route_summary(call, result, user):
+    """One tool turn through route() on the native floor, answered by the
+    fast-path summarizer: the model calls `call`, the registry returns
+    `result`, the continuation after the call returns nothing and the model
+    wrote no text before the call. Returns (the result, the summarizer's
+    request)."""
+    router = _router()
+    router._llm.chat, seen = _model(*["Here is the answer."] * 5)
+
+    def stream_with_tools(messages, **_):
+        yield call
+    router._llm.stream_with_tools = stream_with_tools
+    router._tools.execute = mock.Mock(return_value=result)
+    router._llm.continue_after_tool_call = mock.Mock(return_value=None)
+    with mock.patch("intergen.router.glass.emit"):
+        routed = router.route(user)
+    return routed, seen[0][-1].content
+
+
+class FailedCommandRuleTests(unittest.TestCase):
+    """The rule asks what a failed command's error means; it is given only
+    when the tool that ran is run_command and its result ends with that
+    tool's own failure mark."""
+
+    USER = "What does the exit status reference say?"
+
+    def test_a_successful_search_quoting_the_mark_gets_no_failure_rule(self):
+        result, prompt = _route_summary(
+            WEB_CALL, WEB_RESULT_WITH_A_LITERAL_MARK, self.USER)
+        self.assertEqual(result.source, "llm_tools")
+        self.assertIn("Data from the web_search tool", prompt)
+        self.assertIn("[exit code: 1]", prompt)
+        self.assertNotIn(FAILED_RULE, prompt)
+
+    def test_a_successful_command_quoting_the_mark_gets_no_failure_rule(self):
+        result, prompt = _route_summary(PRINTER_CALL, LOG_QUOTING_A_MARK,
+                                        "did the build pass?")
+        self.assertEqual(result.source, "llm_tools")
+        self.assertIn("Data from the run_command tool", prompt)
+        self.assertNotIn(FAILED_RULE, prompt)
+
+    def test_a_failed_command_still_gets_the_rule(self):
+        # The control: run_command's own failure, its mark the last line.
+        result, prompt = _route_summary(PRINTER_CALL, PRINTER_FAILED,
+                                        "is there a printer I can use?")
+        self.assertEqual(result.source, "llm_tools")
+        self.assertIn("Data from the run_command tool", prompt)
+        self.assertIn(FAILED_RULE, prompt)
+
+    def test_a_successful_command_gets_no_rule(self):
+        result, prompt = _route_summary(PRINTER_CALL, PRINTER_IDLE,
+                                        "is there a printer I can use?")
+        self.assertEqual(result.source, "llm_tools")
+        self.assertNotIn(FAILED_RULE, prompt)
+
+
 if __name__ == "__main__":
     unittest.main()

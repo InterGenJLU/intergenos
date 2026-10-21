@@ -8806,9 +8806,10 @@ class ConversationRouter(RouterInterface):
             return None
         return f"cp {src} {dst}"
 
-    # run_command's own failure mark (tools/run_command.py), and the rule the
-    # synthesis gets when a result carries it.
-    _FAILED_EXIT_RE = re.compile(r"\[exit code: -?[1-9]\d*\]")
+    # run_command's own failure mark (tools/run_command.py appends it as its
+    # output's last line when the exit status is not zero), and the rule the
+    # synthesis gets when a command's result ends with it.
+    _FAILED_EXIT_RE = re.compile(r"\[exit code: -?[1-9]\d*\]\s*\Z")
     _FAILED_RESULT_RULE = (
         "\nThe command FAILED. Say in plain words what its error message means "
         "for what the user asked, and what they can do next. Do not give the "
@@ -8859,9 +8860,13 @@ class ConversationRouter(RouterInterface):
         # and the synthesis said exactly that — "The exit code was 1." — which
         # tells the person nothing they can use. run_command marks a failure
         # "[exit code: N]"; on that mark the instruction asks for the meaning and
-        # the next step, and rules out the exit status as the answer.
-        if self._FAILED_EXIT_RE.search(raw_output if raw_output is not None
-                                       else tool_output or ""):
+        # the next step, and rules out the exit status as the answer. The mark is
+        # read on that tool's result only, where it ends the output: a web page
+        # or a command's own output can quote the same text, and a search that
+        # succeeded over a page quoting "[exit code: 1]" was told its command had
+        # failed (reproduced through the real registry and a local page).
+        if tool_name == "run_command" and self._FAILED_EXIT_RE.search(
+                raw_output if raw_output is not None else tool_output or ""):
             instruction += self._FAILED_RESULT_RULE
         synthesis_prompt = (
             f"The user asked: \"{user_input}\"\n\n"
