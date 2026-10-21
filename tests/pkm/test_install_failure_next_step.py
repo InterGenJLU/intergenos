@@ -29,6 +29,16 @@ INSTALLER_ADVICE = ("Rollback recommended", "reinstall to retry", "Re-run",
                     "to recover")
 
 
+@pytest.fixture(autouse=True)
+def process_reporter_streams(monkeypatch):
+    # Put the process reporter's own stream attributes back after each case:
+    # restoring its patched stream properties would pin the stream that was
+    # current at setup, and a later module's redirect would not reach it.
+    for name in ("_stream", "_err_stream"):
+        monkeypatch.setattr(output._process_reporter, name,
+                            getattr(output._process_reporter, name))
+
+
 def _sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 

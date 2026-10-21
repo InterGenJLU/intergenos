@@ -21,6 +21,19 @@ from tests.pkm.test_install_refuses_a_kind_change_at_another_packages_path impor
 from tests.pkm.test_local_archive_preflight import local, invoke
 from tests.pkm.test_upgrade_from_local_archive import FakeRepo, _make_archive
 
+
+@pytest.fixture(autouse=True)
+def process_reporter_streams(monkeypatch):
+    # Put the process reporter's own stream attributes back after each case.
+    # Patching its stream properties restores the stream that was current at
+    # setup, and the shared invoke helper assigns them outright; either leaves
+    # the reporter bound to a stream that is gone, and a later module's
+    # redirect of stdout or stderr no longer reaches it.
+    for name in ("_stream", "_err_stream"):
+        monkeypatch.setattr(output._process_reporter, name,
+                            getattr(output._process_reporter, name))
+
+
 @pytest.mark.parametrize("failure", ["changed-archive", "unchanged-message"])
 def test_late_refusal_names_removal_and_restore_id(local, failure):
     restore_id = "0000000042-abcdef123456"
