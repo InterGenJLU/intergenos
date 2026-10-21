@@ -10,7 +10,10 @@ given on the command line. A program given with -c has the working directory
 first on its import path, so a json.py in the directory Steam was started
 from would be imported in place of the standard library's. The wrapper runs
 it isolated (python3 -I -c): neither the working directory, the user's site
-directory nor a PYTHON* variable reaches the import path.
+directory nor a PYTHON* variable reaches the import path. The same rule is held
+over every script a recipe writes into the package (a heredoc whose opener
+writes under DESTDIR, in any packages/*/*/build.sh): each Python call in it
+carries -I, but for the calls named in KNOWN_UNISOLATED.
 
 The installer (/usr/bin/igos-install-steam, the HELPEREOF heredoc) refuses a
 release that ships files outside the roots it installs and records. Its file
@@ -35,6 +38,7 @@ from pathlib import Path
 
 PACKAGE_DIR = Path(__file__).resolve().parent.parent
 BUILD_SH = PACKAGE_DIR / "build.sh"
+REPO_ROOT = PACKAGE_DIR.parent.parent.parent
 
 # The planted module notes that it was imported, and by which program, then
 # hands the importer the standard library's module, so the wrapper's read
@@ -59,6 +63,31 @@ _sys.modules[_name] = _real
 INTERPRETER = re.compile(r"(?<![\w./-])(?:/[\w./-]*/)?python(?:3(?:\.\d+)?)?(?![\w.-])")
 # A short option that takes an argument ends its option cluster.
 TAKES_AN_ARGUMENT = set("cmWXQ")
+# A heredoc opener, any delimiter, quoted or not; and an opener that writes the
+# body into a file (cat >, cat >>, install ... /dev/stdin, tee), with the path's
+# leading variable.
+HEREDOC = re.compile(r"<<(-?)\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\2")
+WRITER = re.compile(r"(?:\bcat\s+>>?\s*|\binstall\b[^<]*?/dev/stdin\s+|\btee\s+(?:-a\s+)?)\"?"
+                    r"\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?")
+
+# The shipped scripts that run Python without -I today, found when this check
+# was widened to every recipe, each left for a change of its own with its own
+# proof. None is a python3 -c or python3 - call: each runs a module under -P or
+# a script by path, so the working directory is not on its import path, while
+# PYTHONPATH and the user's site directory still are. Keyed by recipe and line
+# text; an entry that no longer matches a call fails the check, so a fixed call
+# leaves this list with it.
+KNOWN_UNISOLATED = {
+    ("packages/ai/intergen/build.sh", "#!/usr/bin/env python3"),
+    ("packages/core/pkm/build.sh", 'exec /usr/bin/python3 -P -m pkm "$@"'),
+    ("packages/desktop/forge/build.sh", 'exec /usr/bin/python3 -P -m installer "$@"'),
+    ("packages/desktop/intergen-toggle/build.sh",
+     'exec python3 /usr/libexec/intergen-toggle/intergen-toggle.py "$@"'),
+    ("packages/desktop/intergen-welcome/build.sh", 'python3 /usr/libexec/intergen-welcome/intergen-welcome.py "$@"'),
+    ("packages/desktop/intergenos-backup/build.sh", 'exec python3 /usr/libexec/chronicle/chronicle-cli "$@"'),
+    ("packages/desktop/intergenos-backup/build.sh", 'exec python3 /usr/libexec/chronicle/chronicle-gui "$@"'),
+    ("packages/desktop/intergenos-backup/build.sh", 'exec python3 /usr/libexec/chronicle/chronicled "$@"'),
+}
 
 
 def _heredoc(delimiter):
@@ -77,14 +106,55 @@ def _heredoc(delimiter):
 
 
 def _python_calls(body):
-    """Every code line of a heredoc body that names a Python interpreter, with the words after the name."""
+    """Every code line of a heredoc body that names a Python interpreter, with the words after the name.
+
+    Comments are skipped, but a first line that is a #! naming Python counts:
+    the body is then a Python program, and that line is how it is started."""
     calls = []
     for number, text in body:
-        if text.lstrip().startswith("#"):
+        shebang = number == body[0][0] and text.startswith("#!")
+        if text.lstrip().startswith("#") and not shebang:
             continue
         for match in INTERPRETER.finditer(text):
             calls.append((number, text, text[match.end():].split()))
     return calls
+
+
+def _shipped_bodies(root):
+    """Every heredoc body that a recipe under ROOT writes into its package, as
+    (recipe, delimiter, body): its opener writes into a path under DESTDIR,
+    named directly or through a variable the same build.sh assigns from it."""
+    found = []
+    for build in sorted(root.glob("packages/*/*/build.sh")):
+        rel = str(build.relative_to(root))
+        text = build.read_text(encoding="utf-8")
+        from_destdir = {"DESTDIR"} | set(re.findall(r"\b([A-Za-z_][A-Za-z0-9_]*)=[\"']?\$\{?DESTDIR\b", text))
+        lines = text.split("\n")
+        i = 0
+        while i < len(lines):
+            opener = HEREDOC.search(lines[i])
+            if lines[i].lstrip().startswith("#") or "<<<" in lines[i] or not opener:
+                i += 1
+                continue
+            dash, _, delimiter = opener.groups()
+            body, j = [], i + 1
+            while j < len(lines) and (lines[j].lstrip("\t") if dash else lines[j]) != delimiter:
+                body.append((j + 1, lines[j]))
+                j += 1
+            if j == len(lines):
+                raise AssertionError(f"{rel}:{i + 1}: the {delimiter} heredoc is never closed")
+            writer = WRITER.search(lines[i])
+            if writer and writer.group(1) in from_destdir and body:
+                found.append((rel, delimiter, body))
+            i = j + 1
+    return found
+
+
+def _unisolated(root):
+    """Every Python call in a shipped heredoc body under ROOT without -I, as (recipe, line number, line text)."""
+    return [(rel, number, line.strip())
+            for rel, _, body in _shipped_bodies(root)
+            for number, line, words in _python_calls(body) if not _isolated(words)]
 
 
 def _isolated(words):
@@ -196,18 +266,41 @@ class LaunchWrapperPythonTests(unittest.TestCase):
                                               f"{marker.read_text() if marker.exists() else ''}")
 
     def test_every_python_call_in_the_shipped_scripts_runs_isolated(self):
-        calls = []
+        bodies = _shipped_bodies(REPO_ROOT)
+        read = {(rel, delimiter) for rel, delimiter, _ in bodies}
+        steam = str(BUILD_SH.relative_to(REPO_ROOT))
+        # The check reads every recipe's shipped scripts, this package's two among them.
         for delimiter in ("WRAPEOF", "HELPEREOF"):
-            body = _heredoc(delimiter)
-            self.assertEqual(body[0][1], "#!/bin/bash",
+            self.assertIn((steam, delimiter), read, f"the {delimiter} script is not among the bodies read")
+            self.assertEqual(_heredoc(delimiter)[0][1], "#!/bin/bash",
                              f"the {delimiter} script is not the shell script this case reads")
-            calls += [(delimiter, number, line, words) for number, line, words in _python_calls(body)]
+        self.assertGreater(len({rel for rel, _ in read}), 1, "only one recipe's scripts were read")
         # A zero here would prove nothing: the wrapper carries one call.
-        self.assertGreaterEqual(len(calls), 1,
-                                "no Python call found in the shipped scripts; this case has stopped reading them")
-        for delimiter, number, line, words in calls:
-            self.assertTrue(_isolated(words),
-                            f"build.sh:{number} ({delimiter}) runs Python without -I: {line.strip()}")
+        wrapper_calls = _python_calls(_heredoc("WRAPEOF"))
+        self.assertEqual(len(wrapper_calls), 1, "the wrapper's Python call is not found; this case has stopped "
+                                                "reading it")
+        # The check finds a call planted in a copy of another recipe, and passes the
+        # same call once it carries -I.
+        other = sorted(rel for rel, delimiter, body in bodies
+                       if rel != steam and any(line == "source /usr/share/igos/helpers/helper-lib.sh"
+                                               for _, line in body))[0]
+        original = (REPO_ROOT / other).read_text(encoding="utf-8")
+        self.assertEqual(original.count("\nsource /usr/share/igos/helpers/helper-lib.sh\n"), 1)
+        for call, expected in (('python3 -c "import json"', 1), ('python3 -I -c "import json"', 0)):
+            with tempfile.TemporaryDirectory() as tmp:
+                copy = Path(tmp) / other
+                copy.parent.mkdir(parents=True)
+                copy.write_text(original.replace("\nsource /usr/share/igos/helpers/helper-lib.sh\n",
+                                                 f"\nsource /usr/share/igos/helpers/helper-lib.sh\n{call}\n"),
+                                encoding="utf-8")
+                planted = [hit for hit in _unisolated(Path(tmp)) if hit[2] == call]
+                self.assertEqual(len(planted), expected, f"{call} planted in a copy of {other}: found {planted}")
+        found = _unisolated(REPO_ROOT)
+        unexpected = [hit for hit in found if (hit[0], hit[2]) not in KNOWN_UNISOLATED]
+        self.assertEqual(unexpected, [], "a shipped script runs Python without -I: " + "; ".join(
+            f"{rel}:{number}: {line}" for rel, number, line in unexpected))
+        stale = KNOWN_UNISOLATED - {(rel, line) for rel, _, line in found}
+        self.assertEqual(stale, set(), f"no longer found, so no longer an exception: {sorted(stale)}")
 
 
 class PayloadListingGateTests(unittest.TestCase):
