@@ -25,6 +25,7 @@ import os
 import re
 import shlex
 import shutil
+import socket
 import threading
 import time
 import dataclasses
@@ -2253,6 +2254,408 @@ _DA_BATTERY_RE = re.compile(
     re.IGNORECASE)
 
 
+# ── D1 — SECURITY POSTURE (class 8 of the assistant battery) ────────────────
+# "is the firewall on?", "is Secure Boot on?", "is my disk encrypted?" and "any
+# open ports?" are questions about THIS machine, and no route read the machine
+# for them: they reached the model, which answered with a how-to (for Secure
+# Boot, a Windows how-to, on the 2B), or the explain route taught how encryption
+# is set up instead of saying whether it is. Each is answered here from an
+# unprivileged reading of the machine, the way the battery answer reads sysfs:
+#
+#   Secure Boot      the firmware's SecureBoot and SetupMode variables in efivarfs
+#                    (world-readable). mokutil and bootctl are CONFIRM-tier, so a
+#                    plain question would raise a consent prompt.
+#   encrypted root   lsblk -J (AUTO): an encrypted (crypt) device on the path from
+#                    the disk to the filesystem mounted at /.
+#   firewall         systemctl is-active / is-enabled nftables.service (AUTO). The
+#                    rules themselves are read with nft, which needs root and a
+#                    netlink socket the daemon's unit denies, so they are not read
+#                    and the answer says so.
+#   listening ports  the kernel's socket tables in /proc/net. ss opens a netlink
+#                    socket too; which program holds another user's socket needs
+#                    root, so programs are not named.
+#   AppArmor         /sys/module/apparmor/parameters/enabled and the kernel's
+#                    active security-module list, /sys/kernel/security/lsm.
+#   pending updates  pkm's own advisory, which the daily check writes as root and
+#                    anyone may read.
+#
+# A reading that cannot be taken DECLINES (None) rather than guess, like every
+# other D1 probe. Only value-shaped asks match: a how-to ("how do I turn on the
+# firewall") is caught by the teach guard first, and an instruction ("disable
+# Secure Boot", "close the open ports") is declined below, never answered with a
+# reading.
+_DA_POSTURE_INSTRUCTION_RE = re.compile(
+    r"^\s*(?:(?:please|can\s+you|could\s+you|would\s+you)\s+)?"
+    r"(?:close|block|open|shut|disable|enable|turn|stop|kill|allow|deny|unblock|"
+    r"forward|configure|install|remove|encrypt|decrypt|update|upgrade|start|"
+    r"restart|set\s+up)\b",
+    re.IGNORECASE)
+_DA_POSTURE_RE = re.compile(
+    r"\bis\s+(?:this|my|the)\s+(?:machine|computer|system|laptop|pc|box|device|"
+    r"install(?:ation)?|setup)\s+(?:secure|safe|protected|locked\s+down|hardened)\b"
+    r"|\bhow\s+(?:secure|safe|protected|locked\s+down)\s+is\s+(?:this|my|the)\s+"
+    r"(?:machine|computer|system|laptop|pc|box|device|install(?:ation)?|setup)\b"
+    r"|\b(?:security|secure)\s+(?:status|posture|overview|summary|check\s*-?\s*up|"
+    r"report)\b"
+    r"|\bam\s+i\s+(?:secure|protected)\b",
+    re.IGNORECASE)
+_DA_SECURE_BOOT_RE = re.compile(
+    r"\bis\s+secure\s*-?\s*boot\s+(?:on|off|enabled|disabled|active|turned\s+on|"
+    r"working|enforced|enforcing|set\s+up)\b"
+    r"|\bsecure\s*-?\s*boot\s+(?:status|state)\b"
+    r"|\bwhat(?:'?s|\s+is)\s+(?:the\s+)?secure\s*-?\s*boot\s+(?:status|state|setting)\b"
+    r"|\b(?:do|does)\s+(?:i|we|it|this\s+(?:machine|computer|system|laptop|pc)|"
+    r"my\s+(?:machine|computer|system|laptop|pc))\s+(?:have|use)\s+secure\s*-?\s*boot\b"
+    r"|\b(?:am\s+i|are\s+we|is\s+(?:this|my|the)\s+(?:machine|computer|system|"
+    r"laptop|pc))\s+(?:using|running(?:\s+with)?|booted\s+with)\s+secure\s*-?\s*boot\b",
+    re.IGNORECASE)
+_DA_ENCRYPTION_RE = re.compile(
+    r"\bis\s+(?:my|the|this)\s+(?:(?:hard\s+)?(?:disk|drive)|ssd|"
+    r"(?:root\s+)?(?:file\s*system|partition)|root|storage|system|machine|computer|"
+    r"laptop|data|install(?:ation)?)\s+(?:\w+\s+)?encrypted\b"
+    r"|\b(?:is|are)\s+(?:my\s+)?(?:files|data|disks?|drives?)\s+encrypted\b"
+    r"|\b(?:full[\s-]+)?(?:disk|drive|root|storage)\s+encryption\s+"
+    r"(?:on|off|enabled|disabled|active|status|state)\b"
+    r"|\b(?:is|do\s+i\s+have|have\s+i\s+got|does\s+(?:this|my)\s+\w+\s+(?:have|use))"
+    r"\s+(?:\w+\s+){0,2}?(?:full[\s-]+)?(?:disk|drive|root|storage)\s+encryption\b",
+    re.IGNORECASE)
+_DA_FIREWALL_RE = re.compile(
+    r"\bis\s+(?:the|my|a|this\s+(?:machine|computer|system)(?:'?s)?)\s+firewall\s+"
+    r"(?:on|off|enabled|disabled|active|running|up|working|turned\s+on|set\s+up|"
+    r"configured|loaded)\b"
+    r"|\bfirewall\s+(?:status|state)\b"
+    r"|\bwhat(?:'?s|\s+is)\s+(?:the\s+)?firewall\s+(?:doing|status|state)\b"
+    r"|\b(?:do|does)\s+(?:i|we|it|this\s+(?:machine|computer|system|laptop|pc)|"
+    r"my\s+(?:machine|computer|system|laptop|pc))\s+(?:have|use|run)\s+a\s+firewall\b"
+    r"|\bis\s+there\s+a\s+firewall\b",
+    re.IGNORECASE)
+_DA_LISTENING_RE = re.compile(
+    r"\b(?:any|which|what)\s+(?:ports?\s+(?:are\s+)?(?:open|listening)|open\s+ports?|"
+    r"(?:services?|programs?|apps?|applications?)\s+(?:are\s+)?listening)\b"
+    r"|\bwhat(?:'?s|\s+is)\s+listening\b"
+    r"|\b(?:is\s+)?anything\s+listening\b"
+    r"|\blistening\s+(?:ports?|sockets?|services?)\b"
+    r"|\b(?:are\s+there|do\s+i\s+have|is\s+there)\s+(?:any\s+)?open\s+ports?\b"
+    r"|\b(?:show|list)\s+(?:me\s+)?(?:the\s+)?(?:open|listening)\s+ports?\b",
+    re.IGNORECASE)
+_DA_APPARMOR_RE = re.compile(
+    r"\bis\s+apparmor\s+(?:on|off|enabled|disabled|active|running|loaded|working|"
+    r"turned\s+on|enforcing)\b"
+    r"|\bapparmor\s+(?:status|state)\b"
+    r"|\b(?:do|does)\s+(?:i|we|it|this\s+(?:machine|computer|system|laptop|pc)|"
+    r"my\s+(?:machine|computer|system|laptop|pc))\s+(?:have|use|run)\s+apparmor\b",
+    re.IGNORECASE)
+_DA_UPDATES_RE = re.compile(
+    r"\b(?:are\s+there|is\s+there|do\s+i\s+have|have\s+i\s+got|any)\s+"
+    r"(?:any\s+|an?\s+)?(?:(?:pending|available|new|outstanding|waiting)\s+)?"
+    r"(?:package\s+|software\s+|system\s+)?updates?\b"
+    r"(?!\s+(?:on|about|from|regarding|to\s+the)\b)"
+    r"|\bis\s+(?:my|this|the)\s+(?:system|machine|computer|laptop|pc|os|software|"
+    r"install(?:ation)?)\s+up\s*-?\s*to\s*-?\s*date\b"
+    r"|\bam\s+i\s+up\s*-?\s*to\s*-?\s*date\b"
+    r"|\b(?:pending|available)\s+(?:package\s+|software\s+|system\s+)?updates?\b"
+    r"|\bupdates?\s+(?:pending|available|waiting)\b",
+    re.IGNORECASE)
+
+# The readings' sources, module-level so a test can point them at stand-ins.
+_EFI_DIR = Path("/sys/firmware/efi")
+_EFI_GLOBAL_GUID = "8be4df61-93ca-11d2-aa0d-00e098032b8c"
+_PROC_NET = Path("/proc/net")
+_APPARMOR_ENABLED = Path("/sys/module/apparmor/parameters/enabled")
+_KERNEL_LSM = Path("/sys/kernel/security/lsm")
+_PKM_ADVISORY = Path("/var/lib/pkm/available-updates.json")
+_LSBLK_ROOT_PROBE = "lsblk -J -o NAME,TYPE,FSTYPE,MOUNTPOINTS"
+_FIREWALL_UNIT = "nftables.service"
+_FIREWALL_ACTIVE_PROBE = f"systemctl is-active {_FIREWALL_UNIT}"
+_FIREWALL_ENABLED_PROBE = f"systemctl is-enabled {_FIREWALL_UNIT}"
+
+
+def _read_efi_flag(name: str) -> "bool | None":
+    """A one-byte UEFI global variable as True/False; None when it cannot be
+    read. Raises FileNotFoundError when the firmware does not define it. The
+    efivarfs file is the variable's four attribute bytes, then its value."""
+    path = _EFI_DIR / "efivars" / f"{name}-{_EFI_GLOBAL_GUID}"
+    try:
+        raw = path.read_bytes()
+    except FileNotFoundError:
+        raise
+    except OSError:
+        return None
+    if len(raw) < 5:
+        return None
+    return raw[4] == 1
+
+
+def _posture_secure_boot() -> "str | None":
+    """Secure Boot's state from the firmware's own variables."""
+    if not _EFI_DIR.is_dir():
+        return ("Secure Boot doesn't apply here: this machine started in legacy "
+                "BIOS mode, not UEFI, so the firmware checks no signatures at boot.")
+    try:
+        enabled = _read_efi_flag("SecureBoot")
+    except FileNotFoundError:
+        return ("This machine's firmware doesn't report Secure Boot at all, so it "
+                "is not in use.")
+    if enabled is None:
+        return None
+    if enabled:
+        return ("Secure Boot is on: the firmware only starts a boot loader and "
+                "kernel signed with a key it trusts.")
+    try:
+        setup = _read_efi_flag("SetupMode")
+    except FileNotFoundError:
+        setup = None
+    if setup:
+        return ("Secure Boot is off: the firmware is in setup mode, with no platform "
+                "key enrolled, so it checks no signatures at boot.")
+    return ("Secure Boot is off: the firmware will start a boot loader or kernel "
+            "whether or not it is signed.")
+
+
+def _lsblk_path_to(nodes: list, mountpoint: str) -> list:
+    """The chain of lsblk nodes from a disk down to the one mounted at
+    ``mountpoint``, or [] when nothing is mounted there."""
+    for node in nodes or []:
+        if not isinstance(node, dict):
+            continue
+        mounts = node.get("mountpoints")
+        if not isinstance(mounts, list):
+            mounts = [node.get("mountpoint")]
+        if mountpoint in mounts:
+            return [node]
+        below = _lsblk_path_to(node.get("children") or [], mountpoint)
+        if below:
+            return [node] + below
+    return []
+
+
+def _posture_render_encrypted_root(out: str) -> "str | None":
+    """Whether the root filesystem sits on an encrypted device, from lsblk -J."""
+    try:
+        tree = json.loads(out or "")
+    except ValueError:
+        return None
+    if not isinstance(tree, dict):
+        return None
+    path = _lsblk_path_to(tree.get("blockdevices") or [], "/")
+    if not path:
+        return None
+    crypts = [i for i, node in enumerate(path) if node.get("type") == "crypt"]
+    if not crypts:
+        root = path[-1]
+        return (f"No — the root filesystem is not encrypted: it is on "
+                f"{root.get('name')} ({root.get('type')}), with no encrypted layer "
+                f"beneath it.")
+    i = crypts[-1]
+    luks = i > 0 and (path[i - 1].get("fstype") or "").lower() == "crypto_luks"
+    kind = "a LUKS-encrypted volume" if luks else "an encrypted (dm-crypt) volume"
+    return (f"Yes — the root filesystem is encrypted: it is on {path[i].get('name')}, "
+            f"{kind}, so what is stored on the disk can't be read without its key "
+            f"while the machine is off.")
+
+
+def _systemctl_word(out: str) -> str:
+    """The state word systemctl prints on its first line; "" when there is none
+    (an error message, a timeout, no output)."""
+    lines = (out or "").strip().splitlines()
+    word = lines[0].strip() if lines else ""
+    return word if re.fullmatch(r"[a-z][a-z-]*", word) else ""
+
+
+def _posture_render_firewall(active_out: str, enabled_out: str) -> "str | None":
+    """The firewall's state from systemctl is-active / is-enabled of the
+    nftables service, which loads the ruleset when it starts and flushes it when
+    it stops."""
+    active = _systemctl_word(active_out)
+    enabled = _systemctl_word(enabled_out)
+    if not active or not enabled:
+        return None
+    if enabled == "not-found":
+        return ("I find no firewall service on this machine: nftables.service is "
+                "not installed.")
+    unread = (" I can't list the rules themselves — reading them needs "
+              "administrator rights.")
+    if active == "active":
+        if enabled == "enabled":
+            boot = ", and the service is set to load them at every start"
+        elif enabled == "disabled":
+            boot = (", but the service is not set to start at boot, so after a "
+                    "restart the machine runs without it until it is started again")
+        else:
+            boot = ""
+        return (f"The firewall is on: the nftables service is active, so its rules "
+                f"were loaded when it started{boot}.{unread}")
+    if active == "failed":
+        return ("The firewall failed to start: the nftables service is in a failed "
+                "state, so its rules may not be loaded.")
+    if active in ("inactive", "deactivating"):
+        tail = (", although it is set to start at boot" if enabled == "enabled"
+                else " and it is not set to start at boot" if enabled == "disabled"
+                else "")
+        return (f"The firewall is off: the nftables service is not active, so its "
+                f"rules are not loaded{tail}.")
+    if active in ("activating", "reloading"):
+        return f"The firewall is starting: the nftables service is {active} right now."
+    return None
+
+
+def _ipv4_from_hex(h: str) -> "ipaddress.IPv4Address":
+    """A /proc/net address: the four bytes in host (little-endian) order."""
+    return ipaddress.IPv4Address(bytes.fromhex(h)[::-1])
+
+
+def _ipv6_from_hex(h: str) -> "ipaddress.IPv6Address":
+    """A /proc/net IPv6 address: four 32-bit words, each in host order."""
+    raw = bytes.fromhex(h)
+    if len(raw) != 16:
+        raise ValueError("not an IPv6 address")
+    return ipaddress.IPv6Address(b"".join(raw[i:i + 4][::-1] for i in range(0, 16, 4)))
+
+
+def _read_listeners() -> "list[tuple[str, int, bool]] | None":
+    """(protocol, port, open to other machines) for every TCP socket in LISTEN
+    and every unconnected bound UDP socket, from the kernel's own tables. None
+    when no table can be read."""
+    found: list[tuple[str, int, bool]] = []
+    read_any = False
+    for proto, name, v6 in (("TCP", "tcp", False), ("TCP", "tcp6", True),
+                            ("UDP", "udp", False), ("UDP", "udp6", True)):
+        try:
+            lines = (_PROC_NET / name).read_text().splitlines()[1:]
+        except OSError:
+            continue
+        read_any = True
+        # TCP 0A = LISTEN; UDP 07 = unconnected (a bound socket that receives).
+        want = "0A" if proto == "TCP" else "07"
+        for line in lines:
+            parts = line.split()
+            if len(parts) < 4 or parts[3] != want:
+                continue
+            addr_hex, _, port_hex = parts[1].partition(":")
+            try:
+                port = int(port_hex, 16)
+                addr = _ipv6_from_hex(addr_hex) if v6 else _ipv4_from_hex(addr_hex)
+            except ValueError:
+                continue
+            if port == 0:
+                continue
+            if v6 and addr.ipv4_mapped is not None:
+                addr = addr.ipv4_mapped
+            found.append((proto, port, not addr.is_loopback))
+    return found if read_any else None
+
+
+def _service_name(port: int, proto: str) -> "str | None":
+    """The port's name in the system's services database, as ss and netstat
+    print it; None when it has none."""
+    try:
+        return socket.getservbyport(port, proto)
+    except (OSError, OverflowError):
+        return None
+
+
+def _posture_render_listeners(found: "list[tuple[str, int, bool]] | None"
+                              ) -> "str | None":
+    """Which ports accept connections from other machines and which only from
+    this one. A port open on any non-loopback address counts as open to others."""
+    if found is None:
+        return None
+    reach: dict[tuple[str, int], bool] = {}
+    for proto, port, network in found:
+        reach[(proto, port)] = reach.get((proto, port), False) or network
+    if not reach:
+        return "Nothing on this machine is listening for network connections right now."
+
+    def listing(network: bool) -> str:
+        groups = []
+        for proto in ("TCP", "UDP"):
+            ports = sorted(p for (pr, p), net in reach.items()
+                           if pr == proto and net is network)
+            if not ports:
+                continue
+            named = []
+            for port in ports:
+                svc = _service_name(port, proto.lower())
+                named.append(f"{port} ({svc})" if svc else str(port))
+            groups.append(f"{proto} " + ", ".join(named))
+        return "; ".join(groups)
+
+    others, local = listing(True), listing(False)
+    if others:
+        text = ("These ports accept connections from other machines — whether one "
+                f"gets through also depends on the firewall: {others}.")
+    else:
+        text = "No port accepts connections from other machines."
+    if local:
+        text += f" These accept them only from this machine itself: {local}."
+    return (text + " Naming the program behind each port needs administrator "
+            "rights.")
+
+
+def _posture_apparmor() -> "str | None":
+    """AppArmor's state: active when the kernel lists it among its running
+    security modules; its boot switch when that list cannot be read."""
+    try:
+        modules = [m.strip() for m in _KERNEL_LSM.read_text().split(",")]
+    except OSError:
+        modules = None
+    try:
+        switch = _APPARMOR_ENABLED.read_text().strip()
+    except FileNotFoundError:
+        switch = ""
+    except OSError:
+        switch = None
+    if modules is None and not switch:
+        return None
+    if modules is not None:
+        on = "apparmor" in modules
+    else:
+        on = switch.upper() in ("Y", "1")
+    if on:
+        return ("AppArmor is on: the kernel runs it as one of its active security "
+                "modules. Listing which programs it confines needs administrator "
+                "rights.")
+    if switch:
+        return "AppArmor is off: the kernel has it switched off."
+    return ("AppArmor is not active: the running kernel does not include AppArmor.")
+
+
+def _posture_pending_updates() -> "str | None":
+    """Pending updates from pkm's own advisory: the daily check writes it as
+    root from the last synced package index, offline."""
+    try:
+        raw = _PKM_ADVISORY.read_text()
+    except FileNotFoundError:
+        return ("I can't tell whether updates are pending: no update check has run "
+                "on this machine yet (the daily check records its result in "
+                "/var/lib/pkm/available-updates.json).")
+    except OSError:
+        return None
+    try:
+        data = json.loads(raw)
+        count = int(data["count"])
+        names = [p["name"] for p in data.get("packages") or []
+                 if isinstance(p, dict) and isinstance(p.get("name"), str)]
+        checked = int(data["checked_at"])
+        skipped = int(data.get("skipped_count") or 0)
+    except (ValueError, KeyError, TypeError):
+        return None
+    when = time.strftime("%Y-%m-%d %H:%M", time.localtime(checked))
+    if count == 0:
+        text = f"No updates were pending at the last update check ({when})."
+    else:
+        shown = ", ".join(names[:8])
+        more = f", and {len(names) - 8} more" if len(names) > 8 else ""
+        noun = "update was" if count == 1 else "updates were"
+        text = (f"{count} {noun} pending at the last update check ({when}): "
+                f"{shown}{more}. sudo pkm upgrade --all installs "
+                f"{'it' if count == 1 else 'them'} after showing the plan.")
+    if skipped:
+        text += (f" {skipped} installed package{'s' if skipped != 1 else ''} could "
+                 f"not be compared, so the count may be low.")
+    return text
+
+
 def _da_render_time(out: str) -> "str | None":
     return f"It's currently {out.strip()}." if out.strip() else None
 
@@ -4444,6 +4847,9 @@ class ConversationRouter(RouterInterface):
                     # Composed from a direct sysfs read in code — no dispatch.
                     linkage=AnswerLinkage(kind="code", renderer="sysfs_probe"))
             return None  # sysfs read error → fall through honestly
+        posture = self._try_direct_posture(text, t0)
+        if posture is not None:
+            return posture
         # A conversational-memory ask says "memory"/"remember" about the
         # CONVERSATION. It is not a machine probe; leave it to its own carriers.
         if _DA_CONVERSATION_MEMORY_RE.search(text):
@@ -4490,6 +4896,76 @@ class ConversationRouter(RouterInterface):
                 linkage=AnswerLinkage(kind="dispatch", tool="run_command",
                                       renderer="direct_answer_render"))
         return None
+
+    def _try_direct_posture(self, text: str, t0: float) -> "RouteResult | None":
+        """D1 — SECURITY POSTURE: each class answered from an unprivileged
+        reading of this machine (see the readings' block
+        above _da_render_time). An instruction ("close the open ports") is not
+        a question about state and is declined here; a reading that cannot be
+        taken declines too, rather than guess."""
+        if _DA_POSTURE_INSTRUCTION_RE.search(text):
+            return None
+        if _DA_POSTURE_RE.search(text):
+            readings = [
+                _posture_secure_boot(),
+                self._posture_encrypted_root(),
+                self._posture_firewall(),
+                _posture_render_listeners(_read_listeners()),
+                _posture_apparmor(),
+                _posture_pending_updates(),
+            ]
+            taken = [r for r in readings if r]
+            if not taken:
+                return None
+            answer = ("Here is what I can read about this machine's protections:\n"
+                      + "\n".join(f"- {r}" for r in taken))
+            return self._direct_answer_result(
+                text, answer, "security_posture", "local", t0,
+                linkage=AnswerLinkage(kind="dispatch", tool="run_command",
+                                      renderer="security_posture"))
+        probes = (
+            ("secure_boot", _DA_SECURE_BOOT_RE, _posture_secure_boot, "code"),
+            ("encrypted_root", _DA_ENCRYPTION_RE, self._posture_encrypted_root,
+             "dispatch"),
+            ("firewall", _DA_FIREWALL_RE, self._posture_firewall, "dispatch"),
+            ("listening_sockets", _DA_LISTENING_RE,
+             lambda: _posture_render_listeners(_read_listeners()), "code"),
+            ("apparmor", _DA_APPARMOR_RE, _posture_apparmor, "code"),
+            ("pending_updates", _DA_UPDATES_RE, _posture_pending_updates, "code"),
+        )
+        for intent, detector, read, kind in probes:
+            if not detector.search(text):
+                continue
+            answer = read()
+            if not answer:
+                glass.emit("decision", "direct_answer", detail={
+                    "class": "local", "intent": intent,
+                    "verdict": "probe_unavailable"})
+                return None
+            linkage = (AnswerLinkage(kind="dispatch", tool="run_command",
+                                     renderer="security_posture")
+                       if kind == "dispatch"
+                       else AnswerLinkage(kind="code", renderer="security_posture"))
+            return self._direct_answer_result(text, answer, intent, "local", t0,
+                                              linkage=linkage)
+        return None
+
+    def _posture_encrypted_root(self) -> "str | None":
+        """lsblk -J through the gated run_command path, rendered."""
+        if not _readonly_command_available(_LSBLK_ROOT_PROBE):
+            return None
+        return _posture_render_encrypted_root(
+            self._run_fixed_command(_LSBLK_ROOT_PROBE) or "")
+
+    def _posture_firewall(self) -> "str | None":
+        """systemctl is-active / is-enabled of the nftables service. Both exit
+        non-zero for an inactive or disabled unit while printing the state, so
+        their output is kept whatever the exit status."""
+        if not _readonly_command_available(_FIREWALL_ACTIVE_PROBE):
+            return None
+        active = self._run_fixed_command(_FIREWALL_ACTIVE_PROBE, keep_failed=True)
+        enabled = self._run_fixed_command(_FIREWALL_ENABLED_PROBE, keep_failed=True)
+        return _posture_render_firewall(active or "", enabled or "")
 
     def _try_direct_external(self, user_input: str, original_input: str, t0: float
                              ) -> "RouteResult | None":
@@ -5872,11 +6348,17 @@ class ConversationRouter(RouterInterface):
                 renderer=self._synth_renderer(used_llm)),
         )
 
-    def _run_fixed_command(self, command: str) -> str | None:
+    def _run_fixed_command(self, command: str, *,
+                           keep_failed: bool = False) -> str | None:
         """Run a FIXED, code-owned command (NO user input interpolated) through the
         safety-gated tool path and return its stdout, or None on failure/block/empty.
         Used by the IP handler for ifconfig + dig — both AUTO (AF_INET/INET6, no
-        netlink). Fixed strings only, so there is no command-injection surface."""
+        netlink). Fixed strings only, so there is no command-injection surface.
+
+        ``keep_failed`` returns the output of a command that ran and exited
+        non-zero, for a probe whose exit status IS its answer (systemctl
+        is-active prints "inactive" and exits 3). A blocked or refused command
+        is still None: it never ran."""
         if getattr(self, "_tools", None) is None:
             return None
         # A FIXED command is still a command. This path does not go through
@@ -5904,7 +6386,9 @@ class ConversationRouter(RouterInterface):
         except Exception as e:  # noqa: BLE001 — a probe failure must not crash the turn
             logger.error("IP-handler command failed (%s): %s", command, e)
             return None
-        if tr is None or getattr(tr, "blocked", False) or not getattr(tr, "success", False):
+        if tr is None or getattr(tr, "blocked", False):
+            return None
+        if not getattr(tr, "success", False) and not keep_failed:
             return None
         return tr.content
 

@@ -3,7 +3,7 @@
     "purpose": "M4 read-only state-question inventory — the printers/disks/versions class mapped to the ONE safe, read-only command each answers. Feeds the M4 'read-only state -> direct execution' path (auto-approvable, no confirmation) and the claim gate.",
     "invariant": "Every command here is read-only (no state change) and routes through run_command; each requires[] binary is the ground-truth on-PATH filter (same contract as the howto corpus). ships_via names the package that provides it (verified in-tree).",
     "note": "Data only. The M4 gate code (landing with M4) decides auto-approval + wires the direct-execution path; this file is the class->command map it grounds against.",
-    "coverage": "13 classes carry a shipped corpus how-to; battery is teach-only (upower ships if a command form is wanted). The gpu-utilization + gpu-memory classes are Tier-3/dGPU self-knowledge — requires[nvidia-smi] gates them OFF non-NVIDIA boxes (same on-PATH ground-truth filter as the howto corpus), so a card teaching nvidia-smi never surfaces where the tool is absent."
+    "coverage": "13 classes carry a shipped corpus how-to; battery is teach-only (upower ships if a command form is wanted). The gpu-utilization + gpu-memory classes are Tier-3/dGPU self-knowledge — requires[nvidia-smi] gates them OFF non-NVIDIA boxes (same on-PATH ground-truth filter as the howto corpus), so a card teaching nvidia-smi never surfaces where the tool is absent. The six security-posture classes (secure-boot, encrypted-root, firewall, listening-sockets, apparmor, pending-updates) are answered by the router's direct-answer route from unprivileged readings; four read their source in code (their files under reads[], their command empty), and anything that needs root is named in probe as unread, never run."
   },
   "classes": [
     {
@@ -288,6 +288,124 @@
       "corpus_entries": [
         "self-how-much-vram-in-use"
       ]
+    },
+    {
+      "class": "secure-boot",
+      "question_examples": [
+        "is Secure Boot on?",
+        "is secure boot enabled",
+        "secure boot status"
+      ],
+      "command": "",
+      "reads": [
+        "/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c",
+        "/sys/firmware/efi/efivars/SetupMode-8be4df61-93ca-11d2-aa0d-00e098032b8c"
+      ],
+      "probe": "read in code (router._posture_secure_boot): mokutil and bootctl are CONFIRM-tier, the efivarfs files are world-readable",
+      "tool": "direct_answer",
+      "requires": [],
+      "read_only": true,
+      "ships_via": "the kernel (efivarfs)",
+      "corpus_entries": [
+        "igos-secure-boot-mok"
+      ]
+    },
+    {
+      "class": "encrypted-root",
+      "question_examples": [
+        "is my disk encrypted?",
+        "is the root filesystem encrypted",
+        "do I have full disk encryption"
+      ],
+      "command": "lsblk -J -o NAME,TYPE,FSTYPE,MOUNTPOINTS",
+      "probe": "an encrypted (crypt) device on the path from the disk to the filesystem mounted at / (router._posture_render_encrypted_root)",
+      "tool": "run_command",
+      "requires": [
+        "lsblk"
+      ],
+      "read_only": true,
+      "ships_via": "util-linux-core",
+      "corpus_entries": []
+    },
+    {
+      "class": "firewall",
+      "question_examples": [
+        "is the firewall on?",
+        "is the firewall running?",
+        "firewall status"
+      ],
+      "command": "systemctl is-active nftables.service",
+      "also_runs": [
+        "systemctl is-enabled nftables.service"
+      ],
+      "probe": "the nftables service's state; its rules are read with nft, which needs root and netlink (BLOCKED in the daemon), so they are named as unread (router._posture_render_firewall)",
+      "tool": "run_command",
+      "requires": [
+        "systemctl"
+      ],
+      "read_only": true,
+      "ships_via": "systemd (nftables.service from nftables)",
+      "corpus_entries": [
+        "net-firewall"
+      ]
+    },
+    {
+      "class": "listening-sockets",
+      "question_examples": [
+        "any open ports?",
+        "what's listening on the network?",
+        "which ports are open"
+      ],
+      "command": "",
+      "reads": [
+        "/proc/net/tcp",
+        "/proc/net/tcp6",
+        "/proc/net/udp",
+        "/proc/net/udp6"
+      ],
+      "probe": "read in code (router._read_listeners): ss opens a netlink socket, which the daemon's unit denies; the program behind another user's socket needs root and is not named",
+      "tool": "direct_answer",
+      "requires": [],
+      "read_only": true,
+      "ships_via": "the kernel (procfs)",
+      "corpus_entries": []
+    },
+    {
+      "class": "apparmor",
+      "question_examples": [
+        "is AppArmor enabled?",
+        "is apparmor running",
+        "apparmor status"
+      ],
+      "command": "",
+      "reads": [
+        "/sys/kernel/security/lsm",
+        "/sys/module/apparmor/parameters/enabled"
+      ],
+      "probe": "read in code (router._posture_apparmor): aa-enabled and aa-status are CONFIRM-tier, and the profile list needs root",
+      "tool": "direct_answer",
+      "requires": [],
+      "read_only": true,
+      "ships_via": "the kernel (securityfs, the apparmor module)",
+      "corpus_entries": []
+    },
+    {
+      "class": "pending-updates",
+      "question_examples": [
+        "are there any pending updates?",
+        "is my system up to date?",
+        "any updates available"
+      ],
+      "command": "",
+      "reads": [
+        "/var/lib/pkm/available-updates.json"
+      ],
+      "probe": "pkm's own advisory, written as root by pkm-check-updates.timer from the last synced index (router._posture_pending_updates); a fresh check needs root and is not run",
+      "tool": "direct_answer",
+      "requires": [],
+      "read_only": true,
+      "ships_via": "pkm (pkm-check-updates.service)",
+      "corpus_entries": []
     }
   ]
 }
