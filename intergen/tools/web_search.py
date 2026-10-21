@@ -146,7 +146,9 @@ def _fetch_page_text(url: str) -> tuple[str, str, bool]:
         response = None
         try:
             if parsed.scheme == "https":
-                sock = ssl.create_default_context().wrap_socket(sock, server_hostname=host)
+                context = ssl.create_default_context()
+                sock.settimeout(remaining())
+                sock = context.wrap_socket(sock, server_hostname=host)
             connection.sock = sock
             sock.settimeout(remaining())
             path = urllib.parse.urlunsplit(("", "", parsed.path or "/", parsed.query, ""))

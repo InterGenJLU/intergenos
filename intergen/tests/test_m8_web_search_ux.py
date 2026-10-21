@@ -379,6 +379,73 @@ class LocalPageBoundaryTests(unittest.TestCase):
                 print(f"slow_{part}_elapsed={elapsed:.6f}", flush=True)
                 self.assertLess(elapsed, 0.8)
 
+    def test_the_tls_handshake_uses_the_budget_left_after_a_slow_connect(self):
+        from intergen.tools import web_search
+
+        real_connect, real_lookup = socket.create_connection, socket.getaddrinfo
+        stopped = threading.Event()
+        accepted, connect_times, server_errors = [], [], []
+        with socket.socket() as listener:
+            listener.bind(("127.0.0.1", 0))
+            listener.listen(0)
+            listener.settimeout(0.05)
+            address = listener.getsockname()
+            # Fill the accept queue so the next connect needs a SYN retransmit.
+            with real_connect(address) as filler:
+                def serve():
+                    stopped.wait(0.3)
+                    while not stopped.is_set():
+                        try:
+                            conn, _ = listener.accept()
+                            accepted.append(conn)
+                        except TimeoutError:
+                            continue
+                        except OSError as exc:
+                            server_errors.append(exc)
+                            return
+
+                def lookup(host, port, *args, **kwargs):
+                    if host == "fixture.invalid":
+                        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "",
+                                 ("192.0.2.10", port))]
+                    self.assertEqual(host, "127.0.0.1")
+                    return real_lookup(host, port, *args, **kwargs)
+
+                def connect(destination, *args, **kwargs):
+                    self.assertEqual(destination, ("192.0.2.10", 443))
+                    started = time.monotonic()
+                    conn = real_connect(address, *args, **kwargs)
+                    connect_times.append(time.monotonic() - started)
+                    return conn
+
+                thread = threading.Thread(target=serve)
+                thread.start()
+                try:
+                    with mock.patch("socket.getaddrinfo", side_effect=lookup), \
+                            mock.patch("socket.create_connection", side_effect=connect), \
+                            mock.patch("ipaddress.ip_address", side_effect=lambda value:
+                                       SimpleNamespace(is_global=value == "192.0.2.10")), \
+                            mock.patch.object(web_search, "_PAGE_TIMEOUT", 2.0):
+                        started = time.monotonic()
+                        with self.assertRaises(TimeoutError):
+                            web_search._fetch_page_text("https://fixture.invalid/page")
+                        elapsed = time.monotonic() - started
+                finally:
+                    stopped.set()
+                    thread.join(timeout=1)
+                    for conn in accepted:
+                        conn.close()
+                self.assertFalse(thread.is_alive())
+                self.assertEqual(server_errors, [])
+                self.assertEqual(len(accepted), 2)
+                self.assertEqual(len(connect_times), 1)
+                self.assertGreaterEqual(connect_times[0], 0.5)
+                self.assertLess(connect_times[0], 2.0)
+                print(f"tls_slow_connect={connect_times[0]:.6f} "
+                      f"elapsed={elapsed:.6f} budget=2.0", flush=True)
+                self.assertGreaterEqual(elapsed, 1.95)
+                self.assertLess(elapsed, 2.25)
+
     def test_an_unavailable_page_keeps_an_answering_snippet(self):
         from intergen.tests.test_router_executes_recognised_search import _build_router
 
