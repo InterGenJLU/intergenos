@@ -596,6 +596,20 @@ class LocalPageBoundaryTests(unittest.TestCase):
                 self.assertEqual(_web_page_details(wrapped), (url, page))
                 self.assertEqual(_web_search_snippets(wrapped), snippet)
 
+    def test_absent_provider_snippets_keep_other_result_snippets(self):
+        from intergen.router import _web_search_snippets
+
+        for absent in (None, "", False, 0):
+            with self.subTest(snippet=absent), self._server() as url:
+                payload = {"organic": [
+                    {"title": "First", "link": url, "snippet": absent},
+                    {"title": "Second", "link": url, "snippet": "SECOND SNIPPET"},
+                ]}
+                with mock.patch("urllib.request.urlopen", return_value=io.BytesIO(json.dumps(payload).encode())):
+                    result = WebSearchTool()._search_serper("observatory hours", 2, "fixture")
+                self.assertTrue(result.success)
+                self.assertEqual(_web_search_snippets(result.content), "SECOND SNIPPET")
+
     def test_empty_snippets_keep_the_unavailable_outcome(self):
         from intergen.tests.test_router_executes_recognised_search import _build_router
 

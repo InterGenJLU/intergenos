@@ -420,7 +420,7 @@ class WebSearchTool(BaseTool):
         # change the page/listing boundary. The model keeps the readable view.
         evidence = json.dumps({
             "source": source, "page": text, "query": query,
-            "results": [{"title": title, "url": url, "snippet": snippet}
+            "results": [{"title": title, "url": url, "snippet": snippet or ""}
                         for title, url, snippet in results],
         }, separators=(",", ":"))
         content = "Web search evidence v1: " + evidence + "\n" + content
