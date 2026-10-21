@@ -392,7 +392,6 @@ class WebSearchTool(BaseTool):
         content, summary = render_search_results(query, results)
         if not results:
             return content, summary
-        listing = content
         source = results[0][1]
         try:
             source, text, truncated = _fetch_page_text(source)
@@ -419,8 +418,11 @@ class WebSearchTool(BaseTool):
             summary = content
         # JSON escapes field contents, so textual headings in any field cannot
         # change the page/listing boundary. The model keeps the readable view.
-        evidence = json.dumps({"source": source, "page": text, "listing": listing},
-                              separators=(",", ":"))
+        evidence = json.dumps({
+            "source": source, "page": text, "query": query,
+            "results": [{"title": title, "url": url, "snippet": snippet}
+                        for title, url, snippet in results],
+        }, separators=(",", ":"))
         content = "Web search evidence v1: " + evidence + "\n" + content
         return content, summary
 

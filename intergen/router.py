@@ -1484,7 +1484,7 @@ def _web_page_details(output: str) -> tuple[str, str] | None:
 
 
 def _web_search_snippets(output: str) -> str:
-    """Read snippet lines from the explicitly framed search listing."""
+    """Read only snippet fields from the producer's JSON frame."""
     prefix = "Web search evidence v1: "
     if not output.startswith(prefix):
         return ""
@@ -1492,9 +1492,13 @@ def _web_search_snippets(output: str) -> str:
         evidence = json.loads(output[len(prefix):].partition("\n")[0])
     except (ValueError, TypeError):
         return ""
-    if not isinstance(evidence, dict) or not isinstance(evidence.get("listing"), str):
+    if not isinstance(evidence, dict) or not isinstance(evidence.get("results"), list):
         return ""
-    return "\n".join(re.findall(r"(?m)^   (?!https?://)(\S[^\n]*)$", evidence["listing"]))
+    results = evidence["results"]
+    if any(not isinstance(result, dict) or not isinstance(result.get("snippet"), str)
+           for result in results):
+        return ""
+    return "\n".join(result["snippet"] for result in results if result["snippet"])
 
 _LIVE_ACTION_RE = re.compile(
     r"^\s*(?:restart|stop|start|enable|disable|open|launch|run|install|remove|"

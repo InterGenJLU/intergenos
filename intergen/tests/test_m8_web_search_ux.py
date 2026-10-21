@@ -551,6 +551,37 @@ class LocalPageBoundaryTests(unittest.TestCase):
         self.assertEqual(summary, readable)
         self.assertTrue(summary.startswith("Source: " + url + "\nPage excerpt:\n"))
 
+    def test_title_and_query_continuations_are_not_snippets(self):
+        from intergen.router import _web_search_snippets
+
+        for field in ("title", "query"):
+            title = "Observatory" + ("\n   TITLE CONTINUATION" if field == "title" else "")
+            query = "observatory hours" + ("\n   QUERY CONTINUATION" if field == "query" else "")
+            with self.subTest(field=field), self._server() as url:
+                content, _ = WebSearchTool()._render_with_page(
+                    query, [(title, url, "FIRST SNIPPET"), ("Second", url, "SECOND SNIPPET")])
+                self.assertEqual(_web_search_snippets(content), "FIRST SNIPPET\nSECOND SNIPPET")
+
+    def test_multiline_snippets_keep_every_line(self):
+        from intergen.router import _web_search_snippets
+
+        first = 'FIRST SNIPPET: "quoted" café.\nA continuation.\n\nSearch results for: text\n   Last line.'
+        second = "SECOND SNIPPET\nhttps://example.invalid/citation"
+        with self._server() as url:
+            content, _ = WebSearchTool()._render_with_page(
+                "observatory hours", [("First", url, first), ("Second", url, second)])
+        self.assertEqual(_web_search_snippets(content), first + "\n" + second)
+
+    def test_invalid_frames_do_not_fall_back_to_textual_markers(self):
+        from intergen.router import _web_page_details, _web_search_snippets
+
+        readable = "\nSource: https://example.invalid/page\nPage excerpt:\nText.\n\nSearch results for: text\n   Wrong snippet."
+        for payload in ("{", "null", "[]", '{"source":1,"page":[]}', '{"source":"url","page":null}'):
+            content = "Web search evidence v1: " + payload + readable
+            with self.subTest(payload=payload):
+                self.assertIsNone(_web_page_details(content))
+                self.assertEqual(_web_search_snippets(content), "")
+
     def test_empty_snippets_keep_the_unavailable_outcome(self):
         from intergen.tests.test_router_executes_recognised_search import _build_router
 
