@@ -2290,6 +2290,21 @@ _DA_POSTURE_INSTRUCTION_RE = re.compile(
     r"forward|configure|install|remove|encrypt|decrypt|update|upgrade|start|"
     r"restart|set\s+up)\b",
     re.IGNORECASE)
+_DA_PRIVACY_RE = re.compile(
+    r"\b(?:do|does)\s+(?:you|this\s+assistant|the\s+assistant|intergen|it)\s+"
+    r"(?:ever\s+)?(?:send|share|upload|collect|transmit|sell|leak|report)\b"
+    r"[^?.]{0,40}?\b(?:data|information|info|conversations?|questions?|chats?|"
+    r"messages?)\b"
+    r"|\b(?:is|are)\s+(?:my\s+)?(?:data|information|info|conversations?|chats?|"
+    r"questions?|messages?)\s+(?:being\s+)?(?:sent|shared|uploaded|collected|"
+    r"private|kept\s+(?:local|private))\b"
+    r"|\bwhere\s+(?:does|do)\s+my\s+(?:data|information|conversations?|questions?)"
+    r"\s+go\b"
+    r"|\btelemetry\b|\bphone\s+home\b|\bwhat\s+about\s+(?:my\s+)?privacy\b"
+    r"|\bare\s+you\s+private\b|\bdata\s+stays\s+local\b"
+    r"|\b(?:do|does)\s+(?:you|this\s+assistant|intergen|it)\s+(?:track|spy\s+on)"
+    r"\s+me\b",
+    re.IGNORECASE)
 _DA_POSTURE_RE = re.compile(
     r"\bis\s+(?:this|my|the)\s+(?:machine|computer|system|laptop|pc|box|device|"
     r"install(?:ation)?|setup)\s+(?:secure|safe|protected|locked\s+down|hardened)\b"
@@ -4449,15 +4464,22 @@ class ConversationRouter(RouterInterface):
                 "For complex reasoning, I can escalate to a cloud provider if "
                 "you've configured one."
             ),
+            # A web search the person asks for sends its search words out, so
+            # neither answer may say that nothing is ever sent; what does go out
+            # goes only on a request. The direct-answer route answers the same
+            # questions first, from this machine's own facts (_privacy_answer).
             "do you run locally": (
-                "Everything runs locally on your machine. No data leaves "
-                "this system unless you explicitly configure cloud escalation."
+                "Yes — I run on this machine, and so does the model that answers "
+                "you. Nothing you say is sent anywhere on its own; a web search, a "
+                "public IP lookup or a Phone-A-Friend question goes out only when "
+                "you ask for it."
             ),
             "what about privacy": (
-                "Everything stays local. I run entirely on your machine — "
-                "no queries, responses, or system data are sent anywhere. "
-                "Your data never leaves this computer unless you explicitly "
-                "configure cloud escalation."
+                "What you type here stays on this machine: the model runs locally "
+                "and nothing is sent anywhere on its own — no telemetry. Something "
+                "leaves only when you ask for it: a web search, a public IP lookup, "
+                "a software download from the package mirror, or a Phone-A-Friend "
+                "question you approve."
             ),
             "how do you work": (
                 "I route your queries through a priority chain: cached system "
@@ -4898,13 +4920,19 @@ class ConversationRouter(RouterInterface):
         return None
 
     def _try_direct_posture(self, text: str, t0: float) -> "RouteResult | None":
-        """D1 — SECURITY POSTURE: each class answered from an unprivileged
-        reading of this machine (see the readings' block
+        """D1 — SECURITY POSTURE and the assistant's own privacy: each answered
+        from an unprivileged reading of this machine (see the readings' block
         above _da_render_time). An instruction ("close the open ports") is not
         a question about state and is declined here; a reading that cannot be
         taken declines too, rather than guess."""
         if _DA_POSTURE_INSTRUCTION_RE.search(text):
             return None
+        if _DA_PRIVACY_RE.search(text):
+            return self._direct_answer_result(
+                text, self._privacy_answer(), "privacy", "local", t0,
+                # Composed in code from the live registry, the served model's
+                # name and the configured providers.
+                linkage=AnswerLinkage(kind="code", renderer="privacy_facts"))
         if _DA_POSTURE_RE.search(text):
             readings = [
                 _posture_secure_boot(),
@@ -4966,6 +4994,46 @@ class ConversationRouter(RouterInterface):
         active = self._run_fixed_command(_FIREWALL_ACTIVE_PROBE, keep_failed=True)
         enabled = self._run_fixed_command(_FIREWALL_ENABLED_PROBE, keep_failed=True)
         return _posture_render_firewall(active or "", enabled or "")
+
+    def _privacy_answer(self) -> str:
+        """What leaves this machine, from the machine's own facts: the model
+        serving this router, the tools registered, the providers configured.
+        What goes out at all goes out only on a person's request: a web search,
+        the public-address lookup, a software download, a Phone-A-Friend send."""
+        model = None
+        llm = getattr(self, "_llm", None)
+        if llm is not None:
+            try:
+                model = llm.served_model_name()
+            except Exception:  # noqa: BLE001 — an unreadable engine means unknown
+                model = None
+        providers: list[str] = []
+        escalation = getattr(self, "_escalation", None)
+        if escalation is not None:
+            try:
+                providers = [p.name for p in escalation.list_providers()]
+            except Exception:  # noqa: BLE001 — an unreadable config means none known
+                providers = []
+        served = f" ({model})" if model else ""
+        text = (f"What you type here stays on this machine: the model that answers "
+                f"you{served} runs here, and nothing you say or do is sent anywhere "
+                f"on its own — no telemetry, no usage reports. Something leaves this "
+                f"machine only when you ask for it: ")
+        asks = []
+        if self._web_search_available():
+            asks.append("a web search sends its search words to the search service")
+        asks.append("asking for your public IP address asks a public resolver")
+        asks.append("installing or updating software downloads it from the "
+                    "InterGenOS package mirror")
+        if providers:
+            asks.append("Phone-A-Friend sends a question to "
+                        + ", ".join(providers)
+                        + " only after you approve that one send")
+        text += "; ".join(asks) + "."
+        if not providers:
+            text += (" No Phone-A-Friend provider is set up here, so nothing is "
+                     "ever sent to a cloud model.")
+        return text
 
     def _try_direct_external(self, user_input: str, original_input: str, t0: float
                              ) -> "RouteResult | None":
