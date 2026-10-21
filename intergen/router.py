@@ -6144,32 +6144,37 @@ class ConversationRouter(RouterInterface):
             request = user_input[instruction.end():]
             action = re.match(
                     r"\s*(?:(?:how\s+to|to|go\s+about|please|safely|properly|"
+                    r"temporarily|permanently|manually|automatically|"
                     r"(?:can|could|should|would)\s+(?:i|you|we)\s+use\s+to)\s+)*"
                     r"(?P<action>(?:enabl|disabl|configur|remov|updat|upgrad|manag|"
-                    r"restor|chang|clos)(?:e|ing)|"
+                    r"restor|chang|clos)(?:e[sd]?|ing)|"
                     r"(?:install|uninstall|repair|troubleshoot|restart|reboot|"
                     r"boot|backup|connect|disconnect|mount|unmount|partition|"
                     r"encrypt|decrypt|unlock|adjust|open|check|list|show|find)"
-                    r"(?:ing)?|(?:re)?set(?:ting)?|back(?:ing)?\s+up|"
-                    r"free(?:ing)?\s+up)\b",
+                    r"(?:s|ed|ing)?|(?:re)?set(?:s|ting)?|back(?:s|ed|ing)?\s+up|"
+                    r"free(?:s|d|ing)?\s+up|turn(?:s|ed|ing)?\s+(?:on|off))\b",
                     request, re.IGNORECASE)
             if action is None:
                 return None
             # Domain-neutral verbs need a system object, not a platform word
             # somewhere in an object's description or its surrounding context.
             if re.fullmatch(
-                    r"(?:chang|remov|clos)(?:e|ing)|adjust(?:ing)?|open(?:ing)?|"
-                    r"check(?:ing)?|list(?:ing)?|show(?:ing)?|find(?:ing)?|"
-                    r"(?:re)?set(?:ting)?", action.group("action"), re.IGNORECASE):
+                    r"(?:chang|remov|clos)(?:e[sd]?|ing)|"
+                    r"(?:adjust|open|check|list|show|find)(?:s|ed|ing)?|"
+                    r"(?:re)?set(?:s|ting)?", action.group("action"), re.IGNORECASE):
                 subject = request[action.end():]
-                determiner = r"(?:(?:a|an|the|my|this|our|hypothetical|new|custom)\s+)*"
+                determiner = (
+                    r"(?:(?:a|an|the|my|this|our|all|any|each|hypothetical|"
+                    r"new|custom|active|installed|mounted|existing)\s+)*")
                 system_object = (
                     r"(?:features?|settings?|options?|configuration|packages?|"
                     r"services?|kernels?|firewalls?|backups?|partitions?|disks?|"
                     r"filesystems?|permissions?|users?|accounts?|passwords?|"
                     r"drivers?|networks?|connections?|desktops?|extensions?|"
                     r"workspaces?|terminals?|machines?|systems?|computers?|pcs?|"
-                    r"cpus?|ram|distros?|pkm|systemd|secure\s+boot|"
+                    r"cpus?|ram|distros?|files?|folders?|directories|logs?|"
+                    r"hostnames?|timezones?|locales?|processes|applications?|"
+                    r"displays?|resolutions?|shells?|boot|pkm|systemd|secure\s+boot|"
                     r"operating\s+systems?|desktop\s+environments?)\b")
                 if not re.match(
                         r"\s*" + determiner

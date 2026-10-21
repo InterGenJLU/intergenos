@@ -125,9 +125,42 @@ def test_a_removal_instruction_still_requires_a_system_object():
     "How do I check my firewall?",
     "How do I open GNOME desktop settings?",
     "How do I change the colors of the Linux desktop?",
+    "How do I change the hostname in Linux?",
+    "How do I list all files on this computer?",
+    "How do I show active processes on Linux?",
+    "How do I adjust the display resolution in Linux?",
+    "How do I change the timezone on this computer?",
+    "How do I check disk usage in Linux?",
 ])
 def test_general_actions_with_system_objects_keep_the_pointer(query):
     assert ConversationRouter._system_documentation_pointer(query) is not None
+
+
+@pytest.mark.parametrize("query", [
+    "How do I temporarily disable a hypothetical feature in InterGenOS?",
+    "What command enables a hypothetical feature in Linux?",
+    "How do I turn on a hypothetical feature in InterGenOS?",
+])
+@pytest.mark.parametrize("locked", [False, True])
+@pytest.mark.parametrize("decide_only", [False, True])
+def test_administration_modifiers_inflections_and_phrasal_verbs_keep_documentation(query, locked, decide_only):
+    router = router_with_source_corpus(locked)
+    assert router._howto.retrieve(query)[0] is None
+    with router.bind_conversation(router.new_conversation()):
+        result = router.route(query, decide_only=decide_only)
+    assert result.source == "wiki_uncovered", (query, result.source, result.text)
+    assert result.handled is True
+    assert result.answer_linkage.renderer == "wiki_uncovered"
+    router._llm.chat.assert_not_called()
+    router._tools.execute.assert_not_called()
+
+
+@pytest.mark.parametrize("query", [
+    "What command changes the colors of the Linux penguin in a drawing?",
+    "How do I temporarily adjust a drawing on my computer?",
+])
+def test_instruction_variants_keep_the_same_object_boundary(query):
+    assert ConversationRouter._system_documentation_pointer(query) is None
 
 
 @pytest.mark.parametrize("query", [
