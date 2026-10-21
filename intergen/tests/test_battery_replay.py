@@ -522,6 +522,47 @@ class TheReviewCard(unittest.TestCase):
         v = _grade(_rt(""), _turn(frames, text="Installed."), DENIED_GLASS)
         self.assertTrue(any("ran anyway" in w for w in v.reasons), v.reasons)
 
+    def test_a_tool_that_ran_while_its_card_was_open_fails(self):
+        """A run between the card and its answer — here an answer of Deny —
+        was approved by nobody."""
+        frames = [_ack(), _card(), _executed("manage_packages"), _resolved(),
+                  _response("Declined.", "keyword")]
+        v = _grade(_rt("gate=manage_packages"), _turn(frames, text="x"),
+                   DENIED_GLASS)
+        self.assertEqual(v.verdict, "FAIL")
+        self.assertTrue(any("ran while its review card was open" in w
+                            for w in v.reasons), v.reasons)
+        # On a turn whose cell another predicate satisfies, the run is still
+        # caught by the rule every replay turn is held to.
+        frames = [_ack(), _card(), _executed("manage_packages"), _resolved(),
+                  _executed("run_command"), _response("x", "direct_answer")]
+        v = _grade(_rt("ran=run_command|gate=manage_packages"),
+                   _turn(frames, text="x"),
+                   _glass(kind="dispatch", tool="run_command",
+                          renderer="direct_answer_render"))
+        self.assertEqual(v.verdict, "FAIL")
+        self.assertEqual([w for w in v.reasons if "review card" in w],
+                         ["manage_packages ran while its review card was "
+                          "open, before it was answered"])
+
+    def test_each_approving_answer_covers_one_run(self):
+        approved = [_ack(), _card(), _resolved(decision="allow"),
+                    _executed("manage_packages"),
+                    _response("steam is installed.", "keyword")]
+        read_back = _glass(kind="dispatch", tool="manage_packages",
+                           renderer="direct_answer_render")
+        v = _grade(_rt("gate=manage_packages:steam"),
+                   _turn(approved, text="steam is installed."), read_back)
+        self.assertEqual(v.verdict, "PASS", v.reasons)
+        twice = approved[:-1] + [_executed("manage_packages"), approved[-1]]
+        for expect in ("gate=manage_packages", ""):
+            with self.subTest(expect=expect):
+                v = _grade(_rt(expect), _turn(twice, text="x"), read_back)
+                self.assertEqual(v.verdict, "FAIL")
+                self.assertTrue(any("ran more times than its cards were "
+                                    "approved" in w for w in v.reasons),
+                                v.reasons)
+
 
 class TheOtherPredicates(unittest.TestCase):
 
