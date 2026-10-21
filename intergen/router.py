@@ -1541,6 +1541,71 @@ _SYSTEM_SCOPE_RE = re.compile(
     r"kernel|distro|firewall|services?|processes?)\b|"
     r"\b(?:disk\s+usage|cpu|ram|uptime|kernel|distro|firewall)\b|"
     r"\bmemory\s+usage\b|\bam\s+i\s+using\b", re.IGNORECASE)
+# Fail-OUT shapes the MACHINE answers itself. Each was offered a search over the demand
+# corpora — a deflection of a question this machine can answer — and none of them
+# matches a live-data question there:
+#   a unit conversion: "convert 5 miles to km" is arithmetic; only a conversion between
+#     currencies needs today's rate, and _CURRENCY_CONVERT_RE keeps those;
+#   a how-to: "how do I install nvidia drivers?" is taught by the explain route, and
+#     _EXPLAIN_PRIOR_RE is that route's own reading of a how-to, so it needs no pattern;
+#   a task over text the person supplied: "summarize this: <text>" can mention traffic or
+#     the weather without asking about either;
+#   a sum over a price the person stated: "gas is 3.50 a gallon, how much for a 240 mile
+#     trip" asks for arithmetic, not for today's price;
+#   a machine-state question: "my laptop is slow right now", "how much memory is free
+#     right now" are about this machine (the device and storage forms the system scope
+#     above does not name; that pattern also serves the whole-artifact check, so it is
+#     left as it is);
+#   a past-dated result: "who won the world cup in 1998?" is history the model knows.
+_UNIT_WORD = (
+    r"(?:km|kms|kilomet(?:er|re)s?|mi|miles?|m|met(?:er|re)s?|cm|centimet(?:er|re)s?|"
+    r"mm|millimet(?:er|re)s?|ft|feet|foot|in|inch(?:es)?|yd|yards?|kg|kilos?|kilograms?|"
+    r"g|grams?|lbs?|pounds?|oz|ounces?|stones?|tons?|tonnes?|l|lit(?:er|re)s?|ml|"
+    r"millilit(?:er|re)s?|gal|gallons?|quarts?|pints?|cups?|tablespoons?|tbsp|teaspoons?|"
+    r"tsp|s|secs?|seconds?|mins?|minutes?|h|hrs?|hours?|days?|weeks?|months?|years?|c|f|"
+    r"celsius|fahrenheit|kelvin|degrees?|mph|kph|knots?|acres?|hectares?|bytes?|kb|mb|"
+    r"gb|tb|kib|mib|gib|tib)")
+# Both sides must be units of measure: "convert 100 pounds to kilograms" is a weight,
+# "convert 100 pounds to dollars" is a currency and keeps the offer.
+_UNIT_CONVERSION_RE = re.compile(
+    r"\bconvert\s+\d[\d.,]*\s*" + _UNIT_WORD + r"\s+(?:to|into|in)\s+" + _UNIT_WORD
+    + r"\b", re.IGNORECASE)
+# The text arrives after a colon; "summarize today's headlines" supplies none and is
+# still a live-data question.
+_SUPPLIED_TEXT_TASK_RE = re.compile(
+    r"^\s*(?:(?:please|pls|can\s+you|could\s+you|would\s+you)\s+)*"
+    r"(?:summari[sz]e|rewrite|rephrase|reword|paraphrase|proofread|translate|shorten|"
+    r"condense)\b[^:\n]{0,80}:\s*\S", re.IGNORECASE)
+_STATED_PRICE_RE = re.compile(
+    r"\b(?:is|at|costs?|pay(?:ing)?|paid)\s+\$?\d+(?:[.,]\d+)?\s*(?:dollars?|bucks|cents)?"
+    r"\s*(?:a|an|per|/)\s*(?:gallon|litre|liter|ounce|oz|pound|lb|kilo(?:gram)?|kg|share|"
+    r"coin)\b", re.IGNORECASE)
+_MACHINE_STATE_RE = re.compile(
+    r"\bmy\s+(?:laptop|desktop|notebook|screen|display|monitor|storage|drive|"
+    r"hard\s+drive|ssd)\b|\bfree\s+up\s+(?:disk\s+|storage\s+)?space\b|"
+    r"\b(?:disk|storage)\s+space\b|\bmemory\s+(?:is\s+)?(?:free|used|left)\b|"
+    r"\bfree\s+memory\b|\bfull\s+again\b", re.IGNORECASE)
+_DATED_RE = re.compile(
+    r"\b(?:in|of|during|back\s+in|the)\s+((?:1[89]|20)\d{2})\b", re.IGNORECASE)
+_YEAR_RE = re.compile(r"\b((?:1[89]|20)\d{2})\b")
+_PRESENT_CUE_RE = re.compile(
+    r"\b(?:now|today|tonight|currently|current|latest|since|anymore|"
+    r"this\s+(?:year|week|month|season|weekend))\b", re.IGNORECASE)
+# The last year whose results count as history the model answers from its own
+# knowledge. A question dated after it keeps the offer: a model's knowledge ends before
+# the release that ships it, so a recent year is still live data to it. A fixed year,
+# never one read from the clock, which would move past the models' knowledge as a
+# release ages and hand a recent result to the model to invent; revised with the models.
+_HISTORY_THROUGH_YEAR = 2023
+
+
+def _is_dated_history(text: str) -> bool:
+    """True when a year dates the question itself ("in 1998", "the 1998 final"), every
+    year in it is at most _HISTORY_THROUGH_YEAR, and nothing in it asks about the
+    present ("now", "today", "since", "this year")."""
+    if not _DATED_RE.search(text) or _PRESENT_CUE_RE.search(text):
+        return False
+    return all(int(year) <= _HISTORY_THROUGH_YEAR for year in _YEAR_RE.findall(text))
 
 
 # ── Does the REQUEST exceed what this tier can do? ──────────────────────────
@@ -4902,7 +4967,10 @@ class ConversationRouter(RouterInterface):
         of 122 residual fixtures). Precision is held by fail-OUT guards so the model
         keeps answering from its own knowledge where that is the honest thing — static
         facts / math / definitions, pure recommendations, explicit web-search /
-        recipe dispatch, a system action command, and machine-scope current-state.
+        recipe dispatch, a system action command, and machine-scope current-state —
+        and by the shapes the machine answers itself: a unit conversion, a how-to, a
+        task over supplied text, a sum over a stated price, a machine-state question
+        and a past-dated result.
         Returns a handled RouteResult, or None to route on."""
         if not getattr(self, "_lock_dispatch", True):
             return None  # NATIVE keeps its model-driven web decision — no 9B rewrite
@@ -4913,6 +4981,12 @@ class ConversationRouter(RouterInterface):
         if (_STATIC_KNOWLEDGE_RE.search(text) or _RECOMMENDATION_RE.search(text)
                 or _WEB_DISPATCH_RE.search(text) or _LIVE_ACTION_RE.search(text)
                 or _SYSTEM_SCOPE_RE.search(text)):
+            return None
+        # Fail OUT as well: the machine answers these itself, so an offer would be a
+        # deflection (the shapes are listed above _UNIT_WORD).
+        if (_UNIT_CONVERSION_RE.search(text) or _EXPLAIN_PRIOR_RE.search(text)
+                or _SUPPLIED_TEXT_TASK_RE.search(text) or _STATED_PRICE_RE.search(text)
+                or _MACHINE_STATE_RE.search(text) or _is_dated_history(text)):
             return None
         # AN EXPLICIT SEARCH IS RUN, NOT OFFERED. _WEB_DISPATCH_RE above fails out on
         # two literal phrasings ("search the web for", "recipe for"); the field user's
