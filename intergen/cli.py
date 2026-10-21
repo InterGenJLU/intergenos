@@ -408,7 +408,8 @@ def _reply_object(response: str, what: str) -> dict:
 
 def _deliver_answer(data: dict) -> bool:
     """Print the answer, cache it for `intergen last`, and — when a distinct raw
-    original exists behind the summary — point the user at it.
+    original exists behind the summary — point the user at it; then print the
+    reply's phone-a-friend offer, when it carries one, under the answer.
 
     Returns True when the turn delivered an answer and False when it did not:
     an empty reply, or a turn the reply itself declares produced nothing. The
@@ -474,6 +475,21 @@ def _deliver_answer(data: dict) -> bool:
     # the user just read, and it is retrievable.
     if cached_raw and full.strip() and full.strip() != response.strip():
         _hint("original output available — run: intergen last --raw")
+    # THE OFFER, WHERE THE PERSON READS THE ANSWER. The reply carries the
+    # phone-a-friend offer the router decided for the turn, and this command
+    # printed the answer and never the offer: a declined question answered
+    # with the steer reached the person with no word that a larger model could
+    # be asked (measured on both floors, 2026-10-21). It is printed as the
+    # page shows it, under the answer as its own paragraph and in its own
+    # words, and the page's button is given in this surface's form: the
+    # command that sends the question, after the consent dialog.
+    offer = data.get("escalation_offer")
+    if isinstance(offer, str) and offer.strip():
+        if answered:
+            print()
+        print(_for_the_terminal(offer))
+        _hint("ask your frontier model — run: intergen ask-frontier "
+              "<your question>")
     # Both streams reach the same terminal and the same redirected log, and
     # the standard output stream is block-buffered when it is redirected while
     # the error stream is not. Without this flush the explanation the person

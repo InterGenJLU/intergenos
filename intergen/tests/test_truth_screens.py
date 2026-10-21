@@ -30,14 +30,17 @@ assistant, and each one shipped because no screen read its shape:
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 import os
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest import mock
 
-from intergen import capability_registry, safety
+from intergen import capability_registry, cli, safety
 from intergen.dbus_daemon import InterGenDaemon
 from intergen.escalation import EscalationManager
 from intergen.howto import HowtoCorpus
@@ -1336,6 +1339,13 @@ class ToolRouteOfferTests(unittest.TestCase):
 
 
 # ── the offer reaches the person in the browser and on the console ───────────
+class _Terminal(io.StringIO):
+    """An error stream that is a terminal, as a person's is."""
+
+    def isatty(self):
+        return True
+
+
 class OfferSurfaceTests(unittest.TestCase):
     """The offer ToolRouteOfferTests decides reached no person on a model
     answer. The browser streamer sent its decide-only verdict's field, and that
@@ -1384,6 +1394,18 @@ class OfferSurfaceTests(unittest.TestCase):
                                source="llm_freeform" if locked else "llm_tools")
         return end
 
+    @staticmethod
+    def _console(reply, err=None):
+        """What `intergen ask` prints for `reply`, with the cache in a scratch
+        directory: (delivered, standard output, standard error)."""
+        out, err = io.StringIO(), err if err is not None else io.StringIO()
+        with TemporaryDirectory() as cache, \
+                mock.patch.object(cli, "_last_answer_path",
+                                  return_value=Path(cache) / "last-answer.json"), \
+                redirect_stdout(out), redirect_stderr(err):
+            delivered = cli._deliver_answer(reply)
+        return delivered, out.getvalue(), err.getvalue()
+
     def test_an_unrecovered_refusal_shows_the_offer_in_the_browser(self):
         for name, providers, opening in (
                 ("a designated provider", [ACME], self.OPENING),
@@ -1411,6 +1433,40 @@ class OfferSurfaceTests(unittest.TestCase):
                 self.assertEqual(reply["response"], self.ANSWER)
                 self.assertIsNone(reply["escalation_offer"])
                 self.assertIsNone(end["escalation_offer"])
+
+    def test_an_unrecovered_refusal_prints_the_offer_on_the_console(self):
+        for locked in (False, True):
+            with self.subTest(locked=locked):
+                reply = self._reply(self.DECLINED, [ACME], locked=locked)
+                offer = reply["escalation_offer"]
+                self.assertTrue(offer.startswith(self.OPENING))
+                delivered, printed, _ = self._console(reply)
+                self.assertTrue(delivered)
+                # The answer first, then the offer as its own paragraph, as
+                # the page puts it under the answer.
+                self.assertEqual(printed, safety.honest_scope_steer() + "\n\n"
+                                 + offer + "\n")
+
+    def test_the_console_names_its_way_to_take_the_offer(self):
+        # The page puts a button under the offer; the console's form of it is
+        # the command that sends, shown where the person reads the offer.
+        reply = self._reply(self.DECLINED, [ACME], locked=True)
+        _, _, shown = self._console(reply, err=_Terminal())
+        self.assertIn("intergen ask-frontier", shown)
+        _, _, redirected = self._console(reply)
+        self.assertEqual(redirected, "")
+
+    def test_a_recovered_refusal_prints_no_offer_on_the_console(self):
+        # The control: an answered turn prints its answer and nothing else.
+        for locked in (False, True):
+            with self.subTest(locked=locked):
+                reply = self._reply(self.ANSWER, [ACME], locked=locked)
+                self.assertIsNone(reply["escalation_offer"])
+                delivered, printed, shown = self._console(reply,
+                                                          err=_Terminal())
+                self.assertTrue(delivered)
+                self.assertEqual(printed, self.ANSWER + "\n")
+                self.assertNotIn("intergen ask-frontier", shown)
 
 
 # ── the native floor's dispatch synthesis meets the same screens ─────────────
